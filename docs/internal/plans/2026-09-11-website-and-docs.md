@@ -1,6 +1,8 @@
 # Thallo website and documentation, built on Thallo
 
-Status: design approved (2026-09-11); phase 1 not started.
+Status: design approved (2026-09-11). Phase 1: the two product pieces (code block,
+`thallo-version` shortcode) shipped 2026-09-13 — see
+`2026-09-13-website-phase-1-blocks-plan.md`; the homepage is being authored in the admin.
 Owner: Michael Tawiah Sowah. Charter: `docs/internal/DISTRIBUTION.md` (decision 8 and the
 website-from-tag gate bind this plan).
 

@@ -111,6 +111,8 @@ final class StarterTemplatesTest extends AppTestCase
             'video' => ['source' => 'embed', 'url' => 'https://youtu.be/dQw4w9WgXcQ',
                 'width' => 'wide', 'caption' => 'Watch'],
             'audio' => ['audio' => 'blob00000000', 'title' => 'Listen'],
+            'code' => ['code' => 'composer create-project --stability=beta glueful/thallo my-site',
+                'language' => 'bash', 'label' => 'Terminal', 'copy' => true],
             'html' => ['code' => '<marquee>hi</marquee>'],
             'shortcode' => ['name' => 'promo', 'params' => ['x' => 1]],
             // New primitives (theme rewrite): parents carry a representative child;

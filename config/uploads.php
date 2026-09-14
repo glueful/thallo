@@ -22,7 +22,11 @@ return [
     // - true/'private': Auth required for upload AND retrieval
     // - false/'public': No auth required (not recommended)
     // - 'upload_only': Auth for uploads, public retrieval
-    'access' => env('UPLOADS_ACCESS', 'private'),
+    // Thallo default: upload_only — uploading and deleting need the admin session, retrieval is
+    // public per blob (the media library uploads site media as public; private blobs still need
+    // auth or a signed URL). The framework's 'private' would make every image on the site and
+    // every preview in the admin answer 401.
+    'access' => env('UPLOADS_ACCESS', 'upload_only'),
 
     // Storage disk (from config/storage.php)
     'disk' => env('UPLOADS_DISK', 'uploads'),

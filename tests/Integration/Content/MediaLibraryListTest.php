@@ -20,15 +20,15 @@ use Symfony\Component\HttpFoundation\Request;
 final class MediaLibraryListTest extends AppTestCase
 {
     /** Insert a blobs row directly, with NO matching media_assets ledger row (tenancy-off upload). */
-    private function seedBlob(): string
+    private function seedBlob(string $name = 'pic.jpg', string $mime = 'image/jpeg'): string
     {
         $uuid = Utils::generateNanoID();
         $this->connection()->table('blobs')->insert([
             'uuid' => $uuid,
-            'name' => 'pic.jpg',
-            'mime_type' => 'image/jpeg',
+            'name' => $name,
+            'mime_type' => $mime,
             'size' => 123,
-            'url' => 'uploads/pic.jpg',
+            'url' => 'uploads/' . $name,
             'visibility' => 'public',
             'status' => 'active',
             'created_by' => 'user00000001',
@@ -54,5 +54,39 @@ final class MediaLibraryListTest extends AppTestCase
 
         self::assertContains($uuid, $ids, 'A blob without a media_assets row must appear while tenancy is off.');
         self::assertGreaterThanOrEqual(1, $data['total'] ?? 0);
+    }
+
+    /** @return list<array<string,mixed>> */
+    private function listRows(): array
+    {
+        $controller = $this->container()->get(MediaAdminController::class);
+        self::assertInstanceOf(MediaAdminController::class, $controller);
+        $response = $controller->index(Request::create('/v1/admin/media', 'GET', ['page' => 1, 'per_page' => 30]));
+        $payload = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($payload);
+        $media = $payload['data']['media'] ?? null;
+        self::assertIsArray($media);
+
+        return $media;
+    }
+
+    public function testRasterThumbnailsAskForAWidthVariant(): void
+    {
+        $uuid = $this->seedBlob();
+
+        $rows = array_values(array_filter($this->listRows(), static fn (array $r): bool => $r['uuid'] === $uuid));
+        self::assertCount(1, $rows);
+        self::assertStringContainsString('width=160', (string) $rows[0]['thumb_url']);
+    }
+
+    public function testSvgThumbnailsAreTheOriginalNotAResizedVariant(): void
+    {
+        $uuid = $this->seedBlob('logo.svg', 'image/svg+xml');
+
+        $rows = array_values(array_filter($this->listRows(), static fn (array $r): bool => $r['uuid'] === $uuid));
+        self::assertCount(1, $rows);
+        // There is no raster variant of a vector image: asking for one is a 422 from the resizer.
+        self::assertStringNotContainsString('width=', (string) $rows[0]['thumb_url']);
+        self::assertSame($rows[0]['display_url'], $rows[0]['thumb_url']);
     }
 }

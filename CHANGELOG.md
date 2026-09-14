@@ -7,6 +7,38 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.27] - 2026-09-13
+
+### Fixed
+- Framework 1.85.6 is required (repinned): a login whose token generation fails (an empty JWT
+  key) no longer stores a session with an empty refresh token, whose constant hash made every
+  later login answer 409; the cause is logged, and unique-constraint violations are reported
+  (1.85.5); an SVG served with a width hint is the original, not a 422 (1.85.6).
+- **Uploaded media answered 401 on a fresh install.** The framework's upload access default is
+  `private` (auth for retrieval too), so every image on the site and every preview in the admin
+  was unauthorized until `UPLOADS_ACCESS` was set by hand. Thallo's default is `upload_only`
+  now: uploading and deleting need the admin session, retrieval is public per blob (the media
+  library uploads site media as public; private blobs still need auth or a signed URL).
+- **Saving the site's custom CSS answered 405 from nginx.** `/v1/admin/render/templates/custom.css`
+  ends like a file, so the common static-file location took it. The production guide's location
+  rule covers `/v1/` and `/api-docs/` now, and `thallo:doctor` probes an API path that ends like
+  a file (`api-routing`) next to the theme-asset probe.
+- **SVG thumbnails in the media library answered 422.** The list asked for a 160px variant of
+  every `image/*` blob, and the framework's resizer refuses vector images (its raster validator
+  knows JPEG, PNG, GIF and WebP only). The thumbnail URL is the original for anything but those
+  four formats now; framework 1.85.6 also serves an SVG's original when a width is requested.
+
+### Added
+- **Code block** (website plan, phase 1): a snippet with a language label and a Copy button,
+  for the install command on a landing page. The snippet is text (never markup), the
+  language rides as `data-language` and a `language-*` class for a later highlighter, the
+  caption is optional, and Copy can be switched off. Without JavaScript the block is a plain
+  `<pre><code>`; `block-code.js` adds the button (same-origin, the `block_script()` catalog).
+- **`thallo-version` shortcode** (website plan decision 7): renders the running install's
+  version from `site.version`, now available to every template, with an optional prefix
+  (`params.prefix`); a development checkout says so. `site.version` comes from the new
+  `SiteVersionProvider` contract, bound to Composer's installed-version registry.
+
 ## [1.0.0-beta.26] - 2026-09-13
 
 Findings from the first real upgrade on thallo.dev: the version is visible to every admin user,
