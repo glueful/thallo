@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Defaults are today's rendering: `hero.background` defaults to `gradient`, `button.shape` to `pill`, `theme_radius` to `round`, `theme_font` to `sans`, `theme_background` to `plain`. `ThemeDesign::css()` for all defaults is `''` (the pattern of `ThemeColors::css()`).
+- Defaults are today's rendering: `hero.background` defaults to `gradient`, `button.shape` unset (follows the site radius, a pill by default), `theme_radius` to `round`, `theme_font` to `sans`, `theme_background` to `plain`. `ThemeDesign::css()` for all defaults is `''` (the pattern of `ThemeColors::css()`).
 - Fonts: the site's CSP is `'self'`, so the serif options are system stacks (no new font files, no third-party hosts).
 - Nothing new in the admin without a vitest assertion; `pnpm exec oxfmt` on touched admin files only.
 - Starter block count stays 47 (no new block); every enum is guarded with `?? default` in Twig so a stored unknown value degrades to the default modifier.
@@ -41,14 +41,14 @@
 
 **Interfaces:** link modifier `thallo-block-button__link--shape-{pill|rounded|square}`; token `--radius-btn` (default `999px`, set by `theme_radius`).
 
-- [x] **Step 1: failing tests** — default renders `--shape-pill`; `shape: rounded` renders `--shape-rounded`; blocks.css base rule uses `border-radius: var(--radius-btn, 999px)` and defines `--shape-rounded { border-radius: var(--radius) }`, `--shape-square { border-radius: 2px }`, `--shape-pill { border-radius: 999px }`.
+- [x] **Step 1: failing tests** — unset emits no shape modifier (the button follows `--radius-btn`); `shape: pill` renders `--shape-pill`, `shape: rounded` renders `--shape-rounded`; blocks.css base rule uses `border-radius: var(--radius-btn, 999px)` and defines `--shape-rounded { border-radius: var(--radius) }`, `--shape-square { border-radius: 2px }`, `--shape-pill { border-radius: 999px }`.
 - [x] **Step 2: RED. Step 3: implement. Step 4: GREEN**, phpcs, lint gate.
 - [x] **Step 5: commit** `feat(blocks): button shape — pill, rounded or square`.
 
 ### Task 3: site design settings (radius, typeface, ground)
 
 **Files:**
-- Create: `packages/thallo-render/src/Theme/ThemeDesign.php`, `tests/Unit/Render/ThemeDesignTest.php`
+- Create: `packages/thallo-render/src/Theme/ThemeDesign.php`, `tests/Integration/Render/ThemeDesignTest.php`
 - Modify: `packages/thallo-contracts/src/Settings/ThemeAppearanceProvider.php` (+ `radius(): ?string`, `font(): ?string`, `background(): ?string`), core's implementation of it, `core/src/Settings/GeneralSettings.php` (`theme_radius`, `theme_font`, `theme_background`), `GeneralSettingsController.php` (enum validation), the general settings DTOs, `packages/thallo-render/src/ThemeAppearanceSource.php` (memoised, normalised accessors), `RenderServiceProvider.php` (fingerprint `accent-neutral-radius-font-background`), `RenderContextExtension::themeColorsStyle()` (emits colours + design), `site.css` (tokens `--font-body`, `--font-display`, `--radius-btn`; body and headings read them)
 - Test: `ThemeDesignTest` (unit), `tests/Integration/Render/ThemeColorsLayoutTest.php` (design vars in the inline style, order kept), general settings API test (rejects `theme_radius: huge`, stores `sharp`)
 
