@@ -3196,6 +3196,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/render/style-schema': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * The style schema and the active theme vocabulary
+     * @description The managed property table (paths, kinds, responsiveness, choices), the breakpoints, the advanced paths and the active theme's vocabulary values. Requires `content.manage`.
+     */
+    get: operations['getV1AdminRenderStyleschema']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/render/templates': {
     parameters: {
       query?: never
@@ -23032,7 +23052,6 @@ export interface operations {
                 /** Format: date-time */
                 updated_at?: string
               }
-              preview_cleared?: boolean
             }
           }
         }
@@ -23522,7 +23541,6 @@ export interface operations {
                 /** Format: date-time */
                 updated_at?: string
               }
-              preview_cleared?: boolean
             }
           }
         }
@@ -27493,6 +27511,92 @@ export interface operations {
           [name: string]: unknown
         }
         content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  getV1AdminRenderStyleschema: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The style schema. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success: boolean
+            message: string
+            data: {
+              version?: number
+              breakpoints?: Record<string, never>
+              properties?: unknown[]
+              /** @description The `settings.advanced` paths. */
+              advanced?: unknown[]
+              vocabulary?: {
+                version?: number
+                domains?: Record<string, never>
+                values?: Record<string, never>
+              }
+            }
+          }
+        }
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
       }
       /** @description Unexpected server error. */
       500: {

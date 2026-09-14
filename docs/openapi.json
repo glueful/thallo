@@ -69784,9 +69784,6 @@
                                                             "format": "date-time"
                                                         }
                                                     }
-                                                },
-                                                "preview_cleared": {
-                                                    "type": "boolean"
                                                 }
                                             }
                                         }
@@ -70922,9 +70919,6 @@
                                                             "format": "date-time"
                                                         }
                                                     }
-                                                },
-                                                "preview_cleared": {
-                                                    "type": "boolean"
                                                 }
                                             }
                                         }
@@ -77691,6 +77685,176 @@
                     },
                     "404": {
                         "description": "Unknown region slug."
+                    }
+                }
+            }
+        },
+        "\/v1\/admin\/render\/style-schema": {
+            "get": {
+                "operationId": "getV1AdminRenderStyleschema",
+                "summary": "The style schema and the active theme vocabulary",
+                "tags": [
+                    "Thallo Templates"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The managed property table (paths, kinds, responsiveness, choices), the breakpoints, the advanced paths and the active theme's vocabulary values. Requires `content.manage`.",
+                "responses": {
+                    "200": {
+                        "description": "The style schema.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "version": {
+                                                    "type": "integer"
+                                                },
+                                                "breakpoints": {
+                                                    "type": "object"
+                                                },
+                                                "properties": {
+                                                    "type": "array",
+                                                    "items": {}
+                                                },
+                                                "advanced": {
+                                                    "type": "array",
+                                                    "items": {},
+                                                    "description": "The `settings.advanced` paths."
+                                                },
+                                                "vocabulary": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "version": {
+                                                            "type": "integer"
+                                                        },
+                                                        "domains": {
+                                                            "type": "object"
+                                                        },
+                                                        "values": {
+                                                            "type": "object"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "message",
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
