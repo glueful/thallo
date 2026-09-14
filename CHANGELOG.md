@@ -7,6 +7,8 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.29] - 2026-09-14
+
 ### Added
 - **Typed block settings** (visual builder, slice A1). Every stored block carries `settings`
   (schema v1) next to `data`: managed style as typed values (`token`, `choice`, `reset`; `literal`
