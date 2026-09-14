@@ -138,7 +138,7 @@ return Resolution::themeDefault($target);
 ### Task A1.6: the populated upgrade fixture and the rehearsal job
 
 **Files:**
-- Create: `scripts/build-upgrade-fixture` (creates a beta.28 install from Packagist in a temp directory, seeds: two drafts, two published entries with two retained versions each, header and footer regions, a heading with `color: #ff0000` and `align: left`, a container with padding box `17px`, a hex overlay, `min_height_px: 420`, `gap: 12` and `max_width: 900`, a style block with `shadow_color: #123456` and `shadow_opacity: 40`, an animated text with three hex colours, an image with sizing, a carousel with `transition_duration: 1.5`; then `pg_dump --clean --if-exists` (schema and data) to `tests/Fixtures/upgrade/beta28.sql`), `tests/Fixtures/upgrade/README.md`, `scripts/upgrade-rehearsal` (each scenario restores the fixture fresh into `app_test`: `migrate` → `thallo:doctor` → every fixture entry renders 200), `.github/workflows/upgrade-rehearsal.yml`
+- Create: `scripts/build-upgrade-fixture` (creates a beta.28 install from Packagist in a temp directory, seeds: two drafts, two published entries with two retained versions each, header and footer regions, a heading with `color: #ff0000` and `align: left`, a container with padding box `17px`, a hex overlay, `min_height_px: 420`, `gap: 12` and `max_width: 900`, a style block with `shadow_color: #123456` and `shadow_opacity: 40`, an animated text with three hex colours, an image with sizing, a carousel with `transition_duration: 1.5`; then `pg_dump --clean --if-exists` (schema and data) to `tests/fixtures/upgrade/beta28.sql`), `tests/fixtures/upgrade/README.md`, `scripts/upgrade-rehearsal` (each scenario restores the fixture fresh into `app_test`: `migrate` → `thallo:doctor` → every fixture entry renders 200), `.github/workflows/upgrade-rehearsal.yml`
 - [ ] Write, run locally (not concurrently with the suite), CI green. **Commit** `test(upgrade): populated beta.28 fixture and the upgrade rehearsal gate`.
 
 ### Task A1.7: slice gates and release
@@ -261,11 +261,11 @@ One commit per block, each removing the legacy fields from the schema, convertin
 - [ ] animated text: `prefix_color`, `rotate_color`, `suffix_color` become `token` fields (domain `color`); template uses `token_class('colors.text', …)`; conversion: hex → unmappable (author picks a token or discards).
 - [ ] image: sizing fields become `width` token and `alignment.self`; inline sizing style removed.
 - [ ] carousel: `transition_duration` → `speed: choice slow|normal|fast`; runtime reads `data-speed`; conversion by thresholds stated in the table.
-- [ ] The rehearsal decisions file `tests/Fixtures/upgrade/beta28.decisions.json` gains this group's decisions.
+- [ ] The rehearsal decisions file `tests/fixtures/upgrade/beta28.decisions.json` gains this group's decisions.
 
 ### Task A4.7: the rehearsal, real
 
-- [ ] `scripts/upgrade-rehearsal` runs four scenarios, each from a fresh restore of the fixture: (1) dry run → expected unmappables → decisions → live → stamps and rendering asserted; (2) interrupted: kill after the first source → rerun → identical result to (1); no document is half-converted (stamps and tree agree everywhere); (3) stale decisions: a document edited after the decisions file → live refuses naming it; (4) backup restore returns the pre-state. CI job runs all four. The rehearsal keeps a snapshot after (1) as `tests/Fixtures/upgrade/after-group-1.sql` for the sequential scenario added in A5.
+- [ ] `scripts/upgrade-rehearsal` runs four scenarios, each from a fresh restore of the fixture: (1) dry run → expected unmappables → decisions → live → stamps and rendering asserted; (2) interrupted: kill after the first source → rerun → identical result to (1); no document is half-converted (stamps and tree agree everywhere); (3) stale decisions: a document edited after the decisions file → live refuses naming it; (4) backup restore returns the pre-state. CI job runs all four. The rehearsal keeps a snapshot after (1) as `tests/fixtures/upgrade/after-group-1.sql` for the sequential scenario added in A5.
 - [ ] `docs/production.md` gains the §7.4 cutover contract; `RELEASING.md`: breaking betas require the rehearsal green; `CHANGELOG.md` breaking notice; `THEMING.md` retired fields.
 - [ ] **Commit** `docs(upgrade): cutover contract; rehearsal exercises the converter in four scenarios`.
 

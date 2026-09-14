@@ -29,6 +29,31 @@ Older browsers get the theme's own CSS without block settings applied. The teste
 matrix is the current stable engine of each family that the pinned Playwright ships
 (`tools/style-proofs`, run in CI on every render change).
 
+### Upgrading across a settings conversion (the cutover contract)
+
+A release that retires block presentation fields converts every stored document — drafts,
+every retained version, the regions — into typed settings. Provision runs the converter only
+when its preflight is clean; it never bypasses an unresolved decision and never activates
+incompatible code after a partial run.
+
+1. Stage the candidate release and verify a restorable backup (database and `storage/`).
+2. Preflight content with the candidate converter: `php glueful thallo:blocks:convert-settings
+   --dry-run --report=storage/conversion/report.jsonl`. The report is one JSON line per legacy
+   value with its status; `unmappable` lines (raw hex colours, pixel sizes) need a decision.
+3. Record every decision in `storage/conversion/decisions.json`, keyed as the report names the
+   diagnostic and pinned to its `document_hash` and `converter_version` (choose a vocabulary
+   token, a typed value, or discard). A decision is invalid once its document changes.
+4. Enter maintenance or write protection; run the dry run again and confirm nothing is unresolved.
+5. `composer update && php glueful thallo:provision`: provision converts, compiles the style
+   artifact, clears caches, and stops before any of that with the report path when a diagnostic
+   is unresolved or a document changed underneath it. Reopen writes.
+
+Recovery after a partial conversion is restore from backup; the converter is idempotent per
+stage, so a retry after an interruption lands on the same state, but idempotence does not
+replace rollback. A fresh install is the trivial case of this contract. CI rehearses it on a
+populated fixture (`composer test:upgrade`): dry run, decisions, live, an interrupted run and
+its retry, stale decisions, and restore from backup.
+
 ### Running the scheduler and the queue
 
 Two long-lived pieces, both plain PHP; nothing else to install with the default

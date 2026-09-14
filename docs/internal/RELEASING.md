@@ -12,6 +12,12 @@ the mirrors. Nobody commits to a mirror.
 
 ## Preconditions
 
+- A beta that retires block presentation fields (a conversion stage) ships only with the
+  upgrade rehearsal green (`composer test:upgrade`; the `upgrade-rehearsal` workflow runs it on
+  every push): the beta.28 fixture must convert under the cutover contract in all four
+  scenarios, and the decisions fixture must be current.
+
+
 - Clean tree on `dev`, full gates green: PHP suite (tests+skips are the gate), admin vitest,
   type-check, build, phpcs, boundaries, `composer test:distribution`, `composer test:skeleton`.
 - All dependency releases published first (standing rule) and repinned.

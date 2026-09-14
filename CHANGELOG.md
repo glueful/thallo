@@ -40,6 +40,13 @@ as the next release, never a mutated tag.
   carry the accepted pair; every apply response names the site style generation.
 
 ### Changed
+- **Breaking (Developer Preview): block presentation fields are converted, not kept.** Heading
+  `align` and `color`, button `align` and `shape`, animated text's hex colours, image `size`,
+  `width` and `height`, and the carousel's `transition_duration` are retired; the converter
+  (`thallo:blocks:convert-settings`) turns them into typed settings and `token`/`choice` fields
+  across drafts, every retained version and the regions, under the cutover contract in
+  `docs/production.md` (dry run, decisions, live). Provision runs it only when the preflight is
+  clean. Themes must map the vocabulary and list their stylesheets (`theme.json`).
 - `thallo:provision` compiles the active theme's settings artifact before clearing caches and
   fails when it cannot; a theme switch compiles the incoming theme first and answers 422 on
   failure; `thallo:doctor` reports the theme vocabulary and whether the artifact is published.

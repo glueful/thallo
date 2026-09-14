@@ -4,14 +4,14 @@
 # Installs glueful/thallo 1.0.0-beta.28 from Packagist into a scratch directory against a
 # dedicated database, provisions it, seeds it with scripts/upgrade-fixture-seed.php (every
 # legacy presentation value the conversion must handle, drafts, two retained versions per
-# published entry, both regions), and dumps schema + data to tests/Fixtures/upgrade/beta28.sql.
+# published entry, both regions), and dumps schema + data to tests/fixtures/upgrade/beta28.sql.
 #
 # Usage: scripts/build-upgrade-fixture            # needs network, composer, pg_dump, createdb
 # Env:   FIXTURE_DB (default thallo_beta28_fixture), FIXTURE_VERSION (default 1.0.0-beta.28)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUT="$ROOT/tests/Fixtures/upgrade/beta28.sql"
+OUT="$ROOT/tests/fixtures/upgrade/beta28.sql"
 VERSION="${FIXTURE_VERSION:-1.0.0-beta.28}"
 DB="${FIXTURE_DB:-thallo_beta28_fixture}"
 SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/thallo-fixture-XXXXXX")"
@@ -66,7 +66,7 @@ echo "+ provision + starter block types"
 echo "+ seed"
 cp "$ROOT/scripts/upgrade-fixture-seed.php" "$SCRATCH/upgrade-fixture-seed.php"
 (cd "$SCRATCH" && php upgrade-fixture-seed.php)
-cp "$SCRATCH/fixture-manifest.json" "$ROOT/tests/Fixtures/upgrade/beta28.manifest.json"
+cp "$SCRATCH/fixture-manifest.json" "$ROOT/tests/fixtures/upgrade/beta28.manifest.json"
 
 echo "+ dump -> $OUT"
 pg_dump --clean --if-exists --no-owner --no-privileges --no-comments "$DB" > "$OUT"
