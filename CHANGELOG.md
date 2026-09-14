@@ -17,6 +17,26 @@ as the next release, never a mutated tag.
   so nothing competes with its existing presentation fields. Nothing renders or edits settings
   yet; the breakpoint-first cascade resolver ships in PHP and TypeScript against one fixture
   contract, and a populated beta.28 upgrade fixture is rehearsed in CI.
+- **Layered style delivery** (visual builder, slice A2). A theme maps the platform style
+  vocabulary in `theme.json` (`vocabulary`) and lists its CSS (`stylesheets`); the layout links
+  three stylesheets — the layer order sheet, the theme artifact (`@layer theme`, every manifest
+  and package-contributed sheet, served by content hash) and the compiled settings artifact
+  (`@layer settings`: `--t-*` custom properties, one utility per managed property, value and
+  breakpoint, `revert-layer` resets), compiled from the vocabulary and published before
+  anything links it. Every shipped block type declares its style capabilities and named
+  targets, every block template styles them through `style_classes()`, `style_attrs()` and
+  `token_class()`, and the template lint holds a block template to its declaration. Computed
+  styles are proven in Chromium, Firefox and WebKit; the public-site browser floor is Chrome
+  111, Firefox 113 and Safari 16.2.
+
+### Changed
+- `thallo:provision` compiles the active theme's settings artifact before clearing caches and
+  fails when it cannot; a theme switch compiles the incoming theme first and answers 422 on
+  failure; `thallo:doctor` reports the theme vocabulary and whether the artifact is published.
+- A theme's stylesheets are no longer linked one by one, `shop_styles_url()` is gone (the
+  storefront sheet rides inside the theme artifact), and a theme stylesheet may not use
+  `@import` or `!important` on a managed property of a block selector. Template policy cache
+  version 22.
 
 ## [1.0.0-beta.28] - 2026-09-14
 

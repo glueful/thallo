@@ -21,6 +21,14 @@ A tier-1 install (the fresh default) needs only the **Core** rows.
 | `logging.sensitive_paths` | Recommended | Committed defaults cover the payment-link paths; if you mount the app under a base path, register prefixed templates too. Reverse-proxy/CDN access logs are outside the app — see the redaction recipes in `packages/thallo-commerce/README.md`. |
 | Signup cleanup / domain reverification / update check | Via the scheduler cron | Jobs in `config/schedule.php`, run by the scheduler cron above — no extra cron entries. |
 
+### Public-site browser floor
+
+The public site's stylesheets use cascade layers, `revert-layer` and `color-mix()`:
+the floor is **Chrome 111, Firefox 113 and Safari 16.2** (and their derivatives).
+Older browsers get the theme's own CSS without block settings applied. The tested
+matrix is the current stable engine of each family that the pinned Playwright ships
+(`tools/style-proofs`, run in CI on every render change).
+
 ### Running the scheduler and the queue
 
 Two long-lived pieces, both plain PHP; nothing else to install with the default
