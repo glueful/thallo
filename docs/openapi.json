@@ -38469,7 +38469,8 @@
                                                                                 "reference",
                                                                                 "asset",
                                                                                 "json",
-                                                                                "blocks"
+                                                                                "blocks",
+                                                                                "token"
                                                                             ]
                                                                         },
                                                                         "required": {
@@ -38556,6 +38557,12 @@
                                                                         "max": {
                                                                             "type": [
                                                                                 "number",
+                                                                                "null"
+                                                                            ]
+                                                                        },
+                                                                        "domain": {
+                                                                            "type": [
+                                                                                "string",
                                                                                 "null"
                                                                             ]
                                                                         }
@@ -39079,7 +39086,8 @@
                                                                             "reference",
                                                                             "asset",
                                                                             "json",
-                                                                            "blocks"
+                                                                            "blocks",
+                                                                            "token"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -39166,6 +39174,12 @@
                                                                     "max": {
                                                                         "type": [
                                                                             "number",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "domain": {
+                                                                        "type": [
+                                                                            "string",
                                                                             "null"
                                                                         ]
                                                                     }
@@ -39316,7 +39330,8 @@
                                                                             "reference",
                                                                             "asset",
                                                                             "json",
-                                                                            "blocks"
+                                                                            "blocks",
+                                                                            "token"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -39403,6 +39418,12 @@
                                                                     "max": {
                                                                         "type": [
                                                                             "number",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "domain": {
+                                                                        "type": [
+                                                                            "string",
                                                                             "null"
                                                                         ]
                                                                     }
@@ -40019,7 +40040,8 @@
                                                                             "reference",
                                                                             "asset",
                                                                             "json",
-                                                                            "blocks"
+                                                                            "blocks",
+                                                                            "token"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -40106,6 +40128,12 @@
                                                                     "max": {
                                                                         "type": [
                                                                             "number",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "domain": {
+                                                                        "type": [
+                                                                            "string",
                                                                             "null"
                                                                         ]
                                                                     }
@@ -40416,7 +40444,8 @@
                                                                             "reference",
                                                                             "asset",
                                                                             "json",
-                                                                            "blocks"
+                                                                            "blocks",
+                                                                            "token"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -40503,6 +40532,12 @@
                                                                     "max": {
                                                                         "type": [
                                                                             "number",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "domain": {
+                                                                        "type": [
+                                                                            "string",
                                                                             "null"
                                                                         ]
                                                                     }
@@ -40781,7 +40816,8 @@
                                                                             "reference",
                                                                             "asset",
                                                                             "json",
-                                                                            "blocks"
+                                                                            "blocks",
+                                                                            "token"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -40868,6 +40904,12 @@
                                                                     "max": {
                                                                         "type": [
                                                                             "number",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "domain": {
+                                                                        "type": [
+                                                                            "string",
                                                                             "null"
                                                                         ]
                                                                     }
@@ -65560,7 +65602,8 @@
                                                                                 "reference",
                                                                                 "asset",
                                                                                 "json",
-                                                                                "blocks"
+                                                                                "blocks",
+                                                                                "token"
                                                                             ]
                                                                         },
                                                                         "required": {
@@ -65647,6 +65690,12 @@
                                                                         "max": {
                                                                             "type": [
                                                                                 "number",
+                                                                                "null"
+                                                                            ]
+                                                                        },
+                                                                        "domain": {
+                                                                            "type": [
+                                                                                "string",
                                                                                 "null"
                                                                             ]
                                                                         }
@@ -66163,7 +66212,8 @@
                                                                             "reference",
                                                                             "asset",
                                                                             "json",
-                                                                            "blocks"
+                                                                            "blocks",
+                                                                            "token"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -66250,6 +66300,12 @@
                                                                     "max": {
                                                                         "type": [
                                                                             "number",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "domain": {
+                                                                        "type": [
+                                                                            "string",
                                                                             "null"
                                                                         ]
                                                                     }
@@ -66390,7 +66446,8 @@
                                                                             "reference",
                                                                             "asset",
                                                                             "json",
-                                                                            "blocks"
+                                                                            "blocks",
+                                                                            "token"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -66477,6 +66534,12 @@
                                                                     "max": {
                                                                         "type": [
                                                                             "number",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "domain": {
+                                                                        "type": [
+                                                                            "string",
                                                                             "null"
                                                                         ]
                                                                     }
@@ -66950,7 +67013,8 @@
                                                                             "reference",
                                                                             "asset",
                                                                             "json",
-                                                                            "blocks"
+                                                                            "blocks",
+                                                                            "token"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -67037,6 +67101,12 @@
                                                                     "max": {
                                                                         "type": [
                                                                             "number",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "domain": {
+                                                                        "type": [
+                                                                            "string",
                                                                             "null"
                                                                         ]
                                                                     }
@@ -68450,7 +68520,8 @@
                                                                             "reference",
                                                                             "asset",
                                                                             "json",
-                                                                            "blocks"
+                                                                            "blocks",
+                                                                            "token"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -68537,6 +68608,12 @@
                                                                     "max": {
                                                                         "type": [
                                                                             "number",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "domain": {
+                                                                        "type": [
+                                                                            "string",
                                                                             "null"
                                                                         ]
                                                                     }

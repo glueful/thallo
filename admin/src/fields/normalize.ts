@@ -22,5 +22,6 @@ export function toFieldDef(f: ContentTypeField): FieldDef {
     referenceSlugField: f.reference_slug_field ?? undefined,
     blockTypes: f.block_types ?? undefined,
     group: f.group ?? undefined,
+    domain: f.domain ?? undefined,
   }
 }

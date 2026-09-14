@@ -5720,6 +5720,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -5735,6 +5736,7 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
                 /** @description Style capability paths or groups (visual builder §1.7); null = none. */
                 style_capabilities?: unknown[] | null
@@ -5897,6 +5899,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -5912,6 +5915,7 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
                 /** @description Style capability paths or groups (visual builder §1.7); null = none. */
                 style_capabilities?: unknown[] | null
@@ -6039,6 +6043,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -6054,6 +6059,7 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
                 /** @description Style capability paths or groups (visual builder §1.7); null = none. */
                 style_capabilities?: unknown[] | null
@@ -6330,6 +6336,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -6345,6 +6352,7 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
                 /** @description Style capability paths or groups (visual builder §1.7); null = none. */
                 style_capabilities?: unknown[] | null
@@ -6489,6 +6497,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -6504,6 +6513,7 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
                 /** @description Style capability paths or groups (visual builder §1.7); null = none. */
                 style_capabilities?: unknown[] | null
@@ -6631,6 +6641,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -6646,6 +6657,7 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
                 /** @description Style capability paths or groups (visual builder §1.7); null = none. */
                 style_capabilities?: unknown[] | null
@@ -21111,6 +21123,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -21126,6 +21139,7 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
                 schema_version?: number
                 created_by?: string | null
@@ -21293,6 +21307,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -21308,6 +21323,7 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
                 schema_version?: number
                 created_by?: string | null
@@ -21435,6 +21451,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -21450,6 +21467,7 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
                 schema_version?: number
                 created_by?: string | null
@@ -21685,6 +21703,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -21700,6 +21719,7 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
                 schema_version?: number
                 created_by?: string | null
@@ -22428,6 +22448,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -22443,6 +22464,7 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
                 schema_version?: number
                 created_by?: string | null
