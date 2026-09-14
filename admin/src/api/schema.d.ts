@@ -3196,6 +3196,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/render/style-schema': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * The style schema and the active theme vocabulary
+     * @description The managed property table (paths, kinds, responsiveness, choices), the breakpoints, the advanced paths and the active theme's vocabulary values. Requires `content.manage`.
+     */
+    get: operations['getV1AdminRenderStyleschema']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/render/templates': {
     parameters: {
       query?: never
@@ -5700,6 +5720,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -5715,7 +5736,16 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
+                /** @description Style capability paths or groups (visual builder §1.7); null = none. */
+                style_capabilities?: unknown[] | null
+                /** @description Named style targets and the capability → target map. */
+                style_targets?: unknown[] | null
+                /** @description Rendering hints: `renders_children_inline`. */
+                flags?: boolean[] | null
+                /** @description Starter content for a freshly inserted block. */
+                starter_content?: unknown[] | null
               }[]
             }
           }
@@ -5869,6 +5899,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -5884,7 +5915,16 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
+                /** @description Style capability paths or groups (visual builder §1.7); null = none. */
+                style_capabilities?: unknown[] | null
+                /** @description Named style targets and the capability → target map. */
+                style_targets?: unknown[] | null
+                /** @description Rendering hints: `renders_children_inline`. */
+                flags?: boolean[] | null
+                /** @description Starter content for a freshly inserted block. */
+                starter_content?: unknown[] | null
               }
             }
           }
@@ -6003,6 +6043,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -6018,7 +6059,16 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
+                /** @description Style capability paths or groups (visual builder §1.7); null = none. */
+                style_capabilities?: unknown[] | null
+                /** @description Named style targets and the capability → target map. */
+                style_targets?: unknown[] | null
+                /** @description Rendering hints: `renders_children_inline`. */
+                flags?: boolean[] | null
+                /** @description Starter content for a freshly inserted block. */
+                starter_content?: unknown[] | null
               }
             }
           }
@@ -6286,6 +6336,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -6301,7 +6352,16 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
+                /** @description Style capability paths or groups (visual builder §1.7); null = none. */
+                style_capabilities?: unknown[] | null
+                /** @description Named style targets and the capability → target map. */
+                style_targets?: unknown[] | null
+                /** @description Rendering hints: `renders_children_inline`. */
+                flags?: boolean[] | null
+                /** @description Starter content for a freshly inserted block. */
+                starter_content?: unknown[] | null
               }
             }
           }
@@ -6437,6 +6497,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -6452,7 +6513,16 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
+                /** @description Style capability paths or groups (visual builder §1.7); null = none. */
+                style_capabilities?: unknown[] | null
+                /** @description Named style targets and the capability → target map. */
+                style_targets?: unknown[] | null
+                /** @description Rendering hints: `renders_children_inline`. */
+                flags?: boolean[] | null
+                /** @description Starter content for a freshly inserted block. */
+                starter_content?: unknown[] | null
               }
             }
           }
@@ -6571,6 +6641,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -6586,7 +6657,16 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
+                /** @description Style capability paths or groups (visual builder §1.7); null = none. */
+                style_capabilities?: unknown[] | null
+                /** @description Named style targets and the capability → target map. */
+                style_targets?: unknown[] | null
+                /** @description Rendering hints: `renders_children_inline`. */
+                flags?: boolean[] | null
+                /** @description Starter content for a freshly inserted block. */
+                starter_content?: unknown[] | null
               }
             }
           }
@@ -21043,6 +21123,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -21058,6 +21139,7 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
                 schema_version?: number
                 created_by?: string | null
@@ -21225,6 +21307,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -21240,6 +21323,7 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
                 schema_version?: number
                 created_by?: string | null
@@ -21367,6 +21451,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -21382,6 +21467,7 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
                 schema_version?: number
                 created_by?: string | null
@@ -21617,6 +21703,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -21632,6 +21719,7 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
                 schema_version?: number
                 created_by?: string | null
@@ -22360,6 +22448,7 @@ export interface operations {
                     | 'asset'
                     | 'json'
                     | 'blocks'
+                    | 'token'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -22375,6 +22464,7 @@ export interface operations {
                   pattern?: string | null
                   min?: number | null
                   max?: number | null
+                  domain?: string | null
                 }[]
                 schema_version?: number
                 created_by?: string | null
@@ -23073,7 +23163,8 @@ export interface operations {
         /**
          * @example {
          *       "fields": "example",
-         *       "lock_version": "example"
+         *       "lock_version": "example",
+         *       "preview_revision": 50
          *     }
          */
         'application/json': {
@@ -23081,6 +23172,7 @@ export interface operations {
           fields?: unknown[]
           /** @description Optimistic-lock counter echoed from the last read. */
           lock_version?: number | null
+          preview_revision?: number | null
         }
       }
     }
@@ -23106,6 +23198,7 @@ export interface operations {
                 /** Format: date-time */
                 updated_at?: string
               }
+              preview_cleared?: boolean
             }
           }
         }
@@ -23626,6 +23719,8 @@ export interface operations {
               expires_at?: string
               expires_in?: number
               theme_url?: string | null
+              epoch?: string | null
+              revision?: number | null
             }
           }
         }
@@ -23714,23 +23809,48 @@ export interface operations {
         /**
          * @example {
          *       "token": "example",
-         *       "fields": "example"
+         *       "fields": "example",
+         *       "epoch": "example",
+         *       "base_revision": 50,
+         *       "operations": "example",
+         *       "debug_changed": "example"
          *     }
          */
         'application/json': {
           token: string
           /** @description Working field values keyed by the content type's field names. */
           fields?: unknown[]
+          epoch?: string | null
+          base_revision?: number | null
+          /** @description The committed operations since `base_revision`. */
+          operations?: unknown[] | null
+          /** @description The client's affected-block ids (development assertion only). */
+          debug_changed?: unknown[] | null
         }
       }
     }
     responses: {
-      /** @description Working copy applied to the preview session. */
+      /** @description Working copy accepted. */
       200: {
         headers: {
           [name: string]: unknown
         }
-        content?: never
+        content: {
+          'application/json': {
+            success: boolean
+            message: string
+            data: {
+              epoch?: string
+              revision?: number
+              baseline?: number
+              style_generation?: number
+              /** Format: date-time */
+              applied_at?: string
+              /** @description Root block id => annotated markup; null = whole page. */
+              fragments?: string[] | null
+            }
+          }
+        }
       }
       /** @description Unauthenticated. */
       401: {
@@ -23766,7 +23886,7 @@ export interface operations {
           }
         }
       }
-      /** @description Version-pinned token (PREVIEW_VERSION_PINNED) or active block migration (BLOCK_MIGRATION_IN_PROGRESS). */
+      /** @description Version-pinned token (PREVIEW_VERSION_PINNED), active block migration (BLOCK_MIGRATION_IN_PROGRESS) or a stale epoch/base revision (PREVIEW_REVISION_STALE, carrying the current pair). */
       409: {
         headers: {
           [name: string]: unknown
@@ -27418,6 +27538,92 @@ export interface operations {
           [name: string]: unknown
         }
         content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  getV1AdminRenderStyleschema: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The style schema. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success: boolean
+            message: string
+            data: {
+              version?: number
+              breakpoints?: Record<string, never>
+              properties?: unknown[]
+              /** @description The `settings.advanced` paths. */
+              advanced?: unknown[]
+              vocabulary?: {
+                version?: number
+                domains?: Record<string, never>
+                values?: Record<string, never>
+              }
+            }
+          }
+        }
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
       }
       /** @description Unexpected server error. */
       500: {

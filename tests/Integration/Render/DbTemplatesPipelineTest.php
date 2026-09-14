@@ -9,6 +9,7 @@ use Thallo\Core\Content\Repositories\ContentTypeRepository;
 use Thallo\Core\Content\Repositories\EntryRepository;
 use Thallo\Core\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\ThemeFixture;
 use Glueful\Cache\CacheStore;
 use Glueful\Events\EventService;
 use Thallo\Render\Templates\TemplateRepository;
@@ -147,8 +148,7 @@ final class DbTemplatesPipelineTest extends AppTestCase
     private function makeAltTheme(): void
     {
         $base = $this->appContext()->getBasePath() . '/themes/altprev';
-        mkdir($base . '/templates', 0777, true);
-        file_put_contents($base . '/theme.json', (string) json_encode(['name' => 'altprev']));
+        ThemeFixture::write($base, 'altprev');
         // No entry.twig on disk: the DB override + pack-default fallback do the work.
         file_put_contents($base . '/templates/layout.twig', "{% block content %}{% endblock %}");
     }

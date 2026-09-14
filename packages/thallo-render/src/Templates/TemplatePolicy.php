@@ -60,23 +60,33 @@ final class TemplatePolicy
     //         the pricing_plan block's soft-bound admin-billing deep-link resolver; the
     //         regex re-validation lives in PHP, bound to this one call site, never in
     //         template source, matching the hex_color/numeric_clamp precedent).
-    public const CACHE_VERSION = 19;
+    // bumped: layers_stylesheet_url and theme_stylesheet_url joined the function allowlist and
+    //         shop_styles_url left it (visual builder spec §2.3 — layered delivery; package
+    //         stylesheets ride inside the theme artifact through the contribution registry).
+    // bumped: settings_stylesheet_url joined the function allowlist (visual builder spec §2.4 —
+    //         the compiled style artifact is linked after the theme artifact).
+    // bumped: style_classes, style_attrs and token_class joined the function allowlist (visual
+    //         builder spec §2.5 — style targets).
+    // bumped: hex_color and style_hook left the filter allowlist (visual builder spec §7.2 —
+    //         no template emits an inline colour or a class hook any more).
+    public const CACHE_VERSION = 23;
 
     public const TAGS = ['if', 'for', 'set', 'block', 'extends', 'include', 'verbatim', 'macro', 'import'];
 
     public const FILTERS = [
         'abs', 'batch', 'br_tokens', 'capitalize', 'column', 'date', 'date_modify', 'default',
-        'editable_text', 'escape', 'e', 'first', 'format', 'hex_color', 'join', 'json_encode',
+        'editable_text', 'escape', 'e', 'first', 'format', 'join', 'json_encode',
         'keys', 'last', 'length', 'lower', 'merge', 'nl2br', 'number_format', 'numeric_clamp',
         'replace', 'reverse', 'round', 'safe_html', 'safe_url', 'slice', 'sort', 'split',
-        'striptags', 'style_hook', 'title', 'trim', 'upper', 'url_encode',
+        'striptags', 'title', 'trim', 'upper', 'url_encode',
     ];
 
     public const FUNCTIONS = [
         'menu', 'path', 'asset', 'facets', 'blocks', 'media', 'site_logo', 'video_embed', 'icon',
         'region_blocks', 'region_settings', 'site_favicon', 'custom_css', 'form_render',
         'runtime_script', 'seo_head', 'font_faces_style',
-        'shop_wishlist_scope', 'shop_wishlist_url', 'shop_styles_url',
+        'shop_wishlist_scope', 'shop_wishlist_url', 'layers_stylesheet_url', 'theme_stylesheet_url',
+        'settings_stylesheet_url', 'style_classes', 'style_attrs', 'token_class',
         'shop_product_url', 'shop_category_url', 'shop_index_url', 'json_script', 'block_script',
         'entries', 'is_preview', 'media_image', 'claim_priority_image',
         'color_mode_enabled', 'color_mode_script', 'theme_colors_style', 'theme_style_scope',

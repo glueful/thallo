@@ -41,3 +41,4 @@ bootstrap/cache/
 /storage/uploads/*
 !/storage/uploads/.gitkeep
 storage/framework/*
+/storage/conversion/

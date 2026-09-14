@@ -40,15 +40,17 @@ final class BlocksRenderingTest extends AppTestCase
 
     public function testRendersBlocksInOrderWithThePinnedContext(): void
     {
+        // Probe types without a block type row: a DB override of a declared type must style its
+        // targets (StyleTargetsRenderTest / the lint gate); this test pins ordering and context.
         $this->saveBlockTemplate(
-            'hero',
+            'banner',
             'HERO[{{ index }}:{{ data.heading }}:{{ block.id }}:{{ entry.slug }}]',
         );
         $this->saveBlockTemplate('quote', 'QUOTE[{{ index }}:{{ data.text }}]');
 
         $out = $this->env()->createTemplate("{{ blocks(entry.fields.body) }}")->render([
             'entry' => ['slug' => 'hello', 'fields' => ['body' => [
-                ['id' => 'aaaaaaaaaaaa', 'type' => 'hero', 'data' => ['heading' => 'Hi']],
+                ['id' => 'aaaaaaaaaaaa', 'type' => 'banner', 'data' => ['heading' => 'Hi']],
                 ['id' => 'bbbbbbbbbbbb', 'type' => 'quote', 'data' => ['text' => 'Words']],
             ]]],
         ]);
@@ -80,11 +82,11 @@ final class BlocksRenderingTest extends AppTestCase
 
     public function testNestedBlocksComposeThroughContainerTemplates(): void
     {
-        $this->saveBlockTemplate('section', 'SECTION[{{ data.title }}|{{ blocks(data.content) }}]');
-        $this->saveBlockTemplate('hero', 'HERO[{{ data.heading }}]');
+        $this->saveBlockTemplate('wrapper', 'SECTION[{{ data.title }}|{{ blocks(data.content) }}]');
+        $this->saveBlockTemplate('banner', 'HERO[{{ data.heading }}]');
         $out = $this->env()->createTemplate("{{ blocks(list) }}")->render(['list' => [
-            ['id' => 'a', 'type' => 'section', 'data' => ['title' => 'S', 'content' => [
-                ['id' => 'b', 'type' => 'hero', 'data' => ['heading' => 'Inner']],
+            ['id' => 'a', 'type' => 'wrapper', 'data' => ['title' => 'S', 'content' => [
+                ['id' => 'b', 'type' => 'banner', 'data' => ['heading' => 'Inner']],
             ]]],
         ]]);
         self::assertStringContainsString('SECTION[S|HERO[Inner]]', $out);
@@ -164,19 +166,29 @@ final class BlocksRenderingTest extends AppTestCase
         self::assertContains('font_faces_style', TemplatePolicy::FUNCTIONS);
         self::assertContains('shop_wishlist_scope', TemplatePolicy::FUNCTIONS);
         self::assertContains('shop_wishlist_url', TemplatePolicy::FUNCTIONS);
-        self::assertContains('shop_styles_url', TemplatePolicy::FUNCTIONS);
+        self::assertContains('layers_stylesheet_url', TemplatePolicy::FUNCTIONS);
+        self::assertContains('theme_stylesheet_url', TemplatePolicy::FUNCTIONS);
+        self::assertNotContains(
+            'shop_styles_url',
+            TemplatePolicy::FUNCTIONS,
+            'the storefront sheet rides in the theme artifact',
+        );
         // 17 = admin-contributed-templates spec §3 policy expansion (twelve reviewed functions,
         // range()/RangeBinary denied, TrueTest allowed for bare boolean function conditions)
         // 18 = modern-blocks spec §1 — block_script() joined the allowlist
         // 19 = pricing-bridge spec §5.4 — plan_checkout_url() joined the allowlist
-        self::assertSame(19, TemplatePolicy::CACHE_VERSION);
+        // 20 = visual builder spec §2.3 — layered delivery helpers joined, shop_styles_url left
+        // 21 = visual builder spec §2.4 — settings_stylesheet_url() joined the allowlist
+        // 22 = visual builder spec §2.5 — style targets helpers joined
+        self::assertSame(23, TemplatePolicy::CACHE_VERSION);
 
         // DB templates calling the allowlisted functions lint clean.
         $linter = $this->container()->get(TemplateLinter::class);
         self::assertSame([], $linter->lint('{{ blocks(entry.fields.body) }}'));
         self::assertSame([], $linter->lint('{{ media(data.image) }}'));
         self::assertSame([], $linter->lint('{{ site_logo() }}'));
-        self::assertSame([], $linter->lint('{{ shop_styles_url() }}'));
+        self::assertSame([], $linter->lint('{{ theme_stylesheet_url() }}'));
+        self::assertSame([], $linter->lint('{{ layers_stylesheet_url() }}'));
         self::assertSame([], $linter->lint('{{ icon(data.icon) ?? data.icon }}'));
         self::assertSame([], $linter->lint('{{ region_blocks(\'header\') }}'));
         self::assertSame([], $linter->lint("{{ region_settings('header').width|default('contained') }}"));

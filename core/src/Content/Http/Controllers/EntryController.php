@@ -14,6 +14,7 @@ use Thallo\Core\Content\Http\DTOs\ApplyPreviewData;
 use Thallo\Core\Content\Http\DTOs\CopyLocaleData;
 use Thallo\Core\Content\Http\DTOs\SaveDraftData;
 use Thallo\Core\Content\Http\DTOs\Responses\Entries\DraftResultData;
+use Thallo\Core\Content\Http\DTOs\Responses\Entries\DraftSaveResultData;
 use Thallo\Core\Content\Http\DTOs\Responses\Entries\EntryCreateResultData;
 use Thallo\Core\Content\Http\DTOs\Responses\Entries\EntryLocalesResultData;
 use Thallo\Core\Content\Http\DTOs\Responses\Entries\EntryResultData;
@@ -21,6 +22,9 @@ use Thallo\Core\Content\Localization\ContentLocaleService;
 use Thallo\Core\Content\Preview\PreviewToken;
 use Thallo\Core\Content\Preview\PreviewTokenException;
 use Thallo\Core\Content\Preview\PreviewWorkingCopyStore;
+use Thallo\Core\Content\Style\SiteStyleGeneration;
+use Thallo\Contracts\Preview\PreviewFragmentRenderer;
+use Thallo\Core\Content\Http\DTOs\Responses\Preview\ApplyPreviewResultData;
 use Thallo\Core\Content\Preview\ResolvesPreviewKey;
 use Thallo\Core\Content\Repositories\ContentTypeRepository;
 use Thallo\Core\Content\Repositories\EntryRepository;
@@ -72,6 +76,10 @@ final class EntryController
         private readonly ?PreviewWorkingCopyStore $workingCopies = null,
         /** Root URL namespace guard; null = ungated (tests, minimal wiring). */
         private readonly ?RootMountGuard $rootGuard = null,
+        /** The site style generation named by every apply (visual builder spec §3.5). */
+        private readonly ?SiteStyleGeneration $styleGeneration = null,
+        /** The fragment path (spec §3.5); null = the render pack is off, the stage refreshes. */
+        private readonly ?PreviewFragmentRenderer $fragments = null,
     ) {
     }
 
@@ -255,7 +263,7 @@ final class EntryController
             . '409 carrying the current draft so the client can rebase.',
         tags: ['Thallo Admin'],
     )]
-    #[ApiResponse(200, schema: DraftResultData::class, description: 'Draft saved.')]
+    #[ApiResponse(200, schema: DraftSaveResultData::class, description: 'Draft saved.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No entry with that UUID.')]
     #[ApiResponse(
         409,
@@ -311,10 +319,14 @@ final class EntryController
                 'current' => $this->entries->findDraft($uuid, $locale),
             ]);
         }
-        // Clear-on-save (loop C spec §3): the DB draft now matches the working
-        // tree — a stale stash must not shadow later preview refreshes.
-        $this->workingCopies?->clear($uuid, $locale);
-        return Response::success(['draft' => $this->entries->findDraft($uuid, $locale)], 'Draft saved.');
+        // Clear-on-save (visual builder spec §3.5): the DB draft now matches the working tree
+        // the save was submitted from — but only that revision; an older save never discards a
+        // newer accepted copy. A save outside the protocol (no revision) clears unconditionally.
+        $cleared = $this->workingCopies?->clearIfRevision($uuid, $locale, $input->preview_revision) ?? false;
+        return Response::success([
+            'draft' => $this->entries->findDraft($uuid, $locale),
+            'preview_cleared' => $cleared,
+        ], 'Draft saved.');
     }
 
     /**
@@ -330,14 +342,15 @@ final class EntryController
             . 'draft save clears the stash.',
         tags: ['Thallo Admin'],
     )]
-    #[ApiResponse(200, description: 'Working copy applied to the preview session.')]
+    #[ApiResponse(200, schema: ApplyPreviewResultData::class, description: 'Working copy accepted.')]
     #[ApiResponse(403, schema: ErrorResponse::class, envelope: false, description: 'Invalid or re-pointed token.')]
     #[ApiResponse(
         409,
         schema: ErrorResponse::class,
         envelope: false,
-        description: 'Version-pinned token (PREVIEW_VERSION_PINNED) or active block migration '
-            . '(BLOCK_MIGRATION_IN_PROGRESS).',
+        description: 'Version-pinned token (PREVIEW_VERSION_PINNED), active block migration '
+            . '(BLOCK_MIGRATION_IN_PROGRESS) or a stale epoch/base revision (PREVIEW_REVISION_STALE, '
+            . 'carrying the current pair).',
     )]
     #[ApiResponse(410, schema: ErrorResponse::class, envelope: false, description: 'The preview token has expired.')]
     #[ApiResponse(422, schema: ErrorResponse::class, envelope: false, description: 'Field validation failed.')]
@@ -397,10 +410,60 @@ final class EntryController
         } catch (ValidationException $e) {
             return Response::validation($e->errors());
         }
-        // 7. Stash the CLEANED fields only, TTL capped to the token's remaining life.
+        // 7. Accept the CLEANED fields by compare-and-set (visual builder spec §3.5), TTL capped
+        // to the token's remaining life. Operations are kept with the record as intent (the
+        // fragment path derives affected blocks from them); only well-formed entries survive.
+        $ops = [];
+        foreach ($input->operations ?? [] as $op) {
+            if (is_array($op) && is_string($op['type'] ?? null)) {
+                $ops[] = $op;
+            }
+        }
         $ttl = min(max($token->expiresAt - time(), 1), 300);
-        $this->workingCopies->put($uuid, $locale, $clean, $ttl);
-        return Response::success(['applied_at' => date('c')], 'Preview applied.');
+        // The accepted-before document: what the stage displays, which the fragment path
+        // validates the operations against.
+        $before = $this->workingCopies->fields($uuid, $locale);
+        $result = $this->workingCopies->accept(
+            $uuid,
+            $locale,
+            $input->epoch,
+            $input->base_revision,
+            $clean,
+            $ops,
+            $ttl,
+        );
+        if (!$result['accepted']) {
+            return Response::error('The preview working copy moved on.', Response::HTTP_CONFLICT, [
+                'code' => 'PREVIEW_REVISION_STALE',
+                'current' => $result['epoch'] === null
+                    ? null
+                    : ['epoch' => $result['epoch'], 'revision' => $result['revision']],
+            ]);
+        }
+        // 8. The fragment path (spec §3.5): behind its flag, the affected roots rendered in
+        // isolation; null whenever the whole page must be refreshed instead.
+        $blockFields = [];
+        foreach ($schema->fields() as $field) {
+            if ($field->type === 'blocks') {
+                $blockFields[] = $field->name;
+            }
+        }
+        $fragments = $this->fragments?->render(
+            $input->token,
+            $ops,
+            $before,
+            $clean,
+            $blockFields,
+            $input->debug_changed,
+        );
+        return Response::success([
+            'epoch' => $result['epoch'],
+            'revision' => $result['revision'],
+            'baseline' => $result['baseline'],
+            'style_generation' => $this->styleGeneration?->current() ?? 0,
+            'applied_at' => $result['accepted_at'],
+            'fragments' => $fragments,
+        ], 'Preview applied.');
     }
 
     /**

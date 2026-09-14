@@ -13,6 +13,12 @@ use Thallo\Core\Content\Schema\FieldDefinition;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Helpers\Utils;
+use Thallo\Contracts\Content\Block;
+use Thallo\Contracts\Style\BlockStyleRegistry;
+use Thallo\Contracts\Style\StyleCapabilities;
+use Thallo\Contracts\Style\Vocabulary;
+use Thallo\Core\Content\Style\EngineBlockStyleRegistry;
+use Thallo\Core\Content\Style\SettingsValidator;
 
 final class FieldValidator
 {
@@ -21,7 +27,17 @@ final class FieldValidator
         private readonly ?ApplicationContext $context = null,
         private ?BlockTypeRepository $blockTypes = null,
         private ?RichHtmlSanitizer $sanitizer = null,
+        private ?BlockStyleRegistry $styleRegistry = null,
+        private readonly SettingsValidator $settingsValidator = new SettingsValidator(),
     ) {
+    }
+
+    private function styleRegistry(): ?BlockStyleRegistry
+    {
+        if ($this->styleRegistry === null && $this->blockTypes() !== null) {
+            $this->styleRegistry = new EngineBlockStyleRegistry($this->blockTypes());
+        }
+        return $this->styleRegistry;
     }
 
     private function blockTypes(): ?BlockTypeRepository
@@ -64,6 +80,13 @@ final class FieldValidator
             $presentation = $this->validatePresentation($payload['_presentation']);
             unset($payload['_presentation']);
         }
+        // Reserved schema stamp (visual builder spec §7.3): `_schema` records the settings
+        // schema version and the completed conversion stages; it rides with the document.
+        $stamp = null;
+        if (array_key_exists('_schema', $payload)) {
+            $stamp = $this->validateSchemaStamp($payload['_schema']);
+            unset($payload['_schema']);
+        }
 
         // Entry-wide block-id set (visual-canvas spec §5): the canvas bridge keys
         // rendered blocks by BARE id, so uniqueness spans every blocks field AND
@@ -73,7 +96,45 @@ final class FieldValidator
         if ($presentation !== null) {
             $clean['_presentation'] = $presentation;
         }
+        if ($stamp !== null) {
+            $clean['_schema'] = $stamp;
+        }
         return $clean;
+    }
+
+    /**
+     * The `_schema` stamp: `settings` (the settings schema version, an int) and `conversions`
+     * (the completed stage names). Anything else fails loudly.
+     *
+     * @return array{settings: int, conversions: list<string>}|null null = an empty stamp, dropped
+     */
+    private function validateSchemaStamp(mixed $value): ?array
+    {
+        if (!is_array($value)) {
+            throw new ValidationException(['_schema' => 'must be an object']);
+        }
+        if ($value === []) {
+            return null;
+        }
+        foreach (array_keys($value) as $key) {
+            if (!in_array($key, ['settings', 'conversions'], true)) {
+                throw new ValidationException(["_schema.{$key}" => 'unknown schema stamp key']);
+            }
+        }
+        $settings = $value['settings'] ?? null;
+        if (!is_int($settings) || $settings < 1) {
+            throw new ValidationException(['_schema.settings' => 'must be a positive integer']);
+        }
+        $conversions = $value['conversions'] ?? [];
+        if (!is_array($conversions) || !array_is_list($conversions)) {
+            throw new ValidationException(['_schema.conversions' => 'must be a list of stage names']);
+        }
+        foreach ($conversions as $i => $stage) {
+            if (!is_string($stage) || preg_match('/\A[a-z][a-z0-9-]*\z/', $stage) !== 1) {
+                throw new ValidationException(["_schema.conversions.{$i}" => 'must be a stage name']);
+            }
+        }
+        return ['settings' => $settings, 'conversions' => array_values($conversions)];
     }
 
     /**
@@ -330,9 +391,31 @@ final class FieldValidator
             'reference', 'asset' => (is_string($value) && $value !== '') ? null : 'must be a uuid',
             'json' => (is_array($value)) ? null : 'must be an object/array',
             'box' => $this->checkBox($value),
+            'token' => $this->checkToken($field, $value),
             'blocks' => 'must be an ordered list of blocks', // handled by validateBlocks(); guard only
             default => 'unknown field type',
         };
+    }
+
+    /** A token value is `{type: "token", value: "<domain>.<name>"}` of the field's domain (spec §1.7). */
+    private function checkToken(FieldDefinition $field, mixed $value): ?string
+    {
+        $domain = (string) $field->domain;
+        if (!is_array($value) || ($value['type'] ?? null) !== 'token' || !is_string($value['value'] ?? null)) {
+            return 'must be a token of the ' . $domain . ' vocabulary';
+        }
+        if (array_keys($value) !== ['type', 'value'] && array_keys($value) !== ['value', 'type']) {
+            return 'must be a token of the ' . $domain . ' vocabulary';
+        }
+        $prefix = $domain . '.';
+        $name = str_starts_with($value['value'], $prefix) ? substr($value['value'], strlen($prefix)) : null;
+        if ($name === null || !in_array($name, Vocabulary::names($domain), true)) {
+            return 'must be one of: ' . implode(', ', array_map(
+                static fn (string $n): string => $prefix . $n,
+                Vocabulary::names($domain),
+            ));
+        }
+        return null;
     }
 
     /** A box is an object with optional non-negative numeric top/right/bottom/left (px). */
@@ -482,7 +565,25 @@ final class FieldValidator
                 }
                 continue;
             }
-            $clean[] = ['id' => $id, 'type' => $type, 'data' => $cleanData];
+            // Settings (visual builder spec §1): validated against the style contract and the
+            // block type's capabilities; normalised so every stored block carries the key.
+            $registry = $this->styleRegistry();
+            [$cleanSettings, $settingsErrors] = $this->settingsValidator->validate(
+                $block['settings'] ?? null,
+                $registry?->capabilitiesFor($type) ?? StyleCapabilities::none(),
+            );
+            if ($settingsErrors !== []) {
+                foreach ($settingsErrors as $settingsPath => $message) {
+                    $errors["{$path}.{$settingsPath}"] = $message;
+                }
+                continue;
+            }
+            $clean[] = Block::fromArray([
+                'id' => $id,
+                'type' => $type,
+                'data' => $cleanData,
+                'settings' => $cleanSettings,
+            ])->toArray();
         }
         return [$clean, $errors];
     }

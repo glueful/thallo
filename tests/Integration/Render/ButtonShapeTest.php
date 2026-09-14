@@ -5,18 +5,17 @@ declare(strict_types=1);
 namespace Thallo\Core\Tests\Integration\Render;
 
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 use Thallo\Render\RenderContextExtension;
 use Thallo\Render\ThemeLocator;
 use Thallo\Render\TwigFactory;
 use Twig\Environment;
 
-/**
- * Website plan phase 1b: a button's shape is a choice (pill, rounded, square). The pill was
- * hard-coded; `rounded` follows the theme's radius token and the site-wide radius setting
- * writes `--radius-btn`, so the default keeps reading as a pill until a site changes it.
- */
+/** Button corners are a radius setting on the control (visual builder spec §7.2); no shape modifier exists. */
 final class ButtonShapeTest extends AppTestCase
 {
+    use SyncsBlockStyleDeclarations;
+
     private function env(): Environment
     {
         $base = $this->appContext()->getBasePath();
@@ -27,46 +26,43 @@ final class ButtonShapeTest extends AppTestCase
         ))->environment();
     }
 
-    private function button(array $data): string
+    private function button(array $settings): string
     {
+        $this->container()->get(RenderContextExtension::class)->resetPerRenderState();
         return $this->env()->createTemplate('{{ blocks(list) }}')->render([
             'list' => [[
                 'id' => 'btn000000001',
                 'type' => 'button',
-                'data' => ['label' => 'Go', 'url' => '/go'] + $data,
+                'data' => ['label' => 'Go', 'url' => '/go'],
+                'settings' => $settings,
             ]],
         ]);
     }
 
-    public function testWithoutAShapeTheButtonFollowsTheThemeRadius(): void
+    public function testWithoutARadiusSettingTheButtonFollowsTheThemeRadius(): void
     {
-        // No modifier at all: the base rule reads --radius-btn, which the site-wide radius
-        // setting writes. An unknown stored value degrades to the same.
-        self::assertStringNotContainsString('__link--shape-', $this->button([]));
-        self::assertStringNotContainsString('__link--shape-', $this->button(['shape' => 'blob']));
-        self::assertStringContainsString('thallo-block-button__link--shape-pill', $this->button(['shape' => 'pill']));
+        $this->syncBlockStyleDeclarations();
+        $plain = $this->button([]);
+        self::assertStringNotContainsString('t-radius-', $plain);
+        self::assertStringNotContainsString('__link--shape-', $plain);
+        self::assertStringNotContainsString('style=', $plain);
     }
 
-    public function testRoundedAndSquareAreChoices(): void
+    public function testARadiusTokenLandsOnTheControlNotTheRoot(): void
     {
-        $rounded = $this->button(['shape' => 'rounded']);
-        $square = $this->button(['shape' => 'square']);
-        self::assertStringContainsString('thallo-block-button__link--shape-rounded', $rounded);
-        self::assertStringContainsString('thallo-block-button__link--shape-square', $square);
+        $this->syncBlockStyleDeclarations();
+        $pill = $this->button(['style' => ['radius' => ['type' => 'token', 'value' => 'radius.full']]]);
+        self::assertSame(1, preg_match('~<a class="[^"]*thallo-block-button__link[^"]* t-radius-full"~', $pill));
+        self::assertSame(1, preg_match('~<div class="thallo-block thallo-block-button">~', $pill));
     }
 
-    public function testTheThemeReadsTheRadiusTokenAndStylesEveryShape(): void
+    public function testTheThemeReadsTheRadiusTokenAndShipsNoShapeModifiers(): void
     {
         $css = (string) file_get_contents(
             $this->appContext()->getBasePath() . '/packages/thallo-render/themes/default/assets/blocks.css'
         );
-
         self::assertStringContainsString('border-radius: var(--radius-btn, 999px);', $css);
-        self::assertStringContainsString('.thallo-block-button__link--shape-pill { border-radius: 999px; }', $css);
-        self::assertStringContainsString(
-            '.thallo-block-button__link--shape-rounded { border-radius: var(--radius); }',
-            $css,
-        );
-        self::assertStringContainsString('.thallo-block-button__link--shape-square { border-radius: 2px; }', $css);
+        self::assertStringNotContainsString('__link--shape-', $css);
+        self::assertStringNotContainsString('.thallo-block-button--center', $css);
     }
 }

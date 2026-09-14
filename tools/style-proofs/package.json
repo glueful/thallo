@@ -1,0 +1,13 @@
+{
+  "name": "@thallo/style-proofs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Computed-style proofs of the layered settings delivery in Chromium, Firefox and WebKit.",
+  "scripts": {
+    "test": "playwright test",
+    "install-browsers": "playwright install chromium firefox webkit"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1"
+  }
+}

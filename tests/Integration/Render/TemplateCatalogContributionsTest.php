@@ -7,6 +7,7 @@ namespace Thallo\Core\Tests\Integration\Render;
 use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Render\Templates\TemplateCatalog;
 use Thallo\Render\Templates\TemplateRepository;
+use Thallo\Core\Tests\Support\ThemeFixture;
 
 final class TemplateCatalogContributionsTest extends AppTestCase
 {
@@ -26,10 +27,7 @@ final class TemplateCatalogContributionsTest extends AppTestCase
         // in the catalog when only the default ships it… but a contributed copy MUST win:
         file_put_contents($this->tmp . '/contribA/entry.twig', 'CONTRIB-A-ENTRY');
         file_put_contents($this->tmp . '/appthemes/mytheme/templates/probe.twig', 'APP-THEME-PROBE');
-        file_put_contents(
-            $this->tmp . '/appthemes/mytheme/theme.json',
-            (string) json_encode(['name' => 'mytheme', 'version' => '1.0.0']),
-        );
+        ThemeFixture::write($this->tmp . '/appthemes/mytheme', 'mytheme');
     }
 
     protected function tearDown(): void

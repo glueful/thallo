@@ -39,6 +39,10 @@ const type = (
   description,
   active: true,
   schema: [],
+  style_capabilities: null,
+  style_targets: null,
+  flags: {},
+  starter_content: null,
 })
 
 // Nuxt UI's UInput forwards attrs to the native input; tolerate either placement.

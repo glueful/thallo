@@ -13,6 +13,7 @@ use Thallo\Render\Templates\TemplateRepository;
 use Thallo\Render\ThemeLocator;
 use Thallo\Render\TwigFactory;
 use Twig\Loader\FilesystemLoader;
+use Thallo\Core\Tests\Support\ThemeFixture;
 
 /** The editor must seed the exact bytes the runtime precedence chain resolves. */
 final class CatalogRuntimeParityTest extends AppTestCase
@@ -28,7 +29,7 @@ final class CatalogRuntimeParityTest extends AppTestCase
         mkdir($this->tmp . '/themes/parity/templates', 0755, true);
         file_put_contents($this->tmp . '/a/__package_collision.twig', 'PACKAGE-A');
         file_put_contents($this->tmp . '/b/__package_collision.twig', 'PACKAGE-B');
-        file_put_contents($this->tmp . '/themes/parity/theme.json', '{"name":"parity"}');
+        ThemeFixture::write($this->tmp . '/themes/parity', 'parity');
         file_put_contents($this->tmp . '/themes/parity/templates/__theme_only.twig', 'THEME');
     }
 

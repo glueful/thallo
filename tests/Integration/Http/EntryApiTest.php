@@ -174,7 +174,10 @@ final class EntryApiTest extends AppTestCase
         );
         self::assertSame(200, $resp->getStatusCode());
         $data = json_decode((string) $resp->getContent(), true)['data'];
-        self::assertDataMatchesDtoShape($data, \Thallo\Core\Content\Http\DTOs\Responses\Entries\DraftResultData::class);
+        self::assertDataMatchesDtoShape(
+            $data,
+            \Thallo\Core\Content\Http\DTOs\Responses\Entries\DraftSaveResultData::class,
+        );
         self::assertDataMatchesDtoShape(
             $data['draft'],
             \Thallo\Core\Content\Http\DTOs\Responses\Entries\DraftData::class,

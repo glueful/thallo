@@ -16,6 +16,7 @@ export interface FieldDef {
     | 'json'
     | 'blocks'
     | 'box'
+    | 'token'
   required?: boolean
   enum?: string[]
   /** Display labels per enum value (presentation only — stored values stay bare). */
@@ -34,4 +35,6 @@ export interface FieldDef {
   blockTypes?: string[]
   /** Editor grouping: fields with the same group fold into a collapsible section. */
   group?: string
+  /** The vocabulary domain a `token` field picks from (`color`, `spacing`, …). */
+  domain?: string
 }

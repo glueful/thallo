@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Content;
 
+use Glueful\Bootstrap\ApplicationContext;
+use Thallo\Contracts\Delivery\PreviewThemeValidator;
+use Thallo\Contracts\Style\StyleArtifactCompiler;
+use Thallo\Contracts\Style\StyleCompileFailed;
 use Thallo\Core\Http\Controllers\GeneralSettingsController;
 use Thallo\Core\Http\DTOs\UpdateGeneralSettingsData;
 use Thallo\Core\Settings\GeneralSettings;
@@ -73,5 +77,52 @@ final class GeneralSettingsAppearanceTest extends AppTestCase
         self::assertSame('round', $settings->themeRadius());
         self::assertSame('sans', $settings->themeFont());
         self::assertSame('plain', $settings->themeBackground());
+    }
+
+    /** Visual builder spec §2.4: a theme switch compiles the artifact first and never activates on failure. */
+    public function testAThemeSwitchCompilesBeforeActivatingAndIs422WhenTheCompileFails(): void
+    {
+        $settings = $this->container()->get(GeneralSettings::class);
+        $before = $settings->theme();
+        $compiled = [];
+        $compiler = new class ($compiled) implements StyleArtifactCompiler {
+            public bool $fail = false;
+
+            public function __construct(private array &$compiled)
+            {
+            }
+
+            public function compile(?string $theme = null): string
+            {
+                if ($this->fail) {
+                    throw new StyleCompileFailed('disk full');
+                }
+                $this->compiled[] = $theme;
+                return str_repeat('a', 16);
+            }
+        };
+        $controller = new GeneralSettingsController(
+            $settings,
+            $this->container()->get(ApplicationContext::class),
+            themeValidator: $this->container()->get(PreviewThemeValidator::class),
+            styleCompiler: $compiler,
+        );
+
+        $compiler->fail = true;
+        $res = $controller->update(new UpdateGeneralSettingsData(theme: 'default'));
+        self::assertSame(422, $res->getStatusCode());
+        $body = json_decode((string) $res->getContent(), true);
+        self::assertStringContainsString('disk full', json_encode($body['errors'] ?? $body));
+        self::assertSame($before, $settings->theme(), 'nothing activated');
+
+        $compiler->fail = false;
+        $res = $controller->update(new UpdateGeneralSettingsData(theme: 'default'));
+        self::assertSame(200, $res->getStatusCode());
+        self::assertSame(['default'], $compiled, 'compiled for the theme being activated');
+        self::assertSame('default', $settings->theme());
+
+        $compiled = [];
+        $controller->update(new UpdateGeneralSettingsData(theme_accent: 'violet'));
+        self::assertSame([], $compiled, 'an unchanged theme is not recompiled');
     }
 }

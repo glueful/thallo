@@ -11,6 +11,7 @@ interface BlockInstance {
   id: string
   type: string
   data: Record<string, unknown>
+  settings?: Record<string, unknown>
 }
 
 const props = defineProps<{

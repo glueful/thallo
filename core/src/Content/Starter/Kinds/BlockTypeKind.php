@@ -161,6 +161,13 @@ final class BlockTypeKind extends AbstractStarterKind
             isset($payload['description']) ? (string) $payload['description'] : null,
             isset($payload['category']) ? (string) $payload['category'] : null,
         );
+        $this->blocks->updateStyle(
+            (string) $row['uuid'],
+            $payload['style_capabilities'] ?? null,
+            $payload['style_targets'] ?? null,
+            $payload['flags'] ?? null,
+            $payload['starter_content'] ?? null,
+        );
         if ((bool) $row['active'] !== (bool) $payload['active']) {
             $this->blocks->setActive((string) $row['uuid'], (bool) $payload['active']);
         }
@@ -245,6 +252,9 @@ final class BlockTypeKind extends AbstractStarterKind
                 'description' => $definition->description,
                 'schema' => $definition->schema,
                 'active' => true,
+                'style_capabilities' => $definition->styleCapabilities,
+                'style_targets' => $definition->styleTargets,
+                'flags' => $definition->flags,
             ],
         );
     }
@@ -281,6 +291,10 @@ final class BlockTypeKind extends AbstractStarterKind
             'description' => $row['description'] === null ? null : (string) $row['description'],
             'schema' => (array) $row['schema'],
             'active' => (bool) $row['active'],
+            'style_capabilities' => $row['style_capabilities'] ?? null,
+            'style_targets' => $row['style_targets'] ?? null,
+            'flags' => $row['flags'] ?? null,
+            'starter_content' => $row['starter_content'] ?? null,
         ];
     }
 }

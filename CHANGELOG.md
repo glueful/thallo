@@ -7,6 +7,98 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.29] - 2026-09-14
+
+### Added
+- **Typed block settings** (visual builder, slice A1). Every stored block carries `settings`
+  (schema v1) next to `data`: managed style as typed values (`token`, `choice`, `reset`; `literal`
+  reserved) over sparse `base`/`md`/`lg` breakpoint maps, an ordered list of style class ids, and
+  `advanced` (anchor, CSS classes, `data-*` attributes, accessibility label). Block types declare
+  `style_capabilities`, named `style_targets`, `flags` (rendering hints) and `starter_content`;
+  undeclared means none. The breakpoint-first cascade resolver ships in PHP and TypeScript
+  against one fixture contract.
+- **Layered style delivery** (visual builder, slice A2). A theme maps the platform style
+  vocabulary in `theme.json` (`vocabulary`) and lists its CSS (`stylesheets`); the layout links
+  three stylesheets — the layer order sheet, the theme artifact (`@layer theme`, every manifest
+  and package-contributed sheet, served by content hash) and the compiled settings artifact
+  (`@layer settings`: `--t-*` custom properties, one utility per managed property, value and
+  breakpoint, `revert-layer` resets), compiled from the vocabulary and published before
+  anything links it. Every shipped block type declares its style capabilities and named
+  targets, every block template styles them through `style_classes()`, `style_attrs()` and
+  `token_class()`, and the template lint holds a block template to its declaration. Computed
+  styles are proven in Chromium, Firefox and WebKit; the public-site browser floor is Chrome
+  111, Firefox 113 and Safari 16.2.
+- **Editor history and the revision protocol** (visual builder, slice A3). The canvas records
+  intent: every change to the tree becomes a reversible operation (fields, settings, advanced
+  paths, style classes, inserts, removals, moves, duplicates, page settings) in a
+  sequence-numbered history with undo and redo (toolbar, ⌘Z / ⇧⌘Z); a slider drag or a typing
+  burst commits as one step, structure at once, and the saved position is tracked apart from
+  the current one. The preview working copy is a revisioned record accepted by compare-and-set:
+  an apply names the epoch and revision it last accepted and is refused (409
+  `PREVIEW_REVISION_STALE`, carrying the current pair) when the copy moved on; a save clears
+  the copy only at the revision it was submitted from; the mint and the rendered canvas page
+  carry the accepted pair; every apply response names the site style generation.
+
+- **Canvas fragments, disabled** (visual builder, slice A6). An accepted apply can answer the
+  affected roots' markup instead of a whole-page refresh: the server derives the affected blocks
+  from the operations (validated against the accepted-before and validated-after documents),
+  the render-scope resolver lifts to parents that render their children inline, absorbs
+  descendants and escalates to the whole page for anything page-order or page dependent (a
+  reachable priority-image claim, a block reading its list index, `entries()`, the request
+  path, a block type new to the page that loads runtime assets), and only templates recorded
+  as verified — every fixture rendered block-by-block equals the whole page — take part.
+  The stage swaps fragments only after every guard holds — its displayed pair is the patch's
+  baseline, the epoch matches, the revision is newer, every target exists, every fragment is
+  exactly its own wrapper, no target nests in another — re-enhances what came in, re-anchors the
+  selection and advances the displayed pair; a refused patch falls back to the whole-page
+  refresh. Every apply carries input, request, response and paint performance marks, and a
+  development-only overlay on the canvas shows the medians, p95s and fallback count per path.
+  Ships behind `render.fragments.enabled` (`RENDER_FRAGMENTS_ENABLED`, default off); the apply
+  answers `fragments: null` and the stage refreshes as before.
+
+### Changed
+- **Breaking (Developer Preview): block presentation fields are settings now.** Heading
+  `align` and `color`, button `align` and `shape`, animated text's hex colours, image `size`,
+  `width` and `height`, and the carousel's `transition_duration` are gone in favour of typed
+  settings and `token`/`choice` fields. No content written before this release is carried
+  over: reinstall. The converter (`thallo:blocks:convert-settings`: stages, a decisions file,
+  a provision preflight, the cutover contract in `docs/production.md`) ships with no stage,
+  ready for the first future retirement. Themes must map the vocabulary and list their
+  stylesheets (`theme.json`).
+- **Breaking (Developer Preview): the container and style blocks are styled through settings.**
+  The container's background colour, overlay colour, padding preset and boxes, margin, radius,
+  border, shadow, pixel width, height and gap and the style block's padding, margin, shadow,
+  shadow colour and opacity and class hook are retired: colours, spacing, corners, border and
+  shadow are settings on the block's root target, the overlay is a choice (`none|light|dark`) with
+  an opacity step (`25|50|75`), the flex gap is a spacing token, a background image is a
+  positioned image layer, and a class hook is the Advanced tab's CSS classes. The `hex_color`
+  and `style_hook` filters and the `thallo-shadow-*` utilities are gone; template policy cache
+  version 23.
+- **Breaking (Developer Preview): templates emit no inline styles.** The template lint refuses a
+  `style=` attribute and a `<style>` element, at save and before render, so an operator template
+  carrying either no longer renders until it styles through settings or the theme stylesheet;
+  `theme_colors_style()`, `theme_style_scope()` and `font_faces_style()` are the only inline
+  style emitters. The pricing plans' column count is a `--count-{n}` modifier and the admin's
+  chrome preview styles through the theme sheet.
+- Every conversion report line names its stage, and a region stamped by one conversion stage
+  can be written by the next (the write checked a fingerprint without the stamp the read
+  included).
+- The transitional `legacy_presentation` block flag is gone: every block type is styled through
+  settings, the validator no longer withholds managed style, and the inspector's Style tab shows
+  the block's controls or "declares no styling"; `flags` carries rendering hints only.
+- `thallo:provision` syncs the evolved starter block-type definitions onto the existing rows
+  (new fields, and the style declaration every render relies on) — an upgraded instance no
+  longer needs `thallo:blocks:sync` by hand — and `thallo:blocks:sync`
+  refreshes a starter's style declaration that differs from the definition, not only one that
+  is missing.
+- `thallo:provision` compiles the active theme's settings artifact before clearing caches and
+  fails when it cannot; a theme switch compiles the incoming theme first and answers 422 on
+  failure; `thallo:doctor` reports the theme vocabulary and whether the artifact is published.
+- A theme's stylesheets are no longer linked one by one, `shop_styles_url()` is gone (the
+  storefront sheet rides inside the theme artifact), and a theme stylesheet may not use
+  `@import` or `!important` on a managed property of a block selector. Template policy cache
+  version 22.
+
 ## [1.0.0-beta.28] - 2026-09-14
 
 ### Added

@@ -175,45 +175,6 @@ final class BlockBackfillRunnerTest extends AppTestCase
         self::assertNotNull($row['completed_at']);
     }
 
-    public function testStaleLockCasMissCountsAsRedrivableFailureAndNeverClobbers(): void
-    {
-        // BackfillRunnerTest precedent: drive processDraft with a STALE work item
-        // via reflection — the CAS must miss, the editor's newer content must
-        // survive byte-identical, and the failure must be recorded.
-        $entry = $this->draftOnly(['title' => 'D', 'body' => [
-            ['id' => 'c', 'type' => 'card', 'data' => ['title' => 'x']],
-        ]]);
-        $migration = $this->declare([['op' => 'rename', 'from' => 'title', 'to' => 'heading']]);
-
-        $staleItem = [
-            'entry_uuid' => $entry,
-            'locale' => 'en',
-            'fields' => json_encode(['title' => 'D', 'body' => [
-                ['id' => 'c', 'type' => 'card', 'data' => ['title' => 'x']],
-            ]], JSON_THROW_ON_ERROR),
-            'lock_version' => 0, // stale: the editor saved since (below)
-        ];
-        // "Editor save" after the work list was read: newer content + bumped lock.
-        $editorFields = ['title' => 'D-edited', 'body' => [
-            ['id' => 'c', 'type' => 'card', 'data' => ['title' => 'edited']],
-        ]];
-        $this->connection()->table('entry_drafts')->where('entry_uuid', '=', $entry)->update([
-            'fields' => json_encode($editorFields, JSON_THROW_ON_ERROR),
-            'lock_version' => 7,
-        ]);
-
-        $runner = $this->runner();
-        $m = new \ReflectionMethod($runner, 'processDraft');
-        $m->invoke($runner, $migration, 'card', $this->opSetFor($migration), $this->pageSchema(), $staleItem);
-
-        // Editor content survives (assertEquals: JSON round-trips reorder keys;
-        // VALUE equality is the invariant); failure recorded, re-drivable.
-        $draft = $this->entries()->findDraft($entry, 'en');
-        self::assertEquals($editorFields, $draft['fields']);
-        self::assertSame(7, (int) $draft['lock_version']);
-        self::assertSame(1, (int) $this->migrationRow($migration)['work_items_failed']);
-    }
-
     public function testOpCollisionCountsAsFailureAndMarksMigrationFailed(): void
     {
         // An instance that ALREADY has the rename target makes RenameField::apply

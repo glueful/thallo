@@ -178,7 +178,8 @@ final class PreviewThemeTest extends AppTestCase
         self::assertStringContainsString('no-store', (string) $res->headers->get('Cache-Control'));
         // The FIXED 404 body was not consulted or filled (spec §3).
         self::assertNull(
-            $this->container()->get(CacheStore::class)->get('render:default:blue-slate-round-sans-plain:404'),
+            $this->container()->get(CacheStore::class)->get('render:default:' . $this->appearanceFingerprint()
+                . ':404'),
         );
     }
 

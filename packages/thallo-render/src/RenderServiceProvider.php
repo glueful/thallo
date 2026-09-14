@@ -46,6 +46,7 @@ use Thallo\Contracts\Delivery\SeoHeadResolver;
 use Thallo\Contracts\Delivery\StorefrontLinkResolver;
 use Thallo\Contracts\Delivery\StorefrontWishlistResolver;
 use Thallo\Render\Http\Controllers\RenderController;
+use Thallo\Render\Http\Controllers\StyleSchemaController;
 use Thallo\Render\Http\Controllers\RuntimeAssetController;
 use Thallo\Render\Http\Controllers\TemplatesAdminController;
 use Thallo\Render\Templates\TemplateCatalog;
@@ -59,6 +60,15 @@ use Thallo\Render\Listeners\PurgeRenderCacheOnThemeChange;
 use Thallo\Render\Templates\TemplateUpdated;
 use Thallo\Render\Templates\ThemeCloner;
 use Psr\Container\ContainerInterface;
+use Thallo\Contracts\Preview\PreviewFragmentRenderer;
+use Thallo\Contracts\Style\BlockStyleRegistry;
+use Thallo\Contracts\Style\StyleArtifactCompiler;
+use Thallo\Render\Fragments\FragmentRenderer;
+use Thallo\Render\Fragments\FragmentVerification;
+use Thallo\Render\Fragments\PreviewFragments;
+use Thallo\Render\Style\CompiledStyleArtifacts;
+use Thallo\Render\Style\ThemeStyleArtifactCompiler;
+use Thallo\Render\Style\ThemeStylesheetArtifacts;
 
 use function config;
 
@@ -137,6 +147,34 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
                 'shared' => true,
                 'factory' => [self::class, 'makeRenderController'],
             ],
+            // Layered delivery (visual builder spec §2.2–2.4): theme artifacts per theme.
+            ThemeStylesheetArtifacts::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeThemeStylesheetArtifacts'],
+            ],
+            CompiledStyleArtifacts::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeCompiledStyleArtifacts'],
+            ],
+            // The compile seam provision and a theme switch go through (spec §2.4).
+            StyleArtifactCompiler::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeStyleArtifactCompiler'],
+            ],
+            // The canvas fragment path (visual builder spec §3.5), behind render.fragments.enabled.
+            FragmentRenderer::class => [
+                'class' => FragmentRenderer::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            FragmentVerification::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeFragmentVerification'],
+            ],
+            PreviewFragmentRenderer::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makePreviewFragments'],
+            ],
             // Theme runtime delivery (theme-runtime spec §2.3): the map is path-derived
             // from the pack's own runtime/ dir; the controller autowires against it.
             RuntimeAssetMap::class => [
@@ -208,6 +246,10 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
                 'shared' => true,
                 'factory' => [self::class, 'makeTemplatesAdminController'],
             ],
+            StyleSchemaController::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeStyleSchemaController'],
+            ],
         ];
     }
 
@@ -222,6 +264,11 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
             // runtime can never disagree about what is contributed.
             $container->get(RenderContributionRegistry::class)->frozenTemplateContributions(),
         );
+    }
+
+    public static function makeStyleSchemaController(ContainerInterface $container): StyleSchemaController
+    {
+        return new StyleSchemaController($container->get(ThemeLocator::class));
     }
 
     public static function makeTemplatesAdminController(ContainerInterface $container): TemplatesAdminController
@@ -251,7 +298,10 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
 
     public static function makeTemplateLinter(ContainerInterface $container): TemplateLinter
     {
-        return new TemplateLinter($container->get(RenderContextExtension::class));
+        return new TemplateLinter(
+            $container->get(RenderContextExtension::class),
+            $container->has(BlockStyleRegistry::class) ? $container->get(BlockStyleRegistry::class) : null,
+        );
     }
 
     public static function makePreviewSessionMiddleware(
@@ -380,6 +430,31 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
             $container->has(SeoHeadResolver::class)
                 ? $container->get(SeoHeadResolver::class)
                 : null,
+            $container->get(ThemeStylesheetArtifacts::class),
+            $container->get(CompiledStyleArtifacts::class),
+        );
+    }
+
+    /** The verification record shipped with the package (visual builder spec §3.5). */
+    public static function makeFragmentVerification(): FragmentVerification
+    {
+        return new FragmentVerification();
+    }
+
+    public static function makePreviewFragments(ContainerInterface $container): PreviewFragments
+    {
+        $context = $container->get(ApplicationContext::class);
+        return new PreviewFragments(
+            $container->get(\Thallo\Contracts\Delivery\PublicRouteResolver::class),
+            $container->has(PreviewSessionVerifier::class) ? $container->get(PreviewSessionVerifier::class) : null,
+            $container->get(BlockStyleRegistry::class),
+            $container->get(TwigFactory::class),
+            $container->get(FragmentRenderer::class),
+            $container->get(FragmentVerification::class),
+            (string) config($context, 'render.theme', 'default'),
+            (bool) config($context, 'render.fragments.enabled', false),
+            (bool) config($context, 'app.debug', false),
+            $container->get(\Psr\Log\LoggerInterface::class),
         );
     }
 
@@ -409,6 +484,38 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
                 ? $container->get(\Thallo\Contracts\Settings\ThemeAppearanceProvider::class)
                 : null,
             $container->get(\Psr\Log\LoggerInterface::class),
+            // The theme artifact hash joins the fingerprint (spec §2.4): a theme CSS edit
+            // re-keys every cached page even when the vocabulary is unchanged.
+            static fn (): string => $container->get(ThemeStylesheetArtifacts::class)
+                ->forTheme($container->get(ThemeLocator::class))->hash,
+            static fn (): string => $container->get(CompiledStyleArtifacts::class)
+                ->forTheme($container->get(ThemeLocator::class))['hash'],
+        );
+    }
+
+    public static function makeCompiledStyleArtifacts(ContainerInterface $container): CompiledStyleArtifacts
+    {
+        $context = $container->get(ApplicationContext::class);
+        return new CompiledStyleArtifacts($context->getBasePath() . '/storage/cache/style');
+    }
+
+    public static function makeStyleArtifactCompiler(ContainerInterface $container): StyleArtifactCompiler
+    {
+        $context = $container->get(ApplicationContext::class);
+        return new ThemeStyleArtifactCompiler(
+            $container->get(CompiledStyleArtifacts::class),
+            $container->get(ThemeLocator::class),
+            $context->getBasePath() . '/themes',
+            $container->get(RenderContributionRegistry::class)->frozenTemplatePaths(),
+        );
+    }
+
+    public static function makeThemeStylesheetArtifacts(ContainerInterface $container): ThemeStylesheetArtifacts
+    {
+        $context = $container->get(ApplicationContext::class);
+        return new ThemeStylesheetArtifacts(
+            $context->getBasePath() . '/storage/cache/style',
+            $container->get(RenderContributionRegistry::class),
         );
     }
 
@@ -528,6 +635,11 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
                 ? $container->get(\Thallo\Contracts\Billing\PlanCheckoutUrlResolver::class)
                 : null,
             appContext: $context,
+            themeArtifacts: $container->get(ThemeStylesheetArtifacts::class),
+            compiledArtifacts: $container->get(CompiledStyleArtifacts::class),
+            styleRegistry: $container->has(BlockStyleRegistry::class)
+                ? $container->get(BlockStyleRegistry::class)
+                : null,
         );
     }
 

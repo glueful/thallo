@@ -63,13 +63,8 @@ final class SeedBlockTypesTest extends AppTestCase
         $accentField = array_values(array_filter($style['schema'], fn ($f) => $f['name'] === 'accent'))[0];
         self::assertContains('inherit', $accentField['enum']);
         self::assertContains('rose', $accentField['enum']);
-        // Shadow-system plan: presentation controls on the style block.
-        self::assertSame('enum', $fields['shadow']);
-        self::assertSame('number', $fields['shadow_opacity']);
-        self::assertSame('enum', $fields['padding']);
-        self::assertSame('enum', $fields['margin']);
-        $shadowField = array_values(array_filter($style['schema'], fn ($f) => $f['name'] === 'shadow'))[0];
-        self::assertContains('2xl', $shadowField['enum']);
+        // Visual builder spec §7.2: shadow, spacing and the class hook are settings, not fields.
+        self::assertSame(['accent', 'neutral', 'content'], array_keys($fields));
         self::assertSame(0, (int) $repo->findBySlug('html')['active']);
         self::assertSame('Items', $repo->findBySlug('accordion_item')['category']);
         self::assertSame('Content', $repo->findBySlug('color_mode')['category']);
@@ -136,13 +131,15 @@ final class SeedBlockTypesTest extends AppTestCase
             ['title', 'description', 'variant', 'orientation', 'reverse', 'links'],
             $ctaFields,
         );
+        // Visual builder spec §7.2: the container's overlay is a choice and an opacity step,
+        // its gap a spacing token; colours, corners, border and shadow are settings.
         $container = array_column($repo->findBySlug('container')['schema'], null, 'name');
-        self::assertSame('#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?', $container['background_color']['pattern']);
-        self::assertSame(0, $container['overlay_opacity']['min']);
-        self::assertSame(100, $container['overlay_opacity']['max']);
-        // Shadow-system plan: container gains a shadow-depth enum.
-        self::assertArrayHasKey('shadow', $container);
-        self::assertContains('2xl', $container['shadow']['enum']);
+        self::assertSame(['none', 'light', 'dark'], $container['overlay']['enum']);
+        self::assertSame(['25', '50', '75'], $container['overlay_opacity']['enum']);
+        self::assertSame('spacing', $container['gap']['domain']);
+        foreach (['background_color', 'shadow', 'padding_preset', 'overlay_color'] as $retired) {
+            self::assertArrayNotHasKey($retired, $container);
+        }
 
         // Button enrichment (Nuxt UI shape): full variant/size sets, primary|neutral
         // color (the navigation-parity decision), and leading/trailing icon fields.

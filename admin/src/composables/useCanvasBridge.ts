@@ -35,8 +35,29 @@ export interface BridgeAnchor {
 /** Grant kinds (editable-string-fields spec §4) — decided by the parent's matrix. */
 export type EditKind = 'rich' | 'string' | 'text'
 
-/** stage-refresh outcomes (dom-patching spec §1). */
-export type StageRefreshMode = 'patched' | 'reload' | 'busy'
+/**
+ * stage-refresh outcomes (dom-patching spec §1; 'stale' = the fetch was older than displayed;
+ * 'failed' = a fragment patch was refused by the stage, visual builder spec §3.5).
+ */
+export type StageRefreshMode = 'patched' | 'reload' | 'busy' | 'stale' | 'failed'
+
+/** The ack: the mode, and the revision pair the fetched page carried (visual builder spec §3.5). */
+export interface StageRefreshResult {
+  mode: StageRefreshMode
+  epoch: string | null
+  revision: number | null
+}
+
+/** The fragment patch of an accepted apply (visual builder spec §3.5). */
+export interface StageFragments {
+  epoch: string
+  revision: number
+  /** The pair the stage must display for the patch to apply: the apply's baseline. */
+  baseline_epoch: string
+  baseline_revision: number
+  /** Root block id => the server-rendered wrapper. */
+  fragments: Record<string, string>
+}
 
 export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)))
@@ -62,7 +83,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     | ((id: string, field: string, payload: { html?: string; text?: string }) => void)
     | null = null
   let flushResolve: (() => void) | null = null
-  let pendingRefresh: { id: string; resolve: (mode: StageRefreshMode) => void } | null = null
+  let pendingRefresh: { id: string; resolve: (result: StageRefreshResult) => void } | null = null
   let refreshSeq = 0
 
   function targetOrigin(): string {
@@ -144,12 +165,31 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     // Partial DOM patching (dom-patching spec §1): id-correlated ack — a slow
     // fetch or timeout can never resolve a LATER refresh's promise.
     if (data.type === 'thallo:stage-refreshed') {
-      const ack = data as BridgeMessage & { refresh_id?: string; mode?: string; detail?: string }
+      const ack = data as BridgeMessage & {
+        refresh_id?: string
+        mode?: string
+        detail?: string
+        epoch?: unknown
+        revision?: unknown
+      }
       if (pendingRefresh !== null && ack.refresh_id === pendingRefresh.id) {
         const { resolve } = pendingRefresh
         pendingRefresh = null
         const mode = ack.mode
-        resolve(mode === 'patched' || mode === 'busy' ? mode : 'reload')
+        resolve({
+          mode: mode === 'patched' || mode === 'busy' || mode === 'stale' ? mode : 'reload',
+          epoch: typeof ack.epoch === 'string' ? ack.epoch : null,
+          revision: typeof ack.revision === 'number' ? ack.revision : null,
+        })
+      }
+    }
+    // A refused fragment patch (spec §3.5): the parent refreshes from accepted state.
+    if (data.type === 'thallo:fragments-failed') {
+      const ack = data as BridgeMessage & { refresh_id?: string }
+      if (pendingRefresh !== null && ack.refresh_id === pendingRefresh.id) {
+        const { resolve } = pendingRefresh
+        pendingRefresh = null
+        resolve({ mode: 'failed', epoch: null, revision: null })
       }
     }
     // Auto-apply lifecycle + scroll preservation (auto-apply spec §1/§3).
@@ -165,6 +205,21 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   }
 
   window.addEventListener('message', onMessage)
+
+  /** The MATCHING ack's result, or 'reload' after 4s (mid-reload stage, stale cached bridge). */
+  function awaitAck(refreshId: string): Promise<StageRefreshResult> {
+    return new Promise((resolve) => {
+      pendingRefresh = { id: refreshId, resolve }
+      setTimeout(() => {
+        if (pendingRefresh?.id === refreshId) {
+          // Clear BEFORE resolving (plan-review note): a late ack must
+          // meet no stale resolver state.
+          pendingRefresh = null
+          resolve({ mode: 'reload', epoch: null, revision: null })
+        }
+      }, 4000)
+    })
+  }
 
   return {
     nonce,
@@ -259,20 +314,20 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
      * working copy (dom-patching spec §1/§4). Resolves the MATCHING ack's
      * mode, or 'reload' after 4s (mid-reload stage, stale cached bridge).
      */
-    stageRefresh(): Promise<StageRefreshMode> {
+    stageRefresh(): Promise<StageRefreshResult> {
       const refreshId = `r${++refreshSeq}-${nonce}`
       post({ type: 'thallo:stage-refresh', refresh_id: refreshId })
-      return new Promise((resolve) => {
-        pendingRefresh = { id: refreshId, resolve }
-        setTimeout(() => {
-          if (pendingRefresh?.id === refreshId) {
-            // Clear BEFORE resolving (plan-review note): a late ack must
-            // meet no stale resolver state.
-            pendingRefresh = null
-            resolve('reload')
-          }
-        }, 4000)
-      })
+      return awaitAck(refreshId)
+    },
+    /**
+     * Hand the stage an accepted apply's fragments to swap in place (visual builder spec
+     * §3.5). Resolves the matching ack — 'patched', 'busy', 'stale' or 'failed' — or
+     * 'reload' after 4s; anything but 'patched' or 'busy' means refresh from accepted state.
+     */
+    stageFragments(patch: StageFragments): Promise<StageRefreshResult> {
+      const refreshId = `f${++refreshSeq}-${nonce}`
+      post({ type: 'thallo:fragments', refresh_id: refreshId, ...patch })
+      return awaitAck(refreshId)
     },
     dispose(): void {
       window.removeEventListener('message', onMessage)

@@ -12,10 +12,9 @@
   <title>Chrome preview</title>
   {# Font parity with layout.twig — the <base href> above anchors these root-relative URLs. #}
   {{ font_faces_style('Figtree', 'fonts/figtree-roman-latin.woff2', 'fonts/figtree-italic-latin.woff2') }}
-  <link rel="stylesheet" href="{{ asset('site.css') }}">
-  <link rel="stylesheet" href="{{ asset('blocks.css') }}">
-  <link rel="stylesheet" href="{{ asset('navigation.css') }}">
-  <link rel="stylesheet" href="{{ asset('stepper.css') }}">
+  <link rel="stylesheet" href="{{ layers_stylesheet_url() }}">
+  <link rel="stylesheet" href="{{ theme_stylesheet_url() }}">
+  <link rel="stylesheet" href="{{ settings_stylesheet_url() }}">
   {# Parity with layout.twig: the operator's theme colours/design tokens, then the site
      custom CSS last — the preview must look like the live page. #}
   {{ theme_colors_style() }}
@@ -28,10 +27,8 @@
       <div class="site-header__inner">{{ blocks(header.blocks) }}</div>
     </header>
   {% endif %}
-  <main style="max-width: 72rem; margin: 0 auto; padding: 2rem 1rem;">
-    <div style="border: 2px dashed #cbd5e1; border-radius: 8px; padding: 5rem 2rem; text-align: center; color: #94a3b8; font: 0.95rem system-ui;">
-      Page content
-    </div>
+  <main class="thallo-region-preview__main">
+    <div class="thallo-region-preview__placeholder">Page content</div>
   </main>
   {% if footer %}
     <footer class="site-footer thallo-region thallo-region-footer thallo-region-footer--{{ footer.settings.width|default('contained') }}">

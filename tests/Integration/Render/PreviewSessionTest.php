@@ -18,6 +18,7 @@ use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Cache\CacheStore;
 use Thallo\Contracts\Delivery\PreviewSessionVerifier;
 use Symfony\Component\HttpFoundation\Request;
+use Thallo\Core\Tests\Support\ThemeFixture;
 
 /**
  * Preview sessions (preview-sessions spec §1–§7): the token-as-cookie session, the
@@ -182,7 +183,7 @@ final class PreviewSessionTest extends AppTestCase
         // Prime the cache, then plant a sentinel.
         $this->handle(Request::create('/blog/hello', 'GET'));
         $cache = $this->container()->get(CacheStore::class);
-        $key = 'render:default:blue-slate-round-sans-plain:%2Fblog%2Fhello';
+        $key = 'render:default:' . $this->appearanceFingerprint() . ':%2Fblog%2Fhello';
         $cached = $cache->get($key);
         self::assertIsArray($cached);
         $cached['body'] = 'SENTINEL-CACHED';
@@ -291,7 +292,8 @@ final class PreviewSessionTest extends AppTestCase
         self::assertStringContainsString('no-store', (string) $listing->headers->get('Cache-Control'));
         // And nothing entered the page cache.
         self::assertNull(
-            $this->container()->get(CacheStore::class)->get('render:default:blue-slate-round-sans-plain:%2Fblog'),
+            $this->container()->get(CacheStore::class)->get('render:default:' . $this->appearanceFingerprint()
+                . ':%2Fblog'),
         );
     }
 
@@ -305,7 +307,7 @@ final class PreviewSessionTest extends AppTestCase
 
         // Stash a working copy: it must WIN over the draft at the canonical URL.
         $this->container()->get(PreviewWorkingCopyStore::class)
-            ->put($entry, 'en', ['title' => 'Working copy wins'], 300);
+            ->accept($entry, 'en', null, null, ['title' => 'Working copy wins'], [], 300);
         $res = $this->handle($this->sessionRequest('/blog/hello', $token));
         self::assertSame(200, $res->getStatusCode());
         $html = (string) $res->getContent();
@@ -324,7 +326,7 @@ final class PreviewSessionTest extends AppTestCase
         $pinned = $this->container()->get(PreviewMinter::class)->mint($entry, 'en', $version);
 
         $this->container()->get(PreviewWorkingCopyStore::class)
-            ->put($entry, 'en', ['title' => 'Working copy wins'], 300);
+            ->accept($entry, 'en', null, null, ['title' => 'Working copy wins'], [], 300);
 
         $res = $this->handle($this->sessionRequest('/blog/hello', $pinned));
         self::assertSame(200, $res->getStatusCode());
@@ -340,7 +342,7 @@ final class PreviewSessionTest extends AppTestCase
         [, $token] = $this->seedRoutedEntryWithDraft();
         $other = $this->seedPublishedEntryInType('promo', true, 'en', 'other', 'Other page');
         $this->container()->get(PreviewWorkingCopyStore::class)
-            ->put($other, 'en', ['title' => 'Leaked stash'], 300);
+            ->accept($other, 'en', null, null, ['title' => 'Leaked stash'], [], 300);
 
         $res = $this->handle($this->sessionRequest('/promo/other', $token));
         self::assertSame(200, $res->getStatusCode());
@@ -357,7 +359,7 @@ final class PreviewSessionTest extends AppTestCase
         // (the sentinel survives unchanged).
         [$entry, $token] = $this->seedRoutedEntryWithDraft();
         $cache = $this->container()->get(CacheStore::class);
-        $key = 'render:default:blue-slate-round-sans-plain:%2Fblog%2Fhello';
+        $key = 'render:default:' . $this->appearanceFingerprint() . ':%2Fblog%2Fhello';
 
         // Prime the real cache entry, then plant the sentinel.
         $this->handle(Request::create('/blog/hello', 'GET'));
@@ -367,7 +369,7 @@ final class PreviewSessionTest extends AppTestCase
         $cache->set($key, $cached, 3600);
 
         $this->container()->get(PreviewWorkingCopyStore::class)
-            ->put($entry, 'en', ['title' => 'Working copy wins'], 300);
+            ->accept($entry, 'en', null, null, ['title' => 'Working copy wins'], [], 300);
 
         $res = $this->handle($this->sessionRequest('/blog/hello', $token));
         $html = (string) $res->getContent();
@@ -395,7 +397,7 @@ final class PreviewSessionTest extends AppTestCase
 
         // With a stash — written through the OVERRIDE container: the WORKING COPY.
         $app->getContainer()->get(PreviewWorkingCopyStore::class)
-            ->put($entry, 'en', ['title' => 'Working copy wins'], 300);
+            ->accept($entry, 'en', null, null, ['title' => 'Working copy wins'], [], 300);
         $res = $controller->home($this->homeSessionRequest($app, $token));
         self::assertStringContainsString('Working copy wins', (string) $res->getContent());
     }
@@ -445,7 +447,8 @@ final class PreviewSessionTest extends AppTestCase
         self::assertStringContainsString('no-store', (string) $res->headers->get('Cache-Control'));
         // The SHARED fixed 404 body was neither read nor filled by the session.
         self::assertNull(
-            $this->container()->get(CacheStore::class)->get('render:default:blue-slate-round-sans-plain:404'),
+            $this->container()->get(CacheStore::class)->get('render:default:' . $this->appearanceFingerprint()
+                . ':404'),
         );
     }
 
@@ -465,8 +468,8 @@ final class PreviewSessionTest extends AppTestCase
         // …with token-scoped asset URLs: the theme stylesheet URL sits under the
         // token base, bare — the closing quote right after the rel path proves no
         // live ?t=/&v= busters leaked onto the preview context (spec §3).
-        self::assertStringContainsString(
-            'href="/_preview-assets/' . $token . '/site.css"',
+        self::assertMatchesRegularExpression(
+            '~href="/_preview-assets/' . preg_quote($token, '~') . '/theme-[0-9a-f]{16}\.css"~',
             (string) $res->getContent(),
         );
 
@@ -476,8 +479,8 @@ final class PreviewSessionTest extends AppTestCase
         // (theme buster + content fingerprint intact, &amp; is Twig's autoescape).
         $plain = $this->handle(Request::create('/blog/hello', 'GET'));
         self::assertStringNotContainsString('ALTPREV:', (string) $plain->getContent());
-        self::assertStringContainsString(
-            '/theme-assets/site.css?t=default&amp;v=',
+        self::assertMatchesRegularExpression(
+            '~/theme-assets/theme-[0-9a-f]{16}\.css~',
             (string) $plain->getContent(),
         );
         self::assertStringNotContainsString('/_preview-assets/', (string) $plain->getContent());
@@ -496,7 +499,7 @@ final class PreviewSessionTest extends AppTestCase
         // Live first: constructor-backed context (theme-assets base + busters).
         $plain = $this->handle(Request::create('/blog/hello', 'GET'));
         self::assertStringContainsString(
-            '/theme-assets/site.css?t=default&amp;v=',
+            '/theme-assets/fonts/figtree-roman-latin.woff2?t=default&amp;v=',
             (string) $plain->getContent(),
         );
 
@@ -541,8 +544,7 @@ final class PreviewSessionTest extends AppTestCase
         // constructor THROWS for a configured path that isn't a real directory, and
         // themedEnv()'s catch-all would then silently fall back to the (unaffected) boot
         // environment — silently defeating this test rather than exercising the fix.
-        @mkdir($themeDir . '/templates', 0755, true);
-        file_put_contents($themeDir . '/theme.json', json_encode(['name' => 'fixcpreview']));
+        ThemeFixture::write($themeDir, 'fixcpreview');
         try {
             $entryUuid = $this->seedBlocksEntry([['id' => 'mc1', 'type' => 'mini-cart', 'data' => []]]);
             $token = $this->container()->get(PreviewMinter::class)->mint($entryUuid, 'en', null, 'fixcpreview');
@@ -627,7 +629,7 @@ final class PreviewSessionTest extends AppTestCase
         unlink($base . '/entry.twig');
         rmdir($base);
         $fallback = $this->handle(Request::create('/_preview/' . $token, 'GET'));
-        self::assertSame(200, $fallback->getStatusCode());
+        self::assertSame(200, $fallback->getStatusCode(), substr((string) $fallback->getContent(), 0, 600));
         self::assertStringContainsString('Vanish', (string) $fallback->getContent()); // boot entry.twig
         self::assertStringNotContainsString('ALTPREV:', (string) $fallback->getContent());
     }
@@ -636,9 +638,7 @@ final class PreviewSessionTest extends AppTestCase
     private function makeAltTheme(): void
     {
         $base = $this->appContext()->getBasePath() . '/themes/altprev';
-        @mkdir($base . '/templates', 0755, true);
-        @mkdir($base . '/assets', 0755, true);
-        file_put_contents($base . '/theme.json', json_encode(['name' => 'altprev']));
+        ThemeFixture::write($base, 'altprev');
         file_put_contents(
             $base . '/templates/entry.twig',
             "{% extends 'layout.twig' %}{% block content %}ALTPREV:{{ entry.fields.title }}"

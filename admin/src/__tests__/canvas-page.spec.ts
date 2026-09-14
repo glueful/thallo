@@ -13,7 +13,18 @@ vi.mock('@/queries/blockTypes', async (importOriginal) => ({
 }))
 
 const { mintMock, applyMock } = vi.hoisted(() => ({ mintMock: vi.fn(), applyMock: vi.fn() }))
+// Every accepted apply names a newer revision (visual builder spec §3.5); a repeated one
+// would be dropped as stale, so the default mock counts up.
+let revisionCounter = 0
+const nextApplied = () => ({
+  epoch: 'e1',
+  revision: ++revisionCounter,
+  baseline: revisionCounter - 1,
+  style_generation: 0,
+  applied_at: '2026-09-14T00:00:00Z',
+})
 vi.mock('@/queries/preview', () => ({ mintPreviewData: mintMock, applyPreview: applyMock }))
+vi.mock('@/queries/styleSchema', () => ({ useStyleSchema: () => ({ data: ref(null) }) }))
 
 const draft = ref<{ fields: Record<string, unknown>; lock_version: number } | null>(null)
 const { saveMock } = vi.hoisted(() => ({ saveMock: vi.fn() }))
@@ -97,7 +108,7 @@ const bridge = vi.hoisted(() => {
       ) => (callbacks.textChanged = cb),
       editGrant: vi.fn(),
       editFlush: vi.fn().mockResolvedValue(undefined),
-      stageRefresh: vi.fn().mockResolvedValue('patched'),
+      stageRefresh: vi.fn().mockResolvedValue({ mode: 'patched', epoch: null, revision: null }),
       onEditStart: (cb: (id: string) => void) => (callbacks.editStart = cb),
       onEditEnd: (cb: (id: string) => void) => (callbacks.editEnd = cb),
       onScroll: (cb: (y: number) => void) => (callbacks.scroll = cb),
@@ -191,6 +202,8 @@ beforeEach(() => {
   }
   mintMock.mockReset()
   applyMock.mockReset()
+  revisionCounter = 0
+  applyMock.mockImplementation(async () => nextApplied())
   saveMock.mockReset()
   notify.warning.mockReset()
   notify.success.mockReset()
@@ -201,7 +214,7 @@ beforeEach(() => {
   bridge.instance.editFlush.mockClear()
   bridge.instance.editFlush.mockResolvedValue(undefined)
   bridge.instance.stageRefresh.mockClear()
-  bridge.instance.stageRefresh.mockResolvedValue('patched') // default: patch succeeds
+  bridge.instance.stageRefresh.mockResolvedValue({ mode: 'patched', epoch: null, revision: null }) // default: patch succeeds
   bridge.instance.restoreScroll.mockClear()
   notify.error.mockReset() // the suspension test counts error banners
   localStorage.clear()
@@ -285,7 +298,6 @@ describe('canvas page', () => {
 
   it('the Page tab edits _presentation and auto-applies; Theme default clears the key', async () => {
     mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
-    applyMock.mockResolvedValue(undefined)
     const wrapper = mountPage()
     await flushPromises()
     vi.useFakeTimers()
@@ -310,6 +322,7 @@ describe('canvas page', () => {
         'en',
         'tok1',
         expect.objectContaining({ _presentation: { layout: 'full' } }),
+        expect.anything(),
       )
 
       await wrapper.find('[data-test="pres-title-hide"]').trigger('click')
@@ -319,6 +332,7 @@ describe('canvas page', () => {
         'en',
         'tok1',
         expect.objectContaining({ _presentation: { layout: 'full', show_title: false } }),
+        expect.anything(),
       )
 
       // Theme default DELETES the keys — an empty override removes _presentation.
@@ -348,7 +362,6 @@ describe('canvas page', () => {
     // stage and the tree start OUT OF SYNC. The initial reconciliation apply
     // overwrites the stash with tree truth — regardless of the Auto toggle.
     mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
-    applyMock.mockResolvedValue(undefined)
     const wrapper = mountPage()
     await flushPromises()
     expect(applyMock).not.toHaveBeenCalled() // not before the stage is loaded
@@ -361,6 +374,7 @@ describe('canvas page', () => {
       'en',
       'tok1',
       expect.objectContaining({ title: 'T' }), // the HYDRATED tree, verbatim
+      expect.anything(),
     )
     expect(bridge.instance.stageRefresh).toHaveBeenCalledTimes(1)
 
@@ -373,7 +387,6 @@ describe('canvas page', () => {
 
   it('Apply posts token+fields and PATCHES in place — no remount, no re-mint', async () => {
     mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
-    applyMock.mockResolvedValue(undefined)
     const wrapper = mountPage()
     await flushPromises()
     const before = wrapper.find('[data-test="canvas-iframe"]').element
@@ -386,6 +399,7 @@ describe('canvas page', () => {
       'en',
       'tok1',
       expect.objectContaining({ title: 'T' }),
+      expect.anything(),
     )
     // dom-patching spec §4: success asks the bridge to patch; 'patched'
     // means the iframe is NOT remounted (identity kept, scroll untouched).
@@ -399,8 +413,7 @@ describe('canvas page', () => {
 
   it('a reload answer (or timeout) from the bridge falls back to the full remount', async () => {
     mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
-    applyMock.mockResolvedValue(undefined)
-    bridge.instance.stageRefresh.mockResolvedValue('reload')
+    bridge.instance.stageRefresh.mockResolvedValue({ mode: 'reload', epoch: null, revision: null })
     const wrapper = mountPage()
     await flushPromises()
     const before = wrapper.find('[data-test="canvas-iframe"]').element
@@ -429,7 +442,13 @@ describe('canvas page', () => {
     await flushPromises()
     expect(mintMock).toHaveBeenCalledTimes(2)
     expect(applyMock).toHaveBeenCalledTimes(2)
-    expect(applyMock).toHaveBeenLastCalledWith('entry0000001', 'en', 'tok2', expect.anything())
+    expect(applyMock).toHaveBeenLastCalledWith(
+      'entry0000001',
+      'en',
+      'tok2',
+      expect.anything(),
+      expect.anything(),
+    )
     wrapper.unmount()
   })
 
@@ -933,7 +952,6 @@ describe('canvas page', () => {
     // way the real bridge commits during thallo:edit-flush; Apply must read the
     // tree AFTER that commit landed.
     mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
-    applyMock.mockResolvedValue(undefined)
     bridge.instance.editFlush.mockImplementationOnce(async () => {
       bridge.callbacks.textChanged?.('prose0000003', 'body', { html: '<p>final keystroke</p>' })
     })
@@ -1034,7 +1052,6 @@ describe('editor page Design action', () => {
 describe('auto-apply', () => {
   async function mountAuto() {
     mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
-    applyMock.mockResolvedValue(undefined)
     const wrapper = mountPage()
     await flushPromises()
     return wrapper
@@ -1091,7 +1108,13 @@ describe('auto-apply', () => {
       expect(applyMock).not.toHaveBeenCalled() // still inside the window
       await vi.advanceTimersByTimeAsync(500)
       expect(applyMock).toHaveBeenCalledTimes(1)
-      expect(applyMock).toHaveBeenCalledWith('entry0000001', 'en', 'tok1', expect.anything())
+      expect(applyMock).toHaveBeenCalledWith(
+        'entry0000001',
+        'en',
+        'tok1',
+        expect.anything(),
+        expect.anything(),
+      )
     } finally {
       vi.useRealTimers()
     }
@@ -1101,7 +1124,9 @@ describe('auto-apply', () => {
   it('no concurrent applies: a change during flight queues EXACTLY one follow-up', async () => {
     const wrapper = await mountAuto()
     let release!: () => void
-    applyMock.mockImplementationOnce(() => new Promise<void>((resolve) => (release = resolve)))
+    applyMock.mockImplementationOnce(
+      () => new Promise((resolve) => (release = () => resolve(nextApplied()))),
+    )
     vi.useFakeTimers()
     try {
       bridge.callbacks.move?.('blockaaa0001', 1)
@@ -1187,7 +1212,7 @@ describe('auto-apply', () => {
     mintMock.mockResolvedValue({ token: 'tok2', themeUrl: 'https://site.test/_preview/tok2' })
     applyMock
       .mockRejectedValueOnce(new ApiError('expired', 410, {}, { success: false }))
-      .mockResolvedValue(undefined)
+      .mockImplementation(async () => nextApplied())
     vi.useFakeTimers()
     try {
       bridge.callbacks.move?.('blockaaa0001', 1)

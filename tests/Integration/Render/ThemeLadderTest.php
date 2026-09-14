@@ -6,6 +6,7 @@ namespace Thallo\Core\Tests\Integration\Render;
 
 use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Render\ThemeConfigError;
+use Thallo\Core\Tests\Support\ThemeFixture;
 use Thallo\Render\ThemeLocator;
 
 final class ThemeLadderTest extends AppTestCase
@@ -46,11 +47,7 @@ final class ThemeLadderTest extends AppTestCase
 
     public function testAppThemeIsFirstLoaderPathWithDefaultFallback(): void
     {
-        mkdir($this->tmpThemes . '/mytheme/templates', 0755, true);
-        file_put_contents(
-            $this->tmpThemes . '/mytheme/theme.json',
-            json_encode(['name' => 'mytheme', 'version' => '1.0.0', 'menus' => ['main']]),
-        );
+        ThemeFixture::write($this->tmpThemes . '/mytheme', 'mytheme');
 
         $paths = (new ThemeLocator('mytheme', $this->tmpThemes))->activePaths();
         self::assertSame('mytheme', $paths['name']);

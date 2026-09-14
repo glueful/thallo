@@ -16,6 +16,7 @@ export const FIELD_TYPES = [
   'asset',
   'json',
   'blocks',
+  'token',
 ] as const
 export type FieldType = (typeof FIELD_TYPES)[number]
 
@@ -43,6 +44,8 @@ export interface ContentTypeField {
   reference_slug_field?: string | null
   /** Picker-only block-type allowlist for a `blocks` field ([] / absent = all active). */
   block_types?: string[]
+  /** The vocabulary domain a `token` field draws from (visual builder spec §1.7). */
+  domain?: string | null
   /** Anchored regex body a string/text value must fully match. */
   pattern?: string | null
   /** Inclusive lower bound for a `number` field. */

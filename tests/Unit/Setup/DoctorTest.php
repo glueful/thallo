@@ -226,4 +226,64 @@ final class DoctorTest extends TestCase
         $doctor = new Doctor($public, '8.3.0', ['pdo_pgsql'], static fn (string $url): ?int => null);
         self::assertArrayNotHasKey('asset-routing', $this->byName($doctor->preflight()), 'unreachable => no verdict');
     }
+
+    public function testTheShippedThemeVocabularyIsOk(): void
+    {
+        $dir = $this->tempProjectWithEnv("APP_ENV=production\n");
+        $checks = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql']))->preflight());
+
+        self::assertSame(Check::OK, $checks['theme-vocabulary']->status);
+        self::assertStringContainsString('default', $checks['theme-vocabulary']->message);
+    }
+
+    public function testAnAppThemeWithoutAVocabularyFailsBeforeActivation(): void
+    {
+        $dir = $this->tempProjectWithEnv("APP_ENV=production\nRENDER_THEME=custom\n");
+        mkdir($dir . '/themes/custom/templates', 0755, true);
+        file_put_contents($dir . '/themes/custom/theme.json', json_encode(['name' => 'custom']));
+        $checks = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql']))->preflight());
+
+        self::assertSame(Check::FAIL, $checks['theme-vocabulary']->status);
+        self::assertStringContainsString('vocabulary is missing', $checks['theme-vocabulary']->message);
+        self::assertStringContainsString('RENDER_THEME', $checks['theme-vocabulary']->message);
+    }
+
+    public function testAMissingAppThemeDirectoryFails(): void
+    {
+        $dir = $this->tempProjectWithEnv("APP_ENV=production\nRENDER_THEME=ghost\n");
+        $checks = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql']))->preflight());
+
+        self::assertSame(Check::FAIL, $checks['theme-vocabulary']->status);
+        self::assertStringContainsString('themes/ghost', $checks['theme-vocabulary']->message);
+    }
+
+    public function testTheStyleArtifactCheckWarnsUntilProvisionCompilesIt(): void
+    {
+        $dir = $this->tempProjectWithEnv("APP_ENV=production\n");
+        $checks = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql']))->preflight());
+        self::assertSame(Check::WARN, $checks['style-artifact']->status);
+        self::assertStringContainsString('thallo:provision', $checks['style-artifact']->message);
+
+        $json = json_decode((string) file_get_contents(
+            dirname(__DIR__, 3) . '/packages/thallo-render/themes/default/theme.json',
+        ), true);
+        $hash = \Thallo\Render\Style\StyleCompiler::hash(\Thallo\Render\Style\ThemeVocabulary::fromThemeJson(
+            $json,
+            dirname(__DIR__, 3) . '/packages/thallo-render/themes/default',
+        ));
+        mkdir($dir . '/storage/cache/style', 0755, true);
+        file_put_contents($dir . '/storage/cache/style/settings-' . $hash . '.css', '@layer settings {}');
+        $checks = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql']))->preflight());
+        self::assertSame(Check::OK, $checks['style-artifact']->status);
+        self::assertStringContainsString('settings-' . $hash . '.css', $checks['style-artifact']->message);
+    }
+
+    public function testTheStyleArtifactCheckIsSkippedWhenTheVocabularyIsBroken(): void
+    {
+        $dir = $this->tempProjectWithEnv("APP_ENV=production\nRENDER_THEME=custom\n");
+        mkdir($dir . '/themes/custom/templates', 0755, true);
+        file_put_contents($dir . '/themes/custom/theme.json', json_encode(['name' => 'custom']));
+        $checks = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql']))->preflight());
+        self::assertArrayNotHasKey('style-artifact', $checks, 'the vocabulary failure is the verdict');
+    }
 }

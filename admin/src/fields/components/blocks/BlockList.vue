@@ -51,7 +51,7 @@ function closeMenu(): void {
 
 function insertType(type: BlockType): void {
   const index = menuIndex.value ?? props.blocks.length
-  const block: BlockInstance = { id: newBlockId(), type: type.slug, data: {} }
+  const block: BlockInstance = { id: newBlockId(), type: type.slug, data: {}, settings: {} }
   ctx.apply((t) =>
     ctx.ops.insertAt(t, { parentId: props.parentId, region: props.region, index }, block),
   )

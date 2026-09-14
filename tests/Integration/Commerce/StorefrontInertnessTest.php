@@ -308,22 +308,18 @@ final class StorefrontInertnessTest extends AppTestCase
         self::assertNull($cache->get($key), 'a region save must purge the shop page cache too');
     }
 
-    public function testThemeHeadCarriesTheFingerprintedStorefrontStylesheetOnlyWhileEnabled(): void
+    public function testTheStorefrontStylesheetRidesInTheThemeArtifactOnlyWhileEnabled(): void
     {
-        // Blocks can only emit their stylesheet link inside the BODY, and that link is the
-        // uncacheable alias that 302s — so the header's cart/wishlist chrome painted unstyled
-        // and restyled on EVERY navigation. The theme links the fingerprinted file from
-        // <head> instead; with the capability off it must emit nothing at all (a <link> to a
-        // 404 on every page would be worse than no styling).
+        // Visual builder spec §2.2/§2.6: package stylesheets are delivered inside @layer theme
+        // through the contribution registry, so storefront chrome is styled at first paint on
+        // every page; with the capability off the artifact carries no storefront rules.
         $html = (string) $this->handle(Request::create('/shop', 'GET'))->getContent();
         $head = substr($html, 0, strpos($html, '</head>') ?: 0);
-
-        self::assertMatchesRegularExpression(
-            '#<link rel="stylesheet" href="/_shop/assets/shop-[0-9a-f]+\.css">#',
-            $head,
-            'the head carries the FINGERPRINTED stylesheet (never the 302 alias)',
-        );
-        self::assertStringNotContainsString('/_shop/assets/shop.css', $head, 'never the alias in head');
+        self::assertStringNotContainsString('/_shop/assets/shop', $head, 'no separate storefront link');
+        self::assertSame(1, preg_match('~href="(/theme-assets/theme-[0-9a-f]{16}\.css)"~', $head, $m));
+        $css = (string) $this->handle(Request::create($m[1], 'GET'))->getContent();
+        self::assertStringContainsString('@layer theme {', $css);
+        self::assertStringContainsString('/* shop.css */', $css, 'the storefront sheet rides in the artifact');
 
         $this->flags()->forget('tenancy.schema_state');
         $this->flags()->forget('tenancy.default_tenant_uuid');
@@ -331,12 +327,13 @@ final class StorefrontInertnessTest extends AppTestCase
             'capabilities' => ['thallo.commerce' => false],
         ]);
         try {
-            $resolver = $disabledApp->getContainer()->get(
-                \Thallo\Contracts\Delivery\StorefrontLinkResolver::class,
-            );
-            self::assertNull(
-                $resolver->stylesheetUrl(),
-                'capability off → no stylesheet URL, so the theme head emits no link',
+            $artifact = $disabledApp->getContainer()
+                ->get(\Thallo\Render\Style\ThemeStylesheetArtifacts::class)
+                ->forTheme($disabledApp->getContainer()->get(\Thallo\Render\ThemeLocator::class));
+            self::assertStringNotContainsString(
+                '/* shop.css */',
+                $artifact->css,
+                'capability off: no storefront rules',
             );
         } finally {
             self::resetSharedRepositoryConnection();

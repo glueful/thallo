@@ -35,6 +35,10 @@ const defaultTypes = (): BlockType[] => [
     category: 'Layout',
     description: null,
     active: true,
+    style_capabilities: null,
+    style_targets: null,
+    flags: {},
+    starter_content: null,
     schema: [
       { name: 'heading', type: 'string', required: true, localized: false, filterable: false },
     ],
@@ -47,6 +51,10 @@ const defaultTypes = (): BlockType[] => [
     category: null,
     description: null,
     active: true,
+    style_capabilities: null,
+    style_targets: null,
+    flags: {},
+    starter_content: null,
     schema: [{ name: 'text', type: 'text', required: false, localized: false, filterable: false }],
   },
   {
@@ -57,6 +65,10 @@ const defaultTypes = (): BlockType[] => [
     category: null,
     description: null,
     active: false,
+    style_capabilities: null,
+    style_targets: null,
+    flags: {},
+    starter_content: null,
     schema: [],
   },
   {
@@ -67,6 +79,10 @@ const defaultTypes = (): BlockType[] => [
     category: 'Layout',
     description: null,
     active: true,
+    style_capabilities: null,
+    style_targets: null,
+    flags: {},
+    starter_content: null,
     schema: [
       { name: 'content', type: 'blocks', required: false, localized: false, filterable: false },
     ],
@@ -87,6 +103,10 @@ const tabsTypes = (): BlockType[] => [
     category: 'Content',
     description: null,
     active: true,
+    style_capabilities: null,
+    style_targets: null,
+    flags: {},
+    starter_content: null,
     schema: [
       {
         name: 'items',
@@ -106,6 +126,10 @@ const tabsTypes = (): BlockType[] => [
     category: 'Items',
     description: null,
     active: true,
+    style_capabilities: null,
+    style_targets: null,
+    flags: {},
+    starter_content: null,
     schema: [
       { name: 'label', type: 'string', required: true, localized: false, filterable: false },
     ],
@@ -126,7 +150,14 @@ describe('BlocksField', () => {
   })
 
   it('adds a block from the picker (active types only) with a generated id', async () => {
-    const model = ref<{ id: string; type: string; data: Record<string, unknown> }[]>([])
+    const model = ref<
+      {
+        id: string
+        type: string
+        data: Record<string, unknown>
+        settings: Record<string, unknown>
+      }[]
+    >([])
     const wrapper = mount(BlocksField, {
       props: {
         field,
@@ -157,9 +188,16 @@ describe('BlocksField', () => {
   })
 
   it('reorders with the move buttons and deletes with confirm', async () => {
-    const model = ref<{ id: string; type: string; data: Record<string, unknown> }[]>([
-      { id: 'a', type: 'hero', data: { heading: 'One' } },
-      { id: 'b', type: 'quote', data: { text: 'Two' } },
+    const model = ref<
+      {
+        id: string
+        type: string
+        data: Record<string, unknown>
+        settings: Record<string, unknown>
+      }[]
+    >([
+      { id: 'a', type: 'hero', data: { heading: 'One' }, settings: {} },
+      { id: 'b', type: 'quote', data: { text: 'Two' }, settings: {} },
     ])
     const wrapper = mount(BlocksField, {
       props: {
@@ -194,16 +232,21 @@ describe('BlocksField', () => {
 
   it('shows an inactive badge for blocks whose type was deactivated', async () => {
     const wrapper = mount(BlocksField, {
-      props: { field, modelValue: [{ id: 'z', type: 'legacy', data: {} }] },
+      props: { field, modelValue: [{ id: 'z', type: 'legacy', data: {}, settings: {} }] },
     })
     await flushPromises()
     expect(wrapper.find('[data-test="block-inactive-z"]').exists()).toBe(true)
   })
 
   it('recurses: adds a child block inside a section', async () => {
-    const model = ref<{ id: string; type: string; data: Record<string, unknown> }[]>([
-      { id: 's1', type: 'section', data: { content: [] } },
-    ])
+    const model = ref<
+      {
+        id: string
+        type: string
+        data: Record<string, unknown>
+        settings: Record<string, unknown>
+      }[]
+    >([{ id: 's1', type: 'section', data: { content: [] }, settings: {} }])
     const wrapper = mount(BlocksField, {
       props: {
         field,
@@ -232,7 +275,7 @@ describe('BlocksField', () => {
     const wrapper = mount(BlocksField, {
       props: {
         field,
-        modelValue: [{ id: 's1', type: 'section', data: { content: [] } }],
+        modelValue: [{ id: 's1', type: 'section', data: { content: [] }, settings: {} }],
         depth: 3,
       },
     })
@@ -255,6 +298,10 @@ describe('BlocksField', () => {
         description: null,
         category: null,
         active: true,
+        style_capabilities: null,
+        style_targets: null,
+        flags: {},
+        starter_content: null,
         schema: [
           {
             name: 'author',
@@ -268,7 +315,7 @@ describe('BlocksField', () => {
       },
     ]
     const wrapper = mount(BlocksField, {
-      props: { field, modelValue: [{ id: 'c', type: 'author_card', data: {} }] },
+      props: { field, modelValue: [{ id: 'c', type: 'author_card', data: {}, settings: {} }] },
       global: { stubs: { ReferenceField: true } }, // the picker itself has its own spec
     })
     await flushPromises()
@@ -298,9 +345,14 @@ describe('BlocksField', () => {
           }
         : t,
     )
-    const model = ref<{ id: string; type: string; data: Record<string, unknown> }[]>([
-      { id: 'sec00000001', type: 'section', data: { content: [] } },
-    ])
+    const model = ref<
+      {
+        id: string
+        type: string
+        data: Record<string, unknown>
+        settings: Record<string, unknown>
+      }[]
+    >([{ id: 'sec00000001', type: 'section', data: { content: [] }, settings: {} }])
     const wrapper = mount(BlocksField, {
       props: {
         field, // root field: NO allowlist -> all active types at root
@@ -334,10 +386,15 @@ describe('BlocksField', () => {
   })
 
   it('canvas structural methods: move/duplicate/delete/insertAfter/pickerTypesFor', async () => {
-    let model: { id: string; type: string; data: Record<string, unknown> }[] = [
-      { id: 'aaa000000001', type: 'quote', data: { text: 'A' } },
-      { id: 'bbb000000002', type: 'quote', data: { text: 'B' } },
-      { id: 'sec00000001', type: 'section', data: { content: [] } },
+    let model: {
+      id: string
+      type: string
+      data: Record<string, unknown>
+      settings: Record<string, unknown>
+    }[] = [
+      { id: 'aaa000000001', type: 'quote', data: { text: 'A' }, settings: {} },
+      { id: 'bbb000000002', type: 'quote', data: { text: 'B' }, settings: {} },
+      { id: 'sec00000001', type: 'section', data: { content: [] }, settings: {} },
     ]
     const wrapper = mount(BlocksField, {
       props: {
@@ -398,13 +455,19 @@ describe('BlocksField', () => {
   })
 
   it('moveBlockTo places a block next to a SAME-LIST reference; cross-list denied', async () => {
-    let model: { id: string; type: string; data: Record<string, unknown> }[] = [
-      { id: 'aaa000000001', type: 'quote', data: { text: 'A' } },
-      { id: 'bbb000000002', type: 'quote', data: { text: 'B' } },
+    let model: {
+      id: string
+      type: string
+      data: Record<string, unknown>
+      settings: Record<string, unknown>
+    }[] = [
+      { id: 'aaa000000001', type: 'quote', data: { text: 'A' }, settings: {} },
+      { id: 'bbb000000002', type: 'quote', data: { text: 'B' }, settings: {} },
       {
         id: 'sec00000001',
         type: 'section',
-        data: { content: [{ id: 'inner0000001', type: 'quote', data: {} }] },
+        data: { content: [{ id: 'inner0000001', type: 'quote', data: {}, settings: {} }] },
+        settings: {},
       },
     ]
     const wrapper = mount(BlocksField, {
@@ -440,9 +503,12 @@ describe('BlocksField', () => {
   })
 
   it('patchBlockData patches one field through the tree; blockTypeById resolves types', async () => {
-    let model: { id: string; type: string; data: Record<string, unknown> }[] = [
-      { id: 'aaa000000001', type: 'quote', data: { text: 'A' } },
-    ]
+    let model: {
+      id: string
+      type: string
+      data: Record<string, unknown>
+      settings: Record<string, unknown>
+    }[] = [{ id: 'aaa000000001', type: 'quote', data: { text: 'A' }, settings: {} }]
     const wrapper = mount(BlocksField, {
       props: {
         field,
@@ -481,11 +547,17 @@ describe('BlocksField', () => {
           }
         : t,
     )
-    let model: { id: string; type: string; data: Record<string, unknown> }[] = [
+    let model: {
+      id: string
+      type: string
+      data: Record<string, unknown>
+      settings: Record<string, unknown>
+    }[] = [
       {
         id: 'sec00000001',
         type: 'section',
-        data: { content: [{ id: 'inner0000001', type: 'quote', data: {} }] },
+        data: { content: [{ id: 'inner0000001', type: 'quote', data: {}, settings: {} }] },
+        settings: {},
       },
     ]
     const wrapper = mount(BlocksField, {
@@ -513,14 +585,23 @@ describe('BlocksField', () => {
         category: 'Layout',
         description: null,
         active: true,
+        style_capabilities: null,
+        style_targets: null,
+        flags: {},
+        starter_content: null,
         schema: [
           { name: 'menu', type: 'string', required: true, localized: false, filterable: false },
         ],
       },
     ]
-    const model = ref<{ id: string; type: string; data: Record<string, unknown> }[]>([
-      { id: 'navblk000001', type: 'navigation', data: { menu: 'main' } },
-    ])
+    const model = ref<
+      {
+        id: string
+        type: string
+        data: Record<string, unknown>
+        settings: Record<string, unknown>
+      }[]
+    >([{ id: 'navblk000001', type: 'navigation', data: { menu: 'main' }, settings: {} }])
     const wrapper = mount(BlocksField, {
       props: {
         field,
@@ -535,9 +616,14 @@ describe('BlocksField', () => {
     expect(wrapper.find('[data-test="nav-menu-select"]').exists()).toBe(true)
 
     // A hero block's string field stays a plain input — no select.
-    const heroModel = ref<{ id: string; type: string; data: Record<string, unknown> }[]>([
-      { id: 'heroblk00001', type: 'hero', data: { heading: 'H' } },
-    ])
+    const heroModel = ref<
+      {
+        id: string
+        type: string
+        data: Record<string, unknown>
+        settings: Record<string, unknown>
+      }[]
+    >([{ id: 'heroblk00001', type: 'hero', data: { heading: 'H' }, settings: {} }])
     const heroWrapper = mount(BlocksField, {
       props: {
         field,
@@ -563,6 +649,10 @@ describe('BlocksField', () => {
         category: null,
         description: null,
         active: true,
+        style_capabilities: null,
+        style_targets: null,
+        flags: {},
+        starter_content: null,
         schema: [
           { name: 'title', type: 'string', required: false, localized: false, filterable: false },
           {
@@ -592,9 +682,14 @@ describe('BlocksField', () => {
         ],
       },
     ]
-    const model = ref<{ id: string; type: string; data: Record<string, unknown> }[]>([
-      { id: 'g1', type: 'grouped', data: {} },
-    ])
+    const model = ref<
+      {
+        id: string
+        type: string
+        data: Record<string, unknown>
+        settings: Record<string, unknown>
+      }[]
+    >([{ id: 'g1', type: 'grouped', data: {}, settings: {} }])
     const wrapper = mount(BlocksField, {
       props: {
         field,
@@ -619,9 +714,14 @@ describe('BlocksField', () => {
     expect(group.text()).not.toContain('title')
 
     // A block that declares no groups renders no group sections at all (flat, as before).
-    const flat = ref<{ id: string; type: string; data: Record<string, unknown> }[]>([
-      { id: 'h1', type: 'hero', data: { heading: 'H' } },
-    ])
+    const flat = ref<
+      {
+        id: string
+        type: string
+        data: Record<string, unknown>
+        settings: Record<string, unknown>
+      }[]
+    >([{ id: 'h1', type: 'hero', data: { heading: 'H' }, settings: {} }])
     const flatWrapper = mount(BlocksField, {
       props: {
         field,
@@ -646,7 +746,9 @@ describe('BlocksField', () => {
     const full = mount(BlocksField, {
       props: {
         field,
-        modelValue: [{ id: 'tabsblk00001', type: 'tabs', data: { items: tabItems(12) } }],
+        modelValue: [
+          { id: 'tabsblk00001', type: 'tabs', data: { items: tabItems(12) }, settings: {} },
+        ],
       },
     })
     await flushPromises()
@@ -657,7 +759,9 @@ describe('BlocksField', () => {
     const spare = mount(BlocksField, {
       props: {
         field,
-        modelValue: [{ id: 'tabsblk00001', type: 'tabs', data: { items: tabItems(11) } }],
+        modelValue: [
+          { id: 'tabsblk00001', type: 'tabs', data: { items: tabItems(11) }, settings: {} },
+        ],
       },
     })
     await flushPromises()
@@ -668,9 +772,12 @@ describe('BlocksField', () => {
 
   it('insertAfter and duplicateBlock no-op when the destination tabs list is full', async () => {
     blockTypes.value = tabsTypes()
-    let model: { id: string; type: string; data: Record<string, unknown> }[] = [
-      { id: 'tabsblk00001', type: 'tabs', data: { items: tabItems(12) } },
-    ]
+    let model: {
+      id: string
+      type: string
+      data: Record<string, unknown>
+      settings: Record<string, unknown>
+    }[] = [{ id: 'tabsblk00001', type: 'tabs', data: { items: tabItems(12) }, settings: {} }]
     const wrapper = mount(BlocksField, {
       props: {
         field,
@@ -694,9 +801,14 @@ describe('BlocksField', () => {
     blockTypes.value = tabsTypes()
     const fakeEl = (dataset: Record<string, string>): HTMLElement =>
       ({ dataset }) as unknown as HTMLElement
-    let model: { id: string; type: string; data: Record<string, unknown> }[] = [
-      { id: 'tabsblk00001', type: 'tabs', data: { items: tabItems(12) } },
-      { id: 'loose0000001', type: 'tab', data: { label: 'X' } },
+    let model: {
+      id: string
+      type: string
+      data: Record<string, unknown>
+      settings: Record<string, unknown>
+    }[] = [
+      { id: 'tabsblk00001', type: 'tabs', data: { items: tabItems(12) }, settings: {} },
+      { id: 'loose0000001', type: 'tab', data: { label: 'X' }, settings: {} },
     ]
     const wrapper = mount(BlocksField, {
       props: {

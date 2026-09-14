@@ -6,6 +6,10 @@ namespace Thallo\Render;
 
 use Glueful\Bootstrap\ApplicationContext;
 use Thallo\Contracts\Billing\PlanCheckoutUrlResolver;
+use Thallo\Contracts\Style\BlockStyleRegistry;
+use Thallo\Contracts\Style\StyleSchema;
+use Thallo\Contracts\Style\StyleTargets;
+use Thallo\Contracts\Style\Vocabulary;
 use Thallo\Contracts\Content\BlockEditableFieldResolver;
 use Thallo\Contracts\Content\FormSealer;
 use Thallo\Contracts\Content\RegionReader;
@@ -32,6 +36,11 @@ use Twig\Extension\AbstractExtension;
 use Twig\Markup;
 use Twig\TwigFilter;
 use Twig\TwigFunction;
+use Thallo\Render\Style\ThemeStylesheetArtifact;
+use Thallo\Render\Style\BlockStyleEmitter;
+use Thallo\Render\Style\ClassNames;
+use Thallo\Render\Style\CompiledStyleArtifacts;
+use Thallo\Render\Style\ThemeStylesheetArtifacts;
 
 /**
  * The theme-facing template functions. The extension is the per-render context object:
@@ -93,6 +102,9 @@ final class RenderContextExtension extends AbstractExtension
      * reset before every render by the controller. Null = use the saved/default
      * source; a verified preview session's signed pair sets it for that render only.
      */
+    /** The theme whose artifact theme_stylesheet_url() names: bound by TwigFactory / the render. */
+    private ?ThemeLocator $boundTheme = null;
+
     private ?string $appearanceAccentOverride = null;
     private ?string $appearanceNeutralOverride = null;
 
@@ -197,6 +209,13 @@ final class RenderContextExtension extends AbstractExtension
          * unbound.
          */
         private readonly ?ApplicationContext $appContext = null,
+        /** Layered delivery (visual builder spec §2.2–2.4): the theme artifact per theme. */
+        private readonly ?ThemeStylesheetArtifacts $themeArtifacts = null,
+        /** The compiled style artifact per theme (visual builder spec §2.4). */
+        private readonly ?CompiledStyleArtifacts $compiledArtifacts = null,
+        /** Block style declarations (spec §1.7): soft-bound; null = no block declares targets. */
+        private readonly ?BlockStyleRegistry $styleRegistry = null,
+        private readonly BlockStyleEmitter $styleEmitter = new BlockStyleEmitter(),
     ) {
         $this->locale = $defaultLocale;
     }
@@ -255,9 +274,16 @@ final class RenderContextExtension extends AbstractExtension
             new TwigFunction('shop_category_url', $this->shopCategoryUrl(...)),
             new TwigFunction('shop_index_url', $this->shopIndexUrl(...)),
             new TwigFunction('json_script', $this->jsonScript(...)),
-            // The fingerprinted storefront stylesheet for the theme <head> — null when
-            // commerce is off or the seam is unbound, so the theme emits no <link> at all.
-            new TwigFunction('shop_styles_url', $this->shopStylesUrl(...)),
+            // Layered delivery (visual builder spec §2.3): the layer-order sheet and the theme
+            // artifact the head links instead of individual theme files.
+            new TwigFunction('layers_stylesheet_url', $this->layersStylesheetUrl(...)),
+            new TwigFunction('theme_stylesheet_url', $this->themeStylesheetUrl(...)),
+            new TwigFunction('settings_stylesheet_url', $this->settingsStylesheetUrl(...)),
+            // Style targets (visual builder spec §2.5): a block template styles its declared
+            // targets through these; nothing else turns a setting into markup.
+            new TwigFunction('style_classes', $this->styleClasses(...)),
+            new TwigFunction('style_attrs', $this->styleAttrs(...), ['is_safe' => ['html']]),
+            new TwigFunction('token_class', $this->tokenClass(...)),
             // Storefront-v1 spec §5: soft-bound wishlist seam (see the $wishlist constructor
             // doc). Both null-safe — capability off or seam unbound means null, never a throw.
             new TwigFunction('shop_wishlist_scope', $this->shopWishlistScope(...)),
@@ -291,9 +317,125 @@ final class RenderContextExtension extends AbstractExtension
      * `/_shop/assets/shop.css` ALIAS (which 302s) inside the body, so without this the
      * storefront's own header chrome paints unstyled and restyles on EVERY navigation.
      */
-    public function shopStylesUrl(): ?string
+    /** Bind the theme whose artifact theme_stylesheet_url() names (TwigFactory and the render). */
+    public function bindTheme(?ThemeLocator $theme): void
     {
-        return $this->storefrontLinks?->stylesheetUrl();
+        $this->boundTheme = $theme;
+    }
+
+    /**
+     * The layer-order stylesheet (`@layer theme, settings;`), loaded first; versioned by its
+     * own content so an edit busts the immutable cache.
+     */
+    public function layersStylesheetUrl(): string
+    {
+        static $version = null;
+        $version ??= substr(sha1((string) file_get_contents(dirname(__DIR__) . '/assets/style/layers.css')), 0, 8);
+        return '/_thallo/layers.css?v=' . $version;
+    }
+
+    /**
+     * The layered theme artifact for the bound theme: every manifest stylesheet and every
+     * contributed package stylesheet inside `@layer theme`, content-fingerprinted (spec §2.4).
+     * Under a preview asset base the same file name serves from the preview theme.
+     */
+    public function themeStylesheetUrl(): string
+    {
+        if ($this->boundTheme === null || $this->themeArtifacts === null) {
+            throw new RuntimeError('theme_stylesheet_url(): no theme is bound to the render context.');
+        }
+        $hash = $this->themeArtifacts->forTheme($this->boundTheme)->hash;
+        return ($this->assetBase ?? '/theme-assets') . '/' . ThemeStylesheetArtifact::fileName($hash);
+    }
+
+    /**
+     * The compiled style artifact for the bound theme: `@layer settings` with the `--t-*`
+     * custom properties and every utility the vocabulary yields, content-fingerprinted (spec
+     * §2.4). Linked after the theme artifact; served from the same asset base.
+     */
+    public function settingsStylesheetUrl(): string
+    {
+        if ($this->boundTheme === null || $this->compiledArtifacts === null) {
+            throw new RuntimeError('settings_stylesheet_url(): no theme is bound to the render context.');
+        }
+        $hash = $this->compiledArtifacts->forTheme($this->boundTheme)['hash'];
+        return ($this->assetBase ?? '/theme-assets') . '/' . CompiledStyleArtifacts::fileName($hash);
+    }
+
+    /**
+     * The utility classes the current block's settings resolve to for `$target` (spec §2.5),
+     * with a leading space so it drops straight after a template's own class list. Empty
+     * outside a block, for a type without declared targets, and when nothing is set.
+     *
+     * @throws RuntimeError for a target the block type does not declare (the lint refuses
+     *         it at save; a declaration edited out from under a template still fails loudly)
+     */
+    public function styleClasses(string $target): string
+    {
+        [$frame, $targets] = $this->styleFrame($target);
+        if ($frame === null || $targets === null) {
+            return '';
+        }
+        $classes = $this->styleEmitter->classesFor($frame['settings'], $targets, $target);
+        return $classes === [] ? '' : ' ' . implode(' ', $classes);
+    }
+
+    /** The attributes `$target` owns (anchor, `data-*`, accessibility label), escaped, leading space. */
+    public function styleAttrs(string $target): string
+    {
+        [$frame, $targets] = $this->styleFrame($target);
+        if ($frame === null || $targets === null) {
+            return '';
+        }
+        $out = '';
+        foreach ($this->styleEmitter->attrsFor($frame['settings'], $targets, $target) as $name => $value) {
+            $out .= ' ' . $name . '="' . htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
+        }
+        return $out;
+    }
+
+    /**
+     * The utility class for a `token` or `choice` field a block keeps in `data` (spec §1.7):
+     * the same class the compiler emits for the property, leading space; '' for an absent or
+     * unknown value so a stale stored value never reaches the class attribute.
+     */
+    public function tokenClass(string $property, mixed $value): string
+    {
+        $def = StyleSchema::property($property);
+        if ($def === null) {
+            throw new RuntimeError("token_class(): unknown style property \"{$property}\".");
+        }
+        if (!is_string($value) || $value === '') {
+            return '';
+        }
+        $valid = $def->tokenDomain !== null
+            ? str_starts_with($value, $def->tokenDomain . '.')
+                && in_array(substr($value, strlen($def->tokenDomain) + 1), Vocabulary::names($def->tokenDomain), true)
+            : in_array($value, $def->choices ?? [], true);
+        return $valid ? ' ' . ClassNames::for($property, $value) : '';
+    }
+
+    /**
+     * @return array{0: array{type: string, settings: array<string,mixed>}|null, 1: StyleTargets|null}
+     */
+    private function styleFrame(string $target): array
+    {
+        if ($this->blockFrames === [] || $this->styleRegistry === null) {
+            return [null, null];
+        }
+        $frame = $this->blockFrames[count($this->blockFrames) - 1];
+        $targets = $this->styleRegistry->targetsFor($frame['type']);
+        if ($targets === null) {
+            return [null, null];
+        }
+        if (!in_array($target, $targets->names(), true)) {
+            throw new RuntimeError(sprintf(
+                'Style target "%s" is not declared by block type "%s".',
+                $target,
+                $frame['type'],
+            ));
+        }
+        return [$frame, $targets];
     }
 
     public function shopProductUrl(?string $slug): ?string
@@ -481,28 +623,6 @@ final class RenderContextExtension extends AbstractExtension
         ];
     }
 
-    /** Style-block spec §4.3: namespaced, sanitized custom-CSS class hook. */
-    public function styleHook(mixed $value): string
-    {
-        return self::sanitizeStyleHook(is_string($value) ? $value : '');
-    }
-
-    /**
-     * Bounded hex-color helper (gate-audit amendment, admin-contributed-templates task 7):
-     * replaces the |matches "/^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/" check blocks/style.twig
-     * used directly — |matches/MatchesBinary stays denied by TemplatePolicy (ReDoS
-     * posture: preg_match on a template-supplied pattern). The SAME pattern now lives
-     * here, in PHP, bound to this one call site — never in template source.
-     */
-    public function hexColor(mixed $value): string
-    {
-        if (!is_string($value)) {
-            return '';
-        }
-        $trimmed = trim($value);
-        return preg_match('/^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/', $trimmed) === 1 ? $trimmed : '';
-    }
-
     /**
      * Bounded numeric-clamp helper (gate-audit amendment, admin-contributed-templates
      * task 7): replaces the |matches "/^[0-9]+(\.[0-9]+)?$/" + max()/min() pair
@@ -518,29 +638,6 @@ final class RenderContextExtension extends AbstractExtension
         return max($min, min($max, (float) $value));
     }
 
-    /**
-     * Pure sanitizer for the class hook (pin 7). Keeps only tokens matching
-     * ^[A-Za-z_-][A-Za-z0-9_-]*$, strips any existing thallo-style- prefix
-     * (idempotent), then namespaces each under thallo-style-. Returns a
-     * leading-space-joined string, or '' when nothing survives.
-     */
-    public static function sanitizeStyleHook(string $raw): string
-    {
-        $out = [];
-        foreach (preg_split('/\s+/', trim($raw)) ?: [] as $token) {
-            if ($token === '') {
-                continue;
-            }
-            if (str_starts_with($token, 'thallo-style-')) {
-                $token = substr($token, strlen('thallo-style-'));
-            }
-            if (preg_match('/^[A-Za-z_-][A-Za-z0-9_-]*$/', $token) !== 1) {
-                continue;
-            }
-            $out[] = 'thallo-style-' . $token;
-        }
-        return $out === [] ? '' : ' ' . implode(' ', $out);
-    }
 
     /**
      * The ONE region render path (global-regions spec §10): resolves the
@@ -778,12 +875,7 @@ final class RenderContextExtension extends AbstractExtension
             // filter ESCAPES the value itself in BOTH modes (never autoescape).
             new TwigFilter('editable_text', $this->editableText(...), ['is_safe' => ['html']]),
             new TwigFilter('safe_url', $this->safeUrl(...)),
-            // No is_safe: sanitized output is autoescape-safe (a deliberate second
-            // layer over the sanitizer, since the input is operator-derived).
-            new TwigFilter('style_hook', $this->styleHook(...)),
-            // Bounded PHP helpers replacing the two |matches regex checks
-            // blocks/style.twig used to run directly (gate-audit amendment, task 7).
-            new TwigFilter('hex_color', $this->hexColor(...)),
+            // A bounded PHP helper (gate-audit amendment, task 7): the animated text's interval.
             new TwigFilter('numeric_clamp', $this->numericClamp(...)),
             new TwigFilter('br_tokens', $this->brTokens(...), ['is_safe' => ['html']]),
         ];
@@ -1021,8 +1113,13 @@ final class RenderContextExtension extends AbstractExtension
                     continue;
                 }
                 $data = is_array($item['data'] ?? null) ? $item['data'] : [];
+                // Settings (visual builder spec §1.2): every stored block carries them; the frame
+                // and the block context expose them to the style helpers and templates.
+                $settings = is_array($item['settings'] ?? null) ? $item['settings'] : [];
                 $this->blockFrames[] = [
                     'id' => $item['id'] ?? null,
+                    'type' => $type,
+                    'settings' => $settings,
                     // Resolved ONLY when annotating: live renders never consult
                     // the resolver, and non-prose blocks get a null field.
                     'editable_field' => $this->annotateBlocks
@@ -1031,7 +1128,12 @@ final class RenderContextExtension extends AbstractExtension
                 ];
                 try {
                     $rendered = $env->render($template, [
-                        'block' => ['id' => $item['id'] ?? null, 'type' => $type, 'data' => $data],
+                        'block' => [
+                            'id' => $item['id'] ?? null,
+                            'type' => $type,
+                            'data' => $data,
+                            'settings' => $settings,
+                        ],
                         'data' => $data,
                         'entry' => $entry,
                         'site' => $context['site'] ?? [],
@@ -1068,6 +1170,16 @@ final class RenderContextExtension extends AbstractExtension
     public function resetBlockDepth(): void
     {
         $this->blockDepth = 0;
+    }
+
+    /**
+     * The nesting depth the next blocks() call starts from (visual builder spec §3.5): a
+     * fragment renders a root at the depth the page render reaches it, so the depth cap holds
+     * the same either way.
+     */
+    public function setBlockDepth(int $depth): void
+    {
+        $this->blockDepth = max(0, $depth);
     }
 
     /** Reset-family: an escaped exception must not leak frames into the next render. */

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Thallo\Commerce\Starter;
 
 use Thallo\Contracts\Starter\StarterBlockTypeContributor;
+use Thallo\Contracts\Style\StyleTargets;
 use Thallo\Contracts\Starter\StarterBlockTypeDefinition;
 
 /**
@@ -57,6 +58,8 @@ final class ShopBlockTypesContributor implements StarterBlockTypeContributor
                     ['name' => 'products', 'type' => 'text'],
                     ['name' => 'page_size', 'type' => 'enum', 'enum' => ['small', 'medium', 'large']],
                 ],
+                styleCapabilities: ['spacing', 'width', 'visibility'],
+                styleTargets: StyleTargets::root('box', ['spacing', 'width', 'visibility']),
             ),
             new StarterBlockTypeDefinition(
                 sourceId: 'thallo-commerce:' . self::SLUG_FEATURED_PRODUCT,
@@ -69,6 +72,10 @@ final class ShopBlockTypesContributor implements StarterBlockTypeContributor
                 schema: [
                     ['name' => 'product_slug', 'type' => 'string'],
                 ],
+                styleCapabilities: ['spacing', 'radius', 'shadow', 'colors', 'border', 'visibility'],
+                styleTargets: StyleTargets::root('box', [
+                    'spacing', 'radius', 'shadow', 'colors', 'border', 'visibility',
+                ]),
             ),
             new StarterBlockTypeDefinition(
                 sourceId: 'thallo-commerce:' . self::SLUG_ADD_TO_CART,
@@ -84,6 +91,8 @@ final class ShopBlockTypesContributor implements StarterBlockTypeContributor
                     // context (the current entry's linked commerce product) when left blank.
                     ['name' => 'product_slug', 'type' => 'string'],
                 ],
+                styleCapabilities: ['spacing', 'visibility'],
+                styleTargets: StyleTargets::root('box', ['spacing', 'visibility']),
             ),
             new StarterBlockTypeDefinition(
                 sourceId: 'thallo-commerce:' . self::SLUG_MINI_CART,
@@ -95,6 +104,8 @@ final class ShopBlockTypesContributor implements StarterBlockTypeContributor
                 description: 'A cart count/drawer that hydrates live via JavaScript; a plain '
                     . 'cart link without it.',
                 schema: [],
+                styleCapabilities: ['spacing', 'visibility'],
+                styleTargets: StyleTargets::root('box', ['spacing', 'visibility']),
             ),
             // Storefront-v1 spec §5: a LINK to the wishlist page, mirroring the mini cart
             // exactly (capability-gated, cacheable zero-count shell, JS-hydrated badge).
@@ -111,6 +122,8 @@ final class ShopBlockTypesContributor implements StarterBlockTypeContributor
                     // Optional: blank renders the icon with a screen-reader-only "Wishlist".
                     ['name' => 'label', 'type' => 'string'],
                 ],
+                styleCapabilities: ['spacing', 'visibility'],
+                styleTargets: StyleTargets::root('box', ['spacing', 'visibility']),
             ),
         ];
     }

@@ -196,6 +196,15 @@ abstract class AppTestCase extends TestCase
         return self::$app;
     }
 
+    /**
+     * The render cache's appearance segment for the active theme (colours, design settings and
+     * the theme artifact hash): cache keys in tests derive from it instead of pinning a literal.
+     */
+    protected function appearanceFingerprint(): string
+    {
+        return $this->container()->get(\Thallo\Render\ThemeAppearanceSource::class)->fingerprint();
+    }
+
     /** Reset BaseRepository's process-static connection after a secondary app boot. */
     protected static function resetSharedRepositoryConnection(): void
     {

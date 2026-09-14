@@ -30,7 +30,6 @@ interface StorefrontLinkResolver
      * a path that simply goes unvisited when commerce is disabled, whereas emitting a
      * `<link>` to a route that 404s would break every page in the console.
      */
-    public function stylesheetUrl(): ?string;
 
     /** The canonical `/{shop-prefix}/products/{slug}` URL for a product slug. */
     public function productUrl(string $slug): string;

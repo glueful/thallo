@@ -11,7 +11,7 @@
 {% set heading = data.heading|default('')|trim %}
 {% set next = data.next|default('')|trim %}
 {% set show_links = data.show_links is defined ? data.show_links : true %}
-<div class="thallo-block thallo-block-login-form" data-account-form="login">
+<div class="thallo-block thallo-block-login-form{{ style_classes('root') }}"{{ style_attrs('root') }} data-account-form="login">
   <link rel="stylesheet" href="/_account/assets/account-blocks.css">
   {% if heading != '' %}<h2 class="thallo-block-login-form__heading">{{ heading }}</h2>{% endif %}
   {# Ships hidden in the shared HTML; account-forms.js reveals it for ?account_error=credentials.

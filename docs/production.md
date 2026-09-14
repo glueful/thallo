@@ -21,6 +21,40 @@ A tier-1 install (the fresh default) needs only the **Core** rows.
 | `logging.sensitive_paths` | Recommended | Committed defaults cover the payment-link paths; if you mount the app under a base path, register prefixed templates too. Reverse-proxy/CDN access logs are outside the app — see the redaction recipes in `packages/thallo-commerce/README.md`. |
 | Signup cleanup / domain reverification / update check | Via the scheduler cron | Jobs in `config/schedule.php`, run by the scheduler cron above — no extra cron entries. |
 
+### Public-site browser floor
+
+The public site's stylesheets use cascade layers, `revert-layer` and `color-mix()`:
+the floor is **Chrome 111, Firefox 113 and Safari 16.2** (and their derivatives).
+Older browsers get the theme's own CSS without block settings applied. The tested
+matrix is the current stable engine of each family that the pinned Playwright ships
+(`tools/style-proofs`, run in CI on every render change).
+
+### Upgrading across a settings conversion (the cutover contract)
+
+A release that retires block presentation fields ships a conversion stage: the converter
+(`thallo:blocks:convert-settings`) turns the retired fields of every stored document — drafts,
+every retained version, the regions — into typed settings, and provision runs it only when its
+preflight is clean; it never bypasses an unresolved decision and never activates incompatible
+code after a partial run. No stage ships today (every install is authored in the settings
+shape), so provision's conversion step finds nothing pending; the contract below applies the
+first time a release adds one.
+
+1. Stage the candidate release and verify a restorable backup (database and `storage/`).
+2. Preflight content with the candidate converter: `php glueful thallo:blocks:convert-settings
+   --dry-run --report=storage/conversion/report.jsonl`. The report is one JSON line per legacy
+   value with its status; `unmappable` lines (raw hex colours, pixel sizes) need a decision.
+3. Record every decision in `storage/conversion/decisions.json`, keyed as the report names the
+   diagnostic and pinned to its `document_hash` and `converter_version` (choose a vocabulary
+   token, a typed value, or discard). A decision is invalid once its document changes.
+4. Enter maintenance or write protection; run the dry run again and confirm nothing is unresolved.
+5. `composer update && php glueful thallo:provision`: provision converts, compiles the style
+   artifact, clears caches, and stops before any of that with the report path when a diagnostic
+   is unresolved or a document changed underneath it. Reopen writes.
+
+Recovery after a partial conversion is restore from backup; the converter is idempotent per
+stage, so a retry after an interruption lands on the same state, but idempotence does not
+replace rollback. A fresh install is the trivial case of this contract.
+
 ### Running the scheduler and the queue
 
 Two long-lived pieces, both plain PHP; nothing else to install with the default

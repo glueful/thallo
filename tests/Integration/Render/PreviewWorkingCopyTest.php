@@ -94,10 +94,10 @@ final class PreviewWorkingCopyTest extends AppTestCase
         self::assertStringContainsString('Draft only', $this->renderPreview($token));
 
         // Stash a working copy with a block that exists ONLY there.
-        $store->put($entry, 'en', ['title' => 'S', 'body' => [
+        $store->accept($entry, 'en', null, null, ['title' => 'S', 'body' => [
             ['id' => 'draftblk0001', 'type' => 'rich_text', 'data' => ['body' => '<p>Draft only</p>']],
             ['id' => 'workingb0001', 'type' => 'rich_text', 'data' => ['body' => '<p>Applied only</p>']],
-        ]], 60);
+        ]], [], 60);
         $html = $this->renderPreview($token);
         self::assertStringContainsString('Applied only', $html);
         // The working-only block is ANNOTATED like any rendered instance.
@@ -121,7 +121,7 @@ final class PreviewWorkingCopyTest extends AppTestCase
             'en',
         );
         self::assertSame(200, $save->getStatusCode());
-        self::assertNull($store->get($entry, 'en'));
+        self::assertNull($store->fields($entry, 'en'));
         $after = $this->renderPreview($token);
         self::assertStringContainsString('Saved now', $after);
         self::assertStringNotContainsString('Applied only', $after);
@@ -131,9 +131,9 @@ final class PreviewWorkingCopyTest extends AppTestCase
     {
         ['entry' => $entry, 'version' => $version] = $this->seedBlockPage('wc-pinned');
         $store = $this->container()->get(PreviewWorkingCopyStore::class);
-        $store->put($entry, 'en', ['title' => 'S', 'body' => [
+        $store->accept($entry, 'en', null, null, ['title' => 'S', 'body' => [
             ['id' => 'workingb0002', 'type' => 'rich_text', 'data' => ['body' => '<p>Applied only</p>']],
-        ]], 60);
+        ]], [], 60);
 
         $pinned = $this->container()->get(PreviewMinter::class)->mint($entry, 'en', $version);
         $html = $this->renderPreview($pinned);

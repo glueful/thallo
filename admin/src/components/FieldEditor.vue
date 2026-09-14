@@ -2,6 +2,7 @@
 import type { ComponentPublicInstance } from 'vue'
 import type { FieldDef } from '@/fields/types'
 import type { BlockType } from '@/queries/blockTypes'
+import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import { fieldComponent } from '@/fields/registry'
 
 defineProps<{
@@ -28,6 +29,8 @@ interface BlocksFieldExposed {
   insertAfter: (id: string, typeSlug: string) => string | null
   pickerTypesFor: (id: string) => BlockType[]
   patchBlockData: (id: string, field: string, value: unknown) => boolean
+  patchBlockSettings: (id: string, settings: Record<string, unknown>) => boolean
+  findBlock: (id: string) => BlockInstance | null
   blockTypeById: (id: string) => string | null
 }
 
@@ -87,6 +90,12 @@ defineExpose({
   },
   patchBlockDataById(id: string, field: string, value: unknown) {
     return fieldOwning(id)?.patchBlockData(id, field, value) ?? false
+  },
+  patchBlockSettingsById(id: string, settings: Record<string, unknown>) {
+    return fieldOwning(id)?.patchBlockSettings(id, settings) ?? false
+  },
+  blockById(id: string): BlockInstance | null {
+    return fieldOwning(id)?.findBlock(id) ?? null
   },
   blockTypeOfBlock(id: string): string | null {
     return fieldOwning(id)?.blockTypeById(id) ?? null

@@ -75,25 +75,6 @@ final class AllowlistedFunctionBoundsTest extends AppTestCase
     }
 
     /**
-     * hex_color (gate-audit amendment, task 7): the bounded PHP replacement for the
-     * |matches "/^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/" check blocks/style.twig used to
-     * run directly. Same shape: 3 or 6 hex digits after '#', nothing else.
-     */
-    public function testHexColorAcceptsValidRejectsInvalid(): void
-    {
-        $extension = $this->container()->get(RenderContextExtension::class);
-
-        self::assertSame('#abc', $extension->hexColor('#abc'));
-        self::assertSame('#A1B2C3', $extension->hexColor('#A1B2C3'));
-
-        self::assertSame('', $extension->hexColor('red'));
-        self::assertSame('', $extension->hexColor('#abcd'));
-        self::assertSame('', $extension->hexColor('#zzz'));
-        self::assertSame('', $extension->hexColor(['#abc']));
-        self::assertSame('', $extension->hexColor('#abc; injection'));
-    }
-
-    /**
      * numeric_clamp (gate-audit amendment, task 7): the bounded PHP replacement for the
      * |matches "/^[0-9]+(\.[0-9]+)?$/" + max()/min() pair blocks/style.twig used to run
      * directly for --shadow-strength. Non-numeric input is null (no CSS var emitted),

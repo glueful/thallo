@@ -288,6 +288,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/_thallo/layers.css': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** GET /_thallo/layers.css */
+    get: operations['getThalloLayerscss']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/_thallo/runtime/{file}': {
     parameters: {
       query?: never
@@ -5690,6 +5707,41 @@ export interface operations {
     }
   }
   getShopWishlistItems: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  getThalloLayerscss: {
     parameters: {
       query?: never
       header?: never

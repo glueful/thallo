@@ -29,7 +29,12 @@ vi.mock('@/fields/components/blocks/ProseBlockEditor.vue', () => ({
 
 import BlocksField from '@/fields/components/BlocksField.vue'
 
-type BlockInstance = { id: string; type: string; data: Record<string, unknown> }
+type BlockInstance = {
+  id: string
+  type: string
+  data: Record<string, unknown>
+  settings: Record<string, unknown>
+}
 
 const bt = (slug: string, schema: unknown[], extra: Partial<BlockType> = {}): BlockType =>
   ({
@@ -78,8 +83,8 @@ function mountField(
 }
 
 const twoBlocks = (): BlockInstance[] => [
-  { id: 'q1', type: 'quote', data: { text: 'One' } },
-  { id: 'q2', type: 'quote', data: { text: 'Two' } },
+  { id: 'q1', type: 'quote', data: { text: 'One' }, settings: {} },
+  { id: 'q2', type: 'quote', data: { text: 'Two' }, settings: {} },
 ]
 
 beforeEach(() => {
@@ -160,8 +165,8 @@ describe('prose seam', () => {
   it('prose types render chromeless with the prose hook; widgets render cards', async () => {
     blockTypes.value = withRichText()
     const model = ref<BlockInstance[]>([
-      { id: 'p1', type: 'rich_text', data: { body: '<p>hi</p>' } },
-      { id: 'h1', type: 'hero', data: { heading: 'H' } },
+      { id: 'p1', type: 'rich_text', data: { body: '<p>hi</p>' }, settings: {} },
+      { id: 'h1', type: 'hero', data: { heading: 'H' }, settings: {} },
     ])
     const wrapper = mountField(model)
     await flushPromises()
@@ -211,7 +216,7 @@ describe('prose seam', () => {
   it('insert-block from the prose editor drives splitRichTextAt on the tree', async () => {
     blockTypes.value = withRichText()
     const model = ref<BlockInstance[]>([
-      { id: 'p1', type: 'rich_text', data: { body: '<p>full</p>' } },
+      { id: 'p1', type: 'rich_text', data: { body: '<p>full</p>' }, settings: {} },
     ])
     const wrapper = mountField(model)
     await flushPromises()
@@ -235,7 +240,8 @@ describe('outline rail', () => {
       {
         id: 'n1',
         type: 'nest',
-        data: { inner: [{ id: 'q1', type: 'quote', data: { text: 'Deep' } }] },
+        data: { inner: [{ id: 'q1', type: 'quote', data: { text: 'Deep' }, settings: {} }] },
+        settings: {},
       },
     ])
     const wrapper = mountField(model, { ...field }, { attachTo: document.body })
@@ -270,8 +276,8 @@ describe('drag (direct handler — jsdom never simulates sortable)', () => {
 
   it('commits a valid nested drop via moveAcross (target from event.to)', async () => {
     const model = ref<BlockInstance[]>([
-      { id: 'n1', type: 'nest', data: { inner: [] } },
-      { id: 'q1', type: 'quote', data: { text: 'One' } },
+      { id: 'n1', type: 'nest', data: { inner: [] }, settings: {} },
+      { id: 'q1', type: 'quote', data: { text: 'One' }, settings: {} },
     ])
     const wrapper = mountField(model)
     await flushPromises()
@@ -301,12 +307,14 @@ describe('drag (direct handler — jsdom never simulates sortable)', () => {
       {
         id: 'd1',
         type: 'nest',
-        data: { inner: [{ id: 'd2', type: 'nest', data: { inner: [] } }] },
+        data: { inner: [{ id: 'd2', type: 'nest', data: { inner: [] }, settings: {} }] },
+        settings: {},
       },
       {
         id: 'drag',
         type: 'nest',
-        data: { inner: [{ id: 'leaf1', type: 'quote', data: {} }] },
+        data: { inner: [{ id: 'leaf1', type: 'quote', data: {}, settings: {} }] },
+        settings: {},
       },
     ])
     const snapshot = JSON.stringify(model.value)

@@ -88,7 +88,8 @@ final class PricingBlockRenderTest extends AppTestCase
             ],
         ]]);
 
-        self::assertStringContainsString('--count: 3', $out);
+        self::assertStringContainsString('thallo-block-pricing_plans--count-3', $out);
+        self::assertStringNotContainsString(' style="', $out);
         self::assertStringContainsString('thallo-block-pricing_plans--orientation-horizontal', $out);
         self::assertStringContainsString('thallo-block-pricing_plans--scale', $out);
         // The three child plans rendered.

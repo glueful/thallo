@@ -885,14 +885,14 @@ test.describe('slider transitions and height presets', () => {
     expect(Math.abs(data.imgHeight - 720)).toBeLessThanOrEqual(1);
   });
 
-  test('configured duration paces the slide-mode scroll (runtime tween) and the cross-fade (CSS var)', async ({ page }) => {
+  test('the speed choice paces the slide-mode scroll (runtime tween) and the cross-fade (CSS class)', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(FIXTURE);
     const SLIDER = '[data-fixture="image-slider"] .thallo-block-carousel';
     await page.waitForFunction((sel) =>
       !!document.querySelector(`${sel}[data-thallo-enhanced~="carousel"]`), SLIDER);
 
-    // Slide mode, data-duration="2": the arrow click tweens the scroll over ~2s.
+    // Slide mode, data-speed="slow" (2s): the arrow click tweens the scroll over ~2s.
     // Native smooth scroll settles well under 1s, so an elapsed time in the
     // 1.5s–4s window proves the configured pace drove the animation.
     const slider = page.locator(SLIDER);
@@ -915,13 +915,18 @@ test.describe('slider transitions and height presets', () => {
     expect(elapsed).toBeGreaterThanOrEqual(1500);
     expect(elapsed).toBeLessThanOrEqual(4000);
 
-    // Fade mode: the same config reaches the cross-fade via --carousel-duration.
-    const fadeDuration = await page.evaluate(() => {
-      const car = document.querySelector('[data-fixture="fade-slider"] .thallo-block-carousel');
-      car.style.setProperty('--carousel-duration', '2s');
-      return getComputedStyle(car.querySelector('.thallo-block-carousel__track > *')).transitionDuration;
+    // The cross-fade reads the same choice through the theme's --speed-* class
+    // (--carousel-duration), never an inline style: the slow slider carries the
+    // 2s variable from its class; the fade fixture at the normal pace (no class)
+    // falls back to the 1.2s cross-fade.
+    const durations = await page.evaluate(() => {
+      const car = (fixture) => document.querySelector(`[data-fixture="${fixture}"] .thallo-block-carousel`);
+      return {
+        slow: getComputedStyle(car('image-slider')).getPropertyValue('--carousel-duration').trim(),
+        normal: getComputedStyle(car('fade-slider').querySelector('.thallo-block-carousel__track > *')).transitionDuration,
+      };
     });
-    expect(fadeDuration).toBe('2s');
+    expect(durations).toEqual({ slow: '2s', normal: '1.2s' });
   });
 
   test('arrows are hover-revealed on pointer devices: hidden at rest, shown on hover and on keyboard focus', async ({ page }) => {

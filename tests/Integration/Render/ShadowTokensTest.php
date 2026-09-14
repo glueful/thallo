@@ -44,16 +44,10 @@ final class ShadowTokensTest extends AppTestCase
         self::assertDoesNotMatchRegularExpression('/--shadow:\s*0 /', $dark);
     }
 
-    public function testUtilityClassesExist(): void
+    public function testNoUtilityClassesRemain(): void
     {
-        $blocks = $this->css('blocks.css');
-        foreach (['none', '2xs', 'xs', 'sm', 'md', 'lg', 'xl', '2xl'] as $level) {
-            self::assertStringContainsString(
-                '.thallo-shadow-' . $level . ' {',
-                $blocks,
-                "missing .thallo-shadow-{$level}",
-            );
-        }
+        // A block's shadow is a setting (t-shadow-*, compiled from the vocabulary), never a theme utility.
+        self::assertStringNotContainsString('.thallo-shadow-', $this->css('blocks.css'));
     }
 
     public function testNavOverlayUsesLg(): void

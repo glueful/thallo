@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace Thallo\Core\Tests\Integration\Render;
 
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 use Thallo\Render\Templates\TemplateLinter;
 
 final class TemplateLinterTest extends AppTestCase
 {
+    use SyncsBlockStyleDeclarations;
+
     private function linter(): TemplateLinter
     {
         return $this->container()->get(TemplateLinter::class);
@@ -104,8 +107,6 @@ final class TemplateLinterTest extends AppTestCase
     {
         $source = <<<'TWIG'
         {{ entry.title|editable_text('title') }}
-        <div class="thallo-block{{ entry.class_hook|default('')|style_hook }}"></div>
-        {{ entry.color|default('')|hex_color }}
         {{ entry.opacity|numeric_clamp(0, 200) }}
         {% for item in entry.items|default([]) %}
           {{ item }}
@@ -182,5 +183,57 @@ final class TemplateLinterTest extends AppTestCase
     public function testBlockScriptIsAllowlisted(): void
     {
         self::assertSame([], $this->linter()->lint("{{ block_script('gallery') }}"));
+    }
+
+    /** Visual builder spec §2.5: the target rules apply to a block template whose type declares targets. */
+    public function testStyleTargetRulesApplyToDeclaredBlockTemplates(): void
+    {
+        $this->syncBlockStyleDeclarations();
+        $linter = $this->linter();
+        $good = '<div class="x{{ style_classes(\'root\') }}"{{ style_attrs(\'root\') }}>'
+            . '<a class="y{{ style_classes(\'control\') }}"{{ style_attrs(\'control\') }}></a></div>';
+        self::assertSame([], $linter->lint($good, 'blocks/button.twig'));
+
+        $missing = $linter->lint('<div class="x{{ style_classes(\'root\') }}"></div>', 'blocks/button.twig');
+        self::assertCount(1, $missing);
+        self::assertStringContainsString('Declared style target "control" is never styled', $missing[0]['message']);
+
+        $undeclared = $linter->lint($good . '{{ style_classes(\'nope\') }}', 'blocks/button.twig');
+        self::assertCount(1, $undeclared);
+        self::assertStringContainsString('Style target "nope" is not declared', $undeclared[0]['message']);
+
+        $computed = $linter->lint($good . '{{ style_attrs(data.t) }}', 'blocks/button.twig');
+        self::assertCount(1, $computed);
+        self::assertStringContainsString('must be a constant string', $computed[0]['message']);
+
+        // Outside a declared block template the helpers are allowed but no target rule applies.
+        self::assertSame([], $linter->lint('{{ style_classes(\'anything\') }}', 'partials/x.twig'));
+        self::assertSame([], $linter->lint('<div></div>', 'blocks/quote.twig'), 'no block type, no rules');
+        $token = $linter->lint($good . "{{ token_class('colors.text', data.c) }}", 'blocks/button.twig');
+        self::assertSame([], $token, 'token_class takes any value expression');
+    }
+
+    /** Visual builder spec §2.5: no template writes an inline style; the three emitters are functions. */
+    public function testInlineStylesAreDenied(): void
+    {
+        $linter = $this->linter();
+        $attribute = $linter->lint('<div class="x" style="color: {{ data.color }}"></div>');
+        self::assertCount(1, $attribute);
+        self::assertStringContainsString('Inline style attributes are not allowed', $attribute[0]['message']);
+        self::assertCount(1, $linter->lint("<p STYLE='margin:0'>x</p>"), 'case and quoting do not matter');
+
+        $element = $linter->lint('<style>.x { color: red }</style><div></div>');
+        self::assertCount(1, $element);
+        self::assertStringContainsString('Inline <style> elements are not allowed', $element[0]['message']);
+
+        // Not inline styles: a data attribute, a class name, the block's own style helpers and the
+        // enumerated emitters.
+        $clean = <<<'TWIG'
+        <div data-style="a" class="thallo-block-style thallo-style-promo{{ style_classes('root') }}"></div>
+        {{ theme_colors_style() }}
+        {{ font_faces_style('Figtree', 'fonts/r.woff2') }}
+        {% set scope = theme_style_scope('rose', 'zinc') %}{{ scope.style }}
+        TWIG;
+        self::assertSame([], $linter->lint($clean));
     }
 }

@@ -14,6 +14,7 @@ use Thallo\Render\ReservedPaths;
 use Thallo\Render\ThemeLocator;
 use Thallo\Workflow\WorkflowServiceProvider;
 use Twig\Loader\FilesystemLoader;
+use Thallo\Core\Tests\Support\ThemeFixture;
 
 /**
  * Render contributor registries (storefront-rendering spec §5.1/§5.2): reserved-path +
@@ -307,11 +308,7 @@ final class RenderContributionTest extends AppTestCase
 
     public function testContributedDirLosesToAppThemeButWinsOverRenderDefault(): void
     {
-        mkdir($this->tmpThemes . '/mytheme/templates', 0755, true);
-        file_put_contents(
-            $this->tmpThemes . '/mytheme/theme.json',
-            (string) json_encode(['name' => 'mytheme', 'version' => '1.0.0']),
-        );
+        ThemeFixture::write($this->tmpThemes . '/mytheme', 'mytheme');
         file_put_contents($this->tmpThemes . '/mytheme/templates/__contribution_probe.twig', 'APP-THEME');
 
         $contribDir = $this->tmpThemes . '/__contrib';

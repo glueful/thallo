@@ -30,6 +30,12 @@ final readonly class StarterBlockTypeDefinition
          * and is hidden from the block-type listing (never deleted) while it is off.
          */
         public ?string $requiresCapability = null,
+        /** Style declaration (visual builder spec §1.7): capability paths or groups. @var list<string>|null */
+        public ?array $styleCapabilities = null,
+        /** Named targets and the capability map ({@see \Thallo\Contracts\Style\StyleTargets::root()}). */
+        public ?array $styleTargets = null,
+        /** Block flags (`renders_children_inline`). @var array<string,bool>|null */
+        public ?array $flags = null,
     ) {
     }
 }

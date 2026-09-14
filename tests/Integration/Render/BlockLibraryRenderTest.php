@@ -10,10 +10,12 @@ use Thallo\Core\Content\Schema\ContentTypeSchema;
 use Thallo\Core\Content\Validation\FieldValidator;
 use Thallo\Core\Content\Validation\ValidationException;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 use Thallo\Render\RenderContextExtension;
 use Thallo\Render\ThemeLocator;
 use Thallo\Render\TwigFactory;
 use Twig\Environment;
+use Thallo\Core\Tests\Support\ThemeFixture;
 
 /**
  * The block-library expansion's load-bearing render matrix (spec §8) — the
@@ -24,6 +26,8 @@ use Twig\Environment;
  */
 final class BlockLibraryRenderTest extends AppTestCase
 {
+    use SyncsBlockStyleDeclarations;
+
     private function env(string $theme = 'default'): Environment
     {
         $base = $this->appContext()->getBasePath();
@@ -51,46 +55,75 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::fail('container definition missing');
     }
 
-    public function testContainerStyleAttributeCarriesExactlyTheFourVars(): void
+    public function testContainerOverlayIsAChoiceAndNothingIsInline(): void
     {
         $out = $this->render([[
             'id' => 'c1', 'type' => 'container',
-            'data' => [
-                'background_color' => '#112233',
-                'overlay_color' => '#000000',
-                'overlay_opacity' => 40,
-                'content' => [],
-            ],
+            'data' => ['overlay' => 'dark', 'overlay_opacity' => '25', 'content' => []],
         ]]);
-        // Verbatim: the style attribute is THE injection surface — only the
-        // spec'd CSS custom properties, built from typed validated fields.
-        self::assertStringContainsString(
-            'style="--container-bg: #112233; --container-overlay: #000000; --container-overlay-opacity: 0.4"',
-            $out,
-        );
+        self::assertStringContainsString('thallo-block-container--overlay-dark', $out);
+        self::assertStringContainsString('thallo-block-container--overlay-25', $out);
         self::assertStringContainsString('thallo-block-container__overlay', $out);
+        self::assertStringNotContainsString('style=', $out);
 
-        // No styling fields -> NO style attribute at all.
+        // No overlay -> no layer; an unknown opacity step degrades to 50.
         $bare = $this->render([['id' => 'c2', 'type' => 'container', 'data' => ['content' => []]]]);
-        self::assertStringNotContainsString('style=', $bare);
         self::assertStringNotContainsString('__overlay', $bare);
+        $odd = $this->render([[
+            'id' => 'c3', 'type' => 'container',
+            'data' => ['overlay' => 'light', 'overlay_opacity' => '99', 'content' => []],
+        ]]);
+        self::assertStringContainsString('thallo-block-container--overlay-50', $odd);
     }
 
-    public function testContainerRejectsInvalidColorAndOpacityAtSave(): void
+    public function testContainerColoursCornersAndSpacingAreSettingsOnTheRoot(): void
+    {
+        $this->syncBlockStyleDeclarations();
+        $out = $this->render([[
+            'id' => 'cs', 'type' => 'container',
+            'data' => ['content' => []],
+            'settings' => ['style' => [
+                'colors' => ['surface' => ['type' => 'token', 'value' => 'color.surface']],
+                'radius' => ['type' => 'token', 'value' => 'radius.lg'],
+                'shadow' => ['base' => ['type' => 'token', 'value' => 'shadow.md']],
+                'spacing' => ['padding' => ['top' => ['base' => ['type' => 'token', 'value' => 'spacing.2xl']]]],
+                'border' => [
+                    'width' => ['type' => 'choice', 'value' => 'thin'],
+                    'style' => ['type' => 'choice', 'value' => 'dashed'],
+                ],
+            ]],
+        ]]);
+        $root = $this->rootTag($out, 'thallo-block-container');
+        foreach (['t-bg-surface', 't-radius-lg', 't-shadow-md', 't-pt-2xl', 't-bw-thin', 't-bs-dashed'] as $utility) {
+            self::assertStringContainsString(' ' . $utility, $root);
+        }
+        self::assertStringNotContainsString('style=', $out);
+        self::assertStringNotContainsString('thallo-shadow-', $out);
+    }
+
+    public function testContainerRejectsAnUnknownOverlayAtSave(): void
     {
         $schema = $this->containerSchema();
         try {
-            (new FieldValidator())->validate($schema, ['background_color' => 'red; }body{']);
+            (new FieldValidator())->validate($schema, ['overlay' => 'red; }body{']);
             self::fail('expected ValidationException');
         } catch (ValidationException $e) {
-            self::assertArrayHasKey('background_color', $e->errors());
+            self::assertArrayHasKey('overlay', $e->errors());
         }
         try {
-            (new FieldValidator())->validate($schema, ['overlay_opacity' => 250]);
+            (new FieldValidator())->validate($schema, ['gap' => 24]);
             self::fail('expected ValidationException');
         } catch (ValidationException $e) {
-            self::assertArrayHasKey('overlay_opacity', $e->errors());
+            self::assertArrayHasKey('gap', $e->errors());
         }
+    }
+
+    /** The opening tag carrying `$class`. */
+    private function rootTag(string $html, string $class): string
+    {
+        $pattern = '~<[a-z0-9]+[^>]*\\b' . preg_quote($class, '~') . '\\b[^>]*>~';
+        self::assertSame(1, preg_match($pattern, $html, $m), $class);
+        return $m[0];
     }
 
     public function testVideoEmbedBuildsIframesOnlyForParseableUrls(): void
@@ -174,7 +207,7 @@ final class BlockLibraryRenderTest extends AppTestCase
         // template falls back per-template to the pack default.
         $base = $this->appContext()->getBasePath() . '/themes/testsc';
         mkdir($base . '/templates/shortcodes', 0777, true);
-        file_put_contents($base . '/theme.json', '{"name": "testsc"}');
+        ThemeFixture::write($base, 'testsc');
         file_put_contents($base . '/templates/shortcodes/promo.twig', 'PROMO[{{ params.code }}]');
 
         $hit = $this->env('testsc')->createTemplate('{{ blocks(list) }}')->render(['list' => [
@@ -248,7 +281,7 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringContainsString('/blobs/' . $dark, $out);
     }
 
-    public function testImageBlockAppliesPixelDimensionsAndSizePreset(): void
+    public function testImageBlockSizesThroughSettingsAndNeverInline(): void
     {
         $uuid = \Glueful\Helpers\Utils::generateNanoID();
         $this->connection()->table('blobs')->insert([
@@ -257,30 +290,26 @@ final class BlockLibraryRenderTest extends AppTestCase
             'status' => 'active', 'created_by' => 'user00000001',
             'created_at' => gmdate('Y-m-d H:i:s'),
         ]);
+        $this->syncBlockStyleDeclarations();
 
-        // `size` presets the figure's layout width; `width`/`height` set the <img>'s
-        // intrinsic size. Both set → exact dimensions on the element.
+        // A width token on the root, corners on the picture (visual builder spec §7.2).
         $out = $this->render([
-            ['id' => 'im1', 'type' => 'image', 'data' => [
-                'image' => $uuid, 'alt' => 'A', 'size' => 'wide', 'width' => 800, 'height' => 600,
-            ]],
+            ['id' => 'im1', 'type' => 'image', 'data' => ['image' => $uuid, 'alt' => 'A'], 'settings' => ['style' => [
+                'width' => ['base' => ['type' => 'token', 'value' => 'width.container']],
+                'radius' => ['type' => 'token', 'value' => 'radius.lg'],
+            ]]],
         ]);
-        self::assertStringContainsString('thallo-block-image--wide', $out);
-        self::assertStringContainsString('style="width:800px;height:600px"', $out);
+        self::assertSame(1, preg_match('~<figure class="thallo-block thallo-block-image t-w-container">~', $out));
+        self::assertSame(1, preg_match('~<img class="thallo-block-image__img t-radius-lg"~', $out));
+        self::assertStringNotContainsString('style=', $out);
+        self::assertStringNotContainsString('thallo-block-image--', $out);
 
-        // Width alone → only the width declaration; height stays auto (unset).
-        $out = $this->render([
-            ['id' => 'im2', 'type' => 'image', 'data' => ['image' => $uuid, 'width' => 320]],
-        ]);
-        self::assertStringContainsString('style="width:320px"', $out);
-        self::assertStringNotContainsString('height:', $out);
-
-        // Neither → no style attribute (default layout slot, current behaviour).
+        // No settings: the theme's own sizing, still nothing inline.
         $out = $this->render([
             ['id' => 'im3', 'type' => 'image', 'data' => ['image' => $uuid]],
         ]);
-        self::assertStringContainsString('thallo-block-image', $out);
-        self::assertStringNotContainsString('style="width', $out);
+        self::assertStringContainsString('<figure class="thallo-block thallo-block-image">', $out);
+        self::assertStringNotContainsString('style=', $out);
     }
 
     public function testFileBlockRendersDownloadLinkAndNewTabViewLink(): void
@@ -730,37 +759,27 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringContainsString('&lt;img', $hostile);
     }
 
-    public function testContainerGranularOverridesEmitInlineStyleAndSkipPaddingPreset(): void
+    public function testContainerBackgroundImageIsAPositionedImageLayer(): void
     {
-        // Box padding overrides the preset (no pad class, inline 4-side padding);
-        // margin/radius/border/min-height emit inline; max_width lands on __inner.
+        $uuid = \Glueful\Helpers\Utils::generateNanoID();
+        $this->connection()->table('blobs')->insert([
+            'uuid' => $uuid, 'name' => 'bg.png', 'mime_type' => 'image/png',
+            'size' => 1, 'url' => 'uploads/bg.png', 'visibility' => 'public',
+            'status' => 'active', 'created_by' => 'user00000001',
+            'created_at' => gmdate('Y-m-d H:i:s'),
+        ]);
+        $this->container()->get(RenderContextExtension::class)->resetPerRenderState();
         $out = $this->render([[
-            'id' => 'cov', 'type' => 'container',
-            'data' => [
-                'padding_preset' => 'large',
-                'padding' => ['top' => 10, 'right' => 20, 'bottom' => 10, 'left' => 20],
-                'margin' => ['top' => 8],
-                'radius' => ['top' => 6, 'right' => 6, 'bottom' => 6, 'left' => 6],
-                'border_style' => 'solid', 'border_width' => 2, 'border_color' => '#ff0000',
-                'max_width' => 720, 'min_height_px' => 400,
-                'content' => [],
-            ],
+            'id' => 'cbg', 'type' => 'container',
+            'data' => ['background_image' => $uuid, 'bg_size' => 'contain', 'bg_position' => 'top', 'content' => []],
         ]]);
-        self::assertStringNotContainsString('thallo-block-container--pad-large', $out);
-        self::assertStringContainsString('padding: 10px 20px 10px 20px', $out);
-        self::assertStringContainsString('margin: 8px 0px 0px 0px', $out);
-        self::assertStringContainsString('border-radius: 6px 6px 6px 6px', $out);
-        self::assertStringContainsString('border: 2px solid #ff0000', $out);
-        self::assertStringContainsString('min-height: 400px', $out);
-        self::assertStringContainsString('max-width: 720px', $out);
-
-        // Empty box → falls back to the preset class, no inline padding.
-        $preset = $this->render([[
-            'id' => 'cpr', 'type' => 'container',
-            'data' => ['padding_preset' => 'small', 'content' => []],
-        ]]);
-        self::assertStringContainsString('thallo-block-container--pad-small', $preset);
-        self::assertStringNotContainsString('padding:', $preset);
+        $classes = 'thallo-block-container__bg thallo-block-container__bg--contain thallo-block-container__bg--pos-top';
+        self::assertSame(1, preg_match('~<img class="' . $classes . '"[^>]*>~', $out, $m), $out);
+        self::assertStringContainsString('alt="" aria-hidden="true"', $m[0]);
+        // The first image on the page takes the priority slot (storefront-performance spec §4).
+        self::assertStringContainsString('loading="eager" fetchpriority="high"', $m[0]);
+        self::assertStringNotContainsString('background-image', $out);
+        self::assertStringNotContainsString('style=', $out);
     }
 
     public function testContainerBackgroundVideoUrlSupportsFilesAndEmbeds(): void
@@ -807,14 +826,15 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringNotContainsString('__video-cover', $junk);
     }
 
-    public function testContainerFlexLayoutEmitsModifierClassesAndGapVar(): void
+    public function testContainerFlexLayoutEmitsModifierClassesAndAGapTokenClass(): void
     {
-        // Flex mode → __inner flex classes + gap var; block mode (default) emits none.
+        // Flex mode -> __inner flex classes + the gap token's class; block mode (default) emits none.
         $flex = $this->render([[
             'id' => 'cf', 'type' => 'container',
             'data' => [
                 'layout' => 'flex', 'flex_direction' => 'column', 'justify' => 'between',
-                'align_items' => 'center', 'flex_wrap' => 'wrap', 'gap' => 24,
+                'align_items' => 'center', 'flex_wrap' => 'wrap',
+                'gap' => ['type' => 'token', 'value' => 'spacing.lg'],
                 'content' => [],
             ],
         ]]);
@@ -823,42 +843,15 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringContainsString('thallo-block-container--justify-between', $flex);
         self::assertStringContainsString('thallo-block-container--items-center', $flex);
         self::assertStringContainsString('thallo-block-container--wrap', $flex);
-        self::assertStringContainsString('--container-gap: 24px', $flex);
+        self::assertStringContainsString('thallo-block-container--gap-lg', $flex);
+        self::assertStringNotContainsString('style=', $flex);
 
-        // Block mode (default) → no flex classes, no gap var.
-        $block = $this->render([['id' => 'cb', 'type' => 'container', 'data' => ['content' => []]]]);
+        // Block mode (default) -> no flex classes; an unknown gap token emits no class.
+        $block = $this->render([['id' => 'cb', 'type' => 'container', 'data' => [
+            'gap' => ['type' => 'token', 'value' => 'spacing.huge'], 'content' => [],
+        ]]]);
         self::assertStringNotContainsString('--layout-flex', $block);
-        self::assertStringNotContainsString('--container-gap', $block);
-    }
-
-    public function testContainerBoxFieldValidatesNumericSides(): void
-    {
-        $schema = $this->containerSchema();
-        // Valid box passes and is stored canonically (only numeric sides survive).
-        $clean = (new FieldValidator())->validate($schema, ['padding' => ['top' => 12, 'bogus' => 1]]);
-        self::assertSame(['top' => 12], $clean['padding']);
-        // A non-numeric side is rejected with the field's dot path.
-        try {
-            (new FieldValidator())->validate($schema, ['margin' => ['left' => 'nope']]);
-            self::fail('expected ValidationException');
-        } catch (ValidationException $e) {
-            self::assertArrayHasKey('margin', $e->errors());
-        }
-    }
-
-    public function testContainerShadowEnumAddsUtilityClass(): void
-    {
-        $out = $this->render([[
-            'id' => 'cs1', 'type' => 'container',
-            'data' => ['shadow' => 'md', 'content' => []],
-        ]]);
-        self::assertStringContainsString('thallo-shadow-md', $out);
-    }
-
-    public function testContainerShadowDefaultsToNone(): void
-    {
-        $out = $this->render([['id' => 'cs2', 'type' => 'container', 'data' => ['content' => []]]]);
-        self::assertStringNotContainsString('thallo-shadow-', $out);
+        self::assertStringNotContainsString('--gap-', $block);
     }
 
     public function testEntriesFunctionReturnsListAndIsPreviewReflectsAnnotation(): void

@@ -39,8 +39,18 @@ needs to ship the files it actually changes.
 
 `theme.json`:
 ```json
-{ "name": "my-theme", "version": "1.0.0", "menus": ["main"] }
+{
+  "name": "my-theme",
+  "version": "1.0.0",
+  "menus": ["main"],
+  "vocabulary": { "spacing.none": "0", "spacing.xs": "var(--space-1)", "…": "…" },
+  "stylesheets": ["assets/site.css", "assets/blocks.css"]
+}
 ```
+
+`vocabulary` maps every name of the platform style vocabulary to a CSS value and
+`stylesheets` lists the theme's CSS in load order — both are required, and a theme
+missing either fails at load, on switch and in `thallo:doctor` (see §12).
 
 ---
 
@@ -62,10 +72,14 @@ and fills `{% block content %}`.
 | `_pagination.twig` | Shared pagination partial (path-based: `/blog/page/2`). |
 | `region-preview.twig` | Isolated render of a single region (used by the region editor). |
 
-`layout.twig` loads the assets and enhancement script:
+`layout.twig` links exactly three stylesheets — the layer order sheet, the theme
+artifact (every manifest stylesheet plus every package-contributed sheet, inside
+`@layer theme`) and the compiled settings artifact (`@layer settings`) — never the
+theme's files one by one (see §12):
 ```twig
-<link rel="stylesheet" href="{{ asset('site.css') }}">
-<link rel="stylesheet" href="{{ asset('blocks.css') }}">
+<link rel="stylesheet" href="{{ layers_stylesheet_url() }}">
+<link rel="stylesheet" href="{{ theme_stylesheet_url() }}">
+<link rel="stylesheet" href="{{ settings_stylesheet_url() }}">
 <script defer src="{{ asset('blocks.js') }}"></script>
 ```
 
@@ -126,6 +140,11 @@ Functions:
 - `region_blocks(name)` / `region_settings(name)` — region HTML / settings.
 - `site_logo(variant?)`, `site_favicon()`, `custom_css()` — site identity.
 - `path(...)`, `facets(...)`, `video_embed(...)`.
+- `layers_stylesheet_url()`, `theme_stylesheet_url()`, `settings_stylesheet_url()` —
+  the three stylesheets a layout links (§2, §12).
+- `style_classes(target)`, `style_attrs(target)`, `token_class(property, value)` —
+  a block template's style targets (§12.3). **Every block template emits the first
+  two on each target its block type declares.**
 
 Filters:
 - `|editable_text('field')` — **use this on editable text.** It emits the
@@ -174,9 +193,11 @@ enum that becomes a BEM modifier (unknown stored values degrade to the default):
   `thallo-block-hero--bg-{value}`; `hero.aside` — any blocks, rendered in the media
   slot instead of the image (`thallo-block-hero__media--blocks`), so a code snippet or
   a card sits beside the copy in the horizontal orientation.
-- `button.shape` — `pill`, `rounded` (the theme radius), `square` →
-  `thallo-block-button__link--shape-{value}`; unset emits no modifier and the button
-  reads `--radius-btn`, which the site's design settings write (§9.6).
+- Button corners are a radius setting on the button's `control` target (`t-radius-*`,
+  §12.3); unset, the button reads `--radius-btn`, which the site's design settings
+  write (§9.6). Heading alignment and colour, image width and placement, and the
+  carousel's `speed` (`slow`, `normal`, `fast` → `thallo-block-carousel--speed-{value}`)
+  follow the same rule: choices and tokens, never freeform values.
 
 ---
 
@@ -213,14 +234,12 @@ degrades to the default modifier instead of emitting a class no CSS matches:
 }[data.columns|default('3')] ?? 'thallo-block-grid--cols-3' %}
 ```
 
-**Freeform settings (arbitrary color / spacing you can't enumerate) → inline CSS
-variables** the hand-authored CSS then consumes:
-```twig
-<div class="thallo-block thallo-block-container" style="--container-bg: {{ data.background_color }}">
-```
-```css
-.thallo-block-container { background-color: var(--container-bg, transparent); }
-```
+**Colour, spacing, corners, border, shadow → settings, never fields or inline
+style.** A block declares the capabilities its root target accepts and emits them
+through `style_classes()` (§12.3); the compiled settings artifact carries the
+utilities. A template never writes a `style=` attribute — the lint refuses it — and
+the only inline `<style>` elements are the enumerated variable-only emitters (the
+style block's skin scope).
 
 **Author content (`rich_text` / `body`) → the `thallo-block-rich_text` measure**,
 styled by hand in `blocks.css`; never wrap it in utility classes:
@@ -329,9 +348,11 @@ selectors, using the theme tokens.
   other stylesheet) against these — a per-site re-skin only re-maps the token
   values. Dark mode re-maps the same tokens under `html[data-theme="dark"]`
   (see §8).
-- **Large / interactive blocks get their own file** loaded alongside `blocks.css`
-  in `layout.twig` and `region-preview.twig` (`navigation.css`, `stepper.css`).
-  Wire a new one with a `<link rel="stylesheet" href="{{ asset('your.css') }}">`.
+- **Large / interactive blocks get their own file** (`navigation.css`,
+  `stepper.css`). Wire a new one by adding it to `stylesheets` in `theme.json` —
+  it rides inside the theme artifact; the layout never links files one by one.
+- **No `!important` on a managed property** (§12.1) in a rule that targets a
+  `.thallo-block*` selector, and no `@import`: the artifact build refuses both.
 - **Interactive disclosure blocks** (`accordion`, `collapsible`) are native
   `<details>` — CSS-only, no JS. Only reach for `blocks.js` when a block genuinely
   needs scripting (e.g. `carousel`).
@@ -462,7 +483,7 @@ stored as `theme_radius`, `theme_font`, `theme_background` and emitted by the sa
 
 - **Corners** — `round` (default: `--radius: 12px`, pill buttons), `soft`
   (`--radius: 12px`, `--radius-btn: 8px`), `sharp` (`--radius: 4px`, `--radius-lg: 8px`,
-  `--radius-btn: 4px`). Buttons read `--radius-btn` unless the block picks a shape.
+  `--radius-btn: 4px`). Buttons read `--radius-btn` unless a radius setting is set.
 - **Typefaces** — `sans` (default: Figtree throughout), `editorial` (a system serif
   stack for `--font-display`, so headings), `serif` (both `--font-display` and
   `--font-body`). System stacks only: the site's CSP is `'self'`, so nothing is fetched.
@@ -492,7 +513,7 @@ CSP by default. If strict-CSP perfection is later required, the same storage +
 token model can serve the CSS from a linked `/theme-colors.css` route instead —
 a delivery-only change.
 
-## 10. Style block (scoped accent/neutral + class hook)
+## 10. Style block (scoped accent/neutral)
 
 The **Style** block (`slug: style`, category Layout) re-skins a group of blocks
 without swapping templates — the local sibling of the global theme color config (§9).
@@ -500,8 +521,10 @@ without swapping templates — the local sibling of the global theme color confi
 ### 10.1 What it configures
 - **Accent** and **Neutral** — the same closed Tailwind families as §9. Each is
   optional; the first option, **Inherit**, leaves that dimension unchanged.
-- **Class hook** (`class_hook`) — an optional custom-CSS hook (see §10.4).
 - **Content** — the child blocks the skin applies to.
+
+Padding, margin and shadow are settings on the block's root target (§12.3); a
+custom-CSS hook is the Advanced tab's CSS classes, emitted verbatim on the wrapper.
 
 ### 10.2 How it re-skins (tokens only, follows color mode)
 The block redefines design-token custom properties (`--accent`/`--accent-ink` for
@@ -520,29 +543,24 @@ Each Style block emits its own small `<style>` next to its wrapper (not hoisted 
 accent/neutral pairs share one deterministic scope class. As with §9, the inline
 `<style>` relies on the CSP `style-src 'unsafe-inline'` allowance (accepted for v1).
 
-### 10.4 Custom class hook
-The **Class hook** field lets you target the wrapper from `custom.css`. Enter a bare
-hook name (e.g. `promo`); it renders as the namespaced class `thallo-style-promo` on
-the wrapper. Multiple space-separated hooks are allowed. Input is sanitized at render
-time — only safe class tokens survive — so it can never inject markup.
-
-### 10.5 Preview & caching (inherited, no new machinery)
+### 10.4 Preview & caching (inherited, no new machinery)
 Style values are ordinary published block content, so they preview through the normal
 content preview and their rendered HTML is invalidated by the existing content/publish
 cache purge (the render entry is tagged with the page's entry surrogate). There is no
 separate preview token, appearance fingerprint, or purge listener for this block.
 
-## 11. Shadows (elevation scale + block controls)
+## 11. Shadows (elevation scale)
 
 The theme ships a Tailwind-derived elevation scale as design tokens in `site.css`,
-light + dark aware, plus page-builder controls on the Style and Container blocks.
+light + dark aware; the vocabulary's `shadow.*` tokens (§12.1) map onto it, so a
+block's shadow is a setting.
 
 ### 11.1 The scale
 `--shadow-none`, `--shadow-2xs`, `--shadow-xs`, `--shadow-sm`, `--shadow-md`,
 `--shadow-lg`, `--shadow-xl`, `--shadow-2xl`. `--shadow` aliases `--shadow-md` (the
 default), so every component that used the old flat shadow now renders md; floating
-overlays (nav dropdown) use `--shadow-lg`. Apply a depth anywhere with the utility
-classes `.thallo-shadow-{level}`.
+overlays (nav dropdown) use `--shadow-lg`. A block takes a depth through its `shadow`
+setting (`t-shadow-{token}`); theme CSS reads the variables directly.
 
 ### 11.2 Overridable color + opacity
 Each token composes its color from `--shadow-color` and its opacity from
@@ -551,10 +569,83 @@ strength 1; dark black / strength 2.5 (the scale recomputes automatically in dar
 no separate dark shadow values). Override either variable on an element for a colored
 or stronger/softer shadow.
 
-### 11.3 Block controls
-- **Style block:** `shadow` (depth), `shadow_color` (any hex — the "colored shadow"),
-  `shadow_opacity` (0–200, where 100 = as-designed — the "opacity modifier"),
-  `padding` (all sides) and `margin` (vertical). Color/opacity are emitted as inline
-  `--shadow-color` / `--shadow-strength` on the wrapper, and are only applied when they
-  pass a render-time shape/range guard. All default to `none`/unset.
-- **Container:** `shadow` (depth) only. Defaults to `none`.
+---
+
+## 12. Style contracts (the visual builder)
+
+Block settings — padding, width, alignment, typography, colours, radius, border,
+shadow, visibility — are typed values authored in the editor, never CSS. Delivery
+is layered so a theme keeps every default and a setting always wins:
+
+```
+/_thallo/layers.css                     @layer theme, settings;
+/theme-assets/theme-{hash}.css          @layer theme    { every manifest + contributed sheet }
+/theme-assets/settings-{hash}.css       @layer settings { :root { --t-* } utilities, resets }
+```
+
+### 12.1 The vocabulary
+
+The platform owns the names; the theme maps each to a CSS value (`theme.json`
+`vocabulary`, §1). Names are ordinal scales, never pixel promises:
+
+| domain | names |
+|---|---|
+| `spacing` | `none xs sm md lg xl 2xl 3xl` |
+| `width` | `narrow content container full` |
+| `radius` | `none sm md lg full` |
+| `color` | `background surface surface-2 text muted line accent accent-contrast transparent` |
+| `shadow` | `none xs sm md lg xl` |
+| `typography.size` | `xs sm md lg xl 2xl 3xl` |
+
+The compiled artifact turns the mapping into `--t-spacing-lg` and friends and one
+utility per managed property, value and breakpoint (`t-pt-lg`, `md:t-pt-lg`,
+`lg:t-pt-reset`); `revert-layer` resets hand a breakpoint back to the theme. Map
+to your own `var(--space-4)`-style variables so the design settings (radius,
+typefaces, page ground) keep re-mapping live. A missing name fails validation at
+load, on theme switch, in `thallo:doctor` and in `thallo:provision`, which compiles
+the artifact before anything links it and refuses to complete when it cannot.
+
+### 12.2 The theme artifact
+
+Everything in `stylesheets` (plus package sheets such as the storefront's) is
+concatenated inside `@layer theme` and served by content hash, immutable, so a
+CSS edit re-keys every cached page. The build refuses `@import`, `@charset` and
+`@namespace`, and `!important` on a managed property in any rule targeting a
+`.thallo-block*` selector — a setting must always be able to win.
+
+### 12.3 Block style targets
+
+Each block type declares `style_capabilities` (property paths or groups) and
+`style_targets`: named parts of its template with a layout kind (`text`, `row`,
+`stack`, `box`) and the capability → target map. The starter library declares
+them for every shipped block (`StarterBlockTypes`; contributed packs through
+`StarterBlockTypeDefinition`). A template styles a target with two helpers,
+placed on the element the target names:
+
+```twig
+<div class="thallo-block thallo-block-button{{ style_classes('root') }}"{{ style_attrs('root') }}>
+  <a class="{{ linkClass }}{{ style_classes('control') }}"{{ style_attrs('control') }} href="…">
+```
+
+`style_classes(target)` returns the utility classes the block's settings resolve to
+for that target (with a leading space); `style_attrs(target)` returns only the
+attributes the target owns — `id` from the anchor, `data-*` attributes, the
+accessibility label — escaped. Block semantics that stay in `data` as `token` or
+`choice` fields (animated text's per-part colours) go through
+`token_class(property, value)`, which emits the same utility the compiler does.
+
+The template lint (the same policy the admin editor enforces) holds a block
+template to its declaration: every declared target is styled, no undeclared
+target is used, and target names are constant strings. A DB override of a shipped
+block template is held to the same rule. No template writes a `style=` attribute
+or a `<style>` element — the lint refuses both at save and before render; the only
+inline style emitters are `theme_colors_style()`, `theme_style_scope()` and
+`font_faces_style()` (variables and `@font-face`, no selectors).
+
+### 12.4 Browser floor and proofs
+
+The public site requires cascade layers, `revert-layer` and `color-mix()`:
+Chrome 111, Firefox 113, Safari 16.2. `tools/style-proofs` proves the computed
+result of the cascade in Chromium, Firefox and WebKit against the real artifacts
+(see its README).
+
