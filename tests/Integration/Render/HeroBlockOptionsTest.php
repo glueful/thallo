@@ -45,11 +45,16 @@ final class HeroBlockOptionsTest extends AppTestCase
     {
         $out = $this->hero([
             'orientation' => 'horizontal',
-            'aside' => [['id' => 'code00000001', 'type' => 'code', 'data' => ['code' => 'composer install', 'language' => 'bash']]],
+            'aside' => [[
+                'id' => 'code00000001',
+                'type' => 'code',
+                'data' => ['code' => 'composer install', 'language' => 'bash'],
+            ]],
         ]);
 
         self::assertMatchesRegularExpression(
-            '~<div class="thallo-block-hero__media thallo-block-hero__media--blocks">\s*<figure class="thallo-block thallo-block-code"~',
+            '~<div class="thallo-block-hero__media thallo-block-hero__media--blocks">\s*'
+            . '<figure class="thallo-block thallo-block-code"~',
             $out,
         );
         self::assertStringNotContainsString('<img', $out);

@@ -573,7 +573,8 @@ final class ShopCacheTest extends AppTestCase
     /** shop:{tenant}:en:default:blue-slate-round-sans-plain:1:%2Fshop%2Fproducts%2F{slug} — mirrors shopIndexKey(). */
     private function productDetailKey(string $tenant, string $slug): string
     {
-        return 'shop:' . $tenant . ':en:default:blue-slate-round-sans-plain:1:' . rawurlencode('/shop/products/' . $slug);
+        return 'shop:' . $tenant . ':en:default:blue-slate-round-sans-plain:1:'
+            . rawurlencode('/shop/products/' . $slug);
     }
 
     /** Ad-hoc content type with a `body` blocks field — mirrors ShopCatalogTest's identical helper. */

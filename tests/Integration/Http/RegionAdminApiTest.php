@@ -266,7 +266,11 @@ final class RegionAdminApiTest extends AppTestCase
 
         self::assertStringContainsString('--accent:#047857', $html, 'the operator\'s accent');
         self::assertStringContainsString('--radius:4px', $html, 'the operator\'s design tokens');
-        self::assertMatchesRegularExpression('~<link rel="stylesheet" href="[^"]*/custom\.css\?v=~', $html, 'the site custom CSS');
+        self::assertMatchesRegularExpression(
+            '~<link rel="stylesheet" href="[^"]*/custom\.css\?v=~',
+            $html,
+            'the site custom CSS',
+        );
 
         // Leave the shared boot as we found it.
         $this->container()->get(\Thallo\Core\Settings\GeneralSettings::class)

@@ -70,7 +70,7 @@ final class ThemeColorsLayoutTest extends AppTestCase
 
         $siteCss = (string) file_get_contents($base . '/packages/thallo-render/themes/default/assets/site.css');
         self::assertStringContainsString('--font-body:', $siteCss, 'the theme declares the body face as a token');
-        self::assertStringContainsString('--font-display: var(--font-body)', $siteCss, 'display follows body by default');
-        self::assertStringContainsString('font-family: var(--font-display)', $siteCss, 'headings read the display token');
+        self::assertStringContainsString('--font-display: var(--font-body)', $siteCss, 'display follows body');
+        self::assertStringContainsString('font-family: var(--font-display)', $siteCss, 'headings read display');
     }
 }

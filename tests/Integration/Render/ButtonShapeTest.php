@@ -30,7 +30,11 @@ final class ButtonShapeTest extends AppTestCase
     private function button(array $data): string
     {
         return $this->env()->createTemplate('{{ blocks(list) }}')->render([
-            'list' => [['id' => 'btn000000001', 'type' => 'button', 'data' => ['label' => 'Go', 'url' => '/go'] + $data]],
+            'list' => [[
+                'id' => 'btn000000001',
+                'type' => 'button',
+                'data' => ['label' => 'Go', 'url' => '/go'] + $data,
+            ]],
         ]);
     }
 
@@ -45,8 +49,10 @@ final class ButtonShapeTest extends AppTestCase
 
     public function testRoundedAndSquareAreChoices(): void
     {
-        self::assertStringContainsString('thallo-block-button__link--shape-rounded', $this->button(['shape' => 'rounded']));
-        self::assertStringContainsString('thallo-block-button__link--shape-square', $this->button(['shape' => 'square']));
+        $rounded = $this->button(['shape' => 'rounded']);
+        $square = $this->button(['shape' => 'square']);
+        self::assertStringContainsString('thallo-block-button__link--shape-rounded', $rounded);
+        self::assertStringContainsString('thallo-block-button__link--shape-square', $square);
     }
 
     public function testTheThemeReadsTheRadiusTokenAndStylesEveryShape(): void
@@ -57,7 +63,10 @@ final class ButtonShapeTest extends AppTestCase
 
         self::assertStringContainsString('border-radius: var(--radius-btn, 999px);', $css);
         self::assertStringContainsString('.thallo-block-button__link--shape-pill { border-radius: 999px; }', $css);
-        self::assertStringContainsString('.thallo-block-button__link--shape-rounded { border-radius: var(--radius); }', $css);
+        self::assertStringContainsString(
+            '.thallo-block-button__link--shape-rounded { border-radius: var(--radius); }',
+            $css,
+        );
         self::assertStringContainsString('.thallo-block-button__link--shape-square { border-radius: 2px; }', $css);
     }
 }

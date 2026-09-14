@@ -177,7 +177,9 @@ final class PreviewThemeTest extends AppTestCase
         self::assertStringContainsString('text/html', (string) $res->headers->get('Content-Type'));
         self::assertStringContainsString('no-store', (string) $res->headers->get('Cache-Control'));
         // The FIXED 404 body was not consulted or filled (spec §3).
-        self::assertNull($this->container()->get(CacheStore::class)->get('render:default:blue-slate-round-sans-plain:404'));
+        self::assertNull(
+            $this->container()->get(CacheStore::class)->get('render:default:blue-slate-round-sans-plain:404'),
+        );
     }
 
     public function testVersionPinnedTokenRendersThePinnedFieldsNotTheDraft(): void

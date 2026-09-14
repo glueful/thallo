@@ -293,7 +293,7 @@ final class RenderPageCacheTest extends AppTestCase
             ->dispatch(new EntryPublished($entry, $this->typeUuid()));
 
         self::assertNull($this->cache()->get('render:default:blue-slate-round-sans-plain:%2Fblog%2Fhello')); // A purged
-        self::assertIsArray($this->cache()->get('render:default:blue-slate-round-sans-plain:%2F'));        // B still hit
+        self::assertIsArray($this->cache()->get('render:default:blue-slate-round-sans-plain:%2F')); // B still hit
     }
 
     public function testStyleSkinnedRenderIsPurgedByItsEntrySurrogateTag(): void

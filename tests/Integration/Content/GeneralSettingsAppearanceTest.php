@@ -38,9 +38,12 @@ final class GeneralSettingsAppearanceTest extends AppTestCase
     public function testSaveRejectsUnknownDesignValues(): void
     {
         $controller = $this->container()->get(GeneralSettingsController::class);
-        self::assertSame(422, $controller->update(new UpdateGeneralSettingsData(theme_radius: 'huge'))->getStatusCode());
-        self::assertSame(422, $controller->update(new UpdateGeneralSettingsData(theme_font: 'comic'))->getStatusCode());
-        self::assertSame(422, $controller->update(new UpdateGeneralSettingsData(theme_background: 'plaid'))->getStatusCode());
+        $radius = $controller->update(new UpdateGeneralSettingsData(theme_radius: 'huge'));
+        $font = $controller->update(new UpdateGeneralSettingsData(theme_font: 'comic'));
+        $background = $controller->update(new UpdateGeneralSettingsData(theme_background: 'plaid'));
+        self::assertSame(422, $radius->getStatusCode());
+        self::assertSame(422, $font->getStatusCode());
+        self::assertSame(422, $background->getStatusCode());
     }
 
     public function testSaveAcceptsDesignValuesAndTheProviderReflectsThem(): void

@@ -83,7 +83,10 @@ final class SeedBlockTypesTest extends AppTestCase
         self::assertSame(['accordion_item'], $accordion['items']['block_types']);
         $heroFields = array_column($repo->findBySlug('hero')['schema'], 'name');
         self::assertSame(
-            ['headline', 'title', 'description', 'links', 'image', 'aside', 'orientation', 'reverse', 'background', 'heading_level'],
+            [
+                'headline', 'title', 'description', 'links', 'image', 'aside',
+                'orientation', 'reverse', 'background', 'heading_level',
+            ],
             $heroFields,
         );
         $heroSchema = array_column($repo->findBySlug('hero')['schema'], null, 'name');

@@ -53,8 +53,14 @@ final class ThemeDesignTest extends AppTestCase
 
     public function testRadiusWritesTheThreeRadiusTokens(): void
     {
-        self::assertSame(':root{--radius:4px;--radius-lg:8px;--radius-btn:4px}', ThemeDesign::css('sharp', 'sans', 'plain', 'slate'));
-        self::assertSame(':root{--radius:12px;--radius-lg:20px;--radius-btn:8px}', ThemeDesign::css('soft', 'sans', 'plain', 'slate'));
+        self::assertSame(
+            ':root{--radius:4px;--radius-lg:8px;--radius-btn:4px}',
+            ThemeDesign::css('sharp', 'sans', 'plain', 'slate'),
+        );
+        self::assertSame(
+            ':root{--radius:12px;--radius-lg:20px;--radius-btn:8px}',
+            ThemeDesign::css('soft', 'sans', 'plain', 'slate'),
+        );
     }
 
     public function testEditorialPairsASerifDisplayWithTheSansBodyAndSerifSetsBoth(): void

@@ -290,7 +290,9 @@ final class PreviewSessionTest extends AppTestCase
         self::assertStringContainsString('preview-banner', $html); // …but in chrome
         self::assertStringContainsString('no-store', (string) $listing->headers->get('Cache-Control'));
         // And nothing entered the page cache.
-        self::assertNull($this->container()->get(CacheStore::class)->get('render:default:blue-slate-round-sans-plain:%2Fblog'));
+        self::assertNull(
+            $this->container()->get(CacheStore::class)->get('render:default:blue-slate-round-sans-plain:%2Fblog'),
+        );
     }
 
     public function testSessionCanonicalUrlRendersTheWorkingCopyOverTheDraft(): void
@@ -442,7 +444,9 @@ final class PreviewSessionTest extends AppTestCase
         self::assertStringContainsString('preview-banner', (string) $res->getContent());
         self::assertStringContainsString('no-store', (string) $res->headers->get('Cache-Control'));
         // The SHARED fixed 404 body was neither read nor filled by the session.
-        self::assertNull($this->container()->get(CacheStore::class)->get('render:default:blue-slate-round-sans-plain:404'));
+        self::assertNull(
+            $this->container()->get(CacheStore::class)->get('render:default:blue-slate-round-sans-plain:404'),
+        );
     }
 
     // ---- Task 4: per-preview theme + assets -------------------------------------------
