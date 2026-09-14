@@ -17,4 +17,13 @@ interface ThemeAppearanceProvider
 
     /** The saved neutral family, or the default when none is stored. */
     public function neutral(): string;
+
+    /** Corner radius scale: sharp | soft | round (the default). */
+    public function radius(): string;
+
+    /** Typeface pairing: sans (the default) | editorial (serif display, sans body) | serif. */
+    public function font(): string;
+
+    /** Page ground: plain (the default, white) | tinted (the neutral's surface tint). */
+    public function background(): string;
 }

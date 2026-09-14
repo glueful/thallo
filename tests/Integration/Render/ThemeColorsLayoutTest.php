@@ -27,6 +27,18 @@ final class ThemeColorsLayoutTest extends AppTestCase
             {
                 return 'zinc';
             }
+            public function radius(): string
+            {
+                return 'sharp';
+            }
+            public function font(): string
+            {
+                return 'editorial';
+            }
+            public function background(): string
+            {
+                return 'plain';
+            }
         };
         $ext = new RenderContextExtension(
             null,
@@ -49,5 +61,16 @@ final class ThemeColorsLayoutTest extends AppTestCase
         self::assertNotFalse($style, 'override style present');
         self::assertGreaterThan($blocksCss, $style, 'style after blocks.css');
         self::assertStringContainsString('<style>:root{', $html);
+
+        // Design tokens (website plan phase 1b) ride in the same block, after the colours.
+        $design = strpos($html, '--radius:4px;--radius-lg:8px;--radius-btn:4px');
+        self::assertNotFalse($design, 'radius override present');
+        self::assertGreaterThan($style, $design, 'design after colours');
+        self::assertStringContainsString('--font-display:', $html);
+
+        $siteCss = (string) file_get_contents($base . '/packages/thallo-render/themes/default/assets/site.css');
+        self::assertStringContainsString('--font-body:', $siteCss, 'the theme declares the body face as a token');
+        self::assertStringContainsString('--font-display: var(--font-body)', $siteCss, 'display follows body by default');
+        self::assertStringContainsString('font-family: var(--font-display)', $siteCss, 'headings read the display token');
     }
 }

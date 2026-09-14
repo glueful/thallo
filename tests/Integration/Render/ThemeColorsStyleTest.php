@@ -27,6 +27,18 @@ final class ThemeColorsStyleTest extends AppTestCase
             {
                 return $this->n;
             }
+            public function radius(): string
+            {
+                return 'round';
+            }
+            public function font(): string
+            {
+                return 'sans';
+            }
+            public function background(): string
+            {
+                return 'plain';
+            }
         };
         return new RenderContextExtension(
             null,
