@@ -57,6 +57,12 @@ as the next release, never a mutated tag.
   two maps the presets and needs decisions for pixel boxes, raw colours and the overlay colour.
   The `hex_color` and `style_hook` filters and the `thallo-shadow-*` utilities are gone; template
   policy cache version 23.
+- **Breaking (Developer Preview): templates emit no inline styles.** The template lint refuses a
+  `style=` attribute and a `<style>` element, at save and before render, so an operator template
+  carrying either no longer renders until it styles through settings or the theme stylesheet;
+  `theme_colors_style()`, `theme_style_scope()` and `font_faces_style()` are the only inline
+  style emitters. The pricing plans' column count is a `--count-{n}` modifier and the admin's
+  chrome preview styles through the theme sheet.
 - `thallo:provision` syncs the evolved starter block-type definitions onto the existing rows
   (new fields, and the style declaration the settings conversion and every render rely on) —
   an upgraded instance no longer needs `thallo:blocks:sync` by hand — and `thallo:blocks:sync`

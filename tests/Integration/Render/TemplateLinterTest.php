@@ -212,4 +212,28 @@ final class TemplateLinterTest extends AppTestCase
         $token = $linter->lint($good . "{{ token_class('colors.text', data.c) }}", 'blocks/button.twig');
         self::assertSame([], $token, 'token_class takes any value expression');
     }
+
+    /** Visual builder spec §2.5: no template writes an inline style; the three emitters are functions. */
+    public function testInlineStylesAreDenied(): void
+    {
+        $linter = $this->linter();
+        $attribute = $linter->lint('<div class="x" style="color: {{ data.color }}"></div>');
+        self::assertCount(1, $attribute);
+        self::assertStringContainsString('Inline style attributes are not allowed', $attribute[0]['message']);
+        self::assertCount(1, $linter->lint("<p STYLE='margin:0'>x</p>"), 'case and quoting do not matter');
+
+        $element = $linter->lint('<style>.x { color: red }</style><div></div>');
+        self::assertCount(1, $element);
+        self::assertStringContainsString('Inline <style> elements are not allowed', $element[0]['message']);
+
+        // Not inline styles: a data attribute, a class name, the block's own style helpers and the
+        // enumerated emitters.
+        $clean = <<<'TWIG'
+        <div data-style="a" class="thallo-block-style thallo-style-promo{{ style_classes('root') }}"></div>
+        {{ theme_colors_style() }}
+        {{ font_faces_style('Figtree', 'fonts/r.woff2') }}
+        {% set scope = theme_style_scope('rose', 'zinc') %}{{ scope.style }}
+        TWIG;
+        self::assertSame([], $linter->lint($clean));
+    }
 }
