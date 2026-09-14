@@ -54,7 +54,7 @@ final class HeroBlockOptionsTest extends AppTestCase
 
         self::assertMatchesRegularExpression(
             '~<div class="thallo-block-hero__media thallo-block-hero__media--blocks">\s*'
-            . '<figure class="thallo-block thallo-block-code"~',
+            . '<div class="thallo-block thallo-block-code"~',
             $out,
         );
         self::assertStringNotContainsString('<img', $out);

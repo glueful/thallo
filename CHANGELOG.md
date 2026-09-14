@@ -8,6 +8,14 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Fixed
+- The code block's corners and shadow land where the theme paints them: the framed figure is
+  the block's `panel` style target (spacing and width stay on the root), so "Corners: none"
+  squares the frame. The snippet wraps long lines instead of scrolling sideways, and the Copy
+  button shows in the design canvas as it does on the page.
+- The stage patches in place again after an apply. Since the revision pair joined `<main>`,
+  every post-apply refresh compared page shells that differed only by that pair, answered
+  "shell drift" and reloaded the iframe; the comparison ignores the pair and a successful patch
+  advances it, and a patched wrapper is handed to the theme runtime to enhance.
 - Every admin page's panel takes the height of the layout's rounded shell instead of the
   viewport: Nuxt UI's `min-h-svh` default overflowed the shell by its margins, and the
   overflow-hidden shell scrolled on focus, clipping the page title and its Save button.
