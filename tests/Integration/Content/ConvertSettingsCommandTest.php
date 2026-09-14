@@ -15,15 +15,12 @@ use Thallo\Core\Content\Console\ConvertSettingsCommand;
 use Thallo\Core\Content\Regions\RegionRepository;
 use Thallo\Core\Content\Repositories\ContentTypeRepository;
 use Thallo\Core\Content\Repositories\EntryRepository;
-use Thallo\Core\Content\Repositories\ReferenceProjectionRepository;
 use Thallo\Core\Content\Repositories\RouteRepository;
 use Thallo\Core\Content\Repositories\VersionRepository;
-use Thallo\Core\Content\Services\PublishService;
 use Thallo\Core\Content\Style\Conversion\Converter;
 use Thallo\Core\Content\Style\Conversion\ConversionTables;
 use Thallo\Core\Content\Style\Conversion\DecisionsFile;
 use Thallo\Core\Content\Style\Conversion\SettingsConversion;
-use Thallo\Core\Content\Validation\FieldValidator;
 use Thallo\Core\Tests\Support\AppTestCase;
 
 /** `thallo:blocks:convert-settings` end to end (visual builder spec §7.3): dry run, decisions, live, idempotence. */
@@ -79,14 +76,12 @@ final class ConvertSettingsCommandTest extends AppTestCase
         ]];
         $entries->saveDraft($uuid, 'en', $legacy, 1, 0, 'user1');
         (new RouteRepository($this->connection()))->assign($uuid, $this->type, 'en', 'convert-page');
-        (new PublishService(
-            $this->appContext(),
-            $entries,
-            new VersionRepository($this->connection()),
-            $types,
-            new FieldValidator($this->connection(), $this->appContext(), new BlockTypeRepository($this->connection())),
-            new ReferenceProjectionRepository($this->connection()),
-        ))->publish($uuid, 'en', 'user1');
+        // A retained, published version carrying the legacy fields as a beta.28 install would
+        // (written directly: today's validator no longer knows those fields).
+        $versions = new VersionRepository($this->connection());
+        $number = $versions->reserveNextVersionNumber($uuid, 'en');
+        $versionUuid = $versions->appendVersion($uuid, 'en', $number, $legacy, 1, 'user1');
+        $versions->pin($uuid, 'en', $versionUuid, 'user1');
         (new RegionRepository($this->connection()))->save('header', [
             ['id' => 'bt', 'type' => 'button', 'data' => ['label' => 'Go', 'url' => '/go', 'shape' => 'square']],
         ], [], 'user1');
@@ -145,6 +140,11 @@ final class ConvertSettingsCommandTest extends AppTestCase
         self::assertSame(['presentation-group-1'], $stamp, 'the version converted in place');
         $header = (new RegionRepository($this->connection()))->find('header');
         self::assertSame('radius.none', $header['blocks'][0]['settings']['style']['radius']['value']);
+
+        // The legacy fields leave the block type rows once every document is converted.
+        $headingType = (new BlockTypeRepository($this->connection()))->findBySlug('heading');
+        self::assertNotContains('align', array_column((array) $headingType['schema'], 'name'));
+        self::assertNotContains('color', array_column((array) $headingType['schema'], 'name'));
 
         $again = $this->convert([]);
         self::assertSame(0, $again['exit']);

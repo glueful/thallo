@@ -10,6 +10,7 @@ use Thallo\Core\Content\Schema\ContentTypeSchema;
 use Thallo\Core\Content\Validation\FieldValidator;
 use Thallo\Core\Content\Validation\ValidationException;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 use Thallo\Render\RenderContextExtension;
 use Thallo\Render\ThemeLocator;
 use Thallo\Render\TwigFactory;
@@ -25,6 +26,8 @@ use Thallo\Core\Tests\Support\ThemeFixture;
  */
 final class BlockLibraryRenderTest extends AppTestCase
 {
+    use SyncsBlockStyleDeclarations;
+
     private function env(string $theme = 'default'): Environment
     {
         $base = $this->appContext()->getBasePath();
@@ -249,7 +252,7 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringContainsString('/blobs/' . $dark, $out);
     }
 
-    public function testImageBlockAppliesPixelDimensionsAndSizePreset(): void
+    public function testImageBlockSizesThroughSettingsAndNeverInline(): void
     {
         $uuid = \Glueful\Helpers\Utils::generateNanoID();
         $this->connection()->table('blobs')->insert([
@@ -258,30 +261,26 @@ final class BlockLibraryRenderTest extends AppTestCase
             'status' => 'active', 'created_by' => 'user00000001',
             'created_at' => gmdate('Y-m-d H:i:s'),
         ]);
+        $this->syncBlockStyleDeclarations();
 
-        // `size` presets the figure's layout width; `width`/`height` set the <img>'s
-        // intrinsic size. Both set → exact dimensions on the element.
+        // A width token on the root, corners on the picture (visual builder spec §7.2).
         $out = $this->render([
-            ['id' => 'im1', 'type' => 'image', 'data' => [
-                'image' => $uuid, 'alt' => 'A', 'size' => 'wide', 'width' => 800, 'height' => 600,
-            ]],
+            ['id' => 'im1', 'type' => 'image', 'data' => ['image' => $uuid, 'alt' => 'A'], 'settings' => ['style' => [
+                'width' => ['base' => ['type' => 'token', 'value' => 'width.container']],
+                'radius' => ['type' => 'token', 'value' => 'radius.lg'],
+            ]]],
         ]);
-        self::assertStringContainsString('thallo-block-image--wide', $out);
-        self::assertStringContainsString('style="width:800px;height:600px"', $out);
+        self::assertSame(1, preg_match('~<figure class="thallo-block thallo-block-image t-w-container">~', $out));
+        self::assertSame(1, preg_match('~<img class="thallo-block-image__img t-radius-lg"~', $out));
+        self::assertStringNotContainsString('style=', $out);
+        self::assertStringNotContainsString('thallo-block-image--', $out);
 
-        // Width alone → only the width declaration; height stays auto (unset).
-        $out = $this->render([
-            ['id' => 'im2', 'type' => 'image', 'data' => ['image' => $uuid, 'width' => 320]],
-        ]);
-        self::assertStringContainsString('style="width:320px"', $out);
-        self::assertStringNotContainsString('height:', $out);
-
-        // Neither → no style attribute (default layout slot, current behaviour).
+        // No settings: the theme's own sizing, still nothing inline.
         $out = $this->render([
             ['id' => 'im3', 'type' => 'image', 'data' => ['image' => $uuid]],
         ]);
-        self::assertStringContainsString('thallo-block-image', $out);
-        self::assertStringNotContainsString('style="width', $out);
+        self::assertStringContainsString('<figure class="thallo-block thallo-block-image">', $out);
+        self::assertStringNotContainsString('style=', $out);
     }
 
     public function testFileBlockRendersDownloadLinkAndNewTabViewLink(): void

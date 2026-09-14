@@ -91,9 +91,9 @@ $classes = static function (array $case, string $target) use ($emitter, $targets
 $sections = '';
 foreach ($cases as $name => $case) {
     if ($case['block'] === 'heading') {
-        $markup = '<h2 class="thallo-block thallo-block-heading thallo-block-heading--start' . $classes($case, 'root')
+        $markup = '<h2 class="thallo-block thallo-block-heading' . $classes($case, 'root')
             . '" data-target="root">Heading</h2>';
-        $control = '<h2 class="thallo-block thallo-block-heading thallo-block-heading--start" data-control="root">Heading</h2>';
+        $control = '<h2 class="thallo-block thallo-block-heading" data-control="root">Heading</h2>';
     } else {
         $link = static fn (string $extra, string $attr): string => '<a class="thallo-block-button__link '
             . 'thallo-block-button__link--outline thallo-block-button__link--primary thallo-block-button__link--md'

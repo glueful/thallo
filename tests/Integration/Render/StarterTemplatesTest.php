@@ -78,14 +78,13 @@ final class StarterTemplatesTest extends AppTestCase
                 'links' => [['id' => 'hb1', 'type' => 'button',
                     'data' => ['label' => 'Go', 'url' => '/start']]]],
             'rich_text' => ['body' => '<p>Hello <strong>world</strong></p><script>alert(1)</script>'],
-            'heading' => ['text' => 'Section label', 'level' => 'h3', 'align' => 'center',
-                'color' => '#ff0000'],
+            'heading' => ['text' => 'Section label', 'level' => 'h3'],
             'file' => ['file' => 'blob00000000', 'label' => 'Spec sheet', 'new_tab' => true],
             'cta' => ['title' => 'Act now', 'description' => 'Because.', 'variant' => 'solid',
                 'orientation' => 'vertical',
                 'links' => [['id' => 'cb1', 'type' => 'button',
                     'data' => ['label' => 'Do it', 'url' => 'https://example.com']]]],
-            'image' => ['image' => 'blob00000000', 'alt' => 'A pic', 'caption' => 'Cap', 'size' => 'wide'],
+            'image' => ['image' => 'blob00000000', 'alt' => 'A pic', 'caption' => 'Cap'],
             'style' => ['accent' => 'rose', 'neutral' => 'zinc', 'class_hook' => 'promo', 'content' => []],
             'container' => ['background_color' => '#112233', 'overlay_color' => '#000000',
                 'overlay_opacity' => 40, 'width' => 'full', 'padding_preset' => 'large',
@@ -262,16 +261,23 @@ final class StarterTemplatesTest extends AppTestCase
         self::assertStringContainsString('thallo-block-image', $out);
     }
 
-    public function testHeadingUsesLevelAlignAndColorAndDefaultsToH2(): void
+    public function testHeadingUsesLevelAndStylesThroughSettingsOnly(): void
     {
-        $render = fn(array $data): string => $this->env()->createTemplate("{{ blocks(l) }}")
-            ->render(['l' => [['id' => 'h', 'type' => 'heading', 'data' => $data]]]);
+        $this->syncBlockStyleDeclarations();
+        $render = fn(array $data, array $settings = []): string => $this->env()
+            ->createTemplate("{{ blocks(l) }}")
+            ->render(['l' => [['id' => 'h', 'type' => 'heading', 'data' => $data, 'settings' => $settings]]]);
 
-        // Level → the tag; align → modifier class; color → inline style; text escaped.
-        $out = $render(['text' => 'Hi', 'level' => 'h3', 'align' => 'center', 'color' => '#ff0000']);
+        // Level → the tag; alignment and colour → settings utilities; never an inline style.
+        $out = $render(['text' => 'Hi', 'level' => 'h3'], ['style' => [
+            'alignment' => ['text' => ['base' => ['type' => 'choice', 'value' => 'center']]],
+            'colors' => ['text' => ['type' => 'token', 'value' => 'color.accent']],
+        ]]);
         self::assertStringContainsString('<h3 class="thallo-block thallo-block-heading', $out);
-        self::assertStringContainsString('thallo-block-heading--center"', $out);
-        self::assertStringContainsString('style="color:#ff0000"', $out);
+        self::assertStringContainsString(' t-text-center', $out);
+        self::assertStringContainsString(' t-fg-accent', $out);
+        self::assertStringNotContainsString('style=', $out);
+        self::assertStringNotContainsString('thallo-block-heading--', $out);
         self::assertStringContainsString('>Hi</h3>', $out);
 
         // No level → defaults to h2; unknown level degrades to h2 too.
@@ -607,73 +613,64 @@ final class StarterTemplatesTest extends AppTestCase
         $styled = $this->renderList([
             ['id' => 'a4', 'type' => 'animated_text', 'data' => [
                 'prefix' => 'Craft', 'rotate_words' => "bold\nthings", 'suffix' => 'daily',
-                'prefix_color' => '#ff0000', 'prefix_size' => 'sm', 'prefix_italic' => true,
-                'rotate_color' => '#00ff00', 'rotate_size' => 'xl', 'rotate_bold' => true,
+                'prefix_color' => ['type' => 'token', 'value' => 'color.accent'], 'prefix_size' => 'sm',
+                'prefix_italic' => true,
+                'rotate_color' => ['type' => 'token', 'value' => 'color.muted'], 'rotate_size' => 'xl',
+                'rotate_bold' => true,
                 'suffix_size' => 'lg', 'suffix_bold' => true, 'suffix_italic' => true,
             ]],
         ]);
-        // Prefix span: small + italic + red.
+        // Prefix span: small + italic + the accent token's utility (token_class, spec §1.7).
         self::assertMatchesRegularExpression(
             '#<span class="thallo-block-animated_text__prefix thallo-block-animated_text__seg--sm '
-            . 'thallo-block-animated_text__seg--italic" style="color: \#ff0000">Craft</span>#',
+            . 'thallo-block-animated_text__seg--italic t-fg-accent">Craft</span>#',
             $styled,
         );
-        // Rotating stack: xl + bold + green on the __rotate span itself.
+        // Rotating stack: xl + bold + the muted token on the __rotate span itself.
         self::assertMatchesRegularExpression(
             '#<span class="thallo-block-animated_text__rotate thallo-block-animated_text__seg--xl '
-            . 'thallo-block-animated_text__seg--bold" style="color: \#00ff00">#',
+            . 'thallo-block-animated_text__seg--bold t-fg-muted">#',
             $styled,
         );
-        // Suffix span: lg + bold + italic, no color -> no style attribute.
+        // Suffix span: lg + bold + italic, no colour -> no colour utility, never a style attribute.
         self::assertMatchesRegularExpression(
             '#<span class="thallo-block-animated_text__suffix thallo-block-animated_text__seg--lg '
             . 'thallo-block-animated_text__seg--bold thallo-block-animated_text__seg--italic">daily</span>#',
             $styled,
         );
+        self::assertStringNotContainsString('style=', $styled);
 
-        // A non-hex color value is DROPPED, never emitted into the style attr.
+        // A value that is not a token of the colour vocabulary emits nothing at all.
         $bad = $this->renderList([
             ['id' => 'a5', 'type' => 'animated_text', 'data' => [
                 'prefix' => 'Hi', 'rotate_words' => "A\nB",
-                'prefix_color' => 'red;background:url(x)',
+                'prefix_color' => ['type' => 'token', 'value' => 'color.nope'],
             ]],
         ]);
-        self::assertStringNotContainsString('background:url', $bad);
-        self::assertStringNotContainsString('style="color: red', $bad);
+        self::assertStringNotContainsString('t-fg-', $bad);
+        self::assertStringNotContainsString('style=', $bad);
     }
 
     /**
-     * Configurable transition duration (slider-config follow-up): seconds, one
-     * value pacing every mode — the runtime reads data-duration for the slide
-     * scroll; fade/zoom consume the --carousel-duration custom property. Emitted
-     * only for a NUMERIC stored value, clamped to 0.2–5; absent/garbage values
-     * emit neither (the theme defaults apply).
+     * The carousel's pace is a closed choice (visual builder spec §7.2): one value paces
+     * every mode — the runtime reads data-speed for the slide scroll; fade/zoom read the
+     * theme's --carousel-duration through the --speed-* class. Absent or unknown = normal.
      */
-    public function testCarouselConfigurableTransitionDuration(): void
+    public function testCarouselSpeedIsAChoiceNeverAnInlineStyle(): void
     {
         $out = $this->renderList([
-            ['id' => 'c1', 'type' => 'carousel', 'data' => ['transition_duration' => 2.5, 'slides' => []]],
+            ['id' => 'c1', 'type' => 'carousel', 'data' => ['speed' => 'slow', 'slides' => []]],
         ]);
-        self::assertStringContainsString('data-duration="2.5"', $out);
-        self::assertStringContainsString('style="--carousel-duration: 2.5s"', $out);
+        self::assertStringContainsString('data-speed="slow"', $out);
+        self::assertStringContainsString('thallo-block-carousel--speed-slow', $out);
+        self::assertStringNotContainsString('style=', $out);
 
-        // Clamped to the 0.2–5 window on both ends.
-        $high = $this->renderList([
-            ['id' => 'c2', 'type' => 'carousel', 'data' => ['transition_duration' => 99, 'slides' => []]],
-        ]);
-        self::assertStringContainsString('data-duration="5"', $high);
-        $low = $this->renderList([
-            ['id' => 'c3', 'type' => 'carousel', 'data' => ['transition_duration' => 0.01, 'slides' => []]],
-        ]);
-        self::assertStringContainsString('data-duration="0.2"', $low);
-
-        // Absent and non-numeric: no attribute, no style — theme defaults apply.
-        foreach ([[], ['transition_duration' => 'fast']] as $data) {
+        foreach ([[], ['speed' => 'ludicrous']] as $data) {
             $out = $this->renderList([
                 ['id' => 'c4', 'type' => 'carousel', 'data' => $data + ['slides' => []]],
             ]);
-            self::assertStringNotContainsString('data-duration', $out);
-            self::assertStringNotContainsString('--carousel-duration', $out);
+            self::assertStringContainsString('data-speed="normal"', $out);
+            self::assertStringContainsString('thallo-block-carousel--speed-normal', $out);
         }
     }
 

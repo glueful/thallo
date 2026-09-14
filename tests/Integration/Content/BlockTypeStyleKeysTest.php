@@ -134,7 +134,13 @@ final class BlockTypeStyleKeysTest extends AppTestCase
 
     public function testEveryStarterCarriesTheTransitionalFlagAndTheApiReturnsTheKeys(): void
     {
+        // Group one (heading, button, animated text, image, carousel) converted in A4.6.
+        $converted = ['heading', 'button', 'animated_text', 'image', 'carousel'];
         foreach (StarterBlockTypes::definitions() as $definition) {
+            if (in_array($definition['slug'], $converted, true)) {
+                self::assertFalse($definition['flags']['legacy_presentation'] ?? false, $definition['slug']);
+                continue;
+            }
             self::assertTrue(
                 $definition['flags']['legacy_presentation'] ?? false,
                 "{$definition['slug']} carries legacy_presentation until its conversion ships",
@@ -148,6 +154,6 @@ final class BlockTypeStyleKeysTest extends AppTestCase
         self::assertArrayHasKey('style_capabilities', $heading);
         self::assertArrayHasKey('style_targets', $heading);
         self::assertArrayHasKey('starter_content', $heading);
-        self::assertTrue($heading['flags']['legacy_presentation']);
+        self::assertSame([], $heading['flags'], 'heading converted: no transitional flag');
     }
 }
