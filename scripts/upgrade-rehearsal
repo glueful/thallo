@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Upgrade rehearsal (visual builder plan A1.6, spec §7.6): restore the populated beta.28 fixture
+# into the test database, run this checkout's migrations over it, and prove the content still
+# serves. Later slices add the converter's dry run, decisions, live run, interruption and
+# restore scenarios here.
+#
+# Usage: composer test:upgrade   (never concurrently with the PHP suite: same database)
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+FIXTURE="$ROOT/tests/Fixtures/upgrade/beta28.sql"
+export APP_ENV=testing DB_POOLING_ENABLED=false
+DB="${DB_PGSQL_DATABASE:-app_test}"
+[[ "$DB" == "app_test" || "$DB" == *_test ]] || { echo "refusing to restore into non-test database '$DB'" >&2; exit 1; }
+[[ -f "$FIXTURE" ]] || { echo "fixture missing: $FIXTURE (run scripts/build-upgrade-fixture)" >&2; exit 1; }
+
+# Postgres client credentials: the environment (CI) or the repo's .env (local).
+env_get() { grep -E "^$1=" "$ROOT/.env" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"'; }
+export PGHOST="${DB_PGSQL_HOST:-$(env_get DB_PGSQL_HOST)}"
+export PGPORT="${DB_PGSQL_PORT:-$(env_get DB_PGSQL_PORT)}"
+export PGUSER="${DB_PGSQL_USERNAME:-$(env_get DB_PGSQL_USERNAME)}"
+export PGPASSWORD="${DB_PGSQL_PASSWORD:-$(env_get DB_PGSQL_PASSWORD)}"
+PSQL=(psql -v ON_ERROR_STOP=1 -q -d "$DB")
+
+echo "== restore beta.28 fixture into $DB =="
+(cd "$ROOT" && DB_PGSQL_DATABASE="$DB" php scripts/reset-test-db.php >/dev/null)
+"${PSQL[@]}" -f "$FIXTURE" >/dev/null
+
+echo "== migrate with this checkout =="
+(cd "$ROOT" && DB_PGSQL_DATABASE="$DB" php scripts/run-test-migrations.php | grep -E "Applied|Failed|verified")
+
+echo "== doctor =="
+(cd "$ROOT" && DB_PGSQL_DATABASE="$DB" php glueful thallo:doctor --no-interaction | tail -3)
+
+echo "== the fixture still serves =="
+(cd "$ROOT" && DB_PGSQL_DATABASE="$DB" php scripts/upgrade-rehearsal-check.php)
+echo "== upgrade rehearsal: OK =="

@@ -105,6 +105,7 @@
     ],
     "test:distribution": "bash scripts/distribution-smoke",
     "test:skeleton": "bash scripts/skeleton-smoke",
+    "test:upgrade": "bash scripts/upgrade-rehearsal",
     "test:unit": "vendor/bin/phpunit --testsuite Unit",
     "test:integration": "vendor/bin/phpunit --testsuite Integration",
     "phpcs": "vendor/bin/phpcs",
