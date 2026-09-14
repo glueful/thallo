@@ -104,6 +104,8 @@ final class PreviewRevisionTest extends AppTestCase
         self::assertSame(0, $data['baseline']);
         self::assertSame(0, $data['style_generation']);
         self::assertNotEmpty($data['applied_at']);
+        self::assertArrayHasKey('fragments', $data);
+        self::assertNull($data['fragments'], 'the fragment path ships disabled: the stage refreshes');
 
         $second = $this->apply($data['epoch'], 1, 'Again');
         self::assertSame(200, $second['status']);

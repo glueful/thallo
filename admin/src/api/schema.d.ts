@@ -23812,7 +23812,8 @@ export interface operations {
          *       "fields": "example",
          *       "epoch": "example",
          *       "base_revision": 50,
-         *       "operations": "example"
+         *       "operations": "example",
+         *       "debug_changed": "example"
          *     }
          */
         'application/json': {
@@ -23823,6 +23824,8 @@ export interface operations {
           base_revision?: number | null
           /** @description The committed operations since `base_revision`. */
           operations?: unknown[] | null
+          /** @description The client's affected-block ids (development assertion only). */
+          debug_changed?: unknown[] | null
         }
       }
     }
@@ -23843,6 +23846,8 @@ export interface operations {
               style_generation?: number
               /** Format: date-time */
               applied_at?: string
+              /** @description Root block id => annotated markup; null = whole page. */
+              fragments?: string[] | null
             }
           }
         }

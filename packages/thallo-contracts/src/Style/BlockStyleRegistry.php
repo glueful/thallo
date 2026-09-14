@@ -17,4 +17,7 @@ interface BlockStyleRegistry
 
     /** @return array<string, mixed> e.g. `renders_children_inline` */
     public function flagsFor(string $type): array;
+
+    /** @return list<string> the block type's region field names (its blocks-typed fields); unknown type = none */
+    public function regionsFor(string $type): array;
 }

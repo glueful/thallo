@@ -37,6 +37,17 @@ as the next release, never a mutated tag.
   the copy only at the revision it was submitted from; the mint and the rendered canvas page
   carry the accepted pair; every apply response names the site style generation.
 
+- **Canvas fragments, disabled** (visual builder, slice A6). An accepted apply can answer the
+  affected roots' markup instead of a whole-page refresh: the server derives the affected blocks
+  from the operations (validated against the accepted-before and validated-after documents),
+  the render-scope resolver lifts to parents that render their children inline, absorbs
+  descendants and escalates to the whole page for anything page-order or page dependent (a
+  reachable priority-image claim, a block reading its list index, `entries()`, the request
+  path, a block type new to the page that loads runtime assets), and only templates recorded
+  as verified — every fixture rendered block-by-block equals the whole page — take part.
+  Ships behind `render.fragments.enabled` (`RENDER_FRAGMENTS_ENABLED`, default off); the apply
+  answers `fragments: null` and the stage refreshes as before.
+
 ### Changed
 - **Breaking (Developer Preview): block presentation fields are converted, not kept.** Heading
   `align` and `color`, button `align` and `shape`, animated text's hex colours, image `size`,

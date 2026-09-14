@@ -47,6 +47,10 @@ final class BlockSettingsValidationTest extends AppTestCase
             {
                 return [];
             }
+            public function regionsFor(string $type): array
+            {
+                return [];
+            }
         };
         return new FieldValidator($this->connection(), $this->appContext(), null, null, $registry);
     }

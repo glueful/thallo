@@ -71411,6 +71411,14 @@
                                         ],
                                         "items": {},
                                         "description": "The committed operations since `base_revision`."
+                                    },
+                                    "debug_changed": {
+                                        "type": [
+                                            "array",
+                                            "null"
+                                        ],
+                                        "items": {},
+                                        "description": "The client's affected-block ids (development assertion only)."
                                     }
                                 },
                                 "required": [
@@ -71422,7 +71430,8 @@
                                 "fields": "example",
                                 "epoch": "example",
                                 "base_revision": 50,
-                                "operations": "example"
+                                "operations": "example",
+                                "debug_changed": "example"
                             }
                         }
                     }
@@ -71459,6 +71468,16 @@
                                                 "applied_at": {
                                                     "type": "string",
                                                     "format": "date-time"
+                                                },
+                                                "fragments": {
+                                                    "type": [
+                                                        "array",
+                                                        "null"
+                                                    ],
+                                                    "items": {
+                                                        "type": "string"
+                                                    },
+                                                    "description": "Root block id => annotated markup; null = whole page."
                                                 }
                                             }
                                         }
