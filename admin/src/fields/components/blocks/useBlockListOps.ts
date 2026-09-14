@@ -192,6 +192,19 @@ export function createBlockListOps(regionsOf: RegionResolver) {
     )
   }
 
+  /** Replace a block's whole `settings` (visual builder spec §1.2); the tree is otherwise untouched. */
+  function patchSettingsById(
+    tree: BlockInstance[],
+    id: string,
+    settings: Record<string, unknown>,
+  ): BlockInstance[] {
+    return mapLists(tree, (list) =>
+      list.some((b) => b.id === id)
+        ? list.map((b) => (b.id === id ? { ...b, settings: cloneSettings(settings) } : b))
+        : list,
+    )
+  }
+
   function moveById(tree: BlockInstance[], id: string, delta: number): BlockInstance[] {
     return mapLists(tree, (list) => {
       const from = list.findIndex((b) => b.id === id)
@@ -312,6 +325,7 @@ export function createBlockListOps(regionsOf: RegionResolver) {
     duplicateById,
     idMapBetween,
     patchDataById,
+    patchSettingsById,
     moveById,
     moveAcross,
     subtreeDepth,

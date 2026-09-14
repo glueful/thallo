@@ -260,6 +260,18 @@ function patchBlockData(id: string, fieldName: string, value: unknown): boolean 
   return true
 }
 
+/** Replace a block's settings (the inspector's Style and Advanced tabs write through here). */
+function patchBlockSettings(id: string, settings: Record<string, unknown>): boolean {
+  if (!ops.findById(model.value ?? [], id)) return false
+  apply((t) => ops.patchSettingsById(t, id, settings))
+  return true
+}
+
+/** The live block instance for `id`, or null. */
+function findBlock(id: string): BlockInstance | null {
+  return ops.findById(model.value ?? [], id)
+}
+
 /** The type slug of `id`, for the parent's prose-convention grant check. */
 function blockTypeById(id: string): string | null {
   return ops.findById(model.value ?? [], id)?.type ?? null
@@ -280,6 +292,8 @@ defineExpose({
   insertAfter,
   pickerTypesFor,
   patchBlockData,
+  patchBlockSettings,
+  findBlock,
   blockTypeById,
 })
 

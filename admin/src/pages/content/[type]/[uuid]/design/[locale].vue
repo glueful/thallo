@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { useContentTypes } from '@/queries/contentTypes'
 import { useBlockTypes } from '@/queries/blockTypes'
 import type { BlockType } from '@/queries/blockTypes'
+import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import { proseRichFieldName } from '@/fields/components/blocks/proseDetection'
 import { useDraft, useSaveDraft } from '@/queries/drafts'
 import { applyPreview, mintPreviewData, type RevisionPair } from '@/queries/preview'
@@ -11,6 +12,18 @@ import { useCanvasBridge } from '@/composables/useCanvasBridge'
 import { createEditorHistory, type EditorHistory } from '@/editor/ops/history'
 import { diffDocuments } from '@/editor/ops/diff'
 import { newEditorSession } from '@/editor/ops/session'
+import { absent, present } from '@/editor/ops/types'
+import { setPath, settingSegments } from '@/editor/ops/apply'
+import { useStyleSchema } from '@/queries/styleSchema'
+import {
+  activeBreakpoint,
+  BREAKPOINT_OF_VIEWPORT,
+  setActiveBreakpoint,
+  VIEWPORT_OF_BREAKPOINT,
+  type ViewportPreset,
+} from '@/editor/breakpoint'
+import type { Breakpoint, StyleValue } from '@/style/types'
+import BlockInspector from '@/editor/inspector/BlockInspector.vue'
 import { invertOperation } from '@/editor/ops/invert'
 import type { Operation } from '@/editor/ops/types'
 import type { BridgeAnchor, EditKind } from '@/composables/useCanvasBridge'
@@ -187,6 +200,7 @@ const inspectorTab = ref('content')
 const caps = useCapabilitiesStore()
 const seoEnabled = computed(() => caps.isEnabled('thallo.seo'))
 const inspectorTabs = computed(() => [
+  ...(selected.value !== null ? [{ label: 'Block', value: 'block', slot: 'block' as const }] : []),
   { label: 'Content', value: 'content', slot: 'content' as const },
   { label: 'Outline', value: 'outline', slot: 'outline' as const },
   { label: 'Page', value: 'page', slot: 'page' as const },
@@ -241,11 +255,18 @@ function setPresChrome(key: 'header' | 'footer', v: string): void {
   patchPresentation(key, v === 'default' ? undefined : v === 'show' ? 'default' : 'hidden')
 }
 
-// Viewport presets (spec §6): stage width only.
-const viewport = ref<'desktop' | 'tablet' | 'mobile'>('desktop')
-function setViewport(v: 'desktop' | 'tablet' | 'mobile'): void {
+// Viewport presets (spec §6): stage width — and the active breakpoint every responsive
+// control binds to (visual builder spec §3.4), synced both ways, never inferred from the iframe.
+const viewport = ref<ViewportPreset>('desktop')
+function setViewport(v: ViewportPreset): void {
   viewport.value = v
+  setActiveBreakpoint(BREAKPOINT_OF_VIEWPORT[v])
 }
+function onActiveBreakpoint(bp: Breakpoint): void {
+  setActiveBreakpoint(bp)
+  viewport.value = VIEWPORT_OF_BREAKPOINT[bp]
+}
+setActiveBreakpoint(BREAKPOINT_OF_VIEWPORT[viewport.value])
 const stageWidth = computed(
   () => ({ desktop: '100%', tablet: '768px', mobile: '390px' })[viewport.value],
 )
@@ -253,6 +274,8 @@ const stageWidth = computed(
 // ── Selection (spec §5) ────────────────────────────────────────────────────────
 interface FieldEditorExposed {
   selectBlockById: (id: string) => boolean
+  patchBlockSettingsById: (id: string, settings: Record<string, unknown>) => boolean
+  blockById: (id: string) => BlockInstance | null
   moveBlockById: (id: string, delta: number) => { beforeId: string } | { afterId: string } | null
   moveBlockToById: (id: string, neighbor: { beforeId: string } | { afterId: string }) => boolean
   duplicateBlockById: (id: string) => { newId: string; idMap: Record<string, string> } | null
@@ -268,7 +291,53 @@ const selected = ref<string | null>(null)
 bridge.onBlockSelect((id) => {
   selected.value = id
   fieldEditorRef.value?.selectBlockById(id)
+  inspectorTab.value = 'block'
 })
+
+// ── The block inspector (visual builder spec §3.4) ────────────────────────────
+const { data: styleSchema } = useStyleSchema()
+/** The selected block, read off the live tree (every edit re-derives it). */
+const selectedBlock = computed<BlockInstance | null>(() => {
+  void fields.value // the tree is the dependency; the editor ref only routes the lookup
+  return selected.value !== null ? (fieldEditorRef.value?.blockById(selected.value) ?? null) : null
+})
+const selectedBlockType = computed(
+  () => allBlockTypes.value?.find((t) => t.slug === selectedBlock.value?.type) ?? null,
+)
+
+function writeSettings(
+  id: string,
+  mutate: (settings: Record<string, unknown>) => Record<string, unknown>,
+): void {
+  const block = fieldEditorRef.value?.blockById(id)
+  if (!block) return
+  fieldEditorRef.value?.patchBlockSettingsById(id, mutate(block.settings ?? {}))
+}
+function onSetSetting(path: string, bp: Breakpoint | null, value: StyleValue | null): void {
+  if (selected.value === null) return
+  writeSettings(selected.value, (s) =>
+    setPath(s, settingSegments(path, bp), value === null ? absent() : present(value)),
+  )
+}
+function onSetAll(path: string, value: StyleValue): void {
+  if (selected.value === null) return
+  writeSettings(selected.value, (s) => {
+    let next = s
+    for (const bp of ['base', 'md', 'lg'] as Breakpoint[]) {
+      next = setPath(next, settingSegments(path, bp), present(value))
+    }
+    return next
+  })
+}
+function onSetAdvanced(path: string, value: unknown): void {
+  if (selected.value === null) return
+  writeSettings(selected.value, (s) =>
+    setPath(s, ['advanced', ...path.split('.')], value === null ? absent() : present(value)),
+  )
+}
+function onPatchData(name: string, value: unknown): void {
+  if (selected.value !== null) fieldEditorRef.value?.patchBlockDataById(selected.value, name, value)
+}
 
 // Stage Escape (keyboard-shortcuts spec §3): the bridge already cleared its
 // ring/toolbar — without this the parent's selection would go stale and the
@@ -1138,6 +1207,24 @@ function reloadStage(): void {
             data-test="inspector-tabs"
             variant="link"
           >
+            <template #block>
+              <BlockInspector
+                v-if="selectedBlock"
+                :block="selectedBlock"
+                :block-type="selectedBlockType"
+                :schema="styleSchema ?? null"
+                :classes="[]"
+                :active-breakpoint="activeBreakpoint"
+                @patch-data="onPatchData"
+                @set-setting="onSetSetting"
+                @set-all="onSetAll"
+                @set-advanced="onSetAdvanced"
+                @update:active-breakpoint="onActiveBreakpoint"
+              />
+              <p v-else class="text-xs text-muted" data-test="block-inspector-empty">
+                Select a block on the stage or in the outline.
+              </p>
+            </template>
             <template #content>
               <FieldEditor ref="fieldEditorRef" v-model="fields" :schema="schema" />
             </template>
