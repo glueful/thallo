@@ -2,7 +2,10 @@
 
 Status: design approved (2026-09-11). Phase 1: the two product pieces (code block,
 `thallo-version` shortcode) shipped 2026-09-13 — see
-`2026-09-13-website-phase-1-blocks-plan.md`; the homepage is being authored in the admin.
+`2026-09-13-website-phase-1-blocks-plan.md`. Phase 1b (design without code: hero aside and
+background, button shape, site design settings, chrome-preview parity) shipped 2026-09-14 —
+see `2026-09-14-website-phase-1b-design-controls-plan.md`; the homepage is being authored in
+the admin.
 Owner: Michael Tawiah Sowah. Charter: `docs/internal/DISTRIBUTION.md` (decision 8 and the
 website-from-tag gate bind this plan).
 

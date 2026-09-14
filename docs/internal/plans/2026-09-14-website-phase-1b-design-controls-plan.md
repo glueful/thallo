@@ -28,10 +28,10 @@
 
 **Interfaces:** hero data `aside: list<block>` rendered inside `.thallo-block-hero__media` (replacing the image when present); root modifiers `thallo-block-hero--bg-{gradient|none|muted|inverted}`.
 
-- [ ] **Step 1: failing tests** — a hero with `aside: [code block]` renders `thallo-block-code` inside `thallo-block-hero__media` and no `<img>`; a hero without `background` carries `--bg-gradient`; `background: none` carries `--bg-none`; an unknown background degrades to `--bg-gradient`; blocks.css contains `.thallo-block-hero--bg-none` and `.thallo-block-hero--bg-inverted`.
-- [ ] **Step 2: RED. Step 3: implement.** Template: `{% set background = {gradient:'gradient', none:'none', muted:'muted', inverted:'inverted'}[data.background|default('gradient')] ?? 'gradient' %}`; media slot: `{% if data.aside|default([]) is not empty %}<div class="thallo-block-hero__media thallo-block-hero__media--blocks">{{ blocks(data.aside) }}</div>{% elseif img %}…{% endif %}`. CSS: move the gradient from the base rule to `--bg-gradient`; `--bg-none { background: transparent }`, `--bg-muted { background: var(--surface-2) }`, `--bg-inverted { background: var(--ink); color: var(--accent-ink) }` with title/description colours as in `section--inverted`; `__media--blocks > .thallo-block { max-width: none; padding-inline: 0; }` so a nested block fills the column.
-- [ ] **Step 4: GREEN**, phpcs, `ShippedTemplatesLintGateTest`, `StarterTemplatesTest`, `BlockLibraryRenderTest`.
-- [ ] **Step 5: commit** `feat(blocks): hero carries any block beside its copy and can drop its gradient`.
+- [x] **Step 1: failing tests** — a hero with `aside: [code block]` renders `thallo-block-code` inside `thallo-block-hero__media` and no `<img>`; a hero without `background` carries `--bg-gradient`; `background: none` carries `--bg-none`; an unknown background degrades to `--bg-gradient`; blocks.css contains `.thallo-block-hero--bg-none` and `.thallo-block-hero--bg-inverted`.
+- [x] **Step 2: RED. Step 3: implement.** Template: `{% set background = {gradient:'gradient', none:'none', muted:'muted', inverted:'inverted'}[data.background|default('gradient')] ?? 'gradient' %}`; media slot: `{% if data.aside|default([]) is not empty %}<div class="thallo-block-hero__media thallo-block-hero__media--blocks">{{ blocks(data.aside) }}</div>{% elseif img %}…{% endif %}`. CSS: move the gradient from the base rule to `--bg-gradient`; `--bg-none { background: transparent }`, `--bg-muted { background: var(--surface-2) }`, `--bg-inverted { background: var(--ink); color: var(--accent-ink) }` with title/description colours as in `section--inverted`; `__media--blocks > .thallo-block { max-width: none; padding-inline: 0; }` so a nested block fills the column.
+- [x] **Step 4: GREEN**, phpcs, `ShippedTemplatesLintGateTest`, `StarterTemplatesTest`, `BlockLibraryRenderTest`.
+- [x] **Step 5: commit** `feat(blocks): hero carries any block beside its copy and can drop its gradient`.
 
 ### Task 2: button `shape`
 
@@ -41,9 +41,9 @@
 
 **Interfaces:** link modifier `thallo-block-button__link--shape-{pill|rounded|square}`; token `--radius-btn` (default `999px`, set by `theme_radius`).
 
-- [ ] **Step 1: failing tests** — default renders `--shape-pill`; `shape: rounded` renders `--shape-rounded`; blocks.css base rule uses `border-radius: var(--radius-btn, 999px)` and defines `--shape-rounded { border-radius: var(--radius) }`, `--shape-square { border-radius: 2px }`, `--shape-pill { border-radius: 999px }`.
-- [ ] **Step 2: RED. Step 3: implement. Step 4: GREEN**, phpcs, lint gate.
-- [ ] **Step 5: commit** `feat(blocks): button shape — pill, rounded or square`.
+- [x] **Step 1: failing tests** — default renders `--shape-pill`; `shape: rounded` renders `--shape-rounded`; blocks.css base rule uses `border-radius: var(--radius-btn, 999px)` and defines `--shape-rounded { border-radius: var(--radius) }`, `--shape-square { border-radius: 2px }`, `--shape-pill { border-radius: 999px }`.
+- [x] **Step 2: RED. Step 3: implement. Step 4: GREEN**, phpcs, lint gate.
+- [x] **Step 5: commit** `feat(blocks): button shape — pill, rounded or square`.
 
 ### Task 3: site design settings (radius, typeface, ground)
 
@@ -56,24 +56,24 @@
 - `ThemeDesign::RADII = ['sharp','soft','round']`, `FONTS = ['sans','editorial','serif']`, `BACKGROUNDS = ['plain','tinted']`; `normalizeRadius/Font/Background(string): ?string`; `css(string $radius, string $font, string $background, string $neutral): string` ('' for defaults).
 - Emitted declarations: radius `sharp` → `--radius:4px;--radius-lg:8px;--radius-btn:4px`; `soft` → `--radius:12px;--radius-lg:20px;--radius-btn:8px`; font `editorial` → `--font-display: "Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif`; `serif` → both display and body serif; background `tinted` → light `--bg` = the neutral's surface value and `--surface` = its bg value (swap, from `ThemeColors::tokens()`), dark unchanged.
 
-- [ ] **Step 1: failing tests. Step 2: RED. Step 3: implement. Step 4: GREEN**, phpcs, `composer boundaries`.
-- [ ] **Step 5: commit** `feat(theme): site design settings — corner radius, typeface pairing, page ground`.
+- [x] **Step 1: failing tests. Step 2: RED. Step 3: implement. Step 4: GREEN**, phpcs, `composer boundaries`.
+- [x] **Step 5: commit** `feat(theme): site design settings — corner radius, typeface pairing, page ground`.
 
 ### Task 4: admin Design card
 
 **Files:**
 - Modify: `admin/src/pages/settings/general/index.vue` (card `data-test="theme-design-card"` with selects `theme-radius`, `theme-font`, `theme-background`), `admin/src/__tests__/generalSettingsPage.spec.ts`; `pnpm gen:api` for the DTO fields.
-- [ ] **Step 1: failing spec** — the card renders the three selects with the saved values and the save payload carries them. **Step 2: RED. Step 3: implement. Step 4: GREEN** (`pnpm test`, `pnpm typecheck`, `pnpm lint`, fmt on touched files).
-- [ ] **Step 5: commit** `feat(admin): design settings card`.
+- [x] **Step 1: failing spec** — the card renders the three selects with the saved values and the save payload carries them. **Step 2: RED. Step 3: implement. Step 4: GREEN** (`pnpm test`, `pnpm typecheck`, `pnpm lint`, fmt on touched files).
+- [x] **Step 5: commit** `feat(admin): design settings card`.
 
 ### Task 5: region preview parity
 
 **Files:** `packages/thallo-render/themes/default/templates/region-preview.twig`; test in the existing region preview test.
-- [ ] Failing test: the preview document contains `theme_colors_style()` output for a non-default appearance and the custom CSS link when custom CSS exists. RED → add both after the theme sheets → GREEN → commit `fix(render): the chrome preview loads theme colours and custom CSS`.
+- [x] Failing test: the preview document contains `theme_colors_style()` output for a non-default appearance and the custom CSS link when custom CSS exists. RED → add both after the theme sheets → GREEN → commit `fix(render): the chrome preview loads theme colours and custom CSS`.
 
 ### Task 6: docs and gates
 
-- [ ] `packages/thallo-render/docs/THEMING.md` (hero/button options, design tokens), `CHANGELOG.md` Unreleased, the website plan's status line. Full `composer test`, admin gates, `composer test:skeleton` (settings change). Commit `docs(design): design controls`.
+- [x] `packages/thallo-render/docs/THEMING.md` (hero/button options, design tokens), `CHANGELOG.md` Unreleased, the website plan's status line. Full `composer test`, admin gates, `composer test:skeleton` (settings change). Commit `docs(design): design controls`.
 
 ## Self-review
 
