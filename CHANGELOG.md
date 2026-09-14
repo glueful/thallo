@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Fixed
+- A block's Background setting owns the whole background: it compiles to the `background`
+  shorthand, so a theme gradient (the hero's band) yields to a managed colour and `transparent`
+  clears it, where before only `background-color` changed and the gradient stayed. Compiler
+  version 2 (the settings artifact recompiles at provision); proven in all three engines.
+
 ## [1.0.0-beta.29] - 2026-09-14
 
 ### Added
