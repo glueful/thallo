@@ -17,8 +17,12 @@ use Thallo\Core\Content\Repositories\ContentTypeRepository;
 use Thallo\Core\Content\Repositories\EntryRepository;
 use Thallo\Core\Content\Repositories\RouteRepository;
 use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Blocks\Migration\BlockMigrationRepository;
+use Thallo\Core\Content\Style\Conversion\ConversionOutcome;
+use Thallo\Core\Content\Style\Conversion\ConversionRule;
+use Thallo\Core\Content\Style\Conversion\ConversionStage;
+use Thallo\Core\Content\Style\Conversion\ConversionStages;
 use Thallo\Core\Content\Style\Conversion\Converter;
-use Thallo\Core\Content\Style\Conversion\ConversionTables;
 use Thallo\Core\Content\Style\Conversion\DecisionsFile;
 use Thallo\Core\Content\Style\Conversion\SettingsConversion;
 use Thallo\Core\Tests\Support\AppTestCase;
@@ -52,9 +56,38 @@ final class ConvertSettingsCommandTest extends AppTestCase
         parent::tearDown();
     }
 
+    /** The stage under test: a translation, an unmappable colour, a keep-free retirement. */
+    private function stage(): ConversionStage
+    {
+        return new ConversionStage('test-stage', [
+            ConversionRule::convert('heading', 'align', static fn (mixed $v): ConversionOutcome => match ($v) {
+                'center' => ConversionOutcome::setting('alignment.text', ['type' => 'choice', 'value' => 'center']),
+                default => ConversionOutcome::discard(),
+            }),
+            ConversionRule::unmappable('heading', 'color', 'a raw hex colour', 'color', 'setting:colors.text'),
+            ConversionRule::convert('button', 'shape', static fn (mixed $v): ConversionOutcome => $v === 'square'
+                ? ConversionOutcome::setting('radius', ['type' => 'token', 'value' => 'radius.none'])
+                : ConversionOutcome::discard()),
+        ], ['heading' => ['align', 'color'], 'button' => ['shape']]);
+    }
+
+    private function conversion(?BlockDocumentSources $sources = null): SettingsConversion
+    {
+        return new SettingsConversion(
+            $sources ?? $this->container()->get(BlockDocumentSources::class),
+            $this->container()->get(Converter::class),
+            $this->container()->get(BlockMigrationRepository::class),
+            new ConversionStages($this->stage()),
+            $this->container()->get(BlockTypeRepository::class),
+        );
+    }
+
     private function convert(array $options): array
     {
-        $tester = new CommandTester(new ConvertSettingsCommand($this->container(), self::$app));
+        // The command resolves the conversion from the container: this one carries the test stage.
+        $conversion = $this->conversion();
+        $container = $this->container()->with([SettingsConversion::class => static fn () => $conversion]);
+        $tester = new CommandTester(new ConvertSettingsCommand($container, self::$app));
         $exit = $tester->execute($options + ['--report' => $this->dir . '/report.jsonl']);
         return ['exit' => $exit, 'display' => $tester->getDisplay()];
     }
@@ -76,8 +109,8 @@ final class ConvertSettingsCommandTest extends AppTestCase
         ]];
         $entries->saveDraft($uuid, 'en', $legacy, 1, 0, 'user1');
         (new RouteRepository($this->connection()))->assign($uuid, $this->type, 'en', 'convert-page');
-        // A retained, published version carrying the legacy fields as a beta.28 install would
-        // (written directly: today's validator no longer knows those fields).
+        // A retained, published version carrying the legacy fields (written directly: the
+        // validator no longer knows those fields).
         $versions = new VersionRepository($this->connection());
         $number = $versions->reserveNextVersionNumber($uuid, 'en');
         $versionUuid = $versions->appendVersion($uuid, 'en', $number, $legacy, 1, 'user1');
@@ -128,10 +161,7 @@ final class ConvertSettingsCommandTest extends AppTestCase
         self::assertSame(0, $converted['exit'], $converted['display']);
 
         $draft = $this->entries()->findDraft($uuid, 'en');
-        self::assertSame(
-            ['settings' => 1, 'conversions' => ['presentation-group-1', 'presentation-group-2']],
-            $draft['fields']['_schema'],
-        );
+        self::assertSame(['settings' => 1, 'conversions' => ['test-stage']], $draft['fields']['_schema']);
         self::assertArrayNotHasKey('align', $draft['fields']['body'][0]['data']);
         $style = $draft['fields']['body'][0]['settings']['style'];
         self::assertSame('center', $style['alignment']['text']['base']['value']);
@@ -140,7 +170,7 @@ final class ConvertSettingsCommandTest extends AppTestCase
         $versions = new VersionRepository($this->connection());
         $pinned = $versions->findVersionByUuid((string) $versions->findPublication($uuid, 'en')['version_uuid']);
         $stamp = $pinned['fields']['_schema']['conversions'];
-        self::assertSame(['presentation-group-1', 'presentation-group-2'], $stamp, 'the version converted in place');
+        self::assertSame(['test-stage'], $stamp, 'the version converted in place');
         $header = (new RegionRepository($this->connection()))->find('header');
         self::assertSame('radius.none', $header['blocks'][0]['settings']['style']['radius']['value']);
 
@@ -175,12 +205,7 @@ final class ConvertSettingsCommandTest extends AppTestCase
                 throw new \RuntimeException('disk gone');
             }
         };
-        $conversion = new SettingsConversion(
-            new BlockDocumentSources($crashing),
-            $this->container()->get(Converter::class),
-            $this->container()->get(\Thallo\Core\Content\Blocks\Migration\BlockMigrationRepository::class),
-            ConversionTables::shipped(),
-        );
+        $conversion = $this->conversion(new BlockDocumentSources($crashing));
         $decisions = new DecisionsFile();
         $evaluation = $conversion->evaluate($decisions);
         foreach ($evaluation['report']->unresolved() as $line) {

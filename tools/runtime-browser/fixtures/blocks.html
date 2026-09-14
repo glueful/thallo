@@ -106,10 +106,11 @@
      72rem and a wider carousel shows the next slide poking in ("2 images in
      view", the 2026-08 live bug). -->
 <section data-fixture="image-slider">
-<!-- data-duration + --carousel-duration mirror carousel.twig's output for
-     transition_duration=2: in slide mode the runtime tweens the scroll at this
-     pace (native smooth pace is UA-fixed). -->
-<div class="thallo-block thallo-block-carousel thallo-block-carousel--per-1 thallo-block-carousel--hero" data-arrows="1" data-dots="1" data-autoplay="1" data-duration="2" style="--carousel-duration: 2s">
+<!-- data-speed + the --speed-* class mirror carousel.twig's output for
+     speed=slow (2s): in slide mode the runtime tweens the scroll at this pace
+     (native smooth pace is UA-fixed); fade/zoom read --carousel-duration from
+     the class. -->
+<div class="thallo-block thallo-block-carousel thallo-block-carousel--per-1 thallo-block-carousel--hero thallo-block-carousel--speed-slow" data-arrows="1" data-dots="1" data-autoplay="1" data-speed="slow">
   <div class="thallo-block-carousel__viewport">
     <div class="thallo-block-carousel__track">
       <figure class="thallo-block thallo-block-image thallo-block-image--normal" data-slide="img-1"><img src="/tools/runtime-browser/fixtures/media/landscape-1.svg" alt="" loading="lazy" decoding="async"></figure>
@@ -124,7 +125,7 @@
      stacking is ENHANCED-ONLY CSS (keyed on data-thallo-enhanced), so this
      markup alone still lays out as a scroll slider — the no-JS floor. -->
 <section data-fixture="fade-slider">
-<div class="thallo-block thallo-block-carousel thallo-block-carousel--per-1 thallo-block-carousel--h-compact thallo-block-carousel--hero thallo-block-carousel--fade" data-arrows="1" data-dots="1" data-autoplay="0" data-transition="fade">
+<div class="thallo-block thallo-block-carousel thallo-block-carousel--per-1 thallo-block-carousel--h-compact thallo-block-carousel--hero thallo-block-carousel--fade" data-arrows="1" data-dots="1" data-autoplay="0" data-transition="fade" data-speed="normal">
   <div class="thallo-block-carousel__viewport">
     <div class="thallo-block-carousel__track">
       <figure class="thallo-block thallo-block-image thallo-block-image--normal" data-slide="fade-1"><img src="/tools/runtime-browser/fixtures/media/landscape-1.svg" alt="" loading="lazy" decoding="async"></figure>

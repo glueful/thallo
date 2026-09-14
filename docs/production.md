@@ -31,10 +31,13 @@ matrix is the current stable engine of each family that the pinned Playwright sh
 
 ### Upgrading across a settings conversion (the cutover contract)
 
-A release that retires block presentation fields converts every stored document — drafts,
-every retained version, the regions — into typed settings. Provision runs the converter only
-when its preflight is clean; it never bypasses an unresolved decision and never activates
-incompatible code after a partial run.
+A release that retires block presentation fields ships a conversion stage: the converter
+(`thallo:blocks:convert-settings`) turns the retired fields of every stored document — drafts,
+every retained version, the regions — into typed settings, and provision runs it only when its
+preflight is clean; it never bypasses an unresolved decision and never activates incompatible
+code after a partial run. No stage ships today (every install is authored in the settings
+shape), so provision's conversion step finds nothing pending; the contract below applies the
+first time a release adds one.
 
 1. Stage the candidate release and verify a restorable backup (database and `storage/`).
 2. Preflight content with the candidate converter: `php glueful thallo:blocks:convert-settings
@@ -50,10 +53,7 @@ incompatible code after a partial run.
 
 Recovery after a partial conversion is restore from backup; the converter is idempotent per
 stage, so a retry after an interruption lands on the same state, but idempotence does not
-replace rollback. A fresh install is the trivial case of this contract. CI rehearses it on a
-populated fixture (`composer test:upgrade`): dry run, decisions, live, an interrupted run and
-its retry, stale decisions, restore from backup, and a sequential upgrade across two conversion
-groups with content edited in between (an earlier group is never reconverted).
+replace rollback. A fresh install is the trivial case of this contract.
 
 ### Running the scheduler and the queue
 

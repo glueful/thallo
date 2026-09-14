@@ -145,9 +145,9 @@ final class FieldValidatorTest extends TestCase
         $validator = new FieldValidator();
         $clean = $validator->validate($this->schema(), [
             'title' => 'ok',
-            '_schema' => ['settings' => 1, 'conversions' => ['presentation-group-1']],
+            '_schema' => ['settings' => 1, 'conversions' => ['some-stage']],
         ]);
-        self::assertSame(['settings' => 1, 'conversions' => ['presentation-group-1']], $clean['_schema']);
+        self::assertSame(['settings' => 1, 'conversions' => ['some-stage']], $clean['_schema']);
         $empty = $validator->validate($this->schema(), ['title' => 'ok', '_schema' => []]);
         self::assertArrayNotHasKey('_schema', $empty);
 

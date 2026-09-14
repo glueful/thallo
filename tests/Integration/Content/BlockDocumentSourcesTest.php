@@ -188,9 +188,8 @@ final class BlockDocumentSourcesTest extends AppTestCase
     }
 
     /**
-     * A region stamped by one conversion stage persists again under the next (plan A5.4, the
-     * sequential rehearsal): the revision read and the revision checked at write are the same
-     * fingerprint, stamp included.
+     * A region stamped by one conversion stage persists again under the next: the revision read
+     * and the revision checked at write are the same fingerprint, stamp included.
      */
     public function testAStampedRegionPersistsAgain(): void
     {

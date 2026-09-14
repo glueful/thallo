@@ -16,7 +16,7 @@ as the next release, never a mutated tag.
   `advanced` (anchor, CSS classes, `data-*` attributes, accessibility label). Block types declare
   `style_capabilities`, named `style_targets`, `flags` (rendering hints) and `starter_content`;
   undeclared means none. The breakpoint-first cascade resolver ships in PHP and TypeScript
-  against one fixture contract, and a populated beta.28 upgrade fixture is rehearsed in CI.
+  against one fixture contract.
 - **Layered style delivery** (visual builder, slice A2). A theme maps the platform style
   vocabulary in `theme.json` (`vocabulary`) and lists its CSS (`stylesheets`); the layout links
   three stylesheets — the layer order sheet, the theme artifact (`@layer theme`, every manifest
@@ -57,40 +57,38 @@ as the next release, never a mutated tag.
   answers `fragments: null` and the stage refreshes as before.
 
 ### Changed
-- **Breaking (Developer Preview): block presentation fields are converted, not kept.** Heading
+- **Breaking (Developer Preview): block presentation fields are settings now.** Heading
   `align` and `color`, button `align` and `shape`, animated text's hex colours, image `size`,
-  `width` and `height`, and the carousel's `transition_duration` are retired; the converter
-  (`thallo:blocks:convert-settings`) turns them into typed settings and `token`/`choice` fields
-  across drafts, every retained version and the regions, under the cutover contract in
-  `docs/production.md` (dry run, decisions, live). Provision runs it only when the preflight is
-  clean. Themes must map the vocabulary and list their stylesheets (`theme.json`).
+  `width` and `height`, and the carousel's `transition_duration` are gone in favour of typed
+  settings and `token`/`choice` fields. No content written before this release is carried
+  over: reinstall. The converter (`thallo:blocks:convert-settings`: stages, a decisions file,
+  a provision preflight, the cutover contract in `docs/production.md`) ships with no stage,
+  ready for the first future retirement. Themes must map the vocabulary and list their
+  stylesheets (`theme.json`).
 - **Breaking (Developer Preview): the container and style blocks are styled through settings.**
   The container's background colour, overlay colour, padding preset and boxes, margin, radius,
   border, shadow, pixel width, height and gap and the style block's padding, margin, shadow,
   shadow colour and opacity and class hook are retired: colours, spacing, corners, border and
   shadow are settings on the block's root target, the overlay is a choice (`none|light|dark`) with
   an opacity step (`25|50|75`), the flex gap is a spacing token, a background image is a
-  positioned image layer, and a class hook is the Advanced tab's CSS classes. Conversion group
-  two maps the presets and needs decisions for pixel boxes, raw colours and the overlay colour.
-  The `hex_color` and `style_hook` filters and the `thallo-shadow-*` utilities are gone; template
-  policy cache version 23.
+  positioned image layer, and a class hook is the Advanced tab's CSS classes. The `hex_color`
+  and `style_hook` filters and the `thallo-shadow-*` utilities are gone; template policy cache
+  version 23.
 - **Breaking (Developer Preview): templates emit no inline styles.** The template lint refuses a
   `style=` attribute and a `<style>` element, at save and before render, so an operator template
   carrying either no longer renders until it styles through settings or the theme stylesheet;
   `theme_colors_style()`, `theme_style_scope()` and `font_faces_style()` are the only inline
   style emitters. The pricing plans' column count is a `--count-{n}` modifier and the admin's
   chrome preview styles through the theme sheet.
-- The upgrade rehearsal gains a sequential scenario (from the group-one state: a draft added with
-  a legacy container, an existing container edited, then group two; group one untouched, a rerun
-  byte-identical) and every conversion report line names its stage. It caught a defect: a region
-  stamped by one conversion stage could never be written by the next (the write checked a
-  fingerprint without the stamp the read included); fixed.
+- Every conversion report line names its stage, and a region stamped by one conversion stage
+  can be written by the next (the write checked a fingerprint without the stamp the read
+  included).
 - The transitional `legacy_presentation` block flag is gone: every block type is styled through
   settings, the validator no longer withholds managed style, and the inspector's Style tab shows
   the block's controls or "declares no styling"; `flags` carries rendering hints only.
 - `thallo:provision` syncs the evolved starter block-type definitions onto the existing rows
-  (new fields, and the style declaration the settings conversion and every render rely on) —
-  an upgraded instance no longer needs `thallo:blocks:sync` by hand — and `thallo:blocks:sync`
+  (new fields, and the style declaration every render relies on) — an upgraded instance no
+  longer needs `thallo:blocks:sync` by hand — and `thallo:blocks:sync`
   refreshes a starter's style declaration that differs from the definition, not only one that
   is missing.
 - `thallo:provision` compiles the active theme's settings artifact before clearing caches and
