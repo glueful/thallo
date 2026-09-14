@@ -28,6 +28,16 @@ as the next release, never a mutated tag.
   `token_class()`, and the template lint holds a block template to its declaration. Computed
   styles are proven in Chromium, Firefox and WebKit; the public-site browser floor is Chrome
   111, Firefox 113 and Safari 16.2.
+- **Editor history and the revision protocol** (visual builder, slice A3). The canvas records
+  intent: every change to the tree becomes a reversible operation (fields, settings, advanced
+  paths, style classes, inserts, removals, moves, duplicates, page settings) in a
+  sequence-numbered history with undo and redo (toolbar, ⌘Z / ⇧⌘Z); a slider drag or a typing
+  burst commits as one step, structure at once, and the saved position is tracked apart from
+  the current one. The preview working copy is a revisioned record accepted by compare-and-set:
+  an apply names the epoch and revision it last accepted and is refused (409
+  `PREVIEW_REVISION_STALE`, carrying the current pair) when the copy moved on; a save clears
+  the copy only at the revision it was submitted from; the mint and the rendered canvas page
+  carry the accepted pair; every apply response names the site style generation.
 
 ### Changed
 - `thallo:provision` compiles the active theme's settings artifact before clearing caches and
