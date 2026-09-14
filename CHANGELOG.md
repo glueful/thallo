@@ -7,6 +7,11 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- **The `thallo-version` shortcode is a status pill by default.** It rendered as bare text; the
+  default theme now dresses it as a pill with a dot, driven by three tokens (`--version-fg`,
+  `--version-bg`, `--version-dot`) so a site's custom CSS only has to recolour it.
+
 ## [1.0.0-beta.27] - 2026-09-13
 
 ### Fixed

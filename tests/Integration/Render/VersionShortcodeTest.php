@@ -77,4 +77,18 @@ final class VersionShortcodeTest extends AppTestCase
         self::assertSame('en', $site['locale']);
         self::assertNull($site['version']);
     }
+
+    public function testTheDefaultThemeStylesTheVersionAsAPill(): void
+    {
+        $css = (string) file_get_contents(
+            $this->appContext()->getBasePath() . '/packages/thallo-render/themes/default/assets/blocks.css'
+        );
+
+        // A bare <span> is the floor; the default theme dresses it as a status pill with a dot,
+        // driven by theme tokens so a site's custom CSS only has to recolour it.
+        self::assertStringContainsString('.thallo-shortcode-version {', $css);
+        self::assertStringContainsString('.thallo-shortcode-version::before', $css);
+        self::assertStringContainsString('--version-fg', $css);
+        self::assertStringContainsString('--version-bg', $css);
+    }
 }
