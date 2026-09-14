@@ -40,7 +40,7 @@ Invariants, each named once and used verbatim throughout:
 | counter | scope | changes when | used for |
 |---|---|---|---|
 | `settings_schema_version` | stored settings | the settings representation changes | conversion, import |
-| block schema version | one block type | its data schema changes | block migration |
+| block schema version | one block type | its data schema changes | block migration (implicit today in `block_type_migrations` rows; no column) |
 | `format_version` | envelope | the envelope protocol changes | paste, import, export |
 | vocabulary schema version | platform | the baseline contract changes | theme validation, artifact hash |
 | compiler version | renderer | CSS emission changes | artifact hash |
@@ -49,10 +49,13 @@ Invariants, each named once and used verbatim throughout:
 | document revision (local, accepted, displayed) | editing session | a working document is accepted or shown | apply protocol |
 | converter version | migration tool | conversion semantics change | decisions-file validity |
 
-What exists today and is reused unchanged: the iframe stage at `/_preview/{token}?canvas=1`, the
+What exists today and is reused: the iframe stage at `/_preview/{token}?canvas=1`, the
 `thallo-preview-block` wrappers, the in-iframe toolbar and bridge, `editable_text` inline editing,
-the outline, the ephemeral apply with its working-copy stash, the debounced scheduler, and the
-regions editor. What is missing and this design adds: a universal style layer, responsive values,
+the outline, the ephemeral apply with its working-copy stash (its request and response grow the
+§3.5 revision fields; today they carry only a token, fields and a timestamp), the debounced
+scheduler, and the regions editor. Block fields render inline in each block card today; there
+is no per-block inspector, so §3.4's tabs are new block-level UI, not a widening of the page
+tabs. What is missing and this design adds: a universal style layer, responsive values,
 undo/redo, a fragment renderer, cross-container structure editing, global styles, and composition.
 
 ## 1. The style contract
@@ -591,9 +594,13 @@ the result and requires acceptance and counts it as lossy.
 
 `thallo:blocks:convert-settings` on the block-migration machinery (the admin's in-progress gate
 holds while it runs). Scope invariant: every persisted block-bearing resource registered with the
-block-migration system participates in conversion; at Phase A those are drafts, published
-documents, regions and retained revisions, and later resources (saved sections, presets) join by
-registering, never by a hard-coded list. Historical versions stay restorable because the
+block-migration system participates in conversion. That registry is built in Phase A: today the
+backfill runner hard-codes drafts and current publications and never visits regions or
+non-current versions, so Phase A introduces one `BlockDocumentSources` registry (drafts,
+publications and every retained version, regions) that both the backfill runner and the
+converter iterate; later resources (saved sections, presets) join by registering, never by a
+hard-coded list. Documents carry no schema stamp today; the converter stamps them through the
+reserved `_schema` key in `fields` (next to `_presentation`), for example `{"settings": 1}`. Historical versions stay restorable because the
 converter also stamps and converts them. Dry run writes the diagnostics report: entry, locale, block id,
 field, old value, status, reason, plus the source document revision hash and converter version.
 Decisions (choose a token, transform, discard) are recorded in a durable decisions file keyed by
