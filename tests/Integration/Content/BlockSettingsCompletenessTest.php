@@ -23,6 +23,7 @@ use Thallo\Core\Content\Validation\FieldValidator;
 use Thallo\Core\Http\Controllers\RegionAdminController;
 use Thallo\Core\Http\DTOs\UpdateRegionData;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\ThemeFixture;
 use Thallo\Render\RenderContextExtension;
 use Thallo\Render\ThemeLocator;
 use Thallo\Render\TwigFactory;
@@ -286,7 +287,7 @@ final class BlockSettingsCompletenessTest extends AppTestCase
         $base = $this->appContext()->getBasePath();
         $themes = sys_get_temp_dir() . '/thallo-probe-theme-' . uniqid('', true);
         mkdir($themes . '/probe/templates/blocks', 0755, true);
-        file_put_contents($themes . '/probe/theme.json', json_encode(['name' => 'probe']));
+        ThemeFixture::write($themes . '/probe', 'probe');
         file_put_contents(
             $themes . '/probe/templates/blocks/probe.twig',
             '<p data-anchor="{{ block.settings.advanced.anchor }}"'
@@ -301,12 +302,7 @@ final class BlockSettingsCompletenessTest extends AppTestCase
             ))->environment();
             $html = $env->createTemplate('{{ blocks(list) }}')->render(['list' => $this->body()]);
         } finally {
-            unlink($themes . '/probe/templates/blocks/probe.twig');
-            unlink($themes . '/probe/theme.json');
-            rmdir($themes . '/probe/templates/blocks');
-            rmdir($themes . '/probe/templates');
-            rmdir($themes . '/probe');
-            rmdir($themes);
+            exec('rm -rf ' . escapeshellarg($themes));
         }
 
         self::assertSame(2, substr_count($html, 'data-anchor="pricing"'), 'outer and nested block see their settings');

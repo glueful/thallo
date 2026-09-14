@@ -18,6 +18,7 @@ use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Cache\CacheStore;
 use Thallo\Contracts\Delivery\PreviewSessionVerifier;
 use Symfony\Component\HttpFoundation\Request;
+use Thallo\Core\Tests\Support\ThemeFixture;
 
 /**
  * Preview sessions (preview-sessions spec §1–§7): the token-as-cookie session, the
@@ -541,8 +542,7 @@ final class PreviewSessionTest extends AppTestCase
         // constructor THROWS for a configured path that isn't a real directory, and
         // themedEnv()'s catch-all would then silently fall back to the (unaffected) boot
         // environment — silently defeating this test rather than exercising the fix.
-        @mkdir($themeDir . '/templates', 0755, true);
-        file_put_contents($themeDir . '/theme.json', json_encode(['name' => 'fixcpreview']));
+        ThemeFixture::write($themeDir, 'fixcpreview');
         try {
             $entryUuid = $this->seedBlocksEntry([['id' => 'mc1', 'type' => 'mini-cart', 'data' => []]]);
             $token = $this->container()->get(PreviewMinter::class)->mint($entryUuid, 'en', null, 'fixcpreview');
@@ -636,9 +636,7 @@ final class PreviewSessionTest extends AppTestCase
     private function makeAltTheme(): void
     {
         $base = $this->appContext()->getBasePath() . '/themes/altprev';
-        @mkdir($base . '/templates', 0755, true);
-        @mkdir($base . '/assets', 0755, true);
-        file_put_contents($base . '/theme.json', json_encode(['name' => 'altprev']));
+        ThemeFixture::write($base, 'altprev');
         file_put_contents(
             $base . '/templates/entry.twig',
             "{% extends 'layout.twig' %}{% block content %}ALTPREV:{{ entry.fields.title }}"

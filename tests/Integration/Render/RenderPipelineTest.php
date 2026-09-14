@@ -10,6 +10,7 @@ use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Helpers\Utils;
 use Thallo\Navigation\MenuRepository;
 use Symfony\Component\HttpFoundation\Request;
+use Thallo\Core\Tests\Support\ThemeFixture;
 
 /**
  * Drives the render pipeline through the REAL kernel (Application::handle) — the router
@@ -376,10 +377,7 @@ final class RenderPipelineTest extends AppTestCase
         mkdir($dir . '/settingstheme/templates', 0777, true);
         try {
             $write = function (array $json) use ($dir): void {
-                file_put_contents(
-                    $dir . '/settingstheme/theme.json',
-                    json_encode(['name' => 'settingstheme'] + $json),
-                );
+                ThemeFixture::write($dir . '/settingstheme', 'settingstheme', $json);
             };
             // Valid settings resolve, per-type included.
             $write(['settings' => [

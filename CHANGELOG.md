@@ -7,6 +7,17 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **Typed block settings** (visual builder, slice A1). Every stored block carries `settings`
+  (schema v1) next to `data`: managed style as typed values (`token`, `choice`, `reset`; `literal`
+  reserved) over sparse `base`/`md`/`lg` breakpoint maps, an ordered list of style class ids, and
+  `advanced` (anchor, CSS classes, `data-*` attributes, accessibility label). Block types declare
+  `style_capabilities`, named `style_targets`, `flags` and `starter_content`; undeclared means
+  none, and while a block type carries `legacy_presentation` the validator refuses managed style
+  so nothing competes with its existing presentation fields. Nothing renders or edits settings
+  yet; the breakpoint-first cascade resolver ships in PHP and TypeScript against one fixture
+  contract, and a populated beta.28 upgrade fixture is rehearsed in CI.
+
 ## [1.0.0-beta.28] - 2026-09-14
 
 ### Added

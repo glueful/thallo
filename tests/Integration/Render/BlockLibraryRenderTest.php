@@ -14,6 +14,7 @@ use Thallo\Render\RenderContextExtension;
 use Thallo\Render\ThemeLocator;
 use Thallo\Render\TwigFactory;
 use Twig\Environment;
+use Thallo\Core\Tests\Support\ThemeFixture;
 
 /**
  * The block-library expansion's load-bearing render matrix (spec §8) — the
@@ -174,7 +175,7 @@ final class BlockLibraryRenderTest extends AppTestCase
         // template falls back per-template to the pack default.
         $base = $this->appContext()->getBasePath() . '/themes/testsc';
         mkdir($base . '/templates/shortcodes', 0777, true);
-        file_put_contents($base . '/theme.json', '{"name": "testsc"}');
+        ThemeFixture::write($base, 'testsc');
         file_put_contents($base . '/templates/shortcodes/promo.twig', 'PROMO[{{ params.code }}]');
 
         $hit = $this->env('testsc')->createTemplate('{{ blocks(list) }}')->render(['list' => [
