@@ -47,13 +47,4 @@ final class ThemeStyleScopeTest extends AppTestCase
         );
         self::assertSame('[][]', $out);
     }
-
-    public function testFilterNamespacesAndSanitizes(): void
-    {
-        self::assertSame(' thallo-style-promo', $this->render('{{ "promo"|style_hook }}'));
-        // Malicious input is dropped AND autoescaped — no raw <script> reaches output.
-        $out = $this->render('{{ "\"><script>"|style_hook }}');
-        self::assertStringNotContainsString('<script>', $out);
-        self::assertSame('', trim($out));
-    }
 }

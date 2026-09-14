@@ -193,4 +193,57 @@ final class ConverterTest extends AppTestCase
         self::assertSame(['presentation-group-1', 'later'], $out->fields['_schema']['conversions']);
         self::assertSame([], $stages->pending($out->fields), 'a rerun with no pending stage is a no-op');
     }
+
+    public function testGroupTwoConvertsTheContainerAndTheStyleBlock(): void
+    {
+        $stage = ConversionTables::presentationGroup2();
+        $ref = $this->ref(['body' => [
+            ['id' => 'c', 'type' => 'container', 'data' => [
+                'padding_preset' => 'small', 'overlay_opacity' => 40, 'border_style' => 'dotted',
+                'border_width' => 2, 'shadow' => '2xl', 'bg_repeat' => 'repeat',
+                'padding' => ['top' => 17, 'right' => 17], 'content' => [],
+            ]],
+            ['id' => 's', 'type' => 'style', 'data' => [
+                'padding' => 'medium', 'shadow' => 'md', 'class_hook' => 'promo  wide', 'shadow_opacity' => 40,
+                'content' => [],
+            ]],
+        ]]);
+        $report = new DiagnosticsReport();
+        $out = $this->converter()->convert($ref, [$stage], new DecisionsFile(), $report);
+        self::assertSame(2, $out->unresolved, 'the pixel box and the shadow opacity need decisions');
+        [$container, $style] = $out->fields['body'];
+        $cs = $container['settings']['style'];
+        foreach (['top', 'right', 'bottom', 'left'] as $side) {
+            self::assertSame('spacing.lg', $cs['spacing']['padding'][$side]['base']['value'], $side);
+        }
+        self::assertSame('50', $container['data']['overlay_opacity']);
+        self::assertSame('dashed', $cs['border']['style']['value']);
+        self::assertSame('thick', $cs['border']['width']['value']);
+        self::assertSame('shadow.xl', $cs['shadow']['base']['value']);
+        self::assertArrayNotHasKey('bg_repeat', $container['data']);
+        self::assertSame(['top' => 17, 'right' => 17], $container['data']['padding'], 'undecided: untouched');
+        $ss = $style['settings'];
+        self::assertSame('spacing.lg', $ss['style']['spacing']['padding']['left']['base']['value']);
+        self::assertSame('shadow.md', $ss['style']['shadow']['base']['value']);
+        self::assertSame(['promo', 'wide'], $ss['advanced']['css_classes']);
+        self::assertArrayNotHasKey('class_hook', $style['data']);
+
+        // A box decision styles every side of the box.
+        $hash = Converter::hash($ref->fields);
+        $decisions = new DecisionsFile([
+            DecisionsFile::key('entry_draft', 'entry0000001', 'r1', 'c', 'padding') => [
+                'document_hash' => $hash, 'converter_version' => Converter::VERSION,
+                'action' => 'token', 'value' => 'spacing.xs',
+            ],
+            DecisionsFile::key('entry_draft', 'entry0000001', 'r1', 's', 'shadow_opacity') => [
+                'document_hash' => $hash, 'converter_version' => Converter::VERSION, 'action' => 'discard',
+            ],
+        ]);
+        $decided = $this->converter()->convert($ref, [$stage], $decisions, new DiagnosticsReport());
+        self::assertSame(0, $decided->unresolved);
+        // The box decision is superseded by the preset that already landed on every side.
+        $padding = $decided->fields['body'][0]['settings']['style']['spacing']['padding'];
+        self::assertSame('spacing.lg', $padding['top']['base']['value']);
+        self::assertArrayNotHasKey('padding', $decided->fields['body'][0]['data']);
+    }
 }

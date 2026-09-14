@@ -47,6 +47,21 @@ as the next release, never a mutated tag.
   across drafts, every retained version and the regions, under the cutover contract in
   `docs/production.md` (dry run, decisions, live). Provision runs it only when the preflight is
   clean. Themes must map the vocabulary and list their stylesheets (`theme.json`).
+- **Breaking (Developer Preview): the container and style blocks are styled through settings.**
+  The container's background colour, overlay colour, padding preset and boxes, margin, radius,
+  border, shadow, pixel width, height and gap and the style block's padding, margin, shadow,
+  shadow colour and opacity and class hook are retired: colours, spacing, corners, border and
+  shadow are settings on the block's root target, the overlay is a choice (`none|light|dark`) with
+  an opacity step (`25|50|75`), the flex gap is a spacing token, a background image is a
+  positioned image layer, and a class hook is the Advanced tab's CSS classes. Conversion group
+  two maps the presets and needs decisions for pixel boxes, raw colours and the overlay colour.
+  The `hex_color` and `style_hook` filters and the `thallo-shadow-*` utilities are gone; template
+  policy cache version 23.
+- `thallo:provision` syncs the evolved starter block-type definitions onto the existing rows
+  (new fields, and the style declaration the settings conversion and every render rely on) —
+  an upgraded instance no longer needs `thallo:blocks:sync` by hand — and `thallo:blocks:sync`
+  refreshes a starter's style declaration that differs from the definition, not only one that
+  is missing.
 - `thallo:provision` compiles the active theme's settings artifact before clearing caches and
   fails when it cannot; a theme switch compiles the incoming theme first and answers 422 on
   failure; `thallo:doctor` reports the theme vocabulary and whether the artifact is published.

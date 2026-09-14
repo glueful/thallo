@@ -28,9 +28,16 @@ foreach (array_filter(explode("\n", (string) file_get_contents($reportPath))) as
     }
     $field = (string) $d['field'];
     $decision = match (true) {
+        $field === 'shadow_color', $field === 'shadow_opacity' => ['action' => 'discard'],
+        $field === 'overlay_color' => ['action' => 'value', 'value' => 'dark'],
+        $field === 'background_color' => ['action' => 'token', 'value' => 'color.surface'],
+        $field === 'border_color' => ['action' => 'token', 'value' => 'color.line'],
         str_ends_with($field, 'color') => ['action' => 'token', 'value' => 'color.accent'],
-        $field === 'width' => ['action' => 'token', 'value' => 'width.container'],
-        $field === 'height' => ['action' => 'discard'],
+        $field === 'width', $field === 'max_width' => ['action' => 'token', 'value' => 'width.container'],
+        $field === 'padding', $field === 'gap' => ['action' => 'token', 'value' => 'spacing.lg'],
+        $field === 'margin' => ['action' => 'token', 'value' => 'spacing.md'],
+        $field === 'radius' => ['action' => 'token', 'value' => 'radius.md'],
+        $field === 'height', $field === 'min_height_px' => ['action' => 'discard'],
         default => null,
     };
     if ($decision === null) {

@@ -107,8 +107,6 @@ final class TemplateLinterTest extends AppTestCase
     {
         $source = <<<'TWIG'
         {{ entry.title|editable_text('title') }}
-        <div class="thallo-block{{ entry.class_hook|default('')|style_hook }}"></div>
-        {{ entry.color|default('')|hex_color }}
         {{ entry.opacity|numeric_clamp(0, 200) }}
         {% for item in entry.items|default([]) %}
           {{ item }}

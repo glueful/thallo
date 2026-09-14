@@ -128,7 +128,10 @@ final class ConvertSettingsCommandTest extends AppTestCase
         self::assertSame(0, $converted['exit'], $converted['display']);
 
         $draft = $this->entries()->findDraft($uuid, 'en');
-        self::assertSame(['settings' => 1, 'conversions' => ['presentation-group-1']], $draft['fields']['_schema']);
+        self::assertSame(
+            ['settings' => 1, 'conversions' => ['presentation-group-1', 'presentation-group-2']],
+            $draft['fields']['_schema'],
+        );
         self::assertArrayNotHasKey('align', $draft['fields']['body'][0]['data']);
         $style = $draft['fields']['body'][0]['settings']['style'];
         self::assertSame('center', $style['alignment']['text']['base']['value']);
@@ -137,7 +140,7 @@ final class ConvertSettingsCommandTest extends AppTestCase
         $versions = new VersionRepository($this->connection());
         $pinned = $versions->findVersionByUuid((string) $versions->findPublication($uuid, 'en')['version_uuid']);
         $stamp = $pinned['fields']['_schema']['conversions'];
-        self::assertSame(['presentation-group-1'], $stamp, 'the version converted in place');
+        self::assertSame(['presentation-group-1', 'presentation-group-2'], $stamp, 'the version converted in place');
         $header = (new RegionRepository($this->connection()))->find('header');
         self::assertSame('radius.none', $header['blocks'][0]['settings']['style']['radius']['value']);
 

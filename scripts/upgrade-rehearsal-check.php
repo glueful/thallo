@@ -40,13 +40,18 @@ $dsn = sprintf(
 );
 $pdo = new PDO($dsn, $_ENV['DB_PGSQL_USERNAME'] ?? null, $_ENV['DB_PGSQL_PASSWORD'] ?? null);
 
-/** Group one's legacy fields (the conversion table's retired fields). */
+/** The shipped groups' legacy fields (the conversion tables' retired fields). */
 $legacy = [
     'heading' => ['align', 'color'],
     'button' => ['align', 'shape'],
     'animated_text' => [],
     'image' => ['size', 'width', 'height'],
     'carousel' => ['transition_duration'],
+    'container' => [
+        'background_color', 'bg_repeat', 'overlay_color', 'max_width', 'min_height_px', 'padding_preset',
+        'padding', 'margin', 'radius', 'border_style', 'border_width', 'border_color', 'shadow',
+    ],
+    'style' => ['padding', 'margin', 'shadow', 'shadow_color', 'shadow_opacity', 'class_hook'],
 ];
 $hasLegacy = static function (array $list) use (&$hasLegacy, $legacy): bool {
     foreach ($list as $block) {
@@ -100,10 +105,10 @@ $blocksOf = static function (array $fields): array {
 $failures = 0;
 if ($mode === '--consistent' || $mode === '--converted') {
     foreach ($documents as [$name, $fields, $stamp]) {
-        $stamped = is_array($stamp) && in_array('presentation-group-1', $stamp['conversions'] ?? [], true);
+        $stamped = is_array($stamp) && in_array('presentation-group-2', $stamp['conversions'] ?? [], true);
         $legacyLeft = $hasLegacy($blocksOf($fields));
         if ($stamped && $legacyLeft) {
-            fwrite(STDOUT, "FAIL {$name}: stamped but still carries a group-one field\n");
+            fwrite(STDOUT, "FAIL {$name}: stamped but still carries a retired field\n");
             $failures++;
         } elseif ($mode === '--converted' && !$stamped) {
             fwrite(STDOUT, "FAIL {$name}: not stamped after the live run\n");
@@ -155,9 +160,11 @@ foreach ($manifest['routes'] as $slug) {
     $body = (string) $response->getContent();
     $ok = $status === 200 && str_contains($body, 'Published');
     if ($ok && $mode === '--converted') {
-        // Converted content renders through settings: utilities, never a legacy modifier or inline colour.
-        $ok = !str_contains($body, 'thallo-block-heading--') && !str_contains($body, 'style="color:')
-            && str_contains($body, 't-fg-accent');
+        // Converted content renders through settings: utilities, never a legacy modifier or an
+        // inline style (the container's padding preset and the style block's hook included).
+        $ok = !str_contains($body, 'thallo-block-heading--') && !str_contains($body, ' style="')
+            && str_contains($body, 't-fg-accent') && str_contains($body, 't-pt-3xl')
+            && str_contains($body, 't-pt-lg') && str_contains($body, ' promo');
     }
     $note = $ok ? '' : ' (unexpected body)';
     fwrite(STDOUT, sprintf("%s %s -> %d%s\n", $ok ? 'ok  ' : 'FAIL', $path, $status, $note));

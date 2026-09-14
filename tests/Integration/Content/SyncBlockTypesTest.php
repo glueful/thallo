@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Content;
 
+use Thallo\Contracts\Style\StyleTargets;
 use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\StarterBlockTypes;
+use Thallo\Core\Content\Blocks\StarterBlockTypeSync;
 use Thallo\Core\Content\Console\SeedBlockTypesCommand;
 use Thallo\Core\Content\Console\SyncBlockTypesCommand;
 use Thallo\Core\Tests\Support\AppTestCase;
@@ -25,16 +28,16 @@ final class SyncBlockTypesTest extends AppTestCase
         $style = $repo->findBySlug('style');
         // Simulate a pre-evolution row missing the newest field, via the guard-exempt
         // migrated-schema path (updateSchema itself refuses field removal).
-        $reduced = array_values(array_filter($style['schema'], fn ($f) => $f['name'] !== 'shadow'));
+        $reduced = array_values(array_filter($style['schema'], fn ($f) => $f['name'] !== 'neutral'));
         $repo->applyMigratedSchema((string) $style['uuid'], $reduced);
-        self::assertNotContains('shadow', array_column($repo->findBySlug('style')['schema'], 'name'));
+        self::assertNotContains('neutral', array_column($repo->findBySlug('style')['schema'], 'name'));
 
         $tester = new CommandTester($this->container()->get(SyncBlockTypesCommand::class));
         $tester->execute([]);
 
         self::assertSame(0, $tester->getStatusCode());
         self::assertStringContainsString('synced style', $tester->getDisplay());
-        self::assertContains('shadow', array_column($repo->findBySlug('style')['schema'], 'name'));
+        self::assertContains('neutral', array_column($repo->findBySlug('style')['schema'], 'name'));
     }
 
     /**
@@ -103,7 +106,7 @@ final class SyncBlockTypesTest extends AppTestCase
         $style = $repo->findBySlug('style');
         // A pre-evolution row: missing the newest starter field, plus an operator's
         // own custom field appended at the end.
-        $reduced = array_values(array_filter($style['schema'], fn ($f) => $f['name'] !== 'shadow'));
+        $reduced = array_values(array_filter($style['schema'], fn ($f) => $f['name'] !== 'neutral'));
         $reduced[] = ['name' => 'op_custom', 'type' => 'string'];
         $repo->applyMigratedSchema((string) $style['uuid'], $reduced);
 
@@ -111,10 +114,10 @@ final class SyncBlockTypesTest extends AppTestCase
 
         $names = array_column($repo->findBySlug('style')['schema'], 'name');
         self::assertContains('op_custom', $names);                       // operator field preserved
-        self::assertContains('shadow', $names);                          // starter field restored
+        self::assertContains('neutral', $names);                         // starter field restored
         // Existing order kept; the restored starter field is appended AFTER op_custom.
         self::assertLessThan(
-            array_search('shadow', $names, true),
+            array_search('neutral', $names, true),
             array_search('op_custom', $names, true),
         );
     }
@@ -164,7 +167,7 @@ final class SyncBlockTypesTest extends AppTestCase
         $this->seed();
         $repo = new BlockTypeRepository($this->connection());
         $style = $repo->findBySlug('style');
-        $reduced = array_values(array_filter($style['schema'], fn ($f) => $f['name'] !== 'shadow'));
+        $reduced = array_values(array_filter($style['schema'], fn ($f) => $f['name'] !== 'neutral'));
         $repo->applyMigratedSchema((string) $style['uuid'], $reduced);
 
         $tester = new CommandTester($this->container()->get(SyncBlockTypesCommand::class));
@@ -174,6 +177,38 @@ final class SyncBlockTypesTest extends AppTestCase
         self::assertStringContainsString('synced style', $tester->getDisplay());   // same line, no write
         self::assertStringContainsString('No changes written', $tester->getDisplay());
         // DB schema is untouched — the field is still absent.
-        self::assertNotContains('shadow', array_column($repo->findBySlug('style')['schema'], 'name'));
+        self::assertNotContains('neutral', array_column($repo->findBySlug('style')['schema'], 'name'));
+    }
+
+    /**
+     * Visual builder spec §1.7: the starter is the authority for a starter's style declaration.
+     * A row seeded before the declarations existed (beta.28) carries none, and a row synced
+     * before a block's conversion carries a narrower one; both take the starter's on sync, so an
+     * upgrade renders converted settings without a further command.
+     */
+    public function testSyncRefreshesAStarterStyleDeclarationThatDiffersFromTheDefinition(): void
+    {
+        $this->seed();
+        $repo = new BlockTypeRepository($this->connection());
+        $container = $repo->findBySlug('container');
+        $repo->updateStyle((string) $container['uuid'], null, null, null, null);
+        $style = $repo->findBySlug('style');
+        $repo->updateStyle((string) $style['uuid'], ['spacing'], StyleTargets::root('box', ['spacing']), [], null);
+
+        $result = $this->container()->get(StarterBlockTypeSync::class)->sync();
+        self::assertContains('container', array_column($result['synced'], 'slug'));
+        self::assertContains('style', array_column($result['synced'], 'slug'));
+
+        $starters = array_column(StarterBlockTypes::definitions(), null, 'slug');
+        foreach (['container', 'style'] as $slug) {
+            $row = $repo->findBySlug($slug);
+            // JSONB stores object keys in its own order: compare by content.
+            self::assertSame($starters[$slug]['style_capabilities'], $row['style_capabilities'], $slug);
+            self::assertEqualsCanonicalizing($starters[$slug]['style_targets'], $row['style_targets'], $slug);
+            self::assertEqualsCanonicalizing($starters[$slug]['flags'], $row['flags'], $slug);
+        }
+
+        // Idempotent once the declarations match.
+        self::assertSame([], $this->container()->get(StarterBlockTypeSync::class)->sync()['synced']);
     }
 }

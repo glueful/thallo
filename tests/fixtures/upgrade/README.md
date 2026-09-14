@@ -11,13 +11,15 @@ carousel `transition_duration`). `beta28.manifest.json` lists the published rout
 
 `beta28.decisions.json` holds the decisions for every unmappable value the converter reports
 on the fixture, keyed by the diagnostic identity and pinned to each document's hash (recorded by
-`scripts/upgrade-fixture-decide.php`: hex colours become the accent token, a pixel width the
-container width token, a pixel height is discarded). `after-group-1.sql` is the fixture after
-conversion group one, the starting point of the next slice's sequential scenario.
+`scripts/upgrade-fixture-decide.php`: hex colours become colour tokens, pixel widths the
+container width token, pixel boxes spacing and radius tokens, the hex overlay the dark overlay,
+pixel heights and the shadow colour and opacity are discarded). `after-group-1.sql` is the
+fixture after conversion group one, the starting point of the sequential scenario.
 
 Rebuild the fixture with `scripts/build-upgrade-fixture` (network, composer, `createdb`,
-`pg_dump`); re-record the decisions and the snapshot with
-`REHEARSAL_RECORD_DECISIONS=1 REHEARSAL_SNAPSHOT=1 composer test:upgrade`.
+`pg_dump`); re-record the decisions with `REHEARSAL_RECORD_DECISIONS=1 composer test:upgrade`.
+The group-one snapshot was recorded with `REHEARSAL_SNAPSHOT=1` while group one was the only
+shipped stage and is not re-recorded.
 Rehearse with `composer test:upgrade`, never concurrently with the PHP suite (same database):
 four scenarios, each from a fresh restore and this checkout's migrations — dry run, decisions,
 live, stamps and rendering; an interrupted live run and its rerun landing on the identical

@@ -39,6 +39,8 @@ restore() {
   run php scripts/reset-test-db.php >/dev/null
   "${PSQL[@]}" -f "$FIXTURE" >/dev/null
   run php scripts/run-test-migrations.php | grep -E "Applied|Failed|verified"
+  # provision's next step: the evolved starter definitions (fields, style declarations) onto the rows
+  run php glueful thallo:blocks:sync --no-interaction | tail -1
 }
 
 echo "################ scenario 1: dry run, decisions, live"
