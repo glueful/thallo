@@ -322,6 +322,25 @@ Outcome: container and style block legacy fields are gone; every managed inline 
 
 - [ ] Record the thallo.dev numbers at equal debounce in this plan; flip the flag only if the §3.5 gate is met, in its own commit. `CHANGELOG.md`; full gates; beta on the user's word. Phase A complete.
 
+**Measurement record (2026-09-14): not yet measured — the flag stays off.** The subsystem
+(A6.1, A6.2) ships complete and disabled. The numbers are taken on the thallo.dev homepage in a
+canvas session with `RENDER_FRAGMENTS_ENABLED=1` on the server and the admin served in
+development mode (the overlay renders only there): open the homepage in Design, make twenty
+settings edits on blocks the resolver can swap (a heading's colour, a container's padding
+without an image inside) and twenty on blocks it escalates (the hero, an image), at the default
+debounce for both paths, and read the overlay at the bottom right of the stage — per path the
+apply count, request-to-paint and input-to-paint medians and p95s, and the fallback count. The
+§3.5 gate: fragments path input-to-paint and request-to-paint medians under 300 ms, p95s under
+600 ms, the fragments median at most half the page median, fallbacks recorded. Fill in:
+
+| path | applies | request→paint median / p95 | input→paint median / p95 | fallbacks |
+|---|---|---|---|---|
+| fragments | – | – | – | – |
+| page | – | – | – | – |
+
+Flipping the flag is its own commit (`config/render.php` default, `RENDER_FRAGMENTS_ENABLED`
+documented in `docs/production.md`) and happens only if the gate is met.
+
 ---
 
 ## Self-review
