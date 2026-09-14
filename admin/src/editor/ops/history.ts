@@ -6,7 +6,7 @@
 // document is dirty whenever current differs from saved, and eviction that moves the base past
 // the saved sequence keeps it dirty until the next save because undo can no longer reach it.
 import type { RegionResolver } from '@/fields/components/blocks/useBlockListOps'
-import { createOperationApplier } from './apply'
+import { createOperationApplier, type BlockFieldsResolver } from './apply'
 import { invertOperation } from './invert'
 import { newOperationId, newTransactionId } from './session'
 import type { EditorDocument, Operation, OperationBody } from './types'
@@ -24,6 +24,7 @@ export interface HistoryEntry {
 export interface EditorHistoryOptions {
   session: string
   regionsOf: RegionResolver
+  blockFields: BlockFieldsResolver
   maxEntries?: number
   maxBytes?: number
   now?: () => Date
@@ -85,7 +86,7 @@ export function normaliseTransaction(ops: Operation[]): Operation[] {
 }
 
 export function createEditorHistory(initial: EditorDocument, options: EditorHistoryOptions) {
-  const applier = createOperationApplier(options.regionsOf)
+  const applier = createOperationApplier(options.regionsOf, options.blockFields)
   const maxEntries = options.maxEntries ?? HISTORY_MAX_ENTRIES
   const maxBytes = options.maxBytes ?? HISTORY_MAX_BYTES
   const now = options.now ?? (() => new Date())
@@ -196,6 +197,16 @@ export function createEditorHistory(initial: EditorDocument, options: EditorHist
     savedSequence = sequence
   }
 
+  /**
+   * Adopt a document loaded from the server (a re-hydration after a save) as the current
+   * document without recording anything; the saved position is `markSaved`'s business and
+   * entries stay undoable by id and path.
+   */
+  function rebase(next: EditorDocument): void {
+    if (active !== null) cancel()
+    document = next
+  }
+
   return {
     get document() {
       return document
@@ -225,6 +236,7 @@ export function createEditorHistory(initial: EditorDocument, options: EditorHist
     undo,
     redo,
     markSaved,
+    rebase,
     applier,
   }
 }

@@ -26,9 +26,17 @@ export function usePreview(uuid: string, locale: string) {
   })
 }
 
+/** The accepted working-copy pair (visual builder spec §3.5). */
+export interface RevisionPair {
+  epoch: string
+  revision: number
+}
+
 export interface PreviewMintResult {
   token: string
   themeUrl: string | null
+  /** The pair already accepted for this entry+locale, so a second editor starts from it. */
+  accepted: RevisionPair | null
 }
 
 // Mints a preview token; theme_url is server-decided (null = rendered delivery off).
@@ -37,7 +45,14 @@ export async function mintPreviewData(uuid: string, locale: string): Promise<Pre
     params: { path: { uuid, locale } },
   })
   if (error) throw toApiError(error, response)
-  return { token: data?.data?.token ?? '', themeUrl: data?.data?.theme_url ?? null }
+  const epoch = data?.data?.epoch
+  const revision = data?.data?.revision
+  return {
+    token: data?.data?.token ?? '',
+    themeUrl: data?.data?.theme_url ?? null,
+    accepted:
+      typeof epoch === 'string' && typeof revision === 'number' ? { epoch, revision } : null,
+  }
 }
 
 export function useThemePreview(uuid: string, locale: string) {
@@ -46,19 +61,50 @@ export function useThemePreview(uuid: string, locale: string) {
   })
 }
 
-// Loop C: apply the CURRENT working fields as an ephemeral preview — nothing
-// persisted; the stage's /_preview/{token} URL then renders the working copy.
+export interface ApplyPreviewOptions {
+  /** The pair the client last accepted; both null before its first apply. */
+  epoch: string | null
+  base_revision: number | null
+  /** The committed operations since `base_revision` (intent for the fragment path). */
+  operations: unknown[]
+}
+
+export interface ApplyPreviewResult extends RevisionPair {
+  /** The revision the stage showed before this one: what an in-place patch expects. */
+  baseline: number
+  style_generation: number
+  applied_at: string
+}
+
+// Apply the CURRENT working fields as the next working-copy revision (visual builder spec
+// §3.5) — nothing persisted; the stage's /_preview/{token} URL then renders the accepted copy.
+// A stale pair is a 409 PREVIEW_REVISION_STALE carrying the current pair.
 export async function applyPreview(
   uuid: string,
   locale: string,
   token: string,
   fields: Record<string, unknown>,
-): Promise<void> {
-  const { error, response } = await client.POST('/entries/{uuid}/preview/{locale}/apply', {
+  options: ApplyPreviewOptions,
+): Promise<ApplyPreviewResult> {
+  const { data, error, response } = await client.POST('/entries/{uuid}/preview/{locale}/apply', {
     params: { path: { uuid, locale } },
     // The spec types `fields` as unknown[]; the backend expects a keyed object —
     // cast through (same convention as drafts.ts saveDraft).
-    body: { token, fields: fields as unknown as unknown[] },
+    body: {
+      token,
+      fields: fields as unknown as unknown[],
+      epoch: options.epoch,
+      base_revision: options.base_revision,
+      operations: options.operations as unknown as never,
+    },
   })
   if (error) throw toApiError(error, response)
+  const d = (data?.data ?? {}) as Partial<ApplyPreviewResult>
+  return {
+    epoch: String(d.epoch ?? ''),
+    revision: Number(d.revision ?? 0),
+    baseline: Number(d.baseline ?? 0),
+    style_generation: Number(d.style_generation ?? 0),
+    applied_at: String(d.applied_at ?? ''),
+  }
 }

@@ -16,7 +16,10 @@ export function present<T>(value: T | null): ChangeValue<T> {
   return { present: true, value }
 }
 
-/** A place in the tree: the root list (`parent: null, slot: null`) or a parent's region. */
+/**
+ * A place in the tree: a root list (`parent: null`, `slot` = the blocks-typed page field) or a
+ * parent block's region (`parent` = its id, `slot` = the region name).
+ */
 export interface Position {
   parent: string | null
   slot: string | null
@@ -80,8 +83,10 @@ export type OperationBody =
 
 export type Operation = OperationMeta & OperationBody
 
-/** What the editor edits: the blocks tree and the persisted page fields around it. */
+/**
+ * What the editor edits: the entry's persisted fields. Blocks-typed fields are the block
+ * roots (addressed by `Position.slot`); every other field is a page setting.
+ */
 export interface EditorDocument {
-  blocks: BlockInstance[]
-  page: Record<string, unknown>
+  fields: Record<string, unknown>
 }

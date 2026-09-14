@@ -415,14 +415,14 @@ describe('useCanvasBridge', () => {
           },
         }),
       )
-      await expect(p).resolves.toBe('busy')
+      await expect(p).resolves.toMatchObject({ mode: 'busy' })
 
       // Timeout path resolves 'reload' — and clears pending state FIRST, so a
       // late ack meets no stale resolver (plan-review note).
       const p2 = bridge.stageRefresh()
       const sent2 = postSpy.mock.calls[1][0] as { refresh_id: string }
       vi.advanceTimersByTime(4100)
-      await expect(p2).resolves.toBe('reload')
+      await expect(p2).resolves.toMatchObject({ mode: 'reload' })
       window.dispatchEvent(
         new MessageEvent('message', {
           data: {
@@ -447,7 +447,7 @@ describe('useCanvasBridge', () => {
           },
         }),
       )
-      await expect(p3).resolves.toBe('reload')
+      await expect(p3).resolves.toMatchObject({ mode: 'reload' })
       bridge.dispose()
     } finally {
       vi.useRealTimers()

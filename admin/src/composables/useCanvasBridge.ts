@@ -35,8 +35,15 @@ export interface BridgeAnchor {
 /** Grant kinds (editable-string-fields spec §4) — decided by the parent's matrix. */
 export type EditKind = 'rich' | 'string' | 'text'
 
-/** stage-refresh outcomes (dom-patching spec §1). */
-export type StageRefreshMode = 'patched' | 'reload' | 'busy'
+/** stage-refresh outcomes (dom-patching spec §1; 'stale' = the fetch was older than displayed). */
+export type StageRefreshMode = 'patched' | 'reload' | 'busy' | 'stale'
+
+/** The ack: the mode, and the revision pair the fetched page carried (visual builder spec §3.5). */
+export interface StageRefreshResult {
+  mode: StageRefreshMode
+  epoch: string | null
+  revision: number | null
+}
 
 export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)))
@@ -62,7 +69,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     | ((id: string, field: string, payload: { html?: string; text?: string }) => void)
     | null = null
   let flushResolve: (() => void) | null = null
-  let pendingRefresh: { id: string; resolve: (mode: StageRefreshMode) => void } | null = null
+  let pendingRefresh: { id: string; resolve: (result: StageRefreshResult) => void } | null = null
   let refreshSeq = 0
 
   function targetOrigin(): string {
@@ -144,12 +151,22 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     // Partial DOM patching (dom-patching spec §1): id-correlated ack — a slow
     // fetch or timeout can never resolve a LATER refresh's promise.
     if (data.type === 'thallo:stage-refreshed') {
-      const ack = data as BridgeMessage & { refresh_id?: string; mode?: string; detail?: string }
+      const ack = data as BridgeMessage & {
+        refresh_id?: string
+        mode?: string
+        detail?: string
+        epoch?: unknown
+        revision?: unknown
+      }
       if (pendingRefresh !== null && ack.refresh_id === pendingRefresh.id) {
         const { resolve } = pendingRefresh
         pendingRefresh = null
         const mode = ack.mode
-        resolve(mode === 'patched' || mode === 'busy' ? mode : 'reload')
+        resolve({
+          mode: mode === 'patched' || mode === 'busy' || mode === 'stale' ? mode : 'reload',
+          epoch: typeof ack.epoch === 'string' ? ack.epoch : null,
+          revision: typeof ack.revision === 'number' ? ack.revision : null,
+        })
       }
     }
     // Auto-apply lifecycle + scroll preservation (auto-apply spec §1/§3).
@@ -259,7 +276,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
      * working copy (dom-patching spec §1/§4). Resolves the MATCHING ack's
      * mode, or 'reload' after 4s (mid-reload stage, stale cached bridge).
      */
-    stageRefresh(): Promise<StageRefreshMode> {
+    stageRefresh(): Promise<StageRefreshResult> {
       const refreshId = `r${++refreshSeq}-${nonce}`
       post({ type: 'thallo:stage-refresh', refresh_id: refreshId })
       return new Promise((resolve) => {
@@ -269,7 +286,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
             // Clear BEFORE resolving (plan-review note): a late ack must
             // meet no stale resolver state.
             pendingRefresh = null
-            resolve('reload')
+            resolve({ mode: 'reload', epoch: null, revision: null })
           }
         }, 4000)
       })

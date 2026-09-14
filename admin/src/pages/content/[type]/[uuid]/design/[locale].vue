@@ -1,13 +1,18 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useContentTypes } from '@/queries/contentTypes'
 import { useBlockTypes } from '@/queries/blockTypes'
 import type { BlockType } from '@/queries/blockTypes'
 import { proseRichFieldName } from '@/fields/components/blocks/proseDetection'
 import { useDraft, useSaveDraft } from '@/queries/drafts'
-import { applyPreview, mintPreviewData } from '@/queries/preview'
+import { applyPreview, mintPreviewData, type RevisionPair } from '@/queries/preview'
 import { useCanvasBridge } from '@/composables/useCanvasBridge'
+import { createEditorHistory, type EditorHistory } from '@/editor/ops/history'
+import { diffDocuments } from '@/editor/ops/diff'
+import { newEditorSession } from '@/editor/ops/session'
+import { invertOperation } from '@/editor/ops/invert'
+import type { Operation } from '@/editor/ops/types'
 import type { BridgeAnchor, EditKind } from '@/composables/useCanvasBridge'
 import { useNotify } from '@/composables/useNotify'
 import { ApiError, apiErrorCode, apiErrorDetails } from '@/api/errors'
@@ -57,15 +62,45 @@ let hydratedLock = -1
 // below — it calls maybeReconcileStash at setup time).
 let stageLoaded = false
 let stageSynced = false
+// ── History and the three revisions (visual builder spec §3.2, §3.5) ──────────
+// L (local) is the history's sequence; A (accepted) is the pair the server last accepted;
+// D (displayed) is the pair the stage last patched to. Every mutation of `fields` — the
+// inspector's own components, stage intents, page settings — is derived into operations and
+// recorded; undo and redo replay the history's document back into `fields`.
+const session = newEditorSession()
+let history: EditorHistory | null = null
+let replaying = false
+let pendingRebase = false
+let submittedSequence = 0
+let composing = false
+let commitTimer: ReturnType<typeof setTimeout> | null = null
+const opsSinceApply: Operation[] = []
+const accepted = ref<RevisionPair | null>(null)
+const displayed = ref<RevisionPair | null>(null)
+const styleGeneration = ref<number | null>(null)
+const historyState = ref({ canUndo: false, canRedo: false, dirty: false, pending: false })
+function refreshHistoryState(): void {
+  if (!history) return
+  historyState.value = {
+    canUndo: history.canUndo(),
+    canRedo: history.canRedo(),
+    dirty: history.isDirty,
+    pending: history.activeTransaction !== null,
+  }
+}
 watch(
   draft,
   (d) => {
     // Hydrate on load and after saves (lock bump); never clobber in-flight edits
-    // from a background refetch of the SAME lock.
+    // from a background refetch of the SAME lock — nor edits made while a save was in
+    // flight (spec §3.5: a save of revision 10 completing after an edit to 11 leaves 11).
     if (d && d.lock_version !== hydratedLock) {
-      fields.value = { ...d.fields }
+      const editedSinceSubmit = history !== null && history.currentSequence !== submittedSequence
       lockVersion.value = d.lock_version
       hydratedLock = d.lock_version
+      if (editedSinceSubmit) return
+      pendingRebase = history !== null
+      fields.value = { ...d.fields }
       // First hydration: the stage's initial render shows the draft (loop C §4)
       // — unless a stale stash overlays it, which the reconciliation apply
       // corrects once the stage has loaded.
@@ -79,6 +114,7 @@ watch(
 )
 
 const dirty = computed(() => {
+  if (history !== null) return historyState.value.dirty || historyState.value.pending
   const loaded = draft.value?.fields ?? {}
   return JSON.stringify(fields.value) !== JSON.stringify(loaded)
 })
@@ -107,6 +143,8 @@ async function mintAndLoad(): Promise<void> {
     renderDisabled.value = false
     mintFailed.value = false
     previewToken.value = mint.token
+    // A second editor starts from the accepted state (spec §3.5); a re-mint keeps ours.
+    if (accepted.value === null && mint.accepted) accepted.value = mint.accepted
     // The stage iframe IS the design canvas: declare it (?canvas=1) so the
     // render pack annotates blocks. Review previews (open-in-new-tab, the
     // content form's eye button) load the plain token URL and render clean,
@@ -402,6 +440,141 @@ function chooseAddType(slug: string): void {
 // text patches the tree — no mirrors, the contenteditable IS the stage DOM.
 const { data: allBlockTypes } = useBlockTypes()
 
+const regionsOf = (slug: string): string[] => {
+  const blockType = allBlockTypes.value?.find((t) => t.slug === slug)
+  return (blockType?.schema ?? []).filter((f) => f.type === 'blocks').map((f) => f.name)
+}
+const blockFields = (): string[] =>
+  schema.value.filter((f) => f.type === 'blocks').map((f) => f.name)
+const snapshotFields = (): Record<string, unknown> =>
+  JSON.parse(JSON.stringify(fields.value)) as Record<string, unknown>
+
+const STRUCTURAL = new Set([
+  'InsertBlock',
+  'InsertBlocks',
+  'RemoveBlock',
+  'MoveBlock',
+  'DuplicateBlock',
+])
+const TEXT_COMMIT_MS = 500
+
+function commitNow(): void {
+  if (commitTimer) {
+    clearTimeout(commitTimer)
+    commitTimer = null
+  }
+  history?.commit()
+  refreshHistoryState()
+}
+
+/** Structure commits at once; text and settings after 500 ms idle, never mid-composition. */
+function scheduleCommit(structural: boolean): void {
+  if (commitTimer) clearTimeout(commitTimer)
+  if (structural && !composing) {
+    commitNow()
+    return
+  }
+  commitTimer = setTimeout(() => {
+    commitTimer = null
+    if (composing) scheduleCommit(false)
+    else commitNow()
+  }, TEXT_COMMIT_MS)
+}
+
+watch(
+  fields,
+  () => {
+    if (replaying) return
+    const next = { fields: snapshotFields() }
+    if (history === null) {
+      history = createEditorHistory(next, { session: session.id, regionsOf, blockFields })
+      refreshHistoryState()
+      return
+    }
+    if (pendingRebase) {
+      pendingRebase = false
+      history.rebase(next)
+      refreshHistoryState()
+      return
+    }
+    const bodies = diffDocuments(history.document, next, regionsOf, blockFields)
+    if (bodies.length === 0) return
+    const recorded = bodies.map((body) => history!.record(body))
+    opsSinceApply.push(...recorded)
+    scheduleCommit(bodies.some((b) => STRUCTURAL.has(b.type)))
+    refreshHistoryState()
+  },
+  { deep: true, immediate: true },
+)
+
+/** Replay the history's document into the tree (undo/redo): recorded nowhere, applied to the stage. */
+async function replayHistory(): Promise<void> {
+  if (!history) return
+  replaying = true
+  fields.value = JSON.parse(JSON.stringify(history.document.fields)) as Record<string, unknown>
+  await nextTick()
+  replaying = false
+  refreshHistoryState()
+}
+
+async function undo(): Promise<void> {
+  if (!history) return
+  commitNow()
+  const entry = history.entries().find((e) => e.sequence === history!.currentSequence)
+  if (!history.undo()) return
+  if (entry)
+    for (let i = entry.ops.length - 1; i >= 0; i--)
+      opsSinceApply.push(...invertForApply(entry.ops[i]!))
+  await replayHistory()
+}
+
+async function redo(): Promise<void> {
+  if (!history) return
+  const before = history.currentSequence
+  if (!history.redo()) return
+  const entry = history
+    .entries()
+    .find((e) => e.sequence > before && e.sequence <= history!.currentSequence)
+  if (entry) opsSinceApply.push(...entry.ops)
+  await replayHistory()
+}
+
+function invertForApply(op: Operation): Operation[] {
+  return invertOperation(op)
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null
+  if (!el || typeof el.closest !== 'function') return false
+  return (
+    el.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]') !== null
+  )
+}
+
+function onKeydown(e: KeyboardEvent): void {
+  if (!(e.metaKey || e.ctrlKey) || e.altKey || e.key.toLowerCase() !== 'z') return
+  if (isTypingTarget(e.target)) return // native undo inside inputs stays native
+  e.preventDefault()
+  void (e.shiftKey ? redo() : undo())
+}
+function onCompositionStart(): void {
+  composing = true
+}
+function onCompositionEnd(): void {
+  composing = false
+}
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+  window.addEventListener('compositionstart', onCompositionStart, true)
+  window.addEventListener('compositionend', onCompositionEnd, true)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown)
+  window.removeEventListener('compositionstart', onCompositionStart, true)
+  window.removeEventListener('compositionend', onCompositionEnd, true)
+  if (commitTimer) clearTimeout(commitTimer)
+})
+
 /**
  * The grant/patch matrix (editable-string-fields spec §4) — the ONE authority
  * both paths use: prose rich field -> 'rich'; schema string -> 'string';
@@ -551,20 +724,62 @@ async function runApply(auto: boolean): Promise<void> {
   // structuredClone rejects with DataCloneError).
   const appliedJson = JSON.stringify(fields.value)
   const payload = JSON.parse(appliedJson) as Record<string, unknown>
+  // The request names the pair we accepted and the operations since it (spec §3.5); the
+  // sent ops leave the buffer only once the server accepted them.
+  const sentOps = opsSinceApply.splice(0, opsSinceApply.length)
+  const options = () => ({
+    epoch: accepted.value?.epoch ?? null,
+    base_revision: accepted.value?.revision ?? null,
+    operations: sentOps,
+  })
   try {
+    let result
     try {
-      await applyPreview(uuid.value, locale.value, previewToken.value, payload)
+      result = await applyPreview(uuid.value, locale.value, previewToken.value, payload, options())
     } catch (e: unknown) {
-      // Dead token: re-mint ONCE and retry — TTL churn, never a failure
-      // (suspension counts only the FINAL outcome, spec pin). The retry sends
-      // the SAME snapshot: one run applies one tree.
       if (e instanceof ApiError && (e.status === 410 || e.status === 403)) {
+        // Dead token: re-mint ONCE and retry — TTL churn, never a failure
+        // (suspension counts only the FINAL outcome, spec pin). The retry sends
+        // the SAME snapshot: one run applies one tree.
         await mintAndLoad()
-        await applyPreview(uuid.value, locale.value, previewToken.value, payload)
+        result = await applyPreview(
+          uuid.value,
+          locale.value,
+          previewToken.value,
+          payload,
+          options(),
+        )
+      } else if (e instanceof ApiError && apiErrorCode(e) === 'PREVIEW_REVISION_STALE') {
+        // Our pair is not the server's: adopt the current pair, refresh the stage from the
+        // accepted state, and retry ONCE from it (spec §3.5).
+        const current = apiErrorDetails(e)?.current as RevisionPair | null | undefined
+        accepted.value = current ?? null
+        reloadStage()
+        result = await applyPreview(
+          uuid.value,
+          locale.value,
+          previewToken.value,
+          payload,
+          options(),
+        )
       } else {
+        opsSinceApply.unshift(...sentOps)
         throw e
       }
     }
+    // A response from another epoch, or a revision not newer than accepted, is dropped.
+    const stale =
+      accepted.value !== null &&
+      (result.epoch !== accepted.value.epoch || result.revision <= accepted.value.revision)
+    if (stale) {
+      opsSinceApply.unshift(...sentOps)
+      return
+    }
+    accepted.value = { epoch: result.epoch, revision: result.revision }
+    if (styleGeneration.value !== null && styleGeneration.value !== result.style_generation) {
+      styleGenerationChanged.value = true // inherited values re-resolve before they are trusted
+    }
+    styleGeneration.value = result.style_generation
     lastApplied.value = appliedJson
     await refreshStage() // in-place patch when provable; reload fallback (dom-patching spec §4)
     succeeded = true
@@ -602,9 +817,17 @@ async function runApply(auto: boolean): Promise<void> {
  * whatever the stage missed.
  */
 async function refreshStage(): Promise<void> {
-  const mode = await bridge.stageRefresh()
-  if (mode === 'reload') reloadStage()
+  const result = await bridge.stageRefresh()
+  if (result.mode === 'patched') {
+    if (result.epoch !== null && result.revision !== null) {
+      displayed.value = { epoch: result.epoch, revision: result.revision }
+    }
+    return
+  }
+  // A baseline mismatch or a fetch older than displayed refreshes from accepted state.
+  if (result.mode === 'reload' || result.mode === 'stale') reloadStage()
 }
+const styleGenerationChanged = ref(false)
 
 async function applyWorking(): Promise<void> {
   if (applying.value) return
@@ -619,8 +842,22 @@ const saving = ref(false)
 
 async function saveDraftOnly({ quiet = false }: { quiet?: boolean } = {}): Promise<boolean> {
   saving.value = true
+  commitNow() // save flushes pending edits first (spec §3.2)
+  const sequence = history?.currentSequence ?? 0
+  submittedSequence = sequence
   try {
-    await save.mutateAsync({ fields: fields.value, lock_version: lockVersion.value })
+    const result = (await save.mutateAsync({
+      fields: fields.value,
+      lock_version: lockVersion.value,
+      preview_revision: accepted.value?.revision ?? null,
+    })) as { data?: { preview_cleared?: boolean } } | undefined
+    // The saved position is the SUBMITTED sequence, not the current one (spec §3.5).
+    history?.markSaved(sequence)
+    refreshHistoryState()
+    if (result?.data?.preview_cleared === true) {
+      accepted.value = null // the next apply starts a new epoch
+      displayed.value = null
+    }
     if (!quiet) success('Draft saved')
     return true
   } catch (e: unknown) {
@@ -698,6 +935,7 @@ async function openThemePreview(): Promise<void> {
  * No re-mint — that stays behind the explicit Refresh preview affordance.
  */
 function reloadStage(): void {
+  displayed.value = null // known again after the next in-place patch
   const src = iframeSrc.value
   if (!src) return
   iframeSrc.value = ''
@@ -764,6 +1002,28 @@ function reloadStage(): void {
               :ui="{
                 base: 'rounded-none',
               }"
+            />
+          </UFieldGroup>
+          <UFieldGroup size="sm">
+            <UButton
+              variant="outline"
+              color="neutral"
+              icon="i-lucide-undo-2"
+              aria-label="Undo"
+              title="Undo (⌘Z)"
+              data-test="canvas-undo"
+              :disabled="!historyState.canUndo"
+              @click="undo()"
+            />
+            <UButton
+              variant="outline"
+              color="neutral"
+              icon="i-lucide-redo-2"
+              aria-label="Redo"
+              title="Redo (⇧⌘Z)"
+              data-test="canvas-redo"
+              :disabled="!historyState.canRedo"
+              @click="redo()"
             />
           </UFieldGroup>
           <!-- Preview actions, fused like the viewport group: refresh · Auto ·

@@ -12,6 +12,8 @@ export interface DraftData {
 export interface SaveDraftBody {
   fields: Record<string, unknown>
   lock_version: number
+  /** The preview revision the save was submitted from (visual builder spec §3.5); null = none. */
+  preview_revision?: number | null
 }
 
 export async function fetchDraft(uuid: string, locale: string): Promise<DraftData> {
@@ -37,7 +39,11 @@ export async function saveDraft(uuid: string, locale: string, body: SaveDraftBod
   const { data, error, response } = await client.PUT('/entries/{uuid}/draft/{locale}', {
     params: { path: { uuid, locale } },
     // The spec types `fields` as unknown[]; the backend expects a keyed object — cast through.
-    body: { fields: body.fields as unknown as unknown[], lock_version: body.lock_version },
+    body: {
+      fields: body.fields as unknown as unknown[],
+      lock_version: body.lock_version,
+      preview_revision: body.preview_revision ?? null,
+    },
   })
   if (error) throw toApiError(error, response)
   return data

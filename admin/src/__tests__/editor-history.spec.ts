@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createEditorHistory } from '@/editor/ops/history'
 import { absent, present, type EditorDocument } from '@/editor/ops/types'
 import type { StyleValue } from '@/style/types'
+import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 
 const regionsOf = (type: string): string[] => (type === 'section' ? ['content'] : [])
 
@@ -10,10 +11,14 @@ function history(
   overrides: { maxEntries?: number; maxBytes?: number } = {},
 ) {
   const doc: EditorDocument = initial ?? {
-    blocks: [{ id: 'h1', type: 'heading', data: { text: '' }, settings: {} }],
-    page: {},
+    fields: { body: [{ id: 'h1', type: 'heading', data: { text: '' }, settings: {} }] },
   }
-  return createEditorHistory(doc, { session: 's1', regionsOf, ...overrides })
+  return createEditorHistory(doc, {
+    session: 's1',
+    regionsOf,
+    blockFields: () => ['body'],
+    ...overrides,
+  })
 }
 
 const token = (name: string): StyleValue => ({ type: 'token', value: `spacing.${name}` })
@@ -42,7 +47,7 @@ describe('transactions commit the minimal delta', () => {
       from: { present: false },
       to: { present: true, value: token('xl') },
     })
-    expect(h.document.blocks[0]!.settings).toEqual({
+    expect((h.document.fields.body as BlockInstance[])[0]!.settings).toEqual({
       style: { spacing: { padding: { top: { base: token('xl') } } } },
     })
     expect(h.currentSequence).toBe(1)
@@ -108,11 +113,11 @@ describe('undo, redo and the saved position', () => {
     h.commit()
     expect(h.currentSequence).toBe(2)
     expect(h.undo()).toBe(true)
-    expect(h.document.blocks[0]!.data.text).toBe('')
+    expect((h.document.fields.body as BlockInstance[])[0]!.data.text).toBe('')
     expect(h.currentSequence).toBe(1)
     expect(h.canRedo()).toBe(true)
     expect(h.redo()).toBe(true)
-    expect(h.document.blocks[0]!.data.text).toBe('a')
+    expect((h.document.fields.body as BlockInstance[])[0]!.data.text).toBe('a')
     expect(h.undo()).toBe(true)
     // Replay keeps the redo stack; a fresh edit clears it.
     expect(h.canRedo()).toBe(true)
@@ -129,10 +134,10 @@ describe('undo, redo and the saved position', () => {
     h.commit()
     h.record({ type: 'SetField', block: 'h1', field: 'text', from: present(''), to: present('a') })
     expect(h.undo()).toBe(true) // commits "a", then reverts it
-    expect(h.document.blocks[0]!.data.text).toBe('')
+    expect((h.document.fields.body as BlockInstance[])[0]!.data.text).toBe('')
     expect(h.currentSequence).toBe(1)
     expect(h.redo()).toBe(true)
-    expect(h.document.blocks[0]!.data.text).toBe('a')
+    expect((h.document.fields.body as BlockInstance[])[0]!.data.text).toBe('a')
   })
 
   it('undoing past the saved position makes the document dirty again', () => {

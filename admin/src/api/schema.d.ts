@@ -23032,6 +23032,7 @@ export interface operations {
                 /** Format: date-time */
                 updated_at?: string
               }
+              preview_cleared?: boolean
             }
           }
         }
@@ -23121,7 +23122,8 @@ export interface operations {
         /**
          * @example {
          *       "fields": "example",
-         *       "lock_version": "example"
+         *       "lock_version": "example",
+         *       "preview_revision": 50
          *     }
          */
         'application/json': {
@@ -23129,6 +23131,7 @@ export interface operations {
           fields?: unknown[]
           /** @description Optimistic-lock counter echoed from the last read. */
           lock_version?: number | null
+          preview_revision?: number | null
         }
       }
     }
@@ -23154,6 +23157,7 @@ export interface operations {
                 /** Format: date-time */
                 updated_at?: string
               }
+              preview_cleared?: boolean
             }
           }
         }
@@ -23518,6 +23522,7 @@ export interface operations {
                 /** Format: date-time */
                 updated_at?: string
               }
+              preview_cleared?: boolean
             }
           }
         }
@@ -23674,6 +23679,8 @@ export interface operations {
               expires_at?: string
               expires_in?: number
               theme_url?: string | null
+              epoch?: string | null
+              revision?: number | null
             }
           }
         }
@@ -23762,23 +23769,43 @@ export interface operations {
         /**
          * @example {
          *       "token": "example",
-         *       "fields": "example"
+         *       "fields": "example",
+         *       "epoch": "example",
+         *       "base_revision": 50,
+         *       "operations": "example"
          *     }
          */
         'application/json': {
           token: string
           /** @description Working field values keyed by the content type's field names. */
           fields?: unknown[]
+          epoch?: string | null
+          base_revision?: number | null
+          /** @description The committed operations since `base_revision`. */
+          operations?: unknown[] | null
         }
       }
     }
     responses: {
-      /** @description Working copy applied to the preview session. */
+      /** @description Working copy accepted. */
       200: {
         headers: {
           [name: string]: unknown
         }
-        content?: never
+        content: {
+          'application/json': {
+            success: boolean
+            message: string
+            data: {
+              epoch?: string
+              revision?: number
+              baseline?: number
+              style_generation?: number
+              /** Format: date-time */
+              applied_at?: string
+            }
+          }
+        }
       }
       /** @description Unauthenticated. */
       401: {
@@ -23814,7 +23841,7 @@ export interface operations {
           }
         }
       }
-      /** @description Version-pinned token (PREVIEW_VERSION_PINNED) or active block migration (BLOCK_MIGRATION_IN_PROGRESS). */
+      /** @description Version-pinned token (PREVIEW_VERSION_PINNED), active block migration (BLOCK_MIGRATION_IN_PROGRESS) or a stale epoch/base revision (PREVIEW_REVISION_STALE, carrying the current pair). */
       409: {
         headers: {
           [name: string]: unknown

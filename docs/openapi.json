@@ -1675,6 +1675,52 @@
                 }
             }
         },
+        "\/_thallo\/layers.css": {
+            "get": {
+                "operationId": "getThalloLayerscss",
+                "summary": "GET \/_thallo\/layers.css",
+                "tags": [
+                    " Thallo"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "\/_thallo\/runtime\/{file}": {
             "get": {
                 "operationId": "getThalloRuntimeByFile",
@@ -69738,6 +69784,9 @@
                                                             "format": "date-time"
                                                         }
                                                     }
+                                                },
+                                                "preview_cleared": {
+                                                    "type": "boolean"
                                                 }
                                             }
                                         }
@@ -69931,12 +69980,19 @@
                                             "null"
                                         ],
                                         "description": "Optimistic-lock counter echoed from the last read."
+                                    },
+                                    "preview_revision": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
                                     }
                                 }
                             },
                             "example": {
                                 "fields": "example",
-                                "lock_version": "example"
+                                "lock_version": "example",
+                                "preview_revision": 50
                             }
                         }
                     }
@@ -69990,6 +70046,9 @@
                                                             "format": "date-time"
                                                         }
                                                     }
+                                                },
+                                                "preview_cleared": {
+                                                    "type": "boolean"
                                                 }
                                             }
                                         }
@@ -70863,6 +70922,9 @@
                                                             "format": "date-time"
                                                         }
                                                     }
+                                                },
+                                                "preview_cleared": {
+                                                    "type": "boolean"
                                                 }
                                             }
                                         }
@@ -71052,6 +71114,18 @@
                                                 "theme_url": {
                                                     "type": [
                                                         "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "epoch": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "revision": {
+                                                    "type": [
+                                                        "integer",
                                                         "null"
                                                     ]
                                                 }
@@ -71246,6 +71320,26 @@
                                         "type": "array",
                                         "items": {},
                                         "description": "Working field values keyed by the content type's field names."
+                                    },
+                                    "epoch": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "base_revision": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
+                                    },
+                                    "operations": {
+                                        "type": [
+                                            "array",
+                                            "null"
+                                        ],
+                                        "items": {},
+                                        "description": "The committed operations since `base_revision`."
                                     }
                                 },
                                 "required": [
@@ -71254,14 +71348,58 @@
                             },
                             "example": {
                                 "token": "example",
-                                "fields": "example"
+                                "fields": "example",
+                                "epoch": "example",
+                                "base_revision": 50,
+                                "operations": "example"
                             }
                         }
                     }
                 },
                 "responses": {
                     "200": {
-                        "description": "Working copy applied to the preview session."
+                        "description": "Working copy accepted.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "epoch": {
+                                                    "type": "string"
+                                                },
+                                                "revision": {
+                                                    "type": "integer"
+                                                },
+                                                "baseline": {
+                                                    "type": "integer"
+                                                },
+                                                "style_generation": {
+                                                    "type": "integer"
+                                                },
+                                                "applied_at": {
+                                                    "type": "string",
+                                                    "format": "date-time"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "message",
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Unauthenticated.",
@@ -71392,7 +71530,7 @@
                         }
                     },
                     "409": {
-                        "description": "Version-pinned token (PREVIEW_VERSION_PINNED) or active block migration (BLOCK_MIGRATION_IN_PROGRESS).",
+                        "description": "Version-pinned token (PREVIEW_VERSION_PINNED), active block migration (BLOCK_MIGRATION_IN_PROGRESS) or a stale epoch\/base revision (PREVIEW_REVISION_STALE, carrying the current pair).",
                         "content": {
                             "application\/json": {
                                 "schema": {

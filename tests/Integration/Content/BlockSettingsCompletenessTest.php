@@ -263,9 +263,10 @@ final class BlockSettingsCompletenessTest extends AppTestCase
             ContentTypeSchema::fromArray([['name' => 'body', 'type' => 'blocks']]),
             ['body' => $this->body()],
         );
-        $store->put('entry0000001', 'en', $clean, 60);
+        $store->clear('entry0000001', 'en');
+        $store->accept('entry0000001', 'en', null, null, $clean, [], 60);
         try {
-            $this->assertSettingsSurvive($store->get('entry0000001', 'en')['body'], 'preview working copy');
+            $this->assertSettingsSurvive($store->fields('entry0000001', 'en')['body'], 'preview working copy');
         } finally {
             $store->clear('entry0000001', 'en'); // the cache store is process-shared across tests
         }

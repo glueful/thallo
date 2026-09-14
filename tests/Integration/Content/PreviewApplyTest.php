@@ -73,22 +73,27 @@ final class PreviewApplyTest extends AppTestCase
         return $this->container()->get(PreviewMinter::class)->mint($entry, $locale, $version);
     }
 
-    public function testWorkingCopyStoreRoundTripAndClear(): void
+    public function testWorkingCopyStoreAcceptsByCompareAndSetAndClears(): void
     {
         $store = $this->store();
-        self::assertNull($store->get('entry0000001', 'en'));
+        self::assertNull($store->record('entry0000001', 'en'));
 
-        $store->put('entry0000001', 'en', ['title' => 'W'], 60);
-        self::assertSame(['title' => 'W'], $store->get('entry0000001', 'en'));
+        $first = $store->accept('entry0000001', 'en', null, null, ['title' => 'W'], [], 60);
+        self::assertTrue($first['accepted']);
+        self::assertSame(1, $first['revision']);
+        self::assertSame(['title' => 'W'], $store->fields('entry0000001', 'en'));
         // Keyed per entry+locale: neighbours are isolated.
-        self::assertNull($store->get('entry0000001', 'fr'));
-        self::assertNull($store->get('entry0000002', 'en'));
+        self::assertNull($store->record('entry0000001', 'fr'));
+        self::assertNull($store->record('entry0000002', 'en'));
 
-        // Overwrite (last writer wins), then clear.
-        $store->put('entry0000001', 'en', ['title' => 'W2'], 60);
-        self::assertSame(['title' => 'W2'], $store->get('entry0000001', 'en'));
+        // Only the exact current pair advances; then clear.
+        $stale = $store->accept('entry0000001', 'en', $first['epoch'], 0, ['title' => 'X'], [], 60);
+        self::assertFalse($stale['accepted']);
+        $next = $store->accept('entry0000001', 'en', $first['epoch'], 1, ['title' => 'W2'], [], 60);
+        self::assertTrue($next['accepted']);
+        self::assertSame(['title' => 'W2'], $store->fields('entry0000001', 'en'));
         $store->clear('entry0000001', 'en');
-        self::assertNull($store->get('entry0000001', 'en'));
+        self::assertNull($store->record('entry0000001', 'en'));
     }
 
     public function testApplyTokenFailuresAreFailClosed(): void
@@ -118,7 +123,7 @@ final class PreviewApplyTest extends AppTestCase
             'en',
         );
         self::assertSame(403, $rebound->getStatusCode());
-        self::assertNull($this->store()->get($other, 'en'));
+        self::assertNull($this->store()->fields($other, 'en'));
 
         // Expired token -> 410 (the SPA's re-mint-and-retry path keys off this),
         // no stash. Minted directly with an in-the-past expiry via the same key
@@ -131,7 +136,7 @@ final class PreviewApplyTest extends AppTestCase
             'en',
         );
         self::assertSame(410, $gone->getStatusCode());
-        self::assertNull($this->store()->get($entry, 'en'));
+        self::assertNull($this->store()->fields($entry, 'en'));
     }
 
     public function testApplyRejectsVersionPinnedTokensWith409(): void
@@ -147,7 +152,7 @@ final class PreviewApplyTest extends AppTestCase
         );
         self::assertSame(409, $resp->getStatusCode());
         self::assertStringContainsString('PREVIEW_VERSION_PINNED', (string) $resp->getContent());
-        self::assertNull($this->store()->get($entry, 'en'));
+        self::assertNull($this->store()->fields($entry, 'en'));
     }
 
     public function testApplyValidates422AndCaps413(): void
@@ -166,7 +171,7 @@ final class PreviewApplyTest extends AppTestCase
             'en',
         );
         self::assertSame(422, $dup->getStatusCode());
-        self::assertNull($this->store()->get($entry, 'en'));
+        self::assertNull($this->store()->fields($entry, 'en'));
 
         // 1 MB cap -> 413.
         $big = $this->controller()->applyPreview(
@@ -206,7 +211,7 @@ final class PreviewApplyTest extends AppTestCase
         );
         self::assertSame(409, $resp->getStatusCode());
         self::assertStringContainsString('BLOCK_MIGRATION_IN_PROGRESS', (string) $resp->getContent());
-        self::assertNull($this->store()->get($entry, 'en')); // no stash on 409
+        self::assertNull($this->store()->fields($entry, 'en')); // no stash on 409
     }
 
     public function testApplyStashesTheCleanedFields(): void
@@ -226,7 +231,7 @@ final class PreviewApplyTest extends AppTestCase
             'en',
         );
         self::assertSame(200, $resp->getStatusCode());
-        $stashed = $this->store()->get($entry, 'en');
+        $stashed = $this->store()->fields($entry, 'en');
         self::assertNotNull($stashed);
         self::assertSame('Working', $stashed['title']);
         self::assertArrayNotHasKey('not_in_schema', $stashed);

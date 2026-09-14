@@ -5,7 +5,7 @@ import { absent, present, type EditorDocument, type Operation } from '@/editor/o
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 
 const regionsOf = (type: string): string[] => (type === 'section' ? ['content'] : [])
-const { applyOperation } = createOperationApplier(regionsOf)
+const { applyOperation } = createOperationApplier(regionsOf, () => ['body'])
 
 const meta = { op_id: 'op1', transaction_id: 'tx1', at: '2026-09-14T00:00:00.000Z', session: 's1' }
 const block = (
@@ -18,18 +18,25 @@ const block = (
   data,
   settings: {},
 })
+const blocks = (d: EditorDocument): BlockInstance[] => d.fields.body as BlockInstance[]
+const root = (index: number) => ({ parent: null, slot: 'body', index })
 
 function doc(): EditorDocument {
   return {
-    blocks: [
-      block('h1', 'heading', { text: 'Hello' }),
-      block('s1', 'section', { title: 'S', content: [block('h2', 'heading', { text: 'Inner' })] }),
-    ],
-    page: { title: 'Page' },
+    fields: {
+      title: 'Page',
+      body: [
+        block('h1', 'heading', { text: 'Hello' }),
+        block('s1', 'section', {
+          title: 'S',
+          content: [block('h2', 'heading', { text: 'Inner' })],
+        }),
+      ],
+    },
   }
 }
 
-/** Apply then apply every inverse (last first): the tree must come back byte-identical. */
+/** Apply then apply every inverse (last first): the document must come back byte-identical. */
 function roundTrip(op: Operation, start: EditorDocument = doc()): EditorDocument {
   const after = applyOperation(start, op)
   expect(after).not.toEqual(start)
@@ -49,9 +56,8 @@ describe('editor operations apply and invert to the identical tree', () => {
       from: present('Inner'),
       to: present('Changed'),
     })
-    expect(
-      ((after.blocks[1]!.data.content as BlockInstance[])[0]!.data as { text: string }).text,
-    ).toBe('Changed')
+    const inner = (blocks(after)[1]!.data.content as BlockInstance[])[0]!
+    expect(inner.data.text).toBe('Changed')
 
     const set = roundTrip({
       ...meta,
@@ -62,7 +68,7 @@ describe('editor operations apply and invert to the identical tree', () => {
       from: absent(),
       to: present({ type: 'token', value: 'spacing.lg' }),
     })
-    expect(set.blocks[0]!.settings).toEqual({
+    expect(blocks(set)[0]!.settings).toEqual({
       style: { spacing: { padding: { top: { md: { type: 'token', value: 'spacing.lg' } } } } },
     })
 
@@ -75,7 +81,7 @@ describe('editor operations apply and invert to the identical tree', () => {
       from: absent(),
       to: present({ type: 'reset' }),
     })
-    expect(radius.blocks[0]!.settings).toEqual({ style: { radius: { type: 'reset' } } })
+    expect(blocks(radius)[0]!.settings).toEqual({ style: { radius: { type: 'reset' } } })
 
     const adv = roundTrip({
       ...meta,
@@ -85,7 +91,7 @@ describe('editor operations apply and invert to the identical tree', () => {
       from: absent(),
       to: present('Intro'),
     })
-    expect(adv.blocks[0]!.settings).toEqual({ advanced: { accessibility: { label: 'Intro' } } })
+    expect(blocks(adv)[0]!.settings).toEqual({ advanced: { accessibility: { label: 'Intro' } } })
 
     const page = roundTrip({
       ...meta,
@@ -94,7 +100,7 @@ describe('editor operations apply and invert to the identical tree', () => {
       from: absent(),
       to: present('hello'),
     })
-    expect(page.page).toEqual({ title: 'Page', slug: 'hello' })
+    expect(page.fields.slug).toBe('hello')
   })
 
   it('an absent target deletes the key and prunes empty parents; null is a value', () => {
@@ -115,15 +121,18 @@ describe('editor operations apply and invert to the identical tree', () => {
       position: { parent: 's1', slot: 'content', index: 0 },
       block: fresh,
     })
-    expect((inserted.blocks[1]!.data.content as BlockInstance[]).map((b) => b.id)).toEqual([
+    expect((blocks(inserted)[1]!.data.content as BlockInstance[]).map((b) => b.id)).toEqual([
       'n1',
       'h2',
     ])
 
+    const atRoot = roundTrip({ ...meta, type: 'InsertBlock', position: root(2), block: fresh })
+    expect(blocks(atRoot).map((b) => b.id)).toEqual(['h1', 's1', 'n1'])
+
     roundTrip({
       ...meta,
       type: 'RemoveBlock',
-      position: { parent: null, slot: null, index: 0 },
+      position: root(0),
       block: block('h1', 'heading', { text: 'Hello' }),
     })
 
@@ -132,48 +141,49 @@ describe('editor operations apply and invert to the identical tree', () => {
       type: 'MoveBlock',
       block: 'h2',
       from: { parent: 's1', slot: 'content', index: 0 },
-      to: { parent: null, slot: null, index: 0 },
+      to: root(0),
     })
-    expect(moved.blocks.map((b) => b.id)).toEqual(['h2', 'h1', 's1'])
+    expect(blocks(moved).map((b) => b.id)).toEqual(['h2', 'h1', 's1'])
 
     const copy = block('h1copy', 'heading', { text: 'Hello' })
     const dup = roundTrip({
       ...meta,
       type: 'DuplicateBlock',
       source: 'h1',
-      position: { parent: null, slot: null, index: 1 },
+      position: root(1),
       block: copy,
     })
-    expect(dup.blocks.map((b) => b.id)).toEqual(['h1', 'h1copy', 's1'])
+    expect(blocks(dup).map((b) => b.id)).toEqual(['h1', 'h1copy', 's1'])
   })
 
   it('InsertBlocks carries allocated subtrees, inverts to one removal each and reuses ids on redo', () => {
     const op: Operation = {
       ...meta,
       type: 'InsertBlocks',
-      position: { parent: null, slot: null, index: 1 },
+      position: root(1),
       blocks: [block('a'), block('b', 'section', { content: [block('c')] })],
     }
     const after = roundTrip(op)
-    expect(after.blocks.map((b) => b.id)).toEqual(['h1', 'a', 'b', 's1'])
+    expect(blocks(after).map((b) => b.id)).toEqual(['h1', 'a', 'b', 's1'])
     const inverses = invertOperation(op)
     expect(inverses.map((i) => i.type)).toEqual(['RemoveBlock', 'RemoveBlock'])
     expect(inverses.map((i) => (i as { block: BlockInstance }).block.id)).toEqual(['b', 'a'])
-    const redone = applyOperation(after, op) // a redo replays the same op: same ids, no fresh allocation
-    expect(applyOperation(after, invertOperation(op)[0]!)).not.toEqual(redone)
+    // A redo replays the same op: the same ids, no fresh allocation.
+    expect(
+      blocks(applyOperation(applyOperation(after, inverses[0]!), op)).map((b) => b.id),
+    ).toContain('b')
     expect(JSON.parse(JSON.stringify(op))).toEqual(op)
   })
 
   it('style classes: apply, remove, reorder and detach round-trip', () => {
     const start: EditorDocument = {
-      blocks: [{ ...block('h1'), settings: { classes: ['a', 'c'] } }],
-      page: {},
+      fields: { body: [{ ...block('h1'), settings: { classes: ['a', 'c'] } }] },
     }
     const applied = roundTrip(
       { ...meta, type: 'ApplyStyleClass', block: 'h1', class_id: 'b', index: 1 },
       start,
     )
-    expect(applied.blocks[0]!.settings.classes).toEqual(['a', 'b', 'c'])
+    expect(blocks(applied)[0]!.settings.classes).toEqual(['a', 'b', 'c'])
     roundTrip({ ...meta, type: 'RemoveStyleClass', block: 'h1', class_id: 'a', index: 0 }, start)
     roundTrip(
       { ...meta, type: 'ReorderStyleClasses', block: 'h1', from: ['a', 'c'], to: ['c', 'a'] },
@@ -191,7 +201,7 @@ describe('editor operations apply and invert to the identical tree', () => {
       },
       start,
     )
-    expect(detached.blocks[0]!.settings).toEqual({
+    expect(blocks(detached)[0]!.settings).toEqual({
       classes: ['a'],
       style: { radius: { type: 'token', value: 'radius.lg' } },
     })
@@ -207,6 +217,14 @@ describe('editor operations apply and invert to the identical tree', () => {
         field: 'x',
         from: absent(),
         to: present(1),
+      }),
+    ).toBe(start)
+    expect(
+      applyOperation(start, {
+        ...meta,
+        type: 'InsertBlock',
+        position: { parent: 'ghost', slot: 'content', index: 0 },
+        block: block('n'),
       }),
     ).toBe(start)
   })

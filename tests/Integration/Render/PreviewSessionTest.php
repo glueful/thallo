@@ -307,7 +307,7 @@ final class PreviewSessionTest extends AppTestCase
 
         // Stash a working copy: it must WIN over the draft at the canonical URL.
         $this->container()->get(PreviewWorkingCopyStore::class)
-            ->put($entry, 'en', ['title' => 'Working copy wins'], 300);
+            ->accept($entry, 'en', null, null, ['title' => 'Working copy wins'], [], 300);
         $res = $this->handle($this->sessionRequest('/blog/hello', $token));
         self::assertSame(200, $res->getStatusCode());
         $html = (string) $res->getContent();
@@ -326,7 +326,7 @@ final class PreviewSessionTest extends AppTestCase
         $pinned = $this->container()->get(PreviewMinter::class)->mint($entry, 'en', $version);
 
         $this->container()->get(PreviewWorkingCopyStore::class)
-            ->put($entry, 'en', ['title' => 'Working copy wins'], 300);
+            ->accept($entry, 'en', null, null, ['title' => 'Working copy wins'], [], 300);
 
         $res = $this->handle($this->sessionRequest('/blog/hello', $pinned));
         self::assertSame(200, $res->getStatusCode());
@@ -342,7 +342,7 @@ final class PreviewSessionTest extends AppTestCase
         [, $token] = $this->seedRoutedEntryWithDraft();
         $other = $this->seedPublishedEntryInType('promo', true, 'en', 'other', 'Other page');
         $this->container()->get(PreviewWorkingCopyStore::class)
-            ->put($other, 'en', ['title' => 'Leaked stash'], 300);
+            ->accept($other, 'en', null, null, ['title' => 'Leaked stash'], [], 300);
 
         $res = $this->handle($this->sessionRequest('/promo/other', $token));
         self::assertSame(200, $res->getStatusCode());
@@ -369,7 +369,7 @@ final class PreviewSessionTest extends AppTestCase
         $cache->set($key, $cached, 3600);
 
         $this->container()->get(PreviewWorkingCopyStore::class)
-            ->put($entry, 'en', ['title' => 'Working copy wins'], 300);
+            ->accept($entry, 'en', null, null, ['title' => 'Working copy wins'], [], 300);
 
         $res = $this->handle($this->sessionRequest('/blog/hello', $token));
         $html = (string) $res->getContent();
@@ -397,7 +397,7 @@ final class PreviewSessionTest extends AppTestCase
 
         // With a stash — written through the OVERRIDE container: the WORKING COPY.
         $app->getContainer()->get(PreviewWorkingCopyStore::class)
-            ->put($entry, 'en', ['title' => 'Working copy wins'], 300);
+            ->accept($entry, 'en', null, null, ['title' => 'Working copy wins'], [], 300);
         $res = $controller->home($this->homeSessionRequest($app, $token));
         self::assertStringContainsString('Working copy wins', (string) $res->getContent());
     }

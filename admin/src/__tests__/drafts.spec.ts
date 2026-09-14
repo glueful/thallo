@@ -33,7 +33,7 @@ describe('draft query/mutation', () => {
     await saveDraft('e1', 'en', { fields: { title: 'Hi' }, lock_version: 3 })
     expect(PUT).toHaveBeenCalledWith('/entries/{uuid}/draft/{locale}', {
       params: { path: { uuid: 'e1', locale: 'en' } },
-      body: { fields: { title: 'Hi' }, lock_version: 3 },
+      body: { fields: { title: 'Hi' }, lock_version: 3, preview_revision: null },
     })
   })
 
