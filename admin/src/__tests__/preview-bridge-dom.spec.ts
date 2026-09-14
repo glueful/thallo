@@ -2139,3 +2139,135 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
     }
   })
 })
+
+describe('fragment swaps (visual builder spec §3.5)', () => {
+  const page = (epoch: string, revision: number, inner: string) =>
+    `<main data-thallo-epoch="${epoch}" data-thallo-revision="${revision}">${inner}</main>`
+  const frag = (id: string, inner: string) =>
+    `<div class="thallo-preview-block" data-thallo-block="${id}">${inner}</div>`
+
+  /**
+   * The stage learns its displayed pair from a real refresh: stub the fetch with the same
+   * body. The evaluated bridge keeps its pair across tests, so every test uses its own epoch.
+   */
+  async function establish(epoch: string, inner: string): Promise<void> {
+    document.body.innerHTML = page(epoch, 1, inner)
+    const html = `<!doctype html><html><body>${page(epoch, 1, inner)}</body></html>`
+    window.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      redirected: false,
+      text: () => Promise.resolve(html),
+    }) as unknown as typeof window.fetch
+    sendToBridge({ type: 'thallo:stage-refresh', refresh_id: 'establish' })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(lastPost('thallo:stage-refreshed')).toMatchObject({
+      refresh_id: 'establish',
+      mode: 'patched',
+      epoch,
+      revision: 1,
+    })
+    posted.mockClear()
+  }
+
+  function fragments(epoch: string, data: Record<string, unknown>): void {
+    sendToBridge({
+      type: 'thallo:fragments',
+      refresh_id: 'frag-1',
+      epoch,
+      revision: 2,
+      baseline_epoch: epoch,
+      baseline_revision: 1,
+      ...data,
+    })
+  }
+
+  it('swaps every validated root, advances the displayed pair and acks patched', async () => {
+    await establish('ea', frag('fa000000001', '<p>old a</p>') + frag('fb000000001', '<p>old b</p>'))
+    fragments('ea', {
+      fragments: {
+        fa000000001: frag('fa000000001', '<p>new a</p>'),
+        fb000000001: frag('fb000000001', '<p>new b</p>'),
+      },
+    })
+    expect(document.querySelector('[data-thallo-block="fa000000001"]')!.textContent).toBe('new a')
+    expect(document.querySelector('[data-thallo-block="fb000000001"]')!.textContent).toBe('new b')
+    expect(lastPost('thallo:stage-refreshed')).toMatchObject({
+      refresh_id: 'frag-1',
+      mode: 'patched',
+      detail: 'fragments:2',
+      epoch: 'ea',
+      revision: 2,
+    })
+    expect(document.querySelector('main')!.getAttribute('data-thallo-revision')).toBe('2')
+
+    // The displayed pair moved on: the same patch is now behind it, and one that names the
+    // old baseline is refused.
+    posted.mockClear()
+    fragments('ea', { baseline_revision: 2, fragments: { fa000000001: frag('fa000000001', 'x') } })
+    expect(lastPost('thallo:stage-refreshed')).toMatchObject({
+      refresh_id: 'frag-1',
+      mode: 'stale',
+    })
+    fragments('ea', { revision: 3, fragments: { fa000000001: frag('fa000000001', 'x') } })
+    expect(lastPost('thallo:fragments-failed')).toMatchObject({
+      refresh_id: 'frag-1',
+      reason: 'baseline',
+    })
+    expect(document.querySelector('[data-thallo-block="fa000000001"]')!.textContent).toBe('new a')
+  })
+
+  it('refuses an obsolete epoch, a missing target, foreign or malformed markup and nested targets', async () => {
+    await establish(
+      'eb',
+      frag('ga000000001', frag('gi000000001', '<p>inner</p>')) + frag('gb000000001', 'b'),
+    )
+    fragments('eb', { epoch: 'e0', fragments: { ga000000001: frag('ga000000001', 'x') } })
+    expect(lastPost('thallo:fragments-failed')).toMatchObject({ reason: 'epoch' })
+    fragments('eb', { fragments: { gz000000001: frag('gz000000001', 'x') } })
+    expect(lastPost('thallo:fragments-failed')).toMatchObject({ reason: 'target' })
+    fragments('eb', { fragments: { ga000000001: frag('gb000000001', 'x') } })
+    expect(lastPost('thallo:fragments-failed')).toMatchObject({ reason: 'markup' })
+    fragments('eb', { fragments: { ga000000001: '<p>one</p><p>two</p>' } })
+    expect(lastPost('thallo:fragments-failed')).toMatchObject({ reason: 'markup' })
+    fragments('eb', { fragments: {} })
+    expect(lastPost('thallo:fragments-failed')).toMatchObject({ reason: 'empty' })
+    fragments('eb', {
+      fragments: { ga000000001: frag('ga000000001', 'x'), gi000000001: frag('gi000000001', 'y') },
+    })
+    expect(lastPost('thallo:fragments-failed')).toMatchObject({ reason: 'overlap' })
+    // Nothing moved.
+    expect(document.querySelector('[data-thallo-block="gi000000001"]')!.textContent).toBe('inner')
+    expect(document.querySelector('main')!.getAttribute('data-thallo-revision')).toBe('1')
+    expect(lastPost('thallo:stage-refreshed')).toBeUndefined()
+  })
+
+  it('re-anchors the selection on the swapped wrapper, or deselects honestly when it vanished', async () => {
+    await establish(
+      'ec',
+      frag('ha000000001', frag('hi000000001', '<a href="/x">inner</a>')) + frag('hb000000001', 'b'),
+    )
+    document
+      .querySelector('[data-thallo-block="ha000000001"] a')!
+      .dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(lastPost('thallo:block-select')).toMatchObject({ id: 'hi000000001' })
+    posted.mockClear()
+    // The parent root re-renders without the nested block: the selection is gone.
+    fragments('ec', { fragments: { ha000000001: frag('ha000000001', '<p>flattened</p>') } })
+    expect(lastPost('thallo:block-deselect')).toMatchObject({ id: 'hi000000001' })
+    expect(lastPost('thallo:stage-refreshed')).toMatchObject({ mode: 'patched', revision: 2 })
+
+    // Select the second root, then swap it: the new wrapper carries the selection.
+    document
+      .querySelector('[data-thallo-block="hb000000001"]')!
+      .dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    fragments('ec', {
+      revision: 3,
+      baseline_revision: 2,
+      fragments: { hb000000001: frag('hb000000001', '<p>b2</p>') },
+    })
+    const swapped = document.querySelector('[data-thallo-block="hb000000001"]')!
+    expect(swapped.textContent).toBe('b2')
+    expect(swapped.classList.contains('thallo-canvas-selected')).toBe(true)
+  })
+})

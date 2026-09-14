@@ -586,3 +586,76 @@ describe('FieldEditor.selectBlockById', () => {
     wrapper.unmount()
   })
 })
+
+describe('stageFragments', () => {
+  it('posts the patch with a refresh id and resolves on the matching ack or failure', async () => {
+    vi.useFakeTimers()
+    try {
+      const postSpy = vi.fn()
+      const iframe = ref({
+        src: 'https://site.test/_preview/tok123',
+        contentWindow: { postMessage: postSpy },
+      } as unknown as HTMLIFrameElement)
+      const bridge = useCanvasBridge(iframe as Ref<HTMLIFrameElement | null>)
+      const patch = {
+        epoch: 'e1',
+        revision: 2,
+        baseline_epoch: 'e1',
+        baseline_revision: 1,
+        fragments: { a: '<div class="thallo-preview-block" data-thallo-block="a"></div>' },
+      }
+      const p = bridge.stageFragments(patch)
+      const sent = postSpy.mock.calls[0][0] as {
+        type: string
+        refresh_id: string
+        fragments: unknown
+      }
+      expect(sent.type).toBe('thallo:fragments')
+      expect(sent).toMatchObject(patch)
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'thallo:stage-refreshed',
+            refresh_id: sent.refresh_id,
+            mode: 'patched',
+            epoch: 'e1',
+            revision: 2,
+            nonce: bridge.nonce,
+          },
+        }),
+      )
+      await expect(p).resolves.toEqual({ mode: 'patched', epoch: 'e1', revision: 2 })
+
+      const p2 = bridge.stageFragments(patch)
+      const sent2 = postSpy.mock.calls[1][0] as { refresh_id: string }
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'thallo:fragments-failed',
+            refresh_id: 'other',
+            reason: 'baseline',
+            nonce: bridge.nonce,
+          },
+        }),
+      )
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'thallo:fragments-failed',
+            refresh_id: sent2.refresh_id,
+            reason: 'baseline',
+            nonce: bridge.nonce,
+          },
+        }),
+      )
+      await expect(p2).resolves.toEqual({ mode: 'failed', epoch: null, revision: null })
+
+      const p3 = bridge.stageFragments(patch)
+      vi.advanceTimersByTime(4001)
+      await expect(p3).resolves.toEqual({ mode: 'reload', epoch: null, revision: null })
+      bridge.dispose()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})

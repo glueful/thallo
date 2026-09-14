@@ -7,8 +7,14 @@ import type { BlockType } from '@/queries/blockTypes'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import { proseRichFieldName } from '@/fields/components/blocks/proseDetection'
 import { useDraft, useSaveDraft } from '@/queries/drafts'
-import { applyPreview, mintPreviewData, type RevisionPair } from '@/queries/preview'
+import {
+  applyPreview,
+  mintPreviewData,
+  type ApplyPreviewResult,
+  type RevisionPair,
+} from '@/queries/preview'
 import { useCanvasBridge } from '@/composables/useCanvasBridge'
+import { createApplyMetrics, type ApplyPath } from '@/editor/applyMetrics'
 import { createEditorHistory, type EditorHistory } from '@/editor/ops/history'
 import { diffDocuments } from '@/editor/ops/diff'
 import { newEditorSession } from '@/editor/ops/session'
@@ -26,7 +32,7 @@ import type { Breakpoint, StyleValue } from '@/style/types'
 import BlockInspector from '@/editor/inspector/BlockInspector.vue'
 import { invertOperation } from '@/editor/ops/invert'
 import type { Operation } from '@/editor/ops/types'
-import type { BridgeAnchor, EditKind } from '@/composables/useCanvasBridge'
+import type { BridgeAnchor, EditKind, StageRefreshMode } from '@/composables/useCanvasBridge'
 import { useNotify } from '@/composables/useNotify'
 import { ApiError, apiErrorCode, apiErrorDetails } from '@/api/errors'
 import { toFieldDef } from '@/fields/normalize'
@@ -139,6 +145,11 @@ const renderDisabled = ref(false)
 const mintFailed = ref(false)
 const iframeEl = ref<HTMLIFrameElement | null>(null)
 const bridge = useCanvasBridge(iframeEl)
+// Apply-to-paint instrumentation (visual builder spec §3.5): marks on every apply, a
+// development-only overlay with the medians, p95s and fallback count per path.
+const metrics = createApplyMetrics()
+const metricsSummary = ref(metrics.summary())
+const showMetrics = import.meta.env.DEV
 onBeforeUnmount(() => {
   cancelAutoTimer()
   bridge.dispose()
@@ -756,6 +767,7 @@ function scheduleAuto(): void {
 watch(
   fields,
   () => {
+    metrics.input()
     // No pre-guard here: EVERY veto lives (and logs) in the timer callback —
     // a silent skip at this level made "auto didn't run" undiagnosable.
     scheduleAuto()
@@ -803,6 +815,7 @@ async function runApply(auto: boolean): Promise<void> {
   })
   try {
     let result
+    metrics.request()
     try {
       result = await applyPreview(uuid.value, locale.value, previewToken.value, payload, options())
     } catch (e: unknown) {
@@ -836,6 +849,7 @@ async function runApply(auto: boolean): Promise<void> {
         throw e
       }
     }
+    metrics.response()
     // A response from another epoch, or a revision not newer than accepted, is dropped.
     const stale =
       accepted.value !== null &&
@@ -850,7 +864,7 @@ async function runApply(auto: boolean): Promise<void> {
     }
     styleGeneration.value = result.style_generation
     lastApplied.value = appliedJson
-    await refreshStage() // in-place patch when provable; reload fallback (dom-patching spec §4)
+    await paintStage(result)
     succeeded = true
     if (!auto) autoSuspended.value = false // manual success re-arms auto
   } catch (e: unknown) {
@@ -885,16 +899,56 @@ async function runApply(auto: boolean): Promise<void> {
  * iframe reload. 'busy' does nothing: the edit-end re-arm re-applies
  * whatever the stage missed.
  */
-async function refreshStage(): Promise<void> {
+async function refreshStage(): Promise<StageRefreshMode> {
   const result = await bridge.stageRefresh()
   if (result.mode === 'patched') {
     if (result.epoch !== null && result.revision !== null) {
       displayed.value = { epoch: result.epoch, revision: result.revision }
     }
-    return
+    return result.mode
   }
   // A baseline mismatch or a fetch older than displayed refreshes from accepted state.
   if (result.mode === 'reload' || result.mode === 'stale') reloadStage()
+  return result.mode
+}
+
+/**
+ * The stage after an accepted apply (visual builder spec §3.5). With fragments, the stage
+ * swaps the roots the server rendered — the patch names the accepted pair and the baseline
+ * it expects — and anything but a swap (or a busy stage) falls back to the whole-page
+ * refresh, counted as a fallback. Without fragments, the whole-page refresh as before. Every
+ * painted path records its apply-to-paint sample.
+ */
+async function paintStage(result: ApplyPreviewResult): Promise<void> {
+  if (result.fragments) {
+    const swap = await bridge.stageFragments({
+      epoch: result.epoch,
+      revision: result.revision,
+      baseline_epoch: result.epoch,
+      baseline_revision: result.baseline,
+      fragments: result.fragments,
+    })
+    if (swap.mode === 'patched') {
+      if (swap.epoch !== null && swap.revision !== null) {
+        displayed.value = { epoch: swap.epoch, revision: swap.revision }
+      }
+      afterPaint('fragments')
+      return
+    }
+    if (swap.mode === 'busy') return
+    metrics.fallback('fragments')
+  }
+  const mode = await refreshStage()
+  if (mode !== 'busy') afterPaint('page')
+}
+
+function afterPaint(path: ApplyPath): void {
+  const record = () => {
+    metrics.paint(path)
+    metricsSummary.value = metrics.summary()
+  }
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(record)
+  else record()
 }
 const styleGenerationChanged = ref(false)
 
@@ -1374,6 +1428,24 @@ function reloadStage(): void {
               @load="onIframeLoad()"
             />
             <p v-else class="py-16 text-center text-sm text-muted">Starting preview…</p>
+          </div>
+
+          <!-- Apply-to-paint instrumentation (visual builder spec §3.5): development only. -->
+          <div
+            v-if="showMetrics && metricsSummary.some((m) => m.count > 0 || m.fallbacks > 0)"
+            class="absolute bottom-2 right-2 z-10 rounded border border-default bg-default/90 px-2 py-1 font-mono text-[10px] leading-4 text-muted"
+            data-test="apply-metrics"
+          >
+            <template v-for="m in metricsSummary" :key="m.path">
+              <div v-if="m.count > 0 || m.fallbacks > 0" :data-test="`apply-metrics-${m.path}`">
+                {{ m.path }} ×{{ m.count }} · request→paint
+                {{ Math.round(m.requestToPaint.median) }}/{{ Math.round(m.requestToPaint.p95) }} ms
+                · input→paint {{ Math.round(m.inputToPaint.median) }}/{{
+                  Math.round(m.inputToPaint.p95)
+                }}
+                ms · fallbacks {{ m.fallbacks }}
+              </div>
+            </template>
           </div>
 
           <!-- Parent-side delete confirm (stage-toolbar spec §4): the bridge only

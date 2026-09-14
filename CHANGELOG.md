@@ -45,6 +45,12 @@ as the next release, never a mutated tag.
   reachable priority-image claim, a block reading its list index, `entries()`, the request
   path, a block type new to the page that loads runtime assets), and only templates recorded
   as verified — every fixture rendered block-by-block equals the whole page — take part.
+  The stage swaps fragments only after every guard holds — its displayed pair is the patch's
+  baseline, the epoch matches, the revision is newer, every target exists, every fragment is
+  exactly its own wrapper, no target nests in another — re-enhances what came in, re-anchors the
+  selection and advances the displayed pair; a refused patch falls back to the whole-page
+  refresh. Every apply carries input, request, response and paint performance marks, and a
+  development-only overlay on the canvas shows the medians, p95s and fallback count per path.
   Ships behind `render.fragments.enabled` (`RENDER_FRAGMENTS_ENABLED`, default off); the apply
   answers `fragments: null` and the stage refreshes as before.
 

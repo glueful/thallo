@@ -74,6 +74,8 @@ export interface ApplyPreviewResult extends RevisionPair {
   baseline: number
   style_generation: number
   applied_at: string
+  /** Root block id => rendered wrapper (the fragment path, spec §3.5); null = refresh the page. */
+  fragments: Record<string, string> | null
 }
 
 // Apply the CURRENT working fields as the next working-copy revision (visual builder spec
@@ -100,11 +102,20 @@ export async function applyPreview(
   })
   if (error) throw toApiError(error, response)
   const d = (data?.data ?? {}) as Partial<ApplyPreviewResult>
+  const fragments =
+    d.fragments && typeof d.fragments === 'object' && !Array.isArray(d.fragments)
+      ? Object.fromEntries(
+          Object.entries(d.fragments).filter(
+            (entry): entry is [string, string] => typeof entry[1] === 'string',
+          ),
+        )
+      : null
   return {
     epoch: String(d.epoch ?? ''),
     revision: Number(d.revision ?? 0),
     baseline: Number(d.baseline ?? 0),
     style_generation: Number(d.style_generation ?? 0),
     applied_at: String(d.applied_at ?? ''),
+    fragments: fragments !== null && Object.keys(fragments).length > 0 ? fragments : null,
   }
 }

@@ -35,14 +35,28 @@ export interface BridgeAnchor {
 /** Grant kinds (editable-string-fields spec §4) — decided by the parent's matrix. */
 export type EditKind = 'rich' | 'string' | 'text'
 
-/** stage-refresh outcomes (dom-patching spec §1; 'stale' = the fetch was older than displayed). */
-export type StageRefreshMode = 'patched' | 'reload' | 'busy' | 'stale'
+/**
+ * stage-refresh outcomes (dom-patching spec §1; 'stale' = the fetch was older than displayed;
+ * 'failed' = a fragment patch was refused by the stage, visual builder spec §3.5).
+ */
+export type StageRefreshMode = 'patched' | 'reload' | 'busy' | 'stale' | 'failed'
 
 /** The ack: the mode, and the revision pair the fetched page carried (visual builder spec §3.5). */
 export interface StageRefreshResult {
   mode: StageRefreshMode
   epoch: string | null
   revision: number | null
+}
+
+/** The fragment patch of an accepted apply (visual builder spec §3.5). */
+export interface StageFragments {
+  epoch: string
+  revision: number
+  /** The pair the stage must display for the patch to apply: the apply's baseline. */
+  baseline_epoch: string
+  baseline_revision: number
+  /** Root block id => the server-rendered wrapper. */
+  fragments: Record<string, string>
 }
 
 export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
@@ -169,6 +183,15 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
         })
       }
     }
+    // A refused fragment patch (spec §3.5): the parent refreshes from accepted state.
+    if (data.type === 'thallo:fragments-failed') {
+      const ack = data as BridgeMessage & { refresh_id?: string }
+      if (pendingRefresh !== null && ack.refresh_id === pendingRefresh.id) {
+        const { resolve } = pendingRefresh
+        pendingRefresh = null
+        resolve({ mode: 'failed', epoch: null, revision: null })
+      }
+    }
     // Auto-apply lifecycle + scroll preservation (auto-apply spec §1/§3).
     if (data.type === 'thallo:edit-start' && typeof data.id === 'string') {
       editStartCb?.(data.id)
@@ -182,6 +205,21 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   }
 
   window.addEventListener('message', onMessage)
+
+  /** The MATCHING ack's result, or 'reload' after 4s (mid-reload stage, stale cached bridge). */
+  function awaitAck(refreshId: string): Promise<StageRefreshResult> {
+    return new Promise((resolve) => {
+      pendingRefresh = { id: refreshId, resolve }
+      setTimeout(() => {
+        if (pendingRefresh?.id === refreshId) {
+          // Clear BEFORE resolving (plan-review note): a late ack must
+          // meet no stale resolver state.
+          pendingRefresh = null
+          resolve({ mode: 'reload', epoch: null, revision: null })
+        }
+      }, 4000)
+    })
+  }
 
   return {
     nonce,
@@ -279,17 +317,17 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     stageRefresh(): Promise<StageRefreshResult> {
       const refreshId = `r${++refreshSeq}-${nonce}`
       post({ type: 'thallo:stage-refresh', refresh_id: refreshId })
-      return new Promise((resolve) => {
-        pendingRefresh = { id: refreshId, resolve }
-        setTimeout(() => {
-          if (pendingRefresh?.id === refreshId) {
-            // Clear BEFORE resolving (plan-review note): a late ack must
-            // meet no stale resolver state.
-            pendingRefresh = null
-            resolve({ mode: 'reload', epoch: null, revision: null })
-          }
-        }, 4000)
-      })
+      return awaitAck(refreshId)
+    },
+    /**
+     * Hand the stage an accepted apply's fragments to swap in place (visual builder spec
+     * §3.5). Resolves the matching ack — 'patched', 'busy', 'stale' or 'failed' — or
+     * 'reload' after 4s; anything but 'patched' or 'busy' means refresh from accepted state.
+     */
+    stageFragments(patch: StageFragments): Promise<StageRefreshResult> {
+      const refreshId = `f${++refreshSeq}-${nonce}`
+      post({ type: 'thallo:fragments', refresh_id: refreshId, ...patch })
+      return awaitAck(refreshId)
     },
     dispose(): void {
       window.removeEventListener('message', onMessage)
