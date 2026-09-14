@@ -176,7 +176,7 @@ final class BlocksRenderingTest extends AppTestCase
         // 18 = modern-blocks spec §1 — block_script() joined the allowlist
         // 19 = pricing-bridge spec §5.4 — plan_checkout_url() joined the allowlist
         // 20 = visual builder spec §2.3 — layered delivery helpers joined, shop_styles_url left
-        self::assertSame(20, TemplatePolicy::CACHE_VERSION);
+        self::assertSame(21, TemplatePolicy::CACHE_VERSION);
 
         // DB templates calling the allowlisted functions lint clean.
         $linter = $this->container()->get(TemplateLinter::class);

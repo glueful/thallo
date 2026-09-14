@@ -29,6 +29,7 @@ const FUNCTIONS = [
   'shop_wishlist_url',
   'layers_stylesheet_url',
   'theme_stylesheet_url',
+  'settings_stylesheet_url',
   'shop_product_url',
   'shop_category_url',
   'shop_index_url',

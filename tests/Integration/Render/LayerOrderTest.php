@@ -6,6 +6,7 @@ namespace Thallo\Core\Tests\Integration\Render;
 
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Render\Style\CompiledStyleArtifacts;
 use Thallo\Render\Style\ThemeStylesheetArtifacts;
 use Thallo\Render\ThemeLocator;
 
@@ -27,7 +28,10 @@ final class LayerOrderTest extends AppTestCase
         self::assertSame(1, $linked, 'artifact linked');
         $artifact = strpos($head, $m[1]);
         self::assertLessThan($artifact, $layers, 'layers before the artifact');
-        self::assertSame(2, preg_match_all('~<link rel="stylesheet"~', $head), 'layers and the artifact, nothing else');
+        $settings = strpos($head, '/theme-assets/settings-');
+        self::assertNotFalse($settings, 'the compiled style artifact linked');
+        self::assertLessThan($settings, $artifact, 'the theme artifact before the compiled style artifact');
+        self::assertSame(3, preg_match_all('~<link rel="stylesheet"~', $head), 'layers, theme, settings, nothing else');
         self::assertStringNotContainsString('site.css', $head);
         self::assertStringNotContainsString('blocks.css', $head);
 
@@ -72,6 +76,7 @@ final class LayerOrderTest extends AppTestCase
             'en',
             appearance: new \Thallo\Render\ThemeAppearanceSource($provider, new \Psr\Log\NullLogger()),
             themeArtifacts: $this->container()->get(ThemeStylesheetArtifacts::class),
+            compiledArtifacts: $this->container()->get(CompiledStyleArtifacts::class),
         );
         $env = (new \Thallo\Render\TwigFactory(
             new ThemeLocator('default', $base . '/themes'),
@@ -99,6 +104,12 @@ final class LayerOrderTest extends AppTestCase
         $artifacts = $this->container()->get(ThemeStylesheetArtifacts::class);
         $hash = $artifacts->forTheme($this->container()->get(ThemeLocator::class))->hash;
 
-        self::assertStringEndsWith('-t' . substr($hash, 0, 8), $this->appearanceFingerprint());
+        $settings = $this->container()->get(CompiledStyleArtifacts::class)
+            ->forTheme($this->container()->get(ThemeLocator::class))['hash'];
+
+        self::assertStringEndsWith(
+            '-t' . substr($hash, 0, 8) . '-s' . substr($settings, 0, 8),
+            $this->appearanceFingerprint(),
+        );
     }
 }

@@ -25,6 +25,9 @@ final class ColorModeTest extends AppTestCase
             themeArtifacts: new \Thallo\Render\Style\ThemeStylesheetArtifacts(
                 sys_get_temp_dir() . '/thallo-style-test',
             ),
+            compiledArtifacts: new \Thallo\Render\Style\CompiledStyleArtifacts(
+                sys_get_temp_dir() . '/thallo-style-test',
+            ),
         );
         $env = (new TwigFactory(
             new ThemeLocator('default', $base . '/themes'),

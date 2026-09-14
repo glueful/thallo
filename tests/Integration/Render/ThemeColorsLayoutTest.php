@@ -47,6 +47,9 @@ final class ThemeColorsLayoutTest extends AppTestCase
             'en',
             appearance: new ThemeAppearanceSource($provider, new NullLogger()),
             themeArtifacts: new ThemeStylesheetArtifacts(sys_get_temp_dir() . '/thallo-style-test'),
+            compiledArtifacts: new \Thallo\Render\Style\CompiledStyleArtifacts(
+                sys_get_temp_dir() . '/thallo-style-test',
+            ),
         );
         $env = (new TwigFactory(
             new ThemeLocator('default', $base . '/themes'),

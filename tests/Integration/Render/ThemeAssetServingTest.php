@@ -52,6 +52,8 @@ final class ThemeAssetServingTest extends AppTestCase
 
         $unknown = $this->handle(Request::create('/theme-assets/theme-0000000000000000.css', 'GET'));
         self::assertSame(404, $unknown->getStatusCode());
+        $settings = $this->handle(Request::create('/theme-assets/settings-0000000000000000.css', 'GET'));
+        self::assertSame(404, $settings->getStatusCode(), 'an unknown compiled style artifact is not served');
         $layers = $this->handle(Request::create('/_thallo/layers.css', 'GET'));
         self::assertSame(200, $layers->getStatusCode());
         self::assertStringContainsString('@layer theme, settings;', (string) $layers->getContent());
