@@ -138,4 +138,26 @@ final class FieldValidatorTest extends TestCase
         $clean = (new FieldValidator())->validate($schema, ['author' => 'entry0000001'], true);
         self::assertSame(['author' => 'entry0000001'], $clean);
     }
+
+    /** Visual builder spec §7.3: the `_schema` stamp rides with the document. */
+    public function testTheSchemaStampIsValidatedAndReattached(): void
+    {
+        $validator = new FieldValidator();
+        $clean = $validator->validate($this->schema(), [
+            'title' => 'ok',
+            '_schema' => ['settings' => 1, 'conversions' => ['presentation-group-1']],
+        ]);
+        self::assertSame(['settings' => 1, 'conversions' => ['presentation-group-1']], $clean['_schema']);
+        $empty = $validator->validate($this->schema(), ['title' => 'ok', '_schema' => []]);
+        self::assertArrayNotHasKey('_schema', $empty);
+
+        foreach ([['settings' => 0], ['settings' => 1, 'conversions' => 'x'], ['other' => 1], 'nope'] as $bad) {
+            try {
+                $validator->validate($this->schema(), ['title' => 'ok', '_schema' => $bad]);
+                self::fail('expected ValidationException for ' . json_encode($bad));
+            } catch (ValidationException $e) {
+                self::assertNotEmpty($e->errors());
+            }
+        }
+    }
 }
