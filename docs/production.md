@@ -52,7 +52,8 @@ Recovery after a partial conversion is restore from backup; the converter is ide
 stage, so a retry after an interruption lands on the same state, but idempotence does not
 replace rollback. A fresh install is the trivial case of this contract. CI rehearses it on a
 populated fixture (`composer test:upgrade`): dry run, decisions, live, an interrupted run and
-its retry, stale decisions, and restore from backup.
+its retry, stale decisions, restore from backup, and a sequential upgrade across two conversion
+groups with content edited in between (an earlier group is never reconverted).
 
 ### Running the scheduler and the queue
 

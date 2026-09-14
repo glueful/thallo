@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# Upgrade rehearsal (visual builder spec §7.4/§7.6, plan A4.7): the populated beta.28 fixture
-# is upgraded under the cutover contract in four scenarios, each from a fresh restore:
+# Upgrade rehearsal (visual builder spec §7.4/§7.6, plans A4.7 and A5.4): the populated beta.28
+# fixture is upgraded under the cutover contract in five scenarios, each from a fresh restore:
 #   1. dry run -> the expected unmappables -> the committed decisions -> live -> stamps and
-#      rendering asserted (and a snapshot of the converted state for the next slice);
+#      rendering asserted (and, on request, a snapshot of the converted state);
 #   2. interrupted: the live run aborts after its first source, a rerun lands on the identical
 #      state and no document is half-converted;
 #   3. stale decisions: a document edited after the decisions were recorded makes the live run
 #      refuse, naming it;
-#   4. backup restore returns the pre-conversion state.
+#   4. backup restore returns the pre-conversion state;
+#   5. sequential: from the group-one state, a draft added with a legacy container and an
+#      existing container edited, then the group-two conversion — group one untouched, a rerun
+#      byte-identical.
 #
 # Usage: composer test:upgrade   (never concurrently with the PHP suite: same database)
 set -euo pipefail
@@ -35,9 +38,10 @@ convert() { run php glueful thallo:blocks:convert-settings --no-interaction "$@"
 checksum() { run php scripts/upgrade-rehearsal-checksum.php; }
 
 restore() {
-  echo "== restore beta.28 fixture into $DB and migrate with this checkout =="
+  local fixture="${1:-$FIXTURE}"
+  echo "== restore $(basename "$fixture") into $DB and migrate with this checkout =="
   run php scripts/reset-test-db.php >/dev/null
-  "${PSQL[@]}" -f "$FIXTURE" >/dev/null
+  "${PSQL[@]}" -f "$fixture" >/dev/null
   run php scripts/run-test-migrations.php | grep -E "Applied|Failed|verified"
   # provision's next step: the evolved starter definitions (fields, style declarations) onto the rows
   run php glueful thallo:blocks:sync --no-interaction | tail -1
@@ -104,4 +108,21 @@ run php scripts/reset-test-db.php >/dev/null
 AFTER="$(checksum)"
 [[ "$AFTER" == "$BEFORE" ]] || { echo "restoring the backup did not return the pre-state" >&2; exit 1; }
 echo "restored state matches the backup: $AFTER"
+
+echo "################ scenario 5: sequential, from the group-one state"
+restore "$SNAPSHOT"
+run php scripts/upgrade-rehearsal-check.php --legacy-edit
+convert --dry-run --report="$WORK/seq-dry.jsonl" --decisions=/nonexistent
+if grep -q '"stage":"presentation-group-1"' "$WORK/seq-dry.jsonl"; then
+  echo "group one must have nothing left to report" >&2; exit 1
+fi
+run php scripts/upgrade-fixture-decide.php "$WORK/seq-dry.jsonl" "$WORK/seq-decisions.json"
+convert --report="$WORK/seq-live.jsonl" --decisions="$WORK/seq-decisions.json"
+grep -q '"stage":"presentation-group-2"' "$WORK/seq-live.jsonl"
+echo "== every document stamped with group two, the render through settings =="
+run php scripts/upgrade-rehearsal-check.php --converted
+SEQUENTIAL="$(checksum)"; echo "sequential state: $SEQUENTIAL"
+echo "== idempotent: a rerun finds nothing pending and changes nothing =="
+convert --report="$WORK/seq-again.jsonl" --decisions="$WORK/seq-decisions.json" | grep -E "pending: 0"
+[[ "$(checksum)" == "$SEQUENTIAL" ]] || { echo "the rerun changed the sequential state" >&2; exit 1; }
 echo "== upgrade rehearsal: OK =="

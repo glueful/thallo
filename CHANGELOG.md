@@ -61,6 +61,11 @@ as the next release, never a mutated tag.
   `theme_colors_style()`, `theme_style_scope()` and `font_faces_style()` are the only inline
   style emitters. The pricing plans' column count is a `--count-{n}` modifier and the admin's
   chrome preview styles through the theme sheet.
+- The upgrade rehearsal gains a sequential scenario (from the group-one state: a draft added with
+  a legacy container, an existing container edited, then group two; group one untouched, a rerun
+  byte-identical) and every conversion report line names its stage. It caught a defect: a region
+  stamped by one conversion stage could never be written by the next (the write checked a
+  fingerprint without the stamp the read included); fixed.
 - The transitional `legacy_presentation` block flag is gone: every block type is styled through
   settings, the validator no longer withholds managed style, and the inspector's Style tab shows
   the block's controls or "declares no styling"; `flags` carries rendering hints only.

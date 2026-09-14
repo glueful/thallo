@@ -211,6 +211,7 @@ final class ConverterTest extends AppTestCase
         $report = new DiagnosticsReport();
         $out = $this->converter()->convert($ref, [$stage], new DecisionsFile(), $report);
         self::assertSame(2, $out->unresolved, 'the pixel box and the shadow opacity need decisions');
+        self::assertSame([ConversionTables::GROUP_2], array_unique(array_column($report->lines(), 'stage')));
         [$container, $style] = $out->fields['body'];
         $cs = $container['settings']['style'];
         foreach (['top', 'right', 'bottom', 'left'] as $side) {

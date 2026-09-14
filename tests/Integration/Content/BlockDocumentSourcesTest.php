@@ -187,6 +187,39 @@ final class BlockDocumentSourcesTest extends AppTestCase
         self::assertSame('entry_version', $versions->id());
     }
 
+    /**
+     * A region stamped by one conversion stage persists again under the next (plan A5.4, the
+     * sequential rehearsal): the revision read and the revision checked at write are the same
+     * fingerprint, stamp included.
+     */
+    public function testAStampedRegionPersistsAgain(): void
+    {
+        (new RegionRepository($this->connection()))->save('footer', [$this->card('r', 'a')], [], null);
+        $regions = $this->container()->get(RegionsSource::class);
+        $readAt = function () use ($regions): DocumentRef {
+            $found = null;
+            $regions->each(function (DocumentRef $ref) use (&$found): void {
+                if ($ref->sourceId === 'footer') {
+                    $found = $ref;
+                }
+            });
+            self::assertNotNull($found);
+            return $found;
+        };
+        $stamped = ['blocks' => [$this->card('r', 'one')], '_schema' => ['settings' => 1, 'conversions' => ['one']]];
+        self::assertTrue($regions->persist($readAt(), $stamped), 'first stage');
+        $again = $readAt();
+        self::assertSame(['settings' => 1, 'conversions' => ['one']], $again->fields['_schema']);
+        $twice = [
+            'blocks' => [$this->card('r', 'two')],
+            '_schema' => ['settings' => 1, 'conversions' => ['one', 'two']],
+        ];
+        self::assertTrue($regions->persist($again, $twice), 'the next stage persists over the stamped row');
+        $footer = (new RegionRepository($this->connection()))->find('footer');
+        self::assertSame('two', $footer['blocks'][0]['data']['title']);
+        self::assertSame(['one', 'two'], $readAt()->fields['_schema']['conversions']);
+    }
+
     public function testACasMissCountsAsARedrivableFailure(): void
     {
         $uuid = $this->entries()->createEntry($this->type, 'en', 1, 'user1');

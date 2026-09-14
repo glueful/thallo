@@ -14,14 +14,16 @@ on the fixture, keyed by the diagnostic identity and pinned to each document's h
 `scripts/upgrade-fixture-decide.php`: hex colours become colour tokens, pixel widths the
 container width token, pixel boxes spacing and radius tokens, the hex overlay the dark overlay,
 pixel heights and the shadow colour and opacity are discarded). `after-group-1.sql` is the
-fixture after conversion group one, the starting point of the sequential scenario.
+fixture after conversion group one, the starting point of the sequential scenario (a draft
+added with a legacy container and an existing container edited before group two converts).
 
 Rebuild the fixture with `scripts/build-upgrade-fixture` (network, composer, `createdb`,
 `pg_dump`); re-record the decisions with `REHEARSAL_RECORD_DECISIONS=1 composer test:upgrade`.
 The group-one snapshot was recorded with `REHEARSAL_SNAPSHOT=1` while group one was the only
 shipped stage and is not re-recorded.
 Rehearse with `composer test:upgrade`, never concurrently with the PHP suite (same database):
-four scenarios, each from a fresh restore and this checkout's migrations — dry run, decisions,
+five scenarios, each from a fresh restore and this checkout's migrations — dry run, decisions,
 live, stamps and rendering; an interrupted live run and its rerun landing on the identical
 state; a document edited after review making its decision stale; restore from backup returning
-the pre-state (spec §7.4).
+the pre-state (spec §7.4); and the sequential upgrade from the group-one state, group one
+untouched and a rerun byte-identical.
