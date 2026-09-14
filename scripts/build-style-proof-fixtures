@@ -1,0 +1,132 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Build the fixtures for tools/style-proofs (visual builder spec §2.6): the layer order sheet,
+ * the default theme's artifact and its compiled settings artifact, all built by the real
+ * classes, and a fixture page whose blocks are styled through the real BlockStyleEmitter from
+ * typed settings and style classes. Nothing here boots the application.
+ *
+ * Usage: php scripts/build-style-proof-fixtures      # writes tools/style-proofs/fixtures/
+ */
+
+declare(strict_types=1);
+
+use Thallo\Contracts\Style\StyleTargets;
+use Thallo\Core\Content\Blocks\StarterBlockTypes;
+use Thallo\Render\Http\Controllers\RenderController;
+use Thallo\Render\Style\BlockStyleEmitter;
+use Thallo\Render\Style\StyleCompiler;
+use Thallo\Render\Style\ThemeStylesheetArtifact;
+use Thallo\Render\ThemeLocator;
+
+require __DIR__ . '/../vendor/autoload.php';
+
+$root = dirname(__DIR__);
+$out = $root . '/tools/style-proofs/fixtures';
+if (!is_dir($out) && !mkdir($out, 0755, true)) {
+    fwrite(STDERR, "cannot create {$out}\n");
+    exit(1);
+}
+
+$theme = new ThemeLocator('default', $root . '/themes');
+$vocabulary = $theme->vocabulary();
+$dir = $theme->themeDir();
+$files = array_map(static fn (string $rel): string => $dir . '/' . $rel, $vocabulary->stylesheets());
+file_put_contents($out . '/layers.css', file_get_contents($root . '/packages/thallo-render/assets/style/layers.css'));
+file_put_contents($out . '/theme.css', ThemeStylesheetArtifact::build($files)->css);
+file_put_contents($out . '/settings.css', StyleCompiler::compile($vocabulary));
+
+$targets = [];
+foreach (StarterBlockTypes::definitions() as $definition) {
+    if (in_array($definition['slug'], ['heading', 'button'], true)) {
+        $targets[$definition['slug']] = StyleTargets::fromDeclaration($definition['style_targets']);
+    }
+}
+$emitter = new BlockStyleEmitter();
+$token = static fn (string $value): array => ['type' => 'token', 'value' => $value];
+$choice = static fn (string $value): array => ['type' => 'choice', 'value' => $value];
+$reset = ['type' => 'reset'];
+$pad = static fn (array $bps): array => ['spacing' => ['padding' => ['top' => $bps]]];
+
+/** @var array<string, array{block: string, settings: array, classes: list<array>}> */
+$cases = [
+    // §1.6 table: reusable class base lg, md xl; instance base sm → sm, xl.
+    'table-row-1' => ['block' => 'heading', 'settings' => ['classes' => ['c1'], 'style' => $pad(['base' => $token('spacing.sm')])],
+        'classes' => [['id' => 'c1', 'style' => $pad(['base' => $token('spacing.lg'), 'md' => $token('spacing.xl')])]]],
+    // §1.6 table: same class; instance md sm → lg, sm.
+    'table-row-2' => ['block' => 'heading', 'settings' => ['classes' => ['c1'], 'style' => $pad(['md' => $token('spacing.sm')])],
+        'classes' => [['id' => 'c1', 'style' => $pad(['base' => $token('spacing.lg'), 'md' => $token('spacing.xl')])]]],
+    // A reset terminates resolution at md (class A md xl, class B md lg, instance md reset) and
+    // class B's explicit lg still applies.
+    'reset-terminates' => ['block' => 'heading', 'settings' => ['classes' => ['a', 'b'], 'style' => $pad(['md' => $reset])],
+        'classes' => [
+            ['id' => 'a', 'style' => $pad(['md' => $token('spacing.xl')])],
+            ['id' => 'b', 'style' => $pad(['md' => $token('spacing.lg'), 'lg' => $token('spacing.sm')])],
+        ]],
+    // Responsive padding: base sm, md reset, lg xl.
+    'responsive-padding-reset' => ['block' => 'heading', 'settings' => ['style' => $pad([
+        'base' => $token('spacing.sm'), 'md' => $reset, 'lg' => $token('spacing.xl'),
+    ])], 'classes' => []],
+    // Secondary (outline) button: surface accent at base, reset from md → the theme's transparent.
+    'secondary-variant-reset' => ['block' => 'button', 'settings' => ['style' => [
+        'colors' => ['surface' => $token('color.accent')],
+    ]], 'classes' => []],
+    'secondary-variant-reset-md' => ['block' => 'button', 'settings' => ['style' => [
+        'colors' => ['surface' => $reset],
+    ]], 'classes' => []],
+    // Radius on the control: none, and reset back to the theme's pill.
+    'radius-none' => ['block' => 'button', 'settings' => ['style' => ['radius' => $token('radius.none')]], 'classes' => []],
+    'radius-reset' => ['block' => 'button', 'settings' => ['style' => ['radius' => $reset]], 'classes' => []],
+    // Hidden at md only, visible again from lg.
+    'visibility' => ['block' => 'heading', 'settings' => ['style' => ['visibility' => [
+        'md' => $choice('hidden'), 'lg' => $choice('visible'),
+    ]]], 'classes' => []],
+];
+
+$h = static fn (string $s): string => htmlspecialchars($s, ENT_QUOTES);
+$classes = static function (array $case, string $target) use ($emitter, $targets, $h): string {
+    $list = $emitter->classesFor($case['settings'], $targets[$case['block']], $target, $case['classes']);
+    return $list === [] ? '' : ' ' . $h(implode(' ', $list));
+};
+$sections = '';
+foreach ($cases as $name => $case) {
+    if ($case['block'] === 'heading') {
+        $markup = '<h2 class="thallo-block thallo-block-heading thallo-block-heading--start' . $classes($case, 'root')
+            . '" data-target="root">Heading</h2>';
+        $control = '<h2 class="thallo-block thallo-block-heading thallo-block-heading--start" data-control="root">Heading</h2>';
+    } else {
+        $link = static fn (string $extra, string $attr): string => '<a class="thallo-block-button__link '
+            . 'thallo-block-button__link--outline thallo-block-button__link--primary thallo-block-button__link--md'
+            . $extra . '" ' . $attr . ' href="#">Go</a>';
+        $markup = '<div class="thallo-block thallo-block-button thallo-block-button--left' . $classes($case, 'root')
+            . '" data-target="root">' . $link($classes($case, 'control'), 'data-target="control"') . '</div>';
+        $control = '<div class="thallo-block thallo-block-button thallo-block-button--left" data-control="root">'
+            . $link('', 'data-control="control"') . '</div>';
+    }
+    $sections .= "<section data-case=\"{$h($name)}\">{$markup}{$control}</section>\n";
+}
+$probes = '';
+foreach (['spacing.sm', 'spacing.lg', 'spacing.xl', 'color.accent', 'radius.none'] as $name) {
+    $property = str_starts_with($name, 'color.') ? 'background-color' : (str_starts_with($name, 'radius.') ? 'border-radius' : 'padding-top');
+    $probes .= "<div data-probe=\"{$h($name)}\" style=\"{$property}: var(" . StyleCompiler::variable($name) . ")\"></div>\n";
+}
+$html = <<<HTML
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Style proofs</title>
+<link rel="stylesheet" href="layers.css">
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="settings.css">
+</head>
+<body>
+{$sections}
+<div hidden data-probes>
+{$probes}</div>
+</body>
+</html>
+HTML;
+file_put_contents($out . '/index.html', $html);
+echo "Style proof fixtures written to tools/style-proofs/fixtures/ (" . count($cases) . " cases).\n";

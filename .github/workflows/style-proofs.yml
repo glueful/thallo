@@ -1,0 +1,73 @@
+name: Style Proofs
+
+on:
+  push:
+    paths:
+      - 'packages/thallo-render/**'
+      - 'packages/thallo-contracts/src/Style/**'
+      - 'core/src/Content/Blocks/StarterBlockTypes.php'
+      - 'scripts/build-style-proof-fixtures'
+      - 'tools/style-proofs/**'
+      - '.github/workflows/style-proofs.yml'
+  pull_request:
+    paths:
+      - 'packages/thallo-render/**'
+      - 'packages/thallo-contracts/src/Style/**'
+      - 'core/src/Content/Blocks/StarterBlockTypes.php'
+      - 'scripts/build-style-proof-fixtures'
+      - 'tools/style-proofs/**'
+      - '.github/workflows/style-proofs.yml'
+
+jobs:
+  proofs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql
+          tools: composer:v2
+          coverage: none
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Build the proof fixtures from the real artifacts
+        run: php scripts/build-style-proof-fixtures
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: tools/style-proofs/package-lock.json
+
+      - run: npm ci
+        working-directory: tools/style-proofs
+
+      - name: Resolve installed Playwright version
+        id: playwright-version
+        working-directory: tools/style-proofs
+        run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-three-engines-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Chromium, Firefox and WebKit (with system deps)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: tools/style-proofs
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Install browser OS dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: tools/style-proofs
+        run: npx playwright install-deps chromium firefox webkit
+
+      - name: Run the proofs in all three engines
+        working-directory: tools/style-proofs
+        run: npm test
