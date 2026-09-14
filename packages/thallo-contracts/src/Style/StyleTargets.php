@@ -83,6 +83,27 @@ final readonly class StyleTargets
         return new self($targets, $styleMap, $advancedMap);
     }
 
+    /**
+     * The declaration for a block styled through one non-optional `root` target of `$kind`
+     * (spec §1.7): every listed capability and the author's anchor, classes and attributes land
+     * on it; `$more` merges further targets and mappings (a button's control, a hero's media).
+     *
+     * @param list<string> $capabilities
+     * @param array{targets?: array<string, array<string,mixed>>, map?: array<string,string>} $more
+     * @return array{targets: array<string, array<string,mixed>>, map: array<string,string>}
+     */
+    public static function root(string $kind, array $capabilities, array $more = []): array
+    {
+        $map = ['advanced.anchor' => 'root', 'advanced.css_classes' => 'root', 'advanced.attributes' => 'root'];
+        foreach ($capabilities as $capability) {
+            $map[$capability] = 'root';
+        }
+        return [
+            'targets' => ['root' => ['kind' => $kind]] + ($more['targets'] ?? []),
+            'map' => $map + ($more['map'] ?? []),
+        ];
+    }
+
     /** @return list<string> */
     public function names(): array
     {

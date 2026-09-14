@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Thallo\Account\Blocks;
 
 use Thallo\Contracts\Starter\StarterBlockTypeContributor;
+use Thallo\Contracts\Style\StyleTargets;
 use Thallo\Contracts\Starter\StarterBlockTypeDefinition;
 
 /**
@@ -65,6 +66,9 @@ final class AccountBlockTypesContributor implements StarterBlockTypeContributor
                         'enforce_block_types' => true,
                     ],
                 ],
+                styleCapabilities: ['spacing', 'visibility'],
+                styleTargets: StyleTargets::root('box', ['spacing', 'visibility']),
+                flags: ['legacy_presentation' => true],
             ),
             new StarterBlockTypeDefinition(
                 sourceId: 'thallo-account:login-form',
@@ -82,6 +86,11 @@ final class AccountBlockTypesContributor implements StarterBlockTypeContributor
                     ['name' => 'next', 'type' => 'string'],
                     ['name' => 'show_links', 'type' => 'boolean'],
                 ],
+                styleCapabilities: ['spacing', 'width', 'radius', 'colors.surface', 'border', 'shadow', 'visibility'],
+                styleTargets: StyleTargets::root('box', [
+                    'spacing', 'width', 'radius', 'colors.surface', 'border', 'shadow', 'visibility',
+                ]),
+                flags: ['legacy_presentation' => true],
             ),
             new StarterBlockTypeDefinition(
                 sourceId: 'thallo-account:register-form',
@@ -95,6 +104,11 @@ final class AccountBlockTypesContributor implements StarterBlockTypeContributor
                 schema: [
                     ['name' => 'heading', 'type' => 'string'],
                 ],
+                styleCapabilities: ['spacing', 'width', 'radius', 'colors.surface', 'border', 'shadow', 'visibility'],
+                styleTargets: StyleTargets::root('box', [
+                    'spacing', 'width', 'radius', 'colors.surface', 'border', 'shadow', 'visibility',
+                ]),
+                flags: ['legacy_presentation' => true],
             ),
             new StarterBlockTypeDefinition(
                 sourceId: 'thallo-account:forgot-password-form',
@@ -108,6 +122,11 @@ final class AccountBlockTypesContributor implements StarterBlockTypeContributor
                 schema: [
                     ['name' => 'heading', 'type' => 'string'],
                 ],
+                styleCapabilities: ['spacing', 'width', 'radius', 'colors.surface', 'border', 'shadow', 'visibility'],
+                styleTargets: StyleTargets::root('box', [
+                    'spacing', 'width', 'radius', 'colors.surface', 'border', 'shadow', 'visibility',
+                ]),
+                flags: ['legacy_presentation' => true],
             ),
         ];
     }

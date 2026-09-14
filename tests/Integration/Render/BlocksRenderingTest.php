@@ -40,15 +40,17 @@ final class BlocksRenderingTest extends AppTestCase
 
     public function testRendersBlocksInOrderWithThePinnedContext(): void
     {
+        // Probe types without a block type row: a DB override of a declared type must style its
+        // targets (StyleTargetsRenderTest / the lint gate); this test pins ordering and context.
         $this->saveBlockTemplate(
-            'hero',
+            'banner',
             'HERO[{{ index }}:{{ data.heading }}:{{ block.id }}:{{ entry.slug }}]',
         );
         $this->saveBlockTemplate('quote', 'QUOTE[{{ index }}:{{ data.text }}]');
 
         $out = $this->env()->createTemplate("{{ blocks(entry.fields.body) }}")->render([
             'entry' => ['slug' => 'hello', 'fields' => ['body' => [
-                ['id' => 'aaaaaaaaaaaa', 'type' => 'hero', 'data' => ['heading' => 'Hi']],
+                ['id' => 'aaaaaaaaaaaa', 'type' => 'banner', 'data' => ['heading' => 'Hi']],
                 ['id' => 'bbbbbbbbbbbb', 'type' => 'quote', 'data' => ['text' => 'Words']],
             ]]],
         ]);
@@ -80,11 +82,11 @@ final class BlocksRenderingTest extends AppTestCase
 
     public function testNestedBlocksComposeThroughContainerTemplates(): void
     {
-        $this->saveBlockTemplate('section', 'SECTION[{{ data.title }}|{{ blocks(data.content) }}]');
-        $this->saveBlockTemplate('hero', 'HERO[{{ data.heading }}]');
+        $this->saveBlockTemplate('wrapper', 'SECTION[{{ data.title }}|{{ blocks(data.content) }}]');
+        $this->saveBlockTemplate('banner', 'HERO[{{ data.heading }}]');
         $out = $this->env()->createTemplate("{{ blocks(list) }}")->render(['list' => [
-            ['id' => 'a', 'type' => 'section', 'data' => ['title' => 'S', 'content' => [
-                ['id' => 'b', 'type' => 'hero', 'data' => ['heading' => 'Inner']],
+            ['id' => 'a', 'type' => 'wrapper', 'data' => ['title' => 'S', 'content' => [
+                ['id' => 'b', 'type' => 'banner', 'data' => ['heading' => 'Inner']],
             ]]],
         ]]);
         self::assertStringContainsString('SECTION[S|HERO[Inner]]', $out);
@@ -176,7 +178,8 @@ final class BlocksRenderingTest extends AppTestCase
         // 18 = modern-blocks spec §1 — block_script() joined the allowlist
         // 19 = pricing-bridge spec §5.4 — plan_checkout_url() joined the allowlist
         // 20 = visual builder spec §2.3 — layered delivery helpers joined, shop_styles_url left
-        self::assertSame(21, TemplatePolicy::CACHE_VERSION);
+        // 21 = visual builder spec §2.4 — settings_stylesheet_url() joined the allowlist
+        self::assertSame(22, TemplatePolicy::CACHE_VERSION);
 
         // DB templates calling the allowlisted functions lint clean.
         $linter = $this->container()->get(TemplateLinter::class);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Thallo\Core\Tests\Integration\Render;
 
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 use Thallo\Render\Templates\TemplateLinter;
 
 /**
@@ -26,6 +27,21 @@ use Thallo\Render\Templates\TemplateLinter;
  */
 final class ShippedTemplatesLintGateTest extends AppTestCase
 {
+    use SyncsBlockStyleDeclarations;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // The style-target rules read the block types' declarations (spec §2.5).
+        $this->syncBlockStyleDeclarations();
+    }
+
+    /** The name the render loads a shipped template by: relative to its templates root. */
+    private static function templateName(string $path): string
+    {
+        return (string) preg_replace('~\A.*/templates/~', '', $path);
+    }
+
     /** Repo-relative paths of templates pinned to fail (disk-only pins) */
     private const PINNED_FAILURES = [
         'packages/thallo-render/themes/default/templates/blocks/html.twig',
@@ -64,7 +80,7 @@ final class ShippedTemplatesLintGateTest extends AppTestCase
     {
         /** @var TemplateLinter $linter */
         $linter = $this->container()->get(TemplateLinter::class);
-        $violations = $linter->lint((string) file_get_contents($path));
+        $violations = $linter->lint((string) file_get_contents($path), self::templateName($path));
         self::assertSame([], $violations, "Shipped template fails the save policy: {$path}");
     }
 
@@ -84,7 +100,7 @@ final class ShippedTemplatesLintGateTest extends AppTestCase
 
         /** @var TemplateLinter $linter */
         $linter = $this->container()->get(TemplateLinter::class);
-        $violations = $linter->lint((string) file_get_contents($path));
+        $violations = $linter->lint((string) file_get_contents($path), self::templateName($path));
 
         // Ratchet: violations must remain non-empty (if clean, the pin has been removed)
         self::assertNotEmpty($violations, 'Pinned template blocks/html.twig must have violations');
@@ -115,7 +131,7 @@ final class ShippedTemplatesLintGateTest extends AppTestCase
 
         /** @var TemplateLinter $linter */
         $linter = $this->container()->get(TemplateLinter::class);
-        $violations = $linter->lint((string) file_get_contents($path));
+        $violations = $linter->lint((string) file_get_contents($path), self::templateName($path));
 
         // Ratchet: violations must remain non-empty (if clean, the pin has been removed)
         self::assertNotEmpty($violations, 'Pinned template blocks/shortcode.twig must have violations');

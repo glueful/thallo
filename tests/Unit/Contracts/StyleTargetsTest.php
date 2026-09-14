@@ -123,4 +123,23 @@ final class StyleTargetsTest extends TestCase
         self::assertTrue($hero->optional('media'));
         self::assertSame(['shadow', 'radius'], $hero->stylePathsFor('media'), 'table order');
     }
+
+    public function testRootDeclaresOneNonOptionalRootOwningTheCapabilitiesAndTheAuthorsAdvancedPaths(): void
+    {
+        $decl = StyleTargets::root('row', ['spacing', 'alignment.content'], [
+            'targets' => ['control' => ['kind' => 'box']],
+            'map' => ['radius' => 'control', 'advanced.accessibility.label' => 'control'],
+        ]);
+        $targets = StyleTargets::fromDeclaration($decl);
+
+        self::assertSame(['root', 'control'], $targets->names());
+        self::assertSame(TargetKind::Row, $targets->kind('root'));
+        self::assertFalse($targets->optional('root'));
+        self::assertSame('root', $targets->targetFor('spacing.padding.top'));
+        self::assertSame('root', $targets->targetFor('advanced.css_classes'));
+        self::assertSame('control', $targets->targetFor('radius'));
+        self::assertSame('control', $targets->targetFor('advanced.accessibility.label'));
+        $caps = StyleCapabilities::fromDeclaration(['spacing', 'alignment.content', 'radius']);
+        self::assertSame([], $targets->validateAgainst($caps));
+    }
 }

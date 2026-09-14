@@ -8,7 +8,7 @@
    reads as anonymous), `signed_in` starts `hidden inert`. NO `display` CSS on the wrappers, so the UA
    [hidden] rule governs visibility — removing the attribute is what reveals it. The child blocks carry
    their own styling; this block needs no stylesheet. #}
-<div class="thallo-block thallo-block-auth-state" data-auth-state>
+<div class="thallo-block thallo-block-auth-state{{ style_classes('root') }}"{{ style_attrs('root') }} data-auth-state>
   <div data-auth-when="anonymous">{{ blocks(data.signed_out) }}</div>
   <div data-auth-when="authenticated" hidden inert>{{ blocks(data.signed_in) }}</div>
 </div>

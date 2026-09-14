@@ -7,6 +7,7 @@ namespace Thallo\Core\Tests\Integration\Render;
 use Thallo\Core\Content\Blocks\StarterBlockTypes;
 use Thallo\Core\Content\Validation\FieldValidator;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 use Thallo\Render\RenderContextExtension;
 use Thallo\Render\ThemeLocator;
 use Thallo\Render\TwigFactory;
@@ -14,6 +15,8 @@ use Twig\Environment;
 
 final class StarterTemplatesTest extends AppTestCase
 {
+    use SyncsBlockStyleDeclarations;
+
     private function env(): Environment
     {
         $base = $this->appContext()->getBasePath();
@@ -158,6 +161,30 @@ final class StarterTemplatesTest extends AppTestCase
                 'columns' => '3', 'aspect' => 'natural', 'lightbox' => true],
             default => [],
         };
+    }
+
+    /** Visual builder spec §2.5: every starter styles its root, so a padding setting reaches it. */
+    public function testEveryStarterRendersAPaddingSettingOnItsRoot(): void
+    {
+        $this->syncBlockStyleDeclarations();
+        $env = $this->env();
+        $settings = ['style' => ['spacing' => ['padding' => ['top' => [
+            'base' => ['type' => 'token', 'value' => 'spacing.lg'],
+        ]]]]];
+        foreach (StarterBlockTypes::definitions() as $definition) {
+            $slug = $definition['slug'];
+            self::assertContains('spacing', $definition['style_capabilities'], "{$slug} accepts spacing");
+            $this->container()->get(RenderContextExtension::class)->resetPerRenderState();
+            $out = $env->createTemplate("{{ blocks(list) }}")->render(['list' => [
+                ['id' => 'b1', 'type' => $slug, 'data' => $this->fixture($slug), 'settings' => $settings],
+            ]]);
+            if (!str_contains($out, "thallo-block-{$slug}")) {
+                continue; // renders nothing for this fixture (a disabled feature): nothing to style
+            }
+            $matched = preg_match('~<[a-z0-9]+[^>]*\bthallo-block-' . preg_quote($slug, '~') . '\b[^>]*>~', $out, $m);
+            self::assertSame(1, $matched, $slug);
+            self::assertStringContainsString(' t-pt-lg"', $m[0], "{$slug} root carries the padding class");
+        }
     }
 
     public function testEveryStarterRendersWithRootAndModifierClasses(): void
