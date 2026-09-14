@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Content;
 
-use Thallo\Contracts\Style\BlockStyleRegistry;
+use Thallo\Core\Content\Style\EngineBlockStyleRegistry;
 use Thallo\Core\Content\Blocks\BlockTypeRepository;
 use Thallo\Core\Content\Blocks\StarterBlockTypes;
 use Thallo\Core\Content\Http\Controllers\BlockTypeController;
@@ -53,7 +53,9 @@ final class BlockTypeStyleKeysTest extends AppTestCase
         self::assertTrue($row['flags']['renders_children_inline']);
         self::assertSame(['text' => 'Hello'], $row['starter_content']);
 
-        $byRegistry = $this->container()->get(BlockStyleRegistry::class);
+        // A fresh registry over the same connection: the shared boot's instance memoises rows
+        // per process, as a request-scoped registry should.
+        $byRegistry = new EngineBlockStyleRegistry($repo);
         self::assertTrue($byRegistry->capabilitiesFor('stylekeys_a')->allows('spacing.padding.top'));
         self::assertFalse($byRegistry->capabilitiesFor('stylekeys_a')->allows('radius'));
         self::assertSame('root', $byRegistry->targetsFor('stylekeys_a')?->targetFor('colors.text'));
@@ -73,7 +75,7 @@ final class BlockTypeStyleKeysTest extends AppTestCase
         self::assertNull($row['flags']);
         self::assertNull($row['starter_content']);
 
-        $registry = $this->container()->get(BlockStyleRegistry::class);
+        $registry = new EngineBlockStyleRegistry($repo);
         self::assertSame([], $registry->capabilitiesFor('stylekeys_b')->paths());
         self::assertNull($registry->targetsFor('stylekeys_b'));
         self::assertSame([], $registry->flagsFor('stylekeys_b'));

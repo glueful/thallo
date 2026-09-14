@@ -48,6 +48,7 @@ function onInsertBlock(payload: { slug: string; beforeHtml: string; afterHtml: s
       id: newBlockId(),
       type: payload.slug,
       data: {},
+      settings: {},
     }),
   )
 }

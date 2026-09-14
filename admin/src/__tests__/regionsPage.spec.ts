@@ -39,7 +39,7 @@ import RegionsPage from '@/pages/regions/index.vue'
 
 const region = (slug: string, palette: string[], settingsKeys: string[]): RegionData => ({
   slug,
-  blocks: [{ id: 'seedblock0001', type: 'logo', data: { size: 'medium' } }],
+  blocks: [{ id: 'seedblock0001', type: 'logo', data: { size: 'medium' }, settings: {} }],
   settings: slug === 'header' ? { sticky: false, width: 'contained' } : { width: 'contained' },
   palette,
   settings_keys: settingsKeys,

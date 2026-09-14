@@ -15,11 +15,27 @@ import { MAX_BLOCK_DEPTH, type BlockType } from '@/queries/blockTypes'
 // `nest` has one region `inner`; `card` is a leaf.
 const ops = createBlockListOps((slug) => (slug === 'nest' ? ['inner'] : []))
 
-const leaf = (id: string): BlockInstance => ({ id, type: 'card', data: { title: id } })
+const leaf = (id: string): BlockInstance => ({
+  id,
+  type: 'card',
+  data: { title: id },
+  settings: {},
+})
 const nest = (id: string, inner: BlockInstance[]): BlockInstance => ({
   id,
   type: 'nest',
   data: { inner },
+  settings: {},
+})
+const styled = (id: string): BlockInstance => ({
+  id,
+  type: 'card',
+  data: { title: id },
+  settings: {
+    classes: ['zeta', 'alpha'],
+    style: { spacing: { padding: { top: { md: { type: 'token', value: 'spacing.lg' } } } } },
+    advanced: { anchor: 'pricing' },
+  },
 })
 
 describe('useBlockListOps', () => {
@@ -90,8 +106,8 @@ describe('useBlockListOps', () => {
   })
 
   it('splitRichTextAt applies the four identity rules in ONE emission (spec §3)', () => {
-    const prose = { id: 'p1', type: 'rich_text', data: { body: '<p>full</p>' } }
-    const widget = () => ({ id: newBlockId(), type: 'hero', data: {} })
+    const prose = { id: 'p1', type: 'rich_text', data: { body: '<p>full</p>' }, settings: {} }
+    const widget = () => ({ id: newBlockId(), type: 'hero', data: {}, settings: {} })
 
     // Both halves non-empty: before KEEPS p1's id; widget + after fresh.
     let out = ops.splitRichTextAt([prose], 'p1', 'body', '<p>before</p>', '<p>after</p>', widget())
@@ -189,5 +205,34 @@ describe('proseDetection', () => {
     expect(defaultProseType([widget], [])).toBeNull()
     const inactive = { ...richOnly, active: false }
     expect(defaultProseType([inactive], [])).toBeNull()
+  })
+
+  it('settings survive duplicate, move across, patch and split (spec §1.2 completeness)', () => {
+    const tree = [nest('n', [styled('s')]), leaf('b')]
+
+    const dup = ops.duplicateById(tree, 's')
+    const copies = (dup[0]!.data.inner as BlockInstance[]).filter((b) => b.type === 'card')
+    expect(copies).toHaveLength(2)
+    expect(copies[1]!.settings).toEqual(styled('s').settings)
+    expect(copies[1]!.settings).not.toBe(copies[0]!.settings) // no aliasing
+    expect(copies[1]!.settings.classes as string[]).toEqual(['zeta', 'alpha'])
+
+    const moved = ops.moveAcross(tree, 's', { parentId: null, region: null, index: 0 })
+    expect(moved[0]!.id).toBe('s')
+    expect(moved[0]!.settings).toEqual(styled('s').settings)
+
+    const patched = ops.patchDataById(tree, 's', 'title', 'renamed')
+    expect((patched[0]!.data.inner as BlockInstance[])[0]!.settings).toEqual(styled('s').settings)
+
+    const split = ops.splitRichTextAt(
+      [{ ...styled('p'), type: 'prose', data: { html: '<p>a</p><p>b</p>' } }],
+      'p',
+      'html',
+      '<p>a</p>',
+      '<p>b</p>',
+      { id: 'new', type: 'card', data: {}, settings: {} },
+    )
+    expect(split.map((b) => b.id)).toEqual(['p', 'new', split[2]!.id])
+    expect(split[2]!.settings).toEqual(styled('p').settings)
   })
 })

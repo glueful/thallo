@@ -10,6 +10,8 @@ export interface BlockInstance {
   id: string
   type: string
   data: Record<string, unknown>
+  /** Visual builder spec §1.2: every block carries settings; `{}` when unset. */
+  settings: Record<string, unknown>
 }
 
 /** Names of the blocks-typed fields (container regions) of a block-type schema. */
@@ -22,6 +24,13 @@ export interface DropTarget {
 
 export interface InsertTarget extends DropTarget {
   index: number
+}
+
+/** Settings are pure JSON (spec §1.2); a JSON round trip clones through Vue's reactive proxies. */
+function cloneSettings(settings: Record<string, unknown> | undefined): Record<string, unknown> {
+  return settings && Object.keys(settings).length > 0
+    ? (JSON.parse(JSON.stringify(settings)) as Record<string, unknown>)
+    : {}
 }
 
 export function newBlockId(): string {
@@ -152,7 +161,12 @@ export function createBlockListOps(regionsOf: RegionResolver) {
         data[key] = value
       }
     }
-    return { id: newBlockId(), type: block.type, data }
+    return {
+      id: newBlockId(),
+      type: block.type,
+      data,
+      settings: cloneSettings(block.settings),
+    }
   }
 
   function duplicateById(tree: BlockInstance[], id: string): BlockInstance[] {
@@ -281,6 +295,7 @@ export function createBlockListOps(regionsOf: RegionResolver) {
           id: newBlockId(),
           type: original.type,
           data: { ...original.data, [richFieldName]: afterHtml },
+          settings: cloneSettings(original.settings),
         })
       }
       const next = [...list]

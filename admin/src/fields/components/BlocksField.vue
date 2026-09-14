@@ -237,7 +237,7 @@ function insertAfter(id: string, typeSlug: string): string | null {
   if (!loc) return null
   // Tabs cap: inserting a sibling is a net addition to the containing list.
   if (listIsFull(loc.parentId, loc.region)) return null
-  const block: BlockInstance = { id: newBlockId(), type: typeSlug, data: {} }
+  const block: BlockInstance = { id: newBlockId(), type: typeSlug, data: {}, settings: {} }
   apply((t) =>
     ops.insertAt(t, { parentId: loc.parentId, region: loc.region, index: loc.index + 1 }, block),
   )
@@ -303,6 +303,7 @@ function addTailProse(): void {
     id: newBlockId(),
     type: type.slug,
     data: name ? { [name]: '' } : {},
+    settings: {},
   }
   apply((t) =>
     ops.insertAt(t, { parentId: null, region: null, index: (model.value ?? []).length }, block),
