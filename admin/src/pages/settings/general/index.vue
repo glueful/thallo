@@ -39,6 +39,9 @@ const form = reactive<GeneralSettings>({
   theme: '',
   theme_accent: 'blue',
   theme_neutral: 'slate',
+  theme_radius: 'round',
+  theme_font: 'sans',
+  theme_background: 'plain',
   admin_url: '',
   listing_types: [],
 })
@@ -70,6 +73,21 @@ const NEUTRAL_FAMILIES: Array<{ value: string; swatch: string }> = [
   { value: 'zinc', swatch: '#71717a' },
   { value: 'neutral', swatch: '#737373' },
   { value: 'stone', swatch: '#78716c' },
+]
+// Design settings (website plan phase 1b): closed enums, labelled for the operator.
+const RADIUS_ITEMS = [
+  { value: 'sharp', label: 'Sharp — 4px corners, square buttons' },
+  { value: 'soft', label: 'Soft — 12px corners, rounded buttons' },
+  { value: 'round', label: 'Round — 12px corners, pill buttons (default)' },
+]
+const FONT_ITEMS = [
+  { value: 'sans', label: 'Sans — Figtree throughout (default)' },
+  { value: 'editorial', label: 'Editorial — serif headings, sans body' },
+  { value: 'serif', label: 'Serif — serif throughout' },
+]
+const BACKGROUND_ITEMS = [
+  { value: 'plain', label: 'Plain — white page, tinted panels (default)' },
+  { value: 'tinted', label: 'Tinted — tinted page, white panels' },
 ]
 const accentItems = ACCENT_FAMILIES.map((f) => f.value)
 const neutralItems = NEUTRAL_FAMILIES.map((f) => f.value)
@@ -362,6 +380,47 @@ async function onSave() {
                   >
                     Preview on site
                   </UButton>
+                </div>
+              </UCard>
+
+              <UCard data-test="theme-design-card">
+                <template #header>
+                  <h2 class="font-semibold text-default">Design</h2>
+                </template>
+                <div class="space-y-6">
+                  <p class="text-sm text-muted">
+                    Site-wide shape, type and ground. Each choice re-maps theme tokens only; a
+                    button can still pick its own shape.
+                  </p>
+                  <div class="grid gap-6 sm:grid-cols-3">
+                    <UFormField label="Corners" description="Radius of panels and buttons.">
+                      <USelect
+                        v-model="form.theme_radius"
+                        :items="RADIUS_ITEMS"
+                        value-key="value"
+                        class="w-full"
+                        data-test="theme-radius"
+                      />
+                    </UFormField>
+                    <UFormField label="Typefaces" description="Headings and body text.">
+                      <USelect
+                        v-model="form.theme_font"
+                        :items="FONT_ITEMS"
+                        value-key="value"
+                        class="w-full"
+                        data-test="theme-font"
+                      />
+                    </UFormField>
+                    <UFormField label="Page ground" description="What the page sits on.">
+                      <USelect
+                        v-model="form.theme_background"
+                        :items="BACKGROUND_ITEMS"
+                        value-key="value"
+                        class="w-full"
+                        data-test="theme-background"
+                      />
+                    </UFormField>
+                  </div>
                 </div>
               </UCard>
 

@@ -28786,6 +28786,9 @@ export interface operations {
          *       "theme": "example",
          *       "theme_accent": "example",
          *       "theme_neutral": "example",
+         *       "theme_radius": "example",
+         *       "theme_font": "example",
+         *       "theme_background": "example",
          *       "admin_url": "example",
          *       "listing_types": "example"
          *     }
@@ -28812,6 +28815,12 @@ export interface operations {
           theme_accent?: string | null
           /** @description Neutral Tailwind family; enum-validated in the controller. */
           theme_neutral?: string | null
+          /** @description Corner radius scale: sharp | soft | round; enum-validated in the controller. */
+          theme_radius?: string | null
+          /** @description Typeface pairing: sans | editorial | serif; enum-validated in the controller. */
+          theme_font?: string | null
+          /** @description Page ground: plain | tinted; enum-validated in the controller. */
+          theme_background?: string | null
           /** @description Admin SPA base URL for preview-bar deep links; '' clears. */
           admin_url?: string | null
           /** @description Content types with public listings/archives; */

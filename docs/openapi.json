@@ -79800,6 +79800,27 @@
                                         ],
                                         "description": "Neutral Tailwind family; enum-validated in the controller."
                                     },
+                                    "theme_radius": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "Corner radius scale: sharp | soft | round; enum-validated in the controller."
+                                    },
+                                    "theme_font": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "Typeface pairing: sans | editorial | serif; enum-validated in the controller."
+                                    },
+                                    "theme_background": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "Page ground: plain | tinted; enum-validated in the controller."
+                                    },
                                     "admin_url": {
                                         "type": [
                                             "string",
@@ -79836,6 +79857,9 @@
                                 "theme": "example",
                                 "theme_accent": "example",
                                 "theme_neutral": "example",
+                                "theme_radius": "example",
+                                "theme_font": "example",
+                                "theme_background": "example",
                                 "admin_url": "example",
                                 "listing_types": "example"
                             }

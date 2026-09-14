@@ -72,6 +72,9 @@ const settings = (): GeneralSettings => ({
   theme: 'default',
   theme_accent: 'blue',
   theme_neutral: 'slate',
+  theme_radius: 'round',
+  theme_font: 'sans',
+  theme_background: 'plain',
   admin_url: '',
   listing_types: ['post'],
 })
@@ -159,6 +162,45 @@ describe('general settings page — site logo', () => {
     expect(saveMock.mock.calls[0]![0]).toMatchObject({
       theme_accent: 'emerald',
       theme_neutral: 'zinc',
+    })
+  })
+
+  it('exposes the design settings (radius, typeface, ground) and saves them with the form', async () => {
+    saveMock.mockResolvedValue({ ...settings() })
+    const wrapper = mount(GeneralSettingsPage)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="theme-design-card"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="theme-radius"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="theme-font"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="theme-background"]').exists()).toBe(true)
+
+    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('Save'))
+    await saveBtn!.trigger('click')
+    await flushPromises()
+    expect(saveMock.mock.calls[0]![0]).toMatchObject({
+      theme_radius: 'round',
+      theme_font: 'sans',
+      theme_background: 'plain',
+    })
+  })
+
+  it('hydrates saved design settings from the server payload', async () => {
+    settingsData.value = {
+      ...settings(),
+      theme_radius: 'sharp',
+      theme_font: 'editorial',
+      theme_background: 'tinted',
+    }
+    const wrapper = mount(GeneralSettingsPage)
+    await flushPromises()
+    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('Save'))
+    await saveBtn!.trigger('click')
+    await flushPromises()
+    expect(saveMock.mock.calls[0]![0]).toMatchObject({
+      theme_radius: 'sharp',
+      theme_font: 'editorial',
+      theme_background: 'tinted',
     })
   })
 
