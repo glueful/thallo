@@ -7,6 +7,32 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.28] - 2026-09-14
+
+### Added
+- **Design without code** (website plan, phase 1b): building the thallo.dev homepage from
+  the blueprint needed custom CSS for four things; each is a choice in the admin now.
+  - The **hero** takes any blocks beside its copy (`aside`: a code snippet, a card) instead
+    of only an image, and its **background** is a choice — gradient (unchanged default),
+    none, muted, inverted.
+  - The **button** has a **shape**: pill, rounded (the theme radius) or square; unset follows
+    the site's radius setting.
+  - **Settings → General → Design**: corner radius (round, soft, sharp), typeface pairing
+    (sans, editorial with serif headings, serif) and page ground (plain, tinted), next to the
+    theme colours. Closed enums; the defaults are today's look and emit nothing. The theme
+    reads `--font-body`, `--font-display` and `--radius-btn` as tokens.
+  - Every appearance choice is in the render and shop cache fingerprint, so a change
+    re-keys cached pages.
+
+### Changed
+- **The `thallo-version` shortcode is a status pill by default.** It rendered as bare text; the
+  default theme now dresses it as a pill with a dot, driven by three tokens (`--version-fg`,
+  `--version-bg`, `--version-dot`) so a site's custom CSS only has to recolour it.
+
+### Fixed
+- **The admin's header/footer preview looked unlike the live page**: it linked only the theme
+  sheets. It loads the theme colours, the design tokens and the site's custom CSS now.
+
 ## [1.0.0-beta.27] - 2026-09-13
 
 ### Fixed

@@ -31,6 +31,10 @@ export interface GeneralSettings {
   /** Theme color config (theme-color-config spec §2): accent + neutral Tailwind families. */
   theme_accent: string
   theme_neutral: string
+  /** Design settings (website plan phase 1b): closed enums; the defaults are today's look. */
+  theme_radius: string
+  theme_font: string
+  theme_background: string
   /** Admin SPA base URL for the preview bar's Edit/Design links. */
   admin_url: string
   /** Content types with public listings/archives ([] = none). */

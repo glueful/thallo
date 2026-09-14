@@ -266,7 +266,7 @@ final class StorefrontWalkTest extends AppTestCase
 
         // The poisoned tenant's cache must never have been touched by any of the above.
         self::assertIsArray(
-            $this->cache()->get('shop:' . self::TENANT_A_POISON . ':en:default:blue-slate:1:%2Fshop'),
+            $this->cache()->get('shop:' . self::TENANT_A_POISON . ':en:default:blue-slate-round-sans-plain:1:%2Fshop'),
             'a wholly separate tenant\'s cache must be untouched by this walk',
         );
     }
@@ -473,7 +473,7 @@ final class StorefrontWalkTest extends AppTestCase
 
     private function cacheKey(string $tenant, string $path): string
     {
-        return 'shop:' . $tenant . ':en:default:blue-slate:1:' . rawurlencode($path);
+        return 'shop:' . $tenant . ':en:default:blue-slate-round-sans-plain:1:' . rawurlencode($path);
     }
 
     /** @return array{uuid: string, variantUuid: string} */

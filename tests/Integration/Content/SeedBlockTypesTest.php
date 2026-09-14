@@ -83,11 +83,16 @@ final class SeedBlockTypesTest extends AppTestCase
         self::assertSame(['accordion_item'], $accordion['items']['block_types']);
         $heroFields = array_column($repo->findBySlug('hero')['schema'], 'name');
         self::assertSame(
-            ['headline', 'title', 'description', 'links', 'image', 'orientation', 'reverse', 'heading_level'],
+            [
+                'headline', 'title', 'description', 'links', 'image', 'aside',
+                'orientation', 'reverse', 'background', 'heading_level',
+            ],
             $heroFields,
         );
         $heroSchema = array_column($repo->findBySlug('hero')['schema'], null, 'name');
         self::assertSame(['h1', 'h2', 'h3'], $heroSchema['heading_level']['enum']);
+        self::assertSame(['gradient', 'none', 'muted', 'inverted'], $heroSchema['background']['enum']);
+        self::assertSame('blocks', $heroSchema['aside']['type']);
 
         // Carousel gains a `style` variant enum (modern-blocks spec §4).
         $carousel = array_column($repo->findBySlug('carousel')['schema'], null, 'name');
