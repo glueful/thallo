@@ -8,6 +8,9 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Fixed
+- Every admin page's panel takes the height of the layout's rounded shell instead of the
+  viewport: Nuxt UI's `min-h-svh` default overflowed the shell by its margins, and the
+  overflow-hidden shell scrolled on focus, clipping the page title and its Save button.
 - A block's Background setting owns the whole background: it compiles to the `background`
   shorthand, so a theme gradient (the hero's band) yields to a managed colour and `transparent`
   clears it, where before only `background-color` changed and the gradient stayed. Compiler

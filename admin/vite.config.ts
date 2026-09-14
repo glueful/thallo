@@ -95,6 +95,17 @@ export default defineConfig(({ mode }) => {
             success: 'emerald',
             neutral: 'slate',
           },
+          // Every page's panel sits inside the layout's rounded shell (a flex column with `m-3`
+          // margins and `overflow-hidden`), which already fills the fixed dashboard group. Nuxt
+          // UI's default `min-h-svh` makes the panel 24px taller than that shell, and an
+          // overflow-hidden shell still scrolls on focus or a wheel gesture — clipping the panel
+          // header (beta.29 dogfooding: Settings › General's title and Save button cut off). The
+          // panel takes the shell's height; its body is what scrolls.
+          dashboardPanel: {
+            slots: {
+              root: 'min-h-0',
+            },
+          },
           modal: {
             slots: {
               content: 'divide-y-0',
