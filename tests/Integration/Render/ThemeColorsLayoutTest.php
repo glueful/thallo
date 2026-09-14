@@ -9,6 +9,7 @@ use Psr\Log\NullLogger;
 use Thallo\Contracts\Delivery\EntryTargetResolver;
 use Thallo\Contracts\Settings\ThemeAppearanceProvider;
 use Thallo\Render\RenderContextExtension;
+use Thallo\Render\Style\ThemeStylesheetArtifacts;
 use Thallo\Render\ThemeAppearanceSource;
 use Thallo\Render\ThemeLocator;
 use Thallo\Render\TwigFactory;
@@ -45,6 +46,7 @@ final class ThemeColorsLayoutTest extends AppTestCase
             $this->container()->get(EntryTargetResolver::class),
             'en',
             appearance: new ThemeAppearanceSource($provider, new NullLogger()),
+            themeArtifacts: new ThemeStylesheetArtifacts(sys_get_temp_dir() . '/thallo-style-test'),
         );
         $env = (new TwigFactory(
             new ThemeLocator('default', $base . '/themes'),
@@ -56,10 +58,10 @@ final class ThemeColorsLayoutTest extends AppTestCase
             'preview' => false,
         ]);
 
-        $blocksCss = strpos($html, 'blocks.css');
+        $artifact = strpos($html, '/theme-');
         $style = strpos($html, '--accent:#047857');
         self::assertNotFalse($style, 'override style present');
-        self::assertGreaterThan($blocksCss, $style, 'style after blocks.css');
+        self::assertGreaterThan($artifact, $style, 'style after the theme artifact link');
         self::assertStringContainsString('<style>:root{', $html);
 
         // Design tokens (website plan phase 1b) ride in the same block, after the colours.

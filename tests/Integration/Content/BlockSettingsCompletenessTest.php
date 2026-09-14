@@ -264,7 +264,11 @@ final class BlockSettingsCompletenessTest extends AppTestCase
             ['body' => $this->body()],
         );
         $store->put('entry0000001', 'en', $clean, 60);
-        $this->assertSettingsSurvive($store->get('entry0000001', 'en')['body'], 'preview working copy');
+        try {
+            $this->assertSettingsSurvive($store->get('entry0000001', 'en')['body'], 'preview working copy');
+        } finally {
+            $store->clear('entry0000001', 'en'); // the cache store is process-shared across tests
+        }
     }
 
     public function testBlockMigrationRewriteKeepsSettings(): void

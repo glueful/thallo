@@ -53,7 +53,7 @@ final class RenderPipelineTest extends AppTestCase
         $html = (string) $res->getContent();
         self::assertStringContainsString('<h1>Hello</h1>', $html);
         self::assertStringContainsString('About us', $html);            // menu() with real navigation data
-        self::assertStringContainsString('/theme-assets/site.css', $html); // asset()
+        self::assertMatchesRegularExpression('~/theme-assets/theme-[0-9a-f]{16}\.css~', $html); // the theme artifact
     }
 
     public function testNormalizationRedirect(): void
@@ -517,8 +517,10 @@ final class RenderPipelineTest extends AppTestCase
         // asset() appends ?t={theme} so a switch re-fetches assets immediately.
         $this->seedBilingualPublishedEntry();
         $html = $this->renderHello();
-        self::assertMatchesRegularExpression('#/theme-assets/site\.css\?t=default#', $html);
-        self::assertMatchesRegularExpression('#/theme-assets/blocks\.css\?t=default#', $html);
+        // Theme files are delivered through the fingerprinted artifact now; asset() still busts
+        // the files it links directly (the theme's webfont preload).
+        self::assertMatchesRegularExpression('#/theme-assets/fonts/figtree-roman-latin\.woff2\?t=default#', $html);
+        self::assertMatchesRegularExpression('#/theme-assets/theme-[0-9a-f]{16}\.css#', $html);
     }
 
     public function testThemeSettingRoundTripAndValidation(): void

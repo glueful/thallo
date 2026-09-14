@@ -183,7 +183,7 @@ final class PreviewSessionTest extends AppTestCase
         // Prime the cache, then plant a sentinel.
         $this->handle(Request::create('/blog/hello', 'GET'));
         $cache = $this->container()->get(CacheStore::class);
-        $key = 'render:default:blue-slate-round-sans-plain:%2Fblog%2Fhello';
+        $key = 'render:default:' . $this->appearanceFingerprint() . ':%2Fblog%2Fhello';
         $cached = $cache->get($key);
         self::assertIsArray($cached);
         $cached['body'] = 'SENTINEL-CACHED';
@@ -292,7 +292,8 @@ final class PreviewSessionTest extends AppTestCase
         self::assertStringContainsString('no-store', (string) $listing->headers->get('Cache-Control'));
         // And nothing entered the page cache.
         self::assertNull(
-            $this->container()->get(CacheStore::class)->get('render:default:blue-slate-round-sans-plain:%2Fblog'),
+            $this->container()->get(CacheStore::class)->get('render:default:' . $this->appearanceFingerprint()
+                . ':%2Fblog'),
         );
     }
 
@@ -358,7 +359,7 @@ final class PreviewSessionTest extends AppTestCase
         // (the sentinel survives unchanged).
         [$entry, $token] = $this->seedRoutedEntryWithDraft();
         $cache = $this->container()->get(CacheStore::class);
-        $key = 'render:default:blue-slate-round-sans-plain:%2Fblog%2Fhello';
+        $key = 'render:default:' . $this->appearanceFingerprint() . ':%2Fblog%2Fhello';
 
         // Prime the real cache entry, then plant the sentinel.
         $this->handle(Request::create('/blog/hello', 'GET'));
@@ -446,7 +447,8 @@ final class PreviewSessionTest extends AppTestCase
         self::assertStringContainsString('no-store', (string) $res->headers->get('Cache-Control'));
         // The SHARED fixed 404 body was neither read nor filled by the session.
         self::assertNull(
-            $this->container()->get(CacheStore::class)->get('render:default:blue-slate-round-sans-plain:404'),
+            $this->container()->get(CacheStore::class)->get('render:default:' . $this->appearanceFingerprint()
+                . ':404'),
         );
     }
 
@@ -466,8 +468,8 @@ final class PreviewSessionTest extends AppTestCase
         // …with token-scoped asset URLs: the theme stylesheet URL sits under the
         // token base, bare — the closing quote right after the rel path proves no
         // live ?t=/&v= busters leaked onto the preview context (spec §3).
-        self::assertStringContainsString(
-            'href="/_preview-assets/' . $token . '/site.css"',
+        self::assertMatchesRegularExpression(
+            '~href="/_preview-assets/' . preg_quote($token, '~') . '/theme-[0-9a-f]{16}\.css"~',
             (string) $res->getContent(),
         );
 
@@ -477,8 +479,8 @@ final class PreviewSessionTest extends AppTestCase
         // (theme buster + content fingerprint intact, &amp; is Twig's autoescape).
         $plain = $this->handle(Request::create('/blog/hello', 'GET'));
         self::assertStringNotContainsString('ALTPREV:', (string) $plain->getContent());
-        self::assertStringContainsString(
-            '/theme-assets/site.css?t=default&amp;v=',
+        self::assertMatchesRegularExpression(
+            '~/theme-assets/theme-[0-9a-f]{16}\.css~',
             (string) $plain->getContent(),
         );
         self::assertStringNotContainsString('/_preview-assets/', (string) $plain->getContent());
@@ -497,7 +499,7 @@ final class PreviewSessionTest extends AppTestCase
         // Live first: constructor-backed context (theme-assets base + busters).
         $plain = $this->handle(Request::create('/blog/hello', 'GET'));
         self::assertStringContainsString(
-            '/theme-assets/site.css?t=default&amp;v=',
+            '/theme-assets/fonts/figtree-roman-latin.woff2?t=default&amp;v=',
             (string) $plain->getContent(),
         );
 
@@ -627,7 +629,7 @@ final class PreviewSessionTest extends AppTestCase
         unlink($base . '/entry.twig');
         rmdir($base);
         $fallback = $this->handle(Request::create('/_preview/' . $token, 'GET'));
-        self::assertSame(200, $fallback->getStatusCode());
+        self::assertSame(200, $fallback->getStatusCode(), substr((string) $fallback->getContent(), 0, 600));
         self::assertStringContainsString('Vanish', (string) $fallback->getContent()); // boot entry.twig
         self::assertStringNotContainsString('ALTPREV:', (string) $fallback->getContent());
     }

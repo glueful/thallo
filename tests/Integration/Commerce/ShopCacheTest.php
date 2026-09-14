@@ -132,7 +132,7 @@ final class ShopCacheTest extends AppTestCase
         $first = $this->handle(Request::create('/shop', 'GET'));
         self::assertSame(200, $first->getStatusCode());
 
-        $key = 'shop:' . self::TENANT_A . ':en:default:blue-slate-round-sans-plain:1:%2Fshop';
+        $key = 'shop:' . self::TENANT_A . ':en:default:' . $this->appearanceFingerprint() . ':1:%2Fshop';
         $entry = $this->cache()->get($key);
         self::assertIsArray($entry);
         $entry['body'] = 'SENTINEL-FROM-SHOP-CACHE';
@@ -152,8 +152,14 @@ final class ShopCacheTest extends AppTestCase
 
         $keys = $this->cache()->getKeys('shop:*');
         self::assertCount(2, $keys);
-        self::assertContains('shop:' . self::TENANT_A . ':en:default:blue-slate-round-sans-plain:1:%2Fshop', $keys);
-        self::assertContains('shop:' . self::TENANT_A . ':en:default:blue-slate-round-sans-plain:2:%2Fshop', $keys);
+        self::assertContains(
+            'shop:' . self::TENANT_A . ':en:default:' . $this->appearanceFingerprint() . ':1:%2Fshop',
+            $keys,
+        );
+        self::assertContains(
+            'shop:' . self::TENANT_A . ':en:default:' . $this->appearanceFingerprint() . ':2:%2Fshop',
+            $keys,
+        );
     }
 
     /** @return iterable<string,array{0:string}> */
@@ -495,7 +501,7 @@ final class ShopCacheTest extends AppTestCase
 
     private function shopIndexKey(string $tenant): string
     {
-        return 'shop:' . $tenant . ':en:default:blue-slate-round-sans-plain:1:%2Fshop';
+        return 'shop:' . $tenant . ':en:default:' . $this->appearanceFingerprint() . ':1:%2Fshop';
     }
 
     private function primeBothTenantsShopIndexCache(): void
@@ -573,7 +579,7 @@ final class ShopCacheTest extends AppTestCase
     /** shop:{tenant}:en:default:blue-slate-round-sans-plain:1:%2Fshop%2Fproducts%2F{slug} — mirrors shopIndexKey(). */
     private function productDetailKey(string $tenant, string $slug): string
     {
-        return 'shop:' . $tenant . ':en:default:blue-slate-round-sans-plain:1:'
+        return 'shop:' . $tenant . ':en:default:' . $this->appearanceFingerprint() . ':1:'
             . rawurlencode('/shop/products/' . $slug);
     }
 

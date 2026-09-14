@@ -216,8 +216,8 @@ final class RegionAdminApiTest extends AppTestCase
         self::assertStringContainsString('thallo-block-navigation', $html);
         self::assertStringContainsString('thallo-region-header--sticky', $html);
         self::assertStringContainsString('thallo-region-header--full', $html);
-        self::assertStringContainsString('/theme-assets/site.css', $html);
-        self::assertStringContainsString('/theme-assets/blocks.css', $html);
+        self::assertStringContainsString('/_thallo/layers.css', $html);
+        self::assertMatchesRegularExpression('~/theme-assets/theme-[0-9a-f]{16}\.css~', $html);
         // Blob-doc anchor (P1): absolute base so host-relative assets resolve.
         self::assertStringContainsString('<base href="https://admin.test/">', $html);
         self::assertStringNotContainsString('thallo-preview-block', $html); // never annotated

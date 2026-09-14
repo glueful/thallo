@@ -37,4 +37,23 @@ final class ThemeAssetServingTest extends AppTestCase
         self::assertSame(404, $this->handle(Request::create('/theme-assets/../theme.json', 'GET'))->getStatusCode());
         self::assertSame(404, $this->handle(Request::create('/theme-assets/nope.css', 'GET'))->getStatusCode());
     }
+
+    public function testServesTheLayeredThemeArtifactByHashImmutably(): void
+    {
+        $artifacts = $this->container()->get(\Thallo\Render\Style\ThemeStylesheetArtifacts::class);
+        $hash = $artifacts->forTheme($this->container()->get(\Thallo\Render\ThemeLocator::class))->hash;
+
+        $res = $this->handle(Request::create("/theme-assets/theme-{$hash}.css", 'GET'));
+        self::assertSame(200, $res->getStatusCode());
+        self::assertStringContainsString('text/css', (string) $res->headers->get('Content-Type'));
+        self::assertStringContainsString('immutable', (string) $res->headers->get('Cache-Control'));
+        self::assertStringStartsWith('@layer theme {', (string) $res->getContent());
+        self::assertStringContainsString('.site-header', (string) $res->getContent());
+
+        $unknown = $this->handle(Request::create('/theme-assets/theme-0000000000000000.css', 'GET'));
+        self::assertSame(404, $unknown->getStatusCode());
+        $layers = $this->handle(Request::create('/_thallo/layers.css', 'GET'));
+        self::assertSame(200, $layers->getStatusCode());
+        self::assertStringContainsString('@layer theme, settings;', (string) $layers->getContent());
+    }
 }

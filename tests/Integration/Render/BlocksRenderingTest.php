@@ -164,19 +164,27 @@ final class BlocksRenderingTest extends AppTestCase
         self::assertContains('font_faces_style', TemplatePolicy::FUNCTIONS);
         self::assertContains('shop_wishlist_scope', TemplatePolicy::FUNCTIONS);
         self::assertContains('shop_wishlist_url', TemplatePolicy::FUNCTIONS);
-        self::assertContains('shop_styles_url', TemplatePolicy::FUNCTIONS);
+        self::assertContains('layers_stylesheet_url', TemplatePolicy::FUNCTIONS);
+        self::assertContains('theme_stylesheet_url', TemplatePolicy::FUNCTIONS);
+        self::assertNotContains(
+            'shop_styles_url',
+            TemplatePolicy::FUNCTIONS,
+            'the storefront sheet rides in the theme artifact',
+        );
         // 17 = admin-contributed-templates spec §3 policy expansion (twelve reviewed functions,
         // range()/RangeBinary denied, TrueTest allowed for bare boolean function conditions)
         // 18 = modern-blocks spec §1 — block_script() joined the allowlist
         // 19 = pricing-bridge spec §5.4 — plan_checkout_url() joined the allowlist
-        self::assertSame(19, TemplatePolicy::CACHE_VERSION);
+        // 20 = visual builder spec §2.3 — layered delivery helpers joined, shop_styles_url left
+        self::assertSame(20, TemplatePolicy::CACHE_VERSION);
 
         // DB templates calling the allowlisted functions lint clean.
         $linter = $this->container()->get(TemplateLinter::class);
         self::assertSame([], $linter->lint('{{ blocks(entry.fields.body) }}'));
         self::assertSame([], $linter->lint('{{ media(data.image) }}'));
         self::assertSame([], $linter->lint('{{ site_logo() }}'));
-        self::assertSame([], $linter->lint('{{ shop_styles_url() }}'));
+        self::assertSame([], $linter->lint('{{ theme_stylesheet_url() }}'));
+        self::assertSame([], $linter->lint('{{ layers_stylesheet_url() }}'));
         self::assertSame([], $linter->lint('{{ icon(data.icon) ?? data.icon }}'));
         self::assertSame([], $linter->lint('{{ region_blocks(\'header\') }}'));
         self::assertSame([], $linter->lint("{{ region_settings('header').width|default('contained') }}"));

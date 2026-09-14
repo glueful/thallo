@@ -164,7 +164,7 @@ final class FontFacesStyleTest extends AppTestCase
         self::assertStringContainsString('rel="preload" as="font"', $html);
         self::assertStringContainsString('font-family: "Figtree"', $html);
         self::assertTrue(
-            strpos($html, 'rel="preload" as="font"') < strpos($html, 'site.css'),
+            strpos($html, 'rel="preload" as="font"') < strpos($html, '/theme-'),
             'font head precedes the stylesheet link',
         );
     }
