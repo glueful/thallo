@@ -8,6 +8,11 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Fixed
+- A publish is visible on the live site on the next request whatever the cache driver. The
+  default `file` driver cannot invalidate cache tags, so rendered pages, error bodies and the
+  shop's pages stayed as they were for up to the cache TTL after a publish, a menu, region,
+  template or theme change; on such a driver every rendered page is dropped instead
+  (`RenderedPageCachePurge`, bound by the render pack and used by core and the packs).
 - The code block's corners and shadow land where the theme paints them: the framed figure is
   the block's `panel` style target (spacing and width stay on the root), so "Corners: none"
   squares the frame. The snippet wraps long lines instead of scrolling sideways, and the Copy
