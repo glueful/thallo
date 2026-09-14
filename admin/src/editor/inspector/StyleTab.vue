@@ -1,8 +1,6 @@
 <script setup lang="ts">
 // The Style tab (visual builder spec §3.4): controls generated from the block type's
 // `style_capabilities`, grouped as spacing, size, typography, colours, effects and visibility.
-// A block type still carrying `legacy_presentation` shows a notice and no controls — its
-// presentation fields stay on the Content tab until its conversion ships.
 import { computed } from 'vue'
 import type { BlockType } from '@/queries/blockTypes'
 import type { StylePropertyRow, StyleSchemaResult } from '@/queries/styleSchema'
@@ -59,8 +57,6 @@ const LABELS: Record<string, string> = {
   'border.style': 'Border style',
 }
 
-const legacy = computed(() => props.blockType?.flags?.legacy_presentation === true)
-
 /** The capability paths: an entry names a path, or a group that expands to its paths. */
 const allowed = computed<Set<string>>(() => {
   const out = new Set<string>()
@@ -87,15 +83,7 @@ const style = computed<Record<string, unknown>>(() => {
 
 <template>
   <div class="space-y-4" data-test="style-tab">
-    <p
-      v-if="legacy"
-      class="rounded-md border border-dashed border-default px-3 py-2 text-xs text-muted"
-      data-test="style-legacy-notice"
-    >
-      Styling controls for this block arrive in the next release. Its presentation fields stay on
-      the Content tab until then.
-    </p>
-    <p v-else-if="groups.length === 0" class="text-xs text-muted" data-test="style-none">
+    <p v-if="groups.length === 0" class="text-xs text-muted" data-test="style-none">
       This block declares no styling.
     </p>
     <template v-else>

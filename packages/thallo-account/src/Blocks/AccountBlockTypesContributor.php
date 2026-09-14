@@ -68,7 +68,6 @@ final class AccountBlockTypesContributor implements StarterBlockTypeContributor
                 ],
                 styleCapabilities: ['spacing', 'visibility'],
                 styleTargets: StyleTargets::root('box', ['spacing', 'visibility']),
-                flags: ['legacy_presentation' => true],
             ),
             new StarterBlockTypeDefinition(
                 sourceId: 'thallo-account:login-form',
@@ -90,7 +89,6 @@ final class AccountBlockTypesContributor implements StarterBlockTypeContributor
                 styleTargets: StyleTargets::root('box', [
                     'spacing', 'width', 'radius', 'colors.surface', 'border', 'shadow', 'visibility',
                 ]),
-                flags: ['legacy_presentation' => true],
             ),
             new StarterBlockTypeDefinition(
                 sourceId: 'thallo-account:register-form',
@@ -108,7 +106,6 @@ final class AccountBlockTypesContributor implements StarterBlockTypeContributor
                 styleTargets: StyleTargets::root('box', [
                     'spacing', 'width', 'radius', 'colors.surface', 'border', 'shadow', 'visibility',
                 ]),
-                flags: ['legacy_presentation' => true],
             ),
             new StarterBlockTypeDefinition(
                 sourceId: 'thallo-account:forgot-password-form',
@@ -126,7 +123,6 @@ final class AccountBlockTypesContributor implements StarterBlockTypeContributor
                 styleTargets: StyleTargets::root('box', [
                     'spacing', 'width', 'radius', 'colors.surface', 'border', 'shadow', 'visibility',
                 ]),
-                flags: ['legacy_presentation' => true],
             ),
         ];
     }

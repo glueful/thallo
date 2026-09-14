@@ -28,7 +28,7 @@ export interface BlockType {
   style_capabilities: string[] | null
   /** Named style targets and the capability → target map; null until declared. */
   style_targets: Record<string, unknown> | null
-  /** `legacy_presentation` (Style controls withheld until conversion), `renders_children_inline`. */
+  /** Rendering hints: `renders_children_inline`. */
   flags: Record<string, boolean> | null
   /** Starter content for a freshly inserted block. */
   starter_content: Record<string, unknown> | null

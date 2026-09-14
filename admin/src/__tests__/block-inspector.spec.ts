@@ -53,7 +53,7 @@ const schema: StyleSchemaResult = {
   },
 }
 
-const type = (slug: string, caps: string[] | null, legacy: boolean): BlockType =>
+const type = (slug: string, caps: string[] | null): BlockType =>
   ({
     uuid: `bt-${slug}`,
     slug,
@@ -67,16 +67,17 @@ const type = (slug: string, caps: string[] | null, legacy: boolean): BlockType =
     ],
     style_capabilities: caps,
     style_targets: null,
-    flags: { legacy_presentation: legacy },
+    flags: {},
     starter_content: null,
   }) as BlockType
 
-const heading = type(
-  'heading',
-  ['spacing', 'alignment.text', 'typography', 'colors.text', 'visibility'],
-  false,
-)
-const container = type('container', ['spacing', 'width', 'colors'], true)
+const heading = type('heading', [
+  'spacing',
+  'alignment.text',
+  'typography',
+  'colors.text',
+  'visibility',
+])
 
 describe('StyleTab', () => {
   it('a heading shows spacing, text alignment, typography, text colour and visibility only', () => {
@@ -104,7 +105,6 @@ describe('StyleTab', () => {
       'style-field-visibility',
     ])
     expect(w.find('[data-test="style-group-effects"]').exists()).toBe(false)
-    expect(w.find('[data-test="style-legacy-notice"]').exists()).toBe(false)
   })
 
   it('editing at active breakpoint md writes md; lg shows the value as inherited', async () => {
@@ -143,20 +143,6 @@ describe('StyleTab', () => {
       .find('[data-test="style-field-spacing.padding.top"] [data-test="style-reset"]')
       .trigger('click')
     expect(w.emitted('set')?.[1]).toEqual(['spacing.padding.top', 'lg', { type: 'reset' }])
-  })
-
-  it('a block type still carrying legacy_presentation shows the notice and no controls', () => {
-    const w = mount(StyleTab, {
-      props: {
-        block: { id: 'c', type: 'container', data: {}, settings: {} },
-        blockType: container,
-        schema,
-        classes: [],
-        activeBreakpoint: 'md',
-      },
-    })
-    expect(w.find('[data-test="style-legacy-notice"]').exists()).toBe(true)
-    expect(w.findAll('[data-test^="style-field-"]')).toHaveLength(0)
   })
 })
 

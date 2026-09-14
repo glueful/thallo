@@ -34,7 +34,7 @@ final readonly class StarterBlockTypeDefinition
         public ?array $styleCapabilities = null,
         /** Named targets and the capability map ({@see \Thallo\Contracts\Style\StyleTargets::root()}). */
         public ?array $styleTargets = null,
-        /** Block flags (`legacy_presentation`, `renders_children_inline`). @var array<string,bool>|null */
+        /** Block flags (`renders_children_inline`). @var array<string,bool>|null */
         public ?array $flags = null,
     ) {
     }

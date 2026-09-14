@@ -15,6 +15,6 @@ interface BlockStyleRegistry
 
     public function targetsFor(string $type): ?StyleTargets;
 
-    /** @return array<string, mixed> e.g. `renders_children_inline`, `legacy_presentation` */
+    /** @return array<string, mixed> e.g. `renders_children_inline` */
     public function flagsFor(string $type): array;
 }

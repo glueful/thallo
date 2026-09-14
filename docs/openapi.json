@@ -38593,7 +38593,7 @@
                                                                 "items": {
                                                                     "type": "boolean"
                                                                 },
-                                                                "description": "`legacy_presentation`, `renders_children_inline`."
+                                                                "description": "Rendering hints: `renders_children_inline`."
                                                             },
                                                             "starter_content": {
                                                                 "type": [
@@ -39210,7 +39210,7 @@
                                                             "items": {
                                                                 "type": "boolean"
                                                             },
-                                                            "description": "`legacy_presentation`, `renders_children_inline`."
+                                                            "description": "Rendering hints: `renders_children_inline`."
                                                         },
                                                         "starter_content": {
                                                             "type": [
@@ -39454,7 +39454,7 @@
                                                             "items": {
                                                                 "type": "boolean"
                                                             },
-                                                            "description": "`legacy_presentation`, `renders_children_inline`."
+                                                            "description": "Rendering hints: `renders_children_inline`."
                                                         },
                                                         "starter_content": {
                                                             "type": [
@@ -40164,7 +40164,7 @@
                                                             "items": {
                                                                 "type": "boolean"
                                                             },
-                                                            "description": "`legacy_presentation`, `renders_children_inline`."
+                                                            "description": "Rendering hints: `renders_children_inline`."
                                                         },
                                                         "starter_content": {
                                                             "type": [
@@ -40568,7 +40568,7 @@
                                                             "items": {
                                                                 "type": "boolean"
                                                             },
-                                                            "description": "`legacy_presentation`, `renders_children_inline`."
+                                                            "description": "Rendering hints: `renders_children_inline`."
                                                         },
                                                         "starter_content": {
                                                             "type": [
@@ -40940,7 +40940,7 @@
                                                             "items": {
                                                                 "type": "boolean"
                                                             },
-                                                            "description": "`legacy_presentation`, `renders_children_inline`."
+                                                            "description": "Rendering hints: `renders_children_inline`."
                                                         },
                                                         "starter_content": {
                                                             "type": [

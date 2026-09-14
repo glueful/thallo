@@ -15,8 +15,8 @@ use Thallo\Core\Tests\Support\AppTestCase;
 
 /**
  * Visual builder plan A1.2: block settings are validated against the style contract and the
- * block's capabilities; while a block type carries `legacy_presentation`, managed style is
- * refused so a setting can never compete with a legacy field.
+ * block's capabilities; managed style is
+ * refused without a capability.
  */
 final class BlockSettingsValidationTest extends AppTestCase
 {
@@ -27,11 +27,11 @@ final class BlockSettingsValidationTest extends AppTestCase
         $this->container()->get(StarterBlockTypeSeeder::class)->seedMissing();
     }
 
-    /** @param array<string, array{caps?: list<string>, legacy?: bool}> $types */
+    /** @param array<string, array{caps?: list<string>}> $types */
     private function validator(array $types): FieldValidator
     {
         $registry = new class ($types) implements BlockStyleRegistry {
-            /** @param array<string, array{caps?: list<string>, legacy?: bool}> $types */
+            /** @param array<string, array{caps?: list<string>}> $types */
             public function __construct(private array $types)
             {
             }
@@ -45,7 +45,7 @@ final class BlockSettingsValidationTest extends AppTestCase
             }
             public function flagsFor(string $type): array
             {
-                return ['legacy_presentation' => (bool) ($this->types[$type]['legacy'] ?? false)];
+                return [];
             }
         };
         return new FieldValidator($this->connection(), $this->appContext(), null, null, $registry);
@@ -74,7 +74,7 @@ final class BlockSettingsValidationTest extends AppTestCase
         self::assertSame([], $clean['body'][0]['settings']);
     }
 
-    public function testStyleIsRefusedWithoutCapabilitiesAndWhileLegacyPresentationHolds(): void
+    public function testStyleIsRefusedWithoutCapabilitiesAndAdvancedNeedsNone(): void
     {
         $style = ['style' => [
             'spacing' => ['padding' => ['top' => ['md' => ['type' => 'token', 'value' => 'spacing.lg']]]],
@@ -90,19 +90,7 @@ final class BlockSettingsValidationTest extends AppTestCase
             );
         }
 
-        try {
-            $this->validator(['heading' => ['caps' => ['spacing'], 'legacy' => true]])
-                ->validate($this->schema(), ['body' => [$this->heading($style)]]);
-            self::fail('accepted while legacy presentation holds');
-        } catch (ValidationException $e) {
-            self::assertSame(
-                ['body.0.settings.style' => 'styling for this block arrives with its conversion'],
-                $e->errors(),
-            );
-        }
-
-        // Advanced is fine even while legacy presentation holds.
-        $clean = $this->validator(['heading' => ['caps' => ['spacing'], 'legacy' => true]])
+        $clean = $this->validator(['heading' => []])
             ->validate($this->schema(), ['body' => [$this->heading(['advanced' => ['anchor' => 'top']])]]);
         self::assertSame(['advanced' => ['anchor' => 'top']], $clean['body'][0]['settings']);
     }

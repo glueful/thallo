@@ -41,7 +41,7 @@ const type = (
   schema: [],
   style_capabilities: null,
   style_targets: null,
-  flags: { legacy_presentation: true },
+  flags: {},
   starter_content: null,
 })
 

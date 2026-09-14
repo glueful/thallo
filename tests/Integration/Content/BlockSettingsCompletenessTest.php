@@ -58,7 +58,7 @@ final class BlockSettingsCompletenessTest extends AppTestCase
                     'targets' => ['root' => ['kind' => 'box']],
                     'map' => ['spacing' => 'root', 'radius' => 'root'],
                 ],
-                'flags' => ['legacy_presentation' => false],
+                'flags' => [],
             ]);
         }
         $this->type = (new ContentTypeRepository($this->connection()))->create([
@@ -214,8 +214,8 @@ final class BlockSettingsCompletenessTest extends AppTestCase
 
     public function testRegionsSaveAndReadSettings(): void
     {
-        // Region allowlists admit starters only, and starters still carry legacy_presentation in
-        // this slice, so the region document carries classes and advanced settings (no style).
+        // Region allowlists admit starters only; the region document carries classes and advanced
+        // settings here (style is covered by the entry paths above).
         $settings = [
             'classes' => ['zeta', 'alpha'],
             'advanced' => ['anchor' => 'foot', 'css_classes' => ['x']],

@@ -43,7 +43,7 @@ final class BlockTypeStyleKeysTest extends AppTestCase
                 'targets' => ['root' => ['kind' => 'text']],
                 'map' => ['spacing' => 'root', 'colors.text' => 'root'],
             ],
-            'flags' => ['legacy_presentation' => false, 'renders_children_inline' => true],
+            'flags' => ['renders_children_inline' => true],
             'starter_content' => ['text' => 'Hello'],
         ]);
 
@@ -59,7 +59,6 @@ final class BlockTypeStyleKeysTest extends AppTestCase
         self::assertTrue($byRegistry->capabilitiesFor('stylekeys_a')->allows('spacing.padding.top'));
         self::assertFalse($byRegistry->capabilitiesFor('stylekeys_a')->allows('radius'));
         self::assertSame('root', $byRegistry->targetsFor('stylekeys_a')?->targetFor('colors.text'));
-        self::assertFalse($byRegistry->flagsFor('stylekeys_a')['legacy_presentation']);
 
         $repo->deleteBySlug('stylekeys_a');
     }
@@ -123,23 +122,29 @@ final class BlockTypeStyleKeysTest extends AppTestCase
             'slug' => 'stylekeys_d', 'label' => 'D', 'schema' => [['name' => 'x', 'type' => 'string']],
         ]);
 
-        $repo->updateStyle($uuid, ['spacing'], null, ['legacy_presentation' => true], null);
+        $repo->updateStyle($uuid, ['spacing'], null, ['renders_children_inline' => true], null);
 
         $row = $repo->findByUuid($uuid);
         self::assertSame(['spacing'], $row['style_capabilities']);
-        self::assertTrue($row['flags']['legacy_presentation']);
+        self::assertTrue($row['flags']['renders_children_inline']);
+        // The transitional legacy_presentation flag is gone: an unknown flag is refused.
+        try {
+            $repo->updateStyle($uuid, ['spacing'], null, ['legacy_presentation' => true], null);
+            self::fail('accepted an unknown flag');
+        } catch (SchemaParseException $e) {
+            self::assertStringContainsString('unknown block flag "legacy_presentation"', $e->getMessage());
+        }
         self::assertSame('x', $row['schema'][0]['name']);
         $repo->deleteBySlug('stylekeys_d');
     }
 
-    public function testEveryStarterCarriesTheTransitionalFlagAndTheApiReturnsTheKeys(): void
+    public function testEveryStarterDeclaresValidFlagsAndTheApiReturnsTheKeys(): void
     {
-        // Both conversion groups shipped: no starter withholds its Style controls any more.
+        // Every starter is styled through settings: flags carry rendering hints only.
         foreach (StarterBlockTypes::definitions() as $definition) {
-            self::assertFalse(
-                $definition['flags']['legacy_presentation'] ?? false,
-                "{$definition['slug']} is styled through settings",
-            );
+            foreach (array_keys($definition['flags']) as $flag) {
+                self::assertContains($flag, BlockTypeRepository::FLAGS, "{$definition['slug']}.{$flag}");
+            }
         }
 
         $response = $this->container()->get(BlockTypeController::class)

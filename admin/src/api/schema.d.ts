@@ -5742,7 +5742,7 @@ export interface operations {
                 style_capabilities?: unknown[] | null
                 /** @description Named style targets and the capability → target map. */
                 style_targets?: unknown[] | null
-                /** @description `legacy_presentation`, `renders_children_inline`. */
+                /** @description Rendering hints: `renders_children_inline`. */
                 flags?: boolean[] | null
                 /** @description Starter content for a freshly inserted block. */
                 starter_content?: unknown[] | null
@@ -5921,7 +5921,7 @@ export interface operations {
                 style_capabilities?: unknown[] | null
                 /** @description Named style targets and the capability → target map. */
                 style_targets?: unknown[] | null
-                /** @description `legacy_presentation`, `renders_children_inline`. */
+                /** @description Rendering hints: `renders_children_inline`. */
                 flags?: boolean[] | null
                 /** @description Starter content for a freshly inserted block. */
                 starter_content?: unknown[] | null
@@ -6065,7 +6065,7 @@ export interface operations {
                 style_capabilities?: unknown[] | null
                 /** @description Named style targets and the capability → target map. */
                 style_targets?: unknown[] | null
-                /** @description `legacy_presentation`, `renders_children_inline`. */
+                /** @description Rendering hints: `renders_children_inline`. */
                 flags?: boolean[] | null
                 /** @description Starter content for a freshly inserted block. */
                 starter_content?: unknown[] | null
@@ -6358,7 +6358,7 @@ export interface operations {
                 style_capabilities?: unknown[] | null
                 /** @description Named style targets and the capability → target map. */
                 style_targets?: unknown[] | null
-                /** @description `legacy_presentation`, `renders_children_inline`. */
+                /** @description Rendering hints: `renders_children_inline`. */
                 flags?: boolean[] | null
                 /** @description Starter content for a freshly inserted block. */
                 starter_content?: unknown[] | null
@@ -6519,7 +6519,7 @@ export interface operations {
                 style_capabilities?: unknown[] | null
                 /** @description Named style targets and the capability → target map. */
                 style_targets?: unknown[] | null
-                /** @description `legacy_presentation`, `renders_children_inline`. */
+                /** @description Rendering hints: `renders_children_inline`. */
                 flags?: boolean[] | null
                 /** @description Starter content for a freshly inserted block. */
                 starter_content?: unknown[] | null
@@ -6663,7 +6663,7 @@ export interface operations {
                 style_capabilities?: unknown[] | null
                 /** @description Named style targets and the capability → target map. */
                 style_targets?: unknown[] | null
-                /** @description `legacy_presentation`, `renders_children_inline`. */
+                /** @description Rendering hints: `renders_children_inline`. */
                 flags?: boolean[] | null
                 /** @description Starter content for a freshly inserted block. */
                 starter_content?: unknown[] | null

@@ -12,11 +12,9 @@ as the next release, never a mutated tag.
   (schema v1) next to `data`: managed style as typed values (`token`, `choice`, `reset`; `literal`
   reserved) over sparse `base`/`md`/`lg` breakpoint maps, an ordered list of style class ids, and
   `advanced` (anchor, CSS classes, `data-*` attributes, accessibility label). Block types declare
-  `style_capabilities`, named `style_targets`, `flags` and `starter_content`; undeclared means
-  none, and while a block type carries `legacy_presentation` the validator refuses managed style
-  so nothing competes with its existing presentation fields. Nothing renders or edits settings
-  yet; the breakpoint-first cascade resolver ships in PHP and TypeScript against one fixture
-  contract, and a populated beta.28 upgrade fixture is rehearsed in CI.
+  `style_capabilities`, named `style_targets`, `flags` (rendering hints) and `starter_content`;
+  undeclared means none. The breakpoint-first cascade resolver ships in PHP and TypeScript
+  against one fixture contract, and a populated beta.28 upgrade fixture is rehearsed in CI.
 - **Layered style delivery** (visual builder, slice A2). A theme maps the platform style
   vocabulary in `theme.json` (`vocabulary`) and lists its CSS (`stylesheets`); the layout links
   three stylesheets — the layer order sheet, the theme artifact (`@layer theme`, every manifest
@@ -63,6 +61,9 @@ as the next release, never a mutated tag.
   `theme_colors_style()`, `theme_style_scope()` and `font_faces_style()` are the only inline
   style emitters. The pricing plans' column count is a `--count-{n}` modifier and the admin's
   chrome preview styles through the theme sheet.
+- The transitional `legacy_presentation` block flag is gone: every block type is styled through
+  settings, the validator no longer withholds managed style, and the inspector's Style tab shows
+  the block's controls or "declares no styling"; `flags` carries rendering hints only.
 - `thallo:provision` syncs the evolved starter block-type definitions onto the existing rows
   (new fields, and the style declaration the settings conversion and every render rely on) —
   an upgraded instance no longer needs `thallo:blocks:sync` by hand — and `thallo:blocks:sync`
