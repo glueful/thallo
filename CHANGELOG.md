@@ -7,6 +7,8 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.28] - 2026-09-14
+
 ### Added
 - **Design without code** (website plan, phase 1b): building the thallo.dev homepage from
   the blueprint needed custom CSS for four things; each is a choice in the admin now.
