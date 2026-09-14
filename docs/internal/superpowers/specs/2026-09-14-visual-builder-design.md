@@ -1,0 +1,552 @@
+# Thallo visual builder — design
+
+Status: design approved in discussion (2026-09-14), consolidated here for review. Owner: Michael
+Tawiah Sowah. Supersedes the styling parts of `2026-07-03-visual-canvas-design.md` §9 ("not an
+Elementor-style freeform builder") by replacing freeform styling with a closed, typed style
+contract; every other canvas spec remains in force and this design builds on it. Charter:
+`docs/internal/DISTRIBUTION.md`. Website plan: `docs/internal/plans/2026-09-11-website-and-docs.md`.
+
+## 0. Summary and invariants
+
+Thallo pages store semantic, typed design settings. Themes implement a platform vocabulary. The
+renderer compiles settings into presentation classes. Content stays portable across themes
+because pages describe design intent, not CSS.
+
+The builder is the next versions of the existing Design view, built in core, the render pack and
+the admin SPA. It is not a package: packs are always-loaded library modules with no admin-UI
+extension point, and editing pages is the product, not a capability.
+
+Invariants, each named once and used verbatim throughout:
+
+1. **The block tree is the source of truth.** Every editor action is a tree operation; the DOM
+   supplies geometry only.
+2. **Twig is the only renderer.** The canvas shows real theme output in an iframe.
+3. **Closed vocabulary.** Every managed style value is typed and validated; there is no raw CSS in
+   the managed model. Custom CSS stays the unlayered escape hatch.
+4. **Thallo owns token names; themes own values.**
+5. **Breakpoint-first cascade** (§1.6): exact-breakpoint declarations beat inherited ones across
+   layers; layer precedence breaks ties; then fall back to the nearest smaller breakpoint.
+6. **Implicit theme defaults**: the compiler emits a managed class only where the resolved managed
+   cascade establishes a value; absence at every breakpoint means the theme's own rules.
+7. **Named style targets**: every capability lands on a target the template declares.
+8. **One effective value per property and breakpoint**, emitted so HTML class order never decides.
+9. **Three revisions**: local document, accepted working copy, displayed stage.
+10. **Resolver-driven detach** preserves every effective value at every breakpoint.
+11. **Whole-candidate-tree legality** before any structural commit.
+12. **Envelope dependency resolution**: nothing crosses a site boundary by name alone.
+
+What exists today and is reused unchanged: the iframe stage at `/_preview/{token}?canvas=1`, the
+`thallo-preview-block` wrappers, the in-iframe toolbar and bridge, `editable_text` inline editing,
+the outline, the ephemeral apply with its working-copy stash, the debounced scheduler, and the
+regions editor. What is missing and this design adds: a universal style layer, responsive values,
+undo/redo, a fragment renderer, cross-container structure editing, global styles, and composition.
+
+## 1. The style contract
+
+### 1.1 Value kinds
+
+A managed value is a typed object. Each setting definition declares the kinds it accepts.
+
+| kind | shape | meaning |
+|---|---|---|
+| `token` | `{type:"token", value:"spacing.lg"}` | a platform vocabulary reference |
+| `choice` | `{type:"choice", value:"hidden"}` | a closed enum |
+| `identifier` | `{type:"identifier", value:"pricing"}` | a validated slug |
+| `reset` | `{type:"reset"}` | ignore reusable classes for this property at this breakpoint and expose the theme's computed rules |
+| `literal` | reserved | accepted by the type grammar, rejected by validation until a schema version admits it |
+
+`reset` is accepted by every managed style property. Deleting an override (returning to the
+class result) and resetting to the theme are different actions (§4.4).
+
+### 1.2 Document shape
+
+Input may omit `settings`. Normalised stored blocks always carry it:
+
+```json
+{ "id": "…", "type": "heading", "data": {…}, "settings": {} }
+```
+
+with `style`, `classes` and `advanced` present only when set. `settings.classes` is an **ordered
+list** of reusable style class ids and is document state, never sorted. Later classes override
+earlier ones for the properties they declare. `settings.advanced.css_classes` is the hook for
+external CSS and takes no part in the managed cascade.
+
+Blocks are reconstructed everywhere through one `Block` value object (`id, type, data, settings,
+children`) so no path can forget `settings`. A behavioural completeness test drives every
+reconstruction path (duplicate, move, restore, import, region save, preview apply, projections,
+the API) with ordered class ids, sparse breakpoint maps, resets and nested blocks, and asserts
+they survive.
+
+### 1.3 Style groups and properties
+
+Capabilities and targets name exact property paths; a group name is shorthand for all of its
+properties.
+
+| group | properties | kinds | responsive in v1 |
+|---|---|---|---|
+| `spacing` | `padding.{top,right,bottom,left}`, `margin.{top,bottom}` | token, reset | yes |
+| `width` | `width` (`narrow, content, container, full`) | token, reset | yes |
+| `alignment` | `alignment.text`, `alignment.content`, `alignment.self` | choice (`start, center, end`), reset | yes |
+| `typography` | `size` (token), `weight` (choice `regular, medium, semibold, bold`) | as listed, reset | yes |
+| `visibility` | `visibility` (`visible, hidden`) | choice, reset | yes |
+| `shadow` | `shadow` | token, reset | yes |
+| `radius` | `radius` | token, reset | no (scope, not meaning) |
+| `colors` | `surface`, `text`, `border` | token, reset | no (scope, not meaning) |
+| `border` | `width` (`none, thin, thick`), `style` (`solid, dashed`) | choice, reset | no |
+
+Alignment is typed by meaning. `alignment.text` is `text-align` on a text target.
+`alignment.content` places a row target's children horizontally (`justify-content` on a
+horizontal flex row only). `alignment.self` places a box target within its parent through auto
+margins. `width` is sizing only: `narrow`, `content`, `container` set `max-width`; `full` sets
+`max-width: none; width: 100%`; nothing centres; combine with `alignment.self`. Inside a flex or
+grid track the max-width applies to the box. `visibility.hidden` removes the target from layout at
+that breakpoint (`display: none`); `visible` at a larger breakpoint compiles to `display:
+revert-layer`.
+
+### 1.4 Advanced
+
+`settings.advanced`: `anchor` (identifier, unique per rendered page), `css_classes` (validated
+list), `attributes` (allowlisted `data-*` names with string values; the whole `data-thallo-*`
+prefix is reserved and rejected), `accessibility.label`. `accessibility.role` is out of v1.
+
+### 1.5 Responsiveness
+
+A responsive property holds a sparse map over `base`, `md`, `lg`; any subset is valid.
+Thresholds are a platform contract, not a theme choice: `md` from 768px, `lg` from 1024px. The
+editor previews at 390, 768 and 1280 so each range is exercised. The active breakpoint is editor
+state (§3.4); the viewport width is presentation.
+
+### 1.6 The breakpoint-first cascade
+
+Layers in rising precedence: theme default, then each reusable class in list order, then the
+instance. For target breakpoint B:
+
+```
+for bp in [B, …, base]:
+    declarations = every layer's declaration made exactly at bp
+    if declarations is not empty:
+        take the highest-precedence layer's declaration
+        if it is reset: effective = theme default; stop
+        effective = its value; stop
+effective = theme default
+```
+
+Consequence, stated as a product rule: a lower-breakpoint declaration in a higher-precedence
+layer does not override an exact declaration at a larger breakpoint in a lower-precedence layer.
+An instance `base` of `sm` under a class with `md: xl` yields `sm` on mobile and `xl` from `md`
+up. "Small everywhere" sets `md` too; the editor offers "apply to all breakpoints". A reset
+terminates resolution at that breakpoint (Class A `md: xl`, Class B `md: lg`, instance `md:
+reset` gives the theme default at `md`) and a later breakpoint's explicit declaration still
+applies. Pinned in tests (`resolver-fixtures/v1/*.json`, §3.3):
+
+| reusable class | instance | base | md |
+|---|---|---|---|
+| base lg; md xl | base sm | sm | xl |
+| base lg; md xl | md sm | lg | sm |
+| base lg; md xl | base sm; md sm | sm | sm |
+| base lg; md xl | md reset | lg | theme md default |
+
+The compiler emits one managed class per property and breakpoint where the resolved managed
+cascade establishes a value, a `revert-layer` class where it resolves to reset, and nothing where
+no layer declares anything at that or any smaller breakpoint. External CSS (custom.css,
+`css_classes`) sits outside this guarantee by design.
+
+### 1.7 Capabilities and targets
+
+Each block type declares `style_capabilities` (property paths or groups) and `style_targets`: the
+named targets its template exposes, each with a layout kind (`text`, `row`, `stack`, `box`),
+optional flag, and the capability-to-target mapping. Advanced capabilities are targetable the
+same way and each has exactly one owner. Validation rejects a setting outside a block's
+capabilities and a capability mapped to a target of the wrong kind (`alignment.text` needs a
+text target; `alignment.content` a row target). A setting on an absent optional target is valid
+and dormant.
+
+Proof blocks: heading (one text root: spacing, alignment.text, typography, colors.text,
+visibility), button (root row: spacing, alignment.content, anchor, attributes; control: radius,
+colors, typography, accessibility.label), columns with nested blocks (independent nested
+styling, width inside tracks), hero with and without media (optional target).
+
+### 1.8 Conversion of existing style fields
+
+No compatibility layer (§7). Rule of thumb: a value that changes what a component *is* stays in
+`data` (hero `background` treatments, button `variant` and `size`, columns ratio); a value that
+changes how the selected component is *styled* moves to `settings`.
+
+## 2. Vocabulary and delivery
+
+### 2.1 Baseline vocabulary (platform-owned names)
+
+- `spacing`: `none, xs, sm, md, lg, xl, 2xl, 3xl`
+- `width`: `narrow, content, container, full`
+- `radius`: `none, sm, md, lg, full`
+- `color`: `background, surface, surface-2, text, muted, line, accent, accent-contrast, transparent`
+- `shadow`: `none, xs, sm, md, lg, xl`
+- `typography.size`: `xs, sm, md, lg, xl, 2xl, 3xl`
+
+Scales are ordinal only (`xs < sm < … < 3xl`); Thallo promises no pixel values or ratios.
+Extensions are out of v1: a document references baseline names only, so no theme can lack a
+referenced token.
+
+### 2.2 Theme mapping
+
+`theme.json` gains `vocabulary`, mapping every baseline name to a CSS value, which may be a
+`var()` reference to theme-private variables (this is how the corners and ground design settings
+keep re-mapping live). The compiled `--t-*` custom properties are the contract; theme-private
+variables are implementation details. A theme missing any baseline name fails validation at
+load, in the shipped-theme test, on theme switch and in `thallo:doctor`.
+
+`theme.json` also gains a `stylesheets` manifest. Thallo delivers all selector-bearing theme CSS
+inside `@layer theme` by building a layered theme artifact from that manifest; theme source files
+may not contain unmanaged `@import` or other stylesheet-level constructs the builder cannot place,
+and validation and fingerprinting apply to the served output. `!important` is forbidden in theme
+declarations on managed properties of styling targets.
+
+### 2.3 Layers and order
+
+A small external stylesheet loaded first declares `@layer theme, settings;`. Theme artifact:
+`@layer theme`. Compiled style artifact: `@layer settings`. The theme colours block is variables
+only (a test asserts it emits no selectors beyond `:root` and the dark root). Custom CSS is
+unlayered and last; it takes precedence over normal managed declarations, which is its job.
+Invariant: nothing after the compiled style artifact may emit selector rules except custom CSS.
+
+### 2.4 The compiled style artifact
+
+A pure function of the theme vocabulary, the vocabulary schema version and the compiler version,
+hashed from those three. Contents: the `--t-*` block; one utility per property, token and
+breakpoint; one `revert-layer` utility per property and breakpoint; source order base, then md,
+then lg (later breakpoint rules win when several min-width ranges match; order within a
+breakpoint is deterministic and carries no precedence). The compiler never emits `!important`
+or inline styles. Compiled at provision and before a theme switch activates; a failed compile
+blocks the switch.
+
+Lifecycle: publish the artifact, activate, purge rendered pages. Previous artifacts are retained
+(last three, minimum 24 hours) so HTML already in browsers can still fetch its stylesheet. The
+artifact hash joins the render cache's appearance fingerprint, so an in-flight render cannot
+repopulate the cache under the new key with old HTML. Recompiling the artifact, saving a reusable
+style class (§4.3), and switching or updating a theme each purge the render page cache through
+the existing tag.
+
+### 2.5 Template helpers and lint
+
+`style_classes(target)` returns the resolved utility classes for a target; `style_attrs(target)`
+returns only the attributes that target owns, escaped centrally. The shipped-templates lint gate
+checks: every declared target appears in the template; no undeclared target is used; every
+capability maps to a valid target of the right kind; each advanced capability has one owner; no
+template emits a `style=` attribute; theme sheets contain no unmanaged `@import`. The canvas
+wrapper is unchanged (`display: contents`, outside the block root).
+
+### 2.6 Browser floor and proofs
+
+The public-site floor is derived from every required feature. `color-mix()` (already required by
+the theme) sets it: Chrome 111, Firefox 113, Safari 16.2; cascade layers and `revert-layer` are
+older than that. Computed-style proofs (the §1.6 table against the button's real theme CSS, the
+secondary-variant reset, a responsive padding reset with base override, md reset and lg override)
+run in Chromium, Firefox and WebKit through Playwright; the tested matrix is stated next to the
+declared floor.
+
+The managed settings system never emits inline styles. The four templates that do today
+(heading colour, container background and max width, image, animated text) are converted in the
+same release. The theme colours block remains the one inline style.
+
+## 3. Editing architecture
+
+### 3.1 Operations
+
+History records intent. Each operation carries `op_id`, `transaction_id`, timestamp, session id,
+`from` and `to`, and is fully reversible on its own: removed and duplicated subtrees travel with
+the op, ids are allocated once and reused on redo, absent is distinct from null, moves record
+`{parent, slot, index}` for both ends, advanced settings have their own path. Set: `SetField`,
+`SetSetting`, `SetAdvanced`, `ApplyStyleClass`, `RemoveStyleClass`, `ReorderStyleClasses`,
+`DetachStyleClass`, `InsertBlock`, `InsertBlocks`, `RemoveBlock`, `MoveBlock`, `DuplicateBlock`,
+`SetPageSettings` (the persisted page fields; editor state never enters history). One pure
+applier per operation; the existing pure list operations become appliers.
+
+### 3.2 Transactions and history
+
+A committed transaction is normalised to the minimal semantic delta (one `SetSetting` sm→xl,
+one `SetField` "Hello"→"Hello world"). Boundaries: a slider drag is one transaction from pointer
+down to up; typing and inline editing commit after 500 ms idle or blur; IME composition never
+commits mid-composition; save and publish flush pending edits first; undo settles the active
+transaction; a cancelled interaction restores its start with no entry; new edits clear redo,
+replay does not. History is bounded by count (200) and bytes. Saved position is tracked apart
+from current position, so undoing past a save makes the document dirty again.
+
+### 3.3 One resolver, two runtimes
+
+The breakpoint-first resolver is a pure function in PHP and TypeScript with one versioned
+fixture set (`resolver-fixtures/v1/*.json`) that both must reproduce byte-equivalently; drift is
+a compatibility bug. The compiler (class emission) is server-only; the client never learns class
+names.
+
+### 3.4 Generated tabs
+
+Content: the data fields. Style: controls from `style_capabilities`, grouped as spacing, size,
+typography, colours, effects (radius, shadow, border), visibility; a token picks from an ordinal
+scale shown as a segmented control with the theme's value previewed; a choice is a segmented
+control; an identifier is validated text. Each responsive property shows a breakpoint indicator
+bound to the **active breakpoint** (editor state, synced to but not inferred from the viewport),
+and per breakpoint the effective value, its source, and a state of `explicit`, `inherited`,
+`theme-default` or `reset`, with reset and "apply to all breakpoints" one click each. Advanced:
+anchor, the ordered **Style classes** list (drag to reorder), **CSS classes**, attributes, label.
+The two class lists are never both called "Classes".
+
+### 3.5 Apply, revisions and fragments
+
+The apply endpoint keeps writing the session working copy. Three revisions are distinguished:
+local document, accepted working copy, displayed stage. Requests carry the base revision;
+responses name the revision rendered, the stage baseline the patch expects, and the site style
+generation (§4.3). Stale responses are dropped; a baseline mismatch refreshes from accepted
+state; a style-generation change forces re-resolution before inherited values are trusted.
+Apply validation failure is never presented as accepted; fragment render failure after a
+successful apply recovers by refresh.
+
+The server is authoritative for render roots: an operation yields affected blocks, the
+render-scope resolver yields minimal roots (self for field and setting changes; parent for
+insert, remove and duplicate; both parents for moves), ancestors absorb descendants so swaps
+never overlap. The whole-page path is forced by: a root-level structural change, an entry field
+outside block wrappers, any block on the page declaring a page dependency, a fragment needing an
+asset not yet loaded, or a template not verified for fragments. In v1 only the default theme's
+entry template is verified, by a test that renders every fixture block-by-block and whole-page
+and diffs them. The bridge keeps its protections during typing and dragging, validates targets
+before swapping, restores selection and handles runtime teardown after.
+
+Debounce defaults: 150 ms for settings and structure, 800 ms for text, with a maximum wait.
+The fragment system ships complete but disabled behind a flag. Activation requires, measured on
+the thallo.dev homepage at equal debounce for both paths, input-to-paint and request-to-paint
+median under 300 ms, p95 under 600 ms, median at most half the whole-page median, with fallback
+frequency recorded. Failure of this gate does not block the builder's functional release; the
+disabled subsystem still has implementation and maintenance cost.
+
+A state-transition contract (edit → apply → patch → acknowledge) is written with tests for undo
+during an in-flight apply, stale responses, root insertion, cross-container moves and validation
+failure.
+
+## 4. Global styles
+
+### 4.1 Style classes
+
+A site-owned (tenant or workspace scoped), theme-independent record `{id, version, name,
+description, style}` where `style` uses the §1 schema, sparse breakpoints and resets included. A
+class declares no capabilities or targets; applied to a block, each declaration lands only where
+the block has the capability and the rest is dormant, shown as such. Ids are stable; names are
+site-unique case-insensitively and freely renameable. Stored in `style_classes`, edited on its own
+admin page behind its own permission, exposed at `/v1/admin/style-classes`. Reference validation
+checks ownership, not mere existence.
+
+### 4.2 Precedence and resets
+
+As §1.6. No class-extends-class in v1; composition is the ordered list. A reset in a class
+suppresses lower-precedence managed declarations at that property and breakpoint and may be
+overridden by a later class or the instance; an instance reset bypasses all classes.
+
+### 4.3 Versions and generations
+
+Class saves use optimistic concurrency on `version`. A site style generation increments on every
+class save, rides in apply and fragment responses, joins the render cache fingerprint, and forces
+open editors to re-resolve. Saving a class changes published pages immediately; the editor says
+so and shows usage (active versus dormant per reference, counting drafts, published content,
+regions and retained revisions) before save.
+
+### 4.4 Override, clear, reset, detach
+
+Override: set an instance value (`explicit`). Clear: remove it (`inherited`). Reset: the §1.1
+value (`reset`). Detach: remove the reference while preserving every managed effective value at
+every breakpoint: resolve, remove, resolve again, write the previous result only where it changed,
+normalise. The UI states that materialised values stop following remaining classes; "Detach all
+style classes" is the simple freeze. All three of interactive, bulk and migration detach use the
+same pure detach transformation.
+
+### 4.5 Create, edit, delete
+
+"Save as style class" lifts explicit declarations only, never inherited or resolved ones; the
+record is created first, the reference is inserted last, a resolver comparison confirms the lift
+preserves appearance, and undo restores the block but never deletes the shared class. Deletion
+archives the definition so old revisions still restore; "detach everywhere" and "remove
+everywhere" (documented as not appearance-preserving) run as idempotent jobs pinned to a class
+version on the block-migration machinery, with the class locked against edits and new references
+until completion. Out of v1: class inheritance, theme-shipped classes (presets carry those),
+per-block-type classes.
+
+## 5. Structural editing
+
+### 5.1 One coordinator, three surfaces
+
+One drag coordinator owns drag state and operation generation, with adapters for the stage
+(pointer handling, hit testing, scrolling and geometry through the bridge, iframe-to-parent
+coordinate conversion, a drag session id, cancellation on iframe reload), the outline, and the
+inspector list (retained; its library is replaced only when parity is proven). Sources: palette,
+outline, stage. Every drop resolves to one operation or one transaction.
+
+### 5.2 Legality
+
+Hard structural invariants are always enforced everywhere: target slot exists, no cycles, depth,
+valid tree shape. The slot allow-list is authoring policy: the builder always enforces it;
+`enforce_block_types` remains the server-side switch that may relax it for API writes, so the
+builder is deliberately stricter than the API. Legality validates one complete candidate tree:
+destination depth plus one plus subtree height at most five; destination slot constraints and the
+resulting source slot; a multi-selection normalised to document order with destination indices
+interpreted against the tree with the moving set removed; a group commits whole or not at all.
+The rules are shared with the server validator through fixtures. Illegal drops show the reason.
+
+Depth rises from three to five (section, columns, card, button, icon), an explicit product change
+with the counting convention stated once per runtime and carried through validation, insertion,
+duplication, import, restore and rendering, justified by composition fixtures.
+
+### 5.3 Ephemeral drag and rejection
+
+The tree is untouched until drop: movement produces a proposal, drop creates the operation, cancel
+discards the session. A rejected apply never becomes an inverse history entry; locally valid
+later edits stay, the failure is reported, and automatic rollback happens only when the rejected
+transaction is still the unchanged history tip and the response matches its revision.
+
+### 5.4 Geometry
+
+Derived from real slot elements and rendered children, never the `display: contents` wrappers.
+The bridge reports `{parent, slot, index, rect, layout}` with `layout` in v1 one of
+`linear-vertical`, `linear-horizontal`; wrapped, grid, reversed and right-to-left slots fall back
+to outline placement with a visible hint. Empty slots render a labelled placeholder in canvas mode
+only, as geometry with no id and no document presence.
+
+### 5.5 Outline, selection, insertion, multi-select
+
+The outline reorders and reparents with the same rules. Selection synchronises across surfaces;
+keyboard focus stays with the active surface. Keyboard reparenting is an explicit "Move to…"
+action naming destination slot and position. Insertion is `InsertBlock(type, starter)` built by
+the server's block factory from schema defaults plus starter content (kept separate); root-level
+insertion takes the whole-page path. Multi-select is limited to siblings in one slot; group move,
+duplicate and remove are one transaction; style edits apply to the intersection of capabilities,
+one `SetSetting` per block in one transaction, with mixed values shown as mixed.
+
+### 5.6 Proofs
+
+Coordinator unit tests for op generation across every source and surface pair; bridge DOM tests
+for zone derivation on vertical, horizontal, wrapped and empty slots; browser proofs for a
+cross-container stage drop, an outline reparent, a rejected depth drop, a subtree whose root fits
+at depth five but whose deepest child would not, adjacent siblings moved downward in place,
+siblings moved across containers with index shift after removal, and cancellation (byte-identical
+tree, unchanged history, unchanged accepted revision).
+
+## 6. Composition
+
+A preset answers how a new block starts; a saved section answers which composition of blocks to
+insert; a style class answers how things look; a synchronised global component (later) answers
+which content stays the same everywhere.
+
+### 6.1 The envelope
+
+Every serialised composition (section, preset, clipboard, export) uses one self-describing
+envelope: `$thallo: "blocks"`, `format_version`, `settings_schema_version`, block schema versions,
+source-site identity, the blocks, and a dependency manifest: style classes (id, name, version,
+definition, fingerprint), assets (id, kind, name; no bytes), block types. Import, paste and
+insertion run one preflight: parse, validate, resolve dependencies by ownership and type,
+diagnostics, author confirmation, candidate tree, whole-candidate-tree legality, commit. Required
+unresolved references block; optional ones commit a defined transformation; nothing is silently
+dropped. Exported ids are references: a full site restore preserves ids; importing into another
+site allocates destination ids through a mapping table and rewrites references.
+
+Style classes across sites: an equal fingerprint maps automatically; otherwise the author decides
+per class (use destination, import as new, materialise, drop) with the destination appearance
+previewed. Names only suggest.
+
+### 6.2 Saved sections
+
+A site-owned, named, ordered list of sibling subtrees. Insertion is `InsertBlocks`: the server
+resolves the section into concrete blocks with allocated ids, validates them against the current
+document, and the operation records exactly those blocks; redo replays the payload. Copies carry
+no provenance and no link; rename, replace contents (worded as affecting future insertions only)
+and archive never touch pages. Saving from a selection: record first, then the operation; undo
+never deletes the record. Sections participate in block migrations and dependency scans.
+
+### 6.3 Presets
+
+A starter for one block type: starter content plus settings plus optional children, with
+origin-qualified identity `{origin: theme|site, id}`. Theme presets are JSON in the theme,
+validated at load and at insertion, read-only, and may carry managed settings but never site
+style classes or media-library assets. Site presets are authored from a selected block. Insertion
+is `InsertBlock(type, starter)` resolved by the server with the same validation and legality as
+sections.
+
+### 6.4 Copy and paste, export
+
+Copy writes the envelope to the system clipboard under a Thallo media type with a plain-text
+fallback whose root is the same `$thallo` JSON, so ordinary text or JSON is never mistaken for a
+composition. Paste is `InsertBlocks` after preflight. Saved sections and site presets are part of
+site export and import under the envelope.
+
+### 6.5 Previews
+
+Rendered by the fragment renderer against the active theme in a non-interactive sandbox with
+scripts off, under an explicit context contract: a block depending on an entry, route or region
+needs a chosen sample context or shows an unavailable state; nothing is fabricated.
+
+## 7. Migration and rollout
+
+### 7.1 A declared breaking change
+
+A Developer Preview release with no compatibility layer: block-level style fields are removed and
+converted; themes must declare a vocabulary and a stylesheet manifest; the conversion runs under
+the cutover contract below. Stated in the changelog and release notes.
+
+### 7.2 The conversion table
+
+Produced from the schema diff before Phase A ships and reviewed with its plan. Each removed field
+maps to one of: a settings property with an explicit translation (button `shape` → radius token;
+heading `align` → `alignment.text`; container and style padding and margin presets → spacing
+tokens by a stated table), block semantics that stay in `data`, or unmappable, which includes
+every raw hex and pixel value the container and style blocks accept today. There is no automatic
+"nearest step" for arbitrary values: an unmappable value requires an author-selected token, a
+documented transformation, or an explicit discard; if the tool proposes an approximation it shows
+the result and requires acceptance and counts it as lossy.
+
+### 7.3 The conversion command
+
+`thallo:blocks:convert-settings` on the block-migration machinery (the admin's in-progress gate
+holds while it runs). Scope: drafts, published documents, regions, retained revisions, and once
+they exist, saved sections and presets; historical versions stay restorable because the converter
+also stamps and converts them. Dry run writes the diagnostics report: entry, locale, block id,
+field, old value, status, reason, plus the source document revision hash and converter version.
+Decisions (choose a token, transform, discard) are recorded in a durable decisions file keyed by
+that hash; the live run consumes the file, refuses to complete while any diagnostic is unresolved,
+and invalidates any decision whose document changed since review. Idempotent, stamping converted
+documents with the settings schema version.
+
+### 7.4 Cutover contract
+
+1. Stage the candidate release and verify a restorable backup.
+2. Preflight content and themes with the candidate converter.
+3. Resolve every diagnostic; record decisions in the decisions file.
+4. Enter maintenance or write protection; verify the preflight is still current.
+5. Convert, build artifacts, verify, activate, reopen writes.
+
+Recovery after a partial conversion is restore-from-backup; idempotence helps retries but does
+not replace rollback. Provision may run the conversion automatically when the preflight is clean
+and must not bypass unresolved decisions or activate incompatible code after a partial run. A
+fresh install is the trivial case of this contract; thallo.dev takes that path.
+
+### 7.5 Theme migration
+
+The default theme gains `vocabulary`, the stylesheet manifest, targets in every block template,
+the four inline styles removed, and no `!important` on managed properties. A theme without a
+vocabulary fails to load with a named error; `thallo:doctor` reports it before activation. The
+theming guide documents the vocabulary, target and layer contracts.
+
+### 7.6 Gates and slices
+
+Every phase: full PHP suite, admin lint, type-check, format and vitest, the cross-engine proof
+suite, phpcs by exit code, boundaries, distribution smoke, skeleton smoke, clean-machine install
+from Packagist, and a thallo.dev upgrade or install. A phase does not start until the previous one
+has been dogfooded on thallo.dev with its gap list filed.
+
+Each published beta is internally complete: the beta that removes a field also ships its
+validators, templates, artifacts, editor support and reconstruction-path changes. The Phase A plan
+maps these indivisible slices before any beta number is assigned.
+
+Phases: A, §1–§3 (fragments shipped disabled); B, §4 and §5; C, §6; D, header and footer regions
+edited in the same stage.
+
+### 7.7 Recorded risks
+
+PHP and TypeScript resolver drift, held by the fixture contract. The fragment gate not being met,
+which does not block the functional release. Third-party themes (none yet) needing the manifest.
+The depth increase exposing untested nesting in existing templates, covered by the composition
+fixtures. Cross-engine differences in `revert-layer`, covered by the three-engine proofs.
