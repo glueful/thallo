@@ -368,7 +368,10 @@ Ancestors absorb descendants so swaps never overlap. A block type whose template
 children's data outside the children's wrappers declares `renders_children_inline` (today:
 accordion, tabs, stepper, gallery, pricing table, carousel), which lifts a child's root to that
 parent. Blocks that call `claim_priority_image()` (hero, image, blog posts) depend on page
-order; any operation touching one of them takes the whole-page path in v1. The whole-page path
+order. After ancestor lifting, every proposed render root and its descendants are inspected; if
+rendering any of them invokes page-order-dependent behaviour, the whole-page path is used, and
+lifting repeats until the roots are safe. Tested with a container padding change that re-renders
+an image inside it while an earlier priority image exists elsewhere on the page. The whole-page path
 is also forced by: a root-level structural change, an entry field outside block wrappers, any
 block on the page declaring a page dependency, a fragment needing an asset not yet loaded, or a
 template not verified for fragments. In v1 only the default theme's entry template is verified,
@@ -395,13 +398,17 @@ State transitions of the three revisions (L local, A accepted, D displayed):
 | apply validation failure | unchanged (edit stays local, reported) | unchanged | unchanged |
 | stale response (r < A) | unchanged | unchanged | unchanged, response dropped |
 | patch failure or baseline mismatch | unchanged | unchanged | refresh to A |
-| save | saved position = L | unchanged | unchanged |
+| save succeeds for submitted revision r | unchanged; saved position = r (not the current L) | unchanged | unchanged |
+| save fails | unchanged; saved position unchanged | unchanged | unchanged |
 | token renewal | unchanged | unchanged | unchanged, next apply uses the new token |
 
-Invariant: the document revision and the site style generation in a response describe the same
-rendering snapshot; the server reads dependencies and generation once per render. Tests cover
-undo during an in-flight apply, stale responses, root insertion, cross-container moves and
-validation failure.
+Invariant: class mutations and style-generation increments commit atomically. A render obtains a
+consistent dependency snapshot, or verifies that the generation is unchanged across its
+dependency reads and retries on change; response metadata and cache identity describe that same
+snapshot. The plan chooses the mechanism. Tests cover undo during an in-flight apply, stale
+responses, root insertion, cross-container moves, validation failure, a save of revision 10
+completing after an edit to revision 11 (11 stays dirty), and a concurrent class update during a
+render.
 
 ## 4. Global styles
 
