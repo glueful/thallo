@@ -5716,6 +5716,14 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                 }[]
+                /** @description Style capability paths or groups (visual builder §1.7); null = none. */
+                style_capabilities?: unknown[] | null
+                /** @description Named style targets and the capability → target map. */
+                style_targets?: unknown[] | null
+                /** @description `legacy_presentation`, `renders_children_inline`. */
+                flags?: boolean[] | null
+                /** @description Starter content for a freshly inserted block. */
+                starter_content?: unknown[] | null
               }[]
             }
           }
@@ -5885,6 +5893,14 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                 }[]
+                /** @description Style capability paths or groups (visual builder §1.7); null = none. */
+                style_capabilities?: unknown[] | null
+                /** @description Named style targets and the capability → target map. */
+                style_targets?: unknown[] | null
+                /** @description `legacy_presentation`, `renders_children_inline`. */
+                flags?: boolean[] | null
+                /** @description Starter content for a freshly inserted block. */
+                starter_content?: unknown[] | null
               }
             }
           }
@@ -6019,6 +6035,14 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                 }[]
+                /** @description Style capability paths or groups (visual builder §1.7); null = none. */
+                style_capabilities?: unknown[] | null
+                /** @description Named style targets and the capability → target map. */
+                style_targets?: unknown[] | null
+                /** @description `legacy_presentation`, `renders_children_inline`. */
+                flags?: boolean[] | null
+                /** @description Starter content for a freshly inserted block. */
+                starter_content?: unknown[] | null
               }
             }
           }
@@ -6302,6 +6326,14 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                 }[]
+                /** @description Style capability paths or groups (visual builder §1.7); null = none. */
+                style_capabilities?: unknown[] | null
+                /** @description Named style targets and the capability → target map. */
+                style_targets?: unknown[] | null
+                /** @description `legacy_presentation`, `renders_children_inline`. */
+                flags?: boolean[] | null
+                /** @description Starter content for a freshly inserted block. */
+                starter_content?: unknown[] | null
               }
             }
           }
@@ -6453,6 +6485,14 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                 }[]
+                /** @description Style capability paths or groups (visual builder §1.7); null = none. */
+                style_capabilities?: unknown[] | null
+                /** @description Named style targets and the capability → target map. */
+                style_targets?: unknown[] | null
+                /** @description `legacy_presentation`, `renders_children_inline`. */
+                flags?: boolean[] | null
+                /** @description Starter content for a freshly inserted block. */
+                starter_content?: unknown[] | null
               }
             }
           }
@@ -6587,6 +6627,14 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                 }[]
+                /** @description Style capability paths or groups (visual builder §1.7); null = none. */
+                style_capabilities?: unknown[] | null
+                /** @description Named style targets and the capability → target map. */
+                style_targets?: unknown[] | null
+                /** @description `legacy_presentation`, `renders_children_inline`. */
+                flags?: boolean[] | null
+                /** @description Starter content for a freshly inserted block. */
+                starter_content?: unknown[] | null
               }
             }
           }

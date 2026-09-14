@@ -35,6 +35,10 @@ const defaultTypes = (): BlockType[] => [
     category: 'Layout',
     description: null,
     active: true,
+    style_capabilities: null,
+    style_targets: null,
+    flags: { legacy_presentation: true },
+    starter_content: null,
     schema: [
       { name: 'heading', type: 'string', required: true, localized: false, filterable: false },
     ],
@@ -47,6 +51,10 @@ const defaultTypes = (): BlockType[] => [
     category: null,
     description: null,
     active: true,
+    style_capabilities: null,
+    style_targets: null,
+    flags: { legacy_presentation: true },
+    starter_content: null,
     schema: [{ name: 'text', type: 'text', required: false, localized: false, filterable: false }],
   },
   {
@@ -57,6 +65,10 @@ const defaultTypes = (): BlockType[] => [
     category: null,
     description: null,
     active: false,
+    style_capabilities: null,
+    style_targets: null,
+    flags: { legacy_presentation: true },
+    starter_content: null,
     schema: [],
   },
   {
@@ -67,6 +79,10 @@ const defaultTypes = (): BlockType[] => [
     category: 'Layout',
     description: null,
     active: true,
+    style_capabilities: null,
+    style_targets: null,
+    flags: { legacy_presentation: true },
+    starter_content: null,
     schema: [
       { name: 'content', type: 'blocks', required: false, localized: false, filterable: false },
     ],
@@ -87,6 +103,10 @@ const tabsTypes = (): BlockType[] => [
     category: 'Content',
     description: null,
     active: true,
+    style_capabilities: null,
+    style_targets: null,
+    flags: { legacy_presentation: true },
+    starter_content: null,
     schema: [
       {
         name: 'items',
@@ -106,6 +126,10 @@ const tabsTypes = (): BlockType[] => [
     category: 'Items',
     description: null,
     active: true,
+    style_capabilities: null,
+    style_targets: null,
+    flags: { legacy_presentation: true },
+    starter_content: null,
     schema: [
       { name: 'label', type: 'string', required: true, localized: false, filterable: false },
     ],
@@ -255,6 +279,10 @@ describe('BlocksField', () => {
         description: null,
         category: null,
         active: true,
+        style_capabilities: null,
+        style_targets: null,
+        flags: { legacy_presentation: true },
+        starter_content: null,
         schema: [
           {
             name: 'author',
@@ -513,6 +541,10 @@ describe('BlocksField', () => {
         category: 'Layout',
         description: null,
         active: true,
+        style_capabilities: null,
+        style_targets: null,
+        flags: { legacy_presentation: true },
+        starter_content: null,
         schema: [
           { name: 'menu', type: 'string', required: true, localized: false, filterable: false },
         ],
@@ -563,6 +595,10 @@ describe('BlocksField', () => {
         category: null,
         description: null,
         active: true,
+        style_capabilities: null,
+        style_targets: null,
+        flags: { legacy_presentation: true },
+        starter_content: null,
         schema: [
           { name: 'title', type: 'string', required: false, localized: false, filterable: false },
           {

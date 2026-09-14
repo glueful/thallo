@@ -24,6 +24,14 @@ export interface BlockType {
   description: string | null
   active: boolean
   schema: ContentTypeField[]
+  /** Style capability paths or groups (visual builder §1.7); null means none. */
+  style_capabilities: string[] | null
+  /** Named style targets and the capability → target map; null until declared. */
+  style_targets: Record<string, unknown> | null
+  /** `legacy_presentation` (Style controls withheld until conversion), `renders_children_inline`. */
+  flags: Record<string, boolean> | null
+  /** Starter content for a freshly inserted block. */
+  starter_content: Record<string, unknown> | null
 }
 
 export async function fetchBlockTypes(): Promise<BlockType[]> {

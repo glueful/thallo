@@ -38515,6 +38515,40 @@
                                                                         }
                                                                     }
                                                                 }
+                                                            },
+                                                            "style_capabilities": {
+                                                                "type": [
+                                                                    "array",
+                                                                    "null"
+                                                                ],
+                                                                "items": {},
+                                                                "description": "Style capability paths or groups (visual builder \u00a71.7); null = none."
+                                                            },
+                                                            "style_targets": {
+                                                                "type": [
+                                                                    "array",
+                                                                    "null"
+                                                                ],
+                                                                "items": {},
+                                                                "description": "Named style targets and the capability \u2192 target map."
+                                                            },
+                                                            "flags": {
+                                                                "type": [
+                                                                    "array",
+                                                                    "null"
+                                                                ],
+                                                                "items": {
+                                                                    "type": "boolean"
+                                                                },
+                                                                "description": "`legacy_presentation`, `renders_children_inline`."
+                                                            },
+                                                            "starter_content": {
+                                                                "type": [
+                                                                    "array",
+                                                                    "null"
+                                                                ],
+                                                                "items": {},
+                                                                "description": "Starter content for a freshly inserted block."
                                                             }
                                                         }
                                                     }
@@ -39091,6 +39125,40 @@
                                                                     }
                                                                 }
                                                             }
+                                                        },
+                                                        "style_capabilities": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {},
+                                                            "description": "Style capability paths or groups (visual builder \u00a71.7); null = none."
+                                                        },
+                                                        "style_targets": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {},
+                                                            "description": "Named style targets and the capability \u2192 target map."
+                                                        },
+                                                        "flags": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "description": "`legacy_presentation`, `renders_children_inline`."
+                                                        },
+                                                        "starter_content": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {},
+                                                            "description": "Starter content for a freshly inserted block."
                                                         }
                                                     }
                                                 }
@@ -39294,6 +39362,40 @@
                                                                     }
                                                                 }
                                                             }
+                                                        },
+                                                        "style_capabilities": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {},
+                                                            "description": "Style capability paths or groups (visual builder \u00a71.7); null = none."
+                                                        },
+                                                        "style_targets": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {},
+                                                            "description": "Named style targets and the capability \u2192 target map."
+                                                        },
+                                                        "flags": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "description": "`legacy_presentation`, `renders_children_inline`."
+                                                        },
+                                                        "starter_content": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {},
+                                                            "description": "Starter content for a freshly inserted block."
                                                         }
                                                     }
                                                 }
@@ -39963,6 +40065,40 @@
                                                                     }
                                                                 }
                                                             }
+                                                        },
+                                                        "style_capabilities": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {},
+                                                            "description": "Style capability paths or groups (visual builder \u00a71.7); null = none."
+                                                        },
+                                                        "style_targets": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {},
+                                                            "description": "Named style targets and the capability \u2192 target map."
+                                                        },
+                                                        "flags": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "description": "`legacy_presentation`, `renders_children_inline`."
+                                                        },
+                                                        "starter_content": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {},
+                                                            "description": "Starter content for a freshly inserted block."
                                                         }
                                                     }
                                                 }
@@ -40326,6 +40462,40 @@
                                                                     }
                                                                 }
                                                             }
+                                                        },
+                                                        "style_capabilities": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {},
+                                                            "description": "Style capability paths or groups (visual builder \u00a71.7); null = none."
+                                                        },
+                                                        "style_targets": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {},
+                                                            "description": "Named style targets and the capability \u2192 target map."
+                                                        },
+                                                        "flags": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "description": "`legacy_presentation`, `renders_children_inline`."
+                                                        },
+                                                        "starter_content": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {},
+                                                            "description": "Starter content for a freshly inserted block."
                                                         }
                                                     }
                                                 }
@@ -40657,6 +40827,40 @@
                                                                     }
                                                                 }
                                                             }
+                                                        },
+                                                        "style_capabilities": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {},
+                                                            "description": "Style capability paths or groups (visual builder \u00a71.7); null = none."
+                                                        },
+                                                        "style_targets": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {},
+                                                            "description": "Named style targets and the capability \u2192 target map."
+                                                        },
+                                                        "flags": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "description": "`legacy_presentation`, `renders_children_inline`."
+                                                        },
+                                                        "starter_content": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {},
+                                                            "description": "Starter content for a freshly inserted block."
                                                         }
                                                     }
                                                 }
