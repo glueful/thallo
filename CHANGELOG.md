@@ -26,6 +26,15 @@ as the next release, never a mutated tag.
   published entries, retained revisions and regions (the published revision counted once), each
   declared property active or dormant per block type — and says that published pages change
   immediately.
+- A block composes style classes from its Advanced tab: the Style classes list (kept apart from
+  CSS classes) applies a class from a picker of the site's classes, removes one, reorders by drag
+  and detaches one or all — a detach writes what the class contributed into the block at every
+  breakpoint, so the block keeps its look and stops following the class. The Style tab names the
+  class a value comes from, marks an applied class the site no longer holds as missing, and
+  offers Save as style class, which lifts the block's own declarations into a new class applied
+  last, once the resolver confirms the page looks the same. Every carrier of the style
+  generation — an apply, a stage refresh, a fragment swap — re-resolves inherited values when the
+  site's classes changed, and a detach or a lift refetches the classes first.
 
 ## [1.0.0-beta.30] - 2026-09-15
 
