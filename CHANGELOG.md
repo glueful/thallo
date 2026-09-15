@@ -7,6 +7,21 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.32] - 2026-09-15 — Developer Preview
+
+Visual builder Phase C.1: the Blocks tab is the Design page's one palette — every "add here"
+surface arms it, a click inserts at the armed target, and a new block drags from the tab onto
+the stage through the same coordinator and proposals as a move.
+
+### Upgrade Notes
+- The documented sequence applies (docs/upgrading.md): `composer update`, then
+  `php glueful thallo:provision`, then reload PHP-FPM so OPcache drops the previous release's
+  classes. No migrations, no new permissions; framework 1.85.8 remains the requirement.
+- The preview bridge changed (`thallo:block-add-after` carries the id alone; a session leaving
+  every slot posts a null proposal; `thallo:drag-drop` answers with the zone under the released
+  pointer). Provision publishes the new bridge with the admin bundle; a stage still holding the
+  old one reloads on the next apply.
+
 ### Added
 - The Blocks tab: the Design page's one palette. Every active block type as a tile in the
   picker's order (typing a block's name offers that block first); a click inserts at an armed
