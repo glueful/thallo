@@ -7,6 +7,8 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.30] - 2026-09-15
+
 ### Added
 - The hero's horizontal split is a choice: equal columns, a wider copy column or a wider media
   column (three fifths to two).
