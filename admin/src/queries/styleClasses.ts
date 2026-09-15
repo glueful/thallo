@@ -72,6 +72,40 @@ export function useStyleClassUsage(id: () => string) {
   })
 }
 
+export type StyleClassJobKind = 'detach' | 'remove'
+
+export interface StyleClassJob {
+  id: string
+  class_id: string
+  class_version: number
+  kind: StyleClassJobKind
+  status: 'running' | 'completed' | 'failed'
+  passes: number
+  work_items_total: number
+  work_items_done: number
+  work_items_failed: number
+  failure_report: { source: string; id: string; locale: string | null; reason: string }[]
+  created_at: string | null
+  finished_at: string | null
+}
+
+export async function fetchStyleClassJob(id: string, job: string): Promise<StyleClassJob> {
+  const { data, error, response } = await client.GET('/style-classes/{id}/jobs/{job}', {
+    params: { path: { id, job } },
+  })
+  if (error) throw toApiError(error, response)
+  return (data as unknown as { data: { job: StyleClassJob } }).data.job
+}
+
+/** One job's progress; `job` null = nothing to watch. */
+export function useStyleClassJob(id: () => string, job: () => string | null) {
+  return useQuery({
+    key: () => qk.styleClassJob(id(), job() ?? ''),
+    query: () => fetchStyleClassJob(id(), job()!),
+    enabled: () => job() !== null,
+  })
+}
+
 export interface StyleClassPayload {
   name: string
   description?: string | null
@@ -128,5 +162,24 @@ export function useStyleClassMutations() {
     onSettled: invalidate,
   })
 
-  return { create, update, archive, deleteUnreferenced }
+  /** Queue a detach-everywhere or remove-everywhere job (spec §4.5): the class locks until it completes. */
+  const queueJob = useMutation({
+    mutation: async ({
+      id,
+      kind,
+    }: {
+      id: string
+      kind: StyleClassJobKind
+    }): Promise<StyleClassJob> => {
+      const { data, error, response } = await client.POST('/style-classes/{id}/jobs', {
+        params: { path: { id } },
+        body: { kind } as never,
+      })
+      if (error) throw toApiError(error, response)
+      return (data as unknown as { data: { job: StyleClassJob } }).data.job
+    },
+    onSettled: invalidate,
+  })
+
+  return { create, update, archive, deleteUnreferenced, queueJob }
 }

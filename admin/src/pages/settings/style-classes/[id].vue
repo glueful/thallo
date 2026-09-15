@@ -1,8 +1,14 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ApiError, apiErrorCode, apiErrorDetails } from '@/api/errors'
-import { useStyleClasses, useStyleClassMutations, useStyleClassUsage } from '@/queries/styleClasses'
+import {
+  useStyleClasses,
+  useStyleClassJob,
+  useStyleClassMutations,
+  useStyleClassUsage,
+  type StyleClassJobKind,
+} from '@/queries/styleClasses'
 import { useNotify } from '@/composables/useNotify'
 import StyleClassEditor from './components/StyleClassEditor.vue'
 import StyleClassSaveDialog from './components/StyleClassSaveDialog.vue'
@@ -15,7 +21,7 @@ const id = computed(() => String(route.params.id))
 
 const { data: list, status, refetch } = useStyleClasses()
 const styleClass = computed(() => (list.value?.classes ?? []).find((c) => c.id === id.value))
-const { update } = useStyleClassMutations()
+const { update, archive, queueJob } = useStyleClassMutations()
 const { data: usage, refetch: refetchUsage } = useStyleClassUsage(() => id.value)
 
 const name = ref('')
@@ -38,6 +44,65 @@ watch(
   },
   { immediate: true },
 )
+
+/**
+ * The everywhere-jobs (spec §4.5): the class locks until the job completes. `detach` keeps how
+ * every block looks; `remove` changes how pages look. Progress is polled while it runs.
+ */
+const jobKind = ref<StyleClassJobKind | null>(null)
+const jobId = ref<string | null>(null)
+const locked = computed(() => (styleClass.value?.locked_by_job ?? null) !== null)
+const { data: job, refetch: refetchJob } = useStyleClassJob(
+  () => id.value,
+  () => jobId.value ?? styleClass.value?.locked_by_job ?? null,
+)
+let poll: ReturnType<typeof setInterval> | null = null
+function stopPolling() {
+  if (poll !== null) clearInterval(poll)
+  poll = null
+}
+watch(
+  () => job.value?.status,
+  (status) => {
+    if (status === 'running' && poll === null) {
+      poll = setInterval(() => {
+        void refetchJob()
+        void refetch()
+      }, 1500)
+    }
+    if (status !== undefined && status !== 'running') {
+      stopPolling()
+      void refetch()
+    }
+  },
+  { immediate: true },
+)
+onBeforeUnmount(stopPolling)
+
+async function runEverywhere() {
+  const kind = jobKind.value
+  if (kind === null) return
+  try {
+    const queued = await queueJob.mutateAsync({ id: id.value, kind })
+    jobId.value = queued.id
+    jobKind.value = null
+    success(
+      kind === 'detach' ? 'Detaching everywhere' : 'Removing everywhere',
+      'The class is locked until the job completes.',
+    )
+  } catch (e) {
+    notifyError(e, 'Couldn’t queue the job')
+  }
+}
+
+async function onArchive() {
+  try {
+    await archive.mutateAsync(id.value)
+    success('Style class archived', 'Old revisions that reference it still restore.')
+  } catch (e) {
+    notifyError(e, 'Couldn’t archive the style class')
+  }
+}
 
 const confirming = ref(false)
 async function askToSave() {
@@ -87,7 +152,17 @@ async function onSave() {
         </template>
         <template #right>
           <UButton
-            :disabled="!styleClass || styleClass.locked_by_job !== null"
+            v-if="styleClass && !styleClass.archived"
+            variant="ghost"
+            color="warning"
+            :disabled="locked"
+            data-test="style-class-archive"
+            @click="onArchive"
+          >
+            Archive
+          </UButton>
+          <UButton
+            :disabled="!styleClass || locked"
             data-test="style-class-save"
             @click="askToSave"
           >
@@ -130,12 +205,87 @@ async function onSave() {
               <p class="text-xs text-muted">Version {{ loadedVersion }}</p>
             </div>
           </UCard>
+          <UCard class="lg:col-span-3">
+            <template #header><h2 class="font-semibold text-default">Everywhere</h2></template>
+            <div class="space-y-3 text-sm">
+              <p class="text-muted">
+                Archiving keeps the definition so old revisions still restore. These jobs walk every
+                draft, published entry, retained revision and region; the class is locked until they
+                complete.
+              </p>
+              <div class="flex flex-wrap gap-2">
+                <UButton
+                  variant="outline"
+                  color="neutral"
+                  :disabled="locked"
+                  data-test="style-class-detach-everywhere"
+                  @click="jobKind = 'detach'"
+                >
+                  Detach everywhere
+                </UButton>
+                <UButton
+                  variant="outline"
+                  color="warning"
+                  :disabled="locked"
+                  data-test="style-class-remove-everywhere"
+                  @click="jobKind = 'remove'"
+                >
+                  Remove everywhere — changes how pages look
+                </UButton>
+              </div>
+              <div v-if="job" class="rounded border border-default p-3" data-test="style-class-job">
+                <p class="font-medium text-default">
+                  {{ job.kind === 'detach' ? 'Detach everywhere' : 'Remove everywhere' }} —
+                  {{ job.status }}
+                </p>
+                <p class="text-xs text-muted">
+                  Pass {{ job.passes }}: {{ job.work_items_done }} of
+                  {{ job.work_items_total }} documents done, {{ job.work_items_failed }} refused
+                </p>
+                <ul v-if="job.failure_report.length" class="mt-1 space-y-0.5 text-xs text-muted">
+                  <li v-for="(f, i) in job.failure_report" :key="i">
+                    {{ f.source }} {{ f.id }}: {{ f.reason }}
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </UCard>
           <UCard class="lg:col-span-2">
             <template #header><h2 class="font-semibold text-default">Style</h2></template>
             <StyleClassEditor v-model="style" />
           </UCard>
         </div>
       </div>
+      <UModal
+        :open="jobKind !== null"
+        :title="jobKind === 'detach' ? 'Detach everywhere?' : 'Remove everywhere?'"
+        data-test="style-class-job-dialog"
+        @update:open="(v: boolean) => (jobKind = v ? jobKind : null)"
+      >
+        <template #body>
+          <p class="text-sm text-default">
+            {{
+              jobKind === 'detach'
+                ? 'Every block keeps how it looks: what this class contributes is written into each block, and the reference is removed.'
+                : 'The reference is removed from every block and nothing is written in its place: pages change how they look.'
+            }}
+            The class is locked until the job completes.
+          </p>
+        </template>
+        <template #footer>
+          <div class="flex w-full justify-end gap-2">
+            <UButton variant="ghost" color="neutral" @click="jobKind = null">Cancel</UButton>
+            <UButton
+              :color="jobKind === 'remove' ? 'warning' : 'primary'"
+              :loading="queueJob.isLoading.value"
+              data-test="style-class-job-confirm"
+              @click="runEverywhere"
+            >
+              {{ jobKind === 'detach' ? 'Detach everywhere' : 'Remove everywhere' }}
+            </UButton>
+          </div>
+        </template>
+      </UModal>
       <StyleClassSaveDialog
         v-model:open="confirming"
         :name="name"

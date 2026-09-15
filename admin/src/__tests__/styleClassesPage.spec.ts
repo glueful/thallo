@@ -10,15 +10,19 @@ const usage = ref<StyleClassUsage | null>(null)
 const mutate = vi.fn()
 const archiveMutate = vi.fn()
 const refetch = vi.fn()
+const queueMutate = vi.fn()
+const job = ref<Record<string, unknown> | null>(null)
 const notify = { success: vi.fn(), error: vi.fn() }
 
 vi.mock('@/queries/styleClasses', () => ({
   useStyleClasses: () => ({ data: list, status: ref('success'), refetch }),
   useStyleClassUsage: () => ({ data: usage, refetch: vi.fn() }),
+  useStyleClassJob: () => ({ data: job, refetch: vi.fn() }),
   useStyleClassMutations: () => ({
     create: { mutateAsync: mutate, isLoading: ref(false) },
     update: { mutateAsync: mutate, isLoading: ref(false) },
     archive: { mutateAsync: archiveMutate, isLoading: ref(false) },
+    queueJob: { mutateAsync: queueMutate, isLoading: ref(false) },
   }),
 }))
 vi.mock('@/queries/styleSchema', () => ({
@@ -90,7 +94,9 @@ describe('style classes page', () => {
       classes: [band, { ...band, id: 'old000000001', name: 'Old', archived: true }],
     }
     usage.value = null
+    job.value = null
     mutate.mockReset()
+    queueMutate.mockReset()
     archiveMutate.mockReset()
     notify.error.mockReset()
   })
@@ -144,6 +150,39 @@ describe('style classes page', () => {
     expect(mutate).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'band00000001', version: 3, name: 'Hero band' }),
     )
+    wrapper.unmount()
+  })
+
+  it('detach everywhere asks, queues the job, and the form locks while it runs', async () => {
+    queueMutate.mockResolvedValue({ id: 'job00000001', status: 'running', kind: 'detach' })
+    const r = router('/settings/style-classes/band00000001')
+    await r.isReady()
+    const wrapper = mount(EditPage, { global: { plugins: [r] }, attachTo: document.body })
+    await flushPromises()
+    await wrapper.find('[data-test="style-class-detach-everywhere"]').trigger('click')
+    await flushPromises()
+    ;(document.body.querySelector('[data-test="style-class-job-confirm"]') as HTMLElement).click()
+    await flushPromises()
+    expect(queueMutate).toHaveBeenCalledWith({ id: 'band00000001', kind: 'detach' })
+
+    list.value = { generation: 5, classes: [{ ...band, locked_by_job: 'job00000001' }] }
+    job.value = {
+      id: 'job00000001',
+      class_id: 'band00000001',
+      kind: 'detach',
+      status: 'running',
+      passes: 1,
+      work_items_total: 6,
+      work_items_done: 2,
+      work_items_failed: 0,
+      failure_report: [],
+    }
+    await flushPromises()
+    expect(wrapper.find('[data-test="style-class-job"]').text()).toContain('2 of 6')
+    expect(wrapper.find('[data-test="style-class-save"]').attributes('disabled')).toBeDefined()
+    expect(
+      wrapper.find('[data-test="style-class-remove-everywhere"]').attributes('disabled'),
+    ).toBeDefined()
     wrapper.unmount()
   })
 

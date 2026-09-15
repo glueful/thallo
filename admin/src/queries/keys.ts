@@ -21,6 +21,7 @@ export const qk = {
   styleSchema: () => ['style-schema'] as const,
   styleClasses: () => ['style-classes'] as const,
   styleClassUsage: (id: string) => ['style-class-usage', id] as const,
+  styleClassJob: (id: string, job: string) => ['style-class-job', id, job] as const,
   blockTypeUsage: (slug: string) => ['block-type-usage', slug] as const,
   blockTypeMigrations: (slug: string) => ['block-type-migrations', slug] as const,
   entries: (type: string) => ['entries', type] as const,

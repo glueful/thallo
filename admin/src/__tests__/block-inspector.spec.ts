@@ -206,6 +206,15 @@ describe('AdvancedTab', () => {
     expect(a.text()).toContain('CSS classes')
     const pickable = (a.vm as unknown as { pickable: { value: string }[] }).pickable
     expect(pickable.map((o) => o.value)).toEqual(['fresh'])
+    const busy = mount(AdvancedTab, {
+      props: {
+        block: { id: 'h', type: 'heading', data: {}, settings: { classes: ['busy'] } },
+        classNames: { busy: 'Busy' },
+        classOptions: [{ id: 'busy', name: 'Busy', archived: false, locked: true }],
+      },
+    })
+    expect(busy.find('[data-test="style-class-locked"]').text()).toContain('job running')
+    expect(busy.find('[data-test="style-class-detach-busy"]').attributes('disabled')).toBeDefined()
 
     await a.find('[data-test="style-class-detach-band"]').trigger('click')
     expect(a.emitted('detach-class')?.[0]).toEqual(['band'])
