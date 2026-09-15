@@ -35,6 +35,15 @@ as the next release, never a mutated tag.
   last, once the resolver confirms the page looks the same. Every carrier of the style
   generation — an apply, a stage refresh, a fragment swap — re-resolves inherited values when the
   site's classes changed, and a detach or a lift refetches the classes first.
+- A style class has a lifecycle: archiving keeps the definition so old revisions still restore;
+  "Detach everywhere" writes what the class contributed into every block that carries it and
+  removes the reference, "Remove everywhere" removes the reference only and is labelled as
+  changing how pages look. Both run as idempotent, pass-based queue jobs pinned to the class
+  version they were queued against, holding the class locked until completion — no edit and no
+  newly authored reference meanwhile, checked inside every document write — with a CLI
+  counterpart (`thallo:style-classes:run-job`). Regions and retained versions now carry a lock
+  version and every source persists through a conditional write, so a concurrent change is a
+  refused write, never a lost one.
 
 ## [1.0.0-beta.30] - 2026-09-15
 
