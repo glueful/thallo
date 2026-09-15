@@ -13,9 +13,11 @@ as the next release, never a mutated tag.
   shop's pages stayed as they were for up to the cache TTL after a publish, a menu, region,
   template or theme change; on such a driver every rendered page is dropped instead
   (`RenderedPageCachePurge`, bound by the render pack and used by core and the packs).
-- The code block's corners and shadow land where the theme paints them: the framed figure is
-  the block's `panel` style target (spacing and width stay on the root), so "Corners: none"
-  squares the frame. The snippet wraps long lines instead of scrolling sideways, and the Copy
+- Corners and shadow land where the theme paints them. The code block's framed figure, the
+  cta's inner box (colours and border too) and the video's frame are their blocks' `panel` and
+  `frame` style targets, and the hero's media box carries its own corners and shadow, so
+  "Corners: none" and a shadow choice take effect on every one of them. The code block's
+  spacing and width stay on its root. The snippet wraps long lines instead of scrolling sideways, and the Copy
   button shows in the design canvas as it does on the page.
 - The stage patches in place again after an apply. Since the revision pair joined `<main>`,
   every post-apply refresh compared page shells that differed only by that pair, answered
