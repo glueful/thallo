@@ -3,12 +3,15 @@ import type { ComponentPublicInstance } from 'vue'
 import type { FieldDef } from '@/fields/types'
 import type { BlockType } from '@/queries/blockTypes'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
+import type { Position } from '@/editor/ops/types'
 import { fieldComponent } from '@/fields/registry'
 
 defineProps<{
   schema: FieldDef[]
   /** Server-side validation messages keyed by field name (ApiError.fieldErrors), shown under each field. */
   errors?: Record<string, string>
+  /** Hosted by the Design page: blocks fields arm the Blocks tab instead of opening a menu. */
+  paletteInsert?: boolean
 }>()
 // The draft's field values, keyed by field name. We reassign (not mutate in place) on each field
 // change so defineModel emits update:modelValue with the full record.
@@ -34,7 +37,10 @@ interface BlocksFieldExposed {
 }
 
 /** A blocks field's modified header click: the page's selection intent (spec §5.5). */
-const emit = defineEmits<{ select: [id: string, modifiers: { shift: boolean; meta: boolean }] }>()
+const emit = defineEmits<{
+  select: [id: string, modifiers: { shift: boolean; meta: boolean }]
+  'insert-request': [position: Position]
+}>()
 
 const blocksFields = new Map<string, BlocksFieldExposed>()
 
@@ -84,9 +90,6 @@ defineExpose({
   insertAfterById(id: string, typeSlug: string): Promise<string | null> {
     return fieldOwning(id)?.insertAfter(id, typeSlug) ?? Promise.resolve(null)
   },
-  pickerTypesForBlock(id: string): BlockType[] {
-    return fieldOwning(id)?.pickerTypesFor(id) ?? []
-  },
   patchBlockDataById(id: string, field: string, value: unknown) {
     return fieldOwning(id)?.patchBlockData(id, field, value) ?? false
   },
@@ -112,7 +115,9 @@ defineExpose({
         "
         :model-value="model[field.name]"
         :field="field"
+        :palette-insert="field.type === 'blocks' ? paletteInsert : undefined"
         @update:model-value="(v: unknown) => (model = { ...model, [field.name]: v })"
+        @insert-request="(p: Position) => emit('insert-request', p)"
         @select="
           (id: string, modifiers: { shift: boolean; meta: boolean }) =>
             emit('select', id, modifiers)

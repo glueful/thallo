@@ -3,7 +3,6 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useContentTypes } from '@/queries/contentTypes'
 import { MAX_BLOCK_DEPTH, useBlockTypes } from '@/queries/blockTypes'
-import type { BlockType } from '@/queries/blockTypes'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import { proseRichFieldName } from '@/fields/components/blocks/proseDetection'
 import { useDraft, useSaveDraft } from '@/queries/drafts'
@@ -54,7 +53,13 @@ import {
 import type { Breakpoint, StyleValue } from '@/style/types'
 import BlockInspector from '@/editor/inspector/BlockInspector.vue'
 import { invertOperation } from '@/editor/ops/invert'
-import type { ChangeValue, EditorDocument, Operation, OperationBody } from '@/editor/ops/types'
+import type {
+  ChangeValue,
+  EditorDocument,
+  Operation,
+  OperationBody,
+  Position,
+} from '@/editor/ops/types'
 import type {
   BridgeAnchor,
   EditKind,
@@ -323,7 +328,6 @@ interface FieldEditorExposed {
   duplicateBlockById: (id: string) => { newId: string; idMap: Record<string, string> } | null
   deleteBlockById: (id: string) => boolean
   insertAfterById: (id: string, typeSlug: string) => Promise<string | null>
-  pickerTypesForBlock: (id: string) => BlockType[]
   patchBlockDataById: (id: string, field: string, value: unknown) => boolean
   blockTypeOfBlock: (id: string) => string | null
 }
@@ -733,75 +737,11 @@ function confirmDelete(): void {
   }
 }
 
-// Add-after: parent-side picker over the CONTAINING list's rules (spec §5).
-// No mirror — the new block appears in the stage on the next Apply.
-const addAfterId = ref<string | null>(null)
-const addAfterTypes = ref<BlockType[]>([])
 const stageEl = ref<HTMLElement | null>(null)
-// The + button's rect from the bridge intent (iframe-viewport coordinates);
-// null = no rect rode along (the popover anchors to the stage top instead).
-const addAfterAnchor = ref<{ x: number; y: number } | null>(null)
-// Virtual reference element for UPopover (Reka/floating-ui accepts anything
-// with getBoundingClientRect): translates the in-iframe anchor to PARENT
-// viewport coordinates live, so collision flipping/shifting is floating-ui's
-// job — no hand-rolled clamping.
-const addAfterReference = computed(() => ({
-  getBoundingClientRect: (): DOMRect => {
-    const ifr = iframeEl.value?.getBoundingClientRect()
-    const a = addAfterAnchor.value
-    if (ifr && a) return new DOMRect(ifr.left + a.x, ifr.top + a.y, 0, 0)
-    if (ifr) return new DOMRect(ifr.left + ifr.width / 2, ifr.top + 12, 0, 0)
-    return new DOMRect(window.innerWidth / 2, 64, 0, 0)
-  },
-}))
 
-// Type-to-filter (same semantics as the editor's BlockInsertMenu): matches
-// label/slug/description, Enter picks the first match, Escape cancels.
-const addAfterFilter = ref('')
-const filteredAddTypes = computed(() => {
-  const q = addAfterFilter.value.trim().toLowerCase()
-  if (q === '') return addAfterTypes.value
-  return addAfterTypes.value.filter(
-    (t) =>
-      t.label.toLowerCase().includes(q) ||
-      t.slug.toLowerCase().includes(q) ||
-      (t.description ?? '').toLowerCase().includes(q),
-  )
-})
-
-function onAddFilterKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') {
-    e.preventDefault()
-    cancelAddAfter()
-  }
-  if (e.key === 'Enter') {
-    e.preventDefault()
-    const first = filteredAddTypes.value[0]
-    if (first) chooseAddType(first.slug)
-  }
-}
-
-// Autofocus the filter when the picker opens (jsdom-safe: focus() no-ops).
-const vFocus = { mounted: (el: HTMLElement) => el.focus() }
-
-bridge.onBlockAddAfter((id, anchor) => {
-  addAfterTypes.value = fieldEditorRef.value?.pickerTypesForBlock(id) ?? []
-  addAfterFilter.value = '' // fresh search per open
-  addAfterAnchor.value = anchor ? { x: anchor.x, y: anchor.y } : null
-  addAfterId.value = id
-})
-
-function cancelAddAfter(): void {
-  addAfterId.value = null
-}
-
-async function chooseAddType(slug: string): Promise<void> {
-  const id = addAfterId.value
-  addAfterId.value = null
-  if (id === null) return
-  const newId = (await fieldEditorRef.value?.insertAfterById(id, slug)) ?? null
-  if (newId !== null) selectOne(newId)
-}
+// Every "add here" surface arms the Blocks tab (Phase C.1): the stage +, the list's gaps and Add
+// block, the card header's /, and the outline's empty slots. No popover, no anchoring.
+bridge.onBlockAddAfter((id) => armInsertTarget({ kind: 'after', block: id }))
 
 // ── Edit-in-place (edit-in-place spec §4): grant prose blocks only; typed
 // text patches the tree — no mirrors, the contenteditable IS the stage DOM.
@@ -909,6 +849,12 @@ function paletteClickable(slug: string): Legality {
   return at
     ? tilePreflight(slug, at.position, currentDoc(), legalityContext())
     : { ok: false, reason: 'no-slot', message: 'Nowhere to insert' }
+}
+function armInsertTarget(target: InsertTarget): void {
+  insertTarget.value = target
+  targetStale.value = false
+  insertAttempt++
+  inspectorTab.value = 'blocks'
 }
 /** Clear the armed target; every selection change and every arming ends the attempt in flight. */
 function clearInsertTarget(): void {
@@ -2003,7 +1949,16 @@ function reloadStage(): void {
               />
             </template>
             <template #content>
-              <FieldEditor ref="fieldEditorRef" v-model="fields" :schema="schema" />
+              <FieldEditor
+                ref="fieldEditorRef"
+                v-model="fields"
+                :schema="schema"
+                palette-insert
+                @insert-request="
+                  (p: Position) =>
+                    armInsertTarget({ kind: 'at', position: p, sequence: historySequence })
+                "
+              />
             </template>
             <template #blocks>
               <div class="pt-2">
@@ -2031,6 +1986,10 @@ function reloadStage(): void {
                   @deselect="onOutlineDeselect"
                   @drop="(id: string, zone: DropZone) => runDrop('outline', id, zone)"
                   @move-to="(id: string) => (moveToId = id)"
+                  @insert-request="
+                    (parent: string, slot: string) =>
+                      armInsertTarget({ kind: 'into', parent, field: slot })
+                  "
                 />
                 <MoveToDialog
                   :open="moveToId !== null"
@@ -2231,73 +2190,6 @@ function reloadStage(): void {
             </div>
           </div>
         </div>
-
-        <!-- Add-after picker (stage-toolbar spec §5): a UPopover anchored to a
-             VIRTUAL reference built from the bridge's + button rect (iframe →
-             parent viewport translation) — floating-ui owns collision
-             flipping/shifting. Lives OUTSIDE the stage's overflow container;
-             portal=false keeps the content findable in jsdom specs. -->
-        <UPopover
-          :open="!!addAfterId"
-          :reference="addAfterReference"
-          :portal="false"
-          :content="{ side: 'bottom', align: 'start', sideOffset: 8 }"
-          @update:open="
-            (v: boolean) => {
-              if (!v) cancelAddAfter()
-            }
-          "
-        >
-          <template #content>
-            <div class="w-64 p-2" data-test="canvas-add-picker">
-              <p class="mb-1 px-1 text-xs font-semibold uppercase tracking-wide text-muted">
-                Add block after
-              </p>
-              <input
-                v-focus
-                v-model="addAfterFilter"
-                type="text"
-                placeholder="Filter blocks…"
-                class="mb-1 w-full rounded border border-default bg-transparent px-2 py-1 text-sm outline-none"
-                data-test="canvas-add-filter"
-                @keydown="onAddFilterKeydown"
-              />
-              <!-- Internal scroll (30 seeded types); filter + Cancel stay pinned. -->
-              <div
-                class="max-h-64 overflow-y-auto overscroll-contain"
-                data-test="canvas-add-scroll"
-              >
-                <div class="grid grid-cols-2 gap-1">
-                  <button
-                    v-for="t in filteredAddTypes"
-                    :key="t.slug"
-                    class="flex flex-col items-center gap-1 rounded px-2 py-1.5 text-center text-xs hover:bg-elevated"
-                    type="button"
-                    :data-test="`canvas-add-type-${t.slug}`"
-                    @click="chooseAddType(t.slug)"
-                  >
-                    <UIcon :name="t.icon || 'i-lucide-box'" class="size-4 text-muted" />
-                    <span class="truncate font-medium">{{ t.label }}</span>
-                  </button>
-                </div>
-                <p v-if="!filteredAddTypes.length" class="px-2 py-1.5 text-sm text-muted">
-                  No block types available here.
-                </p>
-              </div>
-              <div class="mt-1 flex justify-end">
-                <UButton
-                  size="xs"
-                  variant="ghost"
-                  color="neutral"
-                  data-test="canvas-add-cancel"
-                  @click="cancelAddAfter()"
-                >
-                  Cancel
-                </UButton>
-              </div>
-            </div>
-          </template>
-        </UPopover>
       </div>
     </template>
   </UDashboardPanel>

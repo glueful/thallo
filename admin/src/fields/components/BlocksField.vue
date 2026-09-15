@@ -5,7 +5,7 @@ import { toFieldDef } from '../normalize'
 import type { LegalityContext } from '@/editor/structure/legality'
 import { createDragCoordinator } from '@/editor/structure/coordinator'
 import { createOperationApplier } from '@/editor/ops/apply'
-import type { Operation, OperationBody } from '@/editor/ops/types'
+import type { Operation, OperationBody, Position } from '@/editor/ops/types'
 import { useBlockTypes } from '@/queries/blockTypes'
 import { useBlockFactory } from '@/queries/blockFactory'
 import { useNotify } from '@/composables/useNotify'
@@ -22,8 +22,12 @@ import BlockOutlineRail from './blocks/BlockOutlineRail.vue'
 // BlockList. Container regions recurse through BlockList INSIDE this tree — the
 // registry only ever mounts BlocksField for entry-level fields. `depth` is kept
 // for the registry contract; nesting depth is tracked through BlockList.
-const props = defineProps<{ field: FieldDef; depth?: number }>()
-const emit = defineEmits<{ select: [id: string, modifiers: { shift: boolean; meta: boolean }] }>()
+const props = defineProps<{ field: FieldDef; depth?: number; paletteInsert?: boolean }>()
+const emit = defineEmits<{
+  select: [id: string, modifiers: { shift: boolean; meta: boolean }]
+  /** A gap, Add block or the header `/` in the Design page: arm the Blocks tab here (Phase C.1). */
+  'insert-request': [position: Position]
+}>()
 const model = defineModel<BlockInstance[]>({ default: () => [] })
 
 const { data: allTypes } = useBlockTypes()
@@ -227,6 +231,8 @@ const context: BlocksContext = {
   expanded,
   selectBlock,
   selectIntent: (id, modifiers) => emit('select', id, modifiers),
+  fieldName: props.field.name,
+  insertIntent: props.paletteInsert ? (position) => emit('insert-request', position) : null,
   dragGroup: `blocks-${newBlockId()}`,
   onDragEnd,
   dragVersion,

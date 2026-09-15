@@ -51,6 +51,8 @@ const emit = defineEmits<{
   drop: [id: string, zone: OutlineZone]
   /** Keyboard reparenting: open "Move to…" for the selected block. */
   moveTo: [id: string]
+  /** An empty-slot row clicked: arm the Blocks tab into that slot (Phase C.1). */
+  insertRequest: [parent: string, slot: string]
 }>()
 
 // Keyboard twin of the stage scheme (polish batch §4): acts on the SELECTED
@@ -221,15 +223,17 @@ defineExpose({ onDragEnd })
             <UIcon :name="row.icon" class="size-3.5 shrink-0 text-muted" />
             <span class="truncate">{{ row.label }}</span>
           </button>
-          <p
+          <button
             v-else
-            class="rounded border border-dashed border-default px-2 py-1 text-xs text-muted"
+            type="button"
+            class="block w-full rounded border border-dashed border-default px-2 py-1 text-left text-xs text-muted hover:bg-elevated"
             :style="{ marginLeft: `${8 + row.depth * 16}px` }"
             data-outline-slot="1"
             :data-test="`canvas-outline-slot-${row.zone.parent}-${row.zone.slot}`"
+            @click="emit('insertRequest', row.zone.parent!, row.zone.slot!)"
           >
             {{ row.label }}
-          </p>
+          </button>
         </template>
       </VueDraggable>
       <p v-if="!group.rows.length" class="px-2 py-1 text-xs text-muted">No blocks.</p>

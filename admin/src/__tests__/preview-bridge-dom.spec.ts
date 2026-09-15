@@ -149,9 +149,8 @@ describe('preview bridge (direct eval)', () => {
     expect(del.rect).toMatchObject({ x: expect.any(Number), y: expect.any(Number) })
     click('add-after')
     const addAfter = lastPost('thallo:block-add-after')!
-    expect(addAfter).toMatchObject({ id: 'blk-int-0001' })
-    // The + button's rect rides along so the parent can anchor its picker.
-    expect(addAfter.rect).toMatchObject({ x: expect.any(Number), y: expect.any(Number) })
+    // The id alone: the Blocks tab arms "after this block" and needs no anchor (Phase C.1).
+    expect(addAfter).toEqual({ type: 'thallo:block-add-after', id: 'blk-int-0001', nonce: NONCE })
     expect(lastPost('thallo:block-select')).toBeUndefined()
   })
 

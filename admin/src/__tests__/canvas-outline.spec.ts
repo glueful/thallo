@@ -112,6 +112,14 @@ describe('the canvas outline', () => {
     ])
   })
 
+  it('an empty-slot row is a button that asks to insert into that slot', async () => {
+    const w = mountOutline()
+    const row = w.find('[data-test="canvas-outline-slot-e-content"]')
+    expect(row.element.tagName).toBe('BUTTON')
+    await row.trigger('click')
+    expect(w.emitted('insertRequest')?.[0]).toEqual(['e', 'content'])
+  })
+
   it('M opens Move to… for the selected block', async () => {
     const w = mountOutline('a')
     await w.find('[data-test="canvas-outline"]').trigger('keydown', { key: 'm' })

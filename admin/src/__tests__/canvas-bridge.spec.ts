@@ -130,14 +130,13 @@ describe('useCanvasBridge', () => {
     )
     expect(del).toHaveBeenCalledWith('b3', { x: 5, y: 6 })
 
-    // add-after carries an optional ANCHOR (the + button's rect) — null when
-    // absent/malformed, {x, y} when both numbers are present.
+    // add-after carries the id alone (Phase C.1): a rect an older bridge sends is ignored.
     window.dispatchEvent(
       new MessageEvent('message', {
         data: { type: 'thallo:block-add-after', id: 'b2', nonce: bridge.nonce },
       }),
     )
-    expect(add).toHaveBeenCalledWith('b2', null)
+    expect(add).toHaveBeenCalledWith('b2')
     window.dispatchEvent(
       new MessageEvent('message', {
         data: {
@@ -148,7 +147,7 @@ describe('useCanvasBridge', () => {
         },
       }),
     )
-    expect(add).toHaveBeenCalledWith('b3', { x: 12, y: 34 })
+    expect(add).toHaveBeenCalledWith('b3')
     bridge.dispose()
   })
 
@@ -631,20 +630,16 @@ describe('FieldEditor.selectBlockById', () => {
       duplicateBlockById: (id: string) => { newId: string; idMap: Record<string, string> } | null
       deleteBlockById: (id: string) => boolean
       insertAfterById: (id: string, slug: string) => Promise<string | null>
-      pickerTypesForBlock: (id: string) => { slug: string }[]
     }
     // Unknown id -> safe empties, no throw.
     expect(api.moveBlockById('missing', 1)).toBeNull()
     expect(api.duplicateBlockById('missing')).toBeNull()
     expect(api.deleteBlockById('missing')).toBe(false)
     await expect(api.insertAfterById('missing', 'card')).resolves.toBeNull()
-    expect(api.pickerTypesForBlock('missing')).toEqual([])
     // Owned id routes to the owning field (sidebar's block, not body's).
     const dup = api.duplicateBlockById('inside000001')
     expect(dup).not.toBeNull()
     expect(dup!.idMap['inside000001']).toBe(dup!.newId)
-    // pickerTypesForBlock resolves through the owning field's per-list rules.
-    expect(api.pickerTypesForBlock('inbody000001').map((t) => t.slug)).toEqual(['card'])
     wrapper.unmount()
   })
 

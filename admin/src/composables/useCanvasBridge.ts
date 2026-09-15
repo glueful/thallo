@@ -109,7 +109,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   let dragCancelCb: ((session: string) => void) | null = null
   let duplicateCb: ((id: string) => void) | null = null
   let deleteRequestCb: ((id: string, anchor: BridgeAnchor | null) => void) | null = null
-  let addAfterCb: ((id: string, anchor: BridgeAnchor | null) => void) | null = null
+  let addAfterCb: ((id: string) => void) | null = null
   let editRequestCb: ((id: string, field: string) => void) | null = null
   let editStartCb: ((id: string) => void) | null = null
   let editEndCb: ((id: string) => void) | null = null
@@ -181,11 +181,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
       deleteRequestCb?.(data.id, deleteAnchor)
     }
     if (data.type === 'thallo:block-add-after' && typeof data.id === 'string') {
-      const anchor =
-        typeof data.rect?.x === 'number' && typeof data.rect?.y === 'number'
-          ? { x: data.rect.x, y: data.rect.y }
-          : null
-      addAfterCb?.(data.id, anchor)
+      addAfterCb?.(data.id) // the Blocks tab arms "after this block"; no anchor rides along
     }
     // Edit-in-place (edit-in-place spec §3/§4; v4 field-addressed shapes).
     if (
@@ -327,7 +323,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     onBlockDeleteRequest(cb: (id: string, anchor: BridgeAnchor | null) => void): void {
       deleteRequestCb = cb
     },
-    onBlockAddAfter(cb: (id: string, anchor: BridgeAnchor | null) => void): void {
+    onBlockAddAfter(cb: (id: string) => void): void {
       addAfterCb = cb
     },
     // Mirrors (stage-toolbar spec §1): posted ONLY after the tree committed.

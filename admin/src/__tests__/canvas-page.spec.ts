@@ -86,7 +86,7 @@ const bridge = vi.hoisted(() => {
     dragCancel?: (session: string) => void
     duplicate?: (id: string) => void
     deleteRequest?: (id: string, anchor?: { x: number; y: number } | null) => void
-    addAfter?: (id: string, anchor?: { x: number; y: number } | null) => void
+    addAfter?: (id: string) => void
     editRequest?: (id: string, field: string) => void
     textChanged?: (id: string, field: string, payload: { html?: string; text?: string }) => void
     editStart?: (id: string) => void
@@ -116,8 +116,7 @@ const bridge = vi.hoisted(() => {
       onBlockDuplicate: (cb: (id: string) => void) => (callbacks.duplicate = cb),
       onBlockDeleteRequest: (cb: (id: string, anchor?: { x: number; y: number } | null) => void) =>
         (callbacks.deleteRequest = cb),
-      onBlockAddAfter: (cb: (id: string, anchor?: { x: number; y: number } | null) => void) =>
-        (callbacks.addAfter = cb),
+      onBlockAddAfter: (cb: (id: string) => void) => (callbacks.addAfter = cb),
       onEditRequest: (cb: (id: string, field: string) => void) => (callbacks.editRequest = cb),
       onTextChanged: (
         cb: (id: string, field: string, payload: { html?: string; text?: string }) => void,
@@ -738,23 +737,27 @@ describe('canvas page', () => {
     wrapper.unmount()
   })
 
-  it('add-after opens the per-list picker; choosing inserts, selects, and posts NO mirror', async () => {
+  it('the stage + arms the Blocks tab after the block; Enter inserts the first match there and selects it', async () => {
     mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    saveMock.mockResolvedValue(undefined)
     const wrapper = mountPage()
     await flushPromises()
 
     bridge.callbacks.addAfter?.('blockaaa0001')
     await flushPromises()
-    const picker = wrapper.find('[data-test="canvas-add-picker"]')
-    expect(picker.exists()).toBe(true)
-    await picker.find('[data-test="canvas-add-type-card"]').trigger('click')
+    expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(false) // no popover
+    const tab = wrapper.find('[data-test="blocks-tab"]')
+    expect(tab.exists()).toBe(true)
+    expect(tab.find('[data-test="palette-target"]').text()).toContain('Inserting after card')
+    const search = tab.find('[data-test="palette-search"]')
+    expect(document.activeElement).toBe(search.element)
+
+    await search.setValue('card')
+    await search.trigger('keydown', { key: 'Enter' })
     await flushPromises()
     expect(bridge.instance.mirrorMove).not.toHaveBeenCalled()
     expect(bridge.instance.mirrorDuplicate).not.toHaveBeenCalled()
-    expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(false)
-
-    // The insertion awaited the factory: one new block after the anchor, carrying the starter.
-    saveMock.mockResolvedValue(undefined)
+    expect(tab.find('[data-test="palette-target"]').exists()).toBe(false) // consumed
     await wrapper.find('[data-test="canvas-save"]').trigger('click')
     await flushPromises()
     const saved = saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
@@ -763,36 +766,86 @@ describe('canvas page', () => {
     expect(saved.fields.body.map((b) => b.type)).toEqual(['card', 'card', 'card', 'rich_text'])
     expect(saved.fields.body[1]!.id).not.toBe('blockbbb0002')
     expect(saved.fields.body[1]!.data).toEqual({ title: 'Card', body: [] })
+    expect(bridge.instance.highlight).toHaveBeenLastCalledWith(saved.fields.body[1]!.id, [
+      saved.fields.body[1]!.id,
+    ])
     wrapper.unmount()
   })
 
-  it('the add-after picker filters by search and Enter picks the first match', async () => {
+  it('Escape clears the armed target and leaves the tab open; selecting another block clears it too', async () => {
     mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
     const wrapper = mountPage()
     await flushPromises()
+    bridge.callbacks.addAfter?.('blockaaa0001')
+    await flushPromises()
+    const tab = wrapper.find('[data-test="blocks-tab"]')
+    await tab.find('[data-test="palette-search"]').trigger('keydown', { key: 'Escape' })
+    expect(tab.find('[data-test="palette-target"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="blocks-tab"]').exists()).toBe(true)
 
     bridge.callbacks.addAfter?.('blockaaa0001')
     await flushPromises()
-    const picker = wrapper.find('[data-test="canvas-add-picker"]')
-    const filter = picker.find('[data-test="canvas-add-filter"]')
-    expect(filter.exists()).toBe(true)
-
-    await filter.setValue('rich')
-    expect(picker.find('[data-test="canvas-add-type-rich_text"]').exists()).toBe(true)
-    expect(picker.find('[data-test="canvas-add-type-card"]').exists()).toBe(false)
-
-    // Enter picks the first (only) match and closes the picker.
-    await filter.trigger('keydown', { key: 'Enter' })
+    expect(tab.find('[data-test="palette-target"]').exists()).toBe(true)
+    bridge.callbacks.select?.('blockbbb0002')
     await flushPromises()
-    expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(false)
+    expect(tab.find('[data-test="palette-target"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
 
-    // Reopening resets the filter (card visible again); Escape cancels.
+  it('an armed after-target whose block is deleted is gone with it', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    saveMock.mockResolvedValue(undefined)
+    const wrapper = mountPage()
+    await flushPromises()
+    bridge.callbacks.addAfter?.('blockbbb0002')
+    await flushPromises()
+    const tab = wrapper.find('[data-test="blocks-tab"]')
+    expect(tab.find('[data-test="palette-target"]').text()).toContain('Inserting after card')
+    bridge.callbacks.deleteRequest?.('blockbbb0002')
+    await flushPromises()
+    await wrapper.find('[data-test="canvas-delete-confirm-yes"]').trigger('click')
+    await flushPromises()
+    // The target resolves to nothing and is dropped; the strip says so until the next arming.
+    expect(tab.find('[data-test="palette-target"]').text()).toContain('That place is gone')
+    expect(tab.find('[data-test="palette-target-cancel"]').exists()).toBe(false)
     bridge.callbacks.addAfter?.('blockaaa0001')
     await flushPromises()
-    const reopened = wrapper.find('[data-test="canvas-add-picker"]')
-    expect(reopened.find('[data-test="canvas-add-type-card"]').exists()).toBe(true)
-    await reopened.find('[data-test="canvas-add-filter"]').trigger('keydown', { key: 'Escape' })
-    expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(false)
+    expect(tab.find('[data-test="palette-target"]').text()).toContain('Inserting after card')
+    wrapper.unmount()
+  })
+
+  it('a gap target from the list dies with the next structural change; an after-target survives it', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    saveMock.mockResolvedValue(undefined)
+    const wrapper = mountPage()
+    await flushPromises()
+    // The Content tab's list gap (position 1 of body) arms the tab instead of opening a menu.
+    await wrapper.find('[data-test="block-insert-1"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="block-picker"]').exists()).toBe(false)
+    const tab = wrapper.find('[data-test="blocks-tab"]')
+    expect(tab.find('[data-test="palette-target"]').text()).toContain(
+      'Inserting at position 2 of body',
+    )
+    bridge.callbacks.move?.('prose0000003', -1) // a structural change: the gap is gone
+    await flushPromises()
+    expect(tab.find('[data-test="palette-target"]').text()).toContain('That place is gone')
+
+    bridge.callbacks.addAfter?.('blockaaa0001')
+    await flushPromises()
+    bridge.callbacks.move?.('blockaaa0001', 1) // the anchor moves; the target follows it
+    await flushPromises()
+    expect(tab.find('[data-test="palette-target"]').text()).toContain('Inserting after card')
+    await tab.find('[data-test="palette-card-card"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    const saved = saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
+      fields: { body: { id: string }[] }
+    }
+    // body was [a, b, prose] → prose up → [a, prose, b] → a down → [prose, a, b] → after a.
+    expect(saved.fields.body.map((b) => b.id).slice(0, 2)).toEqual(['prose0000003', 'blockaaa0001'])
+    expect(saved.fields.body[3]!.id).toBe('blockbbb0002')
     wrapper.unmount()
   })
 
@@ -1244,31 +1297,6 @@ describe('canvas page', () => {
     bridge.callbacks.deleteRequest?.('blockaaa0001')
     await flushPromises()
     expect(wrapper.find('[data-test="canvas-delete-confirm"]').classes()).toContain('mx-auto')
-    wrapper.unmount()
-  })
-
-  it('add-after opens the popover picker with or without a bridge anchor', async () => {
-    // Positioning is DELEGATED: the picker is a UPopover on a virtual
-    // reference built from the bridge rect (iframe → viewport translation);
-    // flipping/shifting is floating-ui's job, so the spec asserts the open/
-    // close contract, not coordinate math (jsdom rects are all zeros anyway).
-    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
-    const wrapper = mountPage()
-    await flushPromises()
-
-    bridge.callbacks.addAfter?.('blockaaa0001', { x: 120, y: 42 })
-    await flushPromises()
-    const picker = wrapper.find('[data-test="canvas-add-picker"]')
-    expect(picker.exists()).toBe(true)
-
-    // Cancel closes; an anchor-LESS intent still opens (stage-top fallback
-    // reference — the popover never fails to appear over missing geometry).
-    await picker.find('[data-test="canvas-add-cancel"]').trigger('click')
-    await flushPromises()
-    expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(false)
-    bridge.callbacks.addAfter?.('blockaaa0001')
-    await flushPromises()
-    expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(true)
     wrapper.unmount()
   })
 
