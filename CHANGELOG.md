@@ -52,6 +52,26 @@ as the next release, never a mutated tag.
   moves into its own subtree, the depth cap holds for the whole subtree, the slot's allow-list
   admits every moved type (the builder always enforces it; `enforce_block_types` stays the
   server's switch), and the tabs cap holds. A refused drop says why.
+- One drag coordinator generates every structural change for every surface — the palette, the
+  outline, the stage and the inspector list. Movement is a proposal judged on the candidate
+  tree; a drop is one operation or one transaction, so a group move replays exactly, and a
+  cancel discards the session with the tree untouched.
+- Block templates name their slots: `slot_attrs('field')` on the element that wraps a
+  `blocks()` call renders `data-thallo-slot` on the canvas, the template lint requires one per
+  `blocks` field (types that render their children inline are exempt), and an empty slot shows
+  a dashed placeholder so there is always somewhere to drop. The stage drag works on that real
+  geometry: the insertion line is placed inside the slot under the pointer — split left/right in
+  a row, top/bottom in a column, the end of a grid with a hint to use the outline — the
+  coordinator answers each proposal's legality (a refused zone turns red and says why), and a
+  drop across containers applies as one transaction. The same-parent live reorder is gone.
+- The Design page's outline drags and reparents blocks — into a slot, between siblings, at the
+  end of a list — and its context menu offers Move to…, a dialog that names a parent, a slot and
+  a position and judges the move the same way.
+- New blocks come from the server block factory: `POST /block-types/{slug}/instance` returns a
+  type's canonical fresh block (every blocks field an empty list, every enum field its first
+  option, no id) with its starter content alongside; the editor merges the starter, mints the
+  ids and inserts one block. Eight everyday types ship starter content (heading, rich text,
+  button, call to action, hero, section, columns, card).
 
 ## [1.0.0-beta.30] - 2026-09-15
 
