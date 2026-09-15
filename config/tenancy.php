@@ -16,7 +16,7 @@ return [
         'owner' => [
             'content.view', 'content.create', 'content.edit', 'content.publish',
             'content.delete', 'content.manage', 'content.routes', 'navigation.manage',
-            'seo.manage', 'templates.manage', 'analytics.read', 'workflow.review',
+            'seo.manage', 'templates.manage', 'styles.manage', 'analytics.read', 'workflow.review',
             'tenant.members.manage', 'tenant.domains.manage', 'tenant.roles.manage',
             'collections.manage', 'collections.schema.manage', 'collections.data.manage',
             'commerce.view', 'commerce.manage', 'billing.manage',
@@ -24,7 +24,7 @@ return [
         'admin' => [
             'content.view', 'content.create', 'content.edit', 'content.publish',
             'content.delete', 'content.manage', 'content.routes', 'navigation.manage',
-            'seo.manage', 'templates.manage', 'analytics.read', 'workflow.review',
+            'seo.manage', 'templates.manage', 'styles.manage', 'analytics.read', 'workflow.review',
             'collections.manage', 'collections.schema.manage', 'collections.data.manage',
             'commerce.view', 'commerce.manage',
         ],

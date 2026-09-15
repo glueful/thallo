@@ -56,6 +56,7 @@ final class InstallRoleGrantsTest extends AppTestCase
         );
         sort($all);
         self::assertContains('content.manage', $all, 'the catalog sync persisted Thallo\'s core slugs');
+        self::assertContains('styles.manage', $all, 'style classes have their own permission (visual builder §4.1)');
         self::assertContains('audit.view', $all, 'extension declarations (audit) are persisted too');
         self::assertContains('analytics.read', $all, 'migration-seeded pack permissions are present');
 
