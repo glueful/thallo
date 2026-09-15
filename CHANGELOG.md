@@ -72,6 +72,26 @@ as the next release, never a mutated tag.
   option, no id) with its starter content alongside; the editor merges the starter, mints the
   ids and inserts one block. Eight everyday types ship starter content (heading, rich text,
   button, call to action, hero, section, columns, card).
+- Sibling multi-selection: shift-click extends to a range within a slot and cmd/ctrl-click
+  toggles a sibling, on the stage, in the outline and in the block list. A group moves,
+  duplicates, removes and styles as one transaction; the inspector shows only Style for several
+  blocks, rendering the capability intersection and marking a property the blocks resolve
+  differently as mixed.
+- A rejected apply never becomes history: when the server refuses one transaction that is still
+  the unchanged tip against the pair the request named, it is rolled back with no redo and the
+  stage keeps the displayed truth; otherwise the edits stay, the toast says to undo, and the next
+  apply retries from the current document.
+- Browser proofs for structural editing (`admin/e2e`, Chromium): the real Design page against
+  responses captured from the real controllers, proving a cross-container stage drag, Move to…
+  from the outline, a rejected depth drop, a subtree whose deepest child does not fit, two
+  siblings down in place, two siblings across with the index shift, and cancel — each through
+  the tree, history, the accepted pair and the sent operations.
+
+### Fixed
+- The Design page handed the stage a reactive array in its highlight message, which the browser
+  refused to post; every bridge message is plain data now. A stage drag started from an outline
+  selection left keyboard focus in the parent, so Escape never reached the stage; the grip takes
+  focus, and the parent ends the session on Escape regardless.
 
 ## [1.0.0-beta.30] - 2026-09-15
 
