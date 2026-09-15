@@ -2,7 +2,8 @@
 // The Advanced tab (visual builder spec §1.4, §3.4): anchor, the ordered Style classes
 // (read-only here — the class UI is Phase B), CSS classes, `data-*` attributes and the
 // accessibility label. The two class lists are never both called "Classes".
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { VueDraggable } from 'vue-draggable-plus'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import IdentifierControl from './controls/IdentifierControl.vue'
 
@@ -10,10 +11,20 @@ const props = defineProps<{
   block: BlockInstance
   /** Class id => name; an applied id absent here is missing from the site (spec §4.1). */
   classNames?: Record<string, string>
+  /** The site's classes the picker offers: unarchived, unlocked, not yet applied. */
+  classOptions?: { id: string; name: string; archived: boolean; locked: boolean }[]
 }>()
 const emit = defineEmits<{
   /** Set (or clear with null) one advanced path. */
   set: [path: 'anchor' | 'css_classes' | 'attributes' | 'accessibility.label', value: unknown]
+  /** Append a style class reference (spec §3.1 ApplyStyleClass). */
+  'apply-class': [id: string]
+  'remove-class': [id: string]
+  /** The whole list in its new order (ReorderStyleClasses). */
+  'reorder-classes': [ids: string[]]
+  /** Detach: materialise what the class contributed, then remove the reference (spec §4.4). */
+  'detach-class': [id: string]
+  'detach-all': []
 }>()
 
 const SLUG = /^[a-z][a-z0-9-]*$/
@@ -30,6 +41,32 @@ const anchor = computed(() =>
 const styleClasses = computed<string[]>(() =>
   Array.isArray(props.block.settings?.classes) ? (props.block.settings.classes as string[]) : [],
 )
+/** A local mirror for the drag list; re-derived whenever the block's list changes. */
+const classOrder = ref<string[]>([...styleClasses.value])
+watch(styleClasses, (ids) => (classOrder.value = [...ids]))
+function onClassesReordered(): void {
+  const ids = [...classOrder.value]
+  if (JSON.stringify(ids) !== JSON.stringify(styleClasses.value)) emit('reorder-classes', ids)
+}
+/** The classes the picker offers: the site's, unarchived, unlocked, not yet applied. */
+const pickable = computed(() =>
+  (props.classOptions ?? [])
+    .filter((c) => !c.archived && !c.locked && !styleClasses.value.includes(c.id))
+    .map((c) => ({ label: c.name, value: c.id })),
+)
+const pick = ref<string | undefined>(undefined)
+watch(pick, (id) => {
+  if (id === undefined) return
+  emit('apply-class', id)
+  pick.value = undefined
+})
+function classState(id: string): 'missing' | 'archived' | 'locked' | null {
+  if (props.classNames !== undefined && !(id in props.classNames)) return 'missing'
+  const option = props.classOptions?.find((c) => c.id === id)
+  if (option?.locked) return 'locked'
+  if (option?.archived) return 'archived'
+  return null
+}
 const cssClasses = computed<string[]>(() =>
   Array.isArray(advanced.value.css_classes) ? (advanced.value.css_classes as string[]) : [],
 )
@@ -93,28 +130,92 @@ function removeAttribute(name: string): void {
     <UFormField
       label="Style classes"
       name="style_classes"
-      hint="Reusable site styles applied to this block."
+      hint="Reusable site styles applied to this block, in cascade order — later ones win."
     >
-      <ul v-if="styleClasses.length > 0" class="flex flex-wrap gap-1" data-test="style-classes">
+      <VueDraggable
+        v-if="classOrder.length > 0"
+        v-model="classOrder"
+        handle="[data-test^='style-class-grip-']"
+        :animation="150"
+        tag="ul"
+        class="space-y-1"
+        data-test="style-classes"
+        @end="onClassesReordered"
+      >
         <li
-          v-for="id in styleClasses"
+          v-for="id in classOrder"
           :key="id"
-          class="flex items-center gap-1 rounded bg-elevated px-2 py-0.5 text-xs"
+          class="flex items-center gap-1 rounded bg-elevated px-2 py-1 text-xs"
           :data-test="`style-class-${id}`"
         >
-          {{ props.classNames?.[id] ?? id }}
+          <UIcon
+            name="i-lucide-grip-vertical"
+            class="size-3 cursor-grab text-muted"
+            :data-test="`style-class-grip-${id}`"
+          />
+          <span class="min-w-0 flex-1 truncate">{{ props.classNames?.[id] ?? id }}</span>
           <UBadge
-            v-if="props.classNames !== undefined && !(id in props.classNames)"
+            v-if="classState(id) !== null"
             size="xs"
-            color="warning"
+            :color="classState(id) === 'locked' ? 'info' : 'warning'"
             variant="subtle"
-            data-test="style-class-missing"
+            :data-test="`style-class-${classState(id)}`"
           >
-            missing
+            {{ classState(id) === 'locked' ? 'job running' : classState(id) }}
           </UBadge>
+          <UButton
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            :disabled="classState(id) === 'locked' || classState(id) === 'missing'"
+            :data-test="`style-class-detach-${id}`"
+            title="Materialise what this class contributes, then remove it"
+            @click="emit('detach-class', id)"
+          >
+            Detach
+          </UButton>
+          <UButton
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            icon="i-lucide-x"
+            :disabled="classState(id) === 'locked'"
+            :aria-label="`Remove ${props.classNames?.[id] ?? id}`"
+            :data-test="`style-class-remove-${id}`"
+            @click="emit('remove-class', id)"
+          />
         </li>
-      </ul>
+      </VueDraggable>
       <p v-else class="text-xs text-muted" data-test="style-classes-empty">None applied.</p>
+      <div class="mt-2 flex items-center gap-2">
+        <USelectMenu
+          v-model="pick"
+          :items="pickable"
+          value-key="value"
+          placeholder="Apply a style class…"
+          class="flex-1"
+          :disabled="pickable.length === 0"
+          data-test="style-class-picker"
+        />
+        <UButton
+          v-if="classOrder.length > 1"
+          size="xs"
+          variant="ghost"
+          color="neutral"
+          data-test="style-classes-detach-all"
+          title="Materialised values stop following the classes"
+          @click="emit('detach-all')"
+        >
+          Detach all
+        </UButton>
+      </div>
+      <p
+        v-if="classOrder.some((id) => classState(id) === null)"
+        class="mt-1 text-[11px] text-muted"
+      >
+        Detaching keeps how the block looks: the class’s values are written to the block and stop
+        following the class.
+      </p>
     </UFormField>
 
     <UFormField

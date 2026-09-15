@@ -48,6 +48,8 @@ function coalesceKey(op: Operation): string | null {
     case 'ReorderStyleClasses':
       return `classes:${op.block}`
     default:
+      // Apply, Remove and Detach never coalesce: each is its own intent, and a detach
+      // materialises values whose from/to must survive as recorded (spec §4.4).
       return null
   }
 }

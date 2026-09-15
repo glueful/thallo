@@ -21,6 +21,7 @@ const props = defineProps<{
   classes: StyleClassRef[]
   /** Class id => name for the Style tab's source labels; ids absent here are missing. */
   classNames?: Record<string, string>
+  classOptions?: { id: string; name: string; archived: boolean; locked: boolean }[]
   activeBreakpoint: Breakpoint
 }>()
 const emit = defineEmits<{
@@ -32,6 +33,11 @@ const emit = defineEmits<{
     value: unknown,
   ]
   'update:activeBreakpoint': [breakpoint: Breakpoint]
+  'apply-class': [id: string]
+  'remove-class': [id: string]
+  'reorder-classes': [ids: string[]]
+  'detach-class': [id: string]
+  'detach-all': []
 }>()
 
 const tab = ref('content')
@@ -93,7 +99,13 @@ const proseField = computed(() =>
         <AdvancedTab
           :block="block"
           :class-names="classNames"
+          :class-options="classOptions"
           @set="(path, value) => emit('set-advanced', path, value)"
+          @apply-class="(id) => emit('apply-class', id)"
+          @remove-class="(id) => emit('remove-class', id)"
+          @reorder-classes="(ids) => emit('reorder-classes', ids)"
+          @detach-class="(id) => emit('detach-class', id)"
+          @detach-all="emit('detach-all')"
         />
       </template>
     </UTabs>

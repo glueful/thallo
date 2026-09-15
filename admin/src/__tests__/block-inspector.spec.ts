@@ -188,6 +188,33 @@ describe('AdvancedTab', () => {
     ).toBe(false)
   })
 
+  it('the Style classes list is labelled apart from CSS classes, offers only applicable classes, and emits each action', async () => {
+    const a = mount(AdvancedTab, {
+      props: {
+        block: { id: 'h', type: 'heading', data: {}, settings: { classes: ['band', 'quiet'] } },
+        classNames: { band: 'Hero band', quiet: 'Quiet', old: 'Old', busy: 'Busy', fresh: 'Fresh' },
+        classOptions: [
+          { id: 'band', name: 'Hero band', archived: false, locked: false },
+          { id: 'quiet', name: 'Quiet', archived: false, locked: false },
+          { id: 'old', name: 'Old', archived: true, locked: false },
+          { id: 'busy', name: 'Busy', archived: false, locked: true },
+          { id: 'fresh', name: 'Fresh', archived: false, locked: false },
+        ],
+      },
+    })
+    expect(a.text()).toContain('Style classes')
+    expect(a.text()).toContain('CSS classes')
+    const pickable = (a.vm as unknown as { pickable: { value: string }[] }).pickable
+    expect(pickable.map((o) => o.value)).toEqual(['fresh'])
+
+    await a.find('[data-test="style-class-detach-band"]').trigger('click')
+    expect(a.emitted('detach-class')?.[0]).toEqual(['band'])
+    await a.find('[data-test="style-class-remove-quiet"]').trigger('click')
+    expect(a.emitted('remove-class')?.[0]).toEqual(['quiet'])
+    await a.find('[data-test="style-classes-detach-all"]').trigger('click')
+    expect(a.emitted('detach-all')).toHaveLength(1)
+  })
+
   it('anchor, CSS classes and label emit set; data-thallo-* and non data-* attributes are rejected', async () => {
     const w = mount(AdvancedTab, {
       props: { block: { id: 'h', type: 'heading', data: {}, settings: { classes: ['c1'] } } },

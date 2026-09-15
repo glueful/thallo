@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ref } from 'vue'
+import BlockInspector from '@/editor/inspector/BlockInspector.vue'
 import { ApiError } from '@/api/errors'
 import type { BlockType } from '@/queries/blockTypes'
 
@@ -16,8 +17,23 @@ vi.mock('@/queries/blockTypes', async (importOriginal) => ({
 const { mintMock, applyMock } = vi.hoisted(() => ({ mintMock: vi.fn(), applyMock: vi.fn() }))
 vi.mock('@/queries/preview', () => ({ mintPreviewData: mintMock, applyPreview: applyMock }))
 vi.mock('@/queries/styleSchema', () => ({ useStyleSchema: () => ({ data: ref(null) }) }))
+const { styleClassList, refetchClasses } = vi.hoisted(() => ({
+  styleClassList: {
+    value: {
+      generation: 0,
+      classes: [] as {
+        id: string
+        name: string
+        style: Record<string, unknown>
+        archived: boolean
+        locked_by_job: string | null
+      }[],
+    },
+  },
+  refetchClasses: { fn: async () => {} },
+}))
 vi.mock('@/queries/styleClasses', () => ({
-  useStyleClasses: () => ({ data: ref({ generation: 0, classes: [] }), refetch: vi.fn() }),
+  useStyleClasses: () => ({ data: styleClassList, refetch: () => refetchClasses.fn() }),
 }))
 
 const draft = ref<{ fields: Record<string, unknown>; lock_version: number } | null>(null)
@@ -59,6 +75,7 @@ vi.mock('@/fields/components/blocks/ProseBlockEditor.vue', () => ({
 
 const bridge = vi.hoisted(() => {
   const callbacks: {
+    select?: (id: string) => void
     move?: (id: string, d: 1 | -1) => void
     textChanged?: (id: string, field: string, payload: { html?: string; text?: string }) => void
   } = {}
@@ -68,7 +85,7 @@ const bridge = vi.hoisted(() => {
     instance: {
       nonce: 'n',
       hello: vi.fn(),
-      onBlockSelect: noop,
+      onBlockSelect: (cb: (id: string) => void) => (callbacks.select = cb),
       onBlockDeselect: noop,
       onBlockHover: noop,
       onBlocksIndex: noop,
@@ -149,6 +166,16 @@ const lastApplyOptions = () =>
     base_revision: number | null
     operations: { type: string }[]
   }
+const bodyIdsSettings = (): Record<string, unknown>[] =>
+  (
+    (
+      applyMock.mock.calls[applyMock.mock.calls.length - 1]![3] as {
+        body: { settings?: Record<string, unknown> }[]
+      }
+    ).body ?? []
+  )
+    .slice(0, 2)
+    .map((b) => b.settings ?? {})
 const bodyIds = (): string[] =>
   (
     (
@@ -196,6 +223,65 @@ async function mountAndSettle() {
   await flushPromises()
   return wrapper
 }
+
+describe('style classes as operations (visual builder spec §4.4)', () => {
+  const band = {
+    id: 'band',
+    name: 'Hero band',
+    style: { spacing: { padding: { top: { md: { type: 'token', value: 'spacing.lg' } } } } },
+    archived: false,
+    locked_by_job: null,
+  }
+  beforeEach(() => {
+    styleClassList.value = { generation: 4, classes: [band] }
+    refetchClasses.fn = async () => {}
+  })
+
+  it('applying a class records one ApplyStyleClass; detaching records one DetachStyleClass with the materialised style', async () => {
+    applyMock.mockResolvedValueOnce(accepted('e1', 1)).mockResolvedValueOnce(accepted('e1', 2))
+    const wrapper = await mountAndSettle()
+    bridge.callbacks.select!('blockaaa0001')
+    await flushPromises()
+    const inspector = wrapper.findComponent(BlockInspector)
+    inspector.vm.$emit('apply-class', 'band')
+    await flushPromises()
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    expect(lastApplyOptions().operations.map((o) => o.type)).toEqual(['ApplyStyleClass'])
+
+    inspector.vm.$emit('detach-class', 'band')
+    await flushPromises()
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    const ops = lastApplyOptions().operations as ({ type: string } & Record<string, unknown>)[]
+    expect(ops.map((o) => o.type)).toEqual(['DetachStyleClass'])
+    expect(ops[0]).toMatchObject({ class_id: 'band', index: 0, from_style: {} })
+    // A card declares no capabilities in this fixture: nothing materialises, the reference goes.
+    expect(ops[0]!.to_style).toEqual({})
+    expect(bodyIdsSettings()).toEqual([{}, {}])
+    wrapper.unmount()
+  })
+
+  it('a detach stops when the refetched class list carries a newer generation', async () => {
+    applyMock.mockResolvedValueOnce(accepted('e1', 1))
+    const wrapper = await mountAndSettle()
+    bridge.callbacks.select!('blockaaa0001')
+    await flushPromises()
+    const inspector = wrapper.findComponent(BlockInspector)
+    inspector.vm.$emit('apply-class', 'band')
+    await flushPromises()
+    refetchClasses.fn = async () => {
+      styleClassList.value = { generation: 5, classes: [band] }
+    }
+    inspector.vm.$emit('detach-class', 'band')
+    await flushPromises()
+    expect(notify.warning).toHaveBeenCalled()
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    expect(lastApplyOptions().operations.map((o) => o.type)).toEqual(['ApplyStyleClass'])
+    wrapper.unmount()
+  })
+})
 
 describe('the three revisions', () => {
   it('the first apply sends a null pair; every later apply names the accepted pair and the ops since it', async () => {

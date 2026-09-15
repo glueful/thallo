@@ -22,6 +22,7 @@ import { absent, present } from '@/editor/ops/types'
 import { setPath, settingSegments } from '@/editor/ops/apply'
 import { useStyleSchema } from '@/queries/styleSchema'
 import { useStyleClasses } from '@/queries/styleClasses'
+import { capabilityPaths, detachStyleClass } from '@/style/detach'
 import type { StyleClassRef } from '@/style/types'
 import {
   activeBreakpoint,
@@ -957,7 +958,15 @@ const styleGenerationChanged = ref(false)
 
 // The site's style classes (visual builder spec §4.3): the block's ordered references resolve
 // through them, and the Style tab names the class a value comes from.
-const { data: styleClassList } = useStyleClasses()
+const { data: styleClassList, refetch: refetchStyleClassList } = useStyleClasses()
+const classOptions = computed(() =>
+  (styleClassList.value?.classes ?? []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    archived: c.archived,
+    locked: c.locked_by_job !== null,
+  })),
+)
 const classNames = computed<Record<string, string>>(() => {
   const out: Record<string, string> = {}
   for (const c of styleClassList.value?.classes ?? []) out[c.id] = c.name
@@ -972,6 +981,103 @@ function classRefsFor(block: BlockInstance | null): StyleClassRef[] {
     if (c) refs.push({ id: c.id, style: c.style })
   }
   return refs
+}
+
+function writeClasses(id: string, mutate: (ids: string[]) => string[]): void {
+  writeSettings(id, (s) => {
+    const ids = Array.isArray(s.classes) ? (s.classes as string[]) : []
+    const next = mutate(ids)
+    const { classes: _drop, ...rest } = s
+    return next.length === 0 ? rest : { ...rest, classes: next }
+  })
+}
+function onApplyClass(classId: string): void {
+  if (selected.value === null) return
+  writeClasses(selected.value, (ids) => (ids.includes(classId) ? ids : [...ids, classId]))
+}
+function onRemoveClass(classId: string): void {
+  if (selected.value === null) return
+  writeClasses(selected.value, (ids) => ids.filter((id) => id !== classId))
+}
+function onReorderClasses(ids: string[]): void {
+  if (selected.value === null) return
+  writeClasses(selected.value, () => ids)
+}
+
+/**
+ * A detach materialises values (spec §4.4), so it never runs from a stale class list: the list
+ * is refetched first and a generation change stops the action after re-resolving.
+ */
+async function freshStyleClasses(): Promise<boolean> {
+  const known = styleClassList.value?.generation ?? null
+  await refetchStyleClassList()
+  const now = styleClassList.value?.generation ?? null
+  if (known !== null && now !== null && known !== now) {
+    warning('Style classes changed', 'Review the re-resolved values and try again.')
+    return false
+  }
+  return true
+}
+function recordDetach(block: BlockInstance, classId: string): void {
+  const style =
+    typeof block.settings?.style === 'object' && block.settings.style !== null
+      ? (block.settings.style as Record<string, unknown>)
+      : {}
+  const ids = Array.isArray(block.settings?.classes) ? (block.settings.classes as string[]) : []
+  const index = ids.indexOf(classId)
+  if (index === -1 || !history) return
+  const type = allBlockTypes.value?.find((t) => t.slug === block.type)
+  const toStyle = detachStyleClass(
+    classRefsFor(block),
+    style,
+    classId,
+    capabilityPaths(type?.style_capabilities),
+  )
+  const op = history.record({
+    type: 'DetachStyleClass',
+    block: block.id,
+    class_id: classId,
+    index,
+    from_style: style,
+    to_style: toStyle,
+  })
+  opsSinceApply.push(op)
+}
+async function onDetachClass(classId: string): Promise<void> {
+  const block = selectedBlock.value
+  if (!block || !history) return
+  if (!(await freshStyleClasses())) return
+  commitNow()
+  history.beginTransaction()
+  recordDetach(block, classId)
+  commitNow()
+  await replayHistory()
+  scheduleCommit(false)
+}
+async function onDetachAll(): Promise<void> {
+  const block = selectedBlock.value
+  if (!block || !history) return
+  if (!(await freshStyleClasses())) return
+  commitNow()
+  history.beginTransaction()
+  const ids = Array.isArray(block.settings?.classes)
+    ? [...(block.settings.classes as string[])]
+    : []
+  for (let i = ids.length - 1; i >= 0; i--) {
+    // Each detach reads the block as the transaction has left it so far.
+    const current = blockFromHistory(block.id)
+    if (current) recordDetach(current, ids[i]!)
+  }
+  commitNow()
+  await replayHistory()
+  scheduleCommit(false)
+}
+/** The block as history's document holds it now (mid-transaction, before replay). */
+function blockFromHistory(id: string): BlockInstance | null {
+  if (!history) return null
+  const field = history.applier.rootOf(history.document, id)
+  if (field === null) return null
+  return history.applier.listOps.findById(history.applier.rootList(history.document, field), id)
 }
 
 async function applyWorking(): Promise<void> {
@@ -1291,6 +1397,12 @@ function reloadStage(): void {
                 :schema="styleSchema ?? null"
                 :classes="classRefsFor(selectedBlock)"
                 :class-names="classNames"
+                :class-options="classOptions"
+                @apply-class="onApplyClass"
+                @remove-class="onRemoveClass"
+                @reorder-classes="onReorderClasses"
+                @detach-class="onDetachClass"
+                @detach-all="onDetachAll"
                 :active-breakpoint="activeBreakpoint"
                 @patch-data="onPatchData"
                 @set-setting="onSetSetting"
