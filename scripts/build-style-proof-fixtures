@@ -63,6 +63,9 @@ $cases = [
             ['id' => 'a', 'style' => $pad(['md' => $token('spacing.xl')])],
             ['id' => 'b', 'style' => $pad(['md' => $token('spacing.lg'), 'lg' => $token('spacing.sm')])],
         ]],
+    // Depth five (spec §5.2): the heading's md padding lands five levels down.
+    'five-deep-padding' => ['block' => 'heading', 'nested' => 4,
+        'settings' => ['style' => $pad(['md' => $token('spacing.lg')])], 'classes' => []],
     // Responsive padding: base sm, md reset, lg xl.
     'responsive-padding-reset' => ['block' => 'heading', 'settings' => ['style' => $pad([
         'base' => $token('spacing.sm'), 'md' => $reset, 'lg' => $token('spacing.xl'),
@@ -105,6 +108,19 @@ foreach ($cases as $name => $case) {
         $markup = '<h2 class="thallo-block thallo-block-heading' . $classes($case, 'root')
             . '" data-target="root">Heading</h2>';
         $control = '<h2 class="thallo-block thallo-block-heading" data-control="root">Heading</h2>';
+        // Nested inside the real wrappers a five-deep composition renders (section, columns,
+        // card body, container inner), so the theme's nested rules apply to both sides.
+        $wrappers = [
+            ['<section class="thallo-block thallo-block-section"><div class="thallo-block-section__content">', '</div></section>'],
+            ['<div class="thallo-block thallo-block-columns"><div class="thallo-block-columns__col">', '</div></div>'],
+            ['<div class="thallo-block thallo-block-card"><div class="thallo-block-card__body">', '</div></div>'],
+            ['<div class="thallo-block thallo-block-container"><div class="thallo-block-container__inner">', '</div></div>'],
+        ];
+        for ($i = 0; $i < (int) ($case['nested'] ?? 0); $i++) {
+            [$open, $close] = $wrappers[$i];
+            $markup = $open . $markup . $close;
+            $control = $open . $control . $close;
+        }
     } elseif ($case['block'] === 'hero') {
         $hero = 'thallo-block thallo-block-hero thallo-block-hero--bg-gradient thallo-block-hero--vertical';
         $markup = '<section class="' . $hero . $classes($case, 'root') . '" data-target="root">'

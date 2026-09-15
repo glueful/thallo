@@ -40,7 +40,7 @@ const styled = (id: string): BlockInstance => ({
 
 describe('useBlockListOps', () => {
   it('the cap the depth math uses is the three-surface constant', () => {
-    expect(MAX_BLOCK_DEPTH).toBe(3)
+    expect(MAX_BLOCK_DEPTH).toBe(5)
   })
 
   it('insertAt / removeById / moveById keep current semantics', () => {
@@ -86,18 +86,21 @@ describe('useBlockListOps', () => {
     expect((tree[1]!.data.inner as BlockInstance[]).map((b) => b.id)).toEqual(['b', 'a'])
   })
 
-  it('canDropAt enforces targetDepth + subtreeDepth - 1 <= MAX (spec §2)', () => {
+  it('canDropAt enforces targetDepth + subtreeDepth - 1 <= MAX (spec §5.2)', () => {
     const twoHigh = nest('drag', [leaf('inner1')])
-    const deep = [nest('d1', [nest('d2', [])]), twoHigh]
-    // Dropping the 2-high subtree into d2's region: 3 + 2 - 1 = 4 > MAX(3) -> false
-    expect(ops.canDropAt(deep, 'drag', { parentId: 'd2', region: 'inner' })).toBe(false)
-    // A LEAF into d2's region: 3 + 1 - 1 = 3 <= 3 -> true
+    // d1 > d2 > d3 > d4: d4's region holds items at depth 5.
+    const deep = [nest('d1', [nest('d2', [nest('d3', [nest('d4', [])])])]), twoHigh]
+    // Dropping the 2-high subtree into d4's region: 5 + 2 - 1 = 6 > MAX(5) -> false
+    expect(ops.canDropAt(deep, 'drag', { parentId: 'd4', region: 'inner' })).toBe(false)
+    // A LEAF into d4's region: 5 + 1 - 1 = 5 <= 5 -> true
     const withLeaf = [...deep, leaf('leafy')]
-    expect(ops.canDropAt(withLeaf, 'leafy', { parentId: 'd2', region: 'inner' })).toBe(true)
-    // Root drop always fine: 1 + 2 - 1 = 2 <= 3
+    expect(ops.canDropAt(withLeaf, 'leafy', { parentId: 'd4', region: 'inner' })).toBe(true)
+    // The 2-high subtree into d3's region: 4 + 2 - 1 = 5 <= 5 -> true
+    expect(ops.canDropAt(deep, 'drag', { parentId: 'd3', region: 'inner' })).toBe(true)
+    // Root drop always fine: 1 + 2 - 1 = 2 <= 5
     expect(ops.canDropAt(deep, 'drag', { parentId: null, region: null })).toBe(true)
     expect(ops.subtreeDepth(twoHigh)).toBe(2)
-    expect(ops.depthOf(deep, 'd2')).toBe(2)
+    expect(ops.depthOf(deep, 'd4')).toBe(4)
     // Drop into its OWN descendant: forbidden regardless of depth.
     expect(ops.canDropAt(deep, 'drag', { parentId: 'inner1', region: 'inner' })).toBe(false)
     expect(ops.canDropAt(deep, 'drag', { parentId: 'drag', region: 'inner' })).toBe(false)

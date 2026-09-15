@@ -124,6 +124,14 @@ final class FragmentVerificationTest extends AppTestCase
                 ]],
                 self::heading('head00000002', 'Compare'),
             ],
+            // Depth five (spec §5.2): a heading at the bottom of section > columns > card >
+            // container is its own root; its setting lands on it inside the whole page.
+            'five deep' => json_decode(
+                (string) file_get_contents(__DIR__ . '/../../fixtures/composition/five-deep.json'),
+                true,
+                512,
+                JSON_THROW_ON_ERROR,
+            )['body'],
             'images' => [
                 ['id' => 'image0000001', 'type' => 'image', 'data' => ['image' => $this->blobs[0], 'alt' => 'lead']],
                 ['id' => 'box000000001', 'type' => 'container', 'data' => ['content' => [
@@ -223,6 +231,8 @@ final class FragmentVerificationTest extends AppTestCase
         self::assertContains('pricing table:tier00000002->table0000001', $verified);
         self::assertContains('pricing table:feat00000002->table0000001', $verified);
         self::assertContains('images:text00000004->text00000004', $verified);
+        self::assertContains('five deep:head00000001->head00000001', $verified, 'a root five levels deep');
+        self::assertContains('five deep:cont00000002->cont00000002', $verified);
         self::assertContains('images:text00000003->text00000003', $verified);
         self::assertContains('images:image0000001', $escalated, 'claims the priority image');
         self::assertContains('images:image0000002', $escalated);

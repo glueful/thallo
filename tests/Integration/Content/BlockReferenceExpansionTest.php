@@ -191,16 +191,19 @@ final class BlockReferenceExpansionTest extends AppTestCase
             $this->resolver()->expand([$row2], $this->schema(), null, 'en')[0]['fields']['body'],
         );
 
-        // Structural cap: refs BELOW BlockDepth::MAX (4 nest levels) stay raw.
+        // Structural cap: refs BELOW BlockDepth::MAX (6 nest levels) stay raw.
         $deep = ['id' => 'r', 'type' => 'related', 'data' => ['post' => 'entrydeep001']];
         $lvl = $deep;
-        for ($i = 0; $i < 3; $i++) { // wrap 3x -> the ref sits at structural level 4
+        for ($i = 0; $i < 5; $i++) { // wrap 5x -> the ref sits at structural level 6
             $lvl = ['id' => "n{$i}", 'type' => 'nest', 'data' => ['inner' => [$lvl]]];
         }
         $row3 = ['entry_uuid' => 'handmade0003', 'version_uuid' => 'handmadev003',
             'version' => 1, 'fields' => ['title' => 'X', 'body' => [$lvl]]];
         $out3 = $this->resolver()->expand([$row3], $this->schema(), null, 'en')[0];
-        $bottom = $out3['fields']['body'][0]['data']['inner'][0]['data']['inner'][0]['data']['inner'][0];
+        $bottom = $out3['fields']['body'][0];
+        for ($i = 0; $i < 5; $i++) {
+            $bottom = $bottom['data']['inner'][0];
+        }
         self::assertSame('entrydeep001', $bottom['data']['post']); // raw — walk capped
     }
 

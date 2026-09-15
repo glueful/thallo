@@ -102,14 +102,18 @@ final class BlocksRenderingTest extends AppTestCase
         $this->saveBlockTemplate('nest', 'N({{ blocks(data.inner) }})');
         $this->saveBlockTemplate('leaf', 'LEAF');
         $wrap = fn (array $inner): array => ['id' => 'x', 'type' => 'nest', 'data' => ['inner' => $inner]];
-        // depth 4: nest > nest > nest > leaf — the innermost list renders EMPTY.
-        $deep = [$wrap([$wrap([$wrap([['id' => 'l', 'type' => 'leaf', 'data' => []]])])])];
+        // depth 6: five nests then a leaf — the innermost list renders EMPTY; at depth 5 it renders.
+        $deep = [$wrap([$wrap([$wrap([$wrap([$wrap([['id' => 'l', 'type' => 'leaf', 'data' => []]])])])])])];
         $out = $this->env()->createTemplate("{{ blocks(list) }}")->render(['list' => $deep]);
         self::assertStringNotContainsString('LEAF', $out);
         // The over-deep marker is a prod HTML comment or a debug placeholder div
         // (the suite runs debug) — strip both; the SHAPE is what's asserted.
         $shape = preg_replace('/<!--.*?-->|<div[^>]*>.*?<\/div>/s', '', $out) ?? $out;
-        self::assertStringContainsString('N(N(N()))', $shape);
+        self::assertStringContainsString('N(N(N(N(N()))))', $shape);
+        $this->container()->get(RenderContextExtension::class)->resetBlockDepth();
+        $five = [$wrap([$wrap([$wrap([$wrap([['id' => 'l', 'type' => 'leaf', 'data' => []]])])])])];
+        $out = $this->env()->createTemplate("{{ blocks(list) }}")->render(['list' => $five]);
+        self::assertStringContainsString('N(N(N(N(LEAF))))', $out, 'depth five renders');
 
         // The counter is render-scoped: a fresh render at depth 1 works immediately.
         $this->container()->get(RenderContextExtension::class)->resetBlockDepth();

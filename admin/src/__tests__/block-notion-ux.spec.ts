@@ -302,14 +302,15 @@ describe('drag (direct handler — jsdom never simulates sortable)', () => {
   })
 
   it('rejects a depth-violating drop: model unchanged + notice rendered', async () => {
-    // A 2-high subtree dragged into a region at depth 3 -> 3 + 2 - 1 = 4 > 3.
+    // A 2-high subtree dragged into a region at depth 5 -> 5 + 2 - 1 = 6 > 5.
+    const nest = (id: string, inner: BlockInstance[]): BlockInstance => ({
+      id,
+      type: 'nest',
+      data: { inner },
+      settings: {},
+    })
     const model = ref<BlockInstance[]>([
-      {
-        id: 'd1',
-        type: 'nest',
-        data: { inner: [{ id: 'd2', type: 'nest', data: { inner: [] }, settings: {} }] },
-        settings: {},
-      },
+      nest('d1', [nest('d2', [nest('d3', [nest('d4', [])])])]),
       {
         id: 'drag',
         type: 'nest',
@@ -330,7 +331,7 @@ describe('drag (direct handler — jsdom never simulates sortable)', () => {
     }
     vm.onDragEnd({
       item: fakeEl({ blockId: 'drag' }),
-      to: fakeEl({ listParent: 'd2', listRegion: 'inner' }),
+      to: fakeEl({ listParent: 'd4', listRegion: 'inner' }),
       from: fakeEl({ listParent: '', listRegion: '' }),
       newIndex: 0,
     })

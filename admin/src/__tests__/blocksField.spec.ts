@@ -270,13 +270,13 @@ describe('BlocksField', () => {
     expect(content[0]!.type).toBe('hero')
   })
 
-  it('shows the max-depth notice instead of an editor at depth 3', async () => {
-    expect(MAX_BLOCK_DEPTH).toBe(3) // §A2 mirror assertion
+  it('shows the max-depth notice instead of an editor at depth 5', async () => {
+    expect(MAX_BLOCK_DEPTH).toBe(5) // the three surfaces agree (spec §5.2)
     const wrapper = mount(BlocksField, {
       props: {
         field,
         modelValue: [{ id: 's1', type: 'section', data: { content: [] }, settings: {} }],
-        depth: 3,
+        depth: 5,
       },
     })
     await flushPromises()
