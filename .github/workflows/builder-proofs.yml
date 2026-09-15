@@ -1,0 +1,141 @@
+name: Builder Proofs
+
+on:
+  push:
+    paths:
+      - 'admin/src/**'
+      - 'admin/e2e/**'
+      - 'packages/thallo-render/**'
+      - 'core/src/Content/**'
+      - 'scripts/build-builder-proof-fixtures'
+      - 'tests/fixtures/composition/**'
+      - '.github/workflows/builder-proofs.yml'
+  pull_request:
+    paths:
+      - 'admin/src/**'
+      - 'admin/e2e/**'
+      - 'packages/thallo-render/**'
+      - 'core/src/Content/**'
+      - 'scripts/build-builder-proof-fixtures'
+      - 'tests/fixtures/composition/**'
+      - '.github/workflows/builder-proofs.yml'
+
+jobs:
+  proofs:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: app_test
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      CI: '1'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Create test environment
+        run: |
+          cat > .env <<'EOF'
+          APP_NAME=Thallo
+          APP_ENV=testing
+          APP_DEBUG=true
+          APP_KEY=0123456789abcdef0123456789abcdef
+          JWT_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+          TOKEN_SALT=0123456789abcdef0123456789abcdef
+          DB_DRIVER=pgsql
+          DB_PGSQL_HOST=127.0.0.1
+          DB_PGSQL_PORT=5432
+          DB_PGSQL_DATABASE=app_test
+          DB_PGSQL_USERNAME=postgres
+          DB_PGSQL_PASSWORD=postgres
+          DB_PGSQL_SCHEMA=public
+          DB_POOLING_ENABLED=false
+          CACHE_DRIVER=array
+          CACHE_TAGS=false
+          QUERY_CACHE_ENABLED=false
+          QUERY_CACHE_STORE=array
+          QUEUE_CONNECTION=database
+          EOF
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql
+          tools: composer:v2
+          coverage: none
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Cache extension discovery
+        run: php glueful extensions:cache
+
+      - name: Reset and migrate the test database
+        run: |
+          composer test:reset-db
+          composer test:migrate
+
+      - name: Build the proof fixtures from the real controllers
+        run: DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-builder-proof-fixtures
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.8.0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: |
+            admin/pnpm-lock.yaml
+            admin/e2e/pnpm-lock.yaml
+
+      - name: Install the admin (the dev server the proofs drive)
+        working-directory: admin
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Install the proofs
+        working-directory: admin/e2e
+        run: pnpm install --frozen-lockfile --ignore-workspace
+
+      - name: Resolve installed Playwright version
+        id: playwright-version
+        working-directory: admin/e2e
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-chromium-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Chromium (with system deps)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: admin/e2e
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Install browser OS dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: admin/e2e
+        run: pnpm exec playwright install-deps chromium
+
+      - name: Run the proofs
+        working-directory: admin/e2e
+        run: pnpm test
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: builder-proofs-traces
+          path: admin/e2e/test-results
+          if-no-files-found: ignore

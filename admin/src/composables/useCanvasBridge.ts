@@ -131,7 +131,10 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   }
 
   function post(message: Record<string, unknown>): void {
-    iframeRef.value?.contentWindow?.postMessage({ ...message, nonce }, targetOrigin())
+    // Plain data only: a reactive Proxy (a selection's ids, a drag's blocks) cannot be
+    // structured-cloned, and postMessage would throw instead of posting.
+    const plain = JSON.parse(JSON.stringify({ ...message, nonce })) as Record<string, unknown>
+    iframeRef.value?.contentWindow?.postMessage(plain, targetOrigin())
   }
 
   function onMessage(event: MessageEvent): void {

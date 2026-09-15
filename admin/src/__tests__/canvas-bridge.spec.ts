@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
-import { ref, type Ref } from 'vue'
+import { isProxy, reactive, ref, type Ref } from 'vue'
 import { useCanvasBridge } from '@/composables/useCanvasBridge'
 import type { BlockType } from '@/queries/blockTypes'
 
@@ -327,6 +327,20 @@ describe('useCanvasBridge', () => {
     expect(propose).toHaveBeenCalledTimes(1)
     expect(drop).toHaveBeenCalledTimes(1)
     expect(cancel).toHaveBeenCalledTimes(1)
+    bridge.dispose()
+  })
+
+  it('posts plain data: a reactive array of ids is cloned, never handed over as a Proxy', () => {
+    const postSpy = vi.fn()
+    const iframe = ref({
+      contentWindow: { postMessage: postSpy },
+    } as unknown as HTMLIFrameElement)
+    const bridge = useCanvasBridge(iframe, 'https://site.test/_preview/x')
+    const ids = reactive(['b1', 'b2'])
+    bridge.highlight('b1', ids)
+    const posted = postSpy.mock.calls[0]![0] as { ids: string[] }
+    expect(isProxy(posted.ids)).toBe(false)
+    expect(posted.ids).toEqual(['b1', 'b2'])
     bridge.dispose()
   })
 

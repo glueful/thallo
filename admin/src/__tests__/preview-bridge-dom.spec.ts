@@ -992,11 +992,15 @@ describe('sibling multi-selection on the stage (visual builder spec §5.5)', () 
     expect(a.querySelector('.thallo-canvas-toolbar')).not.toBeNull()
     expect(c.querySelector('.thallo-canvas-toolbar')).toBeNull()
 
-    // The grip drags the whole selection: the session names every ring.
+    // The grip drags the whole selection: the session names every ring — and takes focus, so
+    // Escape reaches the stage even when the selection came from the parent's outline.
     posted.mockClear()
+    const focus = vi.spyOn(window, 'focus').mockImplementation(() => undefined)
     a.querySelector('[data-action="drag"] svg')!.dispatchEvent(
       new MouseEvent('pointerdown', { bubbles: true, cancelable: true }),
     )
+    expect(focus).toHaveBeenCalledTimes(1)
+    focus.mockRestore()
     expect(c.classList.contains('thallo-canvas-dragging')).toBe(true)
     document.elementFromPoint = () => list
     document.dispatchEvent(

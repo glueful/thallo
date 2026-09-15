@@ -564,6 +564,16 @@ bridge.onDragCancel((session) => {
   stageDragSession = null
   coordinator.cancel()
 })
+/** Escape in the parent while the stage drags: end the session on both sides. */
+function onParentKeydown(e: KeyboardEvent): void {
+  if (e.key !== 'Escape' || stageDragSession === null) return
+  e.preventDefault()
+  bridge.dragEnd(stageDragSession)
+  stageDragSession = null
+  coordinator.cancel()
+}
+onMounted(() => window.addEventListener('keydown', onParentKeydown, true))
+onBeforeUnmount(() => window.removeEventListener('keydown', onParentKeydown, true))
 
 function duplicateAndMirror(id: string): void {
   const group = groupFor(id)
@@ -1115,6 +1125,27 @@ function toggleAuto(): void {
   else if (stageStale.value) scheduleAuto()
 }
 
+/** Applies the server has answered (accepted or refused): the proofs wait on it. */
+let appliesAnswered = 0
+// Test hooks for the browser proofs (admin/e2e, spec §5.6): read-only snapshots of history, the
+// document, the accepted pair and the selection. Present only in an E2E build.
+if (import.meta.env.VITE_E2E === '1') {
+  ;(window as unknown as { __thalloBuilder: unknown }).__thalloBuilder = {
+    snapshot: () => ({
+      history: (history?.entries() ?? []).map((e) => ({
+        sequence: e.sequence,
+        transaction_id: e.transaction_id,
+        ops: e.ops,
+      })),
+      currentSequence: history?.currentSequence ?? 0,
+      document: snapshotFields(),
+      accepted: accepted.value,
+      selection: selection.value,
+    }),
+    applies: () => appliesAnswered,
+  }
+}
+
 /**
  * A rejected apply never becomes history (visual builder spec §5.3). When the refused ops are
  * one transaction that is still the unchanged tip and the accepted pair is the one the request
@@ -1217,6 +1248,7 @@ async function runApply(auto: boolean): Promise<void> {
       }
     }
     metrics.response()
+    appliesAnswered++
     // A response from another epoch, or a revision not newer than accepted, is dropped.
     const stale =
       accepted.value !== null &&
@@ -1233,6 +1265,7 @@ async function runApply(auto: boolean): Promise<void> {
     succeeded = true
     if (!auto) autoSuspended.value = false // manual success re-arms auto
   } catch (e: unknown) {
+    appliesAnswered++
     // Final failure: discard mirror-only DOM; keep dirty fields (v2/loop C pins).
     reloadStage()
     if (auto) autoSuspended.value = true // one banner now, then quiet until re-armed
