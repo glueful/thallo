@@ -2182,6 +2182,40 @@ describe('fragment swaps (visual builder spec §3.5)', () => {
     })
   }
 
+  it('a whole-page patch and a fragment swap both hand the new wrapper to the theme runtime', async () => {
+    const enhanced: string[] = []
+    ;(window as unknown as { ThalloRuntime: unknown }).ThalloRuntime = {
+      enhance: (el: Element) => enhanced.push(el.getAttribute('data-thallo-block') ?? '?'),
+    }
+    try {
+      // The whole-page path: a changed wrapper is replaced by the fetched one and enhanced.
+      await establish('ee', frag('ra000000001', '<p>old</p>') + frag('rb000000001', 'b'))
+      const html = `<!doctype html><html><body>${page('ee', 2, frag('ra000000001', '<p>new</p>') + frag('rb000000001', 'b'))}</body></html>`
+      window.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        redirected: false,
+        text: () => Promise.resolve(html),
+      }) as unknown as typeof window.fetch
+      sendToBridge({ type: 'thallo:stage-refresh', refresh_id: 'page-patch' })
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      expect(lastPost('thallo:stage-refreshed')).toMatchObject({
+        refresh_id: 'page-patch',
+        mode: 'patched',
+      })
+      expect(enhanced).toEqual(['ra000000001'])
+      // The fragment path: the same hand-over.
+      fragments('ee', {
+        revision: 3,
+        baseline_revision: 2,
+        fragments: { rb000000001: frag('rb000000001', 'b2') },
+      })
+      expect(enhanced).toEqual(['ra000000001', 'rb000000001'])
+    } finally {
+      delete (window as unknown as { ThalloRuntime?: unknown }).ThalloRuntime
+    }
+  })
+
   it('swaps every validated root, advances the displayed pair and acks patched', async () => {
     await establish('ea', frag('fa000000001', '<p>old a</p>') + frag('fb000000001', '<p>old b</p>'))
     fragments('ea', {

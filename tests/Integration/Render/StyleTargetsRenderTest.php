@@ -137,6 +137,37 @@ final class StyleTargetsRenderTest extends AppTestCase
         self::assertStringNotContainsString('t-radius-lg', $this->tagWithClass($with, 'thallo-block-hero'));
     }
 
+    public function testVideoCornersLandOnTheFrameAndCtaColoursOnItsPanel(): void
+    {
+        // Corners and shadow are painted on the video's frame (iframe or player), never its root.
+        $video = $this->render([['id' => 'v', 'type' => 'video', 'data' => [
+            'source' => 'embed', 'url' => 'https://www.youtube.com/watch?v=abcdefghijk',
+        ], 'settings' => ['style' => [
+            'radius' => ['type' => 'token', 'value' => 'radius.none'],
+            'shadow' => ['base' => ['type' => 'token', 'value' => 'shadow.none']],
+        ]]]]);
+        $frame = $this->tagWithClass($video, 'thallo-block-video__frame');
+        self::assertStringContainsString(' t-radius-none', $frame);
+        self::assertStringContainsString(' t-shadow-none', $frame);
+        self::assertStringNotContainsString('t-radius-none', $this->tagWithClass($video, 'thallo-block-video'));
+
+        // The cta's variants paint its inner box: colours, border, corners and shadow land there,
+        // spacing stays on the band.
+        $cta = $this->render([['id' => 'c', 'type' => 'cta', 'data' => ['title' => 'Go', 'variant' => 'outline'],
+            'settings' => ['style' => [
+                'colors' => ['surface' => ['type' => 'token', 'value' => 'color.accent']],
+                'radius' => ['type' => 'token', 'value' => 'radius.none'],
+                'spacing' => ['padding' => ['top' => ['base' => ['type' => 'token', 'value' => 'spacing.xl']]]],
+            ]]]]);
+        $panel = $this->tagWithClass($cta, 'thallo-block-cta__inner');
+        self::assertStringContainsString(' t-bg-accent', $panel);
+        self::assertStringContainsString(' t-radius-none', $panel);
+        self::assertStringNotContainsString('t-pt-xl', $panel);
+        $root = $this->tagWithClass($cta, 'thallo-block-cta');
+        self::assertStringContainsString(' t-pt-xl', $root);
+        self::assertStringNotContainsString('t-bg-accent', $root);
+    }
+
     public function testTokenClassEmitsTheCompilersUtilitiesAndNothingForAnUnknownValue(): void
     {
         $env = $this->env();

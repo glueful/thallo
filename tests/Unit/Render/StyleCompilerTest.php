@@ -52,6 +52,11 @@ final class StyleCompilerTest extends TestCase
         self::assertStringContainsString('.t-w-content { max-width: var(--t-width-content); }', $css);
         self::assertStringContainsString('.t-w-reset { max-width: revert-layer; width: revert-layer; }', $css);
         self::assertStringContainsString('.t-content-center { justify-content: center; }', $css);
+        // The surface colour owns the whole background: a theme gradient (a background-image)
+        // yields to it, so it is the shorthand, never background-color alone.
+        self::assertStringContainsString('.t-bg-transparent { background: var(--t-color-transparent); }', $css);
+        self::assertStringContainsString('.t-bg-reset { background: revert-layer; }', $css);
+        self::assertStringNotContainsString('background-color', $css);
         self::assertStringContainsString('.t-self-end { margin-inline: auto 0; }', $css);
         self::assertStringContainsString('.t-vis-hidden { display: none; }', $css);
         self::assertStringContainsString('.md\\:t-vis-visible { display: revert-layer; }', $css);

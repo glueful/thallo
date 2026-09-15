@@ -254,6 +254,9 @@ final class StarterBlockTypes
                     // instead of the image — a code snippet, a card, a gallery.
                     ['name' => 'aside', 'type' => 'blocks'],
                     ['name' => 'orientation', 'type' => 'enum', 'enum' => ['vertical', 'horizontal']],
+                    // The horizontal split: equal columns, or a wider copy or media column.
+                    ['name' => 'split', 'type' => 'enum', 'enum' => ['equal', 'copy', 'media'],
+                        'enum_labels' => ['equal' => 'Equal', 'copy' => 'Wider copy', 'media' => 'Wider media']],
                     ['name' => 'reverse', 'type' => 'boolean'],
                     // Background is a choice; gradient reproduces the original look.
                     ['name' => 'background', 'type' => 'enum', 'enum' => ['gradient', 'none', 'muted', 'inverted']],
@@ -350,11 +353,13 @@ final class StarterBlockTypes
                 'style_capabilities' => [
                     'spacing', 'width', 'radius', 'shadow', 'colors', 'border', 'visibility', 'typography',
                 ],
-                'style_targets' => StyleTargets::root('box', [
-                    'spacing', 'width', 'radius', 'shadow', 'colors', 'border', 'visibility',
-                ], [
-                    'targets' => ['title' => ['kind' => 'text']],
-                    'map' => ['typography' => 'title'],
+                // The inner box (`panel`) is where the variants paint background, border and shadow.
+                'style_targets' => StyleTargets::root('box', ['spacing', 'width', 'visibility'], [
+                    'targets' => ['title' => ['kind' => 'text'], 'panel' => ['kind' => 'box']],
+                    'map' => [
+                        'typography' => 'title',
+                        'radius' => 'panel', 'shadow' => 'panel', 'colors' => 'panel', 'border' => 'panel',
+                    ],
                 ]),
                 'schema' => [
                     ['name' => 'title', 'type' => 'string', 'required' => true],
@@ -620,7 +625,11 @@ final class StarterBlockTypes
                 'description' => 'An uploaded video or a YouTube/Vimeo embed.',
                 'flags' => [],
                 'style_capabilities' => ['spacing', 'width', 'radius', 'shadow', 'visibility'],
-                'style_targets' => StyleTargets::root('box', ['spacing', 'width', 'radius', 'shadow', 'visibility']),
+                // The frame (iframe or player) is where the theme paints corners and shadow.
+                'style_targets' => StyleTargets::root('box', ['spacing', 'width', 'visibility'], [
+                    'targets' => ['frame' => ['kind' => 'box', 'optional' => true]],
+                    'map' => ['radius' => 'frame', 'shadow' => 'frame'],
+                ]),
                 'schema' => [
                     ['name' => 'source', 'type' => 'enum', 'enum' => ['upload', 'embed']],
                     ['name' => 'video', 'type' => 'asset'],
@@ -658,7 +667,11 @@ final class StarterBlockTypes
                 'description' => 'A code snippet with a language label and a copy button.',
                 'flags' => [],
                 'style_capabilities' => ['spacing', 'width', 'radius', 'shadow', 'visibility'],
-                'style_targets' => StyleTargets::root('box', ['spacing', 'width', 'radius', 'shadow', 'visibility']),
+                // The framed figure (`panel`) is where the theme paints corners and shadow.
+                'style_targets' => StyleTargets::root('box', ['spacing', 'width', 'visibility'], [
+                    'targets' => ['panel' => ['kind' => 'box']],
+                    'map' => ['radius' => 'panel', 'shadow' => 'panel'],
+                ]),
                 'schema' => [
                     ['name' => 'code', 'type' => 'text', 'required' => true],
                     ['name' => 'language', 'type' => 'enum', 'enum' => [

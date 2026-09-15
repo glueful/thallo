@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Thallo\Core\Tests\Integration\Render;
 
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 use Thallo\Render\RenderContextExtension;
 use Thallo\Render\ThemeLocator;
 use Thallo\Render\TwigFactory;
@@ -17,6 +18,8 @@ use Twig\Environment;
  */
 final class CodeBlockRenderTest extends AppTestCase
 {
+    use SyncsBlockStyleDeclarations;
+
     private function env(): Environment
     {
         $base = $this->appContext()->getBasePath();
@@ -44,6 +47,7 @@ final class CodeBlockRenderTest extends AppTestCase
         ]);
 
         self::assertStringContainsString('class="thallo-block thallo-block-code"', $out);
+        self::assertStringContainsString('<figure class="thallo-block-code__panel">', $out);
         self::assertStringContainsString('data-language="bash"', $out);
         self::assertStringContainsString('data-copy="1"', $out, 'copy defaults to on');
         self::assertStringContainsString('<code class="language-bash">', $out);
@@ -67,5 +71,27 @@ final class CodeBlockRenderTest extends AppTestCase
 
         self::assertStringContainsString('data-language="text"', $out);
         self::assertStringContainsString('<code class="language-text">', $out);
+    }
+
+    public function testCornersAndShadowLandOnTheFramedPanelAndTheSnippetWraps(): void
+    {
+        $this->syncBlockStyleDeclarations();
+        $out = $this->env()->createTemplate('{{ blocks(list) }}')->render(['list' => [[
+            'id' => 'code0000001', 'type' => 'code',
+            'data' => ['code' => 'ls', 'language' => 'bash'],
+            'settings' => ['style' => [
+                'radius' => ['type' => 'token', 'value' => 'radius.none'],
+                'shadow' => ['base' => ['type' => 'token', 'value' => 'shadow.md']],
+                'spacing' => ['margin' => ['top' => ['base' => ['type' => 'token', 'value' => 'spacing.lg']]]],
+            ]],
+        ]]]);
+        self::assertStringContainsString('class="thallo-block thallo-block-code t-mt-lg"', $out, 'spacing on the root');
+        self::assertStringContainsString('<figure class="thallo-block-code__panel t-shadow-md t-radius-none">', $out);
+        $css = (string) file_get_contents(
+            dirname(__DIR__, 3) . '/packages/thallo-render/themes/default/assets/blocks.css',
+        );
+        self::assertMatchesRegularExpression('~\\.thallo-block-code__pre \\{[^}]*white-space: pre-wrap~', $css);
+        self::assertDoesNotMatchRegularExpression('~\\.thallo-block-code__pre \\{[^}]*overflow-x~', $css);
+        self::assertMatchesRegularExpression('~\\.thallo-block-code__panel \\{[^}]*border-radius~', $css);
     }
 }

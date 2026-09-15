@@ -7,7 +7,10 @@ namespace Thallo\Core\Tests\Integration\Render;
 use Thallo\Core\Content\Events\EntryPublished;
 use Thallo\Core\Content\Repositories\ContentTypeRepository;
 use Thallo\Core\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
+use Thallo\Core\Content\Pipeline\Listeners\InvalidateCacheTagsListener;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Contracts\Delivery\RenderedPageCachePurge;
+use Thallo\Render\Http\Middleware\RenderCachePurge;
 use Glueful\Cache\CacheStore;
 use Glueful\Events\EventService;
 use Thallo\Contracts\Navigation\MenuUpdated;
@@ -300,6 +303,28 @@ final class RenderPageCacheTest extends AppTestCase
             . ':%2Fblog%2Fhello')); // A purged
         self::assertIsArray($this->cache()->get('render:default:' . $this->appearanceFingerprint()
             . ':%2F')); // B still hit
+    }
+
+    public function testPublishDropsEveryRenderedPageWhenTheDriverCannotInvalidateTags(): void
+    {
+        // The default file driver answers every tag call with false: the entry listener then
+        // purges through the render pack's contract, which drops the whole namespace.
+        $entry = $this->seedBilingualPublishedEntry();
+        $store = $this->createMock(CacheStore::class);
+        $store->method('invalidateTags')->willReturn(false);
+        $patterns = [];
+        $store->expects(self::exactly(2))->method('deletePattern')
+            ->willReturnCallback(static function (string $pattern) use (&$patterns): bool {
+                $patterns[] = $pattern;
+                return true;
+            });
+        $container = $this->container()->with([
+            CacheStore::class => static fn () => $store,
+            RenderedPageCachePurge::class => static fn () => new RenderCachePurge($store),
+        ]);
+        $listener = new InvalidateCacheTagsListener($container, new ContentTypeRepository($this->connection()));
+        $listener(new EntryPublished($entry, $this->typeUuid()));
+        self::assertSame(['render:*', 'tenant:*:render:*'], $patterns);
     }
 
     public function testStyleSkinnedRenderIsPurgedByItsEntrySurrogateTag(): void

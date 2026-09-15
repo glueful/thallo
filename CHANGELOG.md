@@ -7,6 +7,39 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.30] - 2026-09-15
+
+### Added
+- The hero's horizontal split is a choice: equal columns, a wider copy column or a wider media
+  column (three fifths to two).
+
+### Fixed
+- A publish is visible on the live site on the next request whatever the cache driver. The
+  default `file` driver cannot invalidate cache tags, so rendered pages, error bodies and the
+  shop's pages stayed as they were for up to the cache TTL after a publish, a menu, region,
+  template or theme change; on such a driver every rendered page is dropped instead
+  (`RenderedPageCachePurge`, bound by the render pack and used by core and the packs).
+- Corners and shadow land where the theme paints them. The code block's framed figure, the
+  cta's inner box (colours and border too) and the video's frame are their blocks' `panel` and
+  `frame` style targets, and the hero's media box carries its own corners and shadow, so
+  "Corners: none" and a shadow choice take effect on every one of them. The code block's
+  spacing and width stay on its root. The snippet wraps long lines instead of scrolling sideways, and the Copy
+  button shows in the design canvas as it does on the page.
+- The stage patches in place again after an apply. Since the revision pair joined `<main>`,
+  every post-apply refresh compared page shells that differed only by that pair, answered
+  "shell drift" and reloaded the iframe; the comparison ignores the pair and a successful patch
+  advances it, and a patched wrapper is handed to the theme runtime to enhance.
+- Every admin page's panel takes the height of the layout's rounded shell instead of the
+  viewport: Nuxt UI's `min-h-svh` default overflowed the shell by its margins, and the
+  overflow-hidden shell scrolled on focus, clipping the page title and its Save button.
+- A block's Background setting owns the whole background: it compiles to the `background`
+  shorthand, so a theme gradient (the hero's band) yields to a managed colour and `transparent`
+  clears it, where before only `background-color` changed and the gradient stayed. Compiler
+  version 2 (the settings artifact recompiles at provision); proven in all three engines.
+- Framework 1.85.7 is required (repinned): the scheduled framework jobs keep the application
+  context they are handed, so `queue:scheduler run` no longer fails every tenth minute on a
+  fresh install with `NotificationRetryTask requires an ApplicationContext`.
+
 ## [1.0.0-beta.29] - 2026-09-14
 
 ### Added
