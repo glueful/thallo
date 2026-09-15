@@ -3,7 +3,7 @@
 // block. Content is the block's schema form; Style and Advanced are generated from the block
 // type's declaration and the style schema. Every edit leaves as an intent the page turns into
 // a tree mutation (and so into history operations).
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { BlockType } from '@/queries/blockTypes'
 import type { StyleSchemaResult } from '@/queries/styleSchema'
 import type { Breakpoint, StyleClassRef, StyleValue } from '@/style/types'
@@ -24,6 +24,9 @@ const props = defineProps<{
   classOptions?: { id: string; name: string; archived: boolean; locked: boolean }[]
   reResolving?: boolean
   activeBreakpoint: Breakpoint
+  /** A sibling multi-selection (spec §5.5): `block` is its anchor; only Style applies to all. */
+  blocks?: BlockInstance[]
+  blockTypes?: (BlockType | null)[]
 }>()
 const emit = defineEmits<{
   'patch-data': [name: string, value: unknown]
@@ -43,12 +46,23 @@ const emit = defineEmits<{
 }>()
 
 const tab = ref('content')
-const tabs = [
+const multi = computed(() => (props.blocks?.length ?? 0) > 1)
+const ALL_TABS = [
   { label: 'Content', value: 'content', slot: 'content' as const },
   { label: 'Style', value: 'style', slot: 'style' as const },
   { label: 'Advanced', value: 'advanced', slot: 'advanced' as const },
 ]
-const title = computed(() => props.blockType?.label ?? props.block.type)
+const tabs = computed(() => (multi.value ? ALL_TABS.filter((t) => t.value === 'style') : ALL_TABS))
+watch(
+  multi,
+  (isMulti) => {
+    if (isMulti) tab.value = 'style'
+  },
+  { immediate: true },
+)
+const title = computed(() =>
+  multi.value ? `${props.blocks!.length} blocks` : (props.blockType?.label ?? props.block.type),
+)
 /** A prose block's body is edited in place on the stage, never through a second editor here. */
 const proseField = computed(() =>
   props.blockType && isProseBlockType(props.blockType) ? proseRichFieldName(props.blockType) : null,
@@ -69,7 +83,7 @@ const proseField = computed(() =>
       variant="link"
       data-test="block-inspector-tabs"
     >
-      <template #content>
+      <template v-if="!multi" #content>
         <p v-if="proseField" class="mb-2 text-xs text-muted" data-test="prose-on-stage">
           Edit the text directly on the stage.
         </p>
@@ -93,13 +107,15 @@ const proseField = computed(() =>
           :class-names="classNames"
           :re-resolving="reResolving"
           :active-breakpoint="activeBreakpoint"
+          :blocks="blocks"
+          :block-types="blockTypes"
           @set="(path, bp, value) => emit('set-setting', path, bp, value)"
           @set-all="(path, value) => emit('set-all', path, value)"
           @update:active-breakpoint="(bp) => emit('update:activeBreakpoint', bp)"
           @save-as-class="emit('save-as-class')"
         />
       </template>
-      <template #advanced>
+      <template v-if="!multi" #advanced>
         <AdvancedTab
           :block="block"
           :class-names="classNames"

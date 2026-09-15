@@ -23,6 +23,7 @@ import BlockOutlineRail from './blocks/BlockOutlineRail.vue'
 // registry only ever mounts BlocksField for entry-level fields. `depth` is kept
 // for the registry contract; nesting depth is tracked through BlockList.
 const props = defineProps<{ field: FieldDef; depth?: number }>()
+const emit = defineEmits<{ select: [id: string, modifiers: { shift: boolean; meta: boolean }] }>()
 const model = defineModel<BlockInstance[]>({ default: () => [] })
 
 const { data: allTypes } = useBlockTypes()
@@ -225,6 +226,7 @@ const context: BlocksContext = {
   ops,
   expanded,
   selectBlock,
+  selectIntent: (id, modifiers) => emit('select', id, modifiers),
   dragGroup: `blocks-${newBlockId()}`,
   onDragEnd,
   dragVersion,

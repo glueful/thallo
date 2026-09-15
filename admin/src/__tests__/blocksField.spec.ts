@@ -252,6 +252,23 @@ describe('BlocksField', () => {
     wrapper.unmount()
   })
 
+  it('shift- and cmd-click on a card header emit a select intent instead of toggling', async () => {
+    const model = [
+      { id: 'aaa000000001', type: 'hero', data: {}, settings: {} },
+      { id: 'bbb000000002', type: 'hero', data: {}, settings: {} },
+    ]
+    const wrapper = mount(BlocksField, { props: { field, modelValue: model } })
+    await flushPromises()
+    const header = wrapper.find('[data-test="block-toggle-bbb000000002"]')
+    await header.trigger('click', { shiftKey: true })
+    await header.trigger('click', { metaKey: true })
+    expect(wrapper.emitted('select')).toEqual([
+      ['bbb000000002', { shift: true, meta: false }],
+      ['bbb000000002', { shift: false, meta: true }],
+    ])
+    wrapper.unmount()
+  })
+
   it('respects the field blockTypes allowlist in the picker', async () => {
     const wrapper = mount(BlocksField, {
       props: { field: { ...field, blockTypes: ['quote'] }, modelValue: [] },

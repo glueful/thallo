@@ -30,6 +30,12 @@ export interface BridgeAnchor {
   y: number
 }
 
+/** A stage click's modifiers (visual builder spec §5.5): shift extends, cmd/ctrl toggles. */
+export interface SelectModifiers {
+  shift: boolean
+  meta: boolean
+}
+
 /** A drop zone as the stage derives it from real slot geometry (visual builder spec §5.3). */
 export interface StageZone {
   parent: string | null
@@ -93,7 +99,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
 
-  let selectCb: ((id: string) => void) | null = null
+  let selectCb: ((id: string, modifiers: SelectModifiers) => void) | null = null
   let deselectCb: ((id: string) => void) | null = null
   let hoverCb: ((id: string) => void) | null = null
   let indexCb: ((ids: string[]) => void) | null = null
@@ -131,7 +137,10 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   function onMessage(event: MessageEvent): void {
     const data = (event.data ?? {}) as BridgeMessage
     if (data.nonce !== nonce) return
-    if (data.type === 'thallo:block-select' && typeof data.id === 'string') selectCb?.(data.id)
+    if (data.type === 'thallo:block-select' && typeof data.id === 'string') {
+      const m = data as { shift?: unknown; meta?: unknown }
+      selectCb?.(data.id, { shift: m.shift === true, meta: m.meta === true })
+    }
     // Stage Escape (keyboard-shortcuts spec §3): notification-only — the
     // bridge already cleared its own ring/toolbar.
     if (data.type === 'thallo:block-deselect' && typeof data.id === 'string') deselectCb?.(data.id)
@@ -264,7 +273,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     hello(): void {
       post({ type: 'thallo:canvas-hello' })
     },
-    onBlockSelect(cb: (id: string) => void): void {
+    onBlockSelect(cb: (id: string, modifiers: SelectModifiers) => void): void {
       selectCb = cb
     },
     onBlockDeselect(cb: (id: string) => void): void {
@@ -276,8 +285,9 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     onBlocksIndex(cb: (ids: string[]) => void): void {
       indexCb = cb
     },
-    highlight(id: string): void {
-      post({ type: 'thallo:highlight', id })
+    /** Ring `id` on the stage (with its toolbar); `ids` rings the whole sibling selection. */
+    highlight(id: string, ids?: string[]): void {
+      post(ids ? { type: 'thallo:highlight', id, ids } : { type: 'thallo:highlight', id })
     },
     scrollTo(id: string): void {
       post({ type: 'thallo:scroll-to', id })

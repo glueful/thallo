@@ -943,6 +943,80 @@ describe('proposal drag (visual builder spec §5.3/§5.4)', () => {
   })
 })
 
+describe('sibling multi-selection on the stage (visual builder spec §5.5)', () => {
+  function click(w: HTMLElement, init: MouseEventInit = {}): void {
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    w.querySelector('section')!.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true, ...init }),
+    )
+  }
+
+  it('a click posts its modifiers: shift extends, cmd/ctrl toggles, plain neither', () => {
+    const a = wrapper('ms-a-0000001')
+    document.body.appendChild(a)
+    click(a)
+    expect(lastPost('thallo:block-select')).toMatchObject({
+      id: 'ms-a-0000001',
+      shift: false,
+      meta: false,
+    })
+    click(a, { shiftKey: true })
+    expect(lastPost('thallo:block-select')).toMatchObject({
+      id: 'ms-a-0000001',
+      shift: true,
+      meta: false,
+    })
+    click(a, { metaKey: true })
+    expect(lastPost('thallo:block-select')).toMatchObject({ shift: false, meta: true })
+    click(a, { ctrlKey: true })
+    expect(lastPost('thallo:block-select')).toMatchObject({ shift: false, meta: true })
+  })
+
+  it('a highlight naming several ids rings every one, tools only the anchor, and drags them together', () => {
+    const list = document.createElement('main')
+    list.setAttribute('data-thallo-slot', 'body')
+    const a = wrapper('ms-b-0000001')
+    const b = wrapper('ms-b-0000002')
+    const c = wrapper('ms-b-0000003')
+    list.append(a, b, c)
+    document.body.appendChild(list)
+
+    sendToBridge({
+      type: 'thallo:highlight',
+      id: 'ms-b-0000001',
+      ids: ['ms-b-0000001', 'ms-b-0000003'],
+    })
+    expect(a.classList.contains('thallo-canvas-selected')).toBe(true)
+    expect(c.classList.contains('thallo-canvas-selected')).toBe(true)
+    expect(b.classList.contains('thallo-canvas-selected')).toBe(false)
+    expect(a.querySelector('.thallo-canvas-toolbar')).not.toBeNull()
+    expect(c.querySelector('.thallo-canvas-toolbar')).toBeNull()
+
+    // The grip drags the whole selection: the session names every ring.
+    posted.mockClear()
+    a.querySelector('[data-action="drag"] svg')!.dispatchEvent(
+      new MouseEvent('pointerdown', { bubbles: true, cancelable: true }),
+    )
+    expect(c.classList.contains('thallo-canvas-dragging')).toBe(true)
+    document.elementFromPoint = () => list
+    document.dispatchEvent(
+      new MouseEvent('pointermove', { bubbles: true, clientY: 900, clientX: 10 } as MouseEventInit),
+    )
+    expect(lastPost('thallo:drag-propose')).toMatchObject({
+      blocks: ['ms-b-0000001', 'ms-b-0000003'],
+    })
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(c.classList.contains('thallo-canvas-dragging')).toBe(false)
+    document.elementFromPoint = undefined as unknown as typeof document.elementFromPoint
+
+    // A plain highlight of one id rings that one alone.
+    sendToBridge({ type: 'thallo:highlight', id: 'ms-b-0000002' })
+    expect(a.classList.contains('thallo-canvas-selected')).toBe(false)
+    expect(c.classList.contains('thallo-canvas-selected')).toBe(false)
+    expect(b.classList.contains('thallo-canvas-selected')).toBe(true)
+  })
+})
+
 describe('stage keyboard shortcuts', () => {
   function pressKey(init: KeyboardEventInit, target: Element = document.body): KeyboardEvent {
     const ev = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })

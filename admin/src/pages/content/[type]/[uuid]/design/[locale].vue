@@ -19,7 +19,7 @@ import { createEditorHistory, type EditorHistory } from '@/editor/ops/history'
 import { diffDocuments } from '@/editor/ops/diff'
 import { newEditorSession } from '@/editor/ops/session'
 import { absent, present } from '@/editor/ops/types'
-import { setPath, settingSegments } from '@/editor/ops/apply'
+import { readPath, setPath, settingSegments } from '@/editor/ops/apply'
 import { useStyleSchema } from '@/queries/styleSchema'
 import { useStyleClasses, useStyleClassMutations } from '@/queries/styleClasses'
 import { capabilityPaths, detachStyleClass } from '@/style/detach'
@@ -31,6 +31,14 @@ import {
 } from '@/editor/structure/coordinator'
 import MoveToDialog from './components/MoveToDialog.vue'
 import type { LegalityContext } from '@/editor/structure/legality'
+import {
+  EMPTY_SELECTION,
+  extend,
+  reconcile,
+  single,
+  toggle,
+  type Selection,
+} from '@/editor/selection'
 import SaveAsStyleClassDialog from '@/editor/inspector/SaveAsStyleClassDialog.vue'
 import type { StyleClassRef } from '@/style/types'
 import {
@@ -43,8 +51,13 @@ import {
 import type { Breakpoint, StyleValue } from '@/style/types'
 import BlockInspector from '@/editor/inspector/BlockInspector.vue'
 import { invertOperation } from '@/editor/ops/invert'
-import type { EditorDocument, Operation, OperationBody } from '@/editor/ops/types'
-import type { BridgeAnchor, EditKind, StageRefreshMode } from '@/composables/useCanvasBridge'
+import type { ChangeValue, EditorDocument, Operation, OperationBody } from '@/editor/ops/types'
+import type {
+  BridgeAnchor,
+  EditKind,
+  SelectModifiers,
+  StageRefreshMode,
+} from '@/composables/useCanvasBridge'
 import { useNotify } from '@/composables/useNotify'
 import { ApiError, apiErrorCode, apiErrorDetails } from '@/api/errors'
 import { toFieldDef } from '@/fields/normalize'
@@ -308,11 +321,54 @@ interface FieldEditorExposed {
   blockTypeOfBlock: (id: string) => string | null
 }
 const fieldEditorRef = ref<FieldEditorExposed | null>(null)
-const selected = ref<string | null>(null)
+// ── Selection (visual builder spec §5.5): a set of siblings from one slot, the anchor first
+// among them. Shift extends, cmd/ctrl toggles, a plain click selects one; every mutation front
+// door acts on the whole selection, and the tree re-reads it after every change.
+const selection = ref<Selection>(EMPTY_SELECTION)
+/** The anchor: the block the inspector's Content and Advanced tabs and single-block actions address. */
+const selected = computed<string | null>(() => selection.value.anchor)
+const selectionCtx = {
+  regionsOf: (slug: string) => regionsOf(slug),
+  blockFields: () => blockFields(),
+}
+const selectionDoc = (): EditorDocument => ({ fields: fields.value as Record<string, unknown> })
+function applySelection(
+  id: string,
+  modifiers: SelectModifiers = { shift: false, meta: false },
+): void {
+  const doc = selectionDoc()
+  selection.value = modifiers.shift
+    ? extend(selection.value, id, doc, selectionCtx)
+    : modifiers.meta
+      ? toggle(selection.value, id, doc, selectionCtx)
+      : single(id, doc, selectionCtx)
+}
+function selectOne(id: string): void {
+  const next = single(id, selectionDoc(), selectionCtx)
+  // A block the tree does not hold yet (an insert still landing) is selected on trust and
+  // re-read on the next change.
+  selection.value = next.ids.length > 0 ? next : { ids: [id], parent: null, slot: null, anchor: id }
+}
+function clearSelection(): void {
+  selection.value = EMPTY_SELECTION
+}
+/** Ring the whole selection on the stage; the anchor carries the toolbar. */
+function ringSelection(): void {
+  const s = selection.value
+  if (s.anchor !== null) bridge.highlight(s.anchor, s.ids)
+}
+/** The selection when it is a group containing `id`: the front doors act on all of it. */
+function groupFor(id: string): Selection | null {
+  const s = selection.value
+  return s.ids.length > 1 && s.ids.includes(id) ? s : null
+}
 
-bridge.onBlockSelect((id) => {
-  selected.value = id
-  fieldEditorRef.value?.selectBlockById(id)
+bridge.onBlockSelect((id, modifiers = { shift: false, meta: false }) => {
+  applySelection(id, modifiers)
+  const anchor = selection.value.anchor
+  if (anchor !== null) fieldEditorRef.value?.selectBlockById(anchor)
+  // A modified click is judged here, so the stage learns the resulting rings from the parent.
+  if (modifiers.shift || modifiers.meta) ringSelection()
   inspectorTab.value = 'block'
 })
 
@@ -326,6 +382,19 @@ const selectedBlock = computed<BlockInstance | null>(() => {
 const selectedBlockType = computed(
   () => allBlockTypes.value?.find((t) => t.slug === selectedBlock.value?.type) ?? null,
 )
+/** Every selected block, in document order, read off the live tree. */
+const selectedBlocks = computed<BlockInstance[]>(() => {
+  void fields.value
+  return selection.value.ids
+    .map((id) => fieldEditorRef.value?.blockById(id) ?? null)
+    .filter((b): b is BlockInstance => b !== null)
+})
+const selectedBlockTypes = computed(() =>
+  selectedBlocks.value.map((b) => allBlockTypes.value?.find((t) => t.slug === b.type) ?? null),
+)
+/** The ids a style edit writes to: the whole selection, in one transaction. */
+const styleTargets = (): string[] =>
+  selection.value.ids.length > 0 ? selection.value.ids : selected.value ? [selected.value] : []
 
 function writeSettings(
   id: string,
@@ -335,13 +404,61 @@ function writeSettings(
   if (!block) return
   fieldEditorRef.value?.patchBlockSettingsById(id, mutate(block.settings ?? {}))
 }
+/**
+ * A style edit on a group is one transaction of SetSettings, one per block (spec §5.5),
+ * recorded straight into history: the blocks' trees are read from history as the transaction
+ * leaves them, so no write can shadow another.
+ */
+function recordGroupSettings(
+  ids: string[],
+  path: string,
+  breakpoints: (Breakpoint | null)[],
+  value: StyleValue | null,
+): void {
+  if (!history) return
+  commitNow()
+  history.beginTransaction()
+  for (const id of ids) {
+    for (const bp of breakpoints) {
+      const current = blockFromHistory(id)
+      if (!current) continue
+      const segments = settingSegments(path, bp).slice(1)
+      const from = readPath(
+        (current.settings ?? {}) as Record<string, unknown>,
+        segments,
+      ) as ChangeValue<StyleValue>
+      opsSinceApply.push(
+        history.record({
+          type: 'SetSetting',
+          block: id,
+          path,
+          breakpoint: bp,
+          from,
+          to: value === null ? absent() : present(value),
+        }),
+      )
+    }
+  }
+  commitNow()
+  void replayHistory().then(() => scheduleCommit(false))
+}
 function onSetSetting(path: string, bp: Breakpoint | null, value: StyleValue | null): void {
+  const ids = styleTargets()
+  if (ids.length > 1) {
+    recordGroupSettings(ids, path, [bp], value)
+    return
+  }
   if (selected.value === null) return
   writeSettings(selected.value, (s) =>
     setPath(s, settingSegments(path, bp), value === null ? absent() : present(value)),
   )
 }
 function onSetAll(path: string, value: StyleValue): void {
+  const ids = styleTargets()
+  if (ids.length > 1) {
+    recordGroupSettings(ids, path, ['base', 'md', 'lg'], value)
+    return
+  }
   if (selected.value === null) return
   writeSettings(selected.value, (s) => {
     let next = s
@@ -365,14 +482,16 @@ function onPatchData(name: string, value: unknown): void {
 // ring/toolbar — without this the parent's selection would go stale and the
 // outline/inspector would lie.
 bridge.onBlockDeselect(() => {
-  selected.value = null
+  clearSelection()
 })
 
-function onOutlineSelect(id: string): void {
-  selected.value = id
-  fieldEditorRef.value?.selectBlockById(id)
-  bridge.highlight(id)
-  bridge.scrollTo(id)
+function onOutlineSelect(id: string, modifiers: SelectModifiers): void {
+  applySelection(id, modifiers)
+  const anchor = selection.value.anchor
+  if (anchor === null) return
+  fieldEditorRef.value?.selectBlockById(anchor)
+  ringSelection()
+  bridge.scrollTo(anchor)
 }
 
 // ── Stage toolbar intents (stage-toolbar spec §2/§4): mutate through the
@@ -381,8 +500,36 @@ function onOutlineSelect(id: string): void {
 // the bridge's stage callbacks drive the SAME functions — no new mutation
 // paths, just two front doors.
 function moveBlockAndMirror(id: string, delta: 1 | -1): void {
+  const group = groupFor(id)
+  if (group) {
+    moveGroup(group, delta)
+    return
+  }
   const neighbor = fieldEditorRef.value?.moveBlockById(id, delta) ?? null
   if (neighbor) bridge.mirrorMove(id, neighbor)
+}
+/** The list a selection lives in, as the tree holds it now. */
+function listOfSelection(sel: Selection): BlockInstance[] {
+  if (sel.slot === null) return []
+  const raw =
+    sel.parent === null
+      ? fields.value[sel.slot]
+      : fieldEditorRef.value?.blockById(sel.parent)?.data[sel.slot]
+  return Array.isArray(raw) ? (raw as BlockInstance[]) : []
+}
+/**
+ * A group moves as one transaction through the coordinator (spec §5.5): one step past the
+ * sibling before or after it, the zone counted against the list with the group removed.
+ */
+function moveGroup(sel: Selection, delta: 1 | -1): void {
+  const list = listOfSelection(sel)
+  const first = list.findIndex((b) => b.id === sel.ids[0])
+  const last = list.findIndex((b) => b.id === sel.ids[sel.ids.length - 1])
+  if (first === -1 || last === -1) return
+  if (delta === -1 && first === 0) return
+  if (delta === 1 && last === list.length - 1) return
+  coordinator.begin('stage', { blocks: sel.ids })
+  finishDrop({ parent: sel.parent, slot: sel.slot, index: delta === -1 ? first - 1 : first + 1 })
 }
 
 bridge.onBlockMove(moveBlockAndMirror)
@@ -419,10 +566,56 @@ bridge.onDragCancel((session) => {
 })
 
 function duplicateAndMirror(id: string): void {
+  const group = groupFor(id)
+  if (group) {
+    // One transaction of DuplicateBlocks, each copy after its source (read from history as
+    // the transaction leaves it); the copies become the selection.
+    if (!history) return
+    commitNow()
+    history.beginTransaction()
+    const listOps = history.applier.listOps
+    const copies: string[] = []
+    const mirrors: [string, Record<string, string>][] = []
+    for (const member of group.ids) {
+      const source = blockFromHistory(member)
+      if (!source) continue
+      const list = listOps.duplicateById([source], member)
+      const copy = list[1]
+      if (!copy) continue
+      const at = history.applier.listOps.locateById(
+        (group.parent === null
+          ? (history.document.fields[group.slot!] as BlockInstance[] | undefined)
+          : (blockFromHistory(group.parent)?.data[group.slot!] as BlockInstance[] | undefined)) ??
+          [],
+        member,
+      )
+      if (!at) continue
+      opsSinceApply.push(
+        history.record({
+          type: 'DuplicateBlock',
+          source: member,
+          position: { parent: group.parent, slot: group.slot, index: at.index + 1 },
+          block: copy,
+        }),
+      )
+      copies.push(copy.id)
+      mirrors.push([member, listOps.idMapBetween(source, copy)])
+    }
+    commitNow()
+    if (copies.length === 0) return
+    void replayHistory().then(() => {
+      for (const [source, idMap] of mirrors) bridge.mirrorDuplicate(source, idMap)
+      selection.value = { ids: copies, parent: group.parent, slot: group.slot, anchor: copies[0]! }
+      fieldEditorRef.value?.selectBlockById(copies[0]!)
+      ringSelection()
+      scheduleCommit(true)
+    })
+    return
+  }
   const result = fieldEditorRef.value?.duplicateBlockById(id) ?? null
   if (result) {
     bridge.mirrorDuplicate(id, result.idMap)
-    selected.value = result.newId
+    selectOne(result.newId)
     fieldEditorRef.value?.selectBlockById(result.newId)
   }
 }
@@ -463,7 +656,7 @@ bridge.onBlockDeleteRequest(openDeleteConfirm)
 // Outline Escape (polish batch §4): clear parent state AND the stage ring —
 // the bridge's highlight handler clearSelection()s on an unresolvable id.
 function onOutlineDeselect(): void {
-  selected.value = null
+  clearSelection()
   bridge.highlight('')
 }
 
@@ -474,9 +667,43 @@ function cancelDelete(): void {
 function confirmDelete(): void {
   const id = deleteRequest.value
   deleteRequest.value = null
-  if (id !== null && fieldEditorRef.value?.deleteBlockById(id)) {
+  if (id === null) return
+  const group = groupFor(id)
+  if (group && history) {
+    // One transaction of RemoveBlocks, last to first so every position is read as the
+    // transaction leaves the list.
+    commitNow()
+    history.beginTransaction()
+    const removed: string[] = []
+    for (const member of [...group.ids].reverse()) {
+      const block = blockFromHistory(member)
+      const list =
+        (group.parent === null
+          ? (history.document.fields[group.slot!] as BlockInstance[] | undefined)
+          : (blockFromHistory(group.parent)?.data[group.slot!] as BlockInstance[] | undefined)) ??
+        []
+      const index = list.findIndex((b) => b.id === member)
+      if (!block || index === -1) continue
+      opsSinceApply.push(
+        history.record({
+          type: 'RemoveBlock',
+          position: { parent: group.parent, slot: group.slot, index },
+          block,
+        }),
+      )
+      removed.push(member)
+    }
+    commitNow()
+    clearSelection()
+    void replayHistory().then(() => {
+      for (const member of removed) bridge.mirrorRemove(member)
+      scheduleCommit(true)
+    })
+    return
+  }
+  if (fieldEditorRef.value?.deleteBlockById(id)) {
     bridge.mirrorRemove(id)
-    if (selected.value === id) selected.value = null
+    if (selected.value === id) clearSelection()
   }
 }
 
@@ -547,7 +774,7 @@ async function chooseAddType(slug: string): Promise<void> {
   addAfterId.value = null
   if (id === null) return
   const newId = (await fieldEditorRef.value?.insertAfterById(id, slug)) ?? null
-  if (newId !== null) selected.value = newId
+  if (newId !== null) selectOne(newId)
 }
 
 // ── Edit-in-place (edit-in-place spec §4): grant prose blocks only; typed
@@ -663,6 +890,7 @@ function scheduleCommit(structural: boolean): void {
 watch(
   fields,
   () => {
+    selection.value = reconcile(selection.value, selectionDoc(), selectionCtx)
     if (replaying) return
     const next = { fields: snapshotFields() }
     if (history === null) {
@@ -1576,6 +1804,8 @@ function reloadStage(): void {
                 v-if="selectedBlock"
                 :block="selectedBlock"
                 :block-type="selectedBlockType"
+                :blocks="selectedBlocks"
+                :block-types="selectedBlockTypes"
                 :schema="styleSchema ?? null"
                 :classes="classRefsFor(selectedBlock)"
                 :class-names="classNames"
@@ -1613,6 +1843,7 @@ function reloadStage(): void {
                   :fields="fields"
                   :schema="schema"
                   :selected="selected"
+                  :selected-ids="selection.ids"
                   @select="onOutlineSelect"
                   @move="moveBlockAndMirror"
                   @delete-request="(id: string) => openDeleteConfirm(id, null)"

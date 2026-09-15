@@ -6,7 +6,7 @@
 import { computed } from 'vue'
 import { resolve } from '@/style/resolver'
 import { readPath, settingSegments } from '@/editor/ops/apply'
-import type { Breakpoint, StyleClassRef, StyleValue } from '@/style/types'
+import type { Breakpoint, Resolution, StyleClassRef, StyleValue } from '@/style/types'
 import type { StylePropertyRow } from '@/queries/styleSchema'
 import { BREAKPOINT_LABELS } from '@/editor/breakpoint'
 import TokenScaleControl from './TokenScaleControl.vue'
@@ -23,6 +23,8 @@ const props = defineProps<{
   /** Class id => name, so a value inherited from a class is labelled by the class (spec §3.4). */
   classNames?: Record<string, string>
   reResolving?: boolean
+  /** Every selected block's `settings.style` (a multi-selection, spec §5.5); `style` is the anchor's. */
+  styles?: Record<string, unknown>[]
 }>()
 const emit = defineEmits<{
   /** Set (or clear with null) the value at one breakpoint (null breakpoint = non-responsive). */
@@ -54,7 +56,22 @@ const breakpoint = computed<Breakpoint | null>(() =>
   props.def.responsive ? props.activeBreakpoint : null,
 )
 const current = computed(() => resolutions.value[breakpoint.value ?? 'base']!)
+/** A multi-selection whose blocks resolve to different values here shows no value: mixed. */
+const mixed = computed(() => {
+  const styles = props.styles ?? []
+  if (styles.length < 2) return false
+  const bp = breakpoint.value ?? 'base'
+  const at = (s: Record<string, unknown>) =>
+    JSON.stringify(
+      (resolve(props.def.path, props.classes, s, definition.value) as Record<string, Resolution>)[
+        bp
+      ]?.value ?? null,
+    )
+  const first = at(styles[0]!)
+  return styles.some((s) => at(s) !== first)
+})
 const currentValue = computed(() => {
+  if (mixed.value) return null
   const v = current.value.value
   return v && 'value' in v ? v.value : null
 })
@@ -90,6 +107,7 @@ function applyToAll(): void {
 }
 
 const stateLabel = computed(() => {
+  if (mixed.value) return 'mixed'
   if (props.reResolving && current.value.state !== 'explicit') return 're-resolving'
   switch (current.value.state) {
     case 'explicit':
@@ -123,7 +141,9 @@ const sourceLabel = computed(() => {
         <span
           class="rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide"
           :class="
-            current.state === 'explicit' ? 'bg-primary/10 text-primary' : 'bg-elevated text-muted'
+            current.state === 'explicit' && !mixed
+              ? 'bg-primary/10 text-primary'
+              : 'bg-elevated text-muted'
           "
           data-test="style-state"
           :data-source="current.source"

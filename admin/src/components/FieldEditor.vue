@@ -33,6 +33,9 @@ interface BlocksFieldExposed {
   blockTypeById: (id: string) => string | null
 }
 
+/** A blocks field's modified header click: the page's selection intent (spec §5.5). */
+const emit = defineEmits<{ select: [id: string, modifiers: { shift: boolean; meta: boolean }] }>()
+
 const blocksFields = new Map<string, BlocksFieldExposed>()
 
 function trackField(
@@ -110,6 +113,10 @@ defineExpose({
         :model-value="model[field.name]"
         :field="field"
         @update:model-value="(v: unknown) => (model = { ...model, [field.name]: v })"
+        @select="
+          (id: string, modifiers: { shift: boolean; meta: boolean }) =>
+            emit('select', id, modifiers)
+        "
       />
       <p
         v-if="errors?.[field.name]"

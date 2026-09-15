@@ -38,9 +38,11 @@ const props = defineProps<{
   fields: Record<string, unknown>
   schema: FieldDef[]
   selected: string | null
+  /** Every selected id (sibling multi-selection); `selected` is its anchor. */
+  selectedIds?: string[]
 }>()
 const emit = defineEmits<{
-  select: [id: string]
+  select: [id: string, modifiers: { shift: boolean; meta: boolean }]
   move: [id: string, delta: 1 | -1]
   deleteRequest: [id: string]
   duplicate: [id: string]
@@ -206,12 +208,15 @@ defineExpose({ onDragEnd })
           <button
             v-if="row.kind === 'block'"
             class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-elevated"
-            :class="{ 'bg-elevated': row.id === selected }"
+            :class="{ 'bg-elevated': row.id === selected || (selectedIds ?? []).includes(row.id!) }"
             type="button"
             :style="{ paddingLeft: `${8 + row.depth * 16}px` }"
             :data-outline-id="row.id"
             :data-test="`canvas-outline-item-${row.id}`"
-            @click="emit('select', row.id!)"
+            @click="
+              (e: MouseEvent) =>
+                emit('select', row.id!, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })
+            "
           >
             <UIcon :name="row.icon" class="size-3.5 shrink-0 text-muted" />
             <span class="truncate">{{ row.label }}</span>

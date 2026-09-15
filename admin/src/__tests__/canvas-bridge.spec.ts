@@ -256,6 +256,30 @@ describe('useCanvasBridge', () => {
     bridge.dispose()
   })
 
+  it('block-select carries its modifiers (absent means none); highlight posts the ids', () => {
+    const postSpy = vi.fn()
+    const iframe = ref({
+      contentWindow: { postMessage: postSpy },
+    } as unknown as HTMLIFrameElement)
+    const bridge = useCanvasBridge(iframe, 'https://site.test/_preview/x')
+    const select = vi.fn()
+    bridge.onBlockSelect(select)
+    const send = (data: Record<string, unknown>) =>
+      window.dispatchEvent(new MessageEvent('message', { data: { ...data, nonce: bridge.nonce } }))
+    send({ type: 'thallo:block-select', id: 'b1' })
+    expect(select).toHaveBeenLastCalledWith('b1', { shift: false, meta: false })
+    send({ type: 'thallo:block-select', id: 'b2', shift: true, meta: 'x' })
+    expect(select).toHaveBeenLastCalledWith('b2', { shift: true, meta: false })
+
+    bridge.highlight('b1')
+    bridge.highlight('b1', ['b1', 'b3'])
+    expect(postSpy.mock.calls.map((c) => c[0])).toEqual([
+      { type: 'thallo:highlight', id: 'b1', nonce: bridge.nonce },
+      { type: 'thallo:highlight', id: 'b1', ids: ['b1', 'b3'], nonce: bridge.nonce },
+    ])
+    bridge.dispose()
+  })
+
   it('drag-propose / block-drop dispatch a validated zone; drag-cancel its session; malformed dropped', () => {
     const bridge = useCanvasBridge(ref(null))
     const propose = vi.fn()

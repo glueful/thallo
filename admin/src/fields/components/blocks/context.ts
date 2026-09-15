@@ -28,6 +28,8 @@ export interface BlocksContext {
   expanded: Reactive<Record<string, boolean>>
   /** Outline -> expand ancestors, scroll into view, focus the header. */
   selectBlock: (id: string) => void
+  /** A shift- or cmd-click on a card header: a selection intent for the page (spec §5.5). */
+  selectIntent: (id: string, modifiers: { shift: boolean; meta: boolean }) => void
   /** Field-scoped sortable group name (cross-container drag within ONE field). */
   dragGroup: string
   /** Drag drop handler (root-provided; reads target identity from event.to). */

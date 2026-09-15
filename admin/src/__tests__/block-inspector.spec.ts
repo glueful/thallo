@@ -79,6 +79,84 @@ const heading = type('heading', [
   'visibility',
 ])
 
+const button = type('button', ['spacing', 'alignment.content', 'visibility'])
+const token = (name: string) => ({ type: 'token', value: `spacing.${name}` })
+const padded = (id: string, type: string, top?: ReturnType<typeof token>) => ({
+  id,
+  type,
+  data: {},
+  settings: top ? { style: { spacing: { padding: { top: { base: top } } } } } : {},
+})
+
+describe('a multi-selection in the inspector (visual builder spec §5.5)', () => {
+  it('the Style tab renders only the capability intersection; a property any block lacks has no control', () => {
+    const w = mount(StyleTab, {
+      props: {
+        block: padded('h1', 'heading'),
+        blockType: heading,
+        blocks: [padded('h1', 'heading'), padded('h2', 'heading'), padded('b1', 'button')],
+        blockTypes: [heading, heading, button],
+        schema,
+        classes: [],
+        activeBreakpoint: 'base',
+      },
+    })
+    const fields = w.findAll('[data-test^="style-field-"]').map((el) => el.attributes('data-test'))
+    expect(fields).toEqual([
+      'style-field-spacing.padding.top',
+      'style-field-spacing.padding.right',
+      'style-field-spacing.padding.bottom',
+      'style-field-spacing.padding.left',
+      'style-field-spacing.margin.top',
+      'style-field-spacing.margin.bottom',
+      'style-field-visibility',
+    ])
+    expect(w.find('[data-test="style-field-alignment.text"]').exists()).toBe(false)
+    expect(w.find('[data-test="save-as-style-class"]').exists()).toBe(false)
+  })
+
+  it('a property whose blocks resolve differently shows mixed; a pick still emits one set', async () => {
+    const w = mount(StyleTab, {
+      props: {
+        block: padded('h1', 'heading', token('sm')),
+        blockType: heading,
+        blocks: [padded('h1', 'heading', token('sm')), padded('h2', 'heading', token('lg'))],
+        blockTypes: [heading, heading],
+        schema,
+        classes: [],
+        activeBreakpoint: 'base',
+      },
+    })
+    const top = w.find('[data-test="style-field-spacing.padding.top"]')
+    expect(top.find('[data-test="style-state"]').text()).toBe('mixed')
+    expect(top.find('[data-test="token-spacing.sm"]').attributes('aria-pressed')).not.toBe('true')
+    // A property they agree on is not mixed.
+    expect(
+      w.find('[data-test="style-field-spacing.padding.left"] [data-test="style-state"]').text(),
+    ).toBe('theme')
+    await top.find('[data-test="token-spacing.lg"]').trigger('click')
+    expect(w.emitted('set')?.[0]).toEqual(['spacing.padding.top', 'base', token('lg')])
+  })
+
+  it('the inspector shows only Style for several blocks and counts them in the title', () => {
+    const w = mount(BlockInspector, {
+      props: {
+        block: padded('h1', 'heading'),
+        blockType: heading,
+        blocks: [padded('h1', 'heading'), padded('h2', 'heading')],
+        blockTypes: [heading, heading],
+        schema,
+        classes: [],
+        activeBreakpoint: 'base',
+      },
+    })
+    expect(w.find('[data-test="block-inspector-title"]').text()).toBe('2 blocks')
+    expect(w.find('[data-test="style-tab"]').exists()).toBe(true)
+    expect(w.findComponent({ name: 'AdvancedTab' }).exists()).toBe(false)
+    expect(w.findComponent({ name: 'BlockFields' }).exists()).toBe(false)
+  })
+})
+
 describe('StyleTab', () => {
   it('a heading shows spacing, text alignment, typography, text colour and visibility only', () => {
     const w = mount(StyleTab, {

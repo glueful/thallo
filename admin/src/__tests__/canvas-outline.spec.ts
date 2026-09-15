@@ -94,6 +94,24 @@ describe('the canvas outline', () => {
     expect(w.emitted('drop')?.[2]).toEqual(['a', { parent: null, slot: 'body', index: 3 }])
   })
 
+  it('a row click emits its modifiers and every selected id is highlighted', async () => {
+    const w = mount(CanvasOutline, {
+      props: { fields, schema, selected: 'a', selectedIds: ['a', 'x'] },
+      global: { stubs: { VueDraggable: { template: '<div><slot /></div>' } } },
+    })
+    expect(w.find('[data-test="canvas-outline-item-a"]').classes()).toContain('bg-elevated')
+    expect(w.find('[data-test="canvas-outline-item-x"]').classes()).toContain('bg-elevated')
+    expect(w.find('[data-test="canvas-outline-item-s"]').classes()).not.toContain('bg-elevated')
+    await w.find('[data-test="canvas-outline-item-x"]').trigger('click', { shiftKey: true })
+    await w.find('[data-test="canvas-outline-item-x"]').trigger('click', { metaKey: true })
+    await w.find('[data-test="canvas-outline-item-x"]').trigger('click')
+    expect(w.emitted('select')).toEqual([
+      ['x', { shift: true, meta: false }],
+      ['x', { shift: false, meta: true }],
+      ['x', { shift: false, meta: false }],
+    ])
+  })
+
   it('M opens Move to… for the selected block', async () => {
     const w = mountOutline('a')
     await w.find('[data-test="canvas-outline"]').trigger('keydown', { key: 'm' })

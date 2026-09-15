@@ -881,6 +881,149 @@ describe('canvas page', () => {
     wrapper.unmount()
   })
 
+  describe('sibling multi-selection (visual builder spec §5.5)', () => {
+    async function selectPair(wrapper: ReturnType<typeof mountPage>) {
+      bridge.callbacks.select?.('blockaaa0001', { shift: false, meta: false })
+      bridge.callbacks.select?.('blockbbb0002', { shift: true, meta: false })
+      await flushPromises()
+      expect(bridge.instance.highlight).toHaveBeenLastCalledWith('blockaaa0001', [
+        'blockaaa0001',
+        'blockbbb0002',
+      ])
+      expect(wrapper.find('[data-test="canvas-outline-item-blockbbb0002"]').classes()).toContain(
+        'bg-elevated',
+      )
+    }
+    const lastOps = () =>
+      (
+        applyMock.mock.calls[applyMock.mock.calls.length - 1]![4] as {
+          operations: { type: string; transaction_id: string }[]
+        }
+      ).operations
+    const savedIds = () =>
+      (
+        saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
+          fields: { body: { id: string }[] }
+        }
+      ).fields.body.map((b) => b.id)
+
+    it('a group move is one transaction of MoveBlocks; the stage is patched, not mirrored', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      await selectPair(wrapper)
+
+      bridge.callbacks.move?.('blockaaa0001', 1)
+      await flushPromises()
+      expect(bridge.instance.mirrorMove).not.toHaveBeenCalled()
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      expect(savedIds()).toEqual(['prose0000003', 'blockaaa0001', 'blockbbb0002'])
+
+      await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+      await flushPromises()
+      const ops = lastOps()
+      expect(ops.map((o) => o.type)).toEqual(['MoveBlock', 'MoveBlock'])
+      expect(new Set(ops.map((o) => o.transaction_id)).size).toBe(1)
+
+      // Up again from the end: back to the start, still selected as a group.
+      bridge.callbacks.move?.('blockbbb0002', -1)
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      expect(savedIds()).toEqual(['blockaaa0001', 'blockbbb0002', 'prose0000003'])
+      bridge.callbacks.move?.('blockbbb0002', -1) // boundary: nothing moves
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      expect(savedIds()).toEqual(['blockaaa0001', 'blockbbb0002', 'prose0000003'])
+      wrapper.unmount()
+    })
+
+    it('a group duplicate copies each block after itself and selects the copies', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      await selectPair(wrapper)
+
+      bridge.callbacks.duplicate?.('blockbbb0002')
+      await flushPromises()
+      expect(bridge.instance.mirrorDuplicate).toHaveBeenCalledTimes(2)
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      const ids = savedIds()
+      expect(ids).toHaveLength(5)
+      expect([ids[0], ids[2], ids[4]]).toEqual(['blockaaa0001', 'blockbbb0002', 'prose0000003'])
+      expect(bridge.instance.highlight).toHaveBeenLastCalledWith(ids[1], [ids[1], ids[3]])
+      wrapper.unmount()
+    })
+
+    it('a group delete removes every selected block on one confirm', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      await selectPair(wrapper)
+
+      bridge.callbacks.deleteRequest?.('blockaaa0001')
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-delete-confirm-yes"]').trigger('click')
+      await flushPromises()
+      expect(bridge.instance.mirrorRemove).toHaveBeenCalledTimes(2)
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      expect(savedIds()).toEqual(['prose0000003'])
+      expect(wrapper.find('[data-test="block-inspector"]').exists()).toBe(false) // nothing selected
+      wrapper.unmount()
+    })
+
+    it('a style edit writes one SetSetting per selected block in one transaction', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      await selectPair(wrapper)
+      const inspector = wrapper.findComponent({ name: 'BlockInspector' })
+      expect(inspector.props('blocks')).toHaveLength(2)
+      inspector.vm.$emit('set-setting', 'spacing.padding.top', 'base', {
+        type: 'token',
+        value: 'spacing.lg',
+      })
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+      await flushPromises()
+      const ops = lastOps() as ({ type: string; transaction_id: string } & Record<
+        string,
+        unknown
+      >)[]
+      expect(ops.map((o) => o.type)).toEqual(['SetSetting', 'SetSetting'])
+      expect(ops.map((o) => o.block)).toEqual(['blockaaa0001', 'blockbbb0002'])
+      expect(new Set(ops.map((o) => o.transaction_id)).size).toBe(1)
+      wrapper.unmount()
+    })
+
+    it('a block from another slot, or an edit that moves one away, narrows the selection', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      await selectPair(wrapper)
+      // cmd-click drops one sibling out.
+      bridge.callbacks.select?.('blockaaa0001', { shift: false, meta: true })
+      await flushPromises()
+      expect(bridge.instance.highlight).toHaveBeenLastCalledWith('blockbbb0002', ['blockbbb0002'])
+      // Deleting the remaining selected block empties the selection.
+      bridge.callbacks.deleteRequest?.('blockbbb0002')
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-delete-confirm-yes"]').trigger('click')
+      await flushPromises()
+      expect(wrapper.find('[data-test="block-inspector"]').exists()).toBe(false) // nothing selected
+      wrapper.unmount()
+    })
+  })
+
   it('an anchored delete request positions the confirm at the delete button', async () => {
     mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
     const wrapper = mountPage()
