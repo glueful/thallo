@@ -145,16 +145,15 @@ const factoryStarter: Record<string, Record<string, unknown>> = {
   hero: { headline: 'Headline', links: [] },
   card: { title: 'Card', body: [] },
 }
+const factory = vi.hoisted(() => ({ instance: vi.fn() }))
+const defaultInstance = async (slug: string) => ({
+  id: 'f' + Math.random().toString(36).slice(2, 13).padEnd(11, '0'),
+  type: slug,
+  data: { ...(factoryStarter[slug] ?? {}) },
+  settings: {},
+})
 vi.mock('@/queries/blockFactory', () => ({
-  useBlockFactory: () => ({
-    make: vi.fn(),
-    instance: vi.fn(async (slug: string) => ({
-      id: 'f' + Math.random().toString(36).slice(2, 13).padEnd(11, '0'),
-      type: slug,
-      data: { ...(factoryStarter[slug] ?? {}) },
-      settings: {},
-    })),
-  }),
+  useBlockFactory: () => ({ make: vi.fn(), instance: factory.instance }),
 }))
 
 vi.mock('vue-router', async (importOriginal) => ({
@@ -237,6 +236,8 @@ beforeEach(() => {
   mintMock.mockReset()
   applyMock.mockReset()
   revisionCounter = 0
+  factory.instance.mockReset()
+  factory.instance.mockImplementation(defaultInstance)
   applyMock.mockImplementation(async () => nextApplied())
   saveMock.mockReset()
   notify.warning.mockReset()
@@ -1022,6 +1023,205 @@ describe('canvas page', () => {
       await wrapper.find('[data-test="canvas-delete-confirm-yes"]').trigger('click')
       await flushPromises()
       expect(wrapper.find('[data-test="block-inspector"]').exists()).toBe(false) // nothing selected
+      wrapper.unmount()
+    })
+  })
+
+  describe('the Blocks tab (Phase C.1)', () => {
+    const savedBody = () =>
+      (
+        saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
+          fields: { body: { id: string; type: string; data: Record<string, unknown> }[] }
+        }
+      ).fields.body
+    async function openBlocks(wrapper: ReturnType<typeof mountPage>) {
+      await wrapper
+        .find('[data-test="inspector-tabs"]')
+        .findAll('button')
+        .find((b) => b.text() === 'Blocks')!
+        .trigger('click')
+      await flushPromises()
+      return wrapper.find('[data-test="blocks-tab"]')
+    }
+
+    it('with nothing selected a tile click inserts at the end of body and selects the block', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      const tab = await openBlocks(wrapper)
+      await tab.find('[data-test="palette-card-card"]').trigger('click')
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      const body = savedBody()
+      expect(body.map((b) => b.type)).toEqual(['card', 'card', 'rich_text', 'card'])
+      expect(body[3]!.data).toEqual({ title: 'Card', body: [] })
+      expect(bridge.instance.highlight).toHaveBeenLastCalledWith(body[3]!.id, [body[3]!.id])
+      wrapper.unmount()
+    })
+
+    it('with a nested block selected the insert lands after it in its OWN sibling list', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      // The card carries a body slot here, so the nested block is part of the tree walk.
+      blockTypes.value = blockTypes.value.map((t) =>
+        t.slug === 'card'
+          ? ({
+              ...t,
+              schema: [
+                ...t.schema,
+                {
+                  name: 'body',
+                  type: 'blocks',
+                  required: false,
+                  localized: false,
+                  filterable: false,
+                },
+              ],
+            } as BlockType)
+          : t,
+      )
+      draft.value = {
+        fields: {
+          title: 'T',
+          body: [
+            {
+              id: 'blockaaa0001',
+              type: 'card',
+              data: {
+                title: 'A',
+                body: [{ id: 'inner0000001', type: 'rich_text', data: { body: '<p>i</p>' } }],
+              },
+            },
+            { id: 'blockbbb0002', type: 'card', data: { title: 'B' } },
+          ],
+        },
+        lock_version: 3,
+      }
+      const wrapper = mountPage()
+      await flushPromises()
+      bridge.callbacks.select?.('inner0000001')
+      await flushPromises()
+      const tab = await openBlocks(wrapper)
+      expect(tab.find('[data-test="palette-target"]').exists()).toBe(false) // the default, not armed
+      await tab.find('[data-test="palette-card-rich_text"]').trigger('click')
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      const body = savedBody()
+      expect(body.map((b) => b.id)).toEqual(['blockaaa0001', 'blockbbb0002'])
+      const inner = body[0]!.data.body as { id: string; type: string }[]
+      expect(inner.map((b) => b.type)).toEqual(['rich_text', 'rich_text'])
+      expect(inner[0]!.id).toBe('inner0000001')
+      wrapper.unmount()
+    })
+
+    it('a nested-starter refusal keeps the target, warns with the reason and changes nothing', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      blockTypes.value = [
+        ...blockTypes.value,
+        {
+          ...bt('section'),
+          schema: [
+            {
+              name: 'content',
+              type: 'blocks',
+              required: false,
+              localized: false,
+              filterable: false,
+            },
+          ],
+        } as BlockType,
+      ]
+      // Four levels down: one level remains. The tile passes (a height-one placeholder fits);
+      // the real instance nests three levels and is refused at commit.
+      const nest = (id: string, inner: unknown[]) => ({
+        id,
+        type: 'section',
+        data: { content: inner },
+      })
+      draft.value = {
+        fields: { title: 'T', body: [nest('s1', [nest('s2', [nest('s3', [nest('s4', [])])])])] },
+        lock_version: 3,
+      }
+      factory.instance.mockImplementation(async (slug: string) => ({
+        id: 'fresh0000001',
+        type: slug,
+        data: { content: [nest('n1', [nest('n2', [])])] },
+        settings: {},
+      }))
+      const wrapper = mountPage()
+      await flushPromises()
+      bridge.callbacks.select?.('s4')
+      await flushPromises()
+      const tab = await openBlocks(wrapper)
+      const before = JSON.stringify(draft.value.fields)
+      expect(
+        tab.find('[data-test="palette-card-section"]').attributes('aria-disabled'),
+      ).toBeUndefined()
+      await tab.find('[data-test="palette-card-section"]').trigger('click')
+      await flushPromises()
+      expect(notify.warning).toHaveBeenCalledWith(
+        'That move is not allowed',
+        expect.stringMatching(/deep|five|level/i),
+      )
+      expect(wrapper.find('[data-test="canvas-undo"]').attributes('disabled')).toBeDefined()
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      expect(
+        JSON.stringify(
+          (saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as { fields: unknown }).fields,
+        ),
+      ).toBe(before)
+      wrapper.unmount()
+    })
+
+    it('a click whose target is cleared while the factory loads inserts nothing, with no default substituted', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      let resolveFactory: (b: unknown) => void = () => {}
+      factory.instance.mockImplementation(() => new Promise((r) => (resolveFactory = r)))
+      const wrapper = mountPage()
+      await flushPromises()
+      bridge.callbacks.select?.('blockaaa0001')
+      await flushPromises()
+      const tab = await openBlocks(wrapper)
+      await tab.find('[data-test="palette-card-card"]').trigger('click')
+      bridge.callbacks.deselect?.('blockaaa0001') // the attempt's intent is gone
+      await flushPromises()
+      resolveFactory({ id: 'late00000001', type: 'card', data: {}, settings: {} })
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      expect(savedBody().map((b) => b.id)).toEqual(['blockaaa0001', 'blockbbb0002', 'prose0000003'])
+      wrapper.unmount()
+    })
+
+    it('a click whose anchor moves while the factory loads lands after the new position of the anchor', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      let resolveFactory: (b: unknown) => void = () => {}
+      factory.instance.mockImplementation(() => new Promise((r) => (resolveFactory = r)))
+      const wrapper = mountPage()
+      await flushPromises()
+      bridge.callbacks.select?.('blockaaa0001')
+      await flushPromises()
+      const tab = await openBlocks(wrapper)
+      await tab.find('[data-test="palette-card-card"]').trigger('click')
+      bridge.callbacks.move?.('blockaaa0001', 1) // the anchor moves while the factory answers
+      await flushPromises()
+      resolveFactory({ id: 'late00000002', type: 'card', data: {}, settings: {} })
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      expect(savedBody().map((b) => b.id)).toEqual([
+        'blockbbb0002',
+        'blockaaa0001',
+        'late00000002',
+        'prose0000003',
+      ])
       wrapper.unmount()
     })
   })

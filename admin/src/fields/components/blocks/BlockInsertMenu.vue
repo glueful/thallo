@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import type { BlockType } from '@/queries/blockTypes'
+import { orderTypes } from '@/editor/palette/order'
 
 // The searchable block picker (spec §2): a FLAT, type-to-filter tile grid
 // (no category headings — Gutenberg-style); categories only order the tiles
@@ -21,24 +22,8 @@ watch(
   },
 )
 
-const filtered = computed(() => {
-  const q = filter.value.trim().toLowerCase()
-  if (q === '') return props.types
-  return props.types.filter(
-    (t) =>
-      t.label.toLowerCase().includes(q) ||
-      t.slug.toLowerCase().includes(q) ||
-      (t.description ?? '').toLowerCase().includes(q),
-  )
-})
-
-// Ordered by the free-form category (presentation only): named categories
-// alphabetical, uncategorized last — the tiles CLUSTER by category but no
-// headings render.
-const ordered = computed(() => {
-  const rank = (t: BlockType): string => t.category?.trim() || '\uffff'
-  return [...filtered.value].sort((a, b) => rank(a).localeCompare(rank(b)))
-})
+// One order for every picker (Phase C.1): the Blocks tab and this menu share it.
+const ordered = computed(() => orderTypes(props.types, filter.value))
 
 function onFilterKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') {
@@ -85,9 +70,7 @@ function onFilterKeydown(event: KeyboardEvent): void {
           <span class="w-full truncate font-medium">{{ t.label }}</span>
         </button>
       </div>
-      <p v-if="!filtered.length" class="px-2 py-1.5 text-sm text-muted">
-        No block types available.
-      </p>
+      <p v-if="!ordered.length" class="px-2 py-1.5 text-sm text-muted">No block types available.</p>
     </div>
   </div>
 </template>

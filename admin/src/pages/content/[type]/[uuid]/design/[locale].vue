@@ -30,7 +30,10 @@ import {
   type DropZone,
 } from '@/editor/structure/coordinator'
 import MoveToDialog from './components/MoveToDialog.vue'
-import type { LegalityContext } from '@/editor/structure/legality'
+import BlocksPalette from '@/editor/palette/BlocksPalette.vue'
+import { resolveTarget, tilePreflight, type InsertTarget } from '@/editor/palette/target'
+import { useBlockFactory } from '@/queries/blockFactory'
+import type { Legality, LegalityContext } from '@/editor/structure/legality'
 import {
   EMPTY_SELECTION,
   extend,
@@ -125,6 +128,7 @@ const styleGeneration = ref<number | null>(null)
 const historyState = ref({ canUndo: false, canRedo: false, dirty: false, pending: false })
 function refreshHistoryState(): void {
   if (!history) return
+  historySequence.value = history.currentSequence
   historyState.value = {
     canUndo: history.canUndo(),
     canRedo: history.canRedo(),
@@ -233,11 +237,14 @@ function maybeReconcileStash(): void {
 // change, and save/publish/version it with the draft. "Theme default" DELETES
 // the key so the theme.json chain shows through.
 const inspectorTab = ref('content')
+/** The committed history sequence, reactive: gap targets are pinned to it (Phase C.1). */
+const historySequence = ref(0)
 const caps = useCapabilitiesStore()
 const seoEnabled = computed(() => caps.isEnabled('thallo.seo'))
 const inspectorTabs = computed(() => [
   ...(selected.value !== null ? [{ label: 'Block', value: 'block', slot: 'block' as const }] : []),
   { label: 'Content', value: 'content', slot: 'content' as const },
+  { label: 'Blocks', value: 'blocks', slot: 'blocks' as const },
   { label: 'Outline', value: 'outline', slot: 'outline' as const },
   { label: 'Page', value: 'page', slot: 'page' as const },
   ...(seoEnabled.value ? [{ label: 'SEO', value: 'seo', slot: 'seo' as const }] : []),
@@ -337,6 +344,7 @@ function applySelection(
   modifiers: SelectModifiers = { shift: false, meta: false },
 ): void {
   const doc = selectionDoc()
+  clearInsertTarget()
   selection.value = modifiers.shift
     ? extend(selection.value, id, doc, selectionCtx)
     : modifiers.meta
@@ -344,6 +352,9 @@ function applySelection(
       : single(id, doc, selectionCtx)
 }
 function selectOne(id: string): void {
+  insertTarget.value = null
+  targetStale.value = false
+  insertAttempt++
   const next = single(id, selectionDoc(), selectionCtx)
   // A block the tree does not hold yet (an insert still landing) is selected on trust and
   // re-read on the next change.
@@ -351,6 +362,7 @@ function selectOne(id: string): void {
 }
 function clearSelection(): void {
   selection.value = EMPTY_SELECTION
+  clearInsertTarget()
 }
 /** Ring the whole selection on the stage; the anchor carries the toolbar. */
 function ringSelection(): void {
@@ -529,7 +541,11 @@ function moveGroup(sel: Selection, delta: 1 | -1): void {
   if (delta === -1 && first === 0) return
   if (delta === 1 && last === list.length - 1) return
   coordinator.begin('stage', { blocks: sel.ids })
-  finishDrop({ parent: sel.parent, slot: sel.slot, index: delta === -1 ? first - 1 : first + 1 })
+  void finishDrop({
+    parent: sel.parent,
+    slot: sel.slot,
+    index: delta === -1 ? first - 1 : first + 1,
+  })
 }
 
 bridge.onBlockMove(moveBlockAndMirror)
@@ -557,7 +573,7 @@ bridge.onBlockDrop((session, _blocks, zone) => {
   // so a drop for a cancelled or unknown session is stale and ignored.
   if (stageDragSession !== session) return
   stageDragSession = null
-  finishDrop(zone)
+  void finishDrop(zone)
 })
 bridge.onDragCancel((session) => {
   if (stageDragSession !== session) return
@@ -830,10 +846,10 @@ const coordinator = createDragCoordinator({
 /** A block dropped (or moved to) a zone from any surface: judged, then applied or refused aloud. */
 function runDrop(source: DragSource, id: string, zone: DropZone): void {
   coordinator.begin(source, { blocks: [id] })
-  finishDrop(zone)
+  void finishDrop(zone)
 }
 /** Judge the coordinator's current session against `zone` and apply or refuse its drop. */
-function finishDrop(zone: DropZone): void {
+async function finishDrop(zone: DropZone): Promise<boolean> {
   const proposal = coordinator.propose(zone)
   const ops = coordinator.drop()
   if (ops === null) {
@@ -841,14 +857,90 @@ function finishDrop(zone: DropZone): void {
       'That move is not allowed',
       proposal && !proposal.verdict.ok ? proposal.verdict.message : '',
     )
-    return
+    return false
   }
-  void applyDrop(ops)
+  await applyDrop(ops)
+  return true
 }
 const moveToId = ref<string | null>(null)
 /** The document as history holds it, for the dialogs that judge legality. */
 function currentDoc(): EditorDocument {
   return history?.document ?? { fields: snapshotFields() }
+}
+
+// ── The Blocks tab (visual builder spec §5.1, §5.5 — Phase C.1): one palette. An armed target is
+// an intent resolved at the moment of use; a click captures the intent and an attempt token,
+// waits for the factory, checks the token, resolves the intent against the document as it is
+// then, and inserts through the coordinator. A refusal keeps the target and says why.
+const blockFactory = useBlockFactory()
+const insertTarget = ref<InsertTarget | null>(null)
+const targetStale = ref(false)
+let insertAttempt = 0
+const paletteTypes = computed(() => (allBlockTypes.value ?? []).filter((t) => t.active))
+function effectiveTarget(): InsertTarget | null {
+  if (insertTarget.value) return insertTarget.value
+  if (selected.value !== null) return { kind: 'after', block: selected.value }
+  const first = blockFields()[0]
+  return first ? { kind: 'into', parent: null, field: first } : null
+}
+const resolvedTarget = computed(() => {
+  void fields.value
+  const target = effectiveTarget()
+  return target
+    ? resolveTarget(target, currentDoc(), legalityContext(), historySequence.value)
+    : null
+})
+// An armed target that resolves to nothing (its block or gap is gone) is dropped, and said so.
+// Watched from mount: the resolver reads helpers declared further down this setup.
+onMounted(() =>
+  watch(resolvedTarget, (resolved) => {
+    if (resolved === null && insertTarget.value !== null) {
+      insertTarget.value = null
+      targetStale.value = true
+      insertAttempt++
+    }
+  }),
+)
+const paletteTarget = computed(() =>
+  insertTarget.value && resolvedTarget.value ? { label: resolvedTarget.value.label } : null,
+)
+function paletteClickable(slug: string): Legality {
+  const at = resolvedTarget.value
+  return at
+    ? tilePreflight(slug, at.position, currentDoc(), legalityContext())
+    : { ok: false, reason: 'no-slot', message: 'Nowhere to insert' }
+}
+/** Clear the armed target; every selection change and every arming ends the attempt in flight. */
+function clearInsertTarget(): void {
+  insertTarget.value = null
+  targetStale.value = false
+  insertAttempt++
+}
+async function insertFromPalette(slug: string): Promise<void> {
+  const intent = effectiveTarget()
+  if (!intent) return
+  const attempt = ++insertAttempt
+  let block: BlockInstance
+  try {
+    block = await blockFactory.instance(slug)
+  } catch (err) {
+    notifyError(err, "Couldn't add block")
+    return
+  }
+  if (attempt !== insertAttempt) return // cancelled or replaced while loading: no substitute
+  const at = resolveTarget(intent, currentDoc(), legalityContext(), historySequence.value)
+  if (!at) {
+    insertTarget.value = null
+    targetStale.value = true
+    return
+  }
+  coordinator.begin('palette', { block })
+  if (!(await finishDrop(at.position))) return // the target stays armed; the reason was shown
+  insertTarget.value = null
+  targetStale.value = false
+  selectOne(block.id)
+  fieldEditorRef.value?.selectBlockById(block.id)
+  ringSelection()
 }
 async function applyDrop(ops: OperationBody[] | null): Promise<void> {
   if (!history || ops === null || ops.length === 0) return
@@ -860,8 +952,9 @@ async function applyDrop(ops: OperationBody[] | null): Promise<void> {
   scheduleCommit(true)
 }
 
-const blockFields = (): string[] =>
-  schema.value.filter((f) => f.type === 'blocks').map((f) => f.name)
+function blockFields(): string[] {
+  return schema.value.filter((f) => f.type === 'blocks').map((f) => f.name)
+}
 const snapshotFields = (): Record<string, unknown> =>
   JSON.parse(JSON.stringify(fields.value)) as Record<string, unknown>
 
@@ -1911,6 +2004,18 @@ function reloadStage(): void {
             </template>
             <template #content>
               <FieldEditor ref="fieldEditorRef" v-model="fields" :schema="schema" />
+            </template>
+            <template #blocks>
+              <div class="pt-2">
+                <BlocksPalette
+                  :types="paletteTypes"
+                  :target="paletteTarget"
+                  :stale="targetStale"
+                  :clickable="paletteClickable"
+                  @insert="insertFromPalette"
+                  @clear-target="clearInsertTarget"
+                />
+              </div>
             </template>
             <template #outline>
               <div class="pt-2" data-test="outline-tab">
