@@ -216,12 +216,6 @@ export function createBlockListOps(regionsOf: RegionResolver) {
     })
   }
 
-  function moveAcross(tree: BlockInstance[], id: string, target: InsertTarget): BlockInstance[] {
-    const block = findById(tree, id)
-    if (!block) return tree
-    return insertAt(removeById(tree, id), target, block)
-  }
-
   /** Nesting height of a block's own subtree: a leaf = 1. */
   function subtreeDepth(block: BlockInstance): number {
     let deepest = 0
@@ -292,7 +286,6 @@ export function createBlockListOps(regionsOf: RegionResolver) {
     patchDataById,
     patchSettingsById,
     moveById,
-    moveAcross,
     subtreeDepth,
     depthOf,
     splitRichTextAt,

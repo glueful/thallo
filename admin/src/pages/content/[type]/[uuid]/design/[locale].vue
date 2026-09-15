@@ -24,7 +24,12 @@ import { useStyleSchema } from '@/queries/styleSchema'
 import { useStyleClasses, useStyleClassMutations } from '@/queries/styleClasses'
 import { capabilityPaths, detachStyleClass } from '@/style/detach'
 import { liftPreservesAppearance, liftedDeclarations } from '@/style/lift'
-import { createDragCoordinator } from '@/editor/structure/coordinator'
+import {
+  createDragCoordinator,
+  type DragSource,
+  type DropZone,
+} from '@/editor/structure/coordinator'
+import MoveToDialog from './components/MoveToDialog.vue'
 import type { LegalityContext } from '@/editor/structure/legality'
 import SaveAsStyleClassDialog from '@/editor/inspector/SaveAsStyleClassDialog.vue'
 import type { StyleClassRef } from '@/style/types'
@@ -38,7 +43,7 @@ import {
 import type { Breakpoint, StyleValue } from '@/style/types'
 import BlockInspector from '@/editor/inspector/BlockInspector.vue'
 import { invertOperation } from '@/editor/ops/invert'
-import type { Operation, OperationBody } from '@/editor/ops/types'
+import type { EditorDocument, Operation, OperationBody } from '@/editor/ops/types'
 import type { BridgeAnchor, EditKind, StageRefreshMode } from '@/composables/useCanvasBridge'
 import { useNotify } from '@/composables/useNotify'
 import { ApiError, apiErrorCode, apiErrorDetails } from '@/api/errors'
@@ -598,6 +603,25 @@ const coordinator = createDragCoordinator({
   doc: () => history?.document ?? { fields: snapshotFields() },
   legality: legalityContext,
 })
+/** A block dropped (or moved to) a zone from any surface: judged, then applied or refused aloud. */
+function runDrop(source: DragSource, id: string, zone: DropZone): void {
+  coordinator.begin(source, { blocks: [id] })
+  const proposal = coordinator.propose(zone)
+  const ops = coordinator.drop()
+  if (ops === null) {
+    warning(
+      'That move is not allowed',
+      proposal && !proposal.verdict.ok ? proposal.verdict.message : '',
+    )
+    return
+  }
+  void applyDrop(ops)
+}
+const moveToId = ref<string | null>(null)
+/** The document as history holds it, for the dialogs that judge legality. */
+function currentDoc(): EditorDocument {
+  return history?.document ?? { fields: snapshotFields() }
+}
 async function applyDrop(ops: OperationBody[] | null): Promise<void> {
   if (!history || ops === null || ops.length === 0) return
   commitNow()
@@ -1599,6 +1623,22 @@ function reloadStage(): void {
                   @delete-request="(id: string) => openDeleteConfirm(id, null)"
                   @duplicate="duplicateAndMirror"
                   @deselect="onOutlineDeselect"
+                  @drop="(id: string, zone: DropZone) => runDrop('outline', id, zone)"
+                  @move-to="(id: string) => (moveToId = id)"
+                />
+                <MoveToDialog
+                  :open="moveToId !== null"
+                  :block-id="moveToId"
+                  :doc="currentDoc()"
+                  :legality="legalityContext()"
+                  @update:open="(v: boolean) => (moveToId = v ? moveToId : null)"
+                  @confirm="
+                    (zone: DropZone) => {
+                      const id = moveToId
+                      moveToId = null
+                      if (id !== null) runDrop('outline', id, zone)
+                    }
+                  "
                 />
               </div>
             </template>

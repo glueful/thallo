@@ -274,7 +274,7 @@ describe('drag (direct handler — jsdom never simulates sortable)', () => {
     expect(wrapper.find('[data-block-id="q1"]').exists()).toBe(true)
   })
 
-  it('commits a valid nested drop via moveAcross (target from event.to)', async () => {
+  it('commits a valid nested drop through the coordinator (target from event.to)', async () => {
     const model = ref<BlockInstance[]>([
       { id: 'n1', type: 'nest', data: { inner: [] }, settings: {} },
       { id: 'q1', type: 'quote', data: { text: 'One' }, settings: {} },

@@ -2,7 +2,10 @@
 import { computed, provide, reactive, nextTick, ref } from 'vue'
 import type { FieldDef } from '../types'
 import { toFieldDef } from '../normalize'
-import { checkMoves, type LegalityContext } from '@/editor/structure/legality'
+import type { LegalityContext } from '@/editor/structure/legality'
+import { createDragCoordinator } from '@/editor/structure/coordinator'
+import { createOperationApplier } from '@/editor/ops/apply'
+import type { Operation, OperationBody } from '@/editor/ops/types'
 import { useBlockTypes } from '@/queries/blockTypes'
 import { MAX_BLOCK_DEPTH } from '@/queries/blockTypes'
 import type { BlockType } from '@/queries/blockTypes'
@@ -33,6 +36,29 @@ function regionsOf(slug: string): string[] {
 }
 
 const ops = createBlockListOps(regionsOf)
+
+/** Apply structural operations to this field's tree through the ops applier. */
+function applyOps(ops: OperationBody[] | null): void {
+  if (ops === null || ops.length === 0) return
+  const applier = createOperationApplier(regionsOf, () => [props.field.name])
+  let doc = { fields: { [props.field.name]: model.value ?? [] } as Record<string, unknown> }
+  for (const body of ops) {
+    doc = applier.applyOperation(doc, {
+      op_id: 'list',
+      transaction_id: 'list',
+      at: '',
+      session: 'list',
+      ...body,
+    } as Operation)
+  }
+  model.value = doc.fields[props.field.name] as BlockInstance[]
+}
+
+/** One coordinator per field (spec §5.1): the inspector list is a drag surface like the stage. */
+const coordinator = createDragCoordinator({
+  doc: () => ({ fields: { [props.field.name]: model.value ?? [] } }),
+  legality: legalityContext,
+})
 
 /** The legality context (spec §5.2): every known type's slots, this field as the root slot. */
 function legalityContext(): LegalityContext {
@@ -150,37 +176,29 @@ function onDragEnd(event: {
     source !== null &&
     (source.parentId !== parentId || source.region !== region) &&
     listIsFull(parentId, region)
-  // Whole-candidate-tree legality (visual builder spec §5.2): the same rules the Design page
-  // applies, with this field as the only root slot.
+  // The drop goes through the coordinator (visual builder spec §5.1) with this field as the
+  // only root slot; a legal drop applies as MoveBlock operations, a refused one names why.
   const verdict =
     dragId === ''
-      ? { ok: false as const, reason: 'unknown-block' as const, message: 'Nothing to move' }
+      ? { ok: false as const, message: 'Nothing to move' }
       : crossListFull
-        ? {
-            ok: false as const,
-            reason: 'source-slot' as const,
-            message: `Tabs supports at most ${TABS_MAX_ITEMS} items`,
-          }
-        : checkMoves(
-            { fields: { [props.field.name]: tree } },
-            [
-              {
-                block: dragId,
-                to: {
-                  parent: parentId,
-                  slot: parentId === null ? props.field.name : region,
-                  index,
-                },
-              },
-            ],
-            legalityContext(),
-          )
+        ? { ok: false as const, message: `Tabs supports at most ${TABS_MAX_ITEMS} items` }
+        : (() => {
+            coordinator.begin('list', { blocks: [dragId] })
+            const proposal = coordinator.propose({
+              parent: parentId,
+              slot: parentId === null ? props.field.name : region,
+              index,
+            })
+            return proposal?.verdict ?? { ok: false as const, message: 'Nothing to move' }
+          })()
   if (!verdict.ok) {
+    coordinator.cancel()
     dropRejected.value = verdict.message
     if (rejectTimer) clearTimeout(rejectTimer)
     rejectTimer = setTimeout(() => (dropRejected.value = null), 3000)
   } else {
-    apply((t) => ops.moveAcross(t, dragId, { parentId, region, index }))
+    applyOps(coordinator.drop())
   }
   dragVersion.value++
 }
@@ -226,30 +244,6 @@ function moveBlock(id: string, delta: number): { beforeId: string } | { afterId:
   // A committed move always has >= 1 neighbor (list length >= 2), so when
   // nothing follows, the preceding sibling exists.
   return following ? { beforeId: following.id } : { afterId: after.list[after.index - 1]!.id }
-}
-
-/**
- * Free-drag drop (free-drag spec §2): place `id` next to a SAME-LIST
- * reference. The bridge's geometry is a request — this method is the
- * authority: cross-list or unknown references are denied with NO mutation.
- * (Tabs cap needs no check here: same-list moves never change the net count,
- * and cross-list moves are already denied outright.)
- */
-function moveBlockTo(id: string, neighbor: { beforeId: string } | { afterId: string }): boolean {
-  const tree = model.value ?? []
-  const dragged = ops.locateById(tree, id)
-  const refId = 'beforeId' in neighbor ? neighbor.beforeId : neighbor.afterId
-  const ref = ops.locateById(tree, refId)
-  if (!dragged || !ref) return false
-  if (dragged.parentId !== ref.parentId || dragged.region !== ref.region) return false
-  // Target index against the list WITHOUT the dragged block (moveAcross
-  // removes before inserting).
-  const without = dragged.list.filter((b) => b.id !== id)
-  const refPos = without.findIndex((b) => b.id === refId)
-  if (refPos < 0) return false
-  const index = 'beforeId' in neighbor ? refPos : refPos + 1
-  apply((t) => ops.moveAcross(t, id, { parentId: dragged.parentId, region: dragged.region, index }))
-  return true
 }
 
 /** Duplicate in place. Returns the copy's id + the whole-subtree old->new id map. */
@@ -329,7 +323,6 @@ defineExpose({
   selectBlock,
   hasBlock,
   moveBlock,
-  moveBlockTo,
   duplicateBlock,
   deleteBlock,
   insertAfter,

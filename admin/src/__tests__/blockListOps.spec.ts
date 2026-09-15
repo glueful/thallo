@@ -79,9 +79,10 @@ describe('useBlockListOps', () => {
     expect((out[0]!.data.inner as BlockInstance[])[0]!.data.title).toBe('a')
   })
 
-  it('moveAcross moves a block between container regions preserving id and order', () => {
+  it('a move is a removal then an insertion, preserving id and order', () => {
     let tree = [nest('n1', [leaf('a')]), nest('n2', [leaf('b')])]
-    tree = ops.moveAcross(tree, 'a', { parentId: 'n2', region: 'inner', index: 1 })
+    const a = ops.findById(tree, 'a')!
+    tree = ops.insertAt(ops.removeById(tree, 'a'), { parentId: 'n2', region: 'inner', index: 1 }, a)
     expect((tree[0]!.data.inner as BlockInstance[]).length).toBe(0)
     expect((tree[1]!.data.inner as BlockInstance[]).map((b) => b.id)).toEqual(['b', 'a'])
   })
@@ -206,7 +207,12 @@ describe('proseDetection', () => {
     expect(copies[1]!.settings).not.toBe(copies[0]!.settings) // no aliasing
     expect(copies[1]!.settings.classes as string[]).toEqual(['zeta', 'alpha'])
 
-    const moved = ops.moveAcross(tree, 's', { parentId: null, region: null, index: 0 })
+    const s = ops.findById(tree, 's')!
+    const moved = ops.insertAt(
+      ops.removeById(tree, 's'),
+      { parentId: null, region: null, index: 0 },
+      s,
+    )
     expect(moved[0]!.id).toBe('s')
     expect(moved[0]!.settings).toEqual(styled('s').settings)
 
