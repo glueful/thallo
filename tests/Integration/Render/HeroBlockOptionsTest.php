@@ -84,4 +84,24 @@ final class HeroBlockOptionsTest extends AppTestCase
         self::assertStringContainsString('.thallo-block-hero--bg-inverted {', $css);
         self::assertStringContainsString('.thallo-block-hero__media--blocks', $css);
     }
+
+    public function testTheHorizontalSplitIsAChoiceAndEqualEmitsNoModifier(): void
+    {
+        $equal = $this->hero(['title' => 'T', 'orientation' => 'horizontal']);
+        self::assertStringNotContainsString('--split-', $equal, 'equal columns are the base rule');
+        $copy = $this->hero(['title' => 'T', 'orientation' => 'horizontal', 'split' => 'copy']);
+        self::assertStringContainsString('thallo-block-hero--split-copy', $copy);
+        $media = $this->hero(['title' => 'T', 'orientation' => 'horizontal', 'split' => 'media']);
+        self::assertStringContainsString('thallo-block-hero--split-media', $media);
+        // A split only means something side by side; an unknown value degrades to equal.
+        self::assertStringNotContainsString('--split-', $this->hero(['title' => 'T', 'split' => 'copy']));
+        self::assertStringNotContainsString('--split-', $this->hero([
+            'title' => 'T', 'orientation' => 'horizontal', 'split' => 'golden',
+        ]));
+        $css = $this->css();
+        $rule = static fn (string $split, string $columns): string
+            => ".thallo-block-hero--split-{$split} .thallo-block-hero__inner { grid-template-columns: {$columns}; }";
+        self::assertStringContainsString($rule('copy', '3fr 2fr'), $css);
+        self::assertStringContainsString($rule('media', '2fr 3fr'), $css);
+    }
 }

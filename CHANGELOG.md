@@ -7,6 +7,10 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- The hero's horizontal split is a choice: equal columns, a wider copy column or a wider media
+  column (three fifths to two).
+
 ### Fixed
 - A publish is visible on the live site on the next request whatever the cache driver. The
   default `file` driver cannot invalidate cache tags, so rendered pages, error bodies and the
