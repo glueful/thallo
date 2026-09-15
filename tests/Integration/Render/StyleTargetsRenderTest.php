@@ -51,6 +51,21 @@ final class StyleTargetsRenderTest extends AppTestCase
         return $m[0];
     }
 
+    public function testSlotAttributesAppearInCanvasModeOnly(): void
+    {
+        $container = [['id' => 'cont00000001', 'type' => 'container', 'data' => ['content' => []], 'settings' => []]];
+        self::assertStringNotContainsString('data-thallo-slot', $this->render($container));
+        $extension = $this->container()->get(RenderContextExtension::class);
+        $extension->resetPerRenderState();
+        $extension->setBlockAnnotations(true);
+        try {
+            $html = $this->env()->createTemplate('{{ blocks(l) }}')->render(['l' => $container]);
+        } finally {
+            $extension->setBlockAnnotations(false);
+        }
+        self::assertStringContainsString('data-thallo-slot="content"', $html);
+    }
+
     public function testAHeadingCarriesAnMdOnlyPaddingAndItsAnchorOnTheHeadingElement(): void
     {
         $html = $this->render([[

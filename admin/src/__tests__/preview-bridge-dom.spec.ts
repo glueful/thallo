@@ -1958,6 +1958,29 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
     }
   })
 
+  it('marks a slot that holds no wrapper as empty, at boot and again after a patch', async () => {
+    try {
+      liveStage()
+      const main = document.body.querySelector('main')!
+      const slot = document.createElement('div')
+      slot.setAttribute('data-thallo-slot', 'content')
+      main.append(slot)
+      stubFetch(
+        renderedHtml('Alpha v2', 'Beta v1').replace(
+          '</main>',
+          '<div data-thallo-slot="content"><div class="thallo-preview-block" data-thallo-block="pd-c-0000003"><p>c</p></div></div></main>',
+        ),
+      )
+      posted.mockClear()
+      await refresh('r-slot')
+      // The fetched page's slot holds a wrapper: after the patch it is no longer marked empty.
+      const after = document.body.querySelector('[data-thallo-slot="content"]')!
+      expect(after.hasAttribute('data-thallo-slot-empty')).toBe(false)
+    } finally {
+      window.fetch = realFetch
+    }
+  })
+
   it('shell drift reloads with the DOM untouched', async () => {
     try {
       const { a } = liveStage()

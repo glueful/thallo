@@ -33,6 +33,8 @@ const FUNCTIONS = [
   'style_classes',
   'style_attrs',
   'token_class',
+  'slot_attrs',
+  'is_canvas',
   'shop_product_url',
   'shop_category_url',
   'shop_index_url',

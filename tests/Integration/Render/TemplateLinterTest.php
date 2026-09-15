@@ -213,6 +213,31 @@ final class TemplateLinterTest extends AppTestCase
         self::assertSame([], $token, 'token_class takes any value expression');
     }
 
+    /** Visual builder spec §5.4: a block type with blocks fields names each slot's element. */
+    public function testSlotRulesApplyToTypesWithBlocksFields(): void
+    {
+        $this->syncBlockStyleDeclarations();
+        $linter = $this->linter();
+        $root = '<div class="c{{ style_classes(\'root\') }}"{{ style_attrs(\'root\') }}>';
+        $good = $root . '<div{{ slot_attrs(\'content\') }}>{{ blocks(data.content) }}</div></div>';
+        self::assertSame([], $linter->lint($good, 'blocks/container.twig'));
+
+        $missing = $linter->lint($root . '{{ blocks(data.content) }}</div>', 'blocks/container.twig');
+        self::assertCount(1, $missing);
+        self::assertStringContainsString('Slot "content" has no element', $missing[0]['message']);
+
+        $unknown = $linter->lint($good . '{{ slot_attrs(\'nope\') }}', 'blocks/container.twig');
+        self::assertCount(1, $unknown);
+        self::assertStringContainsString('Slot "nope" is not a blocks field', $unknown[0]['message']);
+
+        $computed = $linter->lint($root . '<div{{ slot_attrs(data.s) }}></div></div>', 'blocks/container.twig');
+        self::assertStringContainsString('must be a constant string', $computed[0]['message']);
+
+        // Tabs render their items' data inline: no slot element, no rule.
+        $tabs = '<div class="t{{ style_classes(\'root\') }}"{{ style_attrs(\'root\') }}></div>';
+        self::assertSame([], $linter->lint($tabs, 'blocks/tabs.twig'));
+    }
+
     /** Visual builder spec §2.5: no template writes an inline style; the three emitters are functions. */
     public function testInlineStylesAreDenied(): void
     {
