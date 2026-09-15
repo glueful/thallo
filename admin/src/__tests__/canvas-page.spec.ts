@@ -81,7 +81,9 @@ const bridge = vi.hoisted(() => {
     index?: (ids: string[]) => void
     deselect?: (id: string) => void
     move?: (id: string, d: 1 | -1) => void
-    moveTo?: (id: string, neighbor: { beforeId: string } | { afterId: string }) => void
+    dragPropose?: (session: string, blocks: string[], zone: StageZone) => void
+    blockDrop?: (session: string, blocks: string[], zone: StageZone) => void
+    dragCancel?: (session: string) => void
     duplicate?: (id: string) => void
     deleteRequest?: (id: string, anchor?: { x: number; y: number } | null) => void
     addAfter?: (id: string, anchor?: { x: number; y: number } | null) => void
@@ -101,9 +103,15 @@ const bridge = vi.hoisted(() => {
       onBlockHover: (cb: (id: string) => void) => (callbacks.hover = cb),
       onBlocksIndex: (cb: (ids: string[]) => void) => (callbacks.index = cb),
       onBlockMove: (cb: (id: string, d: 1 | -1) => void) => (callbacks.move = cb),
-      onBlockMoveTo: (
-        cb: (id: string, neighbor: { beforeId: string } | { afterId: string }) => void,
-      ) => (callbacks.moveTo = cb),
+      onDragPropose: (cb: (session: string, blocks: string[], zone: StageZone) => void) =>
+        (callbacks.dragPropose = cb),
+      onBlockDrop: (cb: (session: string, blocks: string[], zone: StageZone) => void) =>
+        (callbacks.blockDrop = cb),
+      onDragCancel: (cb: (session: string) => void) => (callbacks.dragCancel = cb),
+      dragBegin: vi.fn(),
+      dragHover: vi.fn(),
+      dragLegality: vi.fn(),
+      dragEnd: vi.fn(),
       onBlockDuplicate: (cb: (id: string) => void) => (callbacks.duplicate = cb),
       onBlockDeleteRequest: (cb: (id: string, anchor?: { x: number; y: number } | null) => void) =>
         (callbacks.deleteRequest = cb),
@@ -138,6 +146,7 @@ vi.mock('vue-router', async (importOriginal) => ({
 }))
 
 import DesignPage from '@/pages/content/[type]/[uuid]/design/[locale].vue'
+import type { StageZone } from '@/composables/useCanvasBridge'
 
 const bt = (slug: string): BlockType =>
   ({
@@ -756,16 +765,22 @@ describe('canvas page', () => {
     wrapper.unmount()
   })
 
-  it('an accepted block-move-to patches the tree; NO mirror is posted back', async () => {
+  it('a stage proposal is answered with its legality; the accepted drop patches the tree with NO mirror', async () => {
     mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
     saveMock.mockResolvedValue(undefined)
     const wrapper = mountPage()
     await flushPromises()
     const before = wrapper.find('[data-test="canvas-iframe"]').element
 
-    bridge.callbacks.moveTo?.('blockaaa0001', { afterId: 'prose0000003' })
+    // The coordinator's index convention: counted against the tree with the moving block
+    // removed, so index 2 of body is "after prose0000003".
+    const zone = { parent: null, slot: 'body', index: 2, layout: 'linear-vertical' as const }
+    bridge.callbacks.dragPropose?.('s1', ['blockaaa0001'], zone)
+    expect(bridge.instance.dragLegality).toHaveBeenCalledWith('s1', true, '')
+
+    bridge.callbacks.blockDrop?.('s1', ['blockaaa0001'], zone)
     await flushPromises()
-    expect(bridge.instance.mirrorMove).not.toHaveBeenCalled() // the drag WAS the mirror
+    expect(bridge.instance.mirrorMove).not.toHaveBeenCalled() // the patch is the mirror
     expect(wrapper.find('[data-test="canvas-iframe"]').element).toBe(before) // no reload
 
     await wrapper.find('[data-test="canvas-save"]').trigger('click')
@@ -781,20 +796,50 @@ describe('canvas page', () => {
     wrapper.unmount()
   })
 
-  it('a REJECTED block-move-to reloads the stage and leaves fields untouched', async () => {
+  it('a refused proposal carries its reason; a refused drop warns and leaves the fields and stage alone', async () => {
     mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
     saveMock.mockResolvedValue(undefined)
     const wrapper = mountPage()
     await flushPromises()
     const before = wrapper.find('[data-test="canvas-iframe"]').element
 
-    bridge.callbacks.moveTo?.('blockaaa0001', { beforeId: 'missing' })
-    await flushPromises()
-    await flushPromises()
-    const iframe = wrapper.find('[data-test="canvas-iframe"]')
-    expect(iframe.element).not.toBe(before) // reloadStage snapped back to truth
-    expect(mintMock).toHaveBeenCalledTimes(1) // reload, not re-mint
+    const zone = { parent: 'missing', slot: 'items', index: 0, layout: 'linear-vertical' as const }
+    bridge.callbacks.dragPropose?.('s2', ['blockaaa0001'], zone)
+    expect(bridge.instance.dragLegality).toHaveBeenCalledWith('s2', false, expect.any(String))
+    const reason = (bridge.instance.dragLegality as ReturnType<typeof vi.fn>).mock.calls[0]![2]
+    expect(reason).not.toBe('')
 
+    bridge.callbacks.blockDrop?.('s2', ['blockaaa0001'], zone)
+    await flushPromises()
+    // The tree was never touched by the stage, so nothing snaps back: same iframe, no re-mint.
+    expect(wrapper.find('[data-test="canvas-iframe"]').element).toBe(before)
+    expect(mintMock).toHaveBeenCalledTimes(1)
+    expect(notify.warning).toHaveBeenCalledWith('That move is not allowed', reason)
+
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    const saved = saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
+      fields: { body: { id: string }[] }
+    }
+    expect(saved.fields.body.map((b) => b.id)).toEqual([
+      'blockaaa0001',
+      'blockbbb0002',
+      'prose0000003',
+    ])
+    wrapper.unmount()
+  })
+
+  it('a stage drag-cancel ends the coordinator session: a later drop for it is ignored', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    saveMock.mockResolvedValue(undefined)
+    const wrapper = mountPage()
+    await flushPromises()
+    const zone = { parent: null, slot: 'body', index: 2, layout: 'linear-vertical' as const }
+    bridge.callbacks.dragPropose?.('s3', ['blockaaa0001'], zone)
+    bridge.callbacks.dragCancel?.('s3')
+    bridge.callbacks.blockDrop?.('s3', ['blockaaa0001'], zone)
+    await flushPromises()
+    expect(notify.warning).not.toHaveBeenCalled()
     await wrapper.find('[data-test="canvas-save"]').trigger('click')
     await flushPromises()
     const saved = saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {

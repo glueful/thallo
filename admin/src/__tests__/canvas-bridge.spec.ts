@@ -256,42 +256,81 @@ describe('useCanvasBridge', () => {
     bridge.dispose()
   })
 
-  it('block-move-to dispatches with exactly one neighbor key; malformed dropped', () => {
+  it('drag-propose / block-drop dispatch a validated zone; drag-cancel its session; malformed dropped', () => {
     const bridge = useCanvasBridge(ref(null))
-    const moveTo = vi.fn()
-    bridge.onBlockMoveTo(moveTo)
+    const propose = vi.fn()
+    const drop = vi.fn()
+    const cancel = vi.fn()
+    bridge.onDragPropose(propose)
+    bridge.onBlockDrop(drop)
+    bridge.onDragCancel(cancel)
+    const zone = { parent: 'p1', slot: 'items', index: 2, layout: 'linear-vertical' }
+    const send = (data: Record<string, unknown>) =>
+      window.dispatchEvent(new MessageEvent('message', { data: { ...data, nonce: bridge.nonce } }))
 
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        data: { type: 'thallo:block-move-to', id: 'b1', beforeId: 'b2', nonce: bridge.nonce },
-      }),
-    )
-    expect(moveTo).toHaveBeenCalledWith('b1', { beforeId: 'b2' })
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        data: { type: 'thallo:block-move-to', id: 'b1', afterId: 'b3', nonce: bridge.nonce },
-      }),
-    )
-    expect(moveTo).toHaveBeenCalledWith('b1', { afterId: 'b3' })
-    // Neither key -> dropped; BOTH keys -> dropped too (XOR, review P2 —
-    // never silently prefer one of two contradictory claims).
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        data: { type: 'thallo:block-move-to', id: 'b1', nonce: bridge.nonce },
-      }),
-    )
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        data: {
-          type: 'thallo:block-move-to',
-          id: 'b1',
-          beforeId: 'b2',
-          afterId: 'b3',
-          nonce: bridge.nonce,
-        },
-      }),
-    )
-    expect(moveTo).toHaveBeenCalledTimes(2)
+    send({ type: 'thallo:drag-propose', session: 's1', blocks: ['b1'], zone })
+    expect(propose).toHaveBeenCalledWith('s1', ['b1'], zone)
+    const root = { parent: null, slot: 'body', index: 0, layout: 'linear-horizontal' }
+    send({ type: 'thallo:block-drop', session: 's1', blocks: ['b1', 'b2'], zone: root })
+    expect(drop).toHaveBeenCalledWith('s1', ['b1', 'b2'], root)
+    send({ type: 'thallo:drag-cancel', session: 's1' })
+    expect(cancel).toHaveBeenCalledWith('s1')
+
+    // Malformed zones never reach the coordinator: a missing slot, a negative or fractional
+    // index, an unknown layout, an empty block list, a non-string block.
+    send({ type: 'thallo:drag-propose', session: 's2', blocks: ['b1'], zone: { ...zone, slot: 3 } })
+    send({
+      type: 'thallo:drag-propose',
+      session: 's2',
+      blocks: ['b1'],
+      zone: { ...zone, index: -1 },
+    })
+    send({
+      type: 'thallo:drag-propose',
+      session: 's2',
+      blocks: ['b1'],
+      zone: { ...zone, index: 1.5 },
+    })
+    send({
+      type: 'thallo:drag-propose',
+      session: 's2',
+      blocks: ['b1'],
+      zone: { ...zone, layout: 'x' },
+    })
+    send({ type: 'thallo:drag-propose', session: 's2', blocks: [], zone })
+    send({ type: 'thallo:block-drop', session: 's2', blocks: ['b1', 4], zone })
+    send({ type: 'thallo:drag-cancel' })
+    expect(propose).toHaveBeenCalledTimes(1)
+    expect(drop).toHaveBeenCalledTimes(1)
+    expect(cancel).toHaveBeenCalledTimes(1)
+    bridge.dispose()
+  })
+
+  it('parent-originated drags post begin / hover / legality / end with the session', () => {
+    const postSpy = vi.fn()
+    const iframe = ref({
+      contentWindow: { postMessage: postSpy },
+    } as unknown as HTMLIFrameElement)
+    const bridge = useCanvasBridge(iframe, 'https://site.test/_preview/x')
+    bridge.dragBegin('s1', ['b1'])
+    bridge.dragHover('s1', 40, 120)
+    bridge.dragLegality('s1', false, 'Too deep')
+    bridge.dragLegality('s1', true)
+    bridge.dragEnd('s1')
+    const types = postSpy.mock.calls.map((c) => c[0] as Record<string, unknown>)
+    expect(types).toEqual([
+      { type: 'thallo:drag-begin', session: 's1', blocks: ['b1'], nonce: bridge.nonce },
+      { type: 'thallo:drag-hover', session: 's1', x: 40, y: 120, nonce: bridge.nonce },
+      {
+        type: 'thallo:drag-legality',
+        session: 's1',
+        legal: false,
+        reason: 'Too deep',
+        nonce: bridge.nonce,
+      },
+      { type: 'thallo:drag-legality', session: 's1', legal: true, reason: '', nonce: bridge.nonce },
+      { type: 'thallo:drag-end', session: 's1', nonce: bridge.nonce },
+    ])
     bridge.dispose()
   })
 
