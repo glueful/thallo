@@ -14,6 +14,7 @@ const props = defineProps<{
   schema: StyleSchemaResult
   classes: StyleClassRef[]
   activeBreakpoint: Breakpoint
+  classNames?: Record<string, string>
 }>()
 const emit = defineEmits<{
   set: [path: string, breakpoint: Breakpoint | null, value: StyleValue | null]
@@ -99,6 +100,7 @@ const style = computed<Record<string, unknown>>(() => {
             :label="LABELS[row.path] ?? row.path"
             :style="style"
             :classes="classes"
+            :class-names="classNames"
             :active-breakpoint="activeBreakpoint"
             :vocabulary="schema.vocabulary"
             @set="(path, bp, value) => emit('set', path, bp, value)"

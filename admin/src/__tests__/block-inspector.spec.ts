@@ -153,6 +153,41 @@ function inputOf(w: ReturnType<typeof mount>, test: string) {
 }
 
 describe('AdvancedTab', () => {
+  it('a value inherited from a class is labelled by the class name; a missing id is flagged', () => {
+    const band = {
+      id: 'band',
+      style: { spacing: { padding: { top: { md: { type: 'token', value: 'spacing.lg' } } } } },
+    }
+    const w = mount(StyleTab, {
+      props: {
+        block: { id: 'h', type: 'heading', data: {}, settings: { classes: ['band'] } },
+        blockType: heading,
+        schema,
+        classes: [band],
+        classNames: { band: 'Hero band' },
+        activeBreakpoint: 'lg',
+      },
+    })
+    const field = w.find('[data-test="style-field-spacing.padding.top"]')
+    expect(field.find('[data-test="style-state"]').text()).toBe('inherited')
+    expect(field.find('[data-test="style-state"]').attributes('data-source')).toBe('class:band')
+    expect(field.find('[data-test="style-source"]').text()).toBe('from Hero band')
+
+    const a = mount(AdvancedTab, {
+      props: {
+        block: { id: 'h', type: 'heading', data: {}, settings: { classes: ['band', 'gone'] } },
+        classNames: { band: 'Hero band' },
+      },
+    })
+    expect(a.find('[data-test="style-class-band"]').text()).toContain('Hero band')
+    expect(
+      a.find('[data-test="style-class-gone"] [data-test="style-class-missing"]').exists(),
+    ).toBe(true)
+    expect(
+      a.find('[data-test="style-class-band"] [data-test="style-class-missing"]').exists(),
+    ).toBe(false)
+  })
+
   it('anchor, CSS classes and label emit set; data-thallo-* and non data-* attributes are rejected', async () => {
     const w = mount(AdvancedTab, {
       props: { block: { id: 'h', type: 'heading', data: {}, settings: { classes: ['c1'] } } },

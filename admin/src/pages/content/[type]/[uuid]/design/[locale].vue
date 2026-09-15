@@ -21,6 +21,8 @@ import { newEditorSession } from '@/editor/ops/session'
 import { absent, present } from '@/editor/ops/types'
 import { setPath, settingSegments } from '@/editor/ops/apply'
 import { useStyleSchema } from '@/queries/styleSchema'
+import { useStyleClasses } from '@/queries/styleClasses'
+import type { StyleClassRef } from '@/style/types'
 import {
   activeBreakpoint,
   BREAKPOINT_OF_VIEWPORT,
@@ -953,6 +955,25 @@ function afterPaint(path: ApplyPath): void {
 }
 const styleGenerationChanged = ref(false)
 
+// The site's style classes (visual builder spec §4.3): the block's ordered references resolve
+// through them, and the Style tab names the class a value comes from.
+const { data: styleClassList } = useStyleClasses()
+const classNames = computed<Record<string, string>>(() => {
+  const out: Record<string, string> = {}
+  for (const c of styleClassList.value?.classes ?? []) out[c.id] = c.name
+  return out
+})
+function classRefsFor(block: BlockInstance | null): StyleClassRef[] {
+  const ids = Array.isArray(block?.settings?.classes) ? (block!.settings.classes as string[]) : []
+  const byId = new Map((styleClassList.value?.classes ?? []).map((c) => [c.id, c]))
+  const refs: StyleClassRef[] = []
+  for (const id of ids) {
+    const c = byId.get(id)
+    if (c) refs.push({ id: c.id, style: c.style })
+  }
+  return refs
+}
+
 async function applyWorking(): Promise<void> {
   if (applying.value) return
   cancelAutoTimer()
@@ -1268,7 +1289,8 @@ function reloadStage(): void {
                 :block="selectedBlock"
                 :block-type="selectedBlockType"
                 :schema="styleSchema ?? null"
-                :classes="[]"
+                :classes="classRefsFor(selectedBlock)"
+                :class-names="classNames"
                 :active-breakpoint="activeBreakpoint"
                 @patch-data="onPatchData"
                 @set-setting="onSetSetting"

@@ -6,7 +6,11 @@ import { computed, ref } from 'vue'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import IdentifierControl from './controls/IdentifierControl.vue'
 
-const props = defineProps<{ block: BlockInstance }>()
+const props = defineProps<{
+  block: BlockInstance
+  /** Class id => name; an applied id absent here is missing from the site (spec §4.1). */
+  classNames?: Record<string, string>
+}>()
 const emit = defineEmits<{
   /** Set (or clear with null) one advanced path. */
   set: [path: 'anchor' | 'css_classes' | 'attributes' | 'accessibility.label', value: unknown]
@@ -92,8 +96,22 @@ function removeAttribute(name: string): void {
       hint="Reusable site styles applied to this block."
     >
       <ul v-if="styleClasses.length > 0" class="flex flex-wrap gap-1" data-test="style-classes">
-        <li v-for="id in styleClasses" :key="id" class="rounded bg-elevated px-2 py-0.5 text-xs">
-          {{ id }}
+        <li
+          v-for="id in styleClasses"
+          :key="id"
+          class="flex items-center gap-1 rounded bg-elevated px-2 py-0.5 text-xs"
+          :data-test="`style-class-${id}`"
+        >
+          {{ props.classNames?.[id] ?? id }}
+          <UBadge
+            v-if="props.classNames !== undefined && !(id in props.classNames)"
+            size="xs"
+            color="warning"
+            variant="subtle"
+            data-test="style-class-missing"
+          >
+            missing
+          </UBadge>
         </li>
       </ul>
       <p v-else class="text-xs text-muted" data-test="style-classes-empty">None applied.</p>

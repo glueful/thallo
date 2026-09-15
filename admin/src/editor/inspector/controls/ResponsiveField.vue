@@ -20,6 +20,8 @@ const props = defineProps<{
   classes: StyleClassRef[]
   activeBreakpoint: Breakpoint
   vocabulary: { domains: Record<string, string[]>; values: Record<string, string> }
+  /** Class id => name, so a value inherited from a class is labelled by the class (spec §3.4). */
+  classNames?: Record<string, string>
 }>()
 const emit = defineEmits<{
   /** Set (or clear with null) the value at one breakpoint (null breakpoint = non-responsive). */
@@ -98,6 +100,17 @@ const stateLabel = computed(() => {
       return 'theme'
   }
 })
+
+/** Where the value comes from, for the badge: the class by name, or here. */
+const sourceLabel = computed(() => {
+  const source = current.value.source
+  if (source === 'instance') return 'set here'
+  if (source.startsWith('class:')) {
+    const id = source.slice('class:'.length)
+    return `from ${props.classNames?.[id] ?? id}`
+  }
+  return 'theme default'
+})
 </script>
 
 <template>
@@ -110,10 +123,17 @@ const stateLabel = computed(() => {
           :class="
             current.state === 'explicit' ? 'bg-primary/10 text-primary' : 'bg-elevated text-muted'
           "
-          :title="`Source: ${current.source}`"
           data-test="style-state"
+          :data-source="current.source"
         >
           {{ stateLabel }}
+        </span>
+        <span
+          v-if="current.source.startsWith('class:')"
+          class="max-w-28 truncate text-[10px] text-muted"
+          data-test="style-source"
+        >
+          {{ sourceLabel }}
         </span>
         <div v-if="def.responsive" class="flex gap-0.5" role="group" aria-label="Breakpoint">
           <button

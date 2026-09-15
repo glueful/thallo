@@ -19,6 +19,8 @@ const props = defineProps<{
   /** Null while the schema loads: the Style tab waits. */
   schema: StyleSchemaResult | null
   classes: StyleClassRef[]
+  /** Class id => name for the Style tab's source labels; ids absent here are missing. */
+  classNames?: Record<string, string>
   activeBreakpoint: Breakpoint
 }>()
 const emit = defineEmits<{
@@ -80,6 +82,7 @@ const proseField = computed(() =>
           :block-type="blockType"
           :schema="schema"
           :classes="classes"
+          :class-names="classNames"
           :active-breakpoint="activeBreakpoint"
           @set="(path, bp, value) => emit('set-setting', path, bp, value)"
           @set-all="(path, value) => emit('set-all', path, value)"
@@ -87,7 +90,11 @@ const proseField = computed(() =>
         />
       </template>
       <template #advanced>
-        <AdvancedTab :block="block" @set="(path, value) => emit('set-advanced', path, value)" />
+        <AdvancedTab
+          :block="block"
+          :class-names="classNames"
+          @set="(path, value) => emit('set-advanced', path, value)"
+        />
       </template>
     </UTabs>
   </div>
