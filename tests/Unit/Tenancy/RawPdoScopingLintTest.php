@@ -34,6 +34,7 @@ final class RawPdoScopingLintTest extends TestCase
         'packages/thallo-workflow/src/WorkflowStateRepository.php',
         'core/src/Content/Blocks/Migration/BlockMigrationRepository.php',
         'core/src/Content/Repositories/MigrationRepository.php',
+        'core/src/Content/Style/SiteStyleGeneration.php',
         'core/src/Content/Media/TenantBlobPolicy.php',
         'core/src/Content/Authorization/TenantRoleOverrideRepository.php',
     ];

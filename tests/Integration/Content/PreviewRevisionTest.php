@@ -235,12 +235,16 @@ final class PreviewRevisionTest extends AppTestCase
         self::assertNotEmpty($record['accepted_at']);
     }
 
-    public function testTheStyleGenerationIsAnIncrementingSystemFlag(): void
+    public function testTheStyleGenerationIsAPerSiteRowIncrementedOnlyByClassWrites(): void
     {
         $generation = $this->container()->get(SiteStyleGeneration::class);
         $start = $generation->current();
-        self::assertSame($start + 1, $generation->increment());
+        $first = $this->apply(null, null);
+        self::assertSame($start, $first['body']['data']['style_generation'], 'an apply is not a class write');
+        $repository = $this->container()->get(\Thallo\Core\Content\Style\Classes\StyleClassRepository::class);
+        $repository->create(['name' => 'Band', 'style' => []]);
         self::assertSame($start + 1, $generation->current());
-        self::assertSame($start + 1, $this->apply(null, null)['body']['data']['style_generation']);
+        $second = $this->apply($first['body']['data']['epoch'], 1);
+        self::assertSame($start + 1, $second['body']['data']['style_generation']);
     }
 }
