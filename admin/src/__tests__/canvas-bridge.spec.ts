@@ -261,7 +261,7 @@ describe('useCanvasBridge', () => {
     const iframe = ref({
       contentWindow: { postMessage: postSpy },
     } as unknown as HTMLIFrameElement)
-    const bridge = useCanvasBridge(iframe, 'https://site.test/_preview/x')
+    const bridge = useCanvasBridge(iframe)
     const select = vi.fn()
     bridge.onBlockSelect(select)
     const send = (data: Record<string, unknown>) =>
@@ -335,7 +335,7 @@ describe('useCanvasBridge', () => {
     const iframe = ref({
       contentWindow: { postMessage: postSpy },
     } as unknown as HTMLIFrameElement)
-    const bridge = useCanvasBridge(iframe, 'https://site.test/_preview/x')
+    const bridge = useCanvasBridge(iframe)
     const ids = reactive(['b1', 'b2'])
     bridge.highlight('b1', ids)
     const posted = postSpy.mock.calls[0]![0] as { ids: string[] }
@@ -349,7 +349,7 @@ describe('useCanvasBridge', () => {
     const iframe = ref({
       contentWindow: { postMessage: postSpy },
     } as unknown as HTMLIFrameElement)
-    const bridge = useCanvasBridge(iframe, 'https://site.test/_preview/x')
+    const bridge = useCanvasBridge(iframe)
     bridge.dragBegin('s1', ['b1'])
     bridge.dragHover('s1', 40, 120)
     bridge.dragLegality('s1', false, 'Too deep')

@@ -76,7 +76,7 @@ vi.mock('@/fields/components/blocks/ProseBlockEditor.vue', () => ({
 // wiring only: intents in via captured callbacks, mirrors out via spies.
 const bridge = vi.hoisted(() => {
   const callbacks: {
-    select?: (id: string) => void
+    select?: (id: string, modifiers?: { shift: boolean; meta: boolean }) => void
     hover?: (id: string) => void
     index?: (ids: string[]) => void
     deselect?: (id: string) => void
@@ -98,7 +98,8 @@ const bridge = vi.hoisted(() => {
     instance: {
       nonce: 'n',
       hello: vi.fn(),
-      onBlockSelect: (cb: (id: string) => void) => (callbacks.select = cb),
+      onBlockSelect: (cb: (id: string, modifiers?: { shift: boolean; meta: boolean }) => void) =>
+        (callbacks.select = cb),
       onBlockDeselect: (cb: (id: string) => void) => (callbacks.deselect = cb),
       onBlockHover: (cb: (id: string) => void) => (callbacks.hover = cb),
       onBlocksIndex: (cb: (ids: string[]) => void) => (callbacks.index = cb),

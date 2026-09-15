@@ -201,7 +201,14 @@ describe('BlocksField', () => {
   })
 
   it('insertion awaits the factory: the new block carries the server defaults and starter', async () => {
-    const model = ref<{ id: string; type: string; data: Record<string, unknown> }[]>([])
+    const model = ref<
+      {
+        id: string
+        type: string
+        data: Record<string, unknown>
+        settings: Record<string, unknown>
+      }[]
+    >([])
     const wrapper = mount(BlocksField, {
       props: {
         field,

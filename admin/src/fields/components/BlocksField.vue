@@ -13,7 +13,7 @@ import { MAX_BLOCK_DEPTH } from '@/queries/blockTypes'
 import type { BlockType } from '@/queries/blockTypes'
 import { BlocksContextKey, type BlocksContext } from './blocks/context'
 import { createBlockListOps, newBlockId, type BlockInstance } from './blocks/useBlockListOps'
-import { defaultProseType, proseRichFieldName } from './blocks/proseDetection'
+import { defaultProseType } from './blocks/proseDetection'
 import BlockList from './blocks/BlockList.vue'
 import BlockOutlineRail from './blocks/BlockOutlineRail.vue'
 
