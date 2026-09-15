@@ -16,6 +16,9 @@ export default defineConfig({
   use: {
     baseURL: BASE_URL,
     trace: 'retain-on-failure',
+    // Tall enough for both ends of a stage drag to sit in the iframe's viewport at once, with
+    // CI's wider fallback fonts making the composition taller than a local run's.
+    viewport: { width: 1280, height: 1600 },
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {

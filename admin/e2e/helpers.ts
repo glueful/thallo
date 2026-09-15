@@ -238,18 +238,33 @@ export async function dragGripTo(
   target: ReturnType<ReturnType<typeof stage>['locator']>,
   release = true,
 ): Promise<void> {
-  // The outline selection scrolls the stage to the anchor (smoothly): wait for the grip to settle.
+  // Both ends must be in the iframe's viewport at once, and still, before either is measured:
+  // the outline selection scrolls the stage to the anchor smoothly, and a point measured
+  // against one scroll position and moved through another lands on a different slot.
+  await target.scrollIntoViewIfNeeded()
   await grip.scrollIntoViewIfNeeded()
+  const same = (a: { x: number; y: number } | null, b: { x: number; y: number } | null) =>
+    !!a && !!b && a.x === b.x && a.y === b.y
   let box = await grip.boundingBox()
-  for (let i = 0; i < 20; i++) {
+  let targetBox = await target.boundingBox()
+  for (let i = 0; i < 30; i++) {
     await page.waitForTimeout(100)
-    const next = await grip.boundingBox()
-    if (box && next && box.x === next.x && box.y === next.y) break
-    box = next
+    const nextGrip = await grip.boundingBox()
+    const nextTarget = await target.boundingBox()
+    if (same(box, nextGrip) && same(targetBox, nextTarget)) break
+    box = nextGrip
+    targetBox = nextTarget
   }
   if (!box) throw new Error('grip has no box')
-  // The target is measured once the stage has settled, in the same frame as the grip.
-  const { x, y } = await centerOf(target)
+  if (!targetBox) throw new Error('target has no box')
+  const frame = await page.locator('[data-test="canvas-iframe"]').boundingBox()
+  const x = targetBox.x + targetBox.width / 2
+  const y = targetBox.y + targetBox.height / 2
+  if (frame && (y < frame.y || y > frame.y + frame.height)) {
+    throw new Error(
+      `the drop target sits outside the stage's viewport (y=${y}); enlarge the viewport`,
+    )
+  }
   const startX = box.x + box.width / 2
   const startY = box.y + box.height / 2
   await page.mouse.move(startX, startY)
