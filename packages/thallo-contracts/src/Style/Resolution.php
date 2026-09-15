@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Thallo\Render\Style;
+namespace Thallo\Contracts\Style;
 
 /**
  * The resolver's answer for one property at one breakpoint (visual builder spec §1.6, §3.4):

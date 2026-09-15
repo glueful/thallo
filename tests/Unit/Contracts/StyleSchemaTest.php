@@ -16,6 +16,12 @@ use Thallo\Contracts\Style\Vocabulary;
  */
 final class StyleSchemaTest extends TestCase
 {
+    public function testAllCapabilitiesIsEveryPropertyInTableOrder(): void
+    {
+        self::assertSame(array_keys(StyleSchema::properties()), StyleCapabilities::all()->paths());
+        self::assertTrue(StyleCapabilities::all()->allows('radius'));
+    }
+
     public function testTheStyleTableIsTheSpecTable(): void
     {
         $paths = array_keys(StyleSchema::properties());

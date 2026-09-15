@@ -2,10 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Thallo\Render\Style;
-
-use Thallo\Contracts\Style\PropertyDefinition;
-use Thallo\Contracts\Style\StyleSchema;
+namespace Thallo\Contracts\Style;
 
 /**
  * Thallo's breakpoint-first cascade (visual builder spec §1.6). Managed layers in rising
@@ -14,7 +11,9 @@ use Thallo\Contracts\Style\StyleSchema;
  * breakpoint where any managed layer declares the property exactly, take the highest-precedence
  * declaration; a reset there terminates resolution to the theme default; if no breakpoint
  * declares anything, the theme default applies. A non-responsive property resolves at `base`
- * only. Mirrored in `admin/src/style/resolver.ts` against one fixture set.
+ * only. Mirrored in `admin/src/style/resolver.ts` against one fixture set. Lives in the contracts
+ * package because the render pack emits from it and the detach transformation (§4.4) resolves
+ * through it from core.
  */
 final class CascadeResolver
 {

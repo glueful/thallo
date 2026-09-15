@@ -6,7 +6,7 @@ namespace Thallo\Core\Tests\Unit\Render;
 
 use PHPUnit\Framework\TestCase;
 use Thallo\Contracts\Style\StyleSchema;
-use Thallo\Render\Style\CascadeResolver;
+use Thallo\Contracts\Style\CascadeResolver;
 
 /**
  * Visual builder spec §1.6 and §3.3: the breakpoint-first cascade, proved against the fixture set
