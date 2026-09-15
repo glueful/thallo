@@ -12,6 +12,8 @@ use Thallo\Core\Content\Validation\FieldValidator;
 use Thallo\Core\Content\Validation\ValidationException;
 use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Contracts\Style\StyleClassProvider;
+use Thallo\Contracts\Style\StyleClassSnapshot;
 
 /**
  * Visual builder plan A1.2: block settings are validated against the style contract and the
@@ -28,9 +30,22 @@ final class BlockSettingsValidationTest extends AppTestCase
     }
 
     /** @param array<string, array{caps?: list<string>}> $types */
-    private function validator(array $types): FieldValidator
+    private function validator(array $types, ?StyleClassProvider $classes = null): FieldValidator
     {
-        $registry = new class ($types) implements BlockStyleRegistry {
+        return new FieldValidator(
+            $this->connection(),
+            $this->appContext(),
+            null,
+            null,
+            $this->registry($types),
+            styleClasses: $classes,
+        );
+    }
+
+    /** @param array<string, array{caps?: list<string>}> $types */
+    private function registry(array $types): BlockStyleRegistry
+    {
+        return new class ($types) implements BlockStyleRegistry {
             /** @param array<string, array{caps?: list<string>}> $types */
             public function __construct(private array $types)
             {
@@ -52,7 +67,53 @@ final class BlockSettingsValidationTest extends AppTestCase
                 return [];
             }
         };
-        return new FieldValidator($this->connection(), $this->appContext(), null, null, $registry);
+    }
+
+    /** @param list<string> $owned ids the site owns (`archived` ones prefixed with `~`) */
+    private function validatorOwning(array $owned): FieldValidator
+    {
+        $classes = [];
+        foreach ($owned as $id) {
+            $archived = str_starts_with($id, '~');
+            $id = ltrim($id, '~');
+            $classes[$id] = ['id' => $id, 'name' => ucfirst($id), 'style' => [], 'archived' => $archived];
+        }
+        $provider = new class (new StyleClassSnapshot(3, $classes)) implements StyleClassProvider {
+            public function __construct(private StyleClassSnapshot $snapshot)
+            {
+            }
+
+            public function snapshot(): StyleClassSnapshot
+            {
+                return $this->snapshot;
+            }
+
+            public function refresh(): void
+            {
+            }
+        };
+        return $this->validator(['heading' => ['caps' => ['spacing']]], $provider);
+    }
+
+    public function testClassReferencesAreValidatedForOwnershipNotExistence(): void
+    {
+        $v = $this->validatorOwning(['band', '~old']);
+        $ok = $v->validate($this->schema(), ['body' => [$this->heading(['classes' => ['old', 'band']])]]);
+        self::assertSame(['old', 'band'], $ok['body'][0]['settings']['classes'], 'an archived owned class is valid');
+
+        $cases = [
+            [['classes' => ['band', 'foreign']], 'body.0.settings.classes.1', 'unknown style class'],
+            [['classes' => ['band', 'band']], 'body.0.settings.classes.1', 'listed twice'],
+        ];
+        foreach ($cases as [$settings, $path, $message]) {
+            try {
+                $v->validate($this->schema(), ['body' => [$this->heading($settings)]]);
+                self::fail("expected {$path}");
+            } catch (ValidationException $e) {
+                self::assertArrayHasKey($path, $e->errors(), json_encode($e->errors()));
+                self::assertStringContainsString($message, $e->errors()[$path]);
+            }
+        }
     }
 
     private function schema(): ContentTypeSchema

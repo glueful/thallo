@@ -33,6 +33,8 @@ final class RegionAdminController
         private readonly ApplicationContext $context,
         private readonly RegionRepository $regions,
         private readonly RegionValidator $validator,
+        /** The site's style classes (visual builder spec §4.3): refreshed first, one snapshot per request. */
+        private readonly ?\Thallo\Contracts\Style\StyleClassProvider $styleClasses = null,
     ) {
     }
 
@@ -75,13 +77,24 @@ final class RegionAdminController
     #[ApiResponse(422, description: 'Out-of-palette block, schema violation, or unknown setting.')]
     public function update(UpdateRegionData $input, string $slug): Response
     {
+        $this->styleClasses?->refresh();
         if (!in_array($slug, RegionDefinitions::slugs(), true)) {
             return Response::notFound('Unknown region.');
         }
 
         // RegionValidator throws ValidationException (ValidationFailed) → 422 with dot paths.
         $clean = $this->validator->validate($slug, $input->blocks, $input->settings);
-        $this->regions->save($slug, $clean['blocks'], $clean['settings'], null);
+        try {
+            $this->regions->save($slug, $clean['blocks'], $clean['settings'], null);
+        } catch (\Thallo\Core\Content\Style\Classes\StyleClassLocked $e) {
+            return Response::error('A job holds a style class this save applies.', Response::HTTP_CONFLICT, [
+                'code' => 'STYLE_CLASS_LOCKED',
+                'job' => $e->job,
+                'style_class' => $e->id,
+            ]);
+        } catch (\Thallo\Core\Content\Style\Classes\StyleClassArchived $e) {
+            return Response::validation(['blocks' => $e->getMessage()]);
+        }
 
         // Chrome appears on every page: broad-purge the render page cache (spec §11).
         app($this->context, EventService::class)->dispatch(new RegionUpdated($slug));
@@ -111,6 +124,7 @@ final class RegionAdminController
     #[ApiResponse(422, description: 'Same validation a save would fail.')]
     public function preview(PreviewRegionsData $input, Request $request): Response
     {
+        $this->styleClasses?->refresh();
         $container = container($this->context);
         if (!$container->has(TwigFactory::class)) {
             return Response::error('Preview unavailable: the render pack is not active.', 409);

@@ -12,7 +12,10 @@ final class ThalloTenantTablesTest extends TestCase
     public function testCoreOwnedTablesArePresent(): void
     {
         $names = ThalloTenantTables::tableNames();
-        $core = ['content_types', 'entries', 'entry_routes', 'block_types', 'regions', 'settings', 'form_submissions'];
+        $core = [
+            'content_types', 'entries', 'entry_routes', 'block_types', 'regions', 'settings', 'form_submissions',
+            'style_classes', 'style_generations', 'style_class_jobs',
+        ];
         foreach ($core as $t) {
             self::assertContains($t, $names, "$t must be tenant-owned");
         }

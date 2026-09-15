@@ -575,6 +575,11 @@ final class CoreServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            \Thallo\Core\Content\Blocks\BlockFactory::class => [
+                'class' => \Thallo\Core\Content\Blocks\BlockFactory::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             ContentTypeRepository::class => [
                 'class' => ContentTypeRepository::class,
                 'shared' => true,
@@ -1236,10 +1241,42 @@ final class CoreServiceProvider extends ServiceProvider
                 'shared' => true,
                 'factory' => [self::class, 'makePreviewWorkingCopyStore'],
             ],
-            // The site style generation (visual builder spec §3.5): a system flag.
+            // The site style generation (visual builder spec §4.3): the per-site version of the
+            // style-class definitions, incremented only by StyleClassRepository::write().
             \Thallo\Core\Content\Style\SiteStyleGeneration::class => [
+                'class' => \Thallo\Core\Content\Style\SiteStyleGeneration::class,
                 'shared' => true,
-                'factory' => [self::class, 'makeSiteStyleGeneration'],
+                'autowire' => true,
+            ],
+            \Thallo\Contracts\Style\StyleClassProvider::class => [
+                'class' => \Thallo\Core\Content\Style\Classes\EngineStyleClassProvider::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Style\Classes\StyleClassRepository::class => [
+                'class' => \Thallo\Core\Content\Style\Classes\StyleClassRepository::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Style\Classes\StyleClassReferenceGuard::class => [
+                'class' => \Thallo\Core\Content\Style\Classes\StyleClassReferenceGuard::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Style\Classes\StyleClassJobRepository::class => [
+                'class' => \Thallo\Core\Content\Style\Classes\StyleClassJobRepository::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Style\Classes\StyleClassJobRunner::class => [
+                'class' => \Thallo\Core\Content\Style\Classes\StyleClassJobRunner::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Style\Classes\StyleClassJobService::class => [
+                'class' => \Thallo\Core\Content\Style\Classes\StyleClassJobService::class,
+                'shared' => true,
+                'autowire' => true,
             ],
         ];
     }
@@ -1255,14 +1292,6 @@ final class CoreServiceProvider extends ServiceProvider
                 ? $container->get(PreviewThemeValidator::class)
                 : null,
             $container->get(PreviewWorkingCopyStore::class),
-        );
-    }
-
-    public static function makeSiteStyleGeneration(
-        ContainerInterface $container,
-    ): \Thallo\Core\Content\Style\SiteStyleGeneration {
-        return new \Thallo\Core\Content\Style\SiteStyleGeneration(
-            $container->get(\Thallo\Tenancy\System\SystemFlags::class),
         );
     }
 
@@ -1503,6 +1532,16 @@ final class CoreServiceProvider extends ServiceProvider
             ],
             BlockMigrationController::class => [
                 'class' => BlockMigrationController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Http\Controllers\StyleClassController::class => [
+                'class' => \Thallo\Core\Content\Http\Controllers\StyleClassController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Style\Classes\StyleClassUsage::class => [
+                'class' => \Thallo\Core\Content\Style\Classes\StyleClassUsage::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -2085,6 +2124,11 @@ final class CoreServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            \Thallo\Core\Content\Console\RunStyleClassJobCommand::class => [
+                'class' => \Thallo\Core\Content\Console\RunStyleClassJobCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             RunBackfillCommand::class => [
                 'class' => RunBackfillCommand::class,
                 'shared' => true,
@@ -2218,6 +2262,9 @@ final class CoreServiceProvider extends ServiceProvider
             array_values(array_filter((array) $gates, static fn($g): bool => $g instanceof PublishGate)),
             $c->has(BlockMigrationGate::class) ? $c->get(BlockMigrationGate::class) : null,
             $c->has(BlockRestoreProjector::class) ? $c->get(BlockRestoreProjector::class) : null,
+            $c->has(\Thallo\Core\Content\Style\Classes\StyleClassReferenceGuard::class)
+                ? $c->get(\Thallo\Core\Content\Style\Classes\StyleClassReferenceGuard::class)
+                : null,
         );
     }
 
@@ -2362,6 +2409,7 @@ final class CoreServiceProvider extends ServiceProvider
             \Thallo\Core\Content\Console\ConvertSettingsCommand::class,
             RetireAccountLinkCommand::class,
             RunBlockBackfillCommand::class,
+            \Thallo\Core\Content\Console\RunStyleClassJobCommand::class,
             RunBackfillCommand::class,
             RunDueSchedulesCommand::class,
             UpdateCheckCommand::class,

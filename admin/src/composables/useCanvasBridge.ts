@@ -21,8 +21,6 @@ interface BridgeMessage {
   html?: string
   text?: string
   y?: number
-  beforeId?: string
-  afterId?: string
   rect?: { x?: number; y?: number }
 }
 
@@ -30,6 +28,39 @@ interface BridgeMessage {
 export interface BridgeAnchor {
   x: number
   y: number
+}
+
+/** A stage click's modifiers (visual builder spec §5.5): shift extends, cmd/ctrl toggles. */
+export interface SelectModifiers {
+  shift: boolean
+  meta: boolean
+}
+
+/** A drop zone as the stage derives it from real slot geometry (visual builder spec §5.3). */
+export interface StageZone {
+  parent: string | null
+  slot: string | null
+  index: number
+  layout: 'linear-vertical' | 'linear-horizontal' | 'other'
+}
+
+const LAYOUTS = new Set(['linear-vertical', 'linear-horizontal', 'other'])
+
+/** The zone a message claims, or null when any part of it is malformed. */
+function stageZoneOf(value: unknown): StageZone | null {
+  if (typeof value !== 'object' || value === null) return null
+  const z = value as Record<string, unknown>
+  const parent = z.parent === null ? null : typeof z.parent === 'string' ? z.parent : undefined
+  const slot = z.slot === null ? null : typeof z.slot === 'string' ? z.slot : undefined
+  if (parent === undefined || slot === undefined) return null
+  if (typeof z.index !== 'number' || !Number.isInteger(z.index) || z.index < 0) return null
+  if (typeof z.layout !== 'string' || !LAYOUTS.has(z.layout)) return null
+  return { parent, slot, index: z.index, layout: z.layout as StageZone['layout'] }
+}
+
+function blockIdsOf(value: unknown): string[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null
+  return value.every((v) => typeof v === 'string') ? (value as string[]) : null
 }
 
 /** Grant kinds (editable-string-fields spec §4) — decided by the parent's matrix. */
@@ -46,6 +77,8 @@ export interface StageRefreshResult {
   mode: StageRefreshMode
   epoch: string | null
   revision: number | null
+  /** The style class generation the fetched page was rendered from (visual builder spec §4.3). */
+  style_generation: number | null
 }
 
 /** The fragment patch of an accepted apply (visual builder spec §3.5). */
@@ -55,6 +88,8 @@ export interface StageFragments {
   /** The pair the stage must display for the patch to apply: the apply's baseline. */
   baseline_epoch: string
   baseline_revision: number
+  /** The style class generation the fragments were rendered from (spec §4.3). */
+  style_generation?: number
   /** Root block id => the server-rendered wrapper. */
   fragments: Record<string, string>
 }
@@ -64,14 +99,14 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
 
-  let selectCb: ((id: string) => void) | null = null
+  let selectCb: ((id: string, modifiers: SelectModifiers) => void) | null = null
   let deselectCb: ((id: string) => void) | null = null
   let hoverCb: ((id: string) => void) | null = null
   let indexCb: ((ids: string[]) => void) | null = null
   let moveCb: ((id: string, delta: 1 | -1) => void) | null = null
-  let moveToCb:
-    | ((id: string, neighbor: { beforeId: string } | { afterId: string }) => void)
-    | null = null
+  let dragProposeCb: ((session: string, blocks: string[], zone: StageZone) => void) | null = null
+  let blockDropCb: ((session: string, blocks: string[], zone: StageZone) => void) | null = null
+  let dragCancelCb: ((session: string) => void) | null = null
   let duplicateCb: ((id: string) => void) | null = null
   let deleteRequestCb: ((id: string, anchor: BridgeAnchor | null) => void) | null = null
   let addAfterCb: ((id: string, anchor: BridgeAnchor | null) => void) | null = null
@@ -96,13 +131,19 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   }
 
   function post(message: Record<string, unknown>): void {
-    iframeRef.value?.contentWindow?.postMessage({ ...message, nonce }, targetOrigin())
+    // Plain data only: a reactive Proxy (a selection's ids, a drag's blocks) cannot be
+    // structured-cloned, and postMessage would throw instead of posting.
+    const plain = JSON.parse(JSON.stringify({ ...message, nonce })) as Record<string, unknown>
+    iframeRef.value?.contentWindow?.postMessage(plain, targetOrigin())
   }
 
   function onMessage(event: MessageEvent): void {
     const data = (event.data ?? {}) as BridgeMessage
     if (data.nonce !== nonce) return
-    if (data.type === 'thallo:block-select' && typeof data.id === 'string') selectCb?.(data.id)
+    if (data.type === 'thallo:block-select' && typeof data.id === 'string') {
+      const m = data as { shift?: unknown; meta?: unknown }
+      selectCb?.(data.id, { shift: m.shift === true, meta: m.meta === true })
+    }
     // Stage Escape (keyboard-shortcuts spec §3): notification-only — the
     // bridge already cleared its own ring/toolbar.
     if (data.type === 'thallo:block-deselect' && typeof data.id === 'string') deselectCb?.(data.id)
@@ -114,13 +155,20 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     if (data.type === 'thallo:block-move' && typeof data.id === 'string') {
       if (data.delta === 1 || data.delta === -1) moveCb?.(data.id, data.delta)
     }
-    if (data.type === 'thallo:block-move-to' && typeof data.id === 'string') {
-      // XOR (review P2): exactly one neighbor key — both or neither is
-      // malformed and dropped, never a silent preference.
-      const hasBefore = typeof data.beforeId === 'string'
-      const hasAfter = typeof data.afterId === 'string'
-      if (hasBefore && !hasAfter) moveToCb?.(data.id, { beforeId: data.beforeId as string })
-      else if (hasAfter && !hasBefore) moveToCb?.(data.id, { afterId: data.afterId as string })
+    // Proposal drag (visual builder spec §5.3): a validated zone or nothing — a malformed zone
+    // never reaches the coordinator.
+    if (data.type === 'thallo:drag-propose' || data.type === 'thallo:block-drop') {
+      const session = (data as { session?: unknown }).session
+      const blocks = blockIdsOf((data as { blocks?: unknown }).blocks)
+      const zone = stageZoneOf((data as { zone?: unknown }).zone)
+      if (typeof session === 'string' && blocks !== null && zone !== null) {
+        if (data.type === 'thallo:drag-propose') dragProposeCb?.(session, blocks, zone)
+        else blockDropCb?.(session, blocks, zone)
+      }
+    }
+    if (data.type === 'thallo:drag-cancel') {
+      const session = (data as { session?: unknown }).session
+      if (typeof session === 'string') dragCancelCb?.(session)
     }
     if (data.type === 'thallo:block-duplicate' && typeof data.id === 'string') {
       duplicateCb?.(data.id)
@@ -171,6 +219,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
         detail?: string
         epoch?: unknown
         revision?: unknown
+        style_generation?: unknown
       }
       if (pendingRefresh !== null && ack.refresh_id === pendingRefresh.id) {
         const { resolve } = pendingRefresh
@@ -180,6 +229,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
           mode: mode === 'patched' || mode === 'busy' || mode === 'stale' ? mode : 'reload',
           epoch: typeof ack.epoch === 'string' ? ack.epoch : null,
           revision: typeof ack.revision === 'number' ? ack.revision : null,
+          style_generation: typeof ack.style_generation === 'number' ? ack.style_generation : null,
         })
       }
     }
@@ -189,7 +239,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
       if (pendingRefresh !== null && ack.refresh_id === pendingRefresh.id) {
         const { resolve } = pendingRefresh
         pendingRefresh = null
-        resolve({ mode: 'failed', epoch: null, revision: null })
+        resolve({ mode: 'failed', epoch: null, revision: null, style_generation: null })
       }
     }
     // Auto-apply lifecycle + scroll preservation (auto-apply spec §1/§3).
@@ -215,7 +265,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
           // Clear BEFORE resolving (plan-review note): a late ack must
           // meet no stale resolver state.
           pendingRefresh = null
-          resolve({ mode: 'reload', epoch: null, revision: null })
+          resolve({ mode: 'reload', epoch: null, revision: null, style_generation: null })
         }
       }, 4000)
     })
@@ -226,7 +276,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     hello(): void {
       post({ type: 'thallo:canvas-hello' })
     },
-    onBlockSelect(cb: (id: string) => void): void {
+    onBlockSelect(cb: (id: string, modifiers: SelectModifiers) => void): void {
       selectCb = cb
     },
     onBlockDeselect(cb: (id: string) => void): void {
@@ -238,8 +288,9 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     onBlocksIndex(cb: (ids: string[]) => void): void {
       indexCb = cb
     },
-    highlight(id: string): void {
-      post({ type: 'thallo:highlight', id })
+    /** Ring `id` on the stage (with its toolbar); `ids` rings the whole sibling selection. */
+    highlight(id: string, ids?: string[]): void {
+      post(ids ? { type: 'thallo:highlight', id, ids } : { type: 'thallo:highlight', id })
     },
     scrollTo(id: string): void {
       post({ type: 'thallo:scroll-to', id })
@@ -247,10 +298,28 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     onBlockMove(cb: (id: string, delta: 1 | -1) => void): void {
       moveCb = cb
     },
-    onBlockMoveTo(
-      cb: (id: string, neighbor: { beforeId: string } | { afterId: string }) => void,
-    ): void {
-      moveToCb = cb
+    onDragPropose(cb: (session: string, blocks: string[], zone: StageZone) => void): void {
+      dragProposeCb = cb
+    },
+    onBlockDrop(cb: (session: string, blocks: string[], zone: StageZone) => void): void {
+      blockDropCb = cb
+    },
+    onDragCancel(cb: (session: string) => void): void {
+      dragCancelCb = cb
+    },
+    // Parent-originated drags (palette, outline) drive the stage's zones and indicator.
+    dragBegin(session: string, blocks: string[]): void {
+      post({ type: 'thallo:drag-begin', session, blocks })
+    },
+    dragHover(session: string, x: number, y: number): void {
+      post({ type: 'thallo:drag-hover', session, x, y })
+    },
+    /** The coordinator's verdict on the stage's latest proposal for this session. */
+    dragLegality(session: string, legal: boolean, reason = ''): void {
+      post({ type: 'thallo:drag-legality', session, legal, reason })
+    },
+    dragEnd(session: string): void {
+      post({ type: 'thallo:drag-end', session })
     },
     onBlockDuplicate(cb: (id: string) => void): void {
       duplicateCb = cb

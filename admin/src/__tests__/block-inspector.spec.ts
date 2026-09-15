@@ -79,6 +79,84 @@ const heading = type('heading', [
   'visibility',
 ])
 
+const button = type('button', ['spacing', 'alignment.content', 'visibility'])
+const token = (name: string) => ({ type: 'token', value: `spacing.${name}` })
+const padded = (id: string, type: string, top?: ReturnType<typeof token>) => ({
+  id,
+  type,
+  data: {},
+  settings: top ? { style: { spacing: { padding: { top: { base: top } } } } } : {},
+})
+
+describe('a multi-selection in the inspector (visual builder spec §5.5)', () => {
+  it('the Style tab renders only the capability intersection; a property any block lacks has no control', () => {
+    const w = mount(StyleTab, {
+      props: {
+        block: padded('h1', 'heading'),
+        blockType: heading,
+        blocks: [padded('h1', 'heading'), padded('h2', 'heading'), padded('b1', 'button')],
+        blockTypes: [heading, heading, button],
+        schema,
+        classes: [],
+        activeBreakpoint: 'base',
+      },
+    })
+    const fields = w.findAll('[data-test^="style-field-"]').map((el) => el.attributes('data-test'))
+    expect(fields).toEqual([
+      'style-field-spacing.padding.top',
+      'style-field-spacing.padding.right',
+      'style-field-spacing.padding.bottom',
+      'style-field-spacing.padding.left',
+      'style-field-spacing.margin.top',
+      'style-field-spacing.margin.bottom',
+      'style-field-visibility',
+    ])
+    expect(w.find('[data-test="style-field-alignment.text"]').exists()).toBe(false)
+    expect(w.find('[data-test="save-as-style-class"]').exists()).toBe(false)
+  })
+
+  it('a property whose blocks resolve differently shows mixed; a pick still emits one set', async () => {
+    const w = mount(StyleTab, {
+      props: {
+        block: padded('h1', 'heading', token('sm')),
+        blockType: heading,
+        blocks: [padded('h1', 'heading', token('sm')), padded('h2', 'heading', token('lg'))],
+        blockTypes: [heading, heading],
+        schema,
+        classes: [],
+        activeBreakpoint: 'base',
+      },
+    })
+    const top = w.find('[data-test="style-field-spacing.padding.top"]')
+    expect(top.find('[data-test="style-state"]').text()).toBe('mixed')
+    expect(top.find('[data-test="token-spacing.sm"]').attributes('aria-pressed')).not.toBe('true')
+    // A property they agree on is not mixed.
+    expect(
+      w.find('[data-test="style-field-spacing.padding.left"] [data-test="style-state"]').text(),
+    ).toBe('theme')
+    await top.find('[data-test="token-spacing.lg"]').trigger('click')
+    expect(w.emitted('set')?.[0]).toEqual(['spacing.padding.top', 'base', token('lg')])
+  })
+
+  it('the inspector shows only Style for several blocks and counts them in the title', () => {
+    const w = mount(BlockInspector, {
+      props: {
+        block: padded('h1', 'heading'),
+        blockType: heading,
+        blocks: [padded('h1', 'heading'), padded('h2', 'heading')],
+        blockTypes: [heading, heading],
+        schema,
+        classes: [],
+        activeBreakpoint: 'base',
+      },
+    })
+    expect(w.find('[data-test="block-inspector-title"]').text()).toBe('2 blocks')
+    expect(w.find('[data-test="style-tab"]').exists()).toBe(true)
+    expect(w.findComponent({ name: 'AdvancedTab' }).exists()).toBe(false)
+    expect(w.findComponent({ name: 'BlockFields' }).exists()).toBe(false)
+  })
+})
+
 describe('StyleTab', () => {
   it('a heading shows spacing, text alignment, typography, text colour and visibility only', () => {
     const w = mount(StyleTab, {
@@ -153,6 +231,77 @@ function inputOf(w: ReturnType<typeof mount>, test: string) {
 }
 
 describe('AdvancedTab', () => {
+  it('a value inherited from a class is labelled by the class name; a missing id is flagged', () => {
+    const band = {
+      id: 'band',
+      style: { spacing: { padding: { top: { md: { type: 'token', value: 'spacing.lg' } } } } },
+    }
+    const w = mount(StyleTab, {
+      props: {
+        block: { id: 'h', type: 'heading', data: {}, settings: { classes: ['band'] } },
+        blockType: heading,
+        schema,
+        classes: [band],
+        classNames: { band: 'Hero band' },
+        activeBreakpoint: 'lg',
+      },
+    })
+    const field = w.find('[data-test="style-field-spacing.padding.top"]')
+    expect(field.find('[data-test="style-state"]').text()).toBe('inherited')
+    expect(field.find('[data-test="style-state"]').attributes('data-source')).toBe('class:band')
+    expect(field.find('[data-test="style-source"]').text()).toBe('from Hero band')
+
+    const a = mount(AdvancedTab, {
+      props: {
+        block: { id: 'h', type: 'heading', data: {}, settings: { classes: ['band', 'gone'] } },
+        classNames: { band: 'Hero band' },
+      },
+    })
+    expect(a.find('[data-test="style-class-band"]').text()).toContain('Hero band')
+    expect(
+      a.find('[data-test="style-class-gone"] [data-test="style-class-missing"]').exists(),
+    ).toBe(true)
+    expect(
+      a.find('[data-test="style-class-band"] [data-test="style-class-missing"]').exists(),
+    ).toBe(false)
+  })
+
+  it('the Style classes list is labelled apart from CSS classes, offers only applicable classes, and emits each action', async () => {
+    const a = mount(AdvancedTab, {
+      props: {
+        block: { id: 'h', type: 'heading', data: {}, settings: { classes: ['band', 'quiet'] } },
+        classNames: { band: 'Hero band', quiet: 'Quiet', old: 'Old', busy: 'Busy', fresh: 'Fresh' },
+        classOptions: [
+          { id: 'band', name: 'Hero band', archived: false, locked: false },
+          { id: 'quiet', name: 'Quiet', archived: false, locked: false },
+          { id: 'old', name: 'Old', archived: true, locked: false },
+          { id: 'busy', name: 'Busy', archived: false, locked: true },
+          { id: 'fresh', name: 'Fresh', archived: false, locked: false },
+        ],
+      },
+    })
+    expect(a.text()).toContain('Style classes')
+    expect(a.text()).toContain('CSS classes')
+    const pickable = (a.vm as unknown as { pickable: { value: string }[] }).pickable
+    expect(pickable.map((o) => o.value)).toEqual(['fresh'])
+    const busy = mount(AdvancedTab, {
+      props: {
+        block: { id: 'h', type: 'heading', data: {}, settings: { classes: ['busy'] } },
+        classNames: { busy: 'Busy' },
+        classOptions: [{ id: 'busy', name: 'Busy', archived: false, locked: true }],
+      },
+    })
+    expect(busy.find('[data-test="style-class-locked"]').text()).toContain('job running')
+    expect(busy.find('[data-test="style-class-detach-busy"]').attributes('disabled')).toBeDefined()
+
+    await a.find('[data-test="style-class-detach-band"]').trigger('click')
+    expect(a.emitted('detach-class')?.[0]).toEqual(['band'])
+    await a.find('[data-test="style-class-remove-quiet"]').trigger('click')
+    expect(a.emitted('remove-class')?.[0]).toEqual(['quiet'])
+    await a.find('[data-test="style-classes-detach-all"]').trigger('click')
+    expect(a.emitted('detach-all')).toHaveLength(1)
+  })
+
   it('anchor, CSS classes and label emit set; data-thallo-* and non data-* attributes are rejected', async () => {
     const w = mount(AdvancedTab, {
       props: { block: { id: 'h', type: 'heading', data: {}, settings: { classes: ['c1'] } } },

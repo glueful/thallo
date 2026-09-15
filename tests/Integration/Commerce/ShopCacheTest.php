@@ -82,7 +82,15 @@ final class ShopCacheTest extends AppTestCase
     public function testKeyIsDimensionComplete(): void
     {
         $tenants = $this->container()->get(CommerceTenantResolution::class);
-        $mw = new ShopPageCache($this->cache(), $tenants, 'default', 'blue-slate', true, 60, $this->appContext());
+        $mw = new ShopPageCache(
+            $this->cache(),
+            $tenants,
+            'default',
+            static fn (): string => 'blue-slate',
+            true,
+            60,
+            $this->appContext(),
+        );
         $ref = new \ReflectionMethod($mw, 'key');
         $ref->setAccessible(true);
 
@@ -98,7 +106,7 @@ final class ShopCacheTest extends AppTestCase
             $this->cache(),
             $tenants,
             'other-theme',
-            'blue-slate',
+            static fn (): string => 'blue-slate',
             true,
             60,
             $this->appContext(),
@@ -111,7 +119,15 @@ final class ShopCacheTest extends AppTestCase
             'theme must vary the key',
         );
 
-        $skinned = new ShopPageCache($this->cache(), $tenants, 'default', 'rose-zinc', true, 60, $this->appContext());
+        $skinned = new ShopPageCache(
+            $this->cache(),
+            $tenants,
+            'default',
+            static fn (): string => 'rose-zinc',
+            true,
+            60,
+            $this->appContext(),
+        );
         $refSkinned = new \ReflectionMethod($skinned, 'key');
         $refSkinned->setAccessible(true);
         self::assertNotSame(
@@ -207,7 +223,7 @@ final class ShopCacheTest extends AppTestCase
             $this->cache(),
             $tenants,
             'default',
-            'blue-slate',
+            static fn (): string => 'blue-slate',
             false,
             3600,
             $this->appContext(),

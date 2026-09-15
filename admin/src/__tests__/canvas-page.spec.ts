@@ -25,6 +25,13 @@ const nextApplied = () => ({
 })
 vi.mock('@/queries/preview', () => ({ mintPreviewData: mintMock, applyPreview: applyMock }))
 vi.mock('@/queries/styleSchema', () => ({ useStyleSchema: () => ({ data: ref(null) }) }))
+vi.mock('@/queries/styleClasses', () => ({
+  useStyleClasses: () => ({ data: ref({ generation: 0, classes: [] }), refetch: vi.fn() }),
+  useStyleClassMutations: () => ({
+    create: { mutateAsync: vi.fn(), isLoading: ref(false) },
+    deleteUnreferenced: { mutateAsync: vi.fn(), isLoading: ref(false) },
+  }),
+}))
 
 const draft = ref<{ fields: Record<string, unknown>; lock_version: number } | null>(null)
 const { saveMock } = vi.hoisted(() => ({ saveMock: vi.fn() }))
@@ -69,12 +76,14 @@ vi.mock('@/fields/components/blocks/ProseBlockEditor.vue', () => ({
 // wiring only: intents in via captured callbacks, mirrors out via spies.
 const bridge = vi.hoisted(() => {
   const callbacks: {
-    select?: (id: string) => void
+    select?: (id: string, modifiers?: { shift: boolean; meta: boolean }) => void
     hover?: (id: string) => void
     index?: (ids: string[]) => void
     deselect?: (id: string) => void
     move?: (id: string, d: 1 | -1) => void
-    moveTo?: (id: string, neighbor: { beforeId: string } | { afterId: string }) => void
+    dragPropose?: (session: string, blocks: string[], zone: StageZone) => void
+    blockDrop?: (session: string, blocks: string[], zone: StageZone) => void
+    dragCancel?: (session: string) => void
     duplicate?: (id: string) => void
     deleteRequest?: (id: string, anchor?: { x: number; y: number } | null) => void
     addAfter?: (id: string, anchor?: { x: number; y: number } | null) => void
@@ -89,14 +98,21 @@ const bridge = vi.hoisted(() => {
     instance: {
       nonce: 'n',
       hello: vi.fn(),
-      onBlockSelect: (cb: (id: string) => void) => (callbacks.select = cb),
+      onBlockSelect: (cb: (id: string, modifiers?: { shift: boolean; meta: boolean }) => void) =>
+        (callbacks.select = cb),
       onBlockDeselect: (cb: (id: string) => void) => (callbacks.deselect = cb),
       onBlockHover: (cb: (id: string) => void) => (callbacks.hover = cb),
       onBlocksIndex: (cb: (ids: string[]) => void) => (callbacks.index = cb),
       onBlockMove: (cb: (id: string, d: 1 | -1) => void) => (callbacks.move = cb),
-      onBlockMoveTo: (
-        cb: (id: string, neighbor: { beforeId: string } | { afterId: string }) => void,
-      ) => (callbacks.moveTo = cb),
+      onDragPropose: (cb: (session: string, blocks: string[], zone: StageZone) => void) =>
+        (callbacks.dragPropose = cb),
+      onBlockDrop: (cb: (session: string, blocks: string[], zone: StageZone) => void) =>
+        (callbacks.blockDrop = cb),
+      onDragCancel: (cb: (session: string) => void) => (callbacks.dragCancel = cb),
+      dragBegin: vi.fn(),
+      dragHover: vi.fn(),
+      dragLegality: vi.fn(),
+      dragEnd: vi.fn(),
       onBlockDuplicate: (cb: (id: string) => void) => (callbacks.duplicate = cb),
       onBlockDeleteRequest: (cb: (id: string, anchor?: { x: number; y: number } | null) => void) =>
         (callbacks.deleteRequest = cb),
@@ -123,6 +139,23 @@ const bridge = vi.hoisted(() => {
   }
 })
 vi.mock('@/composables/useCanvasBridge', () => ({ useCanvasBridge: () => bridge.instance }))
+// The server block factory (visual builder spec §5.5): stubbed per slug — a fresh id, the
+// canonical defaults the server would send, and the starter merged in.
+const factoryStarter: Record<string, Record<string, unknown>> = {
+  hero: { headline: 'Headline', links: [] },
+  card: { title: 'Card', body: [] },
+}
+vi.mock('@/queries/blockFactory', () => ({
+  useBlockFactory: () => ({
+    make: vi.fn(),
+    instance: vi.fn(async (slug: string) => ({
+      id: 'f' + Math.random().toString(36).slice(2, 13).padEnd(11, '0'),
+      type: slug,
+      data: { ...(factoryStarter[slug] ?? {}) },
+      settings: {},
+    })),
+  }),
+}))
 
 vi.mock('vue-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-router')>()),
@@ -131,6 +164,7 @@ vi.mock('vue-router', async (importOriginal) => ({
 }))
 
 import DesignPage from '@/pages/content/[type]/[uuid]/design/[locale].vue'
+import type { StageZone } from '@/composables/useCanvasBridge'
 
 const bt = (slug: string): BlockType =>
   ({
@@ -484,9 +518,10 @@ describe('canvas page', () => {
     // Review P1: a rejected Apply wrote NO stash — optimistic mirrors from the
     // stage toolbar must not survive as if they were applied. Failure paths
     // reload DIRECTLY (dom-patching spec §1): stageRefresh is asserted
-    // uncalled at the end of this test.
+    // uncalled at the end of this test. A 500 here: a 422 on the unchanged tip
+    // rolls the transaction back instead (canvas-revisions.spec.ts).
     mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
-    applyMock.mockRejectedValueOnce(new ApiError('validation failed', 422, {}, { success: false }))
+    applyMock.mockRejectedValueOnce(new ApiError('server error', 500, {}, { success: false }))
     const wrapper = mountPage()
     await flushPromises()
     const before = wrapper.find('[data-test="canvas-iframe"]').element
@@ -716,6 +751,17 @@ describe('canvas page', () => {
     expect(bridge.instance.mirrorMove).not.toHaveBeenCalled()
     expect(bridge.instance.mirrorDuplicate).not.toHaveBeenCalled()
     expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(false)
+
+    // The insertion awaited the factory: one new block after the anchor, carrying the starter.
+    saveMock.mockResolvedValue(undefined)
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    const saved = saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
+      fields: { body: { id: string; type: string; data: Record<string, unknown> }[] }
+    }
+    expect(saved.fields.body.map((b) => b.type)).toEqual(['card', 'card', 'card', 'rich_text'])
+    expect(saved.fields.body[1]!.id).not.toBe('blockbbb0002')
+    expect(saved.fields.body[1]!.data).toEqual({ title: 'Card', body: [] })
     wrapper.unmount()
   })
 
@@ -749,16 +795,22 @@ describe('canvas page', () => {
     wrapper.unmount()
   })
 
-  it('an accepted block-move-to patches the tree; NO mirror is posted back', async () => {
+  it('a stage proposal is answered with its legality; the accepted drop patches the tree with NO mirror', async () => {
     mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
     saveMock.mockResolvedValue(undefined)
     const wrapper = mountPage()
     await flushPromises()
     const before = wrapper.find('[data-test="canvas-iframe"]').element
 
-    bridge.callbacks.moveTo?.('blockaaa0001', { afterId: 'prose0000003' })
+    // The coordinator's index convention: counted against the tree with the moving block
+    // removed, so index 2 of body is "after prose0000003".
+    const zone = { parent: null, slot: 'body', index: 2, layout: 'linear-vertical' as const }
+    bridge.callbacks.dragPropose?.('s1', ['blockaaa0001'], zone)
+    expect(bridge.instance.dragLegality).toHaveBeenCalledWith('s1', true, '')
+
+    bridge.callbacks.blockDrop?.('s1', ['blockaaa0001'], zone)
     await flushPromises()
-    expect(bridge.instance.mirrorMove).not.toHaveBeenCalled() // the drag WAS the mirror
+    expect(bridge.instance.mirrorMove).not.toHaveBeenCalled() // the patch is the mirror
     expect(wrapper.find('[data-test="canvas-iframe"]').element).toBe(before) // no reload
 
     await wrapper.find('[data-test="canvas-save"]').trigger('click')
@@ -774,19 +826,25 @@ describe('canvas page', () => {
     wrapper.unmount()
   })
 
-  it('a REJECTED block-move-to reloads the stage and leaves fields untouched', async () => {
+  it('a refused proposal carries its reason; a refused drop warns and leaves the fields and stage alone', async () => {
     mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
     saveMock.mockResolvedValue(undefined)
     const wrapper = mountPage()
     await flushPromises()
     const before = wrapper.find('[data-test="canvas-iframe"]').element
 
-    bridge.callbacks.moveTo?.('blockaaa0001', { beforeId: 'missing' })
+    const zone = { parent: 'missing', slot: 'items', index: 0, layout: 'linear-vertical' as const }
+    bridge.callbacks.dragPropose?.('s2', ['blockaaa0001'], zone)
+    expect(bridge.instance.dragLegality).toHaveBeenCalledWith('s2', false, expect.any(String))
+    const reason = (bridge.instance.dragLegality as ReturnType<typeof vi.fn>).mock.calls[0]![2]
+    expect(reason).not.toBe('')
+
+    bridge.callbacks.blockDrop?.('s2', ['blockaaa0001'], zone)
     await flushPromises()
-    await flushPromises()
-    const iframe = wrapper.find('[data-test="canvas-iframe"]')
-    expect(iframe.element).not.toBe(before) // reloadStage snapped back to truth
-    expect(mintMock).toHaveBeenCalledTimes(1) // reload, not re-mint
+    // The tree was never touched by the stage, so nothing snaps back: same iframe, no re-mint.
+    expect(wrapper.find('[data-test="canvas-iframe"]').element).toBe(before)
+    expect(mintMock).toHaveBeenCalledTimes(1)
+    expect(notify.warning).toHaveBeenCalledWith('That move is not allowed', reason)
 
     await wrapper.find('[data-test="canvas-save"]').trigger('click')
     await flushPromises()
@@ -799,6 +857,173 @@ describe('canvas page', () => {
       'prose0000003',
     ])
     wrapper.unmount()
+  })
+
+  it('a stage drag-cancel ends the coordinator session: a later drop for it is ignored', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    saveMock.mockResolvedValue(undefined)
+    const wrapper = mountPage()
+    await flushPromises()
+    const zone = { parent: null, slot: 'body', index: 2, layout: 'linear-vertical' as const }
+    bridge.callbacks.dragPropose?.('s3', ['blockaaa0001'], zone)
+    bridge.callbacks.dragCancel?.('s3')
+    bridge.callbacks.blockDrop?.('s3', ['blockaaa0001'], zone)
+    await flushPromises()
+    expect(notify.warning).not.toHaveBeenCalled()
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    const saved = saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
+      fields: { body: { id: string }[] }
+    }
+    expect(saved.fields.body.map((b) => b.id)).toEqual([
+      'blockaaa0001',
+      'blockbbb0002',
+      'prose0000003',
+    ])
+    wrapper.unmount()
+  })
+
+  describe('sibling multi-selection (visual builder spec §5.5)', () => {
+    async function selectPair(wrapper: ReturnType<typeof mountPage>) {
+      bridge.callbacks.select?.('blockaaa0001', { shift: false, meta: false })
+      bridge.callbacks.select?.('blockbbb0002', { shift: true, meta: false })
+      await flushPromises()
+      expect(bridge.instance.highlight).toHaveBeenLastCalledWith('blockaaa0001', [
+        'blockaaa0001',
+        'blockbbb0002',
+      ])
+      expect(wrapper.find('[data-test="canvas-outline-item-blockbbb0002"]').classes()).toContain(
+        'bg-elevated',
+      )
+    }
+    const lastOps = () =>
+      (
+        applyMock.mock.calls[applyMock.mock.calls.length - 1]![4] as {
+          operations: { type: string; transaction_id: string }[]
+        }
+      ).operations
+    const savedIds = () =>
+      (
+        saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
+          fields: { body: { id: string }[] }
+        }
+      ).fields.body.map((b) => b.id)
+
+    it('a group move is one transaction of MoveBlocks; the stage is patched, not mirrored', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      await selectPair(wrapper)
+
+      bridge.callbacks.move?.('blockaaa0001', 1)
+      await flushPromises()
+      expect(bridge.instance.mirrorMove).not.toHaveBeenCalled()
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      expect(savedIds()).toEqual(['prose0000003', 'blockaaa0001', 'blockbbb0002'])
+
+      await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+      await flushPromises()
+      const ops = lastOps()
+      expect(ops.map((o) => o.type)).toEqual(['MoveBlock', 'MoveBlock'])
+      expect(new Set(ops.map((o) => o.transaction_id)).size).toBe(1)
+
+      // Up again from the end: back to the start, still selected as a group.
+      bridge.callbacks.move?.('blockbbb0002', -1)
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      expect(savedIds()).toEqual(['blockaaa0001', 'blockbbb0002', 'prose0000003'])
+      bridge.callbacks.move?.('blockbbb0002', -1) // boundary: nothing moves
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      expect(savedIds()).toEqual(['blockaaa0001', 'blockbbb0002', 'prose0000003'])
+      wrapper.unmount()
+    })
+
+    it('a group duplicate copies each block after itself and selects the copies', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      await selectPair(wrapper)
+
+      bridge.callbacks.duplicate?.('blockbbb0002')
+      await flushPromises()
+      expect(bridge.instance.mirrorDuplicate).toHaveBeenCalledTimes(2)
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      const ids = savedIds()
+      expect(ids).toHaveLength(5)
+      expect([ids[0], ids[2], ids[4]]).toEqual(['blockaaa0001', 'blockbbb0002', 'prose0000003'])
+      expect(bridge.instance.highlight).toHaveBeenLastCalledWith(ids[1], [ids[1], ids[3]])
+      wrapper.unmount()
+    })
+
+    it('a group delete removes every selected block on one confirm', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      await selectPair(wrapper)
+
+      bridge.callbacks.deleteRequest?.('blockaaa0001')
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-delete-confirm-yes"]').trigger('click')
+      await flushPromises()
+      expect(bridge.instance.mirrorRemove).toHaveBeenCalledTimes(2)
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      expect(savedIds()).toEqual(['prose0000003'])
+      expect(wrapper.find('[data-test="block-inspector"]').exists()).toBe(false) // nothing selected
+      wrapper.unmount()
+    })
+
+    it('a style edit writes one SetSetting per selected block in one transaction', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      await selectPair(wrapper)
+      const inspector = wrapper.findComponent({ name: 'BlockInspector' })
+      expect(inspector.props('blocks')).toHaveLength(2)
+      inspector.vm.$emit('set-setting', 'spacing.padding.top', 'base', {
+        type: 'token',
+        value: 'spacing.lg',
+      })
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+      await flushPromises()
+      const ops = lastOps() as ({ type: string; transaction_id: string } & Record<
+        string,
+        unknown
+      >)[]
+      expect(ops.map((o) => o.type)).toEqual(['SetSetting', 'SetSetting'])
+      expect(ops.map((o) => o.block)).toEqual(['blockaaa0001', 'blockbbb0002'])
+      expect(new Set(ops.map((o) => o.transaction_id)).size).toBe(1)
+      wrapper.unmount()
+    })
+
+    it('a block from another slot, or an edit that moves one away, narrows the selection', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      await selectPair(wrapper)
+      // cmd-click drops one sibling out.
+      bridge.callbacks.select?.('blockaaa0001', { shift: false, meta: true })
+      await flushPromises()
+      expect(bridge.instance.highlight).toHaveBeenLastCalledWith('blockbbb0002', ['blockbbb0002'])
+      // Deleting the remaining selected block empties the selection.
+      bridge.callbacks.deleteRequest?.('blockbbb0002')
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-delete-confirm-yes"]').trigger('click')
+      await flushPromises()
+      expect(wrapper.find('[data-test="block-inspector"]').exists()).toBe(false) // nothing selected
+      wrapper.unmount()
+    })
   })
 
   it('an anchored delete request positions the confirm at the delete button', async () => {
@@ -1177,7 +1402,7 @@ describe('auto-apply', () => {
 
   it('final failure suspends (one banner, no further autos); manual success re-arms', async () => {
     const wrapper = await mountAuto()
-    applyMock.mockRejectedValueOnce(new ApiError('validation failed', 422, {}, { success: false }))
+    applyMock.mockRejectedValueOnce(new ApiError('server error', 500, {}, { success: false }))
     vi.useFakeTimers()
     try {
       bridge.callbacks.move?.('blockaaa0001', 1)

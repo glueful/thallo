@@ -53,6 +53,23 @@ final class SeedBlockTypesTest extends AppTestCase
         // code (website plan, phase 1): a snippet with a language label and a copy button.
         self::assertSame(47, count(StarterBlockTypes::definitions()));
         self::assertGreaterThanOrEqual(47, $expected, 'contributions only ever add to the fixed library');
+        // Starter content (visual builder Phase B, B6.4): the eight everyday types insert with
+        // something to look at; the factory hands it to the editor separately from the defaults.
+        foreach (
+            [
+                'heading' => ['text' => 'Heading'],
+                'rich_text' => ['body' => '<p>Start writing.</p>'],
+                'button' => ['label' => 'Learn more', 'url' => '#'],
+                'cta' => ['title' => 'Ready to begin?'],
+                'hero' => ['headline' => 'Headline', 'description' => 'One sentence that says what this is.'],
+                'section' => ['content' => []],
+                'columns' => ['layout' => '2'],
+                'card' => ['title' => 'Card'],
+            ] as $slug => $starter
+        ) {
+            self::assertEquals($starter, $repo->findBySlug($slug)['starter_content'], $slug); // JSONB key order
+        }
+        self::assertNull($repo->findBySlug('separator')['starter_content']);
         // Style block (style-block spec §3): scoped accent/neutral re-skin + class hook.
         $style = $repo->findBySlug('style');
         self::assertSame('Layout', $style['category']);

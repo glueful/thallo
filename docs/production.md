@@ -68,8 +68,10 @@ Two long-lived pieces, both plain PHP; nothing else to install with the default
 ```
 
 **A queue worker** processes jobs the application dispatches (mail, extension operations,
-maintenance). It exits on its memory and job limits, so keep it under a supervisor. A systemd
-unit:
+maintenance, block-type schema backfills, and a style class's detach-everywhere or
+remove-everywhere job — the class stays locked until that job completes, so without a worker
+run it by hand with `php glueful thallo:style-classes:run-job <id>`). It exits on its memory and
+job limits, so keep it under a supervisor. A systemd unit:
 
 ```ini
 [Unit]

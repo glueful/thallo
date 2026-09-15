@@ -192,26 +192,24 @@ final class BlocksValidationTest extends AppTestCase
         }
     }
 
-    public function testDepthFourErrorsAtTheExactPath(): void
+    public function testDepthSixErrorsAtTheExactPath(): void
     {
-        // section > section > section holds depth 3; its nested content field would
-        // put items at depth 4 → the FIELD errors, nothing deeper validates. (section
-        // inside section is OUTSIDE content's allowlist — doubling as the picker-only
-        // acceptance proof at depth.)
-        $deep = ['type' => 'section', 'data' => ['content' => [
-            ['type' => 'section', 'data' => ['content' => [
-                ['type' => 'section', 'data' => ['content' => [
-                    ['type' => 'hero', 'data' => ['heading' => 'too deep']],
-                ]]],
-            ]]],
-        ]]];
+        // Five nested sections hold depth 5 (visual builder spec §5.2); the fifth's content
+        // field would put items at depth 6 → the FIELD errors, nothing deeper validates.
+        // (section inside section is OUTSIDE content's allowlist — doubling as the
+        // picker-only acceptance proof at depth.)
+        $deep = ['type' => 'hero', 'data' => ['heading' => 'too deep']];
+        for ($i = 0; $i < 5; $i++) {
+            $deep = ['type' => 'section', 'data' => ['content' => [$deep]]];
+        }
         try {
             $this->clean(['body' => [$deep]]);
             self::fail('expected ValidationException');
         } catch (ValidationException $e) {
             $errors = $e->errors();
-            self::assertArrayHasKey('body.0.content.0.content.0.content', $errors);
-            self::assertStringContainsString('nesting depth', $errors['body.0.content.0.content.0.content']);
+            $path = 'body.0.content.0.content.0.content.0.content.0.content';
+            self::assertArrayHasKey($path, $errors, json_encode(array_keys($errors)));
+            self::assertStringContainsString('nesting depth (5)', $errors[$path]);
         }
         // Exactly at MAX (3) is fine.
         $ok = ['type' => 'section', 'data' => ['content' => [

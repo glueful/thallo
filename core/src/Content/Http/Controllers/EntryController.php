@@ -22,7 +22,7 @@ use Thallo\Core\Content\Localization\ContentLocaleService;
 use Thallo\Core\Content\Preview\PreviewToken;
 use Thallo\Core\Content\Preview\PreviewTokenException;
 use Thallo\Core\Content\Preview\PreviewWorkingCopyStore;
-use Thallo\Core\Content\Style\SiteStyleGeneration;
+use Thallo\Contracts\Style\StyleClassProvider;
 use Thallo\Contracts\Preview\PreviewFragmentRenderer;
 use Thallo\Core\Content\Http\DTOs\Responses\Preview\ApplyPreviewResultData;
 use Thallo\Core\Content\Preview\ResolvesPreviewKey;
@@ -76,10 +76,10 @@ final class EntryController
         private readonly ?PreviewWorkingCopyStore $workingCopies = null,
         /** Root URL namespace guard; null = ungated (tests, minimal wiring). */
         private readonly ?RootMountGuard $rootGuard = null,
-        /** The site style generation named by every apply (visual builder spec §3.5). */
-        private readonly ?SiteStyleGeneration $styleGeneration = null,
         /** The fragment path (spec §3.5); null = the render pack is off, the stage refreshes. */
         private readonly ?PreviewFragmentRenderer $fragments = null,
+        /** The site's style classes (spec §4.3): refreshed first, so a request works from one snapshot. */
+        private readonly ?StyleClassProvider $styleClasses = null,
     ) {
     }
 
@@ -280,6 +280,7 @@ final class EntryController
     // 401/403/429/500 inferred from middleware + documentation.errors config.
     public function saveDraft(SaveDraftData $input, Request $request, string $uuid, string $locale): Response
     {
+        $this->styleClasses?->refresh();
         if (($errors = $this->locales->validate($locale)) !== []) {
             return Response::validation($errors);
         }
@@ -318,6 +319,15 @@ final class EntryController
                 'code' => 'STALE_DRAFT',
                 'current' => $this->entries->findDraft($uuid, $locale),
             ]);
+        } catch (\Thallo\Core\Content\Style\Classes\StyleClassLocked $e) {
+            // A job holds the class this save newly applies (visual builder spec §4.5).
+            return Response::error('A job holds a style class this save applies.', Response::HTTP_CONFLICT, [
+                'code' => 'STYLE_CLASS_LOCKED',
+                'job' => $e->job,
+                'style_class' => $e->id,
+            ]);
+        } catch (\Thallo\Core\Content\Style\Classes\StyleClassArchived $e) {
+            return Response::validation(['settings.classes' => $e->getMessage()]);
         }
         // Clear-on-save (visual builder spec §3.5): the DB draft now matches the working tree
         // the save was submitted from — but only that revision; an older save never discards a
@@ -357,6 +367,7 @@ final class EntryController
     // 401/403(permission)/429/500 inferred from middleware + documentation.errors config.
     public function applyPreview(ApplyPreviewData $input, Request $request, string $uuid, string $locale): Response
     {
+        $this->styleClasses?->refresh();
         if ($this->workingCopies === null) {
             return Response::error('Preview apply is unavailable.', 503);
         }
@@ -460,7 +471,7 @@ final class EntryController
             'epoch' => $result['epoch'],
             'revision' => $result['revision'],
             'baseline' => $result['baseline'],
-            'style_generation' => $this->styleGeneration?->current() ?? 0,
+            'style_generation' => $this->styleClasses?->snapshot()->generation ?? 0,
             'applied_at' => $result['accepted_at'],
             'fragments' => $fragments,
         ], 'Preview applied.');

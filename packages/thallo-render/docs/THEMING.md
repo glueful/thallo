@@ -135,6 +135,18 @@ Functions:
 - `asset('blocks.css')` — URL to a theme asset.
 - `media(uuid, variant?)` — resolve an asset UUID to a servable URL (`null` if not servable).
 - `blocks(list)` — render a list of **child blocks** (nesting; e.g. hero links, carousel slides).
+  Blocks nest up to five levels deep (section → columns → card → container → heading); a
+  deeper list renders nothing and the validator refuses it.
+- `slot_attrs('field')` — **emit this on the element that wraps a `blocks()` call.** On the
+  canvas it renders `data-thallo-slot="field"`, so the builder knows the real element a slot
+  occupies — where a dragged block may land, which layout the slot has (a flex row splits
+  left/right, a column splits top/bottom, a grid takes the end), and where an empty slot sits.
+  Outside the canvas it renders nothing. The slot name must be a constant string and must be one
+  of the block type's `blocks` fields. An empty slot on the canvas shows a dashed placeholder
+  naming the slot (`data-thallo-slot-empty`, painted by the preview stylesheet) so there is
+  always somewhere to drop; render the wrapper even when the list is empty — `is_canvas()` says
+  whether you are on the canvas, so a wrapper the published page omits can still exist there.
+- `is_canvas()` — true while rendering for the editor's canvas.
 - `icon(name)` — render an icon.
 - `menu('main')` — items for a named menu.
 - `region_blocks(name)` / `region_settings(name)` — region HTML / settings.
@@ -160,6 +172,11 @@ Filters:
   **not** by the `thallo-block-*` CSS classes.
 - In-place text editing comes from the `|editable_text('field')` filter, not from
   a class.
+- Slots come from `slot_attrs('field')` on the element that holds `blocks()` — one per
+  `blocks` field of the type. The **template lint** refuses a template whose type declares a
+  `blocks` field it never names with `slot_attrs`, unless the type renders its children's data
+  inline (`renders_children_inline` in its flags, as the navigation and social links blocks do)
+  and so has no slot.
 
 **Consequence:** presentational classes are yours to change freely. The only
 classes/attributes you must keep stable are ones your **own `blocks.js`** selects
@@ -290,7 +307,7 @@ slide loses its contrast guarantee.
       {% if data.headline %}<p class="thallo-block-hero__headline">{{ data.headline|editable_text('headline') }}</p>{% endif %}
       <h1 class="thallo-block-hero__title">{{ data.title|editable_text('title') }}</h1>
       {% if data.description %}<p class="thallo-block-hero__description">{{ data.description|editable_text('description') }}</p>{% endif %}
-      {% if data.links|default([]) is not empty %}<div class="thallo-block-hero__links">{{ blocks(data.links) }}</div>{% endif %}
+      {% if data.links|default([]) is not empty or is_canvas() %}<div class="thallo-block-hero__links"{{ slot_attrs('links') }}>{{ blocks(data.links|default([])) }}</div>{% endif %}
     </div>
     {% if img %}<div class="thallo-block-hero__media"><img src="{{ img }}" alt=""></div>{% endif %}
   </div>
@@ -303,6 +320,8 @@ re-skin only re-maps the token values.
 
 Notes:
 - Text fields use `|editable_text('field')` → still editable on the canvas.
+- `slot_attrs('links')` names the element the `links` slot occupies; on the canvas the wrapper
+  renders even with no links so the slot has a placeholder to drop into.
 - `media(data.image)` resolves the asset; `blocks(data.links)` renders the nested
   link blocks.
 - The `thallo-block-hero*` classes are the styling surface AND a stable hook for
@@ -641,13 +660,32 @@ clears it, and a reset gives the theme's background back.
 
 The template lint (the same policy the admin editor enforces) holds a block
 template to its declaration: every declared target is styled, no undeclared
-target is used, and target names are constant strings. A DB override of a shipped
-block template is held to the same rule. No template writes a `style=` attribute
+target is used, and target names are constant strings; every `blocks` field is a
+slot named once by `slot_attrs` (§4.3). A DB override of a shipped block template
+is held to the same rule. No template writes a `style=` attribute
 or a `<style>` element — the lint refuses both at save and before render; the only
 inline style emitters are `theme_colors_style()`, `theme_style_scope()` and
 `font_faces_style()` (variables and `@font-face`, no selectors).
 
-### 12.4 Browser floor and proofs
+### 12.4 Style classes (the class layer)
+
+A style class is a site-owned, theme-independent record: a name and a `style` in the
+same schema a block's own settings use, with sparse breakpoints and resets. A block
+lists the classes it composes in `settings.classes`, in order; the cascade resolves
+each class as a layer below the block's own settings, later classes over earlier
+ones (spec §1.6), and `style_classes()` emits the result exactly as it does for
+instance values. A class declares no capabilities or targets: applied to a block,
+each declaration lands only where the block has the capability and is dormant
+elsewhere. Themes never see classes as such — only the utilities the cascade
+resolves to — so a theme needs nothing new for them.
+
+Every class write increments the site's style generation, which names the exact set
+of class records a render resolved through. The page-cache key carries it
+(`…-g<generation>`), and the canvas page carries it on `<main>` as
+`data-thallo-style-generation` next to the revision pair, so an editor can tell when
+the classes it resolved with have changed.
+
+### 12.5 Browser floor and proofs
 
 The public site requires cascade layers, `revert-layer` and `color-mix()`:
 Chrome 111, Firefox 113, Safari 16.2. `tools/style-proofs` proves the computed

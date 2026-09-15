@@ -48,6 +48,8 @@ function coalesceKey(op: Operation): string | null {
     case 'ReorderStyleClasses':
       return `classes:${op.block}`
     default:
+      // Apply, Remove and Detach never coalesce: each is its own intent, and a detach
+      // materialises values whose from/to must survive as recorded (spec §4.4).
       return null
   }
 }
@@ -163,6 +165,24 @@ export function createEditorHistory(initial: EditorDocument, options: EditorHist
     for (let i = ops.length - 1; i >= 0; i--) applyAll(invertOperation(ops[i]!))
   }
 
+  /**
+   * Drop the tip entry when it carries `transactionId` (a rejected apply, visual builder spec
+   * §5.3): its ops are inverted on the document and the entry is removed — never a redo entry,
+   * since the server refused it. False when a transaction is open, the tip is another
+   * transaction, or the tip was undone.
+   */
+  function discardTip(transactionId: string): boolean {
+    if (active !== null) return false
+    const tip = entries[entries.length - 1]
+    if (!tip || tip.sequence !== currentSequence || tip.transaction_id !== transactionId)
+      return false
+    for (let i = tip.ops.length - 1; i >= 0; i--) applyAll(invertOperation(tip.ops[i]!))
+    entries.pop()
+    currentSequence = entries.length > 0 ? entries[entries.length - 1]!.sequence : baseSequence
+    if (savedSequence === tip.sequence) savedSequence = currentSequence
+    return true
+  }
+
   function canUndo(): boolean {
     return (active !== null && active.ops.length > 0) || currentSequence > baseSequence
   }
@@ -231,6 +251,7 @@ export function createEditorHistory(initial: EditorDocument, options: EditorHist
     record,
     commit,
     cancel,
+    discardTip,
     canUndo,
     canRedo,
     undo,

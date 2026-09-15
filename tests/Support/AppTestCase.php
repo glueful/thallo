@@ -29,6 +29,7 @@ abstract class AppTestCase extends TestCase
         'block_type_migrations',
         'blobs',
         'block_types',
+        'style_class_jobs', 'style_classes', 'style_generations',
         'render_template_versions', 'render_templates',
         'navigation_items', 'navigation_menus',
         'workflow_transitions', 'workflow_review_states',
@@ -153,6 +154,12 @@ abstract class AppTestCase extends TestCase
         // tables, and a once-per-process grant silently dies with them. Production grants
         // are ONLY the administrator dependent migration.
         $this->grantSeedActorBypass();
+
+        // The shared style class provider memoises one snapshot per request (visual builder
+        // spec §4.3); a test is a request, so its memo must not outlive the truncation below.
+        if ($this->container()->has(\Thallo\Contracts\Style\StyleClassProvider::class)) {
+            $this->container()->get(\Thallo\Contracts\Style\StyleClassProvider::class)->refresh();
+        }
 
         // QueryBuilder has no truncate(); delete-all via a tautological predicate
         // (every Thallo table has an integer `id`). Deletes commit immediately.

@@ -135,6 +135,38 @@ final class RenderPageCacheTest extends AppTestCase
         self::assertIsArray($this->cache()->get('render:default:' . $this->appearanceFingerprint() . ':%2F'));
     }
 
+    public function testTheKeyNamesTheStyleClassGenerationTheRequestRenderedFrom(): void
+    {
+        // The fingerprint (and so every page and error key) carries the generation of the
+        // request's style class snapshot; the middleware evaluates it per request, after the
+        // provider's refresh, and the render uses the same memoised snapshot (visual builder
+        // spec §4.3), so the key and the page describe one snapshot.
+        $this->seedBilingualPublishedEntry();
+        $generation = $this->container()->get(\Thallo\Core\Content\Style\SiteStyleGeneration::class)->current();
+        self::assertStringContainsString('-g' . $generation, $this->appearanceFingerprint());
+        $this->handle(Request::create('/blog/hello', 'GET'));
+        $keys = $this->cache()->getKeys('render:*');
+        $under = static fn (int $g): callable => static fn (string $k): bool => str_contains($k, "-g{$g}:");
+        self::assertCount(1, array_filter($keys, $under($generation)));
+
+        $this->container()->get(\Thallo\Core\Content\Style\Classes\StyleClassRepository::class)
+            ->create(['name' => 'Band', 'style' => []]);
+        self::assertStringContainsString('-g' . ($generation + 1), $this->appearanceFingerprint());
+        $this->handle(Request::create('/blog/hello', 'GET'));
+        $keys = $this->cache()->getKeys('render:*');
+        self::assertCount(1, array_filter($keys, $under($generation + 1)));
+    }
+
+    public function testAClassWritePurgesEveryCachedPage(): void
+    {
+        $this->seedBilingualPublishedEntry();
+        $this->handle(Request::create('/blog/hello', 'GET'));
+        self::assertNotSame([], $this->cache()->getKeys('render:*'));
+        $this->container()->get(\Thallo\Core\Content\Style\Classes\StyleClassRepository::class)
+            ->create(['name' => 'Band', 'style' => []]);
+        self::assertSame([], $this->cache()->getKeys('render:*'), 'StyleClassSaved purges the page tag');
+    }
+
     public function testKeysAreValidForEveryCacheDriver(): void
     {
         // The framework's Redis driver rejects PSR-16-reserved characters
@@ -159,7 +191,7 @@ final class RenderPageCacheTest extends AppTestCase
         $middleware = new \Thallo\Render\Http\Middleware\RenderPageCache(
             $this->cache(),
             'default',
-            'blue-slate-round-sans-plain',
+            static fn (): string => 'blue-slate-round-sans-plain',
             false,
             3600,
         );
@@ -211,7 +243,13 @@ final class RenderPageCacheTest extends AppTestCase
             $calls++;
             return new Response('<html>404</html>', 404, ['Content-Type' => 'text/html; charset=UTF-8']);
         };
-        $errors = new RenderErrorCache($this->cache(), 'default', 'blue-slate-round-sans-plain', true, 3600);
+        $errors = new RenderErrorCache(
+            $this->cache(),
+            'default',
+            static fn (): string => 'blue-slate-round-sans-plain',
+            true,
+            3600,
+        );
         $errors->themed404($render);
         $second = $errors->themed404($render);
 
@@ -230,7 +268,13 @@ final class RenderPageCacheTest extends AppTestCase
             $calls++;
             return new Response('Internal Server Error', 500, ['Content-Type' => 'text/plain; charset=UTF-8']);
         };
-        $errors = new RenderErrorCache($this->cache(), 'default', 'blue-slate-round-sans-plain', true, 3600);
+        $errors = new RenderErrorCache(
+            $this->cache(),
+            'default',
+            static fn (): string => 'blue-slate-round-sans-plain',
+            true,
+            3600,
+        );
         $errors->themed404($render);
         $errors->themed404($render);
         self::assertSame(2, $calls);
@@ -268,7 +312,13 @@ final class RenderPageCacheTest extends AppTestCase
             $calls++;
             return new Response('<html>404</html>', 404, ['Content-Type' => 'text/html; charset=UTF-8']);
         };
-        $errors = new RenderErrorCache($this->cache(), 'default', 'blue-slate-round-sans-plain', false, 3600);
+        $errors = new RenderErrorCache(
+            $this->cache(),
+            'default',
+            static fn (): string => 'blue-slate-round-sans-plain',
+            false,
+            3600,
+        );
         $res = $errors->themed404($render);
         $errors->themed404($render);
         self::assertSame(2, $calls); // rendered every time — byte-for-byte today's behavior
@@ -339,7 +389,7 @@ final class RenderPageCacheTest extends AppTestCase
         // the style block's rose-zinc skin lives in the HTML body, NOT the cache key.
         // This deliberately proves normal-content purge, decoupled from the fingerprint.
         $cache = $this->cache();
-        $mw = new RenderPageCache($cache, 'default', 'blue-slate-round-sans-plain', true, 3600);
+        $mw = new RenderPageCache($cache, 'default', static fn (): string => 'blue-slate-round-sans-plain', true, 3600);
 
         $skinned = '<div class="thallo-block thallo-block-style thallo-skin-rose-zinc">'
             . '<div class="thallo-block-style__inner"></div>'

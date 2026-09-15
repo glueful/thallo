@@ -3,7 +3,6 @@ import { computed, inject, ref, watch } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import { BlocksContextKey } from './context'
 import type { BlockInstance } from './useBlockListOps'
-import { newBlockId } from './useBlockListOps'
 import BlockCard from './BlockCard.vue'
 import BlockInsertMenu from './BlockInsertMenu.vue'
 import type { BlockType } from '@/queries/blockTypes'
@@ -49,14 +48,23 @@ function closeMenu(): void {
   menuIndex.value = null
 }
 
-function insertType(type: BlockType): void {
+async function insertType(type: BlockType): Promise<void> {
   const index = menuIndex.value ?? props.blocks.length
-  const block: BlockInstance = { id: newBlockId(), type: type.slug, data: {}, settings: {} }
+  menuIndex.value = null
+  const block = await ctx.makeBlock(type.slug)
+  if (block === null) return
   ctx.apply((t) =>
-    ctx.ops.insertAt(t, { parentId: props.parentId, region: props.region, index }, block),
+    ctx.ops.insertAt(
+      t,
+      {
+        parentId: props.parentId,
+        region: props.region,
+        index: Math.min(index, props.blocks.length),
+      },
+      block,
+    ),
   )
   ctx.expanded[block.id] = true
-  menuIndex.value = null
 }
 </script>
 

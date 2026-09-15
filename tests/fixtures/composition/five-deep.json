@@ -1,0 +1,228 @@
+{
+  "name": "five deep: section > columns > card > container > heading, twice; and a button leaf at depth five",
+  "body": [
+    {
+      "id": "sect00000001",
+      "type": "section",
+      "data": {
+        "content": [
+          {
+            "id": "cols00000001",
+            "type": "columns",
+            "data": {
+              "layout": "2",
+              "col_1": [
+                {
+                  "id": "card00000001",
+                  "type": "card",
+                  "data": {
+                    "title": "Card",
+                    "body": [
+                      {
+                        "id": "cont00000001",
+                        "type": "container",
+                        "data": {
+                          "content": [
+                            {
+                              "id": "head00000001",
+                              "type": "heading",
+                              "data": {
+                                "text": "Five deep",
+                                "level": "h2"
+                              },
+                              "settings": {
+                                "style": {
+                                  "spacing": {
+                                    "padding": {
+                                      "top": {
+                                        "md": {
+                                          "type": "token",
+                                          "value": "spacing.lg"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "settings": {
+                          "style": {
+                            "spacing": {
+                              "padding": {
+                                "top": {
+                                  "base": {
+                                    "type": "token",
+                                    "value": "spacing.sm"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "settings": {}
+                }
+              ],
+              "col_2": [
+                {
+                  "id": "card00000002",
+                  "type": "card",
+                  "data": {
+                    "title": "Card",
+                    "body": [
+                      {
+                        "id": "cont00000002",
+                        "type": "container",
+                        "data": {
+                          "content": [
+                            {
+                              "id": "butn00000001",
+                              "type": "button",
+                              "data": {
+                                "label": "Go",
+                                "url": "#"
+                              },
+                              "settings": {
+                                "style": {
+                                  "radius": {
+                                    "type": "token",
+                                    "value": "radius.none"
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "settings": {
+                          "style": {
+                            "spacing": {
+                              "padding": {
+                                "top": {
+                                  "base": {
+                                    "type": "token",
+                                    "value": "spacing.sm"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "settings": {}
+                }
+              ]
+            },
+            "settings": {}
+          }
+        ]
+      },
+      "settings": {
+        "style": {
+          "spacing": {
+            "padding": {
+              "bottom": {
+                "base": {
+                  "type": "token",
+                  "value": "spacing.lg"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "sect00000002",
+      "type": "section",
+      "data": {
+        "content": [
+          {
+            "id": "cols00000002",
+            "type": "columns",
+            "data": {
+              "layout": "2",
+              "col_1": [
+                {
+                  "id": "card00000003",
+                  "type": "card",
+                  "data": {
+                    "title": "Card",
+                    "body": [
+                      {
+                        "id": "cont00000003",
+                        "type": "container",
+                        "data": {
+                          "content": [
+                            {
+                              "id": "head00000002",
+                              "type": "heading",
+                              "data": {
+                                "text": "Five deep again",
+                                "level": "h2"
+                              },
+                              "settings": {
+                                "style": {
+                                  "spacing": {
+                                    "padding": {
+                                      "top": {
+                                        "md": {
+                                          "type": "token",
+                                          "value": "spacing.xl"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "settings": {
+                          "style": {
+                            "spacing": {
+                              "padding": {
+                                "top": {
+                                  "base": {
+                                    "type": "token",
+                                    "value": "spacing.sm"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "settings": {}
+                }
+              ],
+              "col_2": []
+            },
+            "settings": {}
+          }
+        ]
+      },
+      "settings": {
+        "style": {
+          "spacing": {
+            "padding": {
+              "bottom": {
+                "base": {
+                  "type": "token",
+                  "value": "spacing.lg"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

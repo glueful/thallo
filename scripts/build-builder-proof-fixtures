@@ -1,0 +1,173 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Build the fixtures for admin/e2e (visual builder spec §5.6): the five-deep composition entry
+ * rendered in canvas mode by the real render pack, and the admin API responses the Design page
+ * needs — content types, block types, the draft, the style schema, the style classes, the
+ * capabilities, the runtime config and the preview mint — each captured from the real
+ * controller so the proofs drive the page against the shapes the server actually sends.
+ *
+ * Boots the shared test application against the test database (the same boot the integration
+ * suite uses), so run it as the test scripts do:
+ *
+ *   DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-builder-proof-fixtures
+ *
+ * Writes admin/e2e/fixtures/canvas.html and admin/e2e/fixtures/api/*.json (gitignored).
+ */
+
+declare(strict_types=1);
+
+use Thallo\Contracts\Style\BlockStyleRegistry;
+use Thallo\Core\Http\Controllers\CapabilityAdminController;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
+use Thallo\Core\Content\Http\Controllers\BlockTypeController;
+use Thallo\Core\Content\Http\Controllers\ContentTypeController;
+use Thallo\Core\Content\Http\Controllers\EntryController;
+use Thallo\Core\Content\Http\Controllers\PreviewController;
+use Thallo\Core\Content\Http\Controllers\StyleClassController;
+use Thallo\Core\Content\Http\DTOs\MintPreviewData;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
+use Thallo\Core\Tests\Support\TestApplication;
+use Thallo\Render\Http\Controllers\RenderController;
+use Thallo\Render\Style\StyleCompiler;
+use Thallo\Render\Style\ThemeStylesheetArtifact;
+use Thallo\Render\ThemeLocator;
+use Thallo\Render\Http\Controllers\StyleSchemaController;
+use Symfony\Component\HttpFoundation\Request;
+
+require __DIR__ . '/../vendor/autoload.php';
+
+foreach (getenv() as $key => $value) {
+    $_ENV[$key] ??= $value;
+}
+$_ENV['DB_POOLING_ENABLED'] = 'false';
+$root = dirname(__DIR__);
+if (is_file($root . '/.env')) {
+    Dotenv\Dotenv::createImmutable($root)->safeLoad();
+}
+$env = static fn (string $key, ?string $default = null): ?string => $_ENV[$key] ?? (getenv($key) === false ? $default : getenv($key));
+if ($env('APP_ENV', 'development') !== 'testing') {
+    fwrite(STDERR, "Refusing to build the fixtures outside APP_ENV=testing (they seed the test database).\n");
+    exit(1);
+}
+$database = (string) $env('DB_PGSQL_DATABASE', '');
+if ($database !== 'app_test' && !str_ends_with($database, '_test')) {
+    fwrite(STDERR, "Refusing to seed non-test database '{$database}'.\n");
+    exit(1);
+}
+
+$out = $root . '/admin/e2e/fixtures';
+if (!is_dir($out . '/api') && !mkdir($out . '/api', 0755, true)) {
+    fwrite(STDERR, "cannot create {$out}/api\n");
+    exit(1);
+}
+
+$container = TestApplication::instance()->getContainer();
+
+// Block types: the shipped starters with their style declarations, as the test suite syncs them.
+$container->get(StarterBlockTypeSeeder::class)->seedMissing();
+$blockTypes = $container->get(BlockTypeRepository::class);
+foreach ($container->get(BlockTypeKind::class)->definitions() as $definition) {
+    $payload = $definition->payload;
+    $row = $blockTypes->findBySlug((string) $payload['slug']);
+    if ($row !== null) {
+        $blockTypes->updateStyle(
+            (string) $row['uuid'],
+            $payload['style_capabilities'] ?? null,
+            $payload['style_targets'] ?? null,
+            $payload['flags'] ?? null,
+            $row['starter_content'] ?? $payload['starter_content'] ?? null,
+        );
+    }
+}
+$container->get(BlockStyleRegistry::class)->reset();
+
+// The page content type and the five-deep composition entry.
+$contentTypes = $container->get(ContentTypeRepository::class);
+$page = $contentTypes->findBySlug('page');
+$pageUuid = $page !== null ? (string) $page['uuid'] : $contentTypes->create([
+    'slug' => 'page', 'name' => 'Page', 'schema' => [
+        ['name' => 'title', 'type' => 'string'],
+        ['name' => 'body', 'type' => 'blocks'],
+    ],
+]);
+$page = $contentTypes->findByUuid($pageUuid);
+$fixture = json_decode((string) file_get_contents($root . '/tests/fixtures/composition/five-deep.json'), true, 512, JSON_THROW_ON_ERROR);
+$entries = $container->get(EntryRepository::class);
+$entryUuid = $entries->createEntry($pageUuid, 'en', (int) $page['schema_version'], null);
+$draft = $entries->findDraft($entryUuid, 'en');
+$entries->saveDraft(
+    $entryUuid,
+    'en',
+    // The composition plus two root-level siblings: the sibling proofs (§5.6) move them as a group.
+    ['title' => 'Five deep', 'body' => [
+        ...$fixture['body'],
+        ['id' => 'head0000000a', 'type' => 'heading', 'data' => ['text' => 'Sibling A'], 'settings' => []],
+        ['id' => 'head0000000b', 'type' => 'heading', 'data' => ['text' => 'Sibling B'], 'settings' => []],
+    ]],
+    (int) $page['schema_version'],
+    (int) ($draft['lock_version'] ?? 0),
+    null,
+);
+
+$json = static function (string $name, string $body) use ($out): void {
+    file_put_contents($out . '/api/' . $name . '.json', $body);
+};
+$get = static fn (string $path): Request => Request::create($path, 'GET');
+$post = static fn (string $path): Request => Request::create($path, 'POST', [], [], [], ['CONTENT_TYPE' => 'application/json'], '{}');
+
+$json('content-types', (string) $container->get(ContentTypeController::class)->index($get('/x'))->getContent());
+$json('block-types', (string) $container->get(BlockTypeController::class)->index($get('/x'))->getContent());
+$json('draft', (string) $container->get(EntryController::class)->getDraft($get('/x'), $entryUuid, 'en')->getContent());
+$json('style-schema', (string) $container->get(StyleSchemaController::class)->show()->getContent());
+$json('style-classes', (string) $container->get(StyleClassController::class)->index($get('/x'))->getContent());
+$json('capabilities', (string) $container->get(CapabilityAdminController::class)->index()->getContent());
+$json('config', json_encode([
+    'apiBase' => '/v1/admin',
+    'sitePreviewUrl' => '',
+    'defaultLocale' => 'en',
+    'installed' => true,
+    'apiDocsPath' => '/api-docs',
+], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+$json('login', json_encode([
+    'success' => true,
+    'message' => 'Signed in.',
+    'data' => [
+        'access_token' => 'builder-proof-access',
+        'refresh_token' => 'builder-proof-refresh',
+        'user' => ['uuid' => 'proofuser001', 'email' => 'proofs@thallo.test'],
+    ],
+], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+
+$mint = $container->get(PreviewController::class)->mint(new MintPreviewData(), $post('/x'), $entryUuid, 'en');
+$json('mint', (string) $mint->getContent());
+$token = (string) (json_decode((string) $mint->getContent(), true)['data']['token'] ?? '');
+if ($token === '') {
+    fwrite(STDERR, "mint returned no token\n");
+    exit(1);
+}
+$rendered = $container->get(RenderController::class)->preview(
+    Request::create('/_preview/' . $token . '?canvas=1', 'GET'),
+    $token,
+);
+if ($rendered->getStatusCode() !== 200) {
+    fwrite(STDERR, "canvas render returned {$rendered->getStatusCode()}\n");
+    exit(1);
+}
+file_put_contents($out . '/canvas.html', (string) $rendered->getContent());
+
+// The stylesheets the canvas links, built from the real theme (as scripts/build-style-proof-fixtures
+// does): the proofs serve them in place of the app's asset routes, so slots keep their real layout.
+$theme = new ThemeLocator('default', $root . '/themes');
+$vocabulary = $theme->vocabulary();
+$themeDir = $theme->themeDir();
+$files = array_map(static fn (string $rel): string => $themeDir . '/' . $rel, $vocabulary->stylesheets());
+file_put_contents($out . '/layers.css', file_get_contents($root . '/packages/thallo-render/assets/style/layers.css'));
+file_put_contents($out . '/theme.css', ThemeStylesheetArtifact::build($files)->css);
+file_put_contents($out . '/settings.css', StyleCompiler::compile($vocabulary));
+file_put_contents($out . '/entry.json', json_encode(['uuid' => $entryUuid, 'locale' => 'en', 'type' => 'page'], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+
+fwrite(STDOUT, "Wrote {$out}/canvas.html and " . count(glob($out . '/api/*.json') ?: []) . " API fixtures for entry {$entryUuid}.\n");

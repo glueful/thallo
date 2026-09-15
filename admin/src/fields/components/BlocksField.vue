@@ -2,12 +2,18 @@
 import { computed, provide, reactive, nextTick, ref } from 'vue'
 import type { FieldDef } from '../types'
 import { toFieldDef } from '../normalize'
+import type { LegalityContext } from '@/editor/structure/legality'
+import { createDragCoordinator } from '@/editor/structure/coordinator'
+import { createOperationApplier } from '@/editor/ops/apply'
+import type { Operation, OperationBody } from '@/editor/ops/types'
 import { useBlockTypes } from '@/queries/blockTypes'
+import { useBlockFactory } from '@/queries/blockFactory'
+import { useNotify } from '@/composables/useNotify'
 import { MAX_BLOCK_DEPTH } from '@/queries/blockTypes'
 import type { BlockType } from '@/queries/blockTypes'
 import { BlocksContextKey, type BlocksContext } from './blocks/context'
 import { createBlockListOps, newBlockId, type BlockInstance } from './blocks/useBlockListOps'
-import { defaultProseType, proseRichFieldName } from './blocks/proseDetection'
+import { defaultProseType } from './blocks/proseDetection'
 import BlockList from './blocks/BlockList.vue'
 import BlockOutlineRail from './blocks/BlockOutlineRail.vue'
 
@@ -17,9 +23,21 @@ import BlockOutlineRail from './blocks/BlockOutlineRail.vue'
 // registry only ever mounts BlocksField for entry-level fields. `depth` is kept
 // for the registry contract; nesting depth is tracked through BlockList.
 const props = defineProps<{ field: FieldDef; depth?: number }>()
+const emit = defineEmits<{ select: [id: string, modifiers: { shift: boolean; meta: boolean }] }>()
 const model = defineModel<BlockInstance[]>({ default: () => [] })
 
 const { data: allTypes } = useBlockTypes()
+const factory = useBlockFactory()
+const { error: notifyError } = useNotify()
+/** The factory's block, or null after telling the user why nothing was added. */
+async function makeBlock(slug: string): Promise<BlockInstance | null> {
+  try {
+    return await factory.instance(slug)
+  } catch (err) {
+    notifyError(err, "Couldn't add block")
+    return null
+  }
+}
 const bySlug = computed(() => new Map((allTypes.value ?? []).map((t) => [t.slug, t])))
 
 const allowlist = computed(() => props.field.blockTypes ?? [])
@@ -32,6 +50,48 @@ function regionsOf(slug: string): string[] {
 }
 
 const ops = createBlockListOps(regionsOf)
+
+/** Apply structural operations to this field's tree through the ops applier. */
+function applyOps(ops: OperationBody[] | null): void {
+  if (ops === null || ops.length === 0) return
+  const applier = createOperationApplier(regionsOf, () => [props.field.name])
+  let doc = { fields: { [props.field.name]: model.value ?? [] } as Record<string, unknown> }
+  for (const body of ops) {
+    doc = applier.applyOperation(doc, {
+      op_id: 'list',
+      transaction_id: 'list',
+      at: '',
+      session: 'list',
+      ...body,
+    } as Operation)
+  }
+  model.value = doc.fields[props.field.name] as BlockInstance[]
+}
+
+/** One coordinator per field (spec §5.1): the inspector list is a drag surface like the stage. */
+const coordinator = createDragCoordinator({
+  doc: () => ({ fields: { [props.field.name]: model.value ?? [] } }),
+  legality: legalityContext,
+})
+
+/** The legality context (spec §5.2): every known type's slots, this field as the root slot. */
+function legalityContext(): LegalityContext {
+  return {
+    regionsOf,
+    blockTypes: () =>
+      (allTypes.value ?? []).map((t) => ({
+        slug: t.slug,
+        label: t.label,
+        slots: Object.fromEntries(
+          t.schema
+            .filter((f) => toFieldDef(f).type === 'blocks')
+            .map((f) => [f.name, { blockTypes: toFieldDef(f).blockTypes ?? [] }]),
+        ),
+      })),
+    rootSlots: () => ({ [props.field.name]: { blockTypes: allowlist.value } }),
+    maxDepth: MAX_BLOCK_DEPTH,
+  }
+}
 const expanded = reactive<Record<string, boolean>>({})
 
 /**
@@ -130,14 +190,29 @@ function onDragEnd(event: {
     source !== null &&
     (source.parentId !== parentId || source.region !== region) &&
     listIsFull(parentId, region)
-  if (dragId === '' || !ops.canDropAt(tree, dragId, { parentId, region }) || crossListFull) {
-    dropRejected.value = crossListFull
-      ? `Tabs supports at most ${TABS_MAX_ITEMS} items.`
-      : `That drop would exceed the maximum nesting depth (${MAX_BLOCK_DEPTH}).`
+  // The drop goes through the coordinator (visual builder spec §5.1) with this field as the
+  // only root slot; a legal drop applies as MoveBlock operations, a refused one names why.
+  const verdict =
+    dragId === ''
+      ? { ok: false as const, message: 'Nothing to move' }
+      : crossListFull
+        ? { ok: false as const, message: `Tabs supports at most ${TABS_MAX_ITEMS} items` }
+        : (() => {
+            coordinator.begin('list', { blocks: [dragId] })
+            const proposal = coordinator.propose({
+              parent: parentId,
+              slot: parentId === null ? props.field.name : region,
+              index,
+            })
+            return proposal?.verdict ?? { ok: false as const, message: 'Nothing to move' }
+          })()
+  if (!verdict.ok) {
+    coordinator.cancel()
+    dropRejected.value = verdict.message
     if (rejectTimer) clearTimeout(rejectTimer)
     rejectTimer = setTimeout(() => (dropRejected.value = null), 3000)
   } else {
-    apply((t) => ops.moveAcross(t, dragId, { parentId, region, index }))
+    applyOps(coordinator.drop())
   }
   dragVersion.value++
 }
@@ -147,9 +222,11 @@ const context: BlocksContext = {
   pickerTypesForList,
   regionsOf,
   apply,
+  makeBlock,
   ops,
   expanded,
   selectBlock,
+  selectIntent: (id, modifiers) => emit('select', id, modifiers),
   dragGroup: `blocks-${newBlockId()}`,
   onDragEnd,
   dragVersion,
@@ -185,30 +262,6 @@ function moveBlock(id: string, delta: number): { beforeId: string } | { afterId:
   return following ? { beforeId: following.id } : { afterId: after.list[after.index - 1]!.id }
 }
 
-/**
- * Free-drag drop (free-drag spec §2): place `id` next to a SAME-LIST
- * reference. The bridge's geometry is a request — this method is the
- * authority: cross-list or unknown references are denied with NO mutation.
- * (Tabs cap needs no check here: same-list moves never change the net count,
- * and cross-list moves are already denied outright.)
- */
-function moveBlockTo(id: string, neighbor: { beforeId: string } | { afterId: string }): boolean {
-  const tree = model.value ?? []
-  const dragged = ops.locateById(tree, id)
-  const refId = 'beforeId' in neighbor ? neighbor.beforeId : neighbor.afterId
-  const ref = ops.locateById(tree, refId)
-  if (!dragged || !ref) return false
-  if (dragged.parentId !== ref.parentId || dragged.region !== ref.region) return false
-  // Target index against the list WITHOUT the dragged block (moveAcross
-  // removes before inserting).
-  const without = dragged.list.filter((b) => b.id !== id)
-  const refPos = without.findIndex((b) => b.id === refId)
-  if (refPos < 0) return false
-  const index = 'beforeId' in neighbor ? refPos : refPos + 1
-  apply((t) => ops.moveAcross(t, id, { parentId: dragged.parentId, region: dragged.region, index }))
-  return true
-}
-
 /** Duplicate in place. Returns the copy's id + the whole-subtree old->new id map. */
 function duplicateBlock(id: string): { newId: string; idMap: Record<string, string> } | null {
   const tree = model.value ?? []
@@ -231,13 +284,17 @@ function deleteBlock(id: string): boolean {
   return true
 }
 
-/** Insert a fresh empty block of `typeSlug` as the next sibling of `id`. */
-function insertAfter(id: string, typeSlug: string): string | null {
-  const loc = ops.locateById(model.value ?? [], id)
-  if (!loc) return null
+/** Insert a fresh block of `typeSlug` (from the factory) as the next sibling of `id`. */
+async function insertAfter(id: string, typeSlug: string): Promise<string | null> {
+  const before = ops.locateById(model.value ?? [], id)
+  if (!before) return null
   // Tabs cap: inserting a sibling is a net addition to the containing list.
-  if (listIsFull(loc.parentId, loc.region)) return null
-  const block: BlockInstance = { id: newBlockId(), type: typeSlug, data: {}, settings: {} }
+  if (listIsFull(before.parentId, before.region)) return null
+  const block = await makeBlock(typeSlug)
+  if (block === null) return null
+  // The tree may have moved while the factory answered: place against where the anchor is now.
+  const loc = ops.locateById(model.value ?? [], id)
+  if (!loc || listIsFull(loc.parentId, loc.region)) return null
   apply((t) =>
     ops.insertAt(t, { parentId: loc.parentId, region: loc.region, index: loc.index + 1 }, block),
   )
@@ -286,7 +343,6 @@ defineExpose({
   selectBlock,
   hasBlock,
   moveBlock,
-  moveBlockTo,
   duplicateBlock,
   deleteBlock,
   insertAfter,
@@ -309,16 +365,11 @@ function toggleOutline(): void {
   outlineOpen.value = !outlineOpen.value
 }
 
-function addTailProse(): void {
+async function addTailProse(): Promise<void> {
   const type = tailProseType.value
   if (!type) return
-  const name = proseRichFieldName(type)
-  const block: BlockInstance = {
-    id: newBlockId(),
-    type: type.slug,
-    data: name ? { [name]: '' } : {},
-    settings: {},
-  }
+  const block = await makeBlock(type.slug)
+  if (block === null) return
   apply((t) =>
     ops.insertAt(t, { parentId: null, region: null, index: (model.value ?? []).length }, block),
   )

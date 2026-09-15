@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useContentTypes } from '@/queries/contentTypes'
-import { useBlockTypes } from '@/queries/blockTypes'
+import { MAX_BLOCK_DEPTH, useBlockTypes } from '@/queries/blockTypes'
 import type { BlockType } from '@/queries/blockTypes'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import { proseRichFieldName } from '@/fields/components/blocks/proseDetection'
@@ -19,8 +19,28 @@ import { createEditorHistory, type EditorHistory } from '@/editor/ops/history'
 import { diffDocuments } from '@/editor/ops/diff'
 import { newEditorSession } from '@/editor/ops/session'
 import { absent, present } from '@/editor/ops/types'
-import { setPath, settingSegments } from '@/editor/ops/apply'
+import { readPath, setPath, settingSegments } from '@/editor/ops/apply'
 import { useStyleSchema } from '@/queries/styleSchema'
+import { useStyleClasses, useStyleClassMutations } from '@/queries/styleClasses'
+import { capabilityPaths, detachStyleClass } from '@/style/detach'
+import { liftPreservesAppearance, liftedDeclarations } from '@/style/lift'
+import {
+  createDragCoordinator,
+  type DragSource,
+  type DropZone,
+} from '@/editor/structure/coordinator'
+import MoveToDialog from './components/MoveToDialog.vue'
+import type { LegalityContext } from '@/editor/structure/legality'
+import {
+  EMPTY_SELECTION,
+  extend,
+  reconcile,
+  single,
+  toggle,
+  type Selection,
+} from '@/editor/selection'
+import SaveAsStyleClassDialog from '@/editor/inspector/SaveAsStyleClassDialog.vue'
+import type { StyleClassRef } from '@/style/types'
 import {
   activeBreakpoint,
   BREAKPOINT_OF_VIEWPORT,
@@ -31,8 +51,13 @@ import {
 import type { Breakpoint, StyleValue } from '@/style/types'
 import BlockInspector from '@/editor/inspector/BlockInspector.vue'
 import { invertOperation } from '@/editor/ops/invert'
-import type { Operation } from '@/editor/ops/types'
-import type { BridgeAnchor, EditKind, StageRefreshMode } from '@/composables/useCanvasBridge'
+import type { ChangeValue, EditorDocument, Operation, OperationBody } from '@/editor/ops/types'
+import type {
+  BridgeAnchor,
+  EditKind,
+  SelectModifiers,
+  StageRefreshMode,
+} from '@/composables/useCanvasBridge'
 import { useNotify } from '@/composables/useNotify'
 import { ApiError, apiErrorCode, apiErrorDetails } from '@/api/errors'
 import { toFieldDef } from '@/fields/normalize'
@@ -288,20 +313,62 @@ interface FieldEditorExposed {
   patchBlockSettingsById: (id: string, settings: Record<string, unknown>) => boolean
   blockById: (id: string) => BlockInstance | null
   moveBlockById: (id: string, delta: number) => { beforeId: string } | { afterId: string } | null
-  moveBlockToById: (id: string, neighbor: { beforeId: string } | { afterId: string }) => boolean
   duplicateBlockById: (id: string) => { newId: string; idMap: Record<string, string> } | null
   deleteBlockById: (id: string) => boolean
-  insertAfterById: (id: string, typeSlug: string) => string | null
+  insertAfterById: (id: string, typeSlug: string) => Promise<string | null>
   pickerTypesForBlock: (id: string) => BlockType[]
   patchBlockDataById: (id: string, field: string, value: unknown) => boolean
   blockTypeOfBlock: (id: string) => string | null
 }
 const fieldEditorRef = ref<FieldEditorExposed | null>(null)
-const selected = ref<string | null>(null)
+// ── Selection (visual builder spec §5.5): a set of siblings from one slot, the anchor first
+// among them. Shift extends, cmd/ctrl toggles, a plain click selects one; every mutation front
+// door acts on the whole selection, and the tree re-reads it after every change.
+const selection = ref<Selection>(EMPTY_SELECTION)
+/** The anchor: the block the inspector's Content and Advanced tabs and single-block actions address. */
+const selected = computed<string | null>(() => selection.value.anchor)
+const selectionCtx = {
+  regionsOf: (slug: string) => regionsOf(slug),
+  blockFields: () => blockFields(),
+}
+const selectionDoc = (): EditorDocument => ({ fields: fields.value as Record<string, unknown> })
+function applySelection(
+  id: string,
+  modifiers: SelectModifiers = { shift: false, meta: false },
+): void {
+  const doc = selectionDoc()
+  selection.value = modifiers.shift
+    ? extend(selection.value, id, doc, selectionCtx)
+    : modifiers.meta
+      ? toggle(selection.value, id, doc, selectionCtx)
+      : single(id, doc, selectionCtx)
+}
+function selectOne(id: string): void {
+  const next = single(id, selectionDoc(), selectionCtx)
+  // A block the tree does not hold yet (an insert still landing) is selected on trust and
+  // re-read on the next change.
+  selection.value = next.ids.length > 0 ? next : { ids: [id], parent: null, slot: null, anchor: id }
+}
+function clearSelection(): void {
+  selection.value = EMPTY_SELECTION
+}
+/** Ring the whole selection on the stage; the anchor carries the toolbar. */
+function ringSelection(): void {
+  const s = selection.value
+  if (s.anchor !== null) bridge.highlight(s.anchor, s.ids)
+}
+/** The selection when it is a group containing `id`: the front doors act on all of it. */
+function groupFor(id: string): Selection | null {
+  const s = selection.value
+  return s.ids.length > 1 && s.ids.includes(id) ? s : null
+}
 
-bridge.onBlockSelect((id) => {
-  selected.value = id
-  fieldEditorRef.value?.selectBlockById(id)
+bridge.onBlockSelect((id, modifiers = { shift: false, meta: false }) => {
+  applySelection(id, modifiers)
+  const anchor = selection.value.anchor
+  if (anchor !== null) fieldEditorRef.value?.selectBlockById(anchor)
+  // A modified click is judged here, so the stage learns the resulting rings from the parent.
+  if (modifiers.shift || modifiers.meta) ringSelection()
   inspectorTab.value = 'block'
 })
 
@@ -315,6 +382,19 @@ const selectedBlock = computed<BlockInstance | null>(() => {
 const selectedBlockType = computed(
   () => allBlockTypes.value?.find((t) => t.slug === selectedBlock.value?.type) ?? null,
 )
+/** Every selected block, in document order, read off the live tree. */
+const selectedBlocks = computed<BlockInstance[]>(() => {
+  void fields.value
+  return selection.value.ids
+    .map((id) => fieldEditorRef.value?.blockById(id) ?? null)
+    .filter((b): b is BlockInstance => b !== null)
+})
+const selectedBlockTypes = computed(() =>
+  selectedBlocks.value.map((b) => allBlockTypes.value?.find((t) => t.slug === b.type) ?? null),
+)
+/** The ids a style edit writes to: the whole selection, in one transaction. */
+const styleTargets = (): string[] =>
+  selection.value.ids.length > 0 ? selection.value.ids : selected.value ? [selected.value] : []
 
 function writeSettings(
   id: string,
@@ -324,13 +404,61 @@ function writeSettings(
   if (!block) return
   fieldEditorRef.value?.patchBlockSettingsById(id, mutate(block.settings ?? {}))
 }
+/**
+ * A style edit on a group is one transaction of SetSettings, one per block (spec §5.5),
+ * recorded straight into history: the blocks' trees are read from history as the transaction
+ * leaves them, so no write can shadow another.
+ */
+function recordGroupSettings(
+  ids: string[],
+  path: string,
+  breakpoints: (Breakpoint | null)[],
+  value: StyleValue | null,
+): void {
+  if (!history) return
+  commitNow()
+  history.beginTransaction()
+  for (const id of ids) {
+    for (const bp of breakpoints) {
+      const current = blockFromHistory(id)
+      if (!current) continue
+      const segments = settingSegments(path, bp).slice(1)
+      const from = readPath(
+        (current.settings ?? {}) as Record<string, unknown>,
+        segments,
+      ) as ChangeValue<StyleValue>
+      opsSinceApply.push(
+        history.record({
+          type: 'SetSetting',
+          block: id,
+          path,
+          breakpoint: bp,
+          from,
+          to: value === null ? absent() : present(value),
+        }),
+      )
+    }
+  }
+  commitNow()
+  void replayHistory().then(() => scheduleCommit(false))
+}
 function onSetSetting(path: string, bp: Breakpoint | null, value: StyleValue | null): void {
+  const ids = styleTargets()
+  if (ids.length > 1) {
+    recordGroupSettings(ids, path, [bp], value)
+    return
+  }
   if (selected.value === null) return
   writeSettings(selected.value, (s) =>
     setPath(s, settingSegments(path, bp), value === null ? absent() : present(value)),
   )
 }
 function onSetAll(path: string, value: StyleValue): void {
+  const ids = styleTargets()
+  if (ids.length > 1) {
+    recordGroupSettings(ids, path, ['base', 'md', 'lg'], value)
+    return
+  }
   if (selected.value === null) return
   writeSettings(selected.value, (s) => {
     let next = s
@@ -354,14 +482,16 @@ function onPatchData(name: string, value: unknown): void {
 // ring/toolbar — without this the parent's selection would go stale and the
 // outline/inspector would lie.
 bridge.onBlockDeselect(() => {
-  selected.value = null
+  clearSelection()
 })
 
-function onOutlineSelect(id: string): void {
-  selected.value = id
-  fieldEditorRef.value?.selectBlockById(id)
-  bridge.highlight(id)
-  bridge.scrollTo(id)
+function onOutlineSelect(id: string, modifiers: SelectModifiers): void {
+  applySelection(id, modifiers)
+  const anchor = selection.value.anchor
+  if (anchor === null) return
+  fieldEditorRef.value?.selectBlockById(anchor)
+  ringSelection()
+  bridge.scrollTo(anchor)
 }
 
 // ── Stage toolbar intents (stage-toolbar spec §2/§4): mutate through the
@@ -370,26 +500,132 @@ function onOutlineSelect(id: string): void {
 // the bridge's stage callbacks drive the SAME functions — no new mutation
 // paths, just two front doors.
 function moveBlockAndMirror(id: string, delta: 1 | -1): void {
+  const group = groupFor(id)
+  if (group) {
+    moveGroup(group, delta)
+    return
+  }
   const neighbor = fieldEditorRef.value?.moveBlockById(id, delta) ?? null
   if (neighbor) bridge.mirrorMove(id, neighbor)
+}
+/** The list a selection lives in, as the tree holds it now. */
+function listOfSelection(sel: Selection): BlockInstance[] {
+  if (sel.slot === null) return []
+  const raw =
+    sel.parent === null
+      ? fields.value[sel.slot]
+      : fieldEditorRef.value?.blockById(sel.parent)?.data[sel.slot]
+  return Array.isArray(raw) ? (raw as BlockInstance[]) : []
+}
+/**
+ * A group moves as one transaction through the coordinator (spec §5.5): one step past the
+ * sibling before or after it, the zone counted against the list with the group removed.
+ */
+function moveGroup(sel: Selection, delta: 1 | -1): void {
+  const list = listOfSelection(sel)
+  const first = list.findIndex((b) => b.id === sel.ids[0])
+  const last = list.findIndex((b) => b.id === sel.ids[sel.ids.length - 1])
+  if (first === -1 || last === -1) return
+  if (delta === -1 && first === 0) return
+  if (delta === 1 && last === list.length - 1) return
+  coordinator.begin('stage', { blocks: sel.ids })
+  finishDrop({ parent: sel.parent, slot: sel.slot, index: delta === -1 ? first - 1 : first + 1 })
 }
 
 bridge.onBlockMove(moveBlockAndMirror)
 
-bridge.onBlockMoveTo((id, neighbor) => {
-  // The drag WAS the mirror: an accepted drop needs no message back — the
-  // tree change rides auto-apply. A rejection must snap the stage back to
-  // truth BEFORE anything else can run (honest-stage pin): fields were never
-  // mutated, so stageStale is untouched and no auto-apply schedules.
-  const ok = fieldEditorRef.value?.moveBlockToById(id, neighbor) ?? false
-  if (!ok) reloadStage()
+// Stage drags are proposals (visual builder spec §5.3): the bridge derives zones from real slot
+// geometry and never touches the tree; the coordinator judges each proposal and answers its
+// legality, and the drop applies as one transaction. A rejected drop leaves the stage as it is —
+// nothing to snap back, since nothing moved.
+let stageDragSession: string | null = null
+bridge.onDragPropose((session, blocks, zone) => {
+  if (stageDragSession !== session) {
+    coordinator.begin('stage', { blocks })
+    stageDragSession = session
+  }
+  const proposal = coordinator.propose(zone)
+  if (proposal === null) return
+  bridge.dragLegality(
+    session,
+    proposal.verdict.ok,
+    proposal.verdict.ok ? '' : proposal.verdict.message,
+  )
 })
+bridge.onBlockDrop((session, _blocks, zone) => {
+  // Only the session this page is judging may drop: the bridge proposes before it ever drops,
+  // so a drop for a cancelled or unknown session is stale and ignored.
+  if (stageDragSession !== session) return
+  stageDragSession = null
+  finishDrop(zone)
+})
+bridge.onDragCancel((session) => {
+  if (stageDragSession !== session) return
+  stageDragSession = null
+  coordinator.cancel()
+})
+/** Escape in the parent while the stage drags: end the session on both sides. */
+function onParentKeydown(e: KeyboardEvent): void {
+  if (e.key !== 'Escape' || stageDragSession === null) return
+  e.preventDefault()
+  bridge.dragEnd(stageDragSession)
+  stageDragSession = null
+  coordinator.cancel()
+}
+onMounted(() => window.addEventListener('keydown', onParentKeydown, true))
+onBeforeUnmount(() => window.removeEventListener('keydown', onParentKeydown, true))
 
 function duplicateAndMirror(id: string): void {
+  const group = groupFor(id)
+  if (group) {
+    // One transaction of DuplicateBlocks, each copy after its source (read from history as
+    // the transaction leaves it); the copies become the selection.
+    if (!history) return
+    commitNow()
+    history.beginTransaction()
+    const listOps = history.applier.listOps
+    const copies: string[] = []
+    const mirrors: [string, Record<string, string>][] = []
+    for (const member of group.ids) {
+      const source = blockFromHistory(member)
+      if (!source) continue
+      const list = listOps.duplicateById([source], member)
+      const copy = list[1]
+      if (!copy) continue
+      const at = history.applier.listOps.locateById(
+        (group.parent === null
+          ? (history.document.fields[group.slot!] as BlockInstance[] | undefined)
+          : (blockFromHistory(group.parent)?.data[group.slot!] as BlockInstance[] | undefined)) ??
+          [],
+        member,
+      )
+      if (!at) continue
+      opsSinceApply.push(
+        history.record({
+          type: 'DuplicateBlock',
+          source: member,
+          position: { parent: group.parent, slot: group.slot, index: at.index + 1 },
+          block: copy,
+        }),
+      )
+      copies.push(copy.id)
+      mirrors.push([member, listOps.idMapBetween(source, copy)])
+    }
+    commitNow()
+    if (copies.length === 0) return
+    void replayHistory().then(() => {
+      for (const [source, idMap] of mirrors) bridge.mirrorDuplicate(source, idMap)
+      selection.value = { ids: copies, parent: group.parent, slot: group.slot, anchor: copies[0]! }
+      fieldEditorRef.value?.selectBlockById(copies[0]!)
+      ringSelection()
+      scheduleCommit(true)
+    })
+    return
+  }
   const result = fieldEditorRef.value?.duplicateBlockById(id) ?? null
   if (result) {
     bridge.mirrorDuplicate(id, result.idMap)
-    selected.value = result.newId
+    selectOne(result.newId)
     fieldEditorRef.value?.selectBlockById(result.newId)
   }
 }
@@ -430,7 +666,7 @@ bridge.onBlockDeleteRequest(openDeleteConfirm)
 // Outline Escape (polish batch §4): clear parent state AND the stage ring —
 // the bridge's highlight handler clearSelection()s on an unresolvable id.
 function onOutlineDeselect(): void {
-  selected.value = null
+  clearSelection()
   bridge.highlight('')
 }
 
@@ -441,9 +677,43 @@ function cancelDelete(): void {
 function confirmDelete(): void {
   const id = deleteRequest.value
   deleteRequest.value = null
-  if (id !== null && fieldEditorRef.value?.deleteBlockById(id)) {
+  if (id === null) return
+  const group = groupFor(id)
+  if (group && history) {
+    // One transaction of RemoveBlocks, last to first so every position is read as the
+    // transaction leaves the list.
+    commitNow()
+    history.beginTransaction()
+    const removed: string[] = []
+    for (const member of [...group.ids].reverse()) {
+      const block = blockFromHistory(member)
+      const list =
+        (group.parent === null
+          ? (history.document.fields[group.slot!] as BlockInstance[] | undefined)
+          : (blockFromHistory(group.parent)?.data[group.slot!] as BlockInstance[] | undefined)) ??
+        []
+      const index = list.findIndex((b) => b.id === member)
+      if (!block || index === -1) continue
+      opsSinceApply.push(
+        history.record({
+          type: 'RemoveBlock',
+          position: { parent: group.parent, slot: group.slot, index },
+          block,
+        }),
+      )
+      removed.push(member)
+    }
+    commitNow()
+    clearSelection()
+    void replayHistory().then(() => {
+      for (const member of removed) bridge.mirrorRemove(member)
+      scheduleCommit(true)
+    })
+    return
+  }
+  if (fieldEditorRef.value?.deleteBlockById(id)) {
     bridge.mirrorRemove(id)
-    if (selected.value === id) selected.value = null
+    if (selected.value === id) clearSelection()
   }
 }
 
@@ -509,11 +779,12 @@ function cancelAddAfter(): void {
   addAfterId.value = null
 }
 
-function chooseAddType(slug: string): void {
+async function chooseAddType(slug: string): Promise<void> {
   const id = addAfterId.value
   addAfterId.value = null
-  const newId = id !== null ? (fieldEditorRef.value?.insertAfterById(id, slug) ?? null) : null
-  if (newId !== null) selected.value = newId
+  if (id === null) return
+  const newId = (await fieldEditorRef.value?.insertAfterById(id, slug)) ?? null
+  if (newId !== null) selectOne(newId)
 }
 
 // ── Edit-in-place (edit-in-place spec §4): grant prose blocks only; typed
@@ -524,6 +795,71 @@ const regionsOf = (slug: string): string[] => {
   const blockType = allBlockTypes.value?.find((t) => t.slug === slug)
   return (blockType?.schema ?? []).filter((f) => f.type === 'blocks').map((f) => f.name)
 }
+/**
+ * The legality context (visual builder spec §5.2): every known block type's slots with their
+ * allow-lists, and the page's root blocks fields with theirs.
+ */
+function legalityContext(): LegalityContext {
+  return {
+    regionsOf,
+    blockTypes: () =>
+      (allBlockTypes.value ?? []).map((t) => ({
+        slug: t.slug,
+        label: t.label,
+        slots: Object.fromEntries(
+          t.schema
+            .filter((f) => f.type === 'blocks')
+            .map((f) => [f.name, { blockTypes: toFieldDef(f).blockTypes ?? [] }]),
+        ),
+      })),
+    rootSlots: () =>
+      Object.fromEntries(
+        schema.value
+          .filter((f) => f.type === 'blocks')
+          .map((f) => [f.name, { blockTypes: f.blockTypes ?? [] }]),
+      ),
+    maxDepth: MAX_BLOCK_DEPTH,
+  }
+}
+
+/** One coordinator for every drag source (spec §5.1); its drops apply as one transaction. */
+const coordinator = createDragCoordinator({
+  doc: () => history?.document ?? { fields: snapshotFields() },
+  legality: legalityContext,
+})
+/** A block dropped (or moved to) a zone from any surface: judged, then applied or refused aloud. */
+function runDrop(source: DragSource, id: string, zone: DropZone): void {
+  coordinator.begin(source, { blocks: [id] })
+  finishDrop(zone)
+}
+/** Judge the coordinator's current session against `zone` and apply or refuse its drop. */
+function finishDrop(zone: DropZone): void {
+  const proposal = coordinator.propose(zone)
+  const ops = coordinator.drop()
+  if (ops === null) {
+    warning(
+      'That move is not allowed',
+      proposal && !proposal.verdict.ok ? proposal.verdict.message : '',
+    )
+    return
+  }
+  void applyDrop(ops)
+}
+const moveToId = ref<string | null>(null)
+/** The document as history holds it, for the dialogs that judge legality. */
+function currentDoc(): EditorDocument {
+  return history?.document ?? { fields: snapshotFields() }
+}
+async function applyDrop(ops: OperationBody[] | null): Promise<void> {
+  if (!history || ops === null || ops.length === 0) return
+  commitNow()
+  history.beginTransaction()
+  for (const body of ops) opsSinceApply.push(history.record(body))
+  commitNow()
+  await replayHistory()
+  scheduleCommit(true)
+}
+
 const blockFields = (): string[] =>
   schema.value.filter((f) => f.type === 'blocks').map((f) => f.name)
 const snapshotFields = (): Record<string, unknown> =>
@@ -564,6 +900,7 @@ function scheduleCommit(structural: boolean): void {
 watch(
   fields,
   () => {
+    selection.value = reconcile(selection.value, selectionDoc(), selectionCtx)
     if (replaying) return
     const next = { fields: snapshotFields() }
     if (history === null) {
@@ -788,6 +1125,65 @@ function toggleAuto(): void {
   else if (stageStale.value) scheduleAuto()
 }
 
+/** Applies the server has answered (accepted or refused): the proofs wait on it. */
+let appliesAnswered = 0
+// Test hooks for the browser proofs (admin/e2e, spec §5.6): read-only snapshots of history, the
+// document, the accepted pair and the selection. Present only in an E2E build.
+if (import.meta.env.VITE_E2E === '1') {
+  ;(window as unknown as { __thalloBuilder: unknown }).__thalloBuilder = {
+    snapshot: () => ({
+      history: (history?.entries() ?? []).map((e) => ({
+        sequence: e.sequence,
+        transaction_id: e.transaction_id,
+        ops: e.ops,
+      })),
+      currentSequence: history?.currentSequence ?? 0,
+      document: snapshotFields(),
+      accepted: accepted.value,
+      selection: selection.value,
+    }),
+    applies: () => appliesAnswered,
+  }
+}
+
+/**
+ * A rejected apply never becomes history (visual builder spec §5.3). When the refused ops are
+ * one transaction that is still the unchanged tip and the accepted pair is the one the request
+ * named, the transaction is discarded — inverted, no entry, no redo — and the stage stays as
+ * displayed. Otherwise the edits stay local, the toast says to undo, and the next apply
+ * retries with the current document (the refused ops ride again).
+ */
+async function reportRejection(
+  e: ApiError,
+  sentOps: Operation[],
+  requestBase: number | null,
+): Promise<void> {
+  const messages = Object.values(e.fieldErrors)
+  const detail = messages.length > 0 ? messages.join(' ') : e.message
+  const transaction = sentOps[0]?.transaction_id ?? null
+  const entries = history?.entries() ?? []
+  const tip = entries[entries.length - 1]
+  const tipIsRejected =
+    history !== null &&
+    transaction !== null &&
+    sentOps.every((op) => op.transaction_id === transaction) &&
+    history.activeTransaction === null &&
+    tip !== undefined &&
+    tip.transaction_id === transaction &&
+    tip.sequence === history.currentSequence
+  const baseUnchanged = (accepted.value?.revision ?? null) === requestBase
+  if (tipIsRejected && baseUnchanged && history!.discardTip(transaction!)) {
+    // The refused ops were re-queued for a retry; the discarded transaction never sends.
+    for (let i = opsSinceApply.length - 1; i >= 0; i--) {
+      if (opsSinceApply[i]!.transaction_id === transaction) opsSinceApply.splice(i, 1)
+    }
+    await replayHistory()
+    warning('The server refused this change', detail)
+    return
+  }
+  warning('The server refused this change', `${detail} Undo to revert.`)
+}
+
 /**
  * The ONE apply path (auto-apply spec §2): token retry, failure reset,
  * banners, and stash bookkeeping live HERE — auto vs manual only differ in
@@ -808,6 +1204,8 @@ async function runApply(auto: boolean): Promise<void> {
   // The request names the pair we accepted and the operations since it (spec §3.5); the
   // sent ops leave the buffer only once the server accepted them.
   const sentOps = opsSinceApply.splice(0, opsSinceApply.length)
+  // The base the FIRST request named: a rejection is judged against it (spec §5.3).
+  const requestBase = accepted.value?.revision ?? null
   const options = () => ({
     epoch: accepted.value?.epoch ?? null,
     base_revision: accepted.value?.revision ?? null,
@@ -850,6 +1248,7 @@ async function runApply(auto: boolean): Promise<void> {
       }
     }
     metrics.response()
+    appliesAnswered++
     // A response from another epoch, or a revision not newer than accepted, is dropped.
     const stale =
       accepted.value !== null &&
@@ -859,19 +1258,20 @@ async function runApply(auto: boolean): Promise<void> {
       return
     }
     accepted.value = { epoch: result.epoch, revision: result.revision }
-    if (styleGeneration.value !== null && styleGeneration.value !== result.style_generation) {
-      styleGenerationChanged.value = true // inherited values re-resolve before they are trusted
-    }
     styleGeneration.value = result.style_generation
+    noteStyleGeneration(result.style_generation)
     lastApplied.value = appliedJson
     await paintStage(result)
     succeeded = true
     if (!auto) autoSuspended.value = false // manual success re-arms auto
   } catch (e: unknown) {
+    appliesAnswered++
     // Final failure: discard mirror-only DOM; keep dirty fields (v2/loop C pins).
     reloadStage()
     if (auto) autoSuspended.value = true // one banner now, then quiet until re-armed
-    if (e instanceof ApiError && apiErrorCode(e) === 'BLOCK_MIGRATION_IN_PROGRESS') {
+    if (e instanceof ApiError && e.status === 422 && apiErrorCode(e) === null) {
+      await reportRejection(e, sentOps, requestBase)
+    } else if (e instanceof ApiError && apiErrorCode(e) === 'BLOCK_MIGRATION_IN_PROGRESS') {
       const blockType = String(apiErrorDetails(e)?.block_type ?? 'a block type')
       warning(
         `Block type “${blockType}” is being migrated`,
@@ -901,6 +1301,7 @@ async function runApply(auto: boolean): Promise<void> {
  */
 async function refreshStage(): Promise<StageRefreshMode> {
   const result = await bridge.stageRefresh()
+  noteStyleGeneration(result.style_generation)
   if (result.mode === 'patched') {
     if (result.epoch !== null && result.revision !== null) {
       displayed.value = { epoch: result.epoch, revision: result.revision }
@@ -926,8 +1327,10 @@ async function paintStage(result: ApplyPreviewResult): Promise<void> {
       revision: result.revision,
       baseline_epoch: result.epoch,
       baseline_revision: result.baseline,
+      style_generation: result.style_generation,
       fragments: result.fragments,
     })
+    noteStyleGeneration(swap.style_generation)
     if (swap.mode === 'patched') {
       if (swap.epoch !== null && swap.revision !== null) {
         displayed.value = { epoch: swap.epoch, revision: swap.revision }
@@ -950,7 +1353,213 @@ function afterPaint(path: ApplyPath): void {
   if (typeof requestAnimationFrame === 'function') requestAnimationFrame(record)
   else record()
 }
-const styleGenerationChanged = ref(false)
+/**
+ * Every carrier of the style generation (visual builder spec §4.3) — the apply response, a
+ * stage-refreshed acknowledgement, a fragment swap — compares against the generation of the
+ * class list the inspector resolved with; a difference refetches the list, and inherited
+ * values show as re-resolving until it settles.
+ */
+const reResolving = ref(false)
+function noteStyleGeneration(generation: number | null | undefined): void {
+  const known = styleClassList.value?.generation ?? null
+  if (typeof generation !== 'number' || known === null || generation === known) return
+  reResolving.value = true
+  void Promise.resolve(refetchStyleClassList()).finally(() => {
+    reResolving.value = false
+  })
+}
+
+// The site's style classes (visual builder spec §4.3): the block's ordered references resolve
+// through them, and the Style tab names the class a value comes from.
+const { data: styleClassList, refetch: refetchStyleClassList } = useStyleClasses()
+const classOptions = computed(() =>
+  (styleClassList.value?.classes ?? []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    archived: c.archived,
+    locked: c.locked_by_job !== null,
+  })),
+)
+const classNames = computed<Record<string, string>>(() => {
+  const out: Record<string, string> = {}
+  for (const c of styleClassList.value?.classes ?? []) out[c.id] = c.name
+  return out
+})
+function classRefsFor(block: BlockInstance | null): StyleClassRef[] {
+  const ids = Array.isArray(block?.settings?.classes) ? (block!.settings.classes as string[]) : []
+  const byId = new Map((styleClassList.value?.classes ?? []).map((c) => [c.id, c]))
+  const refs: StyleClassRef[] = []
+  for (const id of ids) {
+    const c = byId.get(id)
+    if (c) refs.push({ id: c.id, style: c.style })
+  }
+  return refs
+}
+
+function writeClasses(id: string, mutate: (ids: string[]) => string[]): void {
+  writeSettings(id, (s) => {
+    const ids = Array.isArray(s.classes) ? (s.classes as string[]) : []
+    const next = mutate(ids)
+    const { classes: _drop, ...rest } = s
+    return next.length === 0 ? rest : { ...rest, classes: next }
+  })
+}
+function onApplyClass(classId: string): void {
+  if (selected.value === null) return
+  writeClasses(selected.value, (ids) => (ids.includes(classId) ? ids : [...ids, classId]))
+}
+function onRemoveClass(classId: string): void {
+  if (selected.value === null) return
+  writeClasses(selected.value, (ids) => ids.filter((id) => id !== classId))
+}
+function onReorderClasses(ids: string[]): void {
+  if (selected.value === null) return
+  writeClasses(selected.value, () => ids)
+}
+
+/**
+ * A detach materialises values (spec §4.4), so it never runs from a stale class list: the list
+ * is refetched first and a generation change stops the action after re-resolving.
+ */
+async function freshStyleClasses(): Promise<boolean> {
+  const known = styleClassList.value?.generation ?? null
+  await refetchStyleClassList()
+  const now = styleClassList.value?.generation ?? null
+  if (known !== null && now !== null && known !== now) {
+    warning('Style classes changed', 'Review the re-resolved values and try again.')
+    return false
+  }
+  return true
+}
+function recordDetach(block: BlockInstance, classId: string): void {
+  const style =
+    typeof block.settings?.style === 'object' && block.settings.style !== null
+      ? (block.settings.style as Record<string, unknown>)
+      : {}
+  const ids = Array.isArray(block.settings?.classes) ? (block.settings.classes as string[]) : []
+  const index = ids.indexOf(classId)
+  if (index === -1 || !history) return
+  const type = allBlockTypes.value?.find((t) => t.slug === block.type)
+  const toStyle = detachStyleClass(
+    classRefsFor(block),
+    style,
+    classId,
+    capabilityPaths(type?.style_capabilities),
+  )
+  const op = history.record({
+    type: 'DetachStyleClass',
+    block: block.id,
+    class_id: classId,
+    index,
+    from_style: style,
+    to_style: toStyle,
+  })
+  opsSinceApply.push(op)
+}
+async function onDetachClass(classId: string): Promise<void> {
+  const block = selectedBlock.value
+  if (!block || !history) return
+  if (!(await freshStyleClasses())) return
+  commitNow()
+  history.beginTransaction()
+  recordDetach(block, classId)
+  commitNow()
+  await replayHistory()
+  scheduleCommit(false)
+}
+async function onDetachAll(): Promise<void> {
+  const block = selectedBlock.value
+  if (!block || !history) return
+  if (!(await freshStyleClasses())) return
+  commitNow()
+  history.beginTransaction()
+  const ids = Array.isArray(block.settings?.classes)
+    ? [...(block.settings.classes as string[])]
+    : []
+  for (let i = ids.length - 1; i >= 0; i--) {
+    // Each detach reads the block as the transaction has left it so far.
+    const current = blockFromHistory(block.id)
+    if (current) recordDetach(current, ids[i]!)
+  }
+  commitNow()
+  await replayHistory()
+  scheduleCommit(false)
+}
+const { create: createStyleClass, deleteUnreferenced: deleteStyleClass } = useStyleClassMutations()
+const liftDialogOpen = ref(false)
+const lifting = ref(false)
+const selectedStyle = computed<Record<string, unknown>>(() => {
+  const s = selectedBlock.value?.settings?.style
+  return typeof s === 'object' && s !== null ? (s as Record<string, unknown>) : {}
+})
+
+/**
+ * Save as style class (spec §4.5): the record is created first, the reference is inserted
+ * last, and the lift is one transaction — every explicit declaration cleared, then the class
+ * applied — committed only when the resolver confirms the appearance is unchanged. A lift that
+ * cannot preserve appearance deletes its never-referenced record and reports; undo of the
+ * transaction restores the block and never touches the record.
+ */
+async function saveAsStyleClass(name: string, description: string | null): Promise<void> {
+  const block = selectedBlock.value
+  if (!block || !history) return
+  if (!(await freshStyleClasses())) return
+  lifting.value = true
+  try {
+    const style = selectedStyle.value
+    const declarations = liftedDeclarations(style)
+    if (declarations.length === 0) return
+    const created = await createStyleClass.mutateAsync({ name, description, style })
+    const type = allBlockTypes.value?.find((t) => t.slug === block.type)
+    const allowed = capabilityPaths(type?.style_capabilities)
+    const lifted = { id: created.id, style: created.style }
+    if (!liftPreservesAppearance(classRefsFor(block), style, lifted, allowed)) {
+      await deleteStyleClass.mutateAsync(created.id)
+      warning('Could not lift these settings without changing the page', 'Nothing was changed.')
+      return
+    }
+    commitNow()
+    history.beginTransaction()
+    for (const d of declarations) {
+      opsSinceApply.push(
+        history.record({
+          type: 'SetSetting',
+          block: block.id,
+          path: d.path,
+          breakpoint: d.breakpoint,
+          from: present(d.value),
+          to: absent(),
+        }),
+      )
+    }
+    const ids = Array.isArray(block.settings?.classes) ? (block.settings.classes as string[]) : []
+    opsSinceApply.push(
+      history.record({
+        type: 'ApplyStyleClass',
+        block: block.id,
+        class_id: created.id,
+        index: ids.length,
+      }),
+    )
+    commitNow()
+    await replayHistory()
+    scheduleCommit(false)
+    liftDialogOpen.value = false
+    success('Style class created', `“${name}” now carries these settings.`)
+  } catch (e) {
+    notifyError(e, 'Couldn’t save the style class')
+  } finally {
+    lifting.value = false
+  }
+}
+
+/** The block as history's document holds it now (mid-transaction, before replay). */
+function blockFromHistory(id: string): BlockInstance | null {
+  if (!history) return null
+  const field = history.applier.rootOf(history.document, id)
+  if (field === null) return null
+  return history.applier.listOps.findById(history.applier.rootList(history.document, field), id)
+}
 
 async function applyWorking(): Promise<void> {
   if (applying.value) return
@@ -1058,6 +1667,10 @@ async function openThemePreview(): Promise<void> {
  * No re-mint — that stays behind the explicit Refresh preview affordance.
  */
 function reloadStage(): void {
+  if (stageDragSession !== null) {
+    stageDragSession = null // the iframe goes with its drag session
+    coordinator.cancel()
+  }
   displayed.value = null // known again after the next in-place patch
   const src = iframeSrc.value
   if (!src) return
@@ -1266,8 +1879,19 @@ function reloadStage(): void {
                 v-if="selectedBlock"
                 :block="selectedBlock"
                 :block-type="selectedBlockType"
+                :blocks="selectedBlocks"
+                :block-types="selectedBlockTypes"
                 :schema="styleSchema ?? null"
-                :classes="[]"
+                :classes="classRefsFor(selectedBlock)"
+                :class-names="classNames"
+                :class-options="classOptions"
+                :re-resolving="reResolving"
+                @save-as-class="liftDialogOpen = true"
+                @apply-class="onApplyClass"
+                @remove-class="onRemoveClass"
+                @reorder-classes="onReorderClasses"
+                @detach-class="onDetachClass"
+                @detach-all="onDetachAll"
                 :active-breakpoint="activeBreakpoint"
                 @patch-data="onPatchData"
                 @set-setting="onSetSetting"
@@ -1278,6 +1902,12 @@ function reloadStage(): void {
               <p v-else class="text-xs text-muted" data-test="block-inspector-empty">
                 Select a block on the stage or in the outline.
               </p>
+              <SaveAsStyleClassDialog
+                v-model:open="liftDialogOpen"
+                :style="selectedStyle"
+                :saving="lifting"
+                @confirm="saveAsStyleClass"
+              />
             </template>
             <template #content>
               <FieldEditor ref="fieldEditorRef" v-model="fields" :schema="schema" />
@@ -1288,11 +1918,28 @@ function reloadStage(): void {
                   :fields="fields"
                   :schema="schema"
                   :selected="selected"
+                  :selected-ids="selection.ids"
                   @select="onOutlineSelect"
                   @move="moveBlockAndMirror"
                   @delete-request="(id: string) => openDeleteConfirm(id, null)"
                   @duplicate="duplicateAndMirror"
                   @deselect="onOutlineDeselect"
+                  @drop="(id: string, zone: DropZone) => runDrop('outline', id, zone)"
+                  @move-to="(id: string) => (moveToId = id)"
+                />
+                <MoveToDialog
+                  :open="moveToId !== null"
+                  :block-id="moveToId"
+                  :doc="currentDoc()"
+                  :legality="legalityContext()"
+                  @update:open="(v: boolean) => (moveToId = v ? moveToId : null)"
+                  @confirm="
+                    (zone: DropZone) => {
+                      const id = moveToId
+                      moveToId = null
+                      if (id !== null) runDrop('outline', id, zone)
+                    }
+                  "
                 />
               </div>
             </template>

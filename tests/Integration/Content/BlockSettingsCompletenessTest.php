@@ -46,6 +46,15 @@ final class BlockSettingsCompletenessTest extends AppTestCase
         $shared = $this->container()->get(BlockTypeRepository::class);
         (new \ReflectionProperty($shared, 'schemas'))->setValue($shared, null);
         $this->container()->get(\Thallo\Contracts\Style\BlockStyleRegistry::class)->reset();
+        // The fixture's ordered class ids must be classes the site owns (spec §4.1): reference
+        // validation checks ownership on every reconstruction path.
+        foreach (['zeta', 'alpha', 'mid'] as $id) {
+            $this->connection()->table('style_classes')->insert([
+                'id' => $id, 'name' => ucfirst($id), 'name_key' => $id, 'style' => '{}', 'version' => 1,
+                'created_at' => gmdate('Y-m-d H:i:s'), 'updated_at' => gmdate('Y-m-d H:i:s'),
+            ]);
+        }
+        $this->container()->get(\Thallo\Contracts\Style\StyleClassProvider::class)->refresh();
         $blocks = new BlockTypeRepository($this->connection());
         // A block type past its conversion: managed style is accepted.
         if ($blocks->findBySlug('probe') === null) {

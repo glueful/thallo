@@ -18,6 +18,26 @@ vi.mock('vue-router/auto', () => ({
 // Mounting a real UEditor in jsdom is out of harness scope (recorded rule):
 // stub the prose editor; the split ROUTINE is browser-verified, the split
 // IDENTITY rules are blockListOps unit tests, and this suite drives the EVENT.
+// The server block factory (visual builder spec §5.5): stubbed per slug — a fresh id, the
+// canonical defaults the server would send, and the starter merged in.
+const factoryStarter: Record<string, Record<string, unknown>> = {
+  hero: { headline: 'Headline', links: [] },
+  card: { title: 'Card', body: [] },
+  rich_text: { body: '<p>Start writing.</p>' },
+}
+const notify = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
+vi.mock('@/composables/useNotify', () => ({ useNotify: () => notify }))
+vi.mock('@/queries/blockFactory', () => ({
+  useBlockFactory: () => ({
+    make: vi.fn(),
+    instance: vi.fn(async (slug: string) => ({
+      id: 'f' + Math.random().toString(36).slice(2, 13).padEnd(11, '0'),
+      type: slug,
+      data: { ...(factoryStarter[slug] ?? {}) },
+      settings: {},
+    })),
+  }),
+}))
 vi.mock('@/fields/components/blocks/ProseBlockEditor.vue', () => ({
   default: {
     name: 'ProseBlockEditor',
@@ -182,8 +202,9 @@ describe('prose seam', () => {
     let wrapper = mountField(model)
     await flushPromises()
     await wrapper.find('[data-test="tail-prose"]').trigger('click')
+    await flushPromises() // the factory answers
     expect(model.value[0]!.type).toBe('rich_text')
-    expect(model.value[0]!.data.body).toBe('')
+    expect(model.value[0]!.data.body).toBe('<p>Start writing.</p>') // the type's starter
 
     // Custom prose type only (allowlist excludes rich_text) -> fallback.
     blockTypes.value = [
@@ -203,6 +224,7 @@ describe('prose seam', () => {
     wrapper = mountField(model2, { ...field, blockTypes: ['note', 'hero'] })
     await flushPromises()
     await wrapper.find('[data-test="tail-prose"]').trigger('click')
+    await flushPromises()
     expect(model2.value[0]!.type).toBe('note')
 
     // No prose type allowed -> hidden.
@@ -274,7 +296,7 @@ describe('drag (direct handler — jsdom never simulates sortable)', () => {
     expect(wrapper.find('[data-block-id="q1"]').exists()).toBe(true)
   })
 
-  it('commits a valid nested drop via moveAcross (target from event.to)', async () => {
+  it('commits a valid nested drop through the coordinator (target from event.to)', async () => {
     const model = ref<BlockInstance[]>([
       { id: 'n1', type: 'nest', data: { inner: [] }, settings: {} },
       { id: 'q1', type: 'quote', data: { text: 'One' }, settings: {} },
@@ -302,14 +324,15 @@ describe('drag (direct handler — jsdom never simulates sortable)', () => {
   })
 
   it('rejects a depth-violating drop: model unchanged + notice rendered', async () => {
-    // A 2-high subtree dragged into a region at depth 3 -> 3 + 2 - 1 = 4 > 3.
+    // A 2-high subtree dragged into a region at depth 5 -> 5 + 2 - 1 = 6 > 5.
+    const nest = (id: string, inner: BlockInstance[]): BlockInstance => ({
+      id,
+      type: 'nest',
+      data: { inner },
+      settings: {},
+    })
     const model = ref<BlockInstance[]>([
-      {
-        id: 'd1',
-        type: 'nest',
-        data: { inner: [{ id: 'd2', type: 'nest', data: { inner: [] }, settings: {} }] },
-        settings: {},
-      },
+      nest('d1', [nest('d2', [nest('d3', [nest('d4', [])])])]),
       {
         id: 'drag',
         type: 'nest',
@@ -330,7 +353,7 @@ describe('drag (direct handler — jsdom never simulates sortable)', () => {
     }
     vm.onDragEnd({
       item: fakeEl({ blockId: 'drag' }),
-      to: fakeEl({ listParent: 'd2', listRegion: 'inner' }),
+      to: fakeEl({ listParent: 'd4', listRegion: 'inner' }),
       from: fakeEl({ listParent: '', listRegion: '' }),
       newIndex: 0,
     })

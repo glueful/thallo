@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Thallo\Core\Content\Http\Controllers\BlockMigrationController;
 use Thallo\Core\Content\Http\Controllers\BlockTypeController;
+use Thallo\Core\Content\Http\Controllers\StyleClassController;
 use Thallo\Core\Content\Http\Controllers\ContentTypeController;
 use Thallo\Core\Content\Http\Controllers\EntryController;
 use Thallo\Core\Content\Http\Controllers\LocaleAdminController;
@@ -115,6 +116,11 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
         $router->post('/block-types/{slug}/deactivate', [BlockTypeController::class, 'deactivate'])
         ->middleware('content_permission:content.manage');
 
+    // The server block factory (visual builder spec §5.5): a fresh block's canonical structure
+    // and starter content, for anyone who may edit content.
+        $router->post('/block-types/{slug}/instance', [BlockTypeController::class, 'instance'])
+        ->middleware('content_permission:content.edit');
+
     // Block-type schema migrations (block-migrations spec §2): declared rename/delete
     // ops with an eager queued backfill; one active migration per type.
         $router->post('/block-types/{slug}/migrations', [BlockMigrationController::class, 'store'])
@@ -132,6 +138,32 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
 
         $router->delete('/block-types/{slug}', [BlockTypeController::class, 'destroy'])
         ->middleware('content_permission:content.manage');
+
+    // Style classes (visual builder spec §4): site-owned records blocks compose through
+    // settings.classes. Reads need content.view; writes need their own styles.manage.
+        $router->get('/style-classes', [StyleClassController::class, 'index'])
+        ->middleware('content_permission:content.view');
+
+        $router->post('/style-classes', [StyleClassController::class, 'store'])
+        ->middleware('content_permission:styles.manage');
+
+        $router->get('/style-classes/{id}', [StyleClassController::class, 'show'])
+        ->middleware('content_permission:content.view');
+
+        $router->patch('/style-classes/{id}', [StyleClassController::class, 'update'])
+        ->middleware('content_permission:styles.manage');
+
+        $router->delete('/style-classes/{id}', [StyleClassController::class, 'destroy'])
+        ->middleware('content_permission:styles.manage');
+
+        $router->get('/style-classes/{id}/usage', [StyleClassController::class, 'usage'])
+        ->middleware('content_permission:content.view');
+
+        $router->post('/style-classes/{id}/jobs', [StyleClassController::class, 'queueJob'])
+        ->middleware('content_permission:styles.manage');
+
+        $router->get('/style-classes/{id}/jobs/{job}', [StyleClassController::class, 'showJob'])
+        ->middleware('content_permission:content.view');
 
     // Entry authoring (identity, drafts, preview).
         $router->get('/entries', [EntryController::class, 'index'])

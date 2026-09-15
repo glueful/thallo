@@ -7,6 +7,114 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.31] - 2026-09-15 — Developer Preview
+
+Visual builder Phase B: style classes as site-owned records with a per-site generation, a
+lifecycle and bulk jobs; blocks five levels deep; one drag coordinator behind the stage, the
+outline and the block list, with real slot geometry, sibling multi-selection, a server block
+factory and browser proofs for every structural scenario.
+
+### Upgrade Notes
+- The documented sequence applies (docs/upgrading.md): `composer update`, then
+  `php glueful thallo:provision`, then reload PHP-FPM so OPcache drops the previous release's
+  classes. Provisioning runs four migrations: `style_classes`, `style_generations`,
+  `style_class_jobs`, and a `lock_version` column on regions and retained entry versions. Every
+  existing document stays valid.
+- A new `styles.manage` permission (Experience group) gates the Style classes settings page and
+  its API; the owner and admin roles receive it on provision.
+- Block templates a theme overrides must name their slots: every `blocks` field is wrapped by an
+  element carrying `slot_attrs('<field>')` (types that render their children inline are
+  exempt). The template lint refuses an override without it; the shipped templates all carry it.
+- Framework 1.85.8 is required (repinned): the five scheduled framework jobs resolved their
+  logger from the container unguarded, and a skeleton install, which binds none, failed every
+  tenth-minute scheduler tick. 1.85.8 guards the lookup.
+
+### Added
+- Style classes exist as site-owned records (`style_classes`) and resolve through the cascade as
+  layers below a block's own settings, in the order of its `settings.classes`; nothing applies one
+  yet. A reference is validated for ownership, not mere existence: an archived class the site owns
+  is a valid reference (old revisions restore), an unknown or foreign id and a repeated id are
+  rejected.
+- The site style generation is the version of the site's style-class definitions: one row per
+  site, incremented atomically inside every class write's transaction and by nothing else. Every
+  render works from one generation-named snapshot of the classes; the page-cache key, the apply
+  response, the canvas page (`data-thallo-style-generation`) and the stage's refresh
+  acknowledgement all name that generation, and a class write purges the rendered pages.
+- Style classes are managed on their own Settings page behind the new `styles.manage`
+  permission (Experience group; owner and admin roles), through `/v1/admin/style-classes`: the
+  list names its generation, a save carries the version it loaded and conflicts when the record
+  moved on, delete archives so old revisions still restore, and before every save the page shows
+  where the class is used — one reference per occurrence in a stored document across drafts,
+  published entries, retained revisions and regions (the published revision counted once), each
+  declared property active or dormant per block type — and says that published pages change
+  immediately.
+- A block composes style classes from its Advanced tab: the Style classes list (kept apart from
+  CSS classes) applies a class from a picker of the site's classes, removes one, reorders by drag
+  and detaches one or all — a detach writes what the class contributed into the block at every
+  breakpoint, so the block keeps its look and stops following the class. The Style tab names the
+  class a value comes from, marks an applied class the site no longer holds as missing, and
+  offers Save as style class, which lifts the block's own declarations into a new class applied
+  last, once the resolver confirms the page looks the same. Every carrier of the style
+  generation — an apply, a stage refresh, a fragment swap — re-resolves inherited values when the
+  site's classes changed, and a detach or a lift refetches the classes first.
+- A style class has a lifecycle: archiving keeps the definition so old revisions still restore;
+  "Detach everywhere" writes what the class contributed into every block that carries it and
+  removes the reference, "Remove everywhere" removes the reference only and is labelled as
+  changing how pages look. Both run as idempotent, pass-based queue jobs pinned to the class
+  version they were queued against, holding the class locked until completion — no edit and no
+  newly authored reference meanwhile, checked inside every document write — with a CLI
+  counterpart (`thallo:style-classes:run-job`). Regions and retained versions now carry a lock
+  version and every source persists through a conditional write, so a concurrent change is a
+  refused write, never a lost one.
+- Blocks nest five levels deep (section → columns → card → container → heading) on every
+  surface: the validator, the renderer, the fragments and the editor agree, and a composition
+  fixture proves the depth-five block's setting in Chromium, Firefox and WebKit. A drop or an
+  insert is judged on the whole candidate tree — the moving blocks removed, then placed —
+  against one set of rules shared with the server through fixtures: the slot exists, nothing
+  moves into its own subtree, the depth cap holds for the whole subtree, the slot's allow-list
+  admits every moved type (the builder always enforces it; `enforce_block_types` stays the
+  server's switch), and the tabs cap holds. A refused drop says why.
+- One drag coordinator generates every structural change for every surface — the palette, the
+  outline, the stage and the inspector list. Movement is a proposal judged on the candidate
+  tree; a drop is one operation or one transaction, so a group move replays exactly, and a
+  cancel discards the session with the tree untouched.
+- Block templates name their slots: `slot_attrs('field')` on the element that wraps a
+  `blocks()` call renders `data-thallo-slot` on the canvas, the template lint requires one per
+  `blocks` field (types that render their children inline are exempt), and an empty slot shows
+  a dashed placeholder so there is always somewhere to drop. The stage drag works on that real
+  geometry: the insertion line is placed inside the slot under the pointer — split left/right in
+  a row, top/bottom in a column, the end of a grid with a hint to use the outline — the
+  coordinator answers each proposal's legality (a refused zone turns red and says why), and a
+  drop across containers applies as one transaction. The same-parent live reorder is gone.
+- The Design page's outline drags and reparents blocks — into a slot, between siblings, at the
+  end of a list — and its context menu offers Move to…, a dialog that names a parent, a slot and
+  a position and judges the move the same way.
+- New blocks come from the server block factory: `POST /block-types/{slug}/instance` returns a
+  type's canonical fresh block (every blocks field an empty list, every enum field its first
+  option, no id) with its starter content alongside; the editor merges the starter, mints the
+  ids and inserts one block. Eight everyday types ship starter content (heading, rich text,
+  button, call to action, hero, section, columns, card).
+- Sibling multi-selection: shift-click extends to a range within a slot and cmd/ctrl-click
+  toggles a sibling, on the stage, in the outline and in the block list. A group moves,
+  duplicates, removes and styles as one transaction; the inspector shows only Style for several
+  blocks, rendering the capability intersection and marking a property the blocks resolve
+  differently as mixed.
+- A rejected apply never becomes history: when the server refuses one transaction that is still
+  the unchanged tip against the pair the request named, it is rolled back with no redo and the
+  stage keeps the displayed truth; otherwise the edits stay, the toast says to undo, and the next
+  apply retries from the current document.
+- Browser proofs for structural editing (`admin/e2e`, Chromium): the real Design page against
+  responses captured from the real controllers, proving a cross-container stage drag, Move to…
+  from the outline, a rejected depth drop, a subtree whose deepest child does not fit, two
+  siblings down in place, two siblings across with the index shift, and cancel — each through
+  the tree, history, the accepted pair and the sent operations.
+
+### Fixed
+- The Design page handed the stage a reactive array in its highlight message, which the browser
+  refused to post; every bridge message is plain data now. A stage drag started from an outline
+  selection left keyboard focus in the parent, so Escape never reached the stage; the grip takes
+  focus, and the parent ends the session on Escape regardless.
+
 ## [1.0.0-beta.30] - 2026-09-15
 
 ### Added

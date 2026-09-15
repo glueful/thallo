@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
-import { ref, type Ref } from 'vue'
+import { isProxy, reactive, ref, type Ref } from 'vue'
 import { useCanvasBridge } from '@/composables/useCanvasBridge'
 import type { BlockType } from '@/queries/blockTypes'
 
@@ -256,42 +256,119 @@ describe('useCanvasBridge', () => {
     bridge.dispose()
   })
 
-  it('block-move-to dispatches with exactly one neighbor key; malformed dropped', () => {
-    const bridge = useCanvasBridge(ref(null))
-    const moveTo = vi.fn()
-    bridge.onBlockMoveTo(moveTo)
+  it('block-select carries its modifiers (absent means none); highlight posts the ids', () => {
+    const postSpy = vi.fn()
+    const iframe = ref({
+      contentWindow: { postMessage: postSpy },
+    } as unknown as HTMLIFrameElement)
+    const bridge = useCanvasBridge(iframe)
+    const select = vi.fn()
+    bridge.onBlockSelect(select)
+    const send = (data: Record<string, unknown>) =>
+      window.dispatchEvent(new MessageEvent('message', { data: { ...data, nonce: bridge.nonce } }))
+    send({ type: 'thallo:block-select', id: 'b1' })
+    expect(select).toHaveBeenLastCalledWith('b1', { shift: false, meta: false })
+    send({ type: 'thallo:block-select', id: 'b2', shift: true, meta: 'x' })
+    expect(select).toHaveBeenLastCalledWith('b2', { shift: true, meta: false })
 
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        data: { type: 'thallo:block-move-to', id: 'b1', beforeId: 'b2', nonce: bridge.nonce },
-      }),
-    )
-    expect(moveTo).toHaveBeenCalledWith('b1', { beforeId: 'b2' })
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        data: { type: 'thallo:block-move-to', id: 'b1', afterId: 'b3', nonce: bridge.nonce },
-      }),
-    )
-    expect(moveTo).toHaveBeenCalledWith('b1', { afterId: 'b3' })
-    // Neither key -> dropped; BOTH keys -> dropped too (XOR, review P2 —
-    // never silently prefer one of two contradictory claims).
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        data: { type: 'thallo:block-move-to', id: 'b1', nonce: bridge.nonce },
-      }),
-    )
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        data: {
-          type: 'thallo:block-move-to',
-          id: 'b1',
-          beforeId: 'b2',
-          afterId: 'b3',
-          nonce: bridge.nonce,
-        },
-      }),
-    )
-    expect(moveTo).toHaveBeenCalledTimes(2)
+    bridge.highlight('b1')
+    bridge.highlight('b1', ['b1', 'b3'])
+    expect(postSpy.mock.calls.map((c) => c[0])).toEqual([
+      { type: 'thallo:highlight', id: 'b1', nonce: bridge.nonce },
+      { type: 'thallo:highlight', id: 'b1', ids: ['b1', 'b3'], nonce: bridge.nonce },
+    ])
+    bridge.dispose()
+  })
+
+  it('drag-propose / block-drop dispatch a validated zone; drag-cancel its session; malformed dropped', () => {
+    const bridge = useCanvasBridge(ref(null))
+    const propose = vi.fn()
+    const drop = vi.fn()
+    const cancel = vi.fn()
+    bridge.onDragPropose(propose)
+    bridge.onBlockDrop(drop)
+    bridge.onDragCancel(cancel)
+    const zone = { parent: 'p1', slot: 'items', index: 2, layout: 'linear-vertical' }
+    const send = (data: Record<string, unknown>) =>
+      window.dispatchEvent(new MessageEvent('message', { data: { ...data, nonce: bridge.nonce } }))
+
+    send({ type: 'thallo:drag-propose', session: 's1', blocks: ['b1'], zone })
+    expect(propose).toHaveBeenCalledWith('s1', ['b1'], zone)
+    const root = { parent: null, slot: 'body', index: 0, layout: 'linear-horizontal' }
+    send({ type: 'thallo:block-drop', session: 's1', blocks: ['b1', 'b2'], zone: root })
+    expect(drop).toHaveBeenCalledWith('s1', ['b1', 'b2'], root)
+    send({ type: 'thallo:drag-cancel', session: 's1' })
+    expect(cancel).toHaveBeenCalledWith('s1')
+
+    // Malformed zones never reach the coordinator: a missing slot, a negative or fractional
+    // index, an unknown layout, an empty block list, a non-string block.
+    send({ type: 'thallo:drag-propose', session: 's2', blocks: ['b1'], zone: { ...zone, slot: 3 } })
+    send({
+      type: 'thallo:drag-propose',
+      session: 's2',
+      blocks: ['b1'],
+      zone: { ...zone, index: -1 },
+    })
+    send({
+      type: 'thallo:drag-propose',
+      session: 's2',
+      blocks: ['b1'],
+      zone: { ...zone, index: 1.5 },
+    })
+    send({
+      type: 'thallo:drag-propose',
+      session: 's2',
+      blocks: ['b1'],
+      zone: { ...zone, layout: 'x' },
+    })
+    send({ type: 'thallo:drag-propose', session: 's2', blocks: [], zone })
+    send({ type: 'thallo:block-drop', session: 's2', blocks: ['b1', 4], zone })
+    send({ type: 'thallo:drag-cancel' })
+    expect(propose).toHaveBeenCalledTimes(1)
+    expect(drop).toHaveBeenCalledTimes(1)
+    expect(cancel).toHaveBeenCalledTimes(1)
+    bridge.dispose()
+  })
+
+  it('posts plain data: a reactive array of ids is cloned, never handed over as a Proxy', () => {
+    const postSpy = vi.fn()
+    const iframe = ref({
+      contentWindow: { postMessage: postSpy },
+    } as unknown as HTMLIFrameElement)
+    const bridge = useCanvasBridge(iframe)
+    const ids = reactive(['b1', 'b2'])
+    bridge.highlight('b1', ids)
+    const posted = postSpy.mock.calls[0]![0] as { ids: string[] }
+    expect(isProxy(posted.ids)).toBe(false)
+    expect(posted.ids).toEqual(['b1', 'b2'])
+    bridge.dispose()
+  })
+
+  it('parent-originated drags post begin / hover / legality / end with the session', () => {
+    const postSpy = vi.fn()
+    const iframe = ref({
+      contentWindow: { postMessage: postSpy },
+    } as unknown as HTMLIFrameElement)
+    const bridge = useCanvasBridge(iframe)
+    bridge.dragBegin('s1', ['b1'])
+    bridge.dragHover('s1', 40, 120)
+    bridge.dragLegality('s1', false, 'Too deep')
+    bridge.dragLegality('s1', true)
+    bridge.dragEnd('s1')
+    const types = postSpy.mock.calls.map((c) => c[0] as Record<string, unknown>)
+    expect(types).toEqual([
+      { type: 'thallo:drag-begin', session: 's1', blocks: ['b1'], nonce: bridge.nonce },
+      { type: 'thallo:drag-hover', session: 's1', x: 40, y: 120, nonce: bridge.nonce },
+      {
+        type: 'thallo:drag-legality',
+        session: 's1',
+        legal: false,
+        reason: 'Too deep',
+        nonce: bridge.nonce,
+      },
+      { type: 'thallo:drag-legality', session: 's1', legal: true, reason: '', nonce: bridge.nonce },
+      { type: 'thallo:drag-end', session: 's1', nonce: bridge.nonce },
+    ])
     bridge.dispose()
   })
 
@@ -553,14 +630,14 @@ describe('FieldEditor.selectBlockById', () => {
       moveBlockById: (id: string, d: number) => { beforeId: string } | { afterId: string } | null
       duplicateBlockById: (id: string) => { newId: string; idMap: Record<string, string> } | null
       deleteBlockById: (id: string) => boolean
-      insertAfterById: (id: string, slug: string) => string | null
+      insertAfterById: (id: string, slug: string) => Promise<string | null>
       pickerTypesForBlock: (id: string) => { slug: string }[]
     }
     // Unknown id -> safe empties, no throw.
     expect(api.moveBlockById('missing', 1)).toBeNull()
     expect(api.duplicateBlockById('missing')).toBeNull()
     expect(api.deleteBlockById('missing')).toBe(false)
-    expect(api.insertAfterById('missing', 'card')).toBeNull()
+    await expect(api.insertAfterById('missing', 'card')).resolves.toBeNull()
     expect(api.pickerTypesForBlock('missing')).toEqual([])
     // Owned id routes to the owning field (sidebar's block, not body's).
     const dup = api.duplicateBlockById('inside000001')
@@ -624,7 +701,12 @@ describe('stageFragments', () => {
           },
         }),
       )
-      await expect(p).resolves.toEqual({ mode: 'patched', epoch: 'e1', revision: 2 })
+      await expect(p).resolves.toEqual({
+        mode: 'patched',
+        epoch: 'e1',
+        revision: 2,
+        style_generation: null,
+      })
 
       const p2 = bridge.stageFragments(patch)
       const sent2 = postSpy.mock.calls[1][0] as { refresh_id: string }
@@ -648,11 +730,21 @@ describe('stageFragments', () => {
           },
         }),
       )
-      await expect(p2).resolves.toEqual({ mode: 'failed', epoch: null, revision: null })
+      await expect(p2).resolves.toEqual({
+        mode: 'failed',
+        epoch: null,
+        revision: null,
+        style_generation: null,
+      })
 
       const p3 = bridge.stageFragments(patch)
       vi.advanceTimersByTime(4001)
-      await expect(p3).resolves.toEqual({ mode: 'reload', epoch: null, revision: null })
+      await expect(p3).resolves.toEqual({
+        mode: 'reload',
+        epoch: null,
+        revision: null,
+        style_generation: null,
+      })
       bridge.dispose()
     } finally {
       vi.useRealTimers()

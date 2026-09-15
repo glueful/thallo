@@ -23,16 +23,18 @@ interface BlocksFieldExposed {
   hasBlock: (id: string) => boolean
   selectBlock: (id: string) => void
   moveBlock: (id: string, delta: number) => { beforeId: string } | { afterId: string } | null
-  moveBlockTo: (id: string, neighbor: { beforeId: string } | { afterId: string }) => boolean
   duplicateBlock: (id: string) => { newId: string; idMap: Record<string, string> } | null
   deleteBlock: (id: string) => boolean
-  insertAfter: (id: string, typeSlug: string) => string | null
+  insertAfter: (id: string, typeSlug: string) => Promise<string | null>
   pickerTypesFor: (id: string) => BlockType[]
   patchBlockData: (id: string, field: string, value: unknown) => boolean
   patchBlockSettings: (id: string, settings: Record<string, unknown>) => boolean
   findBlock: (id: string) => BlockInstance | null
   blockTypeById: (id: string) => string | null
 }
+
+/** A blocks field's modified header click: the page's selection intent (spec §5.5). */
+const emit = defineEmits<{ select: [id: string, modifiers: { shift: boolean; meta: boolean }] }>()
 
 const blocksFields = new Map<string, BlocksFieldExposed>()
 
@@ -73,17 +75,14 @@ defineExpose({
   moveBlockById(id: string, delta: number) {
     return fieldOwning(id)?.moveBlock(id, delta) ?? null
   },
-  moveBlockToById(id: string, neighbor: { beforeId: string } | { afterId: string }) {
-    return fieldOwning(id)?.moveBlockTo(id, neighbor) ?? false
-  },
   duplicateBlockById(id: string) {
     return fieldOwning(id)?.duplicateBlock(id) ?? null
   },
   deleteBlockById(id: string) {
     return fieldOwning(id)?.deleteBlock(id) ?? false
   },
-  insertAfterById(id: string, typeSlug: string) {
-    return fieldOwning(id)?.insertAfter(id, typeSlug) ?? null
+  insertAfterById(id: string, typeSlug: string): Promise<string | null> {
+    return fieldOwning(id)?.insertAfter(id, typeSlug) ?? Promise.resolve(null)
   },
   pickerTypesForBlock(id: string): BlockType[] {
     return fieldOwning(id)?.pickerTypesFor(id) ?? []
@@ -114,6 +113,10 @@ defineExpose({
         :model-value="model[field.name]"
         :field="field"
         @update:model-value="(v: unknown) => (model = { ...model, [field.name]: v })"
+        @select="
+          (id: string, modifiers: { shift: boolean; meta: boolean }) =>
+            emit('select', id, modifiers)
+        "
       />
       <p
         v-if="errors?.[field.name]"

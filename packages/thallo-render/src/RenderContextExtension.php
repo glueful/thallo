@@ -7,6 +7,7 @@ namespace Thallo\Render;
 use Glueful\Bootstrap\ApplicationContext;
 use Thallo\Contracts\Billing\PlanCheckoutUrlResolver;
 use Thallo\Contracts\Style\BlockStyleRegistry;
+use Thallo\Contracts\Style\StyleClassProvider;
 use Thallo\Contracts\Style\StyleSchema;
 use Thallo\Contracts\Style\StyleTargets;
 use Thallo\Contracts\Style\Vocabulary;
@@ -73,7 +74,7 @@ final class RenderContextExtension extends AbstractExtension
      * Nesting amendment §A2: mirrors the app-side BlockDepth::MAX (packs cannot
      * import app classes); an app-side test asserts the two agree.
      */
-    public const MAX_BLOCK_DEPTH = 3;
+    public const MAX_BLOCK_DEPTH = 5;
 
     /** Render-scoped nesting depth (see resetBlockDepth). */
     private int $blockDepth = 0;
@@ -216,8 +217,30 @@ final class RenderContextExtension extends AbstractExtension
         /** Block style declarations (spec §1.7): soft-bound; null = no block declares targets. */
         private readonly ?BlockStyleRegistry $styleRegistry = null,
         private readonly BlockStyleEmitter $styleEmitter = new BlockStyleEmitter(),
+        /** The site's style classes (visual builder spec §4.3): soft-bound; null = no class layer. */
+        private readonly ?StyleClassProvider $styleClasses = null,
     ) {
         $this->locale = $defaultLocale;
+    }
+
+    /** The generation of the style class snapshot this request renders from (spec §4.3). */
+    public function styleSnapshotGeneration(): int
+    {
+        return $this->styleClasses?->snapshot()->generation ?? 0;
+    }
+
+    /**
+     * The cascade layers for a block's ordered `settings.classes`, from the request's snapshot.
+     *
+     * @param mixed $ids
+     * @return list<array{id: string, style: array<string,mixed>}>
+     */
+    private function classRefsFor(mixed $ids): array
+    {
+        if ($this->styleClasses === null || !is_array($ids) || $ids === []) {
+            return [];
+        }
+        return $this->styleClasses->snapshot()->refsFor(array_values(array_filter($ids, 'is_string')));
     }
 
     public function setLocale(string $locale): void
@@ -284,6 +307,11 @@ final class RenderContextExtension extends AbstractExtension
             new TwigFunction('style_classes', $this->styleClasses(...)),
             new TwigFunction('style_attrs', $this->styleAttrs(...), ['is_safe' => ['html']]),
             new TwigFunction('token_class', $this->tokenClass(...)),
+            // Slot geometry (visual builder spec §5.4): the element a template renders a blocks
+            // field into names its slot in canvas mode, so the bridge derives drop zones from
+            // real slot elements, never the display-contents wrappers.
+            new TwigFunction('slot_attrs', $this->slotAttrs(...), ['is_safe' => ['html']]),
+            new TwigFunction('is_canvas', fn (): bool => $this->annotateBlocks),
             // Storefront-v1 spec §5: soft-bound wishlist seam (see the $wishlist constructor
             // doc). Both null-safe — capability off or seam unbound means null, never a throw.
             new TwigFunction('shop_wishlist_scope', $this->shopWishlistScope(...)),
@@ -376,8 +404,22 @@ final class RenderContextExtension extends AbstractExtension
         if ($frame === null || $targets === null) {
             return '';
         }
-        $classes = $this->styleEmitter->classesFor($frame['settings'], $targets, $target);
+        $classes = $this->styleEmitter->classesFor(
+            $frame['settings'],
+            $targets,
+            $target,
+            $this->classRefsFor($frame['settings']['classes'] ?? null),
+        );
         return $classes === [] ? '' : ' ' . implode(' ', $classes);
+    }
+
+    /** `data-thallo-slot="<field>"` in canvas mode, nothing otherwise (spec §5.4); leading space. */
+    public function slotAttrs(string $slot): string
+    {
+        if (!$this->annotateBlocks) {
+            return '';
+        }
+        return ' data-thallo-slot="' . htmlspecialchars($slot, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
     }
 
     /** The attributes `$target` owns (anchor, `data-*`, accessibility label), escaped, leading space. */

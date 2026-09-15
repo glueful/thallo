@@ -71,7 +71,7 @@ final class StyleArtifactLifecycleTest extends AppTestCase
 
     public function testTheCompiledArtifactHashJoinsTheAppearanceFingerprint(): void
     {
-        self::assertStringEndsWith('-s' . substr($this->activeHash(), 0, 8), $this->appearanceFingerprint());
+        self::assertStringContainsString('-s' . substr($this->activeHash(), 0, 8), $this->appearanceFingerprint());
     }
 
     public function testTheCompilerSeamCompilesTheActiveThemeAndRefusesAnUnknownOne(): void

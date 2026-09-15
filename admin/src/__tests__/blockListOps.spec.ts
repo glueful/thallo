@@ -40,7 +40,7 @@ const styled = (id: string): BlockInstance => ({
 
 describe('useBlockListOps', () => {
   it('the cap the depth math uses is the three-surface constant', () => {
-    expect(MAX_BLOCK_DEPTH).toBe(3)
+    expect(MAX_BLOCK_DEPTH).toBe(5)
   })
 
   it('insertAt / removeById / moveById keep current semantics', () => {
@@ -79,30 +79,20 @@ describe('useBlockListOps', () => {
     expect((out[0]!.data.inner as BlockInstance[])[0]!.data.title).toBe('a')
   })
 
-  it('moveAcross moves a block between container regions preserving id and order', () => {
+  it('a move is a removal then an insertion, preserving id and order', () => {
     let tree = [nest('n1', [leaf('a')]), nest('n2', [leaf('b')])]
-    tree = ops.moveAcross(tree, 'a', { parentId: 'n2', region: 'inner', index: 1 })
+    const a = ops.findById(tree, 'a')!
+    tree = ops.insertAt(ops.removeById(tree, 'a'), { parentId: 'n2', region: 'inner', index: 1 }, a)
     expect((tree[0]!.data.inner as BlockInstance[]).length).toBe(0)
     expect((tree[1]!.data.inner as BlockInstance[]).map((b) => b.id)).toEqual(['b', 'a'])
   })
 
-  it('canDropAt enforces targetDepth + subtreeDepth - 1 <= MAX (spec §2)', () => {
+  it('subtreeDepth and depthOf use the root = 1 convention', () => {
     const twoHigh = nest('drag', [leaf('inner1')])
-    const deep = [nest('d1', [nest('d2', [])]), twoHigh]
-    // Dropping the 2-high subtree into d2's region: 3 + 2 - 1 = 4 > MAX(3) -> false
-    expect(ops.canDropAt(deep, 'drag', { parentId: 'd2', region: 'inner' })).toBe(false)
-    // A LEAF into d2's region: 3 + 1 - 1 = 3 <= 3 -> true
-    const withLeaf = [...deep, leaf('leafy')]
-    expect(ops.canDropAt(withLeaf, 'leafy', { parentId: 'd2', region: 'inner' })).toBe(true)
-    // Root drop always fine: 1 + 2 - 1 = 2 <= 3
-    expect(ops.canDropAt(deep, 'drag', { parentId: null, region: null })).toBe(true)
+    const deep = [nest('d1', [nest('d2', [nest('d3', [nest('d4', [])])])]), twoHigh]
     expect(ops.subtreeDepth(twoHigh)).toBe(2)
-    expect(ops.depthOf(deep, 'd2')).toBe(2)
-    // Drop into its OWN descendant: forbidden regardless of depth.
-    expect(ops.canDropAt(deep, 'drag', { parentId: 'inner1', region: 'inner' })).toBe(false)
-    expect(ops.canDropAt(deep, 'drag', { parentId: 'drag', region: 'inner' })).toBe(false)
-    // Missing target parent: rejected, never mistaken for root depth.
-    expect(ops.canDropAt(deep, 'drag', { parentId: 'ghost', region: 'inner' })).toBe(false)
+    expect(ops.depthOf(deep, 'd4')).toBe(4)
+    expect(ops.depthOf(deep, 'ghost')).toBe(0)
   })
 
   it('splitRichTextAt applies the four identity rules in ONE emission (spec §3)', () => {
@@ -217,7 +207,12 @@ describe('proseDetection', () => {
     expect(copies[1]!.settings).not.toBe(copies[0]!.settings) // no aliasing
     expect(copies[1]!.settings.classes as string[]).toEqual(['zeta', 'alpha'])
 
-    const moved = ops.moveAcross(tree, 's', { parentId: null, region: null, index: 0 })
+    const s = ops.findById(tree, 's')!
+    const moved = ops.insertAt(
+      ops.removeById(tree, 's'),
+      { parentId: null, region: null, index: 0 },
+      s,
+    )
     expect(moved[0]!.id).toBe('s')
     expect(moved[0]!.settings).toEqual(styled('s').settings)
 

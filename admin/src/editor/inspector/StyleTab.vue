@@ -14,11 +14,21 @@ const props = defineProps<{
   schema: StyleSchemaResult
   classes: StyleClassRef[]
   activeBreakpoint: Breakpoint
+  classNames?: Record<string, string>
+  /** A generation change: inherited values re-resolve before they are trusted (spec §4.3). */
+  reResolving?: boolean
+  /** A sibling multi-selection (spec §5.5): `block` is its anchor. */
+  blocks?: BlockInstance[]
+  blockTypes?: (BlockType | null)[]
 }>()
+
+const multi = computed(() => (props.blocks?.length ?? 0) > 1)
 const emit = defineEmits<{
   set: [path: string, breakpoint: Breakpoint | null, value: StyleValue | null]
   'set-all': [path: string, value: StyleValue]
   'update:activeBreakpoint': [breakpoint: Breakpoint]
+  /** Lift the block's explicit declarations into a new class (spec §4.5). */
+  'save-as-class': []
 }>()
 
 const GROUPS: { key: string; label: string; match: (row: StylePropertyRow) => boolean }[] = [
@@ -57,15 +67,23 @@ const LABELS: Record<string, string> = {
   'border.style': 'Border style',
 }
 
-/** The capability paths: an entry names a path, or a group that expands to its paths. */
-const allowed = computed<Set<string>>(() => {
+/** The capability paths of one type: an entry names a path, or a group that expands to its paths. */
+function pathsOf(type: BlockType | null): Set<string> {
   const out = new Set<string>()
   const byPath = new Set(props.schema.properties.map((r) => r.path))
-  for (const entry of props.blockType?.style_capabilities ?? []) {
+  for (const entry of type?.style_capabilities ?? []) {
     if (byPath.has(entry)) out.add(entry)
     else for (const row of props.schema.properties) if (row.group === entry) out.add(row.path)
   }
   return out
+}
+
+/** The paths every selected block declares: a property any block lacks renders no control. */
+const allowed = computed<Set<string>>(() => {
+  const types = multi.value ? (props.blockTypes ?? []) : [props.blockType]
+  if (types.length === 0) return new Set()
+  const [first, ...rest] = types.map(pathsOf)
+  return new Set([...first!].filter((path) => rest.every((set) => set.has(path))))
 })
 
 const groups = computed(() =>
@@ -75,10 +93,12 @@ const groups = computed(() =>
   })).filter((g) => g.rows.length > 0),
 )
 
-const style = computed<Record<string, unknown>>(() => {
-  const s = props.block.settings?.style
+function styleOf(block: BlockInstance): Record<string, unknown> {
+  const s = block.settings?.style
   return typeof s === 'object' && s !== null ? (s as Record<string, unknown>) : {}
-})
+}
+const style = computed<Record<string, unknown>>(() => styleOf(props.block))
+const styles = computed(() => (multi.value ? (props.blocks ?? []).map(styleOf) : undefined))
 </script>
 
 <template>
@@ -98,7 +118,10 @@ const style = computed<Record<string, unknown>>(() => {
             :def="row"
             :label="LABELS[row.path] ?? row.path"
             :style="style"
+            :styles="styles"
             :classes="classes"
+            :class-names="classNames"
+            :re-resolving="reResolving"
             :active-breakpoint="activeBreakpoint"
             :vocabulary="schema.vocabulary"
             @set="(path, bp, value) => emit('set', path, bp, value)"
@@ -107,6 +130,20 @@ const style = computed<Record<string, unknown>>(() => {
           />
         </div>
       </section>
+      <div v-if="!multi" class="border-t border-default pt-3">
+        <UButton
+          size="xs"
+          variant="ghost"
+          color="neutral"
+          icon="i-lucide-paintbrush"
+          :disabled="Object.keys(style).length === 0"
+          data-test="save-as-style-class"
+          title="Move this block's own declarations into a reusable style class"
+          @click="emit('save-as-class')"
+        >
+          Save as style class
+        </UButton>
+      </div>
     </template>
   </div>
 </template>

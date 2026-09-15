@@ -1,0 +1,169 @@
+{
+  "name": "adjacent siblings moved downward in place",
+  "cases": [
+    {
+      "name": "a and b move after c",
+      "blockTypes": [
+        {
+          "slug": "section",
+          "label": "Section",
+          "schema": [
+            {
+              "name": "content",
+              "type": "blocks"
+            }
+          ]
+        },
+        {
+          "slug": "heading",
+          "label": "Heading",
+          "schema": [
+            {
+              "name": "text",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "slug": "image",
+          "label": "Image",
+          "schema": [
+            {
+              "name": "alt",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "slug": "gallery",
+          "label": "Gallery",
+          "schema": [
+            {
+              "name": "items",
+              "type": "blocks",
+              "block_types": [
+                "image"
+              ],
+              "enforce_block_types": true
+            }
+          ]
+        },
+        {
+          "slug": "tabs",
+          "label": "Tabs",
+          "schema": [
+            {
+              "name": "items",
+              "type": "blocks",
+              "block_types": [
+                "tab"
+              ]
+            }
+          ]
+        },
+        {
+          "slug": "tab",
+          "label": "Tab",
+          "schema": [
+            {
+              "name": "label",
+              "type": "string"
+            },
+            {
+              "name": "content",
+              "type": "blocks"
+            }
+          ]
+        }
+      ],
+      "rootSlots": {
+        "body": {
+          "block_types": [],
+          "enforce_block_types": false
+        }
+      },
+      "doc": {
+        "fields": {
+          "body": [
+            {
+              "id": "a",
+              "type": "heading",
+              "data": {},
+              "settings": {}
+            },
+            {
+              "id": "b",
+              "type": "heading",
+              "data": {},
+              "settings": {}
+            },
+            {
+              "id": "c",
+              "type": "heading",
+              "data": {},
+              "settings": {}
+            },
+            {
+              "id": "d",
+              "type": "heading",
+              "data": {},
+              "settings": {}
+            }
+          ]
+        }
+      },
+      "expect": {
+        "builder": "ok",
+        "server": "ok"
+      },
+      "moves": [
+        {
+          "block": "a",
+          "to": {
+            "parent": null,
+            "slot": "body",
+            "index": 1
+          }
+        },
+        {
+          "block": "b",
+          "to": {
+            "parent": null,
+            "slot": "body",
+            "index": 2
+          }
+        }
+      ],
+      "candidate": {
+        "fields": {
+          "body": [
+            {
+              "id": "c",
+              "type": "heading",
+              "data": {},
+              "settings": {}
+            },
+            {
+              "id": "a",
+              "type": "heading",
+              "data": {},
+              "settings": {}
+            },
+            {
+              "id": "b",
+              "type": "heading",
+              "data": {},
+              "settings": {}
+            },
+            {
+              "id": "d",
+              "type": "heading",
+              "data": {},
+              "settings": {}
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

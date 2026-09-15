@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeAll, beforeEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -593,36 +593,66 @@ describe('scroll preservation', () => {
   })
 })
 
-describe('free drag', () => {
-  /** Give each wrapper's first element child a fixed vertical band. */
-  function stubRects(wrappers: HTMLElement[], height = 100): void {
-    wrappers.forEach((w, i) => {
-      const host = w.firstElementChild as HTMLElement
-      Object.defineProperty(host, 'getBoundingClientRect', {
-        configurable: true,
-        value: () => ({
-          top: i * height,
-          bottom: (i + 1) * height,
-          height,
-          left: 0,
-          right: 500,
-          width: 500,
-          x: 0,
-          y: i * height,
-          toJSON: () => ({}),
-        }),
-      })
+describe('proposal drag (visual builder spec §5.3/§5.4)', () => {
+  const realFromPoint = document.elementFromPoint
+  const realFetch = window.fetch
+  afterEach(() => {
+    document.elementFromPoint = realFromPoint
+    window.fetch = realFetch
+  })
+
+  type Band = { top: number; bottom: number; left: number; right: number }
+  function stubRect(el: HTMLElement, band: Band): void {
+    Object.defineProperty(el, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        ...band,
+        height: band.bottom - band.top,
+        width: band.right - band.left,
+        x: band.left,
+        y: band.top,
+        toJSON: () => ({}),
+      }),
     })
+  }
+  /** Vertical bands of 100px per wrapper host, in order. */
+  function stubRects(wrappers: HTMLElement[]): void {
+    wrappers.forEach((w, i) =>
+      stubRect(w.firstElementChild as HTMLElement, {
+        top: i * 100,
+        bottom: (i + 1) * 100,
+        left: 0,
+        right: 500,
+      }),
+    )
+  }
+  /**
+   * Hit testing: the host whose band contains the point, else the slot itself when the point
+   * is inside it, else nothing. jsdom has no layout, so the stub IS the geometry.
+   */
+  function stubHits(slot: HTMLElement, slotBand: Band): void {
+    document.elementFromPoint = (x: number, y: number) => {
+      const hosts = [...slot.querySelectorAll(':scope > [data-thallo-block] > *:first-child')]
+      for (const host of hosts) {
+        const r = host.getBoundingClientRect()
+        if (x >= r.left && x < r.right && y >= r.top && y < r.bottom) return host
+      }
+      const inside =
+        x >= slotBand.left && x < slotBand.right && y >= slotBand.top && y < slotBand.bottom
+      return inside ? slot : null
+    }
   }
 
   function dragList(): { list: HTMLElement; a: HTMLElement; b: HTMLElement; c: HTMLElement } {
     const list = document.createElement('main')
+    list.setAttribute('data-thallo-slot', 'body')
     const a = wrapper('fd-a-0000001')
     const b = wrapper('fd-b-0000002')
     const c = wrapper('fd-c-0000003')
     list.append(a, b, c)
     document.body.appendChild(list)
     stubRects([a, b, c])
+    stubHits(list, { top: 0, bottom: 1000, left: 0, right: 500 })
     return { list, a, b, c }
   }
 
@@ -639,9 +669,9 @@ describe('free drag', () => {
     gripSvg.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true }))
   }
 
-  function pointerMove(y: number): void {
+  function pointerMove(y: number, x = 10): void {
     document.dispatchEvent(
-      new MouseEvent('pointermove', { bubbles: true, clientY: y } as MouseEventInit),
+      new MouseEvent('pointermove', { bubbles: true, clientY: y, clientX: x } as MouseEventInit),
     )
   }
 
@@ -651,71 +681,130 @@ describe('free drag', () => {
       .map((el) => el.getAttribute('data-thallo-block'))
   }
 
-  it('live-reorders on pointermove WITHOUT posting; pointerup posts ONE block-move-to', () => {
-    const { list, a } = dragList()
+  function proposals(): Record<string, unknown>[] {
+    return posted.mock.calls
+      .map((c) => c[0] as Record<string, unknown>)
+      .filter((m) => m.type === 'thallo:drag-propose')
+  }
+
+  function indicator(list: HTMLElement): HTMLElement | null {
+    return list.querySelector('.thallo-canvas-drop-line')
+  }
+
+  it('pointermove derives the zone under the pointer and posts ONE proposal per zone; the tree never reorders', () => {
+    const { list, a, b, c } = dragList()
     gripDown(a)
     posted.mockClear()
 
-    pointerMove(160) // past b's midpoint (150) -> a moves after b
-    expect(order(list)).toEqual(['fd-b-0000002', 'fd-a-0000001', 'fd-c-0000003'])
-    expect(lastPost('thallo:block-move-to')).toBeUndefined() // visual only
-
-    document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
-    const moves = posted.mock.calls
-      .map((c) => c[0] as { type: string })
-      .filter((m) => m.type === 'thallo:block-move-to')
-    expect(moves).toHaveLength(1)
-    expect(moves[0]).toMatchObject({ id: 'fd-a-0000001', beforeId: 'fd-c-0000003' })
-  })
-
-  it('a drop at list end posts afterId; a returned-to-origin drop posts nothing', () => {
-    const { list, a } = dragList()
-    gripDown(a)
-    posted.mockClear()
-    pointerMove(500) // below every midpoint -> a moves to the end
-    expect(order(list)).toEqual(['fd-b-0000002', 'fd-c-0000003', 'fd-a-0000001'])
-    document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
-    expect(lastPost('thallo:block-move-to')).toMatchObject({
-      id: 'fd-a-0000001',
-      afterId: 'fd-c-0000003',
-    })
-
-    // Second drag: out and back -> unchanged position -> no post.
-    const b = list.children[0] as HTMLElement // now fd-b is first
-    stubRects([...list.children] as HTMLElement[])
-    gripDown(b)
-    posted.mockClear()
-    pointerMove(160)
-    pointerMove(10) // back above -> restored to first
-    document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
-    expect(lastPost('thallo:block-move-to')).toBeUndefined()
-  })
-
-  it('Escape rolls back the order, posts nothing, and does NOT swallow the next click', () => {
-    const { list, a } = dragList()
-    gripDown(a)
-    posted.mockClear()
-    pointerMove(160)
-    expect(order(list)[0]).toBe('fd-b-0000002')
-
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    pointerMove(160) // past b's midpoint (150), before c's (250): index 1 of [b, c]
     expect(order(list)).toEqual(['fd-a-0000001', 'fd-b-0000002', 'fd-c-0000003'])
-    expect(a.classList.contains('thallo-canvas-dragging')).toBe(false)
-    expect(lastPost('thallo:block-move-to')).toBeUndefined()
+    expect(proposals()).toHaveLength(1)
+    expect(proposals()[0]).toMatchObject({
+      blocks: ['fd-a-0000001'],
+      zone: { parent: null, slot: 'body', index: 1, layout: 'linear-vertical' },
+    })
+    expect(typeof proposals()[0]!.session).toBe('string')
+    // The indicator is a real element between b and c, so the slot's own layout places it.
+    const line = indicator(list)!
+    expect(line.previousElementSibling).toBe(b)
+    expect(line.nextElementSibling).toBe(c)
 
-    // Rollback must not arm the click suppressor: the next click still selects.
-    const other = wrapper('fd-d-0000004')
-    document.body.appendChild(other)
-    other.querySelector('a')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    expect(lastPost('thallo:block-select')).toMatchObject({ id: 'fd-d-0000004' })
+    pointerMove(170) // same zone: no second proposal
+    expect(proposals()).toHaveLength(1)
+
+    pointerMove(500) // below every midpoint: the end of the slot
+    expect(proposals()).toHaveLength(2)
+    expect(proposals()[1]).toMatchObject({ zone: { parent: null, slot: 'body', index: 2 } })
+    expect(indicator(list)!.previousElementSibling).toBe(c)
+
+    pointerMove(-50) // outside every slot: no zone, no indicator
+    expect(indicator(list)).toBeNull()
+    expect(proposals()).toHaveLength(2)
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
   })
 
-  it('keyboard shortcuts are inert while dragging; Escape means rollback, never deselect', () => {
+  it('a legality answer for the session paints the indicator: refused is red and titled', () => {
     const { list, a } = dragList()
     gripDown(a)
     posted.mockClear()
     pointerMove(160)
-    expect(order(list)[0]).toBe('fd-b-0000002')
+    const session = proposals()[0]!.session as string
+    const line = indicator(list)!
+
+    sendToBridge({ type: 'thallo:drag-legality', session, legal: false, reason: 'Too deep' })
+    expect(line.classList.contains('thallo-canvas-drop-line--refused')).toBe(true)
+    expect(line.getAttribute('title')).toBe('Too deep')
+
+    sendToBridge({ type: 'thallo:drag-legality', session: 'other', legal: true })
+    expect(line.classList.contains('thallo-canvas-drop-line--refused')).toBe(true) // not ours
+
+    sendToBridge({ type: 'thallo:drag-legality', session, legal: true })
+    expect(line.classList.contains('thallo-canvas-drop-line--refused')).toBe(false)
+    expect(line.hasAttribute('title')).toBe(false)
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  })
+
+  it('pointerup posts ONE block-drop for the proposed zone and swallows the next click once', () => {
+    const { list, a } = dragList()
+    gripDown(a)
+    posted.mockClear()
+    pointerMove(500)
+    const session = proposals()[0]!.session as string
+
+    document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
+    const drops = posted.mock.calls
+      .map((c) => c[0] as Record<string, unknown>)
+      .filter((m) => m.type === 'thallo:block-drop')
+    expect(drops).toHaveLength(1)
+    expect(drops[0]).toMatchObject({
+      session,
+      blocks: ['fd-a-0000001'],
+      zone: { parent: null, slot: 'body', index: 2, layout: 'linear-vertical' },
+    })
+    expect(lastPost('thallo:drag-cancel')).toBeUndefined()
+    expect(indicator(list)).toBeNull()
+    expect(a.classList.contains('thallo-canvas-dragging')).toBe(false)
+    expect(order(list)).toEqual(['fd-a-0000001', 'fd-b-0000002', 'fd-c-0000003']) // untouched
+
+    // The post-drag click: swallowed (no select), exactly once.
+    posted.mockClear()
+    a.querySelector('a')!.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true }),
+    )
+    expect(lastPost('thallo:block-select')).toBeUndefined()
+    a.querySelector('a')!.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true }),
+    )
+    expect(lastPost('thallo:block-select')).toMatchObject({ id: 'fd-a-0000001' })
+  })
+
+  it('pointerup over a refused zone, or over no zone, posts drag-cancel and never a drop', () => {
+    const { a } = dragList()
+    gripDown(a)
+    posted.mockClear()
+    pointerMove(160)
+    const session = proposals()[0]!.session as string
+    sendToBridge({ type: 'thallo:drag-legality', session, legal: false, reason: 'No' })
+    document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
+    expect(lastPost('thallo:block-drop')).toBeUndefined()
+    expect(lastPost('thallo:drag-cancel')).toMatchObject({ session })
+
+    // Second drag: released outside every slot.
+    gripDown(a)
+    posted.mockClear()
+    pointerMove(-50)
+    document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
+    expect(lastPost('thallo:block-drop')).toBeUndefined()
+    expect(lastPost('thallo:drag-cancel')).toBeDefined()
+  })
+
+  it('Escape posts drag-cancel, clears the indicator, keeps the selection, and does NOT swallow the next click', () => {
+    const { list, a } = dragList()
+    gripDown(a)
+    posted.mockClear()
+    pointerMove(160)
+    const session = proposals()[0]!.session as string
+    expect(indicator(list)).not.toBeNull()
 
     // Mid-drag, the shortcut handler must bail on the drag guard.
     const press = (init: KeyboardEventInit) =>
@@ -729,89 +818,206 @@ describe('free drag', () => {
     expect(lastPost('thallo:block-delete-request')).toBeUndefined()
     expect(lastPost('thallo:block-duplicate')).toBeUndefined()
 
-    // Escape belongs to the DRAG while one is active: order rolls back, the
-    // block STAYS selected, and no block-deselect posts.
     document.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
     )
-    expect(order(list)).toEqual(['fd-a-0000001', 'fd-b-0000002', 'fd-c-0000003'])
-    expect(lastPost('thallo:block-deselect')).toBeUndefined()
+    expect(lastPost('thallo:drag-cancel')).toMatchObject({ session })
+    expect(lastPost('thallo:block-drop')).toBeUndefined()
+    expect(lastPost('thallo:block-deselect')).toBeUndefined() // Escape belonged to the drag
+    expect(indicator(list)).toBeNull()
+    expect(a.classList.contains('thallo-canvas-dragging')).toBe(false)
     expect(a.classList.contains('thallo-canvas-selected')).toBe(true)
+
+    // Cancel must not arm the click suppressor: the next click still selects.
+    const other = wrapper('fd-d-0000004')
+    document.body.appendChild(other)
+    other.querySelector('a')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(lastPost('thallo:block-select')).toMatchObject({ id: 'fd-d-0000004' })
   })
 
-  it('swaps are direction-gated: an against-direction slot never triggers (no oscillation)', () => {
+  it('a stage refresh mid-drag acks busy and the session survives (the tree was never touched)', async () => {
     const { list, a } = dragList()
+    window.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      redirected: false,
+      text: () =>
+        Promise.resolve('<html><body><main data-thallo-slot="body"></main></body></html>'),
+    }) as unknown as typeof window.fetch
     gripDown(a)
     posted.mockClear()
-
-    pointerMove(160) // moving DOWN past b's midpoint -> swap
-    expect(order(list)).toEqual(['fd-b-0000002', 'fd-a-0000001', 'fd-c-0000003'])
-    // Same Y again: no direction -> no re-evaluation, order stable.
     pointerMove(160)
-    expect(order(list)).toEqual(['fd-b-0000002', 'fd-a-0000001', 'fd-c-0000003'])
-    // Moving DOWN a hair more must never take an UP slot even if geometry
-    // momentarily suggests one (the oscillation case with unequal heights).
-    pointerMove(161)
-    expect(order(list)).toEqual(['fd-b-0000002', 'fd-a-0000001', 'fd-c-0000003'])
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-  })
-
-  it('reorders FLIP-animate displaced blocks when element.animate exists', () => {
-    const { list, a, b, c } = dragList()
-    const animations: unknown[] = []
-    // POSITION-DEPENDENT rects (unlike stubRects' static bands): FLIP measures
-    // before/after the DOM move, so the rect must derive from the element's
-    // CURRENT index or the delta is always zero.
-    ;[a, b, c].forEach((w) => {
-      const host = w.firstElementChild as HTMLElement & { animate?: unknown }
-      Object.defineProperty(host, 'getBoundingClientRect', {
-        configurable: true,
-        value: () => {
-          const idx = [...list.children].indexOf(w)
-          return {
-            top: idx * 100,
-            bottom: (idx + 1) * 100,
-            height: 100,
-            left: 0,
-            right: 500,
-            width: 500,
-            x: 0,
-            y: idx * 100,
-            toJSON: () => ({}),
-          }
-        },
-      })
-      Object.defineProperty(host, 'animate', {
-        configurable: true,
-        value: (...args: unknown[]) => {
-          animations.push(args)
-          return { finished: Promise.resolve() }
-        },
-      })
-    })
-    gripDown(a)
-    pointerMove(160) // a and b both displace -> both animate
-    expect(order(list)[0]).toBe('fd-b-0000002')
-    expect(animations.length).toBeGreaterThan(0)
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-  })
-
-  it('the click after a completed drag is swallowed once', () => {
-    const { a } = dragList()
-    gripDown(a)
-    pointerMove(160)
+    const session = proposals()[0]!.session as string
+    sendToBridge({ type: 'thallo:stage-refresh', refresh_id: 'r-drag' })
+    await new Promise((r) => setTimeout(r, 0))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(lastPost('thallo:stage-refreshed')).toMatchObject({ refresh_id: 'r-drag', mode: 'busy' })
+    expect(lastPost('thallo:drag-cancel')).toBeUndefined()
+    expect(indicator(list)).not.toBeNull()
     document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
-    posted.mockClear()
+    expect(lastPost('thallo:block-drop')).toMatchObject({ session })
+  })
 
-    // The post-drag click: swallowed (no select), exactly once.
-    a.querySelector('a')!.dispatchEvent(
-      new MouseEvent('click', { bubbles: true, cancelable: true }),
+  it('a horizontal slot splits on x; a grid slot proposes its end with the outline hint', () => {
+    const parent = wrapper('fd-p-0000009', '<section></section>')
+    const row = document.createElement('div')
+    row.setAttribute('data-thallo-slot', 'items')
+    row.style.display = 'flex'
+    const x1 = wrapper('fd-x-0000011')
+    const x2 = wrapper('fd-x-0000012')
+    row.append(x1, x2)
+    parent.querySelector('section')!.appendChild(row)
+    const grid = document.createElement('div')
+    grid.setAttribute('data-thallo-slot', 'cells')
+    grid.style.display = 'grid'
+    const g1 = wrapper('fd-g-0000021')
+    grid.append(g1)
+    parent.querySelector('section')!.appendChild(grid)
+    const mover = wrapper('fd-m-0000031')
+    document.body.append(parent, mover)
+    stubRect(x1.firstElementChild as HTMLElement, { top: 0, bottom: 100, left: 0, right: 100 })
+    stubRect(x2.firstElementChild as HTMLElement, { top: 0, bottom: 100, left: 100, right: 200 })
+    stubRect(g1.firstElementChild as HTMLElement, { top: 200, bottom: 300, left: 0, right: 100 })
+    stubRect(mover.firstElementChild as HTMLElement, { top: 900, bottom: 950, left: 0, right: 100 })
+    document.elementFromPoint = (x: number, y: number) => {
+      if (y < 100) return x < 100 ? x1.firstElementChild : x < 200 ? x2.firstElementChild : row
+      if (y >= 200 && y < 300) return x < 100 ? g1.firstElementChild : grid
+      return null
+    }
+
+    gripDown(mover)
+    posted.mockClear()
+    pointerMove(50, 130) // right of x1's midpoint (50), left of x2's (150): index 1
+    expect(proposals()[0]).toMatchObject({
+      zone: { parent: 'fd-p-0000009', slot: 'items', index: 1, layout: 'linear-horizontal' },
+    })
+    const line = row.querySelector('.thallo-canvas-drop-line')!
+    expect(line.classList.contains('thallo-canvas-drop-line--horizontal')).toBe(true)
+    expect(line.previousElementSibling).toBe(x1)
+
+    pointerMove(250, 20) // over g1 in the grid: no split, always the end
+    expect(proposals()[1]).toMatchObject({
+      zone: { parent: 'fd-p-0000009', slot: 'cells', index: 1, layout: 'other' },
+    })
+    const hint = grid.querySelector('.thallo-canvas-drop-line')!
+    expect(hint.classList.contains('thallo-canvas-drop-line--other')).toBe(true)
+    expect(hint.getAttribute('data-hint')).toMatch(/outline/)
+    expect(row.querySelector('.thallo-canvas-drop-line')).toBeNull() // one indicator at a time
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  })
+
+  it('a zone inside the dragged subtree is refused locally: no proposal, no indicator', () => {
+    const { list, a } = dragList()
+    const inner = document.createElement('div')
+    inner.setAttribute('data-thallo-slot', 'children')
+    a.querySelector('section')!.appendChild(inner)
+    const realHit = document.elementFromPoint
+    document.elementFromPoint = (x: number, y: number) => (y >= 990 ? inner : realHit(x, y))
+    gripDown(a)
+    posted.mockClear()
+    pointerMove(995)
+    expect(proposals()).toHaveLength(0)
+    expect(list.querySelector('.thallo-canvas-drop-line')).toBeNull()
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  })
+
+  it('a parent-originated drag proposes on hover and clears on end; a foreign session is ignored', () => {
+    const { list } = dragList()
+    posted.mockClear()
+    sendToBridge({ type: 'thallo:drag-begin', session: 'ext1', blocks: ['new-block-0001'] })
+    sendToBridge({ type: 'thallo:drag-hover', session: 'ext1', x: 10, y: 160 })
+    expect(proposals()).toHaveLength(1)
+    expect(proposals()[0]).toMatchObject({
+      session: 'ext1',
+      blocks: ['new-block-0001'],
+      zone: { parent: null, slot: 'body', index: 2, layout: 'linear-vertical' }, // of [a, b, c]
+    })
+    expect(indicator(list)).not.toBeNull()
+
+    sendToBridge({ type: 'thallo:drag-hover', session: 'ext2', x: 10, y: 500 })
+    expect(proposals()).toHaveLength(1)
+
+    sendToBridge({ type: 'thallo:drag-end', session: 'ext1' })
+    expect(indicator(list)).toBeNull()
+    sendToBridge({ type: 'thallo:drag-hover', session: 'ext1', x: 10, y: 500 })
+    expect(proposals()).toHaveLength(1) // the session is over
+  })
+})
+
+describe('sibling multi-selection on the stage (visual builder spec §5.5)', () => {
+  function click(w: HTMLElement, init: MouseEventInit = {}): void {
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    w.querySelector('section')!.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true, ...init }),
     )
-    expect(lastPost('thallo:block-select')).toBeUndefined()
-    a.querySelector('a')!.dispatchEvent(
-      new MouseEvent('click', { bubbles: true, cancelable: true }),
+  }
+
+  it('a click posts its modifiers: shift extends, cmd/ctrl toggles, plain neither', () => {
+    const a = wrapper('ms-a-0000001')
+    document.body.appendChild(a)
+    click(a)
+    expect(lastPost('thallo:block-select')).toMatchObject({
+      id: 'ms-a-0000001',
+      shift: false,
+      meta: false,
+    })
+    click(a, { shiftKey: true })
+    expect(lastPost('thallo:block-select')).toMatchObject({
+      id: 'ms-a-0000001',
+      shift: true,
+      meta: false,
+    })
+    click(a, { metaKey: true })
+    expect(lastPost('thallo:block-select')).toMatchObject({ shift: false, meta: true })
+    click(a, { ctrlKey: true })
+    expect(lastPost('thallo:block-select')).toMatchObject({ shift: false, meta: true })
+  })
+
+  it('a highlight naming several ids rings every one, tools only the anchor, and drags them together', () => {
+    const list = document.createElement('main')
+    list.setAttribute('data-thallo-slot', 'body')
+    const a = wrapper('ms-b-0000001')
+    const b = wrapper('ms-b-0000002')
+    const c = wrapper('ms-b-0000003')
+    list.append(a, b, c)
+    document.body.appendChild(list)
+
+    sendToBridge({
+      type: 'thallo:highlight',
+      id: 'ms-b-0000001',
+      ids: ['ms-b-0000001', 'ms-b-0000003'],
+    })
+    expect(a.classList.contains('thallo-canvas-selected')).toBe(true)
+    expect(c.classList.contains('thallo-canvas-selected')).toBe(true)
+    expect(b.classList.contains('thallo-canvas-selected')).toBe(false)
+    expect(a.querySelector('.thallo-canvas-toolbar')).not.toBeNull()
+    expect(c.querySelector('.thallo-canvas-toolbar')).toBeNull()
+
+    // The grip drags the whole selection: the session names every ring — and takes focus, so
+    // Escape reaches the stage even when the selection came from the parent's outline.
+    posted.mockClear()
+    const focus = vi.spyOn(window, 'focus').mockImplementation(() => undefined)
+    a.querySelector('[data-action="drag"] svg')!.dispatchEvent(
+      new MouseEvent('pointerdown', { bubbles: true, cancelable: true }),
     )
-    expect(lastPost('thallo:block-select')).toMatchObject({ id: 'fd-a-0000001' })
+    expect(focus).toHaveBeenCalledTimes(1)
+    focus.mockRestore()
+    expect(c.classList.contains('thallo-canvas-dragging')).toBe(true)
+    document.elementFromPoint = () => list
+    document.dispatchEvent(
+      new MouseEvent('pointermove', { bubbles: true, clientY: 900, clientX: 10 } as MouseEventInit),
+    )
+    expect(lastPost('thallo:drag-propose')).toMatchObject({
+      blocks: ['ms-b-0000001', 'ms-b-0000003'],
+    })
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(c.classList.contains('thallo-canvas-dragging')).toBe(false)
+    document.elementFromPoint = undefined as unknown as typeof document.elementFromPoint
+
+    // A plain highlight of one id rings that one alone.
+    sendToBridge({ type: 'thallo:highlight', id: 'ms-b-0000002' })
+    expect(a.classList.contains('thallo-canvas-selected')).toBe(false)
+    expect(c.classList.contains('thallo-canvas-selected')).toBe(false)
+    expect(b.classList.contains('thallo-canvas-selected')).toBe(true)
   })
 })
 
@@ -1928,6 +2134,59 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
     }
   })
 
+  it("carries the fetched page's style generation in the ack and writes it to <main>", async () => {
+    try {
+      liveStage()
+      document.body.querySelector('main')!.setAttribute('data-thallo-epoch', 'E1')
+      document.body.querySelector('main')!.setAttribute('data-thallo-revision', '1')
+      document.body.querySelector('main')!.setAttribute('data-thallo-style-generation', '3')
+      stubFetch(
+        renderedHtml('Alpha v2', 'Beta v1').replace(
+          '<main>',
+          '<main data-thallo-epoch="E1" data-thallo-revision="2" data-thallo-style-generation="4">',
+        ),
+      )
+      posted.mockClear()
+      await refresh('r-gen')
+
+      // A generation-only difference on <main> is bookkeeping, never shell drift.
+      expect(acked()).toMatchObject({
+        refresh_id: 'r-gen',
+        mode: 'patched',
+        revision: 2,
+        style_generation: 4,
+      })
+      expect(
+        document.body.querySelector('main')!.getAttribute('data-thallo-style-generation'),
+      ).toBe('4')
+    } finally {
+      window.fetch = realFetch
+    }
+  })
+
+  it('marks a slot that holds no wrapper as empty, at boot and again after a patch', async () => {
+    try {
+      liveStage()
+      const main = document.body.querySelector('main')!
+      const slot = document.createElement('div')
+      slot.setAttribute('data-thallo-slot', 'content')
+      main.append(slot)
+      stubFetch(
+        renderedHtml('Alpha v2', 'Beta v1').replace(
+          '</main>',
+          '<div data-thallo-slot="content"><div class="thallo-preview-block" data-thallo-block="pd-c-0000003"><p>c</p></div></div></main>',
+        ),
+      )
+      posted.mockClear()
+      await refresh('r-slot')
+      // The fetched page's slot holds a wrapper: after the patch it is no longer marked empty.
+      const after = document.body.querySelector('[data-thallo-slot="content"]')!
+      expect(after.hasAttribute('data-thallo-slot-empty')).toBe(false)
+    } finally {
+      window.fetch = realFetch
+    }
+  })
+
   it('shell drift reloads with the DOM untouched', async () => {
     try {
       const { a } = liveStage()
@@ -2181,6 +2440,21 @@ describe('fragment swaps (visual builder spec §3.5)', () => {
       ...data,
     })
   }
+
+  it('a fragment patch carries the style generation and writes it to <main>', async () => {
+    await establish('GEN', frag('g-a-00000001', '<p>one</p>'))
+    fragments('GEN', {
+      style_generation: 9,
+      fragments: { 'g-a-00000001': frag('g-a-00000001', '<p>two</p>') },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(lastPost('thallo:stage-refreshed')).toMatchObject({
+      mode: 'patched',
+      revision: 2,
+      style_generation: 9,
+    })
+    expect(document.querySelector('main')!.getAttribute('data-thallo-style-generation')).toBe('9')
+  })
 
   it('a whole-page patch and a fragment swap both hand the new wrapper to the theme runtime', async () => {
     const enhanced: string[] = []

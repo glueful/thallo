@@ -20,6 +20,12 @@ final readonly class StyleCapabilities
         return new self([]);
     }
 
+    /** Every §1.3 property in table order: what a style class's declarations are validated against (§4.1). */
+    public static function all(): self
+    {
+        return new self(array_keys(StyleSchema::properties()));
+    }
+
     /**
      * @param list<string>|null $pathsOrGroups
      * @throws \InvalidArgumentException for an unknown path or group

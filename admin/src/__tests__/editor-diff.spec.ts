@@ -51,6 +51,28 @@ function derive(prev: EditorDocument, next: EditorDocument): Operation[] {
 }
 
 describe('diffDocuments derives intent from what changed', () => {
+  it('one class added is ApplyStyleClass, one removed is RemoveStyleClass, a reorder is one ReorderStyleClasses', () => {
+    const withA = base()
+    ;(withA.fields.body as BlockInstance[])[0]!.settings = { classes: ['a'] }
+    const withAB = base()
+    ;(withAB.fields.body as BlockInstance[])[0]!.settings = { classes: ['a', 'b'] }
+    const withBA = base()
+    ;(withBA.fields.body as BlockInstance[])[0]!.settings = { classes: ['b', 'a'] }
+    const withB = base()
+    ;(withB.fields.body as BlockInstance[])[0]!.settings = { classes: ['b'] }
+
+    expect(derive(withA, withAB).map((o) => o.type)).toEqual(['ApplyStyleClass'])
+    expect(derive(withA, withAB)[0]).toMatchObject({ class_id: 'b', index: 1 })
+    expect(derive(withAB, withA).map((o) => o.type)).toEqual(['RemoveStyleClass'])
+    expect(derive(withAB, withA)[0]).toMatchObject({ class_id: 'b', index: 1 })
+    expect(derive(withAB, withBA).map((o) => o.type)).toEqual(['ReorderStyleClasses'])
+    expect(derive(withB, withAB)[0]).toMatchObject({
+      type: 'ApplyStyleClass',
+      class_id: 'a',
+      index: 0,
+    })
+  })
+
   it('an edited field is one SetField; a page field is one SetPageSettings', () => {
     const next = base()
     ;(next.fields.body as BlockInstance[])[0]!.data.text = 'A2'
@@ -80,7 +102,7 @@ describe('diffDocuments derives intent from what changed', () => {
       'SetSetting',
       'SetSetting',
       'SetAdvanced',
-      'ReorderStyleClasses',
+      'ApplyStyleClass',
     ])
     expect(ops[0]).toMatchObject({ path: 'spacing.padding.top', breakpoint: 'md' })
     expect(ops[1]).toMatchObject({ path: 'radius', breakpoint: null })

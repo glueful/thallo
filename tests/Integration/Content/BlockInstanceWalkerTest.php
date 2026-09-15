@@ -99,8 +99,9 @@ final class BlockInstanceWalkerTest extends AppTestCase
 
     public function testMalformedItemsAndDepthCapAreLeftUntouched(): void
     {
+        // Five nests put the card at depth six, below the cap of five (visual builder spec §5.2).
         $deep = ['id' => 'x', 'type' => 'card', 'data' => ['title' => 'below-cap']];
-        for ($i = 0; $i < 3; $i++) {
+        for ($i = 0; $i < 5; $i++) {
             $deep = ['id' => "n{$i}", 'type' => 'nest', 'data' => ['inner' => [$deep]]];
         }
         $fields = ['body' => [

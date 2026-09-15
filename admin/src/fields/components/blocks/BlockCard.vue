@@ -95,6 +95,18 @@ function patchData(name: string, value: unknown): void {
  * field inputs never reaches this handler. Roving tabindex lives on the header
  * button (natively focusable).
  */
+/** A modified click selects (the page's multi-selection); a plain click toggles the card. */
+function onHeaderClick(event: MouseEvent): void {
+  if (event.shiftKey || event.metaKey || event.ctrlKey) {
+    ctx.selectIntent(props.block.id, {
+      shift: event.shiftKey,
+      meta: event.metaKey || event.ctrlKey,
+    })
+    return
+  }
+  toggleExpanded()
+}
+
 function onHeaderKeydown(event: KeyboardEvent): void {
   const meta = event.metaKey || event.altKey
   if (meta && event.key === 'ArrowUp') {
@@ -192,7 +204,7 @@ function onHeaderKeydown(event: KeyboardEvent): void {
         class="flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
         type="button"
         :data-test="`block-toggle-${block.id}`"
-        @click="toggleExpanded()"
+        @click="onHeaderClick"
         @keydown="onHeaderKeydown"
       >
         <span class="font-medium">{{ type?.label ?? block.type }}</span>

@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ref } from 'vue'
+import BlockInspector from '@/editor/inspector/BlockInspector.vue'
 import { ApiError } from '@/api/errors'
 import type { BlockType } from '@/queries/blockTypes'
 
@@ -16,6 +17,38 @@ vi.mock('@/queries/blockTypes', async (importOriginal) => ({
 const { mintMock, applyMock } = vi.hoisted(() => ({ mintMock: vi.fn(), applyMock: vi.fn() }))
 vi.mock('@/queries/preview', () => ({ mintPreviewData: mintMock, applyPreview: applyMock }))
 vi.mock('@/queries/styleSchema', () => ({ useStyleSchema: () => ({ data: ref(null) }) }))
+const { styleClassList, refetchClasses, classMutations } = vi.hoisted(() => ({
+  styleClassList: {
+    value: {
+      generation: 0,
+      classes: [] as {
+        id: string
+        name: string
+        style: Record<string, unknown>
+        archived: boolean
+        locked_by_job: string | null
+      }[],
+    },
+  },
+  refetchClasses: { fn: async () => {}, calls: 0 },
+  classMutations: { create: vi.fn(), deleteUnreferenced: vi.fn() },
+}))
+vi.mock('@/queries/styleClasses', () => ({
+  useStyleClasses: () => ({
+    data: styleClassList,
+    refetch: () => {
+      refetchClasses.calls++
+      return refetchClasses.fn()
+    },
+  }),
+  useStyleClassMutations: () => ({
+    create: { mutateAsync: classMutations.create, isLoading: { value: false } },
+    deleteUnreferenced: {
+      mutateAsync: classMutations.deleteUnreferenced,
+      isLoading: { value: false },
+    },
+  }),
+}))
 
 const draft = ref<{ fields: Record<string, unknown>; lock_version: number } | null>(null)
 const { saveMock } = vi.hoisted(() => ({ saveMock: vi.fn() }))
@@ -56,6 +89,7 @@ vi.mock('@/fields/components/blocks/ProseBlockEditor.vue', () => ({
 
 const bridge = vi.hoisted(() => {
   const callbacks: {
+    select?: (id: string) => void
     move?: (id: string, d: 1 | -1) => void
     textChanged?: (id: string, field: string, payload: { html?: string; text?: string }) => void
   } = {}
@@ -65,12 +99,14 @@ const bridge = vi.hoisted(() => {
     instance: {
       nonce: 'n',
       hello: vi.fn(),
-      onBlockSelect: noop,
+      onBlockSelect: (cb: (id: string) => void) => (callbacks.select = cb),
       onBlockDeselect: noop,
       onBlockHover: noop,
       onBlocksIndex: noop,
       onBlockMove: (cb: (id: string, d: 1 | -1) => void) => (callbacks.move = cb),
-      onBlockMoveTo: noop,
+      onDragPropose: noop,
+      onBlockDrop: noop,
+      onDragCancel: noop,
       onBlockDuplicate: noop,
       onBlockDeleteRequest: noop,
       onBlockAddAfter: noop,
@@ -88,6 +124,10 @@ const bridge = vi.hoisted(() => {
       highlight: vi.fn(),
       scrollTo: vi.fn(),
       mirrorMove: vi.fn(),
+      dragBegin: vi.fn(),
+      dragHover: vi.fn(),
+      dragLegality: vi.fn(),
+      dragEnd: vi.fn(),
       mirrorRemove: vi.fn(),
       mirrorDuplicate: vi.fn(),
       dispose: vi.fn(),
@@ -146,6 +186,16 @@ const lastApplyOptions = () =>
     base_revision: number | null
     operations: { type: string }[]
   }
+const bodyIdsSettings = (): Record<string, unknown>[] =>
+  (
+    (
+      applyMock.mock.calls[applyMock.mock.calls.length - 1]![3] as {
+        body: { settings?: Record<string, unknown> }[]
+      }
+    ).body ?? []
+  )
+    .slice(0, 2)
+    .map((b) => b.settings ?? {})
 const bodyIds = (): string[] =>
   (
     (
@@ -193,6 +243,147 @@ async function mountAndSettle() {
   await flushPromises()
   return wrapper
 }
+
+describe('style classes as operations (visual builder spec §4.4)', () => {
+  const band = {
+    id: 'band',
+    name: 'Hero band',
+    style: { spacing: { padding: { top: { md: { type: 'token', value: 'spacing.lg' } } } } },
+    archived: false,
+    locked_by_job: null,
+  }
+  beforeEach(() => {
+    styleClassList.value = { generation: 4, classes: [band] }
+    refetchClasses.fn = async () => {}
+    refetchClasses.calls = 0
+    classMutations.create.mockReset()
+    classMutations.deleteUnreferenced.mockReset()
+  })
+
+  const withInstanceStyle = () => {
+    const body = draft.value!.fields.body as { settings?: Record<string, unknown> }[]
+    body[0]!.settings = {
+      style: { spacing: { padding: { top: { md: { type: 'token', value: 'spacing.sm' } } } } },
+    }
+  }
+  type LiftPage = { saveAsStyleClass: (name: string, description: string | null) => Promise<void> }
+
+  it('save as style class creates the record first, then one transaction of clears and the apply', async () => {
+    applyMock.mockResolvedValueOnce(accepted('e1', 1)).mockResolvedValueOnce(accepted('e1', 2))
+    withInstanceStyle()
+    classMutations.create.mockImplementation(async (body: { style: Record<string, unknown> }) => ({
+      id: 'new0000001',
+      name: 'Tight',
+      style: body.style,
+      version: 1,
+      archived: false,
+      locked_by_job: null,
+    }))
+    const wrapper = await mountAndSettle()
+    bridge.callbacks.select!('blockaaa0001')
+    await flushPromises()
+    await (wrapper.vm as unknown as LiftPage).saveAsStyleClass('Tight', null)
+    await flushPromises()
+    expect(classMutations.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Tight',
+        style: expect.objectContaining({ spacing: expect.anything() }),
+      }),
+    )
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    const ops = lastApplyOptions().operations as ({ type: string } & Record<string, unknown>)[]
+    expect(ops.map((o) => o.type)).toEqual(['SetSetting', 'ApplyStyleClass'])
+    expect(ops[0]).toMatchObject({
+      path: 'spacing.padding.top',
+      breakpoint: 'md',
+      to: { present: false },
+    })
+    expect(ops[1]).toMatchObject({ class_id: 'new0000001', index: 0 })
+    expect(bodyIdsSettings()[0]).toEqual({ classes: ['new0000001'] })
+    expect(classMutations.deleteUnreferenced).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('a lift the resolver cannot confirm deletes the unreferenced record and changes nothing', async () => {
+    applyMock.mockResolvedValueOnce(accepted('e1', 1))
+    withInstanceStyle()
+    // A card that can take spacing, and a server answering a class that does not carry the
+    // declaration (a stub mismatch): the resolver comparison must catch it.
+    blockTypes.value = [{ ...bt('card'), style_capabilities: ['spacing'] }]
+    classMutations.create.mockResolvedValue({
+      id: 'bad0000001',
+      name: 'Bad',
+      style: {},
+      version: 1,
+      archived: false,
+      locked_by_job: null,
+    })
+    const wrapper = await mountAndSettle()
+    bridge.callbacks.select!('blockaaa0001')
+    await flushPromises()
+    await (wrapper.vm as unknown as LiftPage).saveAsStyleClass('Bad', null)
+    await flushPromises()
+    expect(classMutations.deleteUnreferenced).toHaveBeenCalledWith('bad0000001')
+    expect(notify.warning).toHaveBeenCalled()
+    expect(applyMock).not.toHaveBeenCalled() // nothing changed, nothing to apply
+    wrapper.unmount()
+  })
+
+  it('a generation on any carrier that differs from the class list refetches it', async () => {
+    applyMock.mockResolvedValueOnce({ ...accepted('e1', 1), style_generation: 9 })
+    const wrapper = await mountAndSettle()
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    expect(refetchClasses.calls).toBe(1)
+    wrapper.unmount()
+  })
+
+  it('applying a class records one ApplyStyleClass; detaching records one DetachStyleClass with the materialised style', async () => {
+    applyMock.mockResolvedValueOnce(accepted('e1', 1)).mockResolvedValueOnce(accepted('e1', 2))
+    const wrapper = await mountAndSettle()
+    bridge.callbacks.select!('blockaaa0001')
+    await flushPromises()
+    const inspector = wrapper.findComponent(BlockInspector)
+    inspector.vm.$emit('apply-class', 'band')
+    await flushPromises()
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    expect(lastApplyOptions().operations.map((o) => o.type)).toEqual(['ApplyStyleClass'])
+
+    inspector.vm.$emit('detach-class', 'band')
+    await flushPromises()
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    const ops = lastApplyOptions().operations as ({ type: string } & Record<string, unknown>)[]
+    expect(ops.map((o) => o.type)).toEqual(['DetachStyleClass'])
+    expect(ops[0]).toMatchObject({ class_id: 'band', index: 0, from_style: {} })
+    // A card declares no capabilities in this fixture: nothing materialises, the reference goes.
+    expect(ops[0]!.to_style).toEqual({})
+    expect(bodyIdsSettings()).toEqual([{}, {}])
+    wrapper.unmount()
+  })
+
+  it('a detach stops when the refetched class list carries a newer generation', async () => {
+    applyMock.mockResolvedValueOnce(accepted('e1', 1))
+    const wrapper = await mountAndSettle()
+    bridge.callbacks.select!('blockaaa0001')
+    await flushPromises()
+    const inspector = wrapper.findComponent(BlockInspector)
+    inspector.vm.$emit('apply-class', 'band')
+    await flushPromises()
+    refetchClasses.fn = async () => {
+      styleClassList.value = { generation: 5, classes: [band] }
+    }
+    inspector.vm.$emit('detach-class', 'band')
+    await flushPromises()
+    expect(notify.warning).toHaveBeenCalled()
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    expect(lastApplyOptions().operations.map((o) => o.type)).toEqual(['ApplyStyleClass'])
+    wrapper.unmount()
+  })
+})
 
 describe('the three revisions', () => {
   it('the first apply sends a null pair; every later apply names the accepted pair and the ops since it', async () => {
@@ -329,6 +520,129 @@ describe('saves and the saved position', () => {
     await flushPromises()
     const saved = saveMock.mock.calls[1]![0] as { fields: { body: { data: { title: string } }[] } }
     expect(saved.fields.body.map((b) => b.data.title)).toEqual(['B', 'A2'])
+    wrapper.unmount()
+  })
+})
+
+describe('a rejected apply (visual builder spec §5.3)', () => {
+  const rejected = () =>
+    new ApiError(
+      'Validation failed',
+      422,
+      { 'body.0': 'Blocks nest too deep' },
+      {
+        error: { details: { 'body.0': 'Blocks nest too deep' } },
+      },
+    )
+
+  it('a rejection of the unchanged tip rolls the transaction back: no entry, no redo, stage reloaded', async () => {
+    applyMock.mockResolvedValueOnce(accepted('e1', 1))
+    saveMock.mockResolvedValue({ data: { preview_cleared: false } })
+    const wrapper = await mountAndSettle()
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    const before = wrapper.find('[data-test="canvas-iframe"]').element
+
+    bridge.callbacks.move!('blockbbb0002', -1)
+    await flushPromises()
+    applyMock.mockRejectedValueOnce(rejected())
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    expect(notify.warning).toHaveBeenCalledWith(
+      'The server refused this change',
+      'Blocks nest too deep',
+    )
+    expect(wrapper.find('[data-test="canvas-iframe"]').element).not.toBe(before) // the mirror is gone
+    expect(wrapper.find('[data-test="canvas-undo"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('[data-test="canvas-redo"]').attributes('disabled')).toBeDefined()
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    expect(bodyIds()).toEqual(['blockaaa0001', 'blockbbb0002'])
+
+    // The next apply carries nothing from the discarded transaction.
+    bridge.callbacks.move!('blockaaa0001', 1)
+    await flushPromises()
+    applyMock.mockResolvedValueOnce(accepted('e1', 2))
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    expect(lastApplyOptions()).toMatchObject({ base_revision: 1 })
+    expect(lastApplyOptions().operations.map((o) => o.type)).toEqual(['MoveBlock'])
+    wrapper.unmount()
+  })
+
+  it('a rejection behind a later local edit keeps both edits and says to undo', async () => {
+    applyMock.mockResolvedValueOnce(accepted('e1', 1))
+    saveMock.mockResolvedValue({ data: { preview_cleared: false } })
+    const wrapper = await mountAndSettle()
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+
+    bridge.callbacks.move!('blockbbb0002', -1)
+    await flushPromises()
+    let reject: (e: unknown) => void = () => {}
+    applyMock.mockImplementationOnce(() => new Promise((_, r) => (reject = r)))
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    // A second edit lands while the server is still judging the first.
+    bridge.callbacks.textChanged!('blockaaa0001', 'title', { text: 'Edited' })
+    await flushPromises()
+    reject(rejected())
+    await flushPromises()
+    await flushPromises()
+
+    expect(notify.warning).toHaveBeenCalledWith(
+      'The server refused this change',
+      'Blocks nest too deep Undo to revert.',
+    )
+    expect(wrapper.find('[data-test="canvas-undo"]').attributes('disabled')).toBeUndefined()
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    expect(bodyIds()).toEqual(['blockbbb0002', 'blockaaa0001'])
+    // The next apply retries from the current document: the refused ops ride again.
+    applyMock.mockResolvedValueOnce(accepted('e1', 2))
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    expect(lastApplyOptions().operations.map((o) => o.type)).toEqual(['MoveBlock', 'SetField'])
+    wrapper.unmount()
+  })
+
+  it('a rejection whose base revision is no longer the accepted one does not roll back', async () => {
+    applyMock.mockResolvedValueOnce(accepted('e1', 1))
+    saveMock.mockResolvedValue({ data: { preview_cleared: false } })
+    const wrapper = await mountAndSettle()
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+
+    bridge.callbacks.move!('blockbbb0002', -1)
+    await flushPromises()
+    // The pair moved on under us (another editor): the retry from the adopted pair is refused.
+    applyMock
+      .mockRejectedValueOnce(
+        new ApiError(
+          'stale',
+          409,
+          {},
+          {
+            error: {
+              details: { code: 'PREVIEW_REVISION_STALE', current: { epoch: 'e1', revision: 7 } },
+            },
+          },
+        ),
+      )
+      .mockRejectedValueOnce(rejected())
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+    expect(notify.warning).toHaveBeenCalledWith(
+      'The server refused this change',
+      'Blocks nest too deep Undo to revert.',
+    )
+    expect(wrapper.find('[data-test="canvas-undo"]').attributes('disabled')).toBeUndefined()
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    expect(bodyIds()).toEqual(['blockbbb0002', 'blockaaa0001'])
     wrapper.unmount()
   })
 })

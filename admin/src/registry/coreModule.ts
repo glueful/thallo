@@ -103,6 +103,11 @@ const main: (NavigationMenuItem | SettingsAnchor)[] = [
         to: '/settings/block-types',
       },
       {
+        label: 'Style classes',
+        icon: 'i-lucide-paintbrush',
+        to: '/settings/style-classes',
+      },
+      {
         label: 'General',
         icon: 'i-lucide-sliders-horizontal',
         to: '/settings/general',
