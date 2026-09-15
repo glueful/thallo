@@ -1,0 +1,227 @@
+{
+  "name": "a subtree whose root fits at five but whose child would not",
+  "cases": [
+    {
+      "name": "two-high subtree into the depth-four container",
+      "blockTypes": [
+        {
+          "slug": "section",
+          "label": "Section",
+          "schema": [
+            {
+              "name": "content",
+              "type": "blocks"
+            }
+          ]
+        },
+        {
+          "slug": "heading",
+          "label": "Heading",
+          "schema": [
+            {
+              "name": "text",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "slug": "image",
+          "label": "Image",
+          "schema": [
+            {
+              "name": "alt",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "slug": "gallery",
+          "label": "Gallery",
+          "schema": [
+            {
+              "name": "items",
+              "type": "blocks",
+              "block_types": [
+                "image"
+              ],
+              "enforce_block_types": true
+            }
+          ]
+        },
+        {
+          "slug": "tabs",
+          "label": "Tabs",
+          "schema": [
+            {
+              "name": "items",
+              "type": "blocks",
+              "block_types": [
+                "tab"
+              ]
+            }
+          ]
+        },
+        {
+          "slug": "tab",
+          "label": "Tab",
+          "schema": [
+            {
+              "name": "label",
+              "type": "string"
+            },
+            {
+              "name": "content",
+              "type": "blocks"
+            }
+          ]
+        }
+      ],
+      "rootSlots": {
+        "body": {
+          "block_types": [],
+          "enforce_block_types": false
+        }
+      },
+      "doc": {
+        "fields": {
+          "body": [
+            {
+              "id": "s1",
+              "type": "section",
+              "data": {
+                "content": [
+                  {
+                    "id": "s2",
+                    "type": "section",
+                    "data": {
+                      "content": [
+                        {
+                          "id": "s3",
+                          "type": "section",
+                          "data": {
+                            "content": [
+                              {
+                                "id": "s4",
+                                "type": "section",
+                                "data": {
+                                  "content": [
+                                    {
+                                      "id": "h1",
+                                      "type": "heading",
+                                      "data": {},
+                                      "settings": {}
+                                    }
+                                  ]
+                                },
+                                "settings": {}
+                              }
+                            ]
+                          },
+                          "settings": {}
+                        }
+                      ]
+                    },
+                    "settings": {}
+                  }
+                ]
+              },
+              "settings": {}
+            },
+            {
+              "id": "sx",
+              "type": "section",
+              "data": {
+                "content": [
+                  {
+                    "id": "hx",
+                    "type": "heading",
+                    "data": {},
+                    "settings": {}
+                  }
+                ]
+              },
+              "settings": {}
+            }
+          ]
+        }
+      },
+      "expect": {
+        "builder": "depth",
+        "server": "body.0.content.0.content.0.content.0.content.1.content"
+      },
+      "moves": [
+        {
+          "block": "sx",
+          "to": {
+            "parent": "s4",
+            "slot": "content",
+            "index": 1
+          }
+        }
+      ],
+      "candidate": {
+        "fields": {
+          "body": [
+            {
+              "id": "s1",
+              "type": "section",
+              "data": {
+                "content": [
+                  {
+                    "id": "s2",
+                    "type": "section",
+                    "data": {
+                      "content": [
+                        {
+                          "id": "s3",
+                          "type": "section",
+                          "data": {
+                            "content": [
+                              {
+                                "id": "s4",
+                                "type": "section",
+                                "data": {
+                                  "content": [
+                                    {
+                                      "id": "h1",
+                                      "type": "heading",
+                                      "data": {},
+                                      "settings": {}
+                                    },
+                                    {
+                                      "id": "sx",
+                                      "type": "section",
+                                      "data": {
+                                        "content": [
+                                          {
+                                            "id": "hx",
+                                            "type": "heading",
+                                            "data": {},
+                                            "settings": {}
+                                          }
+                                        ]
+                                      },
+                                      "settings": {}
+                                    }
+                                  ]
+                                },
+                                "settings": {}
+                              }
+                            ]
+                          },
+                          "settings": {}
+                        }
+                      ]
+                    },
+                    "settings": {}
+                  }
+                ]
+              },
+              "settings": {}
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

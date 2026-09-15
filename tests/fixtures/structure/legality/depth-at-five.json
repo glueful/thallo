@@ -1,0 +1,209 @@
+{
+  "name": "depth five is legal, six is not",
+  "cases": [
+    {
+      "name": "a leaf into the depth-four container sits at five",
+      "blockTypes": [
+        {
+          "slug": "section",
+          "label": "Section",
+          "schema": [
+            {
+              "name": "content",
+              "type": "blocks"
+            }
+          ]
+        },
+        {
+          "slug": "heading",
+          "label": "Heading",
+          "schema": [
+            {
+              "name": "text",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "slug": "image",
+          "label": "Image",
+          "schema": [
+            {
+              "name": "alt",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "slug": "gallery",
+          "label": "Gallery",
+          "schema": [
+            {
+              "name": "items",
+              "type": "blocks",
+              "block_types": [
+                "image"
+              ],
+              "enforce_block_types": true
+            }
+          ]
+        },
+        {
+          "slug": "tabs",
+          "label": "Tabs",
+          "schema": [
+            {
+              "name": "items",
+              "type": "blocks",
+              "block_types": [
+                "tab"
+              ]
+            }
+          ]
+        },
+        {
+          "slug": "tab",
+          "label": "Tab",
+          "schema": [
+            {
+              "name": "label",
+              "type": "string"
+            },
+            {
+              "name": "content",
+              "type": "blocks"
+            }
+          ]
+        }
+      ],
+      "rootSlots": {
+        "body": {
+          "block_types": [],
+          "enforce_block_types": false
+        }
+      },
+      "doc": {
+        "fields": {
+          "body": [
+            {
+              "id": "s1",
+              "type": "section",
+              "data": {
+                "content": [
+                  {
+                    "id": "s2",
+                    "type": "section",
+                    "data": {
+                      "content": [
+                        {
+                          "id": "s3",
+                          "type": "section",
+                          "data": {
+                            "content": [
+                              {
+                                "id": "s4",
+                                "type": "section",
+                                "data": {
+                                  "content": [
+                                    {
+                                      "id": "h1",
+                                      "type": "heading",
+                                      "data": {},
+                                      "settings": {}
+                                    }
+                                  ]
+                                },
+                                "settings": {}
+                              }
+                            ]
+                          },
+                          "settings": {}
+                        }
+                      ]
+                    },
+                    "settings": {}
+                  }
+                ]
+              },
+              "settings": {}
+            },
+            {
+              "id": "h9",
+              "type": "heading",
+              "data": {},
+              "settings": {}
+            }
+          ]
+        }
+      },
+      "expect": {
+        "builder": "ok",
+        "server": "ok"
+      },
+      "moves": [
+        {
+          "block": "h9",
+          "to": {
+            "parent": "s4",
+            "slot": "content",
+            "index": 1
+          }
+        }
+      ],
+      "candidate": {
+        "fields": {
+          "body": [
+            {
+              "id": "s1",
+              "type": "section",
+              "data": {
+                "content": [
+                  {
+                    "id": "s2",
+                    "type": "section",
+                    "data": {
+                      "content": [
+                        {
+                          "id": "s3",
+                          "type": "section",
+                          "data": {
+                            "content": [
+                              {
+                                "id": "s4",
+                                "type": "section",
+                                "data": {
+                                  "content": [
+                                    {
+                                      "id": "h1",
+                                      "type": "heading",
+                                      "data": {},
+                                      "settings": {}
+                                    },
+                                    {
+                                      "id": "h9",
+                                      "type": "heading",
+                                      "data": {},
+                                      "settings": {}
+                                    }
+                                  ]
+                                },
+                                "settings": {}
+                              }
+                            ]
+                          },
+                          "settings": {}
+                        }
+                      ]
+                    },
+                    "settings": {}
+                  }
+                ]
+              },
+              "settings": {}
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

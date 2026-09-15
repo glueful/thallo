@@ -1,0 +1,365 @@
+{
+  "name": "the tabs authoring cap",
+  "cases": [
+    {
+      "name": "a thirteenth tab",
+      "blockTypes": [
+        {
+          "slug": "section",
+          "label": "Section",
+          "schema": [
+            {
+              "name": "content",
+              "type": "blocks"
+            }
+          ]
+        },
+        {
+          "slug": "heading",
+          "label": "Heading",
+          "schema": [
+            {
+              "name": "text",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "slug": "image",
+          "label": "Image",
+          "schema": [
+            {
+              "name": "alt",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "slug": "gallery",
+          "label": "Gallery",
+          "schema": [
+            {
+              "name": "items",
+              "type": "blocks",
+              "block_types": [
+                "image"
+              ],
+              "enforce_block_types": true
+            }
+          ]
+        },
+        {
+          "slug": "tabs",
+          "label": "Tabs",
+          "schema": [
+            {
+              "name": "items",
+              "type": "blocks",
+              "block_types": [
+                "tab"
+              ]
+            }
+          ]
+        },
+        {
+          "slug": "tab",
+          "label": "Tab",
+          "schema": [
+            {
+              "name": "label",
+              "type": "string"
+            },
+            {
+              "name": "content",
+              "type": "blocks"
+            }
+          ]
+        }
+      ],
+      "rootSlots": {
+        "body": {
+          "block_types": [],
+          "enforce_block_types": false
+        }
+      },
+      "doc": {
+        "fields": {
+          "body": [
+            {
+              "id": "tb",
+              "type": "tabs",
+              "data": {
+                "items": [
+                  {
+                    "id": "t0",
+                    "type": "tab",
+                    "data": {
+                      "label": "0",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t1",
+                    "type": "tab",
+                    "data": {
+                      "label": "1",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t2",
+                    "type": "tab",
+                    "data": {
+                      "label": "2",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t3",
+                    "type": "tab",
+                    "data": {
+                      "label": "3",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t4",
+                    "type": "tab",
+                    "data": {
+                      "label": "4",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t5",
+                    "type": "tab",
+                    "data": {
+                      "label": "5",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t6",
+                    "type": "tab",
+                    "data": {
+                      "label": "6",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t7",
+                    "type": "tab",
+                    "data": {
+                      "label": "7",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t8",
+                    "type": "tab",
+                    "data": {
+                      "label": "8",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t9",
+                    "type": "tab",
+                    "data": {
+                      "label": "9",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t10",
+                    "type": "tab",
+                    "data": {
+                      "label": "10",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t11",
+                    "type": "tab",
+                    "data": {
+                      "label": "11",
+                      "content": []
+                    },
+                    "settings": {}
+                  }
+                ]
+              },
+              "settings": {}
+            },
+            {
+              "id": "t99",
+              "type": "tab",
+              "data": {
+                "label": "x",
+                "content": []
+              },
+              "settings": {}
+            }
+          ]
+        }
+      },
+      "expect": {
+        "builder": "source-slot",
+        "server": "body.0.items"
+      },
+      "moves": [
+        {
+          "block": "t99",
+          "to": {
+            "parent": "tb",
+            "slot": "items",
+            "index": 12
+          }
+        }
+      ],
+      "candidate": {
+        "fields": {
+          "body": [
+            {
+              "id": "tb",
+              "type": "tabs",
+              "data": {
+                "items": [
+                  {
+                    "id": "t0",
+                    "type": "tab",
+                    "data": {
+                      "label": "0",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t1",
+                    "type": "tab",
+                    "data": {
+                      "label": "1",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t2",
+                    "type": "tab",
+                    "data": {
+                      "label": "2",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t3",
+                    "type": "tab",
+                    "data": {
+                      "label": "3",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t4",
+                    "type": "tab",
+                    "data": {
+                      "label": "4",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t5",
+                    "type": "tab",
+                    "data": {
+                      "label": "5",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t6",
+                    "type": "tab",
+                    "data": {
+                      "label": "6",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t7",
+                    "type": "tab",
+                    "data": {
+                      "label": "7",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t8",
+                    "type": "tab",
+                    "data": {
+                      "label": "8",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t9",
+                    "type": "tab",
+                    "data": {
+                      "label": "9",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t10",
+                    "type": "tab",
+                    "data": {
+                      "label": "10",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t11",
+                    "type": "tab",
+                    "data": {
+                      "label": "11",
+                      "content": []
+                    },
+                    "settings": {}
+                  },
+                  {
+                    "id": "t99",
+                    "type": "tab",
+                    "data": {
+                      "label": "x",
+                      "content": []
+                    },
+                    "settings": {}
+                  }
+                ]
+              },
+              "settings": {}
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

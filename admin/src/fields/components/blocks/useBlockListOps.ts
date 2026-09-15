@@ -1,5 +1,3 @@
-import { MAX_BLOCK_DEPTH } from '@/queries/blockTypes'
-
 // Pure, id-addressed operations over a blocks tree ({id,type,data} lists; nested
 // container regions live at data[<blocks-field name>]). Every function returns a
 // NEW tree (structural sharing where untouched) — the root BlocksField assigns the
@@ -247,39 +245,6 @@ export function createBlockListOps(regionsOf: RegionResolver) {
     return 0
   }
 
-  /** True when targetId is dragged's OWN id or lives anywhere inside its subtree. */
-  function isSelfOrDescendant(dragged: BlockInstance, targetId: string): boolean {
-    if (dragged.id === targetId) return true
-    for (const r of regionsOf(dragged.type)) {
-      for (const child of asList(dragged.data[r])) {
-        if (isSelfOrDescendant(child, targetId)) return true
-      }
-    }
-    return false
-  }
-
-  /**
-   * Spec §2 (pinned): targetDepth + draggedSubtreeDepth - 1 <= MAX_BLOCK_DEPTH.
-   * targetDepth = the depth blocks INSIDE the target list sit at (root = 1; a
-   * region of a block at depth d hosts depth d + 1). Rejects, IN ORDER: unknown
-   * drag id; target parent that is the dragged block or inside its own subtree
-   * (a container can never be dropped into itself); target parent missing from
-   * the tree (depthOf returns 0 — checked BEFORE the +1 so it can never
-   * masquerade as root depth); then the depth formula.
-   */
-  function canDropAt(tree: BlockInstance[], dragId: string, target: DropTarget): boolean {
-    const dragged = findById(tree, dragId)
-    if (!dragged) return false
-    let targetDepth = 1
-    if (target.parentId !== null) {
-      if (isSelfOrDescendant(dragged, target.parentId)) return false
-      const parentDepth = depthOf(tree, target.parentId)
-      if (parentDepth === 0) return false // missing parent — never depth-1 by accident
-      targetDepth = parentDepth + 1
-    }
-    return targetDepth + subtreeDepth(dragged) - 1 <= MAX_BLOCK_DEPTH
-  }
-
   /**
    * Slash-to-widget split (spec §3, pinned identity rules): replace the prose
    * block with [before?, widget, after?] in ONE pass — the before half KEEPS the
@@ -330,7 +295,6 @@ export function createBlockListOps(regionsOf: RegionResolver) {
     moveAcross,
     subtreeDepth,
     depthOf,
-    canDropAt,
     splitRichTextAt,
   }
 }

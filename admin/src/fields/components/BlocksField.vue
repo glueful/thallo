@@ -2,6 +2,7 @@
 import { computed, provide, reactive, nextTick, ref } from 'vue'
 import type { FieldDef } from '../types'
 import { toFieldDef } from '../normalize'
+import { checkMoves, type LegalityContext } from '@/editor/structure/legality'
 import { useBlockTypes } from '@/queries/blockTypes'
 import { MAX_BLOCK_DEPTH } from '@/queries/blockTypes'
 import type { BlockType } from '@/queries/blockTypes'
@@ -32,6 +33,25 @@ function regionsOf(slug: string): string[] {
 }
 
 const ops = createBlockListOps(regionsOf)
+
+/** The legality context (spec §5.2): every known type's slots, this field as the root slot. */
+function legalityContext(): LegalityContext {
+  return {
+    regionsOf,
+    blockTypes: () =>
+      (allTypes.value ?? []).map((t) => ({
+        slug: t.slug,
+        label: t.label,
+        slots: Object.fromEntries(
+          t.schema
+            .filter((f) => toFieldDef(f).type === 'blocks')
+            .map((f) => [f.name, { blockTypes: toFieldDef(f).blockTypes ?? [] }]),
+        ),
+      })),
+    rootSlots: () => ({ [props.field.name]: { blockTypes: allowlist.value } }),
+    maxDepth: MAX_BLOCK_DEPTH,
+  }
+}
 const expanded = reactive<Record<string, boolean>>({})
 
 /**
@@ -130,10 +150,33 @@ function onDragEnd(event: {
     source !== null &&
     (source.parentId !== parentId || source.region !== region) &&
     listIsFull(parentId, region)
-  if (dragId === '' || !ops.canDropAt(tree, dragId, { parentId, region }) || crossListFull) {
-    dropRejected.value = crossListFull
-      ? `Tabs supports at most ${TABS_MAX_ITEMS} items.`
-      : `That drop would exceed the maximum nesting depth (${MAX_BLOCK_DEPTH}).`
+  // Whole-candidate-tree legality (visual builder spec §5.2): the same rules the Design page
+  // applies, with this field as the only root slot.
+  const verdict =
+    dragId === ''
+      ? { ok: false as const, reason: 'unknown-block' as const, message: 'Nothing to move' }
+      : crossListFull
+        ? {
+            ok: false as const,
+            reason: 'source-slot' as const,
+            message: `Tabs supports at most ${TABS_MAX_ITEMS} items`,
+          }
+        : checkMoves(
+            { fields: { [props.field.name]: tree } },
+            [
+              {
+                block: dragId,
+                to: {
+                  parent: parentId,
+                  slot: parentId === null ? props.field.name : region,
+                  index,
+                },
+              },
+            ],
+            legalityContext(),
+          )
+  if (!verdict.ok) {
+    dropRejected.value = verdict.message
     if (rejectTimer) clearTimeout(rejectTimer)
     rejectTimer = setTimeout(() => (dropRejected.value = null), 3000)
   } else {
