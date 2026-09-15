@@ -293,6 +293,10 @@ describe('useCanvasBridge', () => {
 
     send({ type: 'thallo:drag-propose', session: 's1', blocks: ['b1'], zone })
     expect(propose).toHaveBeenCalledWith('s1', ['b1'], zone)
+    // A null zone is a proposal too (the session left every slot); an empty block list is a
+    // parent-originated session's.
+    send({ type: 'thallo:drag-propose', session: 's1', blocks: [], zone: null })
+    expect(propose).toHaveBeenLastCalledWith('s1', [], null)
     const root = { parent: null, slot: 'body', index: 0, layout: 'linear-horizontal' }
     send({ type: 'thallo:block-drop', session: 's1', blocks: ['b1', 'b2'], zone: root })
     expect(drop).toHaveBeenCalledWith('s1', ['b1', 'b2'], root)
@@ -320,10 +324,10 @@ describe('useCanvasBridge', () => {
       blocks: ['b1'],
       zone: { ...zone, layout: 'x' },
     })
-    send({ type: 'thallo:drag-propose', session: 's2', blocks: [], zone })
+    send({ type: 'thallo:block-drop', session: 's2', blocks: [], zone: null }) // a drop needs a zone
     send({ type: 'thallo:block-drop', session: 's2', blocks: ['b1', 4], zone })
     send({ type: 'thallo:drag-cancel' })
-    expect(propose).toHaveBeenCalledTimes(1)
+    expect(propose).toHaveBeenCalledTimes(2)
     expect(drop).toHaveBeenCalledTimes(1)
     expect(cancel).toHaveBeenCalledTimes(1)
     bridge.dispose()
@@ -353,6 +357,7 @@ describe('useCanvasBridge', () => {
     bridge.dragHover('s1', 40, 120)
     bridge.dragLegality('s1', false, 'Too deep')
     bridge.dragLegality('s1', true)
+    bridge.dragDrop('s1', 41, 121)
     bridge.dragEnd('s1')
     const types = postSpy.mock.calls.map((c) => c[0] as Record<string, unknown>)
     expect(types).toEqual([
@@ -366,6 +371,7 @@ describe('useCanvasBridge', () => {
         nonce: bridge.nonce,
       },
       { type: 'thallo:drag-legality', session: 's1', legal: true, reason: '', nonce: bridge.nonce },
+      { type: 'thallo:drag-drop', session: 's1', x: 41, y: 121, nonce: bridge.nonce },
       { type: 'thallo:drag-end', session: 's1', nonce: bridge.nonce },
     ])
     bridge.dispose()

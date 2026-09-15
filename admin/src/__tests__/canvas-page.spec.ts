@@ -81,7 +81,7 @@ const bridge = vi.hoisted(() => {
     index?: (ids: string[]) => void
     deselect?: (id: string) => void
     move?: (id: string, d: 1 | -1) => void
-    dragPropose?: (session: string, blocks: string[], zone: StageZone) => void
+    dragPropose?: (session: string, blocks: string[], zone: StageZone | null) => void
     blockDrop?: (session: string, blocks: string[], zone: StageZone) => void
     dragCancel?: (session: string) => void
     duplicate?: (id: string) => void
@@ -104,7 +104,7 @@ const bridge = vi.hoisted(() => {
       onBlockHover: (cb: (id: string) => void) => (callbacks.hover = cb),
       onBlocksIndex: (cb: (ids: string[]) => void) => (callbacks.index = cb),
       onBlockMove: (cb: (id: string, d: 1 | -1) => void) => (callbacks.move = cb),
-      onDragPropose: (cb: (session: string, blocks: string[], zone: StageZone) => void) =>
+      onDragPropose: (cb: (session: string, blocks: string[], zone: StageZone | null) => void) =>
         (callbacks.dragPropose = cb),
       onBlockDrop: (cb: (session: string, blocks: string[], zone: StageZone) => void) =>
         (callbacks.blockDrop = cb),
@@ -112,6 +112,7 @@ const bridge = vi.hoisted(() => {
       dragBegin: vi.fn(),
       dragHover: vi.fn(),
       dragLegality: vi.fn(),
+      dragDrop: vi.fn(),
       dragEnd: vi.fn(),
       onBlockDuplicate: (cb: (id: string) => void) => (callbacks.duplicate = cb),
       onBlockDeleteRequest: (cb: (id: string, anchor?: { x: number; y: number } | null) => void) =>
@@ -1275,6 +1276,119 @@ describe('canvas page', () => {
         'late00000002',
         'prose0000003',
       ])
+      wrapper.unmount()
+    })
+  })
+
+  describe('a palette drag onto the stage (Phase C.1)', () => {
+    const savedBody = () =>
+      (
+        saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
+          fields: { body: { id: string; type: string; data: Record<string, unknown> }[] }
+        }
+      ).fields.body
+    /** Begin a tile drag and move past the threshold over the stage; returns the bridge session. */
+    async function dragTile(wrapper: ReturnType<typeof mountPage>, slug: string) {
+      const iframe = wrapper.find('[data-test="canvas-iframe"]').element as HTMLIFrameElement
+      iframe.getBoundingClientRect = () =>
+        ({
+          left: 100,
+          top: 50,
+          width: 400,
+          height: 300,
+          right: 500,
+          bottom: 350,
+          x: 100,
+          y: 50,
+          toJSON: () => ({}),
+        }) as DOMRect
+      await wrapper
+        .find('[data-test="inspector-tabs"]')
+        .findAll('button')
+        .find((b) => b.text() === 'Blocks')!
+        .trigger('click')
+      await flushPromises()
+      const tile = wrapper.find(`[data-test="palette-card-${slug}"]`).element
+      tile.dispatchEvent(
+        new MouseEvent('pointerdown', { button: 0, bubbles: true, clientX: 10, clientY: 10 }),
+      )
+      tile.dispatchEvent(
+        new MouseEvent('pointermove', { bubbles: true, clientX: 200, clientY: 100 }),
+      )
+      await flushPromises() // the factory answers; the session begins
+      const begin = bridge.instance.dragBegin as ReturnType<typeof vi.fn>
+      expect(begin).toHaveBeenCalledTimes(1)
+      const session = begin.mock.calls[0]![0] as string
+      expect(begin.mock.calls[0]![1]).toEqual([])
+      expect(bridge.instance.dragHover).toHaveBeenLastCalledWith(session, 100, 50)
+      return { tile, session }
+    }
+    const zone = { parent: null, slot: 'body', index: 1, layout: 'linear-vertical' as const }
+
+    it('a proposal is judged, the release asks the stage, and the answered zone inserts one block', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      const { tile, session } = await dragTile(wrapper, 'card')
+      bridge.callbacks.dragPropose?.(session, [], zone)
+      expect(bridge.instance.dragLegality).toHaveBeenLastCalledWith(session, true, '')
+      bridge.callbacks.dragPropose?.(session, [], null) // left every slot: nothing to judge
+      tile.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientX: 210, clientY: 110 }))
+      expect(bridge.instance.dragDrop).toHaveBeenCalledWith(session, 110, 60)
+      expect(notify.warning).not.toHaveBeenCalled()
+      bridge.callbacks.blockDrop?.(session, [], zone) // the zone under the released pointer
+      await flushPromises()
+      expect(bridge.instance.dragEnd).toHaveBeenCalledWith(session)
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      const body = savedBody()
+      expect(body.map((b) => b.type)).toEqual(['card', 'card', 'card', 'rich_text'])
+      expect(body[1]!.data).toEqual({ title: 'Card', body: [] })
+      expect(bridge.instance.highlight).toHaveBeenLastCalledWith(body[1]!.id, [body[1]!.id])
+      wrapper.unmount()
+    })
+
+    it('a permitted hover then a release over a forbidden slot: the final zone is judged and refused', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      const { tile, session } = await dragTile(wrapper, 'card')
+      bridge.callbacks.dragPropose?.(session, [], zone)
+      expect(bridge.instance.dragLegality).toHaveBeenLastCalledWith(session, true, '')
+      tile.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientX: 210, clientY: 110 }))
+      // The stage answers with a slot that does not exist on the anchor: refused at commit.
+      bridge.callbacks.blockDrop?.(session, [], {
+        parent: 'blockaaa0001',
+        slot: 'nope',
+        index: 0,
+        layout: 'linear-vertical',
+      })
+      await flushPromises()
+      expect(notify.warning).toHaveBeenCalledWith('That move is not allowed', expect.any(String))
+      expect(bridge.instance.dragEnd).toHaveBeenCalledWith(session)
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      expect(savedBody().map((b) => b.id)).toEqual(['blockaaa0001', 'blockbbb0002', 'prose0000003'])
+      wrapper.unmount()
+    })
+
+    it('a drag-cancel answer ends the session with nothing inserted; a stale block-drop afterwards is ignored', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      const { tile, session } = await dragTile(wrapper, 'card')
+      tile.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientX: 210, clientY: 110 }))
+      bridge.callbacks.dragCancel?.(session)
+      await flushPromises()
+      expect(bridge.instance.dragEnd).toHaveBeenCalledWith(session)
+      bridge.callbacks.blockDrop?.(session, [], zone) // late: the helper no longer awaits
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      expect(savedBody().map((b) => b.id)).toEqual(['blockaaa0001', 'blockbbb0002', 'prose0000003'])
       wrapper.unmount()
     })
   })

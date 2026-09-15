@@ -32,6 +32,7 @@ import MoveToDialog from './components/MoveToDialog.vue'
 import BlocksPalette from '@/editor/palette/BlocksPalette.vue'
 import { resolveTarget, tilePreflight, type InsertTarget } from '@/editor/palette/target'
 import { useBlockFactory } from '@/queries/blockFactory'
+import { createPaletteDrag } from '@/editor/palette/usePaletteDrag'
 import type { Legality, LegalityContext } from '@/editor/structure/legality'
 import {
   EMPTY_SELECTION,
@@ -560,6 +561,7 @@ bridge.onBlockMove(moveBlockAndMirror)
 // nothing to snap back, since nothing moved.
 let stageDragSession: string | null = null
 bridge.onDragPropose((session, blocks, zone) => {
+  if (zone === null) return // the session left every slot: nothing to judge
   if (stageDragSession !== session) {
     coordinator.begin('stage', { blocks })
     stageDragSession = session
@@ -573,6 +575,11 @@ bridge.onDragPropose((session, blocks, zone) => {
   )
 })
 bridge.onBlockDrop((session, _blocks, zone) => {
+  // A palette session's answer belongs to the palette drag alone (Phase C.1).
+  if (paletteDrag.owns(session)) {
+    paletteDrag.answer(zone)
+    return
+  }
   // Only the session this page is judging may drop: the bridge proposes before it ever drops,
   // so a drop for a cancelled or unknown session is stale and ignored.
   if (stageDragSession !== session) return
@@ -580,6 +587,10 @@ bridge.onBlockDrop((session, _blocks, zone) => {
   void finishDrop(zone)
 })
 bridge.onDragCancel((session) => {
+  if (paletteDrag.owns(session)) {
+    paletteDrag.answer(null)
+    return
+  }
   if (stageDragSession !== session) return
   stageDragSession = null
   coordinator.cancel()
@@ -862,6 +873,38 @@ function clearInsertTarget(): void {
   targetStale.value = false
   insertAttempt++
 }
+// A palette drag onto the stage (Phase C.1): the helper owns the gesture and the bridge's drop
+// answer; the page judges its proposals like a stage session and applies the answered zone.
+let paletteBlock: BlockInstance | null = null
+const paletteDrag = createPaletteDrag({
+  bridge,
+  iframeRect: () => iframeEl.value?.getBoundingClientRect() ?? null,
+  factory: blockFactory,
+  coordinator,
+  notify: notifyError,
+  onClick: (slug) => void insertFromPalette(slug),
+  onSession: (session, block) => {
+    stageDragSession = session
+    paletteBlock = block
+  },
+  onDrop: (zone) => {
+    stageDragSession = null
+    const block = paletteBlock
+    paletteBlock = null
+    void finishDrop(zone).then((ok) => {
+      if (!ok || !block) return
+      selectOne(block.id)
+      fieldEditorRef.value?.selectBlockById(block.id)
+      ringSelection()
+    })
+  },
+  onCancel: () => {
+    stageDragSession = null
+    paletteBlock = null
+    coordinator.cancel()
+  },
+})
+
 async function insertFromPalette(slug: string): Promise<void> {
   const intent = effectiveTarget()
   if (!intent) return
@@ -1706,6 +1749,7 @@ async function openThemePreview(): Promise<void> {
  * No re-mint — that stays behind the explicit Refresh preview affordance.
  */
 function reloadStage(): void {
+  paletteDrag.cancel('stage reloaded') // a palette session cannot survive the swap either
   if (stageDragSession !== null) {
     stageDragSession = null // the iframe goes with its drag session
     coordinator.cancel()
@@ -1969,6 +2013,7 @@ function reloadStage(): void {
                   :clickable="paletteClickable"
                   @insert="insertFromPalette"
                   @clear-target="clearInsertTarget"
+                  @pointer-down="(slug: string, e: PointerEvent) => paletteDrag.begin(slug, e)"
                 />
               </div>
             </template>

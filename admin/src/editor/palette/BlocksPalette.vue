@@ -59,8 +59,9 @@ function onSearchKeydown(event: KeyboardEvent): void {
   }
 }
 
-function onTileClick(slug: string): void {
-  if (reasonOf(slug) !== undefined) return
+/** Keyboard activation inserts; a mouse click (detail > 0) was already judged by the pointer path. */
+function onTileClick(slug: string, event: MouseEvent): void {
+  if (event.detail > 0 || reasonOf(slug) !== undefined) return
   emit('insert', slug)
 }
 
@@ -109,7 +110,7 @@ function onTilePointerDown(slug: string, event: PointerEvent): void {
         :aria-disabled="reasonOf(t.slug) !== undefined ? 'true' : undefined"
         :title="reasonOf(t.slug) ?? t.description ?? undefined"
         :data-test="`palette-card-${t.slug}`"
-        @click="onTileClick(t.slug)"
+        @click="(e: MouseEvent) => onTileClick(t.slug, e)"
         @pointerdown="(e: PointerEvent) => onTilePointerDown(t.slug, e)"
       >
         <UIcon :name="t.icon || 'i-lucide-box'" class="size-4 text-muted" />
