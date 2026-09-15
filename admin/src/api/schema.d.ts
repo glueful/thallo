@@ -3485,7 +3485,7 @@ export interface paths {
     post?: never
     /**
      * Archive a style class
-     * @description Deletion archives the definition so old revisions still restore (spec §4.5).
+     * @description Deletion archives the definition so old revisions still restore (spec §4.5). With `?unreferenced=1` a class nothing references is deleted outright — the editor uses it for a lift that could not preserve appearance; a referenced class answers 409 `STYLE_CLASS_REFERENCED`.
      */
     delete: operations['deleteV1AdminStyleclassesById']
     options?: never
@@ -3495,6 +3495,43 @@ export interface paths {
      * @description `version` is the version the client loaded; a stale one is 409 `STYLE_CLASS_VERSION_CONFLICT` carrying `current_version`. Only the keys present change. Saving changes published pages immediately.
      */
     patch: operations['patchV1AdminStyleclassesById']
+    trace?: never
+  }
+  '/style-classes/{id}/jobs': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Queue a detach-everywhere or remove-everywhere job
+     * @description Locks the class until the job completes (spec §4.5): no edit and no new reference meanwhile. `detach` writes what the class contributed into every block and removes the reference; `remove` removes the reference only and changes how pages look.
+     */
+    post: operations['postV1AdminStyleclassesByIdJobs']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/style-classes/{id}/jobs/{job}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** One style class job */
+    get: operations['getV1AdminStyleclassesByIdJobsByJob']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
     trace?: never
   }
   '/style-classes/{id}/usage': {
@@ -29663,7 +29700,7 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Style class archived. */
+      /** @description Style class archived or deleted. */
       200: {
         headers: {
           [name: string]: unknown
@@ -29740,7 +29777,7 @@ export interface operations {
           }
         }
       }
-      /** @description Locked by a job. */
+      /** @description Locked or referenced. */
       409: {
         headers: {
           [name: string]: unknown
@@ -29900,6 +29937,276 @@ export interface operations {
       }
       /** @description Name taken or invalid style. */
       422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  postV1AdminStyleclassesByIdJobs: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        /**
+         * @example {
+         *       "kind": "example"
+         *     }
+         */
+        'application/json': {
+          /**
+           * @description `detach` (appearance-preserving) or `remove` (changes how pages look).
+           * @enum {string}
+           */
+          kind: 'detach' | 'remove'
+        }
+      }
+    }
+    responses: {
+      /** @description Successful response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Job queued. */
+      202: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success: boolean
+            message: string
+            data: {
+              id?: string
+              class_id?: string
+              class_version?: number
+              kind?: string
+              status?: string
+              passes?: number
+              work_items_total?: number
+              work_items_done?: number
+              work_items_failed?: number
+              failure_report?: unknown[]
+              created_at?: string | null
+              finished_at?: string | null
+            }
+          }
+        }
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Unknown id. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description A job is already active. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            /** @example false */
+            success: boolean
+            message: string
+            errors: {
+              [key: string]: string[]
+            }
+          }
+        }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  getV1AdminStyleclassesByIdJobsByJob: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+        job: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The job with its progress. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success: boolean
+            message: string
+            data: {
+              id?: string
+              class_id?: string
+              class_version?: number
+              kind?: string
+              status?: string
+              passes?: number
+              work_items_total?: number
+              work_items_done?: number
+              work_items_failed?: number
+              failure_report?: unknown[]
+              created_at?: string | null
+              finished_at?: string | null
+            }
+          }
+        }
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Unknown job. */
+      404: {
         headers: {
           [name: string]: unknown
         }

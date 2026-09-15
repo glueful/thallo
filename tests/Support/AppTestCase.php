@@ -29,7 +29,7 @@ abstract class AppTestCase extends TestCase
         'block_type_migrations',
         'blobs',
         'block_types',
-        'style_classes', 'style_generations',
+        'style_class_jobs', 'style_classes', 'style_generations',
         'render_template_versions', 'render_templates',
         'navigation_items', 'navigation_menus',
         'workflow_transitions', 'workflow_review_states',
