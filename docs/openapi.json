@@ -41095,6 +41095,245 @@
                 }
             }
         },
+        "\/v1\/admin\/block-types\/{slug}\/instance": {
+            "post": {
+                "operationId": "postV1AdminBlocktypesBySlugInstance",
+                "summary": "A fresh block instance of a type",
+                "tags": [
+                    "Thallo Admin"
+                ],
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The server block factory (visual builder spec \u00a75.5): the canonical structure and defaults of a new block \u2014 no id, every blocks field an empty list, every enum field its first option, settings empty \u2014 with the type's starter content alongside for the editor to merge and to mint ids for.",
+                "responses": {
+                    "200": {
+                        "description": "The block and its starter content.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "block": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "type": {
+                                                            "type": "string"
+                                                        },
+                                                        "data": {
+                                                            "type": "array",
+                                                            "items": {},
+                                                            "description": "Every blocks field `[]`, every enum field its first option."
+                                                        },
+                                                        "settings": {
+                                                            "type": "array",
+                                                            "items": {},
+                                                            "description": "Empty on a fresh block."
+                                                        }
+                                                    }
+                                                },
+                                                "starter": {
+                                                    "type": "array",
+                                                    "items": {},
+                                                    "description": "The type's starter content, to merge over `block.data`."
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "message",
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Unknown slug.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The type is inactive.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "\/v1\/admin\/block-types\/{slug}\/migrations": {
             "get": {
                 "operationId": "getV1AdminBlocktypesBySlugMigrations",

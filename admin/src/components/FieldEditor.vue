@@ -25,7 +25,7 @@ interface BlocksFieldExposed {
   moveBlock: (id: string, delta: number) => { beforeId: string } | { afterId: string } | null
   duplicateBlock: (id: string) => { newId: string; idMap: Record<string, string> } | null
   deleteBlock: (id: string) => boolean
-  insertAfter: (id: string, typeSlug: string) => string | null
+  insertAfter: (id: string, typeSlug: string) => Promise<string | null>
   pickerTypesFor: (id: string) => BlockType[]
   patchBlockData: (id: string, field: string, value: unknown) => boolean
   patchBlockSettings: (id: string, settings: Record<string, unknown>) => boolean
@@ -78,8 +78,8 @@ defineExpose({
   deleteBlockById(id: string) {
     return fieldOwning(id)?.deleteBlock(id) ?? false
   },
-  insertAfterById(id: string, typeSlug: string) {
-    return fieldOwning(id)?.insertAfter(id, typeSlug) ?? null
+  insertAfterById(id: string, typeSlug: string): Promise<string | null> {
+    return fieldOwning(id)?.insertAfter(id, typeSlug) ?? Promise.resolve(null)
   },
   pickerTypesForBlock(id: string): BlockType[] {
     return fieldOwning(id)?.pickerTypesFor(id) ?? []

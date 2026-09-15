@@ -138,6 +138,23 @@ const bridge = vi.hoisted(() => {
   }
 })
 vi.mock('@/composables/useCanvasBridge', () => ({ useCanvasBridge: () => bridge.instance }))
+// The server block factory (visual builder spec §5.5): stubbed per slug — a fresh id, the
+// canonical defaults the server would send, and the starter merged in.
+const factoryStarter: Record<string, Record<string, unknown>> = {
+  hero: { headline: 'Headline', links: [] },
+  card: { title: 'Card', body: [] },
+}
+vi.mock('@/queries/blockFactory', () => ({
+  useBlockFactory: () => ({
+    make: vi.fn(),
+    instance: vi.fn(async (slug: string) => ({
+      id: 'f' + Math.random().toString(36).slice(2, 13).padEnd(11, '0'),
+      type: slug,
+      data: { ...(factoryStarter[slug] ?? {}) },
+      settings: {},
+    })),
+  }),
+}))
 
 vi.mock('vue-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-router')>()),
@@ -732,6 +749,17 @@ describe('canvas page', () => {
     expect(bridge.instance.mirrorMove).not.toHaveBeenCalled()
     expect(bridge.instance.mirrorDuplicate).not.toHaveBeenCalled()
     expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(false)
+
+    // The insertion awaited the factory: one new block after the anchor, carrying the starter.
+    saveMock.mockResolvedValue(undefined)
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    const saved = saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
+      fields: { body: { id: string; type: string; data: Record<string, unknown> }[] }
+    }
+    expect(saved.fields.body.map((b) => b.type)).toEqual(['card', 'card', 'card', 'rich_text'])
+    expect(saved.fields.body[1]!.id).not.toBe('blockbbb0002')
+    expect(saved.fields.body[1]!.data).toEqual({ title: 'Card', body: [] })
     wrapper.unmount()
   })
 

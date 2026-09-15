@@ -7,6 +7,8 @@ import { createDragCoordinator } from '@/editor/structure/coordinator'
 import { createOperationApplier } from '@/editor/ops/apply'
 import type { Operation, OperationBody } from '@/editor/ops/types'
 import { useBlockTypes } from '@/queries/blockTypes'
+import { useBlockFactory } from '@/queries/blockFactory'
+import { useNotify } from '@/composables/useNotify'
 import { MAX_BLOCK_DEPTH } from '@/queries/blockTypes'
 import type { BlockType } from '@/queries/blockTypes'
 import { BlocksContextKey, type BlocksContext } from './blocks/context'
@@ -24,6 +26,17 @@ const props = defineProps<{ field: FieldDef; depth?: number }>()
 const model = defineModel<BlockInstance[]>({ default: () => [] })
 
 const { data: allTypes } = useBlockTypes()
+const factory = useBlockFactory()
+const { error: notifyError } = useNotify()
+/** The factory's block, or null after telling the user why nothing was added. */
+async function makeBlock(slug: string): Promise<BlockInstance | null> {
+  try {
+    return await factory.instance(slug)
+  } catch (err) {
+    notifyError(err, "Couldn't add block")
+    return null
+  }
+}
 const bySlug = computed(() => new Map((allTypes.value ?? []).map((t) => [t.slug, t])))
 
 const allowlist = computed(() => props.field.blockTypes ?? [])
@@ -208,6 +221,7 @@ const context: BlocksContext = {
   pickerTypesForList,
   regionsOf,
   apply,
+  makeBlock,
   ops,
   expanded,
   selectBlock,
@@ -268,13 +282,17 @@ function deleteBlock(id: string): boolean {
   return true
 }
 
-/** Insert a fresh empty block of `typeSlug` as the next sibling of `id`. */
-function insertAfter(id: string, typeSlug: string): string | null {
-  const loc = ops.locateById(model.value ?? [], id)
-  if (!loc) return null
+/** Insert a fresh block of `typeSlug` (from the factory) as the next sibling of `id`. */
+async function insertAfter(id: string, typeSlug: string): Promise<string | null> {
+  const before = ops.locateById(model.value ?? [], id)
+  if (!before) return null
   // Tabs cap: inserting a sibling is a net addition to the containing list.
-  if (listIsFull(loc.parentId, loc.region)) return null
-  const block: BlockInstance = { id: newBlockId(), type: typeSlug, data: {}, settings: {} }
+  if (listIsFull(before.parentId, before.region)) return null
+  const block = await makeBlock(typeSlug)
+  if (block === null) return null
+  // The tree may have moved while the factory answered: place against where the anchor is now.
+  const loc = ops.locateById(model.value ?? [], id)
+  if (!loc || listIsFull(loc.parentId, loc.region)) return null
   apply((t) =>
     ops.insertAt(t, { parentId: loc.parentId, region: loc.region, index: loc.index + 1 }, block),
   )
@@ -345,16 +363,11 @@ function toggleOutline(): void {
   outlineOpen.value = !outlineOpen.value
 }
 
-function addTailProse(): void {
+async function addTailProse(): Promise<void> {
   const type = tailProseType.value
   if (!type) return
-  const name = proseRichFieldName(type)
-  const block: BlockInstance = {
-    id: newBlockId(),
-    type: type.slug,
-    data: name ? { [name]: '' } : {},
-    settings: {},
-  }
+  const block = await makeBlock(type.slug)
+  if (block === null) return
   apply((t) =>
     ops.insertAt(t, { parentId: null, region: null, index: (model.value ?? []).length }, block),
   )

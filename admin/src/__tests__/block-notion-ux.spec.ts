@@ -18,6 +18,26 @@ vi.mock('vue-router/auto', () => ({
 // Mounting a real UEditor in jsdom is out of harness scope (recorded rule):
 // stub the prose editor; the split ROUTINE is browser-verified, the split
 // IDENTITY rules are blockListOps unit tests, and this suite drives the EVENT.
+// The server block factory (visual builder spec §5.5): stubbed per slug — a fresh id, the
+// canonical defaults the server would send, and the starter merged in.
+const factoryStarter: Record<string, Record<string, unknown>> = {
+  hero: { headline: 'Headline', links: [] },
+  card: { title: 'Card', body: [] },
+  rich_text: { body: '<p>Start writing.</p>' },
+}
+const notify = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
+vi.mock('@/composables/useNotify', () => ({ useNotify: () => notify }))
+vi.mock('@/queries/blockFactory', () => ({
+  useBlockFactory: () => ({
+    make: vi.fn(),
+    instance: vi.fn(async (slug: string) => ({
+      id: 'f' + Math.random().toString(36).slice(2, 13).padEnd(11, '0'),
+      type: slug,
+      data: { ...(factoryStarter[slug] ?? {}) },
+      settings: {},
+    })),
+  }),
+}))
 vi.mock('@/fields/components/blocks/ProseBlockEditor.vue', () => ({
   default: {
     name: 'ProseBlockEditor',
@@ -182,8 +202,9 @@ describe('prose seam', () => {
     let wrapper = mountField(model)
     await flushPromises()
     await wrapper.find('[data-test="tail-prose"]').trigger('click')
+    await flushPromises() // the factory answers
     expect(model.value[0]!.type).toBe('rich_text')
-    expect(model.value[0]!.data.body).toBe('')
+    expect(model.value[0]!.data.body).toBe('<p>Start writing.</p>') // the type's starter
 
     // Custom prose type only (allowlist excludes rich_text) -> fallback.
     blockTypes.value = [
@@ -203,6 +224,7 @@ describe('prose seam', () => {
     wrapper = mountField(model2, { ...field, blockTypes: ['note', 'hero'] })
     await flushPromises()
     await wrapper.find('[data-test="tail-prose"]').trigger('click')
+    await flushPromises()
     expect(model2.value[0]!.type).toBe('note')
 
     // No prose type allowed -> hidden.

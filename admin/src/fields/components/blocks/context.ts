@@ -17,6 +17,12 @@ export interface BlocksContext {
   /** Blocks-typed field names (container regions) of a block-type schema. */
   regionsOf: (slug: string) => string[]
   apply: (fn: (tree: BlockInstance[]) => BlockInstance[]) => void
+  /**
+   * A ready-to-insert block of `slug` from the server block factory (visual builder spec
+   * §5.5): defaults, starter content and fresh ids. Every insertion awaits it; null means the
+   * factory failed and the user has been told — insert nothing.
+   */
+  makeBlock: (slug: string) => Promise<BlockInstance | null>
   ops: BlockListOps
   /** Shared expand/collapse state, keyed by block id. */
   expanded: Reactive<Record<string, boolean>>

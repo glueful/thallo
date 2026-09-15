@@ -592,14 +592,14 @@ describe('FieldEditor.selectBlockById', () => {
       moveBlockById: (id: string, d: number) => { beforeId: string } | { afterId: string } | null
       duplicateBlockById: (id: string) => { newId: string; idMap: Record<string, string> } | null
       deleteBlockById: (id: string) => boolean
-      insertAfterById: (id: string, slug: string) => string | null
+      insertAfterById: (id: string, slug: string) => Promise<string | null>
       pickerTypesForBlock: (id: string) => { slug: string }[]
     }
     // Unknown id -> safe empties, no throw.
     expect(api.moveBlockById('missing', 1)).toBeNull()
     expect(api.duplicateBlockById('missing')).toBeNull()
     expect(api.deleteBlockById('missing')).toBe(false)
-    expect(api.insertAfterById('missing', 'card')).toBeNull()
+    await expect(api.insertAfterById('missing', 'card')).resolves.toBeNull()
     expect(api.pickerTypesForBlock('missing')).toEqual([])
     // Owned id routes to the owning field (sidebar's block, not body's).
     const dup = api.duplicateBlockById('inside000001')

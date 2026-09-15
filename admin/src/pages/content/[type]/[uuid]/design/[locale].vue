@@ -300,10 +300,9 @@ interface FieldEditorExposed {
   patchBlockSettingsById: (id: string, settings: Record<string, unknown>) => boolean
   blockById: (id: string) => BlockInstance | null
   moveBlockById: (id: string, delta: number) => { beforeId: string } | { afterId: string } | null
-  moveBlockToById: (id: string, neighbor: { beforeId: string } | { afterId: string }) => boolean
   duplicateBlockById: (id: string) => { newId: string; idMap: Record<string, string> } | null
   deleteBlockById: (id: string) => boolean
-  insertAfterById: (id: string, typeSlug: string) => string | null
+  insertAfterById: (id: string, typeSlug: string) => Promise<string | null>
   pickerTypesForBlock: (id: string) => BlockType[]
   patchBlockDataById: (id: string, field: string, value: unknown) => boolean
   blockTypeOfBlock: (id: string) => string | null
@@ -543,10 +542,11 @@ function cancelAddAfter(): void {
   addAfterId.value = null
 }
 
-function chooseAddType(slug: string): void {
+async function chooseAddType(slug: string): Promise<void> {
   const id = addAfterId.value
   addAfterId.value = null
-  const newId = id !== null ? (fieldEditorRef.value?.insertAfterById(id, slug) ?? null) : null
+  if (id === null) return
+  const newId = (await fieldEditorRef.value?.insertAfterById(id, slug)) ?? null
   if (newId !== null) selected.value = newId
 }
 

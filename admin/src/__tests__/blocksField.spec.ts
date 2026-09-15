@@ -24,6 +24,29 @@ vi.mock('@/queries/navigation', () => ({
   }),
 }))
 
+// The server block factory (visual builder spec §5.5): stubbed per slug — a fresh id, the
+// canonical defaults the server would send, and the starter merged in.
+const factoryStarter: Record<string, Record<string, unknown>> = {
+  hero: { headline: 'Headline', links: [] },
+  card: { title: 'Card', body: [] },
+}
+const notify = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
+vi.mock('@/composables/useNotify', () => ({ useNotify: () => notify }))
+vi.mock('@/queries/blockFactory', () => ({
+  useBlockFactory: () => ({
+    make: vi.fn(),
+    instance: vi.fn(async (slug: string) => {
+      if (slug === 'broken') throw new Error('Block type not found.')
+      return {
+        id: 'f' + Math.random().toString(36).slice(2, 13).padEnd(11, '0'),
+        type: slug,
+        data: { ...(factoryStarter[slug] ?? {}) },
+        settings: {},
+      }
+    }),
+  }),
+}))
+
 import BlocksField from '@/fields/components/BlocksField.vue'
 
 const defaultTypes = (): BlockType[] => [
@@ -175,6 +198,58 @@ describe('BlocksField', () => {
     expect(value).toHaveLength(1)
     expect(value[0]!.type).toBe('hero')
     expect(value[0]!.id.length).toBeGreaterThanOrEqual(8)
+  })
+
+  it('insertion awaits the factory: the new block carries the server defaults and starter', async () => {
+    const model = ref<{ id: string; type: string; data: Record<string, unknown> }[]>([])
+    const wrapper = mount(BlocksField, {
+      props: {
+        field,
+        modelValue: model.value,
+        'onUpdate:modelValue': (v: typeof model.value) => (model.value = v),
+      },
+    })
+    await flushPromises()
+    await wrapper.find('[data-test="add-block"]').trigger('click')
+    await wrapper.find('[data-test="picker-item-hero"]').trigger('click')
+    await flushPromises()
+    expect(model.value).toHaveLength(1)
+    expect(model.value[0]!.data).toEqual({ headline: 'Headline', links: [] })
+    await wrapper.setProps({ modelValue: model.value })
+
+    // insertAfter goes through the same factory.
+    const api = wrapper.vm as unknown as {
+      insertAfter: (id: string, slug: string) => Promise<string | null>
+    }
+    const newId = await api.insertAfter(model.value[0]!.id, 'hero')
+    expect(newId).not.toBeNull()
+    expect(model.value[1]!.id).toBe(newId)
+    expect(model.value[1]!.data).toEqual({ headline: 'Headline', links: [] })
+    wrapper.unmount()
+  })
+
+  it('a factory failure warns and inserts nothing; the tree is untouched', async () => {
+    let model: {
+      id: string
+      type: string
+      data: Record<string, unknown>
+      settings: Record<string, unknown>
+    }[] = [{ id: 'aaa000000001', type: 'hero', data: { heading: 'One' }, settings: {} }]
+    const wrapper = mount(BlocksField, {
+      props: {
+        field,
+        modelValue: model,
+        'onUpdate:modelValue': (v: typeof model) => (model = v),
+      },
+    })
+    await flushPromises()
+    const api = wrapper.vm as unknown as {
+      insertAfter: (id: string, slug: string) => Promise<string | null>
+    }
+    await expect(api.insertAfter('aaa000000001', 'broken')).resolves.toBeNull()
+    expect(model.map((b) => b.id)).toEqual(['aaa000000001'])
+    expect(notify.error).toHaveBeenCalledWith(expect.anything(), "Couldn't add block")
+    wrapper.unmount()
   })
 
   it('respects the field blockTypes allowlist in the picker', async () => {
@@ -408,7 +483,7 @@ describe('BlocksField', () => {
       moveBlock: (id: string, delta: number) => { beforeId: string } | { afterId: string } | null
       duplicateBlock: (id: string) => { newId: string; idMap: Record<string, string> } | null
       deleteBlock: (id: string) => boolean
-      insertAfter: (id: string, slug: string) => string | null
+      insertAfter: (id: string, slug: string) => Promise<string | null>
       pickerTypesFor: (id: string) => { slug: string }[]
     }
 
@@ -433,7 +508,7 @@ describe('BlocksField', () => {
     await wrapper.setProps({ modelValue: model })
 
     // insertAfter: sibling position, returns the new id.
-    const newId = api.insertAfter('bbb000000002', 'quote')
+    const newId = await api.insertAfter('bbb000000002', 'quote')
     expect(newId).not.toBeNull()
     expect(model[1]!.id).toBe(newId)
     expect(model[1]!.type).toBe('quote')
@@ -739,11 +814,11 @@ describe('BlocksField', () => {
     })
     await flushPromises()
     const api = wrapper.vm as unknown as {
-      insertAfter: (id: string, slug: string) => string | null
+      insertAfter: (id: string, slug: string) => Promise<string | null>
       duplicateBlock: (id: string) => { newId: string } | null
     }
     const before = JSON.stringify(model)
-    expect(api.insertAfter('tabitem00003', 'tab')).toBeNull()
+    await expect(api.insertAfter('tabitem00003', 'tab')).resolves.toBeNull()
     expect(api.duplicateBlock('tabitem00003')).toBeNull()
     expect(JSON.stringify(model)).toBe(before) // tree untouched
     wrapper.unmount()

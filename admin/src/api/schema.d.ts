@@ -303,6 +303,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/block-types/{slug}/instance': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * A fresh block instance of a type
+     * @description The server block factory (visual builder spec §5.5): the canonical structure and defaults of a new block — no id, every blocks field an empty list, every enum field its first option, settings empty — with the type's starter content alongside for the editor to merge and to mint ids for.
+     */
+    post: operations['postV1AdminBlocktypesBySlugInstance']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/block-types/{slug}/migrations': {
     parameters: {
       query?: never
@@ -6811,6 +6831,127 @@ export interface operations {
       }
       /** @description Unknown slug. */
       404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  postV1AdminBlocktypesBySlugInstance: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The block and its starter content. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success: boolean
+            message: string
+            data: {
+              block?: {
+                type?: string
+                /** @description Every blocks field `[]`, every enum field its first option. */
+                data?: unknown[]
+                /** @description Empty on a fresh block. */
+                settings?: unknown[]
+              }
+              /** @description The type's starter content, to merge over `block.data`. */
+              starter?: unknown[]
+            }
+          }
+        }
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Unknown slug. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description The type is inactive. */
+      422: {
         headers: {
           [name: string]: unknown
         }
