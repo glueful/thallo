@@ -22,6 +22,7 @@ const props = defineProps<{
   /** Class id => name for the Style tab's source labels; ids absent here are missing. */
   classNames?: Record<string, string>
   classOptions?: { id: string; name: string; archived: boolean; locked: boolean }[]
+  reResolving?: boolean
   activeBreakpoint: Breakpoint
 }>()
 const emit = defineEmits<{
@@ -38,6 +39,7 @@ const emit = defineEmits<{
   'reorder-classes': [ids: string[]]
   'detach-class': [id: string]
   'detach-all': []
+  'save-as-class': []
 }>()
 
 const tab = ref('content')
@@ -89,10 +91,12 @@ const proseField = computed(() =>
           :schema="schema"
           :classes="classes"
           :class-names="classNames"
+          :re-resolving="reResolving"
           :active-breakpoint="activeBreakpoint"
           @set="(path, bp, value) => emit('set-setting', path, bp, value)"
           @set-all="(path, value) => emit('set-all', path, value)"
           @update:active-breakpoint="(bp) => emit('update:activeBreakpoint', bp)"
+          @save-as-class="emit('save-as-class')"
         />
       </template>
       <template #advanced>

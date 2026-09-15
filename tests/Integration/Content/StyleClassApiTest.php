@@ -122,6 +122,28 @@ final class StyleClassApiTest extends AppTestCase
         self::assertSame(404, $this->api()->show($this->req(), 'nope00000000')->getStatusCode());
     }
 
+    public function testAnUnreferencedClassCanBeDeletedOutrightAndAReferencedOneCannot(): void
+    {
+        $this->syncBlockStyleDeclarations();
+        $repository = $this->container()->get(StyleClassRepository::class);
+        $orphan = $repository->create(['name' => 'Orphan', 'style' => []]);
+        $used = $repository->create(['name' => 'Used', 'style' => []]);
+        (new \Thallo\Core\Content\Regions\RegionRepository($this->connection()))->save('footer', [[
+            'id' => 'head00000001', 'type' => 'heading', 'data' => ['text' => 'Hi'],
+            'settings' => ['classes' => [$used['id']]],
+        ]], [], 'user00000001');
+
+        $request = Request::create('/x?unreferenced=1', 'DELETE');
+        $deleted = $this->api()->destroy($request, $orphan['id']);
+        self::assertSame(200, $deleted->getStatusCode(), (string) $deleted->getContent());
+        self::assertNull($repository->find($orphan['id']), 'deleted outright, not archived');
+
+        $refused = $this->api()->destroy($request, $used['id']);
+        self::assertSame(409, $refused->getStatusCode());
+        self::assertSame('STYLE_CLASS_REFERENCED', $this->json($refused)['error']['details']['code']);
+        self::assertNotNull($repository->find($used['id']));
+    }
+
     public function testUsageCountsOneReferencePerStoredDocumentWithThePublishedRevisionOnce(): void
     {
         $this->syncBlockStyleDeclarations();

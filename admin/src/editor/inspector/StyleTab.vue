@@ -15,11 +15,15 @@ const props = defineProps<{
   classes: StyleClassRef[]
   activeBreakpoint: Breakpoint
   classNames?: Record<string, string>
+  /** A generation change: inherited values re-resolve before they are trusted (spec §4.3). */
+  reResolving?: boolean
 }>()
 const emit = defineEmits<{
   set: [path: string, breakpoint: Breakpoint | null, value: StyleValue | null]
   'set-all': [path: string, value: StyleValue]
   'update:activeBreakpoint': [breakpoint: Breakpoint]
+  /** Lift the block's explicit declarations into a new class (spec §4.5). */
+  'save-as-class': []
 }>()
 
 const GROUPS: { key: string; label: string; match: (row: StylePropertyRow) => boolean }[] = [
@@ -101,6 +105,7 @@ const style = computed<Record<string, unknown>>(() => {
             :style="style"
             :classes="classes"
             :class-names="classNames"
+            :re-resolving="reResolving"
             :active-breakpoint="activeBreakpoint"
             :vocabulary="schema.vocabulary"
             @set="(path, bp, value) => emit('set', path, bp, value)"
@@ -109,6 +114,20 @@ const style = computed<Record<string, unknown>>(() => {
           />
         </div>
       </section>
+      <div class="border-t border-default pt-3">
+        <UButton
+          size="xs"
+          variant="ghost"
+          color="neutral"
+          icon="i-lucide-paintbrush"
+          :disabled="Object.keys(style).length === 0"
+          data-test="save-as-style-class"
+          title="Move this block's own declarations into a reusable style class"
+          @click="emit('save-as-class')"
+        >
+          Save as style class
+        </UButton>
+      </div>
     </template>
   </div>
 </template>

@@ -27,6 +27,10 @@ vi.mock('@/queries/preview', () => ({ mintPreviewData: mintMock, applyPreview: a
 vi.mock('@/queries/styleSchema', () => ({ useStyleSchema: () => ({ data: ref(null) }) }))
 vi.mock('@/queries/styleClasses', () => ({
   useStyleClasses: () => ({ data: ref({ generation: 0, classes: [] }), refetch: vi.fn() }),
+  useStyleClassMutations: () => ({
+    create: { mutateAsync: vi.fn(), isLoading: ref(false) },
+    deleteUnreferenced: { mutateAsync: vi.fn(), isLoading: ref(false) },
+  }),
 }))
 
 const draft = ref<{ fields: Record<string, unknown>; lock_version: number } | null>(null)

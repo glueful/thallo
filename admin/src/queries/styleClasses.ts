@@ -117,5 +117,16 @@ export function useStyleClassMutations() {
     onSettled: invalidate,
   })
 
-  return { create, update, archive }
+  /** A lift that could not preserve appearance deletes its never-referenced record outright. */
+  const deleteUnreferenced = useMutation({
+    mutation: async (id: string) => {
+      const { error, response } = await client.DELETE('/style-classes/{id}', {
+        params: { path: { id }, query: { unreferenced: 1 } as never },
+      })
+      if (error) throw toApiError(error, response)
+    },
+    onSettled: invalidate,
+  })
+
+  return { create, update, archive, deleteUnreferenced }
 }

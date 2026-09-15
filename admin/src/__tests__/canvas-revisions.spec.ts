@@ -17,7 +17,7 @@ vi.mock('@/queries/blockTypes', async (importOriginal) => ({
 const { mintMock, applyMock } = vi.hoisted(() => ({ mintMock: vi.fn(), applyMock: vi.fn() }))
 vi.mock('@/queries/preview', () => ({ mintPreviewData: mintMock, applyPreview: applyMock }))
 vi.mock('@/queries/styleSchema', () => ({ useStyleSchema: () => ({ data: ref(null) }) }))
-const { styleClassList, refetchClasses } = vi.hoisted(() => ({
+const { styleClassList, refetchClasses, classMutations } = vi.hoisted(() => ({
   styleClassList: {
     value: {
       generation: 0,
@@ -30,10 +30,24 @@ const { styleClassList, refetchClasses } = vi.hoisted(() => ({
       }[],
     },
   },
-  refetchClasses: { fn: async () => {} },
+  refetchClasses: { fn: async () => {}, calls: 0 },
+  classMutations: { create: vi.fn(), deleteUnreferenced: vi.fn() },
 }))
 vi.mock('@/queries/styleClasses', () => ({
-  useStyleClasses: () => ({ data: styleClassList, refetch: () => refetchClasses.fn() }),
+  useStyleClasses: () => ({
+    data: styleClassList,
+    refetch: () => {
+      refetchClasses.calls++
+      return refetchClasses.fn()
+    },
+  }),
+  useStyleClassMutations: () => ({
+    create: { mutateAsync: classMutations.create, isLoading: { value: false } },
+    deleteUnreferenced: {
+      mutateAsync: classMutations.deleteUnreferenced,
+      isLoading: { value: false },
+    },
+  }),
 }))
 
 const draft = ref<{ fields: Record<string, unknown>; lock_version: number } | null>(null)
@@ -235,6 +249,88 @@ describe('style classes as operations (visual builder spec §4.4)', () => {
   beforeEach(() => {
     styleClassList.value = { generation: 4, classes: [band] }
     refetchClasses.fn = async () => {}
+    refetchClasses.calls = 0
+    classMutations.create.mockReset()
+    classMutations.deleteUnreferenced.mockReset()
+  })
+
+  const withInstanceStyle = () => {
+    const body = draft.value!.fields.body as { settings?: Record<string, unknown> }[]
+    body[0]!.settings = {
+      style: { spacing: { padding: { top: { md: { type: 'token', value: 'spacing.sm' } } } } },
+    }
+  }
+  type LiftPage = { saveAsStyleClass: (name: string, description: string | null) => Promise<void> }
+
+  it('save as style class creates the record first, then one transaction of clears and the apply', async () => {
+    applyMock.mockResolvedValueOnce(accepted('e1', 1)).mockResolvedValueOnce(accepted('e1', 2))
+    withInstanceStyle()
+    classMutations.create.mockImplementation(async (body: { style: Record<string, unknown> }) => ({
+      id: 'new0000001',
+      name: 'Tight',
+      style: body.style,
+      version: 1,
+      archived: false,
+      locked_by_job: null,
+    }))
+    const wrapper = await mountAndSettle()
+    bridge.callbacks.select!('blockaaa0001')
+    await flushPromises()
+    await (wrapper.vm as unknown as LiftPage).saveAsStyleClass('Tight', null)
+    await flushPromises()
+    expect(classMutations.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Tight',
+        style: expect.objectContaining({ spacing: expect.anything() }),
+      }),
+    )
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    const ops = lastApplyOptions().operations as ({ type: string } & Record<string, unknown>)[]
+    expect(ops.map((o) => o.type)).toEqual(['SetSetting', 'ApplyStyleClass'])
+    expect(ops[0]).toMatchObject({
+      path: 'spacing.padding.top',
+      breakpoint: 'md',
+      to: { present: false },
+    })
+    expect(ops[1]).toMatchObject({ class_id: 'new0000001', index: 0 })
+    expect(bodyIdsSettings()[0]).toEqual({ classes: ['new0000001'] })
+    expect(classMutations.deleteUnreferenced).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('a lift the resolver cannot confirm deletes the unreferenced record and changes nothing', async () => {
+    applyMock.mockResolvedValueOnce(accepted('e1', 1))
+    withInstanceStyle()
+    // A card that can take spacing, and a server answering a class that does not carry the
+    // declaration (a stub mismatch): the resolver comparison must catch it.
+    blockTypes.value = [{ ...bt('card'), style_capabilities: ['spacing'] }]
+    classMutations.create.mockResolvedValue({
+      id: 'bad0000001',
+      name: 'Bad',
+      style: {},
+      version: 1,
+      archived: false,
+      locked_by_job: null,
+    })
+    const wrapper = await mountAndSettle()
+    bridge.callbacks.select!('blockaaa0001')
+    await flushPromises()
+    await (wrapper.vm as unknown as LiftPage).saveAsStyleClass('Bad', null)
+    await flushPromises()
+    expect(classMutations.deleteUnreferenced).toHaveBeenCalledWith('bad0000001')
+    expect(notify.warning).toHaveBeenCalled()
+    expect(applyMock).not.toHaveBeenCalled() // nothing changed, nothing to apply
+    wrapper.unmount()
+  })
+
+  it('a generation on any carrier that differs from the class list refetches it', async () => {
+    applyMock.mockResolvedValueOnce({ ...accepted('e1', 1), style_generation: 9 })
+    const wrapper = await mountAndSettle()
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    expect(refetchClasses.calls).toBe(1)
+    wrapper.unmount()
   })
 
   it('applying a class records one ApplyStyleClass; detaching records one DetachStyleClass with the materialised style', async () => {

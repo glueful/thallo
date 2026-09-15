@@ -21,8 +21,10 @@ import { newEditorSession } from '@/editor/ops/session'
 import { absent, present } from '@/editor/ops/types'
 import { setPath, settingSegments } from '@/editor/ops/apply'
 import { useStyleSchema } from '@/queries/styleSchema'
-import { useStyleClasses } from '@/queries/styleClasses'
+import { useStyleClasses, useStyleClassMutations } from '@/queries/styleClasses'
 import { capabilityPaths, detachStyleClass } from '@/style/detach'
+import { liftPreservesAppearance, liftedDeclarations } from '@/style/lift'
+import SaveAsStyleClassDialog from '@/editor/inspector/SaveAsStyleClassDialog.vue'
 import type { StyleClassRef } from '@/style/types'
 import {
   activeBreakpoint,
@@ -862,10 +864,8 @@ async function runApply(auto: boolean): Promise<void> {
       return
     }
     accepted.value = { epoch: result.epoch, revision: result.revision }
-    if (styleGeneration.value !== null && styleGeneration.value !== result.style_generation) {
-      styleGenerationChanged.value = true // inherited values re-resolve before they are trusted
-    }
     styleGeneration.value = result.style_generation
+    noteStyleGeneration(result.style_generation)
     lastApplied.value = appliedJson
     await paintStage(result)
     succeeded = true
@@ -904,6 +904,7 @@ async function runApply(auto: boolean): Promise<void> {
  */
 async function refreshStage(): Promise<StageRefreshMode> {
   const result = await bridge.stageRefresh()
+  noteStyleGeneration(result.style_generation)
   if (result.mode === 'patched') {
     if (result.epoch !== null && result.revision !== null) {
       displayed.value = { epoch: result.epoch, revision: result.revision }
@@ -932,6 +933,7 @@ async function paintStage(result: ApplyPreviewResult): Promise<void> {
       style_generation: result.style_generation,
       fragments: result.fragments,
     })
+    noteStyleGeneration(swap.style_generation)
     if (swap.mode === 'patched') {
       if (swap.epoch !== null && swap.revision !== null) {
         displayed.value = { epoch: swap.epoch, revision: swap.revision }
@@ -954,7 +956,21 @@ function afterPaint(path: ApplyPath): void {
   if (typeof requestAnimationFrame === 'function') requestAnimationFrame(record)
   else record()
 }
-const styleGenerationChanged = ref(false)
+/**
+ * Every carrier of the style generation (visual builder spec §4.3) — the apply response, a
+ * stage-refreshed acknowledgement, a fragment swap — compares against the generation of the
+ * class list the inspector resolved with; a difference refetches the list, and inherited
+ * values show as re-resolving until it settles.
+ */
+const reResolving = ref(false)
+function noteStyleGeneration(generation: number | null | undefined): void {
+  const known = styleClassList.value?.generation ?? null
+  if (typeof generation !== 'number' || known === null || generation === known) return
+  reResolving.value = true
+  void Promise.resolve(refetchStyleClassList()).finally(() => {
+    reResolving.value = false
+  })
+}
 
 // The site's style classes (visual builder spec §4.3): the block's ordered references resolve
 // through them, and the Style tab names the class a value comes from.
@@ -1072,6 +1088,74 @@ async function onDetachAll(): Promise<void> {
   await replayHistory()
   scheduleCommit(false)
 }
+const { create: createStyleClass, deleteUnreferenced: deleteStyleClass } = useStyleClassMutations()
+const liftDialogOpen = ref(false)
+const lifting = ref(false)
+const selectedStyle = computed<Record<string, unknown>>(() => {
+  const s = selectedBlock.value?.settings?.style
+  return typeof s === 'object' && s !== null ? (s as Record<string, unknown>) : {}
+})
+
+/**
+ * Save as style class (spec §4.5): the record is created first, the reference is inserted
+ * last, and the lift is one transaction — every explicit declaration cleared, then the class
+ * applied — committed only when the resolver confirms the appearance is unchanged. A lift that
+ * cannot preserve appearance deletes its never-referenced record and reports; undo of the
+ * transaction restores the block and never touches the record.
+ */
+async function saveAsStyleClass(name: string, description: string | null): Promise<void> {
+  const block = selectedBlock.value
+  if (!block || !history) return
+  if (!(await freshStyleClasses())) return
+  lifting.value = true
+  try {
+    const style = selectedStyle.value
+    const declarations = liftedDeclarations(style)
+    if (declarations.length === 0) return
+    const created = await createStyleClass.mutateAsync({ name, description, style })
+    const type = allBlockTypes.value?.find((t) => t.slug === block.type)
+    const allowed = capabilityPaths(type?.style_capabilities)
+    const lifted = { id: created.id, style: created.style }
+    if (!liftPreservesAppearance(classRefsFor(block), style, lifted, allowed)) {
+      await deleteStyleClass.mutateAsync(created.id)
+      warning('Could not lift these settings without changing the page', 'Nothing was changed.')
+      return
+    }
+    commitNow()
+    history.beginTransaction()
+    for (const d of declarations) {
+      opsSinceApply.push(
+        history.record({
+          type: 'SetSetting',
+          block: block.id,
+          path: d.path,
+          breakpoint: d.breakpoint,
+          from: present(d.value),
+          to: absent(),
+        }),
+      )
+    }
+    const ids = Array.isArray(block.settings?.classes) ? (block.settings.classes as string[]) : []
+    opsSinceApply.push(
+      history.record({
+        type: 'ApplyStyleClass',
+        block: block.id,
+        class_id: created.id,
+        index: ids.length,
+      }),
+    )
+    commitNow()
+    await replayHistory()
+    scheduleCommit(false)
+    liftDialogOpen.value = false
+    success('Style class created', `“${name}” now carries these settings.`)
+  } catch (e) {
+    notifyError(e, 'Couldn’t save the style class')
+  } finally {
+    lifting.value = false
+  }
+}
+
 /** The block as history's document holds it now (mid-transaction, before replay). */
 function blockFromHistory(id: string): BlockInstance | null {
   if (!history) return null
@@ -1398,6 +1482,8 @@ function reloadStage(): void {
                 :classes="classRefsFor(selectedBlock)"
                 :class-names="classNames"
                 :class-options="classOptions"
+                :re-resolving="reResolving"
+                @save-as-class="liftDialogOpen = true"
                 @apply-class="onApplyClass"
                 @remove-class="onRemoveClass"
                 @reorder-classes="onReorderClasses"
@@ -1413,6 +1499,12 @@ function reloadStage(): void {
               <p v-else class="text-xs text-muted" data-test="block-inspector-empty">
                 Select a block on the stage or in the outline.
               </p>
+              <SaveAsStyleClassDialog
+                v-model:open="liftDialogOpen"
+                :style="selectedStyle"
+                :saving="lifting"
+                @confirm="saveAsStyleClass"
+              />
             </template>
             <template #content>
               <FieldEditor ref="fieldEditorRef" v-model="fields" :schema="schema" />

@@ -22,6 +22,7 @@ const props = defineProps<{
   vocabulary: { domains: Record<string, string[]>; values: Record<string, string> }
   /** Class id => name, so a value inherited from a class is labelled by the class (spec §3.4). */
   classNames?: Record<string, string>
+  reResolving?: boolean
 }>()
 const emit = defineEmits<{
   /** Set (or clear with null) the value at one breakpoint (null breakpoint = non-responsive). */
@@ -89,6 +90,7 @@ function applyToAll(): void {
 }
 
 const stateLabel = computed(() => {
+  if (props.reResolving && current.value.state !== 'explicit') return 're-resolving'
   switch (current.value.state) {
     case 'explicit':
       return 'set'
