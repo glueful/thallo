@@ -7,6 +7,26 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.31] - 2026-09-15 — Developer Preview
+
+Visual builder Phase B: style classes as site-owned records with a per-site generation, a
+lifecycle and bulk jobs; blocks five levels deep; one drag coordinator behind the stage, the
+outline and the block list, with real slot geometry, sibling multi-selection, a server block
+factory and browser proofs for every structural scenario.
+
+### Upgrade Notes
+- The documented sequence applies (docs/upgrading.md): `composer update`, then
+  `php glueful thallo:provision`, then reload PHP-FPM so OPcache drops the previous release's
+  classes. Provisioning runs four migrations: `style_classes`, `style_generations`,
+  `style_class_jobs`, and a `lock_version` column on regions and retained entry versions. Every
+  existing document stays valid.
+- A new `styles.manage` permission (Experience group) gates the Style classes settings page and
+  its API; the owner and admin roles receive it on provision.
+- Block templates a theme overrides must name their slots: every `blocks` field is wrapped by an
+  element carrying `slot_attrs('<field>')` (types that render their children inline are
+  exempt). The template lint refuses an override without it; the shipped templates all carry it.
+- Framework 1.85.7 remains the requirement (unchanged).
+
 ### Added
 - Style classes exist as site-owned records (`style_classes`) and resolve through the cascade as
   layers below a block's own settings, in the order of its `settings.classes`; nothing applies one
