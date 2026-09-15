@@ -18,6 +18,14 @@ as the next release, never a mutated tag.
   render works from one generation-named snapshot of the classes; the page-cache key, the apply
   response, the canvas page (`data-thallo-style-generation`) and the stage's refresh
   acknowledgement all name that generation, and a class write purges the rendered pages.
+- Style classes are managed on their own Settings page behind the new `styles.manage`
+  permission (Experience group; owner and admin roles), through `/v1/admin/style-classes`: the
+  list names its generation, a save carries the version it loaded and conflicts when the record
+  moved on, delete archives so old revisions still restore, and before every save the page shows
+  where the class is used — one reference per occurrence in a stored document across drafts,
+  published entries, retained revisions and regions (the published revision counted once), each
+  declared property active or dormant per block type — and says that published pages change
+  immediately.
 
 ## [1.0.0-beta.30] - 2026-09-15
 
