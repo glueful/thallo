@@ -44,6 +44,14 @@ as the next release, never a mutated tag.
   counterpart (`thallo:style-classes:run-job`). Regions and retained versions now carry a lock
   version and every source persists through a conditional write, so a concurrent change is a
   refused write, never a lost one.
+- Blocks nest five levels deep (section → columns → card → container → heading) on every
+  surface: the validator, the renderer, the fragments and the editor agree, and a composition
+  fixture proves the depth-five block's setting in Chromium, Firefox and WebKit. A drop or an
+  insert is judged on the whole candidate tree — the moving blocks removed, then placed —
+  against one set of rules shared with the server through fixtures: the slot exists, nothing
+  moves into its own subtree, the depth cap holds for the whole subtree, the slot's allow-list
+  admits every moved type (the builder always enforces it; `enforce_block_types` stays the
+  server's switch), and the tabs cap holds. A refused drop says why.
 
 ## [1.0.0-beta.30] - 2026-09-15
 
