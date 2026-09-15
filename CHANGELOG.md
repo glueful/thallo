@@ -36,6 +36,9 @@ as the next release, never a mutated tag.
   shorthand, so a theme gradient (the hero's band) yields to a managed colour and `transparent`
   clears it, where before only `background-color` changed and the gradient stayed. Compiler
   version 2 (the settings artifact recompiles at provision); proven in all three engines.
+- Framework 1.85.7 is required (repinned): the scheduled framework jobs keep the application
+  context they are handed, so `queue:scheduler run` no longer fails every tenth minute on a
+  fresh install with `NotificationRetryTask requires an ApplicationContext`.
 
 ## [1.0.0-beta.29] - 2026-09-14
 
