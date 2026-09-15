@@ -517,9 +517,10 @@ describe('canvas page', () => {
     // Review P1: a rejected Apply wrote NO stash — optimistic mirrors from the
     // stage toolbar must not survive as if they were applied. Failure paths
     // reload DIRECTLY (dom-patching spec §1): stageRefresh is asserted
-    // uncalled at the end of this test.
+    // uncalled at the end of this test. A 500 here: a 422 on the unchanged tip
+    // rolls the transaction back instead (canvas-revisions.spec.ts).
     mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
-    applyMock.mockRejectedValueOnce(new ApiError('validation failed', 422, {}, { success: false }))
+    applyMock.mockRejectedValueOnce(new ApiError('server error', 500, {}, { success: false }))
     const wrapper = mountPage()
     await flushPromises()
     const before = wrapper.find('[data-test="canvas-iframe"]').element
@@ -1400,7 +1401,7 @@ describe('auto-apply', () => {
 
   it('final failure suspends (one banner, no further autos); manual success re-arms', async () => {
     const wrapper = await mountAuto()
-    applyMock.mockRejectedValueOnce(new ApiError('validation failed', 422, {}, { success: false }))
+    applyMock.mockRejectedValueOnce(new ApiError('server error', 500, {}, { success: false }))
     vi.useFakeTimers()
     try {
       bridge.callbacks.move?.('blockaaa0001', 1)

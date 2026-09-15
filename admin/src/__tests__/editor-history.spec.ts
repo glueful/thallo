@@ -210,3 +210,39 @@ describe('undo, redo and the saved position', () => {
     expect(h.currentSequence).toBe(10)
   })
 })
+
+describe('a rejected transaction is discarded from the tip', () => {
+  it('discardTip inverts the tip entry when it carries that transaction and leaves no redo', () => {
+    const h = history()
+    const t1 = h.beginTransaction()
+    padding(h, null, token('sm'))
+    h.commit()
+    const t2 = h.beginTransaction()
+    padding(h, token('sm'), token('lg'))
+    h.commit()
+    expect(h.currentSequence).toBe(2)
+
+    expect(h.discardTip(t1)).toBe(false) // not the tip
+    expect(h.discardTip(t2)).toBe(true)
+    expect(h.currentSequence).toBe(1)
+    expect(h.canRedo()).toBe(false) // nothing to redo into: the entry is gone, not undone
+    const block = (h.document.fields.body as BlockInstance[])[0]!
+    expect(block.settings).toEqual({
+      style: { spacing: { padding: { top: { base: token('sm') } } } },
+    })
+    expect(h.entries().map((e) => e.sequence)).toEqual([1])
+  })
+
+  it('discardTip refuses while a transaction is open or after a later entry', () => {
+    const h = history()
+    const t1 = h.beginTransaction()
+    padding(h, null, token('sm'))
+    h.commit()
+    h.beginTransaction()
+    padding(h, token('sm'), token('lg'))
+    expect(h.discardTip(t1)).toBe(false) // an open transaction sits above it
+    h.commit()
+    expect(h.discardTip(t1)).toBe(false)
+    expect(h.currentSequence).toBe(2)
+  })
+})

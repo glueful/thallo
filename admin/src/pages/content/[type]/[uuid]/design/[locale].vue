@@ -1116,6 +1116,44 @@ function toggleAuto(): void {
 }
 
 /**
+ * A rejected apply never becomes history (visual builder spec §5.3). When the refused ops are
+ * one transaction that is still the unchanged tip and the accepted pair is the one the request
+ * named, the transaction is discarded — inverted, no entry, no redo — and the stage stays as
+ * displayed. Otherwise the edits stay local, the toast says to undo, and the next apply
+ * retries with the current document (the refused ops ride again).
+ */
+async function reportRejection(
+  e: ApiError,
+  sentOps: Operation[],
+  requestBase: number | null,
+): Promise<void> {
+  const messages = Object.values(e.fieldErrors)
+  const detail = messages.length > 0 ? messages.join(' ') : e.message
+  const transaction = sentOps[0]?.transaction_id ?? null
+  const entries = history?.entries() ?? []
+  const tip = entries[entries.length - 1]
+  const tipIsRejected =
+    history !== null &&
+    transaction !== null &&
+    sentOps.every((op) => op.transaction_id === transaction) &&
+    history.activeTransaction === null &&
+    tip !== undefined &&
+    tip.transaction_id === transaction &&
+    tip.sequence === history.currentSequence
+  const baseUnchanged = (accepted.value?.revision ?? null) === requestBase
+  if (tipIsRejected && baseUnchanged && history!.discardTip(transaction!)) {
+    // The refused ops were re-queued for a retry; the discarded transaction never sends.
+    for (let i = opsSinceApply.length - 1; i >= 0; i--) {
+      if (opsSinceApply[i]!.transaction_id === transaction) opsSinceApply.splice(i, 1)
+    }
+    await replayHistory()
+    warning('The server refused this change', detail)
+    return
+  }
+  warning('The server refused this change', `${detail} Undo to revert.`)
+}
+
+/**
  * The ONE apply path (auto-apply spec §2): token retry, failure reset,
  * banners, and stash bookkeeping live HERE — auto vs manual only differ in
  * flush, suspension, and re-arm side effects.
@@ -1135,6 +1173,8 @@ async function runApply(auto: boolean): Promise<void> {
   // The request names the pair we accepted and the operations since it (spec §3.5); the
   // sent ops leave the buffer only once the server accepted them.
   const sentOps = opsSinceApply.splice(0, opsSinceApply.length)
+  // The base the FIRST request named: a rejection is judged against it (spec §5.3).
+  const requestBase = accepted.value?.revision ?? null
   const options = () => ({
     epoch: accepted.value?.epoch ?? null,
     base_revision: accepted.value?.revision ?? null,
@@ -1196,7 +1236,9 @@ async function runApply(auto: boolean): Promise<void> {
     // Final failure: discard mirror-only DOM; keep dirty fields (v2/loop C pins).
     reloadStage()
     if (auto) autoSuspended.value = true // one banner now, then quiet until re-armed
-    if (e instanceof ApiError && apiErrorCode(e) === 'BLOCK_MIGRATION_IN_PROGRESS') {
+    if (e instanceof ApiError && e.status === 422 && apiErrorCode(e) === null) {
+      await reportRejection(e, sentOps, requestBase)
+    } else if (e instanceof ApiError && apiErrorCode(e) === 'BLOCK_MIGRATION_IN_PROGRESS') {
       const blockType = String(apiErrorDetails(e)?.block_type ?? 'a block type')
       warning(
         `Block type “${blockType}” is being migrated`,

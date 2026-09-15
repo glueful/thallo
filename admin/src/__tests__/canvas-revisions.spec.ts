@@ -524,6 +524,129 @@ describe('saves and the saved position', () => {
   })
 })
 
+describe('a rejected apply (visual builder spec §5.3)', () => {
+  const rejected = () =>
+    new ApiError(
+      'Validation failed',
+      422,
+      { 'body.0': 'Blocks nest too deep' },
+      {
+        error: { details: { 'body.0': 'Blocks nest too deep' } },
+      },
+    )
+
+  it('a rejection of the unchanged tip rolls the transaction back: no entry, no redo, stage reloaded', async () => {
+    applyMock.mockResolvedValueOnce(accepted('e1', 1))
+    saveMock.mockResolvedValue({ data: { preview_cleared: false } })
+    const wrapper = await mountAndSettle()
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    const before = wrapper.find('[data-test="canvas-iframe"]').element
+
+    bridge.callbacks.move!('blockbbb0002', -1)
+    await flushPromises()
+    applyMock.mockRejectedValueOnce(rejected())
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    expect(notify.warning).toHaveBeenCalledWith(
+      'The server refused this change',
+      'Blocks nest too deep',
+    )
+    expect(wrapper.find('[data-test="canvas-iframe"]').element).not.toBe(before) // the mirror is gone
+    expect(wrapper.find('[data-test="canvas-undo"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('[data-test="canvas-redo"]').attributes('disabled')).toBeDefined()
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    expect(bodyIds()).toEqual(['blockaaa0001', 'blockbbb0002'])
+
+    // The next apply carries nothing from the discarded transaction.
+    bridge.callbacks.move!('blockaaa0001', 1)
+    await flushPromises()
+    applyMock.mockResolvedValueOnce(accepted('e1', 2))
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    expect(lastApplyOptions()).toMatchObject({ base_revision: 1 })
+    expect(lastApplyOptions().operations.map((o) => o.type)).toEqual(['MoveBlock'])
+    wrapper.unmount()
+  })
+
+  it('a rejection behind a later local edit keeps both edits and says to undo', async () => {
+    applyMock.mockResolvedValueOnce(accepted('e1', 1))
+    saveMock.mockResolvedValue({ data: { preview_cleared: false } })
+    const wrapper = await mountAndSettle()
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+
+    bridge.callbacks.move!('blockbbb0002', -1)
+    await flushPromises()
+    let reject: (e: unknown) => void = () => {}
+    applyMock.mockImplementationOnce(() => new Promise((_, r) => (reject = r)))
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    // A second edit lands while the server is still judging the first.
+    bridge.callbacks.textChanged!('blockaaa0001', 'title', { text: 'Edited' })
+    await flushPromises()
+    reject(rejected())
+    await flushPromises()
+    await flushPromises()
+
+    expect(notify.warning).toHaveBeenCalledWith(
+      'The server refused this change',
+      'Blocks nest too deep Undo to revert.',
+    )
+    expect(wrapper.find('[data-test="canvas-undo"]').attributes('disabled')).toBeUndefined()
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    expect(bodyIds()).toEqual(['blockbbb0002', 'blockaaa0001'])
+    // The next apply retries from the current document: the refused ops ride again.
+    applyMock.mockResolvedValueOnce(accepted('e1', 2))
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    expect(lastApplyOptions().operations.map((o) => o.type)).toEqual(['MoveBlock', 'SetField'])
+    wrapper.unmount()
+  })
+
+  it('a rejection whose base revision is no longer the accepted one does not roll back', async () => {
+    applyMock.mockResolvedValueOnce(accepted('e1', 1))
+    saveMock.mockResolvedValue({ data: { preview_cleared: false } })
+    const wrapper = await mountAndSettle()
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+
+    bridge.callbacks.move!('blockbbb0002', -1)
+    await flushPromises()
+    // The pair moved on under us (another editor): the retry from the adopted pair is refused.
+    applyMock
+      .mockRejectedValueOnce(
+        new ApiError(
+          'stale',
+          409,
+          {},
+          {
+            error: {
+              details: { code: 'PREVIEW_REVISION_STALE', current: { epoch: 'e1', revision: 7 } },
+            },
+          },
+        ),
+      )
+      .mockRejectedValueOnce(rejected())
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+    expect(notify.warning).toHaveBeenCalledWith(
+      'The server refused this change',
+      'Blocks nest too deep Undo to revert.',
+    )
+    expect(wrapper.find('[data-test="canvas-undo"]').attributes('disabled')).toBeUndefined()
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    expect(bodyIds()).toEqual(['blockbbb0002', 'blockaaa0001'])
+    wrapper.unmount()
+  })
+})
+
 describe('undo and redo', () => {
   it('undo reverts a stage move and redo replays it; the next apply carries the inverse ops', async () => {
     applyMock.mockResolvedValue(accepted('e1', 1))
