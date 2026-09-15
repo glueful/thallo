@@ -111,7 +111,11 @@ export async function routeWorld(page: Page): Promise<Recorded> {
         route,
         JSON.stringify({
           success: true,
-          data: { block: { type: factory[1], data: {}, settings: {} }, starter: {} },
+          data: {
+            block: { type: factory[1], data: {}, settings: {} },
+            // A heading ships starter text, so a proof can assert the starter rode along.
+            starter: factory[1] === 'heading' ? { text: 'Heading' } : {},
+          },
         }),
       )
     }
@@ -309,4 +313,40 @@ export async function historyLength(page: Page, n: number): Promise<Hooks> {
 /** The stage's drop indicator. */
 export function indicator(page: Page) {
   return stage(page).locator('.thallo-canvas-drop-line')
+}
+
+/** Open the inspector's Blocks tab (the Design page's one palette, Phase C.1). */
+export async function openBlocksTab(page: Page): Promise<void> {
+  await page.locator('[data-test="inspector-tabs"] button', { hasText: 'Blocks' }).click()
+  await page.locator('[data-test="blocks-tab"]').waitFor()
+}
+
+/**
+ * Drag a palette tile onto a stage element (main-viewport coordinates, in steps). The tile holds
+ * pointer capture, so the parent keeps receiving the moves over the iframe. `release` false
+ * leaves the pointer down over the target.
+ */
+export async function dragTileTo(
+  page: Page,
+  slug: string,
+  target: ReturnType<ReturnType<typeof stage>['locator']>,
+  release = true,
+): Promise<void> {
+  const tile = page.locator(`[data-test="palette-card-${slug}"]`)
+  await tile.scrollIntoViewIfNeeded()
+  // The target must sit in the iframe's viewport: a hover past its edge finds no element.
+  await target.scrollIntoViewIfNeeded()
+  const from = await centerOf(tile)
+  await page.mouse.move(from.x, from.y)
+  await page.mouse.down()
+  const to = await centerOf(target)
+  const steps = 12
+  for (let i = 1; i <= steps; i++) {
+    await page.mouse.move(
+      from.x + ((to.x - from.x) * i) / steps,
+      from.y + ((to.y - from.y) * i) / steps,
+    )
+  }
+  await page.locator('.thallo-palette-ghost').waitFor({ timeout: 2000 })
+  if (release) await page.mouse.up()
 }

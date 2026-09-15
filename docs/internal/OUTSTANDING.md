@@ -93,7 +93,7 @@ Legend: **Size** S/M/L · **Home** = existing spec/doc, or _"(no design yet)"_.
 ## E. Visual builder (Phase B follow-ups)
 
 - [ ] **thallo.dev rebuilt on the stage** — `M` — Phase B's closing step, on the live site: rebuild the homepage's structure by dragging on the stage and in the outline, then the full build testing every block; file each gap found here before Phase C. **Home:** [phase B plan](plans/2026-09-15-visual-builder-phase-b-plan.md).
-- [ ] **Palette drag onto the stage** — `S` — the bridge answers parent-originated drags (`drag-begin` / `drag-hover` / `drag-end`) with zones and an indicator, but no admin surface starts one yet: insertion goes through the add-after picker and the block factory. A palette that drags a new block onto the stage completes §5.5. **Home:** same plan.
+- [x] **Palette drag onto the stage** — shipped 2026-09-15 as Phase C.1 (the Blocks tab): one palette that inserts at an armed target and drags a new block onto the stage through the coordinator, the add-after popover gone. [plan](plans/2026-09-15-visual-builder-phase-c1-palette-plan.md).
 - [ ] **Outline row drag in the browser proofs** — `S` — the outline reparents by drag (SortableJS) in the unit suite and by Move to… in the browser proofs; a proof that drags an outline row in Chromium is still to be written. **Home:** `admin/e2e/README.md`.
 
 ## F. Admin SPA

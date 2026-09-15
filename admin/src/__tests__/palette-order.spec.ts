@@ -37,6 +37,19 @@ describe('the palette order (one rule for the Blocks tab and the insert menu)', 
     ])
   })
 
+  it('a label match ranks before a description-only match, whatever the category order', () => {
+    const withNoise = [bt('animated', 'Content', 'a reveal heading'), ...types]
+    expect(orderTypes(withNoise, 'hero').map((t) => t.slug)).toEqual(['hero'])
+    expect(
+      orderTypes([bt('outline', 'Layout', 'a hero-like band'), bt('hero', 'Content')], 'hero').map(
+        (t) => t.slug,
+      ),
+    ).toEqual(['hero', 'outline'])
+    expect(
+      orderTypes([...withNoise, bt('heading', 'Content')], 'heading').map((t) => t.slug),
+    ).toEqual(['heading', 'animated', 'hero']) // hero's description says heading too
+  })
+
   it('matches the query against label, slug and description, case-insensitively', () => {
     expect(orderTypes(types, 'HERO').map((t) => t.slug)).toEqual(['hero'])
     expect(orderTypes(types, 'action').map((t) => t.slug)).toEqual(['button'])

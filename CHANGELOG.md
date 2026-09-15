@@ -7,6 +7,23 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- The Blocks tab: the Design page's one palette. Every active block type as a tile in the
+  picker's order (typing a block's name offers that block first); a click inserts at an armed
+  target — the stage `+` arms "after this block", the block list's gaps, its Add block button and
+  the card header's `/` arm a position, the outline's empty slots arm "into that slot" — or,
+  with nothing armed, after the selected block or at the end of the first blocks field. A target
+  is an intent resolved when it is used: "after Hero" follows Hero, "into Columns › col_2" keeps
+  landing at the slot's end, a gap dies with the next structural change and says so. A tile the
+  target's allow-list refuses says why and is not clickable, but stays draggable.
+- Drag a new block from the Blocks tab onto the stage. The tile keeps the pointer, the stage
+  answers each hover with a zone and its legality, and the drop is the zone under the released
+  pointer — never a remembered one — judged against the current document before it commits.
+  Escape, a release outside the stage, or a lost pointer cancel with nothing changed.
+
+### Removed
+- The stage's add-after popover and its anchoring; the `+` arms the Blocks tab instead.
+
 ## [1.0.0-beta.31] - 2026-09-15 — Developer Preview
 
 Visual builder Phase B: style classes as site-owned records with a per-site generation, a

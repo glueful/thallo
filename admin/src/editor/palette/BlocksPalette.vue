@@ -4,7 +4,7 @@
 // (or the page's default), a pointer-down starts a drag the page's palette drag owns. A tile the
 // target refuses is inert to click and Enter and says why, but stays draggable — the same type
 // may be legal elsewhere on the stage.
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import type { BlockType } from '@/queries/blockTypes'
 import type { Legality } from '@/editor/structure/legality'
 import { orderTypes } from './order'
@@ -38,13 +38,21 @@ const reasonOf = (slug: string): string | undefined => {
   return v && !v.ok ? v.message : undefined
 }
 
-// An armed target focuses the search: `+`, type, Enter stays three actions.
+// An armed target focuses the search: `+`, type, Enter stays three actions. The tab may mount
+// only when first shown, after the target was armed, so mount focuses too.
+function focusSearch(): void {
+  // After the tab switch settles (the tabs move focus to their trigger first).
+  void nextTick(() => setTimeout(() => search.value?.focus(), 0))
+}
 watch(
   () => props.target,
   (target) => {
-    if (target) search.value?.focus()
+    if (target) focusSearch()
   },
 )
+onMounted(() => {
+  if (props.target) focusSearch()
+})
 
 function onSearchKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') {
