@@ -7,6 +7,18 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- Style classes exist as site-owned records (`style_classes`) and resolve through the cascade as
+  layers below a block's own settings, in the order of its `settings.classes`; nothing applies one
+  yet. A reference is validated for ownership, not mere existence: an archived class the site owns
+  is a valid reference (old revisions restore), an unknown or foreign id and a repeated id are
+  rejected.
+- The site style generation is the version of the site's style-class definitions: one row per
+  site, incremented atomically inside every class write's transaction and by nothing else. Every
+  render works from one generation-named snapshot of the classes; the page-cache key, the apply
+  response, the canvas page (`data-thallo-style-generation`) and the stage's refresh
+  acknowledgement all name that generation, and a class write purges the rendered pages.
+
 ## [1.0.0-beta.30] - 2026-09-15
 
 ### Added
