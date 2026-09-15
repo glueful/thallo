@@ -155,6 +155,12 @@ abstract class AppTestCase extends TestCase
         // are ONLY the administrator dependent migration.
         $this->grantSeedActorBypass();
 
+        // The shared style class provider memoises one snapshot per request (visual builder
+        // spec §4.3); a test is a request, so its memo must not outlive the truncation below.
+        if ($this->container()->has(\Thallo\Contracts\Style\StyleClassProvider::class)) {
+            $this->container()->get(\Thallo\Contracts\Style\StyleClassProvider::class)->refresh();
+        }
+
         // QueryBuilder has no truncate(); delete-all via a tautological predicate
         // (every Thallo table has an integer `id`). Deletes commit immediately.
         // forceDelete, NOT delete: the framework's soft-delete handler turns plain

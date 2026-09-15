@@ -624,7 +624,12 @@ describe('stageFragments', () => {
           },
         }),
       )
-      await expect(p).resolves.toEqual({ mode: 'patched', epoch: 'e1', revision: 2 })
+      await expect(p).resolves.toEqual({
+        mode: 'patched',
+        epoch: 'e1',
+        revision: 2,
+        style_generation: null,
+      })
 
       const p2 = bridge.stageFragments(patch)
       const sent2 = postSpy.mock.calls[1][0] as { refresh_id: string }
@@ -648,11 +653,21 @@ describe('stageFragments', () => {
           },
         }),
       )
-      await expect(p2).resolves.toEqual({ mode: 'failed', epoch: null, revision: null })
+      await expect(p2).resolves.toEqual({
+        mode: 'failed',
+        epoch: null,
+        revision: null,
+        style_generation: null,
+      })
 
       const p3 = bridge.stageFragments(patch)
       vi.advanceTimersByTime(4001)
-      await expect(p3).resolves.toEqual({ mode: 'reload', epoch: null, revision: null })
+      await expect(p3).resolves.toEqual({
+        mode: 'reload',
+        epoch: null,
+        revision: null,
+        style_generation: null,
+      })
       bridge.dispose()
     } finally {
       vi.useRealTimers()

@@ -1928,6 +1928,36 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
     }
   })
 
+  it("carries the fetched page's style generation in the ack and writes it to <main>", async () => {
+    try {
+      liveStage()
+      document.body.querySelector('main')!.setAttribute('data-thallo-epoch', 'E1')
+      document.body.querySelector('main')!.setAttribute('data-thallo-revision', '1')
+      document.body.querySelector('main')!.setAttribute('data-thallo-style-generation', '3')
+      stubFetch(
+        renderedHtml('Alpha v2', 'Beta v1').replace(
+          '<main>',
+          '<main data-thallo-epoch="E1" data-thallo-revision="2" data-thallo-style-generation="4">',
+        ),
+      )
+      posted.mockClear()
+      await refresh('r-gen')
+
+      // A generation-only difference on <main> is bookkeeping, never shell drift.
+      expect(acked()).toMatchObject({
+        refresh_id: 'r-gen',
+        mode: 'patched',
+        revision: 2,
+        style_generation: 4,
+      })
+      expect(
+        document.body.querySelector('main')!.getAttribute('data-thallo-style-generation'),
+      ).toBe('4')
+    } finally {
+      window.fetch = realFetch
+    }
+  })
+
   it('shell drift reloads with the DOM untouched', async () => {
     try {
       const { a } = liveStage()
@@ -2181,6 +2211,21 @@ describe('fragment swaps (visual builder spec §3.5)', () => {
       ...data,
     })
   }
+
+  it('a fragment patch carries the style generation and writes it to <main>', async () => {
+    await establish('GEN', frag('g-a-00000001', '<p>one</p>'))
+    fragments('GEN', {
+      style_generation: 9,
+      fragments: { 'g-a-00000001': frag('g-a-00000001', '<p>two</p>') },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(lastPost('thallo:stage-refreshed')).toMatchObject({
+      mode: 'patched',
+      revision: 2,
+      style_generation: 9,
+    })
+    expect(document.querySelector('main')!.getAttribute('data-thallo-style-generation')).toBe('9')
+  })
 
   it('a whole-page patch and a fragment swap both hand the new wrapper to the theme runtime', async () => {
     const enhanced: string[] = []

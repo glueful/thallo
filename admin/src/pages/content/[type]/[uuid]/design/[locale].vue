@@ -926,6 +926,7 @@ async function paintStage(result: ApplyPreviewResult): Promise<void> {
       revision: result.revision,
       baseline_epoch: result.epoch,
       baseline_revision: result.baseline,
+      style_generation: result.style_generation,
       fragments: result.fragments,
     })
     if (swap.mode === 'patched') {

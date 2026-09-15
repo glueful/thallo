@@ -107,7 +107,7 @@ final class LayerOrderTest extends AppTestCase
         $settings = $this->container()->get(CompiledStyleArtifacts::class)
             ->forTheme($this->container()->get(ThemeLocator::class))['hash'];
 
-        self::assertStringEndsWith(
+        self::assertStringContainsString(
             '-t' . substr($hash, 0, 8) . '-s' . substr($settings, 0, 8),
             $this->appearanceFingerprint(),
         );

@@ -206,6 +206,7 @@ describe('the fragment path', () => {
     expect(bridge.instance.stageFragments.mock.calls[0]![0]).toEqual({
       epoch: 'e1',
       revision: 2,
+      style_generation: 0,
       baseline_epoch: 'e1',
       baseline_revision: 1,
       fragments: {

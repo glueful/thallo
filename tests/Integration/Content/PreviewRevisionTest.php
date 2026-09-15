@@ -235,6 +235,27 @@ final class PreviewRevisionTest extends AppTestCase
         self::assertNotEmpty($record['accepted_at']);
     }
 
+    public function testEveryCarrierReportsTheGenerationItsOwnRequestRenderedFrom(): void
+    {
+        // A class committed between the apply and the preview GET: each response names the
+        // generation of the snapshot its own request used (visual builder spec §4.3).
+        $repository = $this->container()->get(\Thallo\Core\Content\Style\Classes\StyleClassRepository::class);
+        $generation = $this->container()->get(SiteStyleGeneration::class);
+        $first = $this->apply(null, null);
+        $applied = $first['body']['data']['style_generation'];
+        self::assertSame($generation->current(), $applied);
+        $repository->create(['name' => 'Band', 'style' => []]);
+
+        $minted = $this->container()->get(PreviewController::class)
+            ->mint(new MintPreviewData(), $this->req(), $this->entry, 'en');
+        $mint = json_decode((string) $minted->getContent(), true)['data'];
+        $canvas = Request::create('/_preview/' . $mint['token'] . '?canvas=1', 'GET');
+        $html = (string) $this->handle($canvas)->getContent();
+        self::assertStringContainsString('data-thallo-revision="1"', $html);
+        self::assertStringContainsString('data-thallo-style-generation="' . ($applied + 1) . '"', $html);
+        self::assertStringNotContainsString('data-thallo-style-generation="' . $applied . '"', $html);
+    }
+
     public function testTheStyleGenerationIsAPerSiteRowIncrementedOnlyByClassWrites(): void
     {
         $generation = $this->container()->get(SiteStyleGeneration::class);

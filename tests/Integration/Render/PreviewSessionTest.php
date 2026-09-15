@@ -235,7 +235,7 @@ final class PreviewSessionTest extends AppTestCase
         $cacheOff = new \Thallo\Render\Http\Middleware\RenderPageCache(
             $this->container()->get(CacheStore::class),
             'default',
-            'blue-slate',
+            static fn (): string => 'blue-slate',
             false,
             3600,
         );

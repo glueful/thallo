@@ -46,6 +46,8 @@ export interface StageRefreshResult {
   mode: StageRefreshMode
   epoch: string | null
   revision: number | null
+  /** The style class generation the fetched page was rendered from (visual builder spec §4.3). */
+  style_generation: number | null
 }
 
 /** The fragment patch of an accepted apply (visual builder spec §3.5). */
@@ -55,6 +57,8 @@ export interface StageFragments {
   /** The pair the stage must display for the patch to apply: the apply's baseline. */
   baseline_epoch: string
   baseline_revision: number
+  /** The style class generation the fragments were rendered from (spec §4.3). */
+  style_generation?: number
   /** Root block id => the server-rendered wrapper. */
   fragments: Record<string, string>
 }
@@ -171,6 +175,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
         detail?: string
         epoch?: unknown
         revision?: unknown
+        style_generation?: unknown
       }
       if (pendingRefresh !== null && ack.refresh_id === pendingRefresh.id) {
         const { resolve } = pendingRefresh
@@ -180,6 +185,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
           mode: mode === 'patched' || mode === 'busy' || mode === 'stale' ? mode : 'reload',
           epoch: typeof ack.epoch === 'string' ? ack.epoch : null,
           revision: typeof ack.revision === 'number' ? ack.revision : null,
+          style_generation: typeof ack.style_generation === 'number' ? ack.style_generation : null,
         })
       }
     }
@@ -189,7 +195,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
       if (pendingRefresh !== null && ack.refresh_id === pendingRefresh.id) {
         const { resolve } = pendingRefresh
         pendingRefresh = null
-        resolve({ mode: 'failed', epoch: null, revision: null })
+        resolve({ mode: 'failed', epoch: null, revision: null, style_generation: null })
       }
     }
     // Auto-apply lifecycle + scroll preservation (auto-apply spec §1/§3).
@@ -215,7 +221,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
           // Clear BEFORE resolving (plan-review note): a late ack must
           // meet no stale resolver state.
           pendingRefresh = null
-          resolve({ mode: 'reload', epoch: null, revision: null })
+          resolve({ mode: 'reload', epoch: null, revision: null, style_generation: null })
         }
       }, 4000)
     })
