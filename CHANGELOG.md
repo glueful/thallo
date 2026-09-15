@@ -25,7 +25,9 @@ factory and browser proofs for every structural scenario.
 - Block templates a theme overrides must name their slots: every `blocks` field is wrapped by an
   element carrying `slot_attrs('<field>')` (types that render their children inline are
   exempt). The template lint refuses an override without it; the shipped templates all carry it.
-- Framework 1.85.7 remains the requirement (unchanged).
+- Framework 1.85.8 is required (repinned): the five scheduled framework jobs resolved their
+  logger from the container unguarded, and a skeleton install, which binds none, failed every
+  tenth-minute scheduler tick. 1.85.8 guards the lookup.
 
 ### Added
 - Style classes exist as site-owned records (`style_classes`) and resolve through the cascade as
