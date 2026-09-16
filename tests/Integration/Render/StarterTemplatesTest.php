@@ -266,6 +266,12 @@ final class StarterTemplatesTest extends AppTestCase
         self::assertStringContainsString('thallo-block-feature--plain', $plain);
         self::assertStringContainsString('thallo-block-feature--horizontal', $plain);
 
+        // Marker size scales the badge and the icon alike; unset is the medium default, no modifier.
+        $big = $render(['marker' => 'number', 'number' => '01', 'marker_size' => 'xl']);
+        self::assertStringContainsString('thallo-block-feature__marker--size-xl', $big);
+        self::assertStringNotContainsString('__marker--size-', $render(['marker' => 'number', 'number' => '01']));
+        self::assertStringNotContainsString('__marker--size-', $render(['marker_size' => 'huge']));
+
         // The icon marker takes the colours too; "none" shows no marker at all.
         $icon = $render(['marker' => 'icon', 'marker_background' => 'surface-2', 'marker_color' => 'text']);
         self::assertStringContainsString('thallo-block-feature__marker--bg-surface-2', $icon);

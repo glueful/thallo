@@ -15,6 +15,9 @@ as the next release, never a mutated tag.
   shown, rather than on each tab. Migration 030 adds the fields to an existing install and, on a
   tabs row still carrying the starter's old style declaration, adopts the new one.
 
+- The feature block's marker takes a size (small, medium, large, extra large) that scales the
+  icon and the number badge alike, beside its existing colour. Migration 031 adds the field.
+
 ### Fixed
 - A page-level separator spanned the viewport instead of the page's width; it now carries the
   same width clamp as the other page-level blocks, released by the full-width layout.
