@@ -7,6 +7,10 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Fixed
+- The stage placeholder trailed every block inside every block; it now ends the page's own
+  slots only, and fills a block's slot while that slot is empty.
+
 ## [1.0.0-beta.34] - 2026-09-16 — Developer Preview
 
 The section block's headline, title and description align separately; every stage slot ends in
