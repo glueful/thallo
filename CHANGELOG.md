@@ -7,6 +7,10 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- The stage placeholder sits after the last block in every slot, not only in empty ones, so the
+  next block's place is always in view; its + arms the Blocks tab at the end of that slot.
+
 ## [1.0.0-beta.33] - 2026-09-16 — Developer Preview
 
 A day of building with the Design page: the Blocks tab grouped as cards, an empty slot on the

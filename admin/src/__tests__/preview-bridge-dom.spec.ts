@@ -2238,7 +2238,7 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
     }
   })
 
-  it('an empty slot carries a placeholder whose + posts slot-add for its owner and slot; a filled slot has none', async () => {
+  it('every slot ends in the placeholder whose + posts slot-add for its owner and slot, empty or not', async () => {
     try {
       liveStage()
       const main = document.body.querySelector('main')!
@@ -2278,8 +2278,15 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
         '[data-thallo-block="pd-o-0000009"] [data-thallo-slot="content"]',
       )!
       expect(filled.querySelector('[data-thallo-block="pd-n-0000010"]')).not.toBeNull()
-      expect(filled.querySelector('.thallo-slot-placeholder')).toBeNull()
       expect(filled.hasAttribute('data-thallo-slot-empty')).toBe(false)
+      // The placeholder is the slot's LAST child — "the next block goes here" — the same one.
+      const trailing = filled.lastElementChild!
+      expect(trailing.classList.contains('thallo-slot-placeholder')).toBe(true)
+      expect(filled.querySelectorAll('.thallo-slot-placeholder')).toHaveLength(1)
+      trailing
+        .querySelector<HTMLButtonElement>('[data-slot-add]')!
+        .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      expect(lastPost('thallo:slot-add')).toMatchObject({ parent: 'pd-o-0000009', slot: 'content' })
     } finally {
       window.fetch = realFetch
     }
