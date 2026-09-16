@@ -69,6 +69,7 @@ import type {
 } from '@/composables/useCanvasBridge'
 import { useNotify } from '@/composables/useNotify'
 import { ApiError, apiErrorCode, apiErrorDetails } from '@/api/errors'
+import { blockAtValidationPath } from '@/editor/validationPath'
 import { toFieldDef } from '@/fields/normalize'
 import type { ContentTypeField } from '@/queries/contentTypes'
 import type { FieldDef } from '@/fields/types'
@@ -1746,8 +1747,26 @@ async function onPublish(): Promise<void> {
     await publish.mutateAsync('publish')
     success(isPublished.value ? 'Updated' : 'Published')
   } catch (e) {
-    notifyError(e, 'Couldn’t publish')
+    notifyError(e, publishRefusalTitle(e))
   }
+}
+/**
+ * A publish refused for a block's field: the path in the error names the block, so the block
+ * is selected on the stage and in the inspector, and the toast says which block and field —
+ * a block that paints nothing (an empty feature) is otherwise invisible on the canvas.
+ */
+function publishRefusalTitle(e: unknown): string {
+  if (!(e instanceof ApiError) || e.status !== 422) return 'Couldn’t publish'
+  const [path, message] = Object.entries(e.fieldErrors)[0] ?? []
+  if (path === undefined) return 'Couldn’t publish'
+  const at = blockAtValidationPath(fields.value, path)
+  if (at === null) return `Couldn’t publish — ${path} ${message}`
+  selectOne(at.id)
+  fieldEditorRef.value?.selectBlockById(at.id)
+  ringSelection()
+  inspectorTab.value = 'block'
+  const label = (allBlockTypes.value ?? []).find((t) => t.slug === at.type)?.label ?? at.type
+  return `Couldn’t publish — ${label}: ${at.field} ${message}`
 }
 
 const stageStale = computed(() => JSON.stringify(fields.value) !== lastApplied.value)

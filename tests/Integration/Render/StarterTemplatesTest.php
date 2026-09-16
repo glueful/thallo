@@ -266,6 +266,12 @@ final class StarterTemplatesTest extends AppTestCase
         self::assertStringContainsString('thallo-block-feature--plain', $plain);
         self::assertStringContainsString('thallo-block-feature--horizontal', $plain);
 
+        // Marker size scales the badge and the icon alike; unset is the medium default, no modifier.
+        $big = $render(['marker' => 'number', 'number' => '01', 'marker_size' => 'xl']);
+        self::assertStringContainsString('thallo-block-feature__marker--size-xl', $big);
+        self::assertStringNotContainsString('__marker--size-', $render(['marker' => 'number', 'number' => '01']));
+        self::assertStringNotContainsString('__marker--size-', $render(['marker_size' => 'huge']));
+
         // The icon marker takes the colours too; "none" shows no marker at all.
         $icon = $render(['marker' => 'icon', 'marker_background' => 'surface-2', 'marker_color' => 'text']);
         self::assertStringContainsString('thallo-block-feature__marker--bg-surface-2', $icon);
@@ -279,6 +285,54 @@ final class StarterTemplatesTest extends AppTestCase
         self::assertStringContainsString('thallo-block-feature--horizontal', $odd);
         self::assertStringNotContainsString('--neon', $odd);
         self::assertStringNotContainsString('__marker--bg-', $odd);
+    }
+
+    public function testTabsRenderVariantAlignTokenColoursAndPanelPadding(): void
+    {
+        $env = $this->env();
+        $render = fn(array $data): string => $env->createTemplate('{{ blocks(l) }}')->render(['l' => [
+            ['id' => 'tabsblock001', 'type' => 'tabs', 'data' => $data + ['items' => [
+                ['id' => 'tabsblock01t', 'type' => 'tab', 'data' => ['label' => 'One', 'content' => []]],
+                ['id' => 'tabsblock02t', 'type' => 'tab', 'data' => ['label' => 'Two', 'content' => []]],
+            ]]]]]);
+
+        $styled = $render(['variant' => 'underline', 'align' => 'center', 'list_background' => 'surface-2',
+            'tab_color' => 'text', 'active_background' => 'accent', 'active_color' => 'accent-contrast',
+            'panel_padding' => 'md']);
+        foreach (
+            ['--underline', '--align-center', '--list-bg-surface-2', '--tab-fg-text', '--active-bg-accent',
+                '--active-fg-accent-contrast', '--panel-pad-md'] as $mod
+        ) {
+            self::assertStringContainsString('thallo-block-tabs' . $mod, $styled);
+        }
+        // The panels wrapper is a style target: the Style tab's colours, radius, border and shadow
+        // land on it — the one content area, whichever tab is shown.
+        self::assertStringContainsString('class="thallo-block-tabs__panels', $styled);
+
+        $plain = $render([]);
+        self::assertStringContainsString('thallo-block-tabs--pill', $plain);
+        self::assertStringContainsString('thallo-block-tabs--align-start', $plain);
+        self::assertStringContainsString('thallo-block-tabs--panel-pad-none', $plain);
+        self::assertStringNotContainsString('--list-bg-', $plain);
+        self::assertStringNotContainsString('--active-bg-', $plain);
+
+        $odd = $render(['variant' => 'neon', 'align' => 'sideways', 'active_background' => 'pink']);
+        self::assertStringContainsString('thallo-block-tabs--pill', $odd);
+        self::assertStringContainsString('thallo-block-tabs--align-start', $odd);
+        self::assertStringNotContainsString('--neon', $odd);
+        self::assertStringNotContainsString('--active-bg-', $odd);
+    }
+
+    public function testCtaAlignsItsLinksRow(): void
+    {
+        $env = $this->env();
+        $render = fn(array $data): string => $env->createTemplate('{{ blocks(l) }}')->render(['l' => [
+            ['id' => 'c', 'type' => 'cta', 'data' => $data + ['title' => 'Go', 'links' => []]]]]);
+        self::assertStringContainsString('thallo-block-cta--links-end', $render(['links_align' => 'end']));
+        self::assertStringContainsString('thallo-block-cta--links-start', $render(['links_align' => 'start']));
+        // Unset keeps the orientation's default (vertical centres, horizontal leads): no modifier.
+        self::assertStringNotContainsString('--links-', $render([]));
+        self::assertStringNotContainsString('--links-', $render(['links_align' => 'sideways']));
     }
 
     public function testColumnsRendersPerLayoutEnum(): void

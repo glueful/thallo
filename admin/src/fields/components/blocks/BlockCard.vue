@@ -48,8 +48,17 @@ function onInsertBlock(payload: { slug: string; beforeHtml: string; afterHtml: s
   )
 }
 
+// The card's one line: what the block says (its title-like field) before what it is set to
+// (an icon name); an enum choice never stands in for content — a feature reads
+// "One-command upgrades", not "circle-arrow-up", and an unset one reads nothing.
+const SAYS_FIRST = ['title', 'heading', 'headline', 'label', 'name', 'question', 'text']
 const summary = computed(() => {
-  for (const f of type.value?.schema ?? []) {
+  const schema = type.value?.schema ?? []
+  const ordered = [
+    ...schema.filter((f) => SAYS_FIRST.includes(f.name)),
+    ...schema.filter((f) => !SAYS_FIRST.includes(f.name) && f.type !== 'enum'),
+  ]
+  for (const f of ordered) {
     const v = props.block.data[f.name]
     if (typeof v === 'string' && v.trim() !== '') return v.slice(0, 60)
   }

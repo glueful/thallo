@@ -53,6 +53,20 @@ final class ThemeVocabularyTest extends TestCase
         );
     }
 
+    public function testATokenWithALiteralDefaultIsFilledWhenAThemeOmitsIt(): void
+    {
+        // color.white joined the baseline after themes were copied: a theme.json that predates it
+        // still loads, with the literal default, and a theme may still map it itself.
+        $json = $this->defaultThemeJson();
+        unset($json['vocabulary']['color.white']);
+        $vocabulary = ThemeVocabulary::fromThemeJson($json, self::DEFAULT_THEME);
+        self::assertSame('#ffffff', $vocabulary->value('color.white'));
+
+        $json['vocabulary']['color.white'] = 'var(--paper)';
+        $mapped = ThemeVocabulary::fromThemeJson($json, self::DEFAULT_THEME);
+        self::assertSame('var(--paper)', $mapped->value('color.white'));
+    }
+
     public function testAMissingBaselineNameFailsNamingIt(): void
     {
         $json = $this->defaultThemeJson();

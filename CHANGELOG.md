@@ -7,6 +7,59 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.37] - 2026-09-16 — Developer Preview
+
+Blocks that build the landing page: styleable tabs that switch on the stage, a sized feature
+marker, an aligned call-to-action row with a description that takes its colour, a white token,
+and an empty block that can no longer hide from the canvas or the publish error.
+
+### Upgrade Notes
+- The documented sequence applies (docs/upgrading.md): `composer update`, then
+  `php glueful thallo:provision`, then reload PHP-FPM so OPcache drops the previous release's
+  classes. Three migrations (030, 031, 032) append optional fields to the `tabs`, `feature` and
+  `cta` block types; each keeps the row's label and description and runs once. Migration 030
+  also adopts the tabs starter's new style declaration on a row that still carries the old one.
+  No new permissions; framework 1.85.8 remains the requirement.
+- The colour vocabulary gains `white`. A theme copied before this release loads unchanged: the
+  token carries a literal default when a manifest omits it. A theme that wants its own value
+  maps `color.white` in theme.json.
+- The preview bridge and stylesheet changed (empty-block stub, tab switching on the stage).
+  Provision publishes them with the admin bundle; a stage still holding the old bridge reloads
+  on the next apply.
+- The tabs, feature and call-to-action templates' markup changed; a theme that overrides them
+  keeps its own markup, one that only styles them should check the new modifiers in blocks.css.
+
+### Added
+- The tabs block is styleable: a Tabs group in its Block tab sets the strip's variant (pill,
+  underline, boxed), alignment, and the strip, tab, active-tab background and text colours from
+  the theme's colour tokens; a Panel group sets the padding around the shown panel; and the
+  Style tab's colours, radius, border and shadow land on the one panels area, whichever tab is
+  shown, rather than on each tab. Migration 030 adds the fields to an existing install and, on a
+  tabs row still carrying the starter's old style declaration, adopts the new one.
+
+- The feature block's marker takes a size (small, medium, large, extra large) that scales the
+  icon and the number badge alike, beside its existing colour. Migration 031 adds the field.
+
+- `white` joins the theme colour tokens: a literal `#ffffff` in every scheme, for text on an
+  accent or inverted band. A theme copied before this still loads; it may map the token itself.
+- The call-to-action block aligns its buttons row (start, center, end) from a Links group in its
+  Block tab; unset keeps the orientation's default. Migration 032 adds the field.
+
+### Fixed
+- The call-to-action's description ignored the panel's text colour from the Style tab, since the
+  theme pinned it to the muted token; it now softens whatever text colour the panel has.
+- A page-level separator spanned the viewport instead of the page's width; it now carries the
+  same width clamp as the other page-level blocks, released by the full-width layout.
+- Tabs could not be switched on the stage: every in-block click is inert there, so a tab label
+  never reached its radio. A label click now switches the tab and selects that tab's block, and
+  selecting a block inside a hidden panel (from the outline) brings its panel forward.
+- A block that paints nothing (a feature with no title, marker or description) was invisible on
+  the stage yet still in the document, so a publish could fail on a block nobody could see.
+  The stage now shows such a block as a labelled stub ("Empty feature — select it to add
+  content, or delete it"), a refused publish selects the block it names and the toast says
+  which block and field ("Feature: title is required"), and a block card's summary in the
+  block list reads the block's title before an icon name, never an enum choice.
+
 ## [1.0.0-beta.36] - 2026-09-16 — Developer Preview
 
 The feature block builds the landing page's cards, the stage placeholder fills its row, and the

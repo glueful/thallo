@@ -145,7 +145,7 @@ final class SeedBlockTypesTest extends AppTestCase
         self::assertSame('boolean', $galleryFields['lightbox']['type']);
         $ctaFields = array_column($repo->findBySlug('cta')['schema'], 'name');
         self::assertSame(
-            ['title', 'description', 'variant', 'orientation', 'reverse', 'links'],
+            ['title', 'description', 'variant', 'orientation', 'reverse', 'links', 'links_align'],
             $ctaFields,
         );
         // Visual builder spec §7.2: the container's overlay is a choice and an opacity step,

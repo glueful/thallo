@@ -172,6 +172,58 @@ describe('BlocksField', () => {
     blockTypes.value = defaultTypes()
   })
 
+  it("a card's summary is what the block says (its title) before an icon name or an enum", async () => {
+    const before = blockTypes.value
+    blockTypes.value = [
+      ...before,
+      {
+        ...before[0]!,
+        uuid: 'bt-feature',
+        slug: 'feature',
+        label: 'Feature',
+        schema: [
+          { name: 'icon', type: 'string', required: false, localized: false, filterable: false },
+          { name: 'title', type: 'string', required: true, localized: false, filterable: false },
+          {
+            name: 'variant',
+            type: 'enum',
+            enum: ['plain', 'outline'],
+            required: false,
+            localized: false,
+            filterable: false,
+          },
+        ],
+      } as BlockType,
+    ]
+    try {
+      const wrapper = mount(BlocksField, {
+        props: {
+          field,
+          modelValue: [
+            {
+              id: 'feat00000001',
+              type: 'feature',
+              data: { icon: 'circle-arrow-up', title: 'Forty' },
+              settings: {},
+            },
+            { id: 'feat00000002', type: 'feature', data: { variant: 'outline' }, settings: {} },
+          ],
+          'onUpdate:modelValue': () => {},
+        },
+      })
+      await flushPromises()
+      const one = wrapper.find('[data-test="block-toggle-feat00000001"]').text()
+      expect(one).toContain('Forty')
+      expect(one).not.toContain('circle-arrow-up')
+      expect(wrapper.find('[data-test="block-toggle-feat00000002"]').text()).not.toContain(
+        'outline',
+      )
+      wrapper.unmount()
+    } finally {
+      blockTypes.value = before
+    }
+  })
+
   it('adds a block from the picker (active types only) with a generated id', async () => {
     const model = ref<
       {

@@ -280,6 +280,49 @@ function proseWrapper(id: string, field = 'body', html = '<p>hello</p>'): HTMLEl
   )
 }
 
+describe('tabs on the canvas', () => {
+  // The runtime's tabs module skips the canvas, so the CSS radio floor drives the panels; the
+  // bridge must let a label click reach its radio (every other in-block click is inert) and
+  // must bring a hidden panel forward when something inside it is selected.
+  function tabsBlock(id: string): HTMLElement {
+    const w = wrapper(
+      id,
+      `<div class="thallo-block thallo-block-tabs">` +
+        `<input class="thallo-block-tabs__radio" type="radio" name="tabs-${id}" id="tabs-${id}-1" checked>` +
+        `<input class="thallo-block-tabs__radio" type="radio" name="tabs-${id}" id="tabs-${id}-2">` +
+        `<div class="thallo-block-tabs__list">` +
+        `<label class="thallo-block-tabs__label" for="tabs-${id}-1">One</label>` +
+        `<label class="thallo-block-tabs__label" for="tabs-${id}-2">Two</label></div>` +
+        `<div class="thallo-block-tabs__panels">` +
+        `<div class="thallo-block-tabs__panel"><div class="thallo-preview-block" data-thallo-block="${id}-t1"><div class="thallo-block thallo-block-tab"><p>p1</p></div></div></div>` +
+        `<div class="thallo-block-tabs__panel"><div class="thallo-preview-block" data-thallo-block="${id}-t2"><div class="thallo-block thallo-block-tab"><p>p2</p></div></div></div>` +
+        `</div></div>`,
+    )
+    document.body.appendChild(w)
+    return w
+  }
+
+  it("a tab label click checks its radio and selects that panel's tab block", () => {
+    const w = tabsBlock('tb-a-0000001')
+    const two = w.querySelector<HTMLLabelElement>('label[for="tabs-tb-a-0000001-2"]')!
+    two.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(w.querySelector<HTMLInputElement>('#tabs-tb-a-0000001-2')!.checked).toBe(true)
+    expect(w.querySelector<HTMLInputElement>('#tabs-tb-a-0000001-1')!.checked).toBe(false)
+    expect(lastPost('thallo:block-select')).toMatchObject({ id: 'tb-a-0000001-t2' })
+  })
+
+  it('selecting a block inside a hidden panel (the outline) brings that panel forward', () => {
+    const w = tabsBlock('tb-b-0000002')
+    sendToBridge({ type: 'thallo:highlight', id: 'tb-b-0000002-t2' })
+    expect(w.querySelector<HTMLInputElement>('#tabs-tb-b-0000002-2')!.checked).toBe(true)
+    expect(
+      w
+        .querySelector('[data-thallo-block="tb-b-0000002-t2"]')!
+        .classList.contains('thallo-canvas-selected'),
+    ).toBe(true)
+  })
+})
+
 describe('edit-in-place session', () => {
   it('double-click posts edit-request; grant enables contenteditable on the ONE region', () => {
     const w = proseWrapper('eip-a-000001')
@@ -2300,6 +2343,37 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
       expect(root.hasAttribute('data-thallo-slot-empty')).toBe(false)
       expect(root.lastElementChild!.classList.contains('thallo-slot-placeholder')).toBe(true)
       expect(root.querySelectorAll('.thallo-slot-placeholder')).toHaveLength(1)
+    } finally {
+      window.fetch = realFetch
+    }
+  })
+
+  it('a block that paints nothing is marked empty with a label, and unmarked once it has content', async () => {
+    try {
+      liveStage()
+      const main = document.body.querySelector('main')!
+      const emptyHtml =
+        '<div class="thallo-preview-block" data-thallo-block="pd-e-0000012"><div class="thallo-block thallo-block-feature"><div class="thallo-block-feature__body"></div></div></div>'
+      main.insertAdjacentHTML('beforeend', emptyHtml)
+      stubFetch(renderedHtml('Alpha v1', 'Beta v1').replace('</main>', emptyHtml + '</main>'))
+      posted.mockClear()
+      await refresh('r-empty')
+      const w = main.querySelector('[data-thallo-block="pd-e-0000012"]')!
+      expect(w.hasAttribute('data-thallo-block-empty')).toBe(true)
+      expect(w.firstElementChild!.getAttribute('data-thallo-empty-label')).toBe('Empty feature')
+      // A block with text, and a container whose slot holds a placeholder, are not empty.
+      expect(
+        main
+          .querySelector('[data-thallo-block="pd-a-0000001"]')!
+          .hasAttribute('data-thallo-block-empty'),
+      ).toBe(false)
+      const filledHtml =
+        '<div class="thallo-preview-block" data-thallo-block="pd-e-0000012"><div class="thallo-block thallo-block-feature"><div class="thallo-block-feature__body"><h3>Now titled</h3></div></div></div>'
+      stubFetch(renderedHtml('Alpha v1', 'Beta v1').replace('</main>', filledHtml + '</main>'))
+      await refresh('r-empty2')
+      const filled = main.querySelector('[data-thallo-block="pd-e-0000012"]')!
+      expect(filled.hasAttribute('data-thallo-block-empty')).toBe(false)
+      expect(filled.firstElementChild!.hasAttribute('data-thallo-empty-label')).toBe(false)
     } finally {
       window.fetch = realFetch
     }

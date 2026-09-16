@@ -144,7 +144,20 @@
     }
   }
 
+  /** A block inside a hidden tab panel: check that panel's radio so the selection is in view. */
+  function revealTabPanels(w) {
+    var panel = w.parentElement ? w.parentElement.closest('.thallo-block-tabs__panel') : null
+    while (panel) {
+      var root = panel.closest('.thallo-block-tabs')
+      var panels = root ? Array.prototype.slice.call(root.querySelectorAll(':scope > .thallo-block-tabs__panels > .thallo-block-tabs__panel')) : []
+      var radios = root ? Array.prototype.slice.call(root.querySelectorAll(':scope > .thallo-block-tabs__radio')) : []
+      var radio = radios[panels.indexOf(panel)]
+      if (radio) radio.checked = true
+      panel = root && root.parentElement ? root.parentElement.closest('.thallo-block-tabs__panel') : null
+    }
+  }
   function selectWrapper(w) {
+    revealTabPanels(w)
     clearClass('thallo-canvas-selected')
     detachToolbar()
     w.classList.add('thallo-canvas-selected')
@@ -1027,6 +1040,12 @@
     Array.prototype.forEach.call(root.querySelectorAll('[data-thallo-slot-empty]'), function (el) {
       el.removeAttribute('data-thallo-slot-empty')
     })
+    Array.prototype.forEach.call(root.querySelectorAll('[data-thallo-block-empty]'), function (el) {
+      el.removeAttribute('data-thallo-block-empty')
+    })
+    Array.prototype.forEach.call(root.querySelectorAll('[data-thallo-empty-label]'), function (el) {
+      el.removeAttribute('data-thallo-empty-label')
+    })
     var classes = [
       'thallo-canvas-anchor', 'thallo-canvas-selected', 'thallo-canvas-hover',
       'thallo-canvas-selected-target', 'thallo-canvas-hover-target', 'thallo-canvas-dragging'
@@ -1262,6 +1281,33 @@
         slot.removeChild(placeholder)
       }
     }
+    markEmptyBlocks()
+  }
+  // A block that paints nothing (a feature without title, marker or description) would be
+  // invisible on the canvas yet still in the document — and still validated at publish. Such a
+  // wrapper is marked and its visual child labelled, so the stylesheet paints a stub. Empty means:
+  // no text, no media, no controls, no nested block or slot (a container's slot placeholder
+  // is content). Bridge state: stripped before any comparison or clone.
+  function markEmptyBlocks() {
+    var wrappers = document.querySelectorAll('[data-thallo-block]')
+    for (var i = 0; i < wrappers.length; i++) {
+      var w = wrappers[i]
+      var host = firstVisualChild(w)
+      var empty = !!host && (host.textContent || '').trim() === ''
+        && !host.querySelector('img,svg,video,audio,iframe,picture,canvas,input,textarea,select,button,[data-thallo-block],[data-thallo-slot]')
+      if (empty) {
+        w.setAttribute('data-thallo-block-empty', '')
+        host.setAttribute('data-thallo-empty-label', 'Empty ' + blockKindOf(host))
+      } else {
+        w.removeAttribute('data-thallo-block-empty')
+        if (host) host.removeAttribute('data-thallo-empty-label')
+      }
+    }
+  }
+  /** "feature" from a theme root's thallo-block-feature class; "block" when the theme names none. */
+  function blockKindOf(host) {
+    var m = /(?:^|\s)thallo-block-([a-z0-9_-]+)/.exec(host.className || '')
+    return m ? m[1].replace(/_/g, ' ') : 'block'
   }
   // The placeholder: a dashed frame with one + (arms the parent's Blocks tab into this slot)
   // and the drag hint. Bridge-owned, never content: stripped before any comparison or clone.
@@ -1454,6 +1500,27 @@
         if (action === 'add-after') {
           // The Blocks tab arms "after this block" (Phase C.1): no anchor needed.
           post('block-add-after', { id: selectedId })
+        }
+        return
+      }
+      // A tabs label: the runtime's tabs module skips the canvas, so the CSS radio floor drives
+      // the panels — let the click reach its radio (every other in-block click is inert), then
+      // select the tab block that panel shows, so the inspector edits the tab just switched to.
+      var tabLabel = e.target && e.target.closest ? e.target.closest('label.thallo-block-tabs__label[for]') : null
+      if (tabLabel) {
+        e.preventDefault()
+        e.stopPropagation()
+        var radio = document.getElementById(tabLabel.getAttribute('for'))
+        if (radio) radio.checked = true
+        var tabsRoot = tabLabel.closest('.thallo-block-tabs')
+        var labels = tabsRoot ? Array.prototype.slice.call(tabsRoot.querySelectorAll(':scope > .thallo-block-tabs__list > .thallo-block-tabs__label')) : []
+        var panels = tabsRoot ? Array.prototype.slice.call(tabsRoot.querySelectorAll(':scope > .thallo-block-tabs__panels > .thallo-block-tabs__panel')) : []
+        var panel = panels[labels.indexOf(tabLabel)]
+        var tabWrapper = panel ? panel.querySelector('[data-thallo-block]') : null
+        var target = tabWrapper || wrapperFor(tabLabel)
+        if (target) {
+          selectWrapper(target)
+          post('block-select', { id: target.getAttribute('data-thallo-block'), shift: false, meta: false })
         }
         return
       }
