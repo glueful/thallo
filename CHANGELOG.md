@@ -17,6 +17,10 @@ as the next release, never a mutated tag.
 ### Fixed
 - The stage placeholder inside a grid or a flex row took one cell or one item's width; it now
   spans the slot's full row.
+- The site's custom stylesheet was served at `/custom.css`, outside the documented PHP-served
+  prefixes, so a web server with a static-file rule for `.css` answered it 404 and the rules
+  never reached the page. It is now `/_thallo/custom.css`, which the documented nginx block
+  already hands to PHP.
 
 ## [1.0.0-beta.35] - 2026-09-16 — Developer Preview
 
