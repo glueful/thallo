@@ -233,6 +233,54 @@ final class StarterTemplatesTest extends AppTestCase
         self::assertStringNotContainsString('thallo-block-section__title--', $out);
     }
 
+    public function testFeatureMarkerIsIconOrNumberWithTokenColoursAndCardVariants(): void
+    {
+        $env = $this->env();
+        $render = fn(array $data): string => $env->createTemplate('{{ blocks(l) }}')->render(['l' => [
+            ['id' => 'f', 'type' => 'feature', 'data' => $data + ['icon' => 'activity',
+                'title' => 'One-command upgrades', 'description' => 'Thallo lives in vendor/.']]]]);
+
+        // The number badge, with its background and text colour from the theme's colour tokens.
+        $card = $render(['marker' => 'number', 'number' => '01', 'marker_background' => 'accent',
+            'marker_color' => 'accent-contrast', 'variant' => 'outline', 'orientation' => 'vertical']);
+        self::assertStringContainsString('thallo-block-feature__marker--number', $card);
+        self::assertStringContainsString('thallo-block-feature__marker--bg-accent', $card);
+        self::assertStringContainsString('thallo-block-feature__marker--fg-accent-contrast', $card);
+        self::assertStringContainsString('>01</span>', $card);
+        self::assertStringNotContainsString('<svg', $card); // number chosen: the icon stays out
+        self::assertStringContainsString('thallo-block-feature--outline', $card);
+        self::assertStringContainsString('thallo-block-feature--vertical', $card);
+        // Title and description stack inside one body, whatever the orientation.
+        self::assertMatchesRegularExpression(
+            '~<div class="thallo-block-feature__body">\s*<h3 class="thallo-block-feature__title[^"]*"[^>]*>.*</h3>'
+            . '\s*<p class="thallo-block-feature__description">~s',
+            $card,
+        );
+
+        // Nothing chosen: the icon, plain and horizontal, no colour modifiers.
+        $plain = $render([]);
+        self::assertStringContainsString('<svg', $plain);
+        self::assertStringContainsString('thallo-block-feature__marker--icon', $plain);
+        self::assertStringNotContainsString('__marker--bg-', $plain);
+        self::assertStringNotContainsString('__marker--fg-', $plain);
+        self::assertStringContainsString('thallo-block-feature--plain', $plain);
+        self::assertStringContainsString('thallo-block-feature--horizontal', $plain);
+
+        // The icon marker takes the colours too; "none" shows no marker at all.
+        $icon = $render(['marker' => 'icon', 'marker_background' => 'surface-2', 'marker_color' => 'text']);
+        self::assertStringContainsString('thallo-block-feature__marker--bg-surface-2', $icon);
+        self::assertStringContainsString('thallo-block-feature__marker--fg-text', $icon);
+        $none = $render(['marker' => 'none', 'number' => '01']);
+        self::assertStringNotContainsString('thallo-block-feature__marker', $none);
+
+        // An unknown stored enum degrades to the default, never an unmatched class.
+        $odd = $render(['variant' => 'neon', 'orientation' => 'diagonal', 'marker_background' => 'pink']);
+        self::assertStringContainsString('thallo-block-feature--plain', $odd);
+        self::assertStringContainsString('thallo-block-feature--horizontal', $odd);
+        self::assertStringNotContainsString('--neon', $odd);
+        self::assertStringNotContainsString('__marker--bg-', $odd);
+    }
+
     public function testColumnsRendersPerLayoutEnum(): void
     {
         $env = $this->env();

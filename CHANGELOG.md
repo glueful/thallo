@@ -7,6 +7,17 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- The feature block builds a card: a marker choice (the icon, a number badge such as "01", or
+  none) with the badge's background and colour picked from the theme's colour tokens, a variant
+  (plain, outline, soft, subtle — the card block's names) and an orientation (the marker beside
+  the text or above it). Title and description now stack in one body whatever the layout.
+  Migration 029 adds the six fields to an existing install's feature block type.
+
+### Fixed
+- The stage placeholder inside a grid or a flex row took one cell or one item's width; it now
+  spans the slot's full row.
+
 ## [1.0.0-beta.35] - 2026-09-16 — Developer Preview
 
 A one-fix release: the stage placeholder belongs at the end of the page, not after every block
