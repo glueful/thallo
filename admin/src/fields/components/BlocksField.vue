@@ -59,7 +59,7 @@ const ops = createBlockListOps(regionsOf)
 function applyOps(ops: OperationBody[] | null): void {
   if (ops === null || ops.length === 0) return
   const applier = createOperationApplier(regionsOf, () => [props.field.name])
-  let doc = { fields: { [props.field.name]: model.value ?? [] } as Record<string, unknown> }
+  let doc = { fields: { [props.field.name]: tree() } as Record<string, unknown> }
   for (const body of ops) {
     doc = applier.applyOperation(doc, {
       op_id: 'list',
@@ -74,7 +74,7 @@ function applyOps(ops: OperationBody[] | null): void {
 
 /** One coordinator per field (spec §5.1): the inspector list is a drag surface like the stage. */
 const coordinator = createDragCoordinator({
-  doc: () => ({ fields: { [props.field.name]: model.value ?? [] } }),
+  doc: () => ({ fields: { [props.field.name]: tree() } }),
   legality: legalityContext,
 })
 
@@ -109,7 +109,7 @@ function pickerTypesForList(parentId: string | null, region: string | null): Blo
   if (listIsFull(parentId, region)) return [] // tabs cap: nothing new enters a full list
   let allowed = allowlist.value
   if (parentId !== null && region !== null) {
-    const parent = ops.findById(model.value ?? [], parentId)
+    const parent = ops.findById(tree(), parentId)
     const parentType = parent ? bySlug.value.get(parent.type) : undefined
     const regionField = parentType?.schema.find((f) => f.name === region)
     allowed = (regionField ? toFieldDef(regionField).blockTypes : undefined) ?? []
@@ -128,22 +128,34 @@ function pickerTypesForList(parentId: string | null, region: string | null): Blo
 const TABS_MAX_ITEMS = 12
 function listIsFull(parentId: string | null, region: string | null): boolean {
   if (parentId === null || region !== 'items') return false
-  const parent = ops.findById(model.value ?? [], parentId)
+  const parent = ops.findById(tree(), parentId)
   if (!parent || parent.type !== 'tabs') return false
   return ((parent.data.items as BlockInstance[] | undefined) ?? []).length >= TABS_MAX_ITEMS
 }
 
+// The tree as the field holds it right now. Writes within one tick stage their result here:
+// defineModel only reflects a write once the parent re-renders, so a second synchronous write
+// reading `model.value` would start from the tree BEFORE the first and silently drop it (the
+// columns layout picker writes layout and widths back to back).
+let staged: BlockInstance[] | null = null
+function tree(): BlockInstance[] {
+  return staged ?? model.value ?? []
+}
 function apply(fn: (tree: BlockInstance[]) => BlockInstance[]): void {
-  model.value = fn(model.value ?? [])
+  staged = fn(tree())
+  model.value = staged
+  queueMicrotask(() => {
+    staged = null
+  })
 }
 
 function selectBlock(id: string): void {
   // Expand every ancestor so the card is visible, then scroll + focus its header.
   let current: string | null = id
-  const tree = model.value ?? []
+  const snapshot = tree()
   while (current) {
     expanded[current] = true
-    current = parentOf(tree, current)
+    current = parentOf(snapshot, current)
   }
   void nextTick(() => {
     const header = document.querySelector<HTMLElement>(`[data-test="block-toggle-${id}"]`)
@@ -185,11 +197,11 @@ function onDragEnd(event: {
   const parentId = event.to.dataset.listParent || null
   const region = event.to.dataset.listRegion || null
   const index = event.newIndex ?? 0
-  const tree = model.value ?? []
+  const snapshot = tree()
   // Tabs cap gates NET ADDITIONS only: a cross-list move adds an item to the
   // destination, so it checks fullness; a same-list reorder never does. Source
   // identity comes from the TREE (authoritative), not the event's from element.
-  const source = dragId === '' ? null : ops.locateById(tree, dragId)
+  const source = dragId === '' ? null : ops.locateById(snapshot, dragId)
   const crossListFull =
     source !== null &&
     (source.parentId !== parentId || source.region !== region) &&
@@ -242,7 +254,7 @@ provide(BlocksContextKey, context)
 
 /** Canvas routing (visual-canvas spec §5): does this field's tree contain `id`? */
 function hasBlock(id: string): boolean {
-  return ops.findById(model.value ?? [], id) !== null
+  return ops.findById(tree(), id) !== null
 }
 
 // ── Canvas structural ops (stage-toolbar spec §4) ─────────────────────────────
@@ -252,14 +264,14 @@ function hasBlock(id: string): boolean {
 
 /** Reorder within the block's own list. Returns the moved block's new neighbor. */
 function moveBlock(id: string, delta: number): { beforeId: string } | { afterId: string } | null {
-  const tree = model.value ?? []
-  const loc = ops.locateById(tree, id)
+  const snapshot = tree()
+  const loc = ops.locateById(snapshot, id)
   if (!loc) return null
   const to = loc.index + delta
   if (to < 0 || to >= loc.list.length) return null // boundary no-op — no mirror
   // Compute the next tree ONCE and locate within it — model.value does not
   // reflect the emission synchronously under a parent-controlled v-model.
-  const nextTree = ops.moveById(tree, id, delta)
+  const nextTree = ops.moveById(snapshot, id, delta)
   apply(() => nextTree)
   const after = ops.locateById(nextTree, id)!
   const following = after.list[after.index + 1]
@@ -270,13 +282,13 @@ function moveBlock(id: string, delta: number): { beforeId: string } | { afterId:
 
 /** Duplicate in place. Returns the copy's id + the whole-subtree old->new id map. */
 function duplicateBlock(id: string): { newId: string; idMap: Record<string, string> } | null {
-  const tree = model.value ?? []
-  const origin = ops.locateById(tree, id)
+  const snapshot = tree()
+  const origin = ops.locateById(snapshot, id)
   if (!origin) return null
   // Tabs cap: the copy lands in the block's OWN list — a net addition.
   if (listIsFull(origin.parentId, origin.region)) return null
   const source = origin.list[origin.index]!
-  const nextTree = ops.duplicateById(tree, id)
+  const nextTree = ops.duplicateById(snapshot, id)
   apply(() => nextTree)
   const loc = ops.locateById(nextTree, id)!
   const copy = loc.list[loc.index + 1]!
@@ -285,21 +297,21 @@ function duplicateBlock(id: string): { newId: string; idMap: Record<string, stri
 }
 
 function deleteBlock(id: string): boolean {
-  if (!ops.findById(model.value ?? [], id)) return false
+  if (!ops.findById(tree(), id)) return false
   apply((t) => ops.removeById(t, id))
   return true
 }
 
 /** Insert a fresh block of `typeSlug` (from the factory) as the next sibling of `id`. */
 async function insertAfter(id: string, typeSlug: string): Promise<string | null> {
-  const before = ops.locateById(model.value ?? [], id)
+  const before = ops.locateById(tree(), id)
   if (!before) return null
   // Tabs cap: inserting a sibling is a net addition to the containing list.
   if (listIsFull(before.parentId, before.region)) return null
   const block = await makeBlock(typeSlug)
   if (block === null) return null
   // The tree may have moved while the factory answered: place against where the anchor is now.
-  const loc = ops.locateById(model.value ?? [], id)
+  const loc = ops.locateById(tree(), id)
   if (!loc || listIsFull(loc.parentId, loc.region)) return null
   apply((t) =>
     ops.insertAt(t, { parentId: loc.parentId, region: loc.region, index: loc.index + 1 }, block),
@@ -311,33 +323,33 @@ async function insertAfter(id: string, typeSlug: string): Promise<string | null>
 
 /** Picker options for inserting NEXT TO `id` — the containing list's rules (§5). */
 function pickerTypesFor(id: string): BlockType[] {
-  const loc = ops.locateById(model.value ?? [], id)
+  const loc = ops.locateById(tree(), id)
   if (!loc) return []
   return pickerTypesForList(loc.parentId, loc.region)
 }
 
 /** Edit-in-place (spec §4): patch ONE data field of a block, id-addressed. */
 function patchBlockData(id: string, fieldName: string, value: unknown): boolean {
-  if (!ops.findById(model.value ?? [], id)) return false
+  if (!ops.findById(tree(), id)) return false
   apply((t) => ops.patchDataById(t, id, fieldName, value))
   return true
 }
 
 /** Replace a block's settings (the inspector's Style and Advanced tabs write through here). */
 function patchBlockSettings(id: string, settings: Record<string, unknown>): boolean {
-  if (!ops.findById(model.value ?? [], id)) return false
+  if (!ops.findById(tree(), id)) return false
   apply((t) => ops.patchSettingsById(t, id, settings))
   return true
 }
 
 /** The live block instance for `id`, or null. */
 function findBlock(id: string): BlockInstance | null {
-  return ops.findById(model.value ?? [], id)
+  return ops.findById(tree(), id)
 }
 
 /** The type slug of `id`, for the parent's prose-convention grant check. */
 function blockTypeById(id: string): string | null {
-  return ops.findById(model.value ?? [], id)?.type ?? null
+  return ops.findById(tree(), id)?.type ?? null
 }
 
 // Exposed API: onDragEnd is the direct-handler testing seam (jsdom cannot
@@ -376,9 +388,7 @@ async function addTailProse(): Promise<void> {
   if (!type) return
   const block = await makeBlock(type.slug)
   if (block === null) return
-  apply((t) =>
-    ops.insertAt(t, { parentId: null, region: null, index: (model.value ?? []).length }, block),
-  )
+  apply((t) => ops.insertAt(t, { parentId: null, region: null, index: tree().length }, block))
   expanded[block.id] = true
 }
 </script>

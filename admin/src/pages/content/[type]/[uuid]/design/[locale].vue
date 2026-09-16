@@ -867,6 +867,17 @@ function armInsertTarget(target: InsertTarget): void {
   insertAttempt++
   inspectorTab.value = 'blocks'
 }
+/** The Block tab's slot rows: "Add" arms the Blocks tab into that slot of the selected block. */
+function onInsertInto(field: string): void {
+  const parent = selected.value
+  if (parent === null) return
+  armInsertTarget({ kind: 'into', parent, field })
+}
+// A tab can leave the strip under the reader: the Block tab goes with its selection (a delete
+// on the stage, Escape). The pane then shows the first tab rather than nothing.
+watch(inspectorTabs, (tabs) => {
+  if (!tabs.some((tab) => tab.value === inspectorTab.value)) inspectorTab.value = 'content'
+})
 /** Clear the armed target; every selection change and every arming ends the attempt in flight. */
 function clearInsertTarget(): void {
   insertTarget.value = null
@@ -897,6 +908,7 @@ const paletteDrag = createPaletteDrag({
       fieldEditorRef.value?.selectBlockById(block.id)
       ringSelection()
       revealAfterPaint = block.id
+      inspectorTab.value = 'block'
     })
   },
   onCancel: () => {
@@ -932,6 +944,7 @@ async function insertFromPalette(slug: string): Promise<void> {
   fieldEditorRef.value?.selectBlockById(block.id)
   ringSelection()
   revealAfterPaint = block.id
+  inspectorTab.value = 'block'
 }
 /**
  * A block inserted from the palette is not on the stage until the next apply paints it; once
@@ -1995,6 +2008,7 @@ function reloadStage(): void {
                 @detach-all="onDetachAll"
                 :active-breakpoint="activeBreakpoint"
                 @patch-data="onPatchData"
+                @insert-into="onInsertInto"
                 @set-setting="onSetSetting"
                 @set-all="onSetAll"
                 @set-advanced="onSetAdvanced"

@@ -30,6 +30,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{
   'patch-data': [name: string, value: unknown]
+  'insert-into': [field: string]
   'set-setting': [path: string, breakpoint: Breakpoint | null, value: StyleValue | null]
   'set-all': [path: string, value: StyleValue]
   'set-advanced': [
@@ -92,6 +93,7 @@ const proseField = computed(() =>
           :type="blockType ?? undefined"
           :exclude="proseField ? [proseField] : []"
           @patch="(name, value) => emit('patch-data', name, value)"
+          @insert-into="(field) => emit('insert-into', field)"
         />
       </template>
       <template #style>

@@ -11,10 +11,20 @@ as the next release, never a mutated tag.
 - The Blocks tab groups its tiles by category in the block-types page's order (Layout, Content,
   Media, Items, then the rest, Other last), two to a row, as bordered cards with hover and focus
   states and a grab cursor.
+- A block inserted from the Blocks tab (click or drop) opens the Block tab on it, so the next
+  step is configuring what just landed.
+- The Block tab's slot rows carry an Add button that arms the Blocks tab into that slot of the
+  selected block.
 
 ### Fixed
 - A block inserted from the Blocks tab below the fold was invisible: the stage now scrolls to
   the inserted block and rings it once the apply has painted it.
+- The columns layout picker's three-column choice stayed at two: its two back-to-back writes
+  (layout, widths) each started from the tree before the other. Writes within one tick now stage
+  their result, so the second reads what the first produced.
+- Deleting the selected block from the stage or the outline left the inspector blank: the Block
+  tab left the strip with its selection but stayed chosen. The pane falls back to Content.
+- The outline showed an empty `col_3` slot under a two-column columns block.
 
 ## [1.0.0-beta.32] - 2026-09-15 — Developer Preview
 

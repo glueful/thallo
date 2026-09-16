@@ -1098,6 +1098,65 @@ describe('canvas page', () => {
       return wrapper.find('[data-test="blocks-tab"]')
     }
 
+    it('deleting the selected block from the stage falls the inspector back to Content, never a blank pane', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      bridge.callbacks.select?.('blockaaa0001')
+      await flushPromises()
+      const active = () =>
+        wrapper.find('[data-test="inspector-tabs"] [aria-selected="true"]').text()
+      expect(active()).toBe('Block')
+      bridge.callbacks.deleteRequest?.('blockaaa0001')
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-delete-confirm-yes"]').trigger('click')
+      await flushPromises()
+      expect(active()).toBe('Content')
+      expect(wrapper.find('[data-test="block-toggle-blockbbb0002"]').exists()).toBe(true)
+      wrapper.unmount()
+    })
+
+    it('a palette insert opens the Block tab on the new block; its slot rows arm the Blocks tab into that slot', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      blockTypes.value = blockTypes.value.map((t) =>
+        t.slug === 'card'
+          ? ({
+              ...t,
+              schema: [
+                ...t.schema,
+                {
+                  name: 'body',
+                  type: 'blocks',
+                  required: false,
+                  localized: false,
+                  filterable: false,
+                },
+              ],
+            } as BlockType)
+          : t,
+      )
+      const wrapper = mountPage()
+      await flushPromises()
+      const tab = await openBlocks(wrapper)
+      await tab.find('[data-test="palette-card-card"]').trigger('click')
+      await flushPromises()
+      const active = () =>
+        wrapper.find('[data-test="inspector-tabs"] [aria-selected="true"]').text()
+      expect(active()).toBe('Block')
+      expect(wrapper.find('[data-test="block-inspector-title"]').text()).toBe('card')
+      await wrapper
+        .find('[data-test="block-inspector"] [data-test="region-add-body"]')
+        .trigger('click')
+      await flushPromises()
+      expect(active()).toBe('Blocks')
+      expect(wrapper.find('[data-test="palette-target"]').text()).toContain(
+        'Inserting into card › body',
+      )
+      wrapper.unmount()
+    })
+
     it('with nothing selected a tile click inserts at the end of body and selects the block', async () => {
       mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
       saveMock.mockResolvedValue(undefined)

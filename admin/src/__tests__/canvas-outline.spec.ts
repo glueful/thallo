@@ -33,6 +33,7 @@ const type = (slug: string, label: string, slots: string[] = []): BlockType =>
 const blockTypes = ref<BlockType[]>([
   type('section', 'Section', ['content']),
   type('heading', 'Heading'),
+  type('columns', 'Columns', ['col_1', 'col_2', 'col_3']),
 ])
 vi.mock('@/queries/blockTypes', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/queries/blockTypes')>()),
@@ -110,6 +111,34 @@ describe('the canvas outline', () => {
       ['x', { shift: false, meta: true }],
       ['x', { shift: false, meta: false }],
     ])
+  })
+
+  it('a two-column columns block shows no col_3 row; a three-column one does', () => {
+    const cols = (layout: string) => ({
+      fields: {
+        body: [
+          {
+            id: 'c',
+            type: 'columns',
+            data: { layout, col_1: [], col_2: [], col_3: [] },
+            settings: {},
+          },
+        ],
+      },
+      schema,
+      selected: null,
+    })
+    const two = mount(CanvasOutline, {
+      props: cols('2'),
+      global: { stubs: { VueDraggable: { template: '<div><slot /></div>' } } },
+    })
+    expect(two.find('[data-test="canvas-outline-slot-c-col_2"]').exists()).toBe(true)
+    expect(two.find('[data-test="canvas-outline-slot-c-col_3"]').exists()).toBe(false)
+    const three = mount(CanvasOutline, {
+      props: cols('3'),
+      global: { stubs: { VueDraggable: { template: '<div><slot /></div>' } } },
+    })
+    expect(three.find('[data-test="canvas-outline-slot-c-col_3"]').exists()).toBe(true)
   })
 
   it('an empty-slot row is a button that asks to insert into that slot', async () => {
