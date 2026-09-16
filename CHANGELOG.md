@@ -7,6 +7,22 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.34] - 2026-09-16 — Developer Preview
+
+The section block's headline, title and description align separately; every stage slot ends in
+the placeholder that says where the next block goes; the Style tab's groups fold and stay
+folded; an optional choice in the block editor can go back to its default.
+
+### Upgrade Notes
+- The documented sequence applies (docs/upgrading.md): `composer update`, then
+  `php glueful thallo:provision`, then reload PHP-FPM so OPcache drops the previous release's
+  classes. One migration (028) appends three optional fields to the `section` block type; it
+  keeps the row's label and description and runs once. No new permissions; framework 1.85.8
+  remains the requirement.
+- The preview bridge and its stylesheet changed (the slot placeholder follows the last block of
+  every slot). Provision publishes both with the admin bundle; a stage still holding the old
+  bridge reloads on the next apply.
+
 ### Added
 - The section block aligns its headline, title and description separately (start, center or
   end; unset keeps the orientation's default) from an Alignment group in the Block tab.
