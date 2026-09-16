@@ -7,6 +7,18 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.35] - 2026-09-16 — Developer Preview
+
+A one-fix release: the stage placeholder belongs at the end of the page, not after every block
+inside every block.
+
+### Upgrade Notes
+- The documented sequence applies (docs/upgrading.md): `composer update`, then
+  `php glueful thallo:provision`, then reload PHP-FPM so OPcache drops the previous release's
+  classes. No migrations, no new permissions; framework 1.85.8 remains the requirement.
+- The preview bridge changed (where the slot placeholder mounts). Provision publishes it with
+  the admin bundle; a stage still holding the old bridge reloads on the next apply.
+
 ### Fixed
 - The stage placeholder trailed every block inside every block; it now ends the page's own
   slots only, and fills a block's slot while that slot is empty.
