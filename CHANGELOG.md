@@ -7,6 +7,14 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Fixed
+- A block that paints nothing (a feature with no title, marker or description) was invisible on
+  the stage yet still in the document, so a publish could fail on a block nobody could see.
+  The stage now shows such a block as a labelled stub ("Empty feature — select it to add
+  content, or delete it"), a refused publish selects the block it names and the toast says
+  which block and field ("Feature: title is required"), and a block card's summary in the
+  block list reads the block's title before an icon name, never an enum choice.
+
 ## [1.0.0-beta.36] - 2026-09-16 — Developer Preview
 
 The feature block builds the landing page's cards, the stage placeholder fills its row, and the

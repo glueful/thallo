@@ -315,6 +315,28 @@ describe('canvas page', () => {
     wrapper.unmount()
   })
 
+  it('a publish refused for a nested block selects that block, opens its Block tab and names the field', async () => {
+    mintMock.mockResolvedValue({ token: 't1', themeUrl: 'https://site.test/_preview/tok1' })
+    publishMock
+      .mockReset()
+      .mockRejectedValue(
+        new ApiError('Validation failed', 422, { 'body.1.title': 'is required' }, {}),
+      )
+    const wrapper = mountPage()
+    await flushPromises()
+
+    await wrapper.find('[data-test="canvas-publish"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="inspector-tabs"] [aria-selected="true"]').text()).toBe('Block')
+    expect(wrapper.find('[data-test="block-inspector-title"]').text()).toBe('card')
+    expect(bridge.instance.highlight).toHaveBeenCalledWith('blockbbb0002', ['blockbbb0002'])
+    expect(notify.error).toHaveBeenCalledTimes(1)
+    expect(String(notify.error.mock.calls[0]![1])).toContain('card')
+    expect(String(notify.error.mock.calls[0]![1])).toContain('title')
+    wrapper.unmount()
+  })
+
   it('the preview button mints fresh and opens the theme preview in a new tab', async () => {
     mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
     const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)

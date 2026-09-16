@@ -2305,6 +2305,37 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
     }
   })
 
+  it('a block that paints nothing is marked empty with a label, and unmarked once it has content', async () => {
+    try {
+      liveStage()
+      const main = document.body.querySelector('main')!
+      const emptyHtml =
+        '<div class="thallo-preview-block" data-thallo-block="pd-e-0000012"><div class="thallo-block thallo-block-feature"><div class="thallo-block-feature__body"></div></div></div>'
+      main.insertAdjacentHTML('beforeend', emptyHtml)
+      stubFetch(renderedHtml('Alpha v1', 'Beta v1').replace('</main>', emptyHtml + '</main>'))
+      posted.mockClear()
+      await refresh('r-empty')
+      const w = main.querySelector('[data-thallo-block="pd-e-0000012"]')!
+      expect(w.hasAttribute('data-thallo-block-empty')).toBe(true)
+      expect(w.firstElementChild!.getAttribute('data-thallo-empty-label')).toBe('Empty feature')
+      // A block with text, and a container whose slot holds a placeholder, are not empty.
+      expect(
+        main
+          .querySelector('[data-thallo-block="pd-a-0000001"]')!
+          .hasAttribute('data-thallo-block-empty'),
+      ).toBe(false)
+      const filledHtml =
+        '<div class="thallo-preview-block" data-thallo-block="pd-e-0000012"><div class="thallo-block thallo-block-feature"><div class="thallo-block-feature__body"><h3>Now titled</h3></div></div></div>'
+      stubFetch(renderedHtml('Alpha v1', 'Beta v1').replace('</main>', filledHtml + '</main>'))
+      await refresh('r-empty2')
+      const filled = main.querySelector('[data-thallo-block="pd-e-0000012"]')!
+      expect(filled.hasAttribute('data-thallo-block-empty')).toBe(false)
+      expect(filled.firstElementChild!.hasAttribute('data-thallo-empty-label')).toBe(false)
+    } finally {
+      window.fetch = realFetch
+    }
+  })
+
   it('shell drift reloads with the DOM untouched', async () => {
     try {
       const { a } = liveStage()
