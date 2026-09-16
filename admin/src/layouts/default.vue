@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { open, useVisibleNav } from '../navigation/sidebar'
+import { autoCollapseSidebar } from '../navigation/sidebarAutoCollapse'
 import CapabilityErrorPanel from '@/components/CapabilityErrorPanel.vue'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useContentTypes } from '@/queries/contentTypes'
@@ -53,13 +54,21 @@ function refreshCapsOnFocus(): void {
   lastCapsRefresh = now
   void caps.refresh()
 }
+// The sidebar's collapsed state is the sidebar's own (persisted per browser); a page that
+// declares `meta.collapseSidebar` (the Design page) collapses it while shown and hands back
+// what the user had on leaving. Started after mount, once the sidebar has read its storage.
+const sidebarCollapsed = ref(false)
+const wantsCollapsed = computed(() => route.meta.collapseSidebar === true)
+let stopAutoCollapse: (() => void) | null = null
 onMounted(() => {
   window.addEventListener('focus', refreshCapsOnFocus)
   document.addEventListener('visibilitychange', refreshCapsOnFocus)
+  stopAutoCollapse = autoCollapseSidebar(sidebarCollapsed, wantsCollapsed)
 })
 onBeforeUnmount(() => {
   window.removeEventListener('focus', refreshCapsOnFocus)
   document.removeEventListener('visibilitychange', refreshCapsOnFocus)
+  stopAutoCollapse?.()
 })
 
 const nav = useVisibleNav()
@@ -132,6 +141,7 @@ const utilityItems = computed(() =>
     <UDashboardSidebar
       id="default"
       v-model:open="open"
+      v-model:collapsed="sidebarCollapsed"
       collapsible
       :min-size="16"
       :default-size="16"

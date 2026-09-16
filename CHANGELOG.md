@@ -7,6 +7,45 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.33] - 2026-09-16 — Developer Preview
+
+A day of building with the Design page: the Blocks tab grouped as cards, an empty slot on the
+stage as a real target with its own +, the Block tab opening on what was just inserted, the
+sidebar out of the way, and the columns picker, the blank inspector and the phantom third column
+fixed.
+
+### Upgrade Notes
+- The documented sequence applies (docs/upgrading.md): `composer update`, then
+  `php glueful thallo:provision`, then reload PHP-FPM so OPcache drops the previous release's
+  classes. No migrations, no new permissions; framework 1.85.8 remains the requirement.
+- The preview bridge and its stylesheet changed (an empty slot mounts a placeholder whose +
+  posts `thallo:slot-add`). Provision publishes both with the admin bundle; a stage still
+  holding the old bridge reloads on the next apply.
+
+### Added
+- The Blocks tab groups its tiles by category in the block-types page's order (Layout, Content,
+  Media, Items, then the rest, Other last), two to a row, as bordered cards with hover and focus
+  states and a grab cursor.
+- A block inserted from the Blocks tab (click or drop) opens the Block tab on it, so the next
+  step is configuring what just landed.
+- The Block tab's slot rows carry an Add button that arms the Blocks tab into that slot of the
+  selected block.
+- An empty slot on the stage is a placeholder: a dashed frame, one + that arms the Blocks tab
+  into that slot (`thallo:slot-add` from the bridge), and the hint "Drag a block here". The old
+  placeholder was a line of text with nothing to click.
+- The sidebar collapses on entering the Design page and comes back as it was on leaving; a
+  sidebar the user reopens by hand while designing stays open.
+
+### Fixed
+- A block inserted from the Blocks tab below the fold was invisible: the stage now scrolls to
+  the inserted block and rings it once the apply has painted it.
+- The columns layout picker's three-column choice stayed at two: its two back-to-back writes
+  (layout, widths) each started from the tree before the other. Writes within one tick now stage
+  their result, so the second reads what the first produced.
+- Deleting the selected block from the stage or the outline left the inspector blank: the Block
+  tab left the strip with its selection but stayed chosen. The pane falls back to Content.
+- The outline showed an empty `col_3` slot under a two-column columns block.
+
 ## [1.0.0-beta.32] - 2026-09-15 — Developer Preview
 
 Visual builder Phase C.1: the Blocks tab is the Design page's one palette — every "add here"

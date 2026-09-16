@@ -86,7 +86,7 @@ import CanvasOutline from './components/CanvasOutline.vue'
 // right inspector (the editor's exact FieldEditor), explicit Save & refresh.
 // This page loads the draft INDEPENDENTLY and saves through the same endpoint
 // with lock_version; the stale-lock 409 is the race boundary with the editor.
-definePage({ meta: { requiresAuth: true } })
+definePage({ meta: { requiresAuth: true, collapseSidebar: true } })
 
 const route = useRoute()
 const { success, warning, error: notifyError } = useNotify()
@@ -753,6 +753,7 @@ const stageEl = ref<HTMLElement | null>(null)
 // Every "add here" surface arms the Blocks tab (Phase C.1): the stage +, the list's gaps and Add
 // block, the card header's /, and the outline's empty slots. No popover, no anchoring.
 bridge.onBlockAddAfter((id) => armInsertTarget({ kind: 'after', block: id }))
+bridge.onSlotAdd((parent, slot) => armInsertTarget({ kind: 'into', parent, field: slot }))
 
 // ── Edit-in-place (edit-in-place spec §4): grant prose blocks only; typed
 // text patches the tree — no mirrors, the contenteditable IS the stage DOM.
@@ -867,6 +868,17 @@ function armInsertTarget(target: InsertTarget): void {
   insertAttempt++
   inspectorTab.value = 'blocks'
 }
+/** The Block tab's slot rows: "Add" arms the Blocks tab into that slot of the selected block. */
+function onInsertInto(field: string): void {
+  const parent = selected.value
+  if (parent === null) return
+  armInsertTarget({ kind: 'into', parent, field })
+}
+// A tab can leave the strip under the reader: the Block tab goes with its selection (a delete
+// on the stage, Escape). The pane then shows the first tab rather than nothing.
+watch(inspectorTabs, (tabs) => {
+  if (!tabs.some((tab) => tab.value === inspectorTab.value)) inspectorTab.value = 'content'
+})
 /** Clear the armed target; every selection change and every arming ends the attempt in flight. */
 function clearInsertTarget(): void {
   insertTarget.value = null
@@ -896,6 +908,8 @@ const paletteDrag = createPaletteDrag({
       selectOne(block.id)
       fieldEditorRef.value?.selectBlockById(block.id)
       ringSelection()
+      revealAfterPaint = block.id
+      inspectorTab.value = 'block'
     })
   },
   onCancel: () => {
@@ -930,6 +944,20 @@ async function insertFromPalette(slug: string): Promise<void> {
   selectOne(block.id)
   fieldEditorRef.value?.selectBlockById(block.id)
   ringSelection()
+  revealAfterPaint = block.id
+  inspectorTab.value = 'block'
+}
+/**
+ * A block inserted from the palette is not on the stage until the next apply paints it; once
+ * it is, the stage scrolls to it and rings it — an insert below the fold is otherwise invisible.
+ */
+let revealAfterPaint: string | null = null
+function revealInserted(): void {
+  const id = revealAfterPaint
+  if (id === null) return
+  revealAfterPaint = null
+  if (selection.value.ids.includes(id)) ringSelection()
+  bridge.scrollTo(id)
 }
 async function applyDrop(ops: OperationBody[] | null): Promise<void> {
   if (!history || ops === null || ops.length === 0) return
@@ -1418,13 +1446,17 @@ async function paintStage(result: ApplyPreviewResult): Promise<void> {
         displayed.value = { epoch: swap.epoch, revision: swap.revision }
       }
       afterPaint('fragments')
+      revealInserted()
       return
     }
     if (swap.mode === 'busy') return
     metrics.fallback('fragments')
   }
   const mode = await refreshStage()
-  if (mode !== 'busy') afterPaint('page')
+  if (mode !== 'busy') {
+    afterPaint('page')
+    revealInserted()
+  }
 }
 
 function afterPaint(path: ApplyPath): void {
@@ -1977,6 +2009,7 @@ function reloadStage(): void {
                 @detach-all="onDetachAll"
                 :active-breakpoint="activeBreakpoint"
                 @patch-data="onPatchData"
+                @insert-into="onInsertInto"
                 @set-setting="onSetSetting"
                 @set-all="onSetAll"
                 @set-advanced="onSetAdvanced"

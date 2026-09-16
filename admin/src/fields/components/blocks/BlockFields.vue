@@ -20,7 +20,10 @@ const props = defineProps<{
   /** Field names the host edits elsewhere (a prose body edited on the stage). */
   exclude?: string[]
 }>()
-const emit = defineEmits<{ patch: [name: string, value: unknown] }>()
+const emit = defineEmits<{
+  patch: [name: string, value: unknown]
+  'insert-into': [field: string]
+}>()
 
 function patchData(name: string, value: unknown): void {
   emit('patch', name, value)
@@ -112,9 +115,21 @@ const menuOptions = computed(() =>
           :field="f"
           :label="humanize(f.name)"
         >
-          <p class="text-xs text-muted" :data-test="`region-summary-${f.name}`">
-            {{ humanize(f.name) }}: {{ ((block.data[f.name] as unknown[]) ?? []).length }} blocks
-          </p>
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-xs text-muted" :data-test="`region-summary-${f.name}`">
+              {{ humanize(f.name) }}: {{ ((block.data[f.name] as unknown[]) ?? []).length }} blocks
+            </p>
+            <UButton
+              size="xs"
+              variant="ghost"
+              icon="i-lucide-plus"
+              :aria-label="`Add a block to ${humanize(f.name)}`"
+              :data-test="`region-add-${f.name}`"
+              @click="emit('insert-into', f.name)"
+            >
+              Add
+            </UButton>
+          </div>
         </slot>
         <UFormField
           v-else-if="block.type === 'navigation' && f.name === 'menu'"

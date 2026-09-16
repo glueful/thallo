@@ -22,6 +22,8 @@ interface BridgeMessage {
   text?: string
   y?: number
   rect?: { x?: number; y?: number }
+  parent?: string | null
+  slot?: string
 }
 
 /** Iframe-viewport anchor point forwarded with stage intents (add-after picker). */
@@ -112,6 +114,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   let duplicateCb: ((id: string) => void) | null = null
   let deleteRequestCb: ((id: string, anchor: BridgeAnchor | null) => void) | null = null
   let addAfterCb: ((id: string) => void) | null = null
+  let slotAddCb: ((parent: string | null, slot: string) => void) | null = null
   let editRequestCb: ((id: string, field: string) => void) | null = null
   let editStartCb: ((id: string) => void) | null = null
   let editEndCb: ((id: string) => void) | null = null
@@ -189,6 +192,13 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     }
     if (data.type === 'thallo:block-add-after' && typeof data.id === 'string') {
       addAfterCb?.(data.id) // the Blocks tab arms "after this block"; no anchor rides along
+    }
+    if (
+      data.type === 'thallo:slot-add' &&
+      (data.parent === null || typeof data.parent === 'string') &&
+      typeof data.slot === 'string'
+    ) {
+      slotAddCb?.(data.parent, data.slot) // the empty-slot +: the Blocks tab arms "into this slot"
     }
     // Edit-in-place (edit-in-place spec §3/§4; v4 field-addressed shapes).
     if (
@@ -336,6 +346,9 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     },
     onBlockAddAfter(cb: (id: string) => void): void {
       addAfterCb = cb
+    },
+    onSlotAdd(cb: (parent: string | null, slot: string) => void): void {
+      slotAddCb = cb
     },
     // Mirrors (stage-toolbar spec §1): posted ONLY after the tree committed.
     mirrorMove(id: string, neighbor: { beforeId: string } | { afterId: string }): void {

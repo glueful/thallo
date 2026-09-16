@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { orderTypes } from '@/editor/palette/order'
+import { groupByCategory, orderTypes } from '@/editor/palette/order'
 import type { BlockType } from '@/queries/blockTypes'
 
 const bt = (slug: string, category: string | null, description: string | null = null): BlockType =>
@@ -56,5 +56,28 @@ describe('the palette order (one rule for the Blocks tab and the insert menu)', 
     expect(orderTypes(types, 'col').map((t) => t.slug)).toEqual(['columns'])
     expect(orderTypes(types, '  ')).toHaveLength(5)
     expect(orderTypes(types, 'nothing')).toEqual([])
+  })
+})
+
+describe('grouping by category (the block-types page rule)', () => {
+  it('known categories lead in the curated order, others follow alphabetically, Other last', () => {
+    const all = [
+      bt('zebra', null),
+      bt('gallery', 'Media'),
+      bt('hero', 'Content'),
+      bt('tab', 'Items'),
+      bt('section', 'Layout'),
+      bt('shop', 'Commerce'),
+      bt('button', 'Content'),
+    ]
+    expect(groupByCategory(all).map((g) => [g.category, g.items.map((t) => t.slug)])).toEqual([
+      ['Layout', ['section']],
+      ['Content', ['hero', 'button']],
+      ['Media', ['gallery']],
+      ['Items', ['tab']],
+      ['Commerce', ['shop']],
+      ['Other', ['zebra']],
+    ])
+    expect(groupByCategory([])).toEqual([])
   })
 })

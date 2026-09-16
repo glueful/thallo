@@ -110,6 +110,7 @@ const bridge = vi.hoisted(() => {
       onBlockDuplicate: noop,
       onBlockDeleteRequest: noop,
       onBlockAddAfter: noop,
+      onSlotAdd: noop,
       onEditRequest: noop,
       onTextChanged: (
         cb: (id: string, field: string, payload: { html?: string; text?: string }) => void,

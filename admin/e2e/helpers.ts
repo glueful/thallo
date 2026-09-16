@@ -238,40 +238,60 @@ export async function dragGripTo(
   target: ReturnType<ReturnType<typeof stage>['locator']>,
   release = true,
 ): Promise<void> {
-  // Both ends must be in the iframe's viewport at once, and still, before either is measured:
-  // the outline selection scrolls the stage to the anchor smoothly, and a point measured
-  // against one scroll position and moved through another lands on a different slot.
-  await target.scrollIntoViewIfNeeded()
-  await grip.scrollIntoViewIfNeeded()
+  // Both ends must sit in the iframe's viewport at once, still, and clear of the bridge's edge
+  // auto-scroll zones (48px at the top and bottom): the outline selection scrolls the stage to
+  // the anchor smoothly, and a pointer parked in an edge zone scrolls the content under itself,
+  // so a point measured against one scroll position lands on a different slot.
+  const frameBox = async () => (await page.locator('[data-test="canvas-iframe"]').boundingBox())!
   const same = (a: { x: number; y: number } | null, b: { x: number; y: number } | null) =>
     !!a && !!b && a.x === b.x && a.y === b.y
-  let box = await grip.boundingBox()
-  let targetBox = await target.boundingBox()
-  for (let i = 0; i < 30; i++) {
-    await page.waitForTimeout(100)
-    const nextGrip = await grip.boundingBox()
-    const nextTarget = await target.boundingBox()
-    if (same(box, nextGrip) && same(targetBox, nextTarget)) break
-    box = nextGrip
-    targetBox = nextTarget
+  const settle = async () => {
+    let g = await grip.boundingBox()
+    let t = await target.boundingBox()
+    for (let i = 0; i < 30; i++) {
+      await page.waitForTimeout(100)
+      const ng = await grip.boundingBox()
+      const nt = await target.boundingBox()
+      if (same(g, ng) && same(t, nt)) break
+      g = ng
+      t = nt
+    }
+    if (!g) throw new Error('grip has no box')
+    if (!t) throw new Error('target has no box')
+    return { g, t }
   }
-  if (!box) throw new Error('grip has no box')
-  if (!targetBox) throw new Error('target has no box')
-  const frame = await page.locator('[data-test="canvas-iframe"]').boundingBox()
-  const x = targetBox.x + targetBox.width / 2
-  const y = targetBox.y + targetBox.height / 2
-  if (frame && (y < frame.y || y > frame.y + frame.height)) {
+  await target.scrollIntoViewIfNeeded()
+  await grip.scrollIntoViewIfNeeded()
+  let { g, t } = await settle()
+  const EDGE = 64
+  const frame = await frameBox()
+  const clear = (py: number) => py > frame.y + EDGE && py < frame.y + frame.height - EDGE
+  const mid = (b: { y: number; height: number }) => b.y + b.height / 2
+  if (!clear(mid(g)) || !clear(mid(t))) {
+    // Scroll the stage so the pair's midpoint sits at its centre, then settle and measure again.
+    const delta = (mid(g) + mid(t)) / 2 - (frame.y + frame.height / 2)
+    await stage(page)
+      .locator('body')
+      .evaluate((_, d) => window.scrollBy({ top: d as number, behavior: 'instant' }), delta)
+    ;({ g, t } = await settle())
+  }
+  if (!clear(mid(g)) || !clear(mid(t))) {
     throw new Error(
-      `the drop target sits outside the stage's viewport (y=${y}); enlarge the viewport`,
+      `a drag end sits in the stage's auto-scroll zone (grip y=${mid(g)}, target y=${mid(t)}, stage ${frame.y}–${frame.y + frame.height})`,
     )
   }
-  const startX = box.x + box.width / 2
-  const startY = box.y + box.height / 2
+  const startX = g.x + g.width / 2
+  const startY = mid(g)
+  const endX = t.x + t.width / 2
+  const endY = mid(t)
   await page.mouse.move(startX, startY)
   await page.mouse.down()
   const steps = 12
   for (let i = 1; i <= steps; i++) {
-    await page.mouse.move(startX + ((x - startX) * i) / steps, startY + ((y - startY) * i) / steps)
+    await page.mouse.move(
+      startX + ((endX - startX) * i) / steps,
+      startY + ((endY - startY) * i) / steps,
+    )
   }
   await stage(page).locator('.thallo-canvas-dragging').first().waitFor({ timeout: 2000 })
   if (release) await page.mouse.up()
@@ -349,8 +369,10 @@ export async function dragTileTo(
 ): Promise<void> {
   const tile = page.locator(`[data-test="palette-card-${slug}"]`)
   await tile.scrollIntoViewIfNeeded()
-  // The target must sit in the iframe's viewport: a hover past its edge finds no element.
-  await target.scrollIntoViewIfNeeded()
+  // The target must sit in the iframe's viewport, clear of the bridge's edge auto-scroll zones:
+  // a hover past the edge finds no element, and one near it scrolls the content away.
+  await target.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }))
+  await page.waitForTimeout(150)
   const from = await centerOf(tile)
   await page.mouse.move(from.x, from.y)
   await page.mouse.down()

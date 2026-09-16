@@ -32,6 +32,8 @@ What is proven, in Chromium:
   inserts nothing, with the same four assertions;
 - `palette-click` (Phase C.1) — the stage `+` arms the Blocks tab after the block, the search
   takes focus, and Enter inserts the first match there.
+- `slot-add` — the + inside an empty stage slot arms the Blocks tab into that slot; the next tile
+  click inserts there, the target is consumed, the apply carries the one insert.
 
 ```
 DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-builder-proof-fixtures   # writes fixtures/ (gitignored)

@@ -307,6 +307,31 @@ describe('BlocksField', () => {
     wrapper.unmount()
   })
 
+  it('two writes in one tick both persist: the second reads the tree the first produced', async () => {
+    let model: {
+      id: string
+      type: string
+      data: Record<string, unknown>
+      settings: Record<string, unknown>
+    }[] = [{ id: 'cols00000001', type: 'section', data: { content: [] }, settings: {} }]
+    const wrapper = mount(BlocksField, {
+      props: { field, modelValue: model, 'onUpdate:modelValue': (v: typeof model) => (model = v) },
+    })
+    await flushPromises()
+    const api = wrapper.vm as unknown as {
+      patchBlockData: (id: string, name: string, value: unknown) => boolean
+      patchBlockSettings: (id: string, settings: Record<string, unknown>) => boolean
+    }
+    // The columns layout picker writes layout and widths back to back; a stale second write
+    // used to drop the first.
+    api.patchBlockData('cols00000001', 'layout', '3')
+    api.patchBlockData('cols00000001', 'widths', '33-33-33')
+    api.patchBlockSettings('cols00000001', { style: { x: 1 } })
+    expect(model[0]!.data).toEqual({ content: [], layout: '3', widths: '33-33-33' })
+    expect(model[0]!.settings).toEqual({ style: { x: 1 } })
+    wrapper.unmount()
+  })
+
   it('respects the field blockTypes allowlist in the picker', async () => {
     const wrapper = mount(BlocksField, {
       props: { field: { ...field, blockTypes: ['quote'] }, modelValue: [] },
