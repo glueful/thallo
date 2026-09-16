@@ -16,11 +16,14 @@ export default defineConfig({
   use: {
     baseURL: BASE_URL,
     trace: 'retain-on-failure',
-    // Tall enough for both ends of a stage drag to sit in the iframe's viewport at once, with
-    // CI's wider fallback fonts making the composition taller than a local run's.
-    viewport: { width: 1280, height: 1600 },
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // The device preset carries its own 1280×720 viewport, so the taller one is set after it.
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 1600 } },
+    },
+  ],
   webServer: {
     command: 'pnpm --dir .. dev',
     url: `${BASE_URL}/admin/`,
