@@ -281,6 +281,42 @@ final class StarterTemplatesTest extends AppTestCase
         self::assertStringNotContainsString('__marker--bg-', $odd);
     }
 
+    public function testTabsRenderVariantAlignTokenColoursAndPanelPadding(): void
+    {
+        $env = $this->env();
+        $render = fn(array $data): string => $env->createTemplate('{{ blocks(l) }}')->render(['l' => [
+            ['id' => 'tabsblock001', 'type' => 'tabs', 'data' => $data + ['items' => [
+                ['id' => 'tabsblock01t', 'type' => 'tab', 'data' => ['label' => 'One', 'content' => []]],
+                ['id' => 'tabsblock02t', 'type' => 'tab', 'data' => ['label' => 'Two', 'content' => []]],
+            ]]]]]);
+
+        $styled = $render(['variant' => 'underline', 'align' => 'center', 'list_background' => 'surface-2',
+            'tab_color' => 'text', 'active_background' => 'accent', 'active_color' => 'accent-contrast',
+            'panel_padding' => 'md']);
+        foreach (
+            ['--underline', '--align-center', '--list-bg-surface-2', '--tab-fg-text', '--active-bg-accent',
+                '--active-fg-accent-contrast', '--panel-pad-md'] as $mod
+        ) {
+            self::assertStringContainsString('thallo-block-tabs' . $mod, $styled);
+        }
+        // The panels wrapper is a style target: the Style tab's colours, radius, border and shadow
+        // land on it — the one content area, whichever tab is shown.
+        self::assertStringContainsString('class="thallo-block-tabs__panels', $styled);
+
+        $plain = $render([]);
+        self::assertStringContainsString('thallo-block-tabs--pill', $plain);
+        self::assertStringContainsString('thallo-block-tabs--align-start', $plain);
+        self::assertStringContainsString('thallo-block-tabs--panel-pad-none', $plain);
+        self::assertStringNotContainsString('--list-bg-', $plain);
+        self::assertStringNotContainsString('--active-bg-', $plain);
+
+        $odd = $render(['variant' => 'neon', 'align' => 'sideways', 'active_background' => 'pink']);
+        self::assertStringContainsString('thallo-block-tabs--pill', $odd);
+        self::assertStringContainsString('thallo-block-tabs--align-start', $odd);
+        self::assertStringNotContainsString('--neon', $odd);
+        self::assertStringNotContainsString('--active-bg-', $odd);
+    }
+
     public function testColumnsRendersPerLayoutEnum(): void
     {
         $env = $this->env();

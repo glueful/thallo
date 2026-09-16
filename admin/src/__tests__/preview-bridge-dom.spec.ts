@@ -280,6 +280,49 @@ function proseWrapper(id: string, field = 'body', html = '<p>hello</p>'): HTMLEl
   )
 }
 
+describe('tabs on the canvas', () => {
+  // The runtime's tabs module skips the canvas, so the CSS radio floor drives the panels; the
+  // bridge must let a label click reach its radio (every other in-block click is inert) and
+  // must bring a hidden panel forward when something inside it is selected.
+  function tabsBlock(id: string): HTMLElement {
+    const w = wrapper(
+      id,
+      `<div class="thallo-block thallo-block-tabs">` +
+        `<input class="thallo-block-tabs__radio" type="radio" name="tabs-${id}" id="tabs-${id}-1" checked>` +
+        `<input class="thallo-block-tabs__radio" type="radio" name="tabs-${id}" id="tabs-${id}-2">` +
+        `<div class="thallo-block-tabs__list">` +
+        `<label class="thallo-block-tabs__label" for="tabs-${id}-1">One</label>` +
+        `<label class="thallo-block-tabs__label" for="tabs-${id}-2">Two</label></div>` +
+        `<div class="thallo-block-tabs__panels">` +
+        `<div class="thallo-block-tabs__panel"><div class="thallo-preview-block" data-thallo-block="${id}-t1"><div class="thallo-block thallo-block-tab"><p>p1</p></div></div></div>` +
+        `<div class="thallo-block-tabs__panel"><div class="thallo-preview-block" data-thallo-block="${id}-t2"><div class="thallo-block thallo-block-tab"><p>p2</p></div></div></div>` +
+        `</div></div>`,
+    )
+    document.body.appendChild(w)
+    return w
+  }
+
+  it("a tab label click checks its radio and selects that panel's tab block", () => {
+    const w = tabsBlock('tb-a-0000001')
+    const two = w.querySelector<HTMLLabelElement>('label[for="tabs-tb-a-0000001-2"]')!
+    two.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(w.querySelector<HTMLInputElement>('#tabs-tb-a-0000001-2')!.checked).toBe(true)
+    expect(w.querySelector<HTMLInputElement>('#tabs-tb-a-0000001-1')!.checked).toBe(false)
+    expect(lastPost('thallo:block-select')).toMatchObject({ id: 'tb-a-0000001-t2' })
+  })
+
+  it('selecting a block inside a hidden panel (the outline) brings that panel forward', () => {
+    const w = tabsBlock('tb-b-0000002')
+    sendToBridge({ type: 'thallo:highlight', id: 'tb-b-0000002-t2' })
+    expect(w.querySelector<HTMLInputElement>('#tabs-tb-b-0000002-2')!.checked).toBe(true)
+    expect(
+      w
+        .querySelector('[data-thallo-block="tb-b-0000002-t2"]')!
+        .classList.contains('thallo-canvas-selected'),
+    ).toBe(true)
+  })
+})
+
 describe('edit-in-place session', () => {
   it('double-click posts edit-request; grant enables contenteditable on the ONE region', () => {
     const w = proseWrapper('eip-a-000001')

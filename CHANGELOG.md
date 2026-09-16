@@ -7,7 +7,18 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- The tabs block is styleable: a Tabs group in its Block tab sets the strip's variant (pill,
+  underline, boxed), alignment, and the strip, tab, active-tab background and text colours from
+  the theme's colour tokens; a Panel group sets the padding around the shown panel; and the
+  Style tab's colours, radius, border and shadow land on the one panels area, whichever tab is
+  shown, rather than on each tab. Migration 030 adds the fields to an existing install and, on a
+  tabs row still carrying the starter's old style declaration, adopts the new one.
+
 ### Fixed
+- Tabs could not be switched on the stage: every in-block click is inert there, so a tab label
+  never reached its radio. A label click now switches the tab and selects that tab's block, and
+  selecting a block inside a hidden panel (from the outline) brings its panel forward.
 - A block that paints nothing (a feature with no title, marker or description) was invisible on
   the stage yet still in the document, so a publish could fail on a block nobody could see.
   The stage now shows such a block as a labelled stub ("Empty feature — select it to add
