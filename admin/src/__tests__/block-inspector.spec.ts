@@ -1,9 +1,10 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { ref } from 'vue'
 import type { BlockType } from '@/queries/blockTypes'
 import type { StyleSchemaResult } from '@/queries/styleSchema'
 import StyleTab from '@/editor/inspector/StyleTab.vue'
+import { resetFolds } from '@/editor/inspector/styleGroupFolds'
 import AdvancedTab from '@/editor/inspector/AdvancedTab.vue'
 import BlockInspector from '@/editor/inspector/BlockInspector.vue'
 
@@ -221,6 +222,61 @@ describe('StyleTab', () => {
       .find('[data-test="style-field-spacing.padding.top"] [data-test="style-reset"]')
       .trigger('click')
     expect(w.emitted('set')?.[1]).toEqual(['spacing.padding.top', 'lg', { type: 'reset' }])
+  })
+})
+
+describe('StyleTab groups collapse', () => {
+  // Folds are module state shared by every StyleTab: clean before AND after, for the specs below.
+  beforeEach(() => {
+    localStorage.clear()
+    resetFolds()
+  })
+  afterEach(() => {
+    localStorage.clear()
+    resetFolds()
+  })
+  const mountTab = (style: Record<string, unknown> = {}) =>
+    mount(StyleTab, {
+      props: {
+        block: { id: 'h', type: 'heading', data: {}, settings: { style } },
+        blockType: heading,
+        schema,
+        classes: [],
+        activeBreakpoint: 'md',
+      },
+    })
+
+  it('a group header collapses its controls, and the choice holds for the next block', async () => {
+    const w = mountTab()
+    const toggle = w.find('[data-test="style-group-toggle-spacing"]')
+    expect(toggle.attributes('aria-expanded')).toBe('true')
+    await toggle.trigger('click')
+    expect(toggle.attributes('aria-expanded')).toBe('false')
+    expect(w.find('[data-test="style-field-spacing.padding.top"]').exists()).toBe(false)
+    expect(w.find('[data-test="style-field-typography.size"]').exists()).toBe(true)
+    // Another block, later: spacing is still folded, the rest still open.
+    const next = mountTab()
+    expect(next.find('[data-test="style-group-toggle-spacing"]').attributes('aria-expanded')).toBe(
+      'false',
+    )
+    expect(next.find('[data-test="style-field-spacing.padding.top"]').exists()).toBe(false)
+    expect(next.find('[data-test="style-field-typography.size"]').exists()).toBe(true)
+    await next.find('[data-test="style-group-toggle-spacing"]').trigger('click')
+    expect(next.find('[data-test="style-field-spacing.padding.top"]').exists()).toBe(true)
+  })
+
+  it('a folded group says how many of its properties this block sets', async () => {
+    const w = mountTab({
+      spacing: {
+        padding: { top: { md: { type: 'token', value: 'spacing.lg' } } },
+        margin: { top: { base: { type: 'token', value: 'spacing.sm' } } },
+      },
+    })
+    expect(w.find('[data-test="style-group-count-spacing"]').exists()).toBe(false)
+    await w.find('[data-test="style-group-toggle-spacing"]').trigger('click')
+    expect(w.find('[data-test="style-group-count-spacing"]').text()).toBe('2 set')
+    await w.find('[data-test="style-group-toggle-typography"]').trigger('click')
+    expect(w.find('[data-test="style-group-count-typography"]').exists()).toBe(false)
   })
 })
 

@@ -7,6 +7,11 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- The Style tab's groups (Spacing, Size, Typography, Colours, Effects, Visibility) fold and
+  unfold from their headers; a fold holds across blocks and sessions in that browser, and a
+  folded group says how many of its properties the block sets.
+
 ### Changed
 - The stage placeholder sits after the last block in every slot, not only in empty ones, so the
   next block's place is always in view; its + arms the Blocks tab at the end of that slot.
