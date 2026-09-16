@@ -58,8 +58,9 @@ function stageZoneOf(value: unknown): StageZone | null {
   return { parent, slot, index: z.index, layout: z.layout as StageZone['layout'] }
 }
 
+/** The session's block ids: empty for a parent-originated (palette) session. */
 function blockIdsOf(value: unknown): string[] | null {
-  if (!Array.isArray(value) || value.length === 0) return null
+  if (!Array.isArray(value)) return null
   return value.every((v) => typeof v === 'string') ? (value as string[]) : null
 }
 
@@ -104,12 +105,13 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   let hoverCb: ((id: string) => void) | null = null
   let indexCb: ((ids: string[]) => void) | null = null
   let moveCb: ((id: string, delta: 1 | -1) => void) | null = null
-  let dragProposeCb: ((session: string, blocks: string[], zone: StageZone) => void) | null = null
+  let dragProposeCb: ((session: string, blocks: string[], zone: StageZone | null) => void) | null =
+    null
   let blockDropCb: ((session: string, blocks: string[], zone: StageZone) => void) | null = null
   let dragCancelCb: ((session: string) => void) | null = null
   let duplicateCb: ((id: string) => void) | null = null
   let deleteRequestCb: ((id: string, anchor: BridgeAnchor | null) => void) | null = null
-  let addAfterCb: ((id: string, anchor: BridgeAnchor | null) => void) | null = null
+  let addAfterCb: ((id: string) => void) | null = null
   let editRequestCb: ((id: string, field: string) => void) | null = null
   let editStartCb: ((id: string) => void) | null = null
   let editEndCb: ((id: string) => void) | null = null
@@ -160,10 +162,15 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     if (data.type === 'thallo:drag-propose' || data.type === 'thallo:block-drop') {
       const session = (data as { session?: unknown }).session
       const blocks = blockIdsOf((data as { blocks?: unknown }).blocks)
-      const zone = stageZoneOf((data as { zone?: unknown }).zone)
-      if (typeof session === 'string' && blocks !== null && zone !== null) {
-        if (data.type === 'thallo:drag-propose') dragProposeCb?.(session, blocks, zone)
-        else blockDropCb?.(session, blocks, zone)
+      const rawZone = (data as { zone?: unknown }).zone
+      const zone = stageZoneOf(rawZone)
+      if (typeof session === 'string' && blocks !== null) {
+        // A null zone is a proposal (the session left every slot), never a drop.
+        if (data.type === 'thallo:drag-propose' && (zone !== null || rawZone === null)) {
+          dragProposeCb?.(session, blocks, zone)
+        } else if (data.type === 'thallo:block-drop' && zone !== null) {
+          blockDropCb?.(session, blocks, zone)
+        }
       }
     }
     if (data.type === 'thallo:drag-cancel') {
@@ -181,11 +188,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
       deleteRequestCb?.(data.id, deleteAnchor)
     }
     if (data.type === 'thallo:block-add-after' && typeof data.id === 'string') {
-      const anchor =
-        typeof data.rect?.x === 'number' && typeof data.rect?.y === 'number'
-          ? { x: data.rect.x, y: data.rect.y }
-          : null
-      addAfterCb?.(data.id, anchor)
+      addAfterCb?.(data.id) // the Blocks tab arms "after this block"; no anchor rides along
     }
     // Edit-in-place (edit-in-place spec §3/§4; v4 field-addressed shapes).
     if (
@@ -298,7 +301,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     onBlockMove(cb: (id: string, delta: 1 | -1) => void): void {
       moveCb = cb
     },
-    onDragPropose(cb: (session: string, blocks: string[], zone: StageZone) => void): void {
+    onDragPropose(cb: (session: string, blocks: string[], zone: StageZone | null) => void): void {
       dragProposeCb = cb
     },
     onBlockDrop(cb: (session: string, blocks: string[], zone: StageZone) => void): void {
@@ -318,6 +321,10 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     dragLegality(session: string, legal: boolean, reason = ''): void {
       post({ type: 'thallo:drag-legality', session, legal, reason })
     },
+    /** The parent released over the stage: the bridge answers with the zone under the point. */
+    dragDrop(session: string, x: number, y: number): void {
+      post({ type: 'thallo:drag-drop', session, x, y })
+    },
     dragEnd(session: string): void {
       post({ type: 'thallo:drag-end', session })
     },
@@ -327,7 +334,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     onBlockDeleteRequest(cb: (id: string, anchor: BridgeAnchor | null) => void): void {
       deleteRequestCb = cb
     },
-    onBlockAddAfter(cb: (id: string, anchor: BridgeAnchor | null) => void): void {
+    onBlockAddAfter(cb: (id: string) => void): void {
       addAfterCb = cb
     },
     // Mirrors (stage-toolbar spec §1): posted ONLY after the tree committed.

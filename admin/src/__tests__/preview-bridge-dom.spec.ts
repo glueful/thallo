@@ -149,9 +149,8 @@ describe('preview bridge (direct eval)', () => {
     expect(del.rect).toMatchObject({ x: expect.any(Number), y: expect.any(Number) })
     click('add-after')
     const addAfter = lastPost('thallo:block-add-after')!
-    expect(addAfter).toMatchObject({ id: 'blk-int-0001' })
-    // The + button's rect rides along so the parent can anchor its picker.
-    expect(addAfter.rect).toMatchObject({ x: expect.any(Number), y: expect.any(Number) })
+    // The id alone: the Blocks tab arms "after this block" and needs no anchor (Phase C.1).
+    expect(addAfter).toEqual({ type: 'thallo:block-add-after', id: 'blk-int-0001', nonce: NONCE })
     expect(lastPost('thallo:block-select')).toBeUndefined()
   })
 
@@ -717,9 +716,12 @@ describe('proposal drag (visual builder spec §5.3/§5.4)', () => {
     expect(proposals()[1]).toMatchObject({ zone: { parent: null, slot: 'body', index: 2 } })
     expect(indicator(list)!.previousElementSibling).toBe(c)
 
-    pointerMove(-50) // outside every slot: no zone, no indicator
+    pointerMove(-50) // outside every slot: no zone, no indicator — and ONE null proposal
     expect(indicator(list)).toBeNull()
-    expect(proposals()).toHaveLength(2)
+    expect(proposals()).toHaveLength(3)
+    expect(proposals()[2]).toMatchObject({ zone: null })
+    pointerMove(-60) // still outside: nothing more
+    expect(proposals()).toHaveLength(3)
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
   })
 
@@ -940,6 +942,55 @@ describe('proposal drag (visual builder spec §5.3/§5.4)', () => {
     expect(indicator(list)).toBeNull()
     sendToBridge({ type: 'thallo:drag-hover', session: 'ext1', x: 10, y: 500 })
     expect(proposals()).toHaveLength(1) // the session is over
+  })
+
+  it('a parent-originated session leaving every slot posts one null proposal; rapid hovers post in order', () => {
+    const { list } = dragList()
+    posted.mockClear()
+    sendToBridge({ type: 'thallo:drag-begin', session: 'ext3', blocks: [] })
+    sendToBridge({ type: 'thallo:drag-hover', session: 'ext3', x: 10, y: 40 })
+    sendToBridge({ type: 'thallo:drag-hover', session: 'ext3', x: 10, y: 500 })
+    expect(proposals().map((p) => (p.zone as { index: number } | null)?.index)).toEqual([0, 3])
+    sendToBridge({ type: 'thallo:drag-hover', session: 'ext3', x: 10, y: -50 })
+    sendToBridge({ type: 'thallo:drag-hover', session: 'ext3', x: 10, y: -80 })
+    expect(proposals()).toHaveLength(3)
+    expect(proposals()[2]).toMatchObject({ session: 'ext3', zone: null })
+    expect(indicator(list)).toBeNull()
+    sendToBridge({ type: 'thallo:drag-end', session: 'ext3' })
+  })
+
+  it('drag-drop answers with the zone under the RELEASED point, whatever the last hover or legality said', () => {
+    const { list } = dragList()
+    const drops = () =>
+      posted.mock.calls
+        .map((c) => c[0] as Record<string, unknown>)
+        .filter((m) => m.type === 'thallo:block-drop' || m.type === 'thallo:drag-cancel')
+    // Hovered blank canvas last, refused earlier: the release over the list still drops there.
+    posted.mockClear()
+    sendToBridge({ type: 'thallo:drag-begin', session: 'ext4', blocks: [] })
+    sendToBridge({ type: 'thallo:drag-hover', session: 'ext4', x: 10, y: 60 })
+    sendToBridge({ type: 'thallo:drag-legality', session: 'ext4', legal: false, reason: 'No' })
+    sendToBridge({ type: 'thallo:drag-hover', session: 'ext4', x: 10, y: -50 })
+    sendToBridge({ type: 'thallo:drag-drop', session: 'ext4', x: 10, y: 500 })
+    expect(drops()).toEqual([
+      expect.objectContaining({
+        type: 'thallo:block-drop',
+        session: 'ext4',
+        zone: { parent: null, slot: 'body', index: 3, layout: 'linear-vertical' },
+      }),
+    ])
+    expect(indicator(list)).toBeNull() // the session ended with the answer
+    // A release over blank canvas cancels; an unknown session is ignored.
+    posted.mockClear()
+    sendToBridge({ type: 'thallo:drag-begin', session: 'ext5', blocks: [] })
+    sendToBridge({ type: 'thallo:drag-hover', session: 'ext5', x: 10, y: 60 })
+    sendToBridge({ type: 'thallo:drag-legality', session: 'ext5', legal: true })
+    sendToBridge({ type: 'thallo:drag-drop', session: 'other', x: 10, y: 60 })
+    expect(drops()).toEqual([])
+    sendToBridge({ type: 'thallo:drag-drop', session: 'ext5', x: 10, y: -50 })
+    expect(drops()).toEqual([
+      expect.objectContaining({ type: 'thallo:drag-cancel', session: 'ext5' }),
+    ])
   })
 })
 

@@ -130,14 +130,13 @@ describe('useCanvasBridge', () => {
     )
     expect(del).toHaveBeenCalledWith('b3', { x: 5, y: 6 })
 
-    // add-after carries an optional ANCHOR (the + button's rect) — null when
-    // absent/malformed, {x, y} when both numbers are present.
+    // add-after carries the id alone (Phase C.1): a rect an older bridge sends is ignored.
     window.dispatchEvent(
       new MessageEvent('message', {
         data: { type: 'thallo:block-add-after', id: 'b2', nonce: bridge.nonce },
       }),
     )
-    expect(add).toHaveBeenCalledWith('b2', null)
+    expect(add).toHaveBeenCalledWith('b2')
     window.dispatchEvent(
       new MessageEvent('message', {
         data: {
@@ -148,7 +147,7 @@ describe('useCanvasBridge', () => {
         },
       }),
     )
-    expect(add).toHaveBeenCalledWith('b3', { x: 12, y: 34 })
+    expect(add).toHaveBeenCalledWith('b3')
     bridge.dispose()
   })
 
@@ -294,6 +293,10 @@ describe('useCanvasBridge', () => {
 
     send({ type: 'thallo:drag-propose', session: 's1', blocks: ['b1'], zone })
     expect(propose).toHaveBeenCalledWith('s1', ['b1'], zone)
+    // A null zone is a proposal too (the session left every slot); an empty block list is a
+    // parent-originated session's.
+    send({ type: 'thallo:drag-propose', session: 's1', blocks: [], zone: null })
+    expect(propose).toHaveBeenLastCalledWith('s1', [], null)
     const root = { parent: null, slot: 'body', index: 0, layout: 'linear-horizontal' }
     send({ type: 'thallo:block-drop', session: 's1', blocks: ['b1', 'b2'], zone: root })
     expect(drop).toHaveBeenCalledWith('s1', ['b1', 'b2'], root)
@@ -321,10 +324,10 @@ describe('useCanvasBridge', () => {
       blocks: ['b1'],
       zone: { ...zone, layout: 'x' },
     })
-    send({ type: 'thallo:drag-propose', session: 's2', blocks: [], zone })
+    send({ type: 'thallo:block-drop', session: 's2', blocks: [], zone: null }) // a drop needs a zone
     send({ type: 'thallo:block-drop', session: 's2', blocks: ['b1', 4], zone })
     send({ type: 'thallo:drag-cancel' })
-    expect(propose).toHaveBeenCalledTimes(1)
+    expect(propose).toHaveBeenCalledTimes(2)
     expect(drop).toHaveBeenCalledTimes(1)
     expect(cancel).toHaveBeenCalledTimes(1)
     bridge.dispose()
@@ -354,6 +357,7 @@ describe('useCanvasBridge', () => {
     bridge.dragHover('s1', 40, 120)
     bridge.dragLegality('s1', false, 'Too deep')
     bridge.dragLegality('s1', true)
+    bridge.dragDrop('s1', 41, 121)
     bridge.dragEnd('s1')
     const types = postSpy.mock.calls.map((c) => c[0] as Record<string, unknown>)
     expect(types).toEqual([
@@ -367,6 +371,7 @@ describe('useCanvasBridge', () => {
         nonce: bridge.nonce,
       },
       { type: 'thallo:drag-legality', session: 's1', legal: true, reason: '', nonce: bridge.nonce },
+      { type: 'thallo:drag-drop', session: 's1', x: 41, y: 121, nonce: bridge.nonce },
       { type: 'thallo:drag-end', session: 's1', nonce: bridge.nonce },
     ])
     bridge.dispose()
@@ -631,20 +636,16 @@ describe('FieldEditor.selectBlockById', () => {
       duplicateBlockById: (id: string) => { newId: string; idMap: Record<string, string> } | null
       deleteBlockById: (id: string) => boolean
       insertAfterById: (id: string, slug: string) => Promise<string | null>
-      pickerTypesForBlock: (id: string) => { slug: string }[]
     }
     // Unknown id -> safe empties, no throw.
     expect(api.moveBlockById('missing', 1)).toBeNull()
     expect(api.duplicateBlockById('missing')).toBeNull()
     expect(api.deleteBlockById('missing')).toBe(false)
     await expect(api.insertAfterById('missing', 'card')).resolves.toBeNull()
-    expect(api.pickerTypesForBlock('missing')).toEqual([])
     // Owned id routes to the owning field (sidebar's block, not body's).
     const dup = api.duplicateBlockById('inside000001')
     expect(dup).not.toBeNull()
     expect(dup!.idMap['inside000001']).toBe(dup!.newId)
-    // pickerTypesForBlock resolves through the owning field's per-list rules.
-    expect(api.pickerTypesForBlock('inbody000001').map((t) => t.slug)).toEqual(['card'])
     wrapper.unmount()
   })
 

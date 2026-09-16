@@ -3,7 +3,6 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useContentTypes } from '@/queries/contentTypes'
 import { MAX_BLOCK_DEPTH, useBlockTypes } from '@/queries/blockTypes'
-import type { BlockType } from '@/queries/blockTypes'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import { proseRichFieldName } from '@/fields/components/blocks/proseDetection'
 import { useDraft, useSaveDraft } from '@/queries/drafts'
@@ -30,7 +29,11 @@ import {
   type DropZone,
 } from '@/editor/structure/coordinator'
 import MoveToDialog from './components/MoveToDialog.vue'
-import type { LegalityContext } from '@/editor/structure/legality'
+import BlocksPalette from '@/editor/palette/BlocksPalette.vue'
+import { resolveTarget, tilePreflight, type InsertTarget } from '@/editor/palette/target'
+import { useBlockFactory } from '@/queries/blockFactory'
+import { createPaletteDrag } from '@/editor/palette/usePaletteDrag'
+import type { Legality, LegalityContext } from '@/editor/structure/legality'
 import {
   EMPTY_SELECTION,
   extend,
@@ -51,7 +54,13 @@ import {
 import type { Breakpoint, StyleValue } from '@/style/types'
 import BlockInspector from '@/editor/inspector/BlockInspector.vue'
 import { invertOperation } from '@/editor/ops/invert'
-import type { ChangeValue, EditorDocument, Operation, OperationBody } from '@/editor/ops/types'
+import type {
+  ChangeValue,
+  EditorDocument,
+  Operation,
+  OperationBody,
+  Position,
+} from '@/editor/ops/types'
 import type {
   BridgeAnchor,
   EditKind,
@@ -125,6 +134,7 @@ const styleGeneration = ref<number | null>(null)
 const historyState = ref({ canUndo: false, canRedo: false, dirty: false, pending: false })
 function refreshHistoryState(): void {
   if (!history) return
+  historySequence.value = history.currentSequence
   historyState.value = {
     canUndo: history.canUndo(),
     canRedo: history.canRedo(),
@@ -233,11 +243,14 @@ function maybeReconcileStash(): void {
 // change, and save/publish/version it with the draft. "Theme default" DELETES
 // the key so the theme.json chain shows through.
 const inspectorTab = ref('content')
+/** The committed history sequence, reactive: gap targets are pinned to it (Phase C.1). */
+const historySequence = ref(0)
 const caps = useCapabilitiesStore()
 const seoEnabled = computed(() => caps.isEnabled('thallo.seo'))
 const inspectorTabs = computed(() => [
   ...(selected.value !== null ? [{ label: 'Block', value: 'block', slot: 'block' as const }] : []),
   { label: 'Content', value: 'content', slot: 'content' as const },
+  { label: 'Blocks', value: 'blocks', slot: 'blocks' as const },
   { label: 'Outline', value: 'outline', slot: 'outline' as const },
   { label: 'Page', value: 'page', slot: 'page' as const },
   ...(seoEnabled.value ? [{ label: 'SEO', value: 'seo', slot: 'seo' as const }] : []),
@@ -316,7 +329,6 @@ interface FieldEditorExposed {
   duplicateBlockById: (id: string) => { newId: string; idMap: Record<string, string> } | null
   deleteBlockById: (id: string) => boolean
   insertAfterById: (id: string, typeSlug: string) => Promise<string | null>
-  pickerTypesForBlock: (id: string) => BlockType[]
   patchBlockDataById: (id: string, field: string, value: unknown) => boolean
   blockTypeOfBlock: (id: string) => string | null
 }
@@ -337,6 +349,7 @@ function applySelection(
   modifiers: SelectModifiers = { shift: false, meta: false },
 ): void {
   const doc = selectionDoc()
+  clearInsertTarget()
   selection.value = modifiers.shift
     ? extend(selection.value, id, doc, selectionCtx)
     : modifiers.meta
@@ -344,6 +357,9 @@ function applySelection(
       : single(id, doc, selectionCtx)
 }
 function selectOne(id: string): void {
+  insertTarget.value = null
+  targetStale.value = false
+  insertAttempt++
   const next = single(id, selectionDoc(), selectionCtx)
   // A block the tree does not hold yet (an insert still landing) is selected on trust and
   // re-read on the next change.
@@ -351,6 +367,7 @@ function selectOne(id: string): void {
 }
 function clearSelection(): void {
   selection.value = EMPTY_SELECTION
+  clearInsertTarget()
 }
 /** Ring the whole selection on the stage; the anchor carries the toolbar. */
 function ringSelection(): void {
@@ -529,7 +546,11 @@ function moveGroup(sel: Selection, delta: 1 | -1): void {
   if (delta === -1 && first === 0) return
   if (delta === 1 && last === list.length - 1) return
   coordinator.begin('stage', { blocks: sel.ids })
-  finishDrop({ parent: sel.parent, slot: sel.slot, index: delta === -1 ? first - 1 : first + 1 })
+  void finishDrop({
+    parent: sel.parent,
+    slot: sel.slot,
+    index: delta === -1 ? first - 1 : first + 1,
+  })
 }
 
 bridge.onBlockMove(moveBlockAndMirror)
@@ -540,6 +561,7 @@ bridge.onBlockMove(moveBlockAndMirror)
 // nothing to snap back, since nothing moved.
 let stageDragSession: string | null = null
 bridge.onDragPropose((session, blocks, zone) => {
+  if (zone === null) return // the session left every slot: nothing to judge
   if (stageDragSession !== session) {
     coordinator.begin('stage', { blocks })
     stageDragSession = session
@@ -553,13 +575,22 @@ bridge.onDragPropose((session, blocks, zone) => {
   )
 })
 bridge.onBlockDrop((session, _blocks, zone) => {
+  // A palette session's answer belongs to the palette drag alone (Phase C.1).
+  if (paletteDrag.owns(session)) {
+    paletteDrag.answer(zone)
+    return
+  }
   // Only the session this page is judging may drop: the bridge proposes before it ever drops,
   // so a drop for a cancelled or unknown session is stale and ignored.
   if (stageDragSession !== session) return
   stageDragSession = null
-  finishDrop(zone)
+  void finishDrop(zone)
 })
 bridge.onDragCancel((session) => {
+  if (paletteDrag.owns(session)) {
+    paletteDrag.answer(null)
+    return
+  }
   if (stageDragSession !== session) return
   stageDragSession = null
   coordinator.cancel()
@@ -717,75 +748,11 @@ function confirmDelete(): void {
   }
 }
 
-// Add-after: parent-side picker over the CONTAINING list's rules (spec §5).
-// No mirror — the new block appears in the stage on the next Apply.
-const addAfterId = ref<string | null>(null)
-const addAfterTypes = ref<BlockType[]>([])
 const stageEl = ref<HTMLElement | null>(null)
-// The + button's rect from the bridge intent (iframe-viewport coordinates);
-// null = no rect rode along (the popover anchors to the stage top instead).
-const addAfterAnchor = ref<{ x: number; y: number } | null>(null)
-// Virtual reference element for UPopover (Reka/floating-ui accepts anything
-// with getBoundingClientRect): translates the in-iframe anchor to PARENT
-// viewport coordinates live, so collision flipping/shifting is floating-ui's
-// job — no hand-rolled clamping.
-const addAfterReference = computed(() => ({
-  getBoundingClientRect: (): DOMRect => {
-    const ifr = iframeEl.value?.getBoundingClientRect()
-    const a = addAfterAnchor.value
-    if (ifr && a) return new DOMRect(ifr.left + a.x, ifr.top + a.y, 0, 0)
-    if (ifr) return new DOMRect(ifr.left + ifr.width / 2, ifr.top + 12, 0, 0)
-    return new DOMRect(window.innerWidth / 2, 64, 0, 0)
-  },
-}))
 
-// Type-to-filter (same semantics as the editor's BlockInsertMenu): matches
-// label/slug/description, Enter picks the first match, Escape cancels.
-const addAfterFilter = ref('')
-const filteredAddTypes = computed(() => {
-  const q = addAfterFilter.value.trim().toLowerCase()
-  if (q === '') return addAfterTypes.value
-  return addAfterTypes.value.filter(
-    (t) =>
-      t.label.toLowerCase().includes(q) ||
-      t.slug.toLowerCase().includes(q) ||
-      (t.description ?? '').toLowerCase().includes(q),
-  )
-})
-
-function onAddFilterKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') {
-    e.preventDefault()
-    cancelAddAfter()
-  }
-  if (e.key === 'Enter') {
-    e.preventDefault()
-    const first = filteredAddTypes.value[0]
-    if (first) chooseAddType(first.slug)
-  }
-}
-
-// Autofocus the filter when the picker opens (jsdom-safe: focus() no-ops).
-const vFocus = { mounted: (el: HTMLElement) => el.focus() }
-
-bridge.onBlockAddAfter((id, anchor) => {
-  addAfterTypes.value = fieldEditorRef.value?.pickerTypesForBlock(id) ?? []
-  addAfterFilter.value = '' // fresh search per open
-  addAfterAnchor.value = anchor ? { x: anchor.x, y: anchor.y } : null
-  addAfterId.value = id
-})
-
-function cancelAddAfter(): void {
-  addAfterId.value = null
-}
-
-async function chooseAddType(slug: string): Promise<void> {
-  const id = addAfterId.value
-  addAfterId.value = null
-  if (id === null) return
-  const newId = (await fieldEditorRef.value?.insertAfterById(id, slug)) ?? null
-  if (newId !== null) selectOne(newId)
-}
+// Every "add here" surface arms the Blocks tab (Phase C.1): the stage +, the list's gaps and Add
+// block, the card header's /, and the outline's empty slots. No popover, no anchoring.
+bridge.onBlockAddAfter((id) => armInsertTarget({ kind: 'after', block: id }))
 
 // ── Edit-in-place (edit-in-place spec §4): grant prose blocks only; typed
 // text patches the tree — no mirrors, the contenteditable IS the stage DOM.
@@ -830,10 +797,10 @@ const coordinator = createDragCoordinator({
 /** A block dropped (or moved to) a zone from any surface: judged, then applied or refused aloud. */
 function runDrop(source: DragSource, id: string, zone: DropZone): void {
   coordinator.begin(source, { blocks: [id] })
-  finishDrop(zone)
+  void finishDrop(zone)
 }
 /** Judge the coordinator's current session against `zone` and apply or refuse its drop. */
-function finishDrop(zone: DropZone): void {
+async function finishDrop(zone: DropZone): Promise<boolean> {
   const proposal = coordinator.propose(zone)
   const ops = coordinator.drop()
   if (ops === null) {
@@ -841,14 +808,128 @@ function finishDrop(zone: DropZone): void {
       'That move is not allowed',
       proposal && !proposal.verdict.ok ? proposal.verdict.message : '',
     )
-    return
+    return false
   }
-  void applyDrop(ops)
+  await applyDrop(ops)
+  return true
 }
 const moveToId = ref<string | null>(null)
 /** The document as history holds it, for the dialogs that judge legality. */
 function currentDoc(): EditorDocument {
   return history?.document ?? { fields: snapshotFields() }
+}
+
+// ── The Blocks tab (visual builder spec §5.1, §5.5 — Phase C.1): one palette. An armed target is
+// an intent resolved at the moment of use; a click captures the intent and an attempt token,
+// waits for the factory, checks the token, resolves the intent against the document as it is
+// then, and inserts through the coordinator. A refusal keeps the target and says why.
+const blockFactory = useBlockFactory()
+const insertTarget = ref<InsertTarget | null>(null)
+const targetStale = ref(false)
+let insertAttempt = 0
+const paletteTypes = computed(() => (allBlockTypes.value ?? []).filter((t) => t.active))
+function effectiveTarget(): InsertTarget | null {
+  if (insertTarget.value) return insertTarget.value
+  if (selected.value !== null) return { kind: 'after', block: selected.value }
+  const first = blockFields()[0]
+  return first ? { kind: 'into', parent: null, field: first } : null
+}
+const resolvedTarget = computed(() => {
+  void fields.value
+  const target = effectiveTarget()
+  return target
+    ? resolveTarget(target, currentDoc(), legalityContext(), historySequence.value)
+    : null
+})
+// An armed target that resolves to nothing (its block or gap is gone) is dropped, and said so.
+// Watched from mount: the resolver reads helpers declared further down this setup.
+onMounted(() =>
+  watch(resolvedTarget, (resolved) => {
+    if (resolved === null && insertTarget.value !== null) {
+      insertTarget.value = null
+      targetStale.value = true
+      insertAttempt++
+    }
+  }),
+)
+const paletteTarget = computed(() =>
+  insertTarget.value && resolvedTarget.value ? { label: resolvedTarget.value.label } : null,
+)
+function paletteClickable(slug: string): Legality {
+  const at = resolvedTarget.value
+  return at
+    ? tilePreflight(slug, at.position, currentDoc(), legalityContext())
+    : { ok: false, reason: 'no-slot', message: 'Nowhere to insert' }
+}
+function armInsertTarget(target: InsertTarget): void {
+  insertTarget.value = target
+  targetStale.value = false
+  insertAttempt++
+  inspectorTab.value = 'blocks'
+}
+/** Clear the armed target; every selection change and every arming ends the attempt in flight. */
+function clearInsertTarget(): void {
+  insertTarget.value = null
+  targetStale.value = false
+  insertAttempt++
+}
+// A palette drag onto the stage (Phase C.1): the helper owns the gesture and the bridge's drop
+// answer; the page judges its proposals like a stage session and applies the answered zone.
+let paletteBlock: BlockInstance | null = null
+const paletteDrag = createPaletteDrag({
+  bridge,
+  iframeRect: () => iframeEl.value?.getBoundingClientRect() ?? null,
+  factory: blockFactory,
+  coordinator,
+  notify: notifyError,
+  onClick: (slug) => void insertFromPalette(slug),
+  onSession: (session, block) => {
+    stageDragSession = session
+    paletteBlock = block
+  },
+  onDrop: (zone) => {
+    stageDragSession = null
+    const block = paletteBlock
+    paletteBlock = null
+    void finishDrop(zone).then((ok) => {
+      if (!ok || !block) return
+      selectOne(block.id)
+      fieldEditorRef.value?.selectBlockById(block.id)
+      ringSelection()
+    })
+  },
+  onCancel: () => {
+    stageDragSession = null
+    paletteBlock = null
+    coordinator.cancel()
+  },
+})
+
+async function insertFromPalette(slug: string): Promise<void> {
+  const intent = effectiveTarget()
+  if (!intent) return
+  const attempt = ++insertAttempt
+  let block: BlockInstance
+  try {
+    block = await blockFactory.instance(slug)
+  } catch (err) {
+    notifyError(err, "Couldn't add block")
+    return
+  }
+  if (attempt !== insertAttempt) return // cancelled or replaced while loading: no substitute
+  const at = resolveTarget(intent, currentDoc(), legalityContext(), historySequence.value)
+  if (!at) {
+    insertTarget.value = null
+    targetStale.value = true
+    return
+  }
+  coordinator.begin('palette', { block })
+  if (!(await finishDrop(at.position))) return // the target stays armed; the reason was shown
+  insertTarget.value = null
+  targetStale.value = false
+  selectOne(block.id)
+  fieldEditorRef.value?.selectBlockById(block.id)
+  ringSelection()
 }
 async function applyDrop(ops: OperationBody[] | null): Promise<void> {
   if (!history || ops === null || ops.length === 0) return
@@ -860,8 +941,9 @@ async function applyDrop(ops: OperationBody[] | null): Promise<void> {
   scheduleCommit(true)
 }
 
-const blockFields = (): string[] =>
-  schema.value.filter((f) => f.type === 'blocks').map((f) => f.name)
+function blockFields(): string[] {
+  return schema.value.filter((f) => f.type === 'blocks').map((f) => f.name)
+}
 const snapshotFields = (): Record<string, unknown> =>
   JSON.parse(JSON.stringify(fields.value)) as Record<string, unknown>
 
@@ -1667,6 +1749,7 @@ async function openThemePreview(): Promise<void> {
  * No re-mint — that stays behind the explicit Refresh preview affordance.
  */
 function reloadStage(): void {
+  paletteDrag.cancel('stage reloaded') // a palette session cannot survive the swap either
   if (stageDragSession !== null) {
     stageDragSession = null // the iframe goes with its drag session
     coordinator.cancel()
@@ -1910,7 +1993,29 @@ function reloadStage(): void {
               />
             </template>
             <template #content>
-              <FieldEditor ref="fieldEditorRef" v-model="fields" :schema="schema" />
+              <FieldEditor
+                ref="fieldEditorRef"
+                v-model="fields"
+                :schema="schema"
+                palette-insert
+                @insert-request="
+                  (p: Position) =>
+                    armInsertTarget({ kind: 'at', position: p, sequence: historySequence })
+                "
+              />
+            </template>
+            <template #blocks>
+              <div class="pt-2">
+                <BlocksPalette
+                  :types="paletteTypes"
+                  :target="paletteTarget"
+                  :stale="targetStale"
+                  :clickable="paletteClickable"
+                  @insert="insertFromPalette"
+                  @clear-target="clearInsertTarget"
+                  @pointer-down="(slug: string, e: PointerEvent) => paletteDrag.begin(slug, e)"
+                />
+              </div>
             </template>
             <template #outline>
               <div class="pt-2" data-test="outline-tab">
@@ -1926,6 +2031,10 @@ function reloadStage(): void {
                   @deselect="onOutlineDeselect"
                   @drop="(id: string, zone: DropZone) => runDrop('outline', id, zone)"
                   @move-to="(id: string) => (moveToId = id)"
+                  @insert-request="
+                    (parent: string, slot: string) =>
+                      armInsertTarget({ kind: 'into', parent, field: slot })
+                  "
                 />
                 <MoveToDialog
                   :open="moveToId !== null"
@@ -2126,73 +2235,6 @@ function reloadStage(): void {
             </div>
           </div>
         </div>
-
-        <!-- Add-after picker (stage-toolbar spec §5): a UPopover anchored to a
-             VIRTUAL reference built from the bridge's + button rect (iframe →
-             parent viewport translation) — floating-ui owns collision
-             flipping/shifting. Lives OUTSIDE the stage's overflow container;
-             portal=false keeps the content findable in jsdom specs. -->
-        <UPopover
-          :open="!!addAfterId"
-          :reference="addAfterReference"
-          :portal="false"
-          :content="{ side: 'bottom', align: 'start', sideOffset: 8 }"
-          @update:open="
-            (v: boolean) => {
-              if (!v) cancelAddAfter()
-            }
-          "
-        >
-          <template #content>
-            <div class="w-64 p-2" data-test="canvas-add-picker">
-              <p class="mb-1 px-1 text-xs font-semibold uppercase tracking-wide text-muted">
-                Add block after
-              </p>
-              <input
-                v-focus
-                v-model="addAfterFilter"
-                type="text"
-                placeholder="Filter blocks…"
-                class="mb-1 w-full rounded border border-default bg-transparent px-2 py-1 text-sm outline-none"
-                data-test="canvas-add-filter"
-                @keydown="onAddFilterKeydown"
-              />
-              <!-- Internal scroll (30 seeded types); filter + Cancel stay pinned. -->
-              <div
-                class="max-h-64 overflow-y-auto overscroll-contain"
-                data-test="canvas-add-scroll"
-              >
-                <div class="grid grid-cols-2 gap-1">
-                  <button
-                    v-for="t in filteredAddTypes"
-                    :key="t.slug"
-                    class="flex flex-col items-center gap-1 rounded px-2 py-1.5 text-center text-xs hover:bg-elevated"
-                    type="button"
-                    :data-test="`canvas-add-type-${t.slug}`"
-                    @click="chooseAddType(t.slug)"
-                  >
-                    <UIcon :name="t.icon || 'i-lucide-box'" class="size-4 text-muted" />
-                    <span class="truncate font-medium">{{ t.label }}</span>
-                  </button>
-                </div>
-                <p v-if="!filteredAddTypes.length" class="px-2 py-1.5 text-sm text-muted">
-                  No block types available here.
-                </p>
-              </div>
-              <div class="mt-1 flex justify-end">
-                <UButton
-                  size="xs"
-                  variant="ghost"
-                  color="neutral"
-                  data-test="canvas-add-cancel"
-                  @click="cancelAddAfter()"
-                >
-                  Cancel
-                </UButton>
-              </div>
-            </div>
-          </template>
-        </UPopover>
       </div>
     </template>
   </UDashboardPanel>

@@ -111,7 +111,11 @@ export async function routeWorld(page: Page): Promise<Recorded> {
         route,
         JSON.stringify({
           success: true,
-          data: { block: { type: factory[1], data: {}, settings: {} }, starter: {} },
+          data: {
+            block: { type: factory[1], data: {}, settings: {} },
+            // A heading ships starter text, so a proof can assert the starter rode along.
+            starter: factory[1] === 'heading' ? { text: 'Heading' } : {},
+          },
         }),
       )
     }
@@ -234,18 +238,33 @@ export async function dragGripTo(
   target: ReturnType<ReturnType<typeof stage>['locator']>,
   release = true,
 ): Promise<void> {
-  // The outline selection scrolls the stage to the anchor (smoothly): wait for the grip to settle.
+  // Both ends must be in the iframe's viewport at once, and still, before either is measured:
+  // the outline selection scrolls the stage to the anchor smoothly, and a point measured
+  // against one scroll position and moved through another lands on a different slot.
+  await target.scrollIntoViewIfNeeded()
   await grip.scrollIntoViewIfNeeded()
+  const same = (a: { x: number; y: number } | null, b: { x: number; y: number } | null) =>
+    !!a && !!b && a.x === b.x && a.y === b.y
   let box = await grip.boundingBox()
-  for (let i = 0; i < 20; i++) {
+  let targetBox = await target.boundingBox()
+  for (let i = 0; i < 30; i++) {
     await page.waitForTimeout(100)
-    const next = await grip.boundingBox()
-    if (box && next && box.x === next.x && box.y === next.y) break
-    box = next
+    const nextGrip = await grip.boundingBox()
+    const nextTarget = await target.boundingBox()
+    if (same(box, nextGrip) && same(targetBox, nextTarget)) break
+    box = nextGrip
+    targetBox = nextTarget
   }
   if (!box) throw new Error('grip has no box')
-  // The target is measured once the stage has settled, in the same frame as the grip.
-  const { x, y } = await centerOf(target)
+  if (!targetBox) throw new Error('target has no box')
+  const frame = await page.locator('[data-test="canvas-iframe"]').boundingBox()
+  const x = targetBox.x + targetBox.width / 2
+  const y = targetBox.y + targetBox.height / 2
+  if (frame && (y < frame.y || y > frame.y + frame.height)) {
+    throw new Error(
+      `the drop target sits outside the stage's viewport (y=${y}); enlarge the viewport`,
+    )
+  }
   const startX = box.x + box.width / 2
   const startY = box.y + box.height / 2
   await page.mouse.move(startX, startY)
@@ -309,4 +328,40 @@ export async function historyLength(page: Page, n: number): Promise<Hooks> {
 /** The stage's drop indicator. */
 export function indicator(page: Page) {
   return stage(page).locator('.thallo-canvas-drop-line')
+}
+
+/** Open the inspector's Blocks tab (the Design page's one palette, Phase C.1). */
+export async function openBlocksTab(page: Page): Promise<void> {
+  await page.locator('[data-test="inspector-tabs"] button', { hasText: 'Blocks' }).click()
+  await page.locator('[data-test="blocks-tab"]').waitFor()
+}
+
+/**
+ * Drag a palette tile onto a stage element (main-viewport coordinates, in steps). The tile holds
+ * pointer capture, so the parent keeps receiving the moves over the iframe. `release` false
+ * leaves the pointer down over the target.
+ */
+export async function dragTileTo(
+  page: Page,
+  slug: string,
+  target: ReturnType<ReturnType<typeof stage>['locator']>,
+  release = true,
+): Promise<void> {
+  const tile = page.locator(`[data-test="palette-card-${slug}"]`)
+  await tile.scrollIntoViewIfNeeded()
+  // The target must sit in the iframe's viewport: a hover past its edge finds no element.
+  await target.scrollIntoViewIfNeeded()
+  const from = await centerOf(tile)
+  await page.mouse.move(from.x, from.y)
+  await page.mouse.down()
+  const to = await centerOf(target)
+  const steps = 12
+  for (let i = 1; i <= steps; i++) {
+    await page.mouse.move(
+      from.x + ((to.x - from.x) * i) / steps,
+      from.y + ((to.y - from.y) * i) / steps,
+    )
+  }
+  await page.locator('.thallo-palette-ghost').waitFor({ timeout: 2000 })
+  if (release) await page.mouse.up()
 }

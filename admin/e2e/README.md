@@ -24,7 +24,14 @@ What is proven, in Chromium:
   `MoveBlock`s whose indices count against the working tree;
 - `siblings-across-index-shift` — two root siblings drag together into another slot; the
   second block's `from` index is read after the first has left;
-- `cancel` — Escape mid-drag discards the session with nothing changed.
+- `cancel` — Escape mid-drag discards the session with nothing changed;
+- `palette-drop` (Phase C.1) — a heading dragged from the Blocks tab into an empty column
+  inserts one `InsertBlock` carrying its starter and selects it; a heading released over a
+  button-only slot is refused with the tree byte-identical, history and the accepted pair
+  unchanged and no apply sent; a drag that hovers a column and is released over the site header
+  inserts nothing, with the same four assertions;
+- `palette-click` (Phase C.1) — the stage `+` arms the Blocks tab after the block, the search
+  takes focus, and Enter inserts the first match there.
 
 ```
 DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-builder-proof-fixtures   # writes fixtures/ (gitignored)

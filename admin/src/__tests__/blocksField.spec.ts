@@ -276,6 +276,37 @@ describe('BlocksField', () => {
     wrapper.unmount()
   })
 
+  it('with paletteInsert a gap, the Add block button and the header / emit an insert-request position and open no menu', async () => {
+    const model = [
+      {
+        id: 'aaa000000001',
+        type: 'section',
+        data: { content: [{ id: 'inner0000001', type: 'hero', data: {}, settings: {} }] },
+        settings: {},
+      },
+      { id: 'bbb000000002', type: 'hero', data: {}, settings: {} },
+    ]
+    const wrapper = mount(BlocksField, { props: { field, modelValue: model, paletteInsert: true } })
+    await flushPromises()
+    await wrapper.find('[data-test="block-insert-1"]').trigger('click')
+    await wrapper.find('[data-test="add-block"]').trigger('click')
+    // The nested list's gap names the parent and its region.
+    wrapper
+      .findAll('[data-test="block-toggle-aaa000000001"]')[0]!
+      .element.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await flushPromises()
+    await wrapper.findAll('[data-test="block-insert-0"]')[1]!.trigger('click') // the nested list's gap
+    await wrapper.find('[data-test="block-toggle-bbb000000002"]').trigger('keydown', { key: '/' })
+    expect(wrapper.find('[data-test="block-picker"]').exists()).toBe(false)
+    expect(wrapper.emitted('insert-request')).toEqual([
+      [{ parent: null, slot: 'body', index: 1 }],
+      [{ parent: null, slot: 'body', index: 2 }],
+      [{ parent: 'aaa000000001', slot: 'content', index: 0 }],
+      [{ parent: null, slot: 'body', index: 2 }],
+    ])
+    wrapper.unmount()
+  })
+
   it('respects the field blockTypes allowlist in the picker', async () => {
     const wrapper = mount(BlocksField, {
       props: { field: { ...field, blockTypes: ['quote'] }, modelValue: [] },

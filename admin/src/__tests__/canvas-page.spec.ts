@@ -81,12 +81,12 @@ const bridge = vi.hoisted(() => {
     index?: (ids: string[]) => void
     deselect?: (id: string) => void
     move?: (id: string, d: 1 | -1) => void
-    dragPropose?: (session: string, blocks: string[], zone: StageZone) => void
+    dragPropose?: (session: string, blocks: string[], zone: StageZone | null) => void
     blockDrop?: (session: string, blocks: string[], zone: StageZone) => void
     dragCancel?: (session: string) => void
     duplicate?: (id: string) => void
     deleteRequest?: (id: string, anchor?: { x: number; y: number } | null) => void
-    addAfter?: (id: string, anchor?: { x: number; y: number } | null) => void
+    addAfter?: (id: string) => void
     editRequest?: (id: string, field: string) => void
     textChanged?: (id: string, field: string, payload: { html?: string; text?: string }) => void
     editStart?: (id: string) => void
@@ -104,7 +104,7 @@ const bridge = vi.hoisted(() => {
       onBlockHover: (cb: (id: string) => void) => (callbacks.hover = cb),
       onBlocksIndex: (cb: (ids: string[]) => void) => (callbacks.index = cb),
       onBlockMove: (cb: (id: string, d: 1 | -1) => void) => (callbacks.move = cb),
-      onDragPropose: (cb: (session: string, blocks: string[], zone: StageZone) => void) =>
+      onDragPropose: (cb: (session: string, blocks: string[], zone: StageZone | null) => void) =>
         (callbacks.dragPropose = cb),
       onBlockDrop: (cb: (session: string, blocks: string[], zone: StageZone) => void) =>
         (callbacks.blockDrop = cb),
@@ -112,12 +112,12 @@ const bridge = vi.hoisted(() => {
       dragBegin: vi.fn(),
       dragHover: vi.fn(),
       dragLegality: vi.fn(),
+      dragDrop: vi.fn(),
       dragEnd: vi.fn(),
       onBlockDuplicate: (cb: (id: string) => void) => (callbacks.duplicate = cb),
       onBlockDeleteRequest: (cb: (id: string, anchor?: { x: number; y: number } | null) => void) =>
         (callbacks.deleteRequest = cb),
-      onBlockAddAfter: (cb: (id: string, anchor?: { x: number; y: number } | null) => void) =>
-        (callbacks.addAfter = cb),
+      onBlockAddAfter: (cb: (id: string) => void) => (callbacks.addAfter = cb),
       onEditRequest: (cb: (id: string, field: string) => void) => (callbacks.editRequest = cb),
       onTextChanged: (
         cb: (id: string, field: string, payload: { html?: string; text?: string }) => void,
@@ -145,16 +145,15 @@ const factoryStarter: Record<string, Record<string, unknown>> = {
   hero: { headline: 'Headline', links: [] },
   card: { title: 'Card', body: [] },
 }
+const factory = vi.hoisted(() => ({ instance: vi.fn() }))
+const defaultInstance = async (slug: string) => ({
+  id: 'f' + Math.random().toString(36).slice(2, 13).padEnd(11, '0'),
+  type: slug,
+  data: { ...(factoryStarter[slug] ?? {}) },
+  settings: {},
+})
 vi.mock('@/queries/blockFactory', () => ({
-  useBlockFactory: () => ({
-    make: vi.fn(),
-    instance: vi.fn(async (slug: string) => ({
-      id: 'f' + Math.random().toString(36).slice(2, 13).padEnd(11, '0'),
-      type: slug,
-      data: { ...(factoryStarter[slug] ?? {}) },
-      settings: {},
-    })),
-  }),
+  useBlockFactory: () => ({ make: vi.fn(), instance: factory.instance }),
 }))
 
 vi.mock('vue-router', async (importOriginal) => ({
@@ -237,6 +236,8 @@ beforeEach(() => {
   mintMock.mockReset()
   applyMock.mockReset()
   revisionCounter = 0
+  factory.instance.mockReset()
+  factory.instance.mockImplementation(defaultInstance)
   applyMock.mockImplementation(async () => nextApplied())
   saveMock.mockReset()
   notify.warning.mockReset()
@@ -737,23 +738,27 @@ describe('canvas page', () => {
     wrapper.unmount()
   })
 
-  it('add-after opens the per-list picker; choosing inserts, selects, and posts NO mirror', async () => {
+  it('the stage + arms the Blocks tab after the block; Enter inserts the first match there and selects it', async () => {
     mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    saveMock.mockResolvedValue(undefined)
     const wrapper = mountPage()
     await flushPromises()
 
     bridge.callbacks.addAfter?.('blockaaa0001')
     await flushPromises()
-    const picker = wrapper.find('[data-test="canvas-add-picker"]')
-    expect(picker.exists()).toBe(true)
-    await picker.find('[data-test="canvas-add-type-card"]').trigger('click')
+    expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(false) // no popover
+    const tab = wrapper.find('[data-test="blocks-tab"]')
+    expect(tab.exists()).toBe(true)
+    expect(tab.find('[data-test="palette-target"]').text()).toContain('Inserting after card')
+    const search = tab.find('[data-test="palette-search"]')
+    expect(document.activeElement).toBe(search.element)
+
+    await search.setValue('card')
+    await search.trigger('keydown', { key: 'Enter' })
     await flushPromises()
     expect(bridge.instance.mirrorMove).not.toHaveBeenCalled()
     expect(bridge.instance.mirrorDuplicate).not.toHaveBeenCalled()
-    expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(false)
-
-    // The insertion awaited the factory: one new block after the anchor, carrying the starter.
-    saveMock.mockResolvedValue(undefined)
+    expect(tab.find('[data-test="palette-target"]').exists()).toBe(false) // consumed
     await wrapper.find('[data-test="canvas-save"]').trigger('click')
     await flushPromises()
     const saved = saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
@@ -762,36 +767,86 @@ describe('canvas page', () => {
     expect(saved.fields.body.map((b) => b.type)).toEqual(['card', 'card', 'card', 'rich_text'])
     expect(saved.fields.body[1]!.id).not.toBe('blockbbb0002')
     expect(saved.fields.body[1]!.data).toEqual({ title: 'Card', body: [] })
+    expect(bridge.instance.highlight).toHaveBeenLastCalledWith(saved.fields.body[1]!.id, [
+      saved.fields.body[1]!.id,
+    ])
     wrapper.unmount()
   })
 
-  it('the add-after picker filters by search and Enter picks the first match', async () => {
+  it('Escape clears the armed target and leaves the tab open; selecting another block clears it too', async () => {
     mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
     const wrapper = mountPage()
     await flushPromises()
+    bridge.callbacks.addAfter?.('blockaaa0001')
+    await flushPromises()
+    const tab = wrapper.find('[data-test="blocks-tab"]')
+    await tab.find('[data-test="palette-search"]').trigger('keydown', { key: 'Escape' })
+    expect(tab.find('[data-test="palette-target"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="blocks-tab"]').exists()).toBe(true)
 
     bridge.callbacks.addAfter?.('blockaaa0001')
     await flushPromises()
-    const picker = wrapper.find('[data-test="canvas-add-picker"]')
-    const filter = picker.find('[data-test="canvas-add-filter"]')
-    expect(filter.exists()).toBe(true)
-
-    await filter.setValue('rich')
-    expect(picker.find('[data-test="canvas-add-type-rich_text"]').exists()).toBe(true)
-    expect(picker.find('[data-test="canvas-add-type-card"]').exists()).toBe(false)
-
-    // Enter picks the first (only) match and closes the picker.
-    await filter.trigger('keydown', { key: 'Enter' })
+    expect(tab.find('[data-test="palette-target"]').exists()).toBe(true)
+    bridge.callbacks.select?.('blockbbb0002')
     await flushPromises()
-    expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(false)
+    expect(tab.find('[data-test="palette-target"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
 
-    // Reopening resets the filter (card visible again); Escape cancels.
+  it('an armed after-target whose block is deleted is gone with it', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    saveMock.mockResolvedValue(undefined)
+    const wrapper = mountPage()
+    await flushPromises()
+    bridge.callbacks.addAfter?.('blockbbb0002')
+    await flushPromises()
+    const tab = wrapper.find('[data-test="blocks-tab"]')
+    expect(tab.find('[data-test="palette-target"]').text()).toContain('Inserting after card')
+    bridge.callbacks.deleteRequest?.('blockbbb0002')
+    await flushPromises()
+    await wrapper.find('[data-test="canvas-delete-confirm-yes"]').trigger('click')
+    await flushPromises()
+    // The target resolves to nothing and is dropped; the strip says so until the next arming.
+    expect(tab.find('[data-test="palette-target"]').text()).toContain('That place is gone')
+    expect(tab.find('[data-test="palette-target-cancel"]').exists()).toBe(false)
     bridge.callbacks.addAfter?.('blockaaa0001')
     await flushPromises()
-    const reopened = wrapper.find('[data-test="canvas-add-picker"]')
-    expect(reopened.find('[data-test="canvas-add-type-card"]').exists()).toBe(true)
-    await reopened.find('[data-test="canvas-add-filter"]').trigger('keydown', { key: 'Escape' })
-    expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(false)
+    expect(tab.find('[data-test="palette-target"]').text()).toContain('Inserting after card')
+    wrapper.unmount()
+  })
+
+  it('a gap target from the list dies with the next structural change; an after-target survives it', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    saveMock.mockResolvedValue(undefined)
+    const wrapper = mountPage()
+    await flushPromises()
+    // The Content tab's list gap (position 1 of body) arms the tab instead of opening a menu.
+    await wrapper.find('[data-test="block-insert-1"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="block-picker"]').exists()).toBe(false)
+    const tab = wrapper.find('[data-test="blocks-tab"]')
+    expect(tab.find('[data-test="palette-target"]').text()).toContain(
+      'Inserting at position 2 of body',
+    )
+    bridge.callbacks.move?.('prose0000003', -1) // a structural change: the gap is gone
+    await flushPromises()
+    expect(tab.find('[data-test="palette-target"]').text()).toContain('That place is gone')
+
+    bridge.callbacks.addAfter?.('blockaaa0001')
+    await flushPromises()
+    bridge.callbacks.move?.('blockaaa0001', 1) // the anchor moves; the target follows it
+    await flushPromises()
+    expect(tab.find('[data-test="palette-target"]').text()).toContain('Inserting after card')
+    await tab.find('[data-test="palette-card-card"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    const saved = saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
+      fields: { body: { id: string }[] }
+    }
+    // body was [a, b, prose] → prose up → [a, prose, b] → a down → [prose, a, b] → after a.
+    expect(saved.fields.body.map((b) => b.id).slice(0, 2)).toEqual(['prose0000003', 'blockaaa0001'])
+    expect(saved.fields.body[3]!.id).toBe('blockbbb0002')
     wrapper.unmount()
   })
 
@@ -1026,6 +1081,318 @@ describe('canvas page', () => {
     })
   })
 
+  describe('the Blocks tab (Phase C.1)', () => {
+    const savedBody = () =>
+      (
+        saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
+          fields: { body: { id: string; type: string; data: Record<string, unknown> }[] }
+        }
+      ).fields.body
+    async function openBlocks(wrapper: ReturnType<typeof mountPage>) {
+      await wrapper
+        .find('[data-test="inspector-tabs"]')
+        .findAll('button')
+        .find((b) => b.text() === 'Blocks')!
+        .trigger('click')
+      await flushPromises()
+      return wrapper.find('[data-test="blocks-tab"]')
+    }
+
+    it('with nothing selected a tile click inserts at the end of body and selects the block', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      const tab = await openBlocks(wrapper)
+      await tab.find('[data-test="palette-card-card"]').trigger('click')
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      const body = savedBody()
+      expect(body.map((b) => b.type)).toEqual(['card', 'card', 'rich_text', 'card'])
+      expect(body[3]!.data).toEqual({ title: 'Card', body: [] })
+      expect(bridge.instance.highlight).toHaveBeenLastCalledWith(body[3]!.id, [body[3]!.id])
+      wrapper.unmount()
+    })
+
+    it('with a nested block selected the insert lands after it in its OWN sibling list', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      // The card carries a body slot here, so the nested block is part of the tree walk.
+      blockTypes.value = blockTypes.value.map((t) =>
+        t.slug === 'card'
+          ? ({
+              ...t,
+              schema: [
+                ...t.schema,
+                {
+                  name: 'body',
+                  type: 'blocks',
+                  required: false,
+                  localized: false,
+                  filterable: false,
+                },
+              ],
+            } as BlockType)
+          : t,
+      )
+      draft.value = {
+        fields: {
+          title: 'T',
+          body: [
+            {
+              id: 'blockaaa0001',
+              type: 'card',
+              data: {
+                title: 'A',
+                body: [{ id: 'inner0000001', type: 'rich_text', data: { body: '<p>i</p>' } }],
+              },
+            },
+            { id: 'blockbbb0002', type: 'card', data: { title: 'B' } },
+          ],
+        },
+        lock_version: 3,
+      }
+      const wrapper = mountPage()
+      await flushPromises()
+      bridge.callbacks.select?.('inner0000001')
+      await flushPromises()
+      const tab = await openBlocks(wrapper)
+      expect(tab.find('[data-test="palette-target"]').exists()).toBe(false) // the default, not armed
+      await tab.find('[data-test="palette-card-rich_text"]').trigger('click')
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      const body = savedBody()
+      expect(body.map((b) => b.id)).toEqual(['blockaaa0001', 'blockbbb0002'])
+      const inner = body[0]!.data.body as { id: string; type: string }[]
+      expect(inner.map((b) => b.type)).toEqual(['rich_text', 'rich_text'])
+      expect(inner[0]!.id).toBe('inner0000001')
+      wrapper.unmount()
+    })
+
+    it('a nested-starter refusal keeps the target, warns with the reason and changes nothing', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      blockTypes.value = [
+        ...blockTypes.value,
+        {
+          ...bt('section'),
+          schema: [
+            {
+              name: 'content',
+              type: 'blocks',
+              required: false,
+              localized: false,
+              filterable: false,
+            },
+          ],
+        } as BlockType,
+      ]
+      // Four levels down: one level remains. The tile passes (a height-one placeholder fits);
+      // the real instance nests three levels and is refused at commit.
+      const nest = (id: string, inner: unknown[]) => ({
+        id,
+        type: 'section',
+        data: { content: inner },
+      })
+      draft.value = {
+        fields: { title: 'T', body: [nest('s1', [nest('s2', [nest('s3', [nest('s4', [])])])])] },
+        lock_version: 3,
+      }
+      factory.instance.mockImplementation(async (slug: string) => ({
+        id: 'fresh0000001',
+        type: slug,
+        data: { content: [nest('n1', [nest('n2', [])])] },
+        settings: {},
+      }))
+      const wrapper = mountPage()
+      await flushPromises()
+      bridge.callbacks.select?.('s4')
+      await flushPromises()
+      const tab = await openBlocks(wrapper)
+      const before = JSON.stringify(draft.value.fields)
+      expect(
+        tab.find('[data-test="palette-card-section"]').attributes('aria-disabled'),
+      ).toBeUndefined()
+      await tab.find('[data-test="palette-card-section"]').trigger('click')
+      await flushPromises()
+      expect(notify.warning).toHaveBeenCalledWith(
+        'That move is not allowed',
+        expect.stringMatching(/deep|five|level/i),
+      )
+      expect(wrapper.find('[data-test="canvas-undo"]').attributes('disabled')).toBeDefined()
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      expect(
+        JSON.stringify(
+          (saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as { fields: unknown }).fields,
+        ),
+      ).toBe(before)
+      wrapper.unmount()
+    })
+
+    it('a click whose target is cleared while the factory loads inserts nothing, with no default substituted', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      let resolveFactory: (b: unknown) => void = () => {}
+      factory.instance.mockImplementation(() => new Promise((r) => (resolveFactory = r)))
+      const wrapper = mountPage()
+      await flushPromises()
+      bridge.callbacks.select?.('blockaaa0001')
+      await flushPromises()
+      const tab = await openBlocks(wrapper)
+      await tab.find('[data-test="palette-card-card"]').trigger('click')
+      bridge.callbacks.deselect?.('blockaaa0001') // the attempt's intent is gone
+      await flushPromises()
+      resolveFactory({ id: 'late00000001', type: 'card', data: {}, settings: {} })
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      expect(savedBody().map((b) => b.id)).toEqual(['blockaaa0001', 'blockbbb0002', 'prose0000003'])
+      wrapper.unmount()
+    })
+
+    it('a click whose anchor moves while the factory loads lands after the new position of the anchor', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      let resolveFactory: (b: unknown) => void = () => {}
+      factory.instance.mockImplementation(() => new Promise((r) => (resolveFactory = r)))
+      const wrapper = mountPage()
+      await flushPromises()
+      bridge.callbacks.select?.('blockaaa0001')
+      await flushPromises()
+      const tab = await openBlocks(wrapper)
+      await tab.find('[data-test="palette-card-card"]').trigger('click')
+      bridge.callbacks.move?.('blockaaa0001', 1) // the anchor moves while the factory answers
+      await flushPromises()
+      resolveFactory({ id: 'late00000002', type: 'card', data: {}, settings: {} })
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      expect(savedBody().map((b) => b.id)).toEqual([
+        'blockbbb0002',
+        'blockaaa0001',
+        'late00000002',
+        'prose0000003',
+      ])
+      wrapper.unmount()
+    })
+  })
+
+  describe('a palette drag onto the stage (Phase C.1)', () => {
+    const savedBody = () =>
+      (
+        saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
+          fields: { body: { id: string; type: string; data: Record<string, unknown> }[] }
+        }
+      ).fields.body
+    /** Begin a tile drag and move past the threshold over the stage; returns the bridge session. */
+    async function dragTile(wrapper: ReturnType<typeof mountPage>, slug: string) {
+      const iframe = wrapper.find('[data-test="canvas-iframe"]').element as HTMLIFrameElement
+      iframe.getBoundingClientRect = () =>
+        ({
+          left: 100,
+          top: 50,
+          width: 400,
+          height: 300,
+          right: 500,
+          bottom: 350,
+          x: 100,
+          y: 50,
+          toJSON: () => ({}),
+        }) as DOMRect
+      await wrapper
+        .find('[data-test="inspector-tabs"]')
+        .findAll('button')
+        .find((b) => b.text() === 'Blocks')!
+        .trigger('click')
+      await flushPromises()
+      const tile = wrapper.find(`[data-test="palette-card-${slug}"]`).element
+      tile.dispatchEvent(
+        new MouseEvent('pointerdown', { button: 0, bubbles: true, clientX: 10, clientY: 10 }),
+      )
+      tile.dispatchEvent(
+        new MouseEvent('pointermove', { bubbles: true, clientX: 200, clientY: 100 }),
+      )
+      await flushPromises() // the factory answers; the session begins
+      const begin = bridge.instance.dragBegin as ReturnType<typeof vi.fn>
+      expect(begin).toHaveBeenCalledTimes(1)
+      const session = begin.mock.calls[0]![0] as string
+      expect(begin.mock.calls[0]![1]).toEqual([])
+      expect(bridge.instance.dragHover).toHaveBeenLastCalledWith(session, 100, 50)
+      return { tile, session }
+    }
+    const zone = { parent: null, slot: 'body', index: 1, layout: 'linear-vertical' as const }
+
+    it('a proposal is judged, the release asks the stage, and the answered zone inserts one block', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      const { tile, session } = await dragTile(wrapper, 'card')
+      bridge.callbacks.dragPropose?.(session, [], zone)
+      expect(bridge.instance.dragLegality).toHaveBeenLastCalledWith(session, true, '')
+      bridge.callbacks.dragPropose?.(session, [], null) // left every slot: nothing to judge
+      tile.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientX: 210, clientY: 110 }))
+      expect(bridge.instance.dragDrop).toHaveBeenCalledWith(session, 110, 60)
+      expect(notify.warning).not.toHaveBeenCalled()
+      bridge.callbacks.blockDrop?.(session, [], zone) // the zone under the released pointer
+      await flushPromises()
+      expect(bridge.instance.dragEnd).toHaveBeenCalledWith(session)
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      const body = savedBody()
+      expect(body.map((b) => b.type)).toEqual(['card', 'card', 'card', 'rich_text'])
+      expect(body[1]!.data).toEqual({ title: 'Card', body: [] })
+      expect(bridge.instance.highlight).toHaveBeenLastCalledWith(body[1]!.id, [body[1]!.id])
+      wrapper.unmount()
+    })
+
+    it('a permitted hover then a release over a forbidden slot: the final zone is judged and refused', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      const { tile, session } = await dragTile(wrapper, 'card')
+      bridge.callbacks.dragPropose?.(session, [], zone)
+      expect(bridge.instance.dragLegality).toHaveBeenLastCalledWith(session, true, '')
+      tile.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientX: 210, clientY: 110 }))
+      // The stage answers with a slot that does not exist on the anchor: refused at commit.
+      bridge.callbacks.blockDrop?.(session, [], {
+        parent: 'blockaaa0001',
+        slot: 'nope',
+        index: 0,
+        layout: 'linear-vertical',
+      })
+      await flushPromises()
+      expect(notify.warning).toHaveBeenCalledWith('That move is not allowed', expect.any(String))
+      expect(bridge.instance.dragEnd).toHaveBeenCalledWith(session)
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      expect(savedBody().map((b) => b.id)).toEqual(['blockaaa0001', 'blockbbb0002', 'prose0000003'])
+      wrapper.unmount()
+    })
+
+    it('a drag-cancel answer ends the session with nothing inserted; a stale block-drop afterwards is ignored', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      const { tile, session } = await dragTile(wrapper, 'card')
+      tile.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientX: 210, clientY: 110 }))
+      bridge.callbacks.dragCancel?.(session)
+      await flushPromises()
+      expect(bridge.instance.dragEnd).toHaveBeenCalledWith(session)
+      bridge.callbacks.blockDrop?.(session, [], zone) // late: the helper no longer awaits
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      expect(savedBody().map((b) => b.id)).toEqual(['blockaaa0001', 'blockbbb0002', 'prose0000003'])
+      wrapper.unmount()
+    })
+  })
+
   it('an anchored delete request positions the confirm at the delete button', async () => {
     mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
     const wrapper = mountPage()
@@ -1044,31 +1411,6 @@ describe('canvas page', () => {
     bridge.callbacks.deleteRequest?.('blockaaa0001')
     await flushPromises()
     expect(wrapper.find('[data-test="canvas-delete-confirm"]').classes()).toContain('mx-auto')
-    wrapper.unmount()
-  })
-
-  it('add-after opens the popover picker with or without a bridge anchor', async () => {
-    // Positioning is DELEGATED: the picker is a UPopover on a virtual
-    // reference built from the bridge rect (iframe → viewport translation);
-    // flipping/shifting is floating-ui's job, so the spec asserts the open/
-    // close contract, not coordinate math (jsdom rects are all zeros anyway).
-    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
-    const wrapper = mountPage()
-    await flushPromises()
-
-    bridge.callbacks.addAfter?.('blockaaa0001', { x: 120, y: 42 })
-    await flushPromises()
-    const picker = wrapper.find('[data-test="canvas-add-picker"]')
-    expect(picker.exists()).toBe(true)
-
-    // Cancel closes; an anchor-LESS intent still opens (stage-top fallback
-    // reference — the popover never fails to appear over missing geometry).
-    await picker.find('[data-test="canvas-add-cancel"]').trigger('click')
-    await flushPromises()
-    expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(false)
-    bridge.callbacks.addAfter?.('blockaaa0001')
-    await flushPromises()
-    expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(true)
     wrapper.unmount()
   })
 

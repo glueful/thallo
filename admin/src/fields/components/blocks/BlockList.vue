@@ -41,6 +41,15 @@ watch(
 const menuIndex = ref<number | null>(null)
 
 function openMenuAt(index: number): void {
+  // In the Design page the gap arms the Blocks tab with a complete position (Phase C.1).
+  if (ctx.insertIntent) {
+    ctx.insertIntent(
+      props.parentId === null
+        ? { parent: null, slot: ctx.fieldName, index }
+        : { parent: props.parentId, slot: props.region, index },
+    )
+    return
+  }
   menuIndex.value = menuIndex.value === index ? null : index
 }
 

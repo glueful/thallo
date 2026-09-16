@@ -1,6 +1,7 @@
 import type { InjectionKey, ComputedRef, Reactive, Ref } from 'vue'
 import type { BlockType } from '@/queries/blockTypes'
 import type { BlockInstance, BlockListOps } from './useBlockListOps'
+import type { Position } from '@/editor/ops/types'
 
 // The root BlocksField owns the WHOLE tree and provides this context; BlockList/
 // BlockCard (any nesting level) consume it. Every mutation flows through apply()
@@ -30,6 +31,13 @@ export interface BlocksContext {
   selectBlock: (id: string) => void
   /** A shift- or cmd-click on a card header: a selection intent for the page (spec §5.5). */
   selectIntent: (id: string, modifiers: { shift: boolean; meta: boolean }) => void
+  /** The root blocks field's name: the slot a root-list position names. */
+  fieldName: string
+  /**
+   * Hosted by the Design page (Phase C.1): a gap, the Add block button or the header `/` hands
+   * the page a complete position to arm the Blocks tab, and opens no menu. Null elsewhere.
+   */
+  insertIntent: ((position: Position) => void) | null
   /** Field-scoped sortable group name (cross-container drag within ONE field). */
   dragGroup: string
   /** Drag drop handler (root-provided; reads target identity from event.to). */
