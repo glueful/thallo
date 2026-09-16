@@ -18,7 +18,14 @@ as the next release, never a mutated tag.
 - The feature block's marker takes a size (small, medium, large, extra large) that scales the
   icon and the number badge alike, beside its existing colour. Migration 031 adds the field.
 
+- `white` joins the theme colour tokens: a literal `#ffffff` in every scheme, for text on an
+  accent or inverted band. A theme copied before this still loads; it may map the token itself.
+- The call-to-action block aligns its buttons row (start, center, end) from a Links group in its
+  Block tab; unset keeps the orientation's default. Migration 032 adds the field.
+
 ### Fixed
+- The call-to-action's description ignored the panel's text colour from the Style tab, since the
+  theme pinned it to the muted token; it now softens whatever text colour the panel has.
 - A page-level separator spanned the viewport instead of the page's width; it now carries the
   same width clamp as the other page-level blocks, released by the full-width layout.
 - Tabs could not be switched on the stage: every in-block click is inert there, so a tab label

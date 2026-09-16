@@ -323,6 +323,18 @@ final class StarterTemplatesTest extends AppTestCase
         self::assertStringNotContainsString('--active-bg-', $odd);
     }
 
+    public function testCtaAlignsItsLinksRow(): void
+    {
+        $env = $this->env();
+        $render = fn(array $data): string => $env->createTemplate('{{ blocks(l) }}')->render(['l' => [
+            ['id' => 'c', 'type' => 'cta', 'data' => $data + ['title' => 'Go', 'links' => []]]]]);
+        self::assertStringContainsString('thallo-block-cta--links-end', $render(['links_align' => 'end']));
+        self::assertStringContainsString('thallo-block-cta--links-start', $render(['links_align' => 'start']));
+        // Unset keeps the orientation's default (vertical centres, horizontal leads): no modifier.
+        self::assertStringNotContainsString('--links-', $render([]));
+        self::assertStringNotContainsString('--links-', $render(['links_align' => 'sideways']));
+    }
+
     public function testColumnsRendersPerLayoutEnum(): void
     {
         $env = $this->env();

@@ -18,10 +18,18 @@ final class Vocabulary
         'radius' => ['none', 'sm', 'md', 'lg', 'full'],
         'color' => [
             'background', 'surface', 'surface-2', 'text', 'muted', 'line', 'accent', 'accent-contrast', 'transparent',
+            'white',
         ],
         'shadow' => ['none', 'xs', 'sm', 'md', 'lg', 'xl'],
         'typography.size' => ['xs', 'sm', 'md', 'lg', 'xl', '2xl', '3xl'],
     ];
+
+    /**
+     * Tokens with a value that is the same in every theme and scheme, filled in when a theme's
+     * manifest omits them — so a token added to the baseline after a theme was copied still
+     * resolves. A theme may still map them.
+     */
+    public const LITERAL_DEFAULTS = ['color.white' => '#ffffff'];
 
     /** @return list<string> the domains in contract order */
     public static function domains(): array

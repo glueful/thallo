@@ -406,6 +406,25 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringContainsString('.layout--full .thallo-block-separator', $css);
     }
 
+    public function testCtaDescriptionFollowsThePanelTextColourAndTheLinksRowAligns(): void
+    {
+        // The Style tab's text colour lands on the CTA panel; the description must derive from it
+        // (currentColor) rather than pin var(--muted), or the colour never reaches it.
+        $css = (string) file_get_contents(
+            $this->appContext()->getBasePath() . '/packages/thallo-render/themes/default/assets/blocks.css',
+        );
+        self::assertMatchesRegularExpression(
+            '~\.thallo-block-cta__description \{[^}]*color: color-mix\(in srgb, currentColor~s',
+            $css,
+        );
+        foreach (['start' => 'flex-start', 'center' => 'center', 'end' => 'flex-end'] as $align => $justify) {
+            self::assertStringContainsString(
+                ".thallo-block-cta--links-{$align} .thallo-block-cta__links { justify-content: {$justify}; }",
+                $css,
+            );
+        }
+    }
+
     public function testCarouselBaseIsPureScrollSnapAndLayoutLoadsBlocksJsOnce(): void
     {
         $out = $this->render([['id' => 'cr1', 'type' => 'carousel', 'data' => [
