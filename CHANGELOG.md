@@ -18,6 +18,8 @@ as the next release, never a mutated tag.
 - An empty slot on the stage is a placeholder: a dashed frame, one + that arms the Blocks tab
   into that slot (`thallo:slot-add` from the bridge), and the hint "Drag a block here". The old
   placeholder was a line of text with nothing to click.
+- The sidebar collapses on entering the Design page and comes back as it was on leaving; a
+  sidebar the user reopens by hand while designing stays open.
 
 ### Fixed
 - A block inserted from the Blocks tab below the fold was invisible: the stage now scrolls to

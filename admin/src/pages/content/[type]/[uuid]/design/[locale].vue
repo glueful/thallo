@@ -86,7 +86,7 @@ import CanvasOutline from './components/CanvasOutline.vue'
 // right inspector (the editor's exact FieldEditor), explicit Save & refresh.
 // This page loads the draft INDEPENDENTLY and saves through the same endpoint
 // with lock_version; the stale-lock 409 is the race boundary with the editor.
-definePage({ meta: { requiresAuth: true } })
+definePage({ meta: { requiresAuth: true, collapseSidebar: true } })
 
 const route = useRoute()
 const { success, warning, error: notifyError } = useNotify()

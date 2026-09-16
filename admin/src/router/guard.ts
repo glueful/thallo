@@ -17,6 +17,8 @@ declare module 'vue-router' {
      * would skip the capability check entirely and return `true`.
      */
     requiresCapability?: string
+    /** The page wants the whole width: the layout collapses the sidebar while it is shown. */
+    collapseSidebar?: boolean
   }
 }
 
