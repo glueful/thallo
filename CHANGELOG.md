@@ -8,6 +8,11 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Added
+- The section block aligns its headline, title and description separately (start, center or
+  end; unset keeps the orientation's default) from an Alignment group in the Block tab.
+  Migration 028 adds the three fields to an existing install's section block type.
+- An optional enum field in the block editor offers "Default" first, which clears the value, so
+  a chosen alignment, background or orientation can go back to the theme's default.
 - The Style tab's groups (Spacing, Size, Typography, Colours, Effects, Visibility) fold and
   unfold from their headers; a fold holds across blocks and sessions in that browser, and a
   folded group says how many of its properties the block sets.
