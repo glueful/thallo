@@ -9,7 +9,7 @@ use Thallo\Render\Http\Controllers\TemplatesAdminController;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * GET /custom.css (custom-css spec §3): serves the ACTIVE theme's DB row with
+ * GET /_thallo/custom.css (custom-css spec §3): serves the ACTIVE theme's DB row with
  * immutable cache headers; absent or empty → 404. DB-only — the route never
  * touches theme directories.
  */
@@ -35,7 +35,7 @@ final class CustomCssServingTest extends AppTestCase
     {
         $this->saveCss('.thallo-block-hero { padding: 2rem; }');
 
-        $res = $this->handle(Request::create('/custom.css?v=abc123', 'GET'));
+        $res = $this->handle(Request::create('/_thallo/custom.css?v=abc123', 'GET'));
         self::assertSame(200, $res->getStatusCode());
         self::assertStringContainsString('text/css', (string) $res->headers->get('Content-Type'));
         self::assertStringContainsString('immutable', (string) $res->headers->get('Cache-Control'));
@@ -44,10 +44,10 @@ final class CustomCssServingTest extends AppTestCase
 
     public function testMissingOrEmptyCustomCssIs404(): void
     {
-        self::assertSame(404, $this->handle(Request::create('/custom.css', 'GET'))->getStatusCode());
+        self::assertSame(404, $this->handle(Request::create('/_thallo/custom.css', 'GET'))->getStatusCode());
 
         // An all-whitespace row is "disabled": still 404.
         $this->saveCss("  \n  ");
-        self::assertSame(404, $this->handle(Request::create('/custom.css', 'GET'))->getStatusCode());
+        self::assertSame(404, $this->handle(Request::create('/_thallo/custom.css', 'GET'))->getStatusCode());
     }
 }

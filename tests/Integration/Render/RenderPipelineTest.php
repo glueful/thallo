@@ -576,7 +576,7 @@ final class RenderPipelineTest extends AppTestCase
         $this->seedBilingualPublishedEntry();
 
         // Fresh install: no link at all.
-        self::assertStringNotContainsString('/custom.css', $this->renderHello());
+        self::assertStringNotContainsString('custom.css', $this->renderHello());
 
         // Saved custom CSS: the layout links the versioned URL.
         $save = function (string $source): void {
@@ -597,7 +597,7 @@ final class RenderPipelineTest extends AppTestCase
         };
         $save('.x { color: red; }');
         $html = $this->renderHello();
-        self::assertMatchesRegularExpression('#/custom\.css\?v=[A-Za-z0-9_-]+#', $html);
+        self::assertMatchesRegularExpression('#/_thallo/custom\.css\?v=[A-Za-z0-9_-]+#', $html);
         preg_match('#/custom\.css\?v=([A-Za-z0-9_-]+)#', $html, $m1);
 
         // A new save changes the cache-buster (immutable caching stays honest).

@@ -7,6 +7,39 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.36] - 2026-09-16 — Developer Preview
+
+The feature block builds the landing page's cards, the stage placeholder fills its row, and the
+site's custom stylesheet reaches the page on a web server that serves `.css` from disk.
+
+### Upgrade Notes
+- The documented sequence applies (docs/upgrading.md): `composer update`, then
+  `php glueful thallo:provision`, then reload PHP-FPM so OPcache drops the previous release's
+  classes. One migration (029) appends six optional fields to the `feature` block type; it keeps
+  the row's label and description and runs once. No new permissions; framework 1.85.8 remains
+  the requirement.
+- The site's custom stylesheet moved from `/custom.css` to `/_thallo/custom.css`. An install
+  whose web server already routes `/_thallo/*` to PHP (docs/production.md) needs nothing; a
+  rule added by hand for `/custom.css` can go. Purge `/custom.css` from any CDN cache.
+- The feature template's markup changed (title and description now sit in one body element);
+  a theme that overrides `blocks/feature.twig` keeps its own markup, one that only styles it
+  should check `.thallo-block-feature__body`.
+
+### Added
+- The feature block builds a card: a marker choice (the icon, a number badge such as "01", or
+  none) with the badge's background and colour picked from the theme's colour tokens, a variant
+  (plain, outline, soft, subtle — the card block's names) and an orientation (the marker beside
+  the text or above it). Title and description now stack in one body whatever the layout.
+  Migration 029 adds the six fields to an existing install's feature block type.
+
+### Fixed
+- The stage placeholder inside a grid or a flex row took one cell or one item's width; it now
+  spans the slot's full row.
+- The site's custom stylesheet was served at `/custom.css`, outside the documented PHP-served
+  prefixes, so a web server with a static-file rule for `.css` answered it 404 and the rules
+  never reached the page. It is now `/_thallo/custom.css`, which the documented nginx block
+  already hands to PHP.
+
 ## [1.0.0-beta.35] - 2026-09-16 — Developer Preview
 
 A one-fix release: the stage placeholder belongs at the end of the page, not after every block
