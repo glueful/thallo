@@ -15,6 +15,9 @@ as the next release, never a mutated tag.
   step is configuring what just landed.
 - The Block tab's slot rows carry an Add button that arms the Blocks tab into that slot of the
   selected block.
+- An empty slot on the stage is a placeholder: a dashed frame, one + that arms the Blocks tab
+  into that slot (`thallo:slot-add` from the bridge), and the hint "Drag a block here". The old
+  placeholder was a line of text with nothing to click.
 
 ### Fixed
 - A block inserted from the Blocks tab below the fold was invisible: the stage now scrolls to

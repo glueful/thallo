@@ -87,6 +87,7 @@ const bridge = vi.hoisted(() => {
     duplicate?: (id: string) => void
     deleteRequest?: (id: string, anchor?: { x: number; y: number } | null) => void
     addAfter?: (id: string) => void
+    slotAdd?: (parent: string | null, slot: string) => void
     editRequest?: (id: string, field: string) => void
     textChanged?: (id: string, field: string, payload: { html?: string; text?: string }) => void
     editStart?: (id: string) => void
@@ -118,6 +119,7 @@ const bridge = vi.hoisted(() => {
       onBlockDeleteRequest: (cb: (id: string, anchor?: { x: number; y: number } | null) => void) =>
         (callbacks.deleteRequest = cb),
       onBlockAddAfter: (cb: (id: string) => void) => (callbacks.addAfter = cb),
+      onSlotAdd: (cb: (parent: string | null, slot: string) => void) => (callbacks.slotAdd = cb),
       onEditRequest: (cb: (id: string, field: string) => void) => (callbacks.editRequest = cb),
       onTextChanged: (
         cb: (id: string, field: string, payload: { html?: string; text?: string }) => void,
@@ -1114,6 +1116,26 @@ describe('canvas page', () => {
       await flushPromises()
       expect(active()).toBe('Content')
       expect(wrapper.find('[data-test="block-toggle-blockbbb0002"]').exists()).toBe(true)
+      wrapper.unmount()
+    })
+
+    it("the stage's empty-slot + arms the Blocks tab into that slot of that block", async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      const wrapper = mountPage()
+      await flushPromises()
+      bridge.callbacks.slotAdd?.('blockbbb0002', 'body')
+      await flushPromises()
+      const active = () =>
+        wrapper.find('[data-test="inspector-tabs"] [aria-selected="true"]').text()
+      expect(active()).toBe('Blocks')
+      expect(wrapper.find('[data-test="palette-target"]').text()).toContain(
+        'Inserting into card › body',
+      )
+      bridge.callbacks.slotAdd?.(null, 'body')
+      await flushPromises()
+      expect(wrapper.find('[data-test="palette-target"]').text()).toContain(
+        'Inserting at the end of body',
+      )
       wrapper.unmount()
     })
 

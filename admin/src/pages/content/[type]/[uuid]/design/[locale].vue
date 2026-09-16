@@ -753,6 +753,7 @@ const stageEl = ref<HTMLElement | null>(null)
 // Every "add here" surface arms the Blocks tab (Phase C.1): the stage +, the list's gaps and Add
 // block, the card header's /, and the outline's empty slots. No popover, no anchoring.
 bridge.onBlockAddAfter((id) => armInsertTarget({ kind: 'after', block: id }))
+bridge.onSlotAdd((parent, slot) => armInsertTarget({ kind: 'into', parent, field: slot }))
 
 // ── Edit-in-place (edit-in-place spec §4): grant prose blocks only; typed
 // text patches the tree — no mirrors, the contenteditable IS the stage DOM.

@@ -2238,6 +2238,53 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
     }
   })
 
+  it('an empty slot carries a placeholder whose + posts slot-add for its owner and slot; a filled slot has none', async () => {
+    try {
+      liveStage()
+      const main = document.body.querySelector('main')!
+      const ownerHtml = (inner: string) =>
+        `<div class="thallo-preview-block" data-thallo-block="pd-o-0000009"><section><div data-thallo-slot="content">${inner}</div></section></div>` +
+        `<div data-thallo-slot="body"></div>`
+      main.insertAdjacentHTML('beforeend', ownerHtml(''))
+      stubFetch(renderedHtml('Alpha v1', 'Beta v1').replace('</main>', ownerHtml('') + '</main>'))
+      posted.mockClear()
+      await refresh('r-ph')
+      const inner = main.querySelector(
+        '[data-thallo-block="pd-o-0000009"] [data-thallo-slot="content"]',
+      )!
+      const add = inner.querySelector<HTMLButtonElement>('.thallo-slot-placeholder [data-slot-add]')
+      expect(add).not.toBeNull()
+      expect(inner.textContent).toContain('Drag a block here')
+      add!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      expect(lastPost('thallo:slot-add')).toMatchObject({ parent: 'pd-o-0000009', slot: 'content' })
+      // The click is the placeholder's, not a selection of the owning block.
+      expect(lastPost('thallo:block-select')).toBeUndefined()
+      // The root slot names no parent.
+      main
+        .querySelector<HTMLButtonElement>('[data-thallo-slot="body"] [data-slot-add]')!
+        .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      expect(lastPost('thallo:slot-add')).toMatchObject({ parent: null, slot: 'body' })
+      // A slot that gains a wrapper on the next render has no placeholder and is not marked empty.
+      stubFetch(
+        renderedHtml('Alpha v1', 'Beta v1').replace(
+          '</main>',
+          ownerHtml(
+            '<div class="thallo-preview-block" data-thallo-block="pd-n-0000010"><p>n</p></div>',
+          ) + '</main>',
+        ),
+      )
+      await refresh('r-ph2')
+      const filled = main.querySelector(
+        '[data-thallo-block="pd-o-0000009"] [data-thallo-slot="content"]',
+      )!
+      expect(filled.querySelector('[data-thallo-block="pd-n-0000010"]')).not.toBeNull()
+      expect(filled.querySelector('.thallo-slot-placeholder')).toBeNull()
+      expect(filled.hasAttribute('data-thallo-slot-empty')).toBe(false)
+    } finally {
+      window.fetch = realFetch
+    }
+  })
+
   it('shell drift reloads with the DOM untouched', async () => {
     try {
       const { a } = liveStage()
