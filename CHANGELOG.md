@@ -7,6 +7,21 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.33] - 2026-09-16 — Developer Preview
+
+A day of building with the Design page: the Blocks tab grouped as cards, an empty slot on the
+stage as a real target with its own +, the Block tab opening on what was just inserted, the
+sidebar out of the way, and the columns picker, the blank inspector and the phantom third column
+fixed.
+
+### Upgrade Notes
+- The documented sequence applies (docs/upgrading.md): `composer update`, then
+  `php glueful thallo:provision`, then reload PHP-FPM so OPcache drops the previous release's
+  classes. No migrations, no new permissions; framework 1.85.8 remains the requirement.
+- The preview bridge and its stylesheet changed (an empty slot mounts a placeholder whose +
+  posts `thallo:slot-add`). Provision publishes both with the admin bundle; a stage still
+  holding the old bridge reloads on the next apply.
+
 ### Added
 - The Blocks tab groups its tiles by category in the block-types page's order (Layout, Content,
   Media, Items, then the rest, Other last), two to a row, as bordered cards with hover and focus
