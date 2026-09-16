@@ -390,6 +390,22 @@ final class BlockLibraryRenderTest extends AppTestCase
         );
     }
 
+    public function testSeparatorClampsToTheContainerLikeEveryRootLeafAndReleasesInFullLayout(): void
+    {
+        // A page-level separator spans the page's width, not the viewport: the same clamp the
+        // other self-governed leaves carry (button, tabs, video…), released by the full layout.
+        $css = (string) file_get_contents(
+            $this->appContext()->getBasePath() . '/packages/thallo-render/themes/default/assets/blocks.css',
+        );
+        self::assertMatchesRegularExpression(
+            '~\.thallo-block-separator \{[^}]*max-width: var\(--container\);'
+            . '[^}]*margin-inline: auto;[^}]*padding-inline: var\(--space-4\);~s',
+            $css,
+        );
+        self::assertDoesNotMatchRegularExpression('~\.thallo-block-separator \{[^}]*width: 100%~s', $css);
+        self::assertStringContainsString('.layout--full .thallo-block-separator', $css);
+    }
+
     public function testCarouselBaseIsPureScrollSnapAndLayoutLoadsBlocksJsOnce(): void
     {
         $out = $this->render([['id' => 'cr1', 'type' => 'carousel', 'data' => [

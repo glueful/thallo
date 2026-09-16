@@ -16,6 +16,8 @@ as the next release, never a mutated tag.
   tabs row still carrying the starter's old style declaration, adopts the new one.
 
 ### Fixed
+- A page-level separator spanned the viewport instead of the page's width; it now carries the
+  same width clamp as the other page-level blocks, released by the full-width layout.
 - Tabs could not be switched on the stage: every in-block click is inert there, so a tab label
   never reached its radio. A label click now switches the tab and selects that tab's block, and
   selecting a block inside a hidden panel (from the outline) brings its panel forward.
