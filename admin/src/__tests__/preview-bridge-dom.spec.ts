@@ -2238,13 +2238,13 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
     }
   })
 
-  it('an empty slot carries a placeholder whose + posts slot-add for its owner and slot; a filled slot has none', async () => {
+  it('a root slot always ends in the placeholder; a slot inside a block carries one only while empty', async () => {
     try {
       liveStage()
       const main = document.body.querySelector('main')!
-      const ownerHtml = (inner: string) =>
+      const ownerHtml = (inner: string, rootInner = '') =>
         `<div class="thallo-preview-block" data-thallo-block="pd-o-0000009"><section><div data-thallo-slot="content">${inner}</div></section></div>` +
-        `<div data-thallo-slot="body"></div>`
+        `<div data-thallo-slot="body">${rootInner}</div>`
       main.insertAdjacentHTML('beforeend', ownerHtml(''))
       stubFetch(renderedHtml('Alpha v1', 'Beta v1').replace('</main>', ownerHtml('') + '</main>'))
       posted.mockClear()
@@ -2278,8 +2278,28 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
         '[data-thallo-block="pd-o-0000009"] [data-thallo-slot="content"]',
       )!
       expect(filled.querySelector('[data-thallo-block="pd-n-0000010"]')).not.toBeNull()
-      expect(filled.querySelector('.thallo-slot-placeholder')).toBeNull()
       expect(filled.hasAttribute('data-thallo-slot-empty')).toBe(false)
+      // A slot inside a block shows the placeholder only while empty: once it holds a block the
+      // frame would sit after every nested block on the page. The page's own slot keeps it.
+      expect(filled.querySelector('.thallo-slot-placeholder')).toBeNull()
+      const nested =
+        '<div class="thallo-preview-block" data-thallo-block="pd-n-0000010"><p>n</p></div>'
+      const rootBlock =
+        '<div class="thallo-preview-block" data-thallo-block="pd-r-0000011"><p>r</p></div>'
+      // The live page gains the same root block (a mirror would), so the render patches in place.
+      const liveRoot = main.querySelector('[data-thallo-slot="body"]')!
+      liveRoot.insertBefore(wrapper('pd-r-0000011', '<p>r</p>'), liveRoot.firstChild)
+      stubFetch(
+        renderedHtml('Alpha v1', 'Beta v1').replace(
+          '</main>',
+          ownerHtml(nested, rootBlock) + '</main>',
+        ),
+      )
+      await refresh('r-ph3')
+      const root = main.querySelector('[data-thallo-slot="body"]')!
+      expect(root.hasAttribute('data-thallo-slot-empty')).toBe(false)
+      expect(root.lastElementChild!.classList.contains('thallo-slot-placeholder')).toBe(true)
+      expect(root.querySelectorAll('.thallo-slot-placeholder')).toHaveLength(1)
     } finally {
       window.fetch = realFetch
     }

@@ -7,6 +7,9 @@ import type { StylePropertyRow, StyleSchemaResult } from '@/queries/styleSchema'
 import type { Breakpoint, StyleClassRef, StyleValue } from '@/style/types'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import ResponsiveField from './controls/ResponsiveField.vue'
+import { readPath, settingSegments } from '@/editor/ops/apply'
+import { BREAKPOINTS } from '@/style/types'
+import { isFolded, toggleFold } from './styleGroupFolds'
 
 const props = defineProps<{
   block: BlockInstance
@@ -99,6 +102,13 @@ function styleOf(block: BlockInstance): Record<string, unknown> {
 }
 const style = computed<Record<string, unknown>>(() => styleOf(props.block))
 const styles = computed(() => (multi.value ? (props.blocks ?? []).map(styleOf) : undefined))
+
+/** How many of a group's properties this block declares at any breakpoint: a folded group's cue. */
+function setCount(rows: StylePropertyRow[]): number {
+  return rows.filter((row) =>
+    BREAKPOINTS.some((bp) => readPath(style.value, settingSegments(row.path, bp).slice(1)).present),
+  ).length
+}
 </script>
 
 <template>
@@ -108,10 +118,30 @@ const styles = computed(() => (multi.value ? (props.blocks ?? []).map(styleOf) :
     </p>
     <template v-else>
       <section v-for="group in groups" :key="group.key" :data-test="`style-group-${group.key}`">
-        <h4 class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
-          {{ group.label }}
+        <h4 class="mb-2">
+          <button
+            type="button"
+            class="flex w-full items-center gap-1 rounded text-[11px] font-semibold uppercase tracking-wide text-muted hover:text-default focus-visible:outline-2 focus-visible:outline-primary"
+            :aria-expanded="!isFolded(group.key)"
+            :aria-controls="`style-group-body-${group.key}`"
+            :data-test="`style-group-toggle-${group.key}`"
+            @click="toggleFold(group.key)"
+          >
+            <UIcon
+              :name="isFolded(group.key) ? 'i-lucide-chevron-right' : 'i-lucide-chevron-down'"
+              class="size-3.5 shrink-0"
+            />
+            <span>{{ group.label }}</span>
+            <span
+              v-if="isFolded(group.key) && setCount(group.rows) > 0"
+              class="ms-auto rounded-full bg-elevated px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal"
+              :data-test="`style-group-count-${group.key}`"
+            >
+              {{ setCount(group.rows) }} set
+            </span>
+          </button>
         </h4>
-        <div class="space-y-3">
+        <div v-if="!isFolded(group.key)" :id="`style-group-body-${group.key}`" class="space-y-3">
           <ResponsiveField
             v-for="row in group.rows"
             :key="row.path"

@@ -210,6 +210,29 @@ final class StarterTemplatesTest extends AppTestCase
         self::assertStringContainsString('Inner', $section); // children composed
     }
 
+    public function testSectionAlignsHeadlineTitleAndDescriptionSeparately(): void
+    {
+        $env = $this->env();
+        $render = fn(array $data): string => $env->createTemplate('{{ blocks(l) }}')->render(['l' => [
+            ['id' => 's', 'type' => 'section', 'data' => $data + [
+                'headline' => 'Eyebrow', 'title' => 'Band', 'description' => 'Words', 'content' => [],
+            ]]]]);
+
+        $out = $render(['headline_align' => 'start', 'title_align' => 'end']);
+        self::assertStringContainsString('thallo-block-section__headline--start', $out);
+        self::assertStringContainsString('thallo-block-section__title--end', $out);
+        // Description left unset keeps the orientation default: no alignment modifier at all.
+        self::assertStringNotContainsString('thallo-block-section__description--', $out);
+
+        $out = $render(['description_align' => 'center']);
+        self::assertStringContainsString('thallo-block-section__description--center', $out);
+        self::assertStringNotContainsString('thallo-block-section__headline--', $out);
+
+        // An unknown stored value degrades to the default, never an unmatched class.
+        $out = $render(['title_align' => 'sideways']);
+        self::assertStringNotContainsString('thallo-block-section__title--', $out);
+    }
+
     public function testColumnsRendersPerLayoutEnum(): void
     {
         $env = $this->env();
