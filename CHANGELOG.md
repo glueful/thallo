@@ -7,6 +7,10 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Fixed
+- The stage's empty-block stub (beta.37) also claimed a separator, whose line is drawn by CSS
+  alone. A block now counts as empty only when it holds nothing AND paints no box.
+
 ## [1.0.0-beta.37] - 2026-09-16 — Developer Preview
 
 Blocks that build the landing page: styleable tabs that switch on the stage, a sized feature

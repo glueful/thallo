@@ -2367,9 +2367,45 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
           .querySelector('[data-thallo-block="pd-a-0000001"]')!
           .hasAttribute('data-thallo-block-empty'),
       ).toBe(false)
+      // A block that paints with CSS alone (a separator's line, a spacer's height) has a box:
+      // it is never empty, whatever its DOM holds.
+      const sepHtml =
+        '<div class="thallo-preview-block" data-thallo-block="pd-s-0000013"><div class="thallo-block thallo-block-separator"><span class="thallo-block-separator__line"></span></div></div>'
+      main.insertAdjacentHTML('beforeend', sepHtml)
+      const sepHost = main.querySelector<HTMLElement>(
+        '[data-thallo-block="pd-s-0000013"] > .thallo-block',
+      )!
+      sepHost.getBoundingClientRect = () =>
+        ({
+          width: 800,
+          height: 1,
+          top: 0,
+          left: 0,
+          right: 800,
+          bottom: 1,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }) as DOMRect
+      stubFetch(
+        renderedHtml('Alpha v1', 'Beta v1').replace('</main>', emptyHtml + sepHtml + '</main>'),
+      )
+      await refresh('r-empty-sep')
+      expect(
+        main
+          .querySelector('[data-thallo-block="pd-s-0000013"]')!
+          .hasAttribute('data-thallo-block-empty'),
+      ).toBe(false)
+      expect(
+        main
+          .querySelector('[data-thallo-block="pd-e-0000012"]')!
+          .hasAttribute('data-thallo-block-empty'),
+      ).toBe(true)
       const filledHtml =
         '<div class="thallo-preview-block" data-thallo-block="pd-e-0000012"><div class="thallo-block thallo-block-feature"><div class="thallo-block-feature__body"><h3>Now titled</h3></div></div></div>'
-      stubFetch(renderedHtml('Alpha v1', 'Beta v1').replace('</main>', filledHtml + '</main>'))
+      stubFetch(
+        renderedHtml('Alpha v1', 'Beta v1').replace('</main>', filledHtml + sepHtml + '</main>'),
+      )
       await refresh('r-empty2')
       const filled = main.querySelector('[data-thallo-block="pd-e-0000012"]')!
       expect(filled.hasAttribute('data-thallo-block-empty')).toBe(false)
