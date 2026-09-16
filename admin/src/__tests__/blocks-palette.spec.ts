@@ -33,12 +33,24 @@ function mountPalette(extra: Record<string, unknown> = {}) {
 }
 
 describe('the Blocks tab (Phase C.1)', () => {
-  it('renders the tiles in the palette order and filters them', async () => {
+  it('renders the tiles grouped by category, two to a row, and filters within the groups', async () => {
     const w = mountPalette()
     const tiles = () =>
       w.findAll('[data-test^="palette-card-"]').map((t) => t.attributes('data-test'))
-    expect(tiles()).toEqual(['palette-card-heading', 'palette-card-button', 'palette-card-section'])
+    const groups = () =>
+      w.findAll('[data-test^="palette-group-"]').map((g) => g.attributes('data-test'))
+    expect(groups()).toEqual(['palette-group-Layout', 'palette-group-Content'])
+    expect(tiles()).toEqual(['palette-card-section', 'palette-card-heading', 'palette-card-button'])
+    expect(w.find('[data-test="palette-group-Content"] h4').text()).toBe('Content')
+    expect(w.find('[data-test="palette-group-Content"] .grid').classes()).toContain('grid-cols-2')
+    // The tile is a bordered card with a hover and focus treatment and a grab cursor.
+    const tile = w.find('[data-test="palette-card-heading"]')
+    for (const cls of ['border', 'rounded-md', 'cursor-grab']) expect(tile.classes()).toContain(cls)
+    expect(tile.classes().some((c) => c.startsWith('hover:'))).toBe(true)
+    expect(tile.classes().some((c) => c.startsWith('focus-visible:'))).toBe(true)
+
     await w.find('[data-test="palette-search"]').setValue('sec')
+    expect(groups()).toEqual(['palette-group-Layout']) // empty groups hide
     expect(tiles()).toEqual(['palette-card-section'])
   })
 
@@ -58,9 +70,9 @@ describe('the Blocks tab (Phase C.1)', () => {
     heading.element.dispatchEvent(new MouseEvent('pointerdown', { button: 0, bubbles: true }))
     await w.vm.$nextTick()
     expect(w.emitted('pointer-down')?.[0]?.[0]).toBe('heading')
-    // Enter inserts the first CLICKABLE tile: heading is first but refused, so button.
+    // Enter inserts the first CLICKABLE tile in group order: section (Layout) leads.
     await w.find('[data-test="palette-search"]').trigger('keydown', { key: 'Enter' })
-    expect(w.emitted('insert')?.[0]).toEqual(['button'])
+    expect(w.emitted('insert')?.[0]).toEqual(['section'])
     await w.find('[data-test="palette-card-button"]').trigger('click')
     expect(w.emitted('insert')?.[1]).toEqual(['button'])
   })

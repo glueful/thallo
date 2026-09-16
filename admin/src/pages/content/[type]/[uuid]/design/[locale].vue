@@ -896,6 +896,7 @@ const paletteDrag = createPaletteDrag({
       selectOne(block.id)
       fieldEditorRef.value?.selectBlockById(block.id)
       ringSelection()
+      revealAfterPaint = block.id
     })
   },
   onCancel: () => {
@@ -930,6 +931,19 @@ async function insertFromPalette(slug: string): Promise<void> {
   selectOne(block.id)
   fieldEditorRef.value?.selectBlockById(block.id)
   ringSelection()
+  revealAfterPaint = block.id
+}
+/**
+ * A block inserted from the palette is not on the stage until the next apply paints it; once
+ * it is, the stage scrolls to it and rings it — an insert below the fold is otherwise invisible.
+ */
+let revealAfterPaint: string | null = null
+function revealInserted(): void {
+  const id = revealAfterPaint
+  if (id === null) return
+  revealAfterPaint = null
+  if (selection.value.ids.includes(id)) ringSelection()
+  bridge.scrollTo(id)
 }
 async function applyDrop(ops: OperationBody[] | null): Promise<void> {
   if (!history || ops === null || ops.length === 0) return
@@ -1418,13 +1432,17 @@ async function paintStage(result: ApplyPreviewResult): Promise<void> {
         displayed.value = { epoch: swap.epoch, revision: swap.revision }
       }
       afterPaint('fragments')
+      revealInserted()
       return
     }
     if (swap.mode === 'busy') return
     metrics.fallback('fragments')
   }
   const mode = await refreshStage()
-  if (mode !== 'busy') afterPaint('page')
+  if (mode !== 'busy') {
+    afterPaint('page')
+    revealInserted()
+  }
 }
 
 function afterPaint(path: ApplyPath): void {

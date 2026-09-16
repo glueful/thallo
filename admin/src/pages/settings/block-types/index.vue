@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { groupByCategory } from '@/editor/palette/order'
 import { useBlockTypes, useBlockTypeMutations, type BlockType } from '@/queries/blockTypes'
 import { useNotify } from '@/composables/useNotify'
 
@@ -21,26 +22,9 @@ const filteredBlockTypes = computed<BlockType[]>(() => {
   )
 })
 
-// Group the flat list into category sections (like the block picker's own grouping).
-// Known categories lead in a curated order; any others follow alphabetically, and
-// uncategorized block types collect under "Other" at the end. Order within a group
-// is whatever the API returns (already label-sorted).
-const CATEGORY_ORDER = ['Layout', 'Content', 'Media', 'Items']
-const groupedBlockTypes = computed<{ category: string; items: BlockType[] }[]>(() => {
-  const groups = new Map<string, BlockType[]>()
-  for (const t of filteredBlockTypes.value) {
-    const key = t.category?.trim() || 'Other'
-    ;(groups.get(key) ?? groups.set(key, []).get(key)!).push(t)
-  }
-  const rank = (c: string): number => {
-    if (c === 'Other') return CATEGORY_ORDER.length + 1
-    const i = CATEGORY_ORDER.indexOf(c)
-    return i === -1 ? CATEGORY_ORDER.length : i
-  }
-  return [...groups.keys()]
-    .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
-    .map((category) => ({ category, items: groups.get(category)! }))
-})
+// Group the flat list into category sections — the one rule the Blocks tab shares. Order
+// within a group is whatever the API returns (already label-sorted).
+const groupedBlockTypes = computed(() => groupByCategory(filteredBlockTypes.value))
 
 async function toggleActive(slug: string, active: boolean) {
   try {

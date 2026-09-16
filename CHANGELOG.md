@@ -7,6 +7,15 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- The Blocks tab groups its tiles by category in the block-types page's order (Layout, Content,
+  Media, Items, then the rest, Other last), two to a row, as bordered cards with hover and focus
+  states and a grab cursor.
+
+### Fixed
+- A block inserted from the Blocks tab below the fold was invisible: the stage now scrolls to
+  the inserted block and rings it once the apply has painted it.
+
 ## [1.0.0-beta.32] - 2026-09-15 — Developer Preview
 
 Visual builder Phase C.1: the Blocks tab is the Design page's one palette — every "add here"
