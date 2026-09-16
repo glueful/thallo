@@ -7,6 +7,28 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.37] - 2026-09-16 — Developer Preview
+
+Blocks that build the landing page: styleable tabs that switch on the stage, a sized feature
+marker, an aligned call-to-action row with a description that takes its colour, a white token,
+and an empty block that can no longer hide from the canvas or the publish error.
+
+### Upgrade Notes
+- The documented sequence applies (docs/upgrading.md): `composer update`, then
+  `php glueful thallo:provision`, then reload PHP-FPM so OPcache drops the previous release's
+  classes. Three migrations (030, 031, 032) append optional fields to the `tabs`, `feature` and
+  `cta` block types; each keeps the row's label and description and runs once. Migration 030
+  also adopts the tabs starter's new style declaration on a row that still carries the old one.
+  No new permissions; framework 1.85.8 remains the requirement.
+- The colour vocabulary gains `white`. A theme copied before this release loads unchanged: the
+  token carries a literal default when a manifest omits it. A theme that wants its own value
+  maps `color.white` in theme.json.
+- The preview bridge and stylesheet changed (empty-block stub, tab switching on the stage).
+  Provision publishes them with the admin bundle; a stage still holding the old bridge reloads
+  on the next apply.
+- The tabs, feature and call-to-action templates' markup changed; a theme that overrides them
+  keeps its own markup, one that only styles them should check the new modifiers in blocks.css.
+
 ### Added
 - The tabs block is styleable: a Tabs group in its Block tab sets the strip's variant (pill,
   underline, boxed), alignment, and the strip, tab, active-tab background and text colours from
