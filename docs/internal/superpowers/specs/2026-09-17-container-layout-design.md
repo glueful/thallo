@@ -310,15 +310,16 @@ Multi-column presets stack on mobile. In the table, `layout.columns` = `1 / X` m
 | Three columns, 25/50/25, 50/25/25, 25/25/50 | `layout.display` = grid, `layout.columns` = 1 / 3, 1-2-1, 2-1-1, 1-1-2, both gaps = lg | three column containers |
 | Four columns | `layout.display` = grid, `layout.columns` = 1 / 4, both gaps = lg | four column containers |
 | Grid 2×2 | `layout.display` = grid, `layout.columns` = 1 / 2, both gaps = lg | four column containers |
+| Section, Section split | §7 | §7 |
 
 A **column container** created by a preset is: `layout.display` flex, `layout.direction` column,
 `layout.gap.row` = md. This reproduces today's Columns rhythm: `--space-3` between blocks, none at
 the column's edges (§3.8).
-| Section, Section split | §7 | §7 |
 
 ## 7. Compositions for the retired types
 
-Each retired type is deleted only after its matrix passes: Section §7.6–§7.7, Columns §7.8, Grid §7.9.
+Each retired type is deleted only after its matrix passes: Section §7.6–§7.7, Columns §7.8, Grid §7.9,
+with §7.10 for leaf blocks inside any of them.
 
 ### 7.1 Today's behaviour (the reference)
 
@@ -383,13 +384,13 @@ copy (one starter button does not prove multi-link support):
 
 - Orientation vertical and horizontal, each normal and reversed.
 - Background none, muted, subtle, inverted (inverted: surface `color.text` ground, text
-  `color.accent-contrast`, description at 72%).
+  `color.accent-contrast`, description at full strength per §7.7).
 - Headline, title and description alignment set independently (start, center, end each).
 - Absent header fields: no headline; no title; no description; all three absent.
 - Empty content; content with blocks.
 - No links; one link; several links wrapping.
 
-Checked at `base`, `md` and `lg`: same elements, heading level, accessible names and reading order
+Checked at `base`, `md` and `lg` widths: same elements, heading level, accessible names and reading order
 (except §7.4), and computed-style equivalence for spacing, width, alignment, colour and type size,
 **except the differences in §7.7**. Composition introduces different wrapper elements; parity is
 semantic and visual, not DOM-identical.
@@ -397,7 +398,9 @@ semantic and visual, not DOM-identical.
 **Spacing normalization.** The header, content and links containers are flex or block containers
 whose default margins §3.8 releases; the headline and description are single-paragraph rich texts
 whose paragraph margins §3.8 releases. Their spacing is therefore exactly the authored margins in
-§7.3 and the inner row gap. The matrix proves that and admits no spacing difference.
+§7.3 and the inner row gap. The matrix proves that and admits no spacing difference **for the
+composed header, content and links containers**. Author-placed leaf blocks inside the content and
+links areas follow §7.10.
 
 ### 7.7 Disposition of known differences
 
@@ -415,34 +418,61 @@ gate; it is fixed, or this table is amended by explicit decision before Section 
 
 **Today:** a grid with `gap: var(--space-4)`, contained with `--space-4` inline padding; ratios
 50/50, 33/67, 67/33, 25/75, 75/25, equal thirds, 25/50/25, 50/25/25, 25/25/50; vertical alignment
-stretch, top, center, bottom; **stacks below 40rem (640px)**; blocks inside a column spaced
-`--space-3`, none at the column's edges.
+stretch, top, center, bottom; **stacks at 40rem (640px) and below** (`max-width: 40rem`), side
+by side from 641px; blocks inside a column spaced `--space-3`, none at the column's edges.
 
 **Composition:** the matching column preset (§6.5) inside a container with `layout.content_width`
 `width.container`; vertical alignment maps to `layout.align_items` (stretch, start, center, end).
 
-**Matrix:** every ratio; each vertical alignment; one and several blocks per column; empty
-columns; reading order column by column. Checked at `base`, `md` and `lg`.
+**Matrix:** every ratio; each vertical alignment; one and several blocks per column (heading,
+rich text and button fixtures, §7.10); empty columns; reading order column by column. Checked at
+widths 375px, **700px**, 800px and 1280px — 700px sits inside the recorded change.
 
-**Recorded difference:** columns sit side by side from 768px (`md`) instead of 640px. Between
-640px and 767px they now stack. The contract's breakpoints are 768px and 1024px, and a 640px
+**Recorded difference:** columns sit side by side from 768px (`md`) instead of 641px. From 641px to
+767px they now stack. The contract's breakpoints are 768px and 1024px, and a 640px
 breakpoint is not being added.
 
 ### 7.9 Grid retirement
 
-**Today:** one column; **two columns from 40rem (640px)** for 2, 3 and 4; three or four columns from
-64rem (1024px); gaps small, medium, large = `--space-3`, `--space-4`, `--space-5`; items with no
+**Today:** one column at base; **two columns from 40rem (640px, inclusive)** for counts 2, 3 and 4;
+three or four columns from 64rem (1024px); count 1 is one column at every width; gaps small, medium, large = `--space-3`, `--space-4`, `--space-5`; items with no
 vertical margin; contained with `--space-4` inline padding.
 
 **Composition:** a container with `layout.content_width` `width.container`, `layout.display` grid,
-`layout.columns` `base` 1, `md` 2, `lg` 2, 3 or 4; gaps small, medium, large → `spacing.md`,
-`spacing.lg`, `spacing.xl` for both gaps; items' default margins released by §3.8.
+`layout.columns` per this table, all three breakpoints written; gaps small, medium, large →
+`spacing.md`, `spacing.lg`, `spacing.xl` for both gaps; items' default margins released by §3.8.
 
-**Matrix:** 1, 2, 3 and 4 columns; each gap; item counts that do and don't fill the last row;
-reading order row by row. Checked at `base`, `md` and `lg`.
+| Old count | `base` | `md` | `lg` |
+|---|---|---|---|
+| 1 | 1 | 1 | 1 |
+| 2 | 1 | 2 | 2 |
+| 3 | 1 | 2 | 3 |
+| 4 | 1 | 2 | 4 |
 
-**Recorded difference:** the two-column step starts at 768px (`md`) instead of 640px, as for
-Columns. Masonry is retired separately (§3.9) and is not part of this matrix.
+**Matrix:** counts 1, 2, 3 and 4; each gap; item counts that do and don't fill the last row;
+heading, rich text and button items (§7.10); reading order row by row. Checked at widths 375px,
+**700px**, 800px and 1280px — 700px sits inside the recorded change.
+
+**Recorded difference:** for counts 2, 3 and 4 the two-column step starts at 768px (`md`) instead
+of 640px; from 640px to 767px they now show one column. Count 1 is unchanged. Masonry is retired separately (§3.9) and is not part of this matrix.
+
+### 7.10 Leaf blocks placed inside a retired type
+
+Today a heading, rich text or button placed inside a Section's content or links, a Columns
+column or a Grid keeps its page-level containment. In the compositions its parent is a container,
+so §3.6 releases that default. Preserving the old appearance through authored settings would
+restore the doubled gutter inside every cell, so the difference is taken as a change. This table
+is closed and applies to all three matrices.
+
+| Leaf | Today, inside a retired type | New, inside a container | Disposition |
+|---|---|---|---|
+| Heading | `max-width: var(--content)`, auto margins, `padding-inline: var(--space-4)` | fills its layout cell; no inline padding | **Intentionally changed.** Text aligns with the cell's edge instead of indenting by `--space-4`, and in cells wider than `--content` it spans the cell. |
+| Rich text | `max-width: var(--content)`, auto margins, `padding-inline: var(--space-4)` | fills its layout cell; no inline padding | **Intentionally changed**, as for Heading. |
+| Button | `max-width: var(--container)`, auto margins, `padding-inline: var(--space-4)` | fills its layout cell; no inline padding | **Intentionally changed.** The control aligns with the cell's edge; in Section's links row adjacent buttons are separated by the row's gaps only. |
+
+**Fixtures:** each leaf alone and several together, inside a Section content area, a Section links
+row, a Columns column and a Grid cell; each fixture also with an authored `width`,
+`alignment.self` and padding, which must render exactly as authored (§3.6).
 
 ## 8. Retirement
 
@@ -466,7 +496,8 @@ In the same release, found by an inventory grep at the start of the plan:
 - **Render:** container parity for every old width, min height and content alignment; `layout.item`
   participation on the public page and the annotated stage; nested-clamp release with authored
   settings preserved into and out of a container (§3.6); Section parity matrix with its closed
-  disposition table (§7.6, §7.7); Columns matrix (§7.8); Grid matrix (§7.9).
+  disposition table (§7.6, §7.7); Columns matrix (§7.8); Grid matrix (§7.9); leaf-block fixtures
+  with their closed disposition table (§7.10).
 - **Admin:** per-property tab membership; the Layout tab's four sections across block, flex and
   grid parents; Button and Navigation keeping `alignment.content`; dormant notices both ways,
   including class-supplied values; mixed sibling selection.
@@ -492,5 +523,5 @@ One release, one beta cut at the end. Build order on `dev`, each phase ending wi
    superseded data fields and rendering paths are deleted; parent and item controls ship
    together.
 3. **Structure picker** — the creation flow with atomic history and commit-time legality.
-4. **Retirement** — Columns, Grid and Section removed after their matrices (§7.6–§7.9) pass, with
+4. **Retirement** — Columns, Grid and Section removed after their matrices (§7.6–§7.10) pass, with
    shipped content, presets, allowlists, fixtures and docs updated in the same phase.
