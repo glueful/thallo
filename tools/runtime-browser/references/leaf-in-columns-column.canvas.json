@@ -1,0 +1,609 @@
+{
+  "case": "leaf-in-columns-column.canvas",
+  "widths": {
+    "375": {
+      "root": {
+        "geometry": {
+          "top": 0,
+          "left": 0,
+          "width": 375,
+          "height": 264.8
+        },
+        "spacing": {
+          "margin-top": "40px",
+          "margin-right": "0px",
+          "margin-bottom": "40px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "24px",
+          "padding-bottom": "0px",
+          "padding-left": "24px"
+        }
+      },
+      "col1": {
+        "geometry": {
+          "top": 0,
+          "left": 24,
+          "width": 327,
+          "height": 213.2
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "col1first": {
+        "missing": true
+      },
+      "col2": {
+        "geometry": {
+          "top": 237.2,
+          "left": 24,
+          "width": 327,
+          "height": 27.59
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "col2first": {
+        "missing": true
+      },
+      "heading": {
+        "geometry": {
+          "top": 0,
+          "left": 24,
+          "width": 327,
+          "height": 27.59
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "24px",
+          "padding-bottom": "0px",
+          "padding-left": "24px"
+        },
+        "typography": {
+          "font-size": "24px",
+          "font-weight": "700",
+          "line-height": "27.6px",
+          "text-align": "start",
+          "color": "rgb(15, 23, 42)"
+        },
+        "semantics": {
+          "tag": "h2",
+          "role": null,
+          "name": "Heading in place",
+          "heading-level": 2,
+          "reading-order": 2
+        }
+      },
+      "richtext": {
+        "geometry": {
+          "top": 44.59,
+          "left": 24,
+          "width": 327,
+          "height": 112.19
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "24px",
+          "padding-bottom": "0px",
+          "padding-left": "24px"
+        },
+        "typography": {
+          "font-size": "17px",
+          "font-weight": "400",
+          "line-height": "28.05px",
+          "text-align": "start",
+          "color": "rgb(15, 23, 42)"
+        },
+        "semantics": {
+          "tag": "div",
+          "role": null,
+          "name": "Thallo is a canonical content source with an admin your editors will like and an API your developers already understand.",
+          "heading-level": null,
+          "reading-order": 3
+        }
+      },
+      "button": {
+        "geometry": {
+          "top": 173.78,
+          "left": 24,
+          "width": 327,
+          "height": 39.42
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "24px",
+          "padding-bottom": "0px",
+          "padding-left": "24px"
+        },
+        "semantics": {
+          "tag": "div",
+          "role": null,
+          "name": "Act",
+          "heading-level": null,
+          "reading-order": 4
+        }
+      }
+    },
+    "700": {
+      "root": {
+        "geometry": {
+          "top": 0,
+          "left": 0,
+          "width": 700,
+          "height": 217.33
+        },
+        "spacing": {
+          "margin-top": "40px",
+          "margin-right": "0px",
+          "margin-bottom": "40px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "24px",
+          "padding-bottom": "0px",
+          "padding-left": "24px"
+        }
+      },
+      "col1": {
+        "geometry": {
+          "top": 0,
+          "left": 24,
+          "width": 314,
+          "height": 217.33
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "col1first": {
+        "missing": true
+      },
+      "col2": {
+        "geometry": {
+          "top": 0,
+          "left": 362,
+          "width": 314,
+          "height": 217.33
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "col2first": {
+        "missing": true
+      },
+      "heading": {
+        "geometry": {
+          "top": 0,
+          "left": 24,
+          "width": 314,
+          "height": 31.72
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "24px",
+          "padding-bottom": "0px",
+          "padding-left": "24px"
+        },
+        "typography": {
+          "font-size": "27.6px",
+          "font-weight": "700",
+          "line-height": "31.74px",
+          "text-align": "start",
+          "color": "rgb(15, 23, 42)"
+        },
+        "semantics": {
+          "tag": "h2",
+          "role": null,
+          "name": "Heading in place",
+          "heading-level": 2,
+          "reading-order": 2
+        }
+      },
+      "richtext": {
+        "geometry": {
+          "top": 48.72,
+          "left": 24,
+          "width": 314,
+          "height": 112.19
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "24px",
+          "padding-bottom": "0px",
+          "padding-left": "24px"
+        },
+        "typography": {
+          "font-size": "17px",
+          "font-weight": "400",
+          "line-height": "28.05px",
+          "text-align": "start",
+          "color": "rgb(15, 23, 42)"
+        },
+        "semantics": {
+          "tag": "div",
+          "role": null,
+          "name": "Thallo is a canonical content source with an admin your editors will like and an API your developers already understand.",
+          "heading-level": null,
+          "reading-order": 3
+        }
+      },
+      "button": {
+        "geometry": {
+          "top": 177.91,
+          "left": 24,
+          "width": 314,
+          "height": 39.42
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "24px",
+          "padding-bottom": "0px",
+          "padding-left": "24px"
+        },
+        "semantics": {
+          "tag": "div",
+          "role": null,
+          "name": "Act",
+          "heading-level": null,
+          "reading-order": 4
+        }
+      }
+    },
+    "800": {
+      "root": {
+        "geometry": {
+          "top": 0,
+          "left": 0,
+          "width": 800,
+          "height": 190.67
+        },
+        "spacing": {
+          "margin-top": "40px",
+          "margin-right": "0px",
+          "margin-bottom": "40px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "24px",
+          "padding-bottom": "0px",
+          "padding-left": "24px"
+        }
+      },
+      "col1": {
+        "geometry": {
+          "top": 0,
+          "left": 24,
+          "width": 364,
+          "height": 190.67
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "col1first": {
+        "missing": true
+      },
+      "col2": {
+        "geometry": {
+          "top": 0,
+          "left": 412,
+          "width": 364,
+          "height": 190.67
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "col2first": {
+        "missing": true
+      },
+      "heading": {
+        "geometry": {
+          "top": 0,
+          "left": 24,
+          "width": 364,
+          "height": 33.11
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "24px",
+          "padding-bottom": "0px",
+          "padding-left": "24px"
+        },
+        "typography": {
+          "font-size": "28.8px",
+          "font-weight": "700",
+          "line-height": "33.12px",
+          "text-align": "start",
+          "color": "rgb(15, 23, 42)"
+        },
+        "semantics": {
+          "tag": "h2",
+          "role": null,
+          "name": "Heading in place",
+          "heading-level": 2,
+          "reading-order": 2
+        }
+      },
+      "richtext": {
+        "geometry": {
+          "top": 50.11,
+          "left": 24,
+          "width": 364,
+          "height": 84.14
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "24px",
+          "padding-bottom": "0px",
+          "padding-left": "24px"
+        },
+        "typography": {
+          "font-size": "17px",
+          "font-weight": "400",
+          "line-height": "28.05px",
+          "text-align": "start",
+          "color": "rgb(15, 23, 42)"
+        },
+        "semantics": {
+          "tag": "div",
+          "role": null,
+          "name": "Thallo is a canonical content source with an admin your editors will like and an API your developers already understand.",
+          "heading-level": null,
+          "reading-order": 3
+        }
+      },
+      "button": {
+        "geometry": {
+          "top": 151.25,
+          "left": 24,
+          "width": 364,
+          "height": 39.42
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "24px",
+          "padding-bottom": "0px",
+          "padding-left": "24px"
+        },
+        "semantics": {
+          "tag": "div",
+          "role": null,
+          "name": "Act",
+          "heading-level": null,
+          "reading-order": 4
+        }
+      }
+    },
+    "1280": {
+      "root": {
+        "geometry": {
+          "top": 0,
+          "left": 64,
+          "width": 1152,
+          "height": 166.31
+        },
+        "spacing": {
+          "margin-top": "40px",
+          "margin-right": "64px",
+          "margin-bottom": "40px",
+          "margin-left": "64px",
+          "padding-top": "0px",
+          "padding-right": "24px",
+          "padding-bottom": "0px",
+          "padding-left": "24px"
+        }
+      },
+      "col1": {
+        "geometry": {
+          "top": 0,
+          "left": 88,
+          "width": 540,
+          "height": 166.31
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "col1first": {
+        "missing": true
+      },
+      "col2": {
+        "geometry": {
+          "top": 0,
+          "left": 652,
+          "width": 540,
+          "height": 166.31
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "col2first": {
+        "missing": true
+      },
+      "heading": {
+        "geometry": {
+          "top": 0,
+          "left": 88,
+          "width": 540,
+          "height": 36.8
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "24px",
+          "padding-bottom": "0px",
+          "padding-left": "24px"
+        },
+        "typography": {
+          "font-size": "32px",
+          "font-weight": "700",
+          "line-height": "36.8px",
+          "text-align": "start",
+          "color": "rgb(15, 23, 42)"
+        },
+        "semantics": {
+          "tag": "h2",
+          "role": null,
+          "name": "Heading in place",
+          "heading-level": 2,
+          "reading-order": 2
+        }
+      },
+      "richtext": {
+        "geometry": {
+          "top": 53.8,
+          "left": 88,
+          "width": 540,
+          "height": 56.09
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "24px",
+          "padding-bottom": "0px",
+          "padding-left": "24px"
+        },
+        "typography": {
+          "font-size": "17px",
+          "font-weight": "400",
+          "line-height": "28.05px",
+          "text-align": "start",
+          "color": "rgb(15, 23, 42)"
+        },
+        "semantics": {
+          "tag": "div",
+          "role": null,
+          "name": "Thallo is a canonical content source with an admin your editors will like and an API your developers already understand.",
+          "heading-level": null,
+          "reading-order": 3
+        }
+      },
+      "button": {
+        "geometry": {
+          "top": 126.89,
+          "left": 88,
+          "width": 540,
+          "height": 39.42
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "24px",
+          "padding-bottom": "0px",
+          "padding-left": "24px"
+        },
+        "semantics": {
+          "tag": "div",
+          "role": null,
+          "name": "Act",
+          "heading-level": null,
+          "reading-order": 4
+        }
+      }
+    }
+  }
+}

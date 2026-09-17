@@ -1,0 +1,78 @@
+{
+    "case": "container-width-contained",
+    "note": "\u00a74 parity: data.width contained.",
+    "root": "[data-case-root]",
+    "old": {
+        "id": "cnt000000001",
+        "type": "container",
+        "data": {
+            "width": "contained",
+            "min_height": "auto",
+            "content_align": "center",
+            "layout": "block",
+            "content": [
+                {
+                    "id": "hd0000000001",
+                    "type": "heading",
+                    "data": {
+                        "level": "h2",
+                        "text": "Built for sites that outlive their launch"
+                    },
+                    "settings": []
+                },
+                {
+                    "id": "rt0000000001",
+                    "type": "rich_text",
+                    "data": {
+                        "body": "<p>Thallo is a canonical content source with an admin your editors will like and an API your developers already understand.</p>"
+                    },
+                    "settings": []
+                }
+            ]
+        },
+        "settings": []
+    },
+    "elements": {
+        "root": {
+            "selector": ".thallo-block-container",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "surface"
+            ]
+        },
+        "inner": {
+            "selector": ".thallo-block-container__inner",
+            "profiles": [
+                "geometry",
+                "spacing"
+            ]
+        },
+        "heading": {
+            "selector": ".thallo-block-container__inner .thallo-block-heading",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "typography",
+                "semantics"
+            ]
+        },
+        "richtext": {
+            "selector": ".thallo-block-container__inner .thallo-block-rich_text",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "typography",
+                "semantics"
+            ]
+        },
+        "paragraph": {
+            "selector": ".thallo-block-container__inner .thallo-block-rich_text p",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "typography"
+            ]
+        }
+    }
+}

@@ -1,0 +1,111 @@
+{
+    "case": "leaf-in-grid-cell",
+    "note": "\u00a77.10: leaves inside a Grid cell.",
+    "root": "[data-case-root]",
+    "old": {
+        "id": "grd000000001",
+        "type": "grid",
+        "data": {
+            "columns": "2",
+            "flow": "grid",
+            "gap": "medium",
+            "items": [
+                {
+                    "id": "hd0000000040",
+                    "type": "heading",
+                    "data": {
+                        "level": "h2",
+                        "text": "Heading in place"
+                    },
+                    "settings": []
+                },
+                {
+                    "id": "rt0000000040",
+                    "type": "rich_text",
+                    "data": {
+                        "body": "<p>Thallo is a canonical content source with an admin your editors will like and an API your developers already understand.</p>"
+                    },
+                    "settings": []
+                },
+                {
+                    "id": "bt0000000040",
+                    "type": "button",
+                    "data": {
+                        "label": "Act",
+                        "url": "/go",
+                        "variant": "solid",
+                        "color": "primary"
+                    },
+                    "settings": []
+                }
+            ]
+        },
+        "settings": []
+    },
+    "elements": {
+        "root": {
+            "selector": ".thallo-block-grid",
+            "profiles": [
+                "geometry",
+                "spacing"
+            ]
+        },
+        "items": {
+            "selector": ".thallo-block-grid__items",
+            "profiles": [
+                "geometry",
+                "spacing"
+            ]
+        },
+        "item1": {
+            "selector": ".thallo-block-grid__items > *:nth-child(1)",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "semantics"
+            ]
+        },
+        "item2": {
+            "selector": ".thallo-block-grid__items > *:nth-child(2)",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "semantics"
+            ]
+        },
+        "item3": {
+            "selector": ".thallo-block-grid__items > *:nth-child(3)",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "semantics"
+            ]
+        },
+        "heading": {
+            "selector": ".thallo-block-heading",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "typography",
+                "semantics"
+            ]
+        },
+        "richtext": {
+            "selector": ".thallo-block-rich_text",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "typography",
+                "semantics"
+            ]
+        },
+        "button": {
+            "selector": ".thallo-block-button",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "semantics"
+            ]
+        }
+    }
+}

@@ -1,0 +1,118 @@
+{
+    "case": "grid-cols-4-gap-medium",
+    "note": "\u00a77.9: 4 columns, gap medium, 5 items (partial last row).",
+    "root": "[data-case-root]",
+    "old": {
+        "id": "grd000000001",
+        "type": "grid",
+        "data": {
+            "columns": "4",
+            "flow": "grid",
+            "gap": "medium",
+            "items": [
+                {
+                    "id": "hd0000000031",
+                    "type": "heading",
+                    "data": {
+                        "level": "h2",
+                        "text": "Item 1"
+                    },
+                    "settings": []
+                },
+                {
+                    "id": "hd0000000032",
+                    "type": "heading",
+                    "data": {
+                        "level": "h2",
+                        "text": "Item 2"
+                    },
+                    "settings": []
+                },
+                {
+                    "id": "hd0000000033",
+                    "type": "heading",
+                    "data": {
+                        "level": "h2",
+                        "text": "Item 3"
+                    },
+                    "settings": []
+                },
+                {
+                    "id": "hd0000000034",
+                    "type": "heading",
+                    "data": {
+                        "level": "h2",
+                        "text": "Item 4"
+                    },
+                    "settings": []
+                },
+                {
+                    "id": "hd0000000035",
+                    "type": "heading",
+                    "data": {
+                        "level": "h2",
+                        "text": "Item 5"
+                    },
+                    "settings": []
+                }
+            ]
+        },
+        "settings": []
+    },
+    "elements": {
+        "root": {
+            "selector": ".thallo-block-grid",
+            "profiles": [
+                "geometry",
+                "spacing"
+            ]
+        },
+        "items": {
+            "selector": ".thallo-block-grid__items",
+            "profiles": [
+                "geometry",
+                "spacing"
+            ]
+        },
+        "item1": {
+            "selector": ".thallo-block-grid__items > *:nth-child(1)",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "semantics"
+            ]
+        },
+        "item2": {
+            "selector": ".thallo-block-grid__items > *:nth-child(2)",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "semantics"
+            ]
+        },
+        "item3": {
+            "selector": ".thallo-block-grid__items > *:nth-child(3)",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "semantics"
+            ]
+        },
+        "item4": {
+            "selector": ".thallo-block-grid__items > *:nth-child(4)",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "semantics"
+            ]
+        },
+        "item5": {
+            "selector": ".thallo-block-grid__items > *:nth-child(5)",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "semantics"
+            ]
+        }
+    }
+}

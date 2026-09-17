@@ -1,0 +1,95 @@
+{
+    "case": "columns-50-50",
+    "note": "\u00a77.8: ratio 50-50 (stacks at 640px and below).",
+    "root": "[data-case-root]",
+    "old": {
+        "id": "col000000001",
+        "type": "columns",
+        "data": {
+            "layout": 2,
+            "widths": "50-50",
+            "align": "stretch",
+            "col_1": [
+                {
+                    "id": "hd0000000011",
+                    "type": "heading",
+                    "data": {
+                        "level": "h2",
+                        "text": "Column 1"
+                    },
+                    "settings": []
+                },
+                {
+                    "id": "rt0000000011",
+                    "type": "rich_text",
+                    "data": {
+                        "body": "<p>Body 1</p>"
+                    },
+                    "settings": []
+                }
+            ],
+            "col_2": [
+                {
+                    "id": "hd0000000012",
+                    "type": "heading",
+                    "data": {
+                        "level": "h2",
+                        "text": "Column 2"
+                    },
+                    "settings": []
+                },
+                {
+                    "id": "rt0000000012",
+                    "type": "rich_text",
+                    "data": {
+                        "body": "<p>Body 2</p>"
+                    },
+                    "settings": []
+                }
+            ],
+            "col_3": []
+        },
+        "settings": []
+    },
+    "elements": {
+        "root": {
+            "selector": ".thallo-block-columns",
+            "profiles": [
+                "geometry",
+                "spacing"
+            ]
+        },
+        "col1": {
+            "selector": ".thallo-block-columns__col:nth-of-type(1)",
+            "profiles": [
+                "geometry",
+                "spacing"
+            ]
+        },
+        "col1first": {
+            "selector": ".thallo-block-columns__col:nth-of-type(1) > .thallo-block:nth-of-type(1)",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "typography",
+                "semantics"
+            ]
+        },
+        "col2": {
+            "selector": ".thallo-block-columns__col:nth-of-type(2)",
+            "profiles": [
+                "geometry",
+                "spacing"
+            ]
+        },
+        "col2first": {
+            "selector": ".thallo-block-columns__col:nth-of-type(2) > .thallo-block:nth-of-type(1)",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "typography",
+                "semantics"
+            ]
+        }
+    }
+}

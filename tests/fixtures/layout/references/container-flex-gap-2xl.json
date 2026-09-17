@@ -1,0 +1,69 @@
+{
+    "case": "container-flex-gap-2xl",
+    "note": "\u00a74 parity: gap token spacing.2xl.",
+    "root": "[data-case-root]",
+    "old": {
+        "id": "cnt000000001",
+        "type": "container",
+        "data": {
+            "width": "contained",
+            "min_height": "auto",
+            "content_align": "center",
+            "layout": "flex",
+            "flex_direction": "row",
+            "justify": "start",
+            "align_items": "stretch",
+            "flex_wrap": "nowrap",
+            "gap": {
+                "type": "token",
+                "value": "spacing.2xl"
+            },
+            "content": [
+                {
+                    "id": "bt0000000001",
+                    "type": "button",
+                    "data": {
+                        "label": "One",
+                        "url": "/go",
+                        "variant": "solid",
+                        "color": "primary"
+                    },
+                    "settings": []
+                },
+                {
+                    "id": "bt0000000002",
+                    "type": "button",
+                    "data": {
+                        "label": "Two",
+                        "url": "/go",
+                        "variant": "solid",
+                        "color": "primary"
+                    },
+                    "settings": []
+                }
+            ]
+        },
+        "settings": []
+    },
+    "elements": {
+        "inner": {
+            "selector": ".thallo-block-container__inner",
+            "profiles": [
+                "geometry",
+                "spacing"
+            ]
+        },
+        "first": {
+            "selector": ".thallo-block-button:nth-of-type(1)",
+            "profiles": [
+                "geometry"
+            ]
+        },
+        "second": {
+            "selector": ".thallo-block-button:nth-of-type(2)",
+            "profiles": [
+                "geometry"
+            ]
+        }
+    }
+}

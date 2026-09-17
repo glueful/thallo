@@ -1,0 +1,129 @@
+{
+    "case": "columns-33-33-33",
+    "note": "\u00a77.8: ratio 33-33-33 (stacks at 640px and below).",
+    "root": "[data-case-root]",
+    "old": {
+        "id": "col000000001",
+        "type": "columns",
+        "data": {
+            "layout": 3,
+            "widths": "33-33-33",
+            "align": "stretch",
+            "col_1": [
+                {
+                    "id": "hd0000000011",
+                    "type": "heading",
+                    "data": {
+                        "level": "h2",
+                        "text": "Column 1"
+                    },
+                    "settings": []
+                },
+                {
+                    "id": "rt0000000011",
+                    "type": "rich_text",
+                    "data": {
+                        "body": "<p>Body 1</p>"
+                    },
+                    "settings": []
+                }
+            ],
+            "col_2": [
+                {
+                    "id": "hd0000000012",
+                    "type": "heading",
+                    "data": {
+                        "level": "h2",
+                        "text": "Column 2"
+                    },
+                    "settings": []
+                },
+                {
+                    "id": "rt0000000012",
+                    "type": "rich_text",
+                    "data": {
+                        "body": "<p>Body 2</p>"
+                    },
+                    "settings": []
+                }
+            ],
+            "col_3": [
+                {
+                    "id": "hd0000000013",
+                    "type": "heading",
+                    "data": {
+                        "level": "h2",
+                        "text": "Column 3"
+                    },
+                    "settings": []
+                },
+                {
+                    "id": "rt0000000013",
+                    "type": "rich_text",
+                    "data": {
+                        "body": "<p>Body 3</p>"
+                    },
+                    "settings": []
+                }
+            ]
+        },
+        "settings": []
+    },
+    "elements": {
+        "root": {
+            "selector": ".thallo-block-columns",
+            "profiles": [
+                "geometry",
+                "spacing"
+            ]
+        },
+        "col1": {
+            "selector": ".thallo-block-columns__col:nth-of-type(1)",
+            "profiles": [
+                "geometry",
+                "spacing"
+            ]
+        },
+        "col1first": {
+            "selector": ".thallo-block-columns__col:nth-of-type(1) > .thallo-block:nth-of-type(1)",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "typography",
+                "semantics"
+            ]
+        },
+        "col2": {
+            "selector": ".thallo-block-columns__col:nth-of-type(2)",
+            "profiles": [
+                "geometry",
+                "spacing"
+            ]
+        },
+        "col2first": {
+            "selector": ".thallo-block-columns__col:nth-of-type(2) > .thallo-block:nth-of-type(1)",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "typography",
+                "semantics"
+            ]
+        },
+        "col3": {
+            "selector": ".thallo-block-columns__col:nth-of-type(3)",
+            "profiles": [
+                "geometry",
+                "spacing"
+            ]
+        },
+        "col3first": {
+            "selector": ".thallo-block-columns__col:nth-of-type(3) > .thallo-block:nth-of-type(1)",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "typography",
+                "semantics"
+            ]
+        }
+    }
+}

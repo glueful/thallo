@@ -1,0 +1,97 @@
+{
+    "case": "container-flex-dir-column",
+    "note": "\u00a74 parity: flex direction column.",
+    "root": "[data-case-root]",
+    "old": {
+        "id": "cnt000000001",
+        "type": "container",
+        "data": {
+            "width": "contained",
+            "min_height": "auto",
+            "content_align": "center",
+            "layout": "flex",
+            "flex_direction": "column",
+            "justify": "start",
+            "align_items": "stretch",
+            "flex_wrap": "nowrap",
+            "gap": {
+                "type": "token",
+                "value": "spacing.lg"
+            },
+            "content": [
+                {
+                    "id": "hd0000000001",
+                    "type": "heading",
+                    "data": {
+                        "level": "h2",
+                        "text": "One"
+                    },
+                    "settings": []
+                },
+                {
+                    "id": "rt0000000001",
+                    "type": "rich_text",
+                    "data": {
+                        "body": "<p>Two</p>"
+                    },
+                    "settings": []
+                },
+                {
+                    "id": "bt0000000001",
+                    "type": "button",
+                    "data": {
+                        "label": "Get started",
+                        "url": "/go",
+                        "variant": "solid",
+                        "color": "primary"
+                    },
+                    "settings": []
+                }
+            ]
+        },
+        "settings": []
+    },
+    "elements": {
+        "root": {
+            "selector": ".thallo-block-container",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "surface"
+            ]
+        },
+        "inner": {
+            "selector": ".thallo-block-container__inner",
+            "profiles": [
+                "geometry",
+                "spacing"
+            ]
+        },
+        "heading": {
+            "selector": ".thallo-block-heading",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "typography",
+                "semantics"
+            ]
+        },
+        "richtext": {
+            "selector": ".thallo-block-rich_text",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "typography",
+                "semantics"
+            ]
+        },
+        "button": {
+            "selector": ".thallo-block-button",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "semantics"
+            ]
+        }
+    }
+}

@@ -1,0 +1,69 @@
+{
+    "case": "columns-empty-column",
+    "note": "\u00a77.8: an empty column keeps its track.",
+    "root": "[data-case-root]",
+    "old": {
+        "id": "col000000001",
+        "type": "columns",
+        "data": {
+            "layout": "2",
+            "widths": "50-50",
+            "align": "stretch",
+            "col_1": [
+                {
+                    "id": "hd0000000023",
+                    "type": "heading",
+                    "data": {
+                        "level": "h2",
+                        "text": "Only column"
+                    },
+                    "settings": []
+                }
+            ],
+            "col_2": [],
+            "col_3": []
+        },
+        "settings": []
+    },
+    "elements": {
+        "root": {
+            "selector": ".thallo-block-columns",
+            "profiles": [
+                "geometry",
+                "spacing"
+            ]
+        },
+        "col1": {
+            "selector": ".thallo-block-columns__col:nth-of-type(1)",
+            "profiles": [
+                "geometry",
+                "spacing"
+            ]
+        },
+        "col1first": {
+            "selector": ".thallo-block-columns__col:nth-of-type(1) > .thallo-block:nth-of-type(1)",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "typography",
+                "semantics"
+            ]
+        },
+        "col2": {
+            "selector": ".thallo-block-columns__col:nth-of-type(2)",
+            "profiles": [
+                "geometry",
+                "spacing"
+            ]
+        },
+        "col2first": {
+            "selector": ".thallo-block-columns__col:nth-of-type(2) > .thallo-block:nth-of-type(1)",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "typography",
+                "semantics"
+            ]
+        }
+    }
+}

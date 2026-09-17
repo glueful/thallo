@@ -1,0 +1,132 @@
+{
+    "case": "section-background-inverted",
+    "note": "\u00a77.6: background inverted.",
+    "root": "[data-case-root]",
+    "old": {
+        "id": "sct000000001",
+        "type": "section",
+        "data": {
+            "background": "inverted",
+            "content": [
+                {
+                    "id": "hd0000000002",
+                    "type": "heading",
+                    "data": {
+                        "level": "h2",
+                        "text": "One-command upgrades"
+                    },
+                    "settings": []
+                },
+                {
+                    "id": "rt0000000002",
+                    "type": "rich_text",
+                    "data": {
+                        "body": "<p>Composer update, then provision.</p>"
+                    },
+                    "settings": []
+                }
+            ],
+            "links": [
+                {
+                    "id": "bt0000000002",
+                    "type": "button",
+                    "data": {
+                        "label": "Get started",
+                        "url": "/go",
+                        "variant": "solid",
+                        "color": "primary"
+                    },
+                    "settings": []
+                }
+            ],
+            "headline": "WHY THALLO",
+            "title": "Built for sites that outlive their launch",
+            "description": "Thallo lives in vendor/ as a Composer package, upgraded with one command.",
+            "orientation": "vertical",
+            "reverse": false
+        },
+        "settings": []
+    },
+    "elements": {
+        "root": {
+            "selector": ".thallo-block-section",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "surface"
+            ]
+        },
+        "inner": {
+            "selector": ".thallo-block-section__inner",
+            "profiles": [
+                "geometry",
+                "spacing"
+            ]
+        },
+        "header": {
+            "selector": ".thallo-block-section__header",
+            "profiles": [
+                "geometry",
+                "spacing"
+            ]
+        },
+        "headline": {
+            "selector": ".thallo-block-section__headline",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "typography",
+                "semantics"
+            ]
+        },
+        "title": {
+            "selector": ".thallo-block-section__title",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "typography",
+                "semantics"
+            ]
+        },
+        "description": {
+            "selector": ".thallo-block-section__description",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "typography",
+                "semantics"
+            ]
+        },
+        "content": {
+            "selector": ".thallo-block-section__content",
+            "profiles": [
+                "geometry",
+                "spacing"
+            ]
+        },
+        "contentHeading": {
+            "selector": ".thallo-block-section__content .thallo-block-heading",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "typography",
+                "semantics"
+            ]
+        },
+        "links": {
+            "selector": ".thallo-block-section__links",
+            "profiles": [
+                "geometry",
+                "spacing"
+            ]
+        },
+        "firstLink": {
+            "selector": ".thallo-block-section__links .thallo-block-button:nth-of-type(1)",
+            "profiles": [
+                "geometry",
+                "spacing",
+                "semantics"
+            ]
+        }
+    }
+}

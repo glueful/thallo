@@ -1,0 +1,416 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Generate the reference case definitions (container-layout plan, Task 0.1) into
+ * `tests/fixtures/layout/references/*.json`, one file per case, from the compact tables below.
+ *
+ * A case definition holds the OLD block tree (what `scripts/capture-layout-references` renders
+ * and freezes), the named elements with the assertion profiles that apply to each, and — added
+ * later, by hand, in Tasks 2.1 and 4.1 — `new`, `map` and `allow`.
+ *
+ * The files are committed: the tree and the element names are the contract the comparison reads.
+ * Re-running this script must not change a case that already carries `new`/`map`/`allow`, so it
+ * merges: generated keys (`old`, `elements`, `root`, `note`) are rewritten, hand-written keys are
+ * preserved.
+ *
+ *   php scripts/build-layout-reference-cases
+ */
+
+declare(strict_types=1);
+
+$root = dirname(__DIR__);
+$out = $root . '/tests/fixtures/layout/references';
+if (!is_dir($out) && !mkdir($out, 0755, true)) {
+    fwrite(STDERR, "cannot create {$out}\n");
+    exit(1);
+}
+
+/** Stable ids: the same tree every run, so a re-capture measures the same document. */
+$id = static function (string $prefix, int $n): string {
+    return substr($prefix . str_repeat('0', 12), 0, 12 - strlen((string) $n)) . $n;
+};
+
+$heading = static fn (int $n, string $text = 'Built for sites that outlive their launch'): array => [
+    'id' => sprintf('hd%010d', $n),
+    'type' => 'heading',
+    'data' => ['level' => 'h2', 'text' => $text],
+    'settings' => [],
+];
+$richText = static fn (int $n, string $html = '<p>Thallo is a canonical content source with an admin your editors will like and an API your developers already understand.</p>'): array => [
+    'id' => sprintf('rt%010d', $n),
+    'type' => 'rich_text',
+    'data' => ['body' => $html],
+    'settings' => [],
+];
+$button = static fn (int $n, string $label = 'Get started'): array => [
+    'id' => sprintf('bt%010d', $n),
+    'type' => 'button',
+    'data' => ['label' => $label, 'url' => '/go', 'variant' => 'solid', 'color' => 'primary'],
+    'settings' => [],
+];
+
+/** Element maps, per composition shape. */
+$leafElements = static fn (string $scope): array => [
+    'heading' => ['selector' => $scope . ' .thallo-block-heading', 'profiles' => ['geometry', 'spacing', 'typography', 'semantics']],
+    'richtext' => ['selector' => $scope . ' .thallo-block-rich_text', 'profiles' => ['geometry', 'spacing', 'typography', 'semantics']],
+    'paragraph' => ['selector' => $scope . ' .thallo-block-rich_text p', 'profiles' => ['geometry', 'spacing', 'typography']],
+];
+
+$cases = [];
+
+// ── Container parity (§4) ────────────────────────────────────────────────────
+$containerChildren = [$heading(1), $richText(1)];
+$containerElements = [
+    'root' => ['selector' => '.thallo-block-container', 'profiles' => ['geometry', 'spacing', 'surface']],
+    'inner' => ['selector' => '.thallo-block-container__inner', 'profiles' => ['geometry', 'spacing']],
+] + $leafElements('.thallo-block-container__inner');
+
+foreach (['contained', 'narrow', 'full'] as $width) {
+    $cases["container-width-{$width}"] = [
+        'note' => "§4 parity: data.width {$width}.",
+        'old' => ['id' => 'cnt000000001', 'type' => 'container', 'data' => [
+            'width' => $width, 'min_height' => 'auto', 'content_align' => 'center', 'layout' => 'block',
+            'content' => $containerChildren,
+        ], 'settings' => []],
+        'elements' => $containerElements,
+    ];
+}
+foreach (['half', 'screen'] as $height) {
+    foreach (['top', 'center', 'bottom'] as $align) {
+        $cases["container-height-{$height}-{$align}"] = [
+            'note' => "§4 parity: min_height {$height} with content_align {$align} (the band's inner area owns the space).",
+            'old' => ['id' => 'cnt000000001', 'type' => 'container', 'data' => [
+                'width' => 'contained', 'min_height' => $height, 'content_align' => $align, 'layout' => 'block',
+                'content' => $containerChildren,
+            ], 'settings' => ['style' => ['spacing' => ['padding' => [
+                'top' => ['base' => ['type' => 'token', 'value' => 'spacing.xl']],
+                'bottom' => ['base' => ['type' => 'token', 'value' => 'spacing.xl']],
+            ]]]],
+        ],
+            'elements' => $containerElements,
+        ];
+    }
+}
+$flexChildren = [$heading(1, 'One'), $richText(1, '<p>Two</p>'), $button(1)];
+$flexElements = [
+    'root' => ['selector' => '.thallo-block-container', 'profiles' => ['geometry', 'spacing', 'surface']],
+    'inner' => ['selector' => '.thallo-block-container__inner', 'profiles' => ['geometry', 'spacing']],
+    'heading' => ['selector' => '.thallo-block-heading', 'profiles' => ['geometry', 'spacing', 'typography', 'semantics']],
+    'richtext' => ['selector' => '.thallo-block-rich_text', 'profiles' => ['geometry', 'spacing', 'typography', 'semantics']],
+    'button' => ['selector' => '.thallo-block-button', 'profiles' => ['geometry', 'spacing', 'semantics']],
+];
+foreach (['row', 'column', 'row-reverse', 'column-reverse'] as $direction) {
+    $cases["container-flex-dir-{$direction}"] = [
+        'note' => "§4 parity: flex direction {$direction}.",
+        'old' => ['id' => 'cnt000000001', 'type' => 'container', 'data' => [
+            'width' => 'contained', 'min_height' => 'auto', 'content_align' => 'center',
+            'layout' => 'flex', 'flex_direction' => $direction, 'justify' => 'start',
+            'align_items' => 'stretch', 'flex_wrap' => 'nowrap',
+            'gap' => ['type' => 'token', 'value' => 'spacing.lg'],
+            'content' => $flexChildren,
+        ], 'settings' => []],
+        'elements' => $flexElements,
+    ];
+}
+foreach (['start', 'center', 'end', 'between', 'around', 'evenly'] as $justify) {
+    $cases["container-flex-justify-{$justify}"] = [
+        'note' => "§4 parity: justify {$justify}.",
+        'old' => ['id' => 'cnt000000001', 'type' => 'container', 'data' => [
+            'width' => 'contained', 'min_height' => 'auto', 'content_align' => 'center',
+            'layout' => 'flex', 'flex_direction' => 'row', 'justify' => $justify,
+            'align_items' => 'stretch', 'flex_wrap' => 'nowrap',
+            'gap' => ['type' => 'token', 'value' => 'spacing.lg'],
+            'content' => $flexChildren,
+        ], 'settings' => []],
+        'elements' => $flexElements,
+    ];
+}
+foreach (['start', 'center', 'end', 'stretch'] as $items) {
+    $cases["container-flex-items-{$items}"] = [
+        'note' => "§4 parity: align items {$items}.",
+        'old' => ['id' => 'cnt000000001', 'type' => 'container', 'data' => [
+            'width' => 'contained', 'min_height' => 'auto', 'content_align' => 'center',
+            'layout' => 'flex', 'flex_direction' => 'row', 'justify' => 'start',
+            'align_items' => $items, 'flex_wrap' => 'nowrap',
+            'gap' => ['type' => 'token', 'value' => 'spacing.lg'],
+            'content' => $flexChildren,
+        ], 'settings' => []],
+        'elements' => $flexElements,
+    ];
+}
+foreach (['nowrap', 'wrap'] as $wrap) {
+    $cases["container-flex-wrap-{$wrap}"] = [
+        'note' => "§4 parity: flex wrap {$wrap} (six children, so wrap actually wraps at 375px).",
+        'old' => ['id' => 'cnt000000001', 'type' => 'container', 'data' => [
+            'width' => 'contained', 'min_height' => 'auto', 'content_align' => 'center',
+            'layout' => 'flex', 'flex_direction' => 'row', 'justify' => 'start',
+            'align_items' => 'stretch', 'flex_wrap' => $wrap,
+            'gap' => ['type' => 'token', 'value' => 'spacing.lg'],
+            'content' => [$button(1, 'One'), $button(2, 'Two'), $button(3, 'Three'), $button(4, 'Four'), $button(5, 'Five'), $button(6, 'Six')],
+        ], 'settings' => []],
+        'elements' => [
+            'root' => ['selector' => '.thallo-block-container', 'profiles' => ['geometry', 'spacing']],
+            'inner' => ['selector' => '.thallo-block-container__inner', 'profiles' => ['geometry', 'spacing']],
+            'first' => ['selector' => '#\\30 0000000bt1, .thallo-block-button:nth-of-type(1)', 'profiles' => ['geometry']],
+            'last' => ['selector' => '.thallo-block-button:nth-last-of-type(1)', 'profiles' => ['geometry']],
+        ],
+    ];
+}
+foreach (['none', 'sm', 'lg', '2xl'] as $gap) {
+    $cases["container-flex-gap-{$gap}"] = [
+        'note' => "§4 parity: gap token spacing.{$gap}.",
+        'old' => ['id' => 'cnt000000001', 'type' => 'container', 'data' => [
+            'width' => 'contained', 'min_height' => 'auto', 'content_align' => 'center',
+            'layout' => 'flex', 'flex_direction' => 'row', 'justify' => 'start',
+            'align_items' => 'stretch', 'flex_wrap' => 'nowrap',
+            'gap' => ['type' => 'token', 'value' => "spacing.{$gap}"],
+            'content' => [$button(1, 'One'), $button(2, 'Two')],
+        ], 'settings' => []],
+        'elements' => [
+            'inner' => ['selector' => '.thallo-block-container__inner', 'profiles' => ['geometry', 'spacing']],
+            'first' => ['selector' => '.thallo-block-button:nth-of-type(1)', 'profiles' => ['geometry']],
+            'second' => ['selector' => '.thallo-block-button:nth-of-type(2)', 'profiles' => ['geometry']],
+        ],
+    ];
+}
+
+// ── Section (§7.6) ───────────────────────────────────────────────────────────
+$sectionElements = [
+    'root' => ['selector' => '.thallo-block-section', 'profiles' => ['geometry', 'spacing', 'surface']],
+    'inner' => ['selector' => '.thallo-block-section__inner', 'profiles' => ['geometry', 'spacing']],
+    'header' => ['selector' => '.thallo-block-section__header', 'profiles' => ['geometry', 'spacing']],
+    'headline' => ['selector' => '.thallo-block-section__headline', 'profiles' => ['geometry', 'spacing', 'typography', 'semantics']],
+    'title' => ['selector' => '.thallo-block-section__title', 'profiles' => ['geometry', 'spacing', 'typography', 'semantics']],
+    'description' => ['selector' => '.thallo-block-section__description', 'profiles' => ['geometry', 'spacing', 'typography', 'semantics']],
+    'content' => ['selector' => '.thallo-block-section__content', 'profiles' => ['geometry', 'spacing']],
+    'contentHeading' => ['selector' => '.thallo-block-section__content .thallo-block-heading', 'profiles' => ['geometry', 'spacing', 'typography', 'semantics']],
+    'links' => ['selector' => '.thallo-block-section__links', 'profiles' => ['geometry', 'spacing']],
+    'firstLink' => ['selector' => '.thallo-block-section__links .thallo-block-button:nth-of-type(1)', 'profiles' => ['geometry', 'spacing', 'semantics']],
+];
+$sectionBase = static fn (array $data) => ['id' => 'sct000000001', 'type' => 'section', 'data' => $data + [
+    'headline' => 'WHY THALLO',
+    'title' => 'Built for sites that outlive their launch',
+    'description' => 'Thallo lives in vendor/ as a Composer package, upgraded with one command.',
+    'background' => 'none',
+    'orientation' => 'vertical',
+    'reverse' => false,
+    'content' => [],
+    'links' => [],
+], 'settings' => []];
+
+$sectionContent = [$heading(2, 'One-command upgrades'), $richText(2, '<p>Composer update, then provision.</p>')];
+foreach (['vertical', 'horizontal'] as $orientation) {
+    foreach ([false, true] as $reverse) {
+        $key = 'section-' . $orientation . ($reverse ? '-reversed' : '');
+        $cases[$key] = [
+            'note' => "§7.6: {$orientation}" . ($reverse ? ', reversed (content leads visually; reading order changes in the composition — §7.4)' : '') . '.',
+            'old' => $sectionBase([
+                'orientation' => $orientation,
+                'reverse' => $reverse,
+                'content' => $sectionContent,
+                'links' => [$button(2, 'Get started')],
+            ]),
+            'elements' => $sectionElements,
+        ];
+    }
+}
+foreach (['none', 'muted', 'subtle', 'inverted'] as $background) {
+    $cases["section-background-{$background}"] = [
+        'note' => "§7.6: background {$background}.",
+        'old' => $sectionBase(['background' => $background, 'content' => $sectionContent, 'links' => [$button(2)]]),
+        'elements' => $sectionElements,
+    ];
+}
+foreach (['start', 'center', 'end'] as $align) {
+    $cases["section-align-{$align}"] = [
+        'note' => "§7.6: per-part alignment {$align} on headline, title and description.",
+        'old' => $sectionBase([
+            'headline_align' => $align, 'title_align' => $align, 'description_align' => $align,
+            'content' => $sectionContent, 'links' => [$button(2)],
+        ]),
+        'elements' => $sectionElements,
+    ];
+}
+$absent = [
+    'section-absent-headline' => ['headline' => ''],
+    'section-absent-title' => ['title' => ''],
+    'section-absent-description' => ['description' => ''],
+    'section-absent-header' => ['headline' => '', 'title' => '', 'description' => ''],
+];
+foreach ($absent as $key => $data) {
+    $cases[$key] = [
+        'note' => '§7.6: absent header fields.',
+        'old' => $sectionBase($data + ['content' => $sectionContent, 'links' => [$button(2)]]),
+        'elements' => $sectionElements,
+    ];
+}
+$cases['section-empty-content'] = [
+    'note' => '§7.6: empty content.',
+    'old' => $sectionBase(['content' => [], 'links' => [$button(2)]]),
+    'elements' => $sectionElements,
+];
+$cases['section-no-links'] = [
+    'note' => '§7.6: no links.',
+    'old' => $sectionBase(['content' => $sectionContent, 'links' => []]),
+    'elements' => $sectionElements,
+];
+$cases['section-many-links'] = [
+    'note' => '§7.6: several links, wrapping at the narrow widths.',
+    'old' => $sectionBase(['content' => $sectionContent, 'links' => [
+        $button(2, 'Get started'), $button(3, 'Read the docs'), $button(4, 'Capabilities'), $button(5, 'Packagist'),
+    ]]),
+    'elements' => $sectionElements + [
+        'lastLink' => ['selector' => '.thallo-block-section__links .thallo-block-button:nth-last-of-type(1)', 'profiles' => ['geometry', 'semantics']],
+    ],
+];
+
+// ── Columns (§7.8) ───────────────────────────────────────────────────────────
+$columnElements = static fn (int $count): array => array_merge([
+    'root' => ['selector' => '.thallo-block-columns', 'profiles' => ['geometry', 'spacing']],
+], array_reduce(range(1, $count), static function (array $carry, int $i): array {
+    $carry["col{$i}"] = ['selector' => ".thallo-block-columns__col:nth-of-type({$i})", 'profiles' => ['geometry', 'spacing']];
+    $carry["col{$i}first"] = ['selector' => ".thallo-block-columns__col:nth-of-type({$i}) > .thallo-block:nth-of-type(1)", 'profiles' => ['geometry', 'spacing', 'typography', 'semantics']];
+    return $carry;
+}, []));
+
+$widthPresets = [
+    '2' => ['50-50', '33-67', '67-33', '25-75', '75-25'],
+    '3' => ['33-33-33', '25-50-25', '50-25-25', '25-25-50'],
+];
+foreach ($widthPresets as $layout => $presets) {
+    foreach ($presets as $preset) {
+        $count = (int) $layout;
+        $data = ['layout' => $layout, 'widths' => $preset, 'align' => 'stretch'];
+        for ($i = 1; $i <= 3; $i++) {
+            $data["col_{$i}"] = $i <= $count
+                ? [$heading(10 + $i, "Column {$i}"), $richText(10 + $i, "<p>Body {$i}</p>")]
+                : [];
+        }
+        $cases["columns-{$preset}"] = [
+            'note' => "§7.8: ratio {$preset} (stacks at 640px and below).",
+            'old' => ['id' => 'col000000001', 'type' => 'columns', 'data' => $data, 'settings' => []],
+            'elements' => $columnElements($count),
+        ];
+    }
+}
+foreach (['stretch', 'top', 'center', 'bottom'] as $align) {
+    $data = ['layout' => '2', 'widths' => '50-50', 'align' => $align,
+        'col_1' => [$heading(21, 'Short')],
+        'col_2' => [$heading(22, 'Taller'), $richText(22, '<p>Two lines of body text so the columns differ in height and the alignment shows.</p>')],
+        'col_3' => []];
+    $cases["columns-align-{$align}"] = [
+        'note' => "§7.8: vertical alignment {$align}.",
+        'old' => ['id' => 'col000000001', 'type' => 'columns', 'data' => $data, 'settings' => []],
+        'elements' => $columnElements(2),
+    ];
+}
+$cases['columns-empty-column'] = [
+    'note' => '§7.8: an empty column keeps its track.',
+    'old' => ['id' => 'col000000001', 'type' => 'columns', 'data' => [
+        'layout' => '2', 'widths' => '50-50', 'align' => 'stretch',
+        'col_1' => [$heading(23, 'Only column')], 'col_2' => [], 'col_3' => [],
+    ], 'settings' => []],
+    'elements' => $columnElements(2),
+];
+
+// ── Grid (§7.9) ──────────────────────────────────────────────────────────────
+$gridElements = static fn (int $items): array => array_merge([
+    'root' => ['selector' => '.thallo-block-grid', 'profiles' => ['geometry', 'spacing']],
+    'items' => ['selector' => '.thallo-block-grid__items', 'profiles' => ['geometry', 'spacing']],
+], array_reduce(range(1, $items), static function (array $carry, int $i): array {
+    $carry["item{$i}"] = ['selector' => ".thallo-block-grid__items > *:nth-child({$i})", 'profiles' => ['geometry', 'spacing', 'semantics']];
+    return $carry;
+}, []));
+
+foreach (['1', '2', '3', '4'] as $columns) {
+    foreach (['small', 'medium', 'large'] as $gap) {
+        if ($gap !== 'medium' && $columns !== '3') {
+            continue; // the gap axis is proven once, on the three-column grid
+        }
+        $count = max(4, (int) $columns + 1); // a partial last row wherever the count allows
+        $items = [];
+        for ($i = 1; $i <= $count; $i++) {
+            $items[] = $heading(30 + $i, "Item {$i}");
+        }
+        $cases["grid-cols-{$columns}-gap-{$gap}"] = [
+            'note' => "§7.9: {$columns} columns, gap {$gap}, {$count} items (partial last row).",
+            'old' => ['id' => 'grd000000001', 'type' => 'grid', 'data' => [
+                'columns' => $columns, 'flow' => 'grid', 'gap' => $gap, 'items' => $items,
+            ], 'settings' => []],
+            'elements' => $gridElements($count),
+        ];
+    }
+}
+
+// ── Leaf blocks inside a retired type (§7.10) ────────────────────────────────
+$leafTrio = [$heading(40, 'Heading in place'), $richText(40), $button(40, 'Act')];
+$leafProfiles = [
+    'heading' => ['selector' => '.thallo-block-heading', 'profiles' => ['geometry', 'spacing', 'typography', 'semantics']],
+    'richtext' => ['selector' => '.thallo-block-rich_text', 'profiles' => ['geometry', 'spacing', 'typography', 'semantics']],
+    'button' => ['selector' => '.thallo-block-button', 'profiles' => ['geometry', 'spacing', 'semantics']],
+];
+$cases['leaf-in-section-content'] = [
+    'note' => '§7.10: leaves inside a Section content area keep their page-level containment today.',
+    'old' => $sectionBase(['content' => $leafTrio, 'links' => []]),
+    'elements' => $sectionElements + $leafProfiles,
+];
+$cases['leaf-in-section-links'] = [
+    'note' => '§7.10: buttons inside a Section links row.',
+    'old' => $sectionBase(['content' => [], 'links' => [$button(41, 'One'), $button(42, 'Two')]]),
+    'elements' => $sectionElements + [
+        'firstButton' => ['selector' => '.thallo-block-section__links .thallo-block-button:nth-of-type(1)', 'profiles' => ['geometry', 'spacing', 'semantics']],
+        'secondButton' => ['selector' => '.thallo-block-section__links .thallo-block-button:nth-of-type(2)', 'profiles' => ['geometry', 'spacing', 'semantics']],
+    ],
+];
+$cases['leaf-in-columns-column'] = [
+    'note' => '§7.10: leaves inside a Columns column.',
+    'old' => ['id' => 'col000000001', 'type' => 'columns', 'data' => [
+        'layout' => '2', 'widths' => '50-50', 'align' => 'stretch',
+        'col_1' => $leafTrio, 'col_2' => [$heading(43, 'Other')], 'col_3' => [],
+    ], 'settings' => []],
+    'elements' => $columnElements(2) + $leafProfiles,
+];
+$cases['leaf-in-grid-cell'] = [
+    'note' => '§7.10: leaves inside a Grid cell.',
+    'old' => ['id' => 'grd000000001', 'type' => 'grid', 'data' => [
+        'columns' => '2', 'flow' => 'grid', 'gap' => 'medium', 'items' => $leafTrio,
+    ], 'settings' => []],
+    'elements' => $gridElements(3) + $leafProfiles,
+];
+$authored = [
+    'style' => [
+        'width' => ['base' => ['type' => 'token', 'value' => 'width.narrow']],
+        'alignment' => ['self' => ['base' => ['type' => 'choice', 'value' => 'center']]],
+        'spacing' => ['padding' => ['left' => ['base' => ['type' => 'token', 'value' => 'spacing.2xl']]]],
+    ],
+];
+$cases['leaf-authored-in-section-content'] = [
+    'note' => '§7.10 / §3.6: authored width, Placement and padding on leaves must render exactly as authored, here and after the cutover.',
+    'old' => $sectionBase(['content' => [
+        ['id' => 'hd0000000044', 'type' => 'heading', 'data' => ['level' => 'h2', 'text' => 'Authored heading'], 'settings' => $authored],
+        ['id' => 'rt0000000044', 'type' => 'rich_text', 'data' => ['body' => '<p>Authored rich text.</p>'], 'settings' => $authored],
+    ], 'links' => []]),
+    'elements' => $sectionElements + $leafProfiles,
+];
+
+$write = 0;
+foreach ($cases as $name => $case) {
+    $file = $out . '/' . $name . '.json';
+    $existing = is_file($file)
+        ? (array) json_decode((string) file_get_contents($file), true, 512, JSON_THROW_ON_ERROR)
+        : [];
+    $merged = $existing;
+    $merged['case'] = $name;
+    $merged['note'] = $case['note'];
+    $merged['root'] = '[data-case-root]';
+    $merged['old'] = $case['old'];
+    $merged['elements'] = $case['elements'];
+    // Hand-written keys (new, map, allow, newRoot) survive untouched.
+    file_put_contents(
+        $file,
+        json_encode($merged, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n",
+    );
+    $write++;
+}
+
+fwrite(STDOUT, "Wrote {$write} reference case definitions to tests/fixtures/layout/references.\n");
