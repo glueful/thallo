@@ -16,7 +16,7 @@ offers an optional **structure picker** on the stage.
   semantics. They may gain item-layout capabilities (§3.6) so they behave correctly as flex or
   grid children.
 - **Out of scope:** hover states, gradients, entrance or scroll animation, free numeric units,
-  z-index and positioning, per-item order, masonry (§3.8).
+  z-index and positioning, per-item order, masonry (§3.9).
 
 ## 2. Principles
 
@@ -130,9 +130,14 @@ existing inheritance.
 - On the stage every block root sits inside a `display: contents` annotation wrapper. Parent and
   item selectors must match through it. Participation is proven on both the public page and the
   annotated stage.
-- **Nested clamps.** Heading, rich text, button and other leaves carry a page-level clamp (max
-  width, auto margins, gutter). When the block's parent is a container, the leaf releases that
-  clamp and fills its layout cell; at page level the clamp is unchanged.
+- **Nested clamps (theme defaults only).** Heading, rich text, button and other leaves carry a
+  default page-level containment in the theme (max width, auto margins, inline padding). When the
+  block's parent is a container, only that **default** containment is released. Declarations from
+  the instance or a style class — `width`, `alignment.self`, padding, `layout.basis` — still win.
+  Reset returns a property to the default appropriate to the block's current nesting context.
+- **Proof:** moving a block into a container and back out preserves every authored setting, and
+  its unauthored properties follow the context's default, on both the public and annotated
+  renders. Section's constrained description (§7.3) is the authored case.
 
 ### 3.7 Span clamping
 
@@ -142,7 +147,24 @@ existing inheritance.
 - The mechanism stays open until these pass: mobile stacking, asymmetric presets, inherited spans,
   nested grids.
 
-### 3.8 Exclusions
+### 3.8 Spacing inside a container
+
+Theme defaults only; authored margins and paddings always win.
+
+- Every block carries the theme's default vertical margin (`.thallo-block { margin-block:
+  var(--space-5) }`).
+- **Flex and grid modes:** the default vertical margins of the container's direct children are
+  released; spacing between items comes only from `layout.gap.column` and `layout.gap.row`.
+- **Block mode:** children keep their default margins, except the first child's top margin and
+  the last child's bottom margin, which are released so the container's own padding governs its
+  edges.
+- **Rich text:** the first child element's top margin and the last child element's bottom margin
+  inside a rich-text block are released by default, so a single-paragraph rich text contributes no
+  paragraph margin of its own. Spacing between its paragraphs is unchanged.
+- **Proof:** a container with default-margin children in each mode, and a single-paragraph and a
+  multi-paragraph rich text, compared against the declared result.
+
+### 3.9 Exclusions
 
 - **Per-item order.** Reverse directions are kept: whole-list reversal answers a bounded need
   (image first on mobile, text first on desktop). Per-item order is excluded because it lets any
@@ -205,7 +227,8 @@ existing inheritance.
 - **One active breakpoint** drives every section header. Overflow is labelled as applying at all
   sizes.
 - **Multi-selection** uses the capability intersection and mixed values. Sharing a parent does
-  not make every item property available.
+  not make every item property available. **As an item** controls are unavailable for a selection
+  spanning different parents.
 - **Dormant notices in both directions:** a container switched from grid to flex discloses its
   retained grid-parent settings; a child discloses retained item settings for the other mode.
   Values supplied by style classes count as well as local declarations.
@@ -221,6 +244,10 @@ existing inheritance.
 - Never offered for containers created by a preset, a duplicate, a paste, a version restore or a
   redo.
 - Pending state lives in editor session state, never in the document.
+- **An offer ends when content arrives, at any point in its life.** Any insertion or move into the
+  container — while the offer is merely pending or while a choice is preparing — consumes the
+  offer. Undoing that insertion does not reopen it. Skip and deletion of the container also end
+  it.
 
 ### 6.2 Protocol
 
@@ -243,9 +270,9 @@ existing inheritance.
    one insert per child in order.
 6. Consume the offer.
 
-- **Consumption.** Every successful preset consumes the offer, Row and Stack included. Skip,
-  deletion of the container, or a structural edit into it during preparation cancels the choice;
-  a late answer cannot resurrect it.
+- **Consumption.** Every successful preset consumes the offer, Row and Stack included. An offer
+  already ended by §6.1 (content arriving, Skip, deletion) rejects any later choose, including a
+  delayed one; a late factory answer cannot resurrect it.
 - **Undo** restores the exact previous document, settings included, and does not reopen the
   picker. **Redo** replays the same operations with the same ids.
 - **Factory failure** leaves document and history unchanged; the offer stays pending.
@@ -254,8 +281,17 @@ existing inheritance.
 
 - Each preset declares the paths it **owns**. For every owned property it writes the complete
   responsive result at all three breakpoints, so an existing `lg` override cannot defeat the
-  arrangement. An owned path the preset's composition does not use is cleared at every
-  breakpoint. Unowned values (width, gutter, spacing, backgrounds, style-class references) are
+  arrangement.
+- **"Cleared" follows the cascade.** Deleting a declaration exposes any style-class declaration
+  beneath it, so deletion never guarantees a preset's result. For every owned property the preset
+  writes, at every breakpoint, one of:
+  - **a value**, where the preset requires a particular result;
+  - **a reset**, where the preset requires the theme default;
+  - **deletion**, only where the preset deliberately restores inheritance from a class or a lower
+    breakpoint — listed explicitly in the preset.
+- **Proof:** a container carrying a style class with conflicting `lg` values for owned properties;
+  choosing a preset resolves to the preset's result at every breakpoint, and undo restores the
+  exact prior instance declarations. Unowned values (width, gutter, spacing, backgrounds, style-class references) are
   left alone unless listed.
 - Undo restores the exact previous value of every owned path.
 - **Stack** records a transaction only if it changes a value; dismissing an already-stacked empty
@@ -270,15 +306,19 @@ Multi-column presets stack on mobile. In the table, `layout.columns` = `1 / X` m
 |---|---|---|
 | Stack | `layout.display` = block | none |
 | Row | `layout.display` = flex, `layout.direction` = row | none |
-| Two columns 50/50, 33/67, 67/33, 25/75, 75/25 | `layout.display` = grid, `layout.columns` = 1 / 2, 1-2, 2-1, 1-3, 3-1 | two containers |
-| Three columns, 25/50/25 | `layout.display` = grid, `layout.columns` = 1 / 3, 1-2-1 | three containers |
-| Four columns | `layout.display` = grid, `layout.columns` = 1 / 4 | four containers |
-| Grid 2×2 | `layout.display` = grid, `layout.columns` = 1 / 2 | four containers |
+| Two columns 50/50, 33/67, 67/33, 25/75, 75/25 | `layout.display` = grid, `layout.columns` = 1 / 2, 1-2, 2-1, 1-3, 3-1, `layout.gap.column` = lg, `layout.gap.row` = lg | two column containers |
+| Three columns, 25/50/25, 50/25/25, 25/25/50 | `layout.display` = grid, `layout.columns` = 1 / 3, 1-2-1, 2-1-1, 1-1-2, both gaps = lg | three column containers |
+| Four columns | `layout.display` = grid, `layout.columns` = 1 / 4, both gaps = lg | four column containers |
+| Grid 2×2 | `layout.display` = grid, `layout.columns` = 1 / 2, both gaps = lg | four column containers |
+
+A **column container** created by a preset is: `layout.display` flex, `layout.direction` column,
+`layout.gap.row` = md. This reproduces today's Columns rhythm: `--space-3` between blocks, none at
+the column's edges (§3.8).
 | Section, Section split | §7 | §7 |
 
-## 7. Section composition
+## 7. Compositions for the retired types
 
-Section is deleted only after these compositions pass their parity proofs.
+Each retired type is deleted only after its matrix passes: Section §7.6–§7.7, Columns §7.8, Grid §7.9.
 
 ### 7.1 Today's behaviour (the reference)
 
@@ -304,8 +344,8 @@ The Section presets own: `data.element` = section; root `spacing.padding.top` an
 `spacing.padding.bottom` = `spacing.3xl`; inner `layout.content_width` = `width.container`;
 inner `layout.display`, `layout.direction`, `layout.gap.row`, `layout.columns`,
 `layout.align_items`, `layout.gap.column`. Paths a variant does not use (for example
-`layout.columns` in the vertical Section) are cleared at every breakpoint. All are written in the
-one transaction; undo restores each previous value exactly.
+`layout.columns` in the vertical Section) are written as a reset at every breakpoint (§6.4). All
+are written in the one transaction; undo restores each previous value exactly.
 
 ### 7.3 Composition — Section (vertical)
 
@@ -324,7 +364,7 @@ one transaction; undo restores each previous value exactly.
 
 ### 7.4 Composition — Section, reversed
 
-Per-item order is excluded (§3.8), so the reversed composition places **content before the header
+Per-item order is excluded (§3.9), so the reversed composition places **content before the header
 group in the DOM**, links last. **Recorded behaviour change:** reading order now follows visual
 order (content, header, links) where today's reverse kept header first in the reading order.
 
@@ -350,10 +390,59 @@ copy (one starter button does not prove multi-link support):
 - No links; one link; several links wrapping.
 
 Checked at `base`, `md` and `lg`: same elements, heading level, accessible names and reading order
-(except §7.4's recorded change), and computed-style equivalence for spacing, width, alignment,
-colour and type size. Composition introduces different wrapper elements; parity is semantic and
-visual, not DOM-identical. Any computed difference the matrix finds is either fixed or recorded
-here as an accepted behaviour change before Section is deleted.
+(except §7.4), and computed-style equivalence for spacing, width, alignment, colour and type size,
+**except the differences in §7.7**. Composition introduces different wrapper elements; parity is
+semantic and visual, not DOM-identical.
+
+**Spacing normalization.** The header, content and links containers are flex or block containers
+whose default margins §3.8 releases; the headline and description are single-paragraph rich texts
+whose paragraph margins §3.8 releases. Their spacing is therefore exactly the authored margins in
+§7.3 and the inner row gap. The matrix proves that and admits no spacing difference.
+
+### 7.7 Disposition of known differences
+
+This table is closed. A difference the matrix finds that is not listed here fails the retirement
+gate; it is fixed, or this table is amended by explicit decision before Section is deleted.
+
+| Element | Today | New | Disposition |
+|---|---|---|---|
+| Title size | fixed `2rem`, line height 1.15, letter spacing −0.02em, bold | theme `h2`: `clamp(1.5rem, 1.2rem + 1.2vw, 2rem)`, same line height, letter spacing and weight | **Intentionally changed.** Equal from about 1067px; smaller below, down to 1.5rem. |
+| Description size | fixed `1.125rem` | `typography.size.lg`: `clamp(1.125rem, 1rem + 0.5vw, 1.35rem)` | **Intentionally changed.** Equal at the narrowest widths; up to 1.35rem at wide ones. |
+| Inverted description colour | `--accent-ink` at 72% | `color.accent-contrast` at full strength | **Intentionally changed.** The closed colour vocabulary has no reduced-strength token; the description reads at full contrast on the inverted band. |
+| Reversed reading order | header, content, links | content, header, links | **Intentionally changed** (§7.4). |
+
+### 7.8 Columns retirement
+
+**Today:** a grid with `gap: var(--space-4)`, contained with `--space-4` inline padding; ratios
+50/50, 33/67, 67/33, 25/75, 75/25, equal thirds, 25/50/25, 50/25/25, 25/25/50; vertical alignment
+stretch, top, center, bottom; **stacks below 40rem (640px)**; blocks inside a column spaced
+`--space-3`, none at the column's edges.
+
+**Composition:** the matching column preset (§6.5) inside a container with `layout.content_width`
+`width.container`; vertical alignment maps to `layout.align_items` (stretch, start, center, end).
+
+**Matrix:** every ratio; each vertical alignment; one and several blocks per column; empty
+columns; reading order column by column. Checked at `base`, `md` and `lg`.
+
+**Recorded difference:** columns sit side by side from 768px (`md`) instead of 640px. Between
+640px and 767px they now stack. The contract's breakpoints are 768px and 1024px, and a 640px
+breakpoint is not being added.
+
+### 7.9 Grid retirement
+
+**Today:** one column; **two columns from 40rem (640px)** for 2, 3 and 4; three or four columns from
+64rem (1024px); gaps small, medium, large = `--space-3`, `--space-4`, `--space-5`; items with no
+vertical margin; contained with `--space-4` inline padding.
+
+**Composition:** a container with `layout.content_width` `width.container`, `layout.display` grid,
+`layout.columns` `base` 1, `md` 2, `lg` 2, 3 or 4; gaps small, medium, large → `spacing.md`,
+`spacing.lg`, `spacing.xl` for both gaps; items' default margins released by §3.8.
+
+**Matrix:** 1, 2, 3 and 4 columns; each gap; item counts that do and don't fill the last row;
+reading order row by row. Checked at `base`, `md` and `lg`.
+
+**Recorded difference:** the two-column step starts at 768px (`md`) instead of 640px, as for
+Columns. Masonry is retired separately (§3.9) and is not part of this matrix.
 
 ## 8. Retirement
 
@@ -373,17 +462,20 @@ In the same release, found by an inventory grep at the start of the plan:
 
 - **Contract:** validation of every property and value; capability and target mapping; dormancy
   per breakpoint (§3.3 cases); gutter cases (§3.4); span clamping (§3.7 cases); the centred
-  half-screen band with root padding (§3.5).
+  half-screen band with root padding (§3.5); spacing normalization (§3.8).
 - **Render:** container parity for every old width, min height and content alignment; `layout.item`
-  participation on the public page and the annotated stage; nested-clamp release (§3.6); Section
-  parity matrix (§7.6).
+  participation on the public page and the annotated stage; nested-clamp release with authored
+  settings preserved into and out of a container (§3.6); Section parity matrix with its closed
+  disposition table (§7.6, §7.7); Columns matrix (§7.8); Grid matrix (§7.9).
 - **Admin:** per-property tab membership; the Layout tab's four sections across block, flex and
   grid parents; Button and Navigation keeping `alignment.content`; dormant notices both ways,
   including class-supplied values; mixed sibling selection.
 - **Picker:** bridge DOM specs for offer, choose and skip; qualification exclusions (preset
   children, duplicate, paste, restore, redo); duplicate choose messages; Skip while the factory is
-  loading; factory failure; emptiness lost between offer and commit; legality refusal refreshing
-  reasons; Stack no-op; undo restoring exact settings; redo reusing ids.
+  loading; factory failure; emptiness lost between offer and commit; offer → drop content → undo →
+  delayed choose records no picker transaction; legality refusal refreshing reasons; Stack no-op;
+  a preset over a style class with conflicting `lg` values (§6.4); undo restoring exact settings;
+  redo reusing ids.
 - **Browser:** choose 33/67 → one history entry → undo to empty → redo with the same ids; a
   parent mode switch updating its children; the existing proofs rebuilt on container fixtures.
 - **Gates:** full PHP suite, phpcs, boundaries, skeleton and distribution smoke, admin suite,
@@ -400,5 +492,5 @@ One release, one beta cut at the end. Build order on `dev`, each phase ending wi
    superseded data fields and rendering paths are deleted; parent and item controls ship
    together.
 3. **Structure picker** — the creation flow with atomic history and commit-time legality.
-4. **Retirement** — Columns, Grid and Section removed after their compositions are proven, with
+4. **Retirement** — Columns, Grid and Section removed after their matrices (§7.6–§7.9) pass, with
    shipped content, presets, allowlists, fixtures and docs updated in the same phase.
