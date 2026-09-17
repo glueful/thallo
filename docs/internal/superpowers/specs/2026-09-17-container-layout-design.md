@@ -202,6 +202,12 @@ Theme defaults only; authored margins and paddings always win.
 
 `narrow` maps to `width.content` because today's CSS uses `var(--content)`, not `width.narrow`.
 
+- **Parity.** Every container case is measured against the rendering frozen before the cutover, at
+  each width and in both renderings. Two closed tables account for the differences a correct
+  cutover still produces: §7.10 for a leaf's page containment released inside a container, and
+  §7.11 for where a container's spacing comes from. A difference neither table lists fails, and is
+  fixed rather than dispositioned.
+
 ## 5. Inspector
 
 - **Tabs:** Content, Layout, Style, Advanced.
@@ -319,7 +325,9 @@ the column's edges (§3.8).
 ## 7. Compositions for the retired types
 
 Each retired type is deleted only after its matrix passes: Section §7.6–§7.7, Columns §7.8, Grid §7.9,
-with §7.10 for leaf blocks inside any of them.
+with §7.10 for leaf blocks inside any of them and §7.11 for the spacing differences every
+composition meets. The container cutover (§4) is measured against the same frozen references and
+dispositioned by the same two tables.
 
 ### 7.1 Today's behaviour (the reference)
 
@@ -456,23 +464,41 @@ heading, rich text and button items (§7.10); reading order row by row. Checked 
 **Recorded difference:** for counts 2, 3 and 4 the two-column step starts at 768px (`md`) instead
 of 640px; from 640px to 767px they now show one column. Count 1 is unchanged. Masonry is retired separately (§3.9) and is not part of this matrix.
 
-### 7.10 Leaf blocks placed inside a retired type
+### 7.10 Leaf blocks placed inside a container
 
 Today a heading, rich text or button placed inside a Section's content or links, a Columns
-column or a Grid keeps its page-level containment. In the compositions its parent is a container,
-so §3.6 releases that default. Preserving the old appearance through authored settings would
-restore the doubled gutter inside every cell, so the difference is taken as a change. This table
-is closed and applies to all three matrices.
+column, a Grid, **or a container** keeps its page-level containment. In the compositions its
+parent is a container, so §3.6 releases that default. Preserving the old appearance through
+authored settings would restore the doubled gutter inside every cell, so the difference is taken
+as a change. This table is closed and applies to all four matrices — the three retired types and
+the container cutover (§4), whose own compositions meet the same rule because the rule is about
+the parent a leaf ends up in, not about which type it came from.
 
-| Leaf | Today, inside a retired type | New, inside a container | Disposition |
+| Leaf | Today, inside a retired type or a container | New, inside a container | Disposition |
 |---|---|---|---|
 | Heading | `max-width: var(--content)`, auto margins, `padding-inline: var(--space-4)` | fills its layout cell; no inline padding | **Intentionally changed.** Text aligns with the cell's edge instead of indenting by `--space-4`, and in cells wider than `--content` it spans the cell. |
 | Rich text | `max-width: var(--content)`, auto margins, `padding-inline: var(--space-4)` | fills its layout cell; no inline padding | **Intentionally changed**, as for Heading. |
 | Button | `max-width: var(--container)`, auto margins, `padding-inline: var(--space-4)` | fills its layout cell; no inline padding | **Intentionally changed.** The control aligns with the cell's edge; in Section's links row adjacent buttons are separated by the row's gaps only. |
 
 **Fixtures:** each leaf alone and several together, inside a Section content area, a Section links
-row, a Columns column and a Grid cell; each fixture also with an authored `width`,
-`alignment.self` and padding, which must render exactly as authored (§3.6).
+row, a Columns column, a Grid cell and a container's content area; each fixture also with an
+authored `width`, `alignment.self` and padding, which must render exactly as authored (§3.6).
+
+### 7.11 Spacing differences in every composition
+
+§3.8 changes where a container's spacing comes from, so every matrix meets these three
+differences wherever the composition puts blocks inside a container. This table is closed on the
+same terms as §7.10.
+
+| Difference | Today | New | Disposition |
+|---|---|---|---|
+| First and last child, block mode | the child's own `margin-block: var(--space-5)` at both edges | the first child's top margin and the last child's bottom margin released | **Intentionally changed.** The container's own padding governs its boundary, so a band's padding is what it says it is instead of adding to a child's margin. |
+| Every child, flex and grid modes | the child's own `margin-block` alongside the container's gaps | released; spacing comes from `layout.gap.column` and `layout.gap.row` | **Intentionally changed.** One source of spacing between items, so a gap of `none` means none. |
+| A rich text's outer paragraphs | the first paragraph's top margin and the last paragraph's bottom margin | released | **Intentionally changed.** A single-paragraph rich text contributes no margin of its own; spacing between its own paragraphs is unchanged. |
+
+A container that centres its content is a flex column in the composition (§3.5), so the flex row
+of this table applies to it: today's centred band spaced its children by their own margins, and
+the composition spaces them by its gaps.
 
 ## 8. Retirement
 
@@ -497,7 +523,7 @@ In the same release, found by an inventory grep at the start of the plan:
   participation on the public page and the annotated stage; nested-clamp release with authored
   settings preserved into and out of a container (§3.6); Section parity matrix with its closed
   disposition table (§7.6, §7.7); Columns matrix (§7.8); Grid matrix (§7.9); leaf-block fixtures
-  with their closed disposition table (§7.10).
+  with their closed disposition table (§7.10) and the spacing differences (§7.11).
 - **Admin:** per-property tab membership; the Layout tab's four sections across block, flex and
   grid parents; Button and Navigation keeping `alignment.content`; dormant notices both ways,
   including class-supplied values; mixed sibling selection.
