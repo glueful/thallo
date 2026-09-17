@@ -24,7 +24,16 @@ const nextApplied = () => ({
   applied_at: '2026-09-14T00:00:00Z',
 })
 vi.mock('@/queries/preview', () => ({ mintPreviewData: mintMock, applyPreview: applyMock }))
-vi.mock('@/queries/styleSchema', () => ({ useStyleSchema: () => ({ data: ref(null) }) }))
+// A real ref, created in the (async) mock factory: `ref` cannot be reached from vi.hoisted.
+const styleSchemaHolder = vi.hoisted(() => ({ data: null as unknown as { value: unknown } }))
+vi.mock('@/queries/styleSchema', async (importOriginal) => {
+  const { ref: vueRef } = await import('vue')
+  styleSchemaHolder.data = vueRef<unknown>(null)
+  return {
+    ...(await importOriginal<typeof import('@/queries/styleSchema')>()),
+    useStyleSchema: () => ({ data: styleSchemaHolder.data }),
+  }
+})
 vi.mock('@/queries/styleClasses', () => ({
   useStyleClasses: () => ({ data: ref({ generation: 0, classes: [] }), refetch: vi.fn() }),
   useStyleClassMutations: () => ({
@@ -353,6 +362,73 @@ describe('canvas page', () => {
     )
     openSpy.mockRestore()
     wrapper.unmount()
+  })
+
+  it("the Page tab's Styles section writes padding and background into _presentation.style", async () => {
+    mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
+    styleSchemaHolder.data.value = {
+      version: 1,
+      breakpoints: { base: 0, md: 768, lg: 1024 },
+      properties: [],
+      advanced: [],
+      vocabulary: {
+        version: 1,
+        domains: { spacing: ['none', 'sm', 'lg'], color: ['background', 'surface', 'accent'] },
+        values: { 'spacing.lg': 'var(--space-4)' },
+      },
+    }
+    const wrapper = mountPage()
+    await flushPromises()
+    vi.useFakeTimers()
+    try {
+      const pageTab = wrapper
+        .findAll('button')
+        .find((b) => b.text() === 'Page' && b.attributes('role') === 'tab')
+      await pageTab!.trigger('mousedown', { button: 0 })
+      await pageTab!.trigger('click')
+      await flushPromises()
+      const styles = wrapper.find('[data-test="page-styles"]')
+      expect(styles.exists()).toBe(true)
+      // Padding: the box row, linked, writes every side at the active breakpoint.
+      await styles.find('[data-test="box-cell-spacing.padding.top"]').trigger('click')
+      await styles.find('[data-test="token-spacing.lg"]').trigger('click')
+      await vi.advanceTimersByTimeAsync(900)
+      // The Design page's active breakpoint defaults to lg (the desktop viewport).
+      const lg = { lg: { type: 'token', value: 'spacing.lg' } }
+      expect(applyMock).toHaveBeenLastCalledWith(
+        'entry0000001',
+        'en',
+        'tok1',
+        expect.objectContaining({
+          _presentation: {
+            style: { spacing: { padding: { top: lg, right: lg, bottom: lg, left: lg } } },
+          },
+        }),
+        expect.anything(),
+      )
+      // Background: one token row.
+      await styles.find('[data-test="token-color.accent"]').trigger('click')
+      await vi.advanceTimersByTimeAsync(900)
+      const last = applyMock.mock.calls[applyMock.mock.calls.length - 1][3] as {
+        _presentation: { style: { colors: { surface: unknown } } }
+      }
+      // Colours are not responsive in the style contract: one value, no breakpoint key.
+      expect(last._presentation.style.colors.surface).toEqual({
+        type: 'token',
+        value: 'color.accent',
+      })
+      // Reset on the open padding cell writes a reset; clearing everything drops the key.
+      await styles.find('[data-test="style-reset"]').trigger('click')
+      await vi.advanceTimersByTimeAsync(900)
+      const reset = applyMock.mock.calls[applyMock.mock.calls.length - 1][3] as {
+        _presentation: { style: { spacing: { padding: { top: unknown } } } }
+      }
+      expect(reset._presentation.style.spacing.padding.top).toEqual({ lg: { type: 'reset' } })
+    } finally {
+      vi.useRealTimers()
+      styleSchemaHolder.data.value = null
+      wrapper.unmount()
+    }
   })
 
   it('the Page tab edits _presentation and auto-applies; Theme default clears the key', async () => {
