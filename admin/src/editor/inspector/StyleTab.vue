@@ -1,6 +1,10 @@
 <script setup lang="ts">
 // The Style tab (visual builder spec §3.4): controls generated from the block type's
-// `style_capabilities`, grouped as spacing, size, typography, colours, effects and visibility.
+// `style_capabilities`, grouped as spacing, typography, colours, effects and visibility.
+//
+// Only properties `tabMap` assigns to Style appear here; width, placement and content
+// distribution moved to the Layout tab (container-layout spec §5), because how wide a box is and
+// how it sits in its parent are layout decisions, not styling ones.
 import { computed } from 'vue'
 import type { BlockType } from '@/queries/blockTypes'
 import type { StylePropertyRow, StyleSchemaResult } from '@/queries/styleSchema'
@@ -12,6 +16,7 @@ import { BREAKPOINT_LABELS } from '@/editor/breakpoint'
 import { readPath, settingSegments } from '@/editor/ops/apply'
 import { BREAKPOINTS } from '@/style/types'
 import { isFolded, toggleFold } from './styleGroupFolds'
+import { pathsForTab } from './tabMap'
 
 const props = defineProps<{
   block: BlockInstance
@@ -38,7 +43,8 @@ const emit = defineEmits<{
 
 const GROUPS: { key: string; label: string; match: (row: StylePropertyRow) => boolean }[] = [
   { key: 'spacing', label: 'Spacing', match: (r) => r.group === 'spacing' },
-  { key: 'size', label: 'Size', match: (r) => r.group === 'width' || r.group === 'alignment' },
+  // Alignment splits across tabs: only text alignment is left here.
+  { key: 'text', label: 'Text', match: (r) => r.group === 'alignment' },
   { key: 'typography', label: 'Typography', match: (r) => r.group === 'typography' },
   { key: 'colors', label: 'Colours', match: (r) => r.group === 'colors' },
   {
@@ -56,10 +62,7 @@ const LABELS: Record<string, string> = {
   'spacing.padding.left': 'Padding left',
   'spacing.margin.top': 'Margin top',
   'spacing.margin.bottom': 'Margin bottom',
-  width: 'Width',
   'alignment.text': 'Text alignment',
-  'alignment.content': 'Content alignment',
-  'alignment.self': 'Placement',
   'typography.size': 'Size',
   'typography.weight': 'Weight',
   visibility: 'Visibility',
@@ -88,7 +91,8 @@ const allowed = computed<Set<string>>(() => {
   const types = multi.value ? (props.blockTypes ?? []) : [props.blockType]
   if (types.length === 0) return new Set()
   const [first, ...rest] = types.map(pathsOf)
-  return new Set([...first!].filter((path) => rest.every((set) => set.has(path))))
+  const shared = [...first!].filter((path) => rest.every((set) => set.has(path)))
+  return new Set(pathsForTab(shared, 'style'))
 })
 
 /** Four-sided properties present as one box row: the box label and the side each path names. */

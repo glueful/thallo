@@ -1,7 +1,8 @@
 <script setup lang="ts">
-// The block inspector (visual builder spec §3.4): Content, Style and Advanced for the selected
-// block. Content is the block's schema form; Style and Advanced are generated from the block
-// type's declaration and the style schema. Every edit leaves as an intent the page turns into
+// The block inspector (visual builder spec §3.4, container-layout spec §5): Content, Layout,
+// Style and Advanced for the selected block. Content is the block's schema form; Layout, Style
+// and Advanced are generated from the block type's declaration and the style schema, with tab
+// membership decided per property by `tabMap`. Every edit leaves as an intent the page turns into
 // a tree mutation (and so into history operations).
 import { computed, ref, watch } from 'vue'
 import type { BlockType } from '@/queries/blockTypes'
@@ -11,6 +12,8 @@ import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import BlockFields from '@/fields/components/blocks/BlockFields.vue'
 import { isProseBlockType, proseRichFieldName } from '@/fields/components/blocks/proseDetection'
 import StyleTab from './StyleTab.vue'
+import LayoutTab from './LayoutTab.vue'
+import { hasTab } from './tabMap'
 import AdvancedTab from './AdvancedTab.vue'
 
 const props = defineProps<{
@@ -50,14 +53,43 @@ const tab = ref('content')
 const multi = computed(() => (props.blocks?.length ?? 0) > 1)
 const ALL_TABS = [
   { label: 'Content', value: 'content', slot: 'content' as const },
+  { label: 'Layout', value: 'layout', slot: 'layout' as const },
   { label: 'Style', value: 'style', slot: 'style' as const },
   { label: 'Advanced', value: 'advanced', slot: 'advanced' as const },
 ]
-const tabs = computed(() => (multi.value ? ALL_TABS.filter((t) => t.value === 'style') : ALL_TABS))
+
+/** Every managed path the selection declares, capabilities expanded against the schema. */
+const declaredPaths = computed<string[]>(() => {
+  const rows = props.schema?.properties ?? []
+  const byPath = new Set(rows.map((r) => r.path))
+  const types = multi.value ? (props.blockTypes ?? []) : [props.blockType]
+  const sets = types.map((type) => {
+    const out = new Set<string>()
+    for (const entry of type?.style_capabilities ?? []) {
+      if (byPath.has(entry)) out.add(entry)
+      else for (const row of rows) if (row.group === entry) out.add(row.path)
+    }
+    return out
+  })
+  if (sets.length === 0) return []
+  const [first, ...rest] = sets
+  return [...first!].filter((path) => rest.every((set) => set.has(path)))
+})
+
+/** The Layout tab appears only for a block that declares something belonging to it (spec §5). */
+const hasLayout = computed(() => hasTab(declaredPaths.value, 'layout'))
+const tabs = computed(() =>
+  ALL_TABS.filter((t) => {
+    if (t.value === 'layout') return hasLayout.value
+    // A multi-selection edits settings only: Layout and Style, never Content or Advanced.
+    return multi.value ? t.value === 'style' : true
+  }),
+)
 watch(
-  multi,
-  (isMulti) => {
-    if (isMulti) tab.value = 'style'
+  [multi, hasLayout],
+  () => {
+    if (multi.value && tab.value !== 'style' && tab.value !== 'layout') tab.value = 'style'
+    if (tab.value === 'layout' && !hasLayout.value) tab.value = 'style'
   },
   { immediate: true },
 )
@@ -94,6 +126,26 @@ const proseField = computed(() =>
           :exclude="proseField ? [proseField] : []"
           @patch="(name, value) => emit('patch-data', name, value)"
           @insert-into="(field) => emit('insert-into', field)"
+        />
+      </template>
+      <template #layout>
+        <p v-if="schema === null" class="text-xs text-muted" data-test="layout-loading">
+          Loading the style schema…
+        </p>
+        <LayoutTab
+          v-else
+          :block="block"
+          :block-type="blockType"
+          :schema="schema"
+          :classes="classes"
+          :class-names="classNames"
+          :re-resolving="reResolving"
+          :active-breakpoint="activeBreakpoint"
+          :blocks="blocks"
+          :block-types="blockTypes"
+          @set="(path, bp, value) => emit('set-setting', path, bp, value)"
+          @set-all="(path, value) => emit('set-all', path, value)"
+          @update:active-breakpoint="(bp) => emit('update:activeBreakpoint', bp)"
         />
       </template>
       <template #style>
