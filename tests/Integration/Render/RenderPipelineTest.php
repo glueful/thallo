@@ -334,6 +334,26 @@ final class RenderPipelineTest extends AppTestCase
         self::assertStringContainsString('No Chrome', $html);              // the page itself renders
     }
 
+    public function testPagePresentationStylePaintsTheMainElement(): void
+    {
+        // The Page tab's Styles section (padding, margin, background) is a style frame on the
+        // page itself: the same tokens and classes as a block, landing on <main>.
+        $this->seedPresentationEntry([
+            'title' => 'Styled Page',
+            '_presentation' => ['layout' => 'full', 'style' => [
+                'spacing' => ['padding' => ['top' => ['base' => ['type' => 'token', 'value' => 'spacing.lg']]]],
+                'colors' => ['surface' => ['type' => 'token', 'value' => 'color.surface']], // not responsive
+            ]],
+        ], 'styled');
+        $res = $this->handle(Request::create('/pages/styled', 'GET'));
+        self::assertSame(200, $res->getStatusCode());
+        $html = (string) $res->getContent();
+        self::assertMatchesRegularExpression(
+            '/<main[^>]*class="[^"]*layout--full[^"]*t-pt-lg[^"]*t-bg-surface/',
+            $html,
+        );
+    }
+
     public function testPresentationOverrideHidesTitleAndSetsLayout(): void
     {
         $entry = $this->seedPresentationEntry([
@@ -678,6 +698,29 @@ final class RenderPipelineTest extends AppTestCase
             '_presentation' => ['show_title' => false, 'layout' => 'centered'],
         ]);
         self::assertSame(['show_title' => false, 'layout' => 'centered'], $clean['_presentation']);
+        // A page style is validated like a block's, against the page's capabilities (spacing,
+        // background): a good token is kept, a bad one or a property the page lacks fails.
+        $styled = $validator->validate($schema, ['title' => 'T', '_presentation' => ['style' => [
+            'spacing' => ['padding' => ['top' => ['base' => ['type' => 'token', 'value' => 'spacing.lg']]]],
+        ]]]);
+        self::assertSame(
+            ['spacing' => ['padding' => ['top' => ['base' => ['type' => 'token', 'value' => 'spacing.lg']]]]],
+            $styled['_presentation']['style'],
+        );
+        try {
+            $validator->validate($schema, ['title' => 'T', '_presentation' => ['style' => [
+                'spacing' => ['padding' => ['top' => ['base' => ['type' => 'token', 'value' => 'spacing.huge']]]],
+            ]]]);
+            self::fail('expected ValidationException');
+        } catch (\Thallo\Core\Content\Validation\ValidationException) {
+        }
+        try {
+            $validator->validate($schema, ['title' => 'T', '_presentation' => ['style' => [
+                'typography' => ['size' => ['base' => ['type' => 'token', 'value' => 'typography.size.lg']]],
+            ]]]);
+            self::fail('expected ValidationException');
+        } catch (\Thallo\Core\Content\Validation\ValidationException) {
+        }
         // Unknown subkey and bad enum value both fail loudly.
         try {
             $validator->validate($schema, ['title' => 'T', '_presentation' => ['layout' => 'sideways']]);

@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- The Page tab has a Styles section: the page's own padding and margin (box rows, per
+  breakpoint) and background (a theme colour token), painted on the page's main element with
+  the same utility classes blocks use, saved and published with the page under
+  `_presentation.style`. Unset keeps the theme's.
+
 ## [1.0.0-beta.38] - 2026-09-17 — Developer Preview
 
 The Style tab's spacing as box rows, and the empty-block stub no longer claiming separators.
