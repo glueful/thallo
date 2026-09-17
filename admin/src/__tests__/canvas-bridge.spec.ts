@@ -550,6 +550,52 @@ describe('useCanvasBridge', () => {
   })
 })
 
+describe('the structure picker protocol (container-layout spec §6.2)', () => {
+  it('publishes the complete offer list and receives a choice and a skip', () => {
+    const iframe = ref<HTMLIFrameElement | null>(null)
+    const bridge = useCanvasBridge(iframe)
+    const chosen: [string, string][] = []
+    const skipped: string[] = []
+    bridge.onStructureChoose((id, preset) => chosen.push([id, preset]))
+    bridge.onStructureSkip((id) => skipped.push(id))
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          type: 'thallo:structure-choose',
+          nonce: bridge.nonce,
+          id: 'c1',
+          preset: 'cols-33-67',
+        },
+      }),
+    )
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'thallo:structure-skip', nonce: bridge.nonce, id: 'c1' },
+      }),
+    )
+    expect(chosen).toEqual([['c1', 'cols-33-67']])
+    expect(skipped).toEqual(['c1'])
+    bridge.dispose()
+  })
+
+  it('drops a choice with no preset and one with a foreign nonce', () => {
+    const iframe = ref<HTMLIFrameElement | null>(null)
+    const bridge = useCanvasBridge(iframe)
+    const chosen: string[] = []
+    bridge.onStructureChoose((id) => chosen.push(id))
+    for (const data of [
+      { type: 'thallo:structure-choose', nonce: bridge.nonce, id: 'c1' },
+      { type: 'thallo:structure-choose', nonce: 'WRONG', id: 'c1', preset: 'stack' },
+      { type: 'thallo:structure-choose', nonce: bridge.nonce, preset: 'stack' },
+    ]) {
+      window.dispatchEvent(new MessageEvent('message', { data }))
+    }
+    expect(chosen).toEqual([])
+    bridge.dispose()
+  })
+})
+
 describe('FieldEditor.selectBlockById', () => {
   const bt = (slug: string): BlockType =>
     ({
