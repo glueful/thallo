@@ -1,0 +1,82 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Thallo\Core\Tests\Integration\Render;
+
+use Thallo\Core\Tests\Support\AppTestCase;
+
+/**
+ * The theme's layout defaults (container-layout spec §3.4–§3.8), pinned as CSS: they are the
+ * fallback every managed layout value overrides by layer order, and several compiled rules depend
+ * on what the theme does NOT set.
+ */
+final class ContainerThemeDefaultsTest extends AppTestCase
+{
+    private function css(): string
+    {
+        return (string) file_get_contents(
+            $this->appContext()->getBasePath()
+                . '/packages/thallo-render/themes/default/assets/blocks.css',
+        );
+    }
+
+    /** The rule body for a selector, whitespace-collapsed. */
+    private function rule(string $selector): string
+    {
+        $quoted = preg_quote($selector, '~');
+        self::assertMatchesRegularExpression("~{$quoted}\s*\{~", $this->css(), $selector);
+        preg_match("~{$quoted}\s*\{([^}]*)\}~", $this->css(), $m);
+        return trim(preg_replace('~\s+~', ' ', $m[1] ?? ''));
+    }
+
+    public function testTheContainerRootReadsTheRootLayoutVariableAndInitialisesItLocally(): void
+    {
+        // Min height sets --thallo-root-layout; the theme consumes it, so managed visibility keeps
+        // sole authority over `display` (spec §3.5). The local initialisation stops a nested
+        // container inheriting an ancestor's flex sizing.
+        $rule = $this->rule('.thallo-block-container');
+        self::assertStringContainsString('--thallo-root-layout: block;', $rule);
+        self::assertStringContainsString('display: var(--thallo-root-layout);', $rule);
+        self::assertStringContainsString('flex-direction: column;', $rule);
+    }
+
+    public function testTheInnerAreaInitialisesTheGutterLocallyAndFillsATallBand(): void
+    {
+        $rule = $this->rule('.thallo-block-container__inner');
+        self::assertStringContainsString('--thallo-default-gutter: 0px;', $rule);
+        self::assertStringContainsString('padding-inline: var(--thallo-default-gutter);', $rule);
+        self::assertStringContainsString('flex: 1 1 auto;', $rule);
+    }
+
+    public function testTheInnerAreaSetsNoTrackCountAndNoDisplay(): void
+    {
+        // Two compiled contracts depend on this: the default track state is one track (span
+        // clamping, spec §3.7) and the default display state is block (spacing normalization,
+        // §3.8). A theme rule here would make both wrong.
+        $rule = $this->rule('.thallo-block-container__inner');
+        self::assertStringNotContainsString('grid-template-columns', $rule);
+        self::assertDoesNotMatchRegularExpression('~(?<!-)display:~', $rule);
+    }
+
+    public function testSpacingNormalizationCoversBothDefaultDisplayStatesAtEveryBreakpoint(): void
+    {
+        // Reset and absence are one state — the theme default, block (spec §3.8 / plan review) —
+        // so every rule that names the block state names the reset class too, and block mode
+        // restores the default margin explicitly rather than relying on its absence.
+        $css = $this->css();
+        foreach (['', 'md\:', 'lg\:'] as $bp) {
+            self::assertStringContainsString(".{$bp}t-display-flex > .thallo-block", $css);
+            self::assertStringContainsString(".{$bp}t-display-grid > .thallo-block", $css);
+            self::assertStringContainsString(".{$bp}t-display-block > .thallo-block", $css);
+            self::assertStringContainsString(".{$bp}t-display-reset > .thallo-block", $css);
+        }
+        self::assertMatchesRegularExpression(
+            '~\.t-display-block > \.thallo-block[^{]*\{ margin-block: var\(--space-5\); \}~',
+            $css,
+        );
+        // A rich text contributes no outer paragraph margin of its own.
+        self::assertStringContainsString('.thallo-block-rich_text > :first-child { margin-top: 0; }', $css);
+        self::assertStringContainsString('.thallo-block-rich_text > :last-child { margin-bottom: 0; }', $css);
+    }
+}

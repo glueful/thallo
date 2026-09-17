@@ -1,0 +1,68 @@
+{
+  "case": "span-parent-tracks-reset",
+  "note": "\u00a73.7 (review): tracks reset at md \u2014 the default state is one track.",
+  "tree": {
+    "id": "lf0000000001",
+    "type": "layout_fixture",
+    "data": {
+      "content": [
+        {
+          "id": "hd0000000301",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Spanning"
+          },
+          "settings": {
+            "style": {
+              "layout": {
+                "span": {
+                  "base": {
+                    "type": "choice",
+                    "value": "2"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "hd0000000302",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Next"
+          },
+          "settings": {}
+        }
+      ]
+    },
+    "settings": {
+      "style": {
+        "layout": {
+          "display": {
+            "base": {
+              "type": "choice",
+              "value": "grid"
+            }
+          },
+          "columns": {
+            "base": {
+              "type": "choice",
+              "value": "4"
+            },
+            "md": {
+              "type": "reset"
+            }
+          },
+          "content_width": {
+            "base": {
+              "type": "token",
+              "value": "width.container"
+            }
+          }
+        }
+      }
+    }
+  }
+}

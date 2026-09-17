@@ -1,0 +1,68 @@
+{
+  "case": "span-reset-md",
+  "note": "\u00a73.7 (review): a span reset at md returns the child to one cell.",
+  "tree": {
+    "id": "lf0000000001",
+    "type": "layout_fixture",
+    "data": {
+      "content": [
+        {
+          "id": "hd0000000301",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Spanning"
+          },
+          "settings": {
+            "style": {
+              "layout": {
+                "span": {
+                  "base": {
+                    "type": "choice",
+                    "value": "2"
+                  },
+                  "md": {
+                    "type": "reset"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "hd0000000302",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Next"
+          },
+          "settings": {}
+        }
+      ]
+    },
+    "settings": {
+      "style": {
+        "layout": {
+          "display": {
+            "base": {
+              "type": "choice",
+              "value": "grid"
+            }
+          },
+          "columns": {
+            "base": {
+              "type": "choice",
+              "value": "4"
+            }
+          },
+          "content_width": {
+            "base": {
+              "type": "token",
+              "value": "width.container"
+            }
+          }
+        }
+      }
+    }
+  }
+}

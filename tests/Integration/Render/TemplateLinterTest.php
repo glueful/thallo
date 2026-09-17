@@ -214,6 +214,34 @@ final class TemplateLinterTest extends AppTestCase
     }
 
     /** Visual builder spec §5.4: a block type with blocks fields names each slot's element. */
+    public function testALayoutItemTargetMustBeTheTemplatesOutermostElement(): void
+    {
+        // Container-layout spec §3.6: item properties land on the element that participates in the
+        // parent's layout. The linter sees Twig, not HTML, so it holds the item target to being
+        // styled first — the outermost element is rendered first in every block template.
+        $linter = $this->linter();
+
+        // cta declares root (which carries layout.item), title and panel.
+        $good = '<aside class="c{{ style_classes(\'root\') }}"{{ style_attrs(\'root\') }}>'
+            . '<div class="i{{ style_classes(\'panel\') }}"{{ style_attrs(\'panel\') }}>'
+            . '<h2 class="t{{ style_classes(\'title\') }}"{{ style_attrs(\'title\') }}></h2>'
+            . '<div{{ slot_attrs(\'links\') }}>{{ blocks(data.links) }}</div></div></aside>';
+        self::assertSame([], $linter->lint($good, 'blocks/cta.twig'));
+
+        $inner = '<aside class="c">'
+            . '<div class="i{{ style_classes(\'panel\') }}"{{ style_attrs(\'panel\') }}>'
+            . '<h2 class="t{{ style_classes(\'title\') }}"{{ style_attrs(\'title\') }}></h2>'
+            . '<div class="r{{ style_classes(\'root\') }}"{{ style_attrs(\'root\') }}></div>'
+            . '<div{{ slot_attrs(\'links\') }}>{{ blocks(data.links) }}</div></div></aside>';
+        $violations = $linter->lint($inner, 'blocks/cta.twig');
+        self::assertCount(1, $violations);
+        self::assertStringContainsString(
+            'layout.item target "root" must be the template\'s outermost element',
+            $violations[0]['message'],
+        );
+        self::assertStringContainsString('"panel" is styled first', $violations[0]['message']);
+    }
+
     public function testSlotRulesApplyToTypesWithBlocksFields(): void
     {
         $this->syncBlockStyleDeclarations();

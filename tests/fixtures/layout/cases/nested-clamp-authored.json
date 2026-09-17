@@ -1,0 +1,105 @@
+{
+  "case": "nested-clamp-authored",
+  "note": "\u00a73.6: authored width, Placement, padding and basis render exactly as authored.",
+  "tree": {
+    "id": "lf0000000001",
+    "type": "layout_fixture",
+    "data": {
+      "content": [
+        {
+          "id": "hd0000000701",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Authored heading"
+          },
+          "settings": {
+            "style": {
+              "width": {
+                "base": {
+                  "type": "token",
+                  "value": "width.narrow"
+                }
+              },
+              "alignment": {
+                "self": {
+                  "base": {
+                    "type": "choice",
+                    "value": "center"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "rt0000000701",
+          "type": "rich_text",
+          "data": {
+            "body": "<p>Authored rich text.</p>"
+          },
+          "settings": {
+            "style": {
+              "spacing": {
+                "padding": {
+                  "left": {
+                    "base": {
+                      "type": "token",
+                      "value": "spacing.2xl"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "bt0000000701",
+          "type": "button",
+          "data": {
+            "label": "Basis",
+            "url": "/go",
+            "variant": "solid",
+            "color": "primary"
+          },
+          "settings": {
+            "style": {
+              "layout": {
+                "basis": {
+                  "base": {
+                    "type": "choice",
+                    "value": "1/2"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "settings": {
+      "style": {
+        "layout": {
+          "display": {
+            "base": {
+              "type": "choice",
+              "value": "flex"
+            }
+          },
+          "direction": {
+            "base": {
+              "type": "choice",
+              "value": "column"
+            }
+          },
+          "content_width": {
+            "base": {
+              "type": "token",
+              "value": "width.container"
+            }
+          }
+        }
+      }
+    }
+  }
+}

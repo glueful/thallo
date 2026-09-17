@@ -12,6 +12,7 @@ use Thallo\Core\Content\Validation\FieldValidator;
 use Thallo\Core\Content\Validation\ValidationException;
 use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 use Thallo\Contracts\Style\StyleClassProvider;
 use Thallo\Contracts\Style\StyleClassSnapshot;
 
@@ -22,11 +23,15 @@ use Thallo\Contracts\Style\StyleClassSnapshot;
  */
 final class BlockSettingsValidationTest extends AppTestCase
 {
+    use SyncsBlockStyleDeclarations;
+
     protected function setUp(): void
     {
         parent::setUp();
-        // The starter library is the fixture: the shipped block types with their declarations.
+        // The starter library is the fixture: the shipped block types with their declarations,
+        // brought up to date so a stale row in the test database cannot stand in for one of them.
         $this->container()->get(StarterBlockTypeSeeder::class)->seedMissing();
+        $this->syncBlockStyleDeclarations();
     }
 
     /** @param array<string, array{caps?: list<string>}> $types */
@@ -280,6 +285,43 @@ final class BlockSettingsValidationTest extends AppTestCase
                 self::assertArrayHasKey($path, $e->errors(), $path);
                 self::assertStringContainsString($message, $e->errors()[$path], $path);
             }
+        }
+    }
+
+    public function testAContainerRefusesLayoutSettingsBeforeItsCutover(): void
+    {
+        // Container-layout plan, Task 1.3: until the container cuts over (Task 2.1) it declares no
+        // layout capability at all, so a document cannot carry layout settings on one. The real
+        // seeded declaration is the fixture here — a hand-written registry would prove nothing.
+        $registry = $this->container()->get(BlockStyleRegistry::class);
+        foreach ($registry->capabilitiesFor('container')->paths() as $path) {
+            self::assertStringStartsNotWith('layout', $path, "container declares {$path}");
+        }
+
+        $v = new FieldValidator(
+            $this->connection(),
+            $this->appContext(),
+            null,
+            null,
+            $registry,
+        );
+        $container = [
+            'id' => 'cont00000001',
+            'type' => 'container',
+            'data' => ['content' => []],
+            'settings' => ['style' => [
+                'layout' => ['display' => ['base' => ['type' => 'choice', 'value' => 'flex']]],
+            ]],
+        ];
+        try {
+            $v->validate($this->schema(), ['body' => [$container]]);
+            self::fail('a container accepted layout settings before its cutover');
+        } catch (ValidationException $e) {
+            self::assertArrayHasKey('body.0.settings.style.layout.display', $e->errors());
+            self::assertStringContainsString(
+                'not styleable on this block',
+                $e->errors()['body.0.settings.style.layout.display'],
+            );
         }
     }
 
