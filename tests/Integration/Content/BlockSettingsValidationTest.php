@@ -288,15 +288,19 @@ final class BlockSettingsValidationTest extends AppTestCase
         }
     }
 
-    public function testAContainerRefusesLayoutSettingsBeforeItsCutover(): void
+    public function testAContainerTakesLayoutSettingsOnTheTargetThatOwnsThem(): void
     {
-        // Container-layout plan, Task 1.3: until the container cuts over (Task 2.1) it declares no
-        // layout capability at all, so a document cannot carry layout settings on one. The real
-        // seeded declaration is the fixture here — a hand-written registry would prove nothing.
+        // Container-layout spec §4: after the cutover the band's own box keeps min height and
+        // overflow, while everything that arranges the children belongs to the content area. The
+        // real seeded declaration is the fixture — a hand-written registry would prove nothing.
         $registry = $this->container()->get(BlockStyleRegistry::class);
-        foreach ($registry->capabilitiesFor('container')->paths() as $path) {
-            self::assertStringStartsNotWith('layout', $path, "container declares {$path}");
-        }
+        $targets = $registry->targetsFor('container');
+        self::assertNotNull($targets);
+        self::assertSame(['root', 'inner'], $targets->names());
+        self::assertSame('inner', $targets->targetFor('layout.display'));
+        self::assertSame('inner', $targets->targetFor('alignment.content'));
+        self::assertSame('root', $targets->targetFor('layout.min_height'));
+        self::assertSame('root', $targets->targetFor('layout.span'));
 
         $v = new FieldValidator(
             $this->connection(),
@@ -305,22 +309,35 @@ final class BlockSettingsValidationTest extends AppTestCase
             null,
             $registry,
         );
-        $container = [
+        $container = static fn (array $style): array => [
             'id' => 'cont00000001',
             'type' => 'container',
             'data' => ['content' => []],
-            'settings' => ['style' => [
-                'layout' => ['display' => ['base' => ['type' => 'choice', 'value' => 'flex']]],
-            ]],
+            'settings' => ['style' => $style],
         ];
+        $ok = $v->validate($this->schema(), ['body' => [$container([
+            'layout' => [
+                'display' => ['base' => ['type' => 'choice', 'value' => 'grid']],
+                'columns' => ['md' => ['type' => 'choice', 'value' => '1-2']],
+                'min_height' => ['base' => ['type' => 'choice', 'value' => 'half']],
+            ],
+        ])]]);
+        $style = $ok['body'][0]['settings']['style']['layout'];
+        self::assertSame('grid', $style['display']['base']['value']);
+        self::assertSame('1-2', $style['columns']['md']['value']);
+        self::assertSame('half', $style['min_height']['base']['value']);
+
+        // A property no target owns is still refused: the container declares no typography.
         try {
-            $v->validate($this->schema(), ['body' => [$container]]);
-            self::fail('a container accepted layout settings before its cutover');
+            $v->validate($this->schema(), ['body' => [$container([
+                'typography' => ['size' => ['base' => ['type' => 'token', 'value' => 'font.lg']]],
+            ])]]);
+            self::fail('a container accepted a property it does not declare');
         } catch (ValidationException $e) {
-            self::assertArrayHasKey('body.0.settings.style.layout.display', $e->errors());
+            self::assertArrayHasKey('body.0.settings.style.typography.size', $e->errors());
             self::assertStringContainsString(
                 'not styleable on this block',
-                $e->errors()['body.0.settings.style.layout.display'],
+                $e->errors()['body.0.settings.style.typography.size'],
             );
         }
     }

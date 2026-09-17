@@ -101,7 +101,7 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringNotContainsString('thallo-shadow-', $out);
     }
 
-    public function testContainerRejectsAnUnknownOverlayAtSave(): void
+    public function testContainerRejectsAnUnknownOverlayAndDropsTheRetiredLayoutFields(): void
     {
         $schema = $this->containerSchema();
         try {
@@ -110,11 +110,29 @@ final class BlockLibraryRenderTest extends AppTestCase
         } catch (ValidationException $e) {
             self::assertArrayHasKey('overlay', $e->errors());
         }
+
+        // The element is allowlisted like every other enum.
         try {
-            (new FieldValidator())->validate($schema, ['gap' => 24]);
+            (new FieldValidator())->validate($schema, ['element' => 'script']);
             self::fail('expected ValidationException');
         } catch (ValidationException $e) {
-            self::assertArrayHasKey('gap', $e->errors());
+            self::assertArrayHasKey('element', $e->errors());
+        }
+
+        // The nine layout fields are gone (container-layout spec §4). Validation keeps known keys
+        // only, so they cannot be stored on a container: what comes back carries none of them.
+        $clean = (new FieldValidator())->validate($schema, [
+            'width' => 'contained', 'min_height' => 'half', 'content_align' => 'center',
+            'layout' => 'flex', 'flex_direction' => 'row', 'justify' => 'between',
+            'align_items' => 'center', 'flex_wrap' => 'wrap',
+            'gap' => ['type' => 'token', 'value' => 'spacing.lg'],
+        ]);
+        $retiredFields = [
+            'width', 'min_height', 'content_align', 'layout', 'flex_direction',
+            'justify', 'align_items', 'flex_wrap', 'gap',
+        ];
+        foreach ($retiredFields as $retired) {
+            self::assertArrayNotHasKey($retired, $clean, $retired);
         }
     }
 
@@ -861,32 +879,42 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringNotContainsString('__video-cover', $junk);
     }
 
-    public function testContainerFlexLayoutEmitsModifierClassesAndAGapTokenClass(): void
+    public function testContainerLayoutIsSettingsOnInnerAndTheRootTagIsAllowlisted(): void
     {
-        // Flex mode -> __inner flex classes + the gap token's class; block mode (default) emits none.
+        // Container-layout spec §4: the flex modifier classes are gone. Arrangement is settings on
+        // the `inner` target, so what the template contributes is the element and the background.
         $flex = $this->render([[
             'id' => 'cf', 'type' => 'container',
-            'data' => [
-                'layout' => 'flex', 'flex_direction' => 'column', 'justify' => 'between',
-                'align_items' => 'center', 'flex_wrap' => 'wrap',
-                'gap' => ['type' => 'token', 'value' => 'spacing.lg'],
-                'content' => [],
-            ],
+            'data' => ['element' => 'section', 'content' => []],
+            'settings' => ['style' => ['layout' => [
+                'display' => ['base' => ['type' => 'choice', 'value' => 'flex']],
+                'direction' => ['base' => ['type' => 'choice', 'value' => 'column']],
+                'gap' => ['row' => ['base' => ['type' => 'token', 'value' => 'spacing.lg']]],
+            ]]],
         ]]);
-        self::assertStringContainsString('thallo-block-container--layout-flex', $flex);
-        self::assertStringContainsString('thallo-block-container--dir-column', $flex);
-        self::assertStringContainsString('thallo-block-container--justify-between', $flex);
-        self::assertStringContainsString('thallo-block-container--items-center', $flex);
-        self::assertStringContainsString('thallo-block-container--wrap', $flex);
-        self::assertStringContainsString('thallo-block-container--gap-lg', $flex);
+        self::assertStringContainsString('<section class="thallo-block thallo-block-container', $flex);
+        self::assertStringContainsString('t-display-flex', $flex);
+        self::assertStringContainsString('t-dir-column', $flex);
+        self::assertStringContainsString('t-gapy-lg', $flex);
+        self::assertStringNotContainsString('thallo-block-container--layout-flex', $flex);
+        self::assertStringNotContainsString('thallo-block-container--gap-', $flex);
         self::assertStringNotContainsString('style=', $flex);
 
-        // Block mode (default) -> no flex classes; an unknown gap token emits no class.
-        $block = $this->render([['id' => 'cb', 'type' => 'container', 'data' => [
-            'gap' => ['type' => 'token', 'value' => 'spacing.huge'], 'content' => [],
-        ]]]);
-        self::assertStringNotContainsString('--layout-flex', $block);
-        self::assertStringNotContainsString('--gap-', $block);
+        // The layout classes land on the content area, never on the band.
+        preg_match('~<section class="([^"]*)"~', $flex, $root);
+        self::assertStringNotContainsString('t-display-flex', $root[1]);
+
+        // An unknown element is a div, and so is a missing one: a stored value never reaches the
+        // markup unchecked.
+        foreach (['marquee' => 'div', 'article' => 'article'] as $element => $tag) {
+            $html = $this->render([[
+                'id' => 'ce', 'type' => 'container',
+                'data' => ['element' => $element, 'content' => []],
+            ]]);
+            self::assertStringContainsString('<' . $tag . ' class="thallo-block thallo-block-container', $html);
+        }
+        $default = $this->render([['id' => 'cd', 'type' => 'container', 'data' => ['content' => []]]]);
+        self::assertStringContainsString('<div class="thallo-block thallo-block-container', $default);
     }
 
     public function testEntriesFunctionReturnsListAndIsPreviewReflectsAnnotation(): void

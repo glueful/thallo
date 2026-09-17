@@ -47,6 +47,9 @@ final class ContainerThemeDefaultsTest extends AppTestCase
         self::assertStringContainsString('--thallo-default-gutter: 0px;', $rule);
         self::assertStringContainsString('padding-inline: var(--thallo-default-gutter);', $rule);
         self::assertStringContainsString('flex: 1 1 auto;', $rule);
+        // As a flex item the gutter's auto inline margins cancel the cross-axis stretch, so the
+        // width is stated: a boxed content area fills its measure inside a tall band.
+        self::assertStringContainsString('width: 100%;', $rule);
     }
 
     public function testTheInnerAreaSetsNoTrackCountAndNoDisplay(): void
@@ -75,8 +78,17 @@ final class ContainerThemeDefaultsTest extends AppTestCase
             '~\.t-display-block > \.thallo-block[^{]*\{ margin-block: var\(--space-5\); \}~',
             $css,
         );
-        // A rich text contributes no outer paragraph margin of its own.
-        self::assertStringContainsString('.thallo-block-rich_text > :first-child { margin-top: 0; }', $css);
-        self::assertStringContainsString('.thallo-block-rich_text > :last-child { margin-bottom: 0; }', $css);
+        // A rich text contributes no outer paragraph margin of its own — on the page and on the
+        // stage, where its body sits one level deeper inside an edit region.
+        self::assertStringContainsString('.thallo-block-rich_text > :first-child,', $css);
+        self::assertStringContainsString(
+            '.thallo-block-rich_text > .thallo-edit-region > :first-child { margin-top: 0; }',
+            $css,
+        );
+        self::assertStringContainsString('.thallo-block-rich_text > :last-child,', $css);
+        self::assertStringContainsString(
+            '.thallo-block-rich_text > .thallo-edit-region > :last-child { margin-bottom: 0; }',
+            $css,
+        );
     }
 }

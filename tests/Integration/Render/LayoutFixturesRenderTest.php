@@ -245,13 +245,22 @@ final class LayoutFixturesRenderTest extends AppTestCase
         );
     }
 
-    public function testTheProductionContainerStillRefusesLayoutSettings(): void
+    public function testTheContainerAndTheFixtureDeclareTheSameLayoutVocabulary(): void
     {
-        // The fixture type exists precisely because the container has not cut over yet (Task 2.1).
+        // The fixture type existed to prove the contract before any block depended on it. The
+        // container has cut over now (Task 2.1), so it declares the same parent and item
+        // properties — and the proofs keep measuring the fixture, which is not the production
+        // block and so cannot drift into standing in for it.
         $registry = $this->container()->get(BlockStyleRegistry::class);
-        foreach ($registry->capabilitiesFor('container')->paths() as $path) {
-            self::assertStringStartsNotWith('layout', $path, "container declares {$path}");
-        }
-        self::assertTrue($registry->capabilitiesFor(LayoutFixtureBlockType::SLUG)->allows('layout.display'));
+        $container = $registry->capabilitiesFor('container')->paths();
+        $fixture = $registry->capabilitiesFor(LayoutFixtureBlockType::SLUG)->paths();
+        $layout = static fn (array $paths): array => array_values(array_filter(
+            $paths,
+            static fn (string $path): bool => str_starts_with($path, 'layout')
+                || $path === 'alignment.content',
+        ));
+        sort($container);
+        sort($fixture);
+        self::assertSame($layout($fixture), $layout($container));
     }
 }

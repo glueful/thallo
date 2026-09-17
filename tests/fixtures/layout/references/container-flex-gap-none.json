@@ -1,69 +1,241 @@
 {
-    "case": "container-flex-gap-none",
-    "note": "\u00a74 parity: gap token spacing.none.",
-    "root": "[data-case-root]",
-    "old": {
-        "id": "cnt000000001",
-        "type": "container",
-        "data": {
-            "width": "contained",
-            "min_height": "auto",
-            "content_align": "center",
-            "layout": "flex",
-            "flex_direction": "row",
-            "justify": "start",
-            "align_items": "stretch",
-            "flex_wrap": "nowrap",
-            "gap": {
+  "case": "container-flex-gap-none",
+  "note": "§4 parity: gap token spacing.none. Container-layout spec §4 parity. width → layout.content_width (contained → width.container, narrow → width.content, full → width.full, each carrying its default gutter); min_height → layout.min_height on root; layout/flex_direction/flex_wrap/align_items/gap → the inner area's display, direction, wrap, align_items and both gaps; justify → alignment.content in flex mode, content_align → alignment.content in block mode, where the old theme made the content area a centred flex column and the new one says so explicitly (spec §3.5).",
+  "root": "[data-case-root]",
+  "elements": {
+    "inner": {
+      "selector": ".thallo-block-container__inner",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "first": {
+      "selector": ".thallo-block-button:nth-of-type(1)",
+      "profiles": [
+        "geometry"
+      ]
+    },
+    "second": {
+      "selector": ".thallo-block-button:nth-of-type(2)",
+      "profiles": [
+        "geometry"
+      ]
+    }
+  },
+  "map": {
+    "inner": ".thallo-block-container__inner",
+    "first": ".thallo-block-button:nth-of-type(1)",
+    "second": ".thallo-block-button:nth-of-type(2)"
+  },
+  "allow": [
+    {
+      "element": "first",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px",
+        "margin-left": "0px",
+        "margin-right": "0px"
+      },
+      "affects": [
+        "inner",
+        "first",
+        "second"
+      ]
+    },
+    {
+      "element": "second",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px",
+        "margin-left": "0px",
+        "margin-right": "0px"
+      },
+      "affects": [
+        "inner",
+        "first",
+        "second"
+      ]
+    },
+    {
+      "element": "first",
+      "why": "Default vertical margins released in flex mode (spec §3.8): spacing between items comes from the gaps alone. The old band centred its content through a flex column the theme applied invisibly; the composition says so explicitly (spec §3.5), so the release applies to it too.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "expect": {
+        "margin-top": "0px",
+        "margin-bottom": "0px"
+      },
+      "affects": [
+        "inner",
+        "first",
+        "second"
+      ]
+    },
+    {
+      "element": "second",
+      "why": "Default vertical margins released in flex mode (spec §3.8): spacing between items comes from the gaps alone. The old band centred its content through a flex column the theme applied invisibly; the composition says so explicitly (spec §3.5), so the release applies to it too.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "expect": {
+        "margin-top": "0px",
+        "margin-bottom": "0px"
+      },
+      "affects": [
+        "inner",
+        "first",
+        "second"
+      ]
+    }
+  ],
+  "old": {
+    "id": "cnt000000001",
+    "type": "container",
+    "data": {
+      "width": "contained",
+      "min_height": "auto",
+      "content_align": "center",
+      "layout": "flex",
+      "flex_direction": "row",
+      "justify": "start",
+      "align_items": "stretch",
+      "flex_wrap": "nowrap",
+      "gap": {
+        "type": "token",
+        "value": "spacing.none"
+      },
+      "content": [
+        {
+          "id": "bt0000000001",
+          "type": "button",
+          "data": {
+            "label": "One",
+            "url": "/go",
+            "variant": "solid",
+            "color": "primary"
+          },
+          "settings": []
+        },
+        {
+          "id": "bt0000000002",
+          "type": "button",
+          "data": {
+            "label": "Two",
+            "url": "/go",
+            "variant": "solid",
+            "color": "primary"
+          },
+          "settings": []
+        }
+      ]
+    },
+    "settings": []
+  },
+  "new": {
+    "id": "cnt000000001",
+    "type": "container",
+    "data": {
+      "element": "div",
+      "content": [
+        {
+          "id": "bt0000000001",
+          "type": "button",
+          "data": {
+            "label": "One",
+            "url": "/go",
+            "variant": "solid",
+            "color": "primary"
+          },
+          "settings": []
+        },
+        {
+          "id": "bt0000000002",
+          "type": "button",
+          "data": {
+            "label": "Two",
+            "url": "/go",
+            "variant": "solid",
+            "color": "primary"
+          },
+          "settings": []
+        }
+      ]
+    },
+    "settings": {
+      "style": {
+        "layout": {
+          "content_width": {
+            "base": {
+              "type": "token",
+              "value": "width.container"
+            }
+          },
+          "display": {
+            "base": {
+              "type": "choice",
+              "value": "flex"
+            }
+          },
+          "direction": {
+            "base": {
+              "type": "choice",
+              "value": "row"
+            }
+          },
+          "wrap": {
+            "base": {
+              "type": "choice",
+              "value": "nowrap"
+            }
+          },
+          "align_items": {
+            "base": {
+              "type": "choice",
+              "value": "stretch"
+            }
+          },
+          "gap": {
+            "column": {
+              "base": {
                 "type": "token",
                 "value": "spacing.none"
+              }
             },
-            "content": [
-                {
-                    "id": "bt0000000001",
-                    "type": "button",
-                    "data": {
-                        "label": "One",
-                        "url": "/go",
-                        "variant": "solid",
-                        "color": "primary"
-                    },
-                    "settings": []
-                },
-                {
-                    "id": "bt0000000002",
-                    "type": "button",
-                    "data": {
-                        "label": "Two",
-                        "url": "/go",
-                        "variant": "solid",
-                        "color": "primary"
-                    },
-                    "settings": []
-                }
-            ]
+            "row": {
+              "base": {
+                "type": "token",
+                "value": "spacing.none"
+              }
+            }
+          }
         },
-        "settings": []
-    },
-    "elements": {
-        "inner": {
-            "selector": ".thallo-block-container__inner",
-            "profiles": [
-                "geometry",
-                "spacing"
-            ]
-        },
-        "first": {
-            "selector": ".thallo-block-button:nth-of-type(1)",
-            "profiles": [
-                "geometry"
-            ]
-        },
-        "second": {
-            "selector": ".thallo-block-button:nth-of-type(2)",
-            "profiles": [
-                "geometry"
-            ]
+        "alignment": {
+          "content": {
+            "base": {
+              "type": "choice",
+              "value": "start"
+            }
+          }
         }
+      }
     }
+  }
 }

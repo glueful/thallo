@@ -317,3 +317,113 @@ for (const name of names) {
     });
   }
 }
+
+// The container's own mechanism after the cutover (container-layout plan, Task 2.1). The parity
+// spec proves the compositions LOOK like the old renderings; this proves they are built the way
+// §4 says — the band's display comes from the root-layout variable that min height sets, and the
+// arrangement is on the content area. Measured on the same candidate pages parity uses.
+const PARITY_DEFINITIONS = path.join(REPO, 'tests/fixtures/layout/references');
+const PARITY_URL = '/tools/runtime-browser/fixtures/parity';
+
+const JUSTIFY = {
+  start: 'flex-start', center: 'center', end: 'flex-end',
+  between: 'space-between', around: 'space-around', evenly: 'space-evenly',
+};
+const ALIGN_ITEMS = {
+  start: 'flex-start', center: 'center', end: 'flex-end', stretch: 'stretch', baseline: 'baseline',
+};
+const FROM_CONTENT_ALIGN = { top: 'flex-start', center: 'center', bottom: 'flex-end' };
+const MEASURE = { contained: '--container', narrow: '--content', full: null };
+
+const containers = fs
+  .readdirSync(PARITY_DEFINITIONS)
+  .filter((file) => file.startsWith('container-') && file.endsWith('.json'))
+  .map((file) => JSON.parse(fs.readFileSync(path.join(PARITY_DEFINITIONS, file), 'utf8')))
+  .filter((definition) => definition.new)
+  .sort((a, b) => a.case.localeCompare(b.case));
+
+for (const definition of containers) {
+  test(`${definition.case} is built the way the cutover says`, async ({ page }) => {
+    const old = definition.old.data;
+    const flex = (old.layout || 'block') === 'flex';
+    const tall = (old.min_height || 'auto') !== 'auto';
+
+    for (const width of WIDTHS) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${PARITY_URL}/${definition.case}.html`);
+      const measured = await page.evaluate((measureVariable) => {
+        const root = document.querySelector('.thallo-block-container');
+        const inner = root.querySelector(':scope > .thallo-block-container__inner');
+        const rootStyle = getComputedStyle(root);
+        const innerStyle = getComputedStyle(inner);
+        return {
+          rootDisplay: rootStyle.display,
+          rootLayout: rootStyle.getPropertyValue('--thallo-root-layout').trim(),
+          minHeight: rootStyle.minHeight,
+          innerDisplay: innerStyle.display,
+          direction: innerStyle.flexDirection,
+          wrap: innerStyle.flexWrap,
+          justify: innerStyle.justifyContent,
+          alignItems: innerStyle.alignItems,
+          columnGap: innerStyle.columnGap,
+          rowGap: innerStyle.rowGap,
+          maxWidth: innerStyle.maxWidth,
+          // The theme's own value for the measure the composition asked for, resolved here so the
+          // proof names the token rather than a pixel count that moves with the theme.
+          measure: (() => {
+            if (!measureVariable) return null;
+            const probe = document.createElement('div');
+            probe.style.width = `var(${measureVariable})`;
+            document.body.appendChild(probe);
+            const resolved = getComputedStyle(probe).width;
+            probe.remove();
+            return resolved;
+          })(),
+        };
+      }, MEASURE[old.width || 'contained']);
+
+      const at = `${definition.case} @${width}`;
+      // Min height never sets `display` directly: it sets the variable the theme reads, so managed
+      // visibility keeps sole authority over display (spec §3.5).
+      expect(measured.rootLayout, `${at} root-layout variable`).toBe(tall ? 'flex' : 'block');
+      expect(measured.rootDisplay, `${at} root display`).toBe(tall ? 'flex' : 'block');
+      expect(measured.minHeight, `${at} min-height`).toBe(
+        old.min_height === 'half' ? '450px' : old.min_height === 'screen' ? '900px' : '0px',
+      );
+
+      // A tall band centres its content through an explicit flex column (spec §3.5); a flex
+      // container arranges its children; anything else stays in normal flow.
+      expect(measured.innerDisplay, `${at} inner display`).toBe(flex || tall ? 'flex' : 'block');
+      if (flex) {
+        expect(measured.direction, `${at} direction`).toBe(old.flex_direction || 'row');
+        expect(measured.wrap, `${at} wrap`).toBe(old.flex_wrap || 'nowrap');
+        expect(measured.justify, `${at} justify`).toBe(JUSTIFY[old.justify || 'start']);
+        expect(measured.alignItems, `${at} align-items`).toBe(ALIGN_ITEMS[old.align_items || 'stretch']);
+        const gap = (old.gap || {}).value;
+        if (gap) {
+          // The token is authored in rem and the gap computes in px, so the theme's value is
+          // resolved through a probe rather than compared as text.
+          const token = await page.evaluate((name) => {
+            const probe = document.createElement('div');
+            probe.style.width = `var(${name})`;
+            document.body.appendChild(probe);
+            const resolved = getComputedStyle(probe).width;
+            probe.remove();
+            return resolved;
+          }, `--t-spacing-${gap.replace('spacing.', '')}`);
+          expect(measured.columnGap, `${at} column gap`).toBe(token);
+          expect(measured.rowGap, `${at} row gap`).toBe(token);
+        }
+      } else if (tall) {
+        expect(measured.direction, `${at} direction`).toBe('column');
+        expect(measured.justify, `${at} justify`).toBe(
+          FROM_CONTENT_ALIGN[old.content_align || 'center'],
+        );
+      }
+
+      // The old width enum is a content-width token now, and the theme's measure is what it
+      // resolves to.
+      expect(measured.maxWidth, `${at} measure`).toBe(measured.measure ?? 'none');
+    }
+  });
+}

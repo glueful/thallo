@@ -246,11 +246,17 @@ final class TemplateLinterTest extends AppTestCase
     {
         $this->syncBlockStyleDeclarations();
         $linter = $this->linter();
+        // The container declares both of its targets (container-layout spec §4), so a template for
+        // it styles the band and the content area, and names its slot on the content area.
         $root = '<div class="c{{ style_classes(\'root\') }}"{{ style_attrs(\'root\') }}>';
-        $good = $root . '<div{{ slot_attrs(\'content\') }}>{{ blocks(data.content) }}</div></div>';
+        $innerOpen = '<div class="i{{ style_classes(\'inner\') }}"{{ style_attrs(\'inner\') }}';
+        $good = $root . $innerOpen . '{{ slot_attrs(\'content\') }}>{{ blocks(data.content) }}</div></div>';
         self::assertSame([], $linter->lint($good, 'blocks/container.twig'));
 
-        $missing = $linter->lint($root . '{{ blocks(data.content) }}</div>', 'blocks/container.twig');
+        $missing = $linter->lint(
+            $root . $innerOpen . '>{{ blocks(data.content) }}</div></div>',
+            'blocks/container.twig',
+        );
         self::assertCount(1, $missing);
         self::assertStringContainsString('Slot "content" has no element', $missing[0]['message']);
 
@@ -258,7 +264,10 @@ final class TemplateLinterTest extends AppTestCase
         self::assertCount(1, $unknown);
         self::assertStringContainsString('Slot "nope" is not a blocks field', $unknown[0]['message']);
 
-        $computed = $linter->lint($root . '<div{{ slot_attrs(data.s) }}></div></div>', 'blocks/container.twig');
+        $computed = $linter->lint(
+            $root . $innerOpen . '{{ slot_attrs(data.s) }}></div></div>',
+            'blocks/container.twig',
+        );
         self::assertStringContainsString('must be a constant string', $computed[0]['message']);
 
         // Tabs render their items' data inline: no slot element, no rule.

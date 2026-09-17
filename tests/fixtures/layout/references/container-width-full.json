@@ -1,78 +1,224 @@
 {
-    "case": "container-width-full",
-    "note": "\u00a74 parity: data.width full.",
-    "root": "[data-case-root]",
-    "old": {
-        "id": "cnt000000001",
-        "type": "container",
-        "data": {
-            "width": "full",
-            "min_height": "auto",
-            "content_align": "center",
-            "layout": "block",
-            "content": [
-                {
-                    "id": "hd0000000001",
-                    "type": "heading",
-                    "data": {
-                        "level": "h2",
-                        "text": "Built for sites that outlive their launch"
-                    },
-                    "settings": []
-                },
-                {
-                    "id": "rt0000000001",
-                    "type": "rich_text",
-                    "data": {
-                        "body": "<p>Thallo is a canonical content source with an admin your editors will like and an API your developers already understand.</p>"
-                    },
-                    "settings": []
-                }
-            ]
-        },
-        "settings": []
+  "case": "container-width-full",
+  "note": "§4 parity: data.width full. Container-layout spec §4 parity. width → layout.content_width (contained → width.container, narrow → width.content, full → width.full, each carrying its default gutter); min_height → layout.min_height on root; layout/flex_direction/flex_wrap/align_items/gap → the inner area's display, direction, wrap, align_items and both gaps; justify → alignment.content in flex mode, content_align → alignment.content in block mode, where the old theme made the content area a centred flex column and the new one says so explicitly (spec §3.5).",
+  "root": "[data-case-root]",
+  "elements": {
+    "root": {
+      "selector": ".thallo-block-container",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "surface"
+      ]
     },
-    "elements": {
-        "root": {
-            "selector": ".thallo-block-container",
-            "profiles": [
-                "geometry",
-                "spacing",
-                "surface"
-            ]
-        },
-        "inner": {
-            "selector": ".thallo-block-container__inner",
-            "profiles": [
-                "geometry",
-                "spacing"
-            ]
-        },
-        "heading": {
-            "selector": ".thallo-block-container__inner .thallo-block-heading",
-            "profiles": [
-                "geometry",
-                "spacing",
-                "typography",
-                "semantics"
-            ]
-        },
-        "richtext": {
-            "selector": ".thallo-block-container__inner .thallo-block-rich_text",
-            "profiles": [
-                "geometry",
-                "spacing",
-                "typography",
-                "semantics"
-            ]
-        },
-        "paragraph": {
-            "selector": ".thallo-block-container__inner .thallo-block-rich_text p",
-            "profiles": [
-                "geometry",
-                "spacing",
-                "typography"
-            ]
-        }
+    "inner": {
+      "selector": ".thallo-block-container__inner",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "heading": {
+      "selector": ".thallo-block-container__inner .thallo-block-heading",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography",
+        "semantics"
+      ]
+    },
+    "richtext": {
+      "selector": ".thallo-block-container__inner .thallo-block-rich_text",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography",
+        "semantics"
+      ]
+    },
+    "paragraph": {
+      "selector": ".thallo-block-container__inner .thallo-block-rich_text p",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography"
+      ]
     }
+  },
+  "map": {
+    "root": ".thallo-block-container",
+    "inner": ".thallo-block-container__inner",
+    "heading": ".thallo-block-container__inner .thallo-block-heading",
+    "richtext": ".thallo-block-container__inner .thallo-block-rich_text",
+    "paragraph": ".thallo-block-container__inner .thallo-block-rich_text p"
+  },
+  "allow": [
+    {
+      "element": "heading",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px",
+        "margin-left": "0px",
+        "margin-right": "0px"
+      },
+      "affects": [
+        "root",
+        "inner",
+        "heading",
+        "richtext",
+        "paragraph"
+      ]
+    },
+    {
+      "element": "richtext",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px",
+        "margin-left": "0px",
+        "margin-right": "0px"
+      },
+      "affects": [
+        "root",
+        "inner",
+        "heading",
+        "richtext",
+        "paragraph"
+      ]
+    },
+    {
+      "element": "heading",
+      "why": "Container edge released (spec §3.8): the first child's top margin and the last child's bottom margin are the container's padding to govern.",
+      "relax": [
+        "margin-top"
+      ],
+      "expect": {
+        "margin-top": "0px"
+      },
+      "affects": [
+        "root",
+        "inner",
+        "heading",
+        "richtext",
+        "paragraph"
+      ]
+    },
+    {
+      "element": "richtext",
+      "why": "Container edge released (spec §3.8): the first child's top margin and the last child's bottom margin are the container's padding to govern.",
+      "relax": [
+        "margin-bottom"
+      ],
+      "expect": {
+        "margin-bottom": "0px"
+      },
+      "affects": [
+        "root",
+        "inner",
+        "heading",
+        "richtext",
+        "paragraph"
+      ]
+    },
+    {
+      "element": "paragraph",
+      "why": "Rich text contributes no outer paragraph margin (spec §3.8); spacing between its own paragraphs is unchanged.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "expect": {
+        "margin-top": "0px",
+        "margin-bottom": "0px"
+      },
+      "affects": [
+        "root",
+        "inner",
+        "heading",
+        "richtext",
+        "paragraph"
+      ]
+    }
+  ],
+  "old": {
+    "id": "cnt000000001",
+    "type": "container",
+    "data": {
+      "width": "full",
+      "min_height": "auto",
+      "content_align": "center",
+      "layout": "block",
+      "content": [
+        {
+          "id": "hd0000000001",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Built for sites that outlive their launch"
+          },
+          "settings": []
+        },
+        {
+          "id": "rt0000000001",
+          "type": "rich_text",
+          "data": {
+            "body": "<p>Thallo is a canonical content source with an admin your editors will like and an API your developers already understand.</p>"
+          },
+          "settings": []
+        }
+      ]
+    },
+    "settings": []
+  },
+  "new": {
+    "id": "cnt000000001",
+    "type": "container",
+    "data": {
+      "element": "div",
+      "content": [
+        {
+          "id": "hd0000000001",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Built for sites that outlive their launch"
+          },
+          "settings": []
+        },
+        {
+          "id": "rt0000000001",
+          "type": "rich_text",
+          "data": {
+            "body": "<p>Thallo is a canonical content source with an admin your editors will like and an API your developers already understand.</p>"
+          },
+          "settings": []
+        }
+      ]
+    },
+    "settings": {
+      "style": {
+        "layout": {
+          "content_width": {
+            "base": {
+              "type": "token",
+              "value": "width.full"
+            }
+          }
+        }
+      }
+    }
+  }
 }

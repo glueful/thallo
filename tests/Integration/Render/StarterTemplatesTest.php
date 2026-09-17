@@ -86,7 +86,7 @@ final class StarterTemplatesTest extends AppTestCase
                     'data' => ['label' => 'Do it', 'url' => 'https://example.com']]]],
             'image' => ['image' => 'blob00000000', 'alt' => 'A pic', 'caption' => 'Cap'],
             'style' => ['accent' => 'rose', 'neutral' => 'zinc', 'content' => []],
-            'container' => ['overlay' => 'dark', 'overlay_opacity' => '50', 'width' => 'full',
+            'container' => ['overlay' => 'dark', 'overlay_opacity' => '50', 'element' => 'section',
                 'content' => [['id' => 'cq', 'type' => 'rich_text', 'data' => ['body' => '<p>Boxed</p>']]]],
             'grid' => ['columns' => '3', 'flow' => 'masonry', 'gap' => 'small',
                 'items' => [['id' => 'gq', 'type' => 'rich_text', 'data' => ['body' => '<p>Cell</p>']]]],
@@ -208,6 +208,38 @@ final class StarterTemplatesTest extends AppTestCase
             ['id' => 's', 'type' => 'section', 'data' => $this->fixture('section')]]]);
         self::assertStringContainsString('thallo-block-section--subtle', $section);
         self::assertStringContainsString('Inner', $section); // children composed
+    }
+
+    public function testTheContainerRendersItsElementAndCarriesLayoutOnTheContentArea(): void
+    {
+        // Container-layout spec §4: the root tag is the author's choice through an allowlist, the
+        // arrangement classes land on the content area, and no modifier describes layout any more.
+        $this->syncBlockStyleDeclarations();
+        $this->container()->get(RenderContextExtension::class)->resetPerRenderState();
+        $out = $this->env()->createTemplate('{{ blocks(list) }}')->render(['list' => [[
+            'id' => 'b1', 'type' => 'container',
+            'data' => ['element' => 'header', 'content' => []],
+            'settings' => ['style' => [
+                'layout' => [
+                    'display' => ['base' => ['type' => 'choice', 'value' => 'flex']],
+                    'min_height' => ['base' => ['type' => 'choice', 'value' => 'half']],
+                    'content_width' => ['base' => ['type' => 'token', 'value' => 'width.container']],
+                ],
+                'alignment' => ['content' => ['base' => ['type' => 'choice', 'value' => 'center']]],
+            ]],
+        ]]]);
+
+        self::assertMatchesRegularExpression('~<header class="[^"]*thallo-block-container[^"]*"~', $out);
+        self::assertStringContainsString('</header>', $out);
+        preg_match('~<header class="([^"]*)"~', $out, $root);
+        preg_match('~thallo-block-container__inner([^"]*)"~', $out, $inner);
+        // The band owns its own height; the content area owns the arrangement.
+        self::assertStringContainsString('t-minh-half', $root[1]);
+        self::assertStringNotContainsString('t-display-flex', $root[1]);
+        self::assertStringContainsString('t-display-flex', $inner[1]);
+        self::assertStringContainsString('t-content-center', $inner[1]);
+        self::assertStringContainsString('t-cw-container', $inner[1]);
+        self::assertStringNotContainsString('thallo-block-container--', $out);
     }
 
     public function testSectionAlignsHeadlineTitleAndDescriptionSeparately(): void

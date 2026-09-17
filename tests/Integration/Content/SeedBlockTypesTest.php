@@ -148,13 +148,22 @@ final class SeedBlockTypesTest extends AppTestCase
             ['title', 'description', 'variant', 'orientation', 'reverse', 'links', 'links_align'],
             $ctaFields,
         );
-        // Visual builder spec §7.2: the container's overlay is a choice and an opacity step,
-        // its gap a spacing token; colours, corners, border and shadow are settings.
+        // Visual builder spec §7.2: the container's overlay is a choice and an opacity step;
+        // colours, corners, border and shadow are settings. Container-layout spec §4: the root's
+        // element is allowlisted structure, and the nine layout fields are settings now.
         $container = array_column($repo->findBySlug('container')['schema'], null, 'name');
         self::assertSame(['none', 'light', 'dark'], $container['overlay']['enum']);
         self::assertSame(['25', '50', '75'], $container['overlay_opacity']['enum']);
-        self::assertSame('spacing', $container['gap']['domain']);
-        foreach (['background_color', 'shadow', 'padding_preset', 'overlay_color'] as $retired) {
+        self::assertSame(
+            ['div', 'section', 'article', 'aside', 'header', 'footer'],
+            $container['element']['enum'],
+        );
+        $retiredFields = [
+            'background_color', 'shadow', 'padding_preset', 'overlay_color',
+            'width', 'min_height', 'content_align', 'layout', 'flex_direction',
+            'justify', 'align_items', 'flex_wrap', 'gap',
+        ];
+        foreach ($retiredFields as $retired) {
             self::assertArrayNotHasKey($retired, $container);
         }
 
