@@ -28,6 +28,7 @@ import {
   type DragSource,
   type DropZone,
 } from '@/editor/structure/coordinator'
+import { createStructurePicker } from '@/editor/structure/structurePicker'
 import MoveToDialog from './components/MoveToDialog.vue'
 import BlocksPalette from '@/editor/palette/BlocksPalette.vue'
 import BoxField from '@/editor/inspector/controls/BoxField.vue'
@@ -738,6 +739,15 @@ function duplicateAndMirror(id: string): void {
           block: copy,
         }),
       )
+      // A duplicate lands INSIDE a container as surely as an insert does (spec §6.1).
+      picker.onDocumentChange([
+        {
+          type: 'DuplicateBlock',
+          source: member,
+          position: { parent: group.parent, slot: group.slot, index: at.index + 1 },
+          block: copy,
+        },
+      ])
       copies.push(copy.id)
       mirrors.push([member, listOps.idMapBetween(source, copy)])
     }
@@ -894,6 +904,23 @@ const coordinator = createDragCoordinator({
   doc: () => history?.document ?? { fields: snapshotFields() },
   legality: legalityContext,
 })
+
+/**
+ * The structure picker (container-layout spec §6): offered for a container the author just
+ * inserted, empty and fresh. The offer lives in this session, never in the document, so undo
+ * neither resurrects a picker nor reopens one that content has already consumed.
+ */
+const picker = createStructurePicker({
+  doc: () => history?.document ?? { fields: snapshotFields() },
+  legality: legalityContext,
+  classesFor: (id) => classRefsFor(fieldEditorRef.value?.blockById(id) ?? null),
+  factory: (slug) => blockFactory.instance(slug),
+  commit: (ops) => applyDrop(ops),
+  publish: (offers) => bridge.publishStructureOffers(offers),
+  notify: (message) => warning(message),
+})
+bridge.onStructureChoose((id, preset) => void picker.choose(id, preset))
+bridge.onStructureSkip((id) => picker.skip(id))
 /** A block dropped (or moved to) a zone from any surface: judged, then applied or refused aloud. */
 function runDrop(source: DragSource, id: string, zone: DropZone): void {
   coordinator.begin(source, { blocks: [id] })
@@ -1004,6 +1031,7 @@ const paletteDrag = createPaletteDrag({
     paletteBlock = null
     void finishDrop(zone).then((ok) => {
       if (!ok || !block) return
+      offerStructure(block)
       selectOne(block.id)
       fieldEditorRef.value?.selectBlockById(block.id)
       ringSelection()
@@ -1017,6 +1045,19 @@ const paletteDrag = createPaletteDrag({
     coordinator.cancel()
   },
 })
+
+/**
+ * The structure picker is offered only for a container the AUTHOR inserted, fresh and empty
+ * (spec §6.1). A container arriving any other way — a preset's own child, a duplicate, a paste, a
+ * version restore, a redo — never gets one, which is why this is called from the two explicit
+ * insertion paths rather than from the place where operations are recorded.
+ */
+function offerStructure(block: BlockInstance): void {
+  if (block.type !== 'container') return
+  const content = block.data?.content
+  if (Array.isArray(content) && content.length > 0) return
+  picker.offer(block.id)
+}
 
 async function insertFromPalette(slug: string): Promise<void> {
   const intent = effectiveTarget()
@@ -1038,6 +1079,7 @@ async function insertFromPalette(slug: string): Promise<void> {
   }
   coordinator.begin('palette', { block })
   if (!(await finishDrop(at.position))) return // the target stays armed; the reason was shown
+  offerStructure(block)
   insertTarget.value = null
   targetStale.value = false
   selectOne(block.id)
@@ -1060,6 +1102,7 @@ function revealInserted(): void {
 }
 async function applyDrop(ops: OperationBody[] | null): Promise<void> {
   if (!history || ops === null || ops.length === 0) return
+  picker.onDocumentChange(ops)
   commitNow()
   history.beginTransaction()
   for (const body of ops) opsSinceApply.push(history.record(body))
@@ -1125,6 +1168,7 @@ watch(
     }
     const bodies = diffDocuments(history.document, next, regionsOf, blockFields)
     if (bodies.length === 0) return
+    picker.onDocumentChange(bodies)
     const recorded = bodies.map((body) => history!.record(body))
     opsSinceApply.push(...recorded)
     scheduleCommit(bodies.some((b) => STRUCTURAL.has(b.type)))
