@@ -94,6 +94,10 @@ $css = implode("\n", [
     StyleCompiler::compile($vocabulary),
 ]);
 
+// The stage's own stylesheet: the annotation wrapper is display:contents there, so a canvas
+// reference measured without it would freeze geometry the stage never shows.
+$previewCss = (string) file_get_contents($root . '/packages/thallo-render/assets/preview/preview.css');
+
 $extension = $container->get(RenderContextExtension::class);
 $twig = (new TwigFactory($theme, $extension, $root . '/storage/cache/twig'))->environment();
 
@@ -133,7 +137,10 @@ foreach ($definitions as $file) {
         $extension->setBlockAnnotations(false);
         $suffix = $mode === 'public' ? '' : '.canvas';
         $pageFile = $pages . '/' . $name . $suffix . '.html';
-        file_put_contents($pageFile, $page($name . ' (' . $mode . ')', $body, $css));
+        file_put_contents(
+            $pageFile,
+            $page($name . ' (' . $mode . ')', $body, $annotations ? $css . "\n" . $previewCss : $css),
+        );
         $status = $node([
             'node',
             'scripts/measure.js',

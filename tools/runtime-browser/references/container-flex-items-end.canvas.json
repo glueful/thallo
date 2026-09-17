@@ -7,7 +7,7 @@
           "top": 0,
           "left": 0,
           "width": 375,
-          "height": 137.66
+          "height": 142.05
         },
         "spacing": {
           "margin-top": "40px",
@@ -28,7 +28,7 @@
           "top": 0,
           "left": 0,
           "width": 375,
-          "height": 137.66
+          "height": 142.05
         },
         "spacing": {
           "margin-top": "0px",
@@ -43,7 +43,7 @@
       },
       "heading": {
         "geometry": {
-          "top": 70.06,
+          "top": 74.45,
           "left": 24,
           "width": 92.25,
           "height": 27.59
@@ -75,10 +75,10 @@
       },
       "richtext": {
         "geometry": {
-          "top": 69.61,
+          "top": 40,
           "left": 140.25,
           "width": 79.41,
-          "height": 28.05
+          "height": 62.05
         },
         "spacing": {
           "margin-top": "40px",
@@ -107,7 +107,7 @@
       },
       "button": {
         "geometry": {
-          "top": 40,
+          "top": 44.39,
           "left": 243.66,
           "width": 141.55,
           "height": 57.66
@@ -137,7 +137,7 @@
           "top": 0,
           "left": 0,
           "width": 700,
-          "height": 119.42
+          "height": 142.05
         },
         "spacing": {
           "margin-top": "40px",
@@ -158,7 +158,7 @@
           "top": 0,
           "left": 0,
           "width": 700,
-          "height": 119.42
+          "height": 142.05
         },
         "spacing": {
           "margin-top": "0px",
@@ -173,16 +173,16 @@
       },
       "heading": {
         "geometry": {
-          "top": 47.7,
-          "left": 24,
+          "top": 70.33,
+          "left": 66.55,
           "width": 98.88,
           "height": 31.72
         },
         "spacing": {
           "margin-top": "40px",
-          "margin-right": "0px",
+          "margin-right": "42.5312px",
           "margin-bottom": "40px",
-          "margin-left": "0px",
+          "margin-left": "42.5469px",
           "padding-top": "0px",
           "padding-right": "24px",
           "padding-bottom": "0px",
@@ -205,16 +205,16 @@
       },
       "richtext": {
         "geometry": {
-          "top": 51.38,
-          "left": 146.88,
+          "top": 40,
+          "left": 274.5,
           "width": 79.41,
-          "height": 28.05
+          "height": 62.05
         },
         "spacing": {
           "margin-top": "40px",
-          "margin-right": "0px",
+          "margin-right": "42.5469px",
           "margin-bottom": "40px",
-          "margin-left": "0px",
+          "margin-left": "42.5469px",
           "padding-top": "0px",
           "padding-right": "24px",
           "padding-bottom": "0px",
@@ -237,16 +237,16 @@
       },
       "button": {
         "geometry": {
-          "top": 40,
-          "left": 250.28,
+          "top": 62.63,
+          "left": 462.98,
           "width": 170.47,
           "height": 39.42
         },
         "spacing": {
           "margin-top": "40px",
-          "margin-right": "0px",
+          "margin-right": "42.5469px",
           "margin-bottom": "40px",
-          "margin-left": "0px",
+          "margin-left": "42.5312px",
           "padding-top": "0px",
           "padding-right": "24px",
           "padding-bottom": "0px",
@@ -267,7 +267,7 @@
           "top": 0,
           "left": 0,
           "width": 800,
-          "height": 119.42
+          "height": 142.05
         },
         "spacing": {
           "margin-top": "40px",
@@ -288,7 +288,7 @@
           "top": 0,
           "left": 0,
           "width": 800,
-          "height": 119.42
+          "height": 142.05
         },
         "spacing": {
           "margin-top": "0px",
@@ -303,16 +303,16 @@
       },
       "heading": {
         "geometry": {
-          "top": 46.31,
-          "left": 24,
+          "top": 68.94,
+          "left": 82.84,
           "width": 101.09,
           "height": 33.11
         },
         "spacing": {
           "margin-top": "40px",
-          "margin-right": "0px",
+          "margin-right": "58.8281px",
           "margin-bottom": "40px",
-          "margin-left": "0px",
+          "margin-left": "58.8438px",
           "padding-top": "0px",
           "padding-right": "24px",
           "padding-bottom": "0px",
@@ -335,16 +335,16 @@
       },
       "richtext": {
         "geometry": {
-          "top": 51.38,
-          "left": 149.09,
+          "top": 40,
+          "left": 325.61,
           "width": 79.41,
-          "height": 28.05
+          "height": 62.05
         },
         "spacing": {
           "margin-top": "40px",
-          "margin-right": "0px",
+          "margin-right": "58.8438px",
           "margin-bottom": "40px",
-          "margin-left": "0px",
+          "margin-left": "58.8438px",
           "padding-top": "0px",
           "padding-right": "24px",
           "padding-bottom": "0px",
@@ -367,16 +367,16 @@
       },
       "button": {
         "geometry": {
-          "top": 40,
-          "left": 252.5,
+          "top": 62.63,
+          "left": 546.69,
           "width": 170.47,
           "height": 39.42
         },
         "spacing": {
           "margin-top": "40px",
-          "margin-right": "0px",
+          "margin-right": "58.8438px",
           "margin-bottom": "40px",
-          "margin-left": "0px",
+          "margin-left": "58.8281px",
           "padding-top": "0px",
           "padding-right": "24px",
           "padding-bottom": "0px",
@@ -397,7 +397,7 @@
           "top": 0,
           "left": 0,
           "width": 1280,
-          "height": 119.42
+          "height": 142.05
         },
         "spacing": {
           "margin-top": "40px",
@@ -418,7 +418,7 @@
           "top": 0,
           "left": 64,
           "width": 1152,
-          "height": 119.42
+          "height": 142.05
         },
         "spacing": {
           "margin-top": "0px",
@@ -433,16 +433,16 @@
       },
       "heading": {
         "geometry": {
-          "top": 42.63,
-          "left": 88,
+          "top": 65.25,
+          "left": 204.53,
           "width": 106.98,
           "height": 36.8
         },
         "spacing": {
           "margin-top": "40px",
-          "margin-right": "0px",
+          "margin-right": "116.516px",
           "margin-bottom": "40px",
-          "margin-left": "0px",
+          "margin-left": "116.531px",
           "padding-top": "0px",
           "padding-right": "24px",
           "padding-bottom": "0px",
@@ -465,16 +465,16 @@
       },
       "richtext": {
         "geometry": {
-          "top": 51.38,
-          "left": 218.98,
+          "top": 40,
+          "left": 568.56,
           "width": 79.41,
-          "height": 28.05
+          "height": 62.05
         },
         "spacing": {
           "margin-top": "40px",
-          "margin-right": "0px",
+          "margin-right": "116.516px",
           "margin-bottom": "40px",
-          "margin-left": "0px",
+          "margin-left": "116.531px",
           "padding-top": "0px",
           "padding-right": "24px",
           "padding-bottom": "0px",
@@ -497,16 +497,16 @@
       },
       "button": {
         "geometry": {
-          "top": 40,
-          "left": 322.39,
+          "top": 62.63,
+          "left": 905.02,
           "width": 170.47,
           "height": 39.42
         },
         "spacing": {
           "margin-top": "40px",
-          "margin-right": "0px",
+          "margin-right": "116.516px",
           "margin-bottom": "40px",
-          "margin-left": "0px",
+          "margin-left": "116.531px",
           "padding-top": "0px",
           "padding-right": "24px",
           "padding-bottom": "0px",

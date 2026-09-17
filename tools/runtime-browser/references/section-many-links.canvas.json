@@ -232,9 +232,9 @@
         },
         "spacing": {
           "margin-top": "40px",
-          "margin-right": "0px",
+          "margin-right": "78.2656px",
           "margin-bottom": "40px",
-          "margin-left": "0px",
+          "margin-left": "78.2656px",
           "padding-top": "0px",
           "padding-right": "24px",
           "padding-bottom": "0px",
@@ -489,15 +489,15 @@
       "firstLink": {
         "geometry": {
           "top": 522.3,
-          "left": 41.09,
+          "left": 29.7,
           "width": 170.47,
           "height": 39.42
         },
         "spacing": {
           "margin-top": "40px",
-          "margin-right": "0px",
+          "margin-right": "5.70312px",
           "margin-bottom": "40px",
-          "margin-left": "0px",
+          "margin-left": "5.70312px",
           "padding-top": "0px",
           "padding-right": "24px",
           "padding-bottom": "0px",
@@ -514,7 +514,7 @@
       "lastLink": {
         "geometry": {
           "top": 522.3,
-          "left": 41.09,
+          "left": 29.7,
           "width": 170.47,
           "height": 39.42
         },
@@ -752,15 +752,15 @@
       "firstLink": {
         "geometry": {
           "top": 523.69,
-          "left": 91.09,
+          "left": 46.38,
           "width": 170.47,
           "height": 39.42
         },
         "spacing": {
           "margin-top": "40px",
-          "margin-right": "0px",
+          "margin-right": "22.3594px",
           "margin-bottom": "40px",
-          "margin-left": "0px",
+          "margin-left": "22.375px",
           "padding-top": "0px",
           "padding-right": "24px",
           "padding-bottom": "0px",
@@ -777,7 +777,7 @@
       "lastLink": {
         "geometry": {
           "top": 523.69,
-          "left": 91.09,
+          "left": 46.38,
           "width": 170.47,
           "height": 39.42
         },
@@ -1015,15 +1015,15 @@
       "firstLink": {
         "geometry": {
           "top": 527.38,
-          "left": 230.53,
+          "left": 123.64,
           "width": 170.47,
           "height": 39.42
         },
         "spacing": {
           "margin-top": "40px",
-          "margin-right": "0px",
+          "margin-right": "35.625px",
           "margin-bottom": "40px",
-          "margin-left": "0px",
+          "margin-left": "35.6406px",
           "padding-top": "0px",
           "padding-right": "24px",
           "padding-bottom": "0px",
@@ -1040,7 +1040,7 @@
       "lastLink": {
         "geometry": {
           "top": 527.38,
-          "left": 230.53,
+          "left": 123.64,
           "width": 170.47,
           "height": 39.42
         },

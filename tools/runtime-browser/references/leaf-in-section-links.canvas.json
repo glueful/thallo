@@ -197,15 +197,15 @@
       "firstLink": {
         "geometry": {
           "top": 409.02,
-          "left": 44.22,
+          "left": 34.11,
           "width": 123.7,
           "height": 39.42
         },
         "spacing": {
           "margin-top": "40px",
-          "margin-right": "0px",
+          "margin-right": "10.125px",
           "margin-bottom": "40px",
-          "margin-left": "0px",
+          "margin-left": "10.1094px",
           "padding-top": "0px",
           "padding-right": "24px",
           "padding-bottom": "0px",
@@ -222,15 +222,15 @@
       "firstButton": {
         "geometry": {
           "top": 409.02,
-          "left": 44.22,
+          "left": 34.11,
           "width": 123.7,
           "height": 39.42
         },
         "spacing": {
           "margin-top": "40px",
-          "margin-right": "0px",
+          "margin-right": "10.125px",
           "margin-bottom": "40px",
-          "margin-left": "0px",
+          "margin-left": "10.1094px",
           "padding-top": "0px",
           "padding-right": "24px",
           "padding-bottom": "0px",
@@ -444,15 +444,15 @@
       "firstLink": {
         "geometry": {
           "top": 342.53,
-          "left": 206.72,
+          "left": 115.36,
           "width": 123.7,
           "height": 39.42
         },
         "spacing": {
           "margin-top": "40px",
-          "margin-right": "0px",
+          "margin-right": "91.375px",
           "margin-bottom": "40px",
-          "margin-left": "0px",
+          "margin-left": "91.3594px",
           "padding-top": "0px",
           "padding-right": "24px",
           "padding-bottom": "0px",
@@ -469,15 +469,15 @@
       "firstButton": {
         "geometry": {
           "top": 342.53,
-          "left": 206.72,
+          "left": 115.36,
           "width": 123.7,
           "height": 39.42
         },
         "spacing": {
           "margin-top": "40px",
-          "margin-right": "0px",
+          "margin-right": "91.375px",
           "margin-bottom": "40px",
-          "margin-left": "0px",
+          "margin-left": "91.3594px",
           "padding-top": "0px",
           "padding-right": "24px",
           "padding-bottom": "0px",
@@ -691,15 +691,15 @@
       "firstLink": {
         "geometry": {
           "top": 342.53,
-          "left": 256.72,
+          "left": 140.36,
           "width": 123.7,
           "height": 39.42
         },
         "spacing": {
           "margin-top": "40px",
-          "margin-right": "0px",
+          "margin-right": "116.375px",
           "margin-bottom": "40px",
-          "margin-left": "0px",
+          "margin-left": "116.359px",
           "padding-top": "0px",
           "padding-right": "24px",
           "padding-bottom": "0px",
@@ -716,15 +716,15 @@
       "firstButton": {
         "geometry": {
           "top": 342.53,
-          "left": 256.72,
+          "left": 140.36,
           "width": 123.7,
           "height": 39.42
         },
         "spacing": {
           "margin-top": "40px",
-          "margin-right": "0px",
+          "margin-right": "116.375px",
           "margin-bottom": "40px",
-          "margin-left": "0px",
+          "margin-left": "116.359px",
           "padding-top": "0px",
           "padding-right": "24px",
           "padding-bottom": "0px",
@@ -938,15 +938,15 @@
       "firstLink": {
         "geometry": {
           "top": 342.53,
-          "left": 496.72,
+          "left": 292.36,
           "width": 123.7,
           "height": 39.42
         },
         "spacing": {
           "margin-top": "40px",
-          "margin-right": "0px",
+          "margin-right": "204.375px",
           "margin-bottom": "40px",
-          "margin-left": "0px",
+          "margin-left": "204.359px",
           "padding-top": "0px",
           "padding-right": "24px",
           "padding-bottom": "0px",
@@ -963,15 +963,15 @@
       "firstButton": {
         "geometry": {
           "top": 342.53,
-          "left": 496.72,
+          "left": 292.36,
           "width": 123.7,
           "height": 39.42
         },
         "spacing": {
           "margin-top": "40px",
-          "margin-right": "0px",
+          "margin-right": "204.375px",
           "margin-bottom": "40px",
-          "margin-left": "0px",
+          "margin-left": "204.359px",
           "padding-top": "0px",
           "padding-right": "24px",
           "padding-bottom": "0px",
