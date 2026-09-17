@@ -7,6 +7,17 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.38] - 2026-09-17 — Developer Preview
+
+The Style tab's spacing as box rows, and the empty-block stub no longer claiming separators.
+
+### Upgrade Notes
+- The documented sequence applies (docs/upgrading.md): `composer update`, then
+  `php glueful thallo:provision`, then reload PHP-FPM so OPcache drops the previous release's
+  classes. No migrations, no new permissions; framework 1.85.8 remains the requirement.
+- The preview bridge changed (the empty-block rule). Provision publishes it with the admin
+  bundle; a stage still holding the old bridge reloads on the next apply.
+
 ### Changed
 - The Style tab's four-sided properties (padding, margin) present as one box row each: a cell
   per side showing its token and state, a link toggle that writes every side at once, and the
