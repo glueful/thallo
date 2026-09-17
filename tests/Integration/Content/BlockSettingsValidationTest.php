@@ -232,6 +232,57 @@ final class BlockSettingsValidationTest extends AppTestCase
         }
     }
 
+    public function testLayoutSettingsFollowTheContractAndTheDeclaredCapabilities(): void
+    {
+        // Container-layout plan, Task 1.1: layout is validated like every other managed style.
+        $v = $this->validator(['heading' => ['caps' => ['layout.display', 'layout.columns', 'layout.overflow']]]);
+
+        $ok = $v->validate($this->schema(), ['body' => [$this->heading(['style' => [
+            'layout' => [
+                'display' => [
+                    'base' => ['type' => 'choice', 'value' => 'flex'],
+                    'md' => ['type' => 'choice', 'value' => 'grid'],
+                ],
+                'columns' => ['md' => ['type' => 'choice', 'value' => '1-2']],
+                'overflow' => ['type' => 'choice', 'value' => 'hidden'],
+            ],
+        ]])]]);
+        $style = $ok['body'][0]['settings']['style']['layout'];
+        self::assertSame('grid', $style['display']['md']['value']);
+        self::assertSame('1-2', $style['columns']['md']['value']);
+        self::assertSame('hidden', $style['overflow']['value']);
+
+        $cases = [
+            [
+                ['layout' => ['display' => ['base' => ['type' => 'choice', 'value' => 'table']]]],
+                'body.0.settings.style.layout.display.base',
+                'must be one of block, flex, grid',
+            ],
+            [
+                // Not responsive: an overflow that changed with the viewport would hide content
+                // at one width and not another.
+                ['layout' => ['overflow' => ['md' => ['type' => 'choice', 'value' => 'hidden']]]],
+                'body.0.settings.style.layout.overflow',
+                'is not responsive',
+            ],
+            [
+                // A property the block type does not declare is refused, layout included.
+                ['layout' => ['gap' => ['column' => ['base' => ['type' => 'token', 'value' => 'spacing.lg']]]]],
+                'body.0.settings.style.layout.gap.column',
+                'not styleable on this block',
+            ],
+        ];
+        foreach ($cases as [$style, $path, $message]) {
+            try {
+                $v->validate($this->schema(), ['body' => [$this->heading(['style' => $style])]]);
+                self::fail('expected ValidationException for ' . $path);
+            } catch (ValidationException $e) {
+                self::assertArrayHasKey($path, $e->errors(), $path);
+                self::assertStringContainsString($message, $e->errors()[$path], $path);
+            }
+        }
+    }
+
     public function testAdvancedAndClassesAreValidated(): void
     {
         $v = $this->validator(['heading' => ['caps' => ['spacing']]]);

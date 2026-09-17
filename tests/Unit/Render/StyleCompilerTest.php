@@ -90,6 +90,104 @@ final class StyleCompilerTest extends TestCase
         }
     }
 
+    public function testLayoutUtilitiesCompileToTheirDeclarations(): void
+    {
+        // Container-layout plan, Task 1.1: one declaration per layout utility.
+        $css = StyleCompiler::compile($this->vocabulary());
+        $rule = static function (string $class) use ($css): string {
+            $selector = preg_quote(ClassNames::selector($class), '~');
+            self::assertMatchesRegularExpression("~{$selector} \{~", $css, $class);
+            preg_match("~{$selector} \{([^}]*)\}~", $css, $m);
+            return trim($m[1] ?? '');
+        };
+
+        self::assertSame('display: grid;', $rule('t-display-grid'));
+        self::assertSame('flex-direction: column-reverse;', $rule('t-dir-column-reverse'));
+        self::assertSame('flex-wrap: wrap;', $rule('t-wrap-wrap'));
+        self::assertSame('align-items: flex-start;', $rule('t-items-start'));
+        self::assertSame('justify-content: space-between;', $rule('t-content-between'));
+        self::assertSame('justify-content: flex-start;', $rule('t-content-start'));
+        self::assertSame(
+            'grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);',
+            $rule('t-cols-1-2'),
+        );
+        self::assertSame('grid-template-columns: repeat(12, minmax(0, 1fr));', $rule('t-cols-12'));
+        // The default track state: a container that declares no track count.
+        self::assertSame('grid-template-columns: none;', $rule('t-cols-auto'));
+        self::assertSame('column-gap: var(--t-spacing-lg);', $rule('t-gapx-lg'));
+        self::assertSame('row-gap: var(--t-spacing-md);', $rule('t-gapy-md'));
+        self::assertSame('overflow: hidden;', $rule('t-overflow-hidden'));
+        self::assertSame('flex-basis: 33.333%;', $rule('t-basis-1-3'));
+        self::assertSame('flex-grow: 1;', $rule('t-grow-1'));
+        self::assertSame('flex-shrink: 0;', $rule('t-shrink-0'));
+        self::assertSame('align-self: center;', $rule('t-aself-center'));
+
+        // Content width carries the default gutter with it, so an absent gutter resolves to the
+        // width's default and never to an inherited one (spec §3.4).
+        self::assertSame(
+            'max-width: var(--t-width-container); margin-inline: auto; '
+                . '--thallo-default-gutter: var(--t-spacing-lg);',
+            $rule('t-cw-container'),
+        );
+        self::assertSame(
+            'max-width: none; margin-inline: auto; --thallo-default-gutter: 0px;',
+            $rule('t-cw-full'),
+        );
+        self::assertSame(
+            'max-width: revert-layer; margin-inline: revert-layer; '
+                . '--thallo-default-gutter: revert-layer;',
+            $rule('t-cw-reset'),
+        );
+        self::assertSame('padding-inline: var(--t-spacing-xl);', $rule('t-gutter-xl'));
+        self::assertSame('padding-inline: revert-layer;', $rule('t-gutter-reset'));
+
+        // Min height never writes display: managed visibility owns that (spec §3.5 / review).
+        self::assertSame('min-height: 50vh; --thallo-root-layout: flex;', $rule('t-minh-half'));
+        self::assertSame('min-height: auto; --thallo-root-layout: block;', $rule('t-minh-auto'));
+        self::assertSame(
+            'min-height: revert-layer; --thallo-root-layout: revert-layer;',
+            $rule('t-minh-reset'),
+        );
+        self::assertStringNotContainsString('t-minh-half { min-height: 50vh; display', $css);
+    }
+
+    public function testSpanIsPairedWithItsParentsTrackCountAtEveryBreakpoint(): void
+    {
+        // Container-layout spec §3.7 and the plan's review: a span is never a single-class rule,
+        // so a base clamp cannot outrank a later breakpoint's span.
+        $css = StyleCompiler::compile($this->vocabulary());
+        // No rule whose whole selector is the span class: every span rule starts with its
+        // parent's track class, at the same breakpoint.
+        self::assertDoesNotMatchRegularExpression('~^\.t-span-2 \{~m', $css);
+        self::assertDoesNotMatchRegularExpression('~^\.md\\\\:t-span-2 \{~m', $css);
+
+        $pair = static function (string $cols, string $span) use ($css): string {
+            $selector = preg_quote(ClassNames::selector($cols) . ' > ' . ClassNames::selector($span), '~');
+            // Each pair is written in two forms, the plain one first and comma-terminated.
+            self::assertMatchesRegularExpression("~{$selector}[ ,]~", $css, "{$cols} > {$span}");
+            preg_match("~{$selector}[^{]*\{([^}]*)\}~", $css, $m);
+            return trim($m[1] ?? '');
+        };
+
+        self::assertSame('grid-column: span 2;', $pair('md:t-cols-4', 'md:t-span-2'));
+        self::assertSame('grid-column: 1 / -1;', $pair('md:t-cols-2', 'md:t-span-3'));
+        self::assertSame('grid-column: 1 / -1;', $pair('md:t-cols-auto', 'md:t-span-2'));
+        self::assertSame('grid-column: 1 / -1;', $pair('md:t-cols-reset', 'md:t-span-2'));
+        self::assertSame('grid-column: span 1;', $pair('md:t-cols-reset', 'md:t-span-1'));
+        self::assertSame('grid-column: 1 / -1;', $pair('lg:t-cols-3', 'lg:t-span-full'));
+        // A reset span follows the contract's reset semantics, not a hard-coded default.
+        self::assertSame('grid-column: revert-layer;', $pair('lg:t-cols-3', 'lg:t-span-reset'));
+        // A ratio preset counts its parts: three tracks, so a span of three fits.
+        self::assertSame('grid-column: span 3;', $pair('t-cols-1-2-1', 't-span-3'));
+
+        // Every pair also matches through the stage's annotation wrapper.
+        self::assertStringContainsString(
+            ClassNames::selector('md:t-cols-4') . ' > .thallo-preview-block > '
+                . ClassNames::selector('md:t-span-2'),
+            $css,
+        );
+    }
+
     public function testTheHashFollowsTheVocabularyAndTheCompilerVersion(): void
     {
         $a = StyleCompiler::hash($this->vocabulary());

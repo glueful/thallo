@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Content;
 
+use Thallo\Contracts\Style\StyleSchema;
 use Symfony\Component\Console\Tester\CommandTester;
 use Thallo\Core\Content\Blocks\BlockTypeRepository;
 use Thallo\Core\Content\Blocks\Sources\BlockDocumentSource;
@@ -161,7 +162,10 @@ final class ConvertSettingsCommandTest extends AppTestCase
         self::assertSame(0, $converted['exit'], $converted['display']);
 
         $draft = $this->entries()->findDraft($uuid, 'en');
-        self::assertSame(['settings' => 1, 'conversions' => ['test-stage']], $draft['fields']['_schema']);
+        self::assertSame(
+            ['settings' => StyleSchema::VERSION, 'conversions' => ['test-stage']],
+            $draft['fields']['_schema'],
+        );
         self::assertArrayNotHasKey('align', $draft['fields']['body'][0]['data']);
         $style = $draft['fields']['body'][0]['settings']['style'];
         self::assertSame('center', $style['alignment']['text']['base']['value']);

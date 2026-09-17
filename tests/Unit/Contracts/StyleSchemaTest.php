@@ -37,8 +37,13 @@ final class StyleSchemaTest extends TestCase
             'radius',
             'colors.surface', 'colors.text', 'colors.border',
             'border.width', 'border.style',
+            // Layout (container-layout spec §3.2), in table order after the original rows.
+            'layout.display', 'layout.direction', 'layout.wrap', 'layout.align_items', 'layout.columns',
+            'layout.gap.column', 'layout.gap.row', 'layout.content_width', 'layout.gutter',
+            'layout.min_height', 'layout.overflow',
+            'layout.span', 'layout.basis', 'layout.grow', 'layout.shrink', 'layout.align_self',
         ], $paths);
-        self::assertSame(1, StyleSchema::VERSION);
+        self::assertSame(2, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
     }
 
@@ -105,6 +110,61 @@ final class StyleSchemaTest extends TestCase
                 'spacing.margin.top', 'spacing.margin.bottom', 'colors.text', 'alignment.text'],
             $caps->paths(),
         );
+    }
+
+    public function testTheLayoutPropertiesAreDeclared(): void
+    {
+        // Container-layout spec §3.2: the layout table, its groups and its responsiveness.
+        $expected = [
+            'layout.display' => ['layout', true, null, ['block', 'flex', 'grid']],
+            'layout.direction' => ['layout', true, null, ['row', 'column', 'row-reverse', 'column-reverse']],
+            'layout.wrap' => ['layout', true, null, ['nowrap', 'wrap']],
+            'layout.align_items' => ['layout', true, null, ['start', 'center', 'end', 'stretch', 'baseline']],
+            'layout.columns' => ['layout', true, null, [
+                '1', '2', '3', '4', '6', '12', '1-2', '2-1', '1-3', '3-1', '1-2-1', '1-1-2', '2-1-1',
+            ]],
+            'layout.gap.column' => ['layout', true, 'spacing', null],
+            'layout.gap.row' => ['layout', true, 'spacing', null],
+            'layout.content_width' => ['layout', true, 'width', null],
+            'layout.gutter' => ['layout', true, 'spacing', null],
+            'layout.min_height' => ['layout', true, null, ['auto', 'half', 'screen']],
+            'layout.overflow' => ['layout', false, null, ['visible', 'hidden', 'auto']],
+            'layout.span' => ['layout.item', true, null, [
+                '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', 'full',
+            ]],
+            'layout.basis' => ['layout.item', true, null, ['auto', '1/4', '1/3', '1/2', '2/3', '3/4', 'full']],
+            'layout.grow' => ['layout.item', true, null, ['0', '1']],
+            'layout.shrink' => ['layout.item', true, null, ['0', '1']],
+            'layout.align_self' => ['layout.item', true, null, ['start', 'center', 'end', 'stretch']],
+        ];
+        foreach ($expected as $path => [$group, $responsive, $domain, $choices]) {
+            $def = StyleSchema::property($path);
+            self::assertNotNull($def, $path);
+            self::assertSame($group, $def->group, $path);
+            self::assertSame($responsive, $def->responsive, $path);
+            self::assertSame($domain, $def->tokenDomain, $path);
+            self::assertSame($choices, $def->choices, $path);
+            self::assertTrue($def->accepts(ValueKind::Reset), $path);
+            self::assertTrue(
+                $def->accepts($domain === null ? ValueKind::Choice : ValueKind::Token),
+                $path,
+            );
+        }
+        // alignment.content gains the distribution keywords; it stays one property.
+        self::assertSame(
+            ['start', 'center', 'end', 'between', 'around', 'evenly'],
+            StyleSchema::property('alignment.content')?->choices,
+        );
+        // The item group is a capability entry: declaring it grants exactly its five paths.
+        self::assertSame(
+            ['layout.span', 'layout.basis', 'layout.grow', 'layout.shrink', 'layout.align_self'],
+            StyleSchema::pathsInGroup('layout.item'),
+        );
+        self::assertSame(
+            StyleSchema::pathsInGroup('layout.item'),
+            StyleCapabilities::fromDeclaration(['layout.item'])->paths(),
+        );
+        self::assertSame(2, StyleSchema::VERSION);
     }
 
     public function testCapabilitiesRejectUnknownPaths(): void

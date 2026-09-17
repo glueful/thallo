@@ -56,12 +56,14 @@ final class StyleTargetsTest extends TestCase
         $caps = StyleCapabilities::fromDeclaration(['spacing', 'alignment.content', 'radius', 'colors', 'typography']);
         self::assertSame([], $this->button()->validateAgainst($caps));
 
+        // A stack now carries alignment.content too (container-layout spec §3.1: a container's
+        // inner area distributes its children); a box still does not.
         $wrongKind = StyleTargets::fromDeclaration([
-            'targets' => ['root' => ['kind' => 'stack']],
+            'targets' => ['root' => ['kind' => 'box']],
             'map' => ['alignment.content' => 'root'],
         ]);
         self::assertSame(
-            ['alignment.content requires a row target; "root" is stack'],
+            ['alignment.content requires a row or stack target; "root" is box'],
             $wrongKind->validateAgainst(StyleCapabilities::fromDeclaration(['alignment.content'])),
         );
 
@@ -86,6 +88,74 @@ final class StyleTargetsTest extends TestCase
             ['alignment.text requires a text target; "root" is row'],
             $textOnRow->validateAgainst(StyleCapabilities::fromDeclaration(['alignment.text'])),
         );
+    }
+
+    public function testLayoutKindRulesAcceptTheKindsTheyName(): void
+    {
+        // Container-layout spec §3.1/§3.6: parent layout belongs on a stack target, band
+        // properties on a box, and item properties on any outermost root — box, row or text.
+        $stack = StyleTargets::fromDeclaration([
+            'targets' => ['inner' => ['kind' => 'stack']],
+            'map' => ['layout.columns' => 'inner', 'layout.gap.column' => 'inner', 'alignment.content' => 'inner'],
+        ]);
+        self::assertSame([], $stack->validateAgainst(StyleCapabilities::fromDeclaration([
+            'layout.columns', 'layout.gap.column', 'alignment.content',
+        ])));
+
+        $box = StyleTargets::fromDeclaration([
+            'targets' => ['root' => ['kind' => 'box']],
+            'map' => ['layout.min_height' => 'root', 'layout.overflow' => 'root', 'layout.item' => 'root',
+                'alignment.self' => 'root'],
+        ]);
+        self::assertSame([], $box->validateAgainst(StyleCapabilities::fromDeclaration([
+            'layout.min_height', 'layout.overflow', 'layout.item', 'alignment.self',
+        ])));
+
+        // A text root (heading, rich text) is a block-level element: item sizing and Placement
+        // are meaningful on it, text alignment stays text-only.
+        $text = StyleTargets::fromDeclaration([
+            'targets' => ['root' => ['kind' => 'text']],
+            'map' => ['layout.item' => 'root', 'alignment.self' => 'root', 'alignment.text' => 'root'],
+        ]);
+        self::assertSame([], $text->validateAgainst(StyleCapabilities::fromDeclaration([
+            'layout.item', 'alignment.self', 'alignment.text',
+        ])));
+
+        $row = StyleTargets::fromDeclaration([
+            'targets' => ['root' => ['kind' => 'row']],
+            'map' => ['layout.item' => 'root', 'alignment.content' => 'root'],
+        ]);
+        self::assertSame([], $row->validateAgainst(StyleCapabilities::fromDeclaration([
+            'layout.item', 'alignment.content',
+        ])));
+    }
+
+    public function testLayoutKindRulesRefuseTheWrongKindNamingEveryAllowedKind(): void
+    {
+        $box = StyleTargets::fromDeclaration([
+            'targets' => ['root' => ['kind' => 'box']],
+            'map' => ['layout.columns' => 'root'],
+        ]);
+        $errors = $box->validateAgainst(StyleCapabilities::fromDeclaration(['layout.columns']));
+        self::assertCount(1, $errors);
+        self::assertStringContainsString('layout.columns requires a stack target', $errors[0]);
+
+        $stack = StyleTargets::fromDeclaration([
+            'targets' => ['inner' => ['kind' => 'stack']],
+            'map' => ['layout.min_height' => 'inner'],
+        ]);
+        $errors = $stack->validateAgainst(StyleCapabilities::fromDeclaration(['layout.min_height']));
+        self::assertCount(1, $errors);
+        self::assertStringContainsString('layout.min_height requires a box target', $errors[0]);
+
+        // A set of kinds names every allowed one in its message.
+        $textOnly = StyleTargets::fromDeclaration([
+            'targets' => ['label' => ['kind' => 'text']],
+            'map' => ['alignment.content' => 'label'],
+        ]);
+        $errors = $textOnly->validateAgainst(StyleCapabilities::fromDeclaration(['alignment.content']));
+        self::assertCount(1, $errors);
+        self::assertStringContainsString('alignment.content requires a row or stack target', $errors[0]);
     }
 
     public function testAnAdvancedPathMappedTwiceIsAnError(): void
