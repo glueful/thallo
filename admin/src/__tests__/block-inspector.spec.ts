@@ -130,6 +130,7 @@ describe('a multi-selection in the inspector (visual builder spec §5.5)', () =>
     })
     const top = w.find('[data-test="style-field-spacing.padding.top"]')
     expect(top.find('[data-test="style-state"]').text()).toBe('mixed')
+    await top.find('[data-test="box-cell-spacing.padding.top"]').trigger('click')
     expect(top.find('[data-test="token-spacing.sm"]').attributes('aria-pressed')).not.toBe('true')
     // A property they agree on is not mixed.
     expect(
@@ -184,6 +185,17 @@ describe('StyleTab', () => {
       'style-field-visibility',
     ])
     expect(w.find('[data-test="style-group-effects"]').exists()).toBe(false)
+    // The four-sided properties present as one box row each (padding, margin), the breakpoint
+    // chips sit once on the group header, and a single-value row carries none of its own.
+    expect(
+      w.findAll('[data-test="style-group-spacing"] [data-test^="box-"]').length,
+    ).toBeGreaterThan(0)
+    expect(
+      w.find('[data-test="style-group-spacing"] [data-test="group-breakpoint-md"]').exists(),
+    ).toBe(true)
+    expect(
+      w.find('[data-test="style-field-visibility"] [data-test="breakpoint-md"]').exists(),
+    ).toBe(false)
   })
 
   it('editing at active breakpoint md writes md; lg shows the value as inherited', async () => {
@@ -207,6 +219,7 @@ describe('StyleTab', () => {
     })
     const top = w.find('[data-test="style-field-spacing.padding.top"]')
     expect(top.find('[data-test="style-state"]').text()).toBe('set')
+    await top.find('[data-test="box-cell-spacing.padding.top"]').trigger('click')
     await top.find('[data-test="token-spacing.sm"]').trigger('click')
     expect(w.emitted('set')?.[0]).toEqual([
       'spacing.padding.top',

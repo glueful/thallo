@@ -7,6 +7,8 @@ import type { StylePropertyRow, StyleSchemaResult } from '@/queries/styleSchema'
 import type { Breakpoint, StyleClassRef, StyleValue } from '@/style/types'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import ResponsiveField from './controls/ResponsiveField.vue'
+import BoxField from './controls/BoxField.vue'
+import { BREAKPOINT_LABELS } from '@/editor/breakpoint'
 import { readPath, settingSegments } from '@/editor/ops/apply'
 import { BREAKPOINTS } from '@/style/types'
 import { isFolded, toggleFold } from './styleGroupFolds'
@@ -89,12 +91,44 @@ const allowed = computed<Set<string>>(() => {
   return new Set([...first!].filter((path) => rest.every((set) => set.has(path))))
 })
 
+/** Four-sided properties present as one box row: the box label and the side each path names. */
+const BOXES: { label: string; prefix: string }[] = [
+  { label: 'Padding', prefix: 'spacing.padding.' },
+  { label: 'Margin', prefix: 'spacing.margin.' },
+]
+type Item =
+  | { kind: 'box'; label: string; sides: { key: string; def: StylePropertyRow }[] }
+  | { kind: 'row'; def: StylePropertyRow }
+function itemsOf(rows: StylePropertyRow[]): Item[] {
+  const items: Item[] = []
+  const boxed = new Set<StylePropertyRow>()
+  for (const box of BOXES) {
+    const sides = rows
+      .filter((r) => r.path.startsWith(box.prefix))
+      .map((def) => ({ key: def.path.slice(box.prefix.length), def }))
+    if (sides.length === 0) continue
+    for (const s of sides) boxed.add(s.def)
+    items.push({ kind: 'box', label: box.label, sides })
+  }
+  for (const def of rows) if (!boxed.has(def)) items.push({ kind: 'row', def })
+  // Keep the schema's order: a box sits where its first side sat.
+  const position = (item: Item) => rows.indexOf(item.kind === 'box' ? item.sides[0]!.def : item.def)
+  return items.sort((a, b) => position(a) - position(b))
+}
+
 const groups = computed(() =>
-  GROUPS.map((g) => ({
-    ...g,
-    rows: props.schema.properties.filter((r) => allowed.value.has(r.path) && g.match(r)),
-  })).filter((g) => g.rows.length > 0),
+  GROUPS.map((g) => {
+    const rows = props.schema.properties.filter((r) => allowed.value.has(r.path) && g.match(r))
+    return { ...g, rows, items: itemsOf(rows), responsive: rows.some((r) => r.responsive) }
+  }).filter((g) => g.rows.length > 0),
 )
+
+/** Which breakpoints carry an exact declaration for any property of the group (a dot). */
+function declaredAt(rows: StylePropertyRow[]): Breakpoint[] {
+  return BREAKPOINTS.filter((bp) =>
+    rows.some((row) => readPath(style.value, settingSegments(row.path, bp).slice(1)).present),
+  )
+}
 
 function styleOf(block: BlockInstance): Record<string, unknown> {
   const s = block.settings?.style
@@ -118,10 +152,10 @@ function setCount(rows: StylePropertyRow[]): number {
     </p>
     <template v-else>
       <section v-for="group in groups" :key="group.key" :data-test="`style-group-${group.key}`">
-        <h4 class="mb-2">
+        <h4 class="mb-2 flex items-center justify-between gap-2">
           <button
             type="button"
-            class="flex w-full items-center gap-1 rounded text-[11px] font-semibold uppercase tracking-wide text-muted hover:text-default focus-visible:outline-2 focus-visible:outline-primary"
+            class="flex min-w-0 flex-1 items-center gap-1 rounded text-[11px] font-semibold uppercase tracking-wide text-muted hover:text-default focus-visible:outline-2 focus-visible:outline-primary"
             :aria-expanded="!isFolded(group.key)"
             :aria-controls="`style-group-body-${group.key}`"
             :data-test="`style-group-toggle-${group.key}`"
@@ -140,24 +174,72 @@ function setCount(rows: StylePropertyRow[]): number {
               {{ setCount(group.rows) }} set
             </span>
           </button>
+          <div
+            v-if="!isFolded(group.key) && group.responsive"
+            class="flex gap-0.5"
+            role="group"
+            aria-label="Breakpoint"
+          >
+            <button
+              v-for="bp in BREAKPOINTS"
+              :key="bp"
+              type="button"
+              class="relative rounded px-1.5 py-0.5 text-[10px] normal-case tracking-normal"
+              :class="
+                bp === activeBreakpoint
+                  ? 'bg-primary text-inverted'
+                  : 'text-muted hover:text-default'
+              "
+              :aria-pressed="bp === activeBreakpoint ? 'true' : 'false'"
+              :title="BREAKPOINT_LABELS[bp]"
+              :data-test="`group-breakpoint-${bp}`"
+              @click="emit('update:activeBreakpoint', bp)"
+            >
+              {{ bp }}
+              <span
+                v-if="declaredAt(group.rows).includes(bp)"
+                class="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-warning"
+                aria-hidden="true"
+              />
+            </button>
+          </div>
         </h4>
         <div v-if="!isFolded(group.key)" :id="`style-group-body-${group.key}`" class="space-y-3">
-          <ResponsiveField
-            v-for="row in group.rows"
-            :key="row.path"
-            :def="row"
-            :label="LABELS[row.path] ?? row.path"
-            :style="style"
-            :styles="styles"
-            :classes="classes"
-            :class-names="classNames"
-            :re-resolving="reResolving"
-            :active-breakpoint="activeBreakpoint"
-            :vocabulary="schema.vocabulary"
-            @set="(path, bp, value) => emit('set', path, bp, value)"
-            @set-all="(path, value) => emit('set-all', path, value)"
-            @update:active-breakpoint="(bp) => emit('update:activeBreakpoint', bp)"
-          />
+          <template
+            v-for="item in group.items"
+            :key="item.kind === 'box' ? item.label : item.def.path"
+          >
+            <BoxField
+              v-if="item.kind === 'box'"
+              :label="item.label"
+              :sides="item.sides"
+              :style="style"
+              :styles="styles"
+              :classes="classes"
+              :class-names="classNames"
+              :re-resolving="reResolving"
+              :active-breakpoint="activeBreakpoint"
+              :vocabulary="schema.vocabulary"
+              @set="(path, bp, value) => emit('set', path, bp, value)"
+              @set-all="(path, value) => emit('set-all', path, value)"
+            />
+            <ResponsiveField
+              v-else
+              :def="item.def"
+              :label="LABELS[item.def.path] ?? item.def.path"
+              :style="style"
+              :styles="styles"
+              :classes="classes"
+              :class-names="classNames"
+              :re-resolving="reResolving"
+              :active-breakpoint="activeBreakpoint"
+              :vocabulary="schema.vocabulary"
+              hide-breakpoints
+              @set="(path, bp, value) => emit('set', path, bp, value)"
+              @set-all="(path, value) => emit('set-all', path, value)"
+              @update:active-breakpoint="(bp) => emit('update:activeBreakpoint', bp)"
+            />
+          </template>
         </div>
       </section>
       <div v-if="!multi" class="border-t border-default pt-3">

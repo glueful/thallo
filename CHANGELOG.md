@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- The Style tab's four-sided properties (padding, margin) present as one box row each: a cell
+  per side showing its token and state, a link toggle that writes every side at once, and the
+  token pills opening under the cell you click. The breakpoint chips sit once on each group's
+  header instead of on every row. Every write, breakpoint and reset path is unchanged.
+
 ### Fixed
 - The stage's empty-block stub (beta.37) also claimed a separator, whose line is drawn by CSS
   alone. A block now counts as empty only when it holds nothing AND paints no box.
