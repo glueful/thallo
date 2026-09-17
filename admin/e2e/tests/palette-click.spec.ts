@@ -29,6 +29,7 @@ test('the stage + arms the tab after the section and Enter inserts the first mat
     inserted,
     'head0000000a',
     'head0000000b',
+    'grid00000001',
   ])
   await expect(strip).toHaveCount(0) // consumed
 })

@@ -9,6 +9,11 @@
 //   Children   the controls that mode actually uses, at the active breakpoint. A grid offers
 //              tracks; a flex row offers direction and wrap; block mode offers neither and says
 //              so, because a control that does nothing is worse than no control.
+//   As an item how the block sits in ITS parent, resolved against the parent's mode at the same
+//              breakpoint: a grid parent offers span, a flex parent offers basis, grow and shrink.
+//
+// A mode switch never deletes anything, so both roles disclose what is being retained and
+// ignored — the grid tracks a flex container is keeping, the span a flex parent is not using.
 //
 // The mode is read through the real cascade (`effectiveDisplay`), so what the tab offers is what
 // the page is doing at that width — including a mode a style class supplied.
@@ -22,7 +27,7 @@ import { readPath, settingSegments } from '@/editor/ops/apply'
 import { BREAKPOINTS } from '@/style/types'
 import { BREAKPOINT_LABELS } from '@/editor/breakpoint'
 import { isFolded, toggleFold } from './styleGroupFolds'
-import { effectiveDisplay } from './layoutContext'
+import { dormantPaths, effectiveDisplay } from './layoutContext'
 import { pathsForTab } from './tabMap'
 import ResponsiveField from './controls/ResponsiveField.vue'
 import BoxField from './controls/BoxField.vue'
@@ -40,11 +45,22 @@ const props = defineProps<{
   /** A sibling multi-selection (visual builder spec §5.5): `block` is its anchor. */
   blocks?: BlockInstance[]
   blockTypes?: (BlockType | null)[]
+  /**
+   * The block's immediate parent, when it has one. For a multi-selection it is passed only when
+   * every selected block shares it: item controls resolve against ONE parent's mode, and two
+   * parents have no single answer (spec §5).
+   */
+  parent?: BlockInstance | null
+  parentType?: BlockType | null
+  /** The parent's own style classes, so its mode resolves through the same cascade. */
+  parentClasses?: StyleClassRef[]
 }>()
 const emit = defineEmits<{
   set: [path: string, breakpoint: Breakpoint | null, value: StyleValue | null]
   'set-all': [path: string, value: StyleValue]
   'update:activeBreakpoint': [breakpoint: Breakpoint]
+  /** Select the parent, so the author can change the mode the item controls answer to. */
+  'select-parent': [id: string]
 }>()
 
 const multi = computed(() => (props.blocks?.length ?? 0) > 1)
@@ -62,6 +78,11 @@ const LABELS: Record<string, string> = {
   'alignment.content': 'Distribute',
   'layout.align_items': 'Align',
   'layout.columns': 'Columns',
+  'layout.span': 'Span',
+  'layout.basis': 'Basis',
+  'layout.grow': 'Grow',
+  'layout.shrink': 'Shrink',
+  'layout.align_self': 'Align self',
 }
 
 /** In the Box section the same property names what the block does with its own content. */
@@ -206,6 +227,53 @@ const childrenRows = computed(() => {
   return []
 })
 
+// ── As an item (spec §5) ─────────────────────────────────────────────────────
+const ITEM_PATHS = [
+  'layout.span',
+  'layout.basis',
+  'layout.grow',
+  'layout.shrink',
+  'layout.align_self',
+]
+
+/** Whether the parent is something that arranges its children at all. */
+const parentArranges = computed(() => {
+  const type = props.parentType
+  if (!props.parent || !type) return false
+  const caps = type.style_capabilities ?? []
+  return caps.includes('layout.display') || caps.includes('layout')
+})
+
+/** The mode the parent has in force at the active breakpoint, or null with no parent to ask. */
+const parentDisplay = computed(() =>
+  props.parent && parentArranges.value
+    ? effectiveDisplay(props.parent, props.activeBreakpoint, props.parentClasses ?? [])
+    : null,
+)
+
+/** The item rows the parent's mode actually uses; block mode uses none. */
+const itemRows = computed(() => {
+  if (parentDisplay.value === 'grid') return rowsFor(['layout.span', 'layout.align_self'])
+  if (parentDisplay.value === 'flex') {
+    return rowsFor(['layout.basis', 'layout.grow', 'layout.shrink', 'layout.align_self'])
+  }
+  return []
+})
+
+/** Whether the block can be an item at all: it declares item properties and has a parent. */
+const isItem = computed(() => parentDisplay.value !== null && rowsFor(ITEM_PATHS).length > 0)
+
+/** The settings each role is keeping and ignoring at this breakpoint (spec §5). */
+const dormantParent = computed(() =>
+  arranges.value ? dormantPaths(props.block, props.activeBreakpoint, props.classes, 'parent') : [],
+)
+const dormantItem = computed(() =>
+  parentDisplay.value === null
+    ? []
+    : dormantPaths(props.block, props.activeBreakpoint, props.classes, parentDisplay.value),
+)
+const labelsOf = (paths: string[]): string => paths.map((p) => LABELS[p] ?? p).join(', ')
+
 const sections = computed(() =>
   [
     { key: 'box', label: 'Box', rows: boxRows.value, shown: boxRows.value.length > 0 },
@@ -223,6 +291,14 @@ const sections = computed(() =>
         ...gapSides.value.map((s) => s.def),
       ],
       shown: arranges.value,
+    },
+    {
+      key: 'item',
+      label: 'As an item',
+      rows: [...itemRows.value, ...rowsFor(ITEM_PATHS)].filter(
+        (row, index, all) => all.indexOf(row) === index,
+      ),
+      shown: isItem.value,
     },
   ].filter((section) => section.shown),
 )
@@ -330,7 +406,7 @@ const gutterDefault = computed(() => {
           class="space-y-3"
         >
           <!-- Box and Container are plain property rows, in the contract's order. -->
-          <template v-if="section.key !== 'children'">
+          <template v-if="section.key === 'box' || section.key === 'container'">
             <template v-for="row in section.rows" :key="row.path">
               <ResponsiveField
                 :def="row"
@@ -369,7 +445,7 @@ const gutterDefault = computed(() => {
           </template>
 
           <!-- Children follows the mode in force at the active breakpoint. -->
-          <template v-else>
+          <template v-else-if="section.key === 'children'">
             <template v-if="display === 'block' && arranges">
               <p class="text-xs text-muted" data-test="layout-children-stack">
                 Children stack. Switch to flex or grid to arrange them.
@@ -393,7 +469,11 @@ const gutterDefault = computed(() => {
             </template>
 
             <template v-else>
-              <div v-if="display === 'grid' && columnsRow" class="space-y-1.5">
+              <div
+                v-if="display === 'grid' && columnsRow"
+                class="space-y-1.5"
+                data-test="layout-field-layout.columns"
+              >
                 <span class="text-xs font-medium">{{ LABELS['layout.columns'] }}</span>
                 <TrackSwatchControl
                   :choices="columnsRow.choices ?? []"
@@ -402,7 +482,11 @@ const gutterDefault = computed(() => {
                   @update:model-value="(v: string) => write(columnsRow!, v)"
                 />
               </div>
-              <div v-if="display === 'flex' && directionRow" class="space-y-1.5">
+              <div
+                v-if="display === 'flex' && directionRow"
+                class="space-y-1.5"
+                data-test="layout-field-layout.direction"
+              >
                 <span class="text-xs font-medium">{{ LABELS['layout.direction'] }}</span>
                 <IconChoiceControl
                   :choices="directionRow.choices ?? []"
@@ -412,7 +496,11 @@ const gutterDefault = computed(() => {
                   @update:model-value="(v: string) => write(directionRow!, v)"
                 />
               </div>
-              <div v-if="display === 'flex' && wrapRow" class="space-y-1.5">
+              <div
+                v-if="display === 'flex' && wrapRow"
+                class="space-y-1.5"
+                data-test="layout-field-layout.wrap"
+              >
                 <span class="text-xs font-medium">{{ LABELS['layout.wrap'] }}</span>
                 <IconChoiceControl
                   :choices="wrapRow.choices ?? []"
@@ -470,6 +558,58 @@ const gutterDefault = computed(() => {
                 @set-all="(path, value) => emit('set-all', path, value)"
               />
             </template>
+            <p
+              v-if="dormantParent.length > 0"
+              class="rounded bg-elevated px-2 py-1.5 text-[11px] text-muted"
+              data-test="layout-dormant-parent"
+            >
+              Kept but unused in this mode: {{ labelsOf(dormantParent) }}.
+            </p>
+          </template>
+
+          <!-- As an item: resolved against the parent's mode at the same breakpoint. -->
+          <template v-else>
+            <template v-if="parentDisplay === 'block'">
+              <p class="text-xs text-muted" data-test="layout-item-stacks">
+                This block's parent stacks its children, so it has nothing to size itself against.
+              </p>
+              <UButton
+                v-if="parent"
+                size="xs"
+                variant="ghost"
+                color="neutral"
+                icon="i-lucide-corner-left-up"
+                data-test="layout-item-parent-link"
+                @click="emit('select-parent', parent.id)"
+              >
+                Select the parent
+              </UButton>
+            </template>
+            <ResponsiveField
+              v-for="row in itemRows"
+              v-else
+              :key="row.path"
+              :def="row"
+              :label="LABELS[row.path] ?? row.path"
+              :style="style"
+              :styles="styles"
+              :classes="classes"
+              :class-names="classNames"
+              :re-resolving="reResolving"
+              :active-breakpoint="activeBreakpoint"
+              :vocabulary="schema.vocabulary"
+              hide-breakpoints
+              @set="(path, bp, value) => emit('set', path, bp, value)"
+              @set-all="(path, value) => emit('set-all', path, value)"
+              @update:active-breakpoint="(bp) => emit('update:activeBreakpoint', bp)"
+            />
+            <p
+              v-if="dormantItem.length > 0"
+              class="rounded bg-elevated px-2 py-1.5 text-[11px] text-muted"
+              data-test="layout-dormant-item"
+            >
+              Kept but unused by this parent: {{ labelsOf(dormantItem) }}.
+            </p>
           </template>
         </div>
       </section>

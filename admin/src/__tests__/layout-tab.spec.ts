@@ -56,6 +56,9 @@ const schema: StyleSchemaResult = {
     row('layout.overflow', 'layout', false, null, ['visible', 'hidden', 'auto']),
     row('layout.span', 'layout.item', true, null, ['1', '2', '3', '4', 'full']),
     row('layout.basis', 'layout.item', true, null, ['auto', '1/2', 'full']),
+    row('layout.grow', 'layout.item', true, null, ['0', '1']),
+    row('layout.shrink', 'layout.item', true, null, ['0', '1']),
+    row('layout.align_self', 'layout.item', true, null, ['start', 'center', 'end', 'stretch']),
   ] as StyleSchemaResult['properties'],
   advanced: ['anchor', 'css_classes', 'attributes', 'accessibility.label'],
   vocabulary: {
@@ -284,6 +287,122 @@ describe('a multi-selection', () => {
     expect(sectionsOf(w)).toEqual(['layout-group-box'])
     const fields = w.findAll('[data-test^="style-field-"]').map((el) => el.attributes('data-test'))
     expect(fields).toEqual(['style-field-width', 'style-field-alignment.self'])
+  })
+})
+
+describe('As an item', () => {
+  const grid = (style: Record<string, unknown> = {}) =>
+    block('c1', 'container', { layout: { display: { base: choice('grid') } }, ...style })
+  const flex = () => block('c1', 'container', { layout: { display: { base: choice('flex') } } })
+  const stack = () => block('c1', 'container')
+
+  it('offers span against a grid parent and basis, grow and shrink against a flex one', () => {
+    const inGrid = mountTab({
+      block: block('h1', 'heading'),
+      blockType: heading,
+      parent: grid(),
+      parentType: container,
+    })
+    let fields = inGrid
+      .findAll('[data-test="layout-group-item"] [data-test^="style-field-"]')
+      .map((el) => el.attributes('data-test'))
+    expect(fields).toEqual(['style-field-layout.span', 'style-field-layout.align_self'])
+
+    const inFlex = mountTab({
+      block: block('h1', 'heading'),
+      blockType: heading,
+      parent: flex(),
+      parentType: container,
+    })
+    fields = inFlex
+      .findAll('[data-test="layout-group-item"] [data-test^="style-field-"]')
+      .map((el) => el.attributes('data-test'))
+    expect(fields).toEqual([
+      'style-field-layout.basis',
+      'style-field-layout.grow',
+      'style-field-layout.shrink',
+      'style-field-layout.align_self',
+    ])
+  })
+
+  it('says the parent stacks and offers a way to select it', async () => {
+    const w = mountTab({
+      block: block('h1', 'heading'),
+      blockType: heading,
+      parent: stack(),
+      parentType: container,
+    })
+    expect(w.find('[data-test="layout-item-stacks"]').text()).toContain('stacks its children')
+    expect(w.find('[data-test="style-field-layout.span"]').exists()).toBe(false)
+    await w.find('[data-test="layout-item-parent-link"]').trigger('click')
+    expect(w.emitted('select-parent')).toEqual([['c1']])
+  })
+
+  it('follows the parent mode at the breakpoint being edited', async () => {
+    // The parent is a grid from md up; below that it stacks, and the item has nothing to size.
+    const w = mountTab({
+      block: block('h1', 'heading'),
+      blockType: heading,
+      parent: block('c1', 'container', { layout: { display: { md: choice('grid') } } }),
+      parentType: container,
+    })
+    expect(w.find('[data-test="layout-item-stacks"]').exists()).toBe(true)
+    await w.setProps({ activeBreakpoint: 'md' })
+    expect(w.find('[data-test="style-field-layout.span"]').exists()).toBe(true)
+  })
+
+  it('has no item section without a parent, or when the parent arranges nothing', () => {
+    const orphan = mountTab({ block: block('h1', 'heading'), blockType: heading })
+    expect(orphan.find('[data-test="layout-group-item"]').exists()).toBe(false)
+
+    const inButton = mountTab({
+      block: block('h1', 'heading'),
+      blockType: heading,
+      parent: block('b1', 'button'),
+      parentType: button,
+    })
+    expect(inButton.find('[data-test="layout-group-item"]').exists()).toBe(false)
+  })
+})
+
+describe('dormant settings are disclosed both ways', () => {
+  it('a flex container names the grid tracks it is keeping', () => {
+    const w = mountTab({
+      block: block('c1', 'container', {
+        layout: { display: { base: choice('flex') }, columns: { base: choice('3') } },
+      }),
+      blockType: container,
+    })
+    const notice = w.find('[data-test="layout-dormant-parent"]')
+    expect(notice.text()).toContain('Columns')
+    expect(notice.text()).toContain('Kept but unused')
+  })
+
+  it('an item names the settings its parent mode ignores', () => {
+    const w = mountTab({
+      block: block('h1', 'heading', { layout: { basis: { base: choice('1/2') } } }),
+      blockType: heading,
+      parent: block('c1', 'container', { layout: { display: { base: choice('grid') } } }),
+      parentType: container,
+    })
+    expect(w.find('[data-test="layout-dormant-item"]').text()).toContain('Basis')
+  })
+
+  it('counts a value a style class supplies', () => {
+    const w = mountTab({
+      block: block('c1', 'container', { layout: { display: { base: choice('flex') } } }),
+      blockType: container,
+      classes: [{ id: 'cls1', style: { layout: { columns: { base: choice('4') } } } }],
+    })
+    expect(w.find('[data-test="layout-dormant-parent"]').text()).toContain('Columns')
+  })
+
+  it('says nothing when nothing is retained', () => {
+    const w = mountTab({
+      block: block('c1', 'container', { layout: { display: { base: choice('grid') } } }),
+      blockType: container,
+    })
+    expect(w.find('[data-test="layout-dormant-parent"]').exists()).toBe(false)
   })
 })
 

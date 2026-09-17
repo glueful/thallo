@@ -68,13 +68,16 @@ export async function routeWorld(page: Page): Promise<Recorded> {
   await page.route('**/_thallo/layers.css*', (route) =>
     text(route, fixture('layers.css'), 'text/css'),
   )
+  // Playwright matches the LAST matching route first, so the catch-all for fonts and other theme
+  // assets is registered BEFORE the two stylesheets it would otherwise swallow. With it after
+  // them the stage rendered unstyled, and any proof that measures geometry measured nothing.
+  await page.route('**/theme-assets/**', (route) => route.fulfill({ status: 204, body: '' }))
   await page.route('**/theme-assets/theme-*.css', (route) =>
     text(route, fixture('theme.css'), 'text/css'),
   )
   await page.route('**/theme-assets/settings-*.css', (route) =>
     text(route, fixture('settings.css'), 'text/css'),
   )
-  await page.route('**/theme-assets/**', (route) => route.fulfill({ status: 204, body: '' }))
   await page.route('**/_thallo/preview.css*', (route) =>
     text(route, repoFile('packages/thallo-render/assets/preview/preview.css'), 'text/css'),
   )

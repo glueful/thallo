@@ -352,6 +352,12 @@ function blockTypeById(id: string): string | null {
   return ops.findById(tree(), id)?.type ?? null
 }
 
+/** The block CONTAINING `id`, or null when it sits at the field's top level. */
+function parentOfBlock(id: string): BlockInstance | null {
+  const parentId = ops.locateById(tree(), id)?.parentId ?? null
+  return parentId === null ? null : ops.findById(tree(), parentId)
+}
+
 // Exposed API: onDragEnd is the direct-handler testing seam (jsdom cannot
 // simulate sortable); selectBlock/hasBlock let the visual canvas route a
 // stage selection to this field; the structural methods are the canvas
@@ -369,6 +375,7 @@ defineExpose({
   patchBlockSettings,
   findBlock,
   blockTypeById,
+  parentOfBlock,
 })
 
 // ── Tail prose (spec §3) ──────────────────────────────────────────────────────

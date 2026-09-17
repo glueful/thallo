@@ -36,7 +36,7 @@ test('two selected headings drag together into an empty column with shifted indi
       to: { parent: 'cols00000002', slot: 'col_2', index: 1 },
     }),
   ])
-  expect(idsIn(h.document, ['body'])).toEqual(['sect00000001', 'sect00000002'])
+  expect(idsIn(h.document, ['body'])).toEqual(['sect00000001', 'sect00000002', 'grid00000001'])
   expect(idsIn(h.document, ['body', 1, 'data', 'content', 0, 'data', 'col_2'])).toEqual([
     'head0000000a',
     'head0000000b',

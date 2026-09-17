@@ -405,6 +405,7 @@ interface FieldEditorExposed {
   insertAfterById: (id: string, typeSlug: string) => Promise<string | null>
   patchBlockDataById: (id: string, field: string, value: unknown) => boolean
   blockTypeOfBlock: (id: string) => string | null
+  parentOfBlockById: (id: string) => BlockInstance | null
 }
 const fieldEditorRef = ref<FieldEditorExposed | null>(null)
 // ── Selection (visual builder spec §5.5): a set of siblings from one slot, the anchor first
@@ -463,6 +464,13 @@ bridge.onBlockSelect((id, modifiers = { shift: false, meta: false }) => {
   inspectorTab.value = 'block'
 })
 
+/** The Layout tab's link out of an item to the container that governs it (spec §5). */
+function onSelectParent(id: string): void {
+  applySelection(id)
+  fieldEditorRef.value?.selectBlockById(id)
+  ringSelection()
+}
+
 // ── The block inspector (visual builder spec §3.4) ────────────────────────────
 const { data: styleSchema } = useStyleSchema()
 /** The selected block, read off the live tree (every edit re-derives it). */
@@ -482,6 +490,23 @@ const selectedBlocks = computed<BlockInstance[]>(() => {
 })
 const selectedBlockTypes = computed(() =>
   selectedBlocks.value.map((b) => allBlockTypes.value?.find((t) => t.slug === b.type) ?? null),
+)
+/**
+ * The parent whose layout the selection sits in (container-layout spec §5). For several blocks it
+ * is passed only when they all share one: item controls answer to ONE parent's mode, and a
+ * selection spanning two parents has no single answer to give.
+ */
+const selectedParent = computed<BlockInstance | null>(() => {
+  void fields.value
+  const ids =
+    selection.value.ids.length > 1 ? selection.value.ids : selected.value ? [selected.value] : []
+  if (ids.length === 0) return null
+  const parents = ids.map((id) => fieldEditorRef.value?.parentOfBlockById(id) ?? null)
+  const first = parents[0] ?? null
+  return first !== null && parents.every((p) => p?.id === first.id) ? first : null
+})
+const selectedParentType = computed(
+  () => allBlockTypes.value?.find((t) => t.slug === selectedParent.value?.type) ?? null,
 )
 /** The ids a style edit writes to: the whole selection, in one transaction. */
 const styleTargets = (): string[] =>
@@ -2099,7 +2124,11 @@ function reloadStage(): void {
                 @reorder-classes="onReorderClasses"
                 @detach-class="onDetachClass"
                 @detach-all="onDetachAll"
+                :parent="selectedParent"
+                :parent-type="selectedParentType"
+                :parent-classes="classRefsFor(selectedParent)"
                 :active-breakpoint="activeBreakpoint"
+                @select-parent="onSelectParent"
                 @patch-data="onPatchData"
                 @insert-into="onInsertInto"
                 @set-setting="onSetSetting"

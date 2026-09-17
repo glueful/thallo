@@ -30,6 +30,10 @@ const props = defineProps<{
   /** A sibling multi-selection (spec §5.5): `block` is its anchor; only Style applies to all. */
   blocks?: BlockInstance[]
   blockTypes?: (BlockType | null)[]
+  /** The selected block's immediate parent, for the Layout tab's item controls. */
+  parent?: BlockInstance | null
+  parentType?: BlockType | null
+  parentClasses?: StyleClassRef[]
 }>()
 const emit = defineEmits<{
   'patch-data': [name: string, value: unknown]
@@ -47,6 +51,8 @@ const emit = defineEmits<{
   'detach-class': [id: string]
   'detach-all': []
   'save-as-class': []
+  /** The Layout tab's link out of a block to the parent whose mode governs it. */
+  'select-parent': [id: string]
 }>()
 
 const tab = ref('content')
@@ -143,9 +149,13 @@ const proseField = computed(() =>
           :active-breakpoint="activeBreakpoint"
           :blocks="blocks"
           :block-types="blockTypes"
+          :parent="parent"
+          :parent-type="parentType"
+          :parent-classes="parentClasses"
           @set="(path, bp, value) => emit('set-setting', path, bp, value)"
           @set-all="(path, value) => emit('set-all', path, value)"
           @update:active-breakpoint="(bp) => emit('update:activeBreakpoint', bp)"
+          @select-parent="(id) => emit('select-parent', id)"
         />
       </template>
       <template #style>

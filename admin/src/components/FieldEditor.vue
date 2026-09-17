@@ -34,6 +34,7 @@ interface BlocksFieldExposed {
   patchBlockSettings: (id: string, settings: Record<string, unknown>) => boolean
   findBlock: (id: string) => BlockInstance | null
   blockTypeById: (id: string) => string | null
+  parentOfBlock: (id: string) => BlockInstance | null
 }
 
 /** A blocks field's modified header click: the page's selection intent (spec §5.5). */
@@ -101,6 +102,10 @@ defineExpose({
   },
   blockTypeOfBlock(id: string): string | null {
     return fieldOwning(id)?.blockTypeById(id) ?? null
+  },
+  /** The block containing `id`, or null at a field's top level (container-layout spec §5). */
+  parentOfBlockById(id: string): BlockInstance | null {
+    return fieldOwning(id)?.parentOfBlock(id) ?? null
   },
 })
 </script>
