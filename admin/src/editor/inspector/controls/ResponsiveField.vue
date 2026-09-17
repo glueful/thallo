@@ -25,6 +25,8 @@ const props = defineProps<{
   reResolving?: boolean
   /** Every selected block's `settings.style` (a multi-selection, spec §5.5); `style` is the anchor's. */
   styles?: Record<string, unknown>[]
+  /** Hide this row's breakpoint chips: the Style tab's group header carries them instead. */
+  hideBreakpoints?: boolean
 }>()
 const emit = defineEmits<{
   /** Set (or clear with null) the value at one breakpoint (null breakpoint = non-responsive). */
@@ -157,7 +159,12 @@ const sourceLabel = computed(() => {
         >
           {{ sourceLabel }}
         </span>
-        <div v-if="def.responsive" class="flex gap-0.5" role="group" aria-label="Breakpoint">
+        <div
+          v-if="def.responsive && !hideBreakpoints"
+          class="flex gap-0.5"
+          role="group"
+          aria-label="Breakpoint"
+        >
           <button
             v-for="bp in BREAKPOINTS"
             :key="bp"
