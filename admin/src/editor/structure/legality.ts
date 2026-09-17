@@ -7,6 +7,11 @@
 // builder always enforces it; `enforce_block_types` is the server's switch), and the resulting
 // destination slot respects its cap. The rules are shared with the server validator through
 // `tests/fixtures/structure/legality`.
+//
+// `checkInsertSubtree` and `checkInsertSequence` extend the same rules to a candidate assembled
+// outside a block type's own starter — a preset's columns, a paste, the structure picker's
+// factory instances — where the subtree can be welcome at its destination and still be illegal
+// inside itself (container-layout spec §6.3).
 import type { BlockInstance, RegionResolver } from '@/fields/components/blocks/useBlockListOps'
 import { createBlockListOps } from '@/fields/components/blocks/useBlockListOps'
 import type { EditorDocument, Position } from '@/editor/ops/types'
@@ -258,4 +263,117 @@ export function checkInsert(
   ctx: LegalityContext,
 ): Legality {
   return check(doc, [{ block, to: position, moving: false }], ctx)
+}
+
+/**
+ * Legality of inserting a subtree, judged all the way down (container-layout spec §6.3).
+ *
+ * `checkInsert` asks whether the subtree's ROOT may sit at the destination. That is enough for a
+ * starter, whose children are the ones its own type ships, but not for a candidate assembled
+ * elsewhere: a preset's columns, a paste, a block built by the factory. Such a subtree can be
+ * welcome at its destination and still be illegal inside itself — a gallery whose items hold a
+ * heading, a tabs block over its cap — and inserting it would write a document the server refuses.
+ *
+ * So every descendant is checked against the slot it actually lands in, with the destination's
+ * depth carried down so the cap counts from where the subtree is going.
+ */
+export function checkInsertSubtree(
+  doc: EditorDocument,
+  position: Position,
+  block: BlockInstance,
+  ctx: LegalityContext,
+): Legality {
+  const root = checkInsert(doc, position, block, ctx)
+  if (!root.ok) return root
+  return checkDescendants(block, ctx)
+}
+
+/** Every slot inside a subtree, against its own type's allow-list and caps. */
+function checkDescendants(block: BlockInstance, ctx: LegalityContext): Legality {
+  const type = ctx.blockTypes().find((t) => t.slug === block.type)
+  for (const region of ctx.regionsOf(block.type)) {
+    const children = asList(block.data[region])
+    const def = type?.slots[region]
+    if (def && def.blockTypes.length > 0) {
+      for (const child of children) {
+        if (!def.blockTypes.includes(child.type)) {
+          const accepts = def.blockTypes.map((slug) => typeLabel(slug, ctx)).join(', ')
+          return {
+            ok: false,
+            reason: 'type-not-allowed',
+            message: `${region} accepts ${accepts} only`,
+          }
+        }
+      }
+    }
+    if (block.type === 'tabs' && region === 'items' && children.length > TABS_MAX_ITEMS) {
+      return {
+        ok: false,
+        reason: 'source-slot',
+        message: `Tabs supports at most ${TABS_MAX_ITEMS} items`,
+      }
+    }
+    for (const child of children) {
+      const verdict = checkDescendants(child, ctx)
+      if (!verdict.ok) return verdict
+    }
+  }
+  return { ok: true }
+}
+
+/**
+ * The document with `block` inserted at `position`, or null when the position names a parent the
+ * document does not hold. The insert is the same one the editor performs, so a sequence can be
+ * judged against the tree the previous insert produced.
+ */
+export function insertCandidate(
+  doc: EditorDocument,
+  position: Position,
+  block: BlockInstance,
+  ctx: LegalityContext,
+): EditorDocument | null {
+  const ops = createBlockListOps(ctx.regionsOf)
+  const fields = { ...doc.fields }
+  let field: string | null = null
+  if (position.parent === null) {
+    field = position.slot
+    if (field === null || !(field in fields)) return null
+  } else {
+    for (const name of Object.keys(ctx.rootSlots())) {
+      if (ops.findById(asList(fields[name]), position.parent)) {
+        field = name
+        break
+      }
+    }
+    if (field === null) return null
+  }
+  const target = {
+    parentId: position.parent,
+    region: position.parent === null ? null : position.slot,
+    index: position.index,
+  }
+  return { fields: { ...fields, [field]: ops.insertAt(asList(fields[field]), target, block) } }
+}
+
+/**
+ * Legality of a SEQUENCE of inserts, each judged against the document the previous ones produced
+ * (container-layout spec §6.3). A preset inserts several blocks; the second one's destination may
+ * be a block the first one added, and its slot's cap counts what is already there.
+ */
+export function checkInsertSequence(
+  doc: EditorDocument,
+  inserts: { position: Position; block: BlockInstance }[],
+  ctx: LegalityContext,
+): Legality {
+  let current = doc
+  for (const insert of inserts) {
+    const verdict = checkInsertSubtree(current, insert.position, insert.block, ctx)
+    if (!verdict.ok) return verdict
+    const next = insertCandidate(current, insert.position, insert.block, ctx)
+    if (next === null) {
+      return { ok: false, reason: 'no-slot', message: 'That slot no longer exists' }
+    }
+    current = next
+  }
+  return { ok: true }
 }
