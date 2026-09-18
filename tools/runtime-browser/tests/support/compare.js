@@ -52,9 +52,16 @@ function near(a, b) {
 }
 
 /**
+ * `blind` names what this comparison cannot speak about — see the retirement spec, where a canvas
+ * reference recorded elements as missing only because the ORIGINAL capture's selector could not
+ * see through the stage's annotation wrappers: those elements, and the reading order of every
+ * element, since an uncounted element shifts every index after it.
+ *
  * @returns {Promise<string[]>} the failures; empty means the composition matches the reference.
  */
-async function compareToReference(page, reference, definition, url) {
+async function compareToReference(page, reference, definition, url, blind = {}) {
+  const skip = blind.elements ?? new Set();
+  const skipProperties = blind.properties ?? new Set();
   const { elements, profiles } = elementsOf(definition, 'new');
   const current = await measurePage(
     page,
@@ -70,6 +77,7 @@ async function compareToReference(page, reference, definition, url) {
     for (const [name, expected] of Object.entries(expectedElements)) {
       const actual = actualElements[name];
       const at = `${reference.case} @${width}px ${name}`;
+      if (skip.has(name)) continue;
       if (expected.missing) {
         if (actual && !actual.missing) failures.push(`${at}: present but the reference has none`);
         continue;
@@ -82,6 +90,7 @@ async function compareToReference(page, reference, definition, url) {
       for (const [profile, values] of Object.entries(expected)) {
         for (const [property, value] of Object.entries(values)) {
           const actualValue = (actual[profile] || {})[property];
+          if (skipProperties.has(property)) continue;
           if (profile === 'geometry' && geometryRelaxed.has(name)) continue;
           if (relaxed.properties.has(property)) {
             const want = relaxed.expected[property];

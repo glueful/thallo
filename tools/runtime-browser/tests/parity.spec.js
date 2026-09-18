@@ -27,7 +27,11 @@ const definitions = fs
   .map((file) => JSON.parse(fs.readFileSync(path.join(DEFINITIONS, file), 'utf8')))
   .sort((a, b) => a.case.localeCompare(b.case));
 
-const composed = definitions.filter((definition) => definition.new);
+// The container's own cutover (Task 2.1). The retired types' compositions are compared by
+// retirement.spec.js, which carries their disposition rules.
+const composed = definitions.filter(
+  (definition) => definition.new && definition.case.startsWith('container-'),
+);
 
 test('the container compositions are all written', () => {
   // The cutover is complete when every container case has a composition (plan Task 2.1); the
