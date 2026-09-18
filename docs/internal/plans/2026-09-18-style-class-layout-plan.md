@@ -277,8 +277,10 @@ Extend the repair spec: the capability note is present with either tab open; Nee
 
 ## Task 4.2: gates
 
-- [ ] **Step 1:** one at a time: `COMPOSER_PROCESS_TIMEOUT=0 composer test`, `composer phpcs`, `composer boundaries`; the admin gates (`pnpm exec vitest run`, `pnpm type-check`, `pnpm lint`, `pnpm fmt:check`); the builder proofs (`cd admin/e2e && pnpm exec playwright test`) — the Design page imports the shared fields, so they are run although no proof is added. `test:skeleton`, `test:distribution` and the real-browser suite are release gates and run at the beta cut: nothing here touches a theme, the bridge, the renderer or packaging.
-- [ ] **Step 2:** report the gate table to the user. The beta cut happens only on the user's word.
+- [x] **Step 1:** one at a time: `COMPOSER_PROCESS_TIMEOUT=0 composer test`, `composer phpcs`, `composer boundaries`; the admin gates (`pnpm exec vitest run`, `pnpm type-check`, `pnpm lint`, `pnpm fmt:check`); the builder proofs (`cd admin/e2e && pnpm exec playwright test`) — the Design page imports the shared fields, so they are run although no proof is added. `test:skeleton`, `test:distribution` and the real-browser suite are release gates and run at the beta cut: nothing here touches a theme, the bridge, the renderer or packaging.
+- [x] **Step 2:** report the gate table to the user. The beta cut happens only on the user's word.
+
+Run in full for the beta.41 cut, on the user's word: `test:skeleton`, `test:distribution` and the real-browser suite from deleted fixture directories were not deferred after all — 462 of 462.
 
 ## Self-review
 
