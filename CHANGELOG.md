@@ -7,6 +7,15 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.42] - 2026-09-18 — Developer Preview
+
+The Design view's side panel fits its content: no sideways scroll, and nothing under the scrollbar.
+
+### Upgrade Notes
+- The documented sequence applies (docs/upgrading.md): `composer update`, then
+  `php glueful thallo:provision`, then reload PHP-FPM. No migrations, no new permissions, no
+  contract or theme changes — this release changes the admin only.
+
 ### Fixed
 - The Design view's side panel scrolled sideways and its scrollbar sat on top of the content —
   over the state badges, the breakpoint chips, the link toggle, the last column of track swatches,
