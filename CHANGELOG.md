@@ -7,6 +7,26 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.42] - 2026-09-18 — Developer Preview
+
+The Design view's side panel fits its content: no sideways scroll, and nothing under the scrollbar.
+
+### Upgrade Notes
+- The documented sequence applies (docs/upgrading.md): `composer update`, then
+  `php glueful thallo:provision`, then reload PHP-FPM. No migrations, no new permissions, no
+  contract or theme changes — this release changes the admin only.
+
+### Fixed
+- The Design view's side panel scrolled sideways and its scrollbar sat on top of the content —
+  over the state badges, the breakpoint chips, the link toggle, the last column of track swatches,
+  and the right-hand tiles of the Blocks tab. The panel's content ran flush to the edge it scrolls
+  at, which is where macOS draws its scrollbar, and a marker that overhangs the last breakpoint
+  chip by two pixels was enough to make the whole panel scroll — whenever a setting was made at
+  the desktop breakpoint, the one the page opens on. The panel now keeps a gutter clear of the
+  scrollbar on every tab, and its content keeps the width it had.
+- In the Outline, the row for an empty slot was wider than the panel by exactly its indent, so a
+  nested empty container made the panel scroll sideways, further with every level.
+
 ## [1.0.0-beta.41] - 2026-09-18 — Developer Preview
 
 A container is Flex or Grid and nothing else; a grid can be seen and filled on the stage; and a

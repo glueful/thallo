@@ -2223,7 +2223,16 @@ function reloadStage(): void {
       </div>
 
       <div v-else class="flex h-full min-h-0 gap-4">
-        <aside class="w-96 shrink-0 overflow-y-auto" data-test="canvas-inspector">
+        <!-- A scrolling column keeps its content off the edge it scrolls at. The gutter is where
+             macOS paints its overlay scrollbar — flush content sat underneath it — and it takes in
+             the 2px by which a "declared here" dot overhangs the last breakpoint chip, which
+             otherwise scrolled the whole panel sideways (overflow-y: auto makes overflow-x auto
+             too). The panel is a gutter wider than its content, so the content keeps 24rem; a
+             stable scrollbar gutter stops a classic scrollbar shifting it as it comes and goes. -->
+        <aside
+          class="w-[25rem] shrink-0 overflow-y-auto pe-4 [scrollbar-gutter:stable]"
+          data-test="canvas-inspector"
+        >
           <!-- Tabbed inspector (modern-default-theme spec §5a). unmount-on-hide
                MUST stay false: the bridge routes every stage intent through
                fieldEditorRef, which must never unmount on a tab switch. -->
