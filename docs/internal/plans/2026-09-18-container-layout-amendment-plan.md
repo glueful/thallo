@@ -297,8 +297,8 @@ The section labelled Children no longer exists. `data-test` names of controls th
 
 ## Task 4.2: release gates
 
-- [ ] **Step 1:** one at a time: `COMPOSER_PROCESS_TIMEOUT=0 composer test`, `composer phpcs`, `composer boundaries`, `COMPOSER_PROCESS_TIMEOUT=0 composer test:skeleton`, `COMPOSER_PROCESS_TIMEOUT=0 composer test:distribution`; the admin gates; the builder proofs with fixtures rebuilt; the real-browser gate **from deleted fixture directories**, as CI runs it.
-- [ ] **Step 2:** report the gate table to the user. The beta cut happens only on the user's word.
+- [x] **Step 1:** one at a time: `COMPOSER_PROCESS_TIMEOUT=0 composer test`, `composer phpcs`, `composer boundaries`, `COMPOSER_PROCESS_TIMEOUT=0 composer test:skeleton`, `COMPOSER_PROCESS_TIMEOUT=0 composer test:distribution`; the admin gates; the builder proofs with fixtures rebuilt; the real-browser gate **from deleted fixture directories**, as CI runs it.
+- [x] **Step 2:** report the gate table to the user. The beta cut happens only on the user's word.
 
 ## Self-review
 
