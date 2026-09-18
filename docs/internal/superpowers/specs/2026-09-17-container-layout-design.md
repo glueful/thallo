@@ -711,3 +711,198 @@ as wide as its text. Every value but `full` now compiles to `max-width` **and** 
   the item to its content size; no horizontal overflow at any width. The case fails with the
   `width: 100%` removed. The placed child of §3.8 is its column counterpart.
 
+
+## 12. Amendment, 2026-09-18 — a style class can edit what §5 moved
+
+§5 gave the block inspector a Layout tab and decided tab membership per property. It moved
+`width`, `alignment.self` and `alignment.content` there along with every `layout.*` property. The
+style class editor mounts the Style tab only, so from beta.40 a class can *hold* all of these —
+Save as style class lifts them, and the cascade applies them — and can *edit* none of them. A
+layout value in a class is in force on the page and invisible on the one page that owns it. This
+section completes the editing support for the properties §5 moved. Nothing in the contract, the
+compiler or the renderer changes.
+
+### 12.1 The rule: a class has no context
+
+The block's Layout tab shows what applies: the controls of the mode in force, the item controls the
+parent's mode uses, the theme default an untouched control stands for. Each of those is an answer
+about one block in one place. A class is applied to many blocks in many places, or to none yet, so
+it has no mode in force, no parent and no default in force.
+
+**In the class editor nothing is shown, hidden or described on the strength of a context the class
+does not have.** It is an editor for the class's declarations — all of them, always.
+
+### 12.2 The class Layout tab
+
+A second tab in the class editor, beside Style. Membership comes from the same tab map as the
+block inspector (§5), so a property is on the same tab in both and one added to the contract
+later lands in both without an edit here.
+
+It is its **own component**, composed from the shared field controls. The block Layout tab is not
+given a class mode: its visibility rules are contextual by design and stay in the block editor.
+
+Sections, in the block tab's order, every property of each always present and editable:
+
+- **Container** — Layout (Flex or Grid); then two families under permanent labels, **Applies in
+  Flex** (direction, wrap) and **Applies in Grid** (columns); then what both use: content
+  alignment, align items, both gaps; then content width and gutter.
+- **Box** — width, placement, minimum height, overflow.
+- **As an item** — **Applies in a Grid parent** (span), **Applies in a Flex parent** (basis, grow,
+  shrink), and align self, which both use.
+
+The applicability labels are **permanent**: they describe the controls whether or not anything is
+set, and neither family is ever hidden, disabled or collapsed because of the other.
+
+**Not here:** Fill empty cells, the grid outline, any link to a parent or a selection, the
+structure picker, or any other action on a document. A class has no children and no stage.
+
+### 12.3 What the tab says about applicability
+
+The block tab's dormancy note (§3.3, §5) states a fact about one block. The class editor cannot:
+the cascade resolves **per property**, so a block — or a later class — may set Flex over this
+class's Grid while still taking this class's direction. "Unused while this class sets Grid" would
+be false there.
+
+- Where the class declares a mode and also holds settings of the other family, the tab says so
+  without predicting an outcome: **"Flex settings are retained. They apply wherever the block's
+  effective layout is Flex."** — and the counterpart for Grid.
+- Item settings carry the same qualification against the parent: **"These apply wherever the
+  block's parent lays out its children as a grid"** / **"… as flex"**.
+- Neither note is a warning and neither offers an action. Retained settings are not an error.
+
+**Capability guidance stays visible**, as a standing line on both class tabs, not a tooltip and not
+dismissible: a declaration applies only to blocks that support that property, and is kept but
+unused on the others (THEMING.md, "Style classes": "dormant elsewhere"). The editor presents every property
+because a class declares no capabilities; it must not read as a promise that every block the class
+is applied to will use every declaration.
+
+### 12.4 Absent, inherited, reset
+
+A declaration in a class is one of three things at a breakpoint, and the editor keeps them apart.
+All of it is judged through **the class's own** breakpoint inheritance — no other layer exists here.
+
+- **Set** at the breakpoint being edited.
+- **Inherited** — nothing declared at this breakpoint, and an earlier breakpoint of this class
+  supplies a value **or a reset**. The control shows what is inherited and **names the declaring
+  breakpoint**. An inherited reset is shown as inherited — "theme default, from base" — and not as
+  a reset authored here. The resolver reports both alike today (`state: 'reset'` at the target);
+  the declaring breakpoint comes from `declarationOrigin` (§11.1), as it does for the invalid-value
+  notice.
+- **Not set in this class** — shown **only** when no declaration applies through the class's own
+  breakpoint inheritance: nothing here and nothing at any earlier breakpoint. It replaces the label
+  `theme`, which the shared field shows today for this state and which is wrong in a class: the
+  value in force on any block is decided elsewhere — by another class, the block, or the theme —
+  and the editor does not know which. **No concrete value is presented for this state**: no dashed
+  default (§5's marker is the block tab's, where a default *is* in force), no pressed choice, no
+  token name.
+
+Two actions, named for what they do:
+
+- **Remove** deletes the declaration **at the breakpoint being edited**, and nothing else. It may
+  reveal an earlier breakpoint's declaration, which the control then shows as inherited; it does
+  **not** promise to leave the property unset. Offered only where a declaration exists at this
+  breakpoint (a value or a reset).
+- **Use theme default** writes an **explicit reset** at the breakpoint being edited: this class
+  now says "the theme's value, from here up", over whatever an earlier breakpoint or a lower layer
+  supplied. It remains distinguishable from Remove in the stored style, in the control's state
+  ("theme default, set here") and after a reload.
+
+**A property that is not responsive has no breakpoints, and the editor does not invent them.**
+`layout.overflow` is one — on the Style tab so are `radius`, the colours, `border.width` and
+`border.style` — and the validator refuses a breakpoint wrapper on any of them ("is not
+responsive"). For such a property:
+
+- it is stored **bare**, never under `base`, `md` or `lg`, whatever breakpoint the editor is on;
+- the control says **"Applies at all sizes"** in place of the breakpoint it would otherwise name;
+- its states are **set**, **theme default, set here** (an explicit reset) and **Not set in this
+  class**. There is **no inherited state**: nothing exists for it to inherit from;
+- **Remove** deletes the property's declaration and **Use theme default** writes a bare reset —
+  both act on the property itself, not on a breakpoint;
+- **"Apply to all breakpoints" is not offered**, and changing the breakpoint being edited changes
+  nothing about the control.
+
+**Every control on the tab carries these states and both actions** — including direction, wrap and
+columns, which the block tab draws as icon and track choices with a default marker and no reset of
+their own. Those controls are reused for the choosing; the state, the declaring breakpoint and the
+two actions come from the same field wrapper every other row uses.
+
+**The label correction applies to both class tabs.** The class editor's Style tab shows `theme` for
+an absent declaration today, for the same wrong reason; it shows "Not set in this class" under the
+same condition, with the same two action names. One editor does not describe one state two ways.
+**The block inspector is unchanged** — its labels, "Reset to theme" and "Clear" stay as they are;
+there, a theme default really is what is in force.
+
+### 12.5 Existing declarations survive
+
+- **Editing changes what was edited and nothing else.** A write is one declaration at one
+  breakpoint (or the three of "apply to all breakpoints"). Every other declaration in the class
+  comes through unchanged: properties on the other tab, other breakpoints of the same property,
+  and Flex or Grid settings that are not applicable under the class's own mode. Switching the
+  class's mode writes `layout.display` only — the other family's settings are retained (§12.3),
+  exactly as a mode switch on a block keeps them (§3.3).
+- **An unsupported stored value is never silently replaced.** A value the contract does not offer
+  — a stored `block` (§11.1), or any choice outside a property's list — is shown as **invalid**
+  by the control that owns it, with no valid choice pressed in its place, and is not rewritten by
+  opening the tab, changing breakpoint or editing another property. The **repair path of §11.1
+  is retained**: Needs attention names the value and its breakpoint, with Replace and Remove. Only
+  those two actions, or the author choosing a value on that control, change it.
+- A property the editor does not know — a path outside the schema — is likewise left untouched.
+
+**Preservation is the editor's; persistence is the server's.** The two claims above are about the
+editor's **working value and the payload it submits**: what it was given, it hands back, changed
+only where the author changed it. They are **not** a claim that such a class can be saved. The
+validator refuses an unsupported value and an unknown path today, naming the field, and **it is
+not relaxed** — a class holding either cannot be saved until it is repaired, however unrelated the
+edit being made. What the editor owes the author there:
+
+- a **rejected save keeps the draft** exactly as it was — every edit made, the invalid value still
+  in place — and **shows the validation error**, with the field it names;
+- the invalid value is already listed under Needs attention, so the way out is on the same page;
+- after the repair the same draft saves, carrying the edits made before the rejection.
+
+An unknown path has no control and no repair action here; it is preserved in the payload and the
+server's refusal names it. Nothing in this editor writes one.
+
+### 12.6 Proofs
+
+- **Reach:** every path the tab map assigns to Layout has a control on the class Layout tab, and
+  none is on the class Style tab; asserted from the schema and the map, so a property added later
+  fails here if it has no control. Width, placement and content alignment are named explicitly.
+- **No context:** with nothing set, both families and both item groups are present, enabled, and
+  carry their applicability labels; with Grid set the Flex family is still editable. No Fill
+  button, no default marker, no parent link anywhere in the class editor.
+- **Retention wording:** a class with Grid and a stored direction shows the retained-settings
+  note in the words above and no dormancy claim; the item notes likewise.
+- **States** (per control kind — token, choice, icon choice, track, box): a value at `base` read
+  at `md` is inherited and names `base`; a reset at `base` read at `md` is inherited, names `base`,
+  and is not shown as set here; nothing at any breakpoint reads "Not set in this class" with no
+  value presented; a value at `md` over a value at `base` is set.
+- **Actions:** Remove at `md` over a `base` value leaves the `base` declaration stored and the
+  control inherited from `base`; Use theme default at `md` stores `{type: reset}` at `md`, reads
+  "theme default, set here", and survives a save and reload as a reset, not as an absence.
+- **The editor's output** (no server): a class holding style declarations, layout declarations at
+  three breakpoints, both families' settings, a non-responsive declaration and an **unknown
+  path** is opened, one declaration is edited, and the value the editor emits differs from the
+  original in that one declaration only — by deep comparison. The same after switching the
+  class's mode, and after opening each tab and changing breakpoint with no edit at all (no
+  difference whatever).
+- **Save and reload, valid declarations:** a class of valid declarations — a value, an explicit
+  reset at `md`, a bare non-responsive value — is edited and saved; the save succeeds, and
+  reloaded the editor shows each in the state it was stored in.
+- **Rejected save, repair, save:** a class with a stored `block` at `md` has an unrelated
+  declaration edited and is saved; the save is **refused**, the error names the field, and the
+  draft still holds both the edit and the `block`. Replace (or Remove) under Needs attention
+  writes one declaration; the same draft then saves, and the reloaded class carries the earlier
+  edit. No validator change is part of this.
+- **Invalid values in the control:** a stored `block` at `md` shows invalid on the Layout control
+  with neither Flex nor Grid pressed; opening, switching breakpoint and editing another property
+  leave it in the emitted value as it was. A choice outside another property's list behaves the
+  same.
+- **Non-responsive (`layout.overflow`):** choosing a value emits it **bare** — no `base`, `md` or
+  `lg` key — from every breakpoint the editor can be on; the control reads "Applies at all sizes",
+  offers no "Apply to all breakpoints" and never shows an inherited state; Use theme default
+  emits a bare `{type: reset}` and Remove deletes the key; the emitted value passes the validator.
+  One Style-tab property (`radius`) is asserted the same way, since the correction covers both tabs.
+- **Both class tabs:** the Style tab shows "Not set in this class", Remove and Use theme default
+  under the same conditions. **The block inspector's** labels and actions are asserted unchanged.
+- **Capability guidance** is present on both tabs.
