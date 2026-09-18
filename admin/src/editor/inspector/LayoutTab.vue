@@ -33,6 +33,7 @@ import ResponsiveField from './controls/ResponsiveField.vue'
 import BoxField from './controls/BoxField.vue'
 import IconChoiceControl from './controls/IconChoiceControl.vue'
 import InvalidChoiceNotice from './controls/InvalidChoiceNotice.vue'
+import { THEME_DEFAULT } from '@/editor/structure/presets'
 import TrackSwatchControl from './controls/TrackSwatchControl.vue'
 
 const props = defineProps<{
@@ -162,6 +163,32 @@ function valueOf(row: StylePropertyRow): string | null {
   const value = read(style.value)
   return value && 'value' in value ? value.value : null
 }
+
+/**
+ * Whether nothing is in force for the row but the theme — for every selected block. A mixed
+ * selection has no one value to call "the default in force", so it marks none.
+ */
+function unset(row: StylePropertyRow): boolean {
+  const at = row.responsive ? props.activeBreakpoint : 'base'
+  const all = styles.value ?? [style.value]
+  return all.every(
+    (s) =>
+      ((resolve(row.path, props.classes, s, definitionOf(row)) as Record<string, Resolution>)[at]
+        ?.value ?? null) === null,
+  )
+}
+/** The theme's own value for the row while it is unset (spec §3.8): what an untouched control marks. */
+function defaultOf(row: StylePropertyRow): string | null {
+  const value = THEME_DEFAULT[row.path]
+  return value && 'value' in value && unset(row) ? value.value : null
+}
+/** The gap sides still on the theme's default, and what that default is called. */
+const gapDefault = computed(() => {
+  const sides = gapSides.value.filter((side) => defaultOf(side.def) !== null)
+  if (sides.length === 0) return null
+  const token = defaultOf(sides[0]!.def)!
+  return { sides: sides.map((side) => side.key), name: token.replace(/^spacing\./, '') }
+})
 
 function write(row: StylePropertyRow, raw: string): void {
   emit(
@@ -502,6 +529,7 @@ const gutterDefault = computed(() => {
                   <TrackSwatchControl
                     :choices="columnsRow.choices ?? []"
                     :model-value="valueOf(columnsRow)"
+                    :default-value="defaultOf(columnsRow)"
                     name="Columns"
                     @update:model-value="(v: string) => write(columnsRow!, v)"
                   />
@@ -515,6 +543,7 @@ const gutterDefault = computed(() => {
                   <IconChoiceControl
                     :choices="directionRow.choices ?? []"
                     :model-value="valueOf(directionRow)"
+                    :default-value="defaultOf(directionRow)"
                     :icons="DIRECTION_ICONS"
                     name="Direction"
                     @update:model-value="(v: string) => write(directionRow!, v)"
@@ -529,6 +558,7 @@ const gutterDefault = computed(() => {
                   <IconChoiceControl
                     :choices="wrapRow.choices ?? []"
                     :model-value="valueOf(wrapRow)"
+                    :default-value="defaultOf(wrapRow)"
                     :icons="WRAP_ICONS"
                     :labels="WRAP_LABELS"
                     name="Wrap"
@@ -581,6 +611,15 @@ const gutterDefault = computed(() => {
                   @set="(path, bp, value) => emit('set', path, bp, value)"
                   @set-all="(path, value) => emit('set-all', path, value)"
                 />
+                <p
+                  v-if="gapSides.length > 0 && gapDefault"
+                  class="-mt-2 text-[11px] text-muted"
+                  data-test="layout-gap-default"
+                >
+                  Unset, the {{ gapDefault.sides.join(' and ') }}
+                  {{ gapDefault.sides.length > 1 ? 'gaps are' : 'gap is' }} {{ gapDefault.name }} —
+                  the theme's spacing between children.
+                </p>
               </div>
             </template>
             <p

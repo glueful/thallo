@@ -324,6 +324,10 @@ function sameValue(a: StyleValue | null, b: StyleValue | null): boolean {
 export const THEME_DEFAULT: Record<string, StyleValue> = {
   'layout.display': choice('flex'),
   'layout.direction': choice('column'),
+  // The browser's own, which the theme leaves alone — named so the inspector can show it.
+  'layout.wrap': choice('nowrap'),
+  // One track until a count is chosen: span clamping (spec §3.7) depends on that default.
+  'layout.columns': choice('1'),
   'layout.gap.row': token('spacing.xl'),
   'layout.gap.column': token('spacing.xl'),
 }

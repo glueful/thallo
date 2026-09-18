@@ -13,6 +13,8 @@ const props = defineProps<{
   modelValue: string | null
   disabled?: boolean
   name?: string
+  /** The theme's own track count, in force while none is chosen: marked, never pressed. */
+  defaultValue?: string | null
 }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
@@ -24,6 +26,9 @@ function partsOf(choice: string): number[] {
   const count = Number(choice) || 1
   return Array.from({ length: count }, () => 1)
 }
+
+const isDefault = (choice: string): boolean =>
+  props.modelValue === null && props.defaultValue != null && choice === props.defaultValue
 
 const options = computed(() =>
   props.choices.map((choice) => ({ choice, parts: partsOf(choice), label: labelOf(choice) })),
@@ -46,11 +51,16 @@ function labelOf(choice: string): string {
       :class="
         option.choice === modelValue
           ? 'border-primary bg-primary/10 text-primary'
-          : 'border-default text-muted hover:text-default'
+          : isDefault(option.choice)
+            ? 'border-dashed border-primary/60 text-default'
+            : 'border-default text-muted hover:text-default'
       "
       :aria-pressed="option.choice === modelValue ? 'true' : 'false'"
       :aria-label="option.label"
-      :title="option.label"
+      :title="
+        isDefault(option.choice) ? `${option.label} — the theme's default, in force` : option.label
+      "
+      :data-default="isDefault(option.choice) ? 'true' : undefined"
       :disabled="disabled"
       :data-test="`track-${option.choice}`"
       @click="emit('update:modelValue', option.choice)"

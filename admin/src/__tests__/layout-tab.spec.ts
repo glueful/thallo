@@ -415,6 +415,113 @@ describe('a stored layout the contract no longer offers', () => {
   })
 })
 
+describe('the defaults in force are shown, not hidden', () => {
+  // With Flex and Grid only, an untouched container is a flex column whose gaps are xl (spec
+  // §3.8). A control that shows nothing pressed, or a gap that reads "–", says "none" about a
+  // value that is very much in force — so the theme's default is marked, distinctly from a choice
+  // the author made.
+  const marked = (w: ReturnType<typeof mountTab>, field: string) =>
+    w
+      .find(`[data-test="layout-field-${field}"]`)
+      .findAll('[data-default="true"]')
+      .map((el) => el.attributes('data-test'))
+
+  it('an untouched container marks column and one line as the defaults, pressed as neither', () => {
+    const w = mountTab({ block: block('c1', 'container'), blockType: container })
+    expect(marked(w, 'layout.direction')).toEqual(['choice-column'])
+    expect(marked(w, 'layout.wrap')).toEqual(['choice-nowrap'])
+    const column = w.find('[data-test="layout-field-layout.direction"] [data-test="choice-column"]')
+    expect(column.attributes('aria-pressed')).toBe('false')
+    expect(column.attributes('title')).toContain('default')
+  })
+
+  it('an authored direction is pressed and no default is marked beside it', () => {
+    const w = mountTab({
+      block: block('c1', 'container', { layout: { direction: { base: choice('row') } } }),
+      blockType: container,
+    })
+    expect(marked(w, 'layout.direction')).toEqual([])
+    expect(
+      w
+        .find('[data-test="layout-field-layout.direction"] [data-test="choice-row"]')
+        .attributes('aria-pressed'),
+    ).toBe('true')
+  })
+
+  it('a reset lands on the default again, and marks it', () => {
+    const w = mountTab({
+      block: block('c1', 'container', {
+        layout: { direction: { base: choice('row'), md: { type: 'reset' } } },
+      }),
+      blockType: container,
+      activeBreakpoint: 'md',
+    })
+    expect(marked(w, 'layout.direction')).toEqual(['choice-column'])
+  })
+
+  it('a mixed selection marks nothing: there is no one value to call the default in force', () => {
+    const w = mountTab({
+      block: block('c1', 'container'),
+      blocks: [
+        block('c1', 'container'),
+        block('c2', 'container', { layout: { direction: { base: choice('row') } } }),
+      ],
+      blockType: container,
+      blockTypes: [container, container],
+    })
+    expect(marked(w, 'layout.direction')).toEqual([])
+  })
+
+  it('a grid with no track count set marks one track: that is what is in force', () => {
+    const w = mountTab({
+      block: block('c1', 'container', { layout: { display: { base: choice('grid') } } }),
+      blockType: container,
+    })
+    const one = w.find('[data-test="track-1"]')
+    expect(one.attributes('data-default')).toBe('true')
+    expect(one.attributes('aria-pressed')).toBe('false')
+    expect(w.find('[data-test="track-3"]').attributes('data-default')).toBeUndefined()
+    // Once a count is chosen it is pressed, and nothing is marked as the default beside it.
+    const chosen = mountTab({
+      block: block('c1', 'container', {
+        layout: { display: { base: choice('grid') }, columns: { base: choice('3') } },
+      }),
+      blockType: container,
+    })
+    expect(chosen.find('[data-test="track-1"]').attributes('data-default')).toBeUndefined()
+    expect(chosen.find('[data-test="track-3"]').attributes('aria-pressed')).toBe('true')
+  })
+
+  it('an unset gap says what spaces the children instead of reading as none', () => {
+    const w = mountTab({ block: block('c1', 'container'), blockType: container })
+    expect(w.find('[data-test="layout-gap-default"]').text()).toContain('xl')
+    const set = mountTab({
+      block: block('c1', 'container', {
+        layout: {
+          gap: {
+            column: { base: { type: 'token', value: 'spacing.md' } },
+            row: { base: { type: 'token', value: 'spacing.md' } },
+          },
+        },
+      }),
+      blockType: container,
+    })
+    expect(set.find('[data-test="layout-gap-default"]').exists()).toBe(false)
+  })
+
+  it('names the side that is still unset when only one gap is authored', () => {
+    const w = mountTab({
+      block: block('c1', 'container', {
+        layout: { gap: { column: { base: { type: 'token', value: 'spacing.md' } } } },
+      }),
+      blockType: container,
+    })
+    const note = w.find('[data-test="layout-gap-default"]').text()
+    expect(note).toContain('row')
+    expect(note).not.toContain('column')
+  })
+})
+
 describe('the gutter discloses the default it would use', () => {
   it('names the page gutter for a boxed container and none for a full-width one', async () => {
     const boxed = mountTab({

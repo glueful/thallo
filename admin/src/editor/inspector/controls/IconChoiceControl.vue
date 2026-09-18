@@ -14,10 +14,20 @@ const props = defineProps<{
   labels?: Record<string, string>
   disabled?: boolean
   name?: string
+  /**
+   * The theme's own value, in force while nothing is chosen. It is marked — distinctly from a
+   * choice the author made, and never as pressed — so an untouched control does not read as "none"
+   * about a value that is very much applied.
+   */
+  defaultValue?: string | null
 }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
 const labelOf = (choice: string): string => props.labels?.[choice] ?? choice.replace(/-/g, ' ')
+const isDefault = (choice: string): boolean =>
+  props.modelValue === null && props.defaultValue != null && choice === props.defaultValue
+const titleOf = (choice: string): string =>
+  isDefault(choice) ? `${labelOf(choice)} — the theme's default, in force` : labelOf(choice)
 </script>
 
 <template>
@@ -30,11 +40,14 @@ const labelOf = (choice: string): string => props.labels?.[choice] ?? choice.rep
       :class="
         choice === modelValue
           ? 'border-primary bg-primary/10 font-medium text-primary'
-          : 'border-default text-muted hover:text-default'
+          : isDefault(choice)
+            ? 'border-dashed border-primary/60 text-default'
+            : 'border-default text-muted hover:text-default'
       "
       :aria-pressed="choice === modelValue ? 'true' : 'false'"
-      :aria-label="labelOf(choice)"
-      :title="labelOf(choice)"
+      :aria-label="titleOf(choice)"
+      :title="titleOf(choice)"
+      :data-default="isDefault(choice) ? 'true' : undefined"
       :disabled="disabled"
       :data-test="`choice-${choice}`"
       @click="emit('update:modelValue', choice)"
