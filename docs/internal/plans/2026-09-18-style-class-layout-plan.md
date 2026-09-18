@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **No borrowed context** (§12.1). Nothing in the class editor is shown, hidden, disabled, collapsed or described because of a mode, a parent or a default. No Fill, no grid outline, no parent link, no structure picker, no dashed default marker, no pressed choice for an unset property.
+- **No borrowed context** (§12.1). Nothing in the class editor is shown, hidden, disabled, collapsed or described because of a mode, a parent or a default. No Fill, no grid outline, no parent link, no structure picker, no dashed default marker, no pressed choice for an unset property. **"Nothing pressed" means the value chooser** — the token pills, choice buttons, icon choices and track swatches of that row. The active breakpoint chip and a box's link toggle use `aria-pressed` for their own state and are never part of this claim; tests scope the assertion to the chooser's element.
 - **The block inspector is unchanged** (§12.4): its labels (`set`, `inherited`, `reset`, `theme`), "Reset to theme", "Clear" and every visibility rule in `LayoutTab.vue`. `context` defaults to `'block'`, and the existing `responsive-field.spec.ts`, `box-field.spec.ts` and `layout-tab.spec.ts` pass **without edits** — an edit to one of them to make it pass is a failure of this constraint.
 - **`LayoutTab.vue` is not given a class mode** (§12.2). It is not imported by the class editor.
 - **Editing changes what was edited and nothing else** (§12.5), proven by deep comparison of the editor's emitted value.
@@ -99,7 +99,7 @@ admin/src/pages/settings/style-classes/components/ClassLayoutTab.vue
   emits: set(path, breakpoint | null, value | null) · 'set-all'(path, value) · 'update:activeBreakpoint'(bp)
 ```
 
-**The payload fixtures** — `tests/fixtures/style-classes/editor-payloads.json` — are read by both suites, so what the editor is proven to emit is what the server is proven to accept or refuse:
+**The payload fixtures** — `tests/fixtures/style-classes/editor-payloads.json` — are read by both suites, so what the editor is proven to emit is what the server is proven to accept or refuse. `valid` and `bare_reset` are what the editor **authors**; `invalid_value` and `unknown_path` are what it **preserves** and the server refuses on purpose; `wrapped_non_responsive` is what it must **never author**:
 
 ```json
 {
@@ -165,7 +165,7 @@ Token and choice names are taken from the live schema and vocabulary when the fi
 - each pinned label renders for its kind, for a choice, a token and a box side; `Theme default, from base` for a base reset read at `md`, and the row has **no** `style-remove` there (nothing is declared at `md`).
 - Remove at `md` over a `base` value emits `set(path,'md',null)`; re-mounted with the resulting style, the row reads `Inherited from base`.
 - Use theme default at `md` emits `{type:'reset'}` at `md`; re-mounted, the row reads `Theme default, set here` and offers Remove.
-- `not-set`: nothing pressed in the chooser (`aria-pressed="true"` count is zero), no Remove, no value text.
+- `not-set`: nothing pressed **in the value chooser** — the count of `aria-pressed="true"` is zero *within the chooser's root element*, not within the row: the breakpoint chips are mounted in these tests and the active one is legitimately pressed, as is a box's link toggle. No Remove, no value text.
 - non-responsive (`layout.overflow`, and `radius` for the Style tab): `Applies at all sizes` is shown, no breakpoint chips, no "Apply to all breakpoints"; a pick emits `set(path, null, value)`; the two actions emit with `null`. Asserted with `activeBreakpoint` at `base`, `md` and `lg` — identical emissions.
 - invalid: `Invalid` badge, `Stored: block`, nothing pressed; **mounting, changing `activeBreakpoint` and re-rendering emit nothing**.
 - the `control` slot: a custom chooser receives `value` and its `pick` emits the same `set` the built-in one would.
@@ -191,15 +191,17 @@ Extend `style-class-editor-repair.spec.ts`: the class Style tab shows `Not set i
 | As an item | family **Applies in a Grid parent** (`class-layout-family-grid-parent`): `layout.span` · family **Applies in a Flex parent** (`class-layout-family-flex-parent`): `layout.basis`, `layout.grow`, `layout.shrink` · then `layout.align_self` |
 
 - Direction and wrap use `IconChoiceControl`, columns uses `TrackSwatchControl`, each **inside `ResponsiveField`'s `control` slot** and with **no `default-value`** — the dashed marker is the block tab's.
-- **A row for every Layout path.** The component renders from an ordered list; any path `pathsForTab(schema paths, 'layout')` returns that the list does not name is rendered at the end of Box as a plain `ResponsiveField`, so a property added to the contract later is editable the day it lands and the reach test below tells us to place it.
+- **A row for every Layout path.** The component renders from an ordered list; any path `pathsForTab(schema paths, 'layout')` returns that the list does not name is rendered at the end of Box as a plain `ResponsiveField` marked `data-fallback="true"`, so a property added to the contract later is editable the day it lands. The ordered list is exported as `CLASS_LAYOUT_SECTIONS` so the placement test below can hold it against the schema: the fallback keeps the editor complete, the test keeps the placement deliberate.
 - **Retention notes** (`data-test="class-layout-retained-{flex|grid}"`): shown when the class **declares** `layout.display` at the breakpoint being edited or inherits it from an earlier one (via `classFieldState`, kinds `set` / `inherited`) **and** holds any declaration in the other family at any breakpoint. The pinned sentence, no action, no warning colour. An `invalid` display shows neither note.
 - **Item notes** (`data-test="class-layout-item-note-{grid|flex}"`): the pinned sentences, permanently under each item family's label.
 - Breakpoint chips once, at the top of the tab, as the Style tab's group header does; rows pass `hide-breakpoints`.
 
 **Tests** (`class-layout-tab.spec.ts`):
 
-- **Reach:** every path in `pathsForTab(allSchemaPaths, 'layout')` has exactly one `style-field-<path>` (or gap cell) in the tab; `width`, `alignment.self` and `alignment.content` asserted by name. Computed from the schema fixture, so it fails when a Layout property is added without a row.
-- **No context:** empty style → both families and both item families present, every control enabled, the four family labels and both item notes present; no `[data-default="true"]`, no `layout-fill-cells`, no `layout-dormant-*`, no element with `aria-pressed="true"`.
+- **Coverage:** every path in `pathsForTab(allSchemaPaths, 'layout')` has exactly one `style-field-<path>` (or gap cell) in the tab; `width`, `alignment.self` and `alignment.content` asserted by name. The fallback below makes this pass for a path nobody placed — that is its job, and why coverage alone is not enough.
+- **Deliberate placement:** the component exports its ordered section assignment (`CLASS_LAYOUT_SECTIONS`: section → families → paths). The test asserts that the set of paths it names **equals** `pathsForTab(allSchemaPaths, 'layout')` for the current schema — none missing, none extra, none twice — and that **no row is rendered by the fallback** (`[data-fallback="true"]` count is zero). A Layout property added to the contract fails here until someone decides where it goes.
+- **The fallback itself:** the tab mounted with a schema carrying one **synthetic** extra Layout property (`layout.synthetic`, a choice) renders it at the end of Box, marked `data-fallback="true"`, editable, with the class states and both actions — and the placement assertion, run against that schema, fails naming the path.
+- **No context:** empty style → both families and both item families present, every control enabled, the four family labels and both item notes present; no `[data-default="true"]`, no `layout-fill-cells`, no `layout-dormant-*`, and **no pressed value**: for every row, zero `aria-pressed="true"` within its value chooser. The same test asserts the two things that *are* pressed and must stay so — the active breakpoint chip and the Gap box's link toggle — so the scoping is proven rather than assumed.
 - with Grid set, direction is still editable: choosing one emits `set('layout.direction', bp, …)`.
 - **Retention:** Grid at `base` + a stored direction at `md` → the Flex retained note, in the pinned words, at `base`, `md` and `lg`; removing the direction removes the note; Flex + a stored columns → the Grid note; no mode declared + both families stored → neither note.
 - **States on the custom controls:** direction with a `base` value read at `md` → `Inherited from base`, the inherited icon pressed, no Remove; with a `base` reset read at `md` → `Theme default, from base`, nothing pressed; columns likewise. Use theme default and Remove emit as in Task 1.2.
@@ -221,7 +223,8 @@ Extend `style-class-editor-repair.spec.ts`: the class Style tab shows `Not set i
 
 **Tests** (`style-class-editor-output.spec.ts`) — the editor's emitted `update:modelValue`, no server:
 
-- **Deep comparison.** A class built from the fixture's `valid` payload **plus** both families' settings, style declarations at three breakpoints and `unknown_path`'s key. Open the Layout tab and set `layout.gap.row` at `md`: the emitted value deep-equals the original with that one declaration added — `expect(emitted).toEqual(expected)` where `expected` is the original cloned and patched, so an extra, a missing or a re-ordered-into-a-wrapper key fails. The unknown path is still there.
+- **Deep comparison, one declaration.** A class built from the fixture's `valid` payload **plus** both families' settings, style declarations at three breakpoints and `unknown_path`'s key. Open the Layout tab, **unlink the Gap box** (`box-link` — it is linked by default and re-links whenever both sides match, so the test asserts `aria-pressed="false"` before going on), open the Row cell and set it at `md`: the emitted value deep-equals the original with that one declaration added — `expect(emitted).toEqual(expected)` where `expected` is the original cloned and patched, so an extra, a missing or a re-ordered-into-a-wrapper key fails. `layout.gap.column` is untouched and the unknown path is still there.
+- **Deep comparison, linked.** The same class with the Gap box **linked**: setting a value at `md` writes **both** `layout.gap.row.md` and `layout.gap.column.md` — that is what linked means, and it is the intended edit. The emitted value deep-equals the original patched with exactly those two declarations; every other key, the other breakpoints of both gaps included, is unchanged. A single-row control (`layout.direction`) is asserted the one-declaration way as well, so the claim does not rest on the box alone.
 - The same after switching the class's mode (one declaration differs).
 - **No edit, no emission:** open each tab, step through `base`, `md`, `lg` on each — `emitted('update:modelValue')` is undefined.
 - **Invalid survives:** with `invalid_value`, editing the padding on the Style tab emits a value whose `layout.display.md` is still the stored `block`.
@@ -254,7 +257,10 @@ Extend the repair spec: the capability note is present with either tab open; Nee
 - `valid` and `bare_reset` are accepted on create and on update, and read back **deep-equal** (`assertEquals` — key order does not survive a JSON round-trip).
 - `invalid_value` is refused naming `style.layout.display.md`; `wrapped_non_responsive` is refused naming `style.layout.overflow` with "is not responsive"; `unknown_path` is refused naming `style.layout.nonesuch` with "unknown style property".
 - Its own test class, so its assertions cannot pollute another test's listing.
-- **No production PHP changes.** If a payload the editor emits is refused, the editor is wrong — fix it in Task 1.2–2.2's code, never in the validator.
+- **No production PHP changes.** The rule for a refusal depends on what was refused:
+  - a declaration the editor **newly authored** from a valid choice — a picked value, Use theme default, a non-responsive value, anything in `valid` and `bare_reset` — must be accepted. If the server refuses one, the editor emitted the wrong shape: fix it in Task 1.2–2.2's code, never in the validator.
+  - a **preserved** invalid value or unknown path (`invalid_value`, `unknown_path`) is emitted **on purpose** (§12.5) and refused **on purpose**. That refusal is the contract working, and is exactly what the admin half of this task handles; it is not a defect in either side.
+  - `wrapped_non_responsive` is a shape the editor must **never author**: the PHP test proves the server refuses it, and Task 2.2's bare-emission test proves the editor does not produce it.
 
 - [ ] **Steps 1–4.**
 - [ ] **Step 5: Commit** `feat(style-classes): a refused save keeps the draft and names the field; the editor's payloads proven against the validator`.
