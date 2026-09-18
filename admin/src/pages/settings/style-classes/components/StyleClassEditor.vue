@@ -106,6 +106,7 @@ function onSetAll(path: string, value: StyleValue): void {
       :block-type="everything"
       :schema="schema"
       :classes="[]"
+      context="class"
       :active-breakpoint="activeBreakpoint"
       @set="onSet"
       @set-all="onSetAll"

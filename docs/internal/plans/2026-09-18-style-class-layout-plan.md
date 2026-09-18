@@ -169,10 +169,10 @@ Token and choice names are taken from the live schema and vocabulary when the fi
 - the `control` slot: a custom chooser receives `value` and its `pick` emits the same `set` the built-in one would.
 - **block context, explicit:** the same inputs with no `context` prop render `theme` / `inherited` / `reset` / `set`, "Reset to theme" and "Clear", and no class action. Plus the constraint: `responsive-field.spec.ts`, `box-field.spec.ts` and `layout-tab.spec.ts` pass unedited.
 
-Extend `style-class-editor-repair.spec.ts`: the class Style tab shows `Not set in this class` for an untouched property and the two class actions; Needs attention still lists a stored `block` with Replace and Remove.
+The class Style tab shows `Not set in this class` for an untouched property and the two class actions — asserted in **`style-class-editor-output.spec.ts`**, created here and grown in Task 2.2, because `style-class-editor-repair.spec.ts` stubs `StyleTab` and mocks an empty schema file-wide. The repair spec gains what fits its stub: the editor hands `context="class"` to its tab, and Needs attention still lists a stored `block` with Replace and Remove. Both build their schema from `__tests__/helpers/classEditorSchema.ts`, which derives it from the admin's mirror of the contract (`styleProperties()`), so Task 2.1's coverage test is computed from the contract, not from a hand-typed list.
 
-- [ ] **Steps 1–4.**
-- [ ] **Step 5: Commit** `feat(style-classes): a class's fields say what the class declares — inherited, reset or not set — on the Style tab`.
+- [x] **Steps 1–4.**
+- [x] **Step 5: Commit** `feat(style-classes): a class's fields say what the class declares — inherited, reset or not set — on the Style tab`.
 
 ## Task 2.1: the class Layout tab
 

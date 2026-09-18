@@ -63,6 +63,14 @@ describe('the class editor repairs what it stores', () => {
     expect(lastStyle(w)).toEqual({ layout: { display: { md: choice('block') } } })
   })
 
+  it('tells its tab it is editing a class, so the fields speak for the class (spec §12.4)', () => {
+    const w = mountEditor(stale)
+    expect(w.findComponent({ name: 'StyleTab' }).props('context')).toBe('class')
+    // The repair path stays beside it: the invalid value is still listed, with both ways out.
+    expect(w.find('[data-test="invalid-choice-replace"]').exists()).toBe(true)
+    expect(w.find('[data-test="invalid-choice-remove"]').exists()).toBe(true)
+  })
+
   it('shows no group for a class whose choices are all offered', () => {
     const w = mountEditor({ layout: { display: { base: choice('grid') } } })
     expect(w.find('[data-test="style-class-needs-attention"]').exists()).toBe(false)
