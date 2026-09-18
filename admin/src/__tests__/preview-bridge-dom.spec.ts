@@ -3118,3 +3118,104 @@ describe('the grid on the stage (container-layout spec §11.2)', () => {
     expect(layer()!.getAttribute('aria-hidden')).toBe('true')
   })
 })
+
+describe('Fill empty cells on the stage (container-layout spec §11.3)', () => {
+  // The button has no state of its own: the parent publishes the complete list, built from the
+  // same availability the inspector's button reads, and the stage draws only what is in it — so it
+  // can never offer what the inspector refuses.
+  function emptyContainer(id: string, inner = ''): HTMLElement {
+    document.body.innerHTML = '<main></main>'
+    const el = document.createElement('div')
+    el.className = 'thallo-preview-block'
+    el.setAttribute('data-thallo-block', id)
+    el.innerHTML = `<section><div data-thallo-slot="content">${inner}</div></section>`
+    document.body.querySelector('main')!.append(el)
+    return el
+  }
+  const publish = (states: Record<string, unknown>[]) =>
+    sendToBridge({ type: 'thallo:grid-fill-state', states })
+  const button = (el: HTMLElement) => el.querySelector<HTMLButtonElement>('[data-grid-fill]')
+
+  beforeEach(() => posted.mockClear())
+
+  it('draws no button until the parent publishes one for the container', () => {
+    const el = emptyContainer('gf-a-0000001')
+    publish([])
+    expect(el.querySelector('.thallo-slot-placeholder')).not.toBeNull()
+    expect(button(el)).toBeNull()
+  })
+
+  it('an enabled entry draws a button that asks the parent to fill, and selects nothing', () => {
+    const el = emptyContainer('gf-b-0000002')
+    publish([{ id: 'gf-b-0000002', enabled: true, preparing: false }])
+    const fill = button(el)!
+    expect(fill).not.toBeNull()
+    expect(fill.disabled).toBe(false)
+    expect(fill.textContent).toContain('Fill empty cells')
+    fill.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(lastPost('thallo:grid-fill')).toMatchObject({ id: 'gf-b-0000002' })
+    expect(lastPost('thallo:block-select')).toBeUndefined()
+    expect(lastPost('thallo:slot-add')).toBeUndefined()
+  })
+
+  it('a disabled entry shows its reason and posts nothing', () => {
+    const el = emptyContainer('gf-c-0000003')
+    publish([
+      {
+        id: 'gf-c-0000003',
+        enabled: false,
+        preparing: false,
+        reason: 'A cell here could not hold a block: blocks nest at most 5 levels deep',
+      },
+    ])
+    const fill = button(el)!
+    expect(fill.disabled).toBe(true)
+    expect(fill.getAttribute('title')).toContain('could not hold a block')
+    fill.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(lastPost('thallo:grid-fill')).toBeUndefined()
+  })
+
+  it('a preparing entry is busy and posts nothing', () => {
+    const el = emptyContainer('gf-d-0000004')
+    publish([{ id: 'gf-d-0000004', enabled: true, preparing: true }])
+    const fill = button(el)!
+    expect(fill.disabled).toBe(true)
+    expect(fill.getAttribute('aria-busy')).toBe('true')
+    fill.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(lastPost('thallo:grid-fill')).toBeUndefined()
+  })
+
+  it('follows the list: a later one without the container removes the button, and a changed entry redraws it', () => {
+    const el = emptyContainer('gf-e-0000005')
+    publish([{ id: 'gf-e-0000005', enabled: true, preparing: false }])
+    expect(button(el)!.disabled).toBe(false)
+    publish([
+      {
+        id: 'gf-e-0000005',
+        enabled: false,
+        preparing: false,
+        reason: 'No empty cells in the last row',
+      },
+    ])
+    expect(button(el)!.disabled).toBe(true)
+    expect(el.querySelectorAll('[data-grid-fill]')).toHaveLength(1)
+    publish([])
+    expect(button(el)).toBeNull()
+    expect(el.querySelector('.thallo-slot-placeholder [data-slot-add]')).not.toBeNull()
+  })
+
+  it('draws nothing for a container that is not empty: there is no placeholder to carry it', () => {
+    const el = emptyContainer(
+      'gf-f-0000006',
+      '<div class="thallo-preview-block" data-thallo-block="gf-f-child-01"><h2>x</h2></div>',
+    )
+    publish([{ id: 'gf-f-0000006', enabled: true, preparing: false }])
+    expect(button(el)).toBeNull()
+  })
+
+  it('ignores malformed entries', () => {
+    const el = emptyContainer('gf-g-0000007')
+    publish([{ enabled: true }, null as unknown as Record<string, unknown>, { id: 7 }])
+    expect(button(el)).toBeNull()
+  })
+})

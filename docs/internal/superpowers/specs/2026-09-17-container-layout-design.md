@@ -663,7 +663,8 @@ For a column an author can fill on its own — what the old Columns block's `col
   it fits (§6.3), so an empty column container at depth five is legal — and useless, since nothing
   can then be put in it. Fill therefore requires room for the cell **and a block inside it**: the
   grid container at depth three or shallower. Deeper, it is disabled with that reason — "A cell
-  here could not hold a block: blocks nest at most five deep."
+  here could not hold a block: blocks nest at most 5 levels deep", the number being the
+  configured limit, never a literal.
 - **Where.** A button under the Grid controls in the Layout tab, and on the empty grid's
   placeholder on the stage.
 - **Preparation — its own conditions, not the picker's.** Fill reuses the factory and the

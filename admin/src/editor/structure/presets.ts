@@ -85,8 +85,9 @@ const perBreakpoint = (base: Owned, md: Owned, lg: Owned): OwnedPath => ({ base,
 /**
  * A column container (spec §6.5): a flex column with the row gap that reproduces today's Columns
  * rhythm — space between the blocks in a column, none at its edges (§3.8).
+ * Exported because Fill empty cells (§11.3) creates the same thing, one per free cell.
  */
-function columnChild(parent: string, index: number): PlannedChild {
+export function columnChild(parent: string, index: number): PlannedChild {
   return {
     type: 'container',
     position: { parent, slot: 'content', index },

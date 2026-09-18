@@ -269,7 +269,7 @@ The section labelled Children no longer exists. `data-test` names of controls th
   }
   ```
 
-**Availability, in this order:** not in grid mode at the breakpoint → hidden; `lastRowFree` = 0 → disabled, "No empty cells in the last row"; the container deeper than depth three → disabled, "A cell here could not hold a block: blocks nest at most five deep" (the cell would be legal at depth five and could never be filled — §11.3); the complete candidate refused by legality → disabled with legality's own reason.
+**Availability, in this order:** not in grid mode at the breakpoint → hidden; `lastRowFree` = 0 → disabled, "No empty cells in the last row"; the container deeper than depth three → disabled, "A cell here could not hold a block: blocks nest at most 5 levels deep" (the configured limit) (the cell would be legal at depth five and could never be filled — §11.3); the complete candidate refused by legality → disabled with legality's own reason.
 
 **One availability function, run twice.** `availability()` is the single place the four conditions live. It runs when the button is drawn, and **again, in full, immediately before the commit** — not a subset of it. Subtree legality alone is not enough there: a grid moved from depth three to depth four while the factory loads still passes `checkInsertSequence`, because its new empty cells are legal at depth five — and can never hold a block. Only the re-run depth condition catches it.
 
@@ -282,8 +282,8 @@ The section labelled Children no longer exists. `data-test` names of controls th
 **Tests (page) — the two surfaces agree:** for the same container the published entry equals what the Layout tab's button shows (`enabled`, `reason`, preparing) — initially, and again after each of: the container moved to depth four (both disabled, the depth reason); its mode switched to Flex (the inspector's button gone, the entry gone); a block inserted into an empty three-track grid (the **stage** entry gone — the placeholder it sat on exists only while the slot is empty — while the **inspector's** button stays enabled for the two cells still free; the two surfaces agree wherever both exist, and the stage's absence here is the placeholder rule, not a refusal); the active breakpoint changed to one where it has one track; `fill()` pending (both preparing). The page routes `thallo:grid-fill` to `fill(id, activeBreakpoint)`.
 **Tests (builder proof):** Fill on `gridempty001` → one history entry of three `InsertBlock`s, one apply; undo → empty; redo → the same three ids.
 
-- [ ] **Steps 1–4.**
-- [ ] **Step 5: Commit** `feat(editor): Fill empty cells — a grid's last row completed with column containers, as one change`.
+- [x] **Steps 1–4.**
+- [x] **Step 5: Commit** `feat(editor): Fill empty cells — a grid's last row completed with column containers, as one change`.
 
 ---
 

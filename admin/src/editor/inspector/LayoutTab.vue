@@ -21,6 +21,7 @@ import { computed } from 'vue'
 import type { BlockType } from '@/queries/blockTypes'
 import type { StylePropertyRow, StyleSchemaResult } from '@/queries/styleSchema'
 import type { Breakpoint, Resolution, StyleClassRef, StyleValue } from '@/style/types'
+import type { FillAvailability } from '@/editor/structure/gridFill'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import { resolve } from '@/style/resolver'
 import { readPath, settingSegments } from '@/editor/ops/apply'
@@ -56,12 +57,26 @@ const props = defineProps<{
   parentType?: BlockType | null
   /** The parent's own style classes, so its mode resolves through the same cascade. */
   parentClasses?: StyleClassRef[]
+  /**
+   * Fill empty cells (spec §11.3), as the page judged it — the same answer the stage's button is
+   * drawn from. The tab decides nothing: absent or not visible, there is no button.
+   */
+  fill?: (FillAvailability & { preparing: boolean }) | null
 }>()
 const emit = defineEmits<{
   set: [path: string, breakpoint: Breakpoint | null, value: StyleValue | null]
   'set-all': [path: string, value: StyleValue]
   'update:activeBreakpoint': [breakpoint: Breakpoint]
+  'fill-cells': []
 }>()
+
+/** What the line under the Fill button says: the refusal, or what pressing it will add. */
+const fillNote = computed(() => {
+  const fill = props.fill
+  if (!fill || !fill.visible) return ''
+  if (!fill.enabled) return fill.reason ?? ''
+  return `Adds ${fill.cells} column ${fill.cells === 1 ? 'container' : 'containers'} to complete the last row.`
+})
 
 const multi = computed(() => (props.blocks?.length ?? 0) > 1)
 
@@ -533,6 +548,28 @@ const gutterDefault = computed(() => {
                     name="Columns"
                     @update:model-value="(v: string) => write(columnsRow!, v)"
                   />
+                </div>
+                <div
+                  v-if="display === 'grid' && !multi && fill?.visible"
+                  class="space-y-1"
+                  data-test="layout-fill"
+                >
+                  <UButton
+                    size="xs"
+                    color="neutral"
+                    variant="subtle"
+                    icon="i-lucide-layout-grid"
+                    :disabled="!fill.enabled || fill.preparing"
+                    :loading="fill.preparing"
+                    :aria-busy="fill.preparing ? 'true' : undefined"
+                    data-test="layout-fill-cells"
+                    @click="emit('fill-cells')"
+                  >
+                    Fill empty cells
+                  </UButton>
+                  <p v-if="fillNote" class="text-[11px] text-muted" data-test="layout-fill-note">
+                    {{ fillNote }}
+                  </p>
                 </div>
                 <div
                   v-if="display === 'flex' && directionRow"

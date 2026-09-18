@@ -121,6 +121,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   // posts back a choice or a skip, naming the container both times.
   let structureChooseCb: ((id: string, preset: string) => void) | null = null
   let structureSkipCb: ((id: string) => void) | null = null
+  let gridFillCb: ((id: string) => void) | null = null
   let editRequestCb: ((id: string, field: string) => void) | null = null
   let editStartCb: ((id: string) => void) | null = null
   let editEndCb: ((id: string) => void) | null = null
@@ -215,6 +216,9 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     }
     if (data.type === 'thallo:structure-skip' && typeof data.id === 'string') {
       structureSkipCb?.(data.id)
+    }
+    if (data.type === 'thallo:grid-fill' && typeof data.id === 'string') {
+      gridFillCb?.(data.id) // an intent only: the page re-checks everything before it commits
     }
     // Edit-in-place (edit-in-place spec §3/§4; v4 field-addressed shapes).
     if (
@@ -384,6 +388,19 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     },
     onStructureSkip(cb: (id: string) => void): void {
       structureSkipCb = cb
+    },
+    /**
+     * Publish the stage's Fill empty cells buttons (spec §11.3). As with the structure offers the
+     * complete list is sent every time, built from the same availability the inspector's button
+     * reads: the stage draws exactly this and holds no opinion of its own.
+     */
+    publishGridFill(
+      states: { id: string; enabled: boolean; preparing: boolean; reason?: string }[],
+    ): void {
+      post({ type: 'thallo:grid-fill-state', states })
+    },
+    onGridFill(cb: (id: string) => void): void {
+      gridFillCb = cb
     },
     // Mirrors (stage-toolbar spec §1): posted ONLY after the tree committed.
     mirrorMove(id: string, neighbor: { beforeId: string } | { afterId: string }): void {

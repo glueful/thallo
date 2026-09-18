@@ -596,6 +596,55 @@ describe('the structure picker protocol (container-layout spec §6.2)', () => {
   })
 })
 
+describe('the Fill empty cells protocol (container-layout spec §11.3)', () => {
+  it('publishes the complete state list, reason and busy flag included', () => {
+    const postMessage = vi.fn()
+    const iframe = ref<HTMLIFrameElement | null>({
+      src: 'http://site.test/preview',
+      contentWindow: { postMessage },
+    } as unknown as HTMLIFrameElement)
+    const bridge = useCanvasBridge(iframe)
+    bridge.publishGridFill([
+      { id: 'g1', enabled: true, preparing: false },
+      { id: 'g2', enabled: false, preparing: false, reason: 'No empty cells in the last row' },
+    ])
+    expect(postMessage).toHaveBeenLastCalledWith(
+      {
+        type: 'thallo:grid-fill-state',
+        nonce: bridge.nonce,
+        states: [
+          { id: 'g1', enabled: true, preparing: false },
+          { id: 'g2', enabled: false, preparing: false, reason: 'No empty cells in the last row' },
+        ],
+      },
+      expect.any(String),
+    )
+    bridge.publishGridFill([])
+    expect(postMessage).toHaveBeenLastCalledWith(
+      { type: 'thallo:grid-fill-state', nonce: bridge.nonce, states: [] },
+      expect.any(String),
+    )
+    bridge.dispose()
+  })
+
+  it('receives a fill request, and drops one with no id or a foreign nonce', () => {
+    const iframe = ref<HTMLIFrameElement | null>(null)
+    const bridge = useCanvasBridge(iframe)
+    const asked: string[] = []
+    bridge.onGridFill((id) => asked.push(id))
+    for (const data of [
+      { type: 'thallo:grid-fill', nonce: bridge.nonce, id: 'g1' },
+      { type: 'thallo:grid-fill', nonce: bridge.nonce },
+      { type: 'thallo:grid-fill', nonce: 'WRONG', id: 'g2' },
+      { type: 'thallo:grid-fill', nonce: bridge.nonce, id: 7 },
+    ]) {
+      window.dispatchEvent(new MessageEvent('message', { data }))
+    }
+    expect(asked).toEqual(['g1'])
+    bridge.dispose()
+  })
+})
+
 describe('FieldEditor.selectBlockById', () => {
   const bt = (slug: string): BlockType =>
     ({

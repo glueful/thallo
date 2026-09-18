@@ -287,6 +287,84 @@ describe('the controls under Layout follow the mode in force', () => {
   })
 })
 
+describe('Fill empty cells (container-layout spec §11.3)', () => {
+  // The tab decides nothing: whether Fill applies, whether it can run and why not are handed to it
+  // — the same answer the stage's button is drawn from.
+  const gridBlock = () =>
+    block('c1', 'container', {
+      layout: { display: { base: choice('grid') }, columns: { base: choice('3') } },
+    })
+  const fillButton = (w: ReturnType<typeof mountTab>) => w.find('[data-test="layout-fill-cells"]')
+
+  it('sits under the grid controls, enabled, and asks for the fill when pressed', async () => {
+    const w = mountTab({
+      block: gridBlock(),
+      blockType: container,
+      fill: { visible: true, enabled: true, cells: 2, preparing: false },
+    })
+    const controls = w.find('[data-test="layout-mode-controls"]')
+    const button = controls.find('[data-test="layout-fill-cells"]')
+    expect(button.exists()).toBe(true)
+    expect(button.text()).toContain('Fill empty cells')
+    expect(button.attributes('disabled')).toBeUndefined()
+    expect(w.find('[data-test="layout-fill-note"]').text()).toContain('2 column containers')
+    await button.trigger('click')
+    expect(w.emitted('fill-cells')).toHaveLength(1)
+  })
+
+  it('one cell is said in the singular', () => {
+    const w = mountTab({
+      block: gridBlock(),
+      blockType: container,
+      fill: { visible: true, enabled: true, cells: 1, preparing: false },
+    })
+    expect(w.find('[data-test="layout-fill-note"]').text()).toContain('1 column container ')
+  })
+
+  it('disabled, it stays visible and says why in words, not only on hover', async () => {
+    const w = mountTab({
+      block: gridBlock(),
+      blockType: container,
+      fill: {
+        visible: true,
+        enabled: false,
+        cells: 0,
+        preparing: false,
+        reason: 'No empty cells in the last row',
+      },
+    })
+    expect(fillButton(w).attributes('disabled')).toBeDefined()
+    expect(w.find('[data-test="layout-fill-note"]').text()).toBe('No empty cells in the last row')
+    await fillButton(w).trigger('click')
+    expect(w.emitted('fill-cells')).toBeUndefined()
+  })
+
+  it('preparing, it is busy and cannot be pressed again', async () => {
+    const w = mountTab({
+      block: gridBlock(),
+      blockType: container,
+      fill: { visible: true, enabled: true, cells: 3, preparing: true },
+    })
+    expect(fillButton(w).attributes('disabled')).toBeDefined()
+    expect(fillButton(w).attributes('aria-busy')).toBe('true')
+    await fillButton(w).trigger('click')
+    expect(w.emitted('fill-cells')).toBeUndefined()
+  })
+
+  it('is absent where Fill does not apply, or where nothing was handed down', () => {
+    const notGrid = mountTab({
+      block: block('c1', 'container', { layout: { display: { base: choice('flex') } } }),
+      blockType: container,
+      fill: { visible: false, enabled: false, cells: 0, preparing: false },
+    })
+    expect(fillButton(notGrid).exists()).toBe(false)
+    const unanswered = mountTab({ block: gridBlock(), blockType: container })
+    expect(fillButton(unanswered).exists()).toBe(false)
+    const nulled = mountTab({ block: gridBlock(), blockType: container, fill: null })
+    expect(fillButton(nulled).exists()).toBe(false)
+  })
+})
+
 describe('writes land at the right breakpoint', () => {
   it('a track swatch writes the columns at the active breakpoint', async () => {
     const w = mountTab({

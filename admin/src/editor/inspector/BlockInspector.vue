@@ -13,6 +13,7 @@ import BlockFields from '@/fields/components/blocks/BlockFields.vue'
 import { isProseBlockType, proseRichFieldName } from '@/fields/components/blocks/proseDetection'
 import StyleTab from './StyleTab.vue'
 import LayoutTab from './LayoutTab.vue'
+import type { FillAvailability } from '@/editor/structure/gridFill'
 import { hasTab } from './tabMap'
 import AdvancedTab from './AdvancedTab.vue'
 
@@ -34,6 +35,8 @@ const props = defineProps<{
   parent?: BlockInstance | null
   parentType?: BlockType | null
   parentClasses?: StyleClassRef[]
+  /** Fill empty cells (spec §11.3) for the selected block, as the page judged it. */
+  fill?: (FillAvailability & { preparing: boolean }) | null
 }>()
 const emit = defineEmits<{
   'patch-data': [name: string, value: unknown]
@@ -45,6 +48,7 @@ const emit = defineEmits<{
     value: unknown,
   ]
   'update:activeBreakpoint': [breakpoint: Breakpoint]
+  'fill-cells': []
   'apply-class': [id: string]
   'remove-class': [id: string]
   'reorder-classes': [ids: string[]]
@@ -151,6 +155,8 @@ const proseField = computed(() =>
           :parent="parent"
           :parent-type="parentType"
           :parent-classes="parentClasses"
+          :fill="fill"
+          @fill-cells="emit('fill-cells')"
           @set="(path, bp, value) => emit('set-setting', path, bp, value)"
           @set-all="(path, value) => emit('set-all', path, value)"
           @update:active-breakpoint="(bp) => emit('update:activeBreakpoint', bp)"
