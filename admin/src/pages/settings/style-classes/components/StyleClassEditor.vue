@@ -8,6 +8,9 @@ import type { Breakpoint, StyleValue } from '@/style/types'
 import { absent, present } from '@/editor/ops/types'
 import { setPath, settingSegments } from '@/editor/ops/apply'
 import StyleTab from '@/editor/inspector/StyleTab.vue'
+import InvalidChoiceNotice from '@/editor/inspector/controls/InvalidChoiceNotice.vue'
+import { REPLACEMENT, invalidChoicesIn } from '@/editor/inspector/layoutContext'
+import { propertyDefinition } from '@/style/schema'
 
 const props = defineProps<{ modelValue: Record<string, unknown> }>()
 const emit = defineEmits<{ 'update:modelValue': [style: Record<string, unknown>] }>()
@@ -51,6 +54,20 @@ function onSet(path: string, bp: Breakpoint | null, value: StyleValue | null): v
   write((s) => setPath(s, settingSegments(path, bp), value === null ? absent() : present(value)))
 }
 
+/**
+ * Stored choices the contract no longer offers (container-layout spec §11.1). The tab below shows
+ * style paths only, so a layout value held here would otherwise be invisible on the one page the
+ * block inspector sends an author to repair it. Repair only: a class's layout is not edited here.
+ */
+const needsAttention = computed(() => invalidChoicesIn(props.modelValue))
+const labelOf = (path: string): string => {
+  const words = path.replace(/[._]/g, ' ')
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+/** A property that is not responsive is stored bare, not under a breakpoint. */
+const storedAt = (path: string, bp: Breakpoint): Breakpoint | null =>
+  propertyDefinition(path)?.responsive ? bp : null
+
 function onSetAll(path: string, value: StyleValue): void {
   write((s) => {
     let next = s
@@ -64,6 +81,24 @@ function onSetAll(path: string, value: StyleValue): void {
 
 <template>
   <div data-test="style-class-editor">
+    <section
+      v-if="needsAttention.length > 0"
+      class="mb-4 space-y-2"
+      data-test="style-class-needs-attention"
+    >
+      <h3 class="text-xs font-semibold uppercase tracking-wide text-muted">Needs attention</h3>
+      <InvalidChoiceNotice
+        v-for="invalid in needsAttention"
+        :key="`${invalid.path}:${invalid.breakpoint}`"
+        :label="labelOf(invalid.path)"
+        :path="invalid.path"
+        :value="invalid.value"
+        :breakpoint="invalid.breakpoint"
+        :replacement="REPLACEMENT[invalid.path]"
+        @replace="(path, bp, value) => onSet(path, storedAt(path, bp), { type: 'choice', value })"
+        @remove="(path, bp) => onSet(path, storedAt(path, bp), null)"
+      />
+    </section>
     <p v-if="!schema" class="text-xs text-muted">Loading the style schema…</p>
     <StyleTab
       v-else

@@ -2,6 +2,7 @@
 // mode in force at the active breakpoint, and writes that land at that breakpoint.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { ref } from 'vue'
 import type { BlockType } from '@/queries/blockTypes'
 import type { StyleSchemaResult } from '@/queries/styleSchema'
@@ -258,6 +259,94 @@ describe('writes land at the right breakpoint', () => {
       .find('[data-test="style-field-layout.display"] [data-test="choice-grid"]')
       .trigger('click')
     expect(w.emitted('set')).toEqual([['layout.display', 'lg', { type: 'choice', value: 'grid' }]])
+  })
+})
+
+describe('a stored layout the contract no longer offers', () => {
+  // The inspector must not show the theme default in its place: that reads as valid while the
+  // save is refused (spec §11.1). It says what is stored, where, and how to get out.
+  const stale = (bp: string) =>
+    block('c1', 'container', { layout: { display: { [bp]: choice('block') } } })
+  // `UButton :to` renders a RouterLink, whose `useLink()` needs an injected router even when it is
+  // never navigated — the pattern `subscriptions-pages.spec.ts` established.
+  const testRouter = () =>
+    createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/:pathMatch(.*)*', component: { template: '<div />' } }],
+    })
+  const mountStale = (props: Record<string, unknown>) =>
+    mount(LayoutTab, {
+      props: {
+        schema,
+        classes: [],
+        activeBreakpoint: 'base',
+        blockType: container,
+        ...props,
+      } as never,
+      global: { plugins: [testRouter()] },
+    })
+
+  it('names the value and the breakpoint it is declared at, and presses no choice', () => {
+    const w = mountStale({ block: stale('md'), activeBreakpoint: 'lg' })
+    const notice = w.find('[data-test="invalid-choice-layout.display"]')
+    expect(notice.exists()).toBe(true)
+    expect(notice.text()).toContain('block')
+    expect(notice.text()).toContain('md')
+    expect(w.find('[data-test="style-field-layout.display"]').exists()).toBe(false)
+  })
+
+  it('Replace writes the replacement at the DECLARING breakpoint, one operation', async () => {
+    const w = mountStale({ block: stale('md'), activeBreakpoint: 'lg' })
+    await w.find('[data-test="invalid-choice-replace"]').trigger('click')
+    expect(w.emitted('set')).toEqual([['layout.display', 'md', { type: 'choice', value: 'flex' }]])
+  })
+
+  it('Remove deletes that one declaration, at the declaring breakpoint', async () => {
+    const w = mountStale({ block: stale('md'), activeBreakpoint: 'lg' })
+    await w.find('[data-test="invalid-choice-remove"]').trigger('click')
+    expect(w.emitted('set')).toEqual([['layout.display', 'md', null]])
+  })
+
+  it('clears once the stored value is one the contract offers', async () => {
+    const w = mountStale({ block: stale('md'), activeBreakpoint: 'lg' })
+    await w.setProps({
+      block: block('c1', 'container', { layout: { display: { md: choice('flex') } } }),
+    })
+    expect(w.find('[data-test="invalid-choice-layout.display"]').exists()).toBe(false)
+    expect(w.find('[data-test="style-field-layout.display"]').exists()).toBe(true)
+  })
+
+  it('from a style class: names the class, offers no write, and links to where it can be repaired', () => {
+    const w = mountStale({
+      block: block('c1', 'container'),
+      classes: [{ id: 'stacked', style: { layout: { display: { base: choice('block') } } } }],
+      classNames: { stacked: 'Stacked band' },
+      activeBreakpoint: 'md',
+    })
+    const notice = w.find('[data-test="invalid-choice-layout.display"]')
+    expect(notice.text()).toContain('Stacked band')
+    expect(notice.text()).toContain('base')
+    expect(w.find('[data-test="invalid-choice-replace"]').exists()).toBe(false)
+    expect(w.find('[data-test="invalid-choice-remove"]').exists()).toBe(false)
+    // The router's base supplies /admin/; the in-app path starts at /settings.
+    expect(w.find('[data-test="invalid-choice-open-class"]').attributes('href')).toBe(
+      '/settings/style-classes/stacked',
+    )
+  })
+
+  it('an untouched container and a valid mode show no notice', () => {
+    expect(
+      mountStale({ block: block('c1', 'container') })
+        .find('[data-test="invalid-choice-layout.display"]')
+        .exists(),
+    ).toBe(false)
+    expect(
+      mountStale({
+        block: block('c1', 'container', { layout: { display: { base: choice('grid') } } }),
+      })
+        .find('[data-test="invalid-choice-layout.display"]')
+        .exists(),
+    ).toBe(false)
   })
 })
 

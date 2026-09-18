@@ -12,8 +12,9 @@
 //
 // Both count values a style class supplies, not only local declarations: a track count arriving
 // from a class is just as retained, and just as dormant, as one written here.
-import { resolve } from '@/style/resolver'
+import { declarationOrigin, resolve } from '@/style/resolver'
 import { propertyDefinition, styleProperties } from '@/style/schema'
+import { BREAKPOINTS } from '@/style/types'
 import type { Breakpoint, Resolution, StyleClassRef } from '@/style/types'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 
@@ -96,4 +97,84 @@ export function dormantPaths(
   // whichever mode is in force.
   const order = styleProperties().map((p) => p.path)
   return held.sort((a, b) => order.indexOf(a) - order.indexOf(b))
+}
+
+/**
+ * A stored choice the contract no longer offers, where the cascade says it is in force (spec
+ * §11.1). Generic over choice paths and naming no value: it is whatever is stored that the
+ * property's choices do not include.
+ */
+export interface InvalidChoice {
+  path: string
+  /** The stored value, verbatim. */
+  value: string
+  /** Where it is DECLARED — from `declarationOrigin`, never the breakpoint being edited. */
+  breakpoint: Breakpoint
+  source: 'instance' | { classId: string }
+}
+
+/** The value Replace writes for a path. A path absent from it offers Remove only. */
+export const REPLACEMENT: Record<string, string> = { 'layout.display': 'flex' }
+
+/** The invalid choice in force for `path` at `breakpoint`, or null when what is in force is offered. */
+export function invalidChoiceAt(
+  path: string,
+  block: BlockInstance,
+  breakpoint: Breakpoint,
+  classes: StyleClassRef[],
+): InvalidChoice | null {
+  const def = propertyDefinition(path)
+  const value = resolutionAt(path, block, breakpoint, classes)?.value
+  if (!def || !def.choices || !value || value.type !== 'choice') return null
+  if (def.choices.includes(value.value)) return null
+  const origin = declarationOrigin(path, classes, styleOf(block), def, breakpoint)
+  if (origin === null) return null
+  return {
+    path,
+    value: value.value,
+    breakpoint: origin.breakpoint,
+    source:
+      origin.source === 'instance' ? 'instance' : { classId: origin.source.slice('class:'.length) },
+  }
+}
+
+/**
+ * Every invalid choice a style record declares ITSELF, at every breakpoint — the class editor's
+ * view, where there is no cascade to ask: the record is the class, and each declaration in it is
+ * one the class must repair. In the contract's property order.
+ */
+export function invalidChoicesIn(style: unknown): Omit<InvalidChoice, 'source'>[] {
+  const out: Omit<InvalidChoice, 'source'>[] = []
+  const record = (typeof style === 'object' && style !== null ? style : {}) as Record<
+    string,
+    unknown
+  >
+  for (const def of styleProperties()) {
+    if (!def.choices) continue
+    let node: unknown = record
+    for (const part of def.path.split('.')) {
+      node =
+        typeof node === 'object' && node !== null
+          ? (node as Record<string, unknown>)[part]
+          : undefined
+    }
+    if (typeof node !== 'object' || node === null) continue
+    const declared: [Breakpoint, unknown][] = def.responsive
+      ? BREAKPOINTS.map(
+          (bp) => [bp, (node as Record<string, unknown>)[bp]] as [Breakpoint, unknown],
+        )
+      : [['base', node]]
+    for (const [bp, raw] of declared) {
+      const v = raw as { type?: unknown; value?: unknown } | undefined
+      if (
+        v &&
+        v.type === 'choice' &&
+        typeof v.value === 'string' &&
+        !def.choices.includes(v.value)
+      ) {
+        out.push({ path: def.path, value: v.value, breakpoint: bp })
+      }
+    }
+  }
+  return out
 }

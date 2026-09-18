@@ -95,14 +95,6 @@ final class StyleClassApiTest extends AppTestCase
         self::assertSame(422, $literal->getStatusCode());
         self::assertArrayHasKey('style.radius', $this->json($literal)['error']['details']);
 
-        // Flex and Grid only (spec §11.1): a class cannot carry the block display either.
-        $block = $this->api()->store($this->create([
-            'name' => 'Stacked',
-            'style' => ['layout' => ['display' => ['md' => ['type' => 'choice', 'value' => 'block']]]],
-        ]), $this->req());
-        self::assertSame(422, $block->getStatusCode(), (string) $block->getContent());
-        self::assertArrayHasKey('style.layout.display.md', $this->json($block)['error']['details']);
-
         $rename = $this->update(['version' => 1, 'name' => 'Hero strip']);
         $updated = $this->api()->update($rename, $this->req(), $class['id']);
         self::assertSame(200, $updated->getStatusCode(), (string) $updated->getContent());
@@ -128,6 +120,33 @@ final class StyleClassApiTest extends AppTestCase
         $shown = $this->json($this->api()->show($this->req(), $class['id']))['data']['style_class'];
         self::assertTrue($shown['archived']);
         self::assertSame(404, $this->api()->show($this->req(), 'nope00000000')->getStatusCode());
+    }
+
+    public function testAStoredBlockDisplayIsRefusedAndTheRepairedStylesAreSaved(): void
+    {
+        // Flex and Grid only (spec §11.1): a class cannot carry the block display either.
+        $block = $this->api()->store($this->create([
+            'name' => 'Stacked',
+            'style' => ['layout' => ['display' => ['md' => ['type' => 'choice', 'value' => 'block']]]],
+        ]), $this->req());
+        self::assertSame(422, $block->getStatusCode(), (string) $block->getContent());
+        self::assertArrayHasKey('style.layout.display.md', $this->json($block)['error']['details']);
+
+        // …and the two styles the class editor's repair leaves are saved: Replace's (flex where
+        // the block was) and Remove's (that one declaration gone, the rest kept). Open class →
+        // repair → save has to SUCCEED, not only send (spec §11.1).
+        $flex = ['type' => 'choice', 'value' => 'flex'];
+        foreach (
+            [
+                'Replaced' => ['layout' => ['display' => ['base' => $flex, 'md' => $flex]]],
+                'Removed' => ['layout' => ['display' => ['base' => $flex]]],
+            ] as $name => $style
+        ) {
+            $saved = $this->api()->store($this->create(['name' => $name, 'style' => $style]), $this->req());
+            self::assertSame(201, $saved->getStatusCode(), $name . ': ' . $saved->getContent());
+            // Equal, not identical: the stored document does not keep key order.
+            self::assertEquals($style, $this->json($saved)['data']['style_class']['style'], $name);
+        }
     }
 
     public function testAnUnreferencedClassCanBeDeletedOutrightAndAReferencedOneCannot(): void

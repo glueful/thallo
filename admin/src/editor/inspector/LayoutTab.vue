@@ -27,11 +27,12 @@ import { readPath, settingSegments } from '@/editor/ops/apply'
 import { BREAKPOINTS } from '@/style/types'
 import { BREAKPOINT_LABELS } from '@/editor/breakpoint'
 import { isFolded, toggleFold } from './styleGroupFolds'
-import { dormantPaths, effectiveDisplay } from './layoutContext'
+import { REPLACEMENT, dormantPaths, effectiveDisplay, invalidChoiceAt } from './layoutContext'
 import { pathsForTab } from './tabMap'
 import ResponsiveField from './controls/ResponsiveField.vue'
 import BoxField from './controls/BoxField.vue'
 import IconChoiceControl from './controls/IconChoiceControl.vue'
+import InvalidChoiceNotice from './controls/InvalidChoiceNotice.vue'
 import TrackSwatchControl from './controls/TrackSwatchControl.vue'
 
 const props = defineProps<{
@@ -59,7 +60,6 @@ const emit = defineEmits<{
   set: [path: string, breakpoint: Breakpoint | null, value: StyleValue | null]
   'set-all': [path: string, value: StyleValue]
   'update:activeBreakpoint': [breakpoint: Breakpoint]
-  /** Select the parent, so the author can change the mode the item controls answer to. */
 }>()
 
 const multi = computed(() => (props.blocks?.length ?? 0) > 1)
@@ -181,6 +181,18 @@ const containerRows = computed(() => rowsFor(CONTAINER_PATHS))
 const displayRow = computed(() => rowFor('layout.display'))
 /** The mode the children are arranged in at the active breakpoint. */
 const display = computed(() => effectiveDisplay(props.block, props.activeBreakpoint, props.classes))
+/**
+ * A stored mode the contract no longer offers (spec §11.1). The controls below still follow the
+ * theme default — that is what renders — but the mode's own control says what is stored instead.
+ */
+const invalidDisplay = computed(() =>
+  invalidChoiceAt('layout.display', props.block, props.activeBreakpoint, props.classes),
+)
+const invalidDisplayClass = computed(() => {
+  const source = invalidDisplay.value?.source
+  if (!source || source === 'instance') return undefined
+  return { id: source.classId, name: props.classNames?.[source.classId] ?? source.classId }
+})
 
 const directionRow = computed(() => rowFor('layout.direction'))
 const wrapRow = computed(() => rowFor('layout.wrap'))
@@ -407,7 +419,19 @@ const gutterDefault = computed(() => {
           <!-- Box and Container are plain property rows, in the contract's order. -->
           <template v-if="section.key === 'box' || section.key === 'container'">
             <template v-for="row in section.rows" :key="row.path">
+              <InvalidChoiceNotice
+                v-if="row.path === 'layout.display' && invalidDisplay"
+                :label="LABELS[row.path] ?? row.path"
+                :path="invalidDisplay.path"
+                :value="invalidDisplay.value"
+                :breakpoint="invalidDisplay.breakpoint"
+                :replacement="REPLACEMENT[invalidDisplay.path]"
+                :held-by-class="invalidDisplayClass"
+                @replace="(path, bp, value) => emit('set', path, bp, { type: 'choice', value })"
+                @remove="(path, bp) => emit('set', path, bp, null)"
+              />
               <ResponsiveField
+                v-else
                 :def="row"
                 :label="
                   (section.key === 'box' ? BOX_LABELS[row.path] : null) ??
