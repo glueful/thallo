@@ -47,6 +47,53 @@ test('the container compositions are all written', () => {
   }
 });
 
+// The narrow claim of spec §3.2 / §11.1, and exactly as narrow as its evidence: the ordinary
+// stacks that were CAPTURED — three of them — keep their distances. It is not a claim about every
+// possible stack. The old container's
+// block flow spaced its children by their own margins, collapsing to --space-5; the composition
+// spaces them by the default gap. The disposition rows relax these elements' geometry (their widths
+// change with the containment release, §7.10), so the distance is measured here on its own, against
+// the numbers frozen before anything changed.
+//
+// "Untouched" is exact: block layout AND no minimum height. A band with a minimum height was never
+// block flow — the old theme made its content area a centred flex column, where margins do not
+// collapse — and §7.11's closing paragraph dispositions that one separately.
+const stacks = composed.filter(
+  (definition) =>
+    (definition.old.data.layout || 'block') === 'block' &&
+    (definition.old.data.min_height || 'auto') === 'auto',
+);
+
+test('there are frozen block-flow stacks to hold the claim against', () => {
+  expect(stacks.length).toBeGreaterThan(0);
+});
+
+for (const definition of stacks) {
+  for (const [suffix, rendering] of [
+    ['', 'public'],
+    ['.canvas', 'annotated'],
+  ]) {
+    test(`${definition.case} keeps its stack's vertical distances (${rendering})`, async ({ page }) => {
+      const reference = JSON.parse(
+        fs.readFileSync(path.join(MEASUREMENTS, `${definition.case}${suffix}.json`), 'utf8'),
+      );
+      for (const [width, frozen] of Object.entries(reference.widths)) {
+        const was = frozen.richtext.geometry.top - (frozen.heading.geometry.top + frozen.heading.geometry.height);
+        await page.setViewportSize({ width: Number(width), height: 900 });
+        await page.goto(`${URL_BASE}/${definition.case}${suffix}.html`);
+        await page.evaluate(() => document.fonts && document.fonts.ready);
+        const now = await page.evaluate(
+          ([heading, richtext]) =>
+            document.querySelector(richtext).getBoundingClientRect().top -
+            document.querySelector(heading).getBoundingClientRect().bottom,
+          [definition.map.heading, definition.map.richtext],
+        );
+        expect(Math.abs(was - now), `${definition.case} @${width}: was ${was}, now ${now}`).toBeLessThan(0.5);
+      }
+    });
+  }
+}
+
 for (const definition of composed) {
   for (const [suffix, rendering] of [
     ['', 'public'],

@@ -95,6 +95,14 @@ final class StyleClassApiTest extends AppTestCase
         self::assertSame(422, $literal->getStatusCode());
         self::assertArrayHasKey('style.radius', $this->json($literal)['error']['details']);
 
+        // Flex and Grid only (spec §11.1): a class cannot carry the block display either.
+        $block = $this->api()->store($this->create([
+            'name' => 'Stacked',
+            'style' => ['layout' => ['display' => ['md' => ['type' => 'choice', 'value' => 'block']]]],
+        ]), $this->req());
+        self::assertSame(422, $block->getStatusCode(), (string) $block->getContent());
+        self::assertArrayHasKey('style.layout.display.md', $this->json($block)['error']['details']);
+
         $rename = $this->update(['version' => 1, 'name' => 'Hero strip']);
         $updated = $this->api()->update($rename, $this->req(), $class['id']);
         self::assertSame(200, $updated->getStatusCode(), (string) $updated->getContent());

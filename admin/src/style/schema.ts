@@ -51,7 +51,7 @@ const PROPERTIES: PropertyDefinition[] = [
   // Layout (container-layout spec §3.2): parent properties on a container's `inner` target, the
   // band's own on its `root`, and the `layout.item` group on any block that sizes itself inside
   // a flex or grid parent.
-  choice('layout.display', 'layout', true, ['block', 'flex', 'grid']),
+  choice('layout.display', 'layout', true, ['flex', 'grid']),
   choice('layout.direction', 'layout', true, ['row', 'column', 'row-reverse', 'column-reverse']),
   choice('layout.wrap', 'layout', true, ['nowrap', 'wrap']),
   choice('layout.align_items', 'layout', true, ['start', 'center', 'end', 'stretch', 'baseline']),

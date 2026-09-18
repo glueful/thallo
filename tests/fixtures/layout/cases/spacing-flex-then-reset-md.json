@@ -1,6 +1,6 @@
 {
   "case": "spacing-flex-then-reset-md",
-  "note": "\u00a73.8 (review): flex at base, reset at md \u2014 reset is the block default.",
+  "note": "\u00a73.8: a reset lands on the theme default, which is a flex column \u2014 no margin returns, and the default gap spaces the children at every width.",
   "tree": {
     "id": "lf0000000001",
     "type": "layout_fixture",

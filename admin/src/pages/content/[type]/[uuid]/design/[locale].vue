@@ -486,13 +486,6 @@ bridge.onBlockSelect((id, modifiers = { shift: false, meta: false }) =>
   selectFromStage(id, modifiers),
 )
 
-/** The Layout tab's link out of an item to the container that governs it (spec §5). */
-function onSelectParent(id: string): void {
-  applySelection(id)
-  fieldEditorRef.value?.selectBlockById(id)
-  ringSelection()
-}
-
 // ── The block inspector (visual builder spec §3.4) ────────────────────────────
 const { data: styleSchema } = useStyleSchema()
 /** The selected block, read off the live tree (every edit re-derives it). */
@@ -2209,7 +2202,6 @@ function reloadStage(): void {
                 :parent-type="selectedParentType"
                 :parent-classes="classRefsFor(selectedParent)"
                 :active-breakpoint="activeBreakpoint"
-                @select-parent="onSelectParent"
                 @patch-data="onPatchData"
                 @insert-into="onInsertInto"
                 @set-setting="onSetSetting"

@@ -52,7 +52,6 @@ const emit = defineEmits<{
   'detach-all': []
   'save-as-class': []
   /** The Layout tab's link out of a block to the parent whose mode governs it. */
-  'select-parent': [id: string]
 }>()
 
 const tab = ref('content')
@@ -155,7 +154,6 @@ const proseField = computed(() =>
           @set="(path, bp, value) => emit('set-setting', path, bp, value)"
           @set-all="(path, value) => emit('set-all', path, value)"
           @update:active-breakpoint="(bp) => emit('update:activeBreakpoint', bp)"
-          @select-parent="(id) => emit('select-parent', id)"
         />
       </template>
       <template #style>

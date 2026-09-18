@@ -1,0 +1,309 @@
+{
+  "case": "width-in-flex-row",
+  "note": "\u00a73.2: an authored width asks to fill the space up to its maximum, so in a flex row it is the item's starting size under basis auto, yields to an explicit basis, decides wrapping, and is gone again where it is reset.",
+  "tree": {
+    "id": "lf0000000801",
+    "type": "layout_fixture",
+    "data": {
+      "content": [
+        {
+          "id": "lf0000000802",
+          "type": "layout_fixture",
+          "data": {
+            "content": [
+              {
+                "id": "hd0000000801",
+                "type": "heading",
+                "data": {
+                  "level": "h2",
+                  "text": "Hi"
+                },
+                "settings": {
+                  "style": {
+                    "width": {
+                      "base": {
+                        "type": "token",
+                        "value": "width.narrow"
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "id": "hd0000000802",
+                "type": "heading",
+                "data": {
+                  "level": "h2",
+                  "text": "Yo"
+                },
+                "settings": {
+                  "style": {
+                    "width": {
+                      "base": {
+                        "type": "token",
+                        "value": "width.narrow"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "settings": {
+            "style": {
+              "layout": {
+                "display": {
+                  "base": {
+                    "type": "choice",
+                    "value": "flex"
+                  }
+                },
+                "direction": {
+                  "base": {
+                    "type": "choice",
+                    "value": "row"
+                  }
+                },
+                "wrap": {
+                  "base": {
+                    "type": "choice",
+                    "value": "nowrap"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "lf0000000803",
+          "type": "layout_fixture",
+          "data": {
+            "content": [
+              {
+                "id": "hd0000000803",
+                "type": "heading",
+                "data": {
+                  "level": "h2",
+                  "text": "Hi"
+                },
+                "settings": {
+                  "style": {
+                    "width": {
+                      "base": {
+                        "type": "token",
+                        "value": "width.narrow"
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "id": "hd0000000804",
+                "type": "heading",
+                "data": {
+                  "level": "h2",
+                  "text": "Yo"
+                },
+                "settings": {
+                  "style": {
+                    "width": {
+                      "base": {
+                        "type": "token",
+                        "value": "width.narrow"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "settings": {
+            "style": {
+              "layout": {
+                "display": {
+                  "base": {
+                    "type": "choice",
+                    "value": "flex"
+                  }
+                },
+                "direction": {
+                  "base": {
+                    "type": "choice",
+                    "value": "row"
+                  }
+                },
+                "wrap": {
+                  "base": {
+                    "type": "choice",
+                    "value": "wrap"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "lf0000000804",
+          "type": "layout_fixture",
+          "data": {
+            "content": [
+              {
+                "id": "hd0000000805",
+                "type": "heading",
+                "data": {
+                  "level": "h2",
+                  "text": "Hi"
+                },
+                "settings": {
+                  "style": {
+                    "width": {
+                      "base": {
+                        "type": "token",
+                        "value": "width.narrow"
+                      }
+                    },
+                    "layout": {
+                      "basis": {
+                        "base": {
+                          "type": "choice",
+                          "value": "1/3"
+                        }
+                      },
+                      "grow": {
+                        "base": {
+                          "type": "choice",
+                          "value": "0"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "id": "hd0000000806",
+                "type": "heading",
+                "data": {
+                  "level": "h2",
+                  "text": "Yo"
+                },
+                "settings": {
+                  "style": {
+                    "width": {
+                      "base": {
+                        "type": "token",
+                        "value": "width.narrow"
+                      }
+                    },
+                    "layout": {
+                      "basis": {
+                        "base": {
+                          "type": "choice",
+                          "value": "1/3"
+                        }
+                      },
+                      "grow": {
+                        "base": {
+                          "type": "choice",
+                          "value": "0"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "settings": {
+            "style": {
+              "layout": {
+                "display": {
+                  "base": {
+                    "type": "choice",
+                    "value": "flex"
+                  }
+                },
+                "direction": {
+                  "base": {
+                    "type": "choice",
+                    "value": "row"
+                  }
+                },
+                "wrap": {
+                  "base": {
+                    "type": "choice",
+                    "value": "nowrap"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "lf0000000805",
+          "type": "layout_fixture",
+          "data": {
+            "content": [
+              {
+                "id": "hd0000000807",
+                "type": "heading",
+                "data": {
+                  "level": "h2",
+                  "text": "Hi"
+                },
+                "settings": {
+                  "style": {
+                    "width": {
+                      "base": {
+                        "type": "token",
+                        "value": "width.narrow"
+                      },
+                      "md": {
+                        "type": "reset"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "settings": {
+            "style": {
+              "layout": {
+                "display": {
+                  "base": {
+                    "type": "choice",
+                    "value": "flex"
+                  }
+                },
+                "direction": {
+                  "base": {
+                    "type": "choice",
+                    "value": "row"
+                  }
+                },
+                "wrap": {
+                  "base": {
+                    "type": "choice",
+                    "value": "nowrap"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "settings": {
+      "style": {
+        "layout": {
+          "content_width": {
+            "base": {
+              "type": "token",
+              "value": "width.container"
+            }
+          }
+        }
+      }
+    }
+  }
+}

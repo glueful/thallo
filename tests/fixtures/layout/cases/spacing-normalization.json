@@ -1,8 +1,8 @@
 {
   "case": "spacing-normalization",
-  "note": "\u00a73.8: block mode keeps the theme rhythm with its outer edges released.",
+  "note": "\u00a73.8: in both modes the gaps are the one source of spacing \u2014 no child carries a default vertical margin, in a flex column or in a grid nested inside it.",
   "tree": {
-    "id": "lf0000000001",
+    "id": "lf0000000501",
     "type": "layout_fixture",
     "data": {
       "content": [
@@ -11,7 +11,7 @@
           "type": "heading",
           "data": {
             "level": "h2",
-            "text": "First"
+            "text": "One"
           },
           "settings": {}
         },
@@ -19,17 +19,53 @@
           "id": "rt0000000501",
           "type": "rich_text",
           "data": {
-            "body": "<p>Only paragraph.</p>"
+            "body": "<p>Only paragraph</p>"
           },
           "settings": {}
         },
         {
-          "id": "rt0000000502",
-          "type": "rich_text",
+          "id": "lf0000000502",
+          "type": "layout_fixture",
           "data": {
-            "body": "<p>First.</p><p>Second.</p>"
+            "content": [
+              {
+                "id": "hd0000000502",
+                "type": "heading",
+                "data": {
+                  "level": "h2",
+                  "text": "A"
+                },
+                "settings": {}
+              },
+              {
+                "id": "hd0000000503",
+                "type": "heading",
+                "data": {
+                  "level": "h2",
+                  "text": "B"
+                },
+                "settings": {}
+              }
+            ]
           },
-          "settings": {}
+          "settings": {
+            "style": {
+              "layout": {
+                "display": {
+                  "base": {
+                    "type": "choice",
+                    "value": "grid"
+                  }
+                },
+                "columns": {
+                  "base": {
+                    "type": "choice",
+                    "value": "2"
+                  }
+                }
+              }
+            }
+          }
         }
       ]
     },
@@ -39,7 +75,13 @@
           "display": {
             "base": {
               "type": "choice",
-              "value": "block"
+              "value": "flex"
+            }
+          },
+          "direction": {
+            "base": {
+              "type": "choice",
+              "value": "column"
             }
           },
           "content_width": {

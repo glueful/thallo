@@ -217,7 +217,12 @@ function sectionStyle(overrides: Record<string, OwnedPath>): Record<string, Owne
 export const PRESETS: Record<string, PresetDefinition> = {
   stack: {
     label: 'Stack',
-    style: { 'layout.display': everywhere(choice('block')) },
+    // A stack is a flex column (spec §6.5, §11.1) — which is also what the theme gives an
+    // untouched container, so over one this preset plans nothing.
+    style: {
+      'layout.display': everywhere(choice('flex')),
+      'layout.direction': everywhere(choice('column')),
+    },
     children: [],
     onlyWhenDifferent: true,
   },
@@ -311,12 +316,17 @@ function sameValue(a: StyleValue | null, b: StyleValue | null): boolean {
 }
 
 /**
- * What the theme itself produces where nothing is declared. Only the paths a skip-when-equal
- * preset owns need an entry: Stack asks whether the container already stacks, and a container with
- * nothing declared does — that is the theme's own display (spec §3.3), and writing `block` over it
- * would record a transaction that changes nothing.
+ * What the theme itself produces where nothing is declared (spec §3.8, §11.1): a flex column with
+ * both gaps at `spacing.xl`. A skip-when-equal preset judges "already this" against it: Stack asks
+ * whether the container already stacks, and a container with nothing declared does — writing flex
+ * and column over it would record a transaction that changes nothing.
  */
-const THEME_DEFAULT: Record<string, StyleValue> = { 'layout.display': choice('block') }
+export const THEME_DEFAULT: Record<string, StyleValue> = {
+  'layout.display': choice('flex'),
+  'layout.direction': choice('column'),
+  'layout.gap.row': token('spacing.xl'),
+  'layout.gap.column': token('spacing.xl'),
+}
 
 /** The value in force including the theme's own, so "already this" is judged on the real result. */
 function effectiveValue(

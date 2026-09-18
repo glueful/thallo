@@ -60,7 +60,6 @@ const emit = defineEmits<{
   'set-all': [path: string, value: StyleValue]
   'update:activeBreakpoint': [breakpoint: Breakpoint]
   /** Select the parent, so the author can change the mode the item controls answer to. */
-  'select-parent': [id: string]
 }>()
 
 const multi = computed(() => (props.blocks?.length ?? 0) > 1)
@@ -446,29 +445,7 @@ const gutterDefault = computed(() => {
 
           <!-- Children follows the mode in force at the active breakpoint. -->
           <template v-else-if="section.key === 'children'">
-            <template v-if="display === 'block' && arranges">
-              <p class="text-xs text-muted" data-test="layout-children-stack">
-                Children stack. Switch to flex or grid to arrange them.
-              </p>
-              <div v-if="displayRow" class="space-y-1.5">
-                <span class="text-xs font-medium">{{ LABELS['layout.display'] }}</span>
-                <IconChoiceControl
-                  :choices="displayRow.choices ?? []"
-                  :model-value="valueOf(displayRow)"
-                  :icons="{
-                    block: 'i-lucide-rows-3',
-                    flex: 'i-lucide-columns-3',
-                    grid: 'i-lucide-layout-grid',
-                  }"
-                  :labels="{ block: 'Stack', flex: 'Flex', grid: 'Grid' }"
-                  name="Children"
-                  data-test="layout-display-switch"
-                  @update:model-value="(v: string) => write(displayRow!, v)"
-                />
-              </div>
-            </template>
-
-            <template v-else>
+            <template v-if="arranges">
               <div
                 v-if="display === 'grid' && columnsRow"
                 class="space-y-1.5"
@@ -528,7 +505,7 @@ const gutterDefault = computed(() => {
                 @update:active-breakpoint="(bp) => emit('update:activeBreakpoint', bp)"
               />
               <ResponsiveField
-                v-if="alignRow && display !== 'block'"
+                v-if="alignRow"
                 :def="alignRow"
                 :label="LABELS['layout.align_items']!"
                 :style="style"
@@ -544,7 +521,7 @@ const gutterDefault = computed(() => {
                 @update:active-breakpoint="(bp) => emit('update:activeBreakpoint', bp)"
               />
               <BoxField
-                v-if="gapSides.length > 0 && display !== 'block'"
+                v-if="gapSides.length > 0"
                 label="Gap"
                 :sides="gapSides"
                 :style="style"
@@ -569,25 +546,8 @@ const gutterDefault = computed(() => {
 
           <!-- As an item: resolved against the parent's mode at the same breakpoint. -->
           <template v-else>
-            <template v-if="parentDisplay === 'block'">
-              <p class="text-xs text-muted" data-test="layout-item-stacks">
-                This block's parent stacks its children, so it has nothing to size itself against.
-              </p>
-              <UButton
-                v-if="parent"
-                size="xs"
-                variant="ghost"
-                color="neutral"
-                icon="i-lucide-corner-left-up"
-                data-test="layout-item-parent-link"
-                @click="emit('select-parent', parent.id)"
-              >
-                Select the parent
-              </UButton>
-            </template>
             <ResponsiveField
               v-for="row in itemRows"
-              v-else
               :key="row.path"
               :def="row"
               :label="LABELS[row.path] ?? row.path"

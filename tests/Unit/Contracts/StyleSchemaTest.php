@@ -43,7 +43,7 @@ final class StyleSchemaTest extends TestCase
             'layout.min_height', 'layout.overflow',
             'layout.span', 'layout.basis', 'layout.grow', 'layout.shrink', 'layout.align_self',
         ], $paths);
-        self::assertSame(2, StyleSchema::VERSION);
+        self::assertSame(3, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
     }
 
@@ -116,7 +116,8 @@ final class StyleSchemaTest extends TestCase
     {
         // Container-layout spec §3.2: the layout table, its groups and its responsiveness.
         $expected = [
-            'layout.display' => ['layout', true, null, ['block', 'flex', 'grid']],
+            // Flex and Grid only (spec §11.1): a flex column is the stack block flow was.
+            'layout.display' => ['layout', true, null, ['flex', 'grid']],
             'layout.direction' => ['layout', true, null, ['row', 'column', 'row-reverse', 'column-reverse']],
             'layout.wrap' => ['layout', true, null, ['nowrap', 'wrap']],
             'layout.align_items' => ['layout', true, null, ['start', 'center', 'end', 'stretch', 'baseline']],
@@ -164,7 +165,7 @@ final class StyleSchemaTest extends TestCase
             StyleSchema::pathsInGroup('layout.item'),
             StyleCapabilities::fromDeclaration(['layout.item'])->paths(),
         );
-        self::assertSame(2, StyleSchema::VERSION);
+        self::assertSame(3, StyleSchema::VERSION);
     }
 
     public function testCapabilitiesRejectUnknownPaths(): void

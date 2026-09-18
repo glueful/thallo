@@ -17,8 +17,11 @@ import { propertyDefinition, styleProperties } from '@/style/schema'
 import type { Breakpoint, Resolution, StyleClassRef } from '@/style/types'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 
-/** The modes a container can arrange its children in; `block` is the theme's own default. */
-export type LayoutDisplay = 'block' | 'flex' | 'grid'
+/**
+ * The modes a container can arrange its children in (spec §11.1). The theme's own default is a
+ * flex column — the stack block flow was — so there is no third mode for "stack".
+ */
+export type LayoutDisplay = 'flex' | 'grid'
 
 /** Whose dormancy is being asked about: the block as a parent, or as an item of a given parent. */
 export type LayoutRole = 'parent' | LayoutDisplay
@@ -64,7 +67,8 @@ export function effectiveDisplay(
   if (value && value.type === 'choice' && (value.value === 'flex' || value.value === 'grid')) {
     return value.value
   }
-  return 'block'
+  // Nothing declared, a reset, or a stored value the contract does not offer: the theme default.
+  return 'flex'
 }
 
 /**
@@ -80,9 +84,7 @@ export function dormantPaths(
 ): string[] {
   const mode = role === 'parent' ? effectiveDisplay(block, breakpoint, classes) : role
   const table = role === 'parent' ? PARENT_ONLY : ITEM_ONLY
-  // In block mode nothing arranges anything, so every mode-specific property is dormant.
-  const dormant =
-    mode === 'block' ? [...table.flex, ...table.grid] : table[mode === 'flex' ? 'grid' : 'flex']
+  const dormant = table[mode === 'flex' ? 'grid' : 'flex']
 
   const held: string[] = []
   for (const path of dormant) {

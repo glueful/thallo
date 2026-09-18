@@ -49,7 +49,12 @@ final class StyleCompilerTest extends TestCase
         self::assertStringContainsString('.md\\:t-pt-lg { padding-top: var(--t-spacing-lg); }', $css);
         self::assertStringContainsString('.lg\\:t-pt-reset { padding-top: revert-layer; }', $css);
         self::assertStringContainsString('.t-w-full { max-width: none; width: 100%; }', $css);
-        self::assertStringContainsString('.t-w-content { max-width: var(--t-width-content); }', $css);
+        // The width is stated beside its limit (spec §3.8): inside a flex column a placed child's
+        // auto inline margins stop the stretch, and without it the child is as wide as its text.
+        self::assertStringContainsString(
+            '.t-w-content { max-width: var(--t-width-content); width: 100%; }',
+            $css,
+        );
         self::assertStringContainsString('.t-w-reset { max-width: revert-layer; width: revert-layer; }', $css);
         self::assertStringContainsString('.t-content-center { justify-content: center; }', $css);
         // The surface colour owns the whole background: a theme gradient (a background-image)

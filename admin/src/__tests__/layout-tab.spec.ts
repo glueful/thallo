@@ -38,7 +38,7 @@ const schema: StyleSchemaResult = {
     ]),
     row('alignment.self', 'alignment', true, null, ['start', 'center', 'end']),
     row('visibility', 'visibility', true, null, ['visible', 'hidden']),
-    row('layout.display', 'layout', true, null, ['block', 'flex', 'grid']),
+    row('layout.display', 'layout', true, null, ['flex', 'grid']),
     row('layout.direction', 'layout', true, null, [
       'row',
       'column',
@@ -176,11 +176,15 @@ describe('sections follow what the block declares', () => {
 })
 
 describe('Children follows the mode in force', () => {
-  it('block mode offers the switch and says the children stack', () => {
+  it('an untouched container is a flex column: direction and wrap, no tracks, no dead end', () => {
+    // Flex and Grid only (spec §11.1): nothing declared is the theme's flex column, so the flex
+    // controls are there from the start and no line tells the author to switch mode first.
     const w = mountTab({ block: block('c1', 'container'), blockType: container })
-    expect(w.find('[data-test="layout-children-stack"]').text()).toContain('Children stack')
-    expect(w.find('[data-test="choice-grid"]').exists()).toBe(true)
+    expect(w.find('[data-test="layout-children-stack"]').exists()).toBe(false)
+    expect(w.find('[data-test="layout-field-layout.direction"]').exists()).toBe(true)
     expect(w.find('[data-test="track-2"]').exists()).toBe(false)
+    // The mode is set in one place: the second switch that sat here is gone.
+    expect(w.find('[data-test="layout-display-switch"]').exists()).toBe(false)
   })
 
   it('a flex container offers direction and wrap, not tracks', () => {
@@ -244,14 +248,16 @@ describe('writes land at the right breakpoint', () => {
     ])
   })
 
-  it('the display switch writes at the active breakpoint', async () => {
+  it('the mode writes at the active breakpoint, from the one control that sets it', async () => {
     const w = mountTab({
       block: block('c1', 'container'),
       blockType: container,
       activeBreakpoint: 'lg',
     })
-    await w.find('[data-test="layout-display-switch"] [data-test="choice-flex"]').trigger('click')
-    expect(w.emitted('set')).toEqual([['layout.display', 'lg', { type: 'choice', value: 'flex' }]])
+    await w
+      .find('[data-test="style-field-layout.display"] [data-test="choice-grid"]')
+      .trigger('click')
+    expect(w.emitted('set')).toEqual([['layout.display', 'lg', { type: 'choice', value: 'grid' }]])
   })
 })
 
@@ -325,30 +331,32 @@ describe('As an item', () => {
     ])
   })
 
-  it('says the parent stacks and offers a way to select it', async () => {
+  it('an untouched parent is a flex column, so its items size themselves as flex items', () => {
     const w = mountTab({
       block: block('h1', 'heading'),
       blockType: heading,
       parent: stack(),
       parentType: container,
     })
-    expect(w.find('[data-test="layout-item-stacks"]').text()).toContain('stacks its children')
+    expect(w.find('[data-test="layout-item-stacks"]').exists()).toBe(false)
+    expect(w.find('[data-test="style-field-layout.basis"]').exists()).toBe(true)
     expect(w.find('[data-test="style-field-layout.span"]').exists()).toBe(false)
-    await w.find('[data-test="layout-item-parent-link"]').trigger('click')
-    expect(w.emitted('select-parent')).toEqual([['c1']])
   })
 
   it('follows the parent mode at the breakpoint being edited', async () => {
-    // The parent is a grid from md up; below that it stacks, and the item has nothing to size.
+    // The parent is a grid from md up; below that it is the default flex column, so the item
+    // sizes itself as a flex item there and as a grid item from md.
     const w = mountTab({
       block: block('h1', 'heading'),
       blockType: heading,
       parent: block('c1', 'container', { layout: { display: { md: choice('grid') } } }),
       parentType: container,
     })
-    expect(w.find('[data-test="layout-item-stacks"]').exists()).toBe(true)
+    expect(w.find('[data-test="style-field-layout.basis"]').exists()).toBe(true)
+    expect(w.find('[data-test="style-field-layout.span"]').exists()).toBe(false)
     await w.setProps({ activeBreakpoint: 'md' })
     expect(w.find('[data-test="style-field-layout.span"]').exists()).toBe(true)
+    expect(w.find('[data-test="style-field-layout.basis"]').exists()).toBe(false)
   })
 
   it('has no item section without a parent, or when the parent arranges nothing', () => {

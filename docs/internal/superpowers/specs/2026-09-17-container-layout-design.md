@@ -92,8 +92,10 @@ validation rejects it, and no stored value is converted (§11.1).
 | `layout.shrink` | 0, 1 | yes | flex |
 | `layout.align_self` | start, center, end, stretch | yes | flex and grid (cross axis) |
 
-**Existing properties kept as they are:** `width` (the box's own width), `alignment.self`
-(horizontal placement through auto margins, labelled "Placement"), `alignment.text`.
+**Existing properties:** `alignment.self` (horizontal placement through auto margins, labelled
+"Placement") and `alignment.text` are kept as they are. **`width` changes its contract** (amended
+2026-09-18, §11.4): it used to supply only a maximum; it now also requests the width — "fill the
+space there is, up to this".
 `alignment.self` is not CSS `align-self`; cross-axis self-alignment is the new
 `layout.align_self`.
 
@@ -683,3 +685,28 @@ For a column an author can fill on its own — what the old Columns block's `col
   another change while the factory is pending → the count recomputed; target removed, mode
   switched or breakpoint changed while pending → nothing written; a second press while pending →
   one transaction.
+
+### 11.4 `width` requests the width as well as limiting it
+
+Found implementing §3.8's placed child. `width` compiled to `max-width` alone, which is enough for
+a block box — it fills its container unasked — and not for a flex item: with Placement's auto
+inline margins a flex item does not stretch, so inside the default flex column a placed child was
+as wide as its text. Every value but `full` now compiles to `max-width` **and** `width: 100%`
+(`full` always did); a reset still reverts both.
+
+- **The meaning is "fill the available space, up to this maximum" — everywhere**, not only in a
+  container and not only with Placement. Coupling it to Placement or to the parent's direction was
+  rejected: it would bring back the per-mode, per-breakpoint state §11.1 removed.
+- **It is a contract change, not a no-op.** In block flow it renders as before **under border-box
+  sizing**, which the default theme sets (`* { box-sizing: border-box }`) — that equivalence is
+  this theme's, not the rule's: under content-box a padded block would overflow its container. A
+  theme that overrides the sizing model owns that consequence.
+- **In a flex row it changes sizing and can change wrapping**: `flex-basis: auto` takes an item's
+  starting size from `width`, so an authored width is where the item starts, not only where it
+  stops. An explicit `layout.basis` still wins as the starting size.
+- **Proof** (`width-in-flex-row`, numbers derived from the flexbox algorithm): two authored-width
+  items under `basis: auto` in a nowrap row share the line equally; with wrap each fills up to its
+  maximum on its own line; an explicit basis sets the size instead; a width reset at `md` returns
+  the item to its content size; no horizontal overflow at any width. The case fails with the
+  `width: 100%` removed. The placed child of §3.8 is its column counterpart.
+

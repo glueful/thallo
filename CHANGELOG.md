@@ -7,6 +7,13 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- An authored **Width** now asks for the width as well as limiting it: "fill the available space, up
+  to this maximum". Inside a container's default column a placed block therefore fills up to its
+  width instead of shrinking to its text, and in a flex row an authored width is the block's
+  starting size — which can change how a row's items are sized and where they wrap. A theme that
+  does not use `box-sizing: border-box` must account for a padded block with an authored width.
+
 ### Fixed
 - The Design view of a page that had never held a block — created with a title and nothing else —
   showed no "Drag a block here" and no +, and a block dragged onto the empty page did nothing;

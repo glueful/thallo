@@ -12,9 +12,10 @@ const choice = (value: string) => ({ type: 'choice', value })
 
 describe('effectiveDisplay', () => {
   it('is the theme default when nothing is declared', () => {
-    // Block is the theme's own display: the container stacks its children until told otherwise.
-    expect(effectiveDisplay(block({}), 'base', [])).toBe('block')
-    expect(effectiveDisplay(block({}), 'lg', [])).toBe('block')
+    // A flex column is the theme's own display (spec §11.1): the container stacks its children
+    // until told otherwise, and there is no third mode for "stack".
+    expect(effectiveDisplay(block({}), 'base', [])).toBe('flex')
+    expect(effectiveDisplay(block({}), 'lg', [])).toBe('flex')
   })
 
   it('inherits a base value into the wider breakpoints', () => {
@@ -42,16 +43,23 @@ describe('effectiveDisplay', () => {
     expect(effectiveDisplay(b, 'lg', classes)).toBe('grid')
   })
 
-  it('returns block for a reset, which is the theme default again', () => {
+  it('returns flex for a reset, which is the theme default again', () => {
     const b = block({ layout: { display: { base: choice('grid'), md: { type: 'reset' } } } })
     expect(effectiveDisplay(b, 'base', [])).toBe('grid')
-    expect(effectiveDisplay(b, 'md', [])).toBe('block')
-    expect(effectiveDisplay(b, 'lg', [])).toBe('block')
+    expect(effectiveDisplay(b, 'md', [])).toBe('flex')
+    expect(effectiveDisplay(b, 'lg', [])).toBe('flex')
+  })
+
+  it('does not take a stored value the contract no longer offers for a mode', () => {
+    // A `block` from the one release that offered it is not a display (spec §11.1): the controls
+    // follow the theme default, and Task 1.2's notice is what tells the author it is there.
+    const b = block({ layout: { display: { base: choice('block') } } })
+    expect(effectiveDisplay(b, 'base', [])).toBe('flex')
   })
 
   it('has no display at all when the block is not a container', () => {
     const leaf = { id: 'h1', type: 'heading', data: {}, settings: {} } as unknown as BlockInstance
-    expect(effectiveDisplay(leaf, 'base', [])).toBe('block')
+    expect(effectiveDisplay(leaf, 'base', [])).toBe('flex')
   })
 })
 
@@ -89,12 +97,12 @@ describe('dormantPaths', () => {
     expect(dormantPaths(b, 'base', classes, 'parent')).toEqual(['layout.columns'])
   })
 
-  it('names every arrangement setting when the parent stacks its children', () => {
+  it('an untouched container is a flex column: only the grid settings are dormant', () => {
     const b = block({
       layout: { columns: { base: choice('2') }, direction: { base: choice('row') } },
     })
-    // Listed in the contract's order, which puts direction before the track count.
-    expect(dormantPaths(b, 'base', [], 'parent')).toEqual(['layout.direction', 'layout.columns'])
+    // Direction is in force — the default mode is flex — so it is not named.
+    expect(dormantPaths(b, 'base', [], 'parent')).toEqual(['layout.columns'])
   })
 
   it('names the item settings the parent mode ignores', () => {
@@ -109,7 +117,6 @@ describe('dormantPaths', () => {
     } as unknown as BlockInstance
     expect(dormantPaths(item, 'base', [], 'grid')).toEqual(['layout.basis'])
     expect(dormantPaths(item, 'base', [], 'flex')).toEqual(['layout.span'])
-    expect(dormantPaths(item, 'base', [], 'block')).toEqual(['layout.span', 'layout.basis'])
   })
 
   it('is empty when nothing is retained', () => {
