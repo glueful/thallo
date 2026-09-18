@@ -7,6 +7,11 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.41] - 2026-09-18 — Developer Preview
+
+A container is Flex or Grid and nothing else; a grid can be seen and filled on the stage; and a
+style class can edit the layout it carries.
+
 ### Upgrade Notes
 - **Breaking, with no content migration.** A container's layout is now Flex or Grid; the stacked
   ("block") mode that beta.40 offered is gone. A container that was never given a mode needs
