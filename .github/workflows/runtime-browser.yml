@@ -7,6 +7,8 @@ on:
       - 'packages/thallo-contracts/src/Style/**'
       - 'tests/fixtures/layout/**'
       - 'tools/runtime-browser/**'
+      - 'scripts/build-layout-proof-fixtures'
+      - 'scripts/build-parity-fixtures'
       - 'admin/src/assets/print.css'
       - 'admin/src/pages/commerce/orders/components/InvoiceDocument.vue'
       - 'admin/src/pages/commerce/orders/**/invoice.vue'
@@ -17,6 +19,8 @@ on:
       - 'packages/thallo-contracts/src/Style/**'
       - 'tests/fixtures/layout/**'
       - 'tools/runtime-browser/**'
+      - 'scripts/build-layout-proof-fixtures'
+      - 'scripts/build-parity-fixtures'
       - 'admin/src/assets/print.css'
       - 'admin/src/pages/commerce/orders/components/InvoiceDocument.vue'
       - 'admin/src/pages/commerce/orders/**/invoice.vue'
@@ -113,6 +117,12 @@ jobs:
       - name: Build the layout proof fixtures
         working-directory: .
         run: php scripts/build-layout-proof-fixtures
+
+      # The compositions measured against the frozen references (parity.spec.js, retirement.spec.js
+      # and layout.spec.js's container cases). The pages are gitignored, so a checkout has none.
+      - name: Build the parity fixtures
+        working-directory: .
+        run: php scripts/build-parity-fixtures
 
       - uses: actions/setup-node@v6
         with:
