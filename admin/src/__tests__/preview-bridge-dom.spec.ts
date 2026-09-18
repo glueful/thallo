@@ -1320,6 +1320,65 @@ describe('stage keyboard shortcuts', () => {
     expect(lastPost('thallo:edit-end')).toMatchObject({ id: 'kb-grd-00001' })
     expect(lastPost('thallo:block-deselect')).toBeUndefined()
   })
+
+  // A click on the stage leaves focus in the stage, so ⌘Z pressed next lands there. History is the
+  // editor's: the stage forwards the intent and the page runs its own undo or redo.
+  it('Cmd/Ctrl+Z asks the editor to undo and Shift adds redo — with or without a selection', () => {
+    pressKey({ key: 'Escape' }) // nothing selected: a stage Fill or a + leaves it that way
+    posted.mockClear()
+    const undo = pressKey({ key: 'z', metaKey: true })
+    expect(lastPost('thallo:history')).toMatchObject({ direction: 'undo' })
+    expect(undo.defaultPrevented).toBe(true)
+
+    posted.mockClear()
+    const redo = pressKey({ key: 'Z', metaKey: true, shiftKey: true }) // Shift upper-cases the key
+    expect(lastPost('thallo:history')).toMatchObject({ direction: 'redo' })
+    expect(redo.defaultPrevented).toBe(true)
+
+    posted.mockClear()
+    pressKey({ key: 'z', ctrlKey: true })
+    expect(lastPost('thallo:history')).toMatchObject({ direction: 'undo' })
+
+    const w = wrapper('kb-undo-0001')
+    document.body.appendChild(w)
+    selectByClick(w)
+    posted.mockClear()
+    pressKey({ key: 'z', metaKey: true })
+    expect(lastPost('thallo:history')).toMatchObject({ direction: 'undo' })
+    // The toolbar's buttons keep Enter and Space; ⌘Z is nobody's native key there.
+    posted.mockClear()
+    pressKey({ key: 'z', metaKey: true }, w.querySelector('.thallo-canvas-toolbar button')!)
+    expect(lastPost('thallo:history')).toMatchObject({ direction: 'undo' })
+  })
+
+  it("leaves Z alone where it is not the editor's: unmodified, with Alt, in a form field, while editing text", () => {
+    pressKey({ key: 'Escape' })
+    posted.mockClear()
+    const plain = pressKey({ key: 'z' })
+    const alt = pressKey({ key: 'z', metaKey: true, altKey: true })
+    expect(lastPost('thallo:history')).toBeUndefined()
+    expect(plain.defaultPrevented).toBe(false)
+    expect(alt.defaultPrevented).toBe(false)
+
+    // A theme's own input: native undo of what was typed there.
+    const formW = wrapper('kb-undo-0002', '<section><input type="text"></section>')
+    document.body.appendChild(formW)
+    const typed = pressKey({ key: 'z', metaKey: true }, formW.querySelector('input')!)
+    expect(lastPost('thallo:history')).toBeUndefined()
+    expect(typed.defaultPrevented).toBe(false)
+
+    // An edit session: ⌘Z undoes typing, natively. Undoing a block under the caret would be a disaster.
+    const prose = proseWrapper('kb-undo-0003')
+    document.body.appendChild(prose)
+    selectByClick(prose)
+    sendToBridge({ type: 'thallo:edit-grant', id: 'kb-undo-0003', field: 'body', kind: 'rich' })
+    const region = prose.querySelector('.thallo-edit-region')!
+    posted.mockClear()
+    const editing = pressKey({ key: 'z', metaKey: true }, region)
+    expect(lastPost('thallo:history')).toBeUndefined()
+    expect(editing.defaultPrevented).toBe(false)
+    region.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  })
 })
 
 describe('rich-region normalization (format-bar spec §2)', () => {

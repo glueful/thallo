@@ -1257,6 +1257,9 @@ function onKeydown(e: KeyboardEvent): void {
   e.preventDefault()
   void (e.shiftKey ? redo() : undo())
 }
+// The same two, asked for from the stage: a click there leaves focus in the iframe, so ⌘Z never
+// reaches this window. The stage forwards it, outside text editing and its own form fields.
+bridge.onHistory((direction) => void (direction === 'redo' ? redo() : undo()))
 function onCompositionStart(): void {
   composing = true
 }

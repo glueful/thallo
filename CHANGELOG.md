@@ -56,6 +56,10 @@ as the next release, never a mutated tag.
   does not use `box-sizing: border-box` must account for a padded block with an authored width.
 
 ### Fixed
+- In the Design view, ⌘Z and ⇧⌘Z did nothing after a click on the stage — selecting, moving,
+  duplicating or deleting a block there — because the keystroke stayed in the preview and never
+  reached the editor; only the toolbar's buttons worked. The stage now passes undo and redo on.
+  While you are typing in a block, ⌘Z is still the undo of your typing.
 - The Design view of a page that had never held a block — created with a title and nothing else —
   showed no "Drag a block here" and no +, and a block dragged onto the empty page did nothing;
   only clicking a block in the Blocks tab worked, after which both appeared. The stage now has its

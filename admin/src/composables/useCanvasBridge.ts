@@ -26,6 +26,8 @@ interface BridgeMessage {
   slot?: string
   /** The structure picker's chosen preset key (spec §6.2). */
   preset?: string
+  /** `thallo:history`: undo or redo, asked for from the stage. Validated before use. */
+  direction?: string
 }
 
 /** Iframe-viewport anchor point forwarded with stage intents (add-after picker). */
@@ -122,6 +124,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   let structureChooseCb: ((id: string, preset: string) => void) | null = null
   let structureSkipCb: ((id: string) => void) | null = null
   let gridFillCb: ((id: string) => void) | null = null
+  let historyCb: ((direction: 'undo' | 'redo') => void) | null = null
   let editRequestCb: ((id: string, field: string) => void) | null = null
   let editStartCb: ((id: string) => void) | null = null
   let editEndCb: ((id: string) => void) | null = null
@@ -216,6 +219,12 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     }
     if (data.type === 'thallo:structure-skip' && typeof data.id === 'string') {
       structureSkipCb?.(data.id)
+    }
+    if (
+      data.type === 'thallo:history' &&
+      (data.direction === 'undo' || data.direction === 'redo')
+    ) {
+      historyCb?.(data.direction) // ⌘Z pressed with focus in the stage: history is the page's
     }
     if (data.type === 'thallo:grid-fill' && typeof data.id === 'string') {
       gridFillCb?.(data.id) // an intent only: the page re-checks everything before it commits
@@ -401,6 +410,10 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     },
     onGridFill(cb: (id: string) => void): void {
       gridFillCb = cb
+    },
+    /** Undo or redo asked for from the stage, where a click leaves keyboard focus. */
+    onHistory(cb: (direction: 'undo' | 'redo') => void): void {
+      historyCb = cb
     },
     // Mirrors (stage-toolbar spec §1): posted ONLY after the tree committed.
     mirrorMove(id: string, neighbor: { beforeId: string } | { afterId: string }): void {

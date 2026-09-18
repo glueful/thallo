@@ -144,6 +144,7 @@ const bridge = vi.hoisted(() => {
       onStructureSkip: (cb: (id: string) => void) => (callbacks.structureSkip = cb),
       publishGridFill: vi.fn((states: unknown) => fillStates.push(states)),
       onGridFill: (cb: (id: string) => void) => (callbacks.gridFill = cb),
+      onHistory: vi.fn(),
       onEditRequest: (cb: (id: string, field: string) => void) => (callbacks.editRequest = cb),
       onTextChanged: (
         cb: (id: string, field: string, payload: { html?: string; text?: string }) => void,

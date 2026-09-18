@@ -91,6 +91,7 @@ const bridge = vi.hoisted(() => {
   const callbacks: {
     select?: (id: string) => void
     move?: (id: string, d: 1 | -1) => void
+    history?: (direction: 'undo' | 'redo') => void
     textChanged?: (id: string, field: string, payload: { html?: string; text?: string }) => void
   } = {}
   const noop = () => undefined
@@ -116,6 +117,7 @@ const bridge = vi.hoisted(() => {
       onStructureSkip: noop,
       publishGridFill: noop,
       onGridFill: noop,
+      onHistory: (cb: (direction: 'undo' | 'redo') => void) => (callbacks.history = cb),
       onEditRequest: noop,
       onTextChanged: (
         cb: (id: string, field: string, payload: { html?: string; text?: string }) => void,
@@ -684,6 +686,26 @@ describe('undo and redo', () => {
       'MoveBlock',
       'MoveBlock',
     ])
+    wrapper.unmount()
+  })
+
+  it('undo and redo asked for from the stage run the same history as the toolbar', async () => {
+    // A stage click leaves focus in the stage: ⌘Z pressed there never reaches this window, so the
+    // stage forwards it. Same entries, same redo, as the buttons.
+    const wrapper = await mountAndSettle()
+    bridge.callbacks.move!('blockbbb0002', -1)
+    await flushPromises()
+    expect(wrapper.find('[data-test="canvas-undo"]').attributes('disabled')).toBeUndefined()
+
+    bridge.callbacks.history!('undo')
+    await flushPromises()
+    expect(wrapper.find('[data-test="canvas-undo"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('[data-test="canvas-redo"]').attributes('disabled')).toBeUndefined()
+
+    bridge.callbacks.history!('redo')
+    await flushPromises()
+    expect(wrapper.find('[data-test="canvas-redo"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('[data-test="canvas-undo"]').attributes('disabled')).toBeUndefined()
     wrapper.unmount()
   })
 

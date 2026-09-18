@@ -66,15 +66,15 @@ test('the stage button fills the empty grid as one change; undo empties it and r
   // captured stage never re-renders and the placeholder is still standing.
   await expect(fill).toHaveCount(0)
 
-  // Undone from the toolbar: the click left focus in the stage, and the stage does not forward ⌘Z
-  // to the editor — true of every stage action, and not this proof's subject.
-  await page.locator('[data-test="canvas-undo"]').click()
+  // Undone from the keyboard with focus still in the stage, where the click left it: the stage
+  // forwards ⌘Z to the editor, whose history this is.
+  await page.keyboard.press('ControlOrMeta+z')
   await contentLength(page, 'gridempty001', 0)
   expect((await hooks(page)).currentSequence).toBe(before.currentSequence)
   // Empty again: the offer is back, from the same availability.
   await expect(stageFill(page, 'gridempty001')).toBeEnabled()
 
-  await page.locator('[data-test="canvas-redo"]').click()
+  await page.keyboard.press('ControlOrMeta+Shift+z')
   await contentLength(page, 'gridempty001', 3)
   const redone = await hooks(page)
   expect(rootBlock(redone, 'gridempty001').data.content!.map((c) => c.id)).toEqual(ids)

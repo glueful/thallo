@@ -645,6 +645,26 @@ describe('the Fill empty cells protocol (container-layout spec §11.3)', () => {
   })
 })
 
+describe('undo and redo asked for from the stage', () => {
+  it('receives a direction, and drops anything that is not undo or redo, or not ours', () => {
+    const iframe = ref<HTMLIFrameElement | null>(null)
+    const bridge = useCanvasBridge(iframe)
+    const asked: string[] = []
+    bridge.onHistory((direction) => asked.push(direction))
+    for (const data of [
+      { type: 'thallo:history', nonce: bridge.nonce, direction: 'undo' },
+      { type: 'thallo:history', nonce: bridge.nonce, direction: 'redo' },
+      { type: 'thallo:history', nonce: bridge.nonce, direction: 'sideways' },
+      { type: 'thallo:history', nonce: bridge.nonce },
+      { type: 'thallo:history', nonce: 'WRONG', direction: 'undo' },
+    ]) {
+      window.dispatchEvent(new MessageEvent('message', { data }))
+    }
+    expect(asked).toEqual(['undo', 'redo'])
+    bridge.dispose()
+  })
+})
+
 describe('FieldEditor.selectBlockById', () => {
   const bt = (slug: string): BlockType =>
     ({

@@ -89,6 +89,7 @@ const bridge = vi.hoisted(() => {
       onStructureSkip: noop,
       publishGridFill: noop,
       onGridFill: noop,
+      onHistory: noop,
       onEditRequest: noop,
       onTextChanged: (
         cb: (id: string, field: string, payload: { html?: string; text?: string }) => void,
