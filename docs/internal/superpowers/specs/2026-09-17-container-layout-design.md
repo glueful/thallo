@@ -1,6 +1,9 @@
 # Container Layout — Design
 
 **Status:** approved in brainstorming, 2026-09-17. Delivered as one release (one beta cut).
+**Amended 2026-09-18 (§11):** two modes instead of three, the Layout tab's sections reordered and
+merged, and the grid made visible on the stage. Shipped as 1.0.0-beta.40 before the amendment; the
+amendment ships in the release after it.
 **Supersedes:** the `columns`, `grid` and `section` block types.
 
 ## 1. Goal and scope
@@ -53,16 +56,24 @@ existing inheritance.
 
 | Path | Values | Responsive | Notes |
 |---|---|---|---|
-| `layout.display` | block, flex, grid | yes | block: children stack |
-| `layout.direction` | row, column, row-reverse, column-reverse | yes | flex only |
+| `layout.display` | flex, grid | yes | theme default: flex |
+| `layout.direction` | row, column, row-reverse, column-reverse | yes | flex only; theme default: column — a stack |
 | `layout.wrap` | nowrap, wrap | yes | flex only |
 | `alignment.content` | start, center, end, between, around, evenly | yes | existing property; choices extended |
 | `layout.align_items` | start, center, end, stretch, baseline | yes | flex and grid |
 | `layout.columns` | 1, 2, 3, 4, 6, 12, 1-2, 2-1, 1-3, 3-1, 1-2-1, 1-1-2, 2-1-1 | yes | grid only |
-| `layout.gap.column` | spacing tokens | yes | flex and grid |
-| `layout.gap.row` | spacing tokens | yes | flex and grid |
+| `layout.gap.column` | spacing tokens | yes | flex and grid; theme default `spacing.xl` (§3.8) |
+| `layout.gap.row` | spacing tokens | yes | flex and grid; theme default `spacing.xl` (§3.8) |
 | `layout.content_width` | width tokens | yes | constrains and centres `inner` |
 | `layout.gutter` | spacing tokens | yes | inline padding of `inner` (§3.4) |
+
+There is no `block` display. A container's children are always block-level boxes, and keeping
+both gave the author two ways to say "stack" whose spacing came from different places (§3.8). The
+claim is narrow: an **untouched** container — theme defaults, default-margin children — renders
+its stack at the same distances as block flow did, and §3.8's proof is what holds that. It is not
+a claim that the two are interchangeable: a flex item sizes and aligns differently from a block
+box, and authored margins no longer collapse against a sibling's. `block` is not a valid value:
+validation rejects it, and no stored value is converted (§11.1).
 
 **Container properties on `root`:**
 
@@ -153,16 +164,25 @@ Theme defaults only; authored margins and paddings always win.
 
 - Every block carries the theme's default vertical margin (`.thallo-block { margin-block:
   var(--space-5) }`).
-- **Flex and grid modes:** the default vertical margins of the container's direct children are
-  released; spacing between items comes only from `layout.gap.column` and `layout.gap.row`.
-- **Block mode:** children keep their default margins, except the first child's top margin and
-  the last child's bottom margin, which are released so the container's own padding governs its
-  edges.
+- **In a container** the default vertical margins of its direct children are released, in both
+  modes; spacing between items comes only from `layout.gap.column` and `layout.gap.row`, and the
+  container's own padding governs its edges.
+- **The theme's default for both gaps is `spacing.xl`** — `--space-5`, the margin it replaces — so
+  a container nobody has touched spaces its children as a stack of blocks always was, and `none`
+  is a choice the author makes rather than the state a new row or grid starts in. One rule for
+  both modes and both axes, with a recorded consequence: a flex row or a grid whose gaps were never
+  set had none, and now gains `spacing.xl` between its items.
+- **A child that places itself** — an authored `width` with `alignment.self` — fills up to that
+  width and sits where Placement says, in a flex column as it did in block flow. Auto inline
+  margins stop a flex item's cross-axis stretch, so the mechanism must restore the fill; it is
+  chosen in the plan and proven by the case below.
 - **Rich text:** the first child element's top margin and the last child element's bottom margin
   inside a rich-text block are released by default, so a single-paragraph rich text contributes no
   paragraph margin of its own. Spacing between its paragraphs is unchanged.
 - **Proof:** a container with default-margin children in each mode, and a single-paragraph and a
-  multi-paragraph rich text, compared against the declared result.
+  multi-paragraph rich text, compared against the declared result; an untouched container against
+  the frozen stack references (same distances, from the gap instead of the margins); and a child
+  with an authored width placed start, centre and end inside a flex column.
 
 ### 3.9 Exclusions
 
@@ -188,8 +208,9 @@ Theme defaults only; authored margins and paddings always win.
   `layout.direction`, `layout.wrap`, `alignment.content`, `layout.align_items`,
   `layout.columns`, `layout.gap.column`, `layout.gap.row`, `layout.content_width`,
   `layout.gutter`.
-- **Factory-created defaults.** A container created by the block factory resolves to block
-  display, full content width, no gutter and auto height, with nothing written. (The old
+- **Factory-created defaults.** A container created by the block factory resolves to a flex
+  column with both gaps at `spacing.xl`, full content width, no gutter and auto height, with
+  nothing written. (The old
   template's fallback for a missing `data.width` was contained; factory-created containers never
   hit it.)
 - **Parity mapping** for today's container widths:
@@ -216,18 +237,22 @@ Theme defaults only; authored margins and paddings always win.
   `alignment.text` → Style; `alignment.self` and `alignment.content` → Layout.
 - **Style tab:** spacing, colours, radius, border, shadow, typography, visibility,
   `alignment.text`.
-- **Layout tab**, capability-driven for every block, four sections:
-  1. **Box** — `width`, `alignment.self` ("Placement"), `layout.min_height`, `layout.overflow`,
+- **Layout tab**, capability-driven for every block, three sections in this order:
+  1. **Container** — first, because on a container it is what the author came for.
+     - **Layout** — `layout.display`, two choices: Flex and Grid. The mode is set here and nowhere
+       else.
+     - Directly under it, as part of the same group, the controls of the mode in force at the
+       active breakpoint. Flex: direction, wrap, `alignment.content`, `layout.align_items`, gaps
+       (a two-cell linked row, Column and Row). Grid: track presets as proportional swatches,
+       `alignment.content`, `layout.align_items`, gaps, and **Fill empty cells** (§11.3).
+     - Then `layout.content_width` with `layout.gutter`.
+  2. **Box** — `width`, `alignment.self` ("Placement"), `layout.min_height`, `layout.overflow`,
      wherever declared.
-  2. **Container** — `layout.display`, `layout.content_width` with `layout.gutter`.
-  3. **Children** — the container's mode-dependent controls at the active breakpoint.
-     Flex: direction, wrap, `alignment.content`, `layout.align_items`, gaps (a two-cell linked
-     row, Column and Row). Grid: track presets as proportional swatches, `alignment.content`,
-     `layout.align_items`, gaps. Block: a line saying children stack, with the display switch.
-  4. **As an item** — for a block declaring `layout.item` whose immediate parent is a container,
+  3. **As an item** — for a block declaring `layout.item` whose immediate parent is a container,
      resolved against that parent's effective display at the active breakpoint. Grid: span,
-     `layout.align_self`. Flex: basis, grow, shrink, `layout.align_self`. Block: a line saying the
-     parent stacks its children, with a link selecting the parent.
+     `layout.align_self`. Flex: basis, grow, shrink, `layout.align_self`.
+  There is no Children section: it set the mode a second time and held the controls that belong
+  under Layout.
 - **Non-container blocks** that declare `alignment.content` (Button, Navigation) keep that
   control against their existing target without becoming containers.
 - **One active breakpoint** drives every section header. Overflow is labelled as applying at all
@@ -238,8 +263,8 @@ Theme defaults only; authored margins and paddings always win.
 - **Dormant notices in both directions:** a container switched from grid to flex discloses its
   retained grid-parent settings; a child discloses retained item settings for the other mode.
   Values supplied by style classes count as well as local declarations.
-- **Canvas:** no new protocol for the Layout tab — an apply re-renders as today. A rendering proof
-  shows children updating when their parent's mode changes.
+- **Canvas:** an apply re-renders as today, and a rendering proof shows children updating when
+  their parent's mode changes. The grid itself is drawn on the stage (§11.2).
 
 ## 6. Structure picker
 
@@ -310,7 +335,7 @@ Multi-column presets stack on mobile. In the table, `layout.columns` = `1 / X` m
 
 | Preset | Owned paths | Children |
 |---|---|---|
-| Stack | `layout.display` = block | none |
+| Stack | `layout.display` = flex, `layout.direction` = column | none |
 | Row | `layout.display` = flex, `layout.direction` = row | none |
 | Two columns 50/50, 33/67, 67/33, 25/75, 75/25 | `layout.display` = grid, `layout.columns` = 1 / 2, 1-2, 2-1, 1-3, 3-1, `layout.gap.column` = lg, `layout.gap.row` = lg | two column containers |
 | Three columns, 25/50/25, 50/25/25, 25/25/50 | `layout.display` = grid, `layout.columns` = 1 / 3, 1-2-1, 2-1-1, 1-1-2, both gaps = lg | three column containers |
@@ -492,8 +517,8 @@ same terms as §7.10.
 
 | Difference | Today | New | Disposition |
 |---|---|---|---|
-| First and last child, block mode | the child's own `margin-block: var(--space-5)` at both edges | the first child's top margin and the last child's bottom margin released | **Intentionally changed.** The container's own padding governs its boundary, so a band's padding is what it says it is instead of adding to a child's margin. |
-| Every child, flex and grid modes | the child's own `margin-block` alongside the container's gaps | released; spacing comes from `layout.gap.column` and `layout.gap.row` | **Intentionally changed.** One source of spacing between items, so a gap of `none` means none. |
+| First and last child | the child's own `margin-block: var(--space-5)` at both edges | the first child's top margin and the last child's bottom margin released | **Intentionally changed.** The container's own padding governs its boundary, so a band's padding is what it says it is instead of adding to a child's margin. |
+| Every child | the child's own `margin-block`, collapsing between siblings to `--space-5`, alongside the container's gaps where it had any | released; spacing comes from `layout.gap.column` and `layout.gap.row`, which default to `spacing.xl` | **Intentionally changed** in where it comes from, **unchanged** in an untouched stack's distances. One source of spacing between items, so a gap of `none` means none. |
 | A rich text's outer paragraphs | the first paragraph's top margin and the last paragraph's bottom margin | released | **Intentionally changed.** A single-paragraph rich text contributes no margin of its own; spacing between its own paragraphs is unchanged. |
 
 A container that centres its content is a flex column in the composition (§3.5), so the flex row
@@ -518,15 +543,18 @@ In the same release, found by an inventory grep at the start of the plan:
 
 - **Contract:** validation of every property and value; capability and target mapping; dormancy
   per breakpoint (§3.3 cases); gutter cases (§3.4); span clamping (§3.7 cases); the centred
-  half-screen band with root padding (§3.5); spacing normalization (§3.8).
+  half-screen band with root padding (§3.5); spacing normalization (§3.8), the untouched stack
+  against its frozen references and the placed child in a flex column; `block` rejected.
 - **Render:** container parity for every old width, min height and content alignment; `layout.item`
   participation on the public page and the annotated stage; nested-clamp release with authored
   settings preserved into and out of a container (§3.6); Section parity matrix with its closed
   disposition table (§7.6, §7.7); Columns matrix (§7.8); Grid matrix (§7.9); leaf-block fixtures
   with their closed disposition table (§7.10) and the spacing differences (§7.11).
-- **Admin:** per-property tab membership; the Layout tab's four sections across block, flex and
-  grid parents; Button and Navigation keeping `alignment.content`; dormant notices both ways,
-  including class-supplied values; mixed sibling selection.
+- **Admin:** per-property tab membership; the Layout tab's three sections (Container, Box, As an
+  item) across flex and grid parents, the mode's controls grouped under Layout; Button and
+  Navigation keeping `alignment.content`; dormant notices both ways between Flex and Grid,
+  including class-supplied values; an invalid stored `block` shown as invalid with its actions
+  (§11.1); Fill empty cells (§11.3); mixed sibling selection.
 - **Picker:** bridge DOM specs for offer, choose and skip; qualification exclusions (preset
   children, duplicate, paste, restore, redo); duplicate choose messages; Skip while the factory is
   loading; factory failure; emptiness lost between offer and commit; offer → drop content → undo →
@@ -534,7 +562,8 @@ In the same release, found by an inventory grep at the start of the plan:
   a preset over a style class with conflicting `lg` values (§6.4); undo restoring exact settings;
   redo reusing ids.
 - **Browser:** choose 33/67 → one history entry → undo to empty → redo with the same ids; a
-  parent mode switch updating its children; the existing proofs rebuilt on container fixtures.
+  parent mode switch updating its children; the grid outline and its inertness (§11.2); the
+  existing proofs rebuilt on container fixtures.
 - **Gates:** full PHP suite, phpcs, boundaries, skeleton and distribution smoke, admin suite,
   type-check, lint, format, browser proofs.
 
@@ -551,3 +580,106 @@ One release, one beta cut at the end. Build order on `dev`, each phase ending wi
 3. **Structure picker** — the creation flow with atomic history and commit-time legality.
 4. **Retirement** — Columns, Grid and Section removed after their matrices (§7.6–§7.10) pass, with
    shipped content, presets, allowlists, fixtures and docs updated in the same phase.
+
+## 11. Amendment, 2026-09-18 — two modes, one Container section, a visible grid
+
+Raised from use of 1.0.0-beta.40. Sections 3.2, 3.8, 4, 5, 6.5 and 7.11 above carry the amended
+text; this section holds the reasons and the parts that are new.
+
+### 11.1 Flex and Grid only
+
+- `layout.display` loses `block` (§3.2); the theme default is a flex column whose gaps default to
+  the block rhythm (§3.8), so an untouched container renders as it did.
+- The inspector loses every state that existed only for block mode: "Children stack. Switch to
+  flex or grid to arrange them.", the dormant notice for direction and wrap under block, and the
+  item line "the parent stacks its children". Dormancy (§3.3) is now only between Flex and Grid.
+- **Contract versions move** — the style schema and the compiler each by one — and the verified
+  fragments are re-recorded.
+- **No conversion, and no disguise.** A stored `layout.display` of `block`, from the one release
+  that offered it, is invalid and a save that still carries it is refused — same terms as §1's
+  fresh-install scope. The inspector must not show the theme default in its place: that reads as
+  valid while the save fails. The Layout control shows the value as **invalid**, names it and the
+  breakpoint it sits at, and offers the two ways out in place: **Replace with Flex** (an explicit
+  value) and **Remove** (back to the theme default, which is also a flex column). When a style
+  class supplies the value rather than the block, the control says which class, and the action
+  opens that class — the block cannot fix what it does not hold.
+- **Proof:** a local `block` at `md` shown invalid with both actions, each writing one operation
+  and clearing the state; the same value supplied by a style class, attributed to the class; a save
+  with the value refused naming the field; after either action the save succeeds.
+
+### 11.2 The grid is drawn on the stage
+
+Choosing Grid and a track count changed nothing an author could see: a grid holds one slot, and
+the empty-slot placeholder spans the full row, so an empty three-column grid looked like an empty
+stack.
+
+- **Outline.** The stage draws the tracks of a grid container — dashed cell outlines from the
+  container's resolved column tracks and gaps — while the container is empty, while it or one of
+  its children is selected, and while a drag is over it. It follows the breakpoint being edited
+  (three tracks at `lg`, one at `base`). It is the bridge's, like the placeholder: canvas only,
+  never on the public page, nothing stored, and it takes no pointer events.
+- **The outline is inert.** It is positioned over the container and is never a grid item: it
+  must not add, size or reorder a track, and must not move or resize any existing content. The
+  proof measures the children with the outline shown and hidden and requires identical boxes.
+- **The placeholder is unchanged in when it appears: only while the slot is empty.** The bridge
+  already removes a container's placeholder once it holds a child, and this amendment does not
+  introduce one for populated grids — that would put a new box among real content. What changes is
+  its size in an empty **grid** slot: it takes the first cell instead of the full row, so the
+  outlined cells beside it are visible. Flex slots keep the full-row placeholder. A populated
+  grid's free cells are filled by an ordinary drag or by Fill (§11.3).
+- **With the structure picker** nothing changes: an offered container's tiles replace the
+  placeholder exactly as today (§6.2), and the outline shows only for a container already in grid
+  mode — which a newly inserted, still-offered container is not.
+- **One drop target, as now.** The outline adds no drop semantics: a grid places its items in
+  order, so there is no "drop into the third cell while the first is empty". That needs a real
+  cell (§11.3).
+- **Proof** (bridge DOM and real browser): an empty 3-track grid shows three outlined cells with
+  the placeholder in the first; one child → three outlined cells, no placeholder, the child's box
+  unchanged; a full row → outline only, nothing moved; a child spanning 2 of 3 → its outline
+  covers both tracks and one cell stays free; a 1-2-1 preset outlines cells of those proportions;
+  children's boxes identical with the outline shown and hidden; nothing of it in the public
+  rendering.
+
+### 11.3 Fill empty cells
+
+For a column an author can fill on its own — what the old Columns block's `col_1`…`col_3` were.
+
+- **What it fills: the rest of the last row, by ordinary append.** A grid places its items in
+  order and never back-fills, so the only cells an appended child can reach are the ones after the
+  last item. Fill inserts one **column container** (§6.5: flex, column, `layout.gap.row` = md) at
+  the end of the slot for each of those cells — a full row of them when the grid is empty. **Holes
+  earlier in the grid are left alone**: in a three-track grid, two children spanning 2 leave a free
+  cell at the end of each row, and Fill adds **one** container, which lands in the second row's;
+  the first row's hole stays, as it would for any appended block.
+- **Occupancy** is computed at the active breakpoint from the container's effective tracks and
+  each child's **effective span** — clamped to the track count as §3.7 resolves it, inherited and
+  class-supplied values included — placed in document order with row wrapping as the browser
+  does. A child hidden at that breakpoint occupies nothing.
+- **When the last row is full, Fill is disabled** ("No empty cells in the last row"). Starting a
+  new row is a different action and is not this one; none is specified in this amendment.
+- **Room for content, not only for the cell.** The depth cap is five and a subtree is legal when
+  it fits (§6.3), so an empty column container at depth five is legal — and useless, since nothing
+  can then be put in it. Fill therefore requires room for the cell **and a block inside it**: the
+  grid container at depth three or shallower. Deeper, it is disabled with that reason — "A cell
+  here could not hold a block: blocks nest at most five deep."
+- **Where.** A button under the Grid controls in the Layout tab, and on the empty grid's
+  placeholder on the stage.
+- **Preparation — its own conditions, not the picker's.** Fill reuses the factory and the
+  transaction (§6.3): one plan, the complete candidate judged whole against the real subtree,
+  committed as one transaction, so undo takes every cell back in one step and **redo reuses the
+  same ids**. It does not reuse the picker's qualification: that requires a container that is new
+  and empty, and Fill acts on existing, populated ones. Its own:
+  - the factory's answers are awaited, and **afterwards** occupancy is recomputed against the
+    current document and the current class values, and the complete candidate validated — never
+    the count taken when the button was pressed;
+  - it cancels, writing nothing, if by then the target is gone, is no longer in grid mode at that
+    breakpoint, or the active breakpoint has changed;
+  - a second request while one is preparing is ignored, not queued.
+- **Proof:** empty 3-track grid → three column containers, one history entry, one undo, redo with
+  the same ids; one child → two; a child spanning 2 of 3 → one; **two children spanning 2 of 3 →
+  one, appended, the first row's hole untouched**; a span of 6 in a 3-track grid counted as 3; a
+  child hidden at the active breakpoint not counted; last row full → disabled with its reason; at
+  depth four → disabled with the depth reason, at depth three → allowed; the grid populated by
+  another change while the factory is pending → the count recomputed; target removed, mode
+  switched or breakpoint changed while pending → nothing written; a second press while pending →
+  one transaction.
