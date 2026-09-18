@@ -4,7 +4,7 @@
 
 **Goal:** The style class editor can see and edit every property §5 moved to the Layout tab — `width`, `alignment.self`, `alignment.content` and all of `layout.*` — through a class Layout tab that borrows no context, and both class tabs describe a declaration's state truthfully: set, inherited (naming the declaring breakpoint), an explicit reset, or not set in this class.
 
-**Architecture:** Nothing in the contract, the compiler, the validator or the renderer changes. A pure function, `classFieldState`, answers what one class declares for one property at one breakpoint, through the class's own breakpoint inheritance only, using `resolve` for the value and `declarationOrigin` for the declaring breakpoint (the resolver reports an inherited reset exactly like one authored here). The shared field controls — `ResponsiveField`, `BoxField` — take a `context` prop, default `'block'`; in `'class'` they read that function for their label and offer **Remove** and **Use theme default**. `ResponsiveField` gains a `control` slot so direction, wrap and columns keep their icon and track choosers while the state and the two actions come from the same wrapper as every other row. `ClassLayoutTab.vue` is a new, separate component composed from those controls, with membership from `tabMap`; `LayoutTab.vue` is not touched. The class pages keep the draft on a refused save and show the server's field errors.
+**Architecture:** Nothing in the contract, the compiler, the validator or the renderer changes. A pure function, `classFieldState`, answers what one class declares for one property at one breakpoint, through the class's own breakpoint inheritance only, using `resolve` for the value and `declarationOrigin` for the declaring breakpoint (the resolver reports an inherited reset exactly like one authored here). The shared field controls — `ResponsiveField`, `BoxField` — take a `context` prop, default `'block'`; in `'class'` they read that function for their label and offer **Remove** and **Use theme default**. `ResponsiveField` gains a `control` slot so direction, wrap and columns keep their icon and track choosers while the state and the two actions come from the same wrapper as every other row. `ClassLayoutTab.vue` is a new, separate component composed from those controls, with membership from `tabMap`. `LayoutTab.vue` gains no class mode and no behaviour: its property names and its direction and wrap icon maps move, unchanged, to `layoutLabels.ts`, which both tabs read — two editors must not name one property two ways — and `layout-tab.spec.ts` passing unedited holds that the move changed nothing. The class pages keep the draft on a refused save and show the server's field errors.
 
 **Tech Stack:** Nuxt UI admin (Vue 3, vitest); one PHPUnit integration test against the existing `StyleClassController`.
 
@@ -176,7 +176,9 @@ The class Style tab shows `Not set in this class` for an untouched property and 
 
 ## Task 2.1: the class Layout tab
 
-**Files:** Create `admin/src/pages/settings/style-classes/components/ClassLayoutTab.vue`, `admin/src/__tests__/class-layout-tab.spec.ts`.
+**Files:** Create `admin/src/pages/settings/style-classes/components/ClassLayoutTab.vue`, `…/components/classLayoutSections.ts` (the ordered assignment — `<script setup>` cannot export, and the placement test needs it: `CLASS_LAYOUT_SECTIONS`, `placedLayoutPaths()`, `unplacedLayoutPaths(paths)`), `admin/src/editor/inspector/layoutLabels.ts` (moved out of `LayoutTab.vue`, unchanged), `admin/src/__tests__/class-layout-tab.spec.ts`. Modify `admin/src/editor/inspector/LayoutTab.vue` (imports the moved constants; nothing else).
+
+**The boundary is tested, not only stated:** the spec reads `ClassLayoutTab.vue`'s imports and refuses `LayoutTab.vue`, `layoutContext`, `gridFill`, `gridOccupancy` and `structure/presets`.
 
 **Consumes:** `ResponsiveField` (`context="class"`, `control` slot), `BoxField` (`context="class"`), `IconChoiceControl`, `TrackSwatchControl`, `pathsForTab` / `tabOf` from `@/editor/inspector/tabMap`, `classFieldState`. It does **not** import `LayoutTab.vue`, `layoutContext`'s `effectiveDisplay` or `dormantPaths`, `gridFill`, or `THEME_DEFAULT`.
 
@@ -207,8 +209,8 @@ The class Style tab shows `Not set in this class` for an untouched property and 
 - **Invalid:** a stored `block` at `md` → the Layout row is `Invalid`, neither Flex nor Grid pressed, neither retained note; switching breakpoint emits nothing.
 - **Mode switch writes one declaration:** choosing Grid with Flex settings stored emits exactly one `set`, for `layout.display`.
 
-- [ ] **Steps 1–4.**
-- [ ] **Step 5: Commit** `feat(style-classes): a class Layout tab — every layout property, labelled by where it applies, with no borrowed context`.
+- [x] **Steps 1–4.**
+- [x] **Step 5: Commit** `feat(style-classes): a class Layout tab — every layout property, labelled by where it applies, with no borrowed context`.
 
 ## Task 2.2: two tabs in the class editor, and the editor's output
 

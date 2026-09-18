@@ -30,6 +30,7 @@ import { BREAKPOINT_LABELS } from '@/editor/breakpoint'
 import { isFolded, toggleFold } from './styleGroupFolds'
 import { REPLACEMENT, dormantPaths, effectiveDisplay, invalidChoiceAt } from './layoutContext'
 import { pathsForTab } from './tabMap'
+import { DIRECTION_ICONS, LAYOUT_LABELS as LABELS, WRAP_ICONS, WRAP_LABELS } from './layoutLabels'
 import ResponsiveField from './controls/ResponsiveField.vue'
 import BoxField from './controls/BoxField.vue'
 import IconChoiceControl from './controls/IconChoiceControl.vue'
@@ -80,43 +81,8 @@ const fillNote = computed(() => {
 
 const multi = computed(() => (props.blocks?.length ?? 0) > 1)
 
-const LABELS: Record<string, string> = {
-  width: 'Width',
-  'alignment.self': 'Placement',
-  'layout.min_height': 'Minimum height',
-  'layout.overflow': 'Overflow',
-  'layout.display': 'Layout',
-  'layout.content_width': 'Content width',
-  'layout.gutter': 'Gutter',
-  'layout.direction': 'Direction',
-  'layout.wrap': 'Wrap',
-  'alignment.content': 'Distribute',
-  'layout.align_items': 'Align',
-  'layout.columns': 'Columns',
-  'layout.span': 'Span',
-  'layout.basis': 'Basis',
-  'layout.grow': 'Grow',
-  'layout.shrink': 'Shrink',
-  'layout.align_self': 'Align self',
-}
-
 /** In the Box section the same property names what the block does with its own content. */
 const BOX_LABELS: Record<string, string> = { 'alignment.content': 'Content alignment' }
-
-const DIRECTION_ICONS: Record<string, string> = {
-  row: 'i-lucide-arrow-right',
-  column: 'i-lucide-arrow-down',
-  'row-reverse': 'i-lucide-arrow-left',
-  'column-reverse': 'i-lucide-arrow-up',
-}
-const WRAP_ICONS: Record<string, string> = {
-  nowrap: 'i-lucide-move-horizontal',
-  wrap: 'i-lucide-corner-down-left',
-}
-const WRAP_LABELS: Record<string, string> = {
-  nowrap: 'One line',
-  wrap: 'Wrap onto more lines',
-}
 
 /** The capability paths of one type: an entry names a path, or a group that expands to its paths. */
 function pathsOf(type: BlockType | null): Set<string> {
