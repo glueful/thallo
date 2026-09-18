@@ -151,8 +151,8 @@ The `.t-display-block` / `.t-display-reset` margin rules and their `md:` and `lg
 - **The frozen references**: the whole `tools/runtime-browser` suite, 0 new failures. Any difference is fixed in the rules above.
 - Admin: `effectiveDisplay` returns `flex` for an untouched container and after a reset; `dormantPaths` lists only the other mode's paths; the Stack preset over an untouched container plans **no operations** (both owned paths equal the theme default), and over a grid container plans display and direction at every breakpoint.
 
-- [ ] **Steps 1–4.** Re-record the verified fragments last.
-- [ ] **Step 5: Commit** `feat(style)!: a container arranges its children as Flex or Grid — block display leaves the contract`.
+- [x] **Steps 1–4.** Re-record the verified fragments last.
+- [x] **Step 5: Commit** `feat(style)!: a container arranges its children as Flex or Grid — block display leaves the contract`.
 
 ## Task 1.2: a stored choice the contract no longer offers is shown as invalid — and can be repaired wherever it is stored
 
@@ -177,14 +177,14 @@ The `.t-display-block` / `.t-display-reset` margin rules and their `md:` and `lg
 - `style-class-editor-repair`, end to end: a class whose stored style declares `layout.display` = `block` at `md` → the Needs attention group names the value and `md`; **Replace** → the save payload carries `flex` at `md` and no `block`; **Remove** → the payload has no `layout.display.md`; a class with no invalid choice → no group; the group also lists a second invalid path and repairs each independently.
 - PHP: the class endpoint refuses the class while it declares `block` (Task 1.1's test), and **accepts the two payloads above** — Replace's and Remove's — so open class → repair → save is proven to succeed, not only to send.
 
-- [ ] **Steps 1–4.**
-- [ ] **Step 5: Commit** `feat(inspector): a stored layout the contract no longer offers is shown as invalid, and repaired where it is stored`.
+- [x] **Steps 1–4.**
+- [x] **Step 5: Commit** `feat(inspector): a stored layout the contract no longer offers is shown as invalid, and repaired where it is stored`.
 
 ## Task 1.3: phase gate
 
-- [ ] **Step 1:** PHP gates, admin gates, the real-browser gate from a clean state, the builder proofs.
-- [ ] **Step 2:** `git grep -n "t-display-block\|'block', 'flex'\|choice('block')"` outside `docs/internal` returns nothing.
-- [ ] **Step 3:** no commit unless a gate required a fix; any fix is its own commit naming the failing proof.
+- [x] **Step 1:** PHP gates, admin gates, the real-browser gate from a clean state, the builder proofs.
+- [x] **Step 2:** `git grep -n "t-display-block\|'block', 'flex'\|choice('block')"` returns nothing in **non-test source** (outside `docs/internal`, `tests/`, `admin/src/__tests__` and `admin/e2e`). Tests legitimately hold the word: they assert that `block` is refused, that `t-display-block` is gone from the theme, and that a stored `block` is shown as invalid.
+- [x] **Step 3:** no commit unless a gate required a fix; any fix is its own commit naming the failing proof.
 
 ---
 
