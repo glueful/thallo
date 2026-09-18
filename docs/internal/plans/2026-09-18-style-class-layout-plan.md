@@ -233,8 +233,10 @@ The class Style tab shows `Not set in this class` for an untouched property and 
 
 Extend the repair spec: the capability note is present with either tab open; Needs attention is present with either tab open.
 
-- [ ] **Steps 1–4.**
-- [ ] **Step 5: Commit** `feat(style-classes): Style and Layout tabs in the class editor — one edit changes one declaration`.
+- [x] **Steps 1–4.**
+- [x] **Step 5: Commit** `feat(style-classes): Style and Layout tabs in the class editor — one edit changes one declaration`.
+
+**Found by the linked case, and fixed here:** `StyleClassEditor.write()` built every emission from `props.modelValue`. A linked box emits one write per side in one tick, and a `v-model` parent feeds each back only on the next — so every write in the burst started from the same stale value and the last overwrote the rest. Linked padding and margin on the class **Style** tab lost all but one side; it predates this plan. Within a tick a write now builds on the one before it; once the tick has passed the prop is the authority again, whether or not the parent took the emission (its own test). The tests mount the editor as the page does — each emission fed back as the prop — which is what made the fault visible. Goes under **Fixed** in Task 4.1.
 
 ## Task 3.1: a refused save keeps the draft and names the field
 
@@ -267,7 +269,7 @@ Extend the repair spec: the capability note is present with either tab open; Nee
 
 ## Task 4.1: documentation
 
-**Files:** `CHANGELOG.md` (Unreleased — **Added:** a Layout tab in the style class editor, with what it covers and the applicability labels. **Fixed:** since beta.40 a class could hold width, placement, content alignment and layout settings and could not edit them; a class's fields said `theme` where the class simply declared nothing; a refused class save now says which field. **Changed:** in the class editor the actions are named Remove and Use theme default); `packages/thallo-render/docs/THEMING.md` "Style classes" (one paragraph: a class may carry layout; per-property cascade means a class's Flex settings apply wherever the effective layout is Flex, whatever mode the class itself sets).
+**Files:** `CHANGELOG.md` (Unreleased — **Added:** a Layout tab in the style class editor, with what it covers and the applicability labels. **Fixed:** since beta.40 a class could hold width, placement, content alignment and layout settings and could not edit them; a class's fields said `theme` where the class simply declared nothing; a refused class save now says which field. In the class editor, linked sides — padding, margin, gap — saved only one of the sides they were meant to set. **Changed:** in the class editor the actions are named Remove and Use theme default); `packages/thallo-render/docs/THEMING.md` "Style classes" (one paragraph: a class may carry layout; per-property cascade means a class's Flex settings apply wherever the effective layout is Flex, whatever mode the class itself sets).
 
 - [ ] **Step 1:** write both. **Step 2: Commit** `docs: style classes edit layout — the class Layout tab and truthful field states`.
 
