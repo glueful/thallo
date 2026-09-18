@@ -85,8 +85,9 @@ const perBreakpoint = (base: Owned, md: Owned, lg: Owned): OwnedPath => ({ base,
 /**
  * A column container (spec §6.5): a flex column with the row gap that reproduces today's Columns
  * rhythm — space between the blocks in a column, none at its edges (§3.8).
+ * Exported because Fill empty cells (§11.3) creates the same thing, one per free cell.
  */
-function columnChild(parent: string, index: number): PlannedChild {
+export function columnChild(parent: string, index: number): PlannedChild {
   return {
     type: 'container',
     position: { parent, slot: 'content', index },
@@ -217,7 +218,12 @@ function sectionStyle(overrides: Record<string, OwnedPath>): Record<string, Owne
 export const PRESETS: Record<string, PresetDefinition> = {
   stack: {
     label: 'Stack',
-    style: { 'layout.display': everywhere(choice('block')) },
+    // A stack is a flex column (spec §6.5, §11.1) — which is also what the theme gives an
+    // untouched container, so over one this preset plans nothing.
+    style: {
+      'layout.display': everywhere(choice('flex')),
+      'layout.direction': everywhere(choice('column')),
+    },
     children: [],
     onlyWhenDifferent: true,
   },
@@ -311,12 +317,21 @@ function sameValue(a: StyleValue | null, b: StyleValue | null): boolean {
 }
 
 /**
- * What the theme itself produces where nothing is declared. Only the paths a skip-when-equal
- * preset owns need an entry: Stack asks whether the container already stacks, and a container with
- * nothing declared does — that is the theme's own display (spec §3.3), and writing `block` over it
- * would record a transaction that changes nothing.
+ * What the theme itself produces where nothing is declared (spec §3.8, §11.1): a flex column with
+ * both gaps at `spacing.xl`. A skip-when-equal preset judges "already this" against it: Stack asks
+ * whether the container already stacks, and a container with nothing declared does — writing flex
+ * and column over it would record a transaction that changes nothing.
  */
-const THEME_DEFAULT: Record<string, StyleValue> = { 'layout.display': choice('block') }
+export const THEME_DEFAULT: Record<string, StyleValue> = {
+  'layout.display': choice('flex'),
+  'layout.direction': choice('column'),
+  // The browser's own, which the theme leaves alone — named so the inspector can show it.
+  'layout.wrap': choice('nowrap'),
+  // One track until a count is chosen: span clamping (spec §3.7) depends on that default.
+  'layout.columns': choice('1'),
+  'layout.gap.row': token('spacing.xl'),
+  'layout.gap.column': token('spacing.xl'),
+}
 
 /** The value in force including the theme's own, so "already this" is judged on the real result. */
 function effectiveValue(

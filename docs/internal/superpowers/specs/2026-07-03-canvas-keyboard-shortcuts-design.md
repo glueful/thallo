@@ -43,6 +43,17 @@ Decision pins from brainstorm review:
 Handled keys are `preventDefault`ed/`stopPropagation`ed; unhandled keys pass
 through untouched.
 
+**Amended 2026-09-18 — undo and redo.** One pair is active *with or without* a selection:
+
+| Key | Intent posted | Notes |
+| --- | --- | --- |
+| Cmd/Ctrl+Z / Shift+Cmd/Ctrl+Z | `history {direction: 'undo' / 'redo'}` | history is the parent's; the stage only forwards. A stage click leaves focus in the iframe, so without this ⌘Z after any stage action reached nobody |
+
+It is judged before the selection guard — a Fill or a + selects nothing — and keeps the
+edit-session, drag and form-control guards of §2: inside an edit region or a theme's
+input, ⌘Z stays the browser's undo of what was typed. The toolbar guard does not apply;
+⌘Z has no native meaning on a button.
+
 ## 2. Guards (airtight, in this order)
 
 The bridge's keydown handler (document, capture phase) returns without

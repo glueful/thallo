@@ -86,6 +86,8 @@ vi.mock('@/fields/components/blocks/ProseBlockEditor.vue', () => ({
 const bridge = vi.hoisted(() => {
   /** Every structure-offer publish the page makes, newest last (container-layout spec §6.2). */
   const published: unknown[] = []
+  /** Every Fill state list the page publishes, newest last (container-layout spec §11.3). */
+  const fillStates: unknown[] = []
   const callbacks: {
     select?: (id: string, modifiers?: { shift: boolean; meta: boolean }) => void
     hover?: (id: string) => void
@@ -101,6 +103,7 @@ const bridge = vi.hoisted(() => {
     slotAdd?: (parent: string | null, slot: string) => void
     structureChoose?: (id: string, preset: string) => void
     structureSkip?: (id: string) => void
+    gridFill?: (id: string) => void
     editRequest?: (id: string, field: string) => void
     textChanged?: (id: string, field: string, payload: { html?: string; text?: string }) => void
     editStart?: (id: string) => void
@@ -110,6 +113,7 @@ const bridge = vi.hoisted(() => {
   return {
     callbacks,
     published,
+    fillStates,
     instance: {
       nonce: 'n',
       hello: vi.fn(),
@@ -138,6 +142,9 @@ const bridge = vi.hoisted(() => {
       onStructureChoose: (cb: (id: string, preset: string) => void) =>
         (callbacks.structureChoose = cb),
       onStructureSkip: (cb: (id: string) => void) => (callbacks.structureSkip = cb),
+      publishGridFill: vi.fn((states: unknown) => fillStates.push(states)),
+      onGridFill: (cb: (id: string) => void) => (callbacks.gridFill = cb),
+      onHistory: vi.fn(),
       onEditRequest: (cb: (id: string, field: string) => void) => (callbacks.editRequest = cb),
       onTextChanged: (
         cb: (id: string, field: string, payload: { html?: string; text?: string }) => void,
@@ -1694,6 +1701,275 @@ describe('canvas page', () => {
       })
     })
 
+    describe('Fill empty cells (container-layout spec §11.3)', () => {
+      // The stage button has no state of its own, so the two surfaces can only disagree if the
+      // page hands them different answers. These compare what the page publishes to the stage
+      // with what it hands the inspector, for the same container, after each kind of change.
+      const choice = (value: string) => ({ type: 'choice', value })
+      const gridOf = (id: string, content: unknown[] = [], at = 'base') => ({
+        id,
+        type: 'container',
+        data: { content },
+        settings: {
+          style: { layout: { display: { [at]: choice('grid') }, columns: { [at]: choice('3') } } },
+        },
+      })
+      const plainOf = (id: string, content: unknown[]) => ({
+        id,
+        type: 'container',
+        data: { content },
+        settings: {},
+      })
+      function withGrids(body: unknown[]) {
+        blockTypes.value = [
+          ...blockTypes.value,
+          {
+            ...bt('container'),
+            style_capabilities: ['layout.display', 'layout.columns'],
+            schema: [
+              {
+                name: 'content',
+                type: 'blocks',
+                required: false,
+                localized: false,
+                filterable: false,
+              },
+            ],
+          } as BlockType,
+        ]
+        draft.value = { fields: { title: 'T', body }, lock_version: 3 }
+        factory.instance.mockImplementation(async (slug: string) => ({
+          id: 'f' + Math.random().toString(36).slice(2, 13).padEnd(11, '0'),
+          type: slug,
+          data: slug === 'container' ? { content: [] } : { ...factoryStarter[slug] },
+          settings: {},
+        }))
+      }
+      type Stage = { id: string; enabled: boolean; preparing: boolean; reason?: string }
+      const stage = () => (bridge.fillStates[bridge.fillStates.length - 1] ?? []) as Stage[]
+      const onStage = (id: string) => stage().find((entry) => entry.id === id)
+      const inInspector = (wrapper: ReturnType<typeof mountPage>) =>
+        wrapper.findComponent({ name: 'BlockInspector' }).props('fill') as
+          | (Omit<Stage, 'id'> & { visible: boolean; cells: number })
+          | null
+      /** The inspector's answer in the stage's shape, or undefined where Fill does not apply. */
+      const asStage = (wrapper: ReturnType<typeof mountPage>, id: string) => {
+        const fill = inInspector(wrapper)
+        if (!fill || !fill.visible) return undefined
+        return {
+          id,
+          enabled: fill.enabled,
+          preparing: fill.preparing,
+          ...(fill.reason !== undefined ? { reason: fill.reason } : {}),
+        }
+      }
+      async function select(id: string) {
+        bridge.callbacks.select!(id)
+        await flushPromises()
+      }
+
+      beforeEach(() => {
+        bridge.fillStates.length = 0
+      })
+
+      it('publishes every EMPTY grid on load: enabled, disabled with its reason, and nothing else', async () => {
+        withGrids([
+          gridOf('gridempty001'),
+          plainOf('plainempty01', []),
+          gridOf('gridfull0001', [{ id: 'cardingrid01', type: 'card', data: { title: 'x' } }]),
+          plainOf('wrapa0000001', [
+            plainOf('wrapb0000001', [plainOf('wrapc0000001', [gridOf('griddeep0001')])]),
+          ]),
+        ])
+        const wrapper = mountPage()
+        await flushPromises()
+        expect(stage()).toEqual([
+          { id: 'gridempty001', enabled: true, preparing: false },
+          {
+            id: 'griddeep0001',
+            enabled: false,
+            preparing: false,
+            reason: 'A cell here could not hold a block: blocks nest at most 5 levels deep',
+          },
+        ])
+        wrapper.unmount()
+      })
+
+      it('the inspector is handed the same answer as the stage, for an enabled and a refused grid', async () => {
+        withGrids([
+          gridOf('gridempty001'),
+          plainOf('wrapa0000001', [
+            plainOf('wrapb0000001', [plainOf('wrapc0000001', [gridOf('griddeep0001')])]),
+          ]),
+        ])
+        const wrapper = mountPage()
+        await flushPromises()
+        await select('gridempty001')
+        expect(asStage(wrapper, 'gridempty001')).toEqual(onStage('gridempty001'))
+        expect(inInspector(wrapper)!.cells).toBe(3)
+        await select('griddeep0001')
+        expect(asStage(wrapper, 'griddeep0001')).toEqual(onStage('griddeep0001'))
+        expect(inInspector(wrapper)!.enabled).toBe(false)
+        wrapper.unmount()
+      })
+
+      it('a block selected that is not a grid is handed nothing', async () => {
+        withGrids([plainOf('plainempty01', [])])
+        const wrapper = mountPage()
+        await flushPromises()
+        await select('plainempty01')
+        expect(inInspector(wrapper)?.visible ?? false).toBe(false)
+        expect(stage()).toEqual([])
+        wrapper.unmount()
+      })
+
+      it('a breakpoint change moves both: a grid only from md is no grid at base', async () => {
+        withGrids([gridOf('gridmd000001', [], 'md')])
+        const wrapper = mountPage()
+        await flushPromises()
+        await select('gridmd000001')
+        expect(onStage('gridmd000001')).toMatchObject({ enabled: true })
+        expect(asStage(wrapper, 'gridmd000001')).toEqual(onStage('gridmd000001'))
+
+        wrapper
+          .findComponent({ name: 'BlockInspector' })
+          .vm.$emit('update:activeBreakpoint', 'base')
+        await flushPromises()
+        expect(onStage('gridmd000001')).toBeUndefined()
+        expect(asStage(wrapper, 'gridmd000001')).toBeUndefined()
+        wrapper.unmount()
+      })
+
+      it('a mode change moves both: the grid set to flex loses Fill on both surfaces', async () => {
+        withGrids([gridOf('gridempty001')])
+        const wrapper = mountPage()
+        await flushPromises()
+        await select('gridempty001')
+        expect(onStage('gridempty001')).toBeDefined()
+
+        wrapper
+          .findComponent({ name: 'BlockInspector' })
+          .vm.$emit('set-setting', 'layout.display', 'base', choice('flex'))
+        await flushPromises()
+        expect(onStage('gridempty001')).toBeUndefined()
+        expect(asStage(wrapper, 'gridempty001')).toBeUndefined()
+        wrapper.unmount()
+      })
+
+      it('a block put into the grid takes the stage entry away and leaves the inspector enabled for the rest of the row', async () => {
+        withGrids([gridOf('gridempty001')])
+        const wrapper = mountPage()
+        await flushPromises()
+        bridge.callbacks.slotAdd!('gridempty001', 'content')
+        await flushPromises()
+        await (await openBlocks(wrapper)).find('[data-test="palette-card-card"]').trigger('click')
+        await flushPromises()
+
+        expect(onStage('gridempty001')).toBeUndefined() // no placeholder left to carry a button
+        await select('gridempty001')
+        expect(inInspector(wrapper)).toMatchObject({ visible: true, enabled: true, cells: 2 })
+        wrapper.unmount()
+      })
+
+      it('a pending fill is busy on both surfaces, and one request commits one transaction of cells', async () => {
+        withGrids([gridOf('gridempty001')])
+        let release: (() => void) | null = null
+        factory.instance.mockImplementation(
+          (slug: string) =>
+            new Promise((resolve) => {
+              release = () =>
+                resolve({ id: 'madecell0001', type: slug, data: { content: [] }, settings: {} })
+            }),
+        )
+        const wrapper = mountPage()
+        await flushPromises()
+        await select('gridempty001')
+
+        bridge.callbacks.gridFill!('gridempty001')
+        await flushPromises()
+        expect(onStage('gridempty001')).toMatchObject({ preparing: true })
+        expect(asStage(wrapper, 'gridempty001')).toEqual(onStage('gridempty001'))
+        bridge.callbacks.gridFill!('gridempty001') // a second request while preparing: ignored
+        await flushPromises()
+        expect(factory.instance).toHaveBeenCalledTimes(1)
+
+        applyMock.mockClear()
+        release!()
+        await flushPromises()
+        // Filled: not empty any more, so the stage names nothing; the inspector says the row is full.
+        expect(onStage('gridempty001')).toBeUndefined()
+        expect(inInspector(wrapper)).toMatchObject({
+          visible: true,
+          enabled: false,
+          preparing: false,
+          reason: 'No empty cells in the last row',
+        })
+
+        await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+        await flushPromises()
+        const calls = applyMock.mock.calls
+        const sent = calls[calls.length - 1]![4] as {
+          operations: { type: string; transaction_id: string; position: { parent: string } }[]
+        }
+        expect(sent.operations.map((op) => op.type)).toEqual([
+          'InsertBlock',
+          'InsertBlock',
+          'InsertBlock',
+        ])
+        expect(new Set(sent.operations.map((op) => op.transaction_id)).size).toBe(1)
+        expect(sent.operations.every((op) => op.position.parent === 'gridempty001')).toBe(true)
+        wrapper.unmount()
+      })
+
+      it("the inspector's Fill runs the same fill, at the active breakpoint", async () => {
+        withGrids([gridOf('gridempty001')])
+        const wrapper = mountPage()
+        await flushPromises()
+        await select('gridempty001')
+        wrapper.findComponent({ name: 'BlockInspector' }).vm.$emit('fill-cells')
+        await flushPromises()
+        expect(inInspector(wrapper)).toMatchObject({ enabled: false, cells: 0 })
+        expect(onStage('gridempty001')).toBeUndefined()
+        wrapper.unmount()
+      })
+
+      it('tells the stage only when the answer changes, and always a stage that has just loaded', async () => {
+        // Every message makes the stage re-mark its slots and redraw the outline: an edit that
+        // changes nothing about Fill — typing in a card — must not send one.
+        mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
+        withGrids([
+          gridOf('gridempty001'),
+          { id: 'cardplain001', type: 'card', data: { title: 'A' } },
+        ])
+        const wrapper = mountPage()
+        await flushPromises()
+        await select('cardplain001')
+        const sent = bridge.fillStates.length
+        expect(sent).toBeGreaterThan(0)
+
+        wrapper.findComponent({ name: 'BlockInspector' }).vm.$emit('patch-data', 'title', 'AB')
+        await flushPromises()
+        expect(bridge.fillStates.length).toBe(sent)
+
+        await wrapper.find('[data-test="canvas-iframe"]').trigger('load')
+        await flushPromises()
+        expect(bridge.fillStates.length).toBe(sent + 1)
+        expect(onStage('gridempty001')).toMatchObject({ enabled: true })
+        wrapper.unmount()
+      })
+
+      it('a stage request for a container that cannot be filled commits nothing', async () => {
+        withGrids([plainOf('plainempty01', [])])
+        const wrapper = mountPage()
+        await flushPromises()
+        bridge.callbacks.gridFill!('plainempty01')
+        bridge.callbacks.gridFill!('nosuchblock1')
+        await flushPromises()
+        expect(factory.instance).not.toHaveBeenCalled()
+        wrapper.unmount()
+      })
+    })
+
     describe('a palette drag onto the stage (Phase C.1)', () => {
       const savedBody = () =>
         (
@@ -1764,6 +2040,36 @@ describe('canvas page', () => {
         expect(bridge.instance.highlight).toHaveBeenLastCalledWith(body[1]!.id, [body[1]!.id])
         wrapper.unmount()
       })
+
+      // A page created with a title and nothing else has no `body` in its fields at all: the
+      // stage's empty body slot is still a place a block can be dropped.
+      it.each([
+        ['never set', { title: 'Blank' }],
+        ['null', { title: 'Blank', body: null }],
+      ])(
+        'a tile dropped on the empty body of a new page (body %s) inserts the first block',
+        async (_, fields) => {
+          draft.value = { fields, lock_version: 1 } as unknown as typeof draft.value
+          mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+          saveMock.mockResolvedValue(undefined)
+          const wrapper = mountPage()
+          await flushPromises()
+          const first = { parent: null, slot: 'body', index: 0, layout: 'linear-vertical' as const }
+          const { tile, session } = await dragTile(wrapper, 'card')
+          bridge.callbacks.dragPropose?.(session, [], first)
+          expect(bridge.instance.dragLegality).toHaveBeenLastCalledWith(session, true, '')
+          tile.dispatchEvent(
+            new MouseEvent('pointerup', { bubbles: true, clientX: 210, clientY: 110 }),
+          )
+          bridge.callbacks.blockDrop?.(session, [], first)
+          await flushPromises()
+          expect(notify.warning).not.toHaveBeenCalled()
+          await wrapper.find('[data-test="canvas-save"]').trigger('click')
+          await flushPromises()
+          expect(savedBody().map((b) => b.type)).toEqual(['card'])
+          wrapper.unmount()
+        },
+      )
 
       it('a permitted hover then a release over a forbidden slot: the final zone is judged and refused', async () => {
         mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })

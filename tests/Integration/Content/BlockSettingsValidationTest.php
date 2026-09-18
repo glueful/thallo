@@ -261,7 +261,14 @@ final class BlockSettingsValidationTest extends AppTestCase
             [
                 ['layout' => ['display' => ['base' => ['type' => 'choice', 'value' => 'table']]]],
                 'body.0.settings.style.layout.display.base',
-                'must be one of block, flex, grid',
+                'must be one of flex, grid',
+            ],
+            [
+                // Flex and Grid only (spec §11.1): the block display one release offered is not
+                // a value, at any breakpoint, and nothing maps it to one.
+                ['layout' => ['display' => ['md' => ['type' => 'choice', 'value' => 'block']]]],
+                'body.0.settings.style.layout.display.md',
+                'must be one of flex, grid',
             ],
             [
                 // Not responsive: an overflow that changed with the viewport would hide content

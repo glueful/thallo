@@ -1320,6 +1320,65 @@ describe('stage keyboard shortcuts', () => {
     expect(lastPost('thallo:edit-end')).toMatchObject({ id: 'kb-grd-00001' })
     expect(lastPost('thallo:block-deselect')).toBeUndefined()
   })
+
+  // A click on the stage leaves focus in the stage, so ⌘Z pressed next lands there. History is the
+  // editor's: the stage forwards the intent and the page runs its own undo or redo.
+  it('Cmd/Ctrl+Z asks the editor to undo and Shift adds redo — with or without a selection', () => {
+    pressKey({ key: 'Escape' }) // nothing selected: a stage Fill or a + leaves it that way
+    posted.mockClear()
+    const undo = pressKey({ key: 'z', metaKey: true })
+    expect(lastPost('thallo:history')).toMatchObject({ direction: 'undo' })
+    expect(undo.defaultPrevented).toBe(true)
+
+    posted.mockClear()
+    const redo = pressKey({ key: 'Z', metaKey: true, shiftKey: true }) // Shift upper-cases the key
+    expect(lastPost('thallo:history')).toMatchObject({ direction: 'redo' })
+    expect(redo.defaultPrevented).toBe(true)
+
+    posted.mockClear()
+    pressKey({ key: 'z', ctrlKey: true })
+    expect(lastPost('thallo:history')).toMatchObject({ direction: 'undo' })
+
+    const w = wrapper('kb-undo-0001')
+    document.body.appendChild(w)
+    selectByClick(w)
+    posted.mockClear()
+    pressKey({ key: 'z', metaKey: true })
+    expect(lastPost('thallo:history')).toMatchObject({ direction: 'undo' })
+    // The toolbar's buttons keep Enter and Space; ⌘Z is nobody's native key there.
+    posted.mockClear()
+    pressKey({ key: 'z', metaKey: true }, w.querySelector('.thallo-canvas-toolbar button')!)
+    expect(lastPost('thallo:history')).toMatchObject({ direction: 'undo' })
+  })
+
+  it("leaves Z alone where it is not the editor's: unmodified, with Alt, in a form field, while editing text", () => {
+    pressKey({ key: 'Escape' })
+    posted.mockClear()
+    const plain = pressKey({ key: 'z' })
+    const alt = pressKey({ key: 'z', metaKey: true, altKey: true })
+    expect(lastPost('thallo:history')).toBeUndefined()
+    expect(plain.defaultPrevented).toBe(false)
+    expect(alt.defaultPrevented).toBe(false)
+
+    // A theme's own input: native undo of what was typed there.
+    const formW = wrapper('kb-undo-0002', '<section><input type="text"></section>')
+    document.body.appendChild(formW)
+    const typed = pressKey({ key: 'z', metaKey: true }, formW.querySelector('input')!)
+    expect(lastPost('thallo:history')).toBeUndefined()
+    expect(typed.defaultPrevented).toBe(false)
+
+    // An edit session: ⌘Z undoes typing, natively. Undoing a block under the caret would be a disaster.
+    const prose = proseWrapper('kb-undo-0003')
+    document.body.appendChild(prose)
+    selectByClick(prose)
+    sendToBridge({ type: 'thallo:edit-grant', id: 'kb-undo-0003', field: 'body', kind: 'rich' })
+    const region = prose.querySelector('.thallo-edit-region')!
+    posted.mockClear()
+    const editing = pressKey({ key: 'z', metaKey: true }, region)
+    expect(lastPost('thallo:history')).toBeUndefined()
+    expect(editing.defaultPrevented).toBe(false)
+    region.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  })
 })
 
 describe('rich-region normalization (format-bar spec §2)', () => {
@@ -2917,5 +2976,305 @@ describe('the structure picker on the stage (container-layout spec §6.2)', () =
     // A message with no offers array changes nothing rather than clearing the stage.
     sendToBridge({ type: 'thallo:structure-offer' })
     expect(tilesIn(main.children[0] as HTMLElement)).not.toBeNull()
+  })
+})
+
+describe('the grid on the stage (container-layout spec §11.2)', () => {
+  // jsdom lays nothing out, so the slot's resolved tracks and every rectangle are stubbed; the
+  // real geometry — inert and aligned — is proven in the browser (admin/e2e grid-outline.spec).
+  const realComputed = window.getComputedStyle
+  let styles = new Map<Element, Record<string, string>>()
+
+  beforeEach(() => {
+    styles = new Map()
+    window.getComputedStyle = ((el: Element) => {
+      const own = styles.get(el)
+      if (!own) return realComputed(el)
+      return {
+        ...own,
+        getPropertyValue: (p: string) => own[p] ?? '',
+      } as unknown as CSSStyleDeclaration
+    }) as typeof window.getComputedStyle
+  })
+  afterEach(() => {
+    window.getComputedStyle = realComputed
+  })
+
+  const rectOf = (left: number, top: number, width: number, height: number) =>
+    ({
+      left,
+      top,
+      width,
+      height,
+      right: left + width,
+      bottom: top + height,
+      x: left,
+      y: top,
+    }) as DOMRect
+  const pin = (el: Element, r: DOMRect) =>
+    Object.defineProperty(el, 'getBoundingClientRect', { configurable: true, value: () => r })
+
+  /** A container whose content slot is a grid of `cols`, 40px rows, 10px gaps, at (0, 0). */
+  function grid(
+    id: string,
+    cols: number[],
+    children: { id: string; col: number; span?: number; row?: number }[],
+  ) {
+    document.body.innerHTML = '<main></main>'
+    const main = document.body.querySelector('main')!
+    const el = document.createElement('div')
+    el.className = 'thallo-preview-block'
+    el.setAttribute('data-thallo-block', id)
+    el.innerHTML = '<section><div data-thallo-slot="content"></div></section>'
+    main.append(el)
+    const slot = el.querySelector<HTMLElement>('[data-thallo-slot]')!
+    const rows = Math.max(1, ...children.map((c) => (c.row ?? 0) + 1))
+    const x = (col: number) => cols.slice(0, col).reduce((a, b) => a + b + 10, 0)
+    for (const c of children) {
+      const child = wrapper(c.id, '<h2>child</h2>')
+      slot.append(child)
+      const span = c.span ?? 1
+      const width = cols.slice(c.col, c.col + span).reduce((a, b) => a + b, 0) + (span - 1) * 10
+      pin(child.firstElementChild!, rectOf(x(c.col), (c.row ?? 0) * 50, width, 40))
+    }
+    const total = cols.reduce((a, b) => a + b, 0) + (cols.length - 1) * 10
+    pin(slot, rectOf(0, 0, total, rows * 40 + (rows - 1) * 10))
+    styles.set(slot, {
+      display: 'grid',
+      gridTemplateColumns: cols.map((c) => `${c}px`).join(' '),
+      gridTemplateRows: Array(rows).fill('40px').join(' '),
+      columnGap: '10px',
+      rowGap: '10px',
+      paddingLeft: '0px',
+      paddingTop: '0px',
+      borderLeftWidth: '0px',
+      borderTopWidth: '0px',
+    })
+    return { el, slot }
+  }
+  const remark = () => sendToBridge({ type: 'thallo:structure-offer', offers: [] })
+  const select = (id: string) => sendToBridge({ type: 'thallo:highlight', id, ids: [id] })
+  const layer = () => document.querySelector<HTMLElement>('.thallo-grid-outline')
+  const cells = () =>
+    [...document.querySelectorAll<HTMLElement>('.thallo-grid-outline__cell')].map((c) => ({
+      free: c.classList.contains('thallo-grid-outline__cell--free'),
+      width: c.style.width,
+      height: c.style.height,
+      at: c.style.transform,
+    }))
+
+  it('an empty grid is outlined track by track, with its placeholder marked to take one cell', () => {
+    const { slot } = grid('go-a-0000001', [100, 100, 100], [])
+    remark()
+    expect(slot.hasAttribute('data-thallo-slot-grid')).toBe(true)
+    expect(slot.querySelector(':scope > .thallo-slot-placeholder')).not.toBeNull()
+    expect(cells()).toEqual([
+      { free: true, width: '100px', height: '40px', at: 'translate(0px, 0px)' },
+      { free: true, width: '100px', height: '40px', at: 'translate(110px, 0px)' },
+      { free: true, width: '100px', height: '40px', at: 'translate(220px, 0px)' },
+    ])
+  })
+
+  it("the layer is the body's, never inside a slot, so no structural rule can see it", () => {
+    grid('go-b-0000002', [100, 100], [])
+    remark()
+    expect(layer()!.parentElement).toBe(document.body)
+    expect(layer()!.closest('[data-thallo-slot]')).toBeNull()
+    expect(document.querySelectorAll('.thallo-grid-outline')).toHaveLength(1)
+  })
+
+  it('a populated grid is outlined only while it or one of its children is selected', () => {
+    const { slot } = grid('go-c-0000003', [100, 100, 100], [{ id: 'go-c-child-01', col: 0 }])
+    remark()
+    // Populated and nothing selected: no outline, and — as ever — no placeholder.
+    expect(layer()).toBeNull()
+    expect(slot.querySelector(':scope > .thallo-slot-placeholder')).toBeNull()
+
+    select('go-c-child-01') // a child
+    expect(cells().map((c) => c.free)).toEqual([false, true, true])
+    expect(slot.querySelector(':scope > .thallo-slot-placeholder')).toBeNull()
+
+    select('go-c-0000003') // the container itself
+    expect(cells()).toHaveLength(3)
+
+    sendToBridge({ type: 'thallo:highlight', id: '', ids: [] })
+    expect(layer()).toBeNull()
+  })
+
+  it('a full row is outlined and nothing is added to it', () => {
+    const { slot } = grid(
+      'go-d-0000004',
+      [100, 100],
+      [
+        { id: 'go-d-child-01', col: 0 },
+        { id: 'go-d-child-02', col: 1 },
+      ],
+    )
+    select('go-d-0000004')
+    expect(cells().map((c) => c.free)).toEqual([false, false])
+    expect(slot.children).toHaveLength(2)
+  })
+
+  it('a child spanning two of three tracks is one cell across both, and one stays free', () => {
+    grid('go-e-0000005', [100, 100, 100], [{ id: 'go-e-child-01', col: 0, span: 2 }])
+    select('go-e-0000005')
+    expect(cells()).toEqual([
+      { free: false, width: '210px', height: '40px', at: 'translate(0px, 0px)' },
+      { free: true, width: '100px', height: '40px', at: 'translate(220px, 0px)' },
+    ])
+  })
+
+  it('outlines the proportions of an asymmetric split', () => {
+    grid('go-f-0000006', [75, 150, 75], [])
+    remark()
+    expect(cells().map((c) => c.width)).toEqual(['75px', '150px', '75px'])
+  })
+
+  it('draws every row of a grid that has wrapped', () => {
+    grid(
+      'go-g-0000007',
+      [100, 100],
+      [
+        { id: 'go-g-child-01', col: 0, row: 0 },
+        { id: 'go-g-child-02', col: 1, row: 0 },
+        { id: 'go-g-child-03', col: 0, row: 1 },
+      ],
+    )
+    select('go-g-0000007')
+    expect(cells().map((c) => [c.free, c.at])).toEqual([
+      [false, 'translate(0px, 0px)'],
+      [false, 'translate(110px, 0px)'],
+      [false, 'translate(0px, 50px)'],
+      [true, 'translate(110px, 50px)'],
+    ])
+  })
+
+  it('a flex slot gets no outline and keeps the full-row placeholder', () => {
+    const { slot } = grid('go-h-0000008', [300], [])
+    styles.set(slot, { ...styles.get(slot)!, display: 'flex' })
+    remark()
+    expect(layer()).toBeNull()
+    expect(slot.hasAttribute('data-thallo-slot-grid')).toBe(false)
+    expect(slot.querySelector(':scope > .thallo-slot-placeholder')).not.toBeNull()
+  })
+
+  it('follows the slot when the mode changes under it', () => {
+    const { slot } = grid('go-i-0000009', [100, 100], [])
+    remark()
+    expect(cells()).toHaveLength(2)
+    styles.set(slot, { ...styles.get(slot)!, display: 'flex' })
+    remark()
+    expect(layer()).toBeNull()
+    expect(slot.hasAttribute('data-thallo-slot-grid')).toBe(false)
+  })
+
+  it('takes no part in the markup the bridge serialises or the slots it marks', () => {
+    const { slot } = grid('go-j-0000010', [100, 100], [])
+    remark()
+    // Still empty by the bridge's own reckoning, with the outline drawn.
+    expect(slot.hasAttribute('data-thallo-slot-empty')).toBe(true)
+    expect(layer()!.getAttribute('style')).toBeNull() // CSP pin: appearance is preview.css's
+    expect(layer()!.getAttribute('aria-hidden')).toBe('true')
+  })
+})
+
+describe('Fill empty cells on the stage (container-layout spec §11.3)', () => {
+  // The button has no state of its own: the parent publishes the complete list, built from the
+  // same availability the inspector's button reads, and the stage draws only what is in it — so it
+  // can never offer what the inspector refuses.
+  function emptyContainer(id: string, inner = ''): HTMLElement {
+    document.body.innerHTML = '<main></main>'
+    const el = document.createElement('div')
+    el.className = 'thallo-preview-block'
+    el.setAttribute('data-thallo-block', id)
+    el.innerHTML = `<section><div data-thallo-slot="content">${inner}</div></section>`
+    document.body.querySelector('main')!.append(el)
+    return el
+  }
+  const publish = (states: Record<string, unknown>[]) =>
+    sendToBridge({ type: 'thallo:grid-fill-state', states })
+  const button = (el: HTMLElement) => el.querySelector<HTMLButtonElement>('[data-grid-fill]')
+
+  beforeEach(() => posted.mockClear())
+
+  it('draws no button until the parent publishes one for the container', () => {
+    const el = emptyContainer('gf-a-0000001')
+    publish([])
+    expect(el.querySelector('.thallo-slot-placeholder')).not.toBeNull()
+    expect(button(el)).toBeNull()
+  })
+
+  it('an enabled entry draws a button that asks the parent to fill, and selects nothing', () => {
+    const el = emptyContainer('gf-b-0000002')
+    publish([{ id: 'gf-b-0000002', enabled: true, preparing: false }])
+    const fill = button(el)!
+    expect(fill).not.toBeNull()
+    expect(fill.disabled).toBe(false)
+    expect(fill.textContent).toContain('Fill empty cells')
+    fill.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(lastPost('thallo:grid-fill')).toMatchObject({ id: 'gf-b-0000002' })
+    expect(lastPost('thallo:block-select')).toBeUndefined()
+    expect(lastPost('thallo:slot-add')).toBeUndefined()
+  })
+
+  it('a disabled entry shows its reason and posts nothing', () => {
+    const el = emptyContainer('gf-c-0000003')
+    publish([
+      {
+        id: 'gf-c-0000003',
+        enabled: false,
+        preparing: false,
+        reason: 'A cell here could not hold a block: blocks nest at most 5 levels deep',
+      },
+    ])
+    const fill = button(el)!
+    expect(fill.disabled).toBe(true)
+    expect(fill.getAttribute('title')).toContain('could not hold a block')
+    fill.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(lastPost('thallo:grid-fill')).toBeUndefined()
+  })
+
+  it('a preparing entry is busy and posts nothing', () => {
+    const el = emptyContainer('gf-d-0000004')
+    publish([{ id: 'gf-d-0000004', enabled: true, preparing: true }])
+    const fill = button(el)!
+    expect(fill.disabled).toBe(true)
+    expect(fill.getAttribute('aria-busy')).toBe('true')
+    fill.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(lastPost('thallo:grid-fill')).toBeUndefined()
+  })
+
+  it('follows the list: a later one without the container removes the button, and a changed entry redraws it', () => {
+    const el = emptyContainer('gf-e-0000005')
+    publish([{ id: 'gf-e-0000005', enabled: true, preparing: false }])
+    expect(button(el)!.disabled).toBe(false)
+    publish([
+      {
+        id: 'gf-e-0000005',
+        enabled: false,
+        preparing: false,
+        reason: 'No empty cells in the last row',
+      },
+    ])
+    expect(button(el)!.disabled).toBe(true)
+    expect(el.querySelectorAll('[data-grid-fill]')).toHaveLength(1)
+    publish([])
+    expect(button(el)).toBeNull()
+    expect(el.querySelector('.thallo-slot-placeholder [data-slot-add]')).not.toBeNull()
+  })
+
+  it('draws nothing for a container that is not empty: there is no placeholder to carry it', () => {
+    const el = emptyContainer(
+      'gf-f-0000006',
+      '<div class="thallo-preview-block" data-thallo-block="gf-f-child-01"><h2>x</h2></div>',
+    )
+    publish([{ id: 'gf-f-0000006', enabled: true, preparing: false }])
+    expect(button(el)).toBeNull()
+  })
+
+  it('ignores malformed entries', () => {
+    const el = emptyContainer('gf-g-0000007')
+    publish([{ enabled: true }, null as unknown as Record<string, unknown>, { id: 7 }])
+    expect(button(el)).toBeNull()
   })
 })

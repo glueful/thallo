@@ -142,28 +142,43 @@ describe('Stack', () => {
     expect(plan!.children).toEqual([])
   })
 
-  it('writes block only where the RESOLVED display is not already block', () => {
+  it('writes flex only where the RESOLVED display is not already flex', () => {
+    // A stack is a flex column (spec §6.5, §11.1). A class makes this container a grid at lg.
     const classes: StyleClassRef[] = [
-      { id: 'row', style: { layout: { display: { lg: choice('flex') } } } },
+      { id: 'tiles', style: { layout: { display: { lg: choice('grid') } } } },
     ]
     const plan = planPreset('stack', container('c1'), classes)!
     expect(settingsOf(plan).map((op) => [op.path, op.breakpoint])).toEqual([
       ['layout.display', 'lg'],
     ])
-    expect(settingsOf(plan)[0]!.to).toEqual({ present: true, value: choice('block') })
+    expect(settingsOf(plan)[0]!.to).toEqual({ present: true, value: choice('flex') })
   })
 
-  it('covers the breakpoints an instance value reaches by inheritance', () => {
-    // Flex at md is in force at md AND lg, so both need an explicit block.
+  it('writes the column direction wherever a row is in force, inheritance included', () => {
+    // Row at md is in force at md AND lg, so both need an explicit column.
     const plan = planPreset(
       'stack',
-      container('c1', { layout: { display: { md: choice('flex') } } }),
+      container('c1', { layout: { direction: { md: choice('row') } } }),
       [],
     )!
-    expect(settingsOf(plan).map((op) => op.breakpoint)).toEqual(['md', 'lg'])
+    expect(settingsOf(plan).map((op) => [op.path, op.breakpoint])).toEqual([
+      ['layout.direction', 'md'],
+      ['layout.direction', 'lg'],
+    ])
     for (const op of settingsOf(plan)) {
-      expect(op.to).toEqual({ present: true, value: choice('block') })
+      expect(op.to).toEqual({ present: true, value: choice('column') })
     }
+  })
+
+  it('is a no-op over an explicit flex column, which is already a stack', () => {
+    const plan = planPreset(
+      'stack',
+      container('c1', {
+        layout: { display: { base: choice('flex') }, direction: { base: choice('column') } },
+      }),
+      [],
+    )!
+    expect(plan.operations).toEqual([])
   })
 })
 

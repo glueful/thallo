@@ -1,0 +1,47 @@
+{
+  "case": "spacing-untouched-stack",
+  "note": "\u00a73.8, \u00a711.1: nothing authored \u2014 the default flex column spaces default-margin children by its gap, at the distances block flow gave them, with the container's edges released.",
+  "tree": {
+    "id": "lf0000000601",
+    "type": "layout_fixture",
+    "data": {
+      "content": [
+        {
+          "id": "hd0000000601",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "One"
+          },
+          "settings": {}
+        },
+        {
+          "id": "rt0000000601",
+          "type": "rich_text",
+          "data": {
+            "body": "<p>Two</p>"
+          },
+          "settings": {}
+        },
+        {
+          "id": "hd0000000602",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Three"
+          },
+          "settings": {}
+        },
+        {
+          "id": "rt0000000602",
+          "type": "rich_text",
+          "data": {
+            "body": "<p>Four</p><p>Four again</p>"
+          },
+          "settings": {}
+        }
+      ]
+    },
+    "settings": {}
+  }
+}

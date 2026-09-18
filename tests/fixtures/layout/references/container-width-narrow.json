@@ -101,12 +101,14 @@
     },
     {
       "element": "heading",
-      "why": "Container edge released (spec §3.8): the first child's top margin and the last child's bottom margin are the container's padding to govern.",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its edges, so no child carries a default vertical margin. An untouched stack's distances are unchanged — parity.spec.js measures them against the frozen rendering.",
       "relax": [
-        "margin-top"
+        "margin-top",
+        "margin-bottom"
       ],
       "expect": {
-        "margin-top": "0px"
+        "margin-top": "0px",
+        "margin-bottom": "0px"
       },
       "affects": [
         "root",
@@ -118,11 +120,13 @@
     },
     {
       "element": "richtext",
-      "why": "Container edge released (spec §3.8): the first child's top margin and the last child's bottom margin are the container's padding to govern.",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its edges, so no child carries a default vertical margin. An untouched stack's distances are unchanged — parity.spec.js measures them against the frozen rendering.",
       "relax": [
+        "margin-top",
         "margin-bottom"
       ],
       "expect": {
+        "margin-top": "0px",
         "margin-bottom": "0px"
       },
       "affects": [

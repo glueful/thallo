@@ -1,0 +1,102 @@
+{
+  "case": "placed-child-in-flex-column",
+  "note": "\u00a73.8: a child with an authored width and Placement fills up to that width and sits where Placement says inside a flex column \u2014 and never wider than the space there is.",
+  "tree": {
+    "id": "lf0000000701",
+    "type": "layout_fixture",
+    "data": {
+      "content": [
+        {
+          "id": "hd0000000701",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Start"
+          },
+          "settings": {
+            "style": {
+              "width": {
+                "base": {
+                  "type": "token",
+                  "value": "width.content"
+                }
+              },
+              "alignment": {
+                "self": {
+                  "base": {
+                    "type": "choice",
+                    "value": "start"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "hd0000000702",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Centre"
+          },
+          "settings": {
+            "style": {
+              "width": {
+                "base": {
+                  "type": "token",
+                  "value": "width.content"
+                }
+              },
+              "alignment": {
+                "self": {
+                  "base": {
+                    "type": "choice",
+                    "value": "center"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "hd0000000703",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "End"
+          },
+          "settings": {
+            "style": {
+              "width": {
+                "base": {
+                  "type": "token",
+                  "value": "width.content"
+                }
+              },
+              "alignment": {
+                "self": {
+                  "base": {
+                    "type": "choice",
+                    "value": "end"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "settings": {
+      "style": {
+        "layout": {
+          "content_width": {
+            "base": {
+              "type": "token",
+              "value": "width.container"
+            }
+          }
+        }
+      }
+    }
+  }
+}

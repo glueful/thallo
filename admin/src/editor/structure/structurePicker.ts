@@ -18,7 +18,7 @@ import { newBlockId } from '@/fields/components/blocks/useBlockListOps'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import type { EditorDocument, OperationBody, Position } from '@/editor/ops/types'
 import type { StyleClassRef } from '@/style/types'
-import { checkInsertSequence, type LegalityContext } from './legality'
+import { checkInsertSequence, locateBlock, type LegalityContext } from './legality'
 import { planPreset, presetDepth, PRESETS, type PlannedChild } from './presets'
 
 export type PickerState = 'pending' | 'preparing' | 'ended'
@@ -83,32 +83,6 @@ function asList(value: unknown): BlockInstance[] {
   return Array.isArray(value) ? (value as BlockInstance[]) : []
 }
 
-/** Find a block and its depth, so a preset's height can be judged against the cap. */
-function locate(
-  doc: EditorDocument,
-  id: string,
-  ctx: LegalityContext,
-): { block: BlockInstance; depth: number } | null {
-  const walk = (
-    list: BlockInstance[],
-    depth: number,
-  ): { block: BlockInstance; depth: number } | null => {
-    for (const block of list) {
-      if (block.id === id) return { block, depth }
-      for (const region of ctx.regionsOf(block.type)) {
-        const hit = walk(asList(block.data[region]), depth + 1)
-        if (hit) return hit
-      }
-    }
-    return null
-  }
-  for (const field of Object.keys(ctx.rootSlots())) {
-    const hit = walk(asList(doc.fields[field]), 1)
-    if (hit) return hit
-  }
-  return null
-}
-
 /** Whether a container still holds nothing: the offer's precondition, re-read never remembered. */
 function isEmpty(block: BlockInstance, ctx: LegalityContext): boolean {
   return ctx.regionsOf(block.type).every((region) => asList(block.data[region]).length === 0)
@@ -144,7 +118,7 @@ export function createStructurePicker(deps: PickerDeps) {
   /** Which presets this container can take right now, and why not where it cannot. */
   function presetsFor(offer: Offer): OfferedPreset[] {
     const ctx = deps.legality()
-    const found = locate(deps.doc(), offer.id, ctx)
+    const found = locateBlock(deps.doc(), offer.id, ctx)
     return ORDER.filter((key) => PRESETS[key]).map((key) => {
       const refusal = offer.refused.get(key)
       if (refusal !== undefined)
@@ -230,7 +204,7 @@ export function createStructurePicker(deps: PickerDeps) {
       const stale = () => offer.token !== token || offer.state === 'ended'
 
       const ctx = deps.legality()
-      const before = locate(deps.doc(), id, ctx)
+      const before = locateBlock(deps.doc(), id, ctx)
       if (!before || !isEmpty(before.block, ctx)) {
         end(id)
         return
@@ -250,7 +224,7 @@ export function createStructurePicker(deps: PickerDeps) {
       // Everything is re-read after the await: the container may have gone or gained content while
       // the factory was answering.
       const context = deps.legality()
-      const found = locate(deps.doc(), id, context)
+      const found = locateBlock(deps.doc(), id, context)
       if (!found) {
         end(id)
         return

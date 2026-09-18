@@ -67,6 +67,20 @@ export function resolve(
   instance: Record<string, unknown>,
   def: PropertyDefinition,
 ): Record<Breakpoint, Resolution> | Record<'base', Resolution> {
+  const layers = layersOf(property, classes, instance, def)
+  const breakpoints: readonly Breakpoint[] = def.responsive ? BREAKPOINTS : ['base']
+  const out = {} as Record<Breakpoint, Resolution>
+  for (const target of breakpoints) out[target] = resolveAt(target, layers, breakpoints)
+  return out
+}
+
+/** The managed layers in falling precedence: the instance, then each class from last to first. */
+function layersOf(
+  property: string,
+  classes: StyleClassRef[],
+  instance: Record<string, unknown>,
+  def: PropertyDefinition,
+): Layer[] {
   const layers: Layer[] = [
     { layer: 'instance', declarations: declarations(instance, property, def.responsive) },
   ]
@@ -77,8 +91,37 @@ export function resolve(
       declarations: declarations(c.style ?? {}, property, def.responsive),
     })
   }
+  return layers
+}
+
+/** Where a value in force is declared: the layer (`instance` or `class:<id>`) and its breakpoint. */
+export interface DeclarationOrigin {
+  breakpoint: Breakpoint
+  source: string
+}
+
+/**
+ * Where the value in force at `target` is DECLARED. `Resolution.breakpoint` cannot answer this —
+ * it is always the breakpoint that was asked about, so an `md` declaration inherited at `lg`
+ * reports `lg` — and a repair has to write where the declaration is. The same walk as `resolveAt`
+ * over the same layers, so the two cannot disagree; a reset is its own origin, since it is what
+ * holds the property there. Null where only the theme default is in force.
+ */
+export function declarationOrigin(
+  property: string,
+  classes: StyleClassRef[],
+  instance: Record<string, unknown>,
+  def: PropertyDefinition,
+  target: Breakpoint,
+): DeclarationOrigin | null {
+  const layers = layersOf(property, classes, instance, def)
   const breakpoints: readonly Breakpoint[] = def.responsive ? BREAKPOINTS : ['base']
-  const out = {} as Record<Breakpoint, Resolution>
-  for (const target of breakpoints) out[target] = resolveAt(target, layers, breakpoints)
-  return out
+  const from = def.responsive ? breakpoints.indexOf(target) : 0
+  for (let i = from; i >= 0; i--) {
+    const bp = breakpoints[i]!
+    for (const layer of layers) {
+      if (layer.declarations[bp] !== undefined) return { breakpoint: bp, source: layer.layer }
+    }
+  }
+  return null
 }

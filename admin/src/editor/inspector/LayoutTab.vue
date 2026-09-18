@@ -4,11 +4,11 @@
 //
 // Three sections, all capability-driven, so every block gets the ones it declares and no more:
 //
+//   Container  first, because on a container it is what the author came for. Layout — Flex or
+//              Grid, set here and nowhere else — with the controls that mode actually uses at the
+//              active breakpoint directly under it, as part of it: a grid offers tracks, a flex
+//              container direction and wrap. Then the measure the content sits within.
 //   Box        the block's own size, placement, minimum height and overflow.
-//   Container  the mode it arranges its children in, and the measure its content sits within.
-//   Children   the controls that mode actually uses, at the active breakpoint. A grid offers
-//              tracks; a flex row offers direction and wrap; block mode offers neither and says
-//              so, because a control that does nothing is worse than no control.
 //   As an item how the block sits in ITS parent, resolved against the parent's mode at the same
 //              breakpoint: a grid parent offers span, a flex parent offers basis, grow and shrink.
 //
@@ -21,17 +21,21 @@ import { computed } from 'vue'
 import type { BlockType } from '@/queries/blockTypes'
 import type { StylePropertyRow, StyleSchemaResult } from '@/queries/styleSchema'
 import type { Breakpoint, Resolution, StyleClassRef, StyleValue } from '@/style/types'
+import type { FillAvailability } from '@/editor/structure/gridFill'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import { resolve } from '@/style/resolver'
 import { readPath, settingSegments } from '@/editor/ops/apply'
 import { BREAKPOINTS } from '@/style/types'
 import { BREAKPOINT_LABELS } from '@/editor/breakpoint'
 import { isFolded, toggleFold } from './styleGroupFolds'
-import { dormantPaths, effectiveDisplay } from './layoutContext'
+import { REPLACEMENT, dormantPaths, effectiveDisplay, invalidChoiceAt } from './layoutContext'
 import { pathsForTab } from './tabMap'
+import { DIRECTION_ICONS, LAYOUT_LABELS as LABELS, WRAP_ICONS, WRAP_LABELS } from './layoutLabels'
 import ResponsiveField from './controls/ResponsiveField.vue'
 import BoxField from './controls/BoxField.vue'
 import IconChoiceControl from './controls/IconChoiceControl.vue'
+import InvalidChoiceNotice from './controls/InvalidChoiceNotice.vue'
+import { THEME_DEFAULT } from '@/editor/structure/presets'
 import TrackSwatchControl from './controls/TrackSwatchControl.vue'
 
 const props = defineProps<{
@@ -54,54 +58,31 @@ const props = defineProps<{
   parentType?: BlockType | null
   /** The parent's own style classes, so its mode resolves through the same cascade. */
   parentClasses?: StyleClassRef[]
+  /**
+   * Fill empty cells (spec §11.3), as the page judged it — the same answer the stage's button is
+   * drawn from. The tab decides nothing: absent or not visible, there is no button.
+   */
+  fill?: (FillAvailability & { preparing: boolean }) | null
 }>()
 const emit = defineEmits<{
   set: [path: string, breakpoint: Breakpoint | null, value: StyleValue | null]
   'set-all': [path: string, value: StyleValue]
   'update:activeBreakpoint': [breakpoint: Breakpoint]
-  /** Select the parent, so the author can change the mode the item controls answer to. */
-  'select-parent': [id: string]
+  'fill-cells': []
 }>()
+
+/** What the line under the Fill button says: the refusal, or what pressing it will add. */
+const fillNote = computed(() => {
+  const fill = props.fill
+  if (!fill || !fill.visible) return ''
+  if (!fill.enabled) return fill.reason ?? ''
+  return `Adds ${fill.cells} column ${fill.cells === 1 ? 'container' : 'containers'} to complete the last row.`
+})
 
 const multi = computed(() => (props.blocks?.length ?? 0) > 1)
 
-const LABELS: Record<string, string> = {
-  width: 'Width',
-  'alignment.self': 'Placement',
-  'layout.min_height': 'Minimum height',
-  'layout.overflow': 'Overflow',
-  'layout.display': 'Children',
-  'layout.content_width': 'Content width',
-  'layout.gutter': 'Gutter',
-  'layout.direction': 'Direction',
-  'layout.wrap': 'Wrap',
-  'alignment.content': 'Distribute',
-  'layout.align_items': 'Align',
-  'layout.columns': 'Columns',
-  'layout.span': 'Span',
-  'layout.basis': 'Basis',
-  'layout.grow': 'Grow',
-  'layout.shrink': 'Shrink',
-  'layout.align_self': 'Align self',
-}
-
 /** In the Box section the same property names what the block does with its own content. */
 const BOX_LABELS: Record<string, string> = { 'alignment.content': 'Content alignment' }
-
-const DIRECTION_ICONS: Record<string, string> = {
-  row: 'i-lucide-arrow-right',
-  column: 'i-lucide-arrow-down',
-  'row-reverse': 'i-lucide-arrow-left',
-  'column-reverse': 'i-lucide-arrow-up',
-}
-const WRAP_ICONS: Record<string, string> = {
-  nowrap: 'i-lucide-move-horizontal',
-  wrap: 'i-lucide-corner-down-left',
-}
-const WRAP_LABELS: Record<string, string> = {
-  nowrap: 'One line',
-  wrap: 'Wrap onto more lines',
-}
 
 /** The capability paths of one type: an entry names a path, or a group that expands to its paths. */
 function pathsOf(type: BlockType | null): Set<string> {
@@ -164,6 +145,32 @@ function valueOf(row: StylePropertyRow): string | null {
   return value && 'value' in value ? value.value : null
 }
 
+/**
+ * Whether nothing is in force for the row but the theme — for every selected block. A mixed
+ * selection has no one value to call "the default in force", so it marks none.
+ */
+function unset(row: StylePropertyRow): boolean {
+  const at = row.responsive ? props.activeBreakpoint : 'base'
+  const all = styles.value ?? [style.value]
+  return all.every(
+    (s) =>
+      ((resolve(row.path, props.classes, s, definitionOf(row)) as Record<string, Resolution>)[at]
+        ?.value ?? null) === null,
+  )
+}
+/** The theme's own value for the row while it is unset (spec §3.8): what an untouched control marks. */
+function defaultOf(row: StylePropertyRow): string | null {
+  const value = THEME_DEFAULT[row.path]
+  return value && 'value' in value && unset(row) ? value.value : null
+}
+/** The gap sides still on the theme's default, and what that default is called. */
+const gapDefault = computed(() => {
+  const sides = gapSides.value.filter((side) => defaultOf(side.def) !== null)
+  if (sides.length === 0) return null
+  const token = defaultOf(sides[0]!.def)!
+  return { sides: sides.map((side) => side.key), name: token.replace(/^spacing\./, '') }
+})
+
 function write(row: StylePropertyRow, raw: string): void {
   emit(
     'set',
@@ -182,6 +189,18 @@ const containerRows = computed(() => rowsFor(CONTAINER_PATHS))
 const displayRow = computed(() => rowFor('layout.display'))
 /** The mode the children are arranged in at the active breakpoint. */
 const display = computed(() => effectiveDisplay(props.block, props.activeBreakpoint, props.classes))
+/**
+ * A stored mode the contract no longer offers (spec §11.1). The controls below still follow the
+ * theme default — that is what renders — but the mode's own control says what is stored instead.
+ */
+const invalidDisplay = computed(() =>
+  invalidChoiceAt('layout.display', props.block, props.activeBreakpoint, props.classes),
+)
+const invalidDisplayClass = computed(() => {
+  const source = invalidDisplay.value?.source
+  if (!source || source === 'instance') return undefined
+  return { id: source.classId, name: props.classNames?.[source.classId] ?? source.classId }
+})
 
 const directionRow = computed(() => rowFor('layout.direction'))
 const wrapRow = computed(() => rowFor('layout.wrap'))
@@ -198,7 +217,7 @@ const gapSides = computed(() => {
   return sides
 })
 
-/** Whether the block can arrange children at all: only then is there a Children section. */
+/** Whether the block can arrange children at all: only then are there mode controls to show. */
 const arranges = computed(
   () =>
     displayRow.value !== null ||
@@ -274,23 +293,45 @@ const dormantItem = computed(() =>
 )
 const labelsOf = (paths: string[]): string => paths.map((p) => LABELS[p] ?? p).join(', ')
 
+/**
+ * A row that carries no property of its own: where a block arranges children without declaring a
+ * display, it is what the mode's controls hang from, so they still open the Container section.
+ */
+const MODE_ONLY = '__mode__'
+/** The row the mode's controls follow: the Layout row, or the placeholder that stands in for it. */
+const modeAnchor = computed(() =>
+  !arranges.value ? null : displayRow.value !== null ? 'layout.display' : MODE_ONLY,
+)
+const modeRows = computed(() => [
+  ...childrenRows.value.filter((r): r is StylePropertyRow => r !== null),
+  ...gapSides.value.map((s) => s.def),
+])
+
+/**
+ * Container first — it is what an author came for — then Box, then As an item (spec §5). `rows` is
+ * everything the section holds, for its set count and breakpoint dots; `plain` is what renders as
+ * an ordinary property row, the mode's controls being drawn under Layout instead.
+ */
 const sections = computed(() =>
   [
-    { key: 'box', label: 'Box', rows: boxRows.value, shown: boxRows.value.length > 0 },
     {
       key: 'container',
       label: 'Container',
-      rows: containerRows.value,
-      shown: containerRows.value.length > 0,
+      rows: [...containerRows.value, ...modeRows.value].filter(
+        (row, index, all) => all.indexOf(row) === index,
+      ),
+      plain:
+        modeAnchor.value === MODE_ONLY
+          ? [{ path: MODE_ONLY } as StylePropertyRow, ...containerRows.value]
+          : containerRows.value,
+      shown: containerRows.value.length > 0 || arranges.value,
     },
     {
-      key: 'children',
-      label: 'Children',
-      rows: [
-        ...childrenRows.value.filter((r): r is StylePropertyRow => r !== null),
-        ...gapSides.value.map((s) => s.def),
-      ],
-      shown: arranges.value,
+      key: 'box',
+      label: 'Box',
+      rows: boxRows.value,
+      plain: boxRows.value,
+      shown: boxRows.value.length > 0,
     },
     {
       key: 'item',
@@ -298,6 +339,7 @@ const sections = computed(() =>
       rows: [...itemRows.value, ...rowsFor(ITEM_PATHS)].filter(
         (row, index, all) => all.indexOf(row) === index,
       ),
+      plain: [] as StylePropertyRow[],
       shown: isItem.value,
     },
   ].filter((section) => section.shown),
@@ -405,10 +447,23 @@ const gutterDefault = computed(() => {
           :id="`layout-group-body-${section.key}`"
           class="space-y-3"
         >
-          <!-- Box and Container are plain property rows, in the contract's order. -->
+          <!-- Box and Container are property rows in the contract's order. In Container the
+               mode's own controls sit directly under Layout, as part of it (spec §5). -->
           <template v-if="section.key === 'box' || section.key === 'container'">
-            <template v-for="row in section.rows" :key="row.path">
+            <template v-for="row in section.plain" :key="row.path">
+              <InvalidChoiceNotice
+                v-if="row.path === 'layout.display' && invalidDisplay"
+                :label="LABELS[row.path] ?? row.path"
+                :path="invalidDisplay.path"
+                :value="invalidDisplay.value"
+                :breakpoint="invalidDisplay.breakpoint"
+                :replacement="REPLACEMENT[invalidDisplay.path]"
+                :held-by-class="invalidDisplayClass"
+                @replace="(path, bp, value) => emit('set', path, bp, { type: 'choice', value })"
+                @remove="(path, bp) => emit('set', path, bp, null)"
+              />
               <ResponsiveField
+                v-else-if="row.path !== MODE_ONLY"
                 :def="row"
                 :label="
                   (section.key === 'box' ? BOX_LABELS[row.path] : null) ??
@@ -441,125 +496,137 @@ const gutterDefault = computed(() => {
               >
                 Unset, this container uses {{ gutterDefault }}.
               </p>
-            </template>
-          </template>
-
-          <!-- Children follows the mode in force at the active breakpoint. -->
-          <template v-else-if="section.key === 'children'">
-            <template v-if="display === 'block' && arranges">
-              <p class="text-xs text-muted" data-test="layout-children-stack">
-                Children stack. Switch to flex or grid to arrange them.
-              </p>
-              <div v-if="displayRow" class="space-y-1.5">
-                <span class="text-xs font-medium">{{ LABELS['layout.display'] }}</span>
-                <IconChoiceControl
-                  :choices="displayRow.choices ?? []"
-                  :model-value="valueOf(displayRow)"
-                  :icons="{
-                    block: 'i-lucide-rows-3',
-                    flex: 'i-lucide-columns-3',
-                    grid: 'i-lucide-layout-grid',
-                  }"
-                  :labels="{ block: 'Stack', flex: 'Flex', grid: 'Grid' }"
-                  name="Children"
-                  data-test="layout-display-switch"
-                  @update:model-value="(v: string) => write(displayRow!, v)"
-                />
-              </div>
-            </template>
-
-            <template v-else>
               <div
-                v-if="display === 'grid' && columnsRow"
-                class="space-y-1.5"
-                data-test="layout-field-layout.columns"
+                v-if="row.path === modeAnchor"
+                class="space-y-3 border-s border-default ps-3"
+                data-test="layout-mode-controls"
               >
-                <span class="text-xs font-medium">{{ LABELS['layout.columns'] }}</span>
-                <TrackSwatchControl
-                  :choices="columnsRow.choices ?? []"
-                  :model-value="valueOf(columnsRow)"
-                  name="Columns"
-                  @update:model-value="(v: string) => write(columnsRow!, v)"
+                <div
+                  v-if="display === 'grid' && columnsRow"
+                  class="space-y-1.5"
+                  data-test="layout-field-layout.columns"
+                >
+                  <span class="text-xs font-medium">{{ LABELS['layout.columns'] }}</span>
+                  <TrackSwatchControl
+                    :choices="columnsRow.choices ?? []"
+                    :model-value="valueOf(columnsRow)"
+                    :default-value="defaultOf(columnsRow)"
+                    name="Columns"
+                    @update:model-value="(v: string) => write(columnsRow!, v)"
+                  />
+                </div>
+                <div
+                  v-if="display === 'grid' && !multi && fill?.visible"
+                  class="space-y-1"
+                  data-test="layout-fill"
+                >
+                  <UButton
+                    size="xs"
+                    color="neutral"
+                    variant="subtle"
+                    icon="i-lucide-layout-grid"
+                    :disabled="!fill.enabled || fill.preparing"
+                    :loading="fill.preparing"
+                    :aria-busy="fill.preparing ? 'true' : undefined"
+                    data-test="layout-fill-cells"
+                    @click="emit('fill-cells')"
+                  >
+                    Fill empty cells
+                  </UButton>
+                  <p v-if="fillNote" class="text-[11px] text-muted" data-test="layout-fill-note">
+                    {{ fillNote }}
+                  </p>
+                </div>
+                <div
+                  v-if="display === 'flex' && directionRow"
+                  class="space-y-1.5"
+                  data-test="layout-field-layout.direction"
+                >
+                  <span class="text-xs font-medium">{{ LABELS['layout.direction'] }}</span>
+                  <IconChoiceControl
+                    :choices="directionRow.choices ?? []"
+                    :model-value="valueOf(directionRow)"
+                    :default-value="defaultOf(directionRow)"
+                    :icons="DIRECTION_ICONS"
+                    name="Direction"
+                    @update:model-value="(v: string) => write(directionRow!, v)"
+                  />
+                </div>
+                <div
+                  v-if="display === 'flex' && wrapRow"
+                  class="space-y-1.5"
+                  data-test="layout-field-layout.wrap"
+                >
+                  <span class="text-xs font-medium">{{ LABELS['layout.wrap'] }}</span>
+                  <IconChoiceControl
+                    :choices="wrapRow.choices ?? []"
+                    :model-value="valueOf(wrapRow)"
+                    :default-value="defaultOf(wrapRow)"
+                    :icons="WRAP_ICONS"
+                    :labels="WRAP_LABELS"
+                    name="Wrap"
+                    @update:model-value="(v: string) => write(wrapRow!, v)"
+                  />
+                </div>
+                <ResponsiveField
+                  v-if="contentRow"
+                  :def="contentRow"
+                  :label="LABELS['alignment.content']!"
+                  :style="style"
+                  :styles="styles"
+                  :classes="classes"
+                  :class-names="classNames"
+                  :re-resolving="reResolving"
+                  :active-breakpoint="activeBreakpoint"
+                  :vocabulary="schema.vocabulary"
+                  hide-breakpoints
+                  @set="(path, bp, value) => emit('set', path, bp, value)"
+                  @set-all="(path, value) => emit('set-all', path, value)"
+                  @update:active-breakpoint="(bp) => emit('update:activeBreakpoint', bp)"
                 />
-              </div>
-              <div
-                v-if="display === 'flex' && directionRow"
-                class="space-y-1.5"
-                data-test="layout-field-layout.direction"
-              >
-                <span class="text-xs font-medium">{{ LABELS['layout.direction'] }}</span>
-                <IconChoiceControl
-                  :choices="directionRow.choices ?? []"
-                  :model-value="valueOf(directionRow)"
-                  :icons="DIRECTION_ICONS"
-                  name="Direction"
-                  @update:model-value="(v: string) => write(directionRow!, v)"
+                <ResponsiveField
+                  v-if="alignRow"
+                  :def="alignRow"
+                  :label="LABELS['layout.align_items']!"
+                  :style="style"
+                  :styles="styles"
+                  :classes="classes"
+                  :class-names="classNames"
+                  :re-resolving="reResolving"
+                  :active-breakpoint="activeBreakpoint"
+                  :vocabulary="schema.vocabulary"
+                  hide-breakpoints
+                  @set="(path, bp, value) => emit('set', path, bp, value)"
+                  @set-all="(path, value) => emit('set-all', path, value)"
+                  @update:active-breakpoint="(bp) => emit('update:activeBreakpoint', bp)"
                 />
-              </div>
-              <div
-                v-if="display === 'flex' && wrapRow"
-                class="space-y-1.5"
-                data-test="layout-field-layout.wrap"
-              >
-                <span class="text-xs font-medium">{{ LABELS['layout.wrap'] }}</span>
-                <IconChoiceControl
-                  :choices="wrapRow.choices ?? []"
-                  :model-value="valueOf(wrapRow)"
-                  :icons="WRAP_ICONS"
-                  :labels="WRAP_LABELS"
-                  name="Wrap"
-                  @update:model-value="(v: string) => write(wrapRow!, v)"
+                <BoxField
+                  v-if="gapSides.length > 0"
+                  label="Gap"
+                  :sides="gapSides"
+                  :style="style"
+                  :styles="styles"
+                  :classes="classes"
+                  :class-names="classNames"
+                  :re-resolving="reResolving"
+                  :active-breakpoint="activeBreakpoint"
+                  :vocabulary="schema.vocabulary"
+                  @set="(path, bp, value) => emit('set', path, bp, value)"
+                  @set-all="(path, value) => emit('set-all', path, value)"
                 />
+                <p
+                  v-if="gapSides.length > 0 && gapDefault"
+                  class="-mt-2 text-[11px] text-muted"
+                  data-test="layout-gap-default"
+                >
+                  Unset, the {{ gapDefault.sides.join(' and ') }}
+                  {{ gapDefault.sides.length > 1 ? 'gaps are' : 'gap is' }} {{ gapDefault.name }} —
+                  the theme's spacing between children.
+                </p>
               </div>
-              <ResponsiveField
-                v-if="contentRow"
-                :def="contentRow"
-                :label="LABELS['alignment.content']!"
-                :style="style"
-                :styles="styles"
-                :classes="classes"
-                :class-names="classNames"
-                :re-resolving="reResolving"
-                :active-breakpoint="activeBreakpoint"
-                :vocabulary="schema.vocabulary"
-                hide-breakpoints
-                @set="(path, bp, value) => emit('set', path, bp, value)"
-                @set-all="(path, value) => emit('set-all', path, value)"
-                @update:active-breakpoint="(bp) => emit('update:activeBreakpoint', bp)"
-              />
-              <ResponsiveField
-                v-if="alignRow && display !== 'block'"
-                :def="alignRow"
-                :label="LABELS['layout.align_items']!"
-                :style="style"
-                :styles="styles"
-                :classes="classes"
-                :class-names="classNames"
-                :re-resolving="reResolving"
-                :active-breakpoint="activeBreakpoint"
-                :vocabulary="schema.vocabulary"
-                hide-breakpoints
-                @set="(path, bp, value) => emit('set', path, bp, value)"
-                @set-all="(path, value) => emit('set-all', path, value)"
-                @update:active-breakpoint="(bp) => emit('update:activeBreakpoint', bp)"
-              />
-              <BoxField
-                v-if="gapSides.length > 0 && display !== 'block'"
-                label="Gap"
-                :sides="gapSides"
-                :style="style"
-                :styles="styles"
-                :classes="classes"
-                :class-names="classNames"
-                :re-resolving="reResolving"
-                :active-breakpoint="activeBreakpoint"
-                :vocabulary="schema.vocabulary"
-                @set="(path, bp, value) => emit('set', path, bp, value)"
-                @set-all="(path, value) => emit('set-all', path, value)"
-              />
             </template>
             <p
-              v-if="dormantParent.length > 0"
+              v-if="section.key === 'container' && dormantParent.length > 0"
               class="rounded bg-elevated px-2 py-1.5 text-[11px] text-muted"
               data-test="layout-dormant-parent"
             >
@@ -569,25 +636,8 @@ const gutterDefault = computed(() => {
 
           <!-- As an item: resolved against the parent's mode at the same breakpoint. -->
           <template v-else>
-            <template v-if="parentDisplay === 'block'">
-              <p class="text-xs text-muted" data-test="layout-item-stacks">
-                This block's parent stacks its children, so it has nothing to size itself against.
-              </p>
-              <UButton
-                v-if="parent"
-                size="xs"
-                variant="ghost"
-                color="neutral"
-                icon="i-lucide-corner-left-up"
-                data-test="layout-item-parent-link"
-                @click="emit('select-parent', parent.id)"
-              >
-                Select the parent
-              </UButton>
-            </template>
             <ResponsiveField
               v-for="row in itemRows"
-              v-else
               :key="row.path"
               :def="row"
               :label="LABELS[row.path] ?? row.path"

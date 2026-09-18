@@ -30,6 +30,8 @@ const props = defineProps<{
   /** A sibling multi-selection (spec §5.5): `block` is its anchor. */
   blocks?: BlockInstance[]
   blockTypes?: (BlockType | null)[]
+  /** A block's inspector (the default) or a style class's editor: passed to every field. */
+  context?: 'block' | 'class'
 }>()
 
 const multi = computed(() => (props.blocks?.length ?? 0) > 1)
@@ -214,6 +216,7 @@ function setCount(rows: StylePropertyRow[]): number {
             :key="item.kind === 'box' ? item.label : item.def.path"
           >
             <BoxField
+              :context="context"
               v-if="item.kind === 'box'"
               :label="item.label"
               :sides="item.sides"
@@ -228,6 +231,7 @@ function setCount(rows: StylePropertyRow[]): number {
               @set-all="(path, value) => emit('set-all', path, value)"
             />
             <ResponsiveField
+              :context="context"
               v-else
               :def="item.def"
               :label="LABELS[item.def.path] ?? item.def.path"

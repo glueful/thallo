@@ -27,8 +27,17 @@ const WIDTHS = [375, 700, 800, 1280];
 // The inner content area of a boxed container at each width: the viewport up to the container
 // measure (1152px), less the page gutter on both sides (24px).
 const CONTENT = { 375: 327, 700: 652, 800: 752, 1280: 1104 };
-// A track of an n-track grid with no gap authored, and the same for an asymmetric split.
-const track = (of, parts = 1) => (width) => (CONTENT[width] / of) * parts;
+// The theme's default gap, on both axes (spec §3.8): --space-5, the margin it replaced.
+const GAP = 40;
+// A track of an n-track grid with no gap authored — so the default one — and the same for a span
+// or an asymmetric split, which takes its tracks and the gaps between them.
+const track = (of, parts = 1) => (width) =>
+  ((CONTENT[width] - (of - 1) * GAP) / of) * parts + (parts - 1) * GAP;
+// One part of an asymmetric split ('1-2' is parts [1, 2]): fr tracks share what the gaps leave.
+const split = (parts, index) => (width) => {
+  const free = CONTENT[width] - (parts.length - 1) * GAP;
+  return (free * parts[index]) / parts.reduce((a, b) => a + b, 0);
+};
 const full = (width) => CONTENT[width];
 // Where that content area starts: hard against the gutter until the measure is reached, then
 // centred in the viewport.
@@ -46,12 +55,24 @@ const SPANS_TWO = { 'grid-column-start': 'span 2', 'grid-column-end': 'auto' };
 const CLAMPED = { 'grid-column-start': '1', 'grid-column-end': '-1' };
 const ONE_CELL = { 'grid-column-start': 'auto', 'grid-column-end': 'auto' };
 const TWO_TRACKS = /^\d+(\.\d+)?px \d+(\.\d+)?px$/;
-// A block child's default vertical rhythm outside flex and grid (--space-5), with the first and
-// last edges released so a container never adds space at its own boundary.
-const RHYTHM = { 'margin-block-start': '40px', 'margin-block-end': '40px' };
-const FIRST = { 'margin-block-start': '0px', 'margin-block-end': '40px' };
-const LAST = { 'margin-block-start': '40px', 'margin-block-end': '0px' };
+// A container's children carry no default vertical margin in either mode (spec §3.8): the gaps
+// are the one source of spacing. `gap.above` is measured — the distance to the previous sibling's
+// bottom edge, or for a first child to the top of the content area.
 const NO_MARGIN = { 'margin-block-start': '0px', 'margin-block-end': '0px' };
+const FIRST = { ...NO_MARGIN, 'gap.above': 0 };
+const SPACED = { ...NO_MARGIN, 'gap.above': GAP };
+const LAST = { ...SPACED, 'gap.below': 0 };
+// `width.narrow` is 36rem. Alone on a line an item fills up to it; two in a nowrap row share the line.
+const NARROW = 576;
+const narrowFill = (width) => Math.min(CONTENT[width], NARROW);
+const narrowShare = (width) => (CONTENT[width] - GAP) / 2;
+// The content measure an authored `width.content` names (--content: 46rem).
+const CONTENT_MEASURE = 736;
+const placedWidth = (width) => Math.min(CONTENT[width], CONTENT_MEASURE);
+const placedLeft = (placement) => (width) => {
+  const free = CONTENT[width] - placedWidth(width);
+  return contentLeft(width) + { start: 0, center: free / 2, end: free }[placement];
+};
 
 const CASES = {
   // §3.3 dormancy: a property of the mode that is not in force must not reach the element.
@@ -80,7 +101,8 @@ const CASES = {
   'span-asymmetric': {
     'c0.inner': at({ 'grid-template-columns': TWO_TRACKS }),
     'c0.child0': at({ ...SPANS_TWO, 'rect.width': full }),
-    'c0.child1': at({ 'rect.width': track(3) }),
+    // The second child wraps to the next row's first track — the `1` of the 1-2 split.
+    'c0.child1': at({ 'rect.width': split([1, 2], 0) }),
   },
   'span-inherited': {
     // Three requested, one track at base and two at md: clamped at every width, never overflowing.
@@ -176,28 +198,60 @@ const CASES = {
     'c0.root': at({ display: 'none', 'min-height': '450px' }, { display: 'none', 'min-height': '0px' }),
   },
 
-  // §3.8 spacing normalization: flex and grid own the spacing between children through gap, so the
-  // children's own rhythm stands down — and comes back exactly when the mode does.
+  // §3.8 spacing: the gaps are the one source of spacing, in both modes, and nothing — no mode, no
+  // breakpoint, no reset — brings a child's default margin back.
   'spacing-normalization': {
     'c0.child0': at(FIRST),
-    'c0.child1': at(RHYTHM),
+    'c0.child1': at(SPACED),
     'c0.child2': at(LAST),
-  },
-  'spacing-flex-then-block-md': {
-    'c0.child0': at(NO_MARGIN, FIRST),
-    'c0.child1': at(NO_MARGIN, RHYTHM),
-    'c0.child2': at(NO_MARGIN, LAST),
+    // The grid nested inside it: its two children sit in one row, neither with a margin.
+    'c1.child0': at(NO_MARGIN),
+    'c1.child1': at(NO_MARGIN),
   },
   'spacing-flex-then-reset-md': {
-    // Reset is the same state as block — the theme default — so the margins return identically.
-    'c0.child0': at(NO_MARGIN, FIRST),
-    'c0.child1': at(NO_MARGIN, RHYTHM),
-    'c0.child2': at(NO_MARGIN, LAST),
+    // A reset lands on the theme default, which is a flex column: the fixture authors no gap, so
+    // the default one spaces the children at every width and no margin ever returns.
+    'c0.inner': at({ display: 'flex', 'flex-direction': 'column' }),
+    'c0.child0': at(FIRST),
+    'c0.child1': at(SPACED),
+    'c0.child2': at(LAST),
   },
-  'spacing-grid-then-block-lg': {
-    'c0.child0': at(NO_MARGIN, {}, FIRST),
-    'c0.child1': at(NO_MARGIN, {}, RHYTHM),
-    'c0.child2': at(NO_MARGIN, {}, LAST),
+  // §3.8, §11.1: nothing authored. The stack block flow gave — consecutive children --space-5
+  // apart, the container's own edges released — now comes from the default mode and its gap.
+  'spacing-untouched-stack': {
+    'c0.inner': at({ display: 'flex', 'flex-direction': 'column', 'row-gap': '40px' }),
+    'c0.child0': at(FIRST),
+    'c0.child1': at(SPACED),
+    'c0.child2': at(SPACED),
+    'c0.child3': at(LAST),
+  },
+  // §3.8: auto inline margins stop a flex item's cross-axis stretch, so a placed child must still
+  // fill up to its authored width — and never past the space there is, at any viewport.
+  'placed-child-in-flex-column': {
+    'c0.root': at({ 'doc.overflow': 0 }),
+    'c0.child0': at({ 'rect.width': placedWidth, 'rect.left': placedLeft('start') }),
+    'c0.child1': at({ 'rect.width': placedWidth, 'rect.left': placedLeft('center') }),
+    'c0.child2': at({ 'rect.width': placedWidth, 'rect.left': placedLeft('end') }),
+  },
+
+  // §3.2: an authored width asks for the width as well as limiting it — "fill the space there is,
+  // up to this". In a flex ROW that is not a no-op: `flex-basis: auto` takes the item's starting
+  // size from `width`, so it sizes items and can wrap them. Every number below is the flexbox
+  // algorithm's, from the available space, the 576px of `width.narrow` and the default 40px gap.
+  'width-in-flex-row': {
+    'c0.root': at({ 'doc.overflow': 0 }),
+    // nowrap, basis auto: each starts at 100% capped to 576; two never fit, and being identical
+    // they shrink to equal shares of what the gap leaves.
+    'c1.child0': at({ 'rect.width': narrowShare }),
+    'c1.child1': at({ 'rect.width': narrowShare }),
+    // wrap: each line holds one — the second item starts a new line, a row gap below the first.
+    'c2.child0': at({ 'rect.width': narrowFill }),
+    'c2.child1': at({ 'rect.width': narrowFill, 'gap.above': GAP }),
+    // An explicit basis is the starting size instead of the width; the maximum does not bind.
+    'c3.child0': at({ 'rect.width': (width) => CONTENT[width] / 3 }),
+    'c3.child1': at({ 'rect.width': (width) => CONTENT[width] / 3 }),
+    // Reset at md: both declarations go (`width` and `max-width`), and the item is its text again.
+    'c4.child0': at({ 'rect.width': narrowFill }, { 'rect.width': { below: 120 } }),
   },
 
   // §3.6 containment: the release strips the page measure a block carries, and nothing else.
@@ -248,10 +302,28 @@ async function measure(page, url, width, requests) {
       const style = getComputedStyle(el);
       const rect = el.getBoundingClientRect();
       const values = {};
+      // Distances the contract speaks of but no single element's style holds.
+      const box = (node) => unwrap(node).getBoundingClientRect();
+      const area = () => {
+        const parent = el.closest('.thallo-block-container__inner');
+        const r = parent.getBoundingClientRect();
+        const s = getComputedStyle(parent);
+        return { top: r.top + parseFloat(s.paddingTop), bottom: r.bottom - parseFloat(s.paddingBottom) };
+      };
+      const slotChild = () => (el.parentElement.classList.contains('thallo-preview-block') ? el.parentElement : el);
+      const derived = {
+        'gap.above': () => {
+          const previous = slotChild().previousElementSibling;
+          return round(rect.top - (previous ? box(previous).bottom : area().top));
+        },
+        'gap.below': () => round(area().bottom - rect.bottom),
+        'doc.overflow': () =>
+          Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth),
+      };
       for (const property of properties) {
-        values[property] = property.startsWith('rect.')
-          ? round(rect[property.slice(5)])
-          : style.getPropertyValue(property);
+        if (derived[property]) values[property] = derived[property]();
+        else if (property.startsWith('rect.')) values[property] = round(rect[property.slice(5)]);
+        else values[property] = style.getPropertyValue(property);
       }
       out[address] = values;
     }
@@ -279,6 +351,17 @@ test('every layout case has a built fixture and an expectation', () => {
   expect(Object.keys(CASES).sort()).toEqual(names);
 });
 
+test('nothing of the stage reaches a public page', () => {
+  // The grid outline, the slot marking it hangs from and the placeholder are the design stage's
+  // (container-layout spec §11.2): canvas only, never part of what a visitor is served.
+  for (const name of names) {
+    const html = fs.readFileSync(path.join(FIXTURES, `${name}.html`), 'utf8');
+    for (const marker of ['thallo-grid-outline', 'data-thallo-slot', 'thallo-slot-placeholder']) {
+      expect(html.includes(marker), `${name}.html carries ${marker}`).toBe(false);
+    }
+  }
+});
+
 for (const name of names) {
   const expectations = CASES[name] || {};
   for (const [suffix, rendering] of [
@@ -304,6 +387,10 @@ for (const name of names) {
             const value = typeof wanted === 'function' ? wanted(width) : wanted;
             if (value instanceof RegExp) {
               expect(actual, where).toMatch(value);
+            } else if (value && typeof value === 'object' && 'below' in value) {
+              // Content-sized: the contract says it is no longer the authored width, not how wide
+              // two letters of the theme's heading face are.
+              expect(actual, where).toBeLessThan(value.below);
             } else if (typeof value === 'number') {
               // Sub-pixel track division is the browser's business, not the contract's.
               expect(actual, where).toBeGreaterThan(value - 0.5);
@@ -393,7 +480,8 @@ for (const definition of containers) {
 
       // A tall band centres its content through an explicit flex column (spec §3.5); a flex
       // container arranges its children; anything else stays in normal flow.
-      expect(measured.innerDisplay, `${at} inner display`).toBe(flex || tall ? 'flex' : 'block');
+      // Flex and Grid only (spec §11.1): the content area is never a block box.
+      expect(measured.innerDisplay, `${at} inner display`).toBe('flex');
       if (flex) {
         expect(measured.direction, `${at} direction`).toBe(old.flex_direction || 'row');
         expect(measured.wrap, `${at} wrap`).toBe(old.flex_wrap || 'nowrap');

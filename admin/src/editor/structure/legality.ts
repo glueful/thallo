@@ -377,3 +377,34 @@ export function checkInsertSequence(
   }
   return { ok: true }
 }
+
+/**
+ * A block and its depth — a root block is at depth one — so a subtree's height can be judged
+ * against the cap before anything is fetched or built (container-layout spec §6.3, §11.3).
+ */
+export function locateBlock(
+  doc: EditorDocument,
+  id: string,
+  ctx: LegalityContext,
+): { block: BlockInstance; depth: number } | null {
+  const list = (value: unknown): BlockInstance[] =>
+    Array.isArray(value) ? (value as BlockInstance[]) : []
+  const walk = (
+    blocks: BlockInstance[],
+    depth: number,
+  ): { block: BlockInstance; depth: number } | null => {
+    for (const block of blocks) {
+      if (block.id === id) return { block, depth }
+      for (const region of ctx.regionsOf(block.type)) {
+        const hit = walk(list(block.data[region]), depth + 1)
+        if (hit) return hit
+      }
+    }
+    return null
+  }
+  for (const field of Object.keys(ctx.rootSlots())) {
+    const hit = walk(list(doc.fields[field]), 1)
+    if (hit) return hit
+  }
+  return null
+}

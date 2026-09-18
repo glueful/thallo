@@ -52,32 +52,31 @@ final class ContainerThemeDefaultsTest extends AppTestCase
         self::assertStringContainsString('width: 100%;', $rule);
     }
 
-    public function testTheInnerAreaSetsNoTrackCountAndNoDisplay(): void
+    public function testTheInnerAreaIsAFlexColumnByDefaultAndSetsNoTrackCount(): void
     {
-        // Two compiled contracts depend on this: the default track state is one track (span
-        // clamping, spec §3.7) and the default display state is block (spacing normalization,
-        // §3.8). A theme rule here would make both wrong.
+        // The default mode is a flex column whose gaps carry the block rhythm (spec §3.8, §11.1):
+        // an untouched container stacks its children at the distances block flow gave them. The
+        // default track state stays one track — span clamping (§3.7) depends on it.
         $rule = $this->rule('.thallo-block-container__inner');
+        self::assertStringContainsString('display: flex;', $rule);
+        self::assertStringContainsString('flex-direction: column;', $rule);
+        self::assertStringContainsString('gap: var(--space-5);', $rule);
         self::assertStringNotContainsString('grid-template-columns', $rule);
-        self::assertDoesNotMatchRegularExpression('~(?<!-)display:~', $rule);
     }
 
-    public function testSpacingNormalizationCoversBothDefaultDisplayStatesAtEveryBreakpoint(): void
+    public function testSpacingComesFromTheGapsInEveryModeAtEveryBreakpoint(): void
     {
-        // Reset and absence are one state — the theme default, block (spec §3.8 / plan review) —
-        // so every rule that names the block state names the reset class too, and block mode
-        // restores the default margin explicitly rather than relying on its absence.
+        // One rule, no mode and no breakpoint in it: a container's direct children carry no
+        // default vertical margin, on the page and on the stage (spec §3.8).
         $css = $this->css();
-        foreach (['', 'md\:', 'lg\:'] as $bp) {
-            self::assertStringContainsString(".{$bp}t-display-flex > .thallo-block", $css);
-            self::assertStringContainsString(".{$bp}t-display-grid > .thallo-block", $css);
-            self::assertStringContainsString(".{$bp}t-display-block > .thallo-block", $css);
-            self::assertStringContainsString(".{$bp}t-display-reset > .thallo-block", $css);
-        }
         self::assertMatchesRegularExpression(
-            '~\.t-display-block > \.thallo-block[^{]*\{ margin-block: var\(--space-5\); \}~',
+            '~\.thallo-block-container__inner > \.thallo-block,\s*'
+            . '\.thallo-block-container__inner > \.thallo-preview-block > \.thallo-block \{ margin-block: 0; \}~',
             $css,
         );
+        // Nothing restores a margin for a mode: there is no block display to restore it for.
+        self::assertStringNotContainsString('t-display-block', $css);
+        self::assertDoesNotMatchRegularExpression('~t-display-(flex|grid|reset) > [^{]*\{ margin~', $css);
         // A rich text contributes no outer paragraph margin of its own — on the page and on the
         // stage, where its body sits one level deeper inside an edit region.
         self::assertStringContainsString('.thallo-block-rich_text > :first-child,', $css);

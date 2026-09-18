@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 2;
+    public const VERSION = 3;
 
     /** Platform breakpoints: `md` from 768px, `lg` from 1024px. */
     public const BREAKPOINTS = ['base', 'md', 'lg'];
@@ -75,9 +75,11 @@ final class StyleSchema
 
         // Layout (container-layout spec §3.2). Parent properties live on a container's `inner`
         // target, the band properties on its `root`; `layout.item` is the group a block declares
-        // to size itself inside its parent's flex or grid layout.
+        // to size itself inside its parent's flex or grid layout. Two modes (spec §11.1): a
+        // container's children are always block-level boxes, so the theme's default — a flex
+        // column — is the stack block flow was, and spacing has one source in both (§3.8).
         $defs[] = new PropertyDefinition('layout.display', 'layout', $choice, true, null, [
-            'block', 'flex', 'grid',
+            'flex', 'grid',
         ]);
         $defs[] = new PropertyDefinition('layout.direction', 'layout', $choice, true, null, [
             'row', 'column', 'row-reverse', 'column-reverse',

@@ -38,7 +38,8 @@ final class PreviewAnnotationTest extends AppTestCase
         parent::tearDown();
     }
 
-    private function seedBlockPage(string $slug): string
+    /** @param array<string,mixed>|null $fields the draft's fields; null seeds the one-block page */
+    private function seedBlockPage(string $slug, ?array $fields = null): string
     {
         // `rich_text` matches the default theme's blocks/rich_text.twig — a rendered
         // (not missing-template) instance is what annotation wraps.
@@ -59,7 +60,7 @@ final class PreviewAnnotationTest extends AppTestCase
         ]);
         $entries = new EntryRepository($this->connection(), $this->appContext(), $types);
         $entry = $entries->createEntry($this->type, 'en', 1, 'user00000001');
-        $entries->saveDraft($entry, 'en', ['title' => 'S', 'body' => [
+        $entries->saveDraft($entry, 'en', $fields ?? ['title' => 'S', 'body' => [
             ['id' => 'blockone0001', 'type' => 'rich_text', 'data' => ['body' => '<p>Hello card</p>']],
         ]], 1, 0, 'user00000001');
         (new RouteRepository($this->connection()))->assign($entry, $this->type, 'en', $slug);
@@ -76,6 +77,42 @@ final class PreviewAnnotationTest extends AppTestCase
             new ReferenceProjectionRepository($this->connection()),
         ))->publish($entry, 'en', 'user00000001');
         return $entry;
+    }
+
+    /**
+     * A page that has never held a block — created with a title and published — has no `body` in
+     * its fields at all. The stage still needs the slot's element: it is where the bridge puts
+     * "Drag a block here" and the +, and the only thing a dragged block can be released over.
+     *
+     * @dataProvider emptyBodies
+     * @param array<string,mixed> $fields
+     */
+    public function testACanvasPageWithNoBlocksStillHasItsBodySlot(array $fields, bool $wrapperOnLive): void
+    {
+        $entry = $this->seedBlockPage('blank', $fields);
+        $token = $this->container()->get(PreviewMinter::class)->mint($entry, 'en');
+
+        $canvas = (string) $this->container()->get(RenderController::class)->preview(
+            Request::create("/_preview/{$token}?canvas=1", 'GET'),
+            $token,
+        )->getContent();
+        self::assertStringContainsString('data-thallo-slot="body"', $canvas);
+
+        // Only the preview reads it that way: the public page is what it was.
+        $live = (string) $this->handle(Request::create('/page/blank', 'GET'))->getContent();
+        self::assertStringNotContainsString('data-thallo-slot', $live);
+        self::assertSame($wrapperOnLive, str_contains($live, 'entry-blocks'));
+    }
+
+    /** @return array<string, array{array<string,mixed>, bool}> */
+    public static function emptyBodies(): array
+    {
+        return [
+            'body never set' => [['title' => 'Blank'], false],
+            'body null' => [['title' => 'Blank', 'body' => null], false],
+            // An emptied list already rendered its (empty) wrapper on the public page.
+            'body an empty list' => [['title' => 'Blank', 'body' => []], true],
+        ];
     }
 
     public function testOnlyCanvasPreviewsAnnotateBlocks(): void

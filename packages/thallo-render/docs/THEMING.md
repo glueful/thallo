@@ -672,8 +672,9 @@ inline style emitters are `theme_colors_style()`, `theme_style_scope()` and
 
 A container is two elements: `root`, the band, and `__inner`, the content area. Its
 layout is settings, not data — there are no `--layout-flex`, `--gap-*` or `--contained`
-modifier classes to style. Four theme defaults carry the contract, and a theme that
-restyles the container keeps all four:
+modifier classes to style. It arranges its children in one of two modes, Flex or Grid;
+there is no block mode. These theme defaults carry the contract, and a theme that
+restyles the container keeps all of them:
 
 ```css
 .thallo-block-container {
@@ -686,7 +687,12 @@ restyles the container keeps all four:
   padding-inline: var(--thallo-default-gutter);
   flex: 1 1 auto;                        /* fills a tall band */
   width: 100%;                           /* auto inline margins cancel the stretch */
+  display: flex;                         /* the default mode: a flex column … */
+  flex-direction: column;
+  gap: var(--space-5);                   /* … spaced by the margin the gap replaces */
 }
+.thallo-block-container__inner > .thallo-block,
+.thallo-block-container__inner > .thallo-preview-block > .thallo-block { margin-block: 0; }
 ```
 
 Routing the band's display through a variable is what lets a minimum height size it
@@ -698,11 +704,32 @@ Two more defaults govern what happens to the children. Blocks that clamp themsel
 the page measure have that clamp released inside a container, so a block in a cell does
 not carry a second gutter; the release names exactly the blocks that have one
 (`tests/fixtures/layout/containment-inventory.json` records them, and a test holds the
-two in step). And the children's default vertical margins stand down in flex and grid
-modes, where the gaps own the spacing, while block mode keeps them with the first and
-last edges released so the container's own padding governs its boundary. Authored
-values always win over all of this: a margin, a padding or a width an author set is a
-setting in the layer above.
+two in step). And the gaps are the one source of spacing between a container's
+children: no child carries a default vertical margin, in either mode, at any breakpoint
+or after a reset, and the container's own padding governs its boundary. The default
+for both gaps is `--space-5` — the margin it replaces — so a container nobody has
+touched stacks its children at the distances block flow gave them, and a row or a grid
+starts spaced rather than touching; `none` is a choice an author makes. No rule names a
+mode, because there is no mode in which the margin comes back. Authored values always
+win over all of this: a margin, a padding, a gap or a width an author set is a setting
+in the layer above.
+
+A theme that ships its own `blocks.css` therefore has three things to provide, and the
+contract has nothing to fall back on if it does not: the content area's `display: flex`
+with `flex-direction: column`, its `gap`, and the release of the children's vertical
+margin. Leave out the first and an untouched container falls back to block flow with
+neither margins nor gap, so its children touch; leave out the gap and the same happens
+in every mode. Nothing else is asked of a theme here — the Design view's grid outline
+and its Fill empty cells button are the editor's own, drawn from the tracks and gaps the
+browser resolved, and never reach a public page.
+
+An authored **width** means "fill the available space, up to this maximum": the
+compiled utility sets `width: 100%` beside its `max-width`. That relies on
+`box-sizing: border-box`, which the default theme sets on every element — under
+content-box a padded block with an authored width would overflow its container, so a
+theme that changes the sizing model must account for it. In a flex row the width is
+the item's starting size (`flex-basis: auto` reads it), so it sizes items and can wrap
+them; an explicit basis takes its place.
 
 ### 12.4 Style classes (the class layer)
 
@@ -715,6 +742,18 @@ instance values. A class declares no capabilities or targets: applied to a block
 each declaration lands only where the block has the capability and is dormant
 elsewhere. Themes never see classes as such — only the utilities the cascade
 resolves to — so a theme needs nothing new for them.
+
+A class may carry layout as well as styling — a mode, a direction, tracks, gaps, a width,
+the item settings — and the rule is the same one: the cascade resolves **per property**.
+So a class's settings are not tied to the mode that class sets. A class that sets Grid
+and also declares a direction contributes that direction to any block whose *effective*
+layout is Flex, because the block itself or a later class set it so; the item settings
+likewise follow the mode of whatever parent the block ends up in. This is why the class
+editor labels each group by where it applies rather than hiding the ones its own mode
+does not use, and why a theme should not assume that a utility for direction only ever
+arrives alongside the flex display utility. An explicit reset in a class is a
+declaration too: it returns the property to the theme's value from that breakpoint up,
+over whatever a lower layer supplied.
 
 Every class write increments the site's style generation, which names the exact set
 of class records a render resolved through. The page-cache key carries it

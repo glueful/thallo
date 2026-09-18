@@ -12,6 +12,7 @@ import {
 import { useNotify } from '@/composables/useNotify'
 import StyleClassEditor from './components/StyleClassEditor.vue'
 import StyleClassSaveDialog from './components/StyleClassSaveDialog.vue'
+import StyleClassSaveErrors from './components/StyleClassSaveErrors.vue'
 
 definePage({ meta: { requiresAuth: true } })
 
@@ -110,7 +111,15 @@ async function askToSave() {
   await refetchUsage()
 }
 
+/**
+ * The fields the server refused on the last save (spec §12.5). A class still holding a value the
+ * contract does not offer cannot be saved until it is repaired, however unrelated the edit being
+ * made — so a refusal keeps the draft exactly as it is and says which field stands in the way.
+ */
+const saveErrors = ref<Record<string, string>>({})
+
 async function onSave() {
+  saveErrors.value = {} // a refusal is not shown over the attempt that follows it
   try {
     const saved = await update.mutateAsync({
       id: id.value,
@@ -131,6 +140,11 @@ async function onSave() {
       await refetch()
       notifyError(e, 'Someone else saved this style class first — review and save again')
       return
+    }
+    if (e instanceof ApiError && Object.keys(e.fieldErrors).length > 0) {
+      // Nothing of the draft is touched: not the name, not the style, not the loaded version.
+      saveErrors.value = e.fieldErrors
+      confirming.value = false
     }
     notifyError(e, 'Couldn’t save the style class')
   }
@@ -252,6 +266,7 @@ async function onSave() {
           </UCard>
           <UCard class="lg:col-span-2">
             <template #header><h2 class="font-semibold text-default">Style</h2></template>
+            <StyleClassSaveErrors :errors="saveErrors" class="mb-4" />
             <StyleClassEditor v-model="style" />
           </UCard>
         </div>

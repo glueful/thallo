@@ -29,6 +29,11 @@ import {
   type DropZone,
 } from '@/editor/structure/coordinator'
 import { createStructurePicker } from '@/editor/structure/structurePicker'
+import {
+  createGridFill,
+  type FillAvailability,
+  type StageFillState,
+} from '@/editor/structure/gridFill'
 import MoveToDialog from './components/MoveToDialog.vue'
 import BlocksPalette from '@/editor/palette/BlocksPalette.vue'
 import BoxField from '@/editor/inspector/controls/BoxField.vue'
@@ -223,6 +228,7 @@ void mintAndLoad()
 
 function onIframeLoad(): void {
   bridge.hello()
+  refreshGridFill(true) // a freshly loaded stage has heard nothing, whatever the last one was told
   if (lastScrollY > 0) bridge.restoreScroll(lastScrollY)
   stageLoaded = true
   maybeReconcileStash()
@@ -485,13 +491,6 @@ function selectFromStage(id: string, modifiers: SelectModifiers): void {
 bridge.onBlockSelect((id, modifiers = { shift: false, meta: false }) =>
   selectFromStage(id, modifiers),
 )
-
-/** The Layout tab's link out of an item to the container that governs it (spec §5). */
-function onSelectParent(id: string): void {
-  applySelection(id)
-  fieldEditorRef.value?.selectBlockById(id)
-  ringSelection()
-}
 
 // ── The block inspector (visual builder spec §3.4) ────────────────────────────
 const { data: styleSchema } = useStyleSchema()
@@ -1258,6 +1257,9 @@ function onKeydown(e: KeyboardEvent): void {
   e.preventDefault()
   void (e.shiftKey ? redo() : undo())
 }
+// The same two, asked for from the stage: a click there leaves focus in the iframe, so ⌘Z never
+// reaches this window. The stage forwards it, outside text editing and its own form fields.
+bridge.onHistory((direction) => void (direction === 'redo' ? redo() : undo()))
 function onCompositionStart(): void {
   composing = true
 }
@@ -1433,6 +1435,7 @@ if (import.meta.env.VITE_E2E === '1') {
     structureOffers: () => lastStructureOffers,
     chooseStructure: (id: string, preset: string) => picker.choose(id, preset),
     skipStructure: (id: string) => picker.skip(id),
+    gridFillStates: () => lastFillStates,
   }
 }
 
@@ -1689,6 +1692,51 @@ function classRefsFor(block: BlockInstance | null): StyleClassRef[] {
   }
   return refs
 }
+
+// ── Fill empty cells (container-layout spec §11.3) ─────────────────────────────
+// One controller, one availability. The stage's button has no state of its own and the
+// inspector's is a prop: both are written here, together, from the same call — so the stage can
+// never offer a fill the inspector refuses. Declared after the tree's own watcher, so history
+// already holds a change by the time this reads the document.
+const gridFill = createGridFill({
+  doc: currentDoc,
+  legality: legalityContext,
+  classesFor: (id) => classRefsFor(fieldEditorRef.value?.blockById(id) ?? null),
+  activeBreakpoint: () => activeBreakpoint.value,
+  factory: (slug) => blockFactory.instance(slug),
+  commit: (ops) => applyDrop(ops),
+  notify: (message) => warning(message),
+  changed: () => refreshGridFill(),
+})
+/** The inspector's Fill button, for a single selected block; null when there is none. */
+const selectedFill = ref<(FillAvailability & { preparing: boolean }) | null>(null)
+/** The states as last published, for the proofs. */
+let lastFillStates: StageFillState[] = []
+/** The list as the stage last heard it: a message makes it re-mark every slot, so none is idle. */
+let fillStatesOnStage = ''
+function refreshGridFill(stageIsNew = false): void {
+  const breakpoint = activeBreakpoint.value
+  lastFillStates = gridFill.stageStates(breakpoint)
+  const wire = JSON.stringify(lastFillStates)
+  if (stageIsNew || wire !== fillStatesOnStage) {
+    fillStatesOnStage = wire
+    bridge.publishGridFill(lastFillStates)
+  }
+  const id = selection.value.ids.length === 1 ? selected.value : null
+  selectedFill.value =
+    id === null
+      ? null
+      : { ...gridFill.availability(id, breakpoint), preparing: gridFill.preparing(id) }
+}
+function fillCells(id: string | null): void {
+  if (id !== null) void gridFill.fill(id, activeBreakpoint.value)
+}
+bridge.onGridFill((id) => fillCells(id))
+watch(
+  [fields, activeBreakpoint, selection, allBlockTypes, schema, styleClassList],
+  () => refreshGridFill(),
+  { deep: true, immediate: true },
+)
 
 function writeClasses(id: string, mutate: (ids: string[]) => string[]): void {
   writeSettings(id, (s) => {
@@ -2209,7 +2257,8 @@ function reloadStage(): void {
                 :parent-type="selectedParentType"
                 :parent-classes="classRefsFor(selectedParent)"
                 :active-breakpoint="activeBreakpoint"
-                @select-parent="onSelectParent"
+                :fill="selectedFill"
+                @fill-cells="fillCells(selected)"
                 @patch-data="onPatchData"
                 @insert-into="onInsertInto"
                 @set-setting="onSetSetting"

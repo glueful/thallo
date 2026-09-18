@@ -1,6 +1,9 @@
 # Container Layout — Design
 
 **Status:** approved in brainstorming, 2026-09-17. Delivered as one release (one beta cut).
+**Amended 2026-09-18 (§11):** two modes instead of three, the Layout tab's sections reordered and
+merged, and the grid made visible on the stage. Shipped as 1.0.0-beta.40 before the amendment; the
+amendment ships in the release after it.
 **Supersedes:** the `columns`, `grid` and `section` block types.
 
 ## 1. Goal and scope
@@ -53,16 +56,24 @@ existing inheritance.
 
 | Path | Values | Responsive | Notes |
 |---|---|---|---|
-| `layout.display` | block, flex, grid | yes | block: children stack |
-| `layout.direction` | row, column, row-reverse, column-reverse | yes | flex only |
+| `layout.display` | flex, grid | yes | theme default: flex |
+| `layout.direction` | row, column, row-reverse, column-reverse | yes | flex only; theme default: column — a stack |
 | `layout.wrap` | nowrap, wrap | yes | flex only |
 | `alignment.content` | start, center, end, between, around, evenly | yes | existing property; choices extended |
 | `layout.align_items` | start, center, end, stretch, baseline | yes | flex and grid |
 | `layout.columns` | 1, 2, 3, 4, 6, 12, 1-2, 2-1, 1-3, 3-1, 1-2-1, 1-1-2, 2-1-1 | yes | grid only |
-| `layout.gap.column` | spacing tokens | yes | flex and grid |
-| `layout.gap.row` | spacing tokens | yes | flex and grid |
+| `layout.gap.column` | spacing tokens | yes | flex and grid; theme default `spacing.xl` (§3.8) |
+| `layout.gap.row` | spacing tokens | yes | flex and grid; theme default `spacing.xl` (§3.8) |
 | `layout.content_width` | width tokens | yes | constrains and centres `inner` |
 | `layout.gutter` | spacing tokens | yes | inline padding of `inner` (§3.4) |
+
+There is no `block` display. A container's children are always block-level boxes, and keeping
+both gave the author two ways to say "stack" whose spacing came from different places (§3.8). The
+claim is narrow: an **untouched** container — theme defaults, default-margin children — renders
+its stack at the same distances as block flow did, and §3.8's proof is what holds that. It is not
+a claim that the two are interchangeable: a flex item sizes and aligns differently from a block
+box, and authored margins no longer collapse against a sibling's. `block` is not a valid value:
+validation rejects it, and no stored value is converted (§11.1).
 
 **Container properties on `root`:**
 
@@ -81,8 +92,10 @@ existing inheritance.
 | `layout.shrink` | 0, 1 | yes | flex |
 | `layout.align_self` | start, center, end, stretch | yes | flex and grid (cross axis) |
 
-**Existing properties kept as they are:** `width` (the box's own width), `alignment.self`
-(horizontal placement through auto margins, labelled "Placement"), `alignment.text`.
+**Existing properties:** `alignment.self` (horizontal placement through auto margins, labelled
+"Placement") and `alignment.text` are kept as they are. **`width` changes its contract** (amended
+2026-09-18, §11.4): it used to supply only a maximum; it now also requests the width — "fill the
+space there is, up to this".
 `alignment.self` is not CSS `align-self`; cross-axis self-alignment is the new
 `layout.align_self`.
 
@@ -153,16 +166,25 @@ Theme defaults only; authored margins and paddings always win.
 
 - Every block carries the theme's default vertical margin (`.thallo-block { margin-block:
   var(--space-5) }`).
-- **Flex and grid modes:** the default vertical margins of the container's direct children are
-  released; spacing between items comes only from `layout.gap.column` and `layout.gap.row`.
-- **Block mode:** children keep their default margins, except the first child's top margin and
-  the last child's bottom margin, which are released so the container's own padding governs its
-  edges.
+- **In a container** the default vertical margins of its direct children are released, in both
+  modes; spacing between items comes only from `layout.gap.column` and `layout.gap.row`, and the
+  container's own padding governs its edges.
+- **The theme's default for both gaps is `spacing.xl`** — `--space-5`, the margin it replaces — so
+  a container nobody has touched spaces its children as a stack of blocks always was, and `none`
+  is a choice the author makes rather than the state a new row or grid starts in. One rule for
+  both modes and both axes, with a recorded consequence: a flex row or a grid whose gaps were never
+  set had none, and now gains `spacing.xl` between its items.
+- **A child that places itself** — an authored `width` with `alignment.self` — fills up to that
+  width and sits where Placement says, in a flex column as it did in block flow. Auto inline
+  margins stop a flex item's cross-axis stretch, so the mechanism must restore the fill; it is
+  chosen in the plan and proven by the case below.
 - **Rich text:** the first child element's top margin and the last child element's bottom margin
   inside a rich-text block are released by default, so a single-paragraph rich text contributes no
   paragraph margin of its own. Spacing between its paragraphs is unchanged.
 - **Proof:** a container with default-margin children in each mode, and a single-paragraph and a
-  multi-paragraph rich text, compared against the declared result.
+  multi-paragraph rich text, compared against the declared result; an untouched container against
+  the frozen stack references (same distances, from the gap instead of the margins); and a child
+  with an authored width placed start, centre and end inside a flex column.
 
 ### 3.9 Exclusions
 
@@ -188,8 +210,9 @@ Theme defaults only; authored margins and paddings always win.
   `layout.direction`, `layout.wrap`, `alignment.content`, `layout.align_items`,
   `layout.columns`, `layout.gap.column`, `layout.gap.row`, `layout.content_width`,
   `layout.gutter`.
-- **Factory-created defaults.** A container created by the block factory resolves to block
-  display, full content width, no gutter and auto height, with nothing written. (The old
+- **Factory-created defaults.** A container created by the block factory resolves to a flex
+  column with both gaps at `spacing.xl`, full content width, no gutter and auto height, with
+  nothing written. (The old
   template's fallback for a missing `data.width` was contained; factory-created containers never
   hit it.)
 - **Parity mapping** for today's container widths:
@@ -216,18 +239,22 @@ Theme defaults only; authored margins and paddings always win.
   `alignment.text` → Style; `alignment.self` and `alignment.content` → Layout.
 - **Style tab:** spacing, colours, radius, border, shadow, typography, visibility,
   `alignment.text`.
-- **Layout tab**, capability-driven for every block, four sections:
-  1. **Box** — `width`, `alignment.self` ("Placement"), `layout.min_height`, `layout.overflow`,
+- **Layout tab**, capability-driven for every block, three sections in this order:
+  1. **Container** — first, because on a container it is what the author came for.
+     - **Layout** — `layout.display`, two choices: Flex and Grid. The mode is set here and nowhere
+       else.
+     - Directly under it, as part of the same group, the controls of the mode in force at the
+       active breakpoint. Flex: direction, wrap, `alignment.content`, `layout.align_items`, gaps
+       (a two-cell linked row, Column and Row). Grid: track presets as proportional swatches,
+       `alignment.content`, `layout.align_items`, gaps, and **Fill empty cells** (§11.3).
+     - Then `layout.content_width` with `layout.gutter`.
+  2. **Box** — `width`, `alignment.self` ("Placement"), `layout.min_height`, `layout.overflow`,
      wherever declared.
-  2. **Container** — `layout.display`, `layout.content_width` with `layout.gutter`.
-  3. **Children** — the container's mode-dependent controls at the active breakpoint.
-     Flex: direction, wrap, `alignment.content`, `layout.align_items`, gaps (a two-cell linked
-     row, Column and Row). Grid: track presets as proportional swatches, `alignment.content`,
-     `layout.align_items`, gaps. Block: a line saying children stack, with the display switch.
-  4. **As an item** — for a block declaring `layout.item` whose immediate parent is a container,
+  3. **As an item** — for a block declaring `layout.item` whose immediate parent is a container,
      resolved against that parent's effective display at the active breakpoint. Grid: span,
-     `layout.align_self`. Flex: basis, grow, shrink, `layout.align_self`. Block: a line saying the
-     parent stacks its children, with a link selecting the parent.
+     `layout.align_self`. Flex: basis, grow, shrink, `layout.align_self`.
+  There is no Children section: it set the mode a second time and held the controls that belong
+  under Layout.
 - **Non-container blocks** that declare `alignment.content` (Button, Navigation) keep that
   control against their existing target without becoming containers.
 - **One active breakpoint** drives every section header. Overflow is labelled as applying at all
@@ -238,8 +265,8 @@ Theme defaults only; authored margins and paddings always win.
 - **Dormant notices in both directions:** a container switched from grid to flex discloses its
   retained grid-parent settings; a child discloses retained item settings for the other mode.
   Values supplied by style classes count as well as local declarations.
-- **Canvas:** no new protocol for the Layout tab — an apply re-renders as today. A rendering proof
-  shows children updating when their parent's mode changes.
+- **Canvas:** an apply re-renders as today, and a rendering proof shows children updating when
+  their parent's mode changes. The grid itself is drawn on the stage (§11.2).
 
 ## 6. Structure picker
 
@@ -310,7 +337,7 @@ Multi-column presets stack on mobile. In the table, `layout.columns` = `1 / X` m
 
 | Preset | Owned paths | Children |
 |---|---|---|
-| Stack | `layout.display` = block | none |
+| Stack | `layout.display` = flex, `layout.direction` = column | none |
 | Row | `layout.display` = flex, `layout.direction` = row | none |
 | Two columns 50/50, 33/67, 67/33, 25/75, 75/25 | `layout.display` = grid, `layout.columns` = 1 / 2, 1-2, 2-1, 1-3, 3-1, `layout.gap.column` = lg, `layout.gap.row` = lg | two column containers |
 | Three columns, 25/50/25, 50/25/25, 25/25/50 | `layout.display` = grid, `layout.columns` = 1 / 3, 1-2-1, 2-1-1, 1-1-2, both gaps = lg | three column containers |
@@ -492,8 +519,8 @@ same terms as §7.10.
 
 | Difference | Today | New | Disposition |
 |---|---|---|---|
-| First and last child, block mode | the child's own `margin-block: var(--space-5)` at both edges | the first child's top margin and the last child's bottom margin released | **Intentionally changed.** The container's own padding governs its boundary, so a band's padding is what it says it is instead of adding to a child's margin. |
-| Every child, flex and grid modes | the child's own `margin-block` alongside the container's gaps | released; spacing comes from `layout.gap.column` and `layout.gap.row` | **Intentionally changed.** One source of spacing between items, so a gap of `none` means none. |
+| First and last child | the child's own `margin-block: var(--space-5)` at both edges | the first child's top margin and the last child's bottom margin released | **Intentionally changed.** The container's own padding governs its boundary, so a band's padding is what it says it is instead of adding to a child's margin. |
+| Every child | the child's own `margin-block`, collapsing between siblings to `--space-5`, alongside the container's gaps where it had any | released; spacing comes from `layout.gap.column` and `layout.gap.row`, which default to `spacing.xl` | **Intentionally changed** in where it comes from, **unchanged** in an untouched stack's distances. One source of spacing between items, so a gap of `none` means none. |
 | A rich text's outer paragraphs | the first paragraph's top margin and the last paragraph's bottom margin | released | **Intentionally changed.** A single-paragraph rich text contributes no margin of its own; spacing between its own paragraphs is unchanged. |
 
 A container that centres its content is a flex column in the composition (§3.5), so the flex row
@@ -518,15 +545,18 @@ In the same release, found by an inventory grep at the start of the plan:
 
 - **Contract:** validation of every property and value; capability and target mapping; dormancy
   per breakpoint (§3.3 cases); gutter cases (§3.4); span clamping (§3.7 cases); the centred
-  half-screen band with root padding (§3.5); spacing normalization (§3.8).
+  half-screen band with root padding (§3.5); spacing normalization (§3.8), the untouched stack
+  against its frozen references and the placed child in a flex column; `block` rejected.
 - **Render:** container parity for every old width, min height and content alignment; `layout.item`
   participation on the public page and the annotated stage; nested-clamp release with authored
   settings preserved into and out of a container (§3.6); Section parity matrix with its closed
   disposition table (§7.6, §7.7); Columns matrix (§7.8); Grid matrix (§7.9); leaf-block fixtures
   with their closed disposition table (§7.10) and the spacing differences (§7.11).
-- **Admin:** per-property tab membership; the Layout tab's four sections across block, flex and
-  grid parents; Button and Navigation keeping `alignment.content`; dormant notices both ways,
-  including class-supplied values; mixed sibling selection.
+- **Admin:** per-property tab membership; the Layout tab's three sections (Container, Box, As an
+  item) across flex and grid parents, the mode's controls grouped under Layout; Button and
+  Navigation keeping `alignment.content`; dormant notices both ways between Flex and Grid,
+  including class-supplied values; an invalid stored `block` shown as invalid with its actions
+  (§11.1); Fill empty cells (§11.3); mixed sibling selection.
 - **Picker:** bridge DOM specs for offer, choose and skip; qualification exclusions (preset
   children, duplicate, paste, restore, redo); duplicate choose messages; Skip while the factory is
   loading; factory failure; emptiness lost between offer and commit; offer → drop content → undo →
@@ -534,7 +564,8 @@ In the same release, found by an inventory grep at the start of the plan:
   a preset over a style class with conflicting `lg` values (§6.4); undo restoring exact settings;
   redo reusing ids.
 - **Browser:** choose 33/67 → one history entry → undo to empty → redo with the same ids; a
-  parent mode switch updating its children; the existing proofs rebuilt on container fixtures.
+  parent mode switch updating its children; the grid outline and its inertness (§11.2); the
+  existing proofs rebuilt on container fixtures.
 - **Gates:** full PHP suite, phpcs, boundaries, skeleton and distribution smoke, admin suite,
   type-check, lint, format, browser proofs.
 
@@ -551,3 +582,327 @@ One release, one beta cut at the end. Build order on `dev`, each phase ending wi
 3. **Structure picker** — the creation flow with atomic history and commit-time legality.
 4. **Retirement** — Columns, Grid and Section removed after their matrices (§7.6–§7.10) pass, with
    shipped content, presets, allowlists, fixtures and docs updated in the same phase.
+
+## 11. Amendment, 2026-09-18 — two modes, one Container section, a visible grid
+
+Raised from use of 1.0.0-beta.40. Sections 3.2, 3.8, 4, 5, 6.5 and 7.11 above carry the amended
+text; this section holds the reasons and the parts that are new.
+
+### 11.1 Flex and Grid only
+
+- `layout.display` loses `block` (§3.2); the theme default is a flex column whose gaps default to
+  the block rhythm (§3.8), so an untouched container renders as it did.
+- The inspector loses every state that existed only for block mode: "Children stack. Switch to
+  flex or grid to arrange them.", the dormant notice for direction and wrap under block, and the
+  item line "the parent stacks its children". Dormancy (§3.3) is now only between Flex and Grid.
+- **Contract versions move** — the style schema and the compiler each by one — and the verified
+  fragments are re-recorded.
+- **No conversion, and no disguise.** A stored `layout.display` of `block`, from the one release
+  that offered it, is invalid and a save that still carries it is refused — same terms as §1's
+  fresh-install scope. The inspector must not show the theme default in its place: that reads as
+  valid while the save fails. The Layout control shows the value as **invalid**, names it and the
+  breakpoint it sits at, and offers the two ways out in place: **Replace with Flex** (an explicit
+  value) and **Remove** (back to the theme default, which is also a flex column). When a style
+  class supplies the value rather than the block, the control says which class, and the action
+  opens that class — the block cannot fix what it does not hold.
+- **Proof:** a local `block` at `md` shown invalid with both actions, each writing one operation
+  and clearing the state; the same value supplied by a style class, attributed to the class; a save
+  with the value refused naming the field; after either action the save succeeds.
+
+### 11.2 The grid is drawn on the stage
+
+Choosing Grid and a track count changed nothing an author could see: a grid holds one slot, and
+the empty-slot placeholder spans the full row, so an empty three-column grid looked like an empty
+stack.
+
+- **Outline.** The stage draws the tracks of a grid container — dashed cell outlines from the
+  container's resolved column tracks and gaps — while the container is empty, while it or one of
+  its children is selected, and while a drag is over it. It follows the breakpoint being edited
+  (three tracks at `lg`, one at `base`). It is the bridge's, like the placeholder: canvas only,
+  never on the public page, nothing stored, and it takes no pointer events.
+- **The outline is inert.** It is positioned over the container and is never a grid item: it
+  must not add, size or reorder a track, and must not move or resize any existing content. The
+  proof measures the children with the outline shown and hidden and requires identical boxes.
+- **The placeholder is unchanged in when it appears: only while the slot is empty.** The bridge
+  already removes a container's placeholder once it holds a child, and this amendment does not
+  introduce one for populated grids — that would put a new box among real content. What changes is
+  its size in an empty **grid** slot: it takes the first cell instead of the full row, so the
+  outlined cells beside it are visible. Flex slots keep the full-row placeholder. A populated
+  grid's free cells are filled by an ordinary drag or by Fill (§11.3).
+- **With the structure picker** nothing changes: an offered container's tiles replace the
+  placeholder exactly as today (§6.2), and the outline shows only for a container already in grid
+  mode — which a newly inserted, still-offered container is not.
+- **One drop target, as now.** The outline adds no drop semantics: a grid places its items in
+  order, so there is no "drop into the third cell while the first is empty". That needs a real
+  cell (§11.3).
+- **Proof** (bridge DOM and real browser): an empty 3-track grid shows three outlined cells with
+  the placeholder in the first; one child → three outlined cells, no placeholder, the child's box
+  unchanged; a full row → outline only, nothing moved; a child spanning 2 of 3 → its outline
+  covers both tracks and one cell stays free; a 1-2-1 preset outlines cells of those proportions;
+  children's boxes identical with the outline shown and hidden; nothing of it in the public
+  rendering.
+
+### 11.3 Fill empty cells
+
+For a column an author can fill on its own — what the old Columns block's `col_1`…`col_3` were.
+
+- **What it fills: the rest of the last row, by ordinary append.** A grid places its items in
+  order and never back-fills, so the only cells an appended child can reach are the ones after the
+  last item. Fill inserts one **column container** (§6.5: flex, column, `layout.gap.row` = md) at
+  the end of the slot for each of those cells — a full row of them when the grid is empty. **Holes
+  earlier in the grid are left alone**: in a three-track grid, two children spanning 2 leave a free
+  cell at the end of each row, and Fill adds **one** container, which lands in the second row's;
+  the first row's hole stays, as it would for any appended block.
+- **Occupancy** is computed at the active breakpoint from the container's effective tracks and
+  each child's **effective span** — clamped to the track count as §3.7 resolves it, inherited and
+  class-supplied values included — placed in document order with row wrapping as the browser
+  does. A child hidden at that breakpoint occupies nothing.
+- **When the last row is full, Fill is disabled** ("No empty cells in the last row"). Starting a
+  new row is a different action and is not this one; none is specified in this amendment.
+- **Room for content, not only for the cell.** The depth cap is five and a subtree is legal when
+  it fits (§6.3), so an empty column container at depth five is legal — and useless, since nothing
+  can then be put in it. Fill therefore requires room for the cell **and a block inside it**: the
+  grid container at depth three or shallower. Deeper, it is disabled with that reason — "A cell
+  here could not hold a block: blocks nest at most 5 levels deep", the number being the
+  configured limit, never a literal.
+- **Where.** A button under the Grid controls in the Layout tab, and on the empty grid's
+  placeholder on the stage.
+- **Preparation — its own conditions, not the picker's.** Fill reuses the factory and the
+  transaction (§6.3): one plan, the complete candidate judged whole against the real subtree,
+  committed as one transaction, so undo takes every cell back in one step and **redo reuses the
+  same ids**. It does not reuse the picker's qualification: that requires a container that is new
+  and empty, and Fill acts on existing, populated ones. Its own:
+  - the factory's answers are awaited, and **afterwards** occupancy is recomputed against the
+    current document and the current class values, and the complete candidate validated — never
+    the count taken when the button was pressed;
+  - it cancels, writing nothing, if by then the target is gone, is no longer in grid mode at that
+    breakpoint, or the active breakpoint has changed;
+  - a second request while one is preparing is ignored, not queued.
+- **Proof:** empty 3-track grid → three column containers, one history entry, one undo, redo with
+  the same ids; one child → two; a child spanning 2 of 3 → one; **two children spanning 2 of 3 →
+  one, appended, the first row's hole untouched**; a span of 6 in a 3-track grid counted as 3; a
+  child hidden at the active breakpoint not counted; last row full → disabled with its reason; at
+  depth four → disabled with the depth reason, at depth three → allowed; the grid populated by
+  another change while the factory is pending → the count recomputed; target removed, mode
+  switched or breakpoint changed while pending → nothing written; a second press while pending →
+  one transaction.
+
+### 11.4 `width` requests the width as well as limiting it
+
+Found implementing §3.8's placed child. `width` compiled to `max-width` alone, which is enough for
+a block box — it fills its container unasked — and not for a flex item: with Placement's auto
+inline margins a flex item does not stretch, so inside the default flex column a placed child was
+as wide as its text. Every value but `full` now compiles to `max-width` **and** `width: 100%`
+(`full` always did); a reset still reverts both.
+
+- **The meaning is "fill the available space, up to this maximum" — everywhere**, not only in a
+  container and not only with Placement. Coupling it to Placement or to the parent's direction was
+  rejected: it would bring back the per-mode, per-breakpoint state §11.1 removed.
+- **It is a contract change, not a no-op.** In block flow it renders as before **under border-box
+  sizing**, which the default theme sets (`* { box-sizing: border-box }`) — that equivalence is
+  this theme's, not the rule's: under content-box a padded block would overflow its container. A
+  theme that overrides the sizing model owns that consequence.
+- **In a flex row it changes sizing and can change wrapping**: `flex-basis: auto` takes an item's
+  starting size from `width`, so an authored width is where the item starts, not only where it
+  stops. An explicit `layout.basis` still wins as the starting size.
+- **Proof** (`width-in-flex-row`, numbers derived from the flexbox algorithm): two authored-width
+  items under `basis: auto` in a nowrap row share the line equally; with wrap each fills up to its
+  maximum on its own line; an explicit basis sets the size instead; a width reset at `md` returns
+  the item to its content size; no horizontal overflow at any width. The case fails with the
+  `width: 100%` removed. The placed child of §3.8 is its column counterpart.
+
+
+## 12. Amendment, 2026-09-18 — a style class can edit what §5 moved
+
+§5 gave the block inspector a Layout tab and decided tab membership per property. It moved
+`width`, `alignment.self` and `alignment.content` there along with every `layout.*` property. The
+style class editor mounts the Style tab only, so from beta.40 a class can *hold* all of these —
+Save as style class lifts them, and the cascade applies them — and can *edit* none of them. A
+layout value in a class is in force on the page and invisible on the one page that owns it. This
+section completes the editing support for the properties §5 moved. Nothing in the contract, the
+compiler or the renderer changes.
+
+### 12.1 The rule: a class has no context
+
+The block's Layout tab shows what applies: the controls of the mode in force, the item controls the
+parent's mode uses, the theme default an untouched control stands for. Each of those is an answer
+about one block in one place. A class is applied to many blocks in many places, or to none yet, so
+it has no mode in force, no parent and no default in force.
+
+**In the class editor nothing is shown, hidden or described on the strength of a context the class
+does not have.** It is an editor for the class's declarations — all of them, always.
+
+### 12.2 The class Layout tab
+
+A second tab in the class editor, beside Style. Membership comes from the same tab map as the
+block inspector (§5), so a property is on the same tab in both and one added to the contract
+later lands in both without an edit here.
+
+It is its **own component**, composed from the shared field controls. The block Layout tab is not
+given a class mode: its visibility rules are contextual by design and stay in the block editor.
+
+Sections, in the block tab's order, every property of each always present and editable:
+
+- **Container** — Layout (Flex or Grid); then two families under permanent labels, **Applies in
+  Flex** (direction, wrap) and **Applies in Grid** (columns); then what both use: content
+  alignment, align items, both gaps; then content width and gutter.
+- **Box** — width, placement, minimum height, overflow.
+- **As an item** — **Applies in a Grid parent** (span), **Applies in a Flex parent** (basis, grow,
+  shrink), and align self, which both use.
+
+The applicability labels are **permanent**: they describe the controls whether or not anything is
+set, and neither family is ever hidden, disabled or collapsed because of the other.
+
+**Not here:** Fill empty cells, the grid outline, any link to a parent or a selection, the
+structure picker, or any other action on a document. A class has no children and no stage.
+
+### 12.3 What the tab says about applicability
+
+The block tab's dormancy note (§3.3, §5) states a fact about one block. The class editor cannot:
+the cascade resolves **per property**, so a block — or a later class — may set Flex over this
+class's Grid while still taking this class's direction. "Unused while this class sets Grid" would
+be false there.
+
+- Where the class declares a mode and also holds settings of the other family, the tab says so
+  without predicting an outcome: **"Flex settings are retained. They apply wherever the block's
+  effective layout is Flex."** — and the counterpart for Grid.
+- Item settings carry the same qualification against the parent: **"These apply wherever the
+  block's parent lays out its children as a grid"** / **"… as flex"**.
+- Neither note is a warning and neither offers an action. Retained settings are not an error.
+
+**Capability guidance stays visible**, as a standing line on both class tabs, not a tooltip and not
+dismissible: a declaration applies only to blocks that support that property, and is kept but
+unused on the others (THEMING.md, "Style classes": "dormant elsewhere"). The editor presents every property
+because a class declares no capabilities; it must not read as a promise that every block the class
+is applied to will use every declaration.
+
+### 12.4 Absent, inherited, reset
+
+A declaration in a class is one of three things at a breakpoint, and the editor keeps them apart.
+All of it is judged through **the class's own** breakpoint inheritance — no other layer exists here.
+
+- **Set** at the breakpoint being edited.
+- **Inherited** — nothing declared at this breakpoint, and an earlier breakpoint of this class
+  supplies a value **or a reset**. The control shows what is inherited and **names the declaring
+  breakpoint**. An inherited reset is shown as inherited — "theme default, from base" — and not as
+  a reset authored here. The resolver reports both alike today (`state: 'reset'` at the target);
+  the declaring breakpoint comes from `declarationOrigin` (§11.1), as it does for the invalid-value
+  notice.
+- **Not set in this class** — shown **only** when no declaration applies through the class's own
+  breakpoint inheritance: nothing here and nothing at any earlier breakpoint. It replaces the label
+  `theme`, which the shared field shows today for this state and which is wrong in a class: the
+  value in force on any block is decided elsewhere — by another class, the block, or the theme —
+  and the editor does not know which. **No concrete value is presented for this state**: no dashed
+  default (§5's marker is the block tab's, where a default *is* in force), no pressed choice, no
+  token name.
+
+Two actions, named for what they do:
+
+- **Remove** deletes the declaration **at the breakpoint being edited**, and nothing else. It may
+  reveal an earlier breakpoint's declaration, which the control then shows as inherited; it does
+  **not** promise to leave the property unset. Offered only where a declaration exists at this
+  breakpoint (a value or a reset).
+- **Use theme default** writes an **explicit reset** at the breakpoint being edited: this class
+  now says "the theme's value, from here up", over whatever an earlier breakpoint or a lower layer
+  supplied. It remains distinguishable from Remove in the stored style, in the control's state
+  ("theme default, set here") and after a reload.
+
+**A property that is not responsive has no breakpoints, and the editor does not invent them.**
+`layout.overflow` is one — on the Style tab so are `radius`, the colours, `border.width` and
+`border.style` — and the validator refuses a breakpoint wrapper on any of them ("is not
+responsive"). For such a property:
+
+- it is stored **bare**, never under `base`, `md` or `lg`, whatever breakpoint the editor is on;
+- the control says **"Applies at all sizes"** in place of the breakpoint it would otherwise name;
+- its states are **set**, **theme default, set here** (an explicit reset) and **Not set in this
+  class**. There is **no inherited state**: nothing exists for it to inherit from;
+- **Remove** deletes the property's declaration and **Use theme default** writes a bare reset —
+  both act on the property itself, not on a breakpoint;
+- **"Apply to all breakpoints" is not offered**, and changing the breakpoint being edited changes
+  nothing about the control.
+
+**Every control on the tab carries these states and both actions** — including direction, wrap and
+columns, which the block tab draws as icon and track choices with a default marker and no reset of
+their own. Those controls are reused for the choosing; the state, the declaring breakpoint and the
+two actions come from the same field wrapper every other row uses.
+
+**The label correction applies to both class tabs.** The class editor's Style tab shows `theme` for
+an absent declaration today, for the same wrong reason; it shows "Not set in this class" under the
+same condition, with the same two action names. One editor does not describe one state two ways.
+**The block inspector is unchanged** — its labels, "Reset to theme" and "Clear" stay as they are;
+there, a theme default really is what is in force.
+
+### 12.5 Existing declarations survive
+
+- **Editing changes what was edited and nothing else.** A write is one declaration at one
+  breakpoint (or the three of "apply to all breakpoints"). Every other declaration in the class
+  comes through unchanged: properties on the other tab, other breakpoints of the same property,
+  and Flex or Grid settings that are not applicable under the class's own mode. Switching the
+  class's mode writes `layout.display` only — the other family's settings are retained (§12.3),
+  exactly as a mode switch on a block keeps them (§3.3).
+- **An unsupported stored value is never silently replaced.** A value the contract does not offer
+  — a stored `block` (§11.1), or any choice outside a property's list — is shown as **invalid**
+  by the control that owns it, with no valid choice pressed in its place, and is not rewritten by
+  opening the tab, changing breakpoint or editing another property. The **repair path of §11.1
+  is retained**: Needs attention names the value and its breakpoint, with Replace and Remove. Only
+  those two actions, or the author choosing a value on that control, change it.
+- A property the editor does not know — a path outside the schema — is likewise left untouched.
+
+**Preservation is the editor's; persistence is the server's.** The two claims above are about the
+editor's **working value and the payload it submits**: what it was given, it hands back, changed
+only where the author changed it. They are **not** a claim that such a class can be saved. The
+validator refuses an unsupported value and an unknown path today, naming the field, and **it is
+not relaxed** — a class holding either cannot be saved until it is repaired, however unrelated the
+edit being made. What the editor owes the author there:
+
+- a **rejected save keeps the draft** exactly as it was — every edit made, the invalid value still
+  in place — and **shows the validation error**, with the field it names;
+- the invalid value is already listed under Needs attention, so the way out is on the same page;
+- after the repair the same draft saves, carrying the edits made before the rejection.
+
+An unknown path has no control and no repair action here; it is preserved in the payload and the
+server's refusal names it. Nothing in this editor writes one.
+
+### 12.6 Proofs
+
+- **Reach:** every path the tab map assigns to Layout has a control on the class Layout tab, and
+  none is on the class Style tab; asserted from the schema and the map, so a property added later
+  fails here if it has no control. Width, placement and content alignment are named explicitly.
+- **No context:** with nothing set, both families and both item groups are present, enabled, and
+  carry their applicability labels; with Grid set the Flex family is still editable. No Fill
+  button, no default marker, no parent link anywhere in the class editor.
+- **Retention wording:** a class with Grid and a stored direction shows the retained-settings
+  note in the words above and no dormancy claim; the item notes likewise.
+- **States** (per control kind — token, choice, icon choice, track, box): a value at `base` read
+  at `md` is inherited and names `base`; a reset at `base` read at `md` is inherited, names `base`,
+  and is not shown as set here; nothing at any breakpoint reads "Not set in this class" with no
+  value presented; a value at `md` over a value at `base` is set.
+- **Actions:** Remove at `md` over a `base` value leaves the `base` declaration stored and the
+  control inherited from `base`; Use theme default at `md` stores `{type: reset}` at `md`, reads
+  "theme default, set here", and survives a save and reload as a reset, not as an absence.
+- **The editor's output** (no server): a class holding style declarations, layout declarations at
+  three breakpoints, both families' settings, a non-responsive declaration and an **unknown
+  path** is opened, one declaration is edited, and the value the editor emits differs from the
+  original in that one declaration only — by deep comparison. The same after switching the
+  class's mode, and after opening each tab and changing breakpoint with no edit at all (no
+  difference whatever).
+- **Save and reload, valid declarations:** a class of valid declarations — a value, an explicit
+  reset at `md`, a bare non-responsive value — is edited and saved; the save succeeds, and
+  reloaded the editor shows each in the state it was stored in.
+- **Rejected save, repair, save:** a class with a stored `block` at `md` has an unrelated
+  declaration edited and is saved; the save is **refused**, the error names the field, and the
+  draft still holds both the edit and the `block`. Replace (or Remove) under Needs attention
+  writes one declaration; the same draft then saves, and the reloaded class carries the earlier
+  edit. No validator change is part of this.
+- **Invalid values in the control:** a stored `block` at `md` shows invalid on the Layout control
+  with neither Flex nor Grid pressed; opening, switching breakpoint and editing another property
+  leave it in the emitted value as it was. A choice outside another property's list behaves the
+  same.
+- **Non-responsive (`layout.overflow`):** choosing a value emits it **bare** — no `base`, `md` or
+  `lg` key — from every breakpoint the editor can be on; the control reads "Applies at all sizes",
+  offers no "Apply to all breakpoints" and never shows an inherited state; Use theme default
+  emits a bare `{type: reset}` and Remove deletes the key; the emitted value passes the validator.
+  One Style-tab property (`radius`) is asserted the same way, since the correction covers both tabs.
+- **Both class tabs:** the Style tab shows "Not set in this class", Remove and Use theme default
+  under the same conditions. **The block inspector's** labels and actions are asserted unchanged.
+- **Capability guidance** is present on both tabs.

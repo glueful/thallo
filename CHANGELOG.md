@@ -7,6 +7,104 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.41] - 2026-09-18 — Developer Preview
+
+A container is Flex or Grid and nothing else; a grid can be seen and filled on the stage; and a
+style class can edit the layout it carries.
+
+### Upgrade Notes
+- **Breaking, with no content migration.** A container's layout is now Flex or Grid; the stacked
+  ("block") mode that beta.40 offered is gone. A container that was never given a mode needs
+  nothing: the default is a flex column that spaces its children as the stack did. A container or
+  a style class that *stored* the stacked mode is invalid — saving it is refused, naming the
+  field — and the Layout tab shows it as such with the way out (below).
+- The documented sequence applies (docs/upgrading.md), and nothing more is needed for the
+  stylesheet: the style schema and the compiler each move by one version, both are part of the
+  compiled stylesheet's hash, and it is compiled under the new hash on the first request after
+  PHP-FPM is reloaded. No migrations, no new permissions.
+- A theme that ships its own `blocks.css` must carry the container's new defaults
+  (THEMING.md §12.3a): the content area is a flex column with a `--space-5` gap, and no child of a
+  container has a default vertical margin in any mode.
+
+### Added
+- A grid is drawn on the stage. The Design view outlines a grid container's tracks — while it is
+  empty, while it or one of its children is selected, and while a block is dragged over it — so
+  choosing Grid and a track count shows something. The outline follows the breakpoint being
+  edited, takes no clicks, and exists only in the editor: nothing is stored and nothing reaches
+  the public page. An empty grid's "Drag a block here" now sits in the first cell rather than
+  across the whole row.
+- **Fill empty cells.** A grid whose last row has room offers to complete it with column
+  containers, each a place to build on its own — from the Layout tab under the Grid controls, and
+  from the placeholder of an empty grid on the stage. The whole fill is one change, so undo takes
+  every cell back together. When it cannot run the button stays, disabled, and says why: the last
+  row is full, or the grid sits too deep for a cell to hold a block.
+- A layout the contract no longer offers is shown as invalid rather than hidden. The Layout tab
+  names the value and the breakpoint it sits at and offers **Replace with Flex** and **Remove**;
+  when a style class supplies it, the tab names the class and opens it, and the class editor lists
+  it under "Needs attention" with the same two actions.
+
+- **A Layout tab in the style class editor.** A class can carry width, placement, content
+  alignment and every layout setting — mode, direction, wrap, tracks, alignment, gaps, content
+  width, gutter, minimum height, overflow, and the item settings — and now has somewhere to edit
+  them, beside Style. A class is applied to many blocks in many places, so its tab hides nothing
+  on the strength of a mode or a parent it does not have: every setting is always there, under a
+  label saying where it takes effect — Applies in Flex, Applies in Grid, Applies in a Grid parent,
+  Applies in a Flex parent. Where a class sets one mode and also holds the other's settings, the
+  tab says they are retained and where they apply, and predicts nothing: a block or another class
+  may set the mode differently and still take this class's direction. Both tabs carry a standing
+  note that a declaration applies only to blocks that support that property.
+
+### Changed
+- A container arranges its children as **Flex or Grid** — the separate stacked mode is removed,
+  since a flex column is a stack. An untouched container is a flex column whose gaps default to
+  the theme's block spacing (`spacing.xl`), so a stack keeps the distances it had. One rule covers
+  both modes and both axes, with a recorded consequence: a flex row or a grid whose gaps were never
+  set had none, and now gains `spacing.xl` between its items. Set the gap to None to have them
+  touch again.
+- The Layout tab opens on **Container**, then Box, then As an item. The mode is set once, under
+  the label Layout, as Flex or Grid, and the controls that mode uses — direction and wrap, or
+  tracks, then alignment and gaps — sit directly beneath it; the separate Children section is
+  gone. Controls that are unset show the default in force (dashed) instead of reading as empty.
+- An authored **Width** now asks for the width as well as limiting it: "fill the available space, up
+  to this maximum". Inside a container's default column a placed block therefore fills up to its
+  width instead of shrinking to its text, and in a flex row an authored width is the block's
+  starting size — which can change how a row's items are sized and where they wrap. A theme that
+  does not use `box-sizing: border-box` must account for a padded block with an authored width.
+
+- **In the style class editor, a setting says what the class declares.** An untouched setting
+  read "theme", which is true of a block and not of a class: what a block ends up with is decided
+  by its other classes, its own settings and the theme. It now reads **Not set in this class** —
+  only when nothing reaches that breakpoint from an earlier one — and otherwise **Inherited from
+  base** (or md), naming the breakpoint that declares it, **Theme default, set here**, or **Theme
+  default, from base**. A setting that does not vary by screen size — overflow, radius, the
+  colours, the border — says **Applies at all sizes**. The two actions are named for what they do:
+  **Remove** deletes the declaration at the breakpoint being edited, which may bring an earlier
+  one back into view, and **Use theme default** sets the theme's value from that breakpoint up.
+  The block inspector's wording is unchanged.
+
+### Fixed
+- Since beta.40 a style class could *hold* width, placement, content alignment and layout settings
+  — Save as style class lifts them, and they take effect on the page — and could not show or edit
+  any of them: those properties had moved to the block inspector's Layout tab, and the class
+  editor had only Style. See the new Layout tab, above.
+- In the style class editor, linked sides — padding, margin, and now gap — saved only one of the
+  sides they were meant to set: one click writes every side, and each write was built on the value
+  from before the click. All of them are kept now.
+- A style class that could not be saved said only that: the confirm dialog stayed open over the
+  form and nothing named the problem. The refusal now closes the dialog, lists each refused field
+  above the editor — the setting, its breakpoint and the reason — and leaves everything you typed
+  in place. A class that still holds a layout value the contract no longer offers is refused
+  until that value is repaired, whatever else you were editing; it is listed under Needs
+  attention on the same page, and once repaired the same draft saves.
+- In the Design view, ⌘Z and ⇧⌘Z did nothing after a click on the stage — selecting, moving,
+  duplicating or deleting a block there — because the keystroke stayed in the preview and never
+  reached the editor; only the toolbar's buttons worked. The stage now passes undo and redo on.
+  While you are typing in a block, ⌘Z is still the undo of your typing.
+- The Design view of a page that had never held a block — created with a title and nothing else —
+  showed no "Drag a block here" and no +, and a block dragged onto the empty page did nothing;
+  only clicking a block in the Blocks tab worked, after which both appeared. The stage now has its
+  empty body to drop into from the start.
+
 ## [1.0.0-beta.40] - 2026-09-18 — Developer Preview
 
 Layout is a setting: one Container arranges its children as a stack, a flex row or a grid, and

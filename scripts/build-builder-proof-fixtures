@@ -128,6 +128,30 @@ $entries->saveDraft(
                     'data' => ['label' => 'Start', 'url' => '/start'], 'settings' => []],
             ],
         ], 'settings' => []],
+        // The grid on the stage (container-layout spec §11.2): an empty grid, whose tracks are
+        // outlined from the start with the placeholder in the first, and one whose child spans
+        // two of its three tracks, leaving a cell free.
+        ['id' => 'gridempty001', 'type' => 'container', 'data' => ['element' => 'div', 'content' => []],
+            'settings' => ['style' => ['layout' => [
+                'display' => ['base' => ['type' => 'choice', 'value' => 'grid']],
+                // One track below md and three from it: resizing the stage across md changes the
+                // number of cells the outline has to draw, not only where they are.
+                'columns' => [
+                    'base' => ['type' => 'choice', 'value' => '1'],
+                    'md' => ['type' => 'choice', 'value' => '3'],
+                ],
+                'content_width' => ['base' => ['type' => 'token', 'value' => 'width.container']],
+            ]]]],
+        ['id' => 'gridspan0001', 'type' => 'container', 'data' => ['element' => 'div', 'content' => [
+            ['id' => 'gridspanh001', 'type' => 'heading', 'data' => ['text' => 'Spans two'],
+                'settings' => ['style' => ['layout' => [
+                    'span' => ['base' => ['type' => 'choice', 'value' => '2']],
+                ]]]],
+        ]], 'settings' => ['style' => ['layout' => [
+            'display' => ['base' => ['type' => 'choice', 'value' => 'grid']],
+            'columns' => ['base' => ['type' => 'choice', 'value' => '3']],
+            'content_width' => ['base' => ['type' => 'token', 'value' => 'width.container']],
+        ]]]],
     ]],
     (int) $page['schema_version'],
     (int) ($draft['lock_version'] ?? 0),
