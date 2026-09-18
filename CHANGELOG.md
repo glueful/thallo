@@ -7,6 +7,26 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.40] - 2026-09-18 — Developer Preview
+
+Layout is a setting: one Container arranges its children as a stack, a flex row or a grid, and
+Columns, Grid and Section are compositions of it.
+
+### Upgrade Notes
+- The documented sequence applies (docs/upgrading.md): `composer update`, then
+  `php glueful thallo:provision`, then reload PHP-FPM so OPcache drops the previous release's
+  classes. No migrations, no new permissions; framework 1.85.8 remains the requirement.
+- **Breaking, with no content migration.** The Columns, Grid and Section blocks are removed, and
+  the Container's layout moved from data fields to style settings. Stored content is not
+  converted: a Columns, Grid or Section block already in an entry renders nothing on the public
+  page (an HTML comment, and a logged miss), and a Container keeps its children but loses the
+  width, minimum height and alignment it was given. Rebuild those parts from a Container — the
+  structure picker's presets produce each of the old arrangements.
+- A theme that overrides `container.twig` must follow the new contract (THEMING.md §12.3a): the
+  root tag comes from `data.element`, and `style_classes('inner')` goes on the inner element.
+  Overrides of `columns.twig`, `grid.twig` and `section.twig` are no longer rendered.
+- Column layouts now begin at 768px rather than 641px.
+
 ### Added
 - A Layout tab in the block inspector, beside Content: Box (width, placement, minimum height,
   overflow), Container (how children are arranged, the content width and its gutter) and Children
