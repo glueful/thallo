@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router'
 import { useStyleClassMutations } from '@/queries/styleClasses'
 import { useNotify } from '@/composables/useNotify'
 import StyleClassEditor from './components/StyleClassEditor.vue'
+import StyleClassSaveErrors from './components/StyleClassSaveErrors.vue'
+import { ApiError } from '@/api/errors'
 
 definePage({ meta: { requiresAuth: true } })
 
@@ -15,7 +17,11 @@ const name = ref('')
 const description = ref('')
 const style = ref<Record<string, unknown>>({})
 
+/** The fields the server refused (spec §12.5): what was typed stays; this says what to fix. */
+const saveErrors = ref<Record<string, string>>({})
+
 async function onCreate() {
+  saveErrors.value = {}
   try {
     const created = await create.mutateAsync({
       name: name.value.trim(),
@@ -25,6 +31,7 @@ async function onCreate() {
     success('Style class created', 'Apply it from a block’s Advanced tab.')
     await router.push(`/settings/style-classes/${created.id}`)
   } catch (e) {
+    if (e instanceof ApiError) saveErrors.value = e.fieldErrors
     notifyError(e, 'Couldn’t create the style class')
   }
 }
@@ -70,6 +77,7 @@ async function onCreate() {
         </UCard>
         <UCard class="lg:col-span-2">
           <template #header><h2 class="font-semibold text-default">Style</h2></template>
+          <StyleClassSaveErrors :errors="saveErrors" class="mb-4" />
           <StyleClassEditor v-model="style" />
         </UCard>
       </div>

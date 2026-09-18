@@ -240,7 +240,9 @@ Extend the repair spec: the capability note is present with either tab open; Nee
 
 ## Task 3.1: a refused save keeps the draft and names the field
 
-**Files:** Modify `admin/src/pages/settings/style-classes/[id].vue` and `new.vue`. Test: extend `admin/src/__tests__/styleClassesPage.spec.ts`; create `tests/Integration/Content/StyleClassEditorPayloadsTest.php`.
+**Files:** Modify `admin/src/pages/settings/style-classes/[id].vue` and `new.vue`. Create `…/components/saveErrors.ts` (`describeSaveErrors`: key → property label, breakpoint, the server's message; an unmappable key shown raw) and `…/components/StyleClassSaveErrors.vue`, shared by both pages. Test: create `admin/src/__tests__/style-class-save.spec.ts` — its own file, not `styleClassesPage.spec.ts`, whose file-wide schema mock carries two properties and whose existing tests depend on that — and `tests/Integration/Content/StyleClassEditorPayloadsTest.php`.
+
+**Confirmed in Step 1:** `ApiError.fieldErrors` already flattens `Response::validation()`'s `error.details` to `{ field: message }`; the pages read that and parse nothing. The server's message for the refused mode is `must be one of flex, grid`, asserted in the PHP test so the string the admin test quotes is held on both sides.
 
 **Read first:** `StyleClassController::style()` returns `Response::validation($errors)` with keys like `style.layout.display.md`; `[id].vue`'s `onSave` today toasts `Couldn’t save the style class` and nothing else. Confirm in Step 1 the exact body shape the admin receives for a validation response (`apiErrorDetails`, `admin/src/api/errors.ts`) by reading an existing page that renders field errors, and reuse its helper rather than parsing the body again.
 
@@ -264,8 +266,8 @@ Extend the repair spec: the capability note is present with either tab open; Nee
   - a **preserved** invalid value or unknown path (`invalid_value`, `unknown_path`) is emitted **on purpose** (§12.5) and refused **on purpose**. That refusal is the contract working, and is exactly what the admin half of this task handles; it is not a defect in either side.
   - `wrapped_non_responsive` is a shape the editor must **never author**: the PHP test proves the server refuses it, and Task 2.2's bare-emission test proves the editor does not produce it.
 
-- [ ] **Steps 1–4.**
-- [ ] **Step 5: Commit** `feat(style-classes): a refused save keeps the draft and names the field; the editor's payloads proven against the validator`.
+- [x] **Steps 1–4.**
+- [x] **Step 5: Commit** `feat(style-classes): a refused save keeps the draft and names the field; the editor's payloads proven against the validator`.
 
 ## Task 4.1: documentation
 
