@@ -49,8 +49,9 @@ test('the placeholder after the last body block arms the end of body and a tile 
   const h = await historyLength(page, 1)
   expect(h.history[0]!.ops[0]).toMatchObject({
     type: 'InsertBlock',
-    // The end of body: two sections, two siblings, the grid container and the cta precede it.
-    position: { parent: null, slot: 'body', index: 6 },
+    // The end of body: two sections, two siblings, the grid container, the cta and the outline
+    // proof's two grids precede it.
+    position: { parent: null, slot: 'body', index: 8 },
     block: { type: 'heading' },
   })
 })

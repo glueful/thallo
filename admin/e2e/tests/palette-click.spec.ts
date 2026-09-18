@@ -31,6 +31,8 @@ test('the stage + arms the tab after the container and Enter inserts the first m
     'head0000000b',
     'grid00000001',
     'ctaa00000001',
+    'gridempty001',
+    'gridspan0001',
   ])
   await expect(strip).toHaveCount(0) // consumed
 })

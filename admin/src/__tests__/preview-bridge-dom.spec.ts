@@ -2919,3 +2919,202 @@ describe('the structure picker on the stage (container-layout spec §6.2)', () =
     expect(tilesIn(main.children[0] as HTMLElement)).not.toBeNull()
   })
 })
+
+describe('the grid on the stage (container-layout spec §11.2)', () => {
+  // jsdom lays nothing out, so the slot's resolved tracks and every rectangle are stubbed; the
+  // real geometry — inert and aligned — is proven in the browser (admin/e2e grid-outline.spec).
+  const realComputed = window.getComputedStyle
+  let styles = new Map<Element, Record<string, string>>()
+
+  beforeEach(() => {
+    styles = new Map()
+    window.getComputedStyle = ((el: Element) => {
+      const own = styles.get(el)
+      if (!own) return realComputed(el)
+      return {
+        ...own,
+        getPropertyValue: (p: string) => own[p] ?? '',
+      } as unknown as CSSStyleDeclaration
+    }) as typeof window.getComputedStyle
+  })
+  afterEach(() => {
+    window.getComputedStyle = realComputed
+  })
+
+  const rectOf = (left: number, top: number, width: number, height: number) =>
+    ({
+      left,
+      top,
+      width,
+      height,
+      right: left + width,
+      bottom: top + height,
+      x: left,
+      y: top,
+    }) as DOMRect
+  const pin = (el: Element, r: DOMRect) =>
+    Object.defineProperty(el, 'getBoundingClientRect', { configurable: true, value: () => r })
+
+  /** A container whose content slot is a grid of `cols`, 40px rows, 10px gaps, at (0, 0). */
+  function grid(
+    id: string,
+    cols: number[],
+    children: { id: string; col: number; span?: number; row?: number }[],
+  ) {
+    document.body.innerHTML = '<main></main>'
+    const main = document.body.querySelector('main')!
+    const el = document.createElement('div')
+    el.className = 'thallo-preview-block'
+    el.setAttribute('data-thallo-block', id)
+    el.innerHTML = '<section><div data-thallo-slot="content"></div></section>'
+    main.append(el)
+    const slot = el.querySelector<HTMLElement>('[data-thallo-slot]')!
+    const rows = Math.max(1, ...children.map((c) => (c.row ?? 0) + 1))
+    const x = (col: number) => cols.slice(0, col).reduce((a, b) => a + b + 10, 0)
+    for (const c of children) {
+      const child = wrapper(c.id, '<h2>child</h2>')
+      slot.append(child)
+      const span = c.span ?? 1
+      const width = cols.slice(c.col, c.col + span).reduce((a, b) => a + b, 0) + (span - 1) * 10
+      pin(child.firstElementChild!, rectOf(x(c.col), (c.row ?? 0) * 50, width, 40))
+    }
+    const total = cols.reduce((a, b) => a + b, 0) + (cols.length - 1) * 10
+    pin(slot, rectOf(0, 0, total, rows * 40 + (rows - 1) * 10))
+    styles.set(slot, {
+      display: 'grid',
+      gridTemplateColumns: cols.map((c) => `${c}px`).join(' '),
+      gridTemplateRows: Array(rows).fill('40px').join(' '),
+      columnGap: '10px',
+      rowGap: '10px',
+      paddingLeft: '0px',
+      paddingTop: '0px',
+      borderLeftWidth: '0px',
+      borderTopWidth: '0px',
+    })
+    return { el, slot }
+  }
+  const remark = () => sendToBridge({ type: 'thallo:structure-offer', offers: [] })
+  const select = (id: string) => sendToBridge({ type: 'thallo:highlight', id, ids: [id] })
+  const layer = () => document.querySelector<HTMLElement>('.thallo-grid-outline')
+  const cells = () =>
+    [...document.querySelectorAll<HTMLElement>('.thallo-grid-outline__cell')].map((c) => ({
+      free: c.classList.contains('thallo-grid-outline__cell--free'),
+      width: c.style.width,
+      height: c.style.height,
+      at: c.style.transform,
+    }))
+
+  it('an empty grid is outlined track by track, with its placeholder marked to take one cell', () => {
+    const { slot } = grid('go-a-0000001', [100, 100, 100], [])
+    remark()
+    expect(slot.hasAttribute('data-thallo-slot-grid')).toBe(true)
+    expect(slot.querySelector(':scope > .thallo-slot-placeholder')).not.toBeNull()
+    expect(cells()).toEqual([
+      { free: true, width: '100px', height: '40px', at: 'translate(0px, 0px)' },
+      { free: true, width: '100px', height: '40px', at: 'translate(110px, 0px)' },
+      { free: true, width: '100px', height: '40px', at: 'translate(220px, 0px)' },
+    ])
+  })
+
+  it("the layer is the body's, never inside a slot, so no structural rule can see it", () => {
+    grid('go-b-0000002', [100, 100], [])
+    remark()
+    expect(layer()!.parentElement).toBe(document.body)
+    expect(layer()!.closest('[data-thallo-slot]')).toBeNull()
+    expect(document.querySelectorAll('.thallo-grid-outline')).toHaveLength(1)
+  })
+
+  it('a populated grid is outlined only while it or one of its children is selected', () => {
+    const { slot } = grid('go-c-0000003', [100, 100, 100], [{ id: 'go-c-child-01', col: 0 }])
+    remark()
+    // Populated and nothing selected: no outline, and — as ever — no placeholder.
+    expect(layer()).toBeNull()
+    expect(slot.querySelector(':scope > .thallo-slot-placeholder')).toBeNull()
+
+    select('go-c-child-01') // a child
+    expect(cells().map((c) => c.free)).toEqual([false, true, true])
+    expect(slot.querySelector(':scope > .thallo-slot-placeholder')).toBeNull()
+
+    select('go-c-0000003') // the container itself
+    expect(cells()).toHaveLength(3)
+
+    sendToBridge({ type: 'thallo:highlight', id: '', ids: [] })
+    expect(layer()).toBeNull()
+  })
+
+  it('a full row is outlined and nothing is added to it', () => {
+    const { slot } = grid(
+      'go-d-0000004',
+      [100, 100],
+      [
+        { id: 'go-d-child-01', col: 0 },
+        { id: 'go-d-child-02', col: 1 },
+      ],
+    )
+    select('go-d-0000004')
+    expect(cells().map((c) => c.free)).toEqual([false, false])
+    expect(slot.children).toHaveLength(2)
+  })
+
+  it('a child spanning two of three tracks is one cell across both, and one stays free', () => {
+    grid('go-e-0000005', [100, 100, 100], [{ id: 'go-e-child-01', col: 0, span: 2 }])
+    select('go-e-0000005')
+    expect(cells()).toEqual([
+      { free: false, width: '210px', height: '40px', at: 'translate(0px, 0px)' },
+      { free: true, width: '100px', height: '40px', at: 'translate(220px, 0px)' },
+    ])
+  })
+
+  it('outlines the proportions of an asymmetric split', () => {
+    grid('go-f-0000006', [75, 150, 75], [])
+    remark()
+    expect(cells().map((c) => c.width)).toEqual(['75px', '150px', '75px'])
+  })
+
+  it('draws every row of a grid that has wrapped', () => {
+    grid(
+      'go-g-0000007',
+      [100, 100],
+      [
+        { id: 'go-g-child-01', col: 0, row: 0 },
+        { id: 'go-g-child-02', col: 1, row: 0 },
+        { id: 'go-g-child-03', col: 0, row: 1 },
+      ],
+    )
+    select('go-g-0000007')
+    expect(cells().map((c) => [c.free, c.at])).toEqual([
+      [false, 'translate(0px, 0px)'],
+      [false, 'translate(110px, 0px)'],
+      [false, 'translate(0px, 50px)'],
+      [true, 'translate(110px, 50px)'],
+    ])
+  })
+
+  it('a flex slot gets no outline and keeps the full-row placeholder', () => {
+    const { slot } = grid('go-h-0000008', [300], [])
+    styles.set(slot, { ...styles.get(slot)!, display: 'flex' })
+    remark()
+    expect(layer()).toBeNull()
+    expect(slot.hasAttribute('data-thallo-slot-grid')).toBe(false)
+    expect(slot.querySelector(':scope > .thallo-slot-placeholder')).not.toBeNull()
+  })
+
+  it('follows the slot when the mode changes under it', () => {
+    const { slot } = grid('go-i-0000009', [100, 100], [])
+    remark()
+    expect(cells()).toHaveLength(2)
+    styles.set(slot, { ...styles.get(slot)!, display: 'flex' })
+    remark()
+    expect(layer()).toBeNull()
+    expect(slot.hasAttribute('data-thallo-slot-grid')).toBe(false)
+  })
+
+  it('takes no part in the markup the bridge serialises or the slots it marks', () => {
+    const { slot } = grid('go-j-0000010', [100, 100], [])
+    remark()
+    // Still empty by the bridge's own reckoning, with the outline drawn.
+    expect(slot.hasAttribute('data-thallo-slot-empty')).toBe(true)
+    expect(layer()!.getAttribute('style')).toBeNull() // CSP pin: appearance is preview.css's
+    expect(layer()!.getAttribute('aria-hidden')).toBe('true')
+  })
+})

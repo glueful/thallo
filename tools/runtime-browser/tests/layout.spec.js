@@ -351,6 +351,17 @@ test('every layout case has a built fixture and an expectation', () => {
   expect(Object.keys(CASES).sort()).toEqual(names);
 });
 
+test('nothing of the stage reaches a public page', () => {
+  // The grid outline, the slot marking it hangs from and the placeholder are the design stage's
+  // (container-layout spec §11.2): canvas only, never part of what a visitor is served.
+  for (const name of names) {
+    const html = fs.readFileSync(path.join(FIXTURES, `${name}.html`), 'utf8');
+    for (const marker of ['thallo-grid-outline', 'data-thallo-slot', 'thallo-slot-placeholder']) {
+      expect(html.includes(marker), `${name}.html carries ${marker}`).toBe(false);
+    }
+  }
+});
+
 for (const name of names) {
   const expectations = CASES[name] || {};
   for (const [suffix, rendering] of [

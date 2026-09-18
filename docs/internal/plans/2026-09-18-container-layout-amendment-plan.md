@@ -229,8 +229,8 @@ The section labelled Children no longer exists. `data-test` names of controls th
 **Tests (builder proof, real browser) — inert:** each child's bounding box in `gridspan0001` and `grid00000001` is identical before selection and with the outline shown; the layer takes no pointer events (a click through it selects the block beneath); nothing of it exists in `tools/runtime-browser/fixtures/layout/*.html` public pages.
 **Tests (builder proof, real browser) — aligned.** Identical child boxes prove the outline moves nothing; they do not prove it stays where the grid is. With the outline shown, each outlined cell's rectangle must equal the rectangle of the track it outlines — computed in the test from the slot's resolved `grid-template-columns`, gaps and padding box — within 1px: (a) as first drawn; (b) after the viewport is resized across the `md` boundary, where the track count changes, and the cell count with it; (c) after the stage is scrolled; (d) after an image inserted above the grid by the test, whose response the route holds back, finishes loading and pushes the grid down. The repositioning triggers stay the implementation's choice; these four are what they must satisfy.
 
-- [ ] **Steps 1–4.**
-- [ ] **Step 5: Commit** `feat(canvas): a grid is drawn on the stage — outlined tracks, and the empty grid's placeholder in its first cell`.
+- [x] **Steps 1–4.**
+- [x] **Step 5: Commit** `feat(canvas): a grid is drawn on the stage — outlined tracks, and the empty grid's placeholder in its first cell`.
 
 ## Task 3.2: occupancy — which cells an appended block can reach
 

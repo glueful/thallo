@@ -15,10 +15,11 @@ test("Move to… from the outline reparents a button into the second section's e
   await dialog.locator('[data-test="move-to-destination"]').click()
   // Every container's slot is labelled the same, so the destination is named by its place in the
   // document order the dialog lists: sect1, cols1, cont1, cont2, sect2, cols2, cont3, then the
-  // empty column — the eighth — and last the root grid. The count is asserted first, so a fixture
-  // that gains or loses a container fails here instead of quietly moving the block elsewhere.
+  // empty column — the eighth — then the root grid, and the outline proof's two grids. The count
+  // is asserted first, so a fixture that gains or loses a container fails here instead of quietly
+  // moving the block elsewhere.
   const containers = page.getByRole('option', { name: 'Container › content' })
-  await expect(containers).toHaveCount(9)
+  await expect(containers).toHaveCount(11)
   await containers.nth(7).click()
   await dialog.locator('[data-test="move-to-confirm"]').click()
 
