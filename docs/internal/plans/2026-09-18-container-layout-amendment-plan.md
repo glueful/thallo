@@ -204,8 +204,8 @@ The section labelled Children no longer exists. `data-test` names of controls th
 
 **Tests:** the section headings are exactly `Container`, `Box`, `As an item`, in that order, for a container that is also an item; a non-container block shows `Box` and `As an item` only; the group under Container is headed `Layout` and offers exactly Flex and Grid; one element in the tab sets `layout.display`; with Flex in force the direction, wrap, justify, align and gap controls sit between Layout and Content width, and no track swatch renders; with Grid in force the swatches do and direction does not; the dormant notice still names the kept-but-unused paths after a Flex → Grid switch; Button and Navigation still show `alignment.content` in Box — the existing `contentOnly` rule, which does not depend on the removed section (§5).
 
-- [ ] **Steps 1–4.**
-- [ ] **Step 5: Commit** `feat(inspector): the Layout tab opens on Container — the mode set once, its controls under Layout`.
+- [x] **Steps 1–4.**
+- [x] **Step 5: Commit** `feat(inspector): the Layout tab opens on Container — the mode set once, its controls under Layout`.
 
 ---
 

@@ -143,13 +143,78 @@ beforeEach(() => {
 })
 
 describe('sections follow what the block declares', () => {
-  it('a container shows Box, Container and Children', () => {
+  it('a container opens on Container, then Box — and has no Children section', () => {
+    // Spec §5 as amended: Container is what an author came for, so it comes first; the section
+    // that set the mode a second time and held the controls that belong under Layout is gone.
     const w = mountTab({ block: block('c1', 'container'), blockType: container })
+    expect(sectionsOf(w)).toEqual(['layout-group-container', 'layout-group-box'])
+    expect(w.find('[data-test="layout-group-children"]').exists()).toBe(false)
+  })
+
+  it('a container that is also an item ends with As an item', () => {
+    const w = mountTab({
+      block: block('c2', 'container'),
+      blockType: container,
+      parent: block('c1', 'container'),
+      parentType: container,
+    })
     expect(sectionsOf(w)).toEqual([
-      'layout-group-box',
       'layout-group-container',
-      'layout-group-children',
+      'layout-group-box',
+      'layout-group-item',
     ])
+  })
+
+  it('the mode is headed Layout, offers Flex and Grid, and is set by one control', () => {
+    const w = mountTab({ block: block('c1', 'container'), blockType: container })
+    const mode = w.find('[data-test="style-field-layout.display"]')
+    expect(mode.text()).toContain('Layout')
+    expect(mode.text()).not.toContain('Children')
+    const choices = mode.findAll('[data-test^="choice-"]').map((el) => el.attributes('data-test'))
+    expect(choices).toEqual(['choice-flex', 'choice-grid'])
+    // No second control anywhere in the tab writes layout.display.
+    expect(w.findAll('[data-test="choice-grid"]')).toHaveLength(1)
+  })
+
+  it("the mode's controls sit under Layout, before Content width — inside Container", () => {
+    const order = (w: ReturnType<typeof mountTab>) =>
+      w
+        .find('[data-test="layout-group-container"]')
+        .findAll(
+          '[data-test="style-field-layout.display"], [data-test="layout-mode-controls"], [data-test="style-field-layout.content_width"], [data-test="style-field-layout.gutter"]',
+        )
+        .map((el) => el.attributes('data-test'))
+    const flex = mountTab({ block: block('c1', 'container'), blockType: container })
+    expect(order(flex)).toEqual([
+      'style-field-layout.display',
+      'layout-mode-controls',
+      'style-field-layout.content_width',
+      'style-field-layout.gutter',
+    ])
+    const controls = flex.find('[data-test="layout-mode-controls"]')
+    expect(controls.find('[data-test="layout-field-layout.direction"]').exists()).toBe(true)
+    expect(controls.find('[data-test="layout-field-layout.columns"]').exists()).toBe(false)
+
+    const grid = mountTab({
+      block: block('c1', 'container', { layout: { display: { base: choice('grid') } } }),
+      blockType: container,
+    })
+    const gridControls = grid.find('[data-test="layout-mode-controls"]')
+    expect(gridControls.find('[data-test="layout-field-layout.columns"]').exists()).toBe(true)
+    expect(gridControls.find('[data-test="layout-field-layout.direction"]').exists()).toBe(false)
+  })
+
+  it('the kept-but-unused notice stays inside Container after a mode switch', () => {
+    const w = mountTab({
+      block: block('c1', 'container', {
+        layout: { display: { base: choice('grid') }, direction: { base: choice('row') } },
+      }),
+      blockType: container,
+    })
+    const notice = w
+      .find('[data-test="layout-group-container"]')
+      .find('[data-test="layout-dormant-parent"]')
+    expect(notice.text()).toContain('Direction')
   })
 
   it('a heading shows Box alone, with width and placement', () => {
@@ -161,8 +226,8 @@ describe('sections follow what the block declares', () => {
   })
 
   it('a button keeps content alignment without becoming a container', () => {
-    // Spec §5: Button and Navigation distribute their own content; they gain no Container or
-    // Children section from that one capability.
+    // Spec §5: Button and Navigation distribute their own content; they gain no Container
+    // section from that one capability — the control sits with the block's own Box.
     const w = mountTab({ block: block('b1', 'button'), blockType: button })
     expect(sectionsOf(w)).toEqual(['layout-group-box'])
     expect(w.find('[data-test="style-field-alignment.content"]').exists()).toBe(true)
@@ -176,7 +241,7 @@ describe('sections follow what the block declares', () => {
   })
 })
 
-describe('Children follows the mode in force', () => {
+describe('the controls under Layout follow the mode in force', () => {
   it('an untouched container is a flex column: direction and wrap, no tracks, no dead end', () => {
     // Flex and Grid only (spec §11.1): nothing declared is the theme's flex column, so the flex
     // controls are there from the start and no line tells the author to switch mode first.
