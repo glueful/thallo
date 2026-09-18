@@ -71,7 +71,7 @@ final class SetupServiceTest extends AppTestCase
 
         self::assertGreaterThanOrEqual(40, $expected, 'sanity: the starter library is the full one');
         self::assertCount($expected, $slugs);
-        foreach (['rich_text', 'hero', 'image', 'heading', 'cta', 'html', 'section'] as $slug) {
+        foreach (['rich_text', 'hero', 'image', 'heading', 'cta', 'html', 'container'] as $slug) {
             self::assertContains($slug, $slugs);
         }
     }

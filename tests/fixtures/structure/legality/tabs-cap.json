@@ -5,8 +5,8 @@
       "name": "a thirteenth tab",
       "blockTypes": [
         {
-          "slug": "section",
-          "label": "Section",
+          "slug": "container",
+          "label": "Container",
           "schema": [
             {
               "name": "content",

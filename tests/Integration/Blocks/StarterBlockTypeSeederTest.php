@@ -20,8 +20,8 @@ final class StarterBlockTypeSeederTest extends AppTestCase
     {
         $repo = new BlockTypeRepository($this->connection());
         $repo->create([
-            'slug' => 'section',
-            'label' => 'Custom section',
+            'slug' => 'container',
+            'label' => 'Custom container',
             'schema' => [['name' => 'x', 'type' => 'string']],
         ]);
         $repo->create([
@@ -34,11 +34,11 @@ final class StarterBlockTypeSeederTest extends AppTestCase
         $report = $this->container()->get(StarterBlockTypeSeeder::class)->seedMissing();
 
         self::assertCount($total - 2, $report['created']);
-        self::assertSame(['section', 'rich_text'], $report['skipped']);
+        self::assertSame(['container', 'rich_text'], $report['skipped']);
         self::assertContains('hero', $report['created']);
         self::assertSame(
-            'Custom section',
-            $repo->findBySlug('section')['label'] ?? null,
+            'Custom container',
+            $repo->findBySlug('container')['label'] ?? null,
             'existing rows are never touched',
         );
         self::assertCount($total, $this->connection()->table('block_types')->select(['slug'])->get());

@@ -35,6 +35,7 @@ test('Alt+ArrowDown moves the selected sections past the heading that follows th
     'sect00000002',
     'head0000000b',
     'grid00000001',
+    'ctaa00000001',
   ])
   expect(h.selection.ids).toEqual(['sect00000001', 'sect00000002'])
 

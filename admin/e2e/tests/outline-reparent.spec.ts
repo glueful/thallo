@@ -13,8 +13,13 @@ test("Move to… from the outline reparents a button into the second section's e
   const dialog = page.getByRole('dialog', { name: 'Move to…' })
   await dialog.waitFor()
   await dialog.locator('[data-test="move-to-destination"]').click()
-  // Two columns blocks offer a col_2; the second in document order is the empty one.
-  await page.getByRole('option', { name: 'Columns › col_2' }).last().click()
+  // Every container's slot is labelled the same, so the destination is named by its place in the
+  // document order the dialog lists: sect1, cols1, cont1, cont2, sect2, cols2, cont3, then the
+  // empty column — the eighth — and last the root grid. The count is asserted first, so a fixture
+  // that gains or loses a container fails here instead of quietly moving the block elsewhere.
+  const containers = page.getByRole('option', { name: 'Container › content' })
+  await expect(containers).toHaveCount(9)
+  await containers.nth(7).click()
   await dialog.locator('[data-test="move-to-confirm"]').click()
 
   const h = await historyLength(page, 1)
@@ -23,10 +28,10 @@ test("Move to… from the outline reparents a button into the second section's e
       type: 'MoveBlock',
       block: 'butn00000001',
       from: { parent: 'cont00000002', slot: 'content', index: 0 },
-      to: { parent: 'cols00000002', slot: 'col_2', index: 0 },
+      to: { parent: 'colb00000002', slot: 'content', index: 0 },
     }),
   ])
-  expect(idsIn(h.document, ['body', 1, 'data', 'content', 0, 'data', 'col_2'])).toEqual([
-    'butn00000001',
-  ])
+  expect(
+    idsIn(h.document, ['body', 1, 'data', 'content', 0, 'data', 'content', 1, 'data', 'content']),
+  ).toEqual(['butn00000001'])
 })

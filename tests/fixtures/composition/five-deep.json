@@ -3,15 +3,16 @@
   "body": [
     {
       "id": "sect00000001",
-      "type": "section",
+      "type": "container",
       "data": {
+        "element": "section",
         "content": [
           {
             "id": "cols00000001",
-            "type": "columns",
+            "type": "container",
             "data": {
-              "layout": "2",
-              "col_1": [
+              "element": "div",
+              "content": [
                 {
                   "id": "card00000001",
                   "type": "card",
@@ -22,13 +23,14 @@
                         "id": "cont00000001",
                         "type": "container",
                         "data": {
+                          "element": "div",
                           "content": [
                             {
                               "id": "head00000001",
                               "type": "heading",
                               "data": {
-                                "text": "Five deep",
-                                "level": "h2"
+                                "level": "h2",
+                                "text": "Five deep"
                               },
                               "settings": {
                                 "style": {
@@ -65,9 +67,7 @@
                     ]
                   },
                   "settings": {}
-                }
-              ],
-              "col_2": [
+                },
                 {
                   "id": "card00000002",
                   "type": "card",
@@ -78,13 +78,16 @@
                         "id": "cont00000002",
                         "type": "container",
                         "data": {
+                          "element": "div",
                           "content": [
                             {
                               "id": "butn00000001",
                               "type": "button",
                               "data": {
-                                "label": "Go",
-                                "url": "#"
+                                "label": "Get started",
+                                "url": "/go",
+                                "variant": "solid",
+                                "color": "primary"
                               },
                               "settings": {
                                 "style": {
@@ -118,7 +121,70 @@
                 }
               ]
             },
-            "settings": {}
+            "settings": {
+              "style": {
+                "layout": {
+                  "display": {
+                    "base": {
+                      "type": "choice",
+                      "value": "grid"
+                    },
+                    "md": {
+                      "type": "choice",
+                      "value": "grid"
+                    },
+                    "lg": {
+                      "type": "choice",
+                      "value": "grid"
+                    }
+                  },
+                  "columns": {
+                    "base": {
+                      "type": "choice",
+                      "value": "1"
+                    },
+                    "md": {
+                      "type": "choice",
+                      "value": "2"
+                    },
+                    "lg": {
+                      "type": "choice",
+                      "value": "2"
+                    }
+                  },
+                  "gap": {
+                    "column": {
+                      "base": {
+                        "type": "token",
+                        "value": "spacing.lg"
+                      },
+                      "md": {
+                        "type": "token",
+                        "value": "spacing.lg"
+                      },
+                      "lg": {
+                        "type": "token",
+                        "value": "spacing.lg"
+                      }
+                    },
+                    "row": {
+                      "base": {
+                        "type": "token",
+                        "value": "spacing.lg"
+                      },
+                      "md": {
+                        "type": "token",
+                        "value": "spacing.lg"
+                      },
+                      "lg": {
+                        "type": "token",
+                        "value": "spacing.lg"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         ]
       },
@@ -139,15 +205,16 @@
     },
     {
       "id": "sect00000002",
-      "type": "section",
+      "type": "container",
       "data": {
+        "element": "section",
         "content": [
           {
             "id": "cols00000002",
-            "type": "columns",
+            "type": "container",
             "data": {
-              "layout": "2",
-              "col_1": [
+              "element": "div",
+              "content": [
                 {
                   "id": "card00000003",
                   "type": "card",
@@ -158,13 +225,14 @@
                         "id": "cont00000003",
                         "type": "container",
                         "data": {
+                          "element": "div",
                           "content": [
                             {
                               "id": "head00000002",
                               "type": "heading",
                               "data": {
-                                "text": "Five deep again",
-                                "level": "h2"
+                                "level": "h2",
+                                "text": "Five deep again"
                               },
                               "settings": {
                                 "style": {
@@ -201,11 +269,82 @@
                     ]
                   },
                   "settings": {}
+                },
+                {
+                  "id": "colb00000002",
+                  "type": "container",
+                  "data": {
+                    "element": "div",
+                    "content": []
+                  },
+                  "settings": {}
                 }
-              ],
-              "col_2": []
+              ]
             },
-            "settings": {}
+            "settings": {
+              "style": {
+                "layout": {
+                  "display": {
+                    "base": {
+                      "type": "choice",
+                      "value": "grid"
+                    },
+                    "md": {
+                      "type": "choice",
+                      "value": "grid"
+                    },
+                    "lg": {
+                      "type": "choice",
+                      "value": "grid"
+                    }
+                  },
+                  "columns": {
+                    "base": {
+                      "type": "choice",
+                      "value": "1"
+                    },
+                    "md": {
+                      "type": "choice",
+                      "value": "2"
+                    },
+                    "lg": {
+                      "type": "choice",
+                      "value": "2"
+                    }
+                  },
+                  "gap": {
+                    "column": {
+                      "base": {
+                        "type": "token",
+                        "value": "spacing.lg"
+                      },
+                      "md": {
+                        "type": "token",
+                        "value": "spacing.lg"
+                      },
+                      "lg": {
+                        "type": "token",
+                        "value": "spacing.lg"
+                      }
+                    },
+                    "row": {
+                      "base": {
+                        "type": "token",
+                        "value": "spacing.lg"
+                      },
+                      "md": {
+                        "type": "token",
+                        "value": "spacing.lg"
+                      },
+                      "lg": {
+                        "type": "token",
+                        "value": "spacing.lg"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         ]
       },

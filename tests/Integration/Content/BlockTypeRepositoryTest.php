@@ -63,9 +63,9 @@ final class BlockTypeRepositoryTest extends AppTestCase
     {
         $r = $this->repo();
         // Lifted (nesting amendment §A1): blocks fields inside block schemas are allowed.
-        $r->create(['slug' => 'section', 'label' => 'Section',
+        $r->create(['slug' => 'panel', 'label' => 'Panel',
             'schema' => [['name' => 'content', 'type' => 'blocks']]]);
-        self::assertNotNull($r->findBySlug('section'));
+        self::assertNotNull($r->findBySlug('panel'));
 
         foreach (
             [

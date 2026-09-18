@@ -227,7 +227,7 @@ final class ConverterTest extends AppTestCase
     {
         $ref = $this->ref([
             'body' => [
-                ['id' => 's', 'type' => 'section', 'data' => ['content' => [
+                ['id' => 's', 'type' => 'container', 'data' => ['content' => [
                     ['id' => 'h', 'type' => 'heading', 'data' => ['text' => 'Deep', 'align' => 'center']],
                 ]]],
             ],

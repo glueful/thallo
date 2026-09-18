@@ -412,6 +412,18 @@ export async function dragTileTo(
       from.y + ((to.y - from.y) * i) / steps,
     )
   }
+  let last = to
   await page.locator('.thallo-palette-ghost').waitFor({ timeout: 2000 })
+  // The stage scrolls itself while the pointer sits near its edge, so the target may have moved
+  // out from under the point the moves aimed at. Re-aim at where it is now, until it stops moving;
+  // two moves, because the zone is proposed on a move and answered a round-trip later.
+  for (let i = 0; i < 4; i++) {
+    await page.waitForTimeout(250)
+    const now = await centerOf(target)
+    if (i > 0 && Math.abs(now.x - last.x) < 2 && Math.abs(now.y - last.y) < 2) break
+    await page.mouse.move(now.x, now.y - 1)
+    await page.mouse.move(now.x, now.y)
+    last = now
+  }
   if (release) await page.mouse.up()
 }

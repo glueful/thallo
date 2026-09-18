@@ -67,12 +67,13 @@ final class CompositionFixturesTest extends AppTestCase
         $schema = \Thallo\Core\Content\Schema\ContentTypeSchema::fromArray((array) $schema);
         $validator = $this->container()->get(FieldValidator::class);
         $clean = $validator->validate($schema, ['title' => 'Deep', 'body' => self::fixture()['body']]);
-        $heading = $clean['body'][0]['data']['content'][0]['data']['col_1'][0]['data']['body'][0]['data']['content'][0];
+        $card = $clean['body'][0]['data']['content'][0]['data']['content'][0];
+        $heading = $card['data']['body'][0]['data']['content'][0];
         self::assertSame('heading', $heading['type']);
         self::assertSame('spacing.lg', $heading['settings']['style']['spacing']['padding']['top']['md']['value']);
 
         $six = self::fixture()['body'];
-        $six[0]['data']['content'][0]['data']['col_1'][0]['data']['body'][0]['data']['content'] = [[
+        $six[0]['data']['content'][0]['data']['content'][0]['data']['body'][0]['data']['content'] = [[
             'id' => 'cont00000009', 'type' => 'container', 'data' => ['content' => [
                 ['id' => 'head00000009', 'type' => 'heading', 'data' => ['text' => 'six']],
             ]],
@@ -81,7 +82,7 @@ final class CompositionFixturesTest extends AppTestCase
             $validator->validate($schema, ['title' => 'Deep', 'body' => $six]);
             self::fail('depth six must not validate');
         } catch (\Thallo\Core\Content\Validation\ValidationException $e) {
-            $path = 'body.0.content.0.col_1.0.body.0.content.0.content';
+            $path = 'body.0.content.0.content.0.body.0.content.0.content';
             self::assertArrayHasKey($path, $e->errors(), json_encode(array_keys($e->errors())));
         }
     }

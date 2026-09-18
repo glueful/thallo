@@ -18,7 +18,7 @@ test('two selected headings drag together into an empty column with shifted indi
   await openDesignPage(page)
   await selectViaOutline(page, 'head0000000a')
   await selectViaOutline(page, 'head0000000b', ['Shift'])
-  await dragGripTo(page, gripOf(page, 'head0000000a'), slotOf(page, 'cols00000002', 'col_2'))
+  await dragGripTo(page, gripOf(page, 'head0000000a'), slotOf(page, 'colb00000002', 'content'))
 
   const h = await historyLength(page, 1)
   const ops = h.history[0]!.ops
@@ -27,18 +27,22 @@ test('two selected headings drag together into an empty column with shifted indi
       type: 'MoveBlock',
       block: 'head0000000a',
       from: { parent: null, slot: 'body', index: 2 },
-      to: { parent: 'cols00000002', slot: 'col_2', index: 0 },
+      to: { parent: 'colb00000002', slot: 'content', index: 0 },
     }),
     expect.objectContaining({
       type: 'MoveBlock',
       block: 'head0000000b',
       from: { parent: null, slot: 'body', index: 2 },
-      to: { parent: 'cols00000002', slot: 'col_2', index: 1 },
+      to: { parent: 'colb00000002', slot: 'content', index: 1 },
     }),
   ])
-  expect(idsIn(h.document, ['body'])).toEqual(['sect00000001', 'sect00000002', 'grid00000001'])
-  expect(idsIn(h.document, ['body', 1, 'data', 'content', 0, 'data', 'col_2'])).toEqual([
-    'head0000000a',
-    'head0000000b',
+  expect(idsIn(h.document, ['body'])).toEqual([
+    'sect00000001',
+    'sect00000002',
+    'grid00000001',
+    'ctaa00000001',
   ])
+  expect(
+    idsIn(h.document, ['body', 1, 'data', 'content', 0, 'data', 'content', 1, 'data', 'content']),
+  ).toEqual(['head0000000a', 'head0000000b'])
 })

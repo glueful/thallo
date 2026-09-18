@@ -392,10 +392,10 @@ final class BlockSettingsValidationTest extends AppTestCase
 
     public function testNestedBlocksAreValidatedToo(): void
     {
-        $v = $this->validator(['section' => ['caps' => ['spacing']], 'heading' => []]);
+        $v = $this->validator(['container' => ['caps' => ['spacing']], 'heading' => []]);
         $section = [
             'id' => 'sect00000001',
-            'type' => 'section',
+            'type' => 'container',
             'data' => ['content' => [
                 $this->heading(['style' => ['radius' => ['type' => 'token', 'value' => 'radius.md']]]),
             ]],

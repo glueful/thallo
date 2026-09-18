@@ -4,20 +4,10 @@
     "rules": [
         {
             "blocks": [
-                "columns"
-            ],
-            "selector": ".thallo-block-columns",
-            "line": 208,
-            "measure": "container",
-            "margin_inline_auto": true,
-            "padding_inline": true
-        },
-        {
-            "blocks": [
                 "image"
             ],
             "selector": ".thallo-block-image",
-            "line": 301,
+            "line": 183,
             "measure": "container",
             "margin_inline_auto": true,
             "padding_inline": true
@@ -27,7 +17,7 @@
                 "rich_text"
             ],
             "selector": ".thallo-block-rich_text",
-            "line": 321,
+            "line": 203,
             "measure": "content",
             "margin_inline_auto": true,
             "padding_inline": true
@@ -37,18 +27,8 @@
                 "heading"
             ],
             "selector": ".thallo-block-heading",
-            "line": 329,
+            "line": 211,
             "measure": "content",
-            "margin_inline_auto": true,
-            "padding_inline": true
-        },
-        {
-            "blocks": [
-                "grid"
-            ],
-            "selector": ".thallo-block-grid",
-            "line": 470,
-            "measure": "container",
             "margin_inline_auto": true,
             "padding_inline": true
         },
@@ -57,7 +37,7 @@
                 "tabs"
             ],
             "selector": ":where(.thallo-block-tabs, thallo-tabs)",
-            "line": 550,
+            "line": 484,
             "measure": "container",
             "margin_inline_auto": true,
             "padding_inline": true
@@ -67,7 +47,7 @@
                 "button"
             ],
             "selector": ".thallo-block-button",
-            "line": 674,
+            "line": 608,
             "measure": "container",
             "margin_inline_auto": true,
             "padding_inline": true
@@ -77,7 +57,7 @@
                 "carousel"
             ],
             "selector": ":where(.thallo-block-carousel, thallo-carousel)",
-            "line": 734,
+            "line": 668,
             "measure": "container",
             "margin_inline_auto": true,
             "padding_inline": true
@@ -87,7 +67,7 @@
                 "logo"
             ],
             "selector": ".thallo-block-logo",
-            "line": 960,
+            "line": 894,
             "measure": "container",
             "margin_inline_auto": true,
             "padding_inline": true
@@ -97,7 +77,7 @@
                 "icon"
             ],
             "selector": ".thallo-block-icon",
-            "line": 975,
+            "line": 909,
             "measure": "container",
             "margin_inline_auto": true,
             "padding_inline": true
@@ -107,7 +87,7 @@
                 "video"
             ],
             "selector": ".thallo-block-video",
-            "line": 1015,
+            "line": 949,
             "measure": "container",
             "margin_inline_auto": true,
             "padding_inline": true
@@ -117,7 +97,7 @@
                 "audio"
             ],
             "selector": ".thallo-block-audio",
-            "line": 1030,
+            "line": 964,
             "measure": "content",
             "margin_inline_auto": true,
             "padding_inline": true
@@ -127,7 +107,7 @@
                 "file"
             ],
             "selector": ".thallo-block-file",
-            "line": 1035,
+            "line": 969,
             "measure": "content",
             "margin_inline_auto": true,
             "padding_inline": true
@@ -138,7 +118,7 @@
                 "shortcode"
             ],
             "selector": ".thallo-block-html, .thallo-block-shortcode",
-            "line": 1056,
+            "line": 990,
             "measure": "container",
             "margin_inline_auto": true,
             "padding_inline": true
@@ -148,7 +128,7 @@
                 "separator"
             ],
             "selector": ".thallo-block-separator",
-            "line": 1133,
+            "line": 1065,
             "measure": "container",
             "margin_inline_auto": true,
             "padding_inline": true
@@ -158,7 +138,7 @@
                 "form"
             ],
             "selector": ".thallo-block-form",
-            "line": 1619,
+            "line": 1551,
             "measure": "content",
             "margin_inline_auto": true,
             "padding_inline": true
@@ -168,7 +148,7 @@
                 "gallery"
             ],
             "selector": ".thallo-block-gallery",
-            "line": 1736,
+            "line": 1668,
             "measure": "container",
             "margin_inline_auto": true,
             "padding_inline": true
@@ -178,7 +158,7 @@
                 "code"
             ],
             "selector": ".thallo-block-code",
-            "line": 1852,
+            "line": 1784,
             "measure": "content",
             "margin_inline_auto": true,
             "padding_inline": true

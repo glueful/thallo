@@ -7,6 +7,46 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- A Layout tab in the block inspector, beside Content: Box (width, placement, minimum height,
+  overflow), Container (how children are arranged, the content width and its gutter) and Children
+  (the controls the mode in force actually uses — tracks for a grid, direction and wrap for a flex
+  row). A block sitting inside a container also gets As an item: span against a grid parent, basis,
+  grow and shrink against a flex one. Tab membership is per property, so a control appears wherever
+  it belongs rather than wherever its capability group does.
+- Layout is part of the style contract: display, direction, wrap, alignment, track counts, both
+  gaps, content width, gutter, minimum height and overflow, each responsive and resettable per
+  breakpoint, each written as a class the compiled stylesheet carries.
+- A structure picker: a container you have just inserted offers Stack, Row, the column splits, a
+  grid and the two Section compositions in its empty slot. Choosing one writes the whole
+  arrangement as a single change, so undo takes it back in one step.
+- Switching a container between stacked, flex and grid keeps the settings the other mode used, and
+  the tab says which ones are being kept and ignored.
+
+### Changed
+- The Container carries its layout as settings rather than data fields, and gains an element
+  choice: div, section, article, aside, header or footer.
+- Heading and Rich text gained Placement and width, so a block can size and place itself inside a
+  container.
+- A block that clamps itself to the page measure has that clamp released inside a container, so it
+  fills its cell instead of carrying a second gutter into it. An authored width, placement or
+  padding still wins.
+- Spacing inside a container comes from the container: the gaps space the children in flex and grid
+  modes, and the container's own padding governs its edges. A single-paragraph rich text
+  contributes no margin of its own.
+- A Section composition's title and description take the theme's heading and text scales, so they
+  are smaller on narrow screens and larger on wide ones than the fixed sizes they replace. On an
+  inverted band the description reads at full contrast.
+- A reversed Section composition places the content before the header in the reading order, which
+  now follows the visual order.
+- Column layouts sit side by side from 768px rather than 641px, and stack below that; a Grid's
+  two-column step likewise begins at 768px. The contract's breakpoints are 768px and 1024px.
+
+### Removed
+- The Columns, Grid and Section blocks, and the masonry flow. A Container composition replaces
+  each: columns and grids are a container with track settings, and the two Section presets build
+  the band, its header group, its content area and its links row.
+
 ## [1.0.0-beta.39] - 2026-09-17 — Developer Preview
 
 A page styles itself: padding, margin and background from the Page tab.

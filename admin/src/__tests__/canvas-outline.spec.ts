@@ -31,9 +31,8 @@ const type = (slug: string, label: string, slots: string[] = []): BlockType =>
     starter_content: null,
   }) as BlockType
 const blockTypes = ref<BlockType[]>([
-  type('section', 'Section', ['content']),
+  type('container', 'Container', ['content']),
   type('heading', 'Heading'),
-  type('columns', 'Columns', ['col_1', 'col_2', 'col_3']),
 ])
 vi.mock('@/queries/blockTypes', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/queries/blockTypes')>()),
@@ -49,8 +48,8 @@ const block = (id: string, t = 'heading', data: Record<string, unknown> = {}) =>
 const fields = {
   body: [
     block('a'),
-    block('s', 'section', { content: [block('x')] }),
-    block('e', 'section', { content: [] }),
+    block('s', 'container', { content: [block('x')] }),
+    block('e', 'container', { content: [] }),
   ],
 }
 const schema = [
@@ -113,34 +112,6 @@ describe('the canvas outline', () => {
     ])
   })
 
-  it('a two-column columns block shows no col_3 row; a three-column one does', () => {
-    const cols = (layout: string) => ({
-      fields: {
-        body: [
-          {
-            id: 'c',
-            type: 'columns',
-            data: { layout, col_1: [], col_2: [], col_3: [] },
-            settings: {},
-          },
-        ],
-      },
-      schema,
-      selected: null,
-    })
-    const two = mount(CanvasOutline, {
-      props: cols('2'),
-      global: { stubs: { VueDraggable: { template: '<div><slot /></div>' } } },
-    })
-    expect(two.find('[data-test="canvas-outline-slot-c-col_2"]').exists()).toBe(true)
-    expect(two.find('[data-test="canvas-outline-slot-c-col_3"]').exists()).toBe(false)
-    const three = mount(CanvasOutline, {
-      props: cols('3'),
-      global: { stubs: { VueDraggable: { template: '<div><slot /></div>' } } },
-    })
-    expect(three.find('[data-test="canvas-outline-slot-c-col_3"]').exists()).toBe(true)
-  })
-
   it('an empty-slot row is a button that asks to insert into that slot', async () => {
     const w = mountOutline()
     const row = w.find('[data-test="canvas-outline-slot-e-content"]')
@@ -158,11 +129,11 @@ describe('the canvas outline', () => {
 
 describe('the Move to… dialog', () => {
   const types: SlotTypeSummary[] = [
-    { slug: 'section', label: 'Section', slots: { content: { blockTypes: [] } } },
+    { slug: 'container', label: 'Container', slots: { content: { blockTypes: [] } } },
     { slug: 'heading', label: 'Heading', slots: {} },
   ]
   const legality: LegalityContext = {
-    regionsOf: (slug) => (slug === 'section' ? ['content'] : []),
+    regionsOf: (slug) => (slug === 'container' ? ['content'] : []),
     blockTypes: () => types,
     rootSlots: () => ({ body: { blockTypes: [] } }),
     maxDepth: 5,
@@ -181,7 +152,7 @@ describe('the Move to… dialog', () => {
       position: number
       confirm: () => void
     }
-    // The section cannot move into its own slot; the root and the other section's slot remain.
+    // The container cannot move into its own slot; the root and the other container's slot remain.
     expect(vm.destinations.map((d) => d.key)).toEqual(['root:body', 'e:content'])
     vm.destinationKey = 'e:content'
     vm.position = 0

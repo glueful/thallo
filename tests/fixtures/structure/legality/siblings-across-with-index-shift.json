@@ -5,8 +5,8 @@
       "name": "a and b into s1 after x",
       "blockTypes": [
         {
-          "slug": "section",
-          "label": "Section",
+          "slug": "container",
+          "label": "Container",
           "schema": [
             {
               "name": "content",
@@ -98,8 +98,8 @@
               "settings": {}
             },
             {
-              "id": "s1",
-              "type": "section",
+              "id": "c1",
+              "type": "container",
               "data": {
                 "content": [
                   {
@@ -129,7 +129,7 @@
         {
           "block": "a",
           "to": {
-            "parent": "s1",
+            "parent": "c1",
             "slot": "content",
             "index": 1
           }
@@ -137,7 +137,7 @@
         {
           "block": "b",
           "to": {
-            "parent": "s1",
+            "parent": "c1",
             "slot": "content",
             "index": 2
           }
@@ -147,8 +147,8 @@
         "fields": {
           "body": [
             {
-              "id": "s1",
-              "type": "section",
+              "id": "c1",
+              "type": "container",
               "data": {
                 "content": [
                   {

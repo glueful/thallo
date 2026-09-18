@@ -5,8 +5,8 @@
       "name": "a leaf into the depth-four container sits at five",
       "blockTypes": [
         {
-          "slug": "section",
-          "label": "Section",
+          "slug": "container",
+          "label": "Container",
           "schema": [
             {
               "name": "content",
@@ -86,23 +86,23 @@
         "fields": {
           "body": [
             {
-              "id": "s1",
-              "type": "section",
+              "id": "c1",
+              "type": "container",
               "data": {
                 "content": [
                   {
-                    "id": "s2",
-                    "type": "section",
+                    "id": "c2",
+                    "type": "container",
                     "data": {
                       "content": [
                         {
-                          "id": "s3",
-                          "type": "section",
+                          "id": "c3",
+                          "type": "container",
                           "data": {
                             "content": [
                               {
-                                "id": "s4",
-                                "type": "section",
+                                "id": "c4",
+                                "type": "container",
                                 "data": {
                                   "content": [
                                     {
@@ -144,7 +144,7 @@
         {
           "block": "h9",
           "to": {
-            "parent": "s4",
+            "parent": "c4",
             "slot": "content",
             "index": 1
           }
@@ -154,23 +154,23 @@
         "fields": {
           "body": [
             {
-              "id": "s1",
-              "type": "section",
+              "id": "c1",
+              "type": "container",
               "data": {
                 "content": [
                   {
-                    "id": "s2",
-                    "type": "section",
+                    "id": "c2",
+                    "type": "container",
                     "data": {
                       "content": [
                         {
-                          "id": "s3",
-                          "type": "section",
+                          "id": "c3",
+                          "type": "container",
                           "data": {
                             "content": [
                               {
-                                "id": "s4",
-                                "type": "section",
+                                "id": "c4",
+                                "type": "container",
                                 "data": {
                                   "content": [
                                     {

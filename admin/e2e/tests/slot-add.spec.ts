@@ -7,21 +7,23 @@ test('the + in an empty column arms the Blocks tab into it and a tile click inse
   page,
 }) => {
   const recorded = await openDesignPage(page)
-  const slot = slotOf(page, 'cols00000002', 'col_2')
+  const slot = slotOf(page, 'colb00000002', 'content')
   await expect(slot).toContainText('Drag a block here')
   await slot.locator('[data-slot-add]').click()
   const strip = page.locator('[data-test="palette-target"]')
-  await expect(strip).toContainText('Inserting into Columns › col_2')
+  await expect(strip).toContainText('Inserting into Container › content')
   await page.locator('[data-test="palette-card-heading"]').click()
 
   const h = await historyLength(page, 1)
   expect(h.history[0]!.ops[0]).toMatchObject({
     type: 'InsertBlock',
-    position: { parent: 'cols00000002', slot: 'col_2', index: 0 },
+    position: { parent: 'colb00000002', slot: 'content', index: 0 },
     block: { type: 'heading' },
   })
   const inserted = (h.history[0]!.ops[0] as { block: { id: string } }).block.id
-  expect(idsIn(h.document, ['body', 1, 'data', 'content', 0, 'data', 'col_2'])).toEqual([inserted])
+  expect(
+    idsIn(h.document, ['body', 1, 'data', 'content', 0, 'data', 'content', 1, 'data', 'content']),
+  ).toEqual([inserted])
   // The target is consumed and the new block is selected; the apply carries the one insert.
   await expect(strip).toHaveCount(0)
   expect(h.selection.ids).toEqual([inserted])
@@ -47,8 +49,8 @@ test('the placeholder after the last body block arms the end of body and a tile 
   const h = await historyLength(page, 1)
   expect(h.history[0]!.ops[0]).toMatchObject({
     type: 'InsertBlock',
-    // The end of body: two sections, two siblings and the grid container precede it.
-    position: { parent: null, slot: 'body', index: 5 },
+    // The end of body: two sections, two siblings, the grid container and the cta precede it.
+    position: { parent: null, slot: 'body', index: 6 },
     block: { type: 'heading' },
   })
 })

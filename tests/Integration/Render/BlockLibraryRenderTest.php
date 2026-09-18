@@ -475,49 +475,6 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertSame(0, (int) $row['active']);
     }
 
-    public function testColumnsWidthPresetsEmitExactAllowlistedTokens(): void
-    {
-        $two = $this->render([[
-            'id' => 'colw1', 'type' => 'columns',
-            'data' => ['layout' => '2', 'widths' => '33-67',
-                'col_1' => [], 'col_2' => [], 'col_3' => []],
-        ]]);
-        self::assertStringContainsString('thallo-block-columns--w-33-67', $two);
-
-        // Mismatch (3-col preset on a 2-col layout): NO width token at all.
-        $mismatch = $this->render([[
-            'id' => 'colw2', 'type' => 'columns',
-            'data' => ['layout' => '2', 'widths' => '33-33-33',
-                'col_1' => [], 'col_2' => [], 'col_3' => []],
-        ]]);
-        self::assertStringNotContainsString('--w-', $mismatch);
-
-        // Absent fields: byte-compatible with today's markup (no new tokens).
-        $plain = $this->render([[
-            'id' => 'colw3', 'type' => 'columns',
-            'data' => ['layout' => '2', 'col_1' => [], 'col_2' => [], 'col_3' => []],
-        ]]);
-        self::assertStringNotContainsString('--w-', $plain);
-        self::assertStringNotContainsString('--align-', $plain);
-    }
-
-    public function testColumnsAlignEmitsTokensOnlyForNonDefaults(): void
-    {
-        $center = $this->render([[
-            'id' => 'cola1', 'type' => 'columns',
-            'data' => ['layout' => '2', 'align' => 'center',
-                'col_1' => [], 'col_2' => [], 'col_3' => []],
-        ]]);
-        self::assertStringContainsString('thallo-block-columns--align-center', $center);
-
-        $stretch = $this->render([[
-            'id' => 'cola2', 'type' => 'columns',
-            'data' => ['layout' => '2', 'align' => 'stretch',
-                'col_1' => [], 'col_2' => [], 'col_3' => []],
-        ]]);
-        self::assertStringNotContainsString('--align-', $stretch);
-    }
-
     public function testSocialLinksRenderBrandIconsWithAccessibleLabels(): void
     {
         $out = $this->render([[

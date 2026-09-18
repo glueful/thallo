@@ -118,9 +118,9 @@ final class EditInPlaceMarkingTest extends AppTestCase
 
     public function testNestedProseInsideAContainerGetsItsOwnFrame(): void
     {
-        // The frame STACK under test: section.twig calls blocks(data.content),
+        // The frame STACK under test: container.twig calls blocks(data.content),
         // so the nested rich_text renders inside the parent's frame scope —
-        // its region must carry the NESTED id, and the section itself (not
+        // its region must carry the NESTED id, and the container itself (not
         // prose) must never be marked.
         $repo = new BlockTypeRepository($this->connection());
         $repo->create([
@@ -129,10 +129,10 @@ final class EditInPlaceMarkingTest extends AppTestCase
             'schema' => [['name' => 'body', 'type' => 'text', 'format' => 'rich']],
         ]);
         $repo->create([
-            'slug' => 'section',
-            'label' => 'Section',
+            'slug' => 'container',
+            'label' => 'Container',
             'schema' => [
-                ['name' => 'title', 'type' => 'string'],
+                ['name' => 'element', 'type' => 'string'],
                 ['name' => 'content', 'type' => 'blocks'],
             ],
         ]);
@@ -149,8 +149,8 @@ final class EditInPlaceMarkingTest extends AppTestCase
         $entries = new EntryRepository($this->connection(), $this->appContext(), $types);
         $entry = $entries->createEntry($this->type, 'en', 1, 'user00000001');
         $entries->saveDraft($entry, 'en', ['title' => 'S', 'body' => [
-            ['id' => 'sectionb0001', 'type' => 'section', 'data' => [
-                'title' => 'Wrap',
+            ['id' => 'sectionb0001', 'type' => 'container', 'data' => [
+                'element' => 'div',
                 'content' => [
                     ['id' => 'nestedpr0001', 'type' => 'rich_text', 'data' => ['body' => '<p>Nested prose</p>']],
                 ],

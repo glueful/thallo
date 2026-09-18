@@ -2,7 +2,7 @@ import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 
 /**
  * The block a server validation path names. The API addresses a refused field through the
- * document — `body.3.content.0.col_2.0.title`: a root blocks field, an index, then a block's
+ * document — `body.3.content.0.content.0.title`: a root blocks field, an index, then a block's
  * data field, an index, … and last the refused field — and the editor turns it back into the
  * block (to select it) and the field (to name it). Null when the path never enters a block.
  */

@@ -1,6 +1,6 @@
 // Insertion targets (Phase C.1): an INTENT the Blocks tab remembers, resolved to a position at the
 // moment of use — never an index stored ahead of time. "after Hero" keeps Hero's id and re-locates
-// it; "into Columns › col_2" recomputes the slot's end; a gap is pinned to the history sequence it
+// it; "into Container › content" recomputes the slot's end; a gap is pinned to the history sequence it
 // was armed at and dies with the next structural change.
 import { createBlockListOps, type BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import type { EditorDocument, Position } from '@/editor/ops/types'

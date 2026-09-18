@@ -167,7 +167,7 @@ async function insertType(type: BlockType): Promise<void> {
         "
       >
         <template #anchor>
-          <!-- Region lists (col_1, content, items…) get a full-width dashed drop-zone
+          <!-- Region lists (content, items…) get a full-width dashed drop-zone
                add button with the plus centered; the ROOT editor's add button (region
                === null) keeps its compact square style. -->
           <button

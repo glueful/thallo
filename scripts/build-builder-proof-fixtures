@@ -118,6 +118,16 @@ $entries->saveDraft(
             'columns' => ['base' => ['type' => 'choice', 'value' => '3']],
             'content_width' => ['base' => ['type' => 'token', 'value' => 'width.container']],
         ]]]],
+        // A slot that admits one block type: the refusal proof (§5.6) needs a drop the
+        // allow-list rejects, and a container's `content` admits everything.
+        // It holds a button so the slot has geometry a drag can be released over.
+        ['id' => 'ctaa00000001', 'type' => 'cta', 'data' => [
+            'title' => 'Ready to begin?',
+            'links' => [
+                ['id' => 'ctabutn0001', 'type' => 'button',
+                    'data' => ['label' => 'Start', 'url' => '/start'], 'settings' => []],
+            ],
+        ], 'settings' => []],
     ]],
     (int) $page['schema_version'],
     (int) ($draft['lock_version'] ?? 0),
