@@ -42,6 +42,11 @@ as the next release, never a mutated tag.
 - Column layouts sit side by side from 768px rather than 641px, and stack below that; a Grid's
   two-column step likewise begins at 768px. The contract's breakpoints are 768px and 1024px.
 
+### Fixed
+- Clicking a block on the stage while the editor was still loading could leave the Block inspector
+  on "Select a block on the stage or in the outline" for a block the stage showed as selected,
+  until it was selected again. The inspector now picks the block up as soon as the editor is ready.
+
 ### Removed
 - The Columns, Grid and Section blocks, and the masonry flow. A Container composition replaces
   each: columns and grids are a container with track settings, and the two Section presets build
