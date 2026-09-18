@@ -7,7 +7,48 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Upgrade Notes
+- **Breaking, with no content migration.** A container's layout is now Flex or Grid; the stacked
+  ("block") mode that beta.40 offered is gone. A container that was never given a mode needs
+  nothing: the default is a flex column that spaces its children as the stack did. A container or
+  a style class that *stored* the stacked mode is invalid — saving it is refused, naming the
+  field — and the Layout tab shows it as such with the way out (below).
+- The documented sequence applies (docs/upgrading.md), and nothing more is needed for the
+  stylesheet: the style schema and the compiler each move by one version, both are part of the
+  compiled stylesheet's hash, and it is compiled under the new hash on the first request after
+  PHP-FPM is reloaded. No migrations, no new permissions.
+- A theme that ships its own `blocks.css` must carry the container's new defaults
+  (THEMING.md §12.3a): the content area is a flex column with a `--space-5` gap, and no child of a
+  container has a default vertical margin in any mode.
+
+### Added
+- A grid is drawn on the stage. The Design view outlines a grid container's tracks — while it is
+  empty, while it or one of its children is selected, and while a block is dragged over it — so
+  choosing Grid and a track count shows something. The outline follows the breakpoint being
+  edited, takes no clicks, and exists only in the editor: nothing is stored and nothing reaches
+  the public page. An empty grid's "Drag a block here" now sits in the first cell rather than
+  across the whole row.
+- **Fill empty cells.** A grid whose last row has room offers to complete it with column
+  containers, each a place to build on its own — from the Layout tab under the Grid controls, and
+  from the placeholder of an empty grid on the stage. The whole fill is one change, so undo takes
+  every cell back together. When it cannot run the button stays, disabled, and says why: the last
+  row is full, or the grid sits too deep for a cell to hold a block.
+- A layout the contract no longer offers is shown as invalid rather than hidden. The Layout tab
+  names the value and the breakpoint it sits at and offers **Replace with Flex** and **Remove**;
+  when a style class supplies it, the tab names the class and opens it, and the class editor lists
+  it under "Needs attention" with the same two actions.
+
 ### Changed
+- A container arranges its children as **Flex or Grid** — the separate stacked mode is removed,
+  since a flex column is a stack. An untouched container is a flex column whose gaps default to
+  the theme's block spacing (`spacing.xl`), so a stack keeps the distances it had. One rule covers
+  both modes and both axes, with a recorded consequence: a flex row or a grid whose gaps were never
+  set had none, and now gains `spacing.xl` between its items. Set the gap to None to have them
+  touch again.
+- The Layout tab opens on **Container**, then Box, then As an item. The mode is set once, under
+  the label Layout, as Flex or Grid, and the controls that mode uses — direction and wrap, or
+  tracks, then alignment and gaps — sit directly beneath it; the separate Children section is
+  gone. Controls that are unset show the default in force (dashed) instead of reading as empty.
 - An authored **Width** now asks for the width as well as limiting it: "fill the available space, up
   to this maximum". Inside a container's default column a placed block therefore fills up to its
   width instead of shrinking to its text, and in a flex row an authored width is the block's

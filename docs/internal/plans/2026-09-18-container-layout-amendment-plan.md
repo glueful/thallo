@@ -293,7 +293,7 @@ The section labelled Children no longer exists. `data-test` names of controls th
 
 **Files:** `CHANGELOG.md` (Unreleased — **Changed:** Flex and Grid only, with the recorded consequence of §3.8 verbatim and the refusal of a stored `block`; the Layout tab's new order. **Added:** the grid outline; Fill empty cells; the invalid-layout notice. The blank-page fix already under Fixed stays); `packages/thallo-render/docs/THEMING.md` §12.3a (the content area's default mode, direction and gaps; one margin rule; what a theme overriding `blocks.css` must now provide).
 
-- [ ] **Step 1:** write both. **Step 2: Commit** `docs: Flex and Grid only, the grid on the stage and Fill empty cells`.
+- [x] **Step 1:** write both. **Step 2: Commit** `docs: Flex and Grid only, the grid on the stage and Fill empty cells`.
 
 ## Task 4.2: release gates
 
