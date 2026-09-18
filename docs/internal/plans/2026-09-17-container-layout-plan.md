@@ -137,10 +137,10 @@
 - Create: `tools/runtime-browser/scripts/measure.js` and `tools/runtime-browser/tests/support/compare.js` (one measuring procedure shared by capture and comparison).
 - Test: `tools/runtime-browser/tests/references.spec.js` (permanent; reads only committed files) — every reference JSON has the four widths, every named element of its case definition, and the fields of each element's declared profiles; no mechanism field is present.
 - Test: `tools/runtime-browser/tests/compare.spec.js` (Chromium, synthetic pages) — `compareToReference` against synthetic pages: an unchanged page passes; a 2px geometry shift fails naming the element; an allowed typography row relaxes `font-size` on its element and `geometry` on its `affects` list only, and a spacing change on the same element still fails; a relaxed value that differs from the row's specified result fails.
-- [ ] **Step 1:** write `measure.js`, `compare.js`, `compare.spec.js` and `references.spec.js`; `references.spec.js` fails (no references yet).
-- [ ] **Step 2:** write the case definitions and `capture-layout-references`; run it at the current `HEAD` (no template or CSS change on the tree); the capture's double measurement passes.
-- [ ] **Step 3:** run `references.spec.js` and `compare.spec.js` green.
-- [ ] **Step 5: Commit** `test(render): frozen layout references for Container, Section, Columns, Grid and leaf blocks`.
+- [x] **Step 1:** write `measure.js`, `compare.js`, `compare.spec.js` and `references.spec.js`; `references.spec.js` fails (no references yet).
+- [x] **Step 2:** write the case definitions and `capture-layout-references`; run it at the current `HEAD` (no template or CSS change on the tree); the capture's double measurement passes.
+- [x] **Step 3:** run `references.spec.js` and `compare.spec.js` green.
+- [x] **Step 5: Commit** `test(render): frozen layout references for Container, Section, Columns, Grid and leaf blocks`.
 
 ---
 
@@ -153,8 +153,8 @@
 - Test: `tests/Unit/Contracts/StyleSchemaTest.php` (every row; `alignment.content` six choices; `pathsInGroup('layout.item')`; version 2), `tests/Unit/Contracts/StyleTargetsTest.php` (each kind set accepted and refused with both kinds named; item paths on `text` accepted; `alignment.self` on `text` accepted; `layout.columns` on `box` refused), `tests/Unit/Render/CascadeResolverFixturesTest.php` and `admin/src/__tests__/style-resolver.spec.ts` (`layout.json`), `tests/Integration/Content/BlockSettingsValidationTest.php` (a declaring type accepts `grid` at `md`, refuses `table`; `layout.overflow` with a breakpoint key refused)
 - Test: `tests/Unit/Render/StyleCompilerTest.php` (extend): each declaration in the shared contracts; `t-cols-auto`; `t-cw-reset` and `t-gutter-reset` declarations; `t-minh-auto` sets `--thallo-root-layout: block` and no `display`; **span rules:** no `.t-span-2 {` single-class rule exists; `.md\:t-cols-2 > .md\:t-span-3` → `1 / -1`; `.md\:t-cols-4 > .md\:t-span-2` → `span 2`; `.md\:t-cols-auto > .md\:t-span-2` → `1 / -1`; **`.md\:t-cols-reset > .md\:t-span-2` → `1 / -1` and `.md\:t-cols-reset > .md\:t-span-1` → `span 1`**; **`.lg\:t-cols-3 > .lg\:t-span-reset` → `grid-column: revert-layer`**; `t-cols-1-2-1` counts 3; every rule has its wrapper form; rule count = 3 breakpoints × 15 track classes × 14 span classes × 2; **`t-minh-half` declares `--thallo-root-layout: flex` and no `display`; `t-minh-reset` reverts `min-height` and `--thallo-root-layout` only**
 - Test: `tests/Unit/Render/BlockStyleEmitterTest.php` (extend): flex at base emits the class at base, md, lg; grid at md over flex at base; a reset at lg; `layout.columns` absent at every breakpoint emits `t-cols-auto md:t-cols-auto lg:t-cols-auto`; `spacing.padding.top` emission unchanged
-- [ ] **Steps 1–4.**
-- [ ] **Step 5: Commit** `feat(style): layout properties join the contract, compiled and emitted per breakpoint with paired span rules`.
+- [x] **Steps 1–4.**
+- [x] **Step 5: Commit** `feat(style): layout properties join the contract, compiled and emitted per breakpoint with paired span rules`.
 
 ## Task 1.2: layout items, the linter, theme defaults and layout proofs
 
@@ -170,14 +170,14 @@
 - Create: `tests/fixtures/layout/cases/`: `dormancy-flex-then-grid-md`, `dormancy-grid-inherited`, `nested-flex-grid-flex`, `span-mobile-stack`, `span-asymmetric`, `span-inherited`, `span-nested-grid`, **`span-clamped-then-unclamped`** (1 track at base, 4 at md, span 2), **`span-unclamped-then-clamped`** (4 at base, 1 at md, span 2), **`span-reset-md`**, **`span-parent-tracks-absent`**, **`span-parent-tracks-reset`**, `gutter-boxed-to-full`, `gutter-authored-kept`, `gutter-reset`, `gutter-none-explicit`, **`gutter-nested-full-in-boxed`**, `band-half-centred`, **`minh-half-lg-only`** (auto on mobile), **`minh-half-then-auto-md`**, **`minh-half-then-reset-md`**, **`minh-hidden-base-half-lg`** (visibility hidden at base, min height half introduced at lg), **`minh-half-hidden-then-visible-md`** (half at base, hidden at base, visible at md), **`minh-reset-while-hidden`** (half at base, min height reset at md, hidden at every breakpoint), `item-participation`, `nested-clamp-authored` (heading and rich text with authored `width` and `alignment.self`, button with padding, a card with `layout.basis`), **`containment-preserves-component-padding`** (a card and a CTA inside a container keep their internal padding), `spacing-normalization`, **`spacing-flex-then-block-md`**, **`spacing-grid-then-block-lg`**, **`spacing-flex-then-reset-md`**, **`span-parent-grid-then-reset-md`** (tracks 2 at base, reset at md, span 2 child)
 - Test: `tests/Integration/Render/TemplateLinterTest.php` (`layout.item` on an inner element is a violation), `tests/Integration/Render/LayoutFixturesRenderTest.php` (every case renders public and annotated with the expected resolved classes), `tests/Integration/Render/ContainmentInventoryTest.php` (the release rules name exactly the inventoried classes), `tests/Integration/Render/ContainerThemeDefaultsTest.php` (the theme sets no `grid-template-columns` and no `display` on `.thallo-block-container__inner`; the container root rule initialises `--thallo-root-layout: block`)
 - Test: `tools/runtime-browser/tests/layout.spec.js` (both renders, widths 375, 700, 800, 1280): each case's expected computed layout — for the span cases the child's `grid-column-start`/`end` and rect at each width; for the min-height cases root `display` and `min-height` at each width, **including the three visibility compositions — `display: none` wherever hidden, the column flex root wherever visible with half height, a centred child after hidden → visible, and `display: none` retained after the min-height reset**; for the gutter cases `__inner` `padding-inline`, including the nested full-width container at `0px`; for spacing normalization each child's `margin-block` after a mode change, **flex → reset restoring default margins exactly as flex → block**; for `span-parent-grid-then-reset-md` the child fills the single default track at 800; for containment the card's and CTA's internal padding unchanged
-- [ ] **Steps 1–4.** Write the proofs before the theme rules.
-- [ ] **Step 5: Commit** `feat(render): layout items, theme layout defaults and real-browser layout proofs`.
+- [x] **Steps 1–4.** Write the proofs before the theme rules.
+- [x] **Step 5: Commit** `feat(render): layout items, theme layout defaults and real-browser layout proofs`.
 
 ## Task 1.3: phase gate
 
-- [ ] **Step 1:** PHP gates, admin gates, real-browser gate.
-- [ ] **Step 2:** the production `container` declares no `layout` capability yet; `BlockSettingsValidationTest` case "a container refuses layout settings before its cutover" passes.
-- [ ] **Step 3:** no commit unless a gate required a fix; any fix is its own commit naming the failing proof.
+- [x] **Step 1:** PHP gates, admin gates, real-browser gate.
+- [x] **Step 2:** the production `container` declares no `layout` capability yet; `BlockSettingsValidationTest` case "a container refuses layout settings before its cutover" passes.
+- [x] **Step 3:** no commit unless a gate required a fix; any fix is its own commit naming the failing proof.
 
 ---
 
@@ -189,8 +189,8 @@
 - Modify: `core/src/Content/Blocks/StarterBlockTypes.php` (`container`: `element` enum `div`, `section`, `article`, `aside`, `header`, `footer`; deletes the nine layout data fields; targets `root` box and `inner` stack; capabilities and map per §4), `packages/thallo-render/themes/default/templates/blocks/container.twig` (root tag from `data.element` through an allowlist defaulting to `div`; `style_classes('inner')` on `__inner`; superseded modifiers deleted), `packages/thallo-render/themes/default/assets/blocks.css` (superseded container rules deleted), `packages/thallo-render/docs/THEMING.md`, `packages/thallo-render/fragments-verified.json`
 - Modify: `tests/fixtures/layout/references/container-*.json` — add `new` trees (the §4 parity mapping) and `map`
 - Test: `tests/Integration/Render/StarterTemplatesTest.php` (`element` rendering; inner classes; no superseded modifier), `tests/Integration/Content/BlockSettingsValidationTest.php` (deleted fields refused; `layout.display` on `inner` accepted, on `root` refused), `tests/Integration/Content/BlockFactoryTest.php` (a factory-created container: `element: div`, no layout settings), `tools/runtime-browser/tests/parity.spec.js` (`compareToReference` for every `container-*` case at all widths with every recorded profile — geometry, spacing, typography, surface, semantics — and `allow` empty; the new root's flex mechanism is **not** compared here and is proven by `layout.spec.js`'s `band-half-centred` case), `tools/runtime-browser/tests/layout.spec.js` (extend: each `container-*` new tree's mechanism — root `display` from `--thallo-root-layout`, `__inner` display and alignment — matches its §4 mapping)
-- [ ] **Steps 1–4.**
-- [ ] **Step 5: Commit** `feat(blocks): the container's layout is style settings on root and inner; its layout data fields are gone`.
+- [x] **Steps 1–4.**
+- [x] **Step 5: Commit** `feat(blocks): the container's layout is style settings on root and inner; its layout data fields are gone`.
 
 ## Task 2.2: tab map, layout context, and the Box, Container and Children sections
 
@@ -198,8 +198,8 @@
 - Create: `admin/src/editor/inspector/tabMap.ts`, `admin/src/editor/inspector/layoutContext.ts` **(moved here — review)**, `admin/src/editor/inspector/LayoutTab.vue` (Box, Container, Children; one active breakpoint on every section header; Overflow labelled "all sizes"; Children rendered from `effectiveDisplay(block, activeBreakpoint, classes)`: flex → direction and wrap (icon segmented), `alignment.content`, `layout.align_items`, gaps as a `BoxField` with sides `column` and `row`; grid → track swatches, `alignment.content`, `layout.align_items`, gaps; block → "Children stack. Switch to flex or grid to arrange them." and the display buttons; the gutter shows the width-dependent default as the theme value), `admin/src/editor/inspector/controls/IconChoiceControl.vue`
 - Modify: `admin/src/editor/inspector/BlockInspector.vue` (tabs Content, Layout, Style, Advanced; Layout when any declared path maps to `'layout'`; multi-selection shows Layout and Style), `admin/src/editor/inspector/StyleTab.vue` (only `'style'` paths), `admin/src/pages/content/[type]/[uuid]/design/[locale].vue` (passes the selected block's `parent` and `parentType`)
 - Test: `admin/src/__tests__/tab-map.spec.ts`, `admin/src/__tests__/layout-context.spec.ts` (`effectiveDisplay` inherits base into md; a class supplies lg; a reset returns `block`), `admin/src/__tests__/layout-tab.spec.ts` (a container shows Box, Container, Children; a heading shows Box with width and Placement; Button shows `alignment.content` without Container or Children; flex at base, grid at md re-renders Children on switching breakpoint; a swatch writes `layout.columns` at the active breakpoint; Overflow writes a null breakpoint), `admin/src/__tests__/block-inspector.spec.ts` (tab order; Style no longer lists `width` or `alignment.self`)
-- [ ] **Steps 1–4.**
-- [ ] **Step 5: Commit** `feat(inspector): a Layout tab — Box, Container and Children over the layout contract; tabs by property`.
+- [x] **Steps 1–4.**
+- [x] **Step 5: Commit** `feat(inspector): a Layout tab — Box, Container and Children over the layout contract; tabs by property`.
 
 ## Task 2.3: As an item and dormant notices
 
@@ -207,8 +207,8 @@
 - Modify: `admin/src/editor/inspector/LayoutTab.vue` (As an item: grid parent → span, align self; flex parent → basis, grow, shrink, align self; block parent → the line and `layout-item-parent-link`; `layout-dormant-parent` and `layout-dormant-item` from `dormantPaths`, counting class-supplied declarations), `BlockInspector.vue` (re-emits `select-parent`), `[locale].vue` (`select-parent`; `parent` passed for a multi-selection only when all share one parent)
 - Test: `admin/src/__tests__/layout-context.spec.ts` (`dormantPaths` for parent and item roles with class values), `admin/src/__tests__/layout-tab.spec.ts` (item controls per parent mode and breakpoint; dormant notices both ways; sibling multi-selection with mixed values and intersected capabilities; two parents → no item section)
 - Test: `admin/e2e/tests/layout-mode-switch.spec.ts` (grid container with three headings → switch to flex → apply → rects share a top edge → switch back → three tracks)
-- [ ] **Steps 1–4.** The builder proof fixture gains the grid container (`scripts/build-builder-proof-fixtures`).
-- [ ] **Step 5: Commit** `feat(inspector): As an item controls follow the immediate parent's mode; dormant settings disclosed both ways`.
+- [x] **Steps 1–4.** The builder proof fixture gains the grid container (`scripts/build-builder-proof-fixtures`).
+- [x] **Step 5: Commit** `feat(inspector): As an item controls follow the immediate parent's mode; dormant settings disclosed both ways`.
 
 ---
 
@@ -227,8 +227,8 @@
   - `insertCandidate` places a new block at a root position and at a nested position, and returns `null` for a missing parent;
   - the existing `checkInsert` cases unchanged.
 - Test: the shared legality fixtures in `tests/fixtures/structure/legality/` gain `nested-forbidden-descendant.json`, run by `admin/src/__tests__/structure-legality.spec.ts` and by `tests/Integration/Content/TreeLegalityFixturesTest.php`. If the PHP checker that test drives does not already reject a forbidden descendant, extend it in this task so both runtimes agree.
-- [ ] **Steps 1–4.**
-- [ ] **Step 5: Commit** `feat(editor): whole-candidate legality — every descendant of an inserted subtree is checked`.
+- [x] **Steps 1–4.**
+- [x] **Step 5: Commit** `feat(editor): whole-candidate legality — every descendant of an inserted subtree is checked`.
 
 ## Task 3.2: presets as pure, cascade-safe plans
 
@@ -240,8 +240,8 @@
   - **Stack (review — explicit values, judged on the resolved result):** Stack owns `layout.display` and writes an explicit `block` value — never a reset — at each breakpoint where the **resolved** display (instance and class layers) is not already `block`. A fresh container with nothing declared resolves to `block` everywhere → no operations, so dismissing it records nothing (§6.4). A container whose class sets `flex` at `lg` → one `SetSetting` `block` at `lg`. An instance `flex` at `md` → one `SetSetting` `block` at `md` and one at `lg` (inherited from md).
   - `section` writes `element` `section`, root padding top and bottom `spacing.3xl`, `layout.content_width` `width.container`, `layout.columns` reset at every breakpoint, children header group, content, links; `section-split` writes flex at base and md, grid at lg, `layout.columns` `2` at lg.
   - `presetDepth('section')` is 3; `presetDepth('cols-33-67')` is 2.
-- [ ] **Steps 1–4.**
-- [ ] **Step 5: Commit** `feat(editor): structure presets as explicit, cascade-safe operation plans`.
+- [x] **Steps 1–4.**
+- [x] **Step 5: Commit** `feat(editor): structure presets as explicit, cascade-safe operation plans`.
 
 ## Task 3.3: the picker's state and commit through apply
 
@@ -254,24 +254,24 @@
   - choosing `cols-33-67` → the next apply request carries every preset operation, all with **one** `transaction_id`, in plan order;
   - the apply is rejected → the existing rollback contract: the transaction is discarded from history (`discardTip`), its operations leave `opsSinceApply`, the document returns to the empty container, and the rejection is reported;
   - a legality refusal leaves `fields`, history length and `opsSinceApply` unchanged.
-- [ ] **Steps 1–4.**
-- [ ] **Step 5: Commit** `feat(editor): the structure picker — session-only offers, validated on the real subtree, committed through apply`.
+- [x] **Steps 1–4.**
+- [x] **Step 5: Commit** `feat(editor): the structure picker — session-only offers, validated on the real subtree, committed through apply`.
 
 ## Task 3.4: the stage tiles
 
 **Files:**
 - Modify: `packages/thallo-render/assets/preview/preview-bridge.js` (offers by id; an offered container's empty `content` slot shows the tiles and Skip instead of the ordinary placeholder; disabled tiles carry the reason; clicks post choose or skip without selecting; an offer absent from the latest message removes its tiles; a container that gains a child shows none), `packages/thallo-render/assets/preview/preview.css`, `admin/src/composables/useCanvasBridge.ts`
 - Test: `admin/src/__tests__/preview-bridge-dom.spec.ts`, `admin/src/__tests__/canvas-bridge.spec.ts` (the cases named in the file list, and malformed messages dropped)
-- [ ] **Steps 1–4.**
-- [ ] **Step 5: Commit** `feat(canvas): structure picker tiles in a new container's empty slot`.
+- [x] **Steps 1–4.**
+- [x] **Step 5: Commit** `feat(canvas): structure picker tiles in a new container's empty slot`.
 
 ## Task 3.5: picker proofs
 
 **Files:**
 - Create: `admin/e2e/tests/structure-picker.spec.ts` (insert → tile → one history entry and two columns at 1280px → undo empty, no tiles → redo same ids; a depth-limited `structure-tile-section` disabled with the reason; offer → drag a heading in → undo → a stale choose message → no history entry)
 - Modify: `admin/e2e/README.md`
-- [ ] **Steps 1–4.**
-- [ ] **Step 5: Commit** `test(builder): structure picker proofs`.
+- [x] **Steps 1–4.**
+- [x] **Step 5: Commit** `test(builder): structure picker proofs`.
 
 ---
 
@@ -283,8 +283,8 @@
 - Modify: `tests/fixtures/layout/references/section-*.json`, `columns-*.json`, `grid-*.json`, `leaf-*.json` — add each case's `new` composition (§7.3–§7.5, §7.8, §7.9, the leaf cases inside those compositions), `map` and `allow` (row ids from §7.7 and §7.10 only)
 - Modify: `scripts/build-layout-proof-fixtures` (renders the `new` trees public and annotated)
 - Test: `tools/runtime-browser/tests/retirement.spec.js` — `compareToReference` for every case at 375, 700, 800, 1280 on both renders; the semantics comparison (landmarks, heading levels, names, reading order) with the §7.4 exception on reversed cases; each `allow` row relaxing only its named properties and the `geometry` of its `affects` list, and asserted as its specified result (title `font-size` equals the theme `h2` clamp, `affects` the title and the description, content and links after it; description `font-size` equals `typography.size.lg`, `affects` the description and the content and links after it; inverted description `color` equals `--accent-ink`, `affects` nothing; leaves inside a composition have `padding-inline: 0` unless authored, `affects` that leaf and its following siblings in the cell; the two-column step at 768px, stacked at 700, `affects` every column and its descendants at 700 only); composed-container spacing has no `allow`
-- [ ] **Steps 1–4.** A difference outside §7.7 and §7.10 is fixed in the composition, the presets or the theme defaults — never allowlisted without a spec amendment by the user.
-- [ ] **Step 5: Commit** `test(render): retirement compositions match the frozen references within the closed dispositions`.
+- [x] **Steps 1–4.** A difference outside §7.7 and §7.10 is fixed in the composition, the presets or the theme defaults — never allowlisted without a spec amendment by the user.
+- [x] **Step 5: Commit** `test(render): retirement compositions match the frozen references within the closed dispositions`.
 
 ## Task 4.2: remove Columns, Grid and Section
 
@@ -300,13 +300,13 @@ grep -rlnE "'(columns|grid|section)'|\"(columns|grid|section)\"|thallo-block-(co
 - Modify: `core/src/Content/Blocks/StarterBlockTypes.php`; `core/database/migrations/021_ReseedBlockTypesForThemeRewrite.php` (`DRIFTED` loses `section`, `grid`); `core/src/Content/Regions/RegionDefinitions.php` (`columns` removed); `admin/src/fields/components/blocks/BlockFields.vue`; `CanvasOutline.vue`; `BlockList.vue` and `admin/src/editor/palette/target.ts` (columns-specific branches); `preview-bridge.js` (columns-specific branches); `admin/src/queries/blockFactory.spec.ts`; `tests/fixtures/composition/five-deep.json` and every `tests/fixtures/structure/legality/*.json` naming a retired type (same depth and slot shape, expectations unchanged); `scripts/build-builder-proof-fixtures` and `admin/e2e/tests/*.spec.ts` ids; every admin and PHP spec in the inventory; `packages/thallo-render/docs/THEMING.md`, `packages/thallo-render/docs/refs.md`; `fragments-verified.json`; `CHANGELOG.md` (Unreleased: Added — Layout tab, structure picker, layout properties; Changed — Container, Heading and Rich text Placement and width; Removed — Columns, Grid, Section, masonry; the §7.7 and §7.10 changes and the 768px column step verbatim)
 - **The references stay.** `tools/runtime-browser/references/` and `tests/fixtures/layout/references/` keep their `old` trees as data only; `scripts/capture-layout-references` is deleted in this task, so nothing can render them again, and `retirement.spec.js` keeps comparing the `new` compositions against the frozen measurements.
 - Test: `tests/Integration/Content/SeedBlockTypesTest.php`, `tests/Integration/Render/TemplateLinterTest.php`, `tools/runtime-browser/tests/retirement.spec.js` still green; the inventory command returns only the reviewed unrelated uses
-- [ ] **Steps 1–4.** The before and after inventory lists go in the commit body.
-- [ ] **Step 5: Commit** `feat(blocks)!: Columns, Grid and Section are retired — Container compositions replace them`.
+- [x] **Steps 1–4.** The before and after inventory lists go in the commit body.
+- [x] **Step 5: Commit** `feat(blocks)!: Columns, Grid and Section are retired — Container compositions replace them`.
 
 ## Task 4.3: release gates
 
-- [ ] **Step 1:** one at a time: `COMPOSER_PROCESS_TIMEOUT=0 composer test`, `composer phpcs`, `composer boundaries`, `COMPOSER_PROCESS_TIMEOUT=0 composer test:skeleton`, `COMPOSER_PROCESS_TIMEOUT=0 composer test:distribution`; admin gates; `cd admin/e2e && pnpm test`; the real-browser gate.
-- [ ] **Step 2:** report the gate table to the user. The beta cut happens only on the user's word.
+- [x] **Step 1:** one at a time: `COMPOSER_PROCESS_TIMEOUT=0 composer test`, `composer phpcs`, `composer boundaries`, `COMPOSER_PROCESS_TIMEOUT=0 composer test:skeleton`, `COMPOSER_PROCESS_TIMEOUT=0 composer test:distribution`; admin gates; `cd admin/e2e && pnpm test`; the real-browser gate.
+- [x] **Step 2:** report the gate table to the user. The beta cut happens only on the user's word.
 
 ## Self-review
 
