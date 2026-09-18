@@ -1,0 +1,30 @@
+{
+  "_about": "Style class payloads read by BOTH suites (container-layout spec §12.5): admin vitest proves the class editor emits these shapes, PHPUnit proves what the server does with them. `valid` and `bare_reset` are what the editor authors; `invalid_value` and `unknown_path` are what it preserves and the server refuses on purpose; `wrapped_non_responsive` is what it must never author.",
+  "valid": {
+    "layout": {
+      "display": { "base": { "type": "choice", "value": "grid" } },
+      "columns": {
+        "base": { "type": "choice", "value": "3" },
+        "md": { "type": "reset" }
+      },
+      "overflow": { "type": "choice", "value": "hidden" }
+    },
+    "width": { "md": { "type": "token", "value": "width.narrow" } },
+    "radius": { "type": "token", "value": "radius.md" }
+  },
+  "bare_reset": {
+    "layout": { "overflow": { "type": "reset" } }
+  },
+  "invalid_value": {
+    "layout": { "display": { "md": { "type": "choice", "value": "block" } } },
+    "spacing": {
+      "padding": { "top": { "base": { "type": "token", "value": "spacing.lg" } } }
+    }
+  },
+  "wrapped_non_responsive": {
+    "layout": { "overflow": { "base": { "type": "choice", "value": "hidden" } } }
+  },
+  "unknown_path": {
+    "layout": { "nonesuch": { "base": { "type": "choice", "value": "x" } } }
+  }
+}

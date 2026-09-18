@@ -47,7 +47,9 @@ export type ClassFieldKind =
   | 'inherited'        // a value declared at an earlier breakpoint of this class
   | 'inherited-reset'  // a reset declared at an earlier breakpoint of this class
   | 'not-set'          // nothing applies through this class's own inheritance
-  | 'invalid'          // a stored value the contract does not offer for this property
+  | 'invalid'          // a stored value the contract does not offer for this property — or a
+                       // non-responsive property stored under a breakpoint, which the resolver
+                       // reads as nothing and the server refuses: invalid, never invisible
 
 export interface ClassFieldState {
   kind: ClassFieldKind
@@ -62,16 +64,12 @@ export interface ClassFieldState {
   declaredHere: boolean
 }
 
-export interface ClassFieldDefinition {
-  path: string
-  responsive: boolean
-  tokenDomain: string | null
-  choices: readonly string[] | null
-}
+// `def` is the resolver's own `PropertyDefinition` (`@/style/types`): path, group, responsive,
+// tokenDomain, choices. No second definition type.
 
 /** One class's own declarations for one property at one breakpoint. No other layer is consulted. */
 export function classFieldState(
-  def: ClassFieldDefinition,
+  def: PropertyDefinition,
   style: Record<string, unknown>,
   breakpoint: Breakpoint,
   /** The vocabulary's names for the property's token domain; absent, tokens are not judged. */
@@ -141,8 +139,8 @@ Token and choice names are taken from the live schema and vocabulary when the fi
 - **invalid:** a stored `block` on `layout.display` at `md`, read at `md` → `invalid`, `value` the stored value, label `Invalid`, `declaredHere: true`; read at `lg` → `invalid`, `from: 'md'`. A token outside the supplied `tokens` list → `invalid`; with `tokens` omitted the same input is `set` (the function does not guess).
 - a token property (`layout.gap.row`) and a box side (`spacing.padding.top`) each through set / inherited / not-set, so every control kind in §12.6 has its state covered here.
 
-- [ ] **Steps 1–4.** In Step 1, write the fixture file first and check every token and choice name in it against `useStyleSchema`'s live output (`admin/src/__tests__` has schema fixtures; `packages/thallo-contracts/src/Style/StyleSchema.php` is the source) — correct any that do not exist.
-- [ ] **Step 5: Commit** `feat(inspector): classFieldState — what one class declares for a property, through its own breakpoints`.
+- [x] **Steps 1–4.** In Step 1, write the fixture file first and check every token and choice name in it against `useStyleSchema`'s live output (`admin/src/__tests__` has schema fixtures; `packages/thallo-contracts/src/Style/StyleSchema.php` is the source) — correct any that do not exist.
+- [x] **Step 5: Commit** `feat(inspector): classFieldState — what one class declares for a property, through its own breakpoints`.
 
 ## Task 1.2: the shared fields speak truthfully in a class
 
