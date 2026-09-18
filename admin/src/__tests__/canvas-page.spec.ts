@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ref } from 'vue'
@@ -732,6 +732,62 @@ describe('canvas page', () => {
       'bg-elevated',
     )
     wrapper.unmount()
+  })
+
+  // The stage is clickable as soon as its page loads, which can be before the content-type schema
+  // has: without the schema the tree has no root blocks fields, so the block cannot be placed yet.
+  describe('a stage click that arrives before the schema', () => {
+    const loaded = contentTypes.value
+    const withoutSchema = async () => {
+      contentTypes.value = undefined as unknown as typeof loaded
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      const wrapper = mountPage()
+      await flushPromises()
+      return wrapper
+    }
+    afterEach(() => {
+      contentTypes.value = loaded
+    })
+
+    it('is kept, and selects the block once the schema arrives', async () => {
+      const wrapper = await withoutSchema()
+      bridge.callbacks.select?.('blockaaa0001')
+      await flushPromises()
+      expect(wrapper.find('[data-test="block-inspector"]').exists()).toBe(false)
+
+      contentTypes.value = loaded
+      await flushPromises()
+      expect(wrapper.find('[data-test="block-inspector"]').exists()).toBe(true)
+      expect(wrapper.find('[data-test="canvas-outline-item-blockaaa0001"]').classes()).toContain(
+        'bg-elevated',
+      )
+      wrapper.unmount()
+    })
+
+    it('gives way to a later click: the last one is the one selected', async () => {
+      const wrapper = await withoutSchema()
+      bridge.callbacks.select?.('blockaaa0001')
+      bridge.callbacks.select?.('blockbbb0002')
+      contentTypes.value = loaded
+      await flushPromises()
+      expect(wrapper.find('[data-test="canvas-outline-item-blockbbb0002"]').classes()).toContain(
+        'bg-elevated',
+      )
+      expect(
+        wrapper.find('[data-test="canvas-outline-item-blockaaa0001"]').classes(),
+      ).not.toContain('bg-elevated')
+      wrapper.unmount()
+    })
+
+    it('is forgotten when the stage deselects before the schema arrives', async () => {
+      const wrapper = await withoutSchema()
+      bridge.callbacks.select?.('blockaaa0001')
+      bridge.callbacks.deselect?.('blockaaa0001')
+      contentTypes.value = loaded
+      await flushPromises()
+      expect(wrapper.find('[data-test="block-inspector"]').exists()).toBe(false)
+      wrapper.unmount()
+    })
   })
 
   it('outline keyboard shortcuts drive the shared handlers (polish batch §4)', async () => {

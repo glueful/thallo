@@ -46,6 +46,9 @@ as the next release, never a mutated tag.
 - Clicking a block on the stage while the editor was still loading could leave the Block inspector
   on "Select a block on the stage or in the outline" for a block the stage showed as selected,
   until it was selected again. The inspector now picks the block up as soon as the editor is ready.
+- A block clicked on the stage before the page's schema had loaded was not selected at all, though
+  the stage ringed it. The click is now kept and the block selected once the schema arrives; a
+  later click or a deselect replaces it.
 
 ### Removed
 - The Columns, Grid and Section blocks, and the masonry flow. A Container composition replaces

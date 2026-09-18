@@ -426,6 +426,7 @@ function applySelection(
 ): void {
   const doc = selectionDoc()
   clearInsertTarget()
+  pendingStageSelect.value = null
   selection.value = modifiers.shift
     ? extend(selection.value, id, doc, selectionCtx)
     : modifiers.meta
@@ -436,12 +437,14 @@ function selectOne(id: string): void {
   insertTarget.value = null
   targetStale.value = false
   insertAttempt++
+  pendingStageSelect.value = null
   const next = single(id, selectionDoc(), selectionCtx)
   // A block the tree does not hold yet (an insert still landing) is selected on trust and
   // re-read on the next change.
   selection.value = next.ids.length > 0 ? next : { ids: [id], parent: null, slot: null, anchor: id }
 }
 function clearSelection(): void {
+  pendingStageSelect.value = null
   selection.value = EMPTY_SELECTION
   clearInsertTarget()
 }
@@ -456,14 +459,32 @@ function groupFor(id: string): Selection | null {
   return s.ids.length > 1 && s.ids.includes(id) ? s : null
 }
 
-bridge.onBlockSelect((id, modifiers = { shift: false, meta: false }) => {
+/**
+ * A stage click the tree could not place yet. The stage is clickable as soon as its own page has
+ * loaded, which can be before the schema, the block types or the draft have — and until they do a
+ * block has no position to select it at. The click is kept and placed when they arrive; any other
+ * selection, or a deselect, forgets it. Once everything has loaded an id that still has no place
+ * is simply unknown, and nothing waits for it.
+ */
+const pendingStageSelect = ref<string | null>(null)
+const treeLoaded = (): boolean =>
+  contentType.value !== undefined && allBlockTypes.value !== undefined && hydratedLock !== -1
+
+function selectFromStage(id: string, modifiers: SelectModifiers): void {
   applySelection(id, modifiers)
   const anchor = selection.value.anchor
+  // Only a plain click waits: a modified one extends a selection that does not exist yet.
+  if (anchor === null && !modifiers.shift && !modifiers.meta && !treeLoaded()) {
+    pendingStageSelect.value = id
+  }
   if (anchor !== null) fieldEditorRef.value?.selectBlockById(anchor)
   // A modified click is judged here, so the stage learns the resulting rings from the parent.
   if (modifiers.shift || modifiers.meta) ringSelection()
   inspectorTab.value = 'block'
-})
+}
+bridge.onBlockSelect((id, modifiers = { shift: false, meta: false }) =>
+  selectFromStage(id, modifiers),
+)
 
 /** The Layout tab's link out of an item to the container that governs it (spec §5). */
 function onSelectParent(id: string): void {
@@ -868,6 +889,10 @@ bridge.onSlotAdd((parent, slot) => armInsertTarget({ kind: 'into', parent, field
 // text patches the tree — no mirrors, the contenteditable IS the stage DOM.
 const { data: allBlockTypes } = useBlockTypes()
 
+watch([schema, allBlockTypes, fields], () => {
+  const id = pendingStageSelect.value
+  if (id !== null) selectFromStage(id, { shift: false, meta: false })
+})
 const regionsOf = (slug: string): string[] => {
   const blockType = allBlockTypes.value?.find((t) => t.slug === slug)
   return (blockType?.schema ?? []).filter((f) => f.type === 'blocks').map((f) => f.name)
