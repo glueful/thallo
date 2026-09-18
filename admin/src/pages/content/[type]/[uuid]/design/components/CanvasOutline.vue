@@ -226,8 +226,14 @@ defineExpose({ onDragEnd })
           <button
             v-else
             type="button"
-            class="block w-full rounded border border-dashed border-default px-2 py-1 text-left text-xs text-muted hover:bg-elevated"
-            :style="{ marginLeft: `${8 + row.depth * 16}px` }"
+            class="block rounded border border-dashed border-default px-2 py-1 text-left text-xs text-muted hover:bg-elevated"
+            :style="{
+              // Its dashed frame starts at the indent, so the indent is a margin — and a margin is
+              // outside the box: full width PLUS the indent was wider than the panel by exactly
+              // the indent, more with every level. The width gives up what the margin takes.
+              marginLeft: `${8 + row.depth * 16}px`,
+              width: `calc(100% - ${8 + row.depth * 16}px)`,
+            }"
             data-outline-slot="1"
             :data-test="`canvas-outline-slot-${row.zone.parent}-${row.zone.slot}`"
             @click="emit('insertRequest', row.zone.parent!, row.zone.slot!)"
