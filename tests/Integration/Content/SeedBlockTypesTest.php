@@ -39,20 +39,20 @@ final class SeedBlockTypesTest extends AppTestCase
         self::assertStringContainsString('created hero', $tester->getDisplay());
 
         // Every definition passed create() → §2 rules validated the starters themselves.
-        $section = $repo->findBySlug('section');
-        self::assertSame('Layout', $section['category']);
-        self::assertContains('blocks', array_column($section['schema'], 'type'));
+        $container = $repo->findBySlug('container');
+        self::assertSame('Layout', $container['category']);
+        self::assertContains('blocks', array_column($container['schema'], 'type'));
 
         // Block-library expansion + theme-rewrite reconciliation: legacy blocks
         // dropped, new primitives added (incl. footer + color_mode + heading + file),
-        // item carriers renamed (accordion_item, stepper_item). footer_columns removed
-        // — columns + links compose it. 37 types; html seeds DEACTIVATED; hero/cta
+        // item carriers renamed (accordion_item, stepper_item). Columns, Grid and Section are
+        // retired: a container composition replaces each. html seeds DEACTIVATED; hero/cta
         // carry the Nuxt UI shapes; container declares value constraints.
         // blog_posts (blog-posts spec): dynamic listing of published posts as cards.
         // modern-blocks spec §2/§3: animated_text (Content) + gallery (Media) added.
         // code (website plan, phase 1): a snippet with a language label and a copy button.
-        self::assertSame(47, count(StarterBlockTypes::definitions()));
-        self::assertGreaterThanOrEqual(47, $expected, 'contributions only ever add to the fixed library');
+        self::assertSame(44, count(StarterBlockTypes::definitions()));
+        self::assertGreaterThanOrEqual(44, $expected, 'contributions only ever add to the fixed library');
         // Starter content (visual builder Phase B, B6.4): the eight everyday types insert with
         // something to look at; the factory hands it to the editor separately from the defaults.
         foreach (
@@ -62,8 +62,6 @@ final class SeedBlockTypesTest extends AppTestCase
                 'button' => ['label' => 'Learn more', 'url' => '#'],
                 'cta' => ['title' => 'Ready to begin?'],
                 'hero' => ['headline' => 'Headline', 'description' => 'One sentence that says what this is.'],
-                'section' => ['content' => []],
-                'columns' => ['layout' => '2'],
                 'card' => ['title' => 'Card'],
             ] as $slug => $starter
         ) {
@@ -148,13 +146,22 @@ final class SeedBlockTypesTest extends AppTestCase
             ['title', 'description', 'variant', 'orientation', 'reverse', 'links', 'links_align'],
             $ctaFields,
         );
-        // Visual builder spec §7.2: the container's overlay is a choice and an opacity step,
-        // its gap a spacing token; colours, corners, border and shadow are settings.
+        // Visual builder spec §7.2: the container's overlay is a choice and an opacity step;
+        // colours, corners, border and shadow are settings. Container-layout spec §4: the root's
+        // element is allowlisted structure, and the nine layout fields are settings now.
         $container = array_column($repo->findBySlug('container')['schema'], null, 'name');
         self::assertSame(['none', 'light', 'dark'], $container['overlay']['enum']);
         self::assertSame(['25', '50', '75'], $container['overlay_opacity']['enum']);
-        self::assertSame('spacing', $container['gap']['domain']);
-        foreach (['background_color', 'shadow', 'padding_preset', 'overlay_color'] as $retired) {
+        self::assertSame(
+            ['div', 'section', 'article', 'aside', 'header', 'footer'],
+            $container['element']['enum'],
+        );
+        $retiredFields = [
+            'background_color', 'shadow', 'padding_preset', 'overlay_color',
+            'width', 'min_height', 'content_align', 'layout', 'flex_direction',
+            'justify', 'align_items', 'flex_wrap', 'gap',
+        ];
+        foreach ($retiredFields as $retired) {
             self::assertArrayNotHasKey($retired, $container);
         }
 
@@ -165,12 +172,6 @@ final class SeedBlockTypesTest extends AppTestCase
         self::assertSame(['primary', 'neutral'], $button['color']['enum']);
         self::assertSame(['xs', 'sm', 'md', 'lg', 'xl'], $button['size']['enum']);
         self::assertSame('icon', $button['leading_icon']['format']);
-
-        // Columns sizing (columns-sizing spec): ratio presets + vertical alignment.
-        $columns = array_column($repo->findBySlug('columns')['schema'], null, 'name');
-        self::assertContains('33-67', $columns['widths']['enum']);
-        self::assertContains('25-25-50', $columns['widths']['enum']);
-        self::assertSame(['stretch', 'top', 'center', 'bottom'], $columns['align']['enum']);
 
         // Icon-picker formats (icon-picker spec §2): editor hints paired with
         // patterns; brand-icon PAIRS the brand-prefixed pattern (P2 pin).

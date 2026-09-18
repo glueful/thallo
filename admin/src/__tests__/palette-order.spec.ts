@@ -21,9 +21,8 @@ const bt = (slug: string, category: string | null, description: string | null = 
 const types = [
   bt('zebra', null, 'striped'),
   bt('hero', 'Content', 'Big heading'),
-  bt('section', 'Layout'),
+  bt('container', 'Layout', 'A wrapper'),
   bt('button', 'Content', 'An action'),
-  bt('columns', 'Layout'),
 ]
 
 describe('the palette order (one rule for the Blocks tab and the insert menu)', () => {
@@ -31,8 +30,7 @@ describe('the palette order (one rule for the Blocks tab and the insert menu)', 
     expect(orderTypes(types, '').map((t) => t.slug)).toEqual([
       'hero',
       'button',
-      'section',
-      'columns',
+      'container',
       'zebra',
     ])
   })
@@ -53,8 +51,8 @@ describe('the palette order (one rule for the Blocks tab and the insert menu)', 
   it('matches the query against label, slug and description, case-insensitively', () => {
     expect(orderTypes(types, 'HERO').map((t) => t.slug)).toEqual(['hero'])
     expect(orderTypes(types, 'action').map((t) => t.slug)).toEqual(['button'])
-    expect(orderTypes(types, 'col').map((t) => t.slug)).toEqual(['columns'])
-    expect(orderTypes(types, '  ')).toHaveLength(5)
+    expect(orderTypes(types, 'cont').map((t) => t.slug)).toEqual(['container'])
+    expect(orderTypes(types, '  ')).toHaveLength(4)
     expect(orderTypes(types, 'nothing')).toEqual([])
   })
 })
@@ -63,15 +61,15 @@ describe('grouping by category (the block-types page rule)', () => {
   it('known categories lead in the curated order, others follow alphabetically, Other last', () => {
     const all = [
       bt('zebra', null),
+      bt('container', 'Layout'),
       bt('gallery', 'Media'),
       bt('hero', 'Content'),
       bt('tab', 'Items'),
-      bt('section', 'Layout'),
       bt('shop', 'Commerce'),
       bt('button', 'Content'),
     ]
     expect(groupByCategory(all).map((g) => [g.category, g.items.map((t) => t.slug)])).toEqual([
-      ['Layout', ['section']],
+      ['Layout', ['container']],
       ['Content', ['hero', 'button']],
       ['Media', ['gallery']],
       ['Items', ['tab']],

@@ -1,0 +1,106 @@
+{
+  "case": "span-nested-grid",
+  "note": "\u00a73.7: a span resolves against the NEAREST container's tracks \u2014 the inner container spans two of the outer's four, and its own child spans both of its two.",
+  "tree": {
+    "id": "lf0000000001",
+    "type": "layout_fixture",
+    "data": {
+      "content": [
+        {
+          "id": "lf0000000002",
+          "type": "layout_fixture",
+          "data": {
+            "content": [
+              {
+                "id": "hd0000001401",
+                "type": "heading",
+                "data": {
+                  "level": "h2",
+                  "text": "Inner spanning"
+                },
+                "settings": {
+                  "style": {
+                    "layout": {
+                      "span": {
+                        "base": {
+                          "type": "choice",
+                          "value": "2"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "id": "hd0000001402",
+                "type": "heading",
+                "data": {
+                  "level": "h2",
+                  "text": "Inner next"
+                },
+                "settings": {}
+              }
+            ]
+          },
+          "settings": {
+            "style": {
+              "layout": {
+                "span": {
+                  "base": {
+                    "type": "choice",
+                    "value": "2"
+                  }
+                },
+                "display": {
+                  "base": {
+                    "type": "choice",
+                    "value": "grid"
+                  }
+                },
+                "columns": {
+                  "base": {
+                    "type": "choice",
+                    "value": "2"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "hd0000001403",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Outer next"
+          },
+          "settings": {}
+        }
+      ]
+    },
+    "settings": {
+      "style": {
+        "layout": {
+          "display": {
+            "base": {
+              "type": "choice",
+              "value": "grid"
+            }
+          },
+          "columns": {
+            "base": {
+              "type": "choice",
+              "value": "4"
+            }
+          },
+          "content_width": {
+            "base": {
+              "type": "token",
+              "value": "width.container"
+            }
+          }
+        }
+      }
+    }
+  }
+}

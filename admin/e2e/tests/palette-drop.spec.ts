@@ -21,17 +21,19 @@ test('a heading dragged into an empty column inserts one block with its starter,
 }) => {
   const recorded = await openDesignPage(page)
   await openBlocksTab(page)
-  await dragTileTo(page, 'heading', slotOf(page, 'cols00000002', 'col_2'))
+  await dragTileTo(page, 'heading', slotOf(page, 'colb00000002', 'content'))
 
   const h = await historyLength(page, 1)
   expect(h.history[0]!.ops).toHaveLength(1)
   expect(h.history[0]!.ops[0]).toMatchObject({
     type: 'InsertBlock',
-    position: { parent: 'cols00000002', slot: 'col_2', index: 0 },
+    position: { parent: 'colb00000002', slot: 'content', index: 0 },
     block: { type: 'heading', data: { text: 'Heading' } },
   })
   const inserted = (h.history[0]!.ops[0] as { block: { id: string } }).block.id
-  expect(idsIn(h.document, ['body', 1, 'data', 'content', 0, 'data', 'col_2'])).toEqual([inserted])
+  expect(
+    idsIn(h.document, ['body', 1, 'data', 'content', 0, 'data', 'content', 1, 'data', 'content']),
+  ).toEqual([inserted])
   expect(h.selection.ids).toEqual([inserted])
 
   const sent = await applyNow(page, recorded)
@@ -44,9 +46,9 @@ test('a heading released over a button-only slot is refused: byte-identical tree
   const recorded = await openDesignPage(page)
   const before = await hooks(page)
   await openBlocksTab(page)
-  // A section's links slot admits buttons only; a fresh heading is a leaf, so the allow-list is
-  // the rule that refuses it (a fresh card would fit even at depth five).
-  await dragTileTo(page, 'heading', slotOf(page, 'sect00000001', 'links'), false)
+  // A call to action's links slot admits buttons only; a fresh heading is a leaf, so the
+  // allow-list is the rule that refuses it (a fresh card would fit even at depth five).
+  await dragTileTo(page, 'heading', slotOf(page, 'ctaa00000001', 'links'), false)
   await expect(indicator(page)).toHaveClass(/thallo-canvas-drop-line--refused/)
   await page.mouse.up()
   await expect(indicator(page)).toHaveCount(0)
@@ -66,7 +68,7 @@ test('a drag that hovers a column and is released over blank canvas inserts noth
   const recorded = await openDesignPage(page)
   const before = await hooks(page)
   await openBlocksTab(page)
-  await dragTileTo(page, 'heading', slotOf(page, 'cols00000002', 'col_2'), false)
+  await dragTileTo(page, 'heading', slotOf(page, 'colb00000002', 'content'), false)
   await expect(indicator(page)).toHaveCount(1)
   // Leave every slot: the site header holds none. Released there, the stage answers a cancel.
   const header = stage(page).locator('header.site-header')

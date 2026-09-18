@@ -1,0 +1,299 @@
+{
+  "name": "a subtree whose nested slot forbids one of its own descendants",
+  "cases": [
+    {
+      "name": "a container holding a gallery whose items carry a heading",
+      "blockTypes": [
+        {
+          "slug": "container",
+          "label": "Container",
+          "schema": [
+            {
+              "name": "content",
+              "type": "blocks"
+            }
+          ]
+        },
+        {
+          "slug": "gallery",
+          "label": "Gallery",
+          "schema": [
+            {
+              "name": "items",
+              "type": "blocks",
+              "block_types": [
+                "image"
+              ],
+              "enforce_block_types": true
+            }
+          ]
+        },
+        {
+          "slug": "image",
+          "label": "Image",
+          "schema": [
+            {
+              "name": "alt",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "slug": "heading",
+          "label": "Heading",
+          "schema": [
+            {
+              "name": "text",
+              "type": "string"
+            }
+          ]
+        }
+      ],
+      "rootSlots": {
+        "body": {
+          "block_types": [],
+          "enforce_block_types": false
+        }
+      },
+      "doc": {
+        "fields": {
+          "body": [
+            {
+              "id": "c1",
+              "type": "container",
+              "data": {
+                "content": []
+              },
+              "settings": {}
+            }
+          ]
+        }
+      },
+      "insert": {
+        "position": {
+          "parent": "c1",
+          "slot": "content",
+          "index": 0
+        },
+        "block": {
+          "id": "new",
+          "type": "container",
+          "data": {
+            "content": [
+              {
+                "id": "g1",
+                "type": "gallery",
+                "data": {
+                  "items": [
+                    {
+                      "id": "h1",
+                      "type": "heading",
+                      "data": {
+                        "text": "Nope"
+                      },
+                      "settings": {}
+                    }
+                  ]
+                },
+                "settings": {}
+              }
+            ]
+          },
+          "settings": {}
+        }
+      },
+      "candidate": {
+        "fields": {
+          "body": [
+            {
+              "id": "c1",
+              "type": "container",
+              "data": {
+                "content": [
+                  {
+                    "id": "new",
+                    "type": "container",
+                    "data": {
+                      "content": [
+                        {
+                          "id": "g1",
+                          "type": "gallery",
+                          "data": {
+                            "items": [
+                              {
+                                "id": "h1",
+                                "type": "heading",
+                                "data": {
+                                  "text": "Nope"
+                                },
+                                "settings": {}
+                              }
+                            ]
+                          },
+                          "settings": {}
+                        }
+                      ]
+                    },
+                    "settings": {}
+                  }
+                ]
+              },
+              "settings": {}
+            }
+          ]
+        }
+      },
+      "expect": {
+        "builder": "type-not-allowed",
+        "server": "body.0.content.0.content.0.items.0"
+      }
+    },
+    {
+      "name": "the same subtree with an image in the gallery is legal",
+      "blockTypes": [
+        {
+          "slug": "container",
+          "label": "Container",
+          "schema": [
+            {
+              "name": "content",
+              "type": "blocks"
+            }
+          ]
+        },
+        {
+          "slug": "gallery",
+          "label": "Gallery",
+          "schema": [
+            {
+              "name": "items",
+              "type": "blocks",
+              "block_types": [
+                "image"
+              ],
+              "enforce_block_types": true
+            }
+          ]
+        },
+        {
+          "slug": "image",
+          "label": "Image",
+          "schema": [
+            {
+              "name": "alt",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "slug": "heading",
+          "label": "Heading",
+          "schema": [
+            {
+              "name": "text",
+              "type": "string"
+            }
+          ]
+        }
+      ],
+      "rootSlots": {
+        "body": {
+          "block_types": [],
+          "enforce_block_types": false
+        }
+      },
+      "doc": {
+        "fields": {
+          "body": [
+            {
+              "id": "c1",
+              "type": "container",
+              "data": {
+                "content": []
+              },
+              "settings": {}
+            }
+          ]
+        }
+      },
+      "insert": {
+        "position": {
+          "parent": "c1",
+          "slot": "content",
+          "index": 0
+        },
+        "block": {
+          "id": "new",
+          "type": "container",
+          "data": {
+            "content": [
+              {
+                "id": "g1",
+                "type": "gallery",
+                "data": {
+                  "items": [
+                    {
+                      "id": "i1",
+                      "type": "image",
+                      "data": {
+                        "alt": "Yes"
+                      },
+                      "settings": {}
+                    }
+                  ]
+                },
+                "settings": {}
+              }
+            ]
+          },
+          "settings": {}
+        }
+      },
+      "candidate": {
+        "fields": {
+          "body": [
+            {
+              "id": "c1",
+              "type": "container",
+              "data": {
+                "content": [
+                  {
+                    "id": "new",
+                    "type": "container",
+                    "data": {
+                      "content": [
+                        {
+                          "id": "g1",
+                          "type": "gallery",
+                          "data": {
+                            "items": [
+                              {
+                                "id": "i1",
+                                "type": "image",
+                                "data": {
+                                  "alt": "Yes"
+                                },
+                                "settings": {}
+                              }
+                            ]
+                          },
+                          "settings": {}
+                        }
+                      ]
+                    },
+                    "settings": {}
+                  }
+                ]
+              },
+              "settings": {}
+            }
+          ]
+        }
+      },
+      "expect": {
+        "builder": "ok",
+        "server": "ok"
+      }
+    }
+  ]
+}

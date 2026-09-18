@@ -4,7 +4,11 @@ on:
   push:
     paths:
       - 'packages/thallo-render/**'
+      - 'packages/thallo-contracts/src/Style/**'
+      - 'tests/fixtures/layout/**'
       - 'tools/runtime-browser/**'
+      - 'scripts/build-layout-proof-fixtures'
+      - 'scripts/build-parity-fixtures'
       - 'admin/src/assets/print.css'
       - 'admin/src/pages/commerce/orders/components/InvoiceDocument.vue'
       - 'admin/src/pages/commerce/orders/**/invoice.vue'
@@ -12,7 +16,11 @@ on:
   pull_request:
     paths:
       - 'packages/thallo-render/**'
+      - 'packages/thallo-contracts/src/Style/**'
+      - 'tests/fixtures/layout/**'
       - 'tools/runtime-browser/**'
+      - 'scripts/build-layout-proof-fixtures'
+      - 'scripts/build-parity-fixtures'
       - 'admin/src/assets/print.css'
       - 'admin/src/pages/commerce/orders/components/InvoiceDocument.vue'
       - 'admin/src/pages/commerce/orders/**/invoice.vue'
@@ -25,8 +33,96 @@ defaults:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    # The layout proofs measure PAGES THIS JOB RENDERS: the fixtures are built from the committed
+    # cases through the real templates, theme and compiler, so a contract change is measured, never
+    # a stale artifact. Rendering needs the application, which needs a database.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: app_test
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      APP_ENV: testing
+      DB_DRIVER: pgsql
+      DB_PGSQL_HOST: 127.0.0.1
+      DB_PGSQL_PORT: 5432
+      DB_PGSQL_DATABASE: app_test
+      DB_PGSQL_USERNAME: postgres
+      DB_PGSQL_PASSWORD: postgres
+      DB_POOLING_ENABLED: false
+
     steps:
       - uses: actions/checkout@v6
+
+      - name: Create test environment
+        working-directory: .
+        run: |
+          cat > .env <<'EOF'
+          APP_NAME=Thallo
+          APP_ENV=testing
+          APP_DEBUG=true
+          APP_KEY=0123456789abcdef0123456789abcdef
+          JWT_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+          TOKEN_SALT=0123456789abcdef0123456789abcdef
+          DB_DRIVER=pgsql
+          DB_PGSQL_HOST=127.0.0.1
+          DB_PGSQL_PORT=5432
+          DB_PGSQL_DATABASE=app_test
+          DB_PGSQL_USERNAME=postgres
+          DB_PGSQL_PASSWORD=postgres
+          DB_PGSQL_SCHEMA=public
+          DB_POOLING_ENABLED=false
+          CACHE_DRIVER=array
+          CACHE_TAGS=false
+          QUERY_CACHE_ENABLED=false
+          QUERY_CACHE_STORE=array
+          QUEUE_CONNECTION=database
+          EOF
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql
+          coverage: none
+
+      - name: Cache composer packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/composer
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install PHP dependencies
+        working-directory: .
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Reset and migrate test database
+        working-directory: .
+        run: |
+          composer test:reset-db
+          composer test:migrate
+
+      - name: Build the layout proof fixtures
+        working-directory: .
+        run: php scripts/build-layout-proof-fixtures
+
+      # The compositions measured against the frozen references (parity.spec.js, retirement.spec.js
+      # and layout.spec.js's container cases). The pages are gitignored, so a checkout has none.
+      - name: Build the parity fixtures
+        working-directory: .
+        run: php scripts/build-parity-fixtures
 
       - uses: actions/setup-node@v6
         with:

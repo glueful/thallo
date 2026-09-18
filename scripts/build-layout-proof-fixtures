@@ -1,0 +1,128 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Build the real-browser layout fixtures (container-layout plan, Task 1.2): every case in
+ * `tests/fixtures/layout/cases/*.json` rendered twice — public, and with block annotations on (the
+ * canvas rendering) — into `tools/runtime-browser/fixtures/layout/` (gitignored), with the layer
+ * order, the theme artifact and the compiled settings artifact inlined.
+ *
+ * The cases use a TEST-ONLY block type, `layout_fixture`: the container's shape (a band `root`
+ * and a content-area `inner`) with every layout capability declared. The production container
+ * declares none until its cutover (Task 2.1), so this is what proves the compiled contract —
+ * dormancy, span clamping, the gutter rules, min height and item participation — in a browser
+ * before any block depends on it. It is created in the TEST database only.
+ *
+ *   DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-layout-proof-fixtures
+ */
+
+declare(strict_types=1);
+
+use Thallo\Contracts\Style\BlockStyleRegistry;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
+use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
+use Thallo\Core\Tests\Support\LayoutFixtureBlockType;
+use Thallo\Core\Tests\Support\TestApplication;
+use Thallo\Render\RenderContextExtension;
+use Thallo\Render\Style\StyleCompiler;
+use Thallo\Render\Style\ThemeStylesheetArtifact;
+use Thallo\Render\ThemeLocator;
+use Thallo\Render\TwigFactory;
+
+require __DIR__ . '/../vendor/autoload.php';
+
+foreach (getenv() as $key => $value) {
+    $_ENV[$key] ??= $value;
+}
+$_ENV['DB_POOLING_ENABLED'] = 'false';
+$root = dirname(__DIR__);
+if (is_file($root . '/.env')) {
+    Dotenv\Dotenv::createImmutable($root)->safeLoad();
+}
+$env = static fn (string $key, ?string $default = null): ?string => $_ENV[$key] ?? (getenv($key) === false ? $default : getenv($key));
+if ($env('APP_ENV', 'development') !== 'testing') {
+    fwrite(STDERR, "Refusing to build outside APP_ENV=testing (it seeds the test database).\n");
+    exit(1);
+}
+$database = (string) $env('DB_PGSQL_DATABASE', '');
+if ($database !== 'app_test' && !str_ends_with($database, '_test')) {
+    fwrite(STDERR, "Refusing to seed non-test database '{$database}'.\n");
+    exit(1);
+}
+
+$out = $root . '/tools/runtime-browser/fixtures/layout';
+if (!is_dir($out) && !mkdir($out, 0755, true)) {
+    fwrite(STDERR, "cannot create {$out}\n");
+    exit(1);
+}
+
+$container = TestApplication::instance()->getContainer();
+$container->get(StarterBlockTypeSeeder::class)->seedMissing();
+$blockTypes = $container->get(BlockTypeRepository::class);
+foreach ($container->get(BlockTypeKind::class)->definitions() as $definition) {
+    $payload = $definition->payload;
+    $row = $blockTypes->findBySlug((string) $payload['slug']);
+    if ($row !== null) {
+        $blockTypes->updateStyle(
+            (string) $row['uuid'],
+            $payload['style_capabilities'] ?? null,
+            $payload['style_targets'] ?? null,
+            $payload['flags'] ?? null,
+            $row['starter_content'] ?? $payload['starter_content'] ?? null,
+        );
+    }
+}
+
+// The test-only fixture type, declared once in tests/Support so the PHP render test and this
+// script build the same fixtures (see LayoutFixtureBlockType).
+LayoutFixtureBlockType::register($blockTypes);
+$container->get(BlockStyleRegistry::class)->reset();
+
+// The fixture template lives with the cases, contributed to the theme for this build only.
+$theme = new ThemeLocator('default', $root . '/themes', null, [LayoutFixtureBlockType::templateDir($root)]);
+$vocabulary = $theme->vocabulary();
+$themeDir = $theme->themeDir();
+$sheets = array_map(static fn (string $rel): string => $themeDir . '/' . $rel, $vocabulary->stylesheets());
+$css = implode("\n", [
+    (string) file_get_contents($root . '/packages/thallo-render/assets/style/layers.css'),
+    ThemeStylesheetArtifact::build($sheets)->css,
+    StyleCompiler::compile($vocabulary),
+]);
+
+// The stage's own stylesheet, which is what makes the annotation wrapper layout-inert: without
+// it the wrapper, not the block, would be the grid item, and the paired span rules would look
+// broken for the wrong reason.
+$previewCss = (string) file_get_contents($root . '/packages/thallo-render/assets/preview/preview.css');
+
+$extension = $container->get(RenderContextExtension::class);
+$twig = (new TwigFactory($theme, $extension, $root . '/storage/cache/twig'))->environment();
+
+$page = static fn (string $case, string $body, string $css): string => <<<HTML
+<!doctype html>
+<meta charset="utf-8">
+<title>{$case}</title>
+<style>
+{$css}
+body { margin: 0; }
+[data-case-root] { width: 100%; }
+</style>
+<div data-case-root>{$body}</div>
+HTML;
+
+$built = 0;
+foreach (LayoutFixtureBlockType::cases($root) as $name => $case) {
+    foreach (['public' => false, 'canvas' => true] as $mode => $annotations) {
+        $extension->resetPerRenderState();
+        $extension->setBlockAnnotations($annotations);
+        $body = $twig->createTemplate('{{ blocks(l) }}')->render(['l' => [$case['tree']]]);
+        $extension->setBlockAnnotations(false);
+        $suffix = $mode === 'public' ? '' : '.canvas';
+        file_put_contents(
+            $out . '/' . $name . $suffix . '.html',
+            $page($name, $body, $annotations ? $css . "\n" . $previewCss : $css),
+        );
+        $built++;
+    }
+}
+
+fwrite(STDOUT, "Built {$built} layout fixture pages in tools/runtime-browser/fixtures/layout.\n");

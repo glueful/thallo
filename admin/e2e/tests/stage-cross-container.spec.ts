@@ -18,7 +18,7 @@ test("a stage drag moves a depth-five heading into another section's empty colum
 }) => {
   const recorded = await openDesignPage(page)
   await selectViaOutline(page, 'head00000001')
-  await dragGripTo(page, gripOf(page, 'head00000001'), slotOf(page, 'cols00000002', 'col_2'))
+  await dragGripTo(page, gripOf(page, 'head00000001'), slotOf(page, 'colb00000002', 'content'))
 
   const h = await historyLength(page, 1)
   expect(h.history[0]!.ops).toEqual([
@@ -26,12 +26,12 @@ test("a stage drag moves a depth-five heading into another section's empty colum
       type: 'MoveBlock',
       block: 'head00000001',
       from: { parent: 'cont00000001', slot: 'content', index: 0 },
-      to: { parent: 'cols00000002', slot: 'col_2', index: 0 },
+      to: { parent: 'colb00000002', slot: 'content', index: 0 },
     }),
   ])
-  expect(idsIn(h.document, ['body', 1, 'data', 'content', 0, 'data', 'col_2'])).toEqual([
-    'head00000001',
-  ])
+  expect(
+    idsIn(h.document, ['body', 1, 'data', 'content', 0, 'data', 'content', 1, 'data', 'content']),
+  ).toEqual(['head00000001'])
   expect(
     idsIn(h.document, [
       'body',
@@ -40,7 +40,7 @@ test("a stage drag moves a depth-five heading into another section's empty colum
       'content',
       0,
       'data',
-      'col_1',
+      'content',
       0,
       'data',
       'body',

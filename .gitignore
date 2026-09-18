@@ -42,3 +42,12 @@ bootstrap/cache/
 !/storage/uploads/.gitkeep
 storage/framework/*
 /storage/conversion/
+
+# Layout reference capture (container-layout plan, Task 0.1): the pages are rebuilt by
+# scripts/capture-layout-references; only tools/runtime-browser/references/*.json is committed.
+tools/runtime-browser/fixtures/references/
+tools/runtime-browser/fixtures/tmp/
+tools/runtime-browser/fixtures/layout/
+# scripts/build-parity-fixtures renders the candidate compositions the references are compared
+# against; only the case definitions and the measurements are committed.
+tools/runtime-browser/fixtures/parity/

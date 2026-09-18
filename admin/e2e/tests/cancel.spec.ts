@@ -15,7 +15,12 @@ test('Escape cancels a stage drag over a legal zone', async ({ page }) => {
   const recorded = await openDesignPage(page)
   const before = await hooks(page)
   await selectViaOutline(page, 'head00000001')
-  await dragGripTo(page, gripOf(page, 'head00000001'), slotOf(page, 'cols00000002', 'col_2'), false)
+  await dragGripTo(
+    page,
+    gripOf(page, 'head00000001'),
+    slotOf(page, 'colb00000002', 'content'),
+    false,
+  )
   await expect(indicator(page)).toHaveCount(1)
   await expect(indicator(page)).not.toHaveClass(/thallo-canvas-drop-line--refused/)
   await page.keyboard.press('Escape')

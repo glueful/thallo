@@ -159,10 +159,30 @@ final readonly class StyleTargets
     public function validateAgainst(StyleCapabilities $caps): array
     {
         $errors = [];
+        // A rule names every kind that may carry the capability (container-layout spec §3.1):
+        // parent layout on a stack, the band's own properties on a box, and item sizing on any
+        // outermost root — box, row, or a block-level text target such as a heading.
+        $item = [TargetKind::Box, TargetKind::Row, TargetKind::Text];
         $rules = [
-            'alignment.text' => TargetKind::Text,
-            'alignment.content' => TargetKind::Row,
-            'alignment.self' => TargetKind::Box,
+            'alignment.text' => [TargetKind::Text],
+            'alignment.content' => [TargetKind::Row, TargetKind::Stack],
+            'alignment.self' => [TargetKind::Box, TargetKind::Text],
+            'layout.display' => [TargetKind::Stack],
+            'layout.direction' => [TargetKind::Stack],
+            'layout.wrap' => [TargetKind::Stack],
+            'layout.align_items' => [TargetKind::Stack],
+            'layout.columns' => [TargetKind::Stack],
+            'layout.gap.column' => [TargetKind::Stack],
+            'layout.gap.row' => [TargetKind::Stack],
+            'layout.content_width' => [TargetKind::Stack],
+            'layout.gutter' => [TargetKind::Stack],
+            'layout.min_height' => [TargetKind::Box],
+            'layout.overflow' => [TargetKind::Box],
+            'layout.span' => $item,
+            'layout.basis' => $item,
+            'layout.grow' => $item,
+            'layout.shrink' => $item,
+            'layout.align_self' => $item,
         ];
         foreach ($caps->paths() as $path) {
             $target = $this->styleMap[$path] ?? null;
@@ -172,11 +192,12 @@ final readonly class StyleTargets
             }
             $required = $rules[$path] ?? null;
             $actual = $this->targets[$target]['kind'];
-            if ($required !== null && $actual !== $required) {
+            if ($required !== null && !in_array($actual, $required, true)) {
+                $names = array_map(static fn (TargetKind $kind): string => $kind->value, $required);
                 $errors[] = sprintf(
                     '%s requires a %s target; "%s" is %s',
                     $path,
-                    $required->value,
+                    count($names) === 1 ? $names[0] : implode(' or ', $names),
                     $target,
                     $actual->value,
                 );

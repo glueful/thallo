@@ -164,3 +164,21 @@ GitHub Actions path filters treat `[...]` as a character class, and
 `admin/src/layouts/default.vue`) — so a print-affecting change can't land
 without this gate running. It caches `~/.cache/ms-playwright` keyed on the
 installed Playwright version.
+
+## Frozen layout references (container-layout plan, Task 0.1)
+
+`references/*.json` holds measurements of the **old** Container, Section, Columns and Grid
+renderings — geometry, spacing, typography, surface and semantics at 375, 700, 800 and 1280px,
+for the public and the annotated (canvas) rendering of each case. `tests/parity.spec.js` and
+`tests/retirement.spec.js` compare the new Container compositions against them, so the retired
+types' appearance is pinned without keeping an executable copy of their templates.
+
+- Case definitions (committed): `tests/fixtures/layout/references/*.json` — the old block tree,
+  the named elements with their assertion profiles, and later the new composition and the closed
+  disposition rows that may be relaxed.
+- Regenerate the definitions: `php scripts/build-layout-reference-cases`.
+- Re-capture (only meaningful before the old templates are deleted):
+  `DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/capture-layout-references [case…]`.
+  The capture measures each page twice and refuses to write a reference whose measurements differ.
+- Layout-mechanism values (display, gaps, tracks, max-width…) are deliberately not recorded: the
+  old and new mechanisms differ by design, and the mechanism is proven by `tests/layout.spec.js`.

@@ -24,6 +24,8 @@ interface BridgeMessage {
   rect?: { x?: number; y?: number }
   parent?: string | null
   slot?: string
+  /** The structure picker's chosen preset key (spec §6.2). */
+  preset?: string
 }
 
 /** Iframe-viewport anchor point forwarded with stage intents (add-after picker). */
@@ -115,6 +117,10 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   let deleteRequestCb: ((id: string, anchor: BridgeAnchor | null) => void) | null = null
   let addAfterCb: ((id: string) => void) | null = null
   let slotAddCb: ((parent: string | null, slot: string) => void) | null = null
+  // The structure picker (container-layout spec §6.2): the stage renders the offered tiles and
+  // posts back a choice or a skip, naming the container both times.
+  let structureChooseCb: ((id: string, preset: string) => void) | null = null
+  let structureSkipCb: ((id: string) => void) | null = null
   let editRequestCb: ((id: string, field: string) => void) | null = null
   let editStartCb: ((id: string) => void) | null = null
   let editEndCb: ((id: string) => void) | null = null
@@ -199,6 +205,16 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
       typeof data.slot === 'string'
     ) {
       slotAddCb?.(data.parent, data.slot) // the empty-slot +: the Blocks tab arms "into this slot"
+    }
+    if (
+      data.type === 'thallo:structure-choose' &&
+      typeof data.id === 'string' &&
+      typeof data.preset === 'string'
+    ) {
+      structureChooseCb?.(data.id, data.preset)
+    }
+    if (data.type === 'thallo:structure-skip' && typeof data.id === 'string') {
+      structureSkipCb?.(data.id)
     }
     // Edit-in-place (edit-in-place spec §3/§4; v4 field-addressed shapes).
     if (
@@ -349,6 +365,25 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     },
     onSlotAdd(cb: (parent: string | null, slot: string) => void): void {
       slotAddCb = cb
+    },
+    /**
+     * Publish the live structure offers (spec §6.2). The complete list is sent every time: an
+     * offer missing from the latest message is one the stage must stop showing, which is what
+     * makes a consumed offer disappear without a second message type.
+     */
+    publishStructureOffers(
+      offers: {
+        id: string
+        presets: { key: string; label: string; enabled: boolean; reason?: string }[]
+      }[],
+    ): void {
+      post({ type: 'thallo:structure-offer', offers })
+    },
+    onStructureChoose(cb: (id: string, preset: string) => void): void {
+      structureChooseCb = cb
+    },
+    onStructureSkip(cb: (id: string) => void): void {
+      structureSkipCb = cb
     },
     // Mirrors (stage-toolbar spec §1): posted ONLY after the tree committed.
     mirrorMove(id: string, neighbor: { beforeId: string } | { afterId: string }): void {

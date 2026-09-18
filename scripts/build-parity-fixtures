@@ -1,0 +1,135 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Build the CANDIDATE pages the frozen references are compared against (container-layout plan,
+ * Tasks 2.1 and 4.1): every case definition in `tests/fixtures/layout/references/*.json` that
+ * carries a `new` tree is rendered with the CURRENT templates, theme and compiler — public and
+ * annotated — into the gitignored `tools/runtime-browser/fixtures/parity/`.
+ *
+ * The reference pages froze the old rendering with its own CSS inlined; these pages inline today's,
+ * so `tools/runtime-browser/tests/parity.spec.js` measures one composition against the other with
+ * the same procedure and nothing else differing.
+ *
+ *   DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-parity-fixtures [case…]
+ */
+
+declare(strict_types=1);
+
+use Thallo\Contracts\Style\BlockStyleRegistry;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
+use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
+use Thallo\Core\Tests\Support\TestApplication;
+use Thallo\Render\RenderContextExtension;
+use Thallo\Render\Style\StyleCompiler;
+use Thallo\Render\Style\ThemeStylesheetArtifact;
+use Thallo\Render\ThemeLocator;
+use Thallo\Render\TwigFactory;
+
+require __DIR__ . '/../vendor/autoload.php';
+
+foreach (getenv() as $key => $value) {
+    $_ENV[$key] ??= $value;
+}
+$_ENV['DB_POOLING_ENABLED'] = 'false';
+$root = dirname(__DIR__);
+if (is_file($root . '/.env')) {
+    Dotenv\Dotenv::createImmutable($root)->safeLoad();
+}
+$env = static fn (string $key, ?string $default = null): ?string => $_ENV[$key] ?? (getenv($key) === false ? $default : getenv($key));
+if ($env('APP_ENV', 'development') !== 'testing') {
+    fwrite(STDERR, "Refusing to build outside APP_ENV=testing (it seeds the test database).\n");
+    exit(1);
+}
+$database = (string) $env('DB_PGSQL_DATABASE', '');
+if ($database !== 'app_test' && !str_ends_with($database, '_test')) {
+    fwrite(STDERR, "Refusing to seed non-test database '{$database}'.\n");
+    exit(1);
+}
+
+$only = array_slice($argv, 1);
+$definitions = glob($root . '/tests/fixtures/layout/references/*.json') ?: [];
+if ($definitions === []) {
+    fwrite(STDERR, "No case definitions; run scripts/build-layout-reference-cases first.\n");
+    exit(1);
+}
+
+$out = $root . '/tools/runtime-browser/fixtures/parity';
+if (!is_dir($out) && !mkdir($out, 0755, true)) {
+    fwrite(STDERR, "cannot create {$out}\n");
+    exit(1);
+}
+
+$container = TestApplication::instance()->getContainer();
+$container->get(StarterBlockTypeSeeder::class)->seedMissing();
+$blockTypes = $container->get(BlockTypeRepository::class);
+foreach ($container->get(BlockTypeKind::class)->definitions() as $definition) {
+    $payload = $definition->payload;
+    $row = $blockTypes->findBySlug((string) $payload['slug']);
+    if ($row !== null) {
+        $blockTypes->updateStyle(
+            (string) $row['uuid'],
+            $payload['style_capabilities'] ?? null,
+            $payload['style_targets'] ?? null,
+            $payload['flags'] ?? null,
+            $row['starter_content'] ?? $payload['starter_content'] ?? null,
+        );
+    }
+}
+$container->get(BlockStyleRegistry::class)->reset();
+
+$theme = new ThemeLocator('default', $root . '/themes');
+$vocabulary = $theme->vocabulary();
+$themeDir = $theme->themeDir();
+$sheets = array_map(static fn (string $rel): string => $themeDir . '/' . $rel, $vocabulary->stylesheets());
+$css = implode("\n", [
+    (string) file_get_contents($root . '/packages/thallo-render/assets/style/layers.css'),
+    ThemeStylesheetArtifact::build($sheets)->css,
+    StyleCompiler::compile($vocabulary),
+]);
+// The stage's own stylesheet, where the annotation wrapper is display:contents — the canvas
+// reference was frozen with it, so the candidate carries it too.
+$previewCss = (string) file_get_contents($root . '/packages/thallo-render/assets/preview/preview.css');
+
+$extension = $container->get(RenderContextExtension::class);
+$twig = (new TwigFactory($theme, $extension, $root . '/storage/cache/twig'))->environment();
+
+$page = static fn (string $case, string $body, string $css): string => <<<HTML
+<!doctype html>
+<meta charset="utf-8">
+<title>{$case}</title>
+<style>
+{$css}
+body { margin: 0; }
+[data-case-root] { width: 100%; }
+</style>
+<div data-case-root>{$body}</div>
+HTML;
+
+$built = 0;
+$skipped = 0;
+foreach ($definitions as $file) {
+    $case = (array) json_decode((string) file_get_contents($file), true, 512, JSON_THROW_ON_ERROR);
+    $name = (string) ($case['case'] ?? basename($file, '.json'));
+    if ($only !== [] && !in_array($name, $only, true)) {
+        continue;
+    }
+    if (!isset($case['new'])) {
+        $skipped++;
+        continue; // its composition has not been written yet (Task 4.1)
+    }
+    foreach (['public' => false, 'canvas' => true] as $mode => $annotations) {
+        $extension->resetPerRenderState();
+        $extension->setBlockAnnotations($annotations);
+        $body = $twig->createTemplate('{{ blocks(l) }}')->render(['l' => [$case['new']]]);
+        $extension->setBlockAnnotations(false);
+        $suffix = $mode === 'public' ? '' : '.canvas';
+        file_put_contents(
+            $out . '/' . $name . $suffix . '.html',
+            $page($name . ' (' . $mode . ')', $body, $annotations ? $css . "\n" . $previewCss : $css),
+        );
+        $built++;
+    }
+}
+
+fwrite(STDOUT, "Built {$built} parity pages in tools/runtime-browser/fixtures/parity ({$skipped} cases have no composition yet).\n");

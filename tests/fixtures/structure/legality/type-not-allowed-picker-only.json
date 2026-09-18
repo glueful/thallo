@@ -5,8 +5,8 @@
       "name": "a heading into tabs items: builder refuses, server accepts",
       "blockTypes": [
         {
-          "slug": "section",
-          "label": "Section",
+          "slug": "container",
+          "label": "Container",
           "schema": [
             {
               "name": "content",

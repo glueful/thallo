@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ComponentPublicInstance } from 'vue'
+import { shallowReactive, type ComponentPublicInstance } from 'vue'
 import type { FieldDef } from '@/fields/types'
 import type { BlockType } from '@/queries/blockTypes'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
@@ -34,6 +34,7 @@ interface BlocksFieldExposed {
   patchBlockSettings: (id: string, settings: Record<string, unknown>) => boolean
   findBlock: (id: string) => BlockInstance | null
   blockTypeById: (id: string) => string | null
+  parentOfBlock: (id: string) => BlockInstance | null
 }
 
 /** A blocks field's modified header click: the page's selection intent (spec §5.5). */
@@ -42,7 +43,10 @@ const emit = defineEmits<{
   'insert-request': [position: Position]
 }>()
 
-const blocksFields = new Map<string, BlocksFieldExposed>()
+// Reactive, because a blocks field is an async component: it can register after a caller has
+// already asked for a block (a stage click while its chunk loads), and a computed over a lookup
+// below has to see it arrive. Shallow — the entries are component instances, never unwrapped.
+const blocksFields = shallowReactive(new Map<string, BlocksFieldExposed>())
 
 function trackField(
   name: string,
@@ -101,6 +105,10 @@ defineExpose({
   },
   blockTypeOfBlock(id: string): string | null {
     return fieldOwning(id)?.blockTypeById(id) ?? null
+  },
+  /** The block containing `id`, or null at a field's top level (container-layout spec §5). */
+  parentOfBlockById(id: string): BlockInstance | null {
+    return fieldOwning(id)?.parentOfBlock(id) ?? null
   },
 })
 </script>

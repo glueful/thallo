@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ref } from 'vue'
@@ -84,6 +84,8 @@ vi.mock('@/fields/components/blocks/ProseBlockEditor.vue', () => ({
 // The REAL composable is covered by canvas-bridge.spec — the page suite asserts
 // wiring only: intents in via captured callbacks, mirrors out via spies.
 const bridge = vi.hoisted(() => {
+  /** Every structure-offer publish the page makes, newest last (container-layout spec §6.2). */
+  const published: unknown[] = []
   const callbacks: {
     select?: (id: string, modifiers?: { shift: boolean; meta: boolean }) => void
     hover?: (id: string) => void
@@ -97,6 +99,8 @@ const bridge = vi.hoisted(() => {
     deleteRequest?: (id: string, anchor?: { x: number; y: number } | null) => void
     addAfter?: (id: string) => void
     slotAdd?: (parent: string | null, slot: string) => void
+    structureChoose?: (id: string, preset: string) => void
+    structureSkip?: (id: string) => void
     editRequest?: (id: string, field: string) => void
     textChanged?: (id: string, field: string, payload: { html?: string; text?: string }) => void
     editStart?: (id: string) => void
@@ -105,6 +109,7 @@ const bridge = vi.hoisted(() => {
   } = {}
   return {
     callbacks,
+    published,
     instance: {
       nonce: 'n',
       hello: vi.fn(),
@@ -129,6 +134,10 @@ const bridge = vi.hoisted(() => {
         (callbacks.deleteRequest = cb),
       onBlockAddAfter: (cb: (id: string) => void) => (callbacks.addAfter = cb),
       onSlotAdd: (cb: (parent: string | null, slot: string) => void) => (callbacks.slotAdd = cb),
+      publishStructureOffers: vi.fn((offers: unknown) => published.push(offers)),
+      onStructureChoose: (cb: (id: string, preset: string) => void) =>
+        (callbacks.structureChoose = cb),
+      onStructureSkip: (cb: (id: string) => void) => (callbacks.structureSkip = cb),
       onEditRequest: (cb: (id: string, field: string) => void) => (callbacks.editRequest = cb),
       onTextChanged: (
         cb: (id: string, field: string, payload: { html?: string; text?: string }) => void,
@@ -723,6 +732,62 @@ describe('canvas page', () => {
       'bg-elevated',
     )
     wrapper.unmount()
+  })
+
+  // The stage is clickable as soon as its page loads, which can be before the content-type schema
+  // has: without the schema the tree has no root blocks fields, so the block cannot be placed yet.
+  describe('a stage click that arrives before the schema', () => {
+    const loaded = contentTypes.value
+    const withoutSchema = async () => {
+      contentTypes.value = undefined as unknown as typeof loaded
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      const wrapper = mountPage()
+      await flushPromises()
+      return wrapper
+    }
+    afterEach(() => {
+      contentTypes.value = loaded
+    })
+
+    it('is kept, and selects the block once the schema arrives', async () => {
+      const wrapper = await withoutSchema()
+      bridge.callbacks.select?.('blockaaa0001')
+      await flushPromises()
+      expect(wrapper.find('[data-test="block-inspector"]').exists()).toBe(false)
+
+      contentTypes.value = loaded
+      await flushPromises()
+      expect(wrapper.find('[data-test="block-inspector"]').exists()).toBe(true)
+      expect(wrapper.find('[data-test="canvas-outline-item-blockaaa0001"]').classes()).toContain(
+        'bg-elevated',
+      )
+      wrapper.unmount()
+    })
+
+    it('gives way to a later click: the last one is the one selected', async () => {
+      const wrapper = await withoutSchema()
+      bridge.callbacks.select?.('blockaaa0001')
+      bridge.callbacks.select?.('blockbbb0002')
+      contentTypes.value = loaded
+      await flushPromises()
+      expect(wrapper.find('[data-test="canvas-outline-item-blockbbb0002"]').classes()).toContain(
+        'bg-elevated',
+      )
+      expect(
+        wrapper.find('[data-test="canvas-outline-item-blockaaa0001"]').classes(),
+      ).not.toContain('bg-elevated')
+      wrapper.unmount()
+    })
+
+    it('is forgotten when the stage deselects before the schema arrives', async () => {
+      const wrapper = await withoutSchema()
+      bridge.callbacks.select?.('blockaaa0001')
+      bridge.callbacks.deselect?.('blockaaa0001')
+      contentTypes.value = loaded
+      await flushPromises()
+      expect(wrapper.find('[data-test="block-inspector"]').exists()).toBe(false)
+      wrapper.unmount()
+    })
   })
 
   it('outline keyboard shortcuts drive the shared handlers (polish batch §4)', async () => {
@@ -1457,547 +1522,732 @@ describe('canvas page', () => {
       ])
       wrapper.unmount()
     })
-  })
-
-  describe('a palette drag onto the stage (Phase C.1)', () => {
-    const savedBody = () =>
-      (
-        saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
-          fields: { body: { id: string; type: string; data: Record<string, unknown> }[] }
-        }
-      ).fields.body
-    /** Begin a tile drag and move past the threshold over the stage; returns the bridge session. */
-    async function dragTile(wrapper: ReturnType<typeof mountPage>, slug: string) {
-      const iframe = wrapper.find('[data-test="canvas-iframe"]').element as HTMLIFrameElement
-      iframe.getBoundingClientRect = () =>
-        ({
-          left: 100,
-          top: 50,
-          width: 400,
-          height: 300,
-          right: 500,
-          bottom: 350,
-          x: 100,
-          y: 50,
-          toJSON: () => ({}),
-        }) as DOMRect
-      await wrapper
-        .find('[data-test="inspector-tabs"]')
-        .findAll('button')
-        .find((b) => b.text() === 'Blocks')!
-        .trigger('click')
-      await flushPromises()
-      const tile = wrapper.find(`[data-test="palette-card-${slug}"]`).element
-      tile.dispatchEvent(
-        new MouseEvent('pointerdown', { button: 0, bubbles: true, clientX: 10, clientY: 10 }),
-      )
-      tile.dispatchEvent(
-        new MouseEvent('pointermove', { bubbles: true, clientX: 200, clientY: 100 }),
-      )
-      await flushPromises() // the factory answers; the session begins
-      const begin = bridge.instance.dragBegin as ReturnType<typeof vi.fn>
-      expect(begin).toHaveBeenCalledTimes(1)
-      const session = begin.mock.calls[0]![0] as string
-      expect(begin.mock.calls[0]![1]).toEqual([])
-      expect(bridge.instance.dragHover).toHaveBeenLastCalledWith(session, 100, 50)
-      return { tile, session }
-    }
-    const zone = { parent: null, slot: 'body', index: 1, layout: 'linear-vertical' as const }
-
-    it('a proposal is judged, the release asks the stage, and the answered zone inserts one block', async () => {
-      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
-      saveMock.mockResolvedValue(undefined)
-      const wrapper = mountPage()
-      await flushPromises()
-      const { tile, session } = await dragTile(wrapper, 'card')
-      bridge.callbacks.dragPropose?.(session, [], zone)
-      expect(bridge.instance.dragLegality).toHaveBeenLastCalledWith(session, true, '')
-      bridge.callbacks.dragPropose?.(session, [], null) // left every slot: nothing to judge
-      tile.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientX: 210, clientY: 110 }))
-      expect(bridge.instance.dragDrop).toHaveBeenCalledWith(session, 110, 60)
-      expect(notify.warning).not.toHaveBeenCalled()
-      bridge.callbacks.blockDrop?.(session, [], zone) // the zone under the released pointer
-      await flushPromises()
-      expect(bridge.instance.dragEnd).toHaveBeenCalledWith(session)
-      await wrapper.find('[data-test="canvas-save"]').trigger('click')
-      await flushPromises()
-      const body = savedBody()
-      expect(body.map((b) => b.type)).toEqual(['card', 'card', 'card', 'rich_text'])
-      expect(body[1]!.data).toEqual({ title: 'Card', body: [] })
-      expect(bridge.instance.highlight).toHaveBeenLastCalledWith(body[1]!.id, [body[1]!.id])
-      wrapper.unmount()
-    })
-
-    it('a permitted hover then a release over a forbidden slot: the final zone is judged and refused', async () => {
-      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
-      saveMock.mockResolvedValue(undefined)
-      const wrapper = mountPage()
-      await flushPromises()
-      const { tile, session } = await dragTile(wrapper, 'card')
-      bridge.callbacks.dragPropose?.(session, [], zone)
-      expect(bridge.instance.dragLegality).toHaveBeenLastCalledWith(session, true, '')
-      tile.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientX: 210, clientY: 110 }))
-      // The stage answers with a slot that does not exist on the anchor: refused at commit.
-      bridge.callbacks.blockDrop?.(session, [], {
-        parent: 'blockaaa0001',
-        slot: 'nope',
-        index: 0,
-        layout: 'linear-vertical',
-      })
-      await flushPromises()
-      expect(notify.warning).toHaveBeenCalledWith('That move is not allowed', expect.any(String))
-      expect(bridge.instance.dragEnd).toHaveBeenCalledWith(session)
-      await wrapper.find('[data-test="canvas-save"]').trigger('click')
-      await flushPromises()
-      expect(savedBody().map((b) => b.id)).toEqual(['blockaaa0001', 'blockbbb0002', 'prose0000003'])
-      wrapper.unmount()
-    })
-
-    it('a drag-cancel answer ends the session with nothing inserted; a stale block-drop afterwards is ignored', async () => {
-      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
-      saveMock.mockResolvedValue(undefined)
-      const wrapper = mountPage()
-      await flushPromises()
-      const { tile, session } = await dragTile(wrapper, 'card')
-      tile.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientX: 210, clientY: 110 }))
-      bridge.callbacks.dragCancel?.(session)
-      await flushPromises()
-      expect(bridge.instance.dragEnd).toHaveBeenCalledWith(session)
-      bridge.callbacks.blockDrop?.(session, [], zone) // late: the helper no longer awaits
-      await flushPromises()
-      await wrapper.find('[data-test="canvas-save"]').trigger('click')
-      await flushPromises()
-      expect(savedBody().map((b) => b.id)).toEqual(['blockaaa0001', 'blockbbb0002', 'prose0000003'])
-      wrapper.unmount()
-    })
-  })
-
-  it('an anchored delete request positions the confirm at the delete button', async () => {
-    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
-    const wrapper = mountPage()
-    await flushPromises()
-
-    // jsdom rects are all zeros, so top = anchor.y + 8.
-    bridge.callbacks.deleteRequest?.('blockaaa0001', { x: 90, y: 30 })
-    await flushPromises()
-    const confirm = wrapper.find('[data-test="canvas-delete-confirm"]')
-    expect(confirm.exists()).toBe(true)
-    expect(confirm.attributes('style')).toContain('top: 38px')
-    expect(confirm.classes()).not.toContain('mx-auto')
-
-    // Without an anchor, the centered fallback still applies.
-    await confirm.find('[data-test="canvas-delete-cancel"]').trigger('click')
-    bridge.callbacks.deleteRequest?.('blockaaa0001')
-    await flushPromises()
-    expect(wrapper.find('[data-test="canvas-delete-confirm"]').classes()).toContain('mx-auto')
-    wrapper.unmount()
-  })
-
-  it('the outline is an inspector tab — always mounted, no navbar toggle', async () => {
-    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
-    const wrapper = mountPage()
-    await flushPromises()
-
-    // Mounted from the start (unmount-on-hide false keeps every tab alive so
-    // bridge intents and outline state survive tab switches).
-    expect(wrapper.find('[data-test="outline-tab"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="canvas-outline"]').exists()).toBe(true)
-    // The old navbar toggle is gone.
-    expect(wrapper.find('[data-test="canvas-outline-toggle"]').exists()).toBe(false)
-    wrapper.unmount()
-  })
-
-  it('edit-request grants per the kind matrix; everything else is denied', async () => {
-    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
-    const wrapper = mountPage()
-    await flushPromises()
-
-    // Prose rich field -> rich; plain string field -> string.
-    bridge.callbacks.editRequest?.('prose0000003', 'body')
-    bridge.callbacks.editRequest?.('blockaaa0001', 'title')
-    await flushPromises()
-    expect(bridge.instance.editGrant).toHaveBeenCalledWith('prose0000003', 'body', 'rich')
-    expect(bridge.instance.editGrant).toHaveBeenCalledWith('blockaaa0001', 'title', 'string')
-
-    bridge.instance.editGrant.mockClear()
-    bridge.callbacks.editRequest?.('blockaaa0001', 'nope') // unknown field
-    bridge.callbacks.editRequest?.('missing', 'title') // unknown block
-    bridge.callbacks.editRequest?.('prose0000003', 'title') // field not on prose type
-    await flushPromises()
-    expect(bridge.instance.editGrant).not.toHaveBeenCalled()
-    wrapper.unmount()
-  })
-
-  it('text-changed for a wrong field or a non-prose block is IGNORED (review P1)', async () => {
-    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
-    saveMock.mockResolvedValue(undefined)
-    const wrapper = mountPage()
-    await flushPromises()
-
-    // Wrong field on a prose block; unknown field; kind-mismatched payload
-    // (rich payload for a string field): all denied, no patch.
-    bridge.callbacks.textChanged?.('prose0000003', 'title', { html: '<p>evil</p>' })
-    bridge.callbacks.textChanged?.('blockaaa0001', 'nope', { text: 'evil' })
-    bridge.callbacks.textChanged?.('blockaaa0001', 'title', { html: '<b>evil</b>' })
-    await flushPromises()
-    await wrapper.find('[data-test="canvas-save"]').trigger('click')
-    await flushPromises()
-    const saved = saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
-      fields: { body: { id: string; data: Record<string, unknown> }[] }
-    }
-    expect(saved.fields.body.find((b) => b.id === 'prose0000003')!.data.body).toBe('<p>old</p>')
-    expect(saved.fields.body.find((b) => b.id === 'blockaaa0001')!.data.title).toBe('A')
-    wrapper.unmount()
-  })
-
-  it('text-changed patches the tree (visible in the next save payload)', async () => {
-    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
-    saveMock.mockResolvedValue(undefined)
-    const wrapper = mountPage()
-    await flushPromises()
-
-    bridge.callbacks.textChanged?.('prose0000003', 'body', { html: '<p>typed in stage</p>' })
-    await flushPromises()
-    await wrapper.find('[data-test="canvas-save"]').trigger('click')
-    await flushPromises()
-    expect(saveMock).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        fields: expect.objectContaining({
-          body: expect.arrayContaining([
-            expect.objectContaining({
-              id: 'prose0000003',
-              data: expect.objectContaining({ body: '<p>typed in stage</p>' }),
-            }),
-          ]),
-        }),
-      }),
-    )
-    wrapper.unmount()
-  })
-
-  it('a string text-changed patches the plain value into the tree', async () => {
-    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
-    saveMock.mockResolvedValue(undefined)
-    const wrapper = mountPage()
-    await flushPromises()
-
-    bridge.callbacks.textChanged?.('blockaaa0001', 'title', { text: 'Retitled' })
-    await flushPromises()
-    await wrapper.find('[data-test="canvas-save"]').trigger('click')
-    await flushPromises()
-    const saved = saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
-      fields: { body: { id: string; data: Record<string, unknown> }[] }
-    }
-    expect(saved.fields.body.find((b) => b.id === 'blockaaa0001')!.data.title).toBe('Retitled')
-    wrapper.unmount()
-  })
-
-  it('Apply awaits the flush and the FINAL flushed text reaches the apply payload', async () => {
-    // Review P2: order alone is not the risk — the last sub-debounce keystroke
-    // is. The mocked flush delivers a final text-changed BEFORE resolving, the
-    // way the real bridge commits during thallo:edit-flush; Apply must read the
-    // tree AFTER that commit landed.
-    mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
-    bridge.instance.editFlush.mockImplementationOnce(async () => {
-      bridge.callbacks.textChanged?.('prose0000003', 'body', { html: '<p>final keystroke</p>' })
-    })
-    const wrapper = mountPage()
-    await flushPromises()
-
-    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
-    await flushPromises()
-    expect(bridge.instance.editFlush).toHaveBeenCalled()
-    const applied = applyMock.mock.calls[applyMock.mock.calls.length - 1]![3] as {
-      body: { id: string; data: Record<string, unknown> }[]
-    }
-    expect(applied.body.find((b) => b.id === 'prose0000003')!.data.body).toBe(
-      '<p>final keystroke</p>',
-    )
-    wrapper.unmount()
-  })
-
-  it('save failure reloads the SAME iframe URL without re-minting, keeping dirty fields', async () => {
-    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
-    const wrapper = mountPage()
-    await flushPromises()
-    const before = wrapper.find('[data-test="canvas-iframe"]').element
-
-    // Make the tree dirty via a structural op (the mirror-then-fail scenario).
-    bridge.callbacks.move?.('blockaaa0001', 1)
-    await flushPromises()
-
-    saveMock.mockRejectedValueOnce(new ApiError('conflict', 409, {}, { success: false }))
-    await wrapper.find('[data-test="canvas-save"]').trigger('click')
-    await flushPromises()
-    await flushPromises()
-
-    const iframe = wrapper.find('[data-test="canvas-iframe"]')
-    expect(iframe.attributes('src')).toBe('https://site.test/_preview/tok1?canvas=1') // SAME URL
-    expect(iframe.element).not.toBe(before) // remounted -> reloaded
-    expect(mintMock).toHaveBeenCalledTimes(1) // NO re-mint on failure
-    expect(notify.warning).toHaveBeenCalled() // banner still shows
-    // Pinned product rule: local edits SURVIVE the stage reset. Assert
-    // behaviorally (no Nuxt UI internals): a retry save still submits the
-    // MOVED order — the failed save discarded nothing.
-    saveMock.mockResolvedValue(undefined)
-    await wrapper.find('[data-test="canvas-save"]').trigger('click')
-    await flushPromises()
-    expect(saveMock).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        fields: expect.objectContaining({
-          body: [
-            expect.objectContaining({ id: 'blockbbb0002' }),
-            expect.objectContaining({ id: 'blockaaa0001' }),
-            expect.objectContaining({ id: 'prose0000003' }),
-          ],
-        }),
-      }),
-    )
-    wrapper.unmount()
-  })
-})
-
-describe('editor page Design action', () => {
-  it('renders design-link pointing at the design route', async () => {
-    vi.doMock('@/queries/entries', () => ({
-      useEntryLocales: () => ({ data: ref([]) }),
-      useCreateLocaleDraft: () => ({ mutateAsync: vi.fn(), isLoading: ref(false) }),
-    }))
-    vi.doMock('@/queries/locales', () => ({ useLocales: () => ({ data: ref([]) }) }))
-    vi.doMock('@/stores/capabilities', () => ({
-      useCapabilitiesStore: () => ({ isEnabled: () => false, isVisible: () => false }),
-    }))
-    // Task 12 registered a real entry-editor panel (commerce-link) whose useGate wraps
-    // useCommerceMeta() — mock it so this Design-action test (unrelated to Commerce) never
-    // depends on the real query/client stack.
-    vi.doMock('@/queries/commerceMeta', () => ({
-      useCommerceMeta: () => ({ data: ref(undefined), status: ref('error') }),
-    }))
-    const { default: EditorPage } = await import('@/pages/content/[type]/[uuid]/index.vue')
-    const wrapper = mount(EditorPage, {
-      shallow: true,
-      global: {
-        stubs: {
-          // Shallow resolves auto-imported Nuxt UI names WITHOUT the U prefix.
-          DashboardPanel: { template: '<div><slot name="header" /><slot name="body" /></div>' },
-          DashboardNavbar: {
-            template:
-              '<div><slot name="leading" /><slot name="title" /><slot name="right" /></div>',
-          },
-        },
-      },
-    })
-    await flushPromises()
-    const link = wrapper.find('[data-test="design-link"]')
-    expect(link.exists()).toBe(true)
-    expect(link.attributes('to')).toBe('/content/page/entry0000001/design/en')
-    wrapper.unmount()
-  })
-})
-
-describe('auto-apply', () => {
-  async function mountAuto() {
-    mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
-    const wrapper = mountPage()
-    await flushPromises()
-    return wrapper
-  }
-
-  it('an inspector FORM edit auto-applies through the deep fields watcher', async () => {
-    // Regression guard (dom-patching bug hunt): inline editing has its own
-    // explicit edit-end re-arm, so a broken fields watcher would surface as
-    // "auto-apply only works when typing in the stage".
-    const wrapper = await mountAuto()
-    vi.useFakeTimers()
-    try {
-      const inputs = wrapper.findAll('input')
-      const title = inputs.find((i) => (i.element as HTMLInputElement).value === 'T')
-      expect(title).toBeDefined()
-      await title!.setValue('T changed in inspector')
-      await vi.advanceTimersByTimeAsync(900)
-      expect(applyMock).toHaveBeenCalledTimes(1)
-    } finally {
-      vi.useRealTimers()
-    }
-    wrapper.unmount()
-  })
-
-  it('a perpetual change stream cannot starve auto-apply (max-wait)', async () => {
-    // Bug hunt: anything touching fields more often than the 800ms debounce
-    // (an extension like Grammarly re-emitting TipTap updates, a theme timer)
-    // restarts the timer forever — the apply never fires and the veto
-    // breadcrumb never prints. The debounce may DELAY an apply, never
-    // starve it: max-wait forces a run ~2.5s after the first change.
-    const wrapper = await mountAuto()
-    vi.useFakeTimers()
-    try {
-      for (let i = 0; i < 8; i++) {
-        bridge.callbacks.textChanged?.('prose0000003', 'body', { html: `<p>tick ${i}</p>` })
-        await vi.advanceTimersByTimeAsync(400) // always inside the 800ms window
+    describe('the structure picker (container-layout spec §6)', () => {
+      /** The page knows containers, and the factory makes empty ones. */
+      function withContainers() {
+        blockTypes.value = [
+          ...blockTypes.value,
+          {
+            ...bt('container'),
+            style_capabilities: [
+              'layout.display',
+              'layout.columns',
+              'layout.gap.column',
+              'layout.gap.row',
+            ],
+            schema: [
+              {
+                name: 'content',
+                type: 'blocks',
+                required: false,
+                localized: false,
+                filterable: false,
+              },
+            ],
+          } as BlockType,
+        ]
+        factory.instance.mockImplementation(async (slug: string) => ({
+          id: 'f' + Math.random().toString(36).slice(2, 13).padEnd(11, '0'),
+          type: slug,
+          data: slug === 'container' ? { content: [] } : { ...(factoryStarter[slug] ?? {}) },
+          settings: {},
+        }))
       }
-      // 3200ms of continuous sub-debounce changes: max-wait must have fired.
-      expect(applyMock).toHaveBeenCalled()
-    } finally {
-      vi.useRealTimers()
-    }
-    wrapper.unmount()
-  })
+      const offered = () =>
+        bridge.published[bridge.published.length - 1] as { id: string }[] | undefined
 
-  it('a tree change auto-applies ONCE after the debounce; a burst coalesces', async () => {
-    const wrapper = await mountAuto()
-    vi.useFakeTimers()
-    try {
-      bridge.callbacks.move?.('blockaaa0001', 1)
-      await vi.advanceTimersByTimeAsync(400)
-      bridge.callbacks.move?.('blockaaa0001', 1) // restarts the debounce
-      await vi.advanceTimersByTimeAsync(400)
-      expect(applyMock).not.toHaveBeenCalled() // still inside the window
-      await vi.advanceTimersByTimeAsync(500)
-      expect(applyMock).toHaveBeenCalledTimes(1)
-      expect(applyMock).toHaveBeenCalledWith(
-        'entry0000001',
-        'en',
-        'tok1',
-        expect.anything(),
-        expect.anything(),
+      it('inserting a container from the Blocks tab publishes an offer; a card publishes none', async () => {
+        withContainers()
+        const wrapper = mountPage()
+        await flushPromises()
+        const tab = await openBlocks(wrapper)
+
+        await tab.find('[data-test="palette-card-card"]').trigger('click')
+        await flushPromises()
+        expect(offered() ?? []).toEqual([])
+
+        await (
+          await openBlocks(wrapper)
+        )
+          .find('[data-test="palette-card-container"]')
+          .trigger('click')
+        await flushPromises()
+        expect(offered()).toHaveLength(1)
+        wrapper.unmount()
+      })
+
+      it('choosing a preset sends every operation in one transaction, in plan order', async () => {
+        withContainers()
+        const wrapper = mountPage()
+        await flushPromises()
+        const tab = await openBlocks(wrapper)
+        await tab.find('[data-test="palette-card-container"]').trigger('click')
+        await flushPromises()
+        const id = offered()![0]!.id
+
+        applyMock.mockClear()
+        bridge.callbacks.structureChoose!(id, 'cols-33-67')
+        await flushPromises()
+        await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+        await flushPromises()
+
+        const calls = applyMock.mock.calls
+        // The operations ride in the apply's options, alongside the pair the client last accepted.
+        const sent = calls[calls.length - 1]![4] as {
+          operations: { type: string; transaction_id: string }[]
+        }
+        // The preset's own operations: the container's settings and the columns going into it. The
+        // palette's earlier insert of the container is a separate transaction and stays out of this.
+        const picked = (
+          sent.operations as unknown as {
+            type: string
+            transaction_id: string
+            block?: unknown
+            position?: { parent: string | null }
+          }[]
+        ).filter(
+          (op) =>
+            (op.type === 'SetSetting' && op.block === id) ||
+            (op.type === 'InsertBlock' && op.position?.parent === id),
+        )
+        expect(picked.length).toBeGreaterThan(2)
+        // One transaction: undo takes the whole preset back, never half of it.
+        expect(new Set(picked.map((op) => op.transaction_id)).size).toBe(1)
+        const types = picked.map((op) => op.type)
+        expect(types.lastIndexOf('SetSetting')).toBeLessThan(types.indexOf('InsertBlock'))
+        wrapper.unmount()
+      })
+
+      it('a legality refusal leaves the document, history and the pending operations alone', async () => {
+        withContainers()
+        const wrapper = mountPage()
+        await flushPromises()
+        const tab = await openBlocks(wrapper)
+        await tab.find('[data-test="palette-card-container"]').trigger('click')
+        await flushPromises()
+        const id = offered()![0]!.id
+
+        // The factory answers with a container that already holds a card, which makes the candidate
+        // one level deeper than the placeholder the tile was judged on.
+        factory.instance.mockImplementation(async (slug: string) => ({
+          id: 'f' + Math.random().toString(36).slice(2, 13).padEnd(11, '0'),
+          type: slug,
+          data: {
+            content: [
+              {
+                id: 'deep00000001',
+                type: 'container',
+                data: {
+                  content: [
+                    {
+                      id: 'deep00000002',
+                      type: 'container',
+                      data: {
+                        content: [
+                          {
+                            id: 'deep00000003',
+                            type: 'container',
+                            data: {
+                              content: [
+                                {
+                                  id: 'deep00000004',
+                                  type: 'container',
+                                  data: { content: [] },
+                                  settings: {},
+                                },
+                              ],
+                            },
+                            settings: {},
+                          },
+                        ],
+                      },
+                      settings: {},
+                    },
+                  ],
+                },
+                settings: {},
+              },
+            ],
+          },
+          settings: {},
+        }))
+
+        applyMock.mockClear()
+        bridge.callbacks.structureChoose!(id, 'cols-33-67')
+        await flushPromises()
+        await flushPromises()
+
+        // Nothing was sent, and nothing was written: the container is still the empty one.
+        expect(applyMock).not.toHaveBeenCalled()
+        await wrapper.find('[data-test="canvas-save"]').trigger('click')
+        await flushPromises()
+        const container = savedBody().find((b) => b.type === 'container')!
+        expect(container.data.content).toEqual([])
+        // The offer is still standing, with the refusal shown on the tile that caused it.
+        const presets = (
+          bridge.published[bridge.published.length - 1] as {
+            presets: { key: string; enabled: boolean }[]
+          }[]
+        )[0]!.presets
+        expect(presets.find((preset) => preset.key === 'cols-33-67')!.enabled).toBe(false)
+        wrapper.unmount()
+      })
+    })
+
+    describe('a palette drag onto the stage (Phase C.1)', () => {
+      const savedBody = () =>
+        (
+          saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
+            fields: { body: { id: string; type: string; data: Record<string, unknown> }[] }
+          }
+        ).fields.body
+      /** Begin a tile drag and move past the threshold over the stage; returns the bridge session. */
+      async function dragTile(wrapper: ReturnType<typeof mountPage>, slug: string) {
+        const iframe = wrapper.find('[data-test="canvas-iframe"]').element as HTMLIFrameElement
+        iframe.getBoundingClientRect = () =>
+          ({
+            left: 100,
+            top: 50,
+            width: 400,
+            height: 300,
+            right: 500,
+            bottom: 350,
+            x: 100,
+            y: 50,
+            toJSON: () => ({}),
+          }) as DOMRect
+        await wrapper
+          .find('[data-test="inspector-tabs"]')
+          .findAll('button')
+          .find((b) => b.text() === 'Blocks')!
+          .trigger('click')
+        await flushPromises()
+        const tile = wrapper.find(`[data-test="palette-card-${slug}"]`).element
+        tile.dispatchEvent(
+          new MouseEvent('pointerdown', { button: 0, bubbles: true, clientX: 10, clientY: 10 }),
+        )
+        tile.dispatchEvent(
+          new MouseEvent('pointermove', { bubbles: true, clientX: 200, clientY: 100 }),
+        )
+        await flushPromises() // the factory answers; the session begins
+        const begin = bridge.instance.dragBegin as ReturnType<typeof vi.fn>
+        expect(begin).toHaveBeenCalledTimes(1)
+        const session = begin.mock.calls[0]![0] as string
+        expect(begin.mock.calls[0]![1]).toEqual([])
+        expect(bridge.instance.dragHover).toHaveBeenLastCalledWith(session, 100, 50)
+        return { tile, session }
+      }
+      const zone = { parent: null, slot: 'body', index: 1, layout: 'linear-vertical' as const }
+
+      it('a proposal is judged, the release asks the stage, and the answered zone inserts one block', async () => {
+        mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+        saveMock.mockResolvedValue(undefined)
+        const wrapper = mountPage()
+        await flushPromises()
+        const { tile, session } = await dragTile(wrapper, 'card')
+        bridge.callbacks.dragPropose?.(session, [], zone)
+        expect(bridge.instance.dragLegality).toHaveBeenLastCalledWith(session, true, '')
+        bridge.callbacks.dragPropose?.(session, [], null) // left every slot: nothing to judge
+        tile.dispatchEvent(
+          new MouseEvent('pointerup', { bubbles: true, clientX: 210, clientY: 110 }),
+        )
+        expect(bridge.instance.dragDrop).toHaveBeenCalledWith(session, 110, 60)
+        expect(notify.warning).not.toHaveBeenCalled()
+        bridge.callbacks.blockDrop?.(session, [], zone) // the zone under the released pointer
+        await flushPromises()
+        expect(bridge.instance.dragEnd).toHaveBeenCalledWith(session)
+        await wrapper.find('[data-test="canvas-save"]').trigger('click')
+        await flushPromises()
+        const body = savedBody()
+        expect(body.map((b) => b.type)).toEqual(['card', 'card', 'card', 'rich_text'])
+        expect(body[1]!.data).toEqual({ title: 'Card', body: [] })
+        expect(bridge.instance.highlight).toHaveBeenLastCalledWith(body[1]!.id, [body[1]!.id])
+        wrapper.unmount()
+      })
+
+      it('a permitted hover then a release over a forbidden slot: the final zone is judged and refused', async () => {
+        mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+        saveMock.mockResolvedValue(undefined)
+        const wrapper = mountPage()
+        await flushPromises()
+        const { tile, session } = await dragTile(wrapper, 'card')
+        bridge.callbacks.dragPropose?.(session, [], zone)
+        expect(bridge.instance.dragLegality).toHaveBeenLastCalledWith(session, true, '')
+        tile.dispatchEvent(
+          new MouseEvent('pointerup', { bubbles: true, clientX: 210, clientY: 110 }),
+        )
+        // The stage answers with a slot that does not exist on the anchor: refused at commit.
+        bridge.callbacks.blockDrop?.(session, [], {
+          parent: 'blockaaa0001',
+          slot: 'nope',
+          index: 0,
+          layout: 'linear-vertical',
+        })
+        await flushPromises()
+        expect(notify.warning).toHaveBeenCalledWith('That move is not allowed', expect.any(String))
+        expect(bridge.instance.dragEnd).toHaveBeenCalledWith(session)
+        await wrapper.find('[data-test="canvas-save"]').trigger('click')
+        await flushPromises()
+        expect(savedBody().map((b) => b.id)).toEqual([
+          'blockaaa0001',
+          'blockbbb0002',
+          'prose0000003',
+        ])
+        wrapper.unmount()
+      })
+
+      it('a drag-cancel answer ends the session with nothing inserted; a stale block-drop afterwards is ignored', async () => {
+        mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+        saveMock.mockResolvedValue(undefined)
+        const wrapper = mountPage()
+        await flushPromises()
+        const { tile, session } = await dragTile(wrapper, 'card')
+        tile.dispatchEvent(
+          new MouseEvent('pointerup', { bubbles: true, clientX: 210, clientY: 110 }),
+        )
+        bridge.callbacks.dragCancel?.(session)
+        await flushPromises()
+        expect(bridge.instance.dragEnd).toHaveBeenCalledWith(session)
+        bridge.callbacks.blockDrop?.(session, [], zone) // late: the helper no longer awaits
+        await flushPromises()
+        await wrapper.find('[data-test="canvas-save"]').trigger('click')
+        await flushPromises()
+        expect(savedBody().map((b) => b.id)).toEqual([
+          'blockaaa0001',
+          'blockbbb0002',
+          'prose0000003',
+        ])
+        wrapper.unmount()
+      })
+    })
+
+    it('an anchored delete request positions the confirm at the delete button', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      const wrapper = mountPage()
+      await flushPromises()
+
+      // jsdom rects are all zeros, so top = anchor.y + 8.
+      bridge.callbacks.deleteRequest?.('blockaaa0001', { x: 90, y: 30 })
+      await flushPromises()
+      const confirm = wrapper.find('[data-test="canvas-delete-confirm"]')
+      expect(confirm.exists()).toBe(true)
+      expect(confirm.attributes('style')).toContain('top: 38px')
+      expect(confirm.classes()).not.toContain('mx-auto')
+
+      // Without an anchor, the centered fallback still applies.
+      await confirm.find('[data-test="canvas-delete-cancel"]').trigger('click')
+      bridge.callbacks.deleteRequest?.('blockaaa0001')
+      await flushPromises()
+      expect(wrapper.find('[data-test="canvas-delete-confirm"]').classes()).toContain('mx-auto')
+      wrapper.unmount()
+    })
+
+    it('the outline is an inspector tab — always mounted, no navbar toggle', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      const wrapper = mountPage()
+      await flushPromises()
+
+      // Mounted from the start (unmount-on-hide false keeps every tab alive so
+      // bridge intents and outline state survive tab switches).
+      expect(wrapper.find('[data-test="outline-tab"]').exists()).toBe(true)
+      expect(wrapper.find('[data-test="canvas-outline"]').exists()).toBe(true)
+      // The old navbar toggle is gone.
+      expect(wrapper.find('[data-test="canvas-outline-toggle"]').exists()).toBe(false)
+      wrapper.unmount()
+    })
+
+    it('edit-request grants per the kind matrix; everything else is denied', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      const wrapper = mountPage()
+      await flushPromises()
+
+      // Prose rich field -> rich; plain string field -> string.
+      bridge.callbacks.editRequest?.('prose0000003', 'body')
+      bridge.callbacks.editRequest?.('blockaaa0001', 'title')
+      await flushPromises()
+      expect(bridge.instance.editGrant).toHaveBeenCalledWith('prose0000003', 'body', 'rich')
+      expect(bridge.instance.editGrant).toHaveBeenCalledWith('blockaaa0001', 'title', 'string')
+
+      bridge.instance.editGrant.mockClear()
+      bridge.callbacks.editRequest?.('blockaaa0001', 'nope') // unknown field
+      bridge.callbacks.editRequest?.('missing', 'title') // unknown block
+      bridge.callbacks.editRequest?.('prose0000003', 'title') // field not on prose type
+      await flushPromises()
+      expect(bridge.instance.editGrant).not.toHaveBeenCalled()
+      wrapper.unmount()
+    })
+
+    it('text-changed for a wrong field or a non-prose block is IGNORED (review P1)', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+
+      // Wrong field on a prose block; unknown field; kind-mismatched payload
+      // (rich payload for a string field): all denied, no patch.
+      bridge.callbacks.textChanged?.('prose0000003', 'title', { html: '<p>evil</p>' })
+      bridge.callbacks.textChanged?.('blockaaa0001', 'nope', { text: 'evil' })
+      bridge.callbacks.textChanged?.('blockaaa0001', 'title', { html: '<b>evil</b>' })
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      const saved = saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
+        fields: { body: { id: string; data: Record<string, unknown> }[] }
+      }
+      expect(saved.fields.body.find((b) => b.id === 'prose0000003')!.data.body).toBe('<p>old</p>')
+      expect(saved.fields.body.find((b) => b.id === 'blockaaa0001')!.data.title).toBe('A')
+      wrapper.unmount()
+    })
+
+    it('text-changed patches the tree (visible in the next save payload)', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+
+      bridge.callbacks.textChanged?.('prose0000003', 'body', { html: '<p>typed in stage</p>' })
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      expect(saveMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          fields: expect.objectContaining({
+            body: expect.arrayContaining([
+              expect.objectContaining({
+                id: 'prose0000003',
+                data: expect.objectContaining({ body: '<p>typed in stage</p>' }),
+              }),
+            ]),
+          }),
+        }),
       )
-    } finally {
-      vi.useRealTimers()
-    }
-    wrapper.unmount()
-  })
+      wrapper.unmount()
+    })
 
-  it('no concurrent applies: a change during flight queues EXACTLY one follow-up', async () => {
-    const wrapper = await mountAuto()
-    let release!: () => void
-    applyMock.mockImplementationOnce(
-      () => new Promise((resolve) => (release = () => resolve(nextApplied()))),
-    )
-    vi.useFakeTimers()
-    try {
-      bridge.callbacks.move?.('blockaaa0001', 1)
-      await vi.advanceTimersByTimeAsync(900) // first run: now in flight
-      expect(applyMock).toHaveBeenCalledTimes(1)
+    it('a string text-changed patches the plain value into the tree', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
 
-      // Two NON-CANCELLING changes during flight (two cancelling moves would
-      // legitimately skip the follow-up: honest lastApplied bookkeeping means
-      // stageStale re-derives false when the tree returns to the sent state).
-      bridge.callbacks.move?.('blockaaa0001', 1)
-      bridge.callbacks.textChanged?.('prose0000003', 'body', { html: '<p>mid-flight</p>' })
-      await vi.advanceTimersByTimeAsync(900) // debounce fires -> queued, returns
-      expect(applyMock).toHaveBeenCalledTimes(1) // STILL one — no overlap
+      bridge.callbacks.textChanged?.('blockaaa0001', 'title', { text: 'Retitled' })
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      const saved = saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
+        fields: { body: { id: string; data: Record<string, unknown> }[] }
+      }
+      expect(saved.fields.body.find((b) => b.id === 'blockaaa0001')!.data.title).toBe('Retitled')
+      wrapper.unmount()
+    })
 
-      release()
-      await vi.advanceTimersByTimeAsync(100) // settle + follow-up
-      expect(applyMock).toHaveBeenCalledTimes(2) // exactly one follow-up
-      // The follow-up carries the LATEST tree (snapshot honesty, review P1).
-      const followUp = applyMock.mock.calls[1]![3] as {
+    it('Apply awaits the flush and the FINAL flushed text reaches the apply payload', async () => {
+      // Review P2: order alone is not the risk — the last sub-debounce keystroke
+      // is. The mocked flush delivers a final text-changed BEFORE resolving, the
+      // way the real bridge commits during thallo:edit-flush; Apply must read the
+      // tree AFTER that commit landed.
+      mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
+      bridge.instance.editFlush.mockImplementationOnce(async () => {
+        bridge.callbacks.textChanged?.('prose0000003', 'body', { html: '<p>final keystroke</p>' })
+      })
+      const wrapper = mountPage()
+      await flushPromises()
+
+      await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+      await flushPromises()
+      expect(bridge.instance.editFlush).toHaveBeenCalled()
+      const applied = applyMock.mock.calls[applyMock.mock.calls.length - 1]![3] as {
         body: { id: string; data: Record<string, unknown> }[]
       }
-      expect(followUp.body.find((b) => b.id === 'prose0000003')!.data.body).toBe(
-        '<p>mid-flight</p>',
+      expect(applied.body.find((b) => b.id === 'prose0000003')!.data.body).toBe(
+        '<p>final keystroke</p>',
       )
-    } finally {
-      vi.useRealTimers()
-    }
-    wrapper.unmount()
-  })
+      wrapper.unmount()
+    })
 
-  it('edit sessions suppress auto-apply; edit-end re-arms it', async () => {
-    const wrapper = await mountAuto()
-    vi.useFakeTimers()
-    try {
-      bridge.callbacks.editStart?.('prose0000003')
-      bridge.callbacks.textChanged?.('prose0000003', 'body', { html: '<p>typing</p>' })
-      await vi.advanceTimersByTimeAsync(2000)
-      expect(applyMock).not.toHaveBeenCalled() // suppressed while editing
+    it('save failure reloads the SAME iframe URL without re-minting, keeping dirty fields', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      const wrapper = mountPage()
+      await flushPromises()
+      const before = wrapper.find('[data-test="canvas-iframe"]').element
 
-      bridge.callbacks.editEnd?.('prose0000003')
-      await vi.advanceTimersByTimeAsync(900) // edit-end re-armed the debounce
-      expect(applyMock).toHaveBeenCalledTimes(1)
-    } finally {
-      vi.useRealTimers()
-    }
-    wrapper.unmount()
-  })
-
-  it('final failure suspends (one banner, no further autos); manual success re-arms', async () => {
-    const wrapper = await mountAuto()
-    applyMock.mockRejectedValueOnce(new ApiError('server error', 500, {}, { success: false }))
-    vi.useFakeTimers()
-    try {
+      // Make the tree dirty via a structural op (the mirror-then-fail scenario).
       bridge.callbacks.move?.('blockaaa0001', 1)
-      await vi.advanceTimersByTimeAsync(900)
-      expect(applyMock).toHaveBeenCalledTimes(1)
-      expect(notify.error).toHaveBeenCalledTimes(1) // one banner
+      await flushPromises()
 
-      bridge.callbacks.move?.('blockaaa0001', -1) // suspended: nothing schedules
-      await vi.advanceTimersByTimeAsync(2000)
-      expect(applyMock).toHaveBeenCalledTimes(1)
-    } finally {
-      vi.useRealTimers()
-    }
+      saveMock.mockRejectedValueOnce(new ApiError('conflict', 409, {}, { success: false }))
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      await flushPromises()
 
-    // Manual Apply succeeds -> auto re-arms.
-    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
-    await flushPromises()
-    expect(applyMock).toHaveBeenCalledTimes(2)
-    vi.useFakeTimers()
-    try {
-      bridge.callbacks.move?.('blockaaa0001', 1)
-      await vi.advanceTimersByTimeAsync(900)
-      expect(applyMock).toHaveBeenCalledTimes(3)
-    } finally {
-      vi.useRealTimers()
-    }
-    wrapper.unmount()
+      const iframe = wrapper.find('[data-test="canvas-iframe"]')
+      expect(iframe.attributes('src')).toBe('https://site.test/_preview/tok1?canvas=1') // SAME URL
+      expect(iframe.element).not.toBe(before) // remounted -> reloaded
+      expect(mintMock).toHaveBeenCalledTimes(1) // NO re-mint on failure
+      expect(notify.warning).toHaveBeenCalled() // banner still shows
+      // Pinned product rule: local edits SURVIVE the stage reset. Assert
+      // behaviorally (no Nuxt UI internals): a retry save still submits the
+      // MOVED order — the failed save discarded nothing.
+      saveMock.mockResolvedValue(undefined)
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      expect(saveMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          fields: expect.objectContaining({
+            body: [
+              expect.objectContaining({ id: 'blockbbb0002' }),
+              expect.objectContaining({ id: 'blockaaa0001' }),
+              expect.objectContaining({ id: 'prose0000003' }),
+            ],
+          }),
+        }),
+      )
+      wrapper.unmount()
+    })
   })
 
-  it('a dead-token retry that SUCCEEDS does not suspend', async () => {
-    const wrapper = await mountAuto()
-    mintMock.mockResolvedValue({ token: 'tok2', themeUrl: 'https://site.test/_preview/tok2' })
-    applyMock
-      .mockRejectedValueOnce(new ApiError('expired', 410, {}, { success: false }))
-      .mockImplementation(async () => nextApplied())
-    vi.useFakeTimers()
-    try {
-      bridge.callbacks.move?.('blockaaa0001', 1)
-      await vi.advanceTimersByTimeAsync(900)
-      expect(applyMock).toHaveBeenCalledTimes(2) // attempt + retry (TTL churn)
-
-      bridge.callbacks.move?.('blockaaa0001', -1) // NOT suspended
-      await vi.advanceTimersByTimeAsync(900)
-      expect(applyMock).toHaveBeenCalledTimes(3)
-    } finally {
-      vi.useRealTimers()
-    }
-    wrapper.unmount()
+  describe('editor page Design action', () => {
+    it('renders design-link pointing at the design route', async () => {
+      vi.doMock('@/queries/entries', () => ({
+        useEntryLocales: () => ({ data: ref([]) }),
+        useCreateLocaleDraft: () => ({ mutateAsync: vi.fn(), isLoading: ref(false) }),
+      }))
+      vi.doMock('@/queries/locales', () => ({ useLocales: () => ({ data: ref([]) }) }))
+      vi.doMock('@/stores/capabilities', () => ({
+        useCapabilitiesStore: () => ({ isEnabled: () => false, isVisible: () => false }),
+      }))
+      // Task 12 registered a real entry-editor panel (commerce-link) whose useGate wraps
+      // useCommerceMeta() — mock it so this Design-action test (unrelated to Commerce) never
+      // depends on the real query/client stack.
+      vi.doMock('@/queries/commerceMeta', () => ({
+        useCommerceMeta: () => ({ data: ref(undefined), status: ref('error') }),
+      }))
+      const { default: EditorPage } = await import('@/pages/content/[type]/[uuid]/index.vue')
+      const wrapper = mount(EditorPage, {
+        shallow: true,
+        global: {
+          stubs: {
+            // Shallow resolves auto-imported Nuxt UI names WITHOUT the U prefix.
+            DashboardPanel: { template: '<div><slot name="header" /><slot name="body" /></div>' },
+            DashboardNavbar: {
+              template:
+                '<div><slot name="leading" /><slot name="title" /><slot name="right" /></div>',
+            },
+          },
+        },
+      })
+      await flushPromises()
+      const link = wrapper.find('[data-test="design-link"]')
+      expect(link.exists()).toBe(true)
+      expect(link.attributes('to')).toBe('/content/page/entry0000001/design/en')
+      wrapper.unmount()
+    })
   })
 
-  it('the toggle disables auto, persists, and re-enables', async () => {
-    const wrapper = await mountAuto()
-    await wrapper.find('[data-test="canvas-auto-toggle"]').trigger('click')
-    expect(localStorage.getItem('thallo.canvas.auto_apply')).toBe('0')
-    vi.useFakeTimers()
-    try {
-      bridge.callbacks.move?.('blockaaa0001', 1)
-      await vi.advanceTimersByTimeAsync(2000)
-      expect(applyMock).not.toHaveBeenCalled()
-    } finally {
-      vi.useRealTimers()
+  describe('auto-apply', () => {
+    async function mountAuto() {
+      mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
+      const wrapper = mountPage()
+      await flushPromises()
+      return wrapper
     }
-    await wrapper.find('[data-test="canvas-auto-toggle"]').trigger('click')
-    expect(localStorage.getItem('thallo.canvas.auto_apply')).toBe('1')
-    wrapper.unmount()
-  })
 
-  it('scroll is remembered and restored after reloads', async () => {
-    const wrapper = await mountAuto()
-    bridge.callbacks.scroll?.(560)
-    // Any reload path re-fires @load -> onIframeLoad -> hello + restore.
-    const iframe = wrapper.find('[data-test="canvas-iframe"]')
-    await iframe.trigger('load')
-    expect(bridge.instance.restoreScroll).toHaveBeenCalledWith(560)
-    wrapper.unmount()
+    it('an inspector FORM edit auto-applies through the deep fields watcher', async () => {
+      // Regression guard (dom-patching bug hunt): inline editing has its own
+      // explicit edit-end re-arm, so a broken fields watcher would surface as
+      // "auto-apply only works when typing in the stage".
+      const wrapper = await mountAuto()
+      vi.useFakeTimers()
+      try {
+        const inputs = wrapper.findAll('input')
+        const title = inputs.find((i) => (i.element as HTMLInputElement).value === 'T')
+        expect(title).toBeDefined()
+        await title!.setValue('T changed in inspector')
+        await vi.advanceTimersByTimeAsync(900)
+        expect(applyMock).toHaveBeenCalledTimes(1)
+      } finally {
+        vi.useRealTimers()
+      }
+      wrapper.unmount()
+    })
+
+    it('a perpetual change stream cannot starve auto-apply (max-wait)', async () => {
+      // Bug hunt: anything touching fields more often than the 800ms debounce
+      // (an extension like Grammarly re-emitting TipTap updates, a theme timer)
+      // restarts the timer forever — the apply never fires and the veto
+      // breadcrumb never prints. The debounce may DELAY an apply, never
+      // starve it: max-wait forces a run ~2.5s after the first change.
+      const wrapper = await mountAuto()
+      vi.useFakeTimers()
+      try {
+        for (let i = 0; i < 8; i++) {
+          bridge.callbacks.textChanged?.('prose0000003', 'body', { html: `<p>tick ${i}</p>` })
+          await vi.advanceTimersByTimeAsync(400) // always inside the 800ms window
+        }
+        // 3200ms of continuous sub-debounce changes: max-wait must have fired.
+        expect(applyMock).toHaveBeenCalled()
+      } finally {
+        vi.useRealTimers()
+      }
+      wrapper.unmount()
+    })
+
+    it('a tree change auto-applies ONCE after the debounce; a burst coalesces', async () => {
+      const wrapper = await mountAuto()
+      vi.useFakeTimers()
+      try {
+        bridge.callbacks.move?.('blockaaa0001', 1)
+        await vi.advanceTimersByTimeAsync(400)
+        bridge.callbacks.move?.('blockaaa0001', 1) // restarts the debounce
+        await vi.advanceTimersByTimeAsync(400)
+        expect(applyMock).not.toHaveBeenCalled() // still inside the window
+        await vi.advanceTimersByTimeAsync(500)
+        expect(applyMock).toHaveBeenCalledTimes(1)
+        expect(applyMock).toHaveBeenCalledWith(
+          'entry0000001',
+          'en',
+          'tok1',
+          expect.anything(),
+          expect.anything(),
+        )
+      } finally {
+        vi.useRealTimers()
+      }
+      wrapper.unmount()
+    })
+
+    it('no concurrent applies: a change during flight queues EXACTLY one follow-up', async () => {
+      const wrapper = await mountAuto()
+      let release!: () => void
+      applyMock.mockImplementationOnce(
+        () => new Promise((resolve) => (release = () => resolve(nextApplied()))),
+      )
+      vi.useFakeTimers()
+      try {
+        bridge.callbacks.move?.('blockaaa0001', 1)
+        await vi.advanceTimersByTimeAsync(900) // first run: now in flight
+        expect(applyMock).toHaveBeenCalledTimes(1)
+
+        // Two NON-CANCELLING changes during flight (two cancelling moves would
+        // legitimately skip the follow-up: honest lastApplied bookkeeping means
+        // stageStale re-derives false when the tree returns to the sent state).
+        bridge.callbacks.move?.('blockaaa0001', 1)
+        bridge.callbacks.textChanged?.('prose0000003', 'body', { html: '<p>mid-flight</p>' })
+        await vi.advanceTimersByTimeAsync(900) // debounce fires -> queued, returns
+        expect(applyMock).toHaveBeenCalledTimes(1) // STILL one — no overlap
+
+        release()
+        await vi.advanceTimersByTimeAsync(100) // settle + follow-up
+        expect(applyMock).toHaveBeenCalledTimes(2) // exactly one follow-up
+        // The follow-up carries the LATEST tree (snapshot honesty, review P1).
+        const followUp = applyMock.mock.calls[1]![3] as {
+          body: { id: string; data: Record<string, unknown> }[]
+        }
+        expect(followUp.body.find((b) => b.id === 'prose0000003')!.data.body).toBe(
+          '<p>mid-flight</p>',
+        )
+      } finally {
+        vi.useRealTimers()
+      }
+      wrapper.unmount()
+    })
+
+    it('edit sessions suppress auto-apply; edit-end re-arms it', async () => {
+      const wrapper = await mountAuto()
+      vi.useFakeTimers()
+      try {
+        bridge.callbacks.editStart?.('prose0000003')
+        bridge.callbacks.textChanged?.('prose0000003', 'body', { html: '<p>typing</p>' })
+        await vi.advanceTimersByTimeAsync(2000)
+        expect(applyMock).not.toHaveBeenCalled() // suppressed while editing
+
+        bridge.callbacks.editEnd?.('prose0000003')
+        await vi.advanceTimersByTimeAsync(900) // edit-end re-armed the debounce
+        expect(applyMock).toHaveBeenCalledTimes(1)
+      } finally {
+        vi.useRealTimers()
+      }
+      wrapper.unmount()
+    })
+
+    it('final failure suspends (one banner, no further autos); manual success re-arms', async () => {
+      const wrapper = await mountAuto()
+      applyMock.mockRejectedValueOnce(new ApiError('server error', 500, {}, { success: false }))
+      vi.useFakeTimers()
+      try {
+        bridge.callbacks.move?.('blockaaa0001', 1)
+        await vi.advanceTimersByTimeAsync(900)
+        expect(applyMock).toHaveBeenCalledTimes(1)
+        expect(notify.error).toHaveBeenCalledTimes(1) // one banner
+
+        bridge.callbacks.move?.('blockaaa0001', -1) // suspended: nothing schedules
+        await vi.advanceTimersByTimeAsync(2000)
+        expect(applyMock).toHaveBeenCalledTimes(1)
+      } finally {
+        vi.useRealTimers()
+      }
+
+      // Manual Apply succeeds -> auto re-arms.
+      await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+      await flushPromises()
+      expect(applyMock).toHaveBeenCalledTimes(2)
+      vi.useFakeTimers()
+      try {
+        bridge.callbacks.move?.('blockaaa0001', 1)
+        await vi.advanceTimersByTimeAsync(900)
+        expect(applyMock).toHaveBeenCalledTimes(3)
+      } finally {
+        vi.useRealTimers()
+      }
+      wrapper.unmount()
+    })
+
+    it('a dead-token retry that SUCCEEDS does not suspend', async () => {
+      const wrapper = await mountAuto()
+      mintMock.mockResolvedValue({ token: 'tok2', themeUrl: 'https://site.test/_preview/tok2' })
+      applyMock
+        .mockRejectedValueOnce(new ApiError('expired', 410, {}, { success: false }))
+        .mockImplementation(async () => nextApplied())
+      vi.useFakeTimers()
+      try {
+        bridge.callbacks.move?.('blockaaa0001', 1)
+        await vi.advanceTimersByTimeAsync(900)
+        expect(applyMock).toHaveBeenCalledTimes(2) // attempt + retry (TTL churn)
+
+        bridge.callbacks.move?.('blockaaa0001', -1) // NOT suspended
+        await vi.advanceTimersByTimeAsync(900)
+        expect(applyMock).toHaveBeenCalledTimes(3)
+      } finally {
+        vi.useRealTimers()
+      }
+      wrapper.unmount()
+    })
+
+    it('the toggle disables auto, persists, and re-enables', async () => {
+      const wrapper = await mountAuto()
+      await wrapper.find('[data-test="canvas-auto-toggle"]').trigger('click')
+      expect(localStorage.getItem('thallo.canvas.auto_apply')).toBe('0')
+      vi.useFakeTimers()
+      try {
+        bridge.callbacks.move?.('blockaaa0001', 1)
+        await vi.advanceTimersByTimeAsync(2000)
+        expect(applyMock).not.toHaveBeenCalled()
+      } finally {
+        vi.useRealTimers()
+      }
+      await wrapper.find('[data-test="canvas-auto-toggle"]').trigger('click')
+      expect(localStorage.getItem('thallo.canvas.auto_apply')).toBe('1')
+      wrapper.unmount()
+    })
+
+    it('scroll is remembered and restored after reloads', async () => {
+      const wrapper = await mountAuto()
+      bridge.callbacks.scroll?.(560)
+      // Any reload path re-fires @load -> onIframeLoad -> hello + restore.
+      const iframe = wrapper.find('[data-test="canvas-iframe"]')
+      await iframe.trigger('load')
+      expect(bridge.instance.restoreScroll).toHaveBeenCalledWith(560)
+      wrapper.unmount()
+    })
   })
 })

@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 1;
+    public const VERSION = 2;
 
     /** Platform breakpoints: `md` from 768px, `lg` from 1024px. */
     public const BREAKPOINTS = ['base', 'md', 'lg'];
@@ -42,13 +42,17 @@ final class StyleSchema
         }
         $defs[] = new PropertyDefinition('width', 'width', $token, true, 'width');
         foreach (['text', 'content', 'self'] as $kind) {
+            // alignment.content distributes a container's children, so it carries the
+            // distribution keywords too (container-layout spec §3.2); text and self place one box.
             $defs[] = new PropertyDefinition(
                 "alignment.{$kind}",
                 'alignment',
                 $choice,
                 true,
                 null,
-                ['start', 'center', 'end'],
+                $kind === 'content'
+                    ? ['start', 'center', 'end', 'between', 'around', 'evenly']
+                    : ['start', 'center', 'end'],
             );
         }
         $defs[] = new PropertyDefinition('typography.size', 'typography', $token, true, 'typography.size');
@@ -68,6 +72,46 @@ final class StyleSchema
         }
         $defs[] = new PropertyDefinition('border.width', 'border', $choice, false, null, ['none', 'thin', 'thick']);
         $defs[] = new PropertyDefinition('border.style', 'border', $choice, false, null, ['solid', 'dashed']);
+
+        // Layout (container-layout spec §3.2). Parent properties live on a container's `inner`
+        // target, the band properties on its `root`; `layout.item` is the group a block declares
+        // to size itself inside its parent's flex or grid layout.
+        $defs[] = new PropertyDefinition('layout.display', 'layout', $choice, true, null, [
+            'block', 'flex', 'grid',
+        ]);
+        $defs[] = new PropertyDefinition('layout.direction', 'layout', $choice, true, null, [
+            'row', 'column', 'row-reverse', 'column-reverse',
+        ]);
+        $defs[] = new PropertyDefinition('layout.wrap', 'layout', $choice, true, null, ['nowrap', 'wrap']);
+        $defs[] = new PropertyDefinition('layout.align_items', 'layout', $choice, true, null, [
+            'start', 'center', 'end', 'stretch', 'baseline',
+        ]);
+        $defs[] = new PropertyDefinition('layout.columns', 'layout', $choice, true, null, [
+            '1', '2', '3', '4', '6', '12', '1-2', '2-1', '1-3', '3-1', '1-2-1', '1-1-2', '2-1-1',
+        ]);
+        $defs[] = new PropertyDefinition('layout.gap.column', 'layout', $token, true, 'spacing');
+        $defs[] = new PropertyDefinition('layout.gap.row', 'layout', $token, true, 'spacing');
+        $defs[] = new PropertyDefinition('layout.content_width', 'layout', $token, true, 'width');
+        $defs[] = new PropertyDefinition('layout.gutter', 'layout', $token, true, 'spacing');
+        $defs[] = new PropertyDefinition('layout.min_height', 'layout', $choice, true, null, [
+            'auto', 'half', 'screen',
+        ]);
+        // One value for every width: an overflow that changed with the viewport would hide content
+        // at one size and not another.
+        $defs[] = new PropertyDefinition('layout.overflow', 'layout', $choice, false, null, [
+            'visible', 'hidden', 'auto',
+        ]);
+        $defs[] = new PropertyDefinition('layout.span', 'layout.item', $choice, true, null, [
+            '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', 'full',
+        ]);
+        $defs[] = new PropertyDefinition('layout.basis', 'layout.item', $choice, true, null, [
+            'auto', '1/4', '1/3', '1/2', '2/3', '3/4', 'full',
+        ]);
+        $defs[] = new PropertyDefinition('layout.grow', 'layout.item', $choice, true, null, ['0', '1']);
+        $defs[] = new PropertyDefinition('layout.shrink', 'layout.item', $choice, true, null, ['0', '1']);
+        $defs[] = new PropertyDefinition('layout.align_self', 'layout.item', $choice, true, null, [
+            'start', 'center', 'end', 'stretch',
+        ]);
 
         $byPath = [];
         foreach ($defs as $def) {

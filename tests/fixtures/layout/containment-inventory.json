@@ -1,0 +1,167 @@
+{
+    "note": "The theme's page-level containment (container-layout spec \u00a73.6). Inside a container these defaults are released: max-width, auto inline margins and the inline gutter \u2014 theme defaults only, never an authored value. Regenerate with scripts/build-containment-inventory.",
+    "source": "packages/thallo-render/themes/default/assets/blocks.css",
+    "rules": [
+        {
+            "blocks": [
+                "image"
+            ],
+            "selector": ".thallo-block-image",
+            "line": 183,
+            "measure": "container",
+            "margin_inline_auto": true,
+            "padding_inline": true
+        },
+        {
+            "blocks": [
+                "rich_text"
+            ],
+            "selector": ".thallo-block-rich_text",
+            "line": 203,
+            "measure": "content",
+            "margin_inline_auto": true,
+            "padding_inline": true
+        },
+        {
+            "blocks": [
+                "heading"
+            ],
+            "selector": ".thallo-block-heading",
+            "line": 211,
+            "measure": "content",
+            "margin_inline_auto": true,
+            "padding_inline": true
+        },
+        {
+            "blocks": [
+                "tabs"
+            ],
+            "selector": ":where(.thallo-block-tabs, thallo-tabs)",
+            "line": 484,
+            "measure": "container",
+            "margin_inline_auto": true,
+            "padding_inline": true
+        },
+        {
+            "blocks": [
+                "button"
+            ],
+            "selector": ".thallo-block-button",
+            "line": 608,
+            "measure": "container",
+            "margin_inline_auto": true,
+            "padding_inline": true
+        },
+        {
+            "blocks": [
+                "carousel"
+            ],
+            "selector": ":where(.thallo-block-carousel, thallo-carousel)",
+            "line": 668,
+            "measure": "container",
+            "margin_inline_auto": true,
+            "padding_inline": true
+        },
+        {
+            "blocks": [
+                "logo"
+            ],
+            "selector": ".thallo-block-logo",
+            "line": 894,
+            "measure": "container",
+            "margin_inline_auto": true,
+            "padding_inline": true
+        },
+        {
+            "blocks": [
+                "icon"
+            ],
+            "selector": ".thallo-block-icon",
+            "line": 909,
+            "measure": "container",
+            "margin_inline_auto": true,
+            "padding_inline": true
+        },
+        {
+            "blocks": [
+                "video"
+            ],
+            "selector": ".thallo-block-video",
+            "line": 949,
+            "measure": "container",
+            "margin_inline_auto": true,
+            "padding_inline": true
+        },
+        {
+            "blocks": [
+                "audio"
+            ],
+            "selector": ".thallo-block-audio",
+            "line": 964,
+            "measure": "content",
+            "margin_inline_auto": true,
+            "padding_inline": true
+        },
+        {
+            "blocks": [
+                "file"
+            ],
+            "selector": ".thallo-block-file",
+            "line": 969,
+            "measure": "content",
+            "margin_inline_auto": true,
+            "padding_inline": true
+        },
+        {
+            "blocks": [
+                "html",
+                "shortcode"
+            ],
+            "selector": ".thallo-block-html, .thallo-block-shortcode",
+            "line": 990,
+            "measure": "container",
+            "margin_inline_auto": true,
+            "padding_inline": true
+        },
+        {
+            "blocks": [
+                "separator"
+            ],
+            "selector": ".thallo-block-separator",
+            "line": 1065,
+            "measure": "container",
+            "margin_inline_auto": true,
+            "padding_inline": true
+        },
+        {
+            "blocks": [
+                "form"
+            ],
+            "selector": ".thallo-block-form",
+            "line": 1551,
+            "measure": "content",
+            "margin_inline_auto": true,
+            "padding_inline": true
+        },
+        {
+            "blocks": [
+                "gallery"
+            ],
+            "selector": ".thallo-block-gallery",
+            "line": 1668,
+            "measure": "container",
+            "margin_inline_auto": true,
+            "padding_inline": true
+        },
+        {
+            "blocks": [
+                "code"
+            ],
+            "selector": ".thallo-block-code",
+            "line": 1784,
+            "measure": "content",
+            "margin_inline_auto": true,
+            "padding_inline": true
+        }
+    ]
+}

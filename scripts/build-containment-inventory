@@ -1,0 +1,68 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Inventory the theme's PAGE-LEVEL CONTAINMENT (container-layout plan, Task 1.2) into
+ * `tests/fixtures/layout/containment-inventory.json`.
+ *
+ * A block whose root rule clamps itself to the page measure — `max-width: var(--container)` or
+ * `var(--content)` with auto inline margins and the theme's inline gutter — is contained at page
+ * level. Inside a container that containment is a default the layout releases (spec §3.6), and the
+ * release rules must name exactly these blocks: releasing more would strip a component's own
+ * padding, releasing fewer would leave a doubled gutter inside a cell.
+ *
+ * Only a block's OWN root rule counts: a selector scoped by a layout mode (`.layout--centered …`)
+ * or naming a BEM child (`…__inner`) is a different rule with a different job.
+ *
+ *   php scripts/build-containment-inventory
+ */
+
+declare(strict_types=1);
+
+$root = dirname(__DIR__);
+$cssFile = $root . '/packages/thallo-render/themes/default/assets/blocks.css';
+$css = (string) file_get_contents($cssFile);
+
+$rules = [];
+if (preg_match_all('/(?m)^(?P<sel>[^{\n]+)\{(?P<body>[^}]*)\}/s', $css, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+    foreach ($matches as $match) {
+        $selector = trim($match['sel'][0]);
+        $body = $match['body'][0];
+        $measure = match (true) {
+            str_contains($body, 'max-width: var(--container)') => 'container',
+            str_contains($body, 'max-width: var(--content)') => 'content',
+            default => null,
+        };
+        if ($measure === null) {
+            continue;
+        }
+        // A BEM child or a layout-mode scoped rule is not the block's own root containment.
+        if (str_contains($selector, '__') || str_contains($selector, '.layout--')) {
+            continue;
+        }
+        if (!preg_match_all('/\.thallo-block-([a-z_0-9]+)(?![\w-])/', $selector, $blocks)) {
+            continue;
+        }
+        $rules[] = [
+            'blocks' => array_values(array_unique($blocks[1])),
+            'selector' => $selector,
+            'line' => substr_count(substr($css, 0, (int) $match[0][1]), "\n") + 1,
+            'measure' => $measure,
+            'margin_inline_auto' => str_contains($body, 'margin-inline: auto'),
+            'padding_inline' => str_contains($body, 'padding-inline: var(--space-4)'),
+        ];
+    }
+}
+
+usort($rules, static fn (array $a, array $b): int => $a['line'] <=> $b['line']);
+
+$out = $root . '/tests/fixtures/layout/containment-inventory.json';
+file_put_contents($out, json_encode([
+    'note' => 'The theme\'s page-level containment (container-layout spec §3.6). Inside a container '
+        . 'these defaults are released: max-width, auto inline margins and the inline gutter — '
+        . 'theme defaults only, never an authored value. Regenerate with '
+        . 'scripts/build-containment-inventory.',
+    'source' => 'packages/thallo-render/themes/default/assets/blocks.css',
+    'rules' => $rules,
+], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+
+fwrite(STDOUT, 'Inventoried ' . count($rules) . " page-level containment rules.\n");

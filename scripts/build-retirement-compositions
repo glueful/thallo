@@ -1,0 +1,575 @@
+#!/usr/bin/env python3
+"""Write the Container compositions that replace Columns, Grid and Section.
+
+Container-layout plan, Task 4.1. Every case in `tests/fixtures/layout/references/*.json` already
+holds the `old` tree whose rendering was frozen before any shared CSS changed (Task 0.1). This adds
+the three fields the comparison needs:
+
+  new    the composition that replaces it — a container carrying the same content, arranged with
+         the settings the retirement sections of the spec prescribe (§7.3–§7.5, §7.8, §7.9);
+  map    where each named element lives in the composition. Every composed block carries an
+         `advanced.anchor`, so the map addresses it by id: a selector built from child combinators
+         would break between the public rendering and the annotated one, where each block root sits
+         inside a wrapper;
+  allow  the disposition rows, taken only from the closed tables (§7.7, §7.10, §7.11). A difference
+         no row accounts for is a difference to fix, not to record.
+
+Regenerating is safe: the `old` trees and the frozen measurements are never touched.
+
+    python3 scripts/build-retirement-compositions
+"""
+
+import json
+import pathlib
+import sys
+
+REFERENCES = pathlib.Path(__file__).resolve().parent.parent / 'tests/fixtures/layout/references'
+
+# ── Values ───────────────────────────────────────────────────────────────────
+def choice(value):
+    return {'type': 'choice', 'value': value}
+
+
+def token(value):
+    return {'type': 'token', 'value': value}
+
+
+def every(value):
+    """One value at all three breakpoints: what an owned path always writes (spec §6.4)."""
+    return {'base': value, 'md': value, 'lg': value}
+
+
+def per(base, md, lg):
+    return {'base': base, 'md': md, 'lg': lg}
+
+
+def block(id, type, data=None, style=None, anchor=None):
+    settings = {}
+    if style:
+        settings['style'] = style
+    if anchor:
+        settings['advanced'] = {'anchor': anchor}
+    return {'id': id, 'type': type, 'data': data or {}, 'settings': settings or []}
+
+
+def container(id, children, style=None, anchor=None, element='div'):
+    return block(id, 'container', {'element': element, 'content': children}, style, anchor)
+
+
+def layout(**paths):
+    """`layout` style from keyword paths: gaps nest, everything else is flat."""
+    out = {}
+    for key, value in paths.items():
+        if key in ('gap_column', 'gap_row'):
+            out.setdefault('gap', {})['column' if key == 'gap_column' else 'row'] = value
+        else:
+            out[key] = value
+    return out
+
+
+# A column container (spec §6.5): the rhythm today's Columns gives the blocks in a column.
+COLUMN_STYLE = {
+    'layout': layout(
+        display=every(choice('flex')),
+        direction=every(choice('column')),
+        gap_row={'base': token('spacing.md')},
+    )
+}
+
+# ── Columns (spec §7.8) ──────────────────────────────────────────────────────
+COLUMN_TRACKS = {
+    '50-50': '2',
+    '33-67': '1-2',
+    '67-33': '2-1',
+    '25-75': '1-3',
+    '75-25': '3-1',
+    '33-33-33': '3',
+    '25-50-25': '1-2-1',
+    '50-25-25': '2-1-1',
+    '25-25-50': '1-1-2',
+}
+ALIGN_ITEMS = {'stretch': 'stretch', 'top': 'start', 'center': 'center', 'bottom': 'end'}
+
+
+def columns_composition(old):
+    data = old['data']
+    count = int(data.get('layout', 2))
+    widths = data.get('widths') or {2: '50-50', 3: '33-33-33'}[count]
+    tracks = COLUMN_TRACKS[widths]
+    align = ALIGN_ITEMS[data.get('align', 'stretch')]
+    style = {
+        'layout': layout(
+            content_width=every(token('width.container')),
+            display=every(choice('grid')),
+            # Multi-column presets stack on mobile (spec §6.5).
+            columns=per(choice('1'), choice(tracks), choice(tracks)),
+            align_items=every(choice(align)),
+            gap_column=every(token('spacing.lg')),
+            gap_row=every(token('spacing.lg')),
+        )
+    }
+    children = []
+    for i in range(count):
+        blocks = data.get(f'col_{i + 1}') or []
+        if blocks:
+            stamp(blocks[0], f'col{i + 1}first')
+        stamp_leaves(blocks)
+        children.append(container(f'colc{i + 1}0000001', blocks, COLUMN_STYLE, f'col{i + 1}'))
+    return container(old['id'], children, style, 'root')
+
+
+LEAF_ANCHORS = {'heading': 'heading', 'rich_text': 'richtext', 'button': 'button'}
+
+
+# One block can answer to two names — a column's first block is also the leaf case's heading — and
+# an id can only be one of them, so the map sends both names at whichever anchor it carries.
+ALIASES = {}
+
+
+def stamp_leaves(blocks):
+    """The §7.10 leaf fixtures: the one heading, rich text and button a leaf case names."""
+    for type, anchor in LEAF_ANCHORS.items():
+        # A leaf name belongs to the FIRST block of that type in document order, which is what the
+        # reference's own selector picked; a later column must not steal it.
+        if anchor in ALIASES or any(
+            ((b.get('settings') or {}).get('advanced') or {}).get('anchor') == anchor
+            for b in blocks
+        ):
+            continue
+        stamp(first_of(blocks, type), anchor)
+
+
+def stamp(block, anchor):
+    """Give a block an anchor so the map can address it by id in either rendering.
+
+    A block can answer to two of the reference's names — a column's first block is also the leaf
+    case's heading, a links row's first button is also its first link — and an id can only be one
+    of them, so the second name becomes an alias to the first.
+    """
+    if block is None:
+        return None
+    settings = block.get('settings') or {}
+    if not isinstance(settings, dict):
+        settings = {}
+    advanced = dict(settings.get('advanced') or {})
+    existing = advanced.get('anchor')
+    if existing:
+        ALIASES[anchor] = existing
+        return block
+    advanced['anchor'] = anchor
+    block['settings'] = {**settings, 'advanced': advanced}
+    return block
+
+
+def first_of(blocks, type):
+    for b in blocks:
+        if b['type'] == type:
+            return b
+    return None
+
+
+def columns_map(elements):
+    out = {}
+    for name in elements:
+        # The old Columns root carried the page measure and gutter; in a composition those live on
+        # the container's content area, so that is the element the reference's `root` compares to.
+        out[name] = (
+            '#root > .thallo-block-container__inner' if name == 'root' else f'#{ALIASES.get(name, name)}'
+        )
+    return out
+
+# ── Grid (spec §7.9) ─────────────────────────────────────────────────────────
+GRID_TRACKS = {'1': ('1', '1', '1'), '2': ('1', '2', '2'), '3': ('1', '2', '3'), '4': ('1', '2', '4')}
+GRID_GAPS = {'small': 'spacing.md', 'medium': 'spacing.lg', 'large': 'spacing.xl'}
+
+
+def grid_composition(old):
+    data = old['data']
+    base, md, lg = GRID_TRACKS[str(data.get('columns', '3'))]
+    gap = token(GRID_GAPS[data.get('gap', 'medium')])
+    style = {
+        'layout': layout(
+            content_width=every(token('width.container')),
+            display=every(choice('grid')),
+            columns=per(choice(base), choice(md), choice(lg)),
+            gap_column=every(gap),
+            gap_row=every(gap),
+        )
+    }
+    items = data.get('items') or []
+    for index, item in enumerate(items):
+        stamp(item, f'item{index + 1}')
+    stamp_leaves(items)
+    return container(old['id'], items, style, 'root')
+
+
+def grid_map(elements):
+    out = {}
+    for name in elements:
+        # Both the old Grid's root (the measure and gutter) and its items element (the tracks) are
+        # the container's content area now.
+        if name in ('root', 'items'):
+            out[name] = '#root > .thallo-block-container__inner'
+        else:
+            out[name] = f'#{ALIASES.get(name, name)}'
+    return out
+
+
+# ── Section (spec §7.3–§7.5) ─────────────────────────────────────────────────
+SECTION_ALIGN = {'start': 'start', 'center': 'center', 'end': 'end'}
+SECTION_BACKGROUND = {
+    'none': None,
+    'subtle': 'color.surface',
+    'muted': 'color.surface-2',
+    # The inverted band is the ink ground, and its text reads in the accent's contrast colour,
+    # which the children inherit from the container (spec §7.7).
+    'inverted': 'color.text',
+}
+
+
+# A colour is one value for every width (spec §1.3): stored bare, never under a breakpoint.
+def text_align(value):
+    return {'alignment': {'text': every(choice(value))}}
+
+
+def section_children(old, align):
+    data = old['data']
+
+    def part_align(field):
+        """The old Section aligned each part separately; the composition keeps that."""
+        return SECTION_ALIGN.get(data.get(field) or align, align)
+
+    kids = []
+    header = []
+    if data.get('headline'):
+        header.append(
+            block(
+                'shl00000001',
+                'rich_text',
+                {'body': f'<p>{data["headline"]}</p>'},
+                {
+                    'colors': {'text': token('color.accent')},
+                    'typography': {'weight': {'base': choice('semibold')}},
+                    'spacing': {'margin': {'bottom': {'base': token('spacing.sm')}}},
+                    **text_align(part_align('headline_align')),
+                },
+                'headline',
+            )
+        )
+    if data.get('title'):
+        header.append(
+            block(
+                'sti00000001',
+                'heading',
+                {'level': 'h2', 'text': data['title']},
+                text_align(part_align('title_align')),
+                'title',
+            )
+        )
+    if data.get('description'):
+        header.append(
+            block(
+                'sde00000001',
+                'rich_text',
+                {'body': f'<p>{data["description"]}</p>'},
+                {
+                    'colors': {'text': token('color.muted')},
+                    'typography': {'size': {'base': token('typography.size.lg')}},
+                    'width': {'base': token('width.content')},
+                    'alignment': {
+                        'text': every(choice(part_align('description_align'))),
+                        'self': every(choice(part_align('description_align'))),
+                    },
+                    'spacing': {'margin': {'top': {'base': token('spacing.lg')}}},
+                },
+                'description',
+            )
+        )
+    if header:
+        kids.append(
+            container(
+                'shd00000001',
+                header,
+                {'layout': layout(display=every(choice('flex')), direction=every(choice('column')))},
+                'header',
+            )
+        )
+    content = data.get('content') or []
+    heading = first_of(content, 'heading')
+    if heading is not None:
+        stamp(heading, 'contentHeading')
+    stamp_leaves(content)
+    stamp_leaves(data.get('links') or [])
+    # A case that names two buttons means whichever row holds them: the links row in the links
+    # fixture, the content area in the content one.
+    links_data = data.get('links') or []
+    buttons = [b for b in content if b['type'] == 'button'] or [
+        b for b in links_data if b['type'] == 'button'
+    ]
+    if len(buttons) > 1:
+        stamp(buttons[0], 'firstButton')
+        stamp(buttons[1], 'secondButton')
+    kids.append(container('sct00000001', content, None, 'content'))
+    links = data.get('links') or []
+    if links:
+        stamp(links[0], 'firstLink')
+        if len(links) > 1:
+            stamp(links[-1], 'lastLink')
+    if links:
+        kids.append(
+            container(
+                'slk00000001',
+                links,
+                {
+                    'layout': layout(
+                        display=every(choice('flex')),
+                        direction=every(choice('row')),
+                        wrap=every(choice('wrap')),
+                        gap_column=every(token('spacing.xl')),
+                        gap_row=every(token('spacing.md')),
+                    ),
+                    'alignment': {'content': every(choice(align))},
+                },
+                'links',
+            )
+        )
+    # Reversed puts the content before the header in the DOM: reading order follows visual order
+    # (spec §7.4), since per-item order is excluded (§3.9).
+    if data.get('reverse') and header and len(kids) > 1:
+        kids[0], kids[1] = kids[1], kids[0]
+    return kids
+
+
+def section_composition(old):
+    data = old['data']
+    horizontal = data.get('orientation') == 'horizontal'
+    # The split composition is left-aligned (spec §7.5); the vertical one centres.
+    align = SECTION_ALIGN.get(data.get('align') or ('start' if horizontal else 'center'), 'center')
+    style = {
+        'spacing': {
+            'padding': {'top': every(token('spacing.3xl')), 'bottom': every(token('spacing.3xl'))}
+        },
+        'layout': layout(
+            content_width=every(token('width.container')),
+            # Split: a flex column until lg, two tracks from there (spec §7.5).
+            display=per(choice('flex'), choice('flex'), choice('grid' if horizontal else 'flex')),
+            direction=every(choice('column')),
+            gap_row=every(token('spacing.xl')),
+            columns=per({'type': 'reset'}, {'type': 'reset'}, choice('2') if horizontal else {'type': 'reset'}),
+            align_items=per(
+                {'type': 'reset'},
+                {'type': 'reset'},
+                choice('center') if horizontal else {'type': 'reset'},
+            ),
+            gap_column=per(
+                {'type': 'reset'},
+                {'type': 'reset'},
+                token('spacing.2xl') if horizontal else {'type': 'reset'},
+            ),
+        ),
+    }
+    background = SECTION_BACKGROUND.get(data.get('background', 'none'))
+    if background:
+        style['colors'] = {'surface': token(background)}
+        if data.get('background') == 'inverted':
+            style['colors']['text'] = token('color.accent-contrast')
+    return container(old['id'], section_children(old, align), style, 'root', element='section')
+
+
+def section_map(elements):
+    out = {}
+    for name in elements:
+        if name == 'inner':
+            out[name] = '#root > .thallo-block-container__inner'
+        elif name in ('headline', 'description'):
+            # The old Section wrote these as paragraphs; the composition writes rich text, whose
+            # paragraph is the element the reference measured. The colour and weight sit on the
+            # block and inherit into it.
+            out[name] = f'#{name} p'
+        else:
+            out[name] = '#root' if name == 'root' else f'#{ALIASES.get(name, name)}'
+    return out
+
+
+# ── Disposition rows (spec §7.7, §7.10, §7.11) ───────────────────────────────
+CONTAINMENT = (
+    'Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills '
+    'its cell instead of carrying the page measure and gutter with it.'
+)
+TITLE_SIZE = (
+    "Intentionally changed (spec §7.7): the title takes the theme's h2 clamp instead of a fixed 2rem."
+)
+DESCRIPTION_SIZE = (
+    'Intentionally changed (spec §7.7): the description takes typography.size.lg instead of a fixed '
+    '1.125rem.'
+)
+INVERTED_COLOUR = (
+    'Intentionally changed (spec §7.7): the closed colour vocabulary has no reduced-strength token, '
+    'so the description reads at full contrast on an inverted band.'
+)
+REVERSED_ORDER = (
+    'Intentionally changed (spec §7.4): per-item order is excluded (§3.9), so the reversed '
+    'composition places the content before the header in the DOM and the reading order follows the '
+    'visual order — content, header, links — where the old reverse kept the header first.'
+)
+SPACING = (
+    'Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between '
+    'items and the container owns its own edges.'
+)
+
+
+def leaf_rows(names, affects, authored):
+    """A containment row per leaf the composition puts inside a container."""
+    rows = []
+    for name in names:
+        row = {
+            'element': name,
+            'why': CONTAINMENT,
+            'relax': ['padding-left', 'padding-right', 'margin-left', 'margin-right'],
+            'affects': affects,
+        }
+        # The release is a theme default; an authored padding outranks it and is compared exactly,
+        # which is the whole point of the authored fixtures (spec §3.6).
+        if ALIASES.get(name, name) not in authored:
+            row['expect'] = {'padding-left': '0px', 'padding-right': '0px'}
+        rows.append(row)
+    return rows
+
+
+def build(path):
+    ALIASES.clear()
+    case = json.loads(path.read_text())
+    # The composition reuses the old tree's content blocks, and stamping anchors on them would
+    # write into the frozen record of what was measured. It is copied first: `old` is data now, and
+    # data that describes a past rendering must not change.
+    old = json.loads(json.dumps(case['old']))
+    kind = old['type']
+    elements = list(case['elements'].keys())
+    names = [n for n in elements if n not in ('root', 'inner', 'items')]
+
+    collapsed = []
+    if kind == 'columns':
+        case['new'] = columns_composition(old)
+        case['map'] = columns_map(case['elements'])
+    elif kind == 'grid':
+        case['new'] = grid_composition(old)
+        case['map'] = grid_map(case['elements'])
+        # The old Grid kept the page measure on its root and the tracks on a child element; a
+        # container does both on its content area. `root` compares against that element in full —
+        # geometry, the gutter, the centring — so comparing `items` against the same box a second
+        # time asks nothing new, and its zero padding was a property of an element that no longer
+        # exists. Recorded here rather than relaxed, because no value rendered differently.
+        if 'items' in case['elements']:
+            collapsed.append('items')
+    elif kind == 'section':
+        case['new'] = section_composition(old)
+        case['map'] = section_map(case['elements'])
+        if 'lastLink' in case['elements']:
+            # The capture asked for the links row's last button with `:nth-last-of-type(1)`, but
+            # each button sits in its own wrapper, so every one of them is the last of its type in
+            # its own parent and the selector returned the FIRST. The frozen measurement is a
+            # duplicate of `firstLink`, so comparing it says nothing the first link has not said.
+            collapsed.append('lastLink')
+    else:
+        return False
+
+    # Which named elements the composition gives their own padding: those are compared as authored.
+    authored = set()
+
+    def note_authored(node, name=None):
+        settings = node.get('settings') or {}
+        style = settings.get('style') if isinstance(settings, dict) else None
+        anchor = ((settings.get('advanced') or {}) if isinstance(settings, dict) else {}).get('anchor')
+        if anchor and isinstance(style, dict) and 'padding' in (style.get('spacing') or {}):
+            authored.add(anchor)
+        for value in (node.get('data') or {}).values():
+            if isinstance(value, list):
+                for child in value:
+                    if isinstance(child, dict) and 'type' in child:
+                        note_authored(child)
+
+    note_authored(case['new'])
+    rows = leaf_rows(names, elements, authored)
+    if kind in ('columns', 'grid'):
+        # The reference's `root` is the old block's contained box, which the composition puts on the
+        # container's content area — so its geometry still compares exactly. What moved is the page
+        # flow margin: the container root carries it now (spec §3.8, disposition §7.11).
+        rows.append(
+            {
+                'element': 'root',
+                'why': SPACING,
+                'relax': ['margin-top', 'margin-bottom'],
+                'affects': elements,
+            }
+        )
+    # Every block inside a container has its own vertical margins released: the gaps own the space
+    # between items and the container owns its edges (spec §3.8, disposition §7.11).
+    rows.extend(
+        {
+            'element': name,
+            'why': SPACING,
+            'relax': ['margin-top', 'margin-bottom'],
+            'affects': elements,
+        }
+        for name in names
+    )
+    if kind == 'section':
+        rows.append(
+            {
+                'element': 'title',
+                'why': TITLE_SIZE,
+                # The line height is the same RATIO (1.15) over a different size, so it moves with
+                # the font size rather than being a second decision.
+                'relax': ['font-size', 'line-height'],
+                'affects': elements,
+            }
+        )
+        rows.append(
+            {
+                'element': 'description',
+                'why': DESCRIPTION_SIZE,
+                'relax': ['font-size', 'line-height'],
+                'affects': elements,
+            }
+        )
+        if old['data'].get('reverse'):
+            rows.extend(
+                {
+                    'element': name,
+                    'why': REVERSED_ORDER,
+                    'relax': ['reading-order'],
+                    'affects': [],
+                }
+                for name in elements
+            )
+        if old['data'].get('background') == 'inverted':
+            rows.append(
+                {
+                    'element': 'description',
+                    'why': INVERTED_COLOUR,
+                    'relax': ['color'],
+                    'affects': [],
+                }
+            )
+    case['allow'] = [row for row in rows if row['element'] in case['elements']]
+
+    if collapsed:
+        case['collapsed'] = collapsed
+    else:
+        case.pop('collapsed', None)
+    keys = ['case', 'note', 'root', 'elements', 'map', 'collapsed', 'allow', 'old', 'new']
+    ordered = {k: case[k] for k in keys if k in case}
+    path.write_text(json.dumps(ordered, indent=2, ensure_ascii=False) + '\n')
+    return True
+
+
+def main():
+    written = 0
+    for path in sorted(REFERENCES.glob('*.json')):
+        if build(path):
+            written += 1
+    print(f'Wrote {written} retirement compositions.', file=sys.stderr)
+
+
+if __name__ == '__main__':
+    main()

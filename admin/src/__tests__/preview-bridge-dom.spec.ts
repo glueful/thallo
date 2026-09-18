@@ -2807,3 +2807,115 @@ describe('fragment swaps (visual builder spec §3.5)', () => {
     expect(swapped.classList.contains('thallo-canvas-selected')).toBe(true)
   })
 })
+
+describe('the structure picker on the stage (container-layout spec §6.2)', () => {
+  /** A container wrapper with an empty content slot, the shape an offer is made for. */
+  function offeredContainer(id: string): HTMLElement {
+    document.body.innerHTML = '<main></main>'
+    const main = document.body.querySelector('main')!
+    const el = document.createElement('div')
+    el.className = 'thallo-preview-block'
+    el.setAttribute('data-thallo-block', id)
+    el.innerHTML = `<section><div data-thallo-slot="content"></div></section>`
+    main.append(el)
+    return el
+  }
+  const offer = (id: string, presets: Record<string, unknown>[]) =>
+    sendToBridge({ type: 'thallo:structure-offer', offers: [{ id, presets }] })
+  const tilesIn = (el: HTMLElement) => el.querySelector('.thallo-structure-picker')
+
+  beforeEach(() => posted.mockClear())
+
+  it('replaces the ordinary placeholder with the tiles, and puts it back when the offer ends', () => {
+    const el = offeredContainer('pk-a-0000001')
+    // Before any offer the slot carries the plain placeholder.
+    sendToBridge({ type: 'thallo:structure-offer', offers: [] })
+    expect(el.querySelector('.thallo-slot-placeholder')).not.toBeNull()
+    expect(tilesIn(el)).toBeNull()
+
+    offer('pk-a-0000001', [
+      { key: 'stack', label: 'Stack', enabled: true },
+      { key: 'cols-50-50', label: 'Two columns', enabled: true },
+    ])
+    const picker = tilesIn(el)!
+    expect(picker).not.toBeNull()
+    expect(picker.querySelectorAll('[data-structure-tile]')).toHaveLength(2)
+    expect(picker.querySelector('[data-slot-add]')).toBeNull()
+
+    // The complete list is republished without this offer: the tiles come off and the ordinary
+    // placeholder returns, with no second message type needed.
+    sendToBridge({ type: 'thallo:structure-offer', offers: [] })
+    expect(tilesIn(el)).toBeNull()
+    expect(el.querySelector('.thallo-slot-placeholder [data-slot-add]')).not.toBeNull()
+  })
+
+  it('shows a disabled tile with its reason, and clicking it posts nothing', () => {
+    const el = offeredContainer('pk-b-0000002')
+    offer('pk-b-0000002', [
+      { key: 'stack', label: 'Stack', enabled: true },
+      {
+        key: 'section',
+        label: 'Section',
+        enabled: false,
+        reason: 'Would nest deeper than 5 levels',
+      },
+    ])
+    const disabled = el.querySelector<HTMLButtonElement>('[data-structure-tile="section"]')!
+    expect(disabled.disabled).toBe(true)
+    expect(disabled.title).toContain('5 levels')
+
+    disabled.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(lastPost('thallo:structure-choose')).toBeUndefined()
+  })
+
+  it('a tile click posts the choice and never a selection', () => {
+    const el = offeredContainer('pk-c-0000003')
+    offer('pk-c-0000003', [{ key: 'cols-33-67', label: '33 / 67', enabled: true }])
+    el.querySelector<HTMLButtonElement>('[data-structure-tile="cols-33-67"]')!.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true }),
+    )
+    expect(lastPost('thallo:structure-choose')).toMatchObject({
+      id: 'pk-c-0000003',
+      preset: 'cols-33-67',
+    })
+    // Choosing must not take the inspector away from the choice being made.
+    expect(lastPost('thallo:block-select')).toBeUndefined()
+  })
+
+  it('Skip posts a skip, also without selecting', () => {
+    const el = offeredContainer('pk-d-0000004')
+    offer('pk-d-0000004', [{ key: 'stack', label: 'Stack', enabled: true }])
+    el.querySelector<HTMLButtonElement>('[data-structure-skip]')!.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true }),
+    )
+    expect(lastPost('thallo:structure-skip')).toMatchObject({ id: 'pk-d-0000004' })
+    expect(lastPost('thallo:block-select')).toBeUndefined()
+  })
+
+  it('a container that already holds a block shows no tiles', () => {
+    const el = offeredContainer('pk-e-0000005')
+    el.querySelector('[data-thallo-slot="content"]')!.innerHTML =
+      '<div class="thallo-preview-block" data-thallo-block="pk-child-001"><p>x</p></div>'
+    offer('pk-e-0000005', [{ key: 'stack', label: 'Stack', enabled: true }])
+    expect(tilesIn(el)).toBeNull()
+  })
+
+  it('offers only the named container, and drops a malformed message', () => {
+    document.body.innerHTML = '<main></main>'
+    const main = document.body.querySelector('main')!
+    for (const id of ['pk-f-0000006', 'pk-g-0000007']) {
+      const el = document.createElement('div')
+      el.className = 'thallo-preview-block'
+      el.setAttribute('data-thallo-block', id)
+      el.innerHTML = '<section><div data-thallo-slot="content"></div></section>'
+      main.append(el)
+    }
+    offer('pk-f-0000006', [{ key: 'stack', label: 'Stack', enabled: true }])
+    expect(tilesIn(main.children[0] as HTMLElement)).not.toBeNull()
+    expect(tilesIn(main.children[1] as HTMLElement)).toBeNull()
+
+    // A message with no offers array changes nothing rather than clearing the stage.
+    sendToBridge({ type: 'thallo:structure-offer' })
+    expect(tilesIn(main.children[0] as HTMLElement)).not.toBeNull()
+  })
+})

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Content;
 
+use Thallo\Contracts\Style\StyleSchema;
 use Thallo\Core\Content\Blocks\BlockTypeRepository;
 use Thallo\Core\Content\Blocks\Sources\DocumentRef;
 use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
@@ -122,7 +123,10 @@ final class ConverterTest extends AppTestCase
         self::assertTrue($button['data']['block'], 'kept: block semantics stay in data');
         self::assertSame('slow', $carousel['data']['speed']);
         self::assertArrayNotHasKey('transition_duration', $carousel['data']);
-        self::assertSame(['settings' => 1, 'conversions' => ['test-stage']], $out->fields['_schema']);
+        self::assertSame(
+            ['settings' => StyleSchema::VERSION, 'conversions' => ['test-stage']],
+            $out->fields['_schema'],
+        );
         $statuses = array_column($report->lines(), 'status', 'field');
         self::assertSame(
             ['align' => 'converted', 'shape' => 'converted', 'block' => 'kept', 'transition_duration' => 'converted'],
@@ -223,11 +227,11 @@ final class ConverterTest extends AppTestCase
     {
         $ref = $this->ref([
             'body' => [
-                ['id' => 's', 'type' => 'section', 'data' => ['content' => [
+                ['id' => 's', 'type' => 'container', 'data' => ['content' => [
                     ['id' => 'h', 'type' => 'heading', 'data' => ['text' => 'Deep', 'align' => 'center']],
                 ]]],
             ],
-            '_schema' => ['settings' => 1, 'conversions' => ['test-stage']],
+            '_schema' => ['settings' => StyleSchema::VERSION, 'conversions' => ['test-stage']],
         ]);
         $stages = new ConversionStages(
             $this->stage(),

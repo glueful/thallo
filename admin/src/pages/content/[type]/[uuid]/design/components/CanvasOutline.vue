@@ -115,9 +115,6 @@ function rowsOf(
       zone: { parent, slot, index },
     })
     for (const region of regionsOf(block.type)) {
-      // A columns block declares col_3 for its three-column layout only; a two-column one
-      // has no third slot to fill, so the outline shows none.
-      if (block.type === 'columns' && region === 'col_3' && block.data.layout !== '3') continue
       const inner = (block.data[region] as BlockInstance[] | undefined) ?? []
       if (inner.length === 0) {
         rows.push({

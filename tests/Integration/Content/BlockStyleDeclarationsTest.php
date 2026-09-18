@@ -22,7 +22,7 @@ final class BlockStyleDeclarationsTest extends AppTestCase
     public function testEveryShippedBlockTypeDeclaresAConsistentStyleContract(): void
     {
         $definitions = $this->container()->get(BlockTypeKind::class)->definitions();
-        self::assertGreaterThanOrEqual(56, count($definitions), 'starters and the two packs');
+        self::assertGreaterThanOrEqual(53, count($definitions), 'starters and the two packs');
         foreach ($definitions as $definition) {
             $payload = $definition->payload;
             $slug = (string) $payload['slug'];

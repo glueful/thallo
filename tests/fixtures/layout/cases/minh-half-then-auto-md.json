@@ -1,0 +1,61 @@
+{
+  "case": "minh-half-then-auto-md",
+  "note": "\u00a73.5: half at base, auto from md \u2014 the root returns to block display.",
+  "tree": {
+    "id": "lf0000000001",
+    "type": "layout_fixture",
+    "data": {
+      "content": [
+        {
+          "id": "hd0000000101",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "One"
+          },
+          "settings": {}
+        },
+        {
+          "id": "hd0000000102",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Two"
+          },
+          "settings": {}
+        },
+        {
+          "id": "hd0000000103",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Three"
+          },
+          "settings": {}
+        }
+      ]
+    },
+    "settings": {
+      "style": {
+        "layout": {
+          "min_height": {
+            "base": {
+              "type": "choice",
+              "value": "half"
+            },
+            "md": {
+              "type": "choice",
+              "value": "auto"
+            }
+          },
+          "content_width": {
+            "base": {
+              "type": "token",
+              "value": "width.container"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,327 @@
+{
+  "case": "container-flex-justify-evenly",
+  "note": "§4 parity: justify evenly. Container-layout spec §4 parity. width → layout.content_width (contained → width.container, narrow → width.content, full → width.full, each carrying its default gutter); min_height → layout.min_height on root; layout/flex_direction/flex_wrap/align_items/gap → the inner area's display, direction, wrap, align_items and both gaps; justify → alignment.content in flex mode, content_align → alignment.content in block mode, where the old theme made the content area a centred flex column and the new one says so explicitly (spec §3.5).",
+  "root": "[data-case-root]",
+  "elements": {
+    "root": {
+      "selector": ".thallo-block-container",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "surface"
+      ]
+    },
+    "inner": {
+      "selector": ".thallo-block-container__inner",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "heading": {
+      "selector": ".thallo-block-heading",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography",
+        "semantics"
+      ]
+    },
+    "richtext": {
+      "selector": ".thallo-block-rich_text",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography",
+        "semantics"
+      ]
+    },
+    "button": {
+      "selector": ".thallo-block-button",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "semantics"
+      ]
+    }
+  },
+  "map": {
+    "root": ".thallo-block-container",
+    "inner": ".thallo-block-container__inner",
+    "heading": ".thallo-block-heading",
+    "richtext": ".thallo-block-rich_text",
+    "button": ".thallo-block-button"
+  },
+  "allow": [
+    {
+      "element": "heading",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px",
+        "margin-left": "0px",
+        "margin-right": "0px"
+      },
+      "affects": [
+        "root",
+        "inner",
+        "heading",
+        "richtext",
+        "button"
+      ]
+    },
+    {
+      "element": "richtext",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px",
+        "margin-left": "0px",
+        "margin-right": "0px"
+      },
+      "affects": [
+        "root",
+        "inner",
+        "heading",
+        "richtext",
+        "button"
+      ]
+    },
+    {
+      "element": "button",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px",
+        "margin-left": "0px",
+        "margin-right": "0px"
+      },
+      "affects": [
+        "root",
+        "inner",
+        "heading",
+        "richtext",
+        "button"
+      ]
+    },
+    {
+      "element": "heading",
+      "why": "Default vertical margins released in flex mode (spec §3.8): spacing between items comes from the gaps alone. The old band centred its content through a flex column the theme applied invisibly; the composition says so explicitly (spec §3.5), so the release applies to it too.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "expect": {
+        "margin-top": "0px",
+        "margin-bottom": "0px"
+      },
+      "affects": [
+        "root",
+        "inner",
+        "heading",
+        "richtext",
+        "button"
+      ]
+    },
+    {
+      "element": "richtext",
+      "why": "Default vertical margins released in flex mode (spec §3.8): spacing between items comes from the gaps alone. The old band centred its content through a flex column the theme applied invisibly; the composition says so explicitly (spec §3.5), so the release applies to it too.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "expect": {
+        "margin-top": "0px",
+        "margin-bottom": "0px"
+      },
+      "affects": [
+        "root",
+        "inner",
+        "heading",
+        "richtext",
+        "button"
+      ]
+    },
+    {
+      "element": "button",
+      "why": "Default vertical margins released in flex mode (spec §3.8): spacing between items comes from the gaps alone. The old band centred its content through a flex column the theme applied invisibly; the composition says so explicitly (spec §3.5), so the release applies to it too.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "expect": {
+        "margin-top": "0px",
+        "margin-bottom": "0px"
+      },
+      "affects": [
+        "root",
+        "inner",
+        "heading",
+        "richtext",
+        "button"
+      ]
+    }
+  ],
+  "old": {
+    "id": "cnt000000001",
+    "type": "container",
+    "data": {
+      "width": "contained",
+      "min_height": "auto",
+      "content_align": "center",
+      "layout": "flex",
+      "flex_direction": "row",
+      "justify": "evenly",
+      "align_items": "stretch",
+      "flex_wrap": "nowrap",
+      "gap": {
+        "type": "token",
+        "value": "spacing.lg"
+      },
+      "content": [
+        {
+          "id": "hd0000000001",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "One"
+          },
+          "settings": []
+        },
+        {
+          "id": "rt0000000001",
+          "type": "rich_text",
+          "data": {
+            "body": "<p>Two</p>"
+          },
+          "settings": []
+        },
+        {
+          "id": "bt0000000001",
+          "type": "button",
+          "data": {
+            "label": "Get started",
+            "url": "/go",
+            "variant": "solid",
+            "color": "primary"
+          },
+          "settings": []
+        }
+      ]
+    },
+    "settings": []
+  },
+  "new": {
+    "id": "cnt000000001",
+    "type": "container",
+    "data": {
+      "element": "div",
+      "content": [
+        {
+          "id": "hd0000000001",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "One"
+          },
+          "settings": []
+        },
+        {
+          "id": "rt0000000001",
+          "type": "rich_text",
+          "data": {
+            "body": "<p>Two</p>"
+          },
+          "settings": []
+        },
+        {
+          "id": "bt0000000001",
+          "type": "button",
+          "data": {
+            "label": "Get started",
+            "url": "/go",
+            "variant": "solid",
+            "color": "primary"
+          },
+          "settings": []
+        }
+      ]
+    },
+    "settings": {
+      "style": {
+        "layout": {
+          "content_width": {
+            "base": {
+              "type": "token",
+              "value": "width.container"
+            }
+          },
+          "display": {
+            "base": {
+              "type": "choice",
+              "value": "flex"
+            }
+          },
+          "direction": {
+            "base": {
+              "type": "choice",
+              "value": "row"
+            }
+          },
+          "wrap": {
+            "base": {
+              "type": "choice",
+              "value": "nowrap"
+            }
+          },
+          "align_items": {
+            "base": {
+              "type": "choice",
+              "value": "stretch"
+            }
+          },
+          "gap": {
+            "column": {
+              "base": {
+                "type": "token",
+                "value": "spacing.lg"
+              }
+            },
+            "row": {
+              "base": {
+                "type": "token",
+                "value": "spacing.lg"
+              }
+            }
+          }
+        },
+        "alignment": {
+          "content": {
+            "base": {
+              "type": "choice",
+              "value": "evenly"
+            }
+          }
+        }
+      }
+    }
+  }
+}

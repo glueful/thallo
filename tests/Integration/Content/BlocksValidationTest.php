@@ -28,7 +28,7 @@ final class BlocksValidationTest extends AppTestCase
             ['name' => 'text', 'type' => 'text'],
         ]]);
         // Container type (nesting amendment §A1): a blocks field inside a block schema.
-        $this->blocks->create(['slug' => 'section', 'label' => 'Section', 'category' => 'Layout',
+        $this->blocks->create(['slug' => 'panel', 'label' => 'Panel', 'category' => 'Layout',
             'schema' => [
                 ['name' => 'title', 'type' => 'string'],
                 ['name' => 'content', 'type' => 'blocks', 'block_types' => ['hero']],
@@ -170,9 +170,9 @@ final class BlocksValidationTest extends AppTestCase
 
     public function testNestedBlocksValidateWithComposedDotPaths(): void
     {
-        // Depth 1 (body) → 2 (section.content) — valid nesting.
+        // Depth 1 (body) → 2 (panel.content) — valid nesting.
         $clean = $this->clean(['body' => [
-            ['type' => 'section', 'data' => ['title' => 'S', 'content' => [
+            ['type' => 'panel', 'data' => ['title' => 'S', 'content' => [
                 ['type' => 'hero', 'data' => ['heading' => 'Nested']],
             ]]],
         ]]);
@@ -182,7 +182,7 @@ final class BlocksValidationTest extends AppTestCase
         // Nested field error carries the COMPOSED path.
         try {
             $this->clean(['body' => [
-                ['type' => 'section', 'data' => ['content' => [
+                ['type' => 'panel', 'data' => ['content' => [
                     ['type' => 'hero', 'data' => ['heading' => 123]],
                 ]]],
             ]]);
@@ -194,13 +194,13 @@ final class BlocksValidationTest extends AppTestCase
 
     public function testDepthSixErrorsAtTheExactPath(): void
     {
-        // Five nested sections hold depth 5 (visual builder spec §5.2); the fifth's content
+        // Five nested panels hold depth 5 (visual builder spec §5.2); the fifth's content
         // field would put items at depth 6 → the FIELD errors, nothing deeper validates.
-        // (section inside section is OUTSIDE content's allowlist — doubling as the
+        // (panel inside panel is OUTSIDE content's allowlist — doubling as the
         // picker-only acceptance proof at depth.)
         $deep = ['type' => 'hero', 'data' => ['heading' => 'too deep']];
         for ($i = 0; $i < 5; $i++) {
-            $deep = ['type' => 'section', 'data' => ['content' => [$deep]]];
+            $deep = ['type' => 'panel', 'data' => ['content' => [$deep]]];
         }
         try {
             $this->clean(['body' => [$deep]]);
@@ -212,8 +212,8 @@ final class BlocksValidationTest extends AppTestCase
             self::assertStringContainsString('nesting depth (5)', $errors[$path]);
         }
         // Exactly at MAX (3) is fine.
-        $ok = ['type' => 'section', 'data' => ['content' => [
-            ['type' => 'section', 'data' => ['content' => [
+        $ok = ['type' => 'panel', 'data' => ['content' => [
+            ['type' => 'panel', 'data' => ['content' => [
                 ['type' => 'hero', 'data' => ['heading' => 'depth three']],
             ]]],
         ]]];
@@ -274,11 +274,11 @@ final class BlocksValidationTest extends AppTestCase
 
     public function testNestedTabsBlockOverCapRejectsWithTheFullDotPath(): void
     {
-        // Tabs inside a section's blocks field: the cap error carries the
+        // Tabs inside a panel's blocks field: the cap error carries the
         // COMPOSED dot path, same as every other nested block error.
         try {
             $this->clean(['body' => [
-                ['type' => 'section', 'data' => ['content' => [$this->tabsBlock(13)]]],
+                ['type' => 'panel', 'data' => ['content' => [$this->tabsBlock(13)]]],
             ]]);
             self::fail('expected ValidationException');
         } catch (ValidationException $e) {
@@ -365,7 +365,7 @@ final class BlocksValidationTest extends AppTestCase
             $this->validator->validate($nestedSchema, [
                 'body' => [
                     ['id' => 'topid0000001', 'type' => 'quote', 'data' => ['text' => 'x']],
-                    ['id' => 'sec000000001', 'type' => 'section', 'data' => ['content' => [
+                    ['id' => 'sec000000001', 'type' => 'panel', 'data' => ['content' => [
                         ['id' => 'topid0000001', 'type' => 'hero', 'data' => ['heading' => 'H']],
                     ]]],
                 ],

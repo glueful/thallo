@@ -1,0 +1,424 @@
+{
+  "case": "grid-cols-2-gap-medium",
+  "note": "§7.9: 2 columns, gap medium, 4 items (partial last row).",
+  "root": "[data-case-root]",
+  "elements": {
+    "root": {
+      "selector": ".thallo-block-grid",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "items": {
+      "selector": ".thallo-block-grid__items",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "item1": {
+      "selector": ".thallo-block-grid__items > *:nth-child(1)",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "semantics"
+      ]
+    },
+    "item2": {
+      "selector": ".thallo-block-grid__items > *:nth-child(2)",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "semantics"
+      ]
+    },
+    "item3": {
+      "selector": ".thallo-block-grid__items > *:nth-child(3)",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "semantics"
+      ]
+    },
+    "item4": {
+      "selector": ".thallo-block-grid__items > *:nth-child(4)",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "semantics"
+      ]
+    }
+  },
+  "map": {
+    "root": "#root > .thallo-block-container__inner",
+    "items": "#root > .thallo-block-container__inner",
+    "item1": "#item1",
+    "item2": "#item2",
+    "item3": "#item3",
+    "item4": "#item4"
+  },
+  "collapsed": [
+    "items"
+  ],
+  "allow": [
+    {
+      "element": "item1",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "items",
+        "item1",
+        "item2",
+        "item3",
+        "item4"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "item2",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "items",
+        "item1",
+        "item2",
+        "item3",
+        "item4"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "item3",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "items",
+        "item1",
+        "item2",
+        "item3",
+        "item4"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "item4",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "items",
+        "item1",
+        "item2",
+        "item3",
+        "item4"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "root",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "items",
+        "item1",
+        "item2",
+        "item3",
+        "item4"
+      ]
+    },
+    {
+      "element": "item1",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "items",
+        "item1",
+        "item2",
+        "item3",
+        "item4"
+      ]
+    },
+    {
+      "element": "item2",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "items",
+        "item1",
+        "item2",
+        "item3",
+        "item4"
+      ]
+    },
+    {
+      "element": "item3",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "items",
+        "item1",
+        "item2",
+        "item3",
+        "item4"
+      ]
+    },
+    {
+      "element": "item4",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "items",
+        "item1",
+        "item2",
+        "item3",
+        "item4"
+      ]
+    }
+  ],
+  "old": {
+    "id": "grd000000001",
+    "type": "grid",
+    "data": {
+      "columns": "2",
+      "flow": "grid",
+      "gap": "medium",
+      "items": [
+        {
+          "id": "hd0000000031",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Item 1"
+          },
+          "settings": []
+        },
+        {
+          "id": "hd0000000032",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Item 2"
+          },
+          "settings": []
+        },
+        {
+          "id": "hd0000000033",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Item 3"
+          },
+          "settings": []
+        },
+        {
+          "id": "hd0000000034",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Item 4"
+          },
+          "settings": []
+        }
+      ]
+    },
+    "settings": []
+  },
+  "new": {
+    "id": "grd000000001",
+    "type": "container",
+    "data": {
+      "element": "div",
+      "content": [
+        {
+          "id": "hd0000000031",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Item 1"
+          },
+          "settings": {
+            "advanced": {
+              "anchor": "item1"
+            }
+          }
+        },
+        {
+          "id": "hd0000000032",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Item 2"
+          },
+          "settings": {
+            "advanced": {
+              "anchor": "item2"
+            }
+          }
+        },
+        {
+          "id": "hd0000000033",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Item 3"
+          },
+          "settings": {
+            "advanced": {
+              "anchor": "item3"
+            }
+          }
+        },
+        {
+          "id": "hd0000000034",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Item 4"
+          },
+          "settings": {
+            "advanced": {
+              "anchor": "item4"
+            }
+          }
+        }
+      ]
+    },
+    "settings": {
+      "style": {
+        "layout": {
+          "content_width": {
+            "base": {
+              "type": "token",
+              "value": "width.container"
+            },
+            "md": {
+              "type": "token",
+              "value": "width.container"
+            },
+            "lg": {
+              "type": "token",
+              "value": "width.container"
+            }
+          },
+          "display": {
+            "base": {
+              "type": "choice",
+              "value": "grid"
+            },
+            "md": {
+              "type": "choice",
+              "value": "grid"
+            },
+            "lg": {
+              "type": "choice",
+              "value": "grid"
+            }
+          },
+          "columns": {
+            "base": {
+              "type": "choice",
+              "value": "1"
+            },
+            "md": {
+              "type": "choice",
+              "value": "2"
+            },
+            "lg": {
+              "type": "choice",
+              "value": "2"
+            }
+          },
+          "gap": {
+            "column": {
+              "base": {
+                "type": "token",
+                "value": "spacing.lg"
+              },
+              "md": {
+                "type": "token",
+                "value": "spacing.lg"
+              },
+              "lg": {
+                "type": "token",
+                "value": "spacing.lg"
+              }
+            },
+            "row": {
+              "base": {
+                "type": "token",
+                "value": "spacing.lg"
+              },
+              "md": {
+                "type": "token",
+                "value": "spacing.lg"
+              },
+              "lg": {
+                "type": "token",
+                "value": "spacing.lg"
+              }
+            }
+          }
+        }
+      },
+      "advanced": {
+        "anchor": "root"
+      }
+    }
+  }
+}

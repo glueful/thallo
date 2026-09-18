@@ -28,6 +28,7 @@ import {
   type DragSource,
   type DropZone,
 } from '@/editor/structure/coordinator'
+import { createStructurePicker } from '@/editor/structure/structurePicker'
 import MoveToDialog from './components/MoveToDialog.vue'
 import BlocksPalette from '@/editor/palette/BlocksPalette.vue'
 import BoxField from '@/editor/inspector/controls/BoxField.vue'
@@ -405,6 +406,7 @@ interface FieldEditorExposed {
   insertAfterById: (id: string, typeSlug: string) => Promise<string | null>
   patchBlockDataById: (id: string, field: string, value: unknown) => boolean
   blockTypeOfBlock: (id: string) => string | null
+  parentOfBlockById: (id: string) => BlockInstance | null
 }
 const fieldEditorRef = ref<FieldEditorExposed | null>(null)
 // ── Selection (visual builder spec §5.5): a set of siblings from one slot, the anchor first
@@ -424,6 +426,7 @@ function applySelection(
 ): void {
   const doc = selectionDoc()
   clearInsertTarget()
+  pendingStageSelect.value = null
   selection.value = modifiers.shift
     ? extend(selection.value, id, doc, selectionCtx)
     : modifiers.meta
@@ -434,12 +437,14 @@ function selectOne(id: string): void {
   insertTarget.value = null
   targetStale.value = false
   insertAttempt++
+  pendingStageSelect.value = null
   const next = single(id, selectionDoc(), selectionCtx)
   // A block the tree does not hold yet (an insert still landing) is selected on trust and
   // re-read on the next change.
   selection.value = next.ids.length > 0 ? next : { ids: [id], parent: null, slot: null, anchor: id }
 }
 function clearSelection(): void {
+  pendingStageSelect.value = null
   selection.value = EMPTY_SELECTION
   clearInsertTarget()
 }
@@ -454,14 +459,39 @@ function groupFor(id: string): Selection | null {
   return s.ids.length > 1 && s.ids.includes(id) ? s : null
 }
 
-bridge.onBlockSelect((id, modifiers = { shift: false, meta: false }) => {
+/**
+ * A stage click the tree could not place yet. The stage is clickable as soon as its own page has
+ * loaded, which can be before the schema, the block types or the draft have — and until they do a
+ * block has no position to select it at. The click is kept and placed when they arrive; any other
+ * selection, or a deselect, forgets it. Once everything has loaded an id that still has no place
+ * is simply unknown, and nothing waits for it.
+ */
+const pendingStageSelect = ref<string | null>(null)
+const treeLoaded = (): boolean =>
+  contentType.value !== undefined && allBlockTypes.value !== undefined && hydratedLock !== -1
+
+function selectFromStage(id: string, modifiers: SelectModifiers): void {
   applySelection(id, modifiers)
   const anchor = selection.value.anchor
+  // Only a plain click waits: a modified one extends a selection that does not exist yet.
+  if (anchor === null && !modifiers.shift && !modifiers.meta && !treeLoaded()) {
+    pendingStageSelect.value = id
+  }
   if (anchor !== null) fieldEditorRef.value?.selectBlockById(anchor)
   // A modified click is judged here, so the stage learns the resulting rings from the parent.
   if (modifiers.shift || modifiers.meta) ringSelection()
   inspectorTab.value = 'block'
-})
+}
+bridge.onBlockSelect((id, modifiers = { shift: false, meta: false }) =>
+  selectFromStage(id, modifiers),
+)
+
+/** The Layout tab's link out of an item to the container that governs it (spec §5). */
+function onSelectParent(id: string): void {
+  applySelection(id)
+  fieldEditorRef.value?.selectBlockById(id)
+  ringSelection()
+}
 
 // ── The block inspector (visual builder spec §3.4) ────────────────────────────
 const { data: styleSchema } = useStyleSchema()
@@ -482,6 +512,23 @@ const selectedBlocks = computed<BlockInstance[]>(() => {
 })
 const selectedBlockTypes = computed(() =>
   selectedBlocks.value.map((b) => allBlockTypes.value?.find((t) => t.slug === b.type) ?? null),
+)
+/**
+ * The parent whose layout the selection sits in (container-layout spec §5). For several blocks it
+ * is passed only when they all share one: item controls answer to ONE parent's mode, and a
+ * selection spanning two parents has no single answer to give.
+ */
+const selectedParent = computed<BlockInstance | null>(() => {
+  void fields.value
+  const ids =
+    selection.value.ids.length > 1 ? selection.value.ids : selected.value ? [selected.value] : []
+  if (ids.length === 0) return null
+  const parents = ids.map((id) => fieldEditorRef.value?.parentOfBlockById(id) ?? null)
+  const first = parents[0] ?? null
+  return first !== null && parents.every((p) => p?.id === first.id) ? first : null
+})
+const selectedParentType = computed(
+  () => allBlockTypes.value?.find((t) => t.slug === selectedParent.value?.type) ?? null,
 )
 /** The ids a style edit writes to: the whole selection, in one transaction. */
 const styleTargets = (): string[] =>
@@ -713,6 +760,15 @@ function duplicateAndMirror(id: string): void {
           block: copy,
         }),
       )
+      // A duplicate lands INSIDE a container as surely as an insert does (spec §6.1).
+      picker.onDocumentChange([
+        {
+          type: 'DuplicateBlock',
+          source: member,
+          position: { parent: group.parent, slot: group.slot, index: at.index + 1 },
+          block: copy,
+        },
+      ])
       copies.push(copy.id)
       mirrors.push([member, listOps.idMapBetween(source, copy)])
     }
@@ -833,6 +889,10 @@ bridge.onSlotAdd((parent, slot) => armInsertTarget({ kind: 'into', parent, field
 // text patches the tree — no mirrors, the contenteditable IS the stage DOM.
 const { data: allBlockTypes } = useBlockTypes()
 
+watch([schema, allBlockTypes, fields], () => {
+  const id = pendingStageSelect.value
+  if (id !== null) selectFromStage(id, { shift: false, meta: false })
+})
 const regionsOf = (slug: string): string[] => {
   const blockType = allBlockTypes.value?.find((t) => t.slug === slug)
   return (blockType?.schema ?? []).filter((f) => f.type === 'blocks').map((f) => f.name)
@@ -869,6 +929,29 @@ const coordinator = createDragCoordinator({
   doc: () => history?.document ?? { fields: snapshotFields() },
   legality: legalityContext,
 })
+
+/** The offers as last published, for the proofs: the stage is captured there and renders none. */
+let lastStructureOffers: { id: string; presets: { key: string; enabled: boolean }[] }[] = []
+
+/**
+ * The structure picker (container-layout spec §6): offered for a container the author just
+ * inserted, empty and fresh. The offer lives in this session, never in the document, so undo
+ * neither resurrects a picker nor reopens one that content has already consumed.
+ */
+const picker = createStructurePicker({
+  doc: () => history?.document ?? { fields: snapshotFields() },
+  legality: legalityContext,
+  classesFor: (id) => classRefsFor(fieldEditorRef.value?.blockById(id) ?? null),
+  factory: (slug) => blockFactory.instance(slug),
+  commit: (ops) => applyDrop(ops),
+  publish: (offers) => {
+    lastStructureOffers = offers
+    bridge.publishStructureOffers(offers)
+  },
+  notify: (message) => warning(message),
+})
+bridge.onStructureChoose((id, preset) => void picker.choose(id, preset))
+bridge.onStructureSkip((id) => picker.skip(id))
 /** A block dropped (or moved to) a zone from any surface: judged, then applied or refused aloud. */
 function runDrop(source: DragSource, id: string, zone: DropZone): void {
   coordinator.begin(source, { blocks: [id] })
@@ -979,6 +1062,7 @@ const paletteDrag = createPaletteDrag({
     paletteBlock = null
     void finishDrop(zone).then((ok) => {
       if (!ok || !block) return
+      offerStructure(block)
       selectOne(block.id)
       fieldEditorRef.value?.selectBlockById(block.id)
       ringSelection()
@@ -992,6 +1076,19 @@ const paletteDrag = createPaletteDrag({
     coordinator.cancel()
   },
 })
+
+/**
+ * The structure picker is offered only for a container the AUTHOR inserted, fresh and empty
+ * (spec §6.1). A container arriving any other way — a preset's own child, a duplicate, a paste, a
+ * version restore, a redo — never gets one, which is why this is called from the two explicit
+ * insertion paths rather than from the place where operations are recorded.
+ */
+function offerStructure(block: BlockInstance): void {
+  if (block.type !== 'container') return
+  const content = block.data?.content
+  if (Array.isArray(content) && content.length > 0) return
+  picker.offer(block.id)
+}
 
 async function insertFromPalette(slug: string): Promise<void> {
   const intent = effectiveTarget()
@@ -1013,6 +1110,7 @@ async function insertFromPalette(slug: string): Promise<void> {
   }
   coordinator.begin('palette', { block })
   if (!(await finishDrop(at.position))) return // the target stays armed; the reason was shown
+  offerStructure(block)
   insertTarget.value = null
   targetStale.value = false
   selectOne(block.id)
@@ -1035,6 +1133,7 @@ function revealInserted(): void {
 }
 async function applyDrop(ops: OperationBody[] | null): Promise<void> {
   if (!history || ops === null || ops.length === 0) return
+  picker.onDocumentChange(ops)
   commitNow()
   history.beginTransaction()
   for (const body of ops) opsSinceApply.push(history.record(body))
@@ -1100,6 +1199,7 @@ watch(
     }
     const bodies = diffDocuments(history.document, next, regionsOf, blockFields)
     if (bodies.length === 0) return
+    picker.onDocumentChange(bodies)
     const recorded = bodies.map((body) => history!.record(body))
     opsSinceApply.push(...recorded)
     scheduleCommit(bodies.some((b) => STRUCTURAL.has(b.type)))
@@ -1327,6 +1427,12 @@ if (import.meta.env.VITE_E2E === '1') {
       selection: selection.value,
     }),
     applies: () => appliesAnswered,
+    // The picker (container-layout spec §6). The proofs drive it directly because this harness's
+    // stage is a captured page that never re-renders, so a container inserted now has no tiles
+    // there; what the tiles DO is proven against the bridge asset in preview-bridge-dom.spec.
+    structureOffers: () => lastStructureOffers,
+    chooseStructure: (id: string, preset: string) => picker.choose(id, preset),
+    skipStructure: (id: string) => picker.skip(id),
   }
 }
 
@@ -2099,7 +2205,11 @@ function reloadStage(): void {
                 @reorder-classes="onReorderClasses"
                 @detach-class="onDetachClass"
                 @detach-all="onDetachAll"
+                :parent="selectedParent"
+                :parent-type="selectedParentType"
+                :parent-classes="classRefsFor(selectedParent)"
                 :active-breakpoint="activeBreakpoint"
+                @select-parent="onSelectParent"
                 @patch-data="onPatchData"
                 @insert-into="onInsertInto"
                 @set-setting="onSetSetting"

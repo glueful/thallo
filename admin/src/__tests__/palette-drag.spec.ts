@@ -153,7 +153,7 @@ describe('the palette drag gesture', () => {
     expect(h.drag.state()).toBe('awaiting-drop')
     expect(h.drag.owns('s1')).toBe(true)
     expect(h.drag.owns('s9')).toBe(false)
-    const zone = { parent: 'cols00000002', slot: 'col_2', index: 0 }
+    const zone = { parent: 'colb00000002', slot: 'content', index: 0 }
     h.drag.answer(zone)
     expect(h.cb.onDrop).toHaveBeenCalledTimes(1)
     expect(h.cb.onDrop).toHaveBeenCalledWith(zone)

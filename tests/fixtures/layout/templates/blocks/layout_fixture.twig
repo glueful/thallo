@@ -1,0 +1,7 @@
+{# A test-only block (container-layout plan, Task 1.2): the container's shape — a band root and a
+   content-area inner — with every layout capability declared, so the compiled contract can be
+   proven in a real browser before the production container cuts over (Task 2.1). Never seeded
+   outside the test database. #}
+<div class="thallo-block thallo-block-container{{ style_classes('root') }}"{{ style_attrs('root') }}>
+  <div class="thallo-block-container__inner{{ style_classes('inner') }}"{{ style_attrs('inner') }}{{ slot_attrs('content') }}>{{ blocks(data.content) }}</div>
+</div>

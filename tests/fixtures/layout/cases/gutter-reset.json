@@ -1,0 +1,60 @@
+{
+  "case": "gutter-reset",
+  "note": "\u00a73.4: a gutter reset returns to the content width's default.",
+  "tree": {
+    "id": "lf0000000001",
+    "type": "layout_fixture",
+    "data": {
+      "content": [
+        {
+          "id": "hd0000000101",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "One"
+          },
+          "settings": {}
+        },
+        {
+          "id": "hd0000000102",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Two"
+          },
+          "settings": {}
+        },
+        {
+          "id": "hd0000000103",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Three"
+          },
+          "settings": {}
+        }
+      ]
+    },
+    "settings": {
+      "style": {
+        "layout": {
+          "content_width": {
+            "base": {
+              "type": "token",
+              "value": "width.container"
+            }
+          },
+          "gutter": {
+            "base": {
+              "type": "token",
+              "value": "spacing.2xl"
+            },
+            "md": {
+              "type": "reset"
+            }
+          }
+        }
+      }
+    }
+  }
+}

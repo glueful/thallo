@@ -18,12 +18,12 @@ const envelope = {
   success: true,
   message: 'Block instance.',
   data: {
-    block: { type: 'section', data: { background: 'none', content: [], links: [] }, settings: {} },
+    block: { type: 'container', data: { element: 'div', content: [] }, settings: {} },
     starter: {
       title: 'Welcome',
       content: [
         { type: 'heading', data: { text: 'Hi' } },
-        { type: 'columns', data: { col_1: [{ type: 'button', data: { label: 'Go' } }] } },
+        { type: 'container', data: { content: [{ type: 'button', data: { label: 'Go' } }] } },
       ],
     },
   },
@@ -43,17 +43,17 @@ describe('block factory query layer (visual builder spec §5.5)', () => {
     const { useBlockFactory } = await import('./blockFactory')
     const factory = useBlockFactory()
 
-    const first = await factory.make('section')
+    const first = await factory.make('container')
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, init] = fetchMock.mock.calls[0] as [string | Request, RequestInit | undefined]
     expect(String(url instanceof Request ? url.url : url)).toContain(
-      '/v1/admin/block-types/section/instance',
+      '/v1/admin/block-types/container/instance',
     )
     expect((init?.method ?? (url as Request).method).toUpperCase()).toBe('POST')
-    expect(first.block.data).toEqual({ background: 'none', content: [], links: [] })
+    expect(first.block.data).toEqual({ element: 'div', content: [] })
     expect(first.starter.title).toBe('Welcome')
 
-    await useBlockFactory().make('section') // another caller, same session cache
+    await useBlockFactory().make('container') // another caller, same session cache
     expect(fetchMock).toHaveBeenCalledTimes(1)
     await factory.make('heading')
     expect(fetchMock).toHaveBeenCalledTimes(2)
@@ -64,9 +64,9 @@ describe('block factory query layer (visual builder spec §5.5)', () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ success: false, message: 'Nope' }, 404))
     fetchMock.mockResolvedValueOnce(jsonResponse(envelope))
     const { useBlockFactory } = await import('./blockFactory')
-    await expect(useBlockFactory().make('section')).rejects.toBeTruthy()
-    const made = await useBlockFactory().make('section')
-    expect(made.block.type).toBe('section')
+    await expect(useBlockFactory().make('container')).rejects.toBeTruthy()
+    const made = await useBlockFactory().make('container')
+    expect(made.block.type).toBe('container')
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
@@ -75,22 +75,23 @@ describe('block factory query layer (visual builder spec §5.5)', () => {
       Promise.resolve(jsonResponse(envelope)),
     )
     const { useBlockFactory } = await import('./blockFactory')
-    const block = await useBlockFactory().instance('section')
+    const block = await useBlockFactory().instance('container')
 
-    expect(block.type).toBe('section')
+    expect(block.type).toBe('container')
     expect(block.id).toMatch(/^[a-z0-9]{12}$/)
     expect(block.settings).toEqual({})
     // Defaults the starter did not name survive; the starter wins where it speaks.
-    expect(block.data.background).toBe('none')
-    expect(block.data.links).toEqual([])
+    expect(block.data.element).toBe('div')
     expect(block.data.title).toBe('Welcome')
     const content = block.data.content as {
       id: string
       type: string
       data: Record<string, unknown>
     }[]
-    expect(content.map((b) => b.type)).toEqual(['heading', 'columns'])
-    const nested = (content[1]!.data.col_1 as { id: string; type: string; settings: unknown }[])[0]!
+    expect(content.map((b) => b.type)).toEqual(['heading', 'container'])
+    const nested = (
+      content[1]!.data.content as { id: string; type: string; settings: unknown }[]
+    )[0]!
     expect(nested.type).toBe('button')
     expect(nested.settings).toEqual({})
     const ids = [block.id, content[0]!.id, content[1]!.id, nested.id]
@@ -98,7 +99,7 @@ describe('block factory query layer (visual builder spec §5.5)', () => {
     expect(new Set(ids).size).toBe(4)
 
     // Every instance is a fresh block: ids never repeat across calls.
-    const again = await useBlockFactory().instance('section')
+    const again = await useBlockFactory().instance('container')
     expect(again.id).not.toBe(block.id)
     expect((again.data.content as { id: string }[])[0]!.id).not.toBe(content[0]!.id)
   })

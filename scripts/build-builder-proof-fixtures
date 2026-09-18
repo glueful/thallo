@@ -103,10 +103,31 @@ $entries->saveDraft(
     $entryUuid,
     'en',
     // The composition plus two root-level siblings: the sibling proofs (§5.6) move them as a group.
+    // The grid container is the Layout tab's subject (container-layout spec §5): three children in
+    // three tracks, so a mode switch to flex is visible as a change of geometry, not only of class.
     ['title' => 'Five deep', 'body' => [
         ...$fixture['body'],
         ['id' => 'head0000000a', 'type' => 'heading', 'data' => ['text' => 'Sibling A'], 'settings' => []],
         ['id' => 'head0000000b', 'type' => 'heading', 'data' => ['text' => 'Sibling B'], 'settings' => []],
+        ['id' => 'grid00000001', 'type' => 'container', 'data' => ['element' => 'div', 'content' => [
+            ['id' => 'gridhead0001', 'type' => 'heading', 'data' => ['text' => 'One'], 'settings' => []],
+            ['id' => 'gridhead0002', 'type' => 'heading', 'data' => ['text' => 'Two'], 'settings' => []],
+            ['id' => 'gridhead0003', 'type' => 'heading', 'data' => ['text' => 'Three'], 'settings' => []],
+        ]], 'settings' => ['style' => ['layout' => [
+            'display' => ['base' => ['type' => 'choice', 'value' => 'grid']],
+            'columns' => ['base' => ['type' => 'choice', 'value' => '3']],
+            'content_width' => ['base' => ['type' => 'token', 'value' => 'width.container']],
+        ]]]],
+        // A slot that admits one block type: the refusal proof (§5.6) needs a drop the
+        // allow-list rejects, and a container's `content` admits everything.
+        // It holds a button so the slot has geometry a drag can be released over.
+        ['id' => 'ctaa00000001', 'type' => 'cta', 'data' => [
+            'title' => 'Ready to begin?',
+            'links' => [
+                ['id' => 'ctabutn0001', 'type' => 'button',
+                    'data' => ['label' => 'Start', 'url' => '/start'], 'settings' => []],
+            ],
+        ], 'settings' => []],
     ]],
     (int) $page['schema_version'],
     (int) ($draft['lock_version'] ?? 0),

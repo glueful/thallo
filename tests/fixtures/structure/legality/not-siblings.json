@@ -5,8 +5,8 @@
       "name": "h1 and h2 together",
       "blockTypes": [
         {
-          "slug": "section",
-          "label": "Section",
+          "slug": "container",
+          "label": "Container",
           "schema": [
             {
               "name": "content",
@@ -86,8 +86,8 @@
         "fields": {
           "body": [
             {
-              "id": "s1",
-              "type": "section",
+              "id": "c1",
+              "type": "container",
               "data": {
                 "content": [
                   {

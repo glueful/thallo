@@ -1,12 +1,12 @@
 {
-  "name": "a root field restricted to sections",
+  "name": "a root field restricted to contions",
   "cases": [
     {
       "name": "a heading to the root: the builder refuses, the picker-only server accepts",
       "blockTypes": [
         {
-          "slug": "section",
-          "label": "Section",
+          "slug": "container",
+          "label": "Container",
           "schema": [
             {
               "name": "content",
@@ -79,7 +79,7 @@
       "rootSlots": {
         "body": {
           "block_types": [
-            "section"
+            "container"
           ],
           "enforce_block_types": false
         }
@@ -88,8 +88,8 @@
         "fields": {
           "body": [
             {
-              "id": "s1",
-              "type": "section",
+              "id": "c1",
+              "type": "container",
               "data": {
                 "content": [
                   {
@@ -123,8 +123,8 @@
         "fields": {
           "body": [
             {
-              "id": "s1",
-              "type": "section",
+              "id": "c1",
+              "type": "container",
               "data": {
                 "content": []
               },
@@ -144,8 +144,8 @@
       "name": "the same field enforced: the server refuses at the block path",
       "blockTypes": [
         {
-          "slug": "section",
-          "label": "Section",
+          "slug": "container",
+          "label": "Container",
           "schema": [
             {
               "name": "content",
@@ -218,7 +218,7 @@
       "rootSlots": {
         "body": {
           "block_types": [
-            "section"
+            "container"
           ],
           "enforce_block_types": true
         }
@@ -227,8 +227,8 @@
         "fields": {
           "body": [
             {
-              "id": "s1",
-              "type": "section",
+              "id": "c1",
+              "type": "container",
               "data": {
                 "content": [
                   {
@@ -262,8 +262,8 @@
         "fields": {
           "body": [
             {
-              "id": "s1",
-              "type": "section",
+              "id": "c1",
+              "type": "container",
               "data": {
                 "content": []
               },

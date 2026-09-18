@@ -1,0 +1,68 @@
+{
+  "case": "span-parent-grid-then-reset-md",
+  "note": "\u00a73.7 (review): two tracks at base, the tracks reset at md \u2014 the span-2 child fills the single default track from md up.",
+  "tree": {
+    "id": "lf0000000001",
+    "type": "layout_fixture",
+    "data": {
+      "content": [
+        {
+          "id": "hd0000001501",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Spanning"
+          },
+          "settings": {
+            "style": {
+              "layout": {
+                "span": {
+                  "base": {
+                    "type": "choice",
+                    "value": "2"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "hd0000001502",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Next"
+          },
+          "settings": {}
+        }
+      ]
+    },
+    "settings": {
+      "style": {
+        "layout": {
+          "display": {
+            "base": {
+              "type": "choice",
+              "value": "grid"
+            }
+          },
+          "columns": {
+            "base": {
+              "type": "choice",
+              "value": "2"
+            },
+            "md": {
+              "type": "reset"
+            }
+          },
+          "content_width": {
+            "base": {
+              "type": "token",
+              "value": "width.container"
+            }
+          }
+        }
+      }
+    }
+  }
+}

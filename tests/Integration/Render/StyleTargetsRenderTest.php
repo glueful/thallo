@@ -112,30 +112,6 @@ final class StyleTargetsRenderTest extends AppTestCase
         self::assertStringNotContainsString('aria-label', $root);
     }
 
-    public function testColumnsChildrenAreStyledIndependently(): void
-    {
-        $pad = static fn (string $token): array => [
-            'style' => ['spacing' => ['padding' => ['top' => ['base' => ['type' => 'token', 'value' => $token]]]]],
-        ];
-        $html = $this->render([[
-            'id' => 'c', 'type' => 'columns',
-            'data' => [
-                'layout' => '2',
-                'col_1' => [
-                    ['id' => 'a', 'type' => 'heading', 'data' => ['text' => 'A'], 'settings' => $pad('spacing.sm')],
-                ],
-                'col_2' => [
-                    ['id' => 'b', 'type' => 'heading', 'data' => ['text' => 'B'], 'settings' => $pad('spacing.xl')],
-                ],
-            ],
-            'settings' => $pad('spacing.none'),
-        ]]);
-
-        self::assertStringContainsString(' t-pt-none"', $this->tagWithClass($html, 'thallo-block-columns'));
-        self::assertSame(1, preg_match_all('~<h2 [^>]*t-pt-sm"~', $html));
-        self::assertSame(1, preg_match_all('~<h2 [^>]*t-pt-xl"~', $html));
-    }
-
     public function testAHeroMediaTargetIsDormantWithoutMediaAndLiveWithAnAside(): void
     {
         $settings = ['style' => ['radius' => ['type' => 'token', 'value' => 'radius.lg']]];

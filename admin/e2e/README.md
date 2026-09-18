@@ -34,6 +34,21 @@ What is proven, in Chromium:
   takes focus, and Enter inserts the first match there.
 - `slot-add` — the + inside an empty stage slot arms the Blocks tab into that slot; the next tile
   click inserts there, the target is consumed, the apply carries the one insert.
+- `layout-mode-switch` (container-layout §5) — the Layout tab reads the mode a container is really
+  in, a switch writes the settings the contract expects at the breakpoint being edited, and the
+  tracks survive the switch while the tab discloses that they are unused.
+- `structure-picker` (container-layout §6) — a container inserted from the Blocks tab is offered
+  its presets; a choice commits every operation as one transaction and undo and redo treat the
+  preset as one thing; a preset too deep for its destination is offered disabled with its reason;
+  content arriving consumes the offer, and a later choice commits nothing.
+
+Two of these drive the editor through the page's own test hooks rather than the stage. The stage
+here is the page captured at fixture-build time and an apply is answered with no fragments, so it
+never re-renders: a container inserted during a proof has no tiles there to click, and a mode
+switch changes no geometry. What the stage itself does with an offer, and what a mode change does
+to the rendering, are proven where those things really happen —
+`admin/src/__tests__/preview-bridge-dom.spec.ts` for the tiles and
+`tools/runtime-browser/tests/layout.spec.js` for the geometry.
 
 ```
 DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-builder-proof-fixtures   # writes fixtures/ (gitignored)

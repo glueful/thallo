@@ -66,12 +66,6 @@ final class StarterTemplatesTest extends AppTestCase
     private function fixture(string $slug): array
     {
         return match ($slug) {
-            'section' => ['title' => 'Band', 'background' => 'subtle',
-                'content' => [['id' => 'x1', 'type' => 'rich_text', 'data' => ['body' => '<p>Inner</p>']]]],
-            'columns' => ['layout' => '2', 'widths' => '33-67', 'align' => 'center',
-                'col_1' => [['id' => 'x2', 'type' => 'rich_text', 'data' => ['body' => '<p>Left</p>']]],
-                'col_2' => [['id' => 'x3', 'type' => 'rich_text', 'data' => ['body' => '<p>Right</p>']]],
-                'col_3' => []],
             'spacer' => ['size' => 'large'],
             'hero' => ['headline' => 'New', 'title' => 'Big', 'description' => 'Sub',
                 'image' => 'blob00000000', 'orientation' => 'horizontal', 'reverse' => true,
@@ -86,10 +80,8 @@ final class StarterTemplatesTest extends AppTestCase
                     'data' => ['label' => 'Do it', 'url' => 'https://example.com']]]],
             'image' => ['image' => 'blob00000000', 'alt' => 'A pic', 'caption' => 'Cap'],
             'style' => ['accent' => 'rose', 'neutral' => 'zinc', 'content' => []],
-            'container' => ['overlay' => 'dark', 'overlay_opacity' => '50', 'width' => 'full',
+            'container' => ['overlay' => 'dark', 'overlay_opacity' => '50', 'element' => 'section',
                 'content' => [['id' => 'cq', 'type' => 'rich_text', 'data' => ['body' => '<p>Boxed</p>']]]],
-            'grid' => ['columns' => '3', 'flow' => 'masonry', 'gap' => 'small',
-                'items' => [['id' => 'gq', 'type' => 'rich_text', 'data' => ['body' => '<p>Cell</p>']]]],
             'feature' => ['icon' => '⚡', 'title' => 'Fast', 'description' => 'Quick.', 'url' => '/x'],
             'tabs' => ['items' => [['id' => 'tb1', 'type' => 'tab',
                 'data' => ['label' => 'One', 'content' => [['id' => 'tq', 'type' => 'rich_text',
@@ -131,9 +123,9 @@ final class StarterTemplatesTest extends AppTestCase
                 'copyright' => [['id' => 'fcop', 'type' => 'shortcode',
                     'data' => ['name' => 'copyright', 'params' => []]]],
                 // Footer's top band composes columns of titled link-lists from
-                // primitives (columns + links) — the footer_columns block was removed.
-                'top' => [['id' => 'ftop', 'type' => 'columns',
-                    'data' => ['layout' => '2', 'col_1' => [['id' => 'ftc1', 'type' => 'links',
+                // primitives (container + links) — the footer_columns block was removed.
+                'top' => [['id' => 'ftop', 'type' => 'container',
+                    'data' => ['element' => 'div', 'content' => [['id' => 'ftc1', 'type' => 'links',
                         'data' => ['title' => 'Product',
                             'items' => [['label' => 'Pricing', 'url' => '/pricing']]]]]]]],
                 'links' => [['id' => 'flnk', 'type' => 'links',
@@ -203,34 +195,44 @@ final class StarterTemplatesTest extends AppTestCase
         self::assertStringContainsString('<strong>world</strong>', $rich);
         self::assertStringNotContainsString('<script', $rich);
 
-        // Spot-check modifier classes (the style-convention pin).
-        $section = $env->createTemplate("{{ blocks(l) }}")->render(['l' => [
-            ['id' => 's', 'type' => 'section', 'data' => $this->fixture('section')]]]);
-        self::assertStringContainsString('thallo-block-section--subtle', $section);
-        self::assertStringContainsString('Inner', $section); // children composed
+        // Spot-check modifier classes (the style-convention pin): the overlay is the container's
+        // one remaining preset now that its layout is settings.
+        $band = $env->createTemplate("{{ blocks(l) }}")->render(['l' => [
+            ['id' => 's', 'type' => 'container', 'data' => $this->fixture('container')]]]);
+        self::assertStringContainsString('thallo-block-container--overlay-dark', $band);
+        self::assertStringContainsString('Boxed', $band); // children composed
     }
 
-    public function testSectionAlignsHeadlineTitleAndDescriptionSeparately(): void
+    public function testTheContainerRendersItsElementAndCarriesLayoutOnTheContentArea(): void
     {
-        $env = $this->env();
-        $render = fn(array $data): string => $env->createTemplate('{{ blocks(l) }}')->render(['l' => [
-            ['id' => 's', 'type' => 'section', 'data' => $data + [
-                'headline' => 'Eyebrow', 'title' => 'Band', 'description' => 'Words', 'content' => [],
-            ]]]]);
+        // Container-layout spec §4: the root tag is the author's choice through an allowlist, the
+        // arrangement classes land on the content area, and no modifier describes layout any more.
+        $this->syncBlockStyleDeclarations();
+        $this->container()->get(RenderContextExtension::class)->resetPerRenderState();
+        $out = $this->env()->createTemplate('{{ blocks(list) }}')->render(['list' => [[
+            'id' => 'b1', 'type' => 'container',
+            'data' => ['element' => 'header', 'content' => []],
+            'settings' => ['style' => [
+                'layout' => [
+                    'display' => ['base' => ['type' => 'choice', 'value' => 'flex']],
+                    'min_height' => ['base' => ['type' => 'choice', 'value' => 'half']],
+                    'content_width' => ['base' => ['type' => 'token', 'value' => 'width.container']],
+                ],
+                'alignment' => ['content' => ['base' => ['type' => 'choice', 'value' => 'center']]],
+            ]],
+        ]]]);
 
-        $out = $render(['headline_align' => 'start', 'title_align' => 'end']);
-        self::assertStringContainsString('thallo-block-section__headline--start', $out);
-        self::assertStringContainsString('thallo-block-section__title--end', $out);
-        // Description left unset keeps the orientation default: no alignment modifier at all.
-        self::assertStringNotContainsString('thallo-block-section__description--', $out);
-
-        $out = $render(['description_align' => 'center']);
-        self::assertStringContainsString('thallo-block-section__description--center', $out);
-        self::assertStringNotContainsString('thallo-block-section__headline--', $out);
-
-        // An unknown stored value degrades to the default, never an unmatched class.
-        $out = $render(['title_align' => 'sideways']);
-        self::assertStringNotContainsString('thallo-block-section__title--', $out);
+        self::assertMatchesRegularExpression('~<header class="[^"]*thallo-block-container[^"]*"~', $out);
+        self::assertStringContainsString('</header>', $out);
+        preg_match('~<header class="([^"]*)"~', $out, $root);
+        preg_match('~thallo-block-container__inner([^"]*)"~', $out, $inner);
+        // The band owns its own height; the content area owns the arrangement.
+        self::assertStringContainsString('t-minh-half', $root[1]);
+        self::assertStringNotContainsString('t-display-flex', $root[1]);
+        self::assertStringContainsString('t-display-flex', $inner[1]);
+        self::assertStringContainsString('t-content-center', $inner[1]);
+        self::assertStringContainsString('t-cw-container', $inner[1]);
+        self::assertStringNotContainsString('thallo-block-container--', $out);
     }
 
     public function testFeatureMarkerIsIconOrNumberWithTokenColoursAndCardVariants(): void
@@ -333,24 +335,6 @@ final class StarterTemplatesTest extends AppTestCase
         // Unset keeps the orientation's default (vertical centres, horizontal leads): no modifier.
         self::assertStringNotContainsString('--links-', $render([]));
         self::assertStringNotContainsString('--links-', $render(['links_align' => 'sideways']));
-    }
-
-    public function testColumnsRendersPerLayoutEnum(): void
-    {
-        $env = $this->env();
-        $two = $env->createTemplate("{{ blocks(l) }}")->render(['l' => [
-            ['id' => 'c', 'type' => 'columns', 'data' => $this->fixture('columns')]]]);
-        self::assertStringContainsString('Left', $two);
-        self::assertStringContainsString('Right', $two);
-        self::assertStringContainsString('thallo-block-columns--2', $two);
-
-        $data = $this->fixture('columns');
-        $data['layout'] = '3';
-        $data['col_3'] = [['id' => 'x4', 'type' => 'rich_text', 'data' => ['body' => '<p>Third</p>']]];
-        $three = $env->createTemplate("{{ blocks(l) }}")->render(['l' => [
-            ['id' => 'c3', 'type' => 'columns', 'data' => $data]]]);
-        self::assertStringContainsString('Third', $three);
-        self::assertStringContainsString('thallo-block-columns--3', $three);
     }
 
     public function testUnsafeUrlsRenderNoLinkThroughTheRealTemplates(): void

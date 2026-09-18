@@ -68,13 +68,16 @@ export async function routeWorld(page: Page): Promise<Recorded> {
   await page.route('**/_thallo/layers.css*', (route) =>
     text(route, fixture('layers.css'), 'text/css'),
   )
+  // Playwright matches the LAST matching route first, so the catch-all for fonts and other theme
+  // assets is registered BEFORE the two stylesheets it would otherwise swallow. With it after
+  // them the stage rendered unstyled, and any proof that measures geometry measured nothing.
+  await page.route('**/theme-assets/**', (route) => route.fulfill({ status: 204, body: '' }))
   await page.route('**/theme-assets/theme-*.css', (route) =>
     text(route, fixture('theme.css'), 'text/css'),
   )
   await page.route('**/theme-assets/settings-*.css', (route) =>
     text(route, fixture('settings.css'), 'text/css'),
   )
-  await page.route('**/theme-assets/**', (route) => route.fulfill({ status: 204, body: '' }))
   await page.route('**/_thallo/preview.css*', (route) =>
     text(route, repoFile('packages/thallo-render/assets/preview/preview.css'), 'text/css'),
   )
@@ -167,13 +170,38 @@ export async function openDesignPage(page: Page): Promise<Recorded> {
     // Manual apply: a proof decides when the server judges the tree.
     localStorage.setItem('thallo.canvas.auto_apply', '0')
   })
-  await page.goto('/admin/login')
-  await page.locator('input[type="email"]').fill('proofs@thallo.test')
-  await page.locator('input[type="password"]').fill('builder-proofs')
-  await page.locator('button[type="submit"]').click()
-  await page.waitForURL((url) => !url.pathname.endsWith('/login'))
-  await page.goto(designPath)
-  await page.locator('[data-test="canvas-iframe"]').waitFor()
+  async function signIn(): Promise<void> {
+    await page.goto('/admin/login')
+    await page.locator('input[type="email"]').fill('proofs@thallo.test')
+    await page.locator('input[type="password"]').fill('builder-proofs')
+    await page.locator('button[type="submit"]').click()
+    await page.waitForURL((url) => !url.pathname.endsWith('/login'))
+    // Let the shell finish its own startup requests: the session is persisted during them, and a
+    // hard navigation before they settle is what the guard races against.
+    await page.waitForLoadState('networkidle').catch(() => undefined)
+  }
+  // The persisted session rehydrates asynchronously, so on a slow load the route guard can run
+  // first and bounce the design page back to sign-in. Whichever arrives is waited for, and a
+  // bounce is answered by signing in again rather than by failing the proof on the app's startup
+  // race. Three attempts: past that it is not a race any more.
+  for (let attempt = 0; ; attempt++) {
+    await signIn()
+    await page.goto(designPath)
+    const landed = await Promise.race([
+      page
+        .locator('[data-test="canvas-iframe"]')
+        .waitFor({ timeout: 20_000 })
+        .then(() => 'design' as const)
+        .catch(() => 'timeout' as const),
+      page
+        .locator('input[type="password"]')
+        .waitFor({ timeout: 20_000 })
+        .then(() => 'login' as const)
+        .catch(() => 'timeout' as const),
+    ])
+    if (landed === 'design') break
+    if (attempt >= 2) throw new Error(`the Design page never opened (last state: ${landed})`)
+  }
   await stage(page).locator('[data-thallo-block]').first().waitFor()
   return recorded
 }
@@ -384,6 +412,18 @@ export async function dragTileTo(
       from.y + ((to.y - from.y) * i) / steps,
     )
   }
+  let last = to
   await page.locator('.thallo-palette-ghost').waitFor({ timeout: 2000 })
+  // The stage scrolls itself while the pointer sits near its edge, so the target may have moved
+  // out from under the point the moves aimed at. Re-aim at where it is now, until it stops moving;
+  // two moves, because the zone is proposed on a move and answered a round-trip later.
+  for (let i = 0; i < 4; i++) {
+    await page.waitForTimeout(250)
+    const now = await centerOf(target)
+    if (i > 0 && Math.abs(now.x - last.x) < 2 && Math.abs(now.y - last.y) < 2) break
+    await page.mouse.move(now.x, now.y - 1)
+    await page.mouse.move(now.x, now.y)
+    last = now
+  }
   if (release) await page.mouse.up()
 }

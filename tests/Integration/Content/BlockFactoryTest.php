@@ -6,6 +6,7 @@ namespace Thallo\Core\Tests\Integration\Content;
 
 use Thallo\Core\Content\Blocks\BlockFactory;
 use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
 use Thallo\Core\Content\Http\Controllers\BlockTypeController;
 use Thallo\Core\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -65,6 +66,23 @@ final class BlockFactoryTest extends AppTestCase
         $made = $this->container()->get(BlockFactory::class)->make('plain');
         self::assertSame([], $made['starter']);
         self::assertSame(['variant' => 'solid', 'items' => [], 'aside' => []], $made['block']['data']);
+    }
+
+    public function testAFreshContainerIsADivWithNoLayoutSettings(): void
+    {
+        // Container-layout spec §4: a new container resolves to block display, full content width,
+        // no gutter and auto height with NOTHING written — the theme defaults do all of it, so the
+        // factory writes no layout settings and the enum default is the neutral element.
+        $this->container()->get(StarterBlockTypeSeeder::class)->seedMissing();
+        $made = $this->container()->get(BlockFactory::class)->make('container');
+
+        self::assertNotNull($made);
+        self::assertSame('div', $made['block']['data']['element']);
+        self::assertSame([], $made['block']['data']['content']);
+        self::assertSame([], $made['block']['settings']);
+        foreach (['width', 'min_height', 'layout', 'gap', 'justify'] as $retired) {
+            self::assertArrayNotHasKey($retired, $made['block']['data']);
+        }
     }
 
     public function testUnknownSlugMakesNothing(): void

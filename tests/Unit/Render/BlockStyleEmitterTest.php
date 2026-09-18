@@ -42,7 +42,12 @@ final class BlockStyleEmitterTest extends TestCase
         ]];
 
         $root = $emitter->classesFor($settings, $this->buttonTargets(), 'root');
-        self::assertSame(['md:t-pt-lg', 't-content-center'], $root);
+        // Spacing keeps exact-only emission; alignment.content is layout, so it is emitted at
+        // every breakpoint it resolves (container-layout spec §3.3).
+        self::assertSame(
+            ['md:t-pt-lg', 't-content-center', 'md:t-content-center', 'lg:t-content-center'],
+            $root,
+        );
         self::assertSame(['t-radius-full'], $emitter->classesFor($settings, $this->buttonTargets(), 'control'));
     }
 
@@ -73,6 +78,60 @@ final class BlockStyleEmitterTest extends TestCase
         self::assertSame(
             ['t-pt-sm', 'md:t-pt-xl'],
             (new BlockStyleEmitter())->classesFor($settings, $this->buttonTargets(), 'root', $classes),
+        );
+    }
+
+    public function testLayoutClassesAreEmittedAtEveryBreakpointTheyResolve(): void
+    {
+        // Container-layout spec §3.3: dormancy and span pairing are decided per breakpoint, so a
+        // layout property's state must be visible at every breakpoint, not only where declared.
+        $targets = StyleTargets::fromDeclaration([
+            'targets' => ['inner' => ['kind' => 'stack']],
+            'map' => ['layout.display' => 'inner', 'layout.columns' => 'inner', 'spacing' => 'inner'],
+        ]);
+        $emitter = new BlockStyleEmitter();
+
+        $flexAtBase = ['style' => ['layout' => ['display' => ['base' => ['type' => 'choice', 'value' => 'flex']]]]];
+        self::assertSame(
+            [
+                't-display-flex', 'md:t-display-flex', 'lg:t-display-flex',
+                't-cols-auto', 'md:t-cols-auto', 'lg:t-cols-auto',
+            ],
+            $emitter->classesFor($flexAtBase, $targets, 'inner'),
+        );
+
+        $gridAtMd = ['style' => ['layout' => ['display' => [
+            'base' => ['type' => 'choice', 'value' => 'flex'],
+            'md' => ['type' => 'choice', 'value' => 'grid'],
+        ]]]];
+        self::assertSame(
+            [
+                't-display-flex', 'md:t-display-grid', 'lg:t-display-grid',
+                't-cols-auto', 'md:t-cols-auto', 'lg:t-cols-auto',
+            ],
+            $emitter->classesFor($gridAtMd, $targets, 'inner'),
+        );
+
+        $resetAtLg = ['style' => ['layout' => ['display' => [
+            'base' => ['type' => 'choice', 'value' => 'grid'],
+            'lg' => ['type' => 'reset'],
+        ]]]];
+        self::assertSame(
+            [
+                't-display-grid', 'md:t-display-grid', 'lg:t-display-reset',
+                't-cols-auto', 'md:t-cols-auto', 'lg:t-cols-auto',
+            ],
+            $emitter->classesFor($resetAtLg, $targets, 'inner'),
+        );
+
+        // Spacing is unchanged: only the breakpoints it declares become classes.
+        $padded = ['style' => ['spacing' => ['padding' => ['top' => [
+            'md' => ['type' => 'token', 'value' => 'spacing.lg'],
+        ]]]]];
+        // Emission follows the target's declared path order: spacing, then the layout paths.
+        self::assertSame(
+            ['md:t-pt-lg', 't-cols-auto', 'md:t-cols-auto', 'lg:t-cols-auto'],
+            $emitter->classesFor($padded, $targets, 'inner'),
         );
     }
 

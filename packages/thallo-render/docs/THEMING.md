@@ -135,12 +135,12 @@ Functions:
 - `asset('blocks.css')` — URL to a theme asset.
 - `media(uuid, variant?)` — resolve an asset UUID to a servable URL (`null` if not servable).
 - `blocks(list)` — render a list of **child blocks** (nesting; e.g. hero links, carousel slides).
-  Blocks nest up to five levels deep (section → columns → card → container → heading); a
+  Blocks nest up to five levels deep (container → container → card → container → heading); a
   deeper list renders nothing and the validator refuses it.
 - `slot_attrs('field')` — **emit this on the element that wraps a `blocks()` call.** On the
   canvas it renders `data-thallo-slot="field"`, so the builder knows the real element a slot
   occupies — where a dragged block may land, which layout the slot has (a flex row splits
-  left/right, a column splits top/bottom, a grid takes the end), and where an empty slot sits.
+  left/right, a column splits top/bottom, a grid cell takes the end), and where an empty slot sits.
   Outside the canvas it renders nothing. The slot name must be a constant string and must be one
   of the block type's `blocks` fields. On the canvas a dashed placeholder (painted by the preview
   stylesheet) with a + that opens the editor's Blocks tab at the end of that slot and the hint
@@ -187,10 +187,10 @@ classes/attributes you must keep stable are ones your **own `blocks.js`** select
 
 `accordion` · `accordion_item` · `animated_text` · `audio` · `blog_posts` ·
 `button` · `card` · `carousel` · `code` · `collapsible` · `color_mode` ·
-`columns` · `container` · `cta` · `feature` · `file` · `footer` · `form` ·
-`gallery` · `grid` · `heading` · `hero` · `html` · `icon` · `image` · `links` ·
+`container` · `cta` · `feature` · `file` · `footer` · `form` ·
+`gallery` · `heading` · `hero` · `html` · `icon` · `image` · `links` ·
 `logo` · `logos` · `navigation` · `pricing_feature` · `pricing_plan` ·
-`pricing_plans` · `pricing_table` · `pricing_tier` · `rich_text` · `section` ·
+`pricing_plans` · `pricing_table` · `pricing_tier` · `rich_text` ·
 `separator` · `shortcode` · `social_link` · `social_links` · `spacer` ·
 `stepper` · `stepper_item` · `style` · `tab` · `tabs` · `video`
 
@@ -247,9 +247,9 @@ degrades to the default modifier instead of emitting a class no CSS matches:
 
 **Multi-value settings → a map to modifier classes** (keep the fallback literal):
 ```twig
-{% set colsMod = {
-  '2':'thallo-block-grid--cols-2', '3':'thallo-block-grid--cols-3', '4':'thallo-block-grid--cols-4'
-}[data.columns|default('3')] ?? 'thallo-block-grid--cols-3' %}
+{% set sizeMod = {
+  'sm':'thallo-block-card--sm', 'md':'thallo-block-card--md', 'lg':'thallo-block-card--lg'
+}[data.size|default('md')] ?? 'thallo-block-card--md' %}
 ```
 
 **Colour, spacing, corners, border, shadow → settings, never fields or inline
@@ -667,6 +667,42 @@ is held to the same rule. No template writes a `style=` attribute
 or a `<style>` element — the lint refuses both at save and before render; the only
 inline style emitters are `theme_colors_style()`, `theme_style_scope()` and
 `font_faces_style()` (variables and `@font-face`, no selectors).
+
+### 12.3a The container's layout (what a theme must keep)
+
+A container is two elements: `root`, the band, and `__inner`, the content area. Its
+layout is settings, not data — there are no `--layout-flex`, `--gap-*` or `--contained`
+modifier classes to style. Four theme defaults carry the contract, and a theme that
+restyles the container keeps all four:
+
+```css
+.thallo-block-container {
+  --thallo-root-layout: block;          /* min height sets this, never `display` */
+  display: var(--thallo-root-layout);
+  flex-direction: column;
+}
+.thallo-block-container__inner {
+  --thallo-default-gutter: 0px;          /* the content-width utility sets it */
+  padding-inline: var(--thallo-default-gutter);
+  flex: 1 1 auto;                        /* fills a tall band */
+  width: 100%;                           /* auto inline margins cancel the stretch */
+}
+```
+
+Routing the band's display through a variable is what lets a minimum height size it
+while managed visibility keeps sole authority over `display`: a hidden band stays
+hidden however tall it is told to be. The gutter is initialised on the element itself
+so a boxed ancestor's gutter never reaches a full-width container nested inside it.
+
+Two more defaults govern what happens to the children. Blocks that clamp themselves to
+the page measure have that clamp released inside a container, so a block in a cell does
+not carry a second gutter; the release names exactly the blocks that have one
+(`tests/fixtures/layout/containment-inventory.json` records them, and a test holds the
+two in step). And the children's default vertical margins stand down in flex and grid
+modes, where the gaps own the spacing, while block mode keeps them with the first and
+last edges released so the container's own padding governs its boundary. Authored
+values always win over all of this: a margin, a padding or a width an author set is a
+setting in the layer above.
 
 ### 12.4 Style classes (the class layer)
 

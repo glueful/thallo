@@ -1,0 +1,1196 @@
+{
+  "case": "leaf-in-section-links",
+  "note": "§7.10: buttons inside a Section links row.",
+  "root": "[data-case-root]",
+  "elements": {
+    "root": {
+      "selector": ".thallo-block-section",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "surface"
+      ]
+    },
+    "inner": {
+      "selector": ".thallo-block-section__inner",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "header": {
+      "selector": ".thallo-block-section__header",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "headline": {
+      "selector": ".thallo-block-section__headline",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography",
+        "semantics"
+      ]
+    },
+    "title": {
+      "selector": ".thallo-block-section__title",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography",
+        "semantics"
+      ]
+    },
+    "description": {
+      "selector": ".thallo-block-section__description",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography",
+        "semantics"
+      ]
+    },
+    "content": {
+      "selector": ".thallo-block-section__content",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "contentHeading": {
+      "selector": ".thallo-block-section__content .thallo-block-heading",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography",
+        "semantics"
+      ]
+    },
+    "links": {
+      "selector": ".thallo-block-section__links",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "firstLink": {
+      "selector": ".thallo-block-section__links .thallo-block-button:nth-of-type(1)",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "semantics"
+      ]
+    },
+    "firstButton": {
+      "selector": ".thallo-block-section__links .thallo-block-button:nth-of-type(1)",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "semantics"
+      ]
+    },
+    "secondButton": {
+      "selector": ".thallo-block-section__links .thallo-block-button:nth-of-type(2)",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "semantics"
+      ]
+    }
+  },
+  "map": {
+    "root": "#root",
+    "inner": "#root > .thallo-block-container__inner",
+    "header": "#header",
+    "headline": "#headline p",
+    "title": "#title",
+    "description": "#description p",
+    "content": "#content",
+    "contentHeading": "#contentHeading",
+    "links": "#links",
+    "firstLink": "#button",
+    "firstButton": "#button",
+    "secondButton": "#secondButton"
+  },
+  "allow": [
+    {
+      "element": "header",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "headline",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "title",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "description",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "content",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "contentHeading",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "links",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "firstLink",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "firstButton",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "secondButton",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "header",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ]
+    },
+    {
+      "element": "headline",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ]
+    },
+    {
+      "element": "title",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ]
+    },
+    {
+      "element": "description",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ]
+    },
+    {
+      "element": "content",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ]
+    },
+    {
+      "element": "contentHeading",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ]
+    },
+    {
+      "element": "links",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ]
+    },
+    {
+      "element": "firstLink",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ]
+    },
+    {
+      "element": "firstButton",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ]
+    },
+    {
+      "element": "secondButton",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ]
+    },
+    {
+      "element": "title",
+      "why": "Intentionally changed (spec §7.7): the title takes the theme's h2 clamp instead of a fixed 2rem.",
+      "relax": [
+        "font-size",
+        "line-height"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ]
+    },
+    {
+      "element": "description",
+      "why": "Intentionally changed (spec §7.7): the description takes typography.size.lg instead of a fixed 1.125rem.",
+      "relax": [
+        "font-size",
+        "line-height"
+      ],
+      "affects": [
+        "root",
+        "inner",
+        "header",
+        "headline",
+        "title",
+        "description",
+        "content",
+        "contentHeading",
+        "links",
+        "firstLink",
+        "firstButton",
+        "secondButton"
+      ]
+    }
+  ],
+  "old": {
+    "id": "sct000000001",
+    "type": "section",
+    "data": {
+      "content": [],
+      "links": [
+        {
+          "id": "bt0000000041",
+          "type": "button",
+          "data": {
+            "label": "One",
+            "url": "/go",
+            "variant": "solid",
+            "color": "primary"
+          },
+          "settings": []
+        },
+        {
+          "id": "bt0000000042",
+          "type": "button",
+          "data": {
+            "label": "Two",
+            "url": "/go",
+            "variant": "solid",
+            "color": "primary"
+          },
+          "settings": []
+        }
+      ],
+      "headline": "WHY THALLO",
+      "title": "Built for sites that outlive their launch",
+      "description": "Thallo lives in vendor/ as a Composer package, upgraded with one command.",
+      "background": "none",
+      "orientation": "vertical",
+      "reverse": false
+    },
+    "settings": []
+  },
+  "new": {
+    "id": "sct000000001",
+    "type": "container",
+    "data": {
+      "element": "section",
+      "content": [
+        {
+          "id": "shd00000001",
+          "type": "container",
+          "data": {
+            "element": "div",
+            "content": [
+              {
+                "id": "shl00000001",
+                "type": "rich_text",
+                "data": {
+                  "body": "<p>WHY THALLO</p>"
+                },
+                "settings": {
+                  "style": {
+                    "colors": {
+                      "text": {
+                        "type": "token",
+                        "value": "color.accent"
+                      }
+                    },
+                    "typography": {
+                      "weight": {
+                        "base": {
+                          "type": "choice",
+                          "value": "semibold"
+                        }
+                      }
+                    },
+                    "spacing": {
+                      "margin": {
+                        "bottom": {
+                          "base": {
+                            "type": "token",
+                            "value": "spacing.sm"
+                          }
+                        }
+                      }
+                    },
+                    "alignment": {
+                      "text": {
+                        "base": {
+                          "type": "choice",
+                          "value": "center"
+                        },
+                        "md": {
+                          "type": "choice",
+                          "value": "center"
+                        },
+                        "lg": {
+                          "type": "choice",
+                          "value": "center"
+                        }
+                      }
+                    }
+                  },
+                  "advanced": {
+                    "anchor": "headline"
+                  }
+                }
+              },
+              {
+                "id": "sti00000001",
+                "type": "heading",
+                "data": {
+                  "level": "h2",
+                  "text": "Built for sites that outlive their launch"
+                },
+                "settings": {
+                  "style": {
+                    "alignment": {
+                      "text": {
+                        "base": {
+                          "type": "choice",
+                          "value": "center"
+                        },
+                        "md": {
+                          "type": "choice",
+                          "value": "center"
+                        },
+                        "lg": {
+                          "type": "choice",
+                          "value": "center"
+                        }
+                      }
+                    }
+                  },
+                  "advanced": {
+                    "anchor": "title"
+                  }
+                }
+              },
+              {
+                "id": "sde00000001",
+                "type": "rich_text",
+                "data": {
+                  "body": "<p>Thallo lives in vendor/ as a Composer package, upgraded with one command.</p>"
+                },
+                "settings": {
+                  "style": {
+                    "colors": {
+                      "text": {
+                        "type": "token",
+                        "value": "color.muted"
+                      }
+                    },
+                    "typography": {
+                      "size": {
+                        "base": {
+                          "type": "token",
+                          "value": "typography.size.lg"
+                        }
+                      }
+                    },
+                    "width": {
+                      "base": {
+                        "type": "token",
+                        "value": "width.content"
+                      }
+                    },
+                    "alignment": {
+                      "text": {
+                        "base": {
+                          "type": "choice",
+                          "value": "center"
+                        },
+                        "md": {
+                          "type": "choice",
+                          "value": "center"
+                        },
+                        "lg": {
+                          "type": "choice",
+                          "value": "center"
+                        }
+                      },
+                      "self": {
+                        "base": {
+                          "type": "choice",
+                          "value": "center"
+                        },
+                        "md": {
+                          "type": "choice",
+                          "value": "center"
+                        },
+                        "lg": {
+                          "type": "choice",
+                          "value": "center"
+                        }
+                      }
+                    },
+                    "spacing": {
+                      "margin": {
+                        "top": {
+                          "base": {
+                            "type": "token",
+                            "value": "spacing.lg"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "advanced": {
+                    "anchor": "description"
+                  }
+                }
+              }
+            ]
+          },
+          "settings": {
+            "style": {
+              "layout": {
+                "display": {
+                  "base": {
+                    "type": "choice",
+                    "value": "flex"
+                  },
+                  "md": {
+                    "type": "choice",
+                    "value": "flex"
+                  },
+                  "lg": {
+                    "type": "choice",
+                    "value": "flex"
+                  }
+                },
+                "direction": {
+                  "base": {
+                    "type": "choice",
+                    "value": "column"
+                  },
+                  "md": {
+                    "type": "choice",
+                    "value": "column"
+                  },
+                  "lg": {
+                    "type": "choice",
+                    "value": "column"
+                  }
+                }
+              }
+            },
+            "advanced": {
+              "anchor": "header"
+            }
+          }
+        },
+        {
+          "id": "sct00000001",
+          "type": "container",
+          "data": {
+            "element": "div",
+            "content": []
+          },
+          "settings": {
+            "advanced": {
+              "anchor": "content"
+            }
+          }
+        },
+        {
+          "id": "slk00000001",
+          "type": "container",
+          "data": {
+            "element": "div",
+            "content": [
+              {
+                "id": "bt0000000041",
+                "type": "button",
+                "data": {
+                  "label": "One",
+                  "url": "/go",
+                  "variant": "solid",
+                  "color": "primary"
+                },
+                "settings": {
+                  "advanced": {
+                    "anchor": "button"
+                  }
+                }
+              },
+              {
+                "id": "bt0000000042",
+                "type": "button",
+                "data": {
+                  "label": "Two",
+                  "url": "/go",
+                  "variant": "solid",
+                  "color": "primary"
+                },
+                "settings": {
+                  "advanced": {
+                    "anchor": "secondButton"
+                  }
+                }
+              }
+            ]
+          },
+          "settings": {
+            "style": {
+              "layout": {
+                "display": {
+                  "base": {
+                    "type": "choice",
+                    "value": "flex"
+                  },
+                  "md": {
+                    "type": "choice",
+                    "value": "flex"
+                  },
+                  "lg": {
+                    "type": "choice",
+                    "value": "flex"
+                  }
+                },
+                "direction": {
+                  "base": {
+                    "type": "choice",
+                    "value": "row"
+                  },
+                  "md": {
+                    "type": "choice",
+                    "value": "row"
+                  },
+                  "lg": {
+                    "type": "choice",
+                    "value": "row"
+                  }
+                },
+                "wrap": {
+                  "base": {
+                    "type": "choice",
+                    "value": "wrap"
+                  },
+                  "md": {
+                    "type": "choice",
+                    "value": "wrap"
+                  },
+                  "lg": {
+                    "type": "choice",
+                    "value": "wrap"
+                  }
+                },
+                "gap": {
+                  "column": {
+                    "base": {
+                      "type": "token",
+                      "value": "spacing.xl"
+                    },
+                    "md": {
+                      "type": "token",
+                      "value": "spacing.xl"
+                    },
+                    "lg": {
+                      "type": "token",
+                      "value": "spacing.xl"
+                    }
+                  },
+                  "row": {
+                    "base": {
+                      "type": "token",
+                      "value": "spacing.md"
+                    },
+                    "md": {
+                      "type": "token",
+                      "value": "spacing.md"
+                    },
+                    "lg": {
+                      "type": "token",
+                      "value": "spacing.md"
+                    }
+                  }
+                }
+              },
+              "alignment": {
+                "content": {
+                  "base": {
+                    "type": "choice",
+                    "value": "center"
+                  },
+                  "md": {
+                    "type": "choice",
+                    "value": "center"
+                  },
+                  "lg": {
+                    "type": "choice",
+                    "value": "center"
+                  }
+                }
+              }
+            },
+            "advanced": {
+              "anchor": "links"
+            }
+          }
+        }
+      ]
+    },
+    "settings": {
+      "style": {
+        "spacing": {
+          "padding": {
+            "top": {
+              "base": {
+                "type": "token",
+                "value": "spacing.3xl"
+              },
+              "md": {
+                "type": "token",
+                "value": "spacing.3xl"
+              },
+              "lg": {
+                "type": "token",
+                "value": "spacing.3xl"
+              }
+            },
+            "bottom": {
+              "base": {
+                "type": "token",
+                "value": "spacing.3xl"
+              },
+              "md": {
+                "type": "token",
+                "value": "spacing.3xl"
+              },
+              "lg": {
+                "type": "token",
+                "value": "spacing.3xl"
+              }
+            }
+          }
+        },
+        "layout": {
+          "content_width": {
+            "base": {
+              "type": "token",
+              "value": "width.container"
+            },
+            "md": {
+              "type": "token",
+              "value": "width.container"
+            },
+            "lg": {
+              "type": "token",
+              "value": "width.container"
+            }
+          },
+          "display": {
+            "base": {
+              "type": "choice",
+              "value": "flex"
+            },
+            "md": {
+              "type": "choice",
+              "value": "flex"
+            },
+            "lg": {
+              "type": "choice",
+              "value": "flex"
+            }
+          },
+          "direction": {
+            "base": {
+              "type": "choice",
+              "value": "column"
+            },
+            "md": {
+              "type": "choice",
+              "value": "column"
+            },
+            "lg": {
+              "type": "choice",
+              "value": "column"
+            }
+          },
+          "gap": {
+            "row": {
+              "base": {
+                "type": "token",
+                "value": "spacing.xl"
+              },
+              "md": {
+                "type": "token",
+                "value": "spacing.xl"
+              },
+              "lg": {
+                "type": "token",
+                "value": "spacing.xl"
+              }
+            },
+            "column": {
+              "base": {
+                "type": "reset"
+              },
+              "md": {
+                "type": "reset"
+              },
+              "lg": {
+                "type": "reset"
+              }
+            }
+          },
+          "columns": {
+            "base": {
+              "type": "reset"
+            },
+            "md": {
+              "type": "reset"
+            },
+            "lg": {
+              "type": "reset"
+            }
+          },
+          "align_items": {
+            "base": {
+              "type": "reset"
+            },
+            "md": {
+              "type": "reset"
+            },
+            "lg": {
+              "type": "reset"
+            }
+          }
+        }
+      },
+      "advanced": {
+        "anchor": "root"
+      }
+    }
+  }
+}

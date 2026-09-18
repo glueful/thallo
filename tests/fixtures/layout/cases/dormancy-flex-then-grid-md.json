@@ -1,0 +1,18 @@
+{
+  "case": "dormancy-flex-then-grid-md",
+  "note": "§3.3: flex at base, grid from md. The flex direction is dormant at md — the tracks lay the children out.",
+  "tree": {
+    "id": "lf0000000001",
+    "type": "layout_fixture",
+    "data": { "content": [
+      { "id": "hd0000000101", "type": "heading", "data": { "level": "h2", "text": "One" }, "settings": {} },
+      { "id": "hd0000000102", "type": "heading", "data": { "level": "h2", "text": "Two" }, "settings": {} }
+    ] },
+    "settings": { "style": { "layout": {
+      "display": { "base": { "type": "choice", "value": "flex" }, "md": { "type": "choice", "value": "grid" } },
+      "direction": { "base": { "type": "choice", "value": "column" } },
+      "columns": { "md": { "type": "choice", "value": "2" } },
+      "content_width": { "base": { "type": "token", "value": "width.container" } }
+    } } }
+  }
+}

@@ -5,8 +5,8 @@
       "name": "outer into inner",
       "blockTypes": [
         {
-          "slug": "section",
-          "label": "Section",
+          "slug": "container",
+          "label": "Container",
           "schema": [
             {
               "name": "content",
@@ -87,12 +87,12 @@
           "body": [
             {
               "id": "outer",
-              "type": "section",
+              "type": "container",
               "data": {
                 "content": [
                   {
                     "id": "inner",
-                    "type": "section",
+                    "type": "container",
                     "data": {
                       "content": []
                     },

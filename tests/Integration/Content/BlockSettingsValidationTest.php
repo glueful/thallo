@@ -12,6 +12,7 @@ use Thallo\Core\Content\Validation\FieldValidator;
 use Thallo\Core\Content\Validation\ValidationException;
 use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 use Thallo\Contracts\Style\StyleClassProvider;
 use Thallo\Contracts\Style\StyleClassSnapshot;
 
@@ -22,11 +23,15 @@ use Thallo\Contracts\Style\StyleClassSnapshot;
  */
 final class BlockSettingsValidationTest extends AppTestCase
 {
+    use SyncsBlockStyleDeclarations;
+
     protected function setUp(): void
     {
         parent::setUp();
-        // The starter library is the fixture: the shipped block types with their declarations.
+        // The starter library is the fixture: the shipped block types with their declarations,
+        // brought up to date so a stale row in the test database cannot stand in for one of them.
         $this->container()->get(StarterBlockTypeSeeder::class)->seedMissing();
+        $this->syncBlockStyleDeclarations();
     }
 
     /** @param array<string, array{caps?: list<string>}> $types */
@@ -232,6 +237,111 @@ final class BlockSettingsValidationTest extends AppTestCase
         }
     }
 
+    public function testLayoutSettingsFollowTheContractAndTheDeclaredCapabilities(): void
+    {
+        // Container-layout plan, Task 1.1: layout is validated like every other managed style.
+        $v = $this->validator(['heading' => ['caps' => ['layout.display', 'layout.columns', 'layout.overflow']]]);
+
+        $ok = $v->validate($this->schema(), ['body' => [$this->heading(['style' => [
+            'layout' => [
+                'display' => [
+                    'base' => ['type' => 'choice', 'value' => 'flex'],
+                    'md' => ['type' => 'choice', 'value' => 'grid'],
+                ],
+                'columns' => ['md' => ['type' => 'choice', 'value' => '1-2']],
+                'overflow' => ['type' => 'choice', 'value' => 'hidden'],
+            ],
+        ]])]]);
+        $style = $ok['body'][0]['settings']['style']['layout'];
+        self::assertSame('grid', $style['display']['md']['value']);
+        self::assertSame('1-2', $style['columns']['md']['value']);
+        self::assertSame('hidden', $style['overflow']['value']);
+
+        $cases = [
+            [
+                ['layout' => ['display' => ['base' => ['type' => 'choice', 'value' => 'table']]]],
+                'body.0.settings.style.layout.display.base',
+                'must be one of block, flex, grid',
+            ],
+            [
+                // Not responsive: an overflow that changed with the viewport would hide content
+                // at one width and not another.
+                ['layout' => ['overflow' => ['md' => ['type' => 'choice', 'value' => 'hidden']]]],
+                'body.0.settings.style.layout.overflow',
+                'is not responsive',
+            ],
+            [
+                // A property the block type does not declare is refused, layout included.
+                ['layout' => ['gap' => ['column' => ['base' => ['type' => 'token', 'value' => 'spacing.lg']]]]],
+                'body.0.settings.style.layout.gap.column',
+                'not styleable on this block',
+            ],
+        ];
+        foreach ($cases as [$style, $path, $message]) {
+            try {
+                $v->validate($this->schema(), ['body' => [$this->heading(['style' => $style])]]);
+                self::fail('expected ValidationException for ' . $path);
+            } catch (ValidationException $e) {
+                self::assertArrayHasKey($path, $e->errors(), $path);
+                self::assertStringContainsString($message, $e->errors()[$path], $path);
+            }
+        }
+    }
+
+    public function testAContainerTakesLayoutSettingsOnTheTargetThatOwnsThem(): void
+    {
+        // Container-layout spec §4: after the cutover the band's own box keeps min height and
+        // overflow, while everything that arranges the children belongs to the content area. The
+        // real seeded declaration is the fixture — a hand-written registry would prove nothing.
+        $registry = $this->container()->get(BlockStyleRegistry::class);
+        $targets = $registry->targetsFor('container');
+        self::assertNotNull($targets);
+        self::assertSame(['root', 'inner'], $targets->names());
+        self::assertSame('inner', $targets->targetFor('layout.display'));
+        self::assertSame('inner', $targets->targetFor('alignment.content'));
+        self::assertSame('root', $targets->targetFor('layout.min_height'));
+        self::assertSame('root', $targets->targetFor('layout.span'));
+
+        $v = new FieldValidator(
+            $this->connection(),
+            $this->appContext(),
+            null,
+            null,
+            $registry,
+        );
+        $container = static fn (array $style): array => [
+            'id' => 'cont00000001',
+            'type' => 'container',
+            'data' => ['content' => []],
+            'settings' => ['style' => $style],
+        ];
+        $ok = $v->validate($this->schema(), ['body' => [$container([
+            'layout' => [
+                'display' => ['base' => ['type' => 'choice', 'value' => 'grid']],
+                'columns' => ['md' => ['type' => 'choice', 'value' => '1-2']],
+                'min_height' => ['base' => ['type' => 'choice', 'value' => 'half']],
+            ],
+        ])]]);
+        $style = $ok['body'][0]['settings']['style']['layout'];
+        self::assertSame('grid', $style['display']['base']['value']);
+        self::assertSame('1-2', $style['columns']['md']['value']);
+        self::assertSame('half', $style['min_height']['base']['value']);
+
+        // A property no target owns is still refused: the container declares no typography.
+        try {
+            $v->validate($this->schema(), ['body' => [$container([
+                'typography' => ['size' => ['base' => ['type' => 'token', 'value' => 'font.lg']]],
+            ])]]);
+            self::fail('a container accepted a property it does not declare');
+        } catch (ValidationException $e) {
+            self::assertArrayHasKey('body.0.settings.style.typography.size', $e->errors());
+            self::assertStringContainsString(
+                'not styleable on this block',
+                $e->errors()['body.0.settings.style.typography.size'],
+            );
+        }
+    }
+
     public function testAdvancedAndClassesAreValidated(): void
     {
         $v = $this->validator(['heading' => ['caps' => ['spacing']]]);
@@ -282,10 +392,10 @@ final class BlockSettingsValidationTest extends AppTestCase
 
     public function testNestedBlocksAreValidatedToo(): void
     {
-        $v = $this->validator(['section' => ['caps' => ['spacing']], 'heading' => []]);
+        $v = $this->validator(['container' => ['caps' => ['spacing']], 'heading' => []]);
         $section = [
             'id' => 'sect00000001',
-            'type' => 'section',
+            'type' => 'container',
             'data' => ['content' => [
                 $this->heading(['style' => ['radius' => ['type' => 'token', 'value' => 'radius.md']]]),
             ]],

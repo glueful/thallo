@@ -1,0 +1,115 @@
+{
+  "case": "nested-flex-grid-flex",
+  "note": "\u00a73.3: each level follows ITS immediate parent's mode, not an ancestor's.",
+  "tree": {
+    "id": "lf0000000001",
+    "type": "layout_fixture",
+    "data": {
+      "content": [
+        {
+          "id": "lf0000000002",
+          "type": "layout_fixture",
+          "data": {
+            "content": [
+              {
+                "id": "lf0000000003",
+                "type": "layout_fixture",
+                "data": {
+                  "content": [
+                    {
+                      "id": "hd0000000201",
+                      "type": "heading",
+                      "data": {
+                        "level": "h2",
+                        "text": "Deep one"
+                      },
+                      "settings": {}
+                    },
+                    {
+                      "id": "hd0000000202",
+                      "type": "heading",
+                      "data": {
+                        "level": "h2",
+                        "text": "Deep two"
+                      },
+                      "settings": {}
+                    }
+                  ]
+                },
+                "settings": {
+                  "style": {
+                    "layout": {
+                      "display": {
+                        "base": {
+                          "type": "choice",
+                          "value": "flex"
+                        }
+                      },
+                      "direction": {
+                        "base": {
+                          "type": "choice",
+                          "value": "row"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "id": "hd0000000203",
+                "type": "heading",
+                "data": {
+                  "level": "h2",
+                  "text": "Cell two"
+                },
+                "settings": {}
+              }
+            ]
+          },
+          "settings": {
+            "style": {
+              "layout": {
+                "display": {
+                  "base": {
+                    "type": "choice",
+                    "value": "grid"
+                  }
+                },
+                "columns": {
+                  "base": {
+                    "type": "choice",
+                    "value": "2"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "settings": {
+      "style": {
+        "layout": {
+          "display": {
+            "base": {
+              "type": "choice",
+              "value": "flex"
+            }
+          },
+          "direction": {
+            "base": {
+              "type": "choice",
+              "value": "row"
+            }
+          },
+          "content_width": {
+            "base": {
+              "type": "token",
+              "value": "width.container"
+            }
+          }
+        }
+      }
+    }
+  }
+}

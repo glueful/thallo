@@ -9,16 +9,15 @@ const fields = {
   body: [
     { id: 'hero000000001', type: 'hero', data: { title: 'Hi' }, settings: {} },
     {
-      id: 'sect000000002',
-      type: 'section',
+      id: 'cont000000002',
+      type: 'container',
       data: {
         content: [
           {
-            id: 'cols000000003',
-            type: 'columns',
+            id: 'colb000000003',
+            type: 'container',
             data: {
-              col_1: [],
-              col_2: [
+              content: [
                 { id: 'feat000000004', type: 'feature', data: {}, settings: {} },
                 { id: 'feat000000005', type: 'feature', data: { title: 'B' }, settings: {} },
               ],
@@ -34,7 +33,7 @@ const fields = {
 
 describe('blockAtValidationPath', () => {
   it('walks field, index and nested data lists down to the block and names the field', () => {
-    expect(blockAtValidationPath(fields, 'body.1.content.0.col_2.0.title')).toEqual({
+    expect(blockAtValidationPath(fields, 'body.1.content.0.content.0.title')).toEqual({
       id: 'feat000000004',
       type: 'feature',
       field: 'title',
@@ -49,10 +48,10 @@ describe('blockAtValidationPath', () => {
   it('answers null for a top-level field, a missing index or a path that leaves the tree', () => {
     expect(blockAtValidationPath(fields, 'title')).toBeNull()
     expect(blockAtValidationPath(fields, 'body.9.title')).toBeNull()
-    expect(blockAtValidationPath(fields, 'body.1.content.0.col_9.0.title')).toBeNull()
+    expect(blockAtValidationPath(fields, 'body.1.content.0.nowhere.0.title')).toBeNull()
     expect(blockAtValidationPath(fields, 'body.1.nope')).toEqual({
-      id: 'sect000000002',
-      type: 'section',
+      id: 'cont000000002',
+      type: 'container',
       field: 'nope',
     })
   })

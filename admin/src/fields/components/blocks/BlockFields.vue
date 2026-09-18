@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // A block's schema form (visual builder spec §3.4 — the Content tab): every field of the
 // block type rendered through the field registry, with the seeded types' cosmetic
-// ergonomics (columns layout picker, navigation menu select). Blocks-typed fields (container
+// ergonomics (the navigation menu select). Blocks-typed fields (container
 // regions) are handed to the `blocks` slot: the editor's card nests a BlockList inside the
 // ops-owning tree, the inspector shows a summary. Context-free, so both can host it.
 import { computed } from 'vue'
@@ -12,7 +12,6 @@ import type { ContentTypeField } from '@/queries/contentTypes'
 import type { BlockType } from '@/queries/blockTypes'
 import { useNavMenus } from '@/queries/navigation'
 import type { BlockInstance } from './useBlockListOps'
-import ColumnsLayoutField from './ColumnsLayoutField.vue'
 
 const props = defineProps<{
   block: BlockInstance
@@ -29,49 +28,22 @@ function patchData(name: string, value: unknown): void {
   emit('patch', name, value)
 }
 
-// Cosmetic editor ergonomics for SEEDED block types, keyed by their immutable
-// type slugs (frontend-only by decision — no schema vocabulary). Columns:
-// col_3 hides unless layout is 3, and the widths presets narrow to the
-// current layout's column count. Hiding is COSMETIC — hidden fields keep
-// their data (the render template already ignores them), so flipping layout
-// back restores everything. Navigation: the `menu` slug field renders as a
-// select over existing menus (nav-v2 spec §2) — the picker is cosmetic, the
-// slug + pattern rule stay the contract. Custom block types are unaffected.
-const columnsLayout = computed(() => (String(props.block.data.layout ?? '2') === '3' ? 3 : 2))
-
+// Cosmetic editor ergonomics for SEEDED block types, keyed by their immutable type slugs
+// (frontend-only by decision — no schema vocabulary). Navigation: the `menu` slug field renders as
+// a select over existing menus (nav-v2 spec §2) — the picker is cosmetic, the slug + pattern rule
+// stay the contract. Custom block types are unaffected.
 function fieldVisible(name: string): boolean {
-  if (props.exclude?.includes(name)) return false
-  if (props.block.type !== 'columns') return true
-  if (name === 'col_3') return columnsLayout.value === 3
-  // `widths` is folded into the combined visual layout picker (rendered at `layout`).
-  if (name === 'widths') return false
-  return true
-}
-
-// The `widths` enum, surfaced as swatches by the combined columns layout picker.
-const columnsWidthPresets = computed<string[]>(() => {
-  const wf = props.type?.schema.find((f) => f.name === 'widths')
-  return (wf ? toFieldDef(wf).enum : undefined) ?? []
-})
-
-// One click sets BOTH coupled fields, so column count and ratio never drift.
-function selectColumnsLayout(v: { layout: string; widths: string }): void {
-  patchData('layout', v.layout)
-  patchData('widths', v.widths)
+  return !props.exclude?.includes(name)
 }
 
 function displayFieldDef(f: Parameters<typeof toFieldDef>[0]): ReturnType<typeof toFieldDef> {
   const base = toFieldDef(f)
   // Human-readable label from the snake_case field name (e.g. background_image →
   // "background image"), unless the schema declared an explicit label.
-  const def = { ...base, label: base.label ?? humanize(base.name) }
-  if (props.block.type === 'columns' && def.name === 'widths' && def.enum) {
-    return { ...def, enum: def.enum.filter((v) => v.split('-').length === columnsLayout.value) }
-  }
-  return def
+  return { ...base, label: base.label ?? humanize(base.name) }
 }
 
-// Region/field names arrive snake_case (col_1); show them space-separated
+// Region/field names arrive snake_case (background_image); show them space-separated
 // ("col 1") without inventing a schema-level label vocabulary.
 const humanize = (name: string): string => name.replace(/_/g, ' ')
 
@@ -142,18 +114,6 @@ const menuOptions = computed(() =>
             class="w-full"
             data-test="nav-menu-select"
             @update:model-value="(v: unknown) => patchData('menu', v)"
-          />
-        </UFormField>
-        <UFormField
-          v-else-if="block.type === 'columns' && f.name === 'layout'"
-          label="Layout"
-          name="layout"
-        >
-          <ColumnsLayoutField
-            :layout="(block.data.layout as string) ?? '2'"
-            :widths="(block.data.widths as string) ?? ''"
-            :presets="columnsWidthPresets"
-            @select="selectColumnsLayout"
           />
         </UFormField>
         <component

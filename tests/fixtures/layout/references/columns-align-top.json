@@ -1,0 +1,505 @@
+{
+  "case": "columns-align-top",
+  "note": "§7.8: vertical alignment top.",
+  "root": "[data-case-root]",
+  "elements": {
+    "root": {
+      "selector": ".thallo-block-columns",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "col1": {
+      "selector": ".thallo-block-columns__col:nth-of-type(1)",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "col1first": {
+      "selector": ".thallo-block-columns__col:nth-of-type(1) > .thallo-block:nth-of-type(1)",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography",
+        "semantics"
+      ]
+    },
+    "col2": {
+      "selector": ".thallo-block-columns__col:nth-of-type(2)",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "col2first": {
+      "selector": ".thallo-block-columns__col:nth-of-type(2) > .thallo-block:nth-of-type(1)",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography",
+        "semantics"
+      ]
+    }
+  },
+  "map": {
+    "root": "#root > .thallo-block-container__inner",
+    "col1": "#col1",
+    "col1first": "#col1first",
+    "col2": "#col2",
+    "col2first": "#col2first"
+  },
+  "allow": [
+    {
+      "element": "col1",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "col1first",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "col2",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "col2first",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "root",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first"
+      ]
+    },
+    {
+      "element": "col1",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first"
+      ]
+    },
+    {
+      "element": "col1first",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first"
+      ]
+    },
+    {
+      "element": "col2",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first"
+      ]
+    },
+    {
+      "element": "col2first",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first"
+      ]
+    }
+  ],
+  "old": {
+    "id": "col000000001",
+    "type": "columns",
+    "data": {
+      "layout": "2",
+      "widths": "50-50",
+      "align": "top",
+      "col_1": [
+        {
+          "id": "hd0000000021",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Short"
+          },
+          "settings": []
+        }
+      ],
+      "col_2": [
+        {
+          "id": "hd0000000022",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Taller"
+          },
+          "settings": []
+        },
+        {
+          "id": "rt0000000022",
+          "type": "rich_text",
+          "data": {
+            "body": "<p>Two lines of body text so the columns differ in height and the alignment shows.</p>"
+          },
+          "settings": []
+        }
+      ],
+      "col_3": []
+    },
+    "settings": []
+  },
+  "new": {
+    "id": "col000000001",
+    "type": "container",
+    "data": {
+      "element": "div",
+      "content": [
+        {
+          "id": "colc10000001",
+          "type": "container",
+          "data": {
+            "element": "div",
+            "content": [
+              {
+                "id": "hd0000000021",
+                "type": "heading",
+                "data": {
+                  "level": "h2",
+                  "text": "Short"
+                },
+                "settings": {
+                  "advanced": {
+                    "anchor": "col1first"
+                  }
+                }
+              }
+            ]
+          },
+          "settings": {
+            "style": {
+              "layout": {
+                "display": {
+                  "base": {
+                    "type": "choice",
+                    "value": "flex"
+                  },
+                  "md": {
+                    "type": "choice",
+                    "value": "flex"
+                  },
+                  "lg": {
+                    "type": "choice",
+                    "value": "flex"
+                  }
+                },
+                "direction": {
+                  "base": {
+                    "type": "choice",
+                    "value": "column"
+                  },
+                  "md": {
+                    "type": "choice",
+                    "value": "column"
+                  },
+                  "lg": {
+                    "type": "choice",
+                    "value": "column"
+                  }
+                },
+                "gap": {
+                  "row": {
+                    "base": {
+                      "type": "token",
+                      "value": "spacing.md"
+                    }
+                  }
+                }
+              }
+            },
+            "advanced": {
+              "anchor": "col1"
+            }
+          }
+        },
+        {
+          "id": "colc20000001",
+          "type": "container",
+          "data": {
+            "element": "div",
+            "content": [
+              {
+                "id": "hd0000000022",
+                "type": "heading",
+                "data": {
+                  "level": "h2",
+                  "text": "Taller"
+                },
+                "settings": {
+                  "advanced": {
+                    "anchor": "col2first"
+                  }
+                }
+              },
+              {
+                "id": "rt0000000022",
+                "type": "rich_text",
+                "data": {
+                  "body": "<p>Two lines of body text so the columns differ in height and the alignment shows.</p>"
+                },
+                "settings": {
+                  "advanced": {
+                    "anchor": "richtext"
+                  }
+                }
+              }
+            ]
+          },
+          "settings": {
+            "style": {
+              "layout": {
+                "display": {
+                  "base": {
+                    "type": "choice",
+                    "value": "flex"
+                  },
+                  "md": {
+                    "type": "choice",
+                    "value": "flex"
+                  },
+                  "lg": {
+                    "type": "choice",
+                    "value": "flex"
+                  }
+                },
+                "direction": {
+                  "base": {
+                    "type": "choice",
+                    "value": "column"
+                  },
+                  "md": {
+                    "type": "choice",
+                    "value": "column"
+                  },
+                  "lg": {
+                    "type": "choice",
+                    "value": "column"
+                  }
+                },
+                "gap": {
+                  "row": {
+                    "base": {
+                      "type": "token",
+                      "value": "spacing.md"
+                    }
+                  }
+                }
+              }
+            },
+            "advanced": {
+              "anchor": "col2"
+            }
+          }
+        }
+      ]
+    },
+    "settings": {
+      "style": {
+        "layout": {
+          "content_width": {
+            "base": {
+              "type": "token",
+              "value": "width.container"
+            },
+            "md": {
+              "type": "token",
+              "value": "width.container"
+            },
+            "lg": {
+              "type": "token",
+              "value": "width.container"
+            }
+          },
+          "display": {
+            "base": {
+              "type": "choice",
+              "value": "grid"
+            },
+            "md": {
+              "type": "choice",
+              "value": "grid"
+            },
+            "lg": {
+              "type": "choice",
+              "value": "grid"
+            }
+          },
+          "columns": {
+            "base": {
+              "type": "choice",
+              "value": "1"
+            },
+            "md": {
+              "type": "choice",
+              "value": "2"
+            },
+            "lg": {
+              "type": "choice",
+              "value": "2"
+            }
+          },
+          "align_items": {
+            "base": {
+              "type": "choice",
+              "value": "start"
+            },
+            "md": {
+              "type": "choice",
+              "value": "start"
+            },
+            "lg": {
+              "type": "choice",
+              "value": "start"
+            }
+          },
+          "gap": {
+            "column": {
+              "base": {
+                "type": "token",
+                "value": "spacing.lg"
+              },
+              "md": {
+                "type": "token",
+                "value": "spacing.lg"
+              },
+              "lg": {
+                "type": "token",
+                "value": "spacing.lg"
+              }
+            },
+            "row": {
+              "base": {
+                "type": "token",
+                "value": "spacing.lg"
+              },
+              "md": {
+                "type": "token",
+                "value": "spacing.lg"
+              },
+              "lg": {
+                "type": "token",
+                "value": "spacing.lg"
+              }
+            }
+          }
+        }
+      },
+      "advanced": {
+        "anchor": "root"
+      }
+    }
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "case": "minh-half-lg-only",
+  "note": "\u00a73.5: auto below lg, half from lg.",
+  "tree": {
+    "id": "lf0000000001",
+    "type": "layout_fixture",
+    "data": {
+      "content": [
+        {
+          "id": "hd0000000101",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "One"
+          },
+          "settings": {}
+        },
+        {
+          "id": "hd0000000102",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Two"
+          },
+          "settings": {}
+        },
+        {
+          "id": "hd0000000103",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Three"
+          },
+          "settings": {}
+        }
+      ]
+    },
+    "settings": {
+      "style": {
+        "layout": {
+          "min_height": {
+            "lg": {
+              "type": "choice",
+              "value": "half"
+            }
+          },
+          "content_width": {
+            "base": {
+              "type": "token",
+              "value": "width.container"
+            }
+          }
+        }
+      }
+    }
+  }
+}

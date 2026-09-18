@@ -1,0 +1,713 @@
+{
+  "case": "leaf-in-columns-column",
+  "note": "§7.10: leaves inside a Columns column.",
+  "root": "[data-case-root]",
+  "elements": {
+    "root": {
+      "selector": ".thallo-block-columns",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "col1": {
+      "selector": ".thallo-block-columns__col:nth-of-type(1)",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "col1first": {
+      "selector": ".thallo-block-columns__col:nth-of-type(1) > .thallo-block:nth-of-type(1)",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography",
+        "semantics"
+      ]
+    },
+    "col2": {
+      "selector": ".thallo-block-columns__col:nth-of-type(2)",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "col2first": {
+      "selector": ".thallo-block-columns__col:nth-of-type(2) > .thallo-block:nth-of-type(1)",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography",
+        "semantics"
+      ]
+    },
+    "heading": {
+      "selector": ".thallo-block-heading",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography",
+        "semantics"
+      ]
+    },
+    "richtext": {
+      "selector": ".thallo-block-rich_text",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography",
+        "semantics"
+      ]
+    },
+    "button": {
+      "selector": ".thallo-block-button",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "semantics"
+      ]
+    }
+  },
+  "map": {
+    "root": "#root > .thallo-block-container__inner",
+    "col1": "#col1",
+    "col1first": "#col1first",
+    "col2": "#col2",
+    "col2first": "#col2first",
+    "heading": "#col1first",
+    "richtext": "#richtext",
+    "button": "#button"
+  },
+  "allow": [
+    {
+      "element": "col1",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first",
+        "heading",
+        "richtext",
+        "button"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "col1first",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first",
+        "heading",
+        "richtext",
+        "button"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "col2",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first",
+        "heading",
+        "richtext",
+        "button"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "col2first",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first",
+        "heading",
+        "richtext",
+        "button"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "heading",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first",
+        "heading",
+        "richtext",
+        "button"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "richtext",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first",
+        "heading",
+        "richtext",
+        "button"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "button",
+      "why": "Leaf containment released inside a container (spec §3.6, disposition §7.10): the block fills its cell instead of carrying the page measure and gutter with it.",
+      "relax": [
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first",
+        "heading",
+        "richtext",
+        "button"
+      ],
+      "expect": {
+        "padding-left": "0px",
+        "padding-right": "0px"
+      }
+    },
+    {
+      "element": "root",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first",
+        "heading",
+        "richtext",
+        "button"
+      ]
+    },
+    {
+      "element": "col1",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first",
+        "heading",
+        "richtext",
+        "button"
+      ]
+    },
+    {
+      "element": "col1first",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first",
+        "heading",
+        "richtext",
+        "button"
+      ]
+    },
+    {
+      "element": "col2",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first",
+        "heading",
+        "richtext",
+        "button"
+      ]
+    },
+    {
+      "element": "col2first",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first",
+        "heading",
+        "richtext",
+        "button"
+      ]
+    },
+    {
+      "element": "heading",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first",
+        "heading",
+        "richtext",
+        "button"
+      ]
+    },
+    {
+      "element": "richtext",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first",
+        "heading",
+        "richtext",
+        "button"
+      ]
+    },
+    {
+      "element": "button",
+      "why": "Spacing comes from the container (spec §3.8, disposition §7.11): the gaps own the space between items and the container owns its own edges.",
+      "relax": [
+        "margin-top",
+        "margin-bottom"
+      ],
+      "affects": [
+        "root",
+        "col1",
+        "col1first",
+        "col2",
+        "col2first",
+        "heading",
+        "richtext",
+        "button"
+      ]
+    }
+  ],
+  "old": {
+    "id": "col000000001",
+    "type": "columns",
+    "data": {
+      "layout": "2",
+      "widths": "50-50",
+      "align": "stretch",
+      "col_1": [
+        {
+          "id": "hd0000000040",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Heading in place"
+          },
+          "settings": []
+        },
+        {
+          "id": "rt0000000040",
+          "type": "rich_text",
+          "data": {
+            "body": "<p>Thallo is a canonical content source with an admin your editors will like and an API your developers already understand.</p>"
+          },
+          "settings": []
+        },
+        {
+          "id": "bt0000000040",
+          "type": "button",
+          "data": {
+            "label": "Act",
+            "url": "/go",
+            "variant": "solid",
+            "color": "primary"
+          },
+          "settings": []
+        }
+      ],
+      "col_2": [
+        {
+          "id": "hd0000000043",
+          "type": "heading",
+          "data": {
+            "level": "h2",
+            "text": "Other"
+          },
+          "settings": []
+        }
+      ],
+      "col_3": []
+    },
+    "settings": []
+  },
+  "new": {
+    "id": "col000000001",
+    "type": "container",
+    "data": {
+      "element": "div",
+      "content": [
+        {
+          "id": "colc10000001",
+          "type": "container",
+          "data": {
+            "element": "div",
+            "content": [
+              {
+                "id": "hd0000000040",
+                "type": "heading",
+                "data": {
+                  "level": "h2",
+                  "text": "Heading in place"
+                },
+                "settings": {
+                  "advanced": {
+                    "anchor": "col1first"
+                  }
+                }
+              },
+              {
+                "id": "rt0000000040",
+                "type": "rich_text",
+                "data": {
+                  "body": "<p>Thallo is a canonical content source with an admin your editors will like and an API your developers already understand.</p>"
+                },
+                "settings": {
+                  "advanced": {
+                    "anchor": "richtext"
+                  }
+                }
+              },
+              {
+                "id": "bt0000000040",
+                "type": "button",
+                "data": {
+                  "label": "Act",
+                  "url": "/go",
+                  "variant": "solid",
+                  "color": "primary"
+                },
+                "settings": {
+                  "advanced": {
+                    "anchor": "button"
+                  }
+                }
+              }
+            ]
+          },
+          "settings": {
+            "style": {
+              "layout": {
+                "display": {
+                  "base": {
+                    "type": "choice",
+                    "value": "flex"
+                  },
+                  "md": {
+                    "type": "choice",
+                    "value": "flex"
+                  },
+                  "lg": {
+                    "type": "choice",
+                    "value": "flex"
+                  }
+                },
+                "direction": {
+                  "base": {
+                    "type": "choice",
+                    "value": "column"
+                  },
+                  "md": {
+                    "type": "choice",
+                    "value": "column"
+                  },
+                  "lg": {
+                    "type": "choice",
+                    "value": "column"
+                  }
+                },
+                "gap": {
+                  "row": {
+                    "base": {
+                      "type": "token",
+                      "value": "spacing.md"
+                    }
+                  }
+                }
+              }
+            },
+            "advanced": {
+              "anchor": "col1"
+            }
+          }
+        },
+        {
+          "id": "colc20000001",
+          "type": "container",
+          "data": {
+            "element": "div",
+            "content": [
+              {
+                "id": "hd0000000043",
+                "type": "heading",
+                "data": {
+                  "level": "h2",
+                  "text": "Other"
+                },
+                "settings": {
+                  "advanced": {
+                    "anchor": "col2first"
+                  }
+                }
+              }
+            ]
+          },
+          "settings": {
+            "style": {
+              "layout": {
+                "display": {
+                  "base": {
+                    "type": "choice",
+                    "value": "flex"
+                  },
+                  "md": {
+                    "type": "choice",
+                    "value": "flex"
+                  },
+                  "lg": {
+                    "type": "choice",
+                    "value": "flex"
+                  }
+                },
+                "direction": {
+                  "base": {
+                    "type": "choice",
+                    "value": "column"
+                  },
+                  "md": {
+                    "type": "choice",
+                    "value": "column"
+                  },
+                  "lg": {
+                    "type": "choice",
+                    "value": "column"
+                  }
+                },
+                "gap": {
+                  "row": {
+                    "base": {
+                      "type": "token",
+                      "value": "spacing.md"
+                    }
+                  }
+                }
+              }
+            },
+            "advanced": {
+              "anchor": "col2"
+            }
+          }
+        }
+      ]
+    },
+    "settings": {
+      "style": {
+        "layout": {
+          "content_width": {
+            "base": {
+              "type": "token",
+              "value": "width.container"
+            },
+            "md": {
+              "type": "token",
+              "value": "width.container"
+            },
+            "lg": {
+              "type": "token",
+              "value": "width.container"
+            }
+          },
+          "display": {
+            "base": {
+              "type": "choice",
+              "value": "grid"
+            },
+            "md": {
+              "type": "choice",
+              "value": "grid"
+            },
+            "lg": {
+              "type": "choice",
+              "value": "grid"
+            }
+          },
+          "columns": {
+            "base": {
+              "type": "choice",
+              "value": "1"
+            },
+            "md": {
+              "type": "choice",
+              "value": "2"
+            },
+            "lg": {
+              "type": "choice",
+              "value": "2"
+            }
+          },
+          "align_items": {
+            "base": {
+              "type": "choice",
+              "value": "stretch"
+            },
+            "md": {
+              "type": "choice",
+              "value": "stretch"
+            },
+            "lg": {
+              "type": "choice",
+              "value": "stretch"
+            }
+          },
+          "gap": {
+            "column": {
+              "base": {
+                "type": "token",
+                "value": "spacing.lg"
+              },
+              "md": {
+                "type": "token",
+                "value": "spacing.lg"
+              },
+              "lg": {
+                "type": "token",
+                "value": "spacing.lg"
+              }
+            },
+            "row": {
+              "base": {
+                "type": "token",
+                "value": "spacing.lg"
+              },
+              "md": {
+                "type": "token",
+                "value": "spacing.lg"
+              },
+              "lg": {
+                "type": "token",
+                "value": "spacing.lg"
+              }
+            }
+          }
+        }
+      },
+      "advanced": {
+        "anchor": "root"
+      }
+    }
+  }
+}

@@ -192,6 +192,12 @@ test.describe('animated text', () => {
 test.describe('gallery layout', () => {
   test('natural mode: the nested .thallo-block-image reset has zero standalone margin/padding and preserves the natural aspect height', async ({ page }) => {
     await page.goto(FIXTURE);
+    // The assertion divides by the image's intrinsic size, which is 0 until it has decoded — under
+    // parallel load that can be after the navigation resolves.
+    await page.waitForFunction(() => {
+      const img = document.querySelector('[data-fixture="gallery-natural"] .thallo-block-gallery__item img');
+      return !!img && img.complete && img.naturalWidth > 0;
+    });
 
     const data = await page.evaluate(() => {
       const item = document.querySelector('[data-fixture="gallery-natural"] .thallo-block-gallery__item');
