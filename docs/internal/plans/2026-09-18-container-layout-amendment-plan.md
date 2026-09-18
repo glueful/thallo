@@ -245,8 +245,8 @@ The section labelled Children no longer exists. `data-test` names of controls th
 
 **Tests:** `trackCount('3')` = 3, `('12')` = 12, `('1-2-1')` = 3, `('2-1')` = 2; `effectiveSpan('full', 3)` = 3, `('6', 3)` = 3, `(null, 3)` = 1; empty 3-track → 3; one child → 2; a child spanning 2 of 3 → 1; **two children spanning 2 of 3 → 1**; three children → 0; a child hidden at `md` not counted at `md` and counted at `base`; tracks inherited from `base` at `lg`; tracks and a span supplied by a style class; a 1-track grid (mobile stack) with two children → 0.
 
-- [ ] **Steps 1–4.**
-- [ ] **Step 5: Commit** `feat(editor): grid occupancy — the cells an appended block can reach, at a breakpoint`.
+- [x] **Steps 1–4.**
+- [x] **Step 5: Commit** `feat(editor): grid occupancy — the cells an appended block can reach, at a breakpoint`.
 
 ## Task 3.3: Fill empty cells
 
