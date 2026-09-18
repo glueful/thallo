@@ -170,13 +170,38 @@ export async function openDesignPage(page: Page): Promise<Recorded> {
     // Manual apply: a proof decides when the server judges the tree.
     localStorage.setItem('thallo.canvas.auto_apply', '0')
   })
-  await page.goto('/admin/login')
-  await page.locator('input[type="email"]').fill('proofs@thallo.test')
-  await page.locator('input[type="password"]').fill('builder-proofs')
-  await page.locator('button[type="submit"]').click()
-  await page.waitForURL((url) => !url.pathname.endsWith('/login'))
-  await page.goto(designPath)
-  await page.locator('[data-test="canvas-iframe"]').waitFor()
+  async function signIn(): Promise<void> {
+    await page.goto('/admin/login')
+    await page.locator('input[type="email"]').fill('proofs@thallo.test')
+    await page.locator('input[type="password"]').fill('builder-proofs')
+    await page.locator('button[type="submit"]').click()
+    await page.waitForURL((url) => !url.pathname.endsWith('/login'))
+    // Let the shell finish its own startup requests: the session is persisted during them, and a
+    // hard navigation before they settle is what the guard races against.
+    await page.waitForLoadState('networkidle').catch(() => undefined)
+  }
+  // The persisted session rehydrates asynchronously, so on a slow load the route guard can run
+  // first and bounce the design page back to sign-in. Whichever arrives is waited for, and a
+  // bounce is answered by signing in again rather than by failing the proof on the app's startup
+  // race. Three attempts: past that it is not a race any more.
+  for (let attempt = 0; ; attempt++) {
+    await signIn()
+    await page.goto(designPath)
+    const landed = await Promise.race([
+      page
+        .locator('[data-test="canvas-iframe"]')
+        .waitFor({ timeout: 20_000 })
+        .then(() => 'design' as const)
+        .catch(() => 'timeout' as const),
+      page
+        .locator('input[type="password"]')
+        .waitFor({ timeout: 20_000 })
+        .then(() => 'login' as const)
+        .catch(() => 'timeout' as const),
+    ])
+    if (landed === 'design') break
+    if (attempt >= 2) throw new Error(`the Design page never opened (last state: ${landed})`)
+  }
   await stage(page).locator('[data-thallo-block]').first().waitFor()
   return recorded
 }

@@ -905,6 +905,9 @@ const coordinator = createDragCoordinator({
   legality: legalityContext,
 })
 
+/** The offers as last published, for the proofs: the stage is captured there and renders none. */
+let lastStructureOffers: { id: string; presets: { key: string; enabled: boolean }[] }[] = []
+
 /**
  * The structure picker (container-layout spec §6): offered for a container the author just
  * inserted, empty and fresh. The offer lives in this session, never in the document, so undo
@@ -916,7 +919,10 @@ const picker = createStructurePicker({
   classesFor: (id) => classRefsFor(fieldEditorRef.value?.blockById(id) ?? null),
   factory: (slug) => blockFactory.instance(slug),
   commit: (ops) => applyDrop(ops),
-  publish: (offers) => bridge.publishStructureOffers(offers),
+  publish: (offers) => {
+    lastStructureOffers = offers
+    bridge.publishStructureOffers(offers)
+  },
   notify: (message) => warning(message),
 })
 bridge.onStructureChoose((id, preset) => void picker.choose(id, preset))
@@ -1396,6 +1402,12 @@ if (import.meta.env.VITE_E2E === '1') {
       selection: selection.value,
     }),
     applies: () => appliesAnswered,
+    // The picker (container-layout spec §6). The proofs drive it directly because this harness's
+    // stage is a captured page that never re-renders, so a container inserted now has no tiles
+    // there; what the tiles DO is proven against the bridge asset in preview-bridge-dom.spec.
+    structureOffers: () => lastStructureOffers,
+    chooseStructure: (id: string, preset: string) => picker.choose(id, preset),
+    skipStructure: (id: string) => picker.skip(id),
   }
 }
 
