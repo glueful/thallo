@@ -1765,6 +1765,36 @@ describe('canvas page', () => {
         wrapper.unmount()
       })
 
+      // A page created with a title and nothing else has no `body` in its fields at all: the
+      // stage's empty body slot is still a place a block can be dropped.
+      it.each([
+        ['never set', { title: 'Blank' }],
+        ['null', { title: 'Blank', body: null }],
+      ])(
+        'a tile dropped on the empty body of a new page (body %s) inserts the first block',
+        async (_, fields) => {
+          draft.value = { fields, lock_version: 1 } as unknown as typeof draft.value
+          mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+          saveMock.mockResolvedValue(undefined)
+          const wrapper = mountPage()
+          await flushPromises()
+          const first = { parent: null, slot: 'body', index: 0, layout: 'linear-vertical' as const }
+          const { tile, session } = await dragTile(wrapper, 'card')
+          bridge.callbacks.dragPropose?.(session, [], first)
+          expect(bridge.instance.dragLegality).toHaveBeenLastCalledWith(session, true, '')
+          tile.dispatchEvent(
+            new MouseEvent('pointerup', { bubbles: true, clientX: 210, clientY: 110 }),
+          )
+          bridge.callbacks.blockDrop?.(session, [], first)
+          await flushPromises()
+          expect(notify.warning).not.toHaveBeenCalled()
+          await wrapper.find('[data-test="canvas-save"]').trigger('click')
+          await flushPromises()
+          expect(savedBody().map((b) => b.type)).toEqual(['card'])
+          wrapper.unmount()
+        },
+      )
+
       it('a permitted hover then a release over a forbidden slot: the final zone is judged and refused', async () => {
         mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
         saveMock.mockResolvedValue(undefined)

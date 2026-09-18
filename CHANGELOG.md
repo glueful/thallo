@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Fixed
+- The Design view of a page that had never held a block — created with a title and nothing else —
+  showed no "Drag a block here" and no +, and a block dragged onto the empty page did nothing;
+  only clicking a block in the Blocks tab worked, after which both appeared. The stage now has its
+  empty body to drop into from the start.
+
 ## [1.0.0-beta.40] - 2026-09-18 — Developer Preview
 
 Layout is a setting: one Container arranges its children as a stack, a flex row or a grid, and
