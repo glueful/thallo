@@ -273,7 +273,7 @@ Extend the repair spec: the capability note is present with either tab open; Nee
 
 **Files:** `CHANGELOG.md` (Unreleased — **Added:** a Layout tab in the style class editor, with what it covers and the applicability labels. **Fixed:** since beta.40 a class could hold width, placement, content alignment and layout settings and could not edit them; a class's fields said `theme` where the class simply declared nothing; a refused class save now says which field. In the class editor, linked sides — padding, margin, gap — saved only one of the sides they were meant to set. **Changed:** in the class editor the actions are named Remove and Use theme default); `packages/thallo-render/docs/THEMING.md` "Style classes" (one paragraph: a class may carry layout; per-property cascade means a class's Flex settings apply wherever the effective layout is Flex, whatever mode the class itself sets).
 
-- [ ] **Step 1:** write both. **Step 2: Commit** `docs: style classes edit layout — the class Layout tab and truthful field states`.
+- [x] **Step 1:** write both. **Step 2: Commit** `docs: style classes edit layout — the class Layout tab and truthful field states`.
 
 ## Task 4.2: gates
 

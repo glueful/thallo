@@ -38,6 +38,17 @@ as the next release, never a mutated tag.
   when a style class supplies it, the tab names the class and opens it, and the class editor lists
   it under "Needs attention" with the same two actions.
 
+- **A Layout tab in the style class editor.** A class can carry width, placement, content
+  alignment and every layout setting — mode, direction, wrap, tracks, alignment, gaps, content
+  width, gutter, minimum height, overflow, and the item settings — and now has somewhere to edit
+  them, beside Style. A class is applied to many blocks in many places, so its tab hides nothing
+  on the strength of a mode or a parent it does not have: every setting is always there, under a
+  label saying where it takes effect — Applies in Flex, Applies in Grid, Applies in a Grid parent,
+  Applies in a Flex parent. Where a class sets one mode and also holds the other's settings, the
+  tab says they are retained and where they apply, and predicts nothing: a block or another class
+  may set the mode differently and still take this class's direction. Both tabs carry a standing
+  note that a declaration applies only to blocks that support that property.
+
 ### Changed
 - A container arranges its children as **Flex or Grid** — the separate stacked mode is removed,
   since a flex column is a stack. An untouched container is a flex column whose gaps default to
@@ -55,7 +66,31 @@ as the next release, never a mutated tag.
   starting size — which can change how a row's items are sized and where they wrap. A theme that
   does not use `box-sizing: border-box` must account for a padded block with an authored width.
 
+- **In the style class editor, a setting says what the class declares.** An untouched setting
+  read "theme", which is true of a block and not of a class: what a block ends up with is decided
+  by its other classes, its own settings and the theme. It now reads **Not set in this class** —
+  only when nothing reaches that breakpoint from an earlier one — and otherwise **Inherited from
+  base** (or md), naming the breakpoint that declares it, **Theme default, set here**, or **Theme
+  default, from base**. A setting that does not vary by screen size — overflow, radius, the
+  colours, the border — says **Applies at all sizes**. The two actions are named for what they do:
+  **Remove** deletes the declaration at the breakpoint being edited, which may bring an earlier
+  one back into view, and **Use theme default** sets the theme's value from that breakpoint up.
+  The block inspector's wording is unchanged.
+
 ### Fixed
+- Since beta.40 a style class could *hold* width, placement, content alignment and layout settings
+  — Save as style class lifts them, and they take effect on the page — and could not show or edit
+  any of them: those properties had moved to the block inspector's Layout tab, and the class
+  editor had only Style. See the new Layout tab, above.
+- In the style class editor, linked sides — padding, margin, and now gap — saved only one of the
+  sides they were meant to set: one click writes every side, and each write was built on the value
+  from before the click. All of them are kept now.
+- A style class that could not be saved said only that: the confirm dialog stayed open over the
+  form and nothing named the problem. The refusal now closes the dialog, lists each refused field
+  above the editor — the setting, its breakpoint and the reason — and leaves everything you typed
+  in place. A class that still holds a layout value the contract no longer offers is refused
+  until that value is repaired, whatever else you were editing; it is listed under Needs
+  attention on the same page, and once repaired the same draft saves.
 - In the Design view, ⌘Z and ⇧⌘Z did nothing after a click on the stage — selecting, moving,
   duplicating or deleting a block there — because the keystroke stayed in the preview and never
   reached the editor; only the toolbar's buttons worked. The stage now passes undo and redo on.
