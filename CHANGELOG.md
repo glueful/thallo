@@ -7,6 +7,14 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.45] - 2026-09-19 — Developer Preview
+
+One style class goes on as many blocks as you choose it for.
+
+### Upgrade Notes
+- No migrations, no new permissions, no dependency changes. The documented sequence applies
+  (docs/upgrading.md).
+
 ### Fixed
 - A style class could be applied to only one block per visit to the Design page. In the Advanced
   tab, choosing a class worked once; choosing the same class on the next block did nothing, with
