@@ -111,6 +111,14 @@ const PROPERTIES: PropertyDefinition[] = [
   // shows (a percentage), and how much of what lies behind the element is blurred.
   choice('colors.surface_opacity', 'backdrop', false, ['100', '90', '80', '70', '60', '50']),
   choice('backdrop.blur', 'backdrop', false, ['none', 'sm', 'md', 'lg']),
+  // The third typography property: how far apart a text's lines sit. Responsive, as size is.
+  choice('typography.line_height', 'typography', true, [
+    'tight',
+    'snug',
+    'normal',
+    'relaxed',
+    'loose',
+  ]),
 ]
 
 const BY_PATH = new Map(PROPERTIES.map((p) => [p.path, p]))

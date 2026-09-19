@@ -11,7 +11,8 @@ as the next release, never a mutated tag.
 - The documented sequence applies (docs/upgrading.md). The style schema and the compiler both move
   on, so the compiled stylesheet is rebuilt under a new hash on the first request after PHP-FPM is
   reloaded; `thallo:provision` brings the Container block's new settings to an existing install.
-  No migrations: a region's style is stored in the settings it already has.
+  One migration, run by provision: it adds the hero's two gradient fields to an existing install.
+  A region's style needs none — it is stored in the settings a region already has.
 - A theme with its own `layout.twig` keeps working, and its header and footer ignore the new Style
   tab until the template emits `region_style_classes()` on the bar and its inner element. A theme
   with its own stylesheet should also name each bar's colour in `--t-surface-default`, or a
@@ -31,6 +32,14 @@ as the next release, never a mutated tag.
   laid out, given style classes, an anchor or CSS classes without leaving the page. The preview
   shows each change, and Save stores them with the region. Saving a block's styling *as* a style
   class stays on the Design page; classes made there can be applied here.
+- **The hero's gradient takes a colour and a strength.** Two new fields beside Background in the
+  Block tab: *Gradient color* — the theme accent, as before, or any of the seventeen colour
+  families the site accent offers, in their light and dark values — and *Gradient strength*:
+  subtle (the faint wash a hero always had), medium or strong. They apply to the gradient
+  background only, and an untouched hero is unchanged.
+- **Line height** joins Size and Weight under Typography in the Style tab, for every block with
+  typography settings: tight, snug, normal, relaxed or loose, per breakpoint. The values are
+  ratios, so a line's height follows the text's size.
 - **Border sides**: a border on all sides or on one — top, right, bottom or left — for every block
   that has border settings, under Effects.
 - **Background opacity and Backdrop blur**, beside Background, for the Container block and the two

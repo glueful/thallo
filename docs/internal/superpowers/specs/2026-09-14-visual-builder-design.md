@@ -112,6 +112,7 @@ properties.
 | `border` | `width` (`none, thin, thick`), `style` (`solid, dashed`) | choice, reset | no |
 | `marker` | `radius`, `shadow` | token, reset | as `radius` and `shadow`: no, yes |
 | `tabs` | `bar_radius`, `tab_radius` | token, reset | as `radius`: no |
+| `typography` | + `line_height` (`tight, snug, normal, relaxed, loose`) | choice, reset | yes |
 | `border` | + `sides` (`all, top, right, bottom, left`) | choice, reset | no |
 | `backdrop` | `colors.surface_opacity` (`100`–`50`), `backdrop.blur` (`none, sm, md, lg`) | choice, reset | no |
 
@@ -143,6 +144,10 @@ it paints, else to nothing. Both variables are registered non-inheriting, so a c
 opacity never mixes its parent's colour. A modifier's reset rule is empty — reverting the
 declarations it shares would undo the utility beside it — but is written, since every class the
 emitter can write has a rule. The schema moves to 6 and the compiler to 7.
+
+`typography.line_height` (amended the same day) is the group's third property: unitless ratios
+(1.1, 1.25, 1.5, 1.65, 1.9), responsive as size is, and in the group — so every block that declares
+typography gains it on the target it already names. The schema moves to 7 and the compiler to 8.
 
 The chrome regions take the same style record in `settings.style`, validated against
 `RegionStyle` (contracts): spacing, shadow, radius, colours, border, backdrop — not visibility (a

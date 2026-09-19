@@ -126,6 +126,20 @@ final class StyleCompilerTest extends TestCase
         self::assertStringNotContainsString('.md\\:t-tabradius', $css, 'not responsive, as radius is not');
     }
 
+    public function testLineHeightCompilesToUnitlessValuesAtEveryBreakpoint(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+
+        // Unitless, so a line's height follows its text's size — the Size setting beside it.
+        $expected = ['tight' => '1.1', 'snug' => '1.25', 'normal' => '1.5', 'relaxed' => '1.65', 'loose' => '1.9'];
+        foreach ($expected as $choice => $value) {
+            self::assertStringContainsString(".t-leading-{$choice} { line-height: {$value}; }", $css);
+        }
+        self::assertStringContainsString('.lg\\:t-leading-tight { line-height: 1.1; }', $css);
+        self::assertStringContainsString('.md\\:t-leading-reset { line-height: revert-layer; }', $css);
+        self::assertSame('lg:t-leading-snug', ClassNames::for('typography.line_height', 'snug', 'lg'));
+    }
+
     public function testBorderSidesTakeTheOtherSidesAway(): void
     {
         $css = StyleCompiler::compile($this->vocabulary());

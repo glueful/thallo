@@ -97,6 +97,14 @@ $cases = [
     'hero-surface-reset' => ['block' => 'hero', 'settings' => ['style' => [
         'colors' => ['surface' => $reset],
     ]], 'classes' => []],
+    // The hero gradient's own colour and strength (Block tab fields, so classes of the template's,
+    // not settings): emerald, strong — beside a twin that is the site accent, faint.
+    'hero-gradient-emerald-strong' => ['block' => 'hero', 'settings' => [], 'classes' => [],
+        'extra' => ' thallo-block-hero--gradient-emerald thallo-block-hero--gradient-strength-strong'],
+    // Line height: tight at base, given back to the theme at md, loose from lg.
+    'line-height' => ['block' => 'heading', 'settings' => ['style' => ['typography' => ['line_height' => [
+        'base' => $choice('tight'), 'md' => $reset, 'lg' => $choice('loose'),
+    ]]]], 'classes' => []],
     // The chrome regions (the Regions page's Style tab). Untouched and sticky, the header is
     // still the theme's translucent, blurred bar — sticky used to repaint it solid.
     'header-sticky-untouched' => ['block' => 'header', 'sticky' => true, 'settings' => [], 'classes' => []],
@@ -163,7 +171,7 @@ foreach ($cases as $name => $case) {
         $control = $region('', '', 'control');
     } elseif ($case['block'] === 'hero') {
         $hero = 'thallo-block thallo-block-hero thallo-block-hero--bg-gradient thallo-block-hero--vertical';
-        $markup = '<section class="' . $hero . $classes($case, 'root') . '" data-target="root">'
+        $markup = '<section class="' . $hero . ($case['extra'] ?? '') . $classes($case, 'root') . '" data-target="root">'
             . '<div class="thallo-block-hero__inner"><h1>Hero</h1></div></section>';
         $control = '<section class="' . $hero . '" data-control="root">'
             . '<div class="thallo-block-hero__inner"><h1>Hero</h1></div></section>';

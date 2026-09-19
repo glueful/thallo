@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 6;
+    public const VERSION = 7;
 
     /** Platform breakpoints: `md` from 768px, `lg` from 1024px. */
     public const BREAKPOINTS = ['base', 'md', 'lg'];
@@ -142,6 +142,13 @@ final class StyleSchema
         ]);
         $defs[] = new PropertyDefinition('backdrop.blur', 'backdrop', $choice, false, null, [
             'none', 'sm', 'md', 'lg',
+        ]);
+
+        // The third typography property: how far apart a text's lines sit. In the group, so every
+        // block that declares typography gains it on the target it already names; responsive, as
+        // size is — a heading set large on a desktop wants tighter lines there.
+        $defs[] = new PropertyDefinition('typography.line_height', 'typography', $choice, true, null, [
+            'tight', 'snug', 'normal', 'relaxed', 'loose',
         ]);
 
         $byPath = [];

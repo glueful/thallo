@@ -82,6 +82,7 @@ const LABELS: Record<string, string> = {
   'alignment.text': 'Text alignment',
   'typography.size': 'Size',
   'typography.weight': 'Weight',
+  'typography.line_height': 'Line height',
   visibility: 'Visibility',
   shadow: 'Shadow',
   radius: 'Corners',

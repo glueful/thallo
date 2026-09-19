@@ -52,8 +52,10 @@ final class StyleSchemaTest extends TestCase
             // Which sides a border is drawn on; and the backdrop pair — how much of the background
             // colour shows, and how much of what lies behind it is blurred.
             'border.sides', 'colors.surface_opacity', 'backdrop.blur',
+            // The third typography property: how far apart a text's lines sit.
+            'typography.line_height',
         ], $paths);
-        self::assertSame(6, StyleSchema::VERSION);
+        self::assertSame(7, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
     }
 
@@ -175,7 +177,23 @@ final class StyleSchemaTest extends TestCase
             StyleSchema::pathsInGroup('layout.item'),
             StyleCapabilities::fromDeclaration(['layout.item'])->paths(),
         );
-        self::assertSame(6, StyleSchema::VERSION);
+        self::assertSame(7, StyleSchema::VERSION);
+    }
+
+    public function testLineHeightJoinsTheTypographyGroupAndVariesByScreenAsSizeDoes(): void
+    {
+        // In the group, so every block that declares typography gains it on the target it already
+        // names; responsive, because a heading set large on a desktop wants tighter lines there.
+        $def = StyleSchema::property('typography.line_height');
+        self::assertNotNull($def);
+        self::assertSame('typography', $def->group);
+        self::assertSame(['tight', 'snug', 'normal', 'relaxed', 'loose'], $def->choices);
+        self::assertTrue($def->responsive);
+        self::assertSame(StyleSchema::property('typography.size')?->responsive, $def->responsive);
+        self::assertSame(
+            ['typography.size', 'typography.weight', 'typography.line_height'],
+            StyleSchema::pathsInGroup('typography'),
+        );
     }
 
     public function testBorderSidesJoinsTheBorderGroupAndTheBackdropPairIsItsOwn(): void
