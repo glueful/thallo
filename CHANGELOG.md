@@ -7,7 +7,13 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.43] - 2026-09-19 — Developer Preview
+
+The Block tab edits a block completely, a shortcode can be styled, and a shell snippet reads as a
+terminal.
+
 ### Upgrade Notes
+- No migrations, no new permissions, no dependency changes.
 - The documented sequence applies (docs/upgrading.md). `thallo:provision` brings the Shortcode
   block's new style settings to an existing install. A theme that overrides
   `shortcodes/thallo-version.twig` or `shortcodes/copyright.twig`, or ships shortcodes of its
