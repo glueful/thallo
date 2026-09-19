@@ -110,6 +110,15 @@ properties.
 | `radius` | `radius` | token, reset | no (scope, not meaning) |
 | `colors` | `surface`, `text`, `border` | token, reset | no (scope, not meaning) |
 | `border` | `width` (`none, thin, thick`), `style` (`solid, dashed`) | choice, reset | no |
+| `marker` | `radius`, `shadow` | token, reset | as `radius` and `shadow`: no, yes |
+
+**Amended 2026-09-19 — `marker`.** A block's marker — a feature's icon chip or number badge — has
+corners and a shadow of its own, set in the Style tab under **Marker**. They are their own paths
+(`marker.radius`, `marker.shadow`) because `radius` and `shadow` are the card's and one path holds
+one value; they mirror those two in kind, token domain and responsiveness, compile to the same
+declarations under their own class names (`t-mradius-*`, `t-mshadow-*`), and land on an optional
+`marker` target. The schema moves to 4 and the compiler to 5. The marker's colours and size stay
+the block's own Content fields for now: moving them is a data-to-settings move, and a separate one.
 
 Alignment is typed by meaning. `alignment.text` is `text-align` on a text target.
 `alignment.content` places a row target's children horizontally (`justify-content` on a

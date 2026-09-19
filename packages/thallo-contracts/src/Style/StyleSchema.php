@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 3;
+    public const VERSION = 4;
 
     /** Platform breakpoints: `md` from 768px, `lg` from 1024px. */
     public const BREAKPOINTS = ['base', 'md', 'lg'];
@@ -114,6 +114,13 @@ final class StyleSchema
         $defs[] = new PropertyDefinition('layout.align_self', 'layout.item', $choice, true, null, [
             'start', 'center', 'end', 'stretch',
         ]);
+
+        // A block's marker — a feature's icon chip or number badge — has corners and a shadow of
+        // its own. They are their own paths because `radius` and `shadow` are the card's, and one
+        // path holds one value; they mirror those two in kind, domain and responsiveness, so the
+        // Style tab draws the same controls and a theme's tokens mean the same thing on both.
+        $defs[] = new PropertyDefinition('marker.radius', 'marker', $token, false, 'radius');
+        $defs[] = new PropertyDefinition('marker.shadow', 'marker', $token, true, 'shadow');
 
         $byPath = [];
         foreach ($defs as $def) {

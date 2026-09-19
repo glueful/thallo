@@ -7,6 +7,29 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Upgrade Notes
+- The documented sequence applies (docs/upgrading.md). `thallo:provision` brings the Feature
+  block's new Marker settings to an existing install. The style schema and the compiler each move
+  by one version, so the compiled stylesheet is rebuilt under a new hash on the first request
+  after PHP-FPM is reloaded. A theme that overrides `feature.twig` keeps working; to make the
+  marker styleable, add `{{ style_classes('marker') }}` to the marker's class attribute
+  (THEMING.md §12.3).
+- A theme of your own should define `--radius-sm` and `--radius-md` beside `--radius` and
+  `--radius-lg` if it reuses the default theme's block styles.
+
+### Added
+- **A feature's marker has its own corners and shadow**, in the Style tab under **Marker** — for
+  its icon chip or its number badge. They are separate from the block's own Corners and Shadow
+  under Effects, which stay the card's: a round, lifted badge on a square card, or the reverse.
+
+### Fixed
+- The default theme's badges and tabs had square corners where its stylesheet says rounded: the
+  feature block's number badge and icon chip, the tabs' pill strip and its tabs, and the boxed
+  tabs. They read `--radius-md` and `--radius-sm`, which the theme never defined, and a declaration
+  that reads an undefined variable silently does nothing. Both are defined now — 6px, and the
+  theme's base radius — matching the Style tab's own `sm` and `md`. The code block's text colour
+  read an undefined variable too, and now names the theme's text colour.
+
 ## [1.0.0-beta.43] - 2026-09-19 — Developer Preview
 
 The Block tab edits a block completely, a shortcode can be styled, and a shell snippet reads as a

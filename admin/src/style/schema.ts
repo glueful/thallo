@@ -97,6 +97,10 @@ const PROPERTIES: PropertyDefinition[] = [
   choice('layout.grow', 'layout.item', true, ['0', '1']),
   choice('layout.shrink', 'layout.item', true, ['0', '1']),
   choice('layout.align_self', 'layout.item', true, ['start', 'center', 'end', 'stretch']),
+  // A block's marker (a feature's icon chip or number badge): corners and a shadow of its own.
+  // Their own paths because `radius` and `shadow` are the card's — one path holds one value.
+  token('marker.radius', 'marker', false, 'radius'),
+  token('marker.shadow', 'marker', true, 'shadow'),
 ]
 
 const BY_PATH = new Map(PROPERTIES.map((p) => [p.path, p]))

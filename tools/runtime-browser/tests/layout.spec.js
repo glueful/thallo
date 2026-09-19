@@ -286,6 +286,21 @@ const CASES = {
     'c0.child2>.thallo-shortcode-version::before': at({ 'background-color': 'rgb(37, 99, 235)' }),
   },
 
+  // A feature's marker. First, the theme's own default: a rounded badge — it shipped SQUARE while
+  // `--radius-md` was read and never defined (an invalid declaration takes the initial value, 0).
+  // Then the marker's own corners and shadow, which leave the card alone; and the card's, which
+  // leave the marker alone.
+  'feature-marker': {
+    'c0.child0>.thallo-block-feature__marker': at({ 'border-top-left-radius': '12px', 'box-shadow': 'none' }),
+    'c0.child1>.thallo-block-feature__marker': at({
+      'border-top-left-radius': '999px',
+      'box-shadow': /^(?!none)/,
+    }),
+    'c0.child1': at({ 'border-top-left-radius': '0px', 'box-shadow': 'none' }),
+    'c0.child2': at({ 'border-top-left-radius': '20px' }),
+    'c0.child2>.thallo-block-feature__marker': at({ 'border-top-left-radius': '12px' }),
+  },
+
   // A shell snippet as a terminal. What only a browser can show: the prompt is DRAWN (generated
   // content, so neither copied nor selected) in the accent; an empty line, a block holding nothing
   // but its newline, still has a line's height; one line is one line high — the newline inside a

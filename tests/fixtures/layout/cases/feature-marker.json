@@ -1,0 +1,71 @@
+{
+  "case": "feature-marker",
+  "note": "A feature's marker has corners and a shadow of its own, set under Marker in the Style tab; the block's radius and shadow stay the card's. Untouched, the badge has the theme's rounded corners — it shipped square while --radius-md was undefined.",
+  "tree": {
+    "id": "lf0000000921",
+    "type": "layout_fixture",
+    "data": {
+      "content": [
+        {
+          "id": "ft000000091",
+          "type": "feature",
+          "data": {
+            "title": "Step",
+            "description": "Text",
+            "marker": "number",
+            "number": "1"
+          },
+          "settings": {
+            "style": {}
+          }
+        },
+        {
+          "id": "ft000000092",
+          "type": "feature",
+          "data": {
+            "title": "Step",
+            "description": "Text",
+            "marker": "number",
+            "number": "2"
+          },
+          "settings": {
+            "style": {
+              "marker": {
+                "radius": {
+                  "type": "token",
+                  "value": "radius.full"
+                },
+                "shadow": {
+                  "base": {
+                    "type": "token",
+                    "value": "shadow.md"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "ft000000093",
+          "type": "feature",
+          "data": {
+            "title": "Step",
+            "description": "Text",
+            "marker": "number",
+            "number": "3",
+            "variant": "outline"
+          },
+          "settings": {
+            "style": {
+              "radius": {
+                "type": "token",
+                "value": "radius.lg"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "settings": {}
+  }
+}
