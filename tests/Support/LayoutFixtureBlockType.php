@@ -23,7 +23,7 @@ final class LayoutFixtureBlockType
 
     /** Capabilities on the band root: the block's own box, plus how it sits in its parent. */
     private const ROOT = [
-        'spacing', 'width', 'visibility', 'colors', 'radius', 'border', 'shadow',
+        'spacing', 'width', 'visibility', 'colors', 'radius', 'border', 'shadow', 'backdrop',
         'layout.min_height', 'layout.overflow', 'layout.item',
     ];
 

@@ -47,7 +47,15 @@ final class RegionAdminApiTest extends AppTestCase
         self::assertContains('navigation', $regions[0]['palette']);
         self::assertNotContains('gallery', $regions[0]['palette']);   // header stays strict
         self::assertContains('html', $regions[1]['palette']);
-        self::assertSame(['sticky', 'width'], $regions[0]['settings_keys']);
+        self::assertSame(['sticky', 'width', 'style'], $regions[0]['settings_keys']);
+        self::assertSame(['width', 'style'], $regions[1]['settings_keys']);
+        // What the region's Style tab may offer: declared by the server, never hardcoded client-side.
+        foreach ($regions as $region) {
+            self::assertSame(
+                ['spacing', 'shadow', 'radius', 'colors', 'border', 'backdrop'],
+                $region['style_capabilities'],
+            );
+        }
         self::assertSame([], $regions[0]['blocks']);                   // absent row round-trips empty
     }
 

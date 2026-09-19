@@ -8,7 +8,7 @@
       "content": [
         {
           "id": "ct0000000941",
-          "type": "container",
+          "type": "layout_fixture",
           "data": {
             "content": [
               {
@@ -20,7 +20,7 @@
               },
               {
                 "id": "ct0000000942",
-                "type": "container",
+                "type": "layout_fixture",
                 "data": {
                   "content": [
                     {
@@ -82,7 +82,7 @@
         },
         {
           "id": "ct0000000943",
-          "type": "container",
+          "type": "layout_fixture",
           "data": {
             "content": [
               {

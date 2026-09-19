@@ -42,6 +42,8 @@ foreach (StarterBlockTypes::definitions() as $definition) {
         $targets[$definition['slug']] = StyleTargets::fromDeclaration($definition['style_targets']);
     }
 }
+// The chrome regions are not block types: what they may be styled with is RegionStyle's.
+$targets['header'] = $targets['footer'] = \Thallo\Contracts\Style\RegionStyle::targets();
 $emitter = new BlockStyleEmitter();
 $token = static fn (string $value): array => ['type' => 'token', 'value' => $value];
 $choice = static fn (string $value): array => ['type' => 'choice', 'value' => $value];
@@ -95,6 +97,33 @@ $cases = [
     'hero-surface-reset' => ['block' => 'hero', 'settings' => ['style' => [
         'colors' => ['surface' => $reset],
     ]], 'classes' => []],
+    // The chrome regions (the Regions page's Style tab). Untouched and sticky, the header is
+    // still the theme's translucent, blurred bar — sticky used to repaint it solid.
+    'header-sticky-untouched' => ['block' => 'header', 'sticky' => true, 'settings' => [], 'classes' => []],
+    // An opacity with no colour chosen mixes the colour the THEME paints the bar with.
+    'header-opacity-only' => ['block' => 'header', 'settings' => ['style' => [
+        'colors' => ['surface_opacity' => $choice('60')],
+    ]], 'classes' => []],
+    'footer-opacity-only' => ['block' => 'footer', 'settings' => ['style' => [
+        'colors' => ['surface_opacity' => $choice('50')],
+    ]], 'classes' => []],
+    // A floating bar: its own colour at 80%, no blur, round, lifted, off the top edge, with the
+    // border drawn all round where the theme draws the bottom alone.
+    'header-floating' => ['block' => 'header', 'settings' => ['style' => [
+        'colors' => ['surface' => $token('color.accent'), 'surface_opacity' => $choice('80')],
+        'backdrop' => ['blur' => $choice('none')],
+        'radius' => $token('radius.full'),
+        'shadow' => ['base' => $token('shadow.lg')],
+        'spacing' => ['margin' => ['top' => ['base' => $token('spacing.lg')]]],
+        'border' => ['width' => $choice('thin'), 'style' => $choice('solid'), 'sides' => $choice('all')],
+    ]], 'classes' => []],
+    // Padding lands INSIDE the bar, where the theme pads; the footer's border moves to one side.
+    'header-padding' => ['block' => 'header', 'settings' => ['style' => [
+        'spacing' => ['padding' => ['top' => ['base' => $token('spacing.xl')]]],
+    ]], 'classes' => []],
+    'footer-border-left' => ['block' => 'footer', 'settings' => ['style' => [
+        'border' => ['width' => $choice('thick'), 'style' => $choice('solid'), 'sides' => $choice('left')],
+    ]], 'classes' => []],
 ];
 
 $h = static fn (string $s): string => htmlspecialchars($s, ENT_QUOTES);
@@ -121,6 +150,17 @@ foreach ($cases as $name => $case) {
             $markup = $open . $markup . $close;
             $control = $open . $control . $close;
         }
+    } elseif ($case['block'] === 'header' || $case['block'] === 'footer') {
+        // The layout template's own markup for a region-backed bar.
+        $tag = $case['block'];
+        $bar = "site-{$tag} thallo-region thallo-region-{$tag} thallo-region-{$tag}--contained"
+            . (($case['sticky'] ?? false) ? " thallo-region-{$tag}--sticky" : '');
+        $region = static fn (string $root, string $inner, string $attr): string => "<{$tag} class=\"{$bar}{$root}\" "
+            . "data-{$attr}=\"root\"><div class=\"site-{$tag}__inner{$inner}\" data-{$attr}=\"inner\">Bar</div></{$tag}>";
+        $markup = $region($classes($case, 'root'), $classes($case, 'inner'), 'target');
+        // The twin is the plain, NON-sticky bar: what the theme draws before any setting.
+        $bar = "site-{$tag} thallo-region thallo-region-{$tag} thallo-region-{$tag}--contained";
+        $control = $region('', '', 'control');
     } elseif ($case['block'] === 'hero') {
         $hero = 'thallo-block thallo-block-hero thallo-block-hero--bg-gradient thallo-block-hero--vertical';
         $markup = '<section class="' . $hero . $classes($case, 'root') . '" data-target="root">'
@@ -139,7 +179,7 @@ foreach ($cases as $name => $case) {
     $sections .= "<section data-case=\"{$h($name)}\">{$markup}{$control}</section>\n";
 }
 $probes = '';
-foreach (['spacing.sm', 'spacing.lg', 'spacing.xl', 'color.accent', 'radius.none'] as $name) {
+foreach (['spacing.sm', 'spacing.lg', 'spacing.xl', 'color.accent', 'radius.none', 'radius.full'] as $name) {
     $property = str_starts_with($name, 'color.') ? 'background-color' : (str_starts_with($name, 'radius.') ? 'border-radius' : 'padding-top');
     $probes .= "<div data-probe=\"{$h($name)}\" style=\"{$property}: var(" . StyleCompiler::variable($name) . ")\"></div>\n";
 }
