@@ -7,6 +7,23 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.45] - 2026-09-19 — Developer Preview
+
+One style class goes on as many blocks as you choose it for.
+
+### Upgrade Notes
+- No migrations, no new permissions, no dependency changes. The documented sequence applies
+  (docs/upgrading.md).
+
+### Fixed
+- A style class could be applied to only one block per visit to the Design page. In the Advanced
+  tab, choosing a class worked once; choosing the same class on the next block did nothing, with
+  no message — so a class meant for every tab's panel or every card reached the first of them.
+  The picker emptied its own value after a choice while the select kept the last one inside
+  itself, and choosing it again was no change. The picker's value is now held empty, so every
+  choice is reported, a repeated one included. Until you upgrade, reloading the page before each
+  block works around it.
+
 ## [1.0.0-beta.44] - 2026-09-19 — Developer Preview
 
 A feature's marker and a tab strip take their own corners in the Style tab, and the Design view

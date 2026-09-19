@@ -54,12 +54,13 @@ const pickable = computed(() =>
     .filter((c) => !c.archived && !c.locked && !styleClasses.value.includes(c.id))
     .map((c) => ({ label: c.name, value: c.id })),
 )
-const pick = ref<string | undefined>(undefined)
-watch(pick, (id) => {
-  if (id === undefined) return
-  emit('apply-class', id)
-  pick.value = undefined
-})
+// The picker is an action, not a field: it applies what is chosen and stays empty. Its value is
+// held at '' — CONTROLLED, never undefined. Given undefined the select keeps its own value, so
+// after one pick it still held that class, and choosing the same class on the next block was no
+// change to it: nothing was emitted, and one class could not be put on a second block.
+function onPick(id: unknown): void {
+  if (typeof id === 'string' && id !== '') emit('apply-class', id)
+}
 function classState(id: string): 'missing' | 'archived' | 'locked' | null {
   if (props.classNames !== undefined && !(id in props.classNames)) return 'missing'
   const option = props.classOptions?.find((c) => c.id === id)
@@ -189,13 +190,14 @@ function removeAttribute(name: string): void {
       <p v-else class="text-xs text-muted" data-test="style-classes-empty">None applied.</p>
       <div class="mt-2 flex items-center gap-2">
         <USelectMenu
-          v-model="pick"
+          model-value=""
           :items="pickable"
           value-key="value"
           placeholder="Apply a style class…"
           class="flex-1"
           :disabled="pickable.length === 0"
           data-test="style-class-picker"
+          @update:model-value="onPick"
         />
         <UButton
           v-if="classOrder.length > 1"
