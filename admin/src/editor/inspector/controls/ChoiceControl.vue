@@ -5,6 +5,8 @@ defineProps<{
   modelValue: string | null
   disabled?: boolean
   name?: string
+  /** What a choice reads as, where the stored value is not the word for it (`80` → `80%`). */
+  labels?: Record<string, string>
 }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 </script>
@@ -26,7 +28,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
       :data-test="`choice-${choice}`"
       @click="emit('update:modelValue', choice)"
     >
-      {{ choice }}
+      {{ labels?.[choice] ?? choice }}
     </button>
   </div>
 </template>

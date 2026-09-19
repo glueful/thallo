@@ -48,7 +48,12 @@ const GROUPS: { key: string; label: string; match: (row: StylePropertyRow) => bo
   // Alignment splits across tabs: only text alignment is left here.
   { key: 'text', label: 'Text', match: (r) => r.group === 'alignment' },
   { key: 'typography', label: 'Typography', match: (r) => r.group === 'typography' },
-  { key: 'colors', label: 'Colours', match: (r) => r.group === 'colors' },
+  // The backdrop pair modifies the background, so it sits with the colours.
+  {
+    key: 'colors',
+    label: 'Colours',
+    match: (r) => r.group === 'colors' || r.group === 'backdrop',
+  },
   {
     key: 'effects',
     label: 'Effects',
@@ -83,6 +88,9 @@ const LABELS: Record<string, string> = {
   'colors.border': 'Border colour',
   'border.width': 'Border width',
   'border.style': 'Border style',
+  'border.sides': 'Border sides',
+  'colors.surface_opacity': 'Background opacity',
+  'backdrop.blur': 'Backdrop blur',
 }
 
 /** The capability paths of one type: an entry names a path, or a group that expands to its paths. */

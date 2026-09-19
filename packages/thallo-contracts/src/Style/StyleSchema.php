@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 5;
+    public const VERSION = 6;
 
     /** Platform breakpoints: `md` from 768px, `lg` from 1024px. */
     public const BREAKPOINTS = ['base', 'md', 'lg'];
@@ -126,6 +126,23 @@ final class StyleSchema
         // Their own paths for the same reason: `radius` is the panels area's. Both mirror `radius`.
         $defs[] = new PropertyDefinition('tabs.bar_radius', 'tabs', $token, false, 'radius');
         $defs[] = new PropertyDefinition('tabs.tab_radius', 'tabs', $token, false, 'radius');
+
+        // Which sides the border is drawn on. In the `border` group, so a block that declares a
+        // border has it; last in the table, because its utility must follow the width's (it takes
+        // three of the width's four sides away, at equal specificity).
+        $defs[] = new PropertyDefinition('border.sides', 'border', $choice, false, null, [
+            'all', 'top', 'right', 'bottom', 'left',
+        ]);
+
+        // The backdrop pair, a group of its own that a block or region opts into: how much of the
+        // background colour shows (a percentage; the rest is see-through), and how much of what
+        // lies behind the element is blurred. The opacity is the surface colour's, hence its path.
+        $defs[] = new PropertyDefinition('colors.surface_opacity', 'backdrop', $choice, false, null, [
+            '100', '90', '80', '70', '60', '50',
+        ]);
+        $defs[] = new PropertyDefinition('backdrop.blur', 'backdrop', $choice, false, null, [
+            'none', 'sm', 'md', 'lg',
+        ]);
 
         $byPath = [];
         foreach ($defs as $def) {

@@ -59,7 +59,11 @@ final class StyleCompilerTest extends TestCase
         self::assertStringContainsString('.t-content-center { justify-content: center; }', $css);
         // The surface colour owns the whole background: a theme gradient (a background-image)
         // yields to it, so it is the shorthand, never background-color alone.
-        self::assertStringContainsString('.t-bg-transparent { background: var(--t-color-transparent); }', $css);
+        // It names the colour too (--t-surface), for the opacity utility to mix from.
+        self::assertStringContainsString(
+            '.t-bg-transparent { --t-surface: var(--t-color-transparent); background: var(--t-color-transparent); }',
+            $css,
+        );
         self::assertStringContainsString('.t-bg-reset { background: revert-layer; }', $css);
         self::assertStringNotContainsString('background-color', $css);
         self::assertStringContainsString('.t-self-end { margin-inline: auto 0; }', $css);
@@ -120,6 +124,71 @@ final class StyleCompilerTest extends TestCase
         self::assertStringContainsString('.t-tabradius-lg { border-radius: var(--t-radius-lg); }', $css);
         self::assertStringNotContainsString('.md\\:t-barradius', $css, 'not responsive, as radius is not');
         self::assertStringNotContainsString('.md\\:t-tabradius', $css, 'not responsive, as radius is not');
+    }
+
+    public function testBorderSidesTakeTheOtherSidesAway(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+
+        // One side is the width's four, less three. It sits AFTER the width utility in the sheet,
+        // so at equal specificity it wins; `all` and a reset change nothing, so their rules are
+        // empty — a reset that reverted the widths would undo the width utility beside it.
+        self::assertStringContainsString(
+            '.t-bsides-bottom { border-top-width: 0; border-right-width: 0; border-left-width: 0; }',
+            $css,
+        );
+        self::assertStringContainsString(
+            '.t-bsides-left { border-top-width: 0; border-right-width: 0; border-bottom-width: 0; }',
+            $css,
+        );
+        self::assertStringContainsString(".t-bsides-all {  }\n", $css);
+        self::assertStringContainsString(".t-bsides-reset { }\n", $css);
+        self::assertGreaterThan(strpos($css, '.t-bw-thin {'), strpos($css, '.t-bsides-bottom {'));
+    }
+
+    public function testSurfaceOpacityMixesTheChosenColourOrTheThemesOwn(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+
+        // A background utility names its colour in a variable as well as painting it — the
+        // declared background is unchanged. The opacity utility, later in the sheet, repaints
+        // from that variable; with no colour chosen it falls back to the one the THEME names for
+        // the element, and to nothing at all where the theme paints none.
+        self::assertMatchesRegularExpression(
+            '~\.t-bg-(\w[\w-]*) \{ --t-surface: var\(--t-color-\1\); background: var\(--t-color-\1\); \}~',
+            $css,
+        );
+        $mix = 'color-mix(in srgb, var(--t-surface, var(--t-surface-default, transparent)) 80%, transparent)';
+        self::assertStringContainsString('.t-bgo-80 { background: ' . $mix . '; }', $css);
+        self::assertStringContainsString(".t-bgo-reset { }\n", $css, 'a reset must not revert the colour beside it');
+        self::assertMatchesRegularExpression('~\.t-bg-\w[^{]* \{[^}]*\}(?s:.*)\.t-bgo-80 \{~', $css);
+
+        // Neither variable inherits: a child given only an opacity must not take its parent's colour.
+        foreach (['--t-surface', '--t-surface-default'] as $name) {
+            self::assertStringContainsString(
+                "@property {$name} { syntax: '*'; inherits: false; }",
+                $css,
+            );
+        }
+        self::assertStringEndsWith("}\n}\n", $css, 'registered inside the layer, as everything is');
+    }
+
+    public function testBackdropBlurWritesBothSpellings(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+
+        self::assertStringContainsString(
+            '.t-blur-md { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }',
+            $css,
+        );
+        self::assertStringContainsString(
+            '.t-blur-none { backdrop-filter: none; -webkit-backdrop-filter: none; }',
+            $css,
+        );
+        self::assertStringContainsString(
+            '.t-blur-reset { backdrop-filter: revert-layer; -webkit-backdrop-filter: revert-layer; }',
+            $css,
+        );
     }
 
     public function testLayoutUtilitiesCompileToTheirDeclarations(): void

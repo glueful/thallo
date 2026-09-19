@@ -15,6 +15,7 @@ import type { Breakpoint, Resolution, StyleClassRef, StyleValue } from '@/style/
 import type { StylePropertyRow } from '@/queries/styleSchema'
 import { BREAKPOINT_LABELS } from '@/editor/breakpoint'
 import { classFieldState } from '@/editor/inspector/classFieldState'
+import { CHOICE_LABELS } from '@/editor/inspector/choiceLabels'
 import TokenScaleControl from './TokenScaleControl.vue'
 import ChoiceControl from './ChoiceControl.vue'
 
@@ -255,6 +256,7 @@ const sourceLabel = computed(() => {
         <ChoiceControl
           v-else
           :choices="def.choices ?? []"
+          :labels="CHOICE_LABELS[def.path]"
           :model-value="currentValue"
           :name="def.path"
           @update:model-value="onPick"
