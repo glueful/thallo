@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 3;
+    public const VERSION = 5;
 
     /** Platform breakpoints: `md` from 768px, `lg` from 1024px. */
     public const BREAKPOINTS = ['base', 'md', 'lg'];
@@ -114,6 +114,18 @@ final class StyleSchema
         $defs[] = new PropertyDefinition('layout.align_self', 'layout.item', $choice, true, null, [
             'start', 'center', 'end', 'stretch',
         ]);
+
+        // A block's marker — a feature's icon chip or number badge — has corners and a shadow of
+        // its own. They are their own paths because `radius` and `shadow` are the card's, and one
+        // path holds one value; they mirror those two in kind, domain and responsiveness, so the
+        // Style tab draws the same controls and a theme's tokens mean the same thing on both.
+        $defs[] = new PropertyDefinition('marker.radius', 'marker', $token, false, 'radius');
+        $defs[] = new PropertyDefinition('marker.shadow', 'marker', $token, true, 'shadow');
+
+        // A tabs block's strip: the bar's corners, and the tab's — the pill behind the active label.
+        // Their own paths for the same reason: `radius` is the panels area's. Both mirror `radius`.
+        $defs[] = new PropertyDefinition('tabs.bar_radius', 'tabs', $token, false, 'radius');
+        $defs[] = new PropertyDefinition('tabs.tab_radius', 'tabs', $token, false, 'radius');
 
         $byPath = [];
         foreach ($defs as $def) {

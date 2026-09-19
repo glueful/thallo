@@ -2,10 +2,9 @@
 import { computed, inject } from 'vue'
 import { BlocksContextKey } from './context'
 import type { BlockInstance } from './useBlockListOps'
-import { newBlockId } from './useBlockListOps'
 import { isProseBlockType, proseRichFieldName } from './proseDetection'
-import BlockList from './BlockList.vue'
-import ProseBlockEditor from './ProseBlockEditor.vue'
+import BlockProse from './BlockProse.vue'
+import BlockRegion from './BlockRegion.vue'
 import BlockFields from './BlockFields.vue'
 
 // One block: header chrome (icon, label, summary, actions), delete-confirm, and
@@ -29,24 +28,6 @@ const type = computed(() => ctx.bySlug.value.get(props.block.type))
 // Prose seam (spec §3): the CONVENTION predicate decides chromeless rendering.
 const prose = computed(() => (type.value ? isProseBlockType(type.value) : false))
 const richField = computed(() => (type.value ? proseRichFieldName(type.value) : null))
-
-// This block's containing-list picker rules (stage-toolbar spec §5): the `/`
-// menu inserts split-siblings into the SAME list, so it uses the same resolver
-// as the insert dividers.
-const listPickerTypes = computed(() => ctx.pickerTypesForList(props.parentId, props.region))
-
-function onInsertBlock(payload: { slug: string; beforeHtml: string; afterHtml: string }): void {
-  const name = richField.value
-  if (!name || payload.slug === '') return
-  ctx.apply((t) =>
-    ctx.ops.splitRichTextAt(t, props.block.id, name, payload.beforeHtml, payload.afterHtml, {
-      id: newBlockId(),
-      type: payload.slug,
-      data: {},
-      settings: {},
-    }),
-  )
-}
 
 // The card's one line: what the block says (its title-like field) before what it is set to
 // (an icon name); an enum choice never stands in for content — a feature reads
@@ -184,12 +165,7 @@ function onHeaderKeydown(event: KeyboardEvent): void {
       </UButton>
       <UButton size="xs" variant="ghost" color="neutral" @click="cancelDelete()">Cancel</UButton>
     </div>
-    <ProseBlockEditor
-      :model-value="(block.data[richField] as string) ?? ''"
-      :picker-types="listPickerTypes"
-      @update:model-value="(v: string) => patchData(richField!, v)"
-      @insert-block="onInsertBlock"
-    />
+    <BlockProse :block="block" :field="richField" :parent-id="parentId" :region="region" />
   </div>
 
   <!-- WIDGET path: the card. -->
@@ -280,21 +256,7 @@ function onHeaderKeydown(event: KeyboardEvent): void {
            same ops-owning tree, or the max-depth notice at the cap. -->
       <BlockFields :block="block" :type="type" @patch="patchData">
         <template #blocks="{ field, label }">
-          <p
-            v-if="depth >= ctx.maxDepth"
-            class="rounded border border-dashed border-default px-2 py-1.5 text-xs text-muted"
-            data-test="max-depth-notice"
-          >
-            “{{ label }}”: maximum nesting depth ({{ ctx.maxDepth }}) reached.
-          </p>
-          <UFormField v-else :label="label" :name="field.name">
-            <BlockList
-              :blocks="(block.data[field.name] as BlockInstance[]) ?? []"
-              :parent-id="block.id"
-              :region="field.name"
-              :depth="depth + 1"
-            />
-          </UFormField>
+          <BlockRegion :block="block" :field="field" :label="label" :depth="depth" />
         </template>
       </BlockFields>
     </div>

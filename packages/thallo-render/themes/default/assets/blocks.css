@@ -940,22 +940,33 @@ html[data-theme="dark"] .thallo-block-logo--has-dark .thallo-block-logo__image--
   padding-inline: var(--space-4);
 }
 
-/* shortcodes/thallo-version — a status pill with a dot. Recolour from a site's custom CSS
-   by setting the three tokens on .thallo-shortcode-version (fg, bg, dot); the floor is the
-   plain <span>. */
+/* shortcodes/thallo-version — a status pill with a dot. Its look is the shortcode block's
+   `content` target: background, text and border colour, border, radius and shadow from the Style
+   tab land on this element and, being settings, win over these defaults. A site's custom CSS can
+   still recolour it through the tokens (fg, bg, dot); the floor is the plain <span>. */
 .thallo-shortcode-version {
   --version-fg: var(--accent);
   --version-bg: color-mix(in srgb, var(--accent) 12%, var(--surface));
-  --version-dot: var(--version-fg);
   display: inline-flex; align-items: center; gap: var(--space-2);
   padding: 0.375rem 0.875rem; border-radius: 999px;
+  /* No border until one is asked for — but with a style and a colour, so a width set in the Style
+     tab shows by itself. */
+  border: 0 solid var(--line);
   background: var(--version-bg); color: var(--version-fg);
   font-family: var(--font-mono, ui-monospace, monospace); font-size: 0.8rem; line-height: 1.4;
   width: max-content; max-width: 100%;
 }
+/* The dot is drawn in the text's colour, so recolouring the text brings it along. */
 .thallo-shortcode-version::before {
-  content: ""; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--version-dot); flex: none;
+  content: ""; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--version-dot, currentColor); flex: none;
 }
+/* params.dot = false, and params.dot_color = one of the theme's colour names. */
+.thallo-shortcode-version--no-dot::before { display: none; }
+.thallo-shortcode-version--dot-accent { --version-dot: var(--accent); }
+.thallo-shortcode-version--dot-text { --version-dot: var(--ink); }
+.thallo-shortcode-version--dot-muted { --version-dot: var(--muted); }
+.thallo-shortcode-version--dot-accent-contrast { --version-dot: var(--accent-ink); }
+.thallo-shortcode-version--dot-background { --version-dot: var(--bg); }
 .thallo-shortcode-version--development { --version-fg: var(--muted); }
 
 /* ── Centered page layout (opt-in via main.layout--centered) ────────────────
@@ -1733,27 +1744,46 @@ html:not([data-color-mode-enabled="true"]) thallo-color-mode-toggle { display: n
 }
 .thallo-block-code__panel {
   margin: 0; border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden;
-  background: var(--surface);
+  background: var(--bg);
 }
+/* The title bar of a window: tinted, over a light body, with its three lights. */
 .thallo-block-code__caption {
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--line);
-  background: var(--surface-2, var(--surface));
+  background: var(--surface);
   font-size: 0.8125rem; color: var(--muted);
 }
 .thallo-block-code__label { font-family: var(--font-mono, ui-monospace, monospace); text-transform: lowercase; }
+/* Three lights, drawn: one gradient tile repeated three times. Decoration, so never in the
+   markup — and not box-shadow, which in this theme is elevation and comes from the shadow tokens. */
+.thallo-block-code__label::before {
+  content: ""; display: inline-block; vertical-align: middle;
+  width: 2.8125rem; height: 0.5625rem; margin-inline-end: var(--space-2);
+  background: radial-gradient(circle at 0.28125rem 50%, var(--line) 0 0.28125rem, transparent 0.3rem)
+    0 0 / 0.9375rem 100% repeat-x;
+}
 /* Long lines wrap (pre-wrap, breaking inside a long token when nothing else fits): the snippet
    never scrolls sideways, so every line is readable and copyable in place. */
 .thallo-block-code__pre {
   margin: 0; padding: var(--space-3) var(--space-4);
   white-space: pre-wrap; overflow-wrap: anywhere;
-  color: var(--fg);
+  color: var(--ink);
   font-family: var(--font-mono, ui-monospace, monospace); font-size: 0.875rem; line-height: 1.6;
   tab-size: 2;
 }
+/* A shell snippet's lines (blocks/code.twig). Each is a block holding its own newline: that
+   newline adds no second line, and gives an empty line its height (both held by the browser
+   proof `code-shell-lines`). */
+.thallo-block-code__line { display: block; }
+/* The prompt is DRAWN: generated content is in neither the text the Copy button takes nor a
+   selection, so what leaves the page is a command that can be pasted. The hanging indent puts it
+   in the margin of its own line, and a long command wraps under the command, not under the "$". */
+.thallo-block-code__line--prompt { padding-inline-start: 2ch; text-indent: -2ch; }
+.thallo-block-code__line--prompt::before { content: "$ "; color: var(--accent); }
+.thallo-block-code__line--comment { color: var(--muted); }
 .thallo-block-code__copy {
-  font: inherit; color: inherit; background: transparent; border: 1px solid var(--line);
-  border-radius: var(--radius-md); padding: 0.125rem var(--space-2); cursor: pointer;
+  font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 6px); padding: 0.125rem var(--space-2); cursor: pointer;
 }
 .thallo-block-code__copy:hover, .thallo-block-code__copy:focus-visible { border-color: var(--accent); color: var(--accent); }

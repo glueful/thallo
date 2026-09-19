@@ -10,6 +10,10 @@ import type { StyleSchemaResult } from '@/queries/styleSchema'
 import type { Breakpoint, StyleClassRef, StyleValue } from '@/style/types'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import BlockFields from '@/fields/components/blocks/BlockFields.vue'
+import BlockRegion from '@/fields/components/blocks/BlockRegion.vue'
+import BlockProse from '@/fields/components/blocks/BlockProse.vue'
+import BlocksContextProvider from '@/fields/components/blocks/BlocksContextProvider.vue'
+import type { BlocksHost } from '@/fields/components/blocks/context'
 import { isProseBlockType, proseRichFieldName } from '@/fields/components/blocks/proseDetection'
 import StyleTab from './StyleTab.vue'
 import LayoutTab from './LayoutTab.vue'
@@ -35,6 +39,15 @@ const props = defineProps<{
   parent?: BlockInstance | null
   parentType?: BlockType | null
   parentClasses?: StyleClassRef[]
+  /**
+   * The root blocks field that owns the block, and the block's place in it. With it the Content
+   * tab is the form the main Content tab has — a blocks-typed field is its list of cards, a prose
+   * body its editor — because they are the same components in the same context. Without it
+   * (the field still loading) a blocks-typed field is a summary and a prose body is left to the stage.
+   */
+  blocksHost?: BlocksHost | null
+  /** The block's prose body is being edited on the stage: one text has one owner at a time. */
+  proseLocked?: boolean
   /** Fill empty cells (spec §11.3) for the selected block, as the page judged it. */
   fill?: (FillAvailability & { preparing: boolean }) | null
 }>()
@@ -126,16 +139,56 @@ const proseField = computed(() =>
       data-test="block-inspector-tabs"
     >
       <template v-if="!multi" #content>
-        <p v-if="proseField" class="mb-2 text-xs text-muted" data-test="prose-on-stage">
-          Edit the text directly on the stage.
-        </p>
-        <BlockFields
-          :block="block"
-          :type="blockType ?? undefined"
-          :exclude="proseField ? [proseField] : []"
-          @patch="(name, value) => emit('patch-data', name, value)"
-          @insert-into="(field) => emit('insert-into', field)"
-        />
+        <!-- Keyed by field: `provide` is read once, and another field's block is another context. -->
+        <BlocksContextProvider
+          v-if="blocksHost"
+          :key="blocksHost.context.fieldName"
+          :context="blocksHost.context"
+        >
+          <template v-if="proseField">
+            <p
+              v-if="proseLocked"
+              class="mb-2 rounded bg-elevated px-2 py-1.5 text-xs text-muted"
+              data-test="prose-locked"
+            >
+              Editing on the stage — press Esc there to finish. What you type shows here.
+            </p>
+            <p v-else class="mb-2 text-xs text-muted" data-test="prose-on-stage">
+              Write here, or double-click the text on the stage.
+            </p>
+            <BlockProse
+              class="mb-3 rounded-md border border-default px-3 py-2"
+              :block="block"
+              :field="proseField"
+              :parent-id="blocksHost.parentId"
+              :region="blocksHost.region"
+              :readonly="proseLocked"
+            />
+          </template>
+          <BlockFields
+            :block="block"
+            :type="blockType ?? undefined"
+            :exclude="proseField ? [proseField] : []"
+            @patch="(name, value) => emit('patch-data', name, value)"
+            @insert-into="(field) => emit('insert-into', field)"
+          >
+            <template #blocks="{ field, label }">
+              <BlockRegion :block="block" :field="field" :label="label" :depth="blocksHost.depth" />
+            </template>
+          </BlockFields>
+        </BlocksContextProvider>
+        <template v-else>
+          <p v-if="proseField" class="mb-2 text-xs text-muted" data-test="prose-on-stage">
+            Edit the text directly on the stage.
+          </p>
+          <BlockFields
+            :block="block"
+            :type="blockType ?? undefined"
+            :exclude="proseField ? [proseField] : []"
+            @patch="(name, value) => emit('patch-data', name, value)"
+            @insert-into="(field) => emit('insert-into', field)"
+          />
+        </template>
       </template>
       <template #layout>
         <p v-if="schema === null" class="text-xs text-muted" data-test="layout-loading">

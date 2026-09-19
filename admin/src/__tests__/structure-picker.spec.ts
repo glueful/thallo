@@ -116,6 +116,41 @@ describe('the offer', () => {
     expect(section.reason).toMatch(/levels/)
     expect(offered.find((p) => p.key === 'stack')!.enabled).toBe(true)
   })
+
+  it('a column split is refused at depth four too: its columns would sit at five with nowhere to put a child', () => {
+    // The case that reached an author as a 422: a 67 / 33 inside a tab's content. The columns are
+    // empty containers, and a block that holds blocks needs a level below it — the server refuses
+    // its list at the cap even while it is empty. Counted as leaves they fitted, and were offered.
+    const h = harness()
+    h.doc.value = {
+      fields: { body: [container('a', [container('b', [container('c', [container('c1')])])])] },
+    }
+    h.picker.offer('c1')
+    const offered = last(h.published)![0]!.presets
+    for (const key of [
+      'cols-33-67',
+      'cols-67-33',
+      'cols-halves',
+      'cols-thirds',
+      'cols-quarters',
+      'grid-2x2',
+    ]) {
+      const preset = offered.find((p) => p.key === key)
+      if (!preset) continue
+      expect(preset.enabled, key).toBe(false)
+      expect(preset.reason, key).toBe('Would nest deeper than 5 levels')
+    }
+    expect(offered.filter((p) => p.key.startsWith('cols-')).length).toBeGreaterThan(3)
+
+    // One level up there is room for the columns and for what goes in them.
+    const shallower = harness()
+    shallower.doc.value = {
+      fields: { body: [container('a', [container('b', [container('c1')])])] },
+    }
+    shallower.picker.offer('c1')
+    const roomy = last(shallower.published)![0]!.presets
+    expect(roomy.find((p) => p.key === 'cols-33-67')!.enabled).toBe(true)
+  })
 })
 
 describe('choosing a preset', () => {

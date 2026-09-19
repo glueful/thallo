@@ -75,7 +75,7 @@ vi.mock('@/composables/useNotify', () => ({ useNotify: () => notify }))
 vi.mock('@/fields/components/blocks/ProseBlockEditor.vue', () => ({
   default: {
     name: 'ProseBlockEditor',
-    props: ['modelValue', 'placeholder', 'pickerTypes'],
+    props: { modelValue: String, placeholder: String, pickerTypes: Array, readonly: Boolean },
     emits: ['update:modelValue', 'insert-block'],
     template: '<div data-test="prose-editor-stub" />',
   },
@@ -1338,14 +1338,10 @@ describe('canvas page', () => {
         wrapper.find('[data-test="inspector-tabs"] [aria-selected="true"]').text()
       expect(active()).toBe('Block')
       expect(wrapper.find('[data-test="block-inspector-title"]').text()).toBe('card')
-      await wrapper
-        .find('[data-test="block-inspector"] [data-test="region-add-body"]')
-        .trigger('click')
+      await wrapper.find('[data-test="block-inspector"] [data-test="add-block"]').trigger('click')
       await flushPromises()
       expect(active()).toBe('Blocks')
-      expect(wrapper.find('[data-test="palette-target"]').text()).toContain(
-        'Inserting into card › body',
-      )
+      expect(wrapper.find('[data-test="palette-target"]').text()).toContain('card › body')
       wrapper.unmount()
     })
 
@@ -2307,6 +2303,191 @@ describe('canvas page', () => {
             ],
           }),
         }),
+      )
+      wrapper.unmount()
+    })
+  })
+
+  describe('the Block tab edits what the Content tab edits', () => {
+    // The Block → Content tab used to be a lesser form: a blocks-typed field was a line of text
+    // ("content: 2 blocks") and a rich text body was not there at all. Both now come from the same
+    // components the main Content tab uses, inside the root blocks field's own context — the
+    // single writer for the tree — so every change is the same operation it always was.
+    const childCard = (id: string, title: string) => ({ id, type: 'card', data: { title } })
+    function withAContainer() {
+      blockTypes.value = [
+        ...blockTypes.value,
+        {
+          ...bt('container'),
+          schema: [
+            {
+              name: 'content',
+              type: 'blocks',
+              required: false,
+              localized: false,
+              filterable: false,
+            },
+          ],
+        } as BlockType,
+      ]
+      draft.value = {
+        fields: {
+          title: 'T',
+          body: [
+            {
+              id: 'cont00000001',
+              type: 'container',
+              data: {
+                content: [childCard('kidaaaa00001', 'First'), childCard('kidbbbb00002', 'Second')],
+              },
+            },
+            { id: 'prose0000003', type: 'rich_text', data: { body: '<p>old</p>' } },
+          ],
+        },
+        lock_version: 3,
+      }
+    }
+    const inspector = (wrapper: ReturnType<typeof mountPage>) =>
+      wrapper.find('[data-test="block-inspector"]')
+    async function selectBlock(id: string) {
+      bridge.callbacks.select!(id)
+      await flushPromises()
+    }
+    async function applied(wrapper: ReturnType<typeof mountPage>) {
+      await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+      await flushPromises()
+      const calls = applyMock.mock.calls
+      return (calls[calls.length - 1]![4] as { operations: Record<string, unknown>[] }).operations
+    }
+
+    beforeEach(() => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    })
+
+    it('a field that holds blocks shows them — the same cards — not a count', async () => {
+      withAContainer()
+      const wrapper = mountPage()
+      await flushPromises()
+      await selectBlock('cont00000001')
+
+      expect(inspector(wrapper).find('[data-test="block-card-kidaaaa00001"]').exists()).toBe(true)
+      expect(inspector(wrapper).find('[data-test="block-card-kidbbbb00002"]').exists()).toBe(true)
+      expect(inspector(wrapper).find('[data-test="region-summary-content"]').exists()).toBe(false)
+      wrapper.unmount()
+    })
+
+    it('a child is edited, reordered and removed from there, each as the operation it always was', async () => {
+      withAContainer()
+      const wrapper = mountPage()
+      await flushPromises()
+      await selectBlock('cont00000001')
+      applyMock.mockClear()
+
+      await inspector(wrapper).find('[data-test="block-toggle-kidaaaa00001"]').trigger('click')
+      await flushPromises()
+      const title = inspector(wrapper).find('[data-test="block-card-kidaaaa00001"] input')
+      await title.setValue('First, edited')
+      await flushPromises()
+      await inspector(wrapper).find('[data-test="block-move-down-kidaaaa00001"]').trigger('click')
+      await flushPromises()
+      await inspector(wrapper).find('[data-test="block-delete-kidbbbb00002"]').trigger('click')
+      await flushPromises()
+      await inspector(wrapper).find('[data-test="block-delete-confirm"]').trigger('click')
+      await flushPromises()
+
+      const ops = await applied(wrapper)
+      expect(ops.map((op) => op.type)).toEqual(['SetField', 'MoveBlock', 'RemoveBlock'])
+      expect(ops[0]).toMatchObject({
+        block: 'kidaaaa00001',
+        field: 'title',
+        to: { present: true, value: 'First, edited' },
+      })
+      // "The first one down" is recorded as the equivalent "the second one up".
+      expect(ops[1]).toMatchObject({
+        block: 'kidbbbb00002',
+        from: { parent: 'cont00000001', slot: 'content', index: 1 },
+        to: { parent: 'cont00000001', slot: 'content', index: 0 },
+      })
+      // A removal carries the block it removed, so undo can put it back.
+      expect(ops[2]).toMatchObject({
+        position: { parent: 'cont00000001', slot: 'content' },
+        block: { id: 'kidbbbb00002' },
+      })
+      // The container is still the selection: working on its children did not leave it.
+      expect(wrapper.find('[data-test="block-inspector-title"]').text()).toBe('container')
+      wrapper.unmount()
+    })
+
+    it("the list's Add arms the Blocks tab into that slot, as the inspector's own Add did", async () => {
+      withAContainer()
+      const wrapper = mountPage()
+      await flushPromises()
+      await selectBlock('cont00000001')
+      await inspector(wrapper).find('[data-test="add-block"]').trigger('click')
+      await flushPromises()
+      expect(wrapper.find('[data-test="inspector-tabs"] [aria-selected="true"]').text()).toBe(
+        'Blocks',
+      )
+      expect(wrapper.find('[data-test="palette-target"]').text()).toContain('container › content')
+      wrapper.unmount()
+    })
+
+    it('a rich text body can be written in the panel: the stage is one way in, not the only one', async () => {
+      withAContainer()
+      const wrapper = mountPage()
+      await flushPromises()
+      await selectBlock('prose0000003')
+      applyMock.mockClear()
+
+      const editor = inspector(wrapper).findComponent({ name: 'ProseBlockEditor' })
+      expect(editor.exists()).toBe(true)
+      expect(editor.props('modelValue')).toBe('<p>old</p>')
+      expect(editor.props('readonly')).toBe(false)
+      expect(inspector(wrapper).find('[data-test="prose-on-stage"]').text()).toContain(
+        'on the stage',
+      )
+
+      editor.vm.$emit('update:modelValue', '<p>new</p>')
+      await flushPromises()
+      const ops = await applied(wrapper)
+      expect(ops).toEqual([
+        expect.objectContaining({ type: 'SetField', block: 'prose0000003', field: 'body' }),
+      ])
+      wrapper.unmount()
+    })
+
+    it('while that block is being edited on the stage the panel editor is read-only, and says why', async () => {
+      withAContainer()
+      const wrapper = mountPage()
+      await flushPromises()
+      await selectBlock('prose0000003')
+      const editor = () => inspector(wrapper).findComponent({ name: 'ProseBlockEditor' })
+
+      bridge.callbacks.editStart!('prose0000003')
+      await flushPromises()
+      expect(editor().props('readonly')).toBe(true)
+      expect(inspector(wrapper).find('[data-test="prose-locked"]').text()).toContain('Esc')
+      // What is typed on the stage shows here as it arrives: one text, one owner at a time.
+      bridge.callbacks.textChanged!('prose0000003', 'body', { html: '<p>from the stage</p>' })
+      await flushPromises()
+      expect(editor().props('modelValue')).toBe('<p>from the stage</p>')
+
+      bridge.callbacks.editEnd!('prose0000003')
+      await flushPromises()
+      expect(editor().props('readonly')).toBe(false)
+      expect(inspector(wrapper).find('[data-test="prose-locked"]').exists()).toBe(false)
+      wrapper.unmount()
+    })
+
+    it('a stage session on ANOTHER block locks nothing here', async () => {
+      withAContainer()
+      const wrapper = mountPage()
+      await flushPromises()
+      await selectBlock('prose0000003')
+      bridge.callbacks.editStart!('kidaaaa00001')
+      await flushPromises()
+      expect(inspector(wrapper).findComponent({ name: 'ProseBlockEditor' }).props('readonly')).toBe(
+        false,
       )
       wrapper.unmount()
     })

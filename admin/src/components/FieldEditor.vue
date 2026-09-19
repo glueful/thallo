@@ -3,6 +3,7 @@ import { shallowReactive, type ComponentPublicInstance } from 'vue'
 import type { FieldDef } from '@/fields/types'
 import type { BlockType } from '@/queries/blockTypes'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
+import type { BlocksContext, BlocksHost } from '@/fields/components/blocks/context'
 import type { Position } from '@/editor/ops/types'
 import { fieldComponent } from '@/fields/registry'
 
@@ -35,6 +36,8 @@ interface BlocksFieldExposed {
   findBlock: (id: string) => BlockInstance | null
   blockTypeById: (id: string) => string | null
   parentOfBlock: (id: string) => BlockInstance | null
+  placeOf: (id: string) => { parentId: string | null; region: string | null; depth: number } | null
+  context: BlocksContext
 }
 
 /** A blocks field's modified header click: the page's selection intent (spec §5.5). */
@@ -70,6 +73,16 @@ function fieldOwning(id: string): BlocksFieldExposed | null {
 }
 
 defineExpose({
+  /**
+   * The owning field's context and the block's place in it, for a host that shows the block's
+   * children or prose body outside the field (the Design page's Block tab). Null until the field —
+   * an async component — has registered, or when no field holds the block.
+   */
+  blocksHostFor(id: string): BlocksHost | null {
+    const field = fieldOwning(id)
+    const place = field?.placeOf?.(id) ?? null
+    return field?.context && place ? { context: field.context, ...place } : null
+  },
   /**
    * Find the blocks field containing `id` and drive its selectBlock. Returns
    * true when found — entry-wide block-id uniqueness makes the bare id

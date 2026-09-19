@@ -57,3 +57,15 @@ export interface BlocksContext {
 }
 
 export const BlocksContextKey: InjectionKey<BlocksContext> = Symbol('thallo-blocks-context')
+
+/**
+ * What a host OUTSIDE the root blocks field needs to show one of its blocks with the field's own
+ * components: the field's context, and where the block sits — the list it is in (what a prose
+ * body's `/` menu inserts into) and its depth (where nesting stops).
+ */
+export interface BlocksHost {
+  context: BlocksContext
+  parentId: string | null
+  region: string | null
+  depth: number
+}

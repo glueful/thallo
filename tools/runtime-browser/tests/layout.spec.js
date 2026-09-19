@@ -43,6 +43,9 @@ const full = (width) => CONTENT[width];
 // centred in the viewport.
 const contentLeft = (width) => (width > 1152 + 48 ? (width - 1152) / 2 + 24 : 24);
 
+/** One line of a code snippet: 0.875rem at a line-height of 1.6. */
+const LINE = 22.4;
+
 /** Expectations per width: `md` and `lg` merge onto the state below them, as the cascade does. */
 const at = (base, md = {}, lg = {}) => ({
   375: base,
@@ -254,6 +257,91 @@ const CASES = {
     'c4.child0': at({ 'rect.width': narrowFill }, { 'rect.width': { below: 120 } }),
   },
 
+  // A shortcode's look is its `content` target: the pill, not the wrapper. The point a PHP test
+  // cannot make is the cascade — the settings are in the layer above the theme and WIN over the
+  // pill's own background, radius and (absent) border — and that the dot is drawn in the text's
+  // colour. `site.version` is null in a fixture, so this is the muted "development checkout" pill.
+  'shortcode-content-target': {
+    // The wrapper is never painted: a background there would be a bar across the page.
+    'c0.child0': at({ 'background-color': 'rgba(0, 0, 0, 0)', 'box-shadow': 'none', 'border-top-width': '0px' }),
+    'c0.child0>.thallo-shortcode-version': at({
+      'background-color': 'rgb(255, 255, 255)', // color.background, over the theme's accent tint
+      color: 'rgb(15, 23, 42)', // color.text, over the theme's muted
+      'border-top-width': '1px', // a width alone shows: the theme gives it a style and a colour
+      'border-top-style': 'solid',
+      'border-top-left-radius': '6px', // radius.sm, over the theme's 999px
+      'box-shadow': /^(?!none)/,
+    }),
+    'c0.child0>.thallo-shortcode-version::before': at({ 'background-color': 'rgb(15, 23, 42)' }),
+    // Untouched: exactly the theme's pill.
+    'c0.child1>.thallo-shortcode-version': at({
+      color: 'rgb(100, 116, 139)',
+      'border-top-width': '0px',
+      'border-top-left-radius': '999px',
+      'box-shadow': 'none',
+    }),
+    'c0.child1>.thallo-shortcode-version::before': at({ 'background-color': 'rgb(100, 116, 139)' }),
+    // params.dot_color names the dot apart from the text.
+    'c0.child2>.thallo-shortcode-version': at({ color: 'rgb(15, 23, 42)' }),
+    'c0.child2>.thallo-shortcode-version::before': at({ 'background-color': 'rgb(37, 99, 235)' }),
+  },
+
+  // A feature's marker. First, the theme's own default: a rounded badge — it shipped SQUARE while
+  // `--radius-md` was read and never defined (an invalid declaration takes the initial value, 0).
+  // Then the marker's own corners and shadow, which leave the card alone; and the card's, which
+  // leave the marker alone.
+  'feature-marker': {
+    'c0.child0>.thallo-block-feature__marker': at({ 'border-top-left-radius': '12px', 'box-shadow': 'none' }),
+    'c0.child1>.thallo-block-feature__marker': at({
+      'border-top-left-radius': '999px',
+      'box-shadow': /^(?!none)/,
+    }),
+    'c0.child1': at({ 'border-top-left-radius': '0px', 'box-shadow': 'none' }),
+    'c0.child2': at({ 'border-top-left-radius': '20px' }),
+    'c0.child2>.thallo-block-feature__marker': at({ 'border-top-left-radius': '12px' }),
+  },
+
+  // A tabs block's strip. Untouched, the theme's own: a 12px bar holding a 6px pill. Then the
+  // strip's own corners — the bar's and the tab's, on the ACTIVE label (the first: its radio is
+  // checked) — which leave the panels area alone; and the block's `radius`, which is the panels
+  // area's and leaves the strip alone.
+  'tabs-strip': {
+    'c0.child0>.thallo-block-tabs__list': at({ 'border-top-left-radius': '12px' }),
+    'c0.child0>.thallo-block-tabs__label': at({ 'border-top-left-radius': '6px' }),
+    'c0.child1>.thallo-block-tabs__list': at({ 'border-top-left-radius': '999px' }),
+    'c0.child1>.thallo-block-tabs__label': at({
+      'border-top-left-radius': '20px',
+      'background-color': 'rgb(255, 255, 255)',
+    }),
+    'c0.child1>.thallo-block-tabs__panels': at({ 'border-top-left-radius': '0px' }),
+    'c0.child2>.thallo-block-tabs__panels': at({ 'border-top-left-radius': '20px' }),
+    'c0.child2>.thallo-block-tabs__list': at({ 'border-top-left-radius': '12px' }),
+    'c0.child2>.thallo-block-tabs__label': at({ 'border-top-left-radius': '6px' }),
+  },
+
+  // A shell snippet as a terminal. What only a browser can show: the prompt is DRAWN (generated
+  // content, so neither copied nor selected) in the accent; an empty line, a block holding nothing
+  // but its newline, still has a line's height; one line is one line high — the newline inside a
+  // line adds none; and a long command wraps instead of scrolling the page or the snippet.
+  'code-shell-lines': {
+    'c0.root': at({ 'doc.overflow': 0 }),
+    'c0.child0>.thallo-block-code__panel': at({ 'background-color': 'rgb(255, 255, 255)' }),
+    'c0.child0>.thallo-block-code__caption': at({ 'background-color': 'rgb(246, 247, 249)' }),
+    'c0.child0>.thallo-block-code__pre': at({ 'white-space': 'pre-wrap' }),
+    'c0.child0>.thallo-block-code__line--prompt::before': at({ content: '"$ "', color: 'rgb(37, 99, 235)' }),
+    'c0.child0>.thallo-block-code__line--comment': at({ color: 'rgb(100, 116, 139)', 'rect.height': LINE }),
+    // The fourth line is empty.
+    'c0.child0>.thallo-block-code__line:nth-child(4)': at({ 'rect.height': LINE }),
+    // The long command: more than one line high on a phone, exactly one where it fits.
+    // Wrapping follows the width of the screen, not a breakpoint: only the phone is too narrow.
+    'c0.child0>.thallo-block-code__line--prompt': at({
+      'rect.height': (width) => (width === 375 ? { above: LINE + 1 } : LINE),
+    }),
+    // Five lines are five lines high, plus the snippet's padding: a line's own newline adds none,
+    // and there is no sixth, empty line after the last.
+    'c0.child0>.thallo-block-code__pre': at({ 'rect.height': (width) => (width === 375 ? { above: 5 * LINE + 2 * 16 } : 5 * LINE + 2 * 16) }),
+  },
+
   // §3.6 containment: the release strips the page measure a block carries, and nothing else.
   'containment-preserves-component-padding': {
     'c0.child0': at({ 'padding-top': '24px', 'padding-left': '24px' }),
@@ -283,7 +371,10 @@ async function measure(page, url, width, requests) {
       el.classList.contains('thallo-preview-block') ? el.firstElementChild : el;
     const containers = [...document.querySelectorAll('.thallo-block-container')];
     const locate = (address) => {
-      const match = /^c(\d+)\.(root|inner|child(\d+))$/.exec(address);
+      // An address may go on into the element: `c0.child0>.selector`, and `::before` for what
+      // the theme draws there. A block's look can belong to an inner element — a shortcode's pill
+      // inside its page-measure wrapper — and that element is then what has to be measured.
+      const match = /^c(\d+)\.(root|inner|child(\d+))(?:>(.+?))?(::before)?$/.exec(address);
       if (!match) throw new Error(`bad address ${address}`);
       const root = containers[Number(match[1])];
       if (!root) throw new Error(`${address}: no container ${match[1]}`);
@@ -294,12 +385,16 @@ async function measure(page, url, width, requests) {
       const children = [...inner.children].map(unwrap).filter(Boolean);
       const child = children[Number(match[3])];
       if (!child) throw new Error(`${address}: no child ${match[3]}`);
-      return child;
+      if (!match[4]) return child;
+      const within = child.querySelector(match[4]);
+      if (!within) throw new Error(`${address}: nothing matches ${match[4]}`);
+      return within;
     };
+    const pseudoOf = (address) => (address.endsWith('::before') ? '::before' : null);
     const out = {};
     for (const [address, properties] of Object.entries(requests)) {
       const el = locate(address);
-      const style = getComputedStyle(el);
+      const style = getComputedStyle(el, pseudoOf(address));
       const rect = el.getBoundingClientRect();
       const values = {};
       // Distances the contract speaks of but no single element's style holds.
@@ -387,6 +482,9 @@ for (const name of names) {
             const value = typeof wanted === 'function' ? wanted(width) : wanted;
             if (value instanceof RegExp) {
               expect(actual, where).toMatch(value);
+            } else if (value && typeof value === 'object' && 'above' in value) {
+              // Wrapped: the contract says it took more than one line, not how many.
+              expect(actual, where).toBeGreaterThan(value.above);
             } else if (value && typeof value === 'object' && 'below' in value) {
               // Content-sized: the contract says it is no longer the authored width, not how wide
               // two letters of the theme's heading face are.

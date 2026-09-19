@@ -7,7 +7,7 @@ test('the Design page loads the fixture entry and its stage', async ({ page }) =
   // its three headings, which the Layout tab's proof works on (container-layout spec §5), plus the
   // call to action and its button, whose button-only slot the refusal proof drops onto, plus the
   // two grids the outline proof measures: an empty one, and one with a heading spanning two tracks.
-  await expect(stage(page).locator('[data-thallo-block]')).toHaveCount(25)
+  await expect(stage(page).locator('[data-thallo-block]')).toHaveCount(26)
   const h = await hooks(page)
   expect(h.currentSequence).toBe(0)
   expect(h.accepted).toEqual({ epoch: 'proof', revision: 1 }) // the page's first apply

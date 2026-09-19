@@ -403,13 +403,23 @@ final class StarterBlockTypes
                 'category' => 'Content', 'description' => 'Tabbed panels of blocks.',
                 'flags' => ['renders_children_inline' => true],
                 // The Style tab's colours, radius, border and shadow land on the ONE panels area
-                // (whichever tab is shown); the tab strip is configured from the Block tab below.
+                // (whichever tab is shown). The strip has corners of its own (`tabs.*`): the bar's on
+                // the list, the tab's on every label — the active one is whichever radio is checked,
+                // so the pill it shows is any label's. Optional: a tabs block with no tabs has no
+                // label. The strip's variant and colours are the Block tab's fields below.
                 'style_capabilities' => [
-                    'spacing', 'visibility', 'colors', 'radius', 'border', 'shadow', 'layout.item',
+                    'spacing', 'visibility', 'colors', 'radius', 'border', 'shadow', 'layout.item', 'tabs',
                 ],
                 'style_targets' => StyleTargets::root('box', ['spacing', 'visibility', 'layout.item'], [
-                    'targets' => ['panels' => ['kind' => 'box']],
-                    'map' => ['colors' => 'panels', 'radius' => 'panels', 'border' => 'panels', 'shadow' => 'panels'],
+                    'targets' => [
+                        'panels' => ['kind' => 'box'],
+                        'bar' => ['kind' => 'box'],
+                        'tab' => ['kind' => 'box', 'optional' => true],
+                    ],
+                    'map' => [
+                        'colors' => 'panels', 'radius' => 'panels', 'border' => 'panels', 'shadow' => 'panels',
+                        'tabs.bar_radius' => 'bar', 'tabs.tab_radius' => 'tab',
+                    ],
                 ]),
                 'schema' => [
                     ['name' => 'items', 'type' => 'blocks', 'block_types' => ['tab']],
@@ -716,8 +726,21 @@ final class StarterBlockTypes
                 'category' => 'Advanced',
                 'description' => 'Renders shortcodes/{name}.twig from the theme (or a DB template).',
                 'flags' => [],
-                'style_capabilities' => ['spacing', 'visibility', 'layout.item'],
-                'style_targets' => StyleTargets::root('box', ['spacing', 'visibility', 'layout.item']),
+                // Two elements: the root is a layout-neutral wrapper held to the page measure, so
+                // what gives the shortcode its LOOK — colours, border, radius, shadow — lands on
+                // `content`, the element the included template renders. A background on the root
+                // would paint a bar across the page. Optional: the block template hands the
+                // target down, and a shortcode that ignores it is simply not styleable.
+                'style_capabilities' => [
+                    'spacing', 'visibility', 'layout.item', 'colors', 'border', 'radius', 'shadow',
+                ],
+                'style_targets' => StyleTargets::root('box', ['spacing', 'visibility', 'layout.item'], [
+                    'targets' => ['content' => ['kind' => 'box', 'optional' => true]],
+                    'map' => [
+                        'colors' => 'content', 'border' => 'content',
+                        'radius' => 'content', 'shadow' => 'content',
+                    ],
+                ]),
                 'schema' => [
                     ['name' => 'name', 'type' => 'string', 'required' => true,
                         'pattern' => '[a-z][a-z0-9_-]*'],
@@ -728,15 +751,22 @@ final class StarterBlockTypes
             ['slug' => 'feature', 'label' => 'Feature', 'icon' => 'i-lucide-check',
                 'category' => 'Items', 'description' => 'One feature: icon or number, title, description, link.',
                 'flags' => [],
+                // `radius` and `shadow` are the card's, on the root; the marker — the icon chip or
+                // number badge — has its own corners and shadow (`marker.*`), on its own target.
+                // Optional, like the title: a feature with no marker renders no element.
                 'style_capabilities' => [
                     'spacing', 'radius', 'colors', 'border', 'shadow', 'visibility', 'typography', 'layout.item',
+                    'marker',
                 ],
                 'style_targets' => StyleTargets::root('box', [
                     'spacing', 'radius', 'colors', 'border', 'shadow', 'visibility',
                     'layout.item',
                 ], [
-                    'targets' => ['title' => ['kind' => 'text', 'optional' => true]],
-                    'map' => ['typography' => 'title'],
+                    'targets' => [
+                        'title' => ['kind' => 'text', 'optional' => true],
+                        'marker' => ['kind' => 'box', 'optional' => true],
+                    ],
+                    'map' => ['typography' => 'title', 'marker' => 'marker'],
                 ]),
                 'schema' => [
                     ['name' => 'icon', 'type' => 'string', 'pattern' => '[a-z0-9]+(-[a-z0-9]+)*', 'format' => 'icon'],

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { EditorCustomHandlers, EditorSuggestionMenuItem } from '@nuxt/ui'
 import RichTextLink from '@/components/RichTextLink.vue'
 import { bubbleItems } from '@/components/richTextToolbar'
@@ -14,12 +14,30 @@ import type { BlockType } from '@/queries/blockTypes'
 // `pickerTypes` is the CONTAINING LIST's options (stage-toolbar spec §5): the
 // `/` menu's widgets insert as split-siblings into the same list, so the
 // owning BlockCard resolves them via the one pickerTypesForList resolver.
-const props = defineProps<{ modelValue?: string; placeholder?: string; pickerTypes: BlockType[] }>()
+const props = defineProps<{
+  modelValue?: string
+  placeholder?: string
+  pickerTypes: BlockType[]
+  /**
+   * Shown, not editable: the text is being edited somewhere else (on the stage) and one text has
+   * one owner at a time. The editor keeps following `modelValue`, so what is typed there shows here.
+   */
+  readonly?: boolean
+}>()
 
 const emit = defineEmits<{
   'update:modelValue': [html: string]
   'insert-block': [payload: { slug: string; beforeHtml: string; afterHtml: string }]
 }>()
+
+// UEditor reads `editable` once, when it creates the editor; changing it later is the editor's own
+// setEditable(). The instance is what UEditor exposes.
+const host = ref<{ editor?: { setEditable: (editable: boolean) => void } | null } | null>(null)
+watch(
+  [() => props.readonly === true, () => host.value?.editor ?? null],
+  ([readonly, editor]) => editor?.setEditable(!readonly),
+  { immediate: true },
+)
 
 // Derive the Tiptap Editor type from @nuxt/ui's handler signature — @tiptap/*
 // core types aren't a direct/hoisted dependency (same derivation as RichText.vue).
@@ -94,7 +112,9 @@ const suggestionItems = computed(
 
 <template>
   <UEditor
+    ref="host"
     v-slot="{ editor }"
+    :editable="!readonly"
     :model-value="modelValue"
     content-type="html"
     :mention="false"

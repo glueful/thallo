@@ -110,6 +110,24 @@ properties.
 | `radius` | `radius` | token, reset | no (scope, not meaning) |
 | `colors` | `surface`, `text`, `border` | token, reset | no (scope, not meaning) |
 | `border` | `width` (`none, thin, thick`), `style` (`solid, dashed`) | choice, reset | no |
+| `marker` | `radius`, `shadow` | token, reset | as `radius` and `shadow`: no, yes |
+| `tabs` | `bar_radius`, `tab_radius` | token, reset | as `radius`: no |
+
+**Amended 2026-09-19 — `marker`.** A block's marker — a feature's icon chip or number badge — has
+corners and a shadow of its own, set in the Style tab under **Marker**. They are their own paths
+(`marker.radius`, `marker.shadow`) because `radius` and `shadow` are the card's and one path holds
+one value; they mirror those two in kind, token domain and responsiveness, compile to the same
+declarations under their own class names (`t-mradius-*`, `t-mshadow-*`), and land on an optional
+`marker` target. The schema moves to 4 and the compiler to 5. The marker's colours and size stay
+the block's own Content fields for now: moving them is a data-to-settings move, and a separate one.
+
+**Amended 2026-09-19 — `tabs`.** A tabs block's strip has corners of its own, set in the Style tab
+under **Tabs**: the bar's (`tabs.bar_radius`, on a `bar` target — the list) and the tab's
+(`tabs.tab_radius`, on an optional `tab` target — every label, since the active one is whichever
+radio is checked, in CSS). Their own paths because the block's `radius` is the panels area's; both
+mirror `radius` and compile to `border-radius` under their own class names (`t-barradius-*`,
+`t-tabradius-*`). The schema moves to 5 and the compiler to 6. The strip's variant and colours stay
+the block's own fields: the same data-to-settings move, and as separate.
 
 Alignment is typed by meaning. `alignment.text` is `text-align` on a text target.
 `alignment.content` places a row target's children horizontally (`justify-content` on a
@@ -347,6 +365,29 @@ and per breakpoint the effective value, its source, and a state of `explicit`, `
 `theme-default` or `reset`, with reset and "apply to all breakpoints" one click each. Advanced:
 anchor, the ordered **Style classes** list (drag to reorder), **CSS classes**, attributes, label.
 The two class lists are never both called "Classes".
+
+**Amended 2026-09-19 — the Content tab is the block's whole form.** "The data fields" means all of
+them, edited as the main Content tab edits them. As first built the Block tab was a lesser form: a
+blocks-typed field — a container's content, a hero's links, an accordion's items — was one line
+("links: 2 blocks") with an Add button, and a prose body was absent, left to the stage alone. An
+author who selected a block could not finish editing it there.
+
+- **A blocks-typed field is its list.** The same list and cards, in the root blocks field's own
+  context: that field stays the tree's single writer, so a child edited, reordered, duplicated or
+  removed from the panel is the operation it always was, with the same legality, history and undo.
+  The root field hands its context out and the panel provides it again — the components are the
+  field's own, never a second implementation. The list's Add arms the Blocks tab at that position,
+  as the inspector's Add did. Until the owning field has registered (it loads asynchronously) the
+  tab falls back to the summary.
+- **A prose body has its editor here too**, the same chromeless one with its `/` menu. The stage
+  stays the primary way in; the panel is for what is awkward in place — a block hidden at the
+  breakpoint being viewed, a narrow column, a long body.
+- **One text has one owner at a time.** While the block is being edited on the stage the panel's
+  editor is read-only and says so ("Editing on the stage — press Esc there to finish"), and shows
+  what is typed there as it arrives; it is writable again when the session ends. Nothing is handed
+  across in the other direction: the panel's editor writes every change as it is made, so there is
+  nothing to flush, and the double-click that starts a stage session has already moved the
+  browser's focus out of the panel. A session on another block locks nothing.
 
 ### 3.5 Apply, revisions and fragments
 

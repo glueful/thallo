@@ -1,0 +1,80 @@
+{
+  "case": "shortcode-content-target",
+  "note": "A shortcode block's look lands on what the shortcode renders, not on the page-measure wrapper around it: background, text colour, border, radius and shadow set in the Style tab win over the pill's theme defaults, the dot follows the text colour, and an untouched pill is as the theme draws it.",
+  "tree": {
+    "id": "lf0000000901",
+    "type": "layout_fixture",
+    "data": {
+      "content": [
+        {
+          "id": "sc0000000901",
+          "type": "shortcode",
+          "data": {
+            "name": "thallo-version",
+            "params": {}
+          },
+          "settings": {
+            "style": {
+              "colors": {
+                "surface": {
+                  "type": "token",
+                  "value": "color.background"
+                },
+                "text": {
+                  "type": "token",
+                  "value": "color.text"
+                }
+              },
+              "border": {
+                "width": {
+                  "type": "choice",
+                  "value": "thin"
+                }
+              },
+              "radius": {
+                "type": "token",
+                "value": "radius.sm"
+              },
+              "shadow": {
+                "base": {
+                  "type": "token",
+                  "value": "shadow.sm"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "sc0000000902",
+          "type": "shortcode",
+          "data": {
+            "name": "thallo-version",
+            "params": {}
+          },
+          "settings": {}
+        },
+        {
+          "id": "sc0000000903",
+          "type": "shortcode",
+          "data": {
+            "name": "thallo-version",
+            "params": {
+              "dot_color": "accent"
+            }
+          },
+          "settings": {
+            "style": {
+              "colors": {
+                "text": {
+                  "type": "token",
+                  "value": "color.text"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "settings": {}
+  }
+}

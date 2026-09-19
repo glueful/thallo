@@ -7,6 +7,88 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.44] - 2026-09-19 — Developer Preview
+
+A feature's marker and a tab strip take their own corners in the Style tab, and the Design view
+no longer offers a layout the server refuses.
+
+### Upgrade Notes
+- No migrations, no new permissions, no dependency changes.
+- The documented sequence applies (docs/upgrading.md). `thallo:provision` brings the Feature
+  block's new Marker settings and the Tabs block's new Tabs settings to an existing install. The
+  style schema and the compiler both move on, so the compiled stylesheet is rebuilt under a new
+  hash on the first request after PHP-FPM is reloaded. A theme that overrides `feature.twig` or
+  `tabs.twig` keeps working; to make the marker styleable, add `{{ style_classes('marker') }}` to
+  the marker's class attribute, and for the tab strip `{{ style_classes('bar') }}` to the list's
+  and `{{ style_classes('tab') }}` to every label's (THEMING.md §12.3).
+- A theme of your own should define `--radius-sm` and `--radius-md` beside `--radius` and
+  `--radius-lg` if it reuses the default theme's block styles.
+
+### Added
+- **A feature's marker has its own corners and shadow**, in the Style tab under **Marker** — for
+  its icon chip or its number badge. They are separate from the block's own Corners and Shadow
+  under Effects, which stay the card's: a round, lifted badge on a square card, or the reverse.
+- **A tabs block's strip has its own corners**, in the Style tab under **Tabs**: *Bar corners* for
+  the whole strip and *Active tab corners* for the pill behind the selected tab — a fully round
+  bar with round pills, say. The block's own Corners under Effects stay the panel's, below the
+  strip. The strip's variant and colours are still the Block tab's.
+
+### Fixed
+- The Design view offered layouts the server then refused. A container cannot sit at the deepest
+  level — it holds blocks, and they need a level below it — but the editor counted an empty
+  container as if it held nothing, so it offered a column split inside a tab's content, or let a
+  container be dropped five levels down, and only Apply said no: a "Validation failed" naming a
+  field path, "exceeds maximum block nesting depth (5)". The editor now applies the server's rule:
+  those splits are shown disabled with the reason ("Would nest deeper than 5 levels") and such a
+  drop is refused where you make it.
+- The default theme's badges and tabs had square corners where its stylesheet says rounded: the
+  feature block's number badge and icon chip, the tabs' pill strip and its tabs, and the boxed
+  tabs. They read `--radius-md` and `--radius-sm`, which the theme never defined, and a declaration
+  that reads an undefined variable silently does nothing. Both are defined now — 6px, and the
+  theme's base radius — matching the Style tab's own `sm` and `md`. The code block's text colour
+  read an undefined variable too, and now names the theme's text colour.
+
+## [1.0.0-beta.43] - 2026-09-19 — Developer Preview
+
+The Block tab edits a block completely, a shortcode can be styled, and a shell snippet reads as a
+terminal.
+
+### Upgrade Notes
+- No migrations, no new permissions, no dependency changes.
+- The documented sequence applies (docs/upgrading.md). `thallo:provision` brings the Shortcode
+  block's new style settings to an existing install. A theme that overrides
+  `shortcodes/thallo-version.twig` or `shortcodes/copyright.twig`, or ships shortcodes of its
+  own, keeps working unchanged; to make one styleable, add `{{ style.classes|default('') }}`
+  inside its element's class attribute (THEMING.md, "shortcode").
+
+### Added
+- A Shortcode block can be styled from the Design view: **background, text and border colour,
+  border, radius and shadow**. They land on what the shortcode renders — the version pill, the
+  copyright line — and not on the full-width wrapper around it, where a background would have
+  painted a bar across the page. Spacing, visibility and the item settings stay on the wrapper.
+- **A shell snippet reads as a terminal.** In a Code block set to `bash`, a line you start with
+  `$ ` shows its prompt in the accent colour and a line starting with `#` is muted. The prompt is
+  drawn, not written: the Copy button — and a selection made by hand — takes the command without
+  it, and the copied text no longer ends in a newline, which pasted into a terminal would have run
+  the last command. A long command still wraps rather than scrolling, and now wraps under the
+  command instead of under the prompt. Other languages are untouched.
+- The version pill's dot follows the text colour, so recolouring the text brings it along. Two
+  entries in the shortcode's params adjust it: `"dot": false` hides it, and `"dot_color"` takes
+  one of the theme's colour names (`accent`, `text`, `muted`, `accent-contrast`, `background`).
+
+### Changed
+- **In the Design view, the Block tab's Content is the block's whole form**, as the main Content tab
+  has it. A field that holds other blocks — a container's content, a hero's links, an accordion's
+  items, a tab set's tabs — now shows those blocks as cards you can open, edit, reorder, duplicate
+  and remove, where it used to be one line ("links: 2 blocks") and an Add button; you no longer
+  leave the block to work on what is inside it. A rich text body has its editor there too, where
+  the tab used to say only "Edit the text directly on the stage": useful for a block hidden at the
+  breakpoint you are viewing, a narrow column, or a long text. While that text is being edited on
+  the stage the panel's editor is read-only and says so, so the two never hold it at once.
+- The default theme draws the Code block as a window: a tinted title bar with three lights over a
+  light body, and a filled Copy button. A theme that overrides `blocks/code.twig` keeps its own
+  markup; to get the prompt and comment treatment, copy the `bash` branch of the shipped template.
+
 ## [1.0.0-beta.42] - 2026-09-18 — Developer Preview
 
 The Design view's side panel fits its content: no sideways scroll, and nothing under the scrollbar.

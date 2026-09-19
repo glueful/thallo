@@ -199,10 +199,40 @@ classes/attributes you must keep stable are ones your **own `blocks.js`** select
 have a standalone template for when one is dropped on its own. The single source
 of truth for this set is `core/src/Content/Blocks/StarterBlockTypes.php` (schema) — the
 template set mirrors it one-to-one. `code` ships `block-code.js` for its Copy button
-(the floor is the plain `<pre><code>`); `shortcode` renders `shortcodes/{name}.twig`, and the
+(the floor is the plain `<pre><code>`). The button copies the code element's **text**, which is
+why a `bash` snippet's prompt is never text: `blocks/code.twig` renders each line as a
+`thallo-block-code__line`, takes a leading `$ ` off and marks the line `--prompt` for the theme
+to draw it with generated content, marks a `#` line `--comment`, and puts the newline inside
+every line but the last so nothing pasted into a terminal runs by itself. Other languages stay one
+text node under `language-*`, for a highlighter; `shortcode` renders `shortcodes/{name}.twig`, and the
 default theme ships `copyright` and `thallo-version` (the running install's version as
 `site.version`, styled as a pill; recolour it from custom CSS through `--version-fg`,
 `--version-bg` and `--version-dot` on `.thallo-shortcode-version`).
+
+A shortcode block is two elements, and they are two style targets. `root` is the
+layout-neutral wrapper held to the page measure: spacing, visibility and the item settings
+land there. `content` is whatever the shortcode renders, and takes what gives it a look —
+background, text and border colour, border, radius and shadow. Only the shortcode's own
+template knows which element that is, so `blocks/shortcode.twig` calls the helper and hands
+the result down: the include receives `style.classes` beside `params` and `site`, and puts it
+**inside its element's class attribute**:
+
+```twig
+<span class="my-shortcode{{ style.classes|default('') }}">…</span>
+```
+
+Classes only: the author's anchor, classes and attributes belong to the root, and markup cannot
+be handed to an include without `raw`, which the template policy refuses. The target is
+optional — a shortcode that ignores `style.classes` renders as it always did and is simply not
+styleable. Give such an element its own defaults in the theme (`@layer theme`): the settings
+are in the layer above and win. A default `border: 0 solid var(--line)` lets a border *width*
+set in the Style tab show by itself.
+
+`thallo-version` draws its dot in the text's colour (`var(--version-dot, currentColor)`), so
+recolouring the text brings the dot along. Two `params` adjust it: `"dot": false` hides it, and
+`"dot_color"` takes one of the theme's colour names — `accent`, `text`, `muted`,
+`accent-contrast`, `background` — becoming `thallo-shortcode-version--dot-{name}`. `params` is
+free JSON, so any other value is ignored rather than written into the class attribute.
 
 Two blocks carry presentation choices an operator picks in the editor, each a closed
 enum that becomes a BEM modifier (unknown stored values degrade to the default):
@@ -667,6 +697,28 @@ is held to the same rule. No template writes a `style=` attribute
 or a `<style>` element — the lint refuses both at save and before render; the only
 inline style emitters are `theme_colors_style()`, `theme_style_scope()` and
 `font_faces_style()` (variables and `@font-face`, no selectors).
+
+The feature block has a third target, `marker`: its icon chip or number badge. `marker.radius`
+and `marker.shadow` (Style tab → Marker) land there, while the block's `radius` and `shadow`
+stay the card's, on the root — two elements, two slots. A theme that overrides `feature.twig`
+adds `{{ style_classes('marker') }}` inside the marker's class attribute and
+`{{ style_attrs('marker') }}` on its tag; the target is optional, since a feature with no marker
+renders no element.
+
+The tabs block has two targets for its strip, beside `panels`: `bar`, the list, takes
+`tabs.bar_radius`; `tab`, the label, takes `tabs.tab_radius` (Style tab → Tabs). The block's own
+`radius` stays the panels area's. A theme that overrides `tabs.twig` styles `bar` on the list and
+`tab` on **every** label: which tab is active is decided in CSS, by the checked radio, so the pill
+an author rounds is whichever label is showing it. `tab` is optional — a tabs block with no tabs
+has no label. Being settings, both outrank a variant's own corners: an author who rounds the bar
+of the `underline` or `boxed` variant gets a rounded bar.
+
+A block's **default** corners read the same scale the Style tab's tokens name: `--radius-sm`
+(6px), `--radius-md` (`var(--radius)`), `--radius-lg`. A theme defines all of them. `var(--x)`
+with no fallback, where `--x` is never defined, makes the whole declaration invalid and the
+property silently takes its initial value — which is how a badge ships square while its
+stylesheet says rounded. A test holds the default theme to it: every custom property it reads
+without a fallback is one it defines.
 
 ### 12.3a The container's layout (what a theme must keep)
 

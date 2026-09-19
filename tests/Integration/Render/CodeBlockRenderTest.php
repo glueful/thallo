@@ -33,6 +33,9 @@ final class CodeBlockRenderTest extends AppTestCase
     /** @param array<string,mixed> $data */
     private function render(array $data): string
     {
+        // block_script() emits a block's script once per render: without this the test passes only
+        // when no test before it in the process has rendered a code block.
+        $this->container()->get(RenderContextExtension::class)->resetPerRenderState();
         return $this->env()->createTemplate('{{ blocks(list) }}')->render([
             'list' => [['id' => 'c1', 'type' => 'code', 'data' => $data]],
         ]);

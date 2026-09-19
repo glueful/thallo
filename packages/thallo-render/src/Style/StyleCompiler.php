@@ -19,7 +19,7 @@ final class StyleCompiler
 {
     // 2: colors.surface compiles to the background shorthand (a theme gradient yields to it).
     // 4: layout.display compiles flex and grid only (container-layout spec §11.1).
-    public const VERSION = 4;
+    public const VERSION = 6;
 
     private const MEDIA = ['md' => 768, 'lg' => 1024];
 
@@ -84,6 +84,13 @@ final class StyleCompiler
         'typography.size' => 'font-size',
         'shadow' => 'box-shadow',
         'radius' => 'border-radius',
+        // The marker's own corners and shadow: the same declarations under their own class names,
+        // since they land on the marker while `radius` and `shadow` land on the card.
+        'marker.shadow' => 'box-shadow',
+        'marker.radius' => 'border-radius',
+        // A tab strip's corners, likewise: the bar's and the tab's, beside the panels area's.
+        'tabs.bar_radius' => 'border-radius',
+        'tabs.tab_radius' => 'border-radius',
         // The shorthand: the surface colour owns the whole background, so a theme's gradient
         // (a background-image) yields to a managed colour exactly like a flat theme fill does.
         'colors.surface' => 'background',

@@ -1,0 +1,158 @@
+{
+  "case": "tabs-strip",
+  "note": "A tabs block's strip has corners of its own, set under Tabs in the Style tab: the bar's and the tab's — the pill behind the active label. The block's own radius stays the panels area's.",
+  "tree": {
+    "id": "lf0000000931",
+    "type": "layout_fixture",
+    "data": {
+      "content": [
+        {
+          "id": "ts000000931",
+          "type": "tabs",
+          "data": {
+            "items": [
+              {
+                "id": "tb000000911",
+                "type": "tab",
+                "data": {
+                  "label": "Tab 1",
+                  "content": [
+                    {
+                      "id": "rt000000911",
+                      "type": "rich_text",
+                      "data": {
+                        "body": "<p>Panel 1</p>"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "tb000000912",
+                "type": "tab",
+                "data": {
+                  "label": "Tab 2",
+                  "content": [
+                    {
+                      "id": "rt000000912",
+                      "type": "rich_text",
+                      "data": {
+                        "body": "<p>Panel 2</p>"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "settings": {
+            "style": {}
+          }
+        },
+        {
+          "id": "ts000000932",
+          "type": "tabs",
+          "data": {
+            "items": [
+              {
+                "id": "tb000000921",
+                "type": "tab",
+                "data": {
+                  "label": "Tab 1",
+                  "content": [
+                    {
+                      "id": "rt000000921",
+                      "type": "rich_text",
+                      "data": {
+                        "body": "<p>Panel 1</p>"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "tb000000922",
+                "type": "tab",
+                "data": {
+                  "label": "Tab 2",
+                  "content": [
+                    {
+                      "id": "rt000000922",
+                      "type": "rich_text",
+                      "data": {
+                        "body": "<p>Panel 2</p>"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "settings": {
+            "style": {
+              "tabs": {
+                "bar_radius": {
+                  "type": "token",
+                  "value": "radius.full"
+                },
+                "tab_radius": {
+                  "type": "token",
+                  "value": "radius.lg"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "ts000000933",
+          "type": "tabs",
+          "data": {
+            "items": [
+              {
+                "id": "tb000000931",
+                "type": "tab",
+                "data": {
+                  "label": "Tab 1",
+                  "content": [
+                    {
+                      "id": "rt000000931",
+                      "type": "rich_text",
+                      "data": {
+                        "body": "<p>Panel 1</p>"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "tb000000932",
+                "type": "tab",
+                "data": {
+                  "label": "Tab 2",
+                  "content": [
+                    {
+                      "id": "rt000000932",
+                      "type": "rich_text",
+                      "data": {
+                        "body": "<p>Panel 2</p>"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "settings": {
+            "style": {
+              "radius": {
+                "type": "token",
+                "value": "radius.lg"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "settings": {}
+  }
+}

@@ -358,6 +358,28 @@ function parentOfBlock(id: string): BlockInstance | null {
   return parentId === null ? null : ops.findById(tree(), parentId)
 }
 
+/**
+ * Where `id` sits in this field's tree: the list it is in and how deep (a root block is at one).
+ * What a host outside this component needs to show a block's children or its prose body.
+ */
+function placeOf(
+  id: string,
+): { parentId: string | null; region: string | null; depth: number } | null {
+  const walk = (list: BlockInstance[], depth: number): number | null => {
+    for (const block of list) {
+      if (block.id === id) return depth
+      for (const region of regionsOf(block.type)) {
+        const hit = walk((block.data[region] as BlockInstance[] | undefined) ?? [], depth + 1)
+        if (hit !== null) return hit
+      }
+    }
+    return null
+  }
+  const at = ops.locateById(tree(), id)
+  const depth = walk(tree(), 1)
+  return at && depth !== null ? { parentId: at.parentId, region: at.region, depth } : null
+}
+
 // Exposed API: onDragEnd is the direct-handler testing seam (jsdom cannot
 // simulate sortable); selectBlock/hasBlock let the visual canvas route a
 // stage selection to this field; the structural methods are the canvas
@@ -376,6 +398,13 @@ defineExpose({
   findBlock,
   blockTypeById,
   parentOfBlock,
+  placeOf,
+  /**
+   * The context this field provides to its own lists and cards. A host elsewhere on the page — the
+   * Design page's Block tab — provides the SAME object to the same components, so a block's
+   * children are edited through this field, the tree's single writer, wherever they are shown.
+   */
+  context,
 })
 
 // ── Tail prose (spec §3) ──────────────────────────────────────────────────────

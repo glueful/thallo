@@ -54,6 +54,10 @@ const GROUPS: { key: string; label: string; match: (row: StylePropertyRow) => bo
     label: 'Effects',
     match: (r) => r.group === 'radius' || r.group === 'shadow' || r.group === 'border',
   },
+  // The block's marker — a feature's icon chip or number badge — beside the block's own Effects.
+  { key: 'marker', label: 'Marker', match: (r) => r.group === 'marker' },
+  // A tabs block's strip — the bar and the active tab's pill; the block's Effects are the panel's.
+  { key: 'tabs', label: 'Tabs', match: (r) => r.group === 'tabs' },
   { key: 'visibility', label: 'Visibility', match: (r) => r.group === 'visibility' },
 ]
 
@@ -70,6 +74,10 @@ const LABELS: Record<string, string> = {
   visibility: 'Visibility',
   shadow: 'Shadow',
   radius: 'Corners',
+  'marker.radius': 'Corners',
+  'marker.shadow': 'Shadow',
+  'tabs.bar_radius': 'Bar corners',
+  'tabs.tab_radius': 'Active tab corners',
   'colors.surface': 'Background',
   'colors.text': 'Text colour',
   'colors.border': 'Border colour',

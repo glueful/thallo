@@ -423,10 +423,21 @@ export function planPreset(
 }
 
 /** The height of the subtree a preset creates, counting the container itself as one. */
-export function presetDepth(key: string): number {
+export function presetDepth(key: string, regionsOf: (slug: string) => string[]): number {
   const preset = PRESETS[key]
   if (!preset) return 0
+  // A planned child that holds blocks — a column — needs a level below it even though the preset
+  // puts nothing there: the factory gives it `content: []`, and the server refuses that list when
+  // its items would sit below the cap (see `subtreeHeight`). Counted without it, the picker
+  // offered a split the server then refused at Apply.
   const height = (children: PlannedChild[]): number =>
-    children.length === 0 ? 0 : 1 + Math.max(...children.map((c) => height(c.children ?? [])))
+    children.length === 0
+      ? 0
+      : 1 +
+        Math.max(
+          ...children.map((c) =>
+            Math.max(height(c.children ?? []), regionsOf(c.type).length > 0 ? 1 : 0),
+          ),
+        )
   return 1 + height(preset.children)
 }
