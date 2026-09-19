@@ -301,6 +301,24 @@ const CASES = {
     'c0.child2>.thallo-block-feature__marker': at({ 'border-top-left-radius': '12px' }),
   },
 
+  // A tabs block's strip. Untouched, the theme's own: a 12px bar holding a 6px pill. Then the
+  // strip's own corners — the bar's and the tab's, on the ACTIVE label (the first: its radio is
+  // checked) — which leave the panels area alone; and the block's `radius`, which is the panels
+  // area's and leaves the strip alone.
+  'tabs-strip': {
+    'c0.child0>.thallo-block-tabs__list': at({ 'border-top-left-radius': '12px' }),
+    'c0.child0>.thallo-block-tabs__label': at({ 'border-top-left-radius': '6px' }),
+    'c0.child1>.thallo-block-tabs__list': at({ 'border-top-left-radius': '999px' }),
+    'c0.child1>.thallo-block-tabs__label': at({
+      'border-top-left-radius': '20px',
+      'background-color': 'rgb(255, 255, 255)',
+    }),
+    'c0.child1>.thallo-block-tabs__panels': at({ 'border-top-left-radius': '0px' }),
+    'c0.child2>.thallo-block-tabs__panels': at({ 'border-top-left-radius': '20px' }),
+    'c0.child2>.thallo-block-tabs__list': at({ 'border-top-left-radius': '12px' }),
+    'c0.child2>.thallo-block-tabs__label': at({ 'border-top-left-radius': '6px' }),
+  },
+
   // A shell snippet as a terminal. What only a browser can show: the prompt is DRAWN (generated
   // content, so neither copied nor selected) in the accent; an empty line, a block holding nothing
   // but its newline, still has a line's height; one line is one line high — the newline inside a

@@ -46,8 +46,11 @@ final class StyleSchemaTest extends TestCase
             // of its own. They are their own paths because `radius` and `shadow` are the card's:
             // one path holds one value.
             'marker.radius', 'marker.shadow',
+            // A tabs block's strip: the bar's corners and the tab's — the pill behind the active
+            // label. Their own paths because `radius` is the panels area's.
+            'tabs.bar_radius', 'tabs.tab_radius',
         ], $paths);
-        self::assertSame(4, StyleSchema::VERSION);
+        self::assertSame(5, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
     }
 
@@ -169,7 +172,22 @@ final class StyleSchemaTest extends TestCase
             StyleSchema::pathsInGroup('layout.item'),
             StyleCapabilities::fromDeclaration(['layout.item'])->paths(),
         );
-        self::assertSame(4, StyleSchema::VERSION);
+        self::assertSame(5, StyleSchema::VERSION);
+    }
+
+    public function testTheTabStripsCornersMirrorTheBlocksOwn(): void
+    {
+        // Same kind, domain and responsiveness as `radius`, so the Style tab draws the same
+        // control and a theme's radius tokens mean the same thing on the bar, the tab and the panel.
+        $radius = StyleSchema::property('radius');
+        foreach (['tabs.bar_radius', 'tabs.tab_radius'] as $path) {
+            $def = StyleSchema::property($path);
+            self::assertNotNull($def, $path);
+            self::assertSame('tabs', $def->group);
+            self::assertSame($radius?->tokenDomain, $def->tokenDomain);
+            self::assertSame($radius?->responsive, $def->responsive);
+        }
+        self::assertSame(['tabs.bar_radius', 'tabs.tab_radius'], StyleSchema::pathsInGroup('tabs'));
     }
 
     public function testTheMarkerPropertiesMirrorTheCardsOwn(): void

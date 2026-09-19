@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 4;
+    public const VERSION = 5;
 
     /** Platform breakpoints: `md` from 768px, `lg` from 1024px. */
     public const BREAKPOINTS = ['base', 'md', 'lg'];
@@ -121,6 +121,11 @@ final class StyleSchema
         // Style tab draws the same controls and a theme's tokens mean the same thing on both.
         $defs[] = new PropertyDefinition('marker.radius', 'marker', $token, false, 'radius');
         $defs[] = new PropertyDefinition('marker.shadow', 'marker', $token, true, 'shadow');
+
+        // A tabs block's strip: the bar's corners, and the tab's — the pill behind the active label.
+        // Their own paths for the same reason: `radius` is the panels area's. Both mirror `radius`.
+        $defs[] = new PropertyDefinition('tabs.bar_radius', 'tabs', $token, false, 'radius');
+        $defs[] = new PropertyDefinition('tabs.tab_radius', 'tabs', $token, false, 'radius');
 
         $byPath = [];
         foreach ($defs as $def) {

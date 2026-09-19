@@ -9,11 +9,12 @@ as the next release, never a mutated tag.
 
 ### Upgrade Notes
 - The documented sequence applies (docs/upgrading.md). `thallo:provision` brings the Feature
-  block's new Marker settings to an existing install. The style schema and the compiler each move
-  by one version, so the compiled stylesheet is rebuilt under a new hash on the first request
-  after PHP-FPM is reloaded. A theme that overrides `feature.twig` keeps working; to make the
-  marker styleable, add `{{ style_classes('marker') }}` to the marker's class attribute
-  (THEMING.md §12.3).
+  block's new Marker settings and the Tabs block's new Tabs settings to an existing install. The
+  style schema and the compiler both move on, so the compiled stylesheet is rebuilt under a new
+  hash on the first request after PHP-FPM is reloaded. A theme that overrides `feature.twig` or
+  `tabs.twig` keeps working; to make the marker styleable, add `{{ style_classes('marker') }}` to
+  the marker's class attribute, and for the tab strip `{{ style_classes('bar') }}` to the list's
+  and `{{ style_classes('tab') }}` to every label's (THEMING.md §12.3).
 - A theme of your own should define `--radius-sm` and `--radius-md` beside `--radius` and
   `--radius-lg` if it reuses the default theme's block styles.
 
@@ -21,6 +22,10 @@ as the next release, never a mutated tag.
 - **A feature's marker has its own corners and shadow**, in the Style tab under **Marker** — for
   its icon chip or its number badge. They are separate from the block's own Corners and Shadow
   under Effects, which stay the card's: a round, lifted badge on a square card, or the reverse.
+- **A tabs block's strip has its own corners**, in the Style tab under **Tabs**: *Bar corners* for
+  the whole strip and *Active tab corners* for the pill behind the selected tab — a fully round
+  bar with round pills, say. The block's own Corners under Effects stay the panel's, below the
+  strip. The strip's variant and colours are still the Block tab's.
 
 ### Fixed
 - The Design view offered layouts the server then refused. A container cannot sit at the deepest

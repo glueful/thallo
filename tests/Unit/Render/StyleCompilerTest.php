@@ -109,6 +109,19 @@ final class StyleCompilerTest extends TestCase
         self::assertStringContainsString('.md\\:t-mshadow-md', $css, 'responsive, as shadow is');
     }
 
+    public function testTheTabStripsCornerUtilitiesAreRadiusUnderTheirOwnNames(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+
+        // Three corners on one block — the bar's, the tab's, the panels area's — so three names.
+        self::assertSame('t-barradius-full', ClassNames::for('tabs.bar_radius', 'radius.full'));
+        self::assertSame('t-tabradius-lg', ClassNames::for('tabs.tab_radius', 'radius.lg'));
+        self::assertStringContainsString('.t-barradius-full { border-radius: var(--t-radius-full); }', $css);
+        self::assertStringContainsString('.t-tabradius-lg { border-radius: var(--t-radius-lg); }', $css);
+        self::assertStringNotContainsString('.md\\:t-barradius', $css, 'not responsive, as radius is not');
+        self::assertStringNotContainsString('.md\\:t-tabradius', $css, 'not responsive, as radius is not');
+    }
+
     public function testLayoutUtilitiesCompileToTheirDeclarations(): void
     {
         // Container-layout plan, Task 1.1: one declaration per layout utility.

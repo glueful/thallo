@@ -271,8 +271,10 @@ final class TemplateLinterTest extends AppTestCase
         self::assertStringContainsString('must be a constant string', $computed[0]['message']);
 
         // Tabs render their items' data inline: no slot element, no rule.
-        // tabs declares a second target, panels — the one content area — which must be styled too.
+        // tabs declares three more targets — panels, the one content area, and the strip's bar and
+        // tab — which must be styled too.
         $tabs = '<div class="t{{ style_classes(\'root\') }}"{{ style_attrs(\'root\') }}>'
+            . '<div class="l{{ style_classes(\'bar\') }}"><label class="b{{ style_classes(\'tab\') }}"></label></div>'
             . '<div class="p{{ style_classes(\'panels\') }}"{{ style_attrs(\'panels\') }}></div></div>';
         self::assertSame([], $linter->lint($tabs, 'blocks/tabs.twig'));
     }
