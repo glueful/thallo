@@ -92,8 +92,9 @@ export function createGridFill(deps: GridFillDeps) {
     if (free === 0) {
       return { visible: true, enabled: false, cells: 0, reason: 'No empty cells in the last row' }
     }
-    // Room for the cell AND a block inside it. An empty cell at the cap is legal and useless:
-    // nothing could ever be put in it.
+    // Room for the cell AND a block inside it. A cell is a container, and a block that holds
+    // blocks needs a level below it: legality refuses it at the cap too (the server refuses its
+    // list there even while it is empty). This says so first, in the author's terms.
     if (found.depth + 2 > ctx.maxDepth) {
       return {
         visible: true,

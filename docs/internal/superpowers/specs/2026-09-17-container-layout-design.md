@@ -659,10 +659,19 @@ For a column an author can fill on its own — what the old Columns block's `col
   does. A child hidden at that breakpoint occupies nothing.
 - **When the last row is full, Fill is disabled** ("No empty cells in the last row"). Starting a
   new row is a different action and is not this one; none is specified in this amendment.
-- **Room for content, not only for the cell.** The depth cap is five and a subtree is legal when
-  it fits (§6.3), so an empty column container at depth five is legal — and useless, since nothing
-  can then be put in it. Fill therefore requires room for the cell **and a block inside it**: the
-  grid container at depth three or shallower. Deeper, it is disabled with that reason — "A cell
+- **Room for content, not only for the cell.** The depth cap is five, and a block that *holds*
+  blocks needs a level below it for them: a column container cannot sit at five. Fill therefore
+  requires room for the cell **and a block inside it**: the grid container at depth three or
+  shallower.
+  *Corrected 2026-09-19.* This first read "an empty column container at depth five is legal — and
+  useless". It is not legal: the server validates a blocks-typed field whenever its key is present,
+  `[]` included, and refuses it when its items would sit below the cap
+  (`FieldValidator::validateBlocks`), and the block factory always gives a container
+  `content: []`. The builder counted an empty container as a leaf, so it offered — a 67 / 33 split
+  inside a tab's content, a container dropped at five — what Apply then answered with a 422 and a
+  field path. `subtreeHeight` and the picker's `presetDepth` now count the level a present region
+  needs, and the shared legality fixtures hold builder and server to the same answer
+  (`depth-at-five.json`: a leaf at five is legal on both; an empty container is refused on both). Deeper, it is disabled with that reason — "A cell
   here could not hold a block: blocks nest at most 5 levels deep", the number being the
   configured limit, never a literal.
 - **Where.** A button under the Grid controls in the Layout tab, and on the empty grid's

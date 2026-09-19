@@ -88,11 +88,21 @@ function index(doc: EditorDocument, ctx: LegalityContext): Map<string, Located> 
   return out
 }
 
-/** Nesting height of a subtree: a leaf = 1. */
+/**
+ * Nesting height of a subtree: a leaf = 1. A block that HOLDS blocks needs a level below it for
+ * them, even while it holds none: the server validates a blocks-typed field whenever the key is
+ * present — `[]` included — and refuses it when its items would sit below the cap
+ * (FieldValidator::validateBlocks). A factory-made container always carries `content: []`, so
+ * counted as a leaf it was legal here at depth five and a 422 at Apply: the refusal arrived as a
+ * field path instead of a reason. An absent key is not looked at there, so it adds nothing here.
+ */
 export function subtreeHeight(block: BlockInstance, regionsOf: RegionResolver): number {
   let deepest = 0
   for (const region of regionsOf(block.type)) {
-    for (const child of asList(block.data[region])) {
+    const value = block.data[region]
+    if (value === undefined || value === null) continue
+    deepest = Math.max(deepest, 1)
+    for (const child of asList(value)) {
       deepest = Math.max(deepest, subtreeHeight(child, regionsOf))
     }
   }

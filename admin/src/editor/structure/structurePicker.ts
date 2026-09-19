@@ -124,7 +124,7 @@ export function createStructurePicker(deps: PickerDeps) {
       if (refusal !== undefined)
         return { key, label: PRESETS[key]!.label, enabled: false, reason: refusal }
       // The cheap check the tile can show before anything is fetched: would the subtree fit?
-      const depth = presetDepth(key)
+      const depth = presetDepth(key, ctx.regionsOf)
       if (found && found.depth + depth - 1 > ctx.maxDepth) {
         return {
           key,

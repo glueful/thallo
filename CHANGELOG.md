@@ -23,6 +23,13 @@ as the next release, never a mutated tag.
   under Effects, which stay the card's: a round, lifted badge on a square card, or the reverse.
 
 ### Fixed
+- The Design view offered layouts the server then refused. A container cannot sit at the deepest
+  level — it holds blocks, and they need a level below it — but the editor counted an empty
+  container as if it held nothing, so it offered a column split inside a tab's content, or let a
+  container be dropped five levels down, and only Apply said no: a "Validation failed" naming a
+  field path, "exceeds maximum block nesting depth (5)". The editor now applies the server's rule:
+  those splits are shown disabled with the reason ("Would nest deeper than 5 levels") and such a
+  drop is refused where you make it.
 - The default theme's badges and tabs had square corners where its stylesheet says rounded: the
   feature block's number badge and icon chip, the tabs' pill strip and its tabs, and the boxed
   tabs. They read `--radius-md` and `--radius-sm`, which the theme never defined, and a declaration

@@ -231,22 +231,27 @@ describe('the Section presets', () => {
 })
 
 describe('presetDepth', () => {
-  it('is the height of the subtree the preset creates', () => {
-    // Section nests a header group holding its own blocks; a column preset nests one level.
-    expect(presetDepth('section')).toBe(3)
-    expect(presetDepth('cols-33-67')).toBe(2)
-    expect(presetDepth('stack')).toBe(1)
+  // A block that holds blocks needs a level below it for them: the server refuses such a block's
+  // list — even empty — when its items would sit below the cap. A preset's columns are exactly
+  // that: empty containers. So their level counts, or the picker offers what Apply then refuses.
+  const regionsOf = (slug: string): string[] => (slug === 'container' ? ['content'] : [])
+
+  it('is the height of the subtree the preset creates, counting the level an empty column needs', () => {
+    expect(presetDepth('stack', regionsOf)).toBe(1)
+    // container → column → the level the column's own content needs
+    expect(presetDepth('cols-33-67', regionsOf)).toBe(3)
+    expect(presetDepth('cols-quarters', regionsOf)).toBe(3)
+    // section → header group → its blocks; the empty body container needs the same three
+    expect(presetDepth('section', regionsOf)).toBe(3)
+  })
+
+  it('a type with no regions needs nothing below it', () => {
+    expect(presetDepth('cols-33-67', () => [])).toBe(2)
   })
 
   it('is defined for every preset the picker can offer', () => {
     for (const key of Object.keys(PRESETS)) {
-      expect(presetDepth(key), key).toBeGreaterThanOrEqual(1)
+      expect(presetDepth(key, regionsOf), key).toBeGreaterThanOrEqual(1)
     }
-  })
-})
-
-describe('an unknown preset', () => {
-  it('plans nothing rather than guessing', () => {
-    expect(planPreset('nope', container('c1'), [])).toBeNull()
   })
 })

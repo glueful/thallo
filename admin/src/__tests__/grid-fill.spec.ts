@@ -212,8 +212,8 @@ describe('fill', () => {
   })
 
   it('re-runs EVERY condition before committing: a grid moved to depth four while loading', async () => {
-    // Subtree legality alone would accept this — the new cells are legal at depth five — so only
-    // the re-run depth condition stops cells that could never hold a block.
+    // Everything is judged again after the await: the grid that was at depth three when Fill was
+    // pressed is at four by the time the factory answers, where a cell would sit at five.
     const sequence = vi.spyOn(legality, 'checkInsertSequence')
     const g = gate()
     const h = harness([atDepth(3, grid('g1'))], { factory: g.factory })
@@ -223,13 +223,15 @@ describe('fill', () => {
     await pending
     expect(h.committed).toEqual([])
     expect(h.notified).toEqual([])
-    // And legality really would have let it through.
+    // Legality agrees: a cell is a container, and a block that holds blocks needs a level below
+    // it — the server refuses its list at the cap even while it is empty. Fill's own condition
+    // says the same thing first, in the author's terms.
     const verdict = legality.checkInsertSequence(
       h.doc.value,
       [{ position: { parent: 'g1', slot: 'content', index: 0 }, block: plain('x', []) }],
       legalityContext(),
     )
-    expect(verdict.ok).toBe(true)
+    expect(verdict.ok ? '' : verdict.reason).toBe('depth')
     sequence.mockRestore()
   })
 

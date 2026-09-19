@@ -228,17 +228,24 @@ describe('checkInsertSequence', () => {
   })
 
   it('refuses the second insert when the first has used up the room', () => {
-    // Four containers deep: the new container lands at the cap, so the block that would go inside
-    // it is the one refused — and only a sequence judged in order can see that.
-    const doc = {
-      fields: { body: [container('c1', container('c2', container('c3', container('c4'))))] },
-    }
-    const first = { position: { parent: 'c4', slot: 'content', index: 0 }, block: container('a') }
+    // Three containers deep: a new container lands at four, the deepest a block that holds blocks
+    // can sit — its own list needs five. So a second container inside it is the one refused, and
+    // only a sequence judged in order, each insert against the tree the last one left, can see that.
+    const doc = { fields: { body: [container('c1', container('c2', container('c3')))] } }
+    const first = { position: { parent: 'c3', slot: 'content', index: 0 }, block: container('a') }
     expect(checkInsertSequence(doc, [first], ctx)).toEqual({ ok: true })
+    // A leaf inside it sits at five: legal.
+    expect(
+      checkInsertSequence(
+        doc,
+        [first, { position: { parent: 'a', slot: 'content', index: 0 }, block: heading('h') }],
+        ctx,
+      ),
+    ).toEqual({ ok: true })
 
     const verdict = checkInsertSequence(
       doc,
-      [first, { position: { parent: 'a', slot: 'content', index: 0 }, block: heading('h') }],
+      [first, { position: { parent: 'a', slot: 'content', index: 0 }, block: container('b') }],
       ctx,
     )
     expect(verdict.ok ? '' : verdict.reason).toBe('depth')
