@@ -1,0 +1,23 @@
+{
+  "case": "code-shell-lines",
+  "note": "A shell snippet reads as a terminal: the prompt is drawn in the accent, a comment is muted, an empty line keeps its height, and a long command wraps under the command — the snippet never scrolls sideways.",
+  "tree": {
+    "id": "lf0000000911",
+    "type": "layout_fixture",
+    "data": {
+      "content": [
+        {
+          "id": "cd0000000911",
+          "type": "code",
+          "data": {
+            "language": "bash",
+            "label": "install",
+            "code": "$ composer create-project --stability=beta glueful/thallo my-site\n    --keep-vcs\n$ cd my-site\n\n# environment checked"
+          },
+          "settings": {}
+        }
+      ]
+    },
+    "settings": {}
+  }
+}

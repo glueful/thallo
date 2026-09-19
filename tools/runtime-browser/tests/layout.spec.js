@@ -43,6 +43,9 @@ const full = (width) => CONTENT[width];
 // centred in the viewport.
 const contentLeft = (width) => (width > 1152 + 48 ? (width - 1152) / 2 + 24 : 24);
 
+/** One line of a code snippet: 0.875rem at a line-height of 1.6. */
+const LINE = 22.4;
+
 /** Expectations per width: `md` and `lg` merge onto the state below them, as the cascade does. */
 const at = (base, md = {}, lg = {}) => ({
   375: base,
@@ -283,6 +286,29 @@ const CASES = {
     'c0.child2>.thallo-shortcode-version::before': at({ 'background-color': 'rgb(37, 99, 235)' }),
   },
 
+  // A shell snippet as a terminal. What only a browser can show: the prompt is DRAWN (generated
+  // content, so neither copied nor selected) in the accent; an empty line, a block holding nothing
+  // but its newline, still has a line's height; one line is one line high — the newline inside a
+  // line adds none; and a long command wraps instead of scrolling the page or the snippet.
+  'code-shell-lines': {
+    'c0.root': at({ 'doc.overflow': 0 }),
+    'c0.child0>.thallo-block-code__panel': at({ 'background-color': 'rgb(255, 255, 255)' }),
+    'c0.child0>.thallo-block-code__caption': at({ 'background-color': 'rgb(246, 247, 249)' }),
+    'c0.child0>.thallo-block-code__pre': at({ 'white-space': 'pre-wrap' }),
+    'c0.child0>.thallo-block-code__line--prompt::before': at({ content: '"$ "', color: 'rgb(37, 99, 235)' }),
+    'c0.child0>.thallo-block-code__line--comment': at({ color: 'rgb(100, 116, 139)', 'rect.height': LINE }),
+    // The fourth line is empty.
+    'c0.child0>.thallo-block-code__line:nth-child(4)': at({ 'rect.height': LINE }),
+    // The long command: more than one line high on a phone, exactly one where it fits.
+    // Wrapping follows the width of the screen, not a breakpoint: only the phone is too narrow.
+    'c0.child0>.thallo-block-code__line--prompt': at({
+      'rect.height': (width) => (width === 375 ? { above: LINE + 1 } : LINE),
+    }),
+    // Five lines are five lines high, plus the snippet's padding: a line's own newline adds none,
+    // and there is no sixth, empty line after the last.
+    'c0.child0>.thallo-block-code__pre': at({ 'rect.height': (width) => (width === 375 ? { above: 5 * LINE + 2 * 16 } : 5 * LINE + 2 * 16) }),
+  },
+
   // §3.6 containment: the release strips the page measure a block carries, and nothing else.
   'containment-preserves-component-padding': {
     'c0.child0': at({ 'padding-top': '24px', 'padding-left': '24px' }),
@@ -423,6 +449,9 @@ for (const name of names) {
             const value = typeof wanted === 'function' ? wanted(width) : wanted;
             if (value instanceof RegExp) {
               expect(actual, where).toMatch(value);
+            } else if (value && typeof value === 'object' && 'above' in value) {
+              // Wrapped: the contract says it took more than one line, not how many.
+              expect(actual, where).toBeGreaterThan(value.above);
             } else if (value && typeof value === 'object' && 'below' in value) {
               // Content-sized: the contract says it is no longer the authored width, not how wide
               // two letters of the theme's heading face are.

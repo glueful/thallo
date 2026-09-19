@@ -19,9 +19,20 @@ as the next release, never a mutated tag.
   border, radius and shadow**. They land on what the shortcode renders — the version pill, the
   copyright line — and not on the full-width wrapper around it, where a background would have
   painted a bar across the page. Spacing, visibility and the item settings stay on the wrapper.
+- **A shell snippet reads as a terminal.** In a Code block set to `bash`, a line you start with
+  `$ ` shows its prompt in the accent colour and a line starting with `#` is muted. The prompt is
+  drawn, not written: the Copy button — and a selection made by hand — takes the command without
+  it, and the copied text no longer ends in a newline, which pasted into a terminal would have run
+  the last command. A long command still wraps rather than scrolling, and now wraps under the
+  command instead of under the prompt. Other languages are untouched.
 - The version pill's dot follows the text colour, so recolouring the text brings it along. Two
   entries in the shortcode's params adjust it: `"dot": false` hides it, and `"dot_color"` takes
   one of the theme's colour names (`accent`, `text`, `muted`, `accent-contrast`, `background`).
+
+### Changed
+- The default theme draws the Code block as a window: a tinted title bar with three lights over a
+  light body, and a filled Copy button. A theme that overrides `blocks/code.twig` keeps its own
+  markup; to get the prompt and comment treatment, copy the `bash` branch of the shipped template.
 
 ## [1.0.0-beta.42] - 2026-09-18 — Developer Preview
 
