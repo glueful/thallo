@@ -7,6 +7,22 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Upgrade Notes
+- The documented sequence applies (docs/upgrading.md). `thallo:provision` brings the Shortcode
+  block's new style settings to an existing install. A theme that overrides
+  `shortcodes/thallo-version.twig` or `shortcodes/copyright.twig`, or ships shortcodes of its
+  own, keeps working unchanged; to make one styleable, add `{{ style.classes|default('') }}`
+  inside its element's class attribute (THEMING.md, "shortcode").
+
+### Added
+- A Shortcode block can be styled from the Design view: **background, text and border colour,
+  border, radius and shadow**. They land on what the shortcode renders — the version pill, the
+  copyright line — and not on the full-width wrapper around it, where a background would have
+  painted a bar across the page. Spacing, visibility and the item settings stay on the wrapper.
+- The version pill's dot follows the text colour, so recolouring the text brings it along. Two
+  entries in the shortcode's params adjust it: `"dot": false` hides it, and `"dot_color"` takes
+  one of the theme's colour names (`accent`, `text`, `muted`, `accent-contrast`, `background`).
+
 ## [1.0.0-beta.42] - 2026-09-18 — Developer Preview
 
 The Design view's side panel fits its content: no sideways scroll, and nothing under the scrollbar.

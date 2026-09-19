@@ -254,6 +254,35 @@ const CASES = {
     'c4.child0': at({ 'rect.width': narrowFill }, { 'rect.width': { below: 120 } }),
   },
 
+  // A shortcode's look is its `content` target: the pill, not the wrapper. The point a PHP test
+  // cannot make is the cascade — the settings are in the layer above the theme and WIN over the
+  // pill's own background, radius and (absent) border — and that the dot is drawn in the text's
+  // colour. `site.version` is null in a fixture, so this is the muted "development checkout" pill.
+  'shortcode-content-target': {
+    // The wrapper is never painted: a background there would be a bar across the page.
+    'c0.child0': at({ 'background-color': 'rgba(0, 0, 0, 0)', 'box-shadow': 'none', 'border-top-width': '0px' }),
+    'c0.child0>.thallo-shortcode-version': at({
+      'background-color': 'rgb(255, 255, 255)', // color.background, over the theme's accent tint
+      color: 'rgb(15, 23, 42)', // color.text, over the theme's muted
+      'border-top-width': '1px', // a width alone shows: the theme gives it a style and a colour
+      'border-top-style': 'solid',
+      'border-top-left-radius': '6px', // radius.sm, over the theme's 999px
+      'box-shadow': /^(?!none)/,
+    }),
+    'c0.child0>.thallo-shortcode-version::before': at({ 'background-color': 'rgb(15, 23, 42)' }),
+    // Untouched: exactly the theme's pill.
+    'c0.child1>.thallo-shortcode-version': at({
+      color: 'rgb(100, 116, 139)',
+      'border-top-width': '0px',
+      'border-top-left-radius': '999px',
+      'box-shadow': 'none',
+    }),
+    'c0.child1>.thallo-shortcode-version::before': at({ 'background-color': 'rgb(100, 116, 139)' }),
+    // params.dot_color names the dot apart from the text.
+    'c0.child2>.thallo-shortcode-version': at({ color: 'rgb(15, 23, 42)' }),
+    'c0.child2>.thallo-shortcode-version::before': at({ 'background-color': 'rgb(37, 99, 235)' }),
+  },
+
   // §3.6 containment: the release strips the page measure a block carries, and nothing else.
   'containment-preserves-component-padding': {
     'c0.child0': at({ 'padding-top': '24px', 'padding-left': '24px' }),
@@ -283,7 +312,10 @@ async function measure(page, url, width, requests) {
       el.classList.contains('thallo-preview-block') ? el.firstElementChild : el;
     const containers = [...document.querySelectorAll('.thallo-block-container')];
     const locate = (address) => {
-      const match = /^c(\d+)\.(root|inner|child(\d+))$/.exec(address);
+      // An address may go on into the element: `c0.child0>.selector`, and `::before` for what
+      // the theme draws there. A block's look can belong to an inner element — a shortcode's pill
+      // inside its page-measure wrapper — and that element is then what has to be measured.
+      const match = /^c(\d+)\.(root|inner|child(\d+))(?:>(.+?))?(::before)?$/.exec(address);
       if (!match) throw new Error(`bad address ${address}`);
       const root = containers[Number(match[1])];
       if (!root) throw new Error(`${address}: no container ${match[1]}`);
@@ -294,12 +326,16 @@ async function measure(page, url, width, requests) {
       const children = [...inner.children].map(unwrap).filter(Boolean);
       const child = children[Number(match[3])];
       if (!child) throw new Error(`${address}: no child ${match[3]}`);
-      return child;
+      if (!match[4]) return child;
+      const within = child.querySelector(match[4]);
+      if (!within) throw new Error(`${address}: nothing matches ${match[4]}`);
+      return within;
     };
+    const pseudoOf = (address) => (address.endsWith('::before') ? '::before' : null);
     const out = {};
     for (const [address, properties] of Object.entries(requests)) {
       const el = locate(address);
-      const style = getComputedStyle(el);
+      const style = getComputedStyle(el, pseudoOf(address));
       const rect = el.getBoundingClientRect();
       const values = {};
       // Distances the contract speaks of but no single element's style holds.
