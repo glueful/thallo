@@ -53,7 +53,13 @@ const text = (route: Route, body: string, contentType: string) =>
  * Every accepted apply answers with the next revision and no fragments (the stage refreshes
  * itself from the fixture page), so the page's accepted pair advances like the server's would.
  */
-export async function routeWorld(page: Page): Promise<Recorded> {
+/** What a proof may put in the world beyond the captured fixtures. */
+export interface World {
+  /** The site's style classes; the captured install has none. */
+  styleClasses?: Record<string, unknown>[]
+}
+
+export async function routeWorld(page: Page, world: World = {}): Promise<Recorded> {
   const recorded: Recorded = { applies: [], saves: [] }
   let revision = 0
   const unknown: string[] = []
@@ -106,8 +112,16 @@ export async function routeWorld(page: Page): Promise<Recorded> {
       return json(route, fixture('api/block-types.json'))
     if (method === 'GET' && path === '/render/style-schema')
       return json(route, fixture('api/style-schema.json'))
-    if (method === 'GET' && path === '/style-classes')
-      return json(route, fixture('api/style-classes.json'))
+    if (method === 'GET' && path === '/style-classes') {
+      if (world.styleClasses === undefined) return json(route, fixture('api/style-classes.json'))
+      return json(
+        route,
+        JSON.stringify({
+          success: true,
+          data: { generation: 1, style_classes: world.styleClasses },
+        }),
+      )
+    }
     const factory = /^\/block-types\/([^/]+)\/instance$/.exec(path)
     if (method === 'POST' && factory) {
       return json(
@@ -164,8 +178,8 @@ export async function routeWorld(page: Page): Promise<Recorded> {
 }
 
 /** Sign in through the real login page (the session store is persisted, encrypted) and open the Design page. */
-export async function openDesignPage(page: Page): Promise<Recorded> {
-  const recorded = await routeWorld(page)
+export async function openDesignPage(page: Page, world: World = {}): Promise<Recorded> {
+  const recorded = await routeWorld(page, world)
   await page.addInitScript(() => {
     // Manual apply: a proof decides when the server judges the tree.
     localStorage.setItem('thallo.canvas.auto_apply', '0')
