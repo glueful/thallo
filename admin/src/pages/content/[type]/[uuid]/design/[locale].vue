@@ -29,6 +29,7 @@ import {
   type DropZone,
 } from '@/editor/structure/coordinator'
 import { createStructurePicker } from '@/editor/structure/structurePicker'
+import type { BlocksHost } from '@/fields/components/blocks/context'
 import {
   createGridFill,
   type FillAvailability,
@@ -413,6 +414,7 @@ interface FieldEditorExposed {
   patchBlockDataById: (id: string, field: string, value: unknown) => boolean
   blockTypeOfBlock: (id: string) => string | null
   parentOfBlockById: (id: string) => BlockInstance | null
+  blocksHostFor: (id: string) => BlocksHost | null
 }
 const fieldEditorRef = ref<FieldEditorExposed | null>(null)
 // ── Selection (visual builder spec §5.5): a set of siblings from one slot, the anchor first
@@ -498,6 +500,13 @@ const { data: styleSchema } = useStyleSchema()
 const selectedBlock = computed<BlockInstance | null>(() => {
   void fields.value // the tree is the dependency; the editor ref only routes the lookup
   return selected.value !== null ? (fieldEditorRef.value?.blockById(selected.value) ?? null) : null
+})
+/** The root field that owns the selected block, so the Block tab can show it with the field's own components. */
+const selectedBlocksHost = computed(() => {
+  void fields.value // the tree is the dependency: a block's place changes with it
+  return selected.value !== null
+    ? (fieldEditorRef.value?.blocksHostFor(selected.value) ?? null)
+    : null
 })
 const selectedBlockType = computed(
   () => allBlockTypes.value?.find((t) => t.slug === selectedBlock.value?.type) ?? null,
@@ -1299,9 +1308,17 @@ function editableKindOf(id: string, field: string): EditKind | null {
   return null
 }
 
+/** The block whose text is being edited on the stage, or null: one text has one owner at a time. */
+const stageEditingId = ref<string | null>(null)
+
 bridge.onEditRequest((id, field) => {
   const kind = editableKindOf(id, field)
-  if (kind !== null) bridge.editGrant(id, field, kind)
+  if (kind === null) return
+  // The stage takes over from the panel, and nothing has to be handed across: the panel's editor
+  // writes every change as it is made, so there is nothing to flush, and the double-click that asked
+  // for this moved the browser's focus into the stage, so the panel no longer holds a caret. The
+  // panel goes read-only when the session starts (edit-start) and writable again when it ends.
+  bridge.editGrant(id, field, kind)
 })
 
 bridge.onTextChanged((id, field, payload) => {
@@ -1318,12 +1335,14 @@ bridge.onTextChanged((id, field, payload) => {
 
 // Session suppression keys off ACTUAL session starts (a failed grant never
 // posts edit-start, so it can never wedge suppression); edit-end re-arms.
-bridge.onEditStart(() => {
+bridge.onEditStart((id) => {
   editSessionActive.value = true
+  stageEditingId.value = typeof id === 'string' ? id : null
   cancelAutoTimer()
 })
 bridge.onEditEnd(() => {
   editSessionActive.value = false
+  stageEditingId.value = null
   scheduleAuto() // all vetoes (auto-off/suspended/not-stale/…) live in the timer
 })
 
@@ -2267,6 +2286,8 @@ function reloadStage(): void {
                 :parent-classes="classRefsFor(selectedParent)"
                 :active-breakpoint="activeBreakpoint"
                 :fill="selectedFill"
+                :blocks-host="selectedBlocksHost"
+                :prose-locked="stageEditingId !== null && stageEditingId === selected"
                 @fill-cells="fillCells(selected)"
                 @patch-data="onPatchData"
                 @insert-into="onInsertInto"

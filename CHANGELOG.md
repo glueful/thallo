@@ -30,6 +30,14 @@ as the next release, never a mutated tag.
   one of the theme's colour names (`accent`, `text`, `muted`, `accent-contrast`, `background`).
 
 ### Changed
+- **In the Design view, the Block tab's Content is the block's whole form**, as the main Content tab
+  has it. A field that holds other blocks — a container's content, a hero's links, an accordion's
+  items, a tab set's tabs — now shows those blocks as cards you can open, edit, reorder, duplicate
+  and remove, where it used to be one line ("links: 2 blocks") and an Add button; you no longer
+  leave the block to work on what is inside it. A rich text body has its editor there too, where
+  the tab used to say only "Edit the text directly on the stage": useful for a block hidden at the
+  breakpoint you are viewing, a narrow column, or a long text. While that text is being edited on
+  the stage the panel's editor is read-only and says so, so the two never hold it at once.
 - The default theme draws the Code block as a window: a tinted title bar with three lights over a
   light body, and a filled Copy button. A theme that overrides `blocks/code.twig` keeps its own
   markup; to get the prompt and comment treatment, copy the `bash` branch of the shipped template.

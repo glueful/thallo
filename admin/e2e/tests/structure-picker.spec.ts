@@ -59,7 +59,7 @@ async function armInto(page: Page, parentId: string): Promise<void> {
   await selectViaOutline(page, parentId)
   await page.locator('[data-test="inspector-tabs"] button', { hasText: /^Block$/ }).click()
   await page.locator('[data-test="block-inspector"]').waitFor()
-  await page.locator('[data-test="block-inspector"] [data-test="region-add-content"]').click()
+  await page.locator('[data-test="block-inspector"] [data-test="add-block"]').click()
   await page.locator('[data-test="blocks-tab"]').waitFor()
 }
 
@@ -158,7 +158,7 @@ test('content arriving consumes the offer, and a later choice commits nothing', 
   // already selected by its own insert, and it is not on this captured stage to select there.
   await page.locator('[data-test="inspector-tabs"] button', { hasText: /^Block$/ }).click()
   await page.locator('[data-test="block-inspector"]').waitFor()
-  await page.locator('[data-test="block-inspector"] [data-test="region-add-content"]').click()
+  await page.locator('[data-test="block-inspector"] [data-test="add-block"]').click()
   await page.locator('[data-test="blocks-tab"]').waitFor()
   await page.locator('[data-test="palette-card-heading"]').click()
   await page.waitForFunction(

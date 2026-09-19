@@ -152,6 +152,10 @@ $entries->saveDraft(
             'columns' => ['base' => ['type' => 'choice', 'value' => '3']],
             'content_width' => ['base' => ['type' => 'token', 'value' => 'width.container']],
         ]]]],
+        // Last, so no proof that counts or indexes the blocks above it moves: a prose body, for
+        // the Block tab's editor and its hand-over with the stage (inspector-content.spec.ts).
+        ['id' => 'prose0000001', 'type' => 'rich_text', 'data' => ['body' => '<p>Written once.</p>'],
+            'settings' => []],
     ]],
     (int) $page['schema_version'],
     (int) ($draft['lock_version'] ?? 0),
