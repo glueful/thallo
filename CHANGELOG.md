@@ -7,7 +7,13 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.46] - 2026-09-19 — Developer Preview
+
+The header and footer are styled from the admin — the bars and the blocks in them — and the Style
+tab gains border sides, background opacity, backdrop blur and line height.
+
 ### Upgrade Notes
+- One migration, no new permissions, no dependency changes.
 - The documented sequence applies (docs/upgrading.md). The style schema and the compiler both move
   on, so the compiled stylesheet is rebuilt under a new hash on the first request after PHP-FPM is
   reloaded; `thallo:provision` brings the Container block's new settings to an existing install.
