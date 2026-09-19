@@ -7,6 +7,37 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Upgrade Notes
+- The documented sequence applies (docs/upgrading.md). The style schema and the compiler both move
+  on, so the compiled stylesheet is rebuilt under a new hash on the first request after PHP-FPM is
+  reloaded; `thallo:provision` brings the Container block's new settings to an existing install.
+  No migrations: a region's style is stored in the settings it already has.
+- A theme with its own `layout.twig` keeps working, and its header and footer ignore the new Style
+  tab until the template emits `region_style_classes()` on the bar and its inner element. A theme
+  with its own stylesheet should also name each bar's colour in `--t-surface-default`, or a
+  Background opacity with no colour chosen paints the bar transparent. Both are in THEMING.md
+  ("Regions").
+
+### Added
+- **The header and the footer have a Style tab**, on the Regions page beside their content:
+  padding, margins, shadow, corners, a border, colours, Background opacity and Backdrop blur. The
+  viewport buttons choose the breakpoint being edited, and the preview shows every change before
+  it is saved. Untouched, a bar looks exactly as the theme draws it, and **Use theme default** on
+  any setting gives the theme's value back. A rounded, lifted, see-through header that floats off
+  the page edge is now a matter of settings.
+- **Border sides**: a border on all sides or on one — top, right, bottom or left — for every block
+  that has border settings, under Effects.
+- **Background opacity and Backdrop blur**, beside Background, for the Container block and the two
+  regions: how much of the background colour shows, and how much of what lies behind it is
+  blurred. The opacity works with a chosen colour or, with none, on the colour the theme paints.
+
+### Fixed
+- Switching **Sticky** on cost the header its translucency: the sticky rule repainted the bar with
+  a solid background, over the theme's see-through one, so the blur behind it showed nothing.
+  Sticky now only pins the bar.
+- The style class editor offered to "Save as style class" — from inside a style class. The offer
+  is now the block inspector's alone.
+
 ## [1.0.0-beta.45] - 2026-09-19 — Developer Preview
 
 One style class goes on as many blocks as you choose it for.

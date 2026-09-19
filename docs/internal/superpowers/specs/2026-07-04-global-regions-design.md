@@ -245,6 +245,13 @@ Existing installs get nothing seeded — the layout fallback keeps them
 rendering exactly as today. (Optionally: the admin page offers "Start from
 the default layout" when a region is empty — plan decides if it's v1.)
 
+### Amended 2026-09-19 — a region's style
+
+A region's settings gain `style`: the block style record, validated against `RegionStyle` and
+rendered through `region_style_classes()`; the Regions page gives each region a Content tab and a
+Style tab. The contract is in the visual builder spec §1.3 ("modifiers, and a region's style").
+"The bar's look is the theme's alone" no longer holds; "unstyled means exactly the theme's" does.
+
 ## Out of scope (explicit)
 
 - Region **variants** and per-page `variant:{slug}` selection; transparent
