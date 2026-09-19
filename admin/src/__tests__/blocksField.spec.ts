@@ -359,6 +359,34 @@ describe('BlocksField', () => {
     wrapper.unmount()
   })
 
+  it('with blockSettings every card offers Block settings, nested ones too, and names the block; without it, none does', async () => {
+    const model = [
+      {
+        id: 'aaa000000001',
+        type: 'section',
+        data: { content: [{ id: 'inner0000001', type: 'hero', data: {}, settings: {} }] },
+        settings: {},
+      },
+      { id: 'bbb000000002', type: 'hero', data: {}, settings: {} },
+    ]
+    const plain = mount(BlocksField, { props: { field, modelValue: model } })
+    await flushPromises()
+    expect(plain.find('[data-test^="block-settings-"]').exists()).toBe(false)
+    plain.unmount()
+
+    const wrapper = mount(BlocksField, { props: { field, modelValue: model, blockSettings: true } })
+    await flushPromises()
+    await wrapper.find('[data-test="block-settings-bbb000000002"]').trigger('click')
+    // Open the section to reach the card inside it.
+    wrapper
+      .findAll('[data-test="block-toggle-aaa000000001"]')[0]!
+      .element.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await flushPromises()
+    await wrapper.find('[data-test="block-settings-inner0000001"]').trigger('click')
+    expect(wrapper.emitted('settings-request')).toEqual([['bbb000000002'], ['inner0000001']])
+    wrapper.unmount()
+  })
+
   it('two writes in one tick both persist: the second reads the tree the first produced', async () => {
     let model: {
       id: string

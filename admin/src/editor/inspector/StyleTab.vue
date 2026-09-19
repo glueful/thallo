@@ -36,6 +36,8 @@ const props = defineProps<{
    * class already is one, and a region has none.
    */
   context?: 'block' | 'class' | 'region'
+  /** A block's inspector on a page with no save-as-class flow (the Regions page). */
+  noSaveAsClass?: boolean
 }>()
 
 const multi = computed(() => (props.blocks?.length ?? 0) > 1)
@@ -270,7 +272,10 @@ function setCount(rows: StylePropertyRow[]): number {
           </template>
         </div>
       </section>
-      <div v-if="!multi && (context ?? 'block') === 'block'" class="border-t border-default pt-3">
+      <div
+        v-if="!multi && !noSaveAsClass && (context ?? 'block') === 'block'"
+        class="border-t border-default pt-3"
+      >
         <UButton
           size="xs"
           variant="ghost"

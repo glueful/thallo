@@ -7,6 +7,7 @@ namespace Thallo\Core\Tests\Integration\Render;
 use Thallo\Core\Content\Regions\RegionRepository;
 use Thallo\Core\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 use Glueful\Cache\CacheStore;
 use Thallo\Render\RenderContextExtension;
 use Thallo\Render\ThemeLocator;
@@ -22,6 +23,7 @@ use Symfony\Component\HttpFoundation\Request;
 final class RegionRenderingTest extends AppTestCase
 {
     use SeedsPublishedContent;
+    use SyncsBlockStyleDeclarations;
 
     protected function tearDown(): void
     {
@@ -92,6 +94,32 @@ final class RegionRenderingTest extends AppTestCase
             self::assertContains('t-pt-sm', explode(' ', $inner[1]), "{$tag}: padding inside the bar");
             self::assertNotContains('t-pt-sm', explode(' ', $bar[1]), "{$tag}: padding not on the bar");
         }
+    }
+
+    public function testABlockInARegionRendersItsOwnSettingsLikeAnyBlock(): void
+    {
+        // The Regions page edits a region block's Layout, Style and Advanced settings. They are
+        // the settings a page's block has, validated and rendered by the same pipeline.
+        $settings = [
+            'style' => ['radius' => ['type' => 'token', 'value' => 'radius.none']],
+            'advanced' => ['anchor' => 'contact-us', 'css_classes' => ['js-contact']],
+        ];
+        $button = ['id' => 'reghdrbutn01', 'type' => 'button', 'data' => ['label' => 'Contact', 'url' => '/contact']];
+        $this->syncBlockStyleDeclarations();
+        try {
+            $clean = $this->container()->get(\Thallo\Core\Content\Regions\RegionValidator::class)
+                ->validate('header', [$button + ['settings' => $settings]], []);
+        } catch (\Thallo\Core\Content\Validation\ValidationException $e) {
+            self::fail(json_encode($e->errors()));
+        }
+        self::assertSame($settings, $clean['blocks'][0]['settings']);
+
+        $entry = $this->seedBilingualPublishedEntry();
+        $this->regions()->save('header', $clean['blocks'], [], null);
+        $html = $this->renderHome($entry);
+        self::assertStringContainsString('t-radius-none', $html);
+        self::assertStringContainsString('id="contact-us"', $html);
+        self::assertStringContainsString('js-contact', $html);
     }
 
     public function testAnUnstyledRegionRendersExactlyTheClassesItAlwaysHad(): void

@@ -25,6 +25,12 @@ as the next release, never a mutated tag.
   it is saved. Untouched, a bar looks exactly as the theme draws it, and **Use theme default** on
   any setting gives the theme's value back. A rounded, lifted, see-through header that floats off
   the page edge is now a matter of settings.
+- **Blocks in the header and footer have their settings on the Regions page.** Every card there
+  has a **Block settings** button: it opens that block's Layout, Style and Advanced tabs — the
+  ones the Design page shows — so a logo, a menu or a button in the header can be padded, coloured,
+  laid out, given style classes, an anchor or CSS classes without leaving the page. The preview
+  shows each change, and Save stores them with the region. Saving a block's styling *as* a style
+  class stays on the Design page; classes made there can be applied here.
 - **Border sides**: a border on all sides or on one — top, right, bottom or left — for every block
   that has border settings, under Effects.
 - **Background opacity and Backdrop blur**, beside Background, for the Container block and the two

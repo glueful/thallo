@@ -17,6 +17,31 @@ vi.mock('@/queries/styleSchema', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/queries/styleSchema')>()),
   useStyleSchema: () => ({ data: ref(classEditorSchema()) }),
 }))
+vi.mock('@/queries/blockTypes', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/queries/blockTypes')>()),
+  useBlockTypes: () => ({
+    data: ref([
+      {
+        uuid: 'logo',
+        slug: 'logo',
+        label: 'Logo',
+        icon: null,
+        category: null,
+        description: null,
+        active: true,
+        schema: [],
+        style_capabilities: ['spacing', 'radius'],
+        style_targets: null,
+        flags: null,
+        starter_content: null,
+      },
+    ]),
+  }),
+}))
+vi.mock('@/queries/styleClasses', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/queries/styleClasses')>()),
+  useStyleClasses: () => ({ data: ref({ generation: 1, classes: [] }) }),
+}))
 vi.mock('@/composables/useNotify', () => ({
   useNotify: () => ({ success: vi.fn(), error: vi.fn() }),
 }))
@@ -30,12 +55,24 @@ vi.mock('@/fields/components/BlocksField.vue', () => ({
       field: { type: Object, required: true },
       modelValue: { type: Array, default: () => [] },
     },
-    setup(props) {
+    emits: ['settings-request', 'update:modelValue'],
+    setup(props, { emit, attrs }) {
       return () =>
-        h('div', {
-          'data-test': `blocks-stub-${(props.field as { name: string }).name}`,
-          'data-palette': ((props.field as { blockTypes?: string[] }).blockTypes ?? []).join(','),
-        })
+        h(
+          'div',
+          {
+            'data-test': `blocks-stub-${(props.field as { name: string }).name}`,
+            'data-palette': ((props.field as { blockTypes?: string[] }).blockTypes ?? []).join(','),
+            'data-block-settings': String('blockSettings' in attrs || 'block-settings' in attrs),
+          },
+          // A card's Block settings button, for the first block in the list.
+          [
+            h('button', {
+              'data-test': 'stub-block-settings',
+              onClick: () => emit('settings-request', (props.modelValue[0] as { id: string }).id),
+            }),
+          ],
+        )
     },
   }),
 }))
@@ -250,6 +287,40 @@ describe('regions page (Header & footer)', () => {
         lg: { type: 'token', value: 'shadow.lg' },
       },
     })
+    wrapper.unmount()
+  })
+  it('a card’s Block settings opens that block’s Layout, Style and Advanced; an edit is saved on the block', async () => {
+    const wrapper = mount(RegionsPage, { attachTo: document.body })
+    await flushPromises()
+    // The page asks the list to offer Block settings on its cards.
+    expect(wrapper.find('[data-test="blocks-stub-blocks"]').attributes('data-block-settings')).toBe(
+      'true',
+    )
+
+    await wrapper.findAll('[data-test="stub-block-settings"]')[0]!.trigger('click')
+    await flushPromises()
+    const panel = wrapper.find('[data-test="region-block-settings-header"]')
+    expect(panel.exists()).toBe(true)
+    expect(panel.find('[data-test="block-inspector-title"]').text()).toBe('Logo')
+    // The region's own tabs step aside while a block's settings are open.
+    expect(wrapper.find('[data-test="region-header-tabs"]').isVisible()).toBe(false)
+
+    await panel
+      .find('[data-test="style-field-radius"] [data-test="token-radius.lg"]')
+      .trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="save-region-header"]').trigger('click')
+    await flushPromises()
+    const saved = saveMock.mock.calls[0]![0] as { blocks: { id: string; settings: unknown }[] }
+    expect(saved.blocks[0]).toMatchObject({
+      id: 'seedblock0001',
+      settings: { style: { radius: { type: 'token', value: 'radius.lg' } } },
+    })
+
+    await panel.find('[data-test="region-block-settings-back"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="region-block-settings-header"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="region-header-tabs"]').isVisible()).toBe(true)
     wrapper.unmount()
   })
 })

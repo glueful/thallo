@@ -5,6 +5,7 @@ import { usePreviewRegions, useRegions, useSaveRegion, type RegionData } from '@
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import BlocksField from '@/fields/components/BlocksField.vue'
 import RegionStyleEditor from './components/RegionStyleEditor.vue'
+import RegionBlockInspector from './components/RegionBlockInspector.vue'
 import type { Breakpoint } from '@/style/types'
 import { useNotify } from '@/composables/useNotify'
 import { ApiError } from '@/api/errors'
@@ -125,6 +126,13 @@ function setStyle(slug: string, style: Record<string, unknown>): void {
   const { style: _dropped, ...rest } = s.settings
   s.settings = Object.keys(style).length === 0 ? rest : { ...rest, style }
 }
+
+/**
+ * The block whose settings are open, per region: chosen from its card's Block settings button.
+ * While one is open the region's own tabs step aside (hidden, not unmounted: the block list keeps
+ * its state) and the panel shows that block's Layout, Style and Advanced.
+ */
+const blockSettingsFor = reactive<Record<string, string | null>>({ header: null, footer: null })
 
 const widthOptions = [
   { label: 'Contained', value: 'contained' },
@@ -332,7 +340,30 @@ onBeforeUnmount(() => {
                   Rendered on every page. Empty means the theme’s built-in header; hide per page via
                   the page’s presentation settings.
                 </p>
+                <div
+                  v-if="blockSettingsFor.header !== null"
+                  class="space-y-3"
+                  data-test="region-block-settings-header"
+                >
+                  <UButton
+                    size="xs"
+                    variant="ghost"
+                    color="neutral"
+                    icon="i-lucide-arrow-left"
+                    data-test="region-block-settings-back"
+                    @click="blockSettingsFor.header = null"
+                  >
+                    Back to the header
+                  </UButton>
+                  <RegionBlockInspector
+                    v-model:blocks="state.header.blocks"
+                    v-model:active-breakpoint="activeBreakpoint"
+                    :block-id="blockSettingsFor.header"
+                    @close="blockSettingsFor.header = null"
+                  />
+                </div>
                 <UTabs
+                  v-show="blockSettingsFor.header === null"
                   v-model="regionTab.header"
                   :items="regionTabs"
                   :unmount-on-hide="false"
@@ -350,7 +381,12 @@ onBeforeUnmount(() => {
                           data-test="region-header-width"
                         />
                       </UFormField>
-                      <BlocksField v-model="state.header.blocks" :field="paletteField('header')" />
+                      <BlocksField
+                        v-model="state.header.blocks"
+                        :field="paletteField('header')"
+                        block-settings
+                        @settings-request="(id) => (blockSettingsFor.header = id)"
+                      />
                     </div>
                   </template>
                   <template #style>
@@ -387,7 +423,30 @@ onBeforeUnmount(() => {
                   </UChip>
                 </div>
                 <p class="text-sm text-muted">Empty means the theme’s built-in footer.</p>
+                <div
+                  v-if="blockSettingsFor.footer !== null"
+                  class="space-y-3"
+                  data-test="region-block-settings-footer"
+                >
+                  <UButton
+                    size="xs"
+                    variant="ghost"
+                    color="neutral"
+                    icon="i-lucide-arrow-left"
+                    data-test="region-block-settings-back"
+                    @click="blockSettingsFor.footer = null"
+                  >
+                    Back to the footer
+                  </UButton>
+                  <RegionBlockInspector
+                    v-model:blocks="state.footer.blocks"
+                    v-model:active-breakpoint="activeBreakpoint"
+                    :block-id="blockSettingsFor.footer"
+                    @close="blockSettingsFor.footer = null"
+                  />
+                </div>
                 <UTabs
+                  v-show="blockSettingsFor.footer === null"
                   v-model="regionTab.footer"
                   :items="regionTabs"
                   :unmount-on-hide="false"
@@ -405,7 +464,12 @@ onBeforeUnmount(() => {
                           data-test="region-footer-width"
                         />
                       </UFormField>
-                      <BlocksField v-model="state.footer.blocks" :field="paletteField('footer')" />
+                      <BlocksField
+                        v-model="state.footer.blocks"
+                        :field="paletteField('footer')"
+                        block-settings
+                        @settings-request="(id) => (blockSettingsFor.footer = id)"
+                      />
                     </div>
                   </template>
                   <template #style>

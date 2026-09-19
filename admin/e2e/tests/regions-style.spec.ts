@@ -6,9 +6,15 @@ import { openDesignPage } from '../helpers'
 // panel — the same scrolling column as the Design page's inspector — never scrolls sideways nor
 // lets its content under the scrollbar.
 const CAPS = ['spacing', 'shadow', 'radius', 'colors', 'border', 'backdrop']
+const BUTTON = {
+  id: 'hdrbutton001',
+  type: 'button',
+  data: { label: 'Contact', url: '/contact' },
+  settings: {},
+}
 const region = (slug: string, settings: Record<string, unknown>) => ({
   slug,
-  blocks: [],
+  blocks: slug === 'header' ? [BUTTON] : [],
   settings,
   palette: ['logo', 'navigation', 'button'],
   settings_keys: slug === 'header' ? ['sticky', 'width', 'style'] : ['width', 'style'],
@@ -107,4 +113,29 @@ test('the header’s Style tab edits the bar, and the preview is asked for what 
   expect(panel.scrollWidth).toBe(panel.clientWidth)
   // A 16px gutter, less the 3px the Save button's "unsaved" dot overhangs its button by.
   expect(panel.clearance, `${panel.who} reaches the scrollbar`).toBeGreaterThanOrEqual(16 - 3)
+})
+
+test('a header block’s settings open from its card, and an edit reaches the preview on that block', async ({
+  page,
+}) => {
+  const previews = await openRegionsPage(page)
+  await page.locator(`[data-test="block-settings-${BUTTON.id}"]`).click()
+  const panel = page.locator('[data-test="region-block-settings-header"]')
+  await expect(panel.locator('[data-test="block-inspector-title"]')).toHaveText('Button')
+  // Layout, Style and Advanced: the card is the block's content form already.
+  const tabs = panel.locator('[data-test="block-inspector-tabs"]').getByRole('tab')
+  await expect(tabs).toHaveText(['Layout', 'Style', 'Advanced'])
+  await expect(page.locator('[data-test="region-header-tabs"]')).toBeHidden()
+
+  await panel.locator('[data-test="style-field-radius"] [data-test="token-radius.none"]').click()
+  await expect
+    .poll(() => {
+      const header = (previews.at(-1)?.regions as Record<string, { blocks: unknown[] }>)?.header
+      return (header?.blocks[0] as { settings?: unknown } | undefined)?.settings
+    })
+    .toEqual({ style: { radius: { type: 'token', value: 'radius.none' } } })
+
+  await panel.locator('[data-test="region-block-settings-back"]').click()
+  await expect(page.locator('[data-test="region-header-tabs"]')).toBeVisible()
+  await expect(page.locator(`[data-test="block-settings-${BUTTON.id}"]`)).toBeVisible()
 })

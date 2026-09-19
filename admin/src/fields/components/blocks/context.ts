@@ -38,6 +38,12 @@ export interface BlocksContext {
    * the page a complete position to arm the Blocks tab, and opens no menu. Null elsewhere.
    */
   insertIntent: ((position: Position) => void) | null
+  /**
+   * Hosted by a page that shows a block's settings beside the list (the Regions page): every card
+   * offers Block settings and hands the page the block's id. Null elsewhere — the Design page
+   * selects on its stage, and an entry's Content tab has no settings panel.
+   */
+  settingsIntent: ((id: string) => void) | null
   /** Field-scoped sortable group name (cross-container drag within ONE field). */
   dragGroup: string
   /** Drag drop handler (root-provided; reads target identity from event.to). */
