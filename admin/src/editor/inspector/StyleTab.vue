@@ -30,8 +30,12 @@ const props = defineProps<{
   /** A sibling multi-selection (spec §5.5): `block` is its anchor. */
   blocks?: BlockInstance[]
   blockTypes?: (BlockType | null)[]
-  /** A block's inspector (the default) or a style class's editor: passed to every field. */
-  context?: 'block' | 'class'
+  /**
+   * A block's inspector (the default), a style class's editor, or a chrome region's Style tab:
+   * passed to every field. Only a block offers to save its declarations as a style class — a
+   * class already is one, and a region has none.
+   */
+  context?: 'block' | 'class' | 'region'
 }>()
 
 const multi = computed(() => (props.blocks?.length ?? 0) > 1)
@@ -266,7 +270,7 @@ function setCount(rows: StylePropertyRow[]): number {
           </template>
         </div>
       </section>
-      <div v-if="!multi" class="border-t border-default pt-3">
+      <div v-if="!multi && (context ?? 'block') === 'block'" class="border-t border-default pt-3">
         <UButton
           size="xs"
           variant="ghost"

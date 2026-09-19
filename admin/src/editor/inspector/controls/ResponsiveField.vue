@@ -35,7 +35,7 @@ const props = defineProps<{
   /** Hide this row's breakpoint chips: the Style tab's group header carries them instead. */
   hideBreakpoints?: boolean
   /** Where the row is: a block's inspector (the default) or a style class's editor. */
-  context?: 'block' | 'class'
+  context?: 'block' | 'class' | 'region'
 }>()
 const emit = defineEmits<{
   /** Set (or clear with null) the value at one breakpoint (null breakpoint = non-responsive). */

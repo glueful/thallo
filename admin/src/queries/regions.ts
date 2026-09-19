@@ -12,6 +12,8 @@ export interface RegionData {
   settings: Record<string, unknown>
   palette: string[]
   settings_keys: string[]
+  /** What this region may be styled with (its Style tab): declared by the server. */
+  style_capabilities: string[]
 }
 
 const qk = () => ['regions'] as const

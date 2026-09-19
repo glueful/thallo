@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, h, ref } from 'vue'
 import type { RegionData } from '@/queries/regions'
+import { classEditorSchema } from './helpers/classEditorSchema'
 
 const regionsData = ref<RegionData[] | undefined>(undefined)
 const saveMock = vi.fn()
@@ -11,6 +12,10 @@ vi.mock('@/queries/regions', () => ({
   useRegions: () => ({ data: regionsData, status: ref('success') }),
   useSaveRegion: () => ({ mutateAsync: saveMock, isLoading: ref(false) }),
   usePreviewRegions: () => ({ mutateAsync: previewMock, isLoading: ref(false) }),
+}))
+vi.mock('@/queries/styleSchema', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/queries/styleSchema')>()),
+  useStyleSchema: () => ({ data: ref(classEditorSchema()) }),
 }))
 vi.mock('@/composables/useNotify', () => ({
   useNotify: () => ({ success: vi.fn(), error: vi.fn() }),
@@ -43,7 +48,20 @@ const region = (slug: string, palette: string[], settingsKeys: string[]): Region
   settings: slug === 'header' ? { sticky: false, width: 'contained' } : { width: 'contained' },
   palette,
   settings_keys: settingsKeys,
+  style_capabilities: ['spacing', 'shadow', 'radius', 'colors', 'border', 'backdrop'],
 })
+
+type Page = ReturnType<typeof mount>
+/** Open a region's Content or Style sub-tab. */
+async function openSubTab(w: Page, region: 'header' | 'footer', name: 'Content' | 'Style') {
+  const tab = w
+    .find(`[data-test="region-${region}-tabs"]`)
+    .findAll('button[role="tab"]')
+    .find((b) => b.text() === name)!
+  await tab.trigger('mousedown', { button: 0 })
+  await tab.trigger('click')
+  await flushPromises()
+}
 
 describe('regions page (Header & footer)', () => {
   beforeEach(() => {
@@ -159,6 +177,79 @@ describe('regions page (Header & footer)', () => {
     await flushPromises()
     const call = saveMock.mock.calls[0]![0] as { settings: Record<string, unknown> }
     expect(call.settings.sticky).toBe(true) // the edit, not the refetched value
+    wrapper.unmount()
+  })
+  it('each region has a Style tab offering what the server declared for it', async () => {
+    const wrapper = mount(RegionsPage, { attachTo: document.body })
+    await flushPromises()
+
+    for (const slug of ['header', 'footer'] as const) {
+      await openSubTab(wrapper, slug, 'Style')
+      const style = wrapper.find(`[data-test="region-style-${slug}"]`)
+      expect(style.exists(), slug).toBe(true)
+      expect(style.find('[data-test="style-field-backdrop.blur"]').exists(), slug).toBe(true)
+      expect(style.find('[data-test="style-group-typography"]').exists(), slug).toBe(false)
+    }
+    wrapper.unmount()
+  })
+
+  it('a style edit marks the region dirty and is saved in its settings; emptied, it is dropped', async () => {
+    const wrapper = mount(RegionsPage, { attachTo: document.body })
+    await flushPromises()
+    await openSubTab(wrapper, 'header', 'Style')
+    const style = wrapper.find('[data-test="region-style-header"]')
+
+    await style
+      .find('[data-test="style-field-radius"] [data-test="token-radius.lg"]')
+      .trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="save-region-header"]').trigger('click')
+    await flushPromises()
+    const saved = saveMock.mock.calls[0]![0] as { slug: string; settings: Record<string, unknown> }
+    expect(saved.slug).toBe('header')
+    expect(saved.settings).toEqual({
+      sticky: false,
+      width: 'contained',
+      style: { radius: { type: 'token', value: 'radius.lg' } },
+    })
+
+    // Removing the only declaration removes the record: `style: {}` is not a setting.
+    await style.find('[data-test="style-field-radius"] [data-test="style-clear"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="save-region-header"]').trigger('click')
+    await flushPromises()
+    const again = saveMock.mock.calls[1]![0] as { settings: Record<string, unknown> }
+    expect(again.settings).toEqual({ sticky: false, width: 'contained' })
+    wrapper.unmount()
+  })
+
+  it('the viewport is the breakpoint being edited: mobile is base, tablet md, desktop lg', async () => {
+    const wrapper = mount(RegionsPage, { attachTo: document.body })
+    await flushPromises()
+    await openSubTab(wrapper, 'header', 'Style')
+    const style = wrapper.find('[data-test="region-style-header"]')
+    const shadow = () => style.find('[data-test="style-field-shadow"]')
+
+    await wrapper.find('[data-test="regions-viewport-mobile"]').trigger('click')
+    await shadow().find('[data-test="token-shadow.sm"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="regions-viewport-tablet"]').trigger('click')
+    await shadow().find('[data-test="token-shadow.md"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="regions-viewport-desktop"]').trigger('click')
+    await shadow().find('[data-test="token-shadow.lg"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.find('[data-test="save-region-header"]').trigger('click')
+    await flushPromises()
+    const saved = saveMock.mock.calls[0]![0] as { settings: { style: unknown } }
+    expect(saved.settings.style).toEqual({
+      shadow: {
+        base: { type: 'token', value: 'shadow.sm' },
+        md: { type: 'token', value: 'shadow.md' },
+        lg: { type: 'token', value: 'shadow.lg' },
+      },
+    })
     wrapper.unmount()
   })
 })
