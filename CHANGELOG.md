@@ -7,7 +7,13 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.44] - 2026-09-19 — Developer Preview
+
+A feature's marker and a tab strip take their own corners in the Style tab, and the Design view
+no longer offers a layout the server refuses.
+
 ### Upgrade Notes
+- No migrations, no new permissions, no dependency changes.
 - The documented sequence applies (docs/upgrading.md). `thallo:provision` brings the Feature
   block's new Marker settings and the Tabs block's new Tabs settings to an existing install. The
   style schema and the compiler both move on, so the compiled stylesheet is rebuilt under a new
