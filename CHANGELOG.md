@@ -7,6 +7,55 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.47] - 2026-09-20 — Developer Preview
+
+A security fix for installs with workspaces, and the site's look gets a page of its own with a
+live preview.
+
+### Upgrade Notes
+- **Security — upgrade if you use workspaces.** Provision had been re-granting cross-workspace
+  authority to the `administrator` role; see Security below. This release's one migration, run by
+  `thallo:provision`, takes it off that role. An administrator who should reach every workspace
+  needs the `workspace_manager` role from now on.
+- One migration, no new permissions, no dependency changes. The documented sequence applies
+  (docs/upgrading.md).
+- The theme, colours, design settings and logos are edited under **Site › Appearance** now, not
+  Settings › General. The settings themselves are unchanged.
+
+### Added
+- **A live preview on the Appearance page**: your homepage, framed beside the settings, wearing
+  the look as you choose it — theme, accent, neutral, corners, typefaces and page ground — at
+  desktop, tablet or phone width, before anything is saved. It replaces the "Preview on site"
+  button, which opened a new tab and showed colours only; the design settings could not be
+  previewed at all. **Open** still gives you the full page in a tab. It needs a homepage to be set
+  (Settings › General); logos and the site icon show once saved.
+
+### Changed
+- **The theme, its colours, the design settings and the logos moved** from Settings › General to a
+  page of their own, **Site › Appearance**, first in the Site group beside Header & footer and
+  the Theme editor: everything about how the site looks is now in one group, and General keeps how
+  it behaves — identity, homepage, listings, localization, delivery and feature toggles. General
+  links to the new page. Nothing about the settings themselves changed, and nothing needs
+  migrating. Each page now saves only its own settings, so a save on one can no longer write a
+  stale copy of the other's back.
+
+### Security
+- **Provision re-granted cross-workspace authority to every administrator.** The authority
+  migration keeps `tenancy.access_any` and `tenancy.manage` — entering and managing ANY
+  workspace — off the `administrator` role: they belong to the superuser and to the
+  `workspace_manager` role. But `thallo:provision`, run on every upgrade, granted the
+  administrator role every permission it did not currently hold, and so handed both back. On an
+  install with more than one workspace, an administrator could then enter workspaces they were
+  never given. Both permissions are now withheld from that role, and a migration removes them
+  where a provision had re-granted them. It affects installs using workspaces (the tenancy pack);
+  on a single-site install the permissions unlock nothing. **If an administrator of yours should
+  reach every workspace, give them the `workspace_manager` role** — that is what it is for — since
+  this upgrade takes the permission off the administrator role itself.
+
+### Fixed
+- A themes response that lacked its list left the settings page on its loading skeletons for
+  good. It now hides the Theme card, as a failed request always did.
+
 ## [1.0.0-beta.46] - 2026-09-19 — Developer Preview
 
 The header and footer are styled from the admin — the bars and the blocks in them — and the Style

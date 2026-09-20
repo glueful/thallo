@@ -42,7 +42,7 @@ final class InstallRoleGrantsTest extends AppTestCase
         return $slugs;
     }
 
-    public function testSuperuserGetsEveryPermissionAndAdministratorEverythingButSystemConfig(): void
+    public function testSuperuserGetsEveryPermissionAndAdministratorAllButWhatIsWithheldFromIt(): void
     {
         // Order-independent: an earlier install in this process may already have granted
         // everything, so take one grant away and prove apply() puts it back.
@@ -61,8 +61,15 @@ final class InstallRoleGrantsTest extends AppTestCase
         self::assertContains('analytics.read', $all, 'migration-seeded pack permissions are present');
 
         self::assertSame($all, $this->roleSlugs('superuser'));
+        // An administrator runs ONE site. Configuring the system, and authority ACROSS workspaces
+        // (the authority migration takes both tenancy permissions away from this role and gives
+        // them to workspace_manager), are withheld — and provision re-runs this on every upgrade,
+        // so whatever is not withheld here is handed back each time.
+        $withheld = ['system.config', 'tenancy.access_any', 'tenancy.manage'];
+        self::assertContains('tenancy.access_any', $all);
+        self::assertContains('tenancy.manage', $all);
         self::assertSame(
-            array_values(array_diff($all, ['system.config'])),
+            array_values(array_diff($all, $withheld)),
             $this->roleSlugs('administrator'),
         );
         self::assertGreaterThanOrEqual(1, $report->granted['superuser'], 'the revoked grant was restored');

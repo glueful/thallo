@@ -164,6 +164,21 @@ Mirrors per-preview theme (`preview-sessions` spec §5):
   `GeneralSettings`. `Save` in the admin is the only write that changes the live
   site.** Exiting/expiring the session reverts to the saved pair with no residue.
 
+**Amended 2026-09-20 — the design settings ride with the colours, and the admin frames the
+preview.** The three design settings (corners, typefaces, page ground — website plan phase 1b)
+were saved-only, so they could not be previewed. The token gains one additive claim, `d`: a map of
+any subset of `radius`, `font`, `background`, enum-validated at mint (422 by name) and written only
+when there is one — a token without pending design settings is byte-for-byte what it was, and
+older tokens keep verifying. At render a previewed value wins when it is one of its enum's; junk
+falls through to the saved setting; the usual reset clears the design with the colours.
+
+In the admin these settings moved from Settings › General to **Site › Appearance** (§8), where
+the "Preview on site" button became a pane: the homepage, framed, re-minted with the whole pending
+look — theme, accent, neutral and the three design settings — once a change has settled (600 ms).
+Still token-only, never a write; a failed mint keeps the last good frame and says so in the pane;
+with no homepage set there is nothing to preview through, and the pane says where to set one.
+Logos and the site icon are uploads a token does not carry: they show once saved.
+
 ### 7. Cache (both pins)
 
 - **Fingerprint in the key.** `RenderPageCache` (and the fixed error keys) key on

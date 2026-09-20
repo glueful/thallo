@@ -79,7 +79,7 @@ const settings = (): GeneralSettings => ({
   listing_types: ['post'],
 })
 
-describe('general settings page — site logo', () => {
+describe('general settings page', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     settingsData.value = settings()
@@ -89,128 +89,6 @@ describe('general settings page — site logo', () => {
     fetchRenderThemesMock
       .mockReset()
       .mockResolvedValue({ themes: ['default', 'corporate'], active: 'default' })
-  })
-
-  it('picking a logo asset saves site_logo with the rest of the form', async () => {
-    saveMock.mockResolvedValue({ ...settings(), site_logo: 'blob00000042' })
-    const wrapper = mount(GeneralSettingsPage)
-    await flushPromises()
-
-    expect(wrapper.find('[data-test="site-logo-picker"]').exists()).toBe(true)
-    await wrapper.find('[data-test="stub-logo-pick"]').trigger('click')
-
-    // Save the form; the payload carries the picked asset uuid.
-    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('Save'))
-    expect(saveBtn).toBeTruthy()
-    await saveBtn!.trigger('click')
-    await flushPromises()
-
-    expect(saveMock).toHaveBeenCalledTimes(1)
-    expect(saveMock.mock.calls[0]![0]).toMatchObject({
-      site_logo: 'blob00000042',
-      listing_types: ['post'],
-    })
-    expect(notify.success).toHaveBeenCalled()
-  })
-
-  it('hydrates the current logo value from the server payload', async () => {
-    settingsData.value = { ...settings(), site_logo: 'blob00000007' }
-    const wrapper = mount(GeneralSettingsPage)
-    await flushPromises()
-    expect(wrapper.find('[data-test="stub-logo-pick"]').text()).toBe('blob00000007')
-  })
-
-  it('the Theme card renders from the themes endpoint and saves form.theme', async () => {
-    saveMock.mockResolvedValue({ ...settings() })
-    const wrapper = mount(GeneralSettingsPage)
-    await flushPromises()
-
-    expect(wrapper.find('[data-test="theme-card"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="theme-setting-select"]').text()).toContain('default')
-
-    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('Save'))
-    await saveBtn!.trigger('click')
-    await flushPromises()
-    expect(saveMock.mock.calls[0]![0]).toMatchObject({ theme: 'default' })
-  })
-
-  it('exposes accent and neutral selectors and saves them with the form', async () => {
-    saveMock.mockResolvedValue({ ...settings() })
-    const wrapper = mount(GeneralSettingsPage)
-    await flushPromises()
-
-    expect(wrapper.find('[data-test="theme-colors-card"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="theme-accent"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="theme-neutral"]').exists()).toBe(true)
-
-    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('Save'))
-    await saveBtn!.trigger('click')
-    await flushPromises()
-    expect(saveMock.mock.calls[0]![0]).toMatchObject({
-      theme_accent: 'blue',
-      theme_neutral: 'slate',
-    })
-  })
-
-  it('hydrates saved accent/neutral from the server payload', async () => {
-    settingsData.value = { ...settings(), theme_accent: 'emerald', theme_neutral: 'zinc' }
-    const wrapper = mount(GeneralSettingsPage)
-    await flushPromises()
-    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('Save'))
-    await saveBtn!.trigger('click')
-    await flushPromises()
-    expect(saveMock.mock.calls[0]![0]).toMatchObject({
-      theme_accent: 'emerald',
-      theme_neutral: 'zinc',
-    })
-  })
-
-  it('exposes the design settings (radius, typeface, ground) and saves them with the form', async () => {
-    saveMock.mockResolvedValue({ ...settings() })
-    const wrapper = mount(GeneralSettingsPage)
-    await flushPromises()
-
-    expect(wrapper.find('[data-test="theme-design-card"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="theme-radius"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="theme-font"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="theme-background"]').exists()).toBe(true)
-
-    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('Save'))
-    await saveBtn!.trigger('click')
-    await flushPromises()
-    expect(saveMock.mock.calls[0]![0]).toMatchObject({
-      theme_radius: 'round',
-      theme_font: 'sans',
-      theme_background: 'plain',
-    })
-  })
-
-  it('hydrates saved design settings from the server payload', async () => {
-    settingsData.value = {
-      ...settings(),
-      theme_radius: 'sharp',
-      theme_font: 'editorial',
-      theme_background: 'tinted',
-    }
-    const wrapper = mount(GeneralSettingsPage)
-    await flushPromises()
-    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('Save'))
-    await saveBtn!.trigger('click')
-    await flushPromises()
-    expect(saveMock.mock.calls[0]![0]).toMatchObject({
-      theme_radius: 'sharp',
-      theme_font: 'editorial',
-      theme_background: 'tinted',
-    })
-  })
-
-  it('a failed themes fetch hides the Theme card without an error toast', async () => {
-    fetchRenderThemesMock.mockRejectedValue(new Error('403'))
-    const wrapper = mount(GeneralSettingsPage)
-    await flushPromises()
-
-    expect(wrapper.find('[data-test="theme-card"]').exists()).toBe(false)
-    expect(notify.error).not.toHaveBeenCalled()
   })
 
   it('the search toggle hydrates from the server and saves with the form', async () => {
@@ -231,24 +109,47 @@ describe('general settings page — site logo', () => {
     expect(saveMock.mock.calls[0]![0]).toMatchObject({ search_enabled: true })
   })
 
-  it('renders dark-logo and favicon fields; the favicon preview only when set', async () => {
+  it('shows how the site behaves, and points to Appearance for how it looks', async () => {
     const wrapper = mount(GeneralSettingsPage)
     await flushPromises()
+    for (const gone of [
+      'theme-card',
+      'theme-colors-card',
+      'theme-design-card',
+      'site-logo-picker',
+    ]) {
+      expect(wrapper.find(`[data-test="${gone}"]`).exists(), gone).toBe(false)
+    }
+    const pointer = wrapper.find('[data-test="appearance-pointer"]')
+    expect(pointer.exists()).toBe(true)
+    expect(pointer.text()).toContain('Appearance')
+  })
 
-    expect(wrapper.find('[data-test="site-logo-dark-picker"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="site-favicon-picker"]').exists()).toBe(true)
-    // No favicon set: no preview.
-    expect(wrapper.find('[data-test="favicon-preview"]').exists()).toBe(false)
-
-    settingsData.value = { ...settings(), site_favicon: 'favic0000001' }
+  it('saves its own keys and never the appearance ones', async () => {
+    // The server leaves an omitted key unchanged. Were this page to send the appearance keys
+    // from its own copy, a save here would undo a change made on the Appearance page meanwhile.
+    saveMock.mockResolvedValue({ ...settings() })
+    const wrapper = mount(GeneralSettingsPage)
     await flushPromises()
-
-    const preview = wrapper.find('[data-test="favicon-preview"]')
-    expect(preview.exists()).toBe(true)
-    // Both the app tile and the tab mock render the uploaded blob.
-    const imgs = preview.findAll('img')
-    expect(imgs.length).toBe(2)
-    expect(imgs[0]!.attributes('src')).toBe('/blobs/favic0000001')
-    expect(preview.text()).toContain('Thallo')
+    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('Save'))
+    await saveBtn!.trigger('click')
+    await flushPromises()
+    const sent = saveMock.mock.calls[0]![0] as Record<string, unknown>
+    expect(Object.keys(sent).sort()).toEqual(
+      [
+        'admin_url',
+        'cache_ttl',
+        'default_locale',
+        'default_per_page',
+        'homepage_entry',
+        'listing_types',
+        'max_per_page',
+        'scheduler_enabled',
+        'search_enabled',
+        'site_name',
+        'site_preview_url',
+        'webhooks_enabled',
+      ].sort(),
+    )
   })
 })

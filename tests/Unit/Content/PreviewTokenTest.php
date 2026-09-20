@@ -55,6 +55,36 @@ final class PreviewTokenTest extends TestCase
         self::assertSame('pinned-version-7', $vo->versionUuid);
     }
 
+    public function testTheDesignClaimsRoundTripAndAreAbsentFromATokenMintedWithoutThem(): void
+    {
+        // The Appearance page previews its PENDING design settings the way it previews colours:
+        // signed into the token, never written anywhere.
+        $design = ['radius' => 'sharp', 'font' => 'editorial', 'background' => 'tinted'];
+        $token = PreviewToken::mint('entry-1', 'en', null, 9999999999, self::KEY, null, 'rose', 'zinc', $design);
+        $vo = PreviewToken::verify($token, self::KEY, 1000);
+        self::assertSame($design, $vo->design);
+        self::assertSame('rose', $vo->accent);
+
+        // Additive: a token minted without them — every token there was — still verifies.
+        $plain = PreviewToken::verify(
+            PreviewToken::mint('entry-1', 'en', null, 9999999999, self::KEY),
+            self::KEY,
+            1000,
+        );
+        self::assertNull($plain->design);
+    }
+
+    public function testADesignClaimThatIsNotAMapOfStringsIsDropped(): void
+    {
+        // The payload is signed, so this is not an attack surface — but a claim is read
+        // defensively all the same: anything that is not name => string is no design at all.
+        $payload = rtrim(strtr(base64_encode((string) json_encode([
+            'e' => 'entry-1', 'l' => 'en', 'v' => null, 'exp' => 9999999999, 'd' => ['radius' => ['x']],
+        ])), '+/', '-_'), '=');
+        $sig = rtrim(strtr(base64_encode(hash_hmac('sha256', $payload, self::KEY, true)), '+/', '-_'), '=');
+        self::assertNull(PreviewToken::verify($payload . '.' . $sig, self::KEY, 1000)->design);
+    }
+
     public function testTamperedPayloadRejectedAsInvalidSignature(): void
     {
         $token = PreviewToken::mint('entry-A', 'en', null, 9999999999, self::KEY);

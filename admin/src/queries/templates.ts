@@ -99,7 +99,7 @@ export async function restoreVersion(
   return (json.data ?? json) as { version_uuid: string }
 }
 
-/** Selectable themes + the active one (feeds the Settings → General Theme card). */
+/** Selectable themes + the active one (feeds the Site › Appearance Theme card). */
 export async function fetchRenderThemes(): Promise<{ themes: string[]; active: string }> {
   const json = await authFetch(`${runtimeConfig.apiBase}/render/themes`)
   return (json.data ?? json) as { themes: string[]; active: string }

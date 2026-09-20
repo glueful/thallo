@@ -49,4 +49,35 @@ final class PreviewAppearanceTest extends AppTestCase
         $ext->setThemeAppearanceOverride('blue', 'slate');
         self::assertSame('', (string) $ext->themeColorsStyle());
     }
+
+    public function testAPreviewsDesignOverridesTheSavedDesignForThatRenderOnly(): void
+    {
+        $settings = $this->container()->get(GeneralSettings::class);
+        $settings->save(['theme_radius' => 'soft', 'theme_font' => 'sans', 'theme_background' => 'plain']);
+        $ext = new RenderContextExtension(
+            null,
+            $this->container()->get(EntryTargetResolver::class),
+            'en',
+            appearance: new ThemeAppearanceSource(new EngineThemeAppearanceProvider($settings), new NullLogger()),
+        );
+        $saved = (string) $ext->themeColorsStyle();
+
+        // Pending serif type over the saved sans: the render differs, and is what saving serif gives.
+        $ext->setThemeAppearanceOverride(null, null, ['font' => 'serif']);
+        $previewed = (string) $ext->themeColorsStyle();
+        self::assertNotSame($saved, $previewed);
+        self::assertSame(
+            '<style>' . \Thallo\Render\Theme\ThemeDesign::css('soft', 'serif', 'plain', 'slate') . '</style>',
+            $previewed,
+        );
+
+        // Junk in a claim is no override; and the usual reset clears the design with the colours.
+        $ext->setThemeAppearanceOverride(null, null, ['font' => 'comic', 'radius' => 'sharp']);
+        self::assertSame(
+            '<style>' . \Thallo\Render\Theme\ThemeDesign::css('sharp', 'sans', 'plain', 'slate') . '</style>',
+            (string) $ext->themeColorsStyle(),
+        );
+        $ext->setThemeAppearanceOverride(null, null);
+        self::assertSame($saved, (string) $ext->themeColorsStyle());
+    }
 }
