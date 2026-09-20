@@ -7,6 +7,24 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Fixed
+- **The Appearance page's preview loaded unstyled** on a host set up as the production guide
+  says (nginx with a static-file rule, CloudPanel's included): the framed page asked for its theme
+  stylesheets and font at `/_preview-assets/…`, which is outside the prefixes the guide has a host
+  hand to PHP, so the web server answered them 404 itself. Two causes, both fixed. A *themed*
+  preview's assets are now served under `/_thallo/preview-assets/…`, inside the documented
+  `/_thallo/*` prefix — this had been broken for every themed preview on such hosts, not only
+  this page. And the Appearance preview no longer names a theme unless you have chosen a
+  different one from the live theme, so an ordinary preview is an ordinary preview again, served
+  from the site's usual asset URLs. No web-server change is needed.
+
+### Changed
+- The Appearance page's settings column is wider, and its logo fields sit one under the other:
+  side by side, their descriptions wrapped to different heights and pushed the two upload boxes
+  out of line. Each field now says in a line what it is for, with its fallback rule under the box.
+- The notice on Settings › General is one line: "For the theme, colours, design or logos, go to
+  Site › Appearance."
+
 ## [1.0.0-beta.47] - 2026-09-20 — Developer Preview
 
 A security fix for installs with workspaces, and the site's look gets a page of its own with a

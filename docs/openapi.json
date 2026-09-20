@@ -930,10 +930,10 @@
                 }
             }
         },
-        "\/_preview-assets\/{token}\/{path}": {
+        "\/_thallo\/preview-assets\/{token}\/{path}": {
             "get": {
                 "operationId": "getPreviewassetsByTokenByPath",
-                "summary": "GET \/_preview-assets\/{token}\/{path}",
+                "summary": "GET \/_thallo\/preview-assets\/{token}\/{path}",
                 "tags": [
                     " Preview Assets"
                 ],

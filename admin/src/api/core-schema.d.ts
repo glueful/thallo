@@ -50,14 +50,14 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/_preview-assets/{token}/{path}': {
+  '/_thallo/preview-assets/{token}/{path}': {
     parameters: {
       query?: never
       header?: never
       path?: never
       cookie?: never
     }
-    /** GET /_preview-assets/{token}/{path} */
+    /** GET /_thallo/preview-assets/{token}/{path} */
     get: operations['getPreviewassetsByTokenByPath']
     put?: never
     post?: never

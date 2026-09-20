@@ -180,14 +180,13 @@ async function onSave() {
                 color="neutral"
                 variant="subtle"
                 icon="i-lucide-palette"
-                title="Looking for the theme, colours, design or logos?"
                 data-test="appearance-pointer"
               >
                 <template #description>
-                  They moved to
+                  For the theme, colours, design or logos, go to
                   <RouterLink to="/appearance" class="font-medium text-primary underline">
                     Site › Appearance</RouterLink
-                  >, beside Header &amp; footer and the Theme editor.
+                  >.
                 </template>
               </UAlert>
 

@@ -86,7 +86,8 @@ const neutralSwatch = computed(
 
 /** What the preview frames: the look as it stands in the form, saved or not. */
 const pendingLook = computed(() => ({
-  theme: form.theme,
+  // Only a theme OTHER than the live one is previewed as a theme; see PendingLook.
+  theme: form.theme !== '' && form.theme !== (data.value?.theme ?? '') ? form.theme : '',
   accent: form.theme_accent,
   neutral: form.theme_neutral,
   radius: form.theme_radius,
@@ -152,7 +153,7 @@ async function onSave() {
         </div>
         <!-- The settings on the left; the homepage wearing them on the right, pinned while the
              cards scroll. Below xl the preview comes first, full width. -->
-        <div v-else class="grid gap-6 xl:grid-cols-[minmax(0,28rem)_minmax(0,1fr)]">
+        <div v-else class="grid gap-8 xl:grid-cols-[minmax(0,34rem)_minmax(0,1fr)]">
           <div class="order-2 space-y-6 xl:order-1">
             <UCard v-if="availableThemes.length > 0" data-test="theme-card">
               <template #header><h2 class="font-semibold text-default">Theme</h2></template>
@@ -260,11 +261,14 @@ async function onSave() {
                 <h2 class="font-semibold text-default">Logos &amp; site icon</h2>
               </template>
               <div class="space-y-6">
-                <!-- Logos (top): light and dark side by side -->
-                <div class="grid gap-6 sm:grid-cols-2">
+                <!-- One under the other: side by side in this column their descriptions wrapped to
+                     different heights and pushed the two upload boxes out of line. A short line
+                     says what each is for; the fallback rule sits under the box as help. -->
+                <div class="space-y-6">
                   <UFormField
                     label="Site logo"
-                    description="Used by the Logo block (and themes). When unset, the site name renders instead."
+                    description="Shown by the Logo block and by themes."
+                    help="When unset, the site name is shown instead."
                   >
                     <div data-test="site-logo-picker">
                       <AssetField
@@ -276,7 +280,8 @@ async function onSave() {
                   </UFormField>
                   <UFormField
                     label="Site logo (dark)"
-                    description="Shown when visitors use a dark color scheme; themes without a dark scheme ignore it. Falls back to the main logo."
+                    description="For visitors using a dark colour scheme."
+                    help="Falls back to the main logo. Themes without a dark scheme ignore it."
                   >
                     <div data-test="site-logo-dark-picker">
                       <AssetField
@@ -291,7 +296,8 @@ async function onSave() {
                 <div class="space-y-4">
                   <UFormField
                     label="Favicon"
-                    description="PNG or SVG, square, ≥ 512×512 recommended."
+                    description="The site’s icon in browser tabs and bookmarks."
+                    help="PNG or SVG, square, 512×512 or larger."
                   >
                     <div data-test="site-favicon-picker">
                       <AssetField

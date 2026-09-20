@@ -42,20 +42,20 @@ final class AssetContextTest extends AppTestCase
     {
         $ext = $this->ext();
         $ext->resetPerRenderState();
-        $ext->setAssetContext('/_preview-assets/tok123', sys_get_temp_dir());
-        self::assertSame('/_preview-assets/tok123/site.css', $ext->asset('site.css'));
+        $ext->setAssetContext('/_thallo/preview-assets/tok123', sys_get_temp_dir());
+        self::assertSame('/_thallo/preview-assets/tok123/site.css', $ext->asset('site.css'));
     }
 
     public function testResetClearsAPreviewContextBackToLive(): void
     {
         $ext = $this->ext();
-        $ext->setAssetContext('/_preview-assets/tok123', sys_get_temp_dir());
+        $ext->setAssetContext('/_thallo/preview-assets/tok123', sys_get_temp_dir());
         $ext->resetPerRenderState(); // preview → live: live must not see the preview base
         self::assertStringStartsWith('/theme-assets/site.css?t=', $ext->asset('site.css'));
 
         // live → preview: the preview must not inherit live buster behavior either.
-        $ext->setAssetContext('/_preview-assets/tok456', sys_get_temp_dir());
-        self::assertSame('/_preview-assets/tok456/site.css', $ext->asset('site.css'));
+        $ext->setAssetContext('/_thallo/preview-assets/tok456', sys_get_temp_dir());
+        self::assertSame('/_thallo/preview-assets/tok456/site.css', $ext->asset('site.css'));
         $ext->resetPerRenderState();
     }
 }
