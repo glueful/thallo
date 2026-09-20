@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- The Appearance page's settings column is 25rem wide, the width of the side panel on the Design
+  and Header & footer pages, so the three pages line up. Accent and Neutral sit one under the
+  other, like every other field in the column: side by side at that width, the longer description
+  wrapped and pushed its select out of line.
+
 ## [1.0.0-beta.49] - 2026-09-20 — Developer Preview
 
 The Appearance page gives the room back to its preview.
