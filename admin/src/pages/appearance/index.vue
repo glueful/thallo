@@ -153,7 +153,7 @@ async function onSave() {
         </div>
         <!-- The settings on the left; the homepage wearing them on the right, pinned while the
              cards scroll. Below xl the preview comes first, full width. -->
-        <div v-else class="grid gap-8 xl:grid-cols-[minmax(0,34rem)_minmax(0,1fr)]">
+        <div v-else class="grid gap-6 xl:grid-cols-[minmax(0,28rem)_minmax(0,1fr)]">
           <div class="order-2 space-y-6 xl:order-1">
             <UCard v-if="availableThemes.length > 0" data-test="theme-card">
               <template #header><h2 class="font-semibold text-default">Theme</h2></template>
