@@ -5,7 +5,7 @@
    anonymous same-origin-guarded POST, no session CSRF token, no per-visitor state. #}
 {% set heading = data.heading|default('')|trim %}
 <div class="thallo-block thallo-block-register-form{{ style_classes('root') }}"{{ style_attrs('root') }}>
-  <link rel="stylesheet" href="/_account/assets/account-blocks.css">
+  <link rel="stylesheet" href="/_thallo/account/account-blocks.css">
   {% if heading != '' %}<h2 class="thallo-block-register-form__heading">{{ heading }}</h2>{% endif %}
   <form method="post" action="/account/register" class="thallo-block-register-form__form">
     <label class="thallo-block-register-form__field">

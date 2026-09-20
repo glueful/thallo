@@ -238,8 +238,9 @@ describe('appearance page', () => {
       expect(postMock.mock.calls[0]![1]).toMatchObject({
         params: { path: { uuid: 'homeentry001', locale: 'fr' } },
       })
+      // No `theme`: the live theme is unchanged, so this is an ordinary preview, served from the
+      // site's usual asset URLs — naming a theme makes it a THEMED session with its own.
       expect(mintedWith(0).body).toEqual({
-        theme: 'default',
         accent: 'emerald',
         neutral: 'slate',
         radius: 'round',
@@ -277,6 +278,27 @@ describe('appearance page', () => {
       await vi.runAllTimersAsync()
       await flushPromises()
       expect(postMock).toHaveBeenCalledTimes(2)
+    })
+
+    it('names the theme only once another one is chosen — and drops it again when the choice goes back', async () => {
+      settingsData.value = withHomepage()
+      const wrapper = mount(AppearancePage)
+      await flushPromises()
+      await vi.runAllTimersAsync()
+      await flushPromises()
+      const page = wrapper.vm as unknown as { form: Record<string, string> }
+
+      page.form.theme = 'corporate'
+      await flushPromises()
+      await vi.runAllTimersAsync()
+      await flushPromises()
+      expect(mintedWith(1).body).toMatchObject({ theme: 'corporate' })
+
+      page.form.theme = 'default'
+      await flushPromises()
+      await vi.runAllTimersAsync()
+      await flushPromises()
+      expect(mintedWith(2).body).not.toHaveProperty('theme')
     })
 
     it('opens what it shows in a new tab', async () => {

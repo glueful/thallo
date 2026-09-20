@@ -660,7 +660,7 @@
         }
     },
     "paths": {
-        "\/_account\/assets\/{file}": {
+        "\/_thallo\/account\/{file}": {
             "get": {
                 "operationId": "accountAsset",
                 "summary": "Account Asset",
@@ -930,10 +930,10 @@
                 }
             }
         },
-        "\/_preview-assets\/{token}\/{path}": {
+        "\/_thallo\/preview-assets\/{token}\/{path}": {
             "get": {
                 "operationId": "getPreviewassetsByTokenByPath",
-                "summary": "GET \/_preview-assets\/{token}\/{path}",
+                "summary": "GET \/_thallo\/preview-assets\/{token}\/{path}",
                 "tags": [
                     " Preview Assets"
                 ],
@@ -1043,10 +1043,10 @@
                 }
             }
         },
-        "\/_shop\/assets\/{file}": {
+        "\/_thallo\/shop\/{file}": {
             "get": {
                 "operationId": "getShopAssetsByFile",
-                "summary": "GET \/_shop\/assets\/{file}",
+                "summary": "GET \/_thallo\/shop\/{file}",
                 "tags": [
                     " Shop"
                 ],

@@ -469,7 +469,7 @@ final class PreviewSessionTest extends AppTestCase
         // token base, bare — the closing quote right after the rel path proves no
         // live ?t=/&v= busters leaked onto the preview context (spec §3).
         self::assertMatchesRegularExpression(
-            '~href="/_preview-assets/' . preg_quote($token, '~') . '/theme-[0-9a-f]{16}\.css"~',
+            '~href="/_thallo/preview-assets/' . preg_quote($token, '~') . '/theme-[0-9a-f]{16}\.css"~',
             (string) $res->getContent(),
         );
 
@@ -483,7 +483,7 @@ final class PreviewSessionTest extends AppTestCase
             '~/theme-assets/theme-[0-9a-f]{16}\.css~',
             (string) $plain->getContent(),
         );
-        self::assertStringNotContainsString('/_preview-assets/', (string) $plain->getContent());
+        self::assertStringNotContainsString('/_thallo/preview-assets/', (string) $plain->getContent());
     }
 
     public function testLiveRequestThenThemedPreviewUsesPreviewOnlyAssetsWithoutLiveBusters(): void
@@ -508,7 +508,7 @@ final class PreviewSessionTest extends AppTestCase
         self::assertSame(200, $res->getStatusCode());
         $html = (string) $res->getContent();
         self::assertStringContainsString('ALTPREV:Alt after live', $html);
-        self::assertStringContainsString('href="/_preview-assets/' . $token . '/alt.css"', $html);
+        self::assertStringContainsString('href="/_thallo/preview-assets/' . $token . '/alt.css"', $html);
         self::assertStringNotContainsString('/theme-assets/', $html);
         // The altprev theme ships no fonts: a wrong-dir existence check (boot theme
         // instead of the preview dir) would emit preview-base font URLs here.
@@ -516,7 +516,7 @@ final class PreviewSessionTest extends AppTestCase
 
         // And the emitted URL RESOLVES: alt.css exists ONLY in the preview theme's
         // activePaths()['assets'] — URL emission and the asset route agree on the theme.
-        $css = $this->handle(Request::create('/_preview-assets/' . $token . '/alt.css', 'GET'));
+        $css = $this->handle(Request::create('/_thallo/preview-assets/' . $token . '/alt.css', 'GET'));
         self::assertSame(200, $css->getStatusCode());
         self::assertInstanceOf(\Symfony\Component\HttpFoundation\BinaryFileResponse::class, $css);
         self::assertStringEndsWith('/themes/altprev/assets/alt.css', $css->getFile()->getPathname());
@@ -586,7 +586,7 @@ final class PreviewSessionTest extends AppTestCase
         $entry = $this->seedDraftEntry();
         $token = $this->container()->get(PreviewMinter::class)->mint($entry, 'en', null, 'altprev');
 
-        $ok = $this->handle(Request::create('/_preview-assets/' . $token . '/alt.css', 'GET'));
+        $ok = $this->handle(Request::create('/_thallo/preview-assets/' . $token . '/alt.css', 'GET'));
         self::assertSame(200, $ok->getStatusCode());
         self::assertStringContainsString('no-store', (string) $ok->headers->get('Cache-Control'));
 
@@ -594,17 +594,19 @@ final class PreviewSessionTest extends AppTestCase
         self::assertSame(
             404,
             $this->handle(
-                Request::create('/_preview-assets/' . $token . '/%2e%2e/theme.json', 'GET'),
+                Request::create('/_thallo/preview-assets/' . $token . '/%2e%2e/theme.json', 'GET'),
             )->getStatusCode(),
         );
         self::assertSame(
             404,
-            $this->handle(Request::create('/_preview-assets/garbage/alt.css', 'GET'))->getStatusCode(),
+            $this->handle(Request::create('/_thallo/preview-assets/garbage/alt.css', 'GET'))->getStatusCode(),
         );
         $plainToken = $this->container()->get(PreviewMinter::class)->mint($entry, 'en');
         self::assertSame(
             404,
-            $this->handle(Request::create('/_preview-assets/' . $plainToken . '/alt.css', 'GET'))->getStatusCode(),
+            $this->handle(
+                Request::create('/_thallo/preview-assets/' . $plainToken . '/alt.css', 'GET'),
+            )->getStatusCode(),
         );
     }
 
@@ -622,7 +624,7 @@ final class PreviewSessionTest extends AppTestCase
         file_put_contents($base . '/entry.twig', '{{ undefined_fn() }}');
         $this->handle(Request::create('/_preview/' . $token, 'GET')); // 500-ish, ignored
         $plain = $this->handle(Request::create('/blog/hello', 'GET'));
-        self::assertStringNotContainsString('/_preview-assets/', (string) $plain->getContent());
+        self::assertStringNotContainsString('/_thallo/preview-assets/', (string) $plain->getContent());
 
         // Vanished theme: remove the templates entirely → session falls back to the
         // BOOT theme family (ThemeLocator's ladder or the try/catch — either way no ALT).

@@ -46,8 +46,8 @@ final class AccountFormBlocksTest extends AppTestCase
         self::assertStringContainsString('data-account-form="login"', $html);
         self::assertStringContainsString('data-account-error="credentials"', $html);
         self::assertMatchesRegularExpression('/data-account-error="credentials"[^>]*hidden/', $html);
-        self::assertStringContainsString('src="/_account/assets/account-forms.js" defer', $html);
-        self::assertStringContainsString('href="/_account/assets/account-blocks.css"', $html);
+        self::assertStringContainsString('src="/_thallo/account/account-forms.js" defer', $html);
+        self::assertStringContainsString('href="/_thallo/account/account-blocks.css"', $html);
     }
 
     public function testLoginFormCanHideTheLinksRow(): void

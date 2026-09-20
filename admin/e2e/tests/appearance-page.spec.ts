@@ -87,7 +87,6 @@ test('Appearance is in the Site group, and saves only its own settings', async (
   // with the new corners, and nothing saved yet.
   await expect.poll(() => looks.at(-1)?.radius).toBe('sharp')
   expect(looks.at(-1)).toEqual({
-    theme: 'default',
     accent: 'blue',
     neutral: 'slate',
     radius: 'sharp',

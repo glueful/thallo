@@ -7,6 +7,45 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.48] - 2026-09-20 — Developer Preview
+
+Previews, the storefront and the account pages load their styles and scripts on hosts set up as
+the production guide says.
+
+### Upgrade Notes
+- No migrations, no new permissions, no dependency changes. The documented sequence applies
+  (docs/upgrading.md). **No web-server change is needed**: the asset URLs that moved are now
+  inside `/_thallo/*`, a prefix the production guide already has a host hand to PHP.
+- `thallo:provision` clears the rendered-page cache, so pages pick up the new asset URLs. If a
+  CDN or Varnish sits in front of the site, purge it too: a page it still holds links the old
+  `/_shop/assets/…` or `/_account/assets/…` URLs, which no longer exist.
+- A theme or template of your own that links `/_shop/assets/…` or `/_account/assets/…` directly
+  should link `/_thallo/shop/…` and `/_thallo/account/…` instead.
+
+### Fixed
+- **The Appearance page's preview loaded unstyled** on a host set up as the production guide
+  says (nginx with a static-file rule, CloudPanel's included): the framed page asked for its theme
+  stylesheets and font at `/_preview-assets/…`, which is outside the prefixes the guide has a host
+  hand to PHP, so the web server answered them 404 itself. Two causes, both fixed. A *themed*
+  preview's assets are now served under `/_thallo/preview-assets/…`, inside the documented
+  `/_thallo/*` prefix — this had been broken for every themed preview on such hosts, not only
+  this page. And the Appearance preview no longer names a theme unless you have chosen a
+  different one from the live theme, so an ordinary preview is an ordinary preview again, served
+  from the site's usual asset URLs. No web-server change is needed.
+- **The storefront's and the account pages' scripts and stylesheets could not load** on the same
+  kind of host, for the same reason: they were served from `/_shop/assets/…` and
+  `/_account/assets/…`, outside the prefixes the guide has a host hand to PHP, so the web server
+  answered them 404 — a shop or an account page without its script or its styling. They are served
+  under `/_thallo/shop/…` and `/_thallo/account/…` now. A test now sweeps every route for this
+  fault, so a new asset route outside the proxied prefixes fails the suite.
+
+### Changed
+- The Appearance page's settings column is wider, and its logo fields sit one under the other:
+  side by side, their descriptions wrapped to different heights and pushed the two upload boxes
+  out of line. Each field now says in a line what it is for, with its fallback rule under the box.
+- The notice on Settings › General is one line: "For the theme, colours, design or logos, go to
+  Site › Appearance."
+
 ## [1.0.0-beta.47] - 2026-09-20 — Developer Preview
 
 A security fix for installs with workspaces, and the site's look gets a page of its own with a

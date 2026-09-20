@@ -29,4 +29,62 @@ final class PreviewAssetsUnderProxiedPrefixTest extends AppTestCase
         self::assertSame('/_thallo/preview.css', RenderController::PREVIEW_CSS_PATH);
         self::assertSame('/_thallo/preview-bridge.js', RenderController::PREVIEW_BRIDGE_PATH);
     }
+
+    public function testAThemedPreviewsAssetsAreRoutedUnderTheThalloPrefix(): void
+    {
+        // The same fault, found again on a live host: a preview session carrying a theme served
+        // that theme's stylesheets and fonts from `/_preview-assets/{token}/…` — `.css` and
+        // `.woff2` URLs outside the proxied prefixes, so nginx answered them 404 itself and the
+        // previewed page loaded unstyled. (The admin's Appearance preview sent the theme with
+        // every request, which is what made it visible.)
+        self::assertNotNull($this->findRoute('GET', '/_thallo/preview-assets/{token}/{path}'));
+        self::assertNull(
+            $this->findRoute('GET', '/_preview-assets/{token}/{path}'),
+            'the root-level prefix is gone',
+        );
+        self::assertSame('/_thallo/preview-assets', RenderController::PREVIEW_ASSETS_PREFIX);
+    }
+
+    public function testThePacksOwnAssetsAreRoutedUnderTheThalloPrefixToo(): void
+    {
+        // Found by the sweep below: the storefront's and the account pages' fingerprinted scripts
+        // and stylesheets were at `/_shop/assets/…` and `/_account/assets/…`, and a host's
+        // static-file rule answered them 404 — pages without their scripts or styling.
+        self::assertNotNull($this->findRoute('GET', '/_thallo/shop/{file}'));
+        self::assertNotNull($this->findRoute('GET', '/_thallo/account/{file}'));
+        self::assertNull($this->findRoute('GET', '/_shop/assets/{file}'), 'the old prefix is gone');
+        self::assertNull($this->findRoute('GET', '/_account/assets/{file}'), 'the old prefix is gone');
+    }
+
+    public function testNoRouteThatCanServeAFileShapedUrlSitsOutsideTheProxiedPrefixes(): void
+    {
+        // The rule, held for every route there is: a path that can end in a file extension — a
+        // literal one, or a catch-all parameter — is eaten by a static-file rule unless the web
+        // server was told to hand its prefix to PHP, and docs/production.md names exactly these.
+        $proxied = '~^/(theme-assets|_thallo|v1|api-docs)(/|$)~';
+        $static = 'css|js|mjs|json|map|svg|png|jpe?g|gif|webp|avif|ico|woff2?|ttf|otf|txt|xml';
+        $offenders = [];
+        foreach ($this->router()->getAllRoutes() as $route) {
+            $path = (string) $route['path'];
+            if (strtoupper((string) $route['method']) !== 'GET' || preg_match($proxied, $path) === 1) {
+                continue;
+            }
+            $literalFile = preg_match('~\.(' . $static . ')$~i', $path) === 1;
+            // A trailing parameter that names a path or a file takes a file-shaped value:
+            // `{path}` may be `fonts/a.woff2`. (A route record does not expose its constraints.)
+            $fileParameter = preg_match('~/\{(path|file|filename|asset)\}$~', $path) === 1;
+            if ($literalFile || $fileParameter) {
+                $offenders[] = $path;
+            }
+        }
+        // Known and deliberate: files a crawler or browser asks for AT THE ROOT by convention.
+        // A host serves them from PHP because the static rule's own try_files falls through to
+        // the front controller for a file that is not on disk (docs/production.md).
+        $rootByConvention = [
+            '/robots.txt', '/sitemap.xml', '/sitemap/{n}.xml', '/favicon.ico', '/feed.xml', '/llms.txt',
+        ];
+        // The page catch-all: content, not an asset.
+        $content = ['/{path}'];
+        self::assertSame([], array_values(array_diff($offenders, $rootByConvention, $content)));
+    }
 }

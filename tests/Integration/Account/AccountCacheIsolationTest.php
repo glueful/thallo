@@ -105,7 +105,7 @@ final class AccountCacheIsolationTest extends AppTestCase
     {
         // Templates emit the alias, so it must survive a deploy: a cached page holding an old
         // fingerprint would otherwise request a permanent 404 and never hydrate again.
-        $alias = $this->get('/_account/assets/account.js');
+        $alias = $this->get('/_thallo/account/account.js');
         self::assertSame(302, $alias->getStatusCode());
         self::assertStringContainsString('no-store', (string) $alias->headers->get('Cache-Control'));
 
@@ -115,7 +115,7 @@ final class AccountCacheIsolationTest extends AppTestCase
         self::assertStringContainsString('immutable', (string) $hit->headers->get('Cache-Control'));
 
         // A stale or invented fingerprint must 404 rather than serve current bytes under an old hash.
-        self::assertSame(404, $this->get('/_account/assets/account-deadbeefdead.js')->getStatusCode());
+        self::assertSame(404, $this->get('/_thallo/account/account-deadbeefdead.js')->getStatusCode());
     }
 
     public function testTheAssetRegistersExactlyOneRuntimeModuleAndIsInertOnASecondEvaluation(): void
@@ -176,7 +176,7 @@ final class AccountCacheIsolationTest extends AppTestCase
         // hidden+inert — the UA [hidden] rule governs visibility, no `display` CSS involved.
         self::assertStringContainsString('<div data-auth-when="anonymous">', $html);
         self::assertStringContainsString('<div data-auth-when="authenticated" hidden inert>', $html);
-        self::assertStringContainsString('src="/_account/assets/account.js" defer', $html);
+        self::assertStringContainsString('src="/_thallo/account/account.js" defer', $html);
     }
 
     // --- Capability flip across separate boots -----------------------------------------------

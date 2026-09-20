@@ -9,6 +9,11 @@ import { useDebounceFn } from '@vueuse/core'
 import { client } from '@/api/client'
 
 export interface PendingLook {
+  /**
+   * Another theme than the live one, or '' for the live one. Naming a theme makes the preview a
+   * THEMED session, which serves that theme's assets from its own token-scoped URLs: needed to
+   * preview a different theme, and needless for the one the site already serves.
+   */
   theme: string
   accent: string
   neutral: string
@@ -38,6 +43,11 @@ const stale = ref(false)
 const loading = ref(false)
 let requested = 0
 
+function previewBody(): Record<string, string> {
+  const { theme, ...look } = props.look
+  return theme === '' ? look : { theme, ...look }
+}
+
 async function mint(): Promise<void> {
   if (props.entry === '') return
   const mine = ++requested
@@ -46,7 +56,7 @@ async function mint(): Promise<void> {
     const { data, error } = await client.POST('/entries/{uuid}/preview/{locale}', {
       params: { path: { uuid: props.entry, locale: props.locale } },
       // The design fields are newer than the generated request type.
-      body: { ...props.look } as never,
+      body: previewBody() as never,
     })
     if (mine !== requested) return // a later choice has already asked
     const minted = data?.data?.theme_url

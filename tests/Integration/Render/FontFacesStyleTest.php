@@ -74,7 +74,7 @@ final class FontFacesStyleTest extends AppTestCase
     {
         $ext = $this->ext();
         // Alternate dir WITHOUT the fonts: boot theme has them, preview must not emit.
-        $ext->setAssetContext('/_preview-assets/tok1', sys_get_temp_dir());
+        $ext->setAssetContext('/_thallo/preview-assets/tok1', sys_get_temp_dir());
         self::assertSame('', (string) $ext->fontFacesStyle('Figtree', 'fonts/figtree-roman-latin.woff2'));
 
         // Alternate dir WITH a font file: emits preview-base URLs.
@@ -86,9 +86,12 @@ final class FontFacesStyleTest extends AppTestCase
                 $dir . '/fonts/figtree-roman-latin.woff2',
             );
             $ext->resetPerRenderState();
-            $ext->setAssetContext('/_preview-assets/tok2', $dir);
+            $ext->setAssetContext('/_thallo/preview-assets/tok2', $dir);
             $html = (string) $ext->fontFacesStyle('Figtree', 'fonts/figtree-roman-latin.woff2');
-            self::assertStringContainsString('href="/_preview-assets/tok2/fonts/figtree-roman-latin.woff2"', $html);
+            self::assertStringContainsString(
+                'href="/_thallo/preview-assets/tok2/fonts/figtree-roman-latin.woff2"',
+                $html,
+            );
         } finally {
             @unlink($dir . '/fonts/figtree-roman-latin.woff2');
             @rmdir($dir . '/fonts');
