@@ -660,7 +660,7 @@
         }
     },
     "paths": {
-        "\/_account\/assets\/{file}": {
+        "\/_thallo\/account\/{file}": {
             "get": {
                 "operationId": "accountAsset",
                 "summary": "Account Asset",
@@ -1043,10 +1043,10 @@
                 }
             }
         },
-        "\/_shop\/assets\/{file}": {
+        "\/_thallo\/shop\/{file}": {
             "get": {
                 "operationId": "getShopAssetsByFile",
-                "summary": "GET \/_shop\/assets\/{file}",
+                "summary": "GET \/_thallo\/shop\/{file}",
                 "tags": [
                     " Shop"
                 ],

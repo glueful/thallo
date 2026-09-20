@@ -77,7 +77,11 @@ $router->post('/account/logout', [AccountAuthController::class, 'logout'])
 // Fingerprinted static asset (account.js): ONE route serves the stable alias (302, no-store) and
 // the fingerprinted file (immutable) — the controller distinguishes them. The asset is global,
 // so it carries only the tenant_system marker.
-$router->get('/_account/assets/{file}', [AccountAssetController::class, 'serve'])
+//
+// Under /_thallo/, not /_account/: a `.js` or `.css` URL outside the prefixes docs/production.md
+// has a host hand to PHP is answered 404 by its static-file rule. At `/_account/assets/…` the
+// account pages loaded without their script or styles on such a host.
+$router->get('/_thallo/account/{file}', [AccountAssetController::class, 'serve'])
     ->middleware($asset)->name('account.asset');
 
 // The private session-state endpoint the storefront account chrome hydrates from. `session_cookie:optional`

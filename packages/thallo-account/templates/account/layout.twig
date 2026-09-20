@@ -5,9 +5,9 @@
    which avoids the child-`set`-does-not-reach-parent Twig inheritance trap. #}
 {% block title %}{{ block('account_heading') }} — {{ site.name }}{% endblock %}
 {% block content %}
-  {# The pack's own stylesheet, served fingerprinted from /_account/assets/account.css. Emitted in
+  {# The pack's own stylesheet, served fingerprinted from /_thallo/account/account.css. Emitted in
      the body like the shop blocks' shop.css — account pages are uncached, so this is safe. #}
-  <link rel="stylesheet" href="/_account/assets/account.css">
+  <link rel="stylesheet" href="/_thallo/account/account.css">
   {# Auth pages are chrome-free: paint the full-viewport gradient behind the card. The signed-in
      dashboard keeps the store chrome, so it gets neither the background nor the in-card logo. #}
   {% set bare = not (chrome|default(false)) %}
@@ -31,5 +31,5 @@
       {% block account %}{% endblock %}
     </div>
   </section>
-  <script src="/_account/assets/account-pages.js" defer></script>
+  <script src="/_thallo/account/account-pages.js" defer></script>
 {% endblock %}

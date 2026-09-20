@@ -123,8 +123,8 @@ final class StorefrontInertnessTest extends AppTestCase
             self::assertSame(404, $hit('GET', '/_shop/blocks/product-grid'), 'product-grid block data');
             self::assertSame(404, $hit('GET', '/_shop/blocks/featured-product'), 'featured-product block data');
             self::assertSame(404, $hit('GET', '/_shop/blocks/add-to-cart'), 'add-to-cart block data');
-            self::assertSame(404, $hit('GET', '/_shop/assets/shop.js'), 'fingerprinted asset alias');
-            self::assertSame(404, $hit('GET', '/_shop/assets/shop-deadbeefdead.js'), 'fingerprinted asset');
+            self::assertSame(404, $hit('GET', '/_thallo/shop/shop.js'), 'fingerprinted asset alias');
+            self::assertSame(404, $hit('GET', '/_thallo/shop/shop-deadbeefdead.js'), 'fingerprinted asset');
         } finally {
             self::resetSharedRepositoryConnection();
         }
@@ -315,7 +315,7 @@ final class StorefrontInertnessTest extends AppTestCase
         // every page; with the capability off the artifact carries no storefront rules.
         $html = (string) $this->handle(Request::create('/shop', 'GET'))->getContent();
         $head = substr($html, 0, strpos($html, '</head>') ?: 0);
-        self::assertStringNotContainsString('/_shop/assets/shop', $head, 'no separate storefront link');
+        self::assertStringNotContainsString('/_thallo/shop/shop', $head, 'no separate storefront link');
         self::assertSame(1, preg_match('~href="(/theme-assets/theme-[0-9a-f]{16}\.css)"~', $head, $m));
         $css = (string) $this->handle(Request::create($m[1], 'GET'))->getContent();
         self::assertStringContainsString('@layer theme {', $css);

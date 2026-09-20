@@ -17,6 +17,12 @@ as the next release, never a mutated tag.
   this page. And the Appearance preview no longer names a theme unless you have chosen a
   different one from the live theme, so an ordinary preview is an ordinary preview again, served
   from the site's usual asset URLs. No web-server change is needed.
+- **The storefront's and the account pages' scripts and stylesheets could not load** on the same
+  kind of host, for the same reason: they were served from `/_shop/assets/…` and
+  `/_account/assets/…`, outside the prefixes the guide has a host hand to PHP, so the web server
+  answered them 404 — a shop or an account page without its script or its styling. They are served
+  under `/_thallo/shop/…` and `/_thallo/account/…` now. A test now sweeps every route for this
+  fault, so a new asset route outside the proxied prefixes fails the suite.
 
 ### Changed
 - The Appearance page's settings column is wider, and its logo fields sit one under the other:

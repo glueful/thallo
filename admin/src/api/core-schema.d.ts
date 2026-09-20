@@ -1,5 +1,5 @@
 export interface paths {
-  '/_account/assets/{file}': {
+  '/_thallo/account/{file}': {
     parameters: {
       query?: never
       header?: never
@@ -84,14 +84,14 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/_shop/assets/{file}': {
+  '/_thallo/shop/{file}': {
     parameters: {
       query?: never
       header?: never
       path?: never
       cookie?: never
     }
-    /** GET /_shop/assets/{file} */
+    /** GET /_thallo/shop/{file} */
     get: operations['getShopAssetsByFile']
     put?: never
     post?: never

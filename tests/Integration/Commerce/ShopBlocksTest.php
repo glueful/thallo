@@ -363,12 +363,12 @@ final class ShopBlocksTest extends AppTestCase
         $second = $urls->assets();
 
         self::assertSame($first, $second);
-        self::assertMatchesRegularExpression('#\A/_shop/assets/shop-[0-9a-f]{12}\.js\z#', $first);
+        self::assertMatchesRegularExpression('#\A/_thallo/shop/shop-[0-9a-f]{12}\.js\z#', $first);
     }
 
     public function testAssetAliasRedirectsToTheFingerprintedUrl(): void
     {
-        $response = $this->handle(Request::create('/_shop/assets/shop.js', 'GET'));
+        $response = $this->handle(Request::create('/_thallo/shop/shop.js', 'GET'));
 
         self::assertSame(302, $response->getStatusCode());
         self::assertSame(
@@ -396,7 +396,7 @@ final class ShopBlocksTest extends AppTestCase
     public function testUnknownAndTraversalAssetNamesReturn404(): void
     {
         foreach (['unknown-file.js', '..', 'shop-deadbeefdead.js'] as $name) {
-            $response = $this->handle(Request::create('/_shop/assets/' . $name, 'GET'));
+            $response = $this->handle(Request::create('/_thallo/shop/' . $name, 'GET'));
             self::assertSame(404, $response->getStatusCode(), "expected 404 for '{$name}'");
         }
     }
@@ -410,7 +410,7 @@ final class ShopBlocksTest extends AppTestCase
             'capabilities' => ['thallo.commerce' => false],
         ]);
 
-        $response = (new Application($disabledApp))->handle(Request::create('/_shop/assets/shop.js', 'GET'));
+        $response = (new Application($disabledApp))->handle(Request::create('/_thallo/shop/shop.js', 'GET'));
         self::assertSame(404, $response->getStatusCode());
 
         self::resetSharedRepositoryConnection();
@@ -652,7 +652,7 @@ final class ShopBlocksTest extends AppTestCase
         self::assertStringContainsString('data-shop-mini-cart', $html);
         self::assertStringContainsString('data-shop-cart-count', $html);
         self::assertStringContainsString('href="/cart"', $html);
-        self::assertStringContainsString('/_shop/assets/shop.js', $html);
+        self::assertStringContainsString('/_thallo/shop/shop.js', $html);
     }
 
     public function testProductGridTemplateReflectsConfigurationInDataAttributes(): void
@@ -726,7 +726,7 @@ final class ShopBlocksTest extends AppTestCase
             $html,
             'the wishlist count badge must ship hidden, exactly like the cart badge',
         );
-        self::assertStringContainsString('/_shop/assets/shop.js', $html);
+        self::assertStringContainsString('/_thallo/shop/shop.js', $html);
     }
 
     public function testWishlistLinkTemplateRendersTheConfiguredLabel(): void

@@ -45,6 +45,17 @@ final class PreviewAssetsUnderProxiedPrefixTest extends AppTestCase
         self::assertSame('/_thallo/preview-assets', RenderController::PREVIEW_ASSETS_PREFIX);
     }
 
+    public function testThePacksOwnAssetsAreRoutedUnderTheThalloPrefixToo(): void
+    {
+        // Found by the sweep below: the storefront's and the account pages' fingerprinted scripts
+        // and stylesheets were at `/_shop/assets/…` and `/_account/assets/…`, and a host's
+        // static-file rule answered them 404 — pages without their scripts or styling.
+        self::assertNotNull($this->findRoute('GET', '/_thallo/shop/{file}'));
+        self::assertNotNull($this->findRoute('GET', '/_thallo/account/{file}'));
+        self::assertNull($this->findRoute('GET', '/_shop/assets/{file}'), 'the old prefix is gone');
+        self::assertNull($this->findRoute('GET', '/_account/assets/{file}'), 'the old prefix is gone');
+    }
+
     public function testNoRouteThatCanServeAFileShapedUrlSitsOutsideTheProxiedPrefixes(): void
     {
         // The rule, held for every route there is: a path that can end in a file extension — a
@@ -74,15 +85,6 @@ final class PreviewAssetsUnderProxiedPrefixTest extends AppTestCase
         ];
         // The page catch-all: content, not an asset.
         $content = ['/{path}'];
-        // KNOWN DEFECTS of exactly this kind, found by this sweep and not yet moved: the
-        // storefront's and the account pages' fingerprinted scripts and stylesheets. On a host
-        // configured per docs/production.md they are answered 404 by the static-file rule. They
-        // move under /_thallo/ the way the preview assets did; until then they are listed here
-        // so the sweep still fails for any NEW route of this shape.
-        $knownDefects = ['/_shop/assets/{file}', '/_account/assets/{file}'];
-        self::assertSame(
-            [],
-            array_values(array_diff($offenders, $rootByConvention, $content, $knownDefects)),
-        );
+        self::assertSame([], array_values(array_diff($offenders, $rootByConvention, $content)));
     }
 }

@@ -9,7 +9,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Thallo\Account\Assets\AccountAssetMap;
 
 /**
- * Serves the pack's fingerprinted static assets through ONE route (`/_account/assets/{file}`),
+ * Serves the pack's fingerprinted static assets through ONE route (`/_thallo/account/{file}`),
  * mirroring {@see \Thallo\Commerce\Http\Shop\ShopAssetController}:
  *
  *  - a LOGICAL name (`account.js`) 302-redirects to the current fingerprint and is explicitly
@@ -30,7 +30,7 @@ final class AccountAssetController
         if ($fingerprinted !== null) {
             // The alias itself is never cached: templates emit it, so a stale page must always be
             // redirected to the CURRENT fingerprint rather than pinned to yesterday's.
-            return new RedirectResponse('/_account/assets/' . rawurlencode($fingerprinted), 302, [
+            return new RedirectResponse('/_thallo/account/' . rawurlencode($fingerprinted), 302, [
                 'Cache-Control' => 'no-store',
             ]);
         }
