@@ -106,6 +106,8 @@ describe('the static manifest', () => {
       'collections',
       'analytics',
       'workflow',
+      // The Site group: how it looks, then its menus, its chrome, its templates.
+      'appearance',
       'navigation',
       'regions',
       'templates',
@@ -125,8 +127,9 @@ describe('the static manifest', () => {
     }
   })
 
-  it('core and regions/submissions are the only always-on modules', () => {
+  it('core, appearance, regions and submissions are the only always-on modules', () => {
+    // Appearance is core general settings (theme, colours, design, logos), so it needs no pack.
     const alwaysOn = adminManifest.filter((m) => (m.requires ?? []).length === 0).map((m) => m.id)
-    expect(alwaysOn).toEqual(['core', 'regions', 'submissions'])
+    expect(alwaysOn).toEqual(['core', 'appearance', 'regions', 'submissions'])
   })
 })

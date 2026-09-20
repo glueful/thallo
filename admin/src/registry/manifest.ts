@@ -3,6 +3,7 @@ import { coreModule } from './coreModule'
 import { collectionsModule } from './collectionsModule'
 import { analyticsModule } from './analyticsModule'
 import { workflowModule } from './workflowModule'
+import { appearanceModule } from './appearanceModule'
 import { navigationModule } from './navigationModule'
 import { regionsModule } from './regionsModule'
 import { templatesModule } from './templatesModule'
@@ -27,6 +28,8 @@ export const adminManifest: readonly AdminModule[] = [
   collectionsModule,
   analyticsModule,
   workflowModule,
+  // The Site group, in this order: how it looks, then its menus, its chrome, its templates.
+  appearanceModule,
   navigationModule,
   regionsModule,
   templatesModule,

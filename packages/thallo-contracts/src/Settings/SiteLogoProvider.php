@@ -7,7 +7,7 @@ namespace Thallo\Contracts\Settings;
 /**
  * The site logo's asset uuid for render surfaces (block-library spec §2:
  * the `logo` block reads it through the sandbox `site_logo()` function).
- * One source of truth — set in Settings → General.
+ * One source of truth — set in the admin under Site › Appearance.
  */
 interface SiteLogoProvider
 {

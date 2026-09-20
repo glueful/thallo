@@ -9,7 +9,7 @@ namespace Thallo\Contracts\Settings;
  * RAW row semantics: null means "no override stored" — the env/config default
  * applies. Implementations MUST NOT return the resolved effective value (an
  * env fallback masquerading as a stored override would break the clear-to-
- * fallback and revalidation ladders). One source of truth — Settings → General.
+ * fallback and revalidation ladders). One source of truth — the admin's Site › Appearance.
  */
 interface ThemeSettingProvider
 {

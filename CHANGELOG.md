@@ -7,6 +7,19 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- **The theme, its colours, the design settings and the logos moved** from Settings › General to a
+  page of their own, **Site › Appearance**, first in the Site group beside Header & footer and
+  the Theme editor: everything about how the site looks is now in one group, and General keeps how
+  it behaves — identity, homepage, listings, localization, delivery and feature toggles. General
+  links to the new page. Nothing about the settings themselves changed, and nothing needs
+  migrating. Each page now saves only its own settings, so a save on one can no longer write a
+  stale copy of the other's back.
+
+### Fixed
+- A themes response that lacked its list left the settings page on its loading skeletons for
+  good. It now hides the Theme card, as a failed request always did.
+
 ## [1.0.0-beta.46] - 2026-09-19 — Developer Preview
 
 The header and footer are styled from the admin — the bars and the blocks in them — and the Style

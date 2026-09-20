@@ -8,7 +8,7 @@ namespace Thallo\Contracts\Settings;
  * The site favicon's asset uuid for render surfaces (site-identity spec §2:
  * the layout reads it through the sandbox `site_favicon()` function, which
  * resolves it through the public-media predicate — an unservable blob emits
- * NO link tag). One source of truth — set in Settings → General.
+ * NO link tag). One source of truth — set in the admin under Site › Appearance.
  */
 interface SiteFaviconProvider
 {
