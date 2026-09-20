@@ -7,10 +7,10 @@ import { useGeneralSettings, useGeneralSettingsMutations } from '@/queries/gener
 import { useSettingsForm } from '@/composables/useSettingsForm'
 import AssetField from '@/fields/components/AssetField.vue'
 import FaviconPreview from './components/FaviconPreview.vue'
+import AppearancePreview from './components/AppearancePreview.vue'
 import { blobDisplayUrl } from '@/queries/media'
 import { fetchRenderThemes } from '@/queries/templates'
 import { useNotify } from '@/composables/useNotify'
-import { client } from '@/api/client'
 
 definePage({ meta: { requiresAuth: true } })
 
@@ -84,40 +84,15 @@ const neutralSwatch = computed(
   () => NEUTRAL_FAMILIES.find((f) => f.value === form.theme_neutral)?.swatch ?? '#64748b',
 )
 
-// "Preview on site" mints a preview session carrying the PENDING (unsaved) pair and
-// opens the live-rendered site — token-only, never a write (spec §6). It needs an
-// entry to preview through; we use the homepage entry when one is configured.
-const previewingColors = ref(false)
-async function previewColorsOnSite(): Promise<void> {
-  // Read before the request below declares its own `data`.
-  const entry = data.value?.homepage_entry ?? ''
-  const locale = data.value?.default_locale ?? 'en'
-  if (!entry) {
-    notifyError(
-      new Error('Set a homepage in Settings › General first: a preview opens through it.'),
-      'Nothing to preview',
-    )
-    return
-  }
-  previewingColors.value = true
-  try {
-    const { data: minted, error: mintError } = await client.POST(
-      '/entries/{uuid}/preview/{locale}',
-      {
-        params: { path: { uuid: entry, locale } },
-        body: { accent: form.theme_accent, neutral: form.theme_neutral },
-      },
-    )
-    if (mintError || !minted?.data?.theme_url) {
-      throw mintError ?? new Error('Preview unavailable')
-    }
-    window.open(minted.data.theme_url, '_blank', 'noopener')
-  } catch (e) {
-    notifyError(e, 'Couldn’t open the color preview')
-  } finally {
-    previewingColors.value = false
-  }
-}
+/** What the preview frames: the look as it stands in the form, saved or not. */
+const pendingLook = computed(() => ({
+  theme: form.theme,
+  accent: form.theme_accent,
+  neutral: form.theme_neutral,
+  radius: form.theme_radius,
+  font: form.theme_font,
+  background: form.theme_background,
+}))
 
 // Live theme options (theme-setting spec §4): fetched from the render pack;
 // a fetch failure (pack absent, no permission) just hides the card.
@@ -169,179 +144,181 @@ async function onSave() {
     </template>
 
     <template #body>
-      <div class="mx-auto w-full max-w-4xl space-y-6 pb-5">
+      <div class="mx-auto w-full max-w-[110rem] pb-5">
         <div v-if="status === 'pending'" class="space-y-3">
           <USkeleton class="h-28" />
           <USkeleton class="h-40" />
           <USkeleton class="h-40" />
         </div>
-        <template v-else>
-          <UCard v-if="availableThemes.length > 0" data-test="theme-card">
-            <template #header><h2 class="font-semibold text-default">Theme</h2></template>
-            <UFormField
-              label="Live theme"
-              description="Applies on the next page view — no restart. Preview a theme first via a preview session; duplicate one from the Theme editor."
-            >
-              <USelect
-                v-model="form.theme"
-                :items="availableThemes"
-                class="w-full"
-                data-test="theme-setting-select"
-              />
-            </UFormField>
-          </UCard>
-
-          <UCard data-test="theme-colors-card">
-            <template #header>
-              <h2 class="font-semibold text-default">Theme colors</h2>
-            </template>
-            <div class="space-y-6">
-              <p class="text-sm text-muted">
-                Re-skins the theme's tokens only — never changes templates. The default blue / slate
-                reproduces the current look.
-              </p>
-              <div class="grid gap-6 sm:grid-cols-2">
-                <UFormField label="Accent" description="Your brand color.">
-                  <div class="flex items-center gap-2">
-                    <span
-                      class="inline-block size-4 rounded-full ring-1 ring-default"
-                      :style="{ background: accentSwatch }"
-                      data-test="theme-accent-swatch"
-                    />
-                    <USelect
-                      v-model="form.theme_accent"
-                      :items="accentItems"
-                      class="w-full"
-                      data-test="theme-accent"
-                    />
-                  </div>
-                </UFormField>
-                <UFormField label="Neutral" description="Backgrounds, text, borders.">
-                  <div class="flex items-center gap-2">
-                    <span
-                      class="inline-block size-4 rounded-full ring-1 ring-default"
-                      :style="{ background: neutralSwatch }"
-                      data-test="theme-neutral-swatch"
-                    />
-                    <USelect
-                      v-model="form.theme_neutral"
-                      :items="neutralItems"
-                      class="w-full"
-                      data-test="theme-neutral"
-                    />
-                  </div>
-                </UFormField>
-              </div>
-              <UButton
-                color="neutral"
-                variant="subtle"
-                icon="i-lucide-eye"
-                :loading="previewingColors"
-                data-test="theme-colors-preview"
-                @click="previewColorsOnSite"
+        <!-- The settings on the left; the homepage wearing them on the right, pinned while the
+             cards scroll. Below xl the preview comes first, full width. -->
+        <div v-else class="grid gap-6 xl:grid-cols-[minmax(0,28rem)_minmax(0,1fr)]">
+          <div class="order-2 space-y-6 xl:order-1">
+            <UCard v-if="availableThemes.length > 0" data-test="theme-card">
+              <template #header><h2 class="font-semibold text-default">Theme</h2></template>
+              <UFormField
+                label="Live theme"
+                description="Applies on the next page view — no restart. Preview a theme first via a preview session; duplicate one from the Theme editor."
               >
-                Preview on site
-              </UButton>
-            </div>
-          </UCard>
-
-          <UCard data-test="theme-design-card">
-            <template #header>
-              <h2 class="font-semibold text-default">Design</h2>
-            </template>
-            <div class="space-y-6">
-              <p class="text-sm text-muted">
-                Site-wide shape, type and ground. Each choice re-maps theme tokens only; a button
-                can still pick its own shape.
-              </p>
-              <div class="grid gap-6 sm:grid-cols-3">
-                <UFormField label="Corners" description="Radius of panels and buttons.">
-                  <USelect
-                    v-model="form.theme_radius"
-                    :items="RADIUS_ITEMS"
-                    value-key="value"
-                    class="w-full"
-                    data-test="theme-radius"
-                  />
-                </UFormField>
-                <UFormField label="Typefaces" description="Headings and body text.">
-                  <USelect
-                    v-model="form.theme_font"
-                    :items="FONT_ITEMS"
-                    value-key="value"
-                    class="w-full"
-                    data-test="theme-font"
-                  />
-                </UFormField>
-                <UFormField label="Page ground" description="What the page sits on.">
-                  <USelect
-                    v-model="form.theme_background"
-                    :items="BACKGROUND_ITEMS"
-                    value-key="value"
-                    class="w-full"
-                    data-test="theme-background"
-                  />
-                </UFormField>
-              </div>
-            </div>
-          </UCard>
-
-          <UCard data-test="logos-card">
-            <template #header>
-              <h2 class="font-semibold text-default">Logos &amp; site icon</h2>
-            </template>
-            <div class="space-y-6">
-              <!-- Logos (top): light and dark side by side -->
-              <div class="grid gap-6 sm:grid-cols-2">
-                <UFormField
-                  label="Site logo"
-                  description="Used by the Logo block (and themes). When unset, the site name renders instead."
-                >
-                  <div data-test="site-logo-picker">
-                    <AssetField
-                      v-model="form.site_logo"
-                      :field="logoField"
-                      :library-button="false"
-                    />
-                  </div>
-                </UFormField>
-                <UFormField
-                  label="Site logo (dark)"
-                  description="Shown when visitors use a dark color scheme; themes without a dark scheme ignore it. Falls back to the main logo."
-                >
-                  <div data-test="site-logo-dark-picker">
-                    <AssetField
-                      v-model="form.site_logo_dark"
-                      :field="logoDarkField"
-                      :library-button="false"
-                    />
-                  </div>
-                </UFormField>
-              </div>
-              <!-- Site icon (below) -->
-              <div class="space-y-4">
-                <UFormField
-                  label="Favicon"
-                  description="PNG or SVG, square, ≥ 512×512 recommended."
-                >
-                  <div data-test="site-favicon-picker">
-                    <AssetField
-                      v-model="form.site_favicon"
-                      :field="faviconField"
-                      :library-button="false"
-                      :preview="false"
-                    />
-                  </div>
-                </UFormField>
-                <FaviconPreview
-                  v-if="form.site_favicon"
-                  :src="blobDisplayUrl(form.site_favicon)"
-                  :site-name="siteName"
+                <USelect
+                  v-model="form.theme"
+                  :items="availableThemes"
+                  class="w-full"
+                  data-test="theme-setting-select"
                 />
+              </UFormField>
+            </UCard>
+
+            <UCard data-test="theme-colors-card">
+              <template #header>
+                <h2 class="font-semibold text-default">Theme colors</h2>
+              </template>
+              <div class="space-y-6">
+                <p class="text-sm text-muted">
+                  Re-skins the theme's tokens only — never changes templates. The default blue /
+                  slate reproduces the current look.
+                </p>
+                <div class="grid gap-6 sm:grid-cols-2">
+                  <UFormField label="Accent" description="Your brand color.">
+                    <div class="flex items-center gap-2">
+                      <span
+                        class="inline-block size-4 rounded-full ring-1 ring-default"
+                        :style="{ background: accentSwatch }"
+                        data-test="theme-accent-swatch"
+                      />
+                      <USelect
+                        v-model="form.theme_accent"
+                        :items="accentItems"
+                        class="w-full"
+                        data-test="theme-accent"
+                      />
+                    </div>
+                  </UFormField>
+                  <UFormField label="Neutral" description="Backgrounds, text, borders.">
+                    <div class="flex items-center gap-2">
+                      <span
+                        class="inline-block size-4 rounded-full ring-1 ring-default"
+                        :style="{ background: neutralSwatch }"
+                        data-test="theme-neutral-swatch"
+                      />
+                      <USelect
+                        v-model="form.theme_neutral"
+                        :items="neutralItems"
+                        class="w-full"
+                        data-test="theme-neutral"
+                      />
+                    </div>
+                  </UFormField>
+                </div>
               </div>
-            </div>
-          </UCard>
-        </template>
+            </UCard>
+
+            <UCard data-test="theme-design-card">
+              <template #header>
+                <h2 class="font-semibold text-default">Design</h2>
+              </template>
+              <div class="space-y-6">
+                <p class="text-sm text-muted">
+                  Site-wide shape, type and ground. Each choice re-maps theme tokens only; a button
+                  can still pick its own shape.
+                </p>
+                <!-- Stacked: this column is narrow, and each option reads as a sentence. -->
+                <div class="grid gap-6">
+                  <UFormField label="Corners" description="Radius of panels and buttons.">
+                    <USelect
+                      v-model="form.theme_radius"
+                      :items="RADIUS_ITEMS"
+                      value-key="value"
+                      class="w-full"
+                      data-test="theme-radius"
+                    />
+                  </UFormField>
+                  <UFormField label="Typefaces" description="Headings and body text.">
+                    <USelect
+                      v-model="form.theme_font"
+                      :items="FONT_ITEMS"
+                      value-key="value"
+                      class="w-full"
+                      data-test="theme-font"
+                    />
+                  </UFormField>
+                  <UFormField label="Page ground" description="What the page sits on.">
+                    <USelect
+                      v-model="form.theme_background"
+                      :items="BACKGROUND_ITEMS"
+                      value-key="value"
+                      class="w-full"
+                      data-test="theme-background"
+                    />
+                  </UFormField>
+                </div>
+              </div>
+            </UCard>
+
+            <UCard data-test="logos-card">
+              <template #header>
+                <h2 class="font-semibold text-default">Logos &amp; site icon</h2>
+              </template>
+              <div class="space-y-6">
+                <!-- Logos (top): light and dark side by side -->
+                <div class="grid gap-6 sm:grid-cols-2">
+                  <UFormField
+                    label="Site logo"
+                    description="Used by the Logo block (and themes). When unset, the site name renders instead."
+                  >
+                    <div data-test="site-logo-picker">
+                      <AssetField
+                        v-model="form.site_logo"
+                        :field="logoField"
+                        :library-button="false"
+                      />
+                    </div>
+                  </UFormField>
+                  <UFormField
+                    label="Site logo (dark)"
+                    description="Shown when visitors use a dark color scheme; themes without a dark scheme ignore it. Falls back to the main logo."
+                  >
+                    <div data-test="site-logo-dark-picker">
+                      <AssetField
+                        v-model="form.site_logo_dark"
+                        :field="logoDarkField"
+                        :library-button="false"
+                      />
+                    </div>
+                  </UFormField>
+                </div>
+                <!-- Site icon (below) -->
+                <div class="space-y-4">
+                  <UFormField
+                    label="Favicon"
+                    description="PNG or SVG, square, ≥ 512×512 recommended."
+                  >
+                    <div data-test="site-favicon-picker">
+                      <AssetField
+                        v-model="form.site_favicon"
+                        :field="faviconField"
+                        :library-button="false"
+                        :preview="false"
+                      />
+                    </div>
+                  </UFormField>
+                  <FaviconPreview
+                    v-if="form.site_favicon"
+                    :src="blobDisplayUrl(form.site_favicon)"
+                    :site-name="siteName"
+                  />
+                </div>
+              </div>
+            </UCard>
+          </div>
+          <div class="order-1 xl:sticky xl:top-0 xl:order-2 xl:self-start">
+            <AppearancePreview
+              :entry="data?.homepage_entry ?? ''"
+              :locale="data?.default_locale ?? 'en'"
+              :look="pendingLook"
+            />
+          </div>
+        </div>
       </div>
     </template>
   </UDashboardPanel>

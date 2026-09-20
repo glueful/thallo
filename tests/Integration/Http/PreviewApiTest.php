@@ -243,6 +243,40 @@ final class PreviewApiTest extends AppTestCase
         self::assertSame($this->minter()->ttlSeconds(), $data['expires_in']);
     }
 
+    public function testMintSignsPendingDesignSettingsIntoTheTokenAndRefusesUnknownOnes(): void
+    {
+        $uuid = $this->seedDraft('Design Me');
+        $body = ['accent' => 'rose', 'radius' => 'sharp', 'font' => 'editorial', 'background' => 'tinted'];
+        $resp = $this->controller()->mint($this->hydrate(MintPreviewData::class, $body), new Request(), $uuid, 'en');
+        self::assertSame(200, $resp->getStatusCode(), (string) $resp->getContent());
+        $token = json_decode((string) $resp->getContent(), true)['data']['token'];
+        $claims = json_decode((string) base64_decode(strtr(explode('.', $token)[0], '-_', '+/')), true);
+        self::assertSame(['radius' => 'sharp', 'font' => 'editorial', 'background' => 'tinted'], $claims['d']);
+        self::assertSame('rose', $claims['a']);
+
+        // One of them alone is enough; the others stay the saved ones at render time.
+        $one = $this->controller()->mint(
+            $this->hydrate(MintPreviewData::class, ['font' => 'serif']),
+            new Request(),
+            $uuid,
+            'en',
+        );
+        $token = json_decode((string) $one->getContent(), true)['data']['token'];
+        $claims = json_decode((string) base64_decode(strtr(explode('.', $token)[0], '-_', '+/')), true);
+        self::assertSame(['font' => 'serif'], $claims['d']);
+
+        foreach (['radius' => 'pointy', 'font' => 'comic', 'background' => 'plaid'] as $key => $bad) {
+            $resp = $this->controller()->mint(
+                $this->hydrate(MintPreviewData::class, [$key => $bad]),
+                new Request(),
+                $uuid,
+                'en',
+            );
+            self::assertSame(422, $resp->getStatusCode(), $key);
+            self::assertArrayHasKey($key, json_decode((string) $resp->getContent(), true)['error']['details'] ?? []);
+        }
+    }
+
     public function testMintEndpointRejectsDisabledLocale(): void
     {
         $uuid = $this->seedDraft('Mint Me');

@@ -14,7 +14,7 @@ const SETTINGS = {
   scheduler_enabled: true,
   webhooks_enabled: true,
   search_enabled: false,
-  homepage_entry: '',
+  homepage_entry: 'homeentry001',
   site_logo: '',
   site_logo_dark: '',
   site_favicon: '',
@@ -26,6 +26,22 @@ const SETTINGS = {
   theme_background: 'plain',
   admin_url: '',
   listing_types: [],
+}
+
+/** The preview mint: records what look was asked for, and answers with a page to frame. */
+async function routePreview(page: Page): Promise<Record<string, unknown>[]> {
+  const looks: Record<string, unknown>[] = []
+  await page.route('**/v1/admin/entries/*/preview/*', (route) => {
+    looks.push(route.request().postDataJSON() as Record<string, unknown>)
+    return route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: { token: 't', theme_url: `/_preview/look${looks.length}` },
+      }),
+    })
+  })
+  return looks
 }
 
 async function routeSettings(page: Page): Promise<Record<string, unknown>[]> {
@@ -45,6 +61,7 @@ async function routeSettings(page: Page): Promise<Record<string, unknown>[]> {
 test('Appearance is in the Site group, and saves only its own settings', async ({ page }) => {
   await openDesignPage(page) // signs in
   const saves = await routeSettings(page)
+  const looks = await routePreview(page)
   await page.goto('/admin/appearance')
   await expect(page.locator('[data-test="theme-colors-card"]')).toBeVisible({ timeout: 20_000 })
   for (const card of ['theme-design-card', 'logos-card']) {
@@ -66,6 +83,23 @@ test('Appearance is in the Site group, and saves only its own settings', async (
   // Choose another corner style and save.
   await page.locator('[data-test="theme-radius"]').click()
   await page.getByRole('option', { name: /^Sharp/ }).click()
+  // The preview frames the homepage with the PENDING look: asked for again once the choice settled,
+  // with the new corners, and nothing saved yet.
+  await expect.poll(() => looks.at(-1)?.radius).toBe('sharp')
+  expect(looks.at(-1)).toEqual({
+    theme: 'default',
+    accent: 'blue',
+    neutral: 'slate',
+    radius: 'sharp',
+    font: 'sans',
+    background: 'plain',
+  })
+  await expect(page.locator('[data-test="appearance-preview-frame"]')).toHaveAttribute(
+    'src',
+    `/_preview/look${looks.length}`,
+  )
+  expect(saves).toEqual([])
+
   await page.locator('[data-test="appearance-save"]').click()
   await expect.poll(() => saves.length).toBe(1)
   expect(saves[0]).toEqual({

@@ -2,7 +2,7 @@
 // and site icon. It shares the general settings endpoint with Settings › General and saves ONLY its
 // own keys: the server leaves an omitted key unchanged, so neither page can overwrite the other's
 // settings with a stale copy.
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { afterEach, describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ref } from 'vue'
@@ -204,34 +204,121 @@ describe('appearance page', () => {
     expect(preview.text()).toContain('Thallo')
   })
 
-  it('Preview on site opens the homepage with the PENDING colours, in the site’s default locale', async () => {
-    const open = vi.spyOn(window, 'open').mockReturnValue(null)
-    postMock.mockReset().mockResolvedValue({ data: { data: { theme_url: '/_preview/tok' } } })
-
-    // No homepage: nothing to preview through, and the message says where to set one.
-    const wrapper = mount(AppearancePage)
-    await flushPromises()
-    await wrapper.find('[data-test="theme-colors-preview"]').trigger('click')
-    await flushPromises()
-    expect(postMock).not.toHaveBeenCalled()
-    expect(notify.error).toHaveBeenCalledTimes(1)
-
-    settingsData.value = {
+  describe('the live preview', () => {
+    const withHomepage = () => ({
       ...settings(),
       homepage_entry: 'homeentry001',
       default_locale: 'fr',
       theme_accent: 'emerald',
-    }
-    const ready = mount(AppearancePage)
-    await flushPromises()
-    await ready.find('[data-test="theme-colors-preview"]').trigger('click')
-    await flushPromises()
-    expect(postMock).toHaveBeenCalledWith('/entries/{uuid}/preview/{locale}', {
-      params: { path: { uuid: 'homeentry001', locale: 'fr' } },
-      body: { accent: 'emerald', neutral: 'slate' },
     })
-    expect(open).toHaveBeenCalledWith('/_preview/tok', '_blank', 'noopener')
-    open.mockRestore()
+    const mintedWith = (n: number) =>
+      postMock.mock.calls[n]![1] as { body: Record<string, unknown> }
+
+    beforeEach(() => {
+      vi.useFakeTimers()
+      let minted = 0
+      postMock.mockReset().mockImplementation(() => {
+        minted += 1
+        return Promise.resolve({ data: { data: { theme_url: `/_preview/tok${minted}` } } })
+      })
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('frames the homepage with every PENDING look setting, in the site’s default locale — nothing saved', async () => {
+      settingsData.value = withHomepage()
+      const wrapper = mount(AppearancePage)
+      await flushPromises()
+      await vi.runAllTimersAsync()
+      await flushPromises()
+
+      expect(postMock).toHaveBeenCalledTimes(1)
+      expect(postMock.mock.calls[0]![0]).toBe('/entries/{uuid}/preview/{locale}')
+      expect(postMock.mock.calls[0]![1]).toMatchObject({
+        params: { path: { uuid: 'homeentry001', locale: 'fr' } },
+      })
+      expect(mintedWith(0).body).toEqual({
+        theme: 'default',
+        accent: 'emerald',
+        neutral: 'slate',
+        radius: 'round',
+        font: 'sans',
+        background: 'plain',
+      })
+      expect(wrapper.find('[data-test="appearance-preview-frame"]').attributes('src')).toBe(
+        '/_preview/tok1',
+      )
+      expect(saveMock).not.toHaveBeenCalled()
+    })
+
+    it('a change re-mints, once the choosing has settled, and the frame follows', async () => {
+      settingsData.value = withHomepage()
+      const wrapper = mount(AppearancePage)
+      await flushPromises()
+      await vi.runAllTimersAsync()
+      await flushPromises()
+
+      const page = wrapper.vm as unknown as { form: Record<string, string> }
+      page.form.theme_font = 'editorial'
+      page.form.theme_radius = 'sharp'
+      await flushPromises()
+      expect(postMock).toHaveBeenCalledTimes(1) // debounced: two quick choices, no request yet
+      await vi.runAllTimersAsync()
+      await flushPromises()
+
+      expect(postMock).toHaveBeenCalledTimes(2)
+      expect(mintedWith(1).body).toMatchObject({ font: 'editorial', radius: 'sharp' })
+      expect(wrapper.find('[data-test="appearance-preview-frame"]').attributes('src')).toBe(
+        '/_preview/tok2',
+      )
+      // A logo is a saved setting, not a previewed one: choosing one asks for nothing.
+      await wrapper.find('[data-test="stub-logo-pick"]').trigger('click')
+      await vi.runAllTimersAsync()
+      await flushPromises()
+      expect(postMock).toHaveBeenCalledTimes(2)
+    })
+
+    it('opens what it shows in a new tab', async () => {
+      const open = vi.spyOn(window, 'open').mockReturnValue(null)
+      settingsData.value = withHomepage()
+      const wrapper = mount(AppearancePage)
+      await flushPromises()
+      await vi.runAllTimersAsync()
+      await flushPromises()
+      await wrapper.find('[data-test="appearance-preview-open"]').trigger('click')
+      expect(open).toHaveBeenCalledWith('/_preview/tok1', '_blank', 'noopener')
+      open.mockRestore()
+    })
+
+    it('with no homepage there is nothing to preview through: it says where to set one, and asks for nothing', async () => {
+      const wrapper = mount(AppearancePage)
+      await flushPromises()
+      await vi.runAllTimersAsync()
+      await flushPromises()
+      expect(postMock).not.toHaveBeenCalled()
+      expect(wrapper.find('[data-test="appearance-preview-frame"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="appearance-preview-empty"]').text()).toContain('General')
+    })
+
+    it('a failed preview keeps the last good frame, says so in the pane, and does not toast', async () => {
+      settingsData.value = withHomepage()
+      const wrapper = mount(AppearancePage)
+      await flushPromises()
+      await vi.runAllTimersAsync()
+      await flushPromises()
+
+      postMock.mockRejectedValueOnce(new Error('boom'))
+      ;(wrapper.vm as unknown as { form: Record<string, string> }).form.theme_accent = 'rose'
+      await flushPromises()
+      await vi.runAllTimersAsync()
+      await flushPromises()
+      expect(wrapper.find('[data-test="appearance-preview-frame"]').attributes('src')).toBe(
+        '/_preview/tok1',
+      )
+      expect(wrapper.find('[data-test="appearance-preview-stale"]').exists()).toBe(true)
+      expect(notify.error).not.toHaveBeenCalled()
+    })
   })
 
   it('a refetch never overwrites an unsaved edit', async () => {

@@ -21,6 +21,12 @@ final class PreviewSession
         public readonly ?string $accent,
         public readonly ?string $neutral,
         public readonly int $expiresAt,
+        /**
+         * Previewed design settings (radius, font, background), any subset; null = none.
+         *
+         * @var array<string,string>|null
+         */
+        public readonly ?array $design = null,
     ) {
     }
 }

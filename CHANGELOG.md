@@ -7,6 +7,14 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **A live preview on the Appearance page**: your homepage, framed beside the settings, wearing
+  the look as you choose it — theme, accent, neutral, corners, typefaces and page ground — at
+  desktop, tablet or phone width, before anything is saved. It replaces the "Preview on site"
+  button, which opened a new tab and showed colours only; the design settings could not be
+  previewed at all. **Open** still gives you the full page in a tab. It needs a homepage to be set
+  (Settings › General); logos and the site icon show once saved.
+
 ### Changed
 - **The theme, its colours, the design settings and the logos moved** from Settings › General to a
   page of their own, **Site › Appearance**, first in the Site group beside Header & footer and
