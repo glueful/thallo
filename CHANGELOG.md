@@ -24,6 +24,19 @@ as the next release, never a mutated tag.
   migrating. Each page now saves only its own settings, so a save on one can no longer write a
   stale copy of the other's back.
 
+### Security
+- **Provision re-granted cross-workspace authority to every administrator.** The authority
+  migration keeps `tenancy.access_any` and `tenancy.manage` — entering and managing ANY
+  workspace — off the `administrator` role: they belong to the superuser and to the
+  `workspace_manager` role. But `thallo:provision`, run on every upgrade, granted the
+  administrator role every permission it did not currently hold, and so handed both back. On an
+  install with more than one workspace, an administrator could then enter workspaces they were
+  never given. Both permissions are now withheld from that role, and a migration removes them
+  where a provision had re-granted them. It affects installs using workspaces (the tenancy pack);
+  on a single-site install the permissions unlock nothing. **If an administrator of yours should
+  reach every workspace, give them the `workspace_manager` role** — that is what it is for — since
+  this upgrade takes the permission off the administrator role itself.
+
 ### Fixed
 - A themes response that lacked its list left the settings page on its loading skeletons for
   good. It now hides the Theme card, as a failed request always did.
