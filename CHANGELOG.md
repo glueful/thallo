@@ -7,6 +7,21 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.48] - 2026-09-20 — Developer Preview
+
+Previews, the storefront and the account pages load their styles and scripts on hosts set up as
+the production guide says.
+
+### Upgrade Notes
+- No migrations, no new permissions, no dependency changes. The documented sequence applies
+  (docs/upgrading.md). **No web-server change is needed**: the asset URLs that moved are now
+  inside `/_thallo/*`, a prefix the production guide already has a host hand to PHP.
+- `thallo:provision` clears the rendered-page cache, so pages pick up the new asset URLs. If a
+  CDN or Varnish sits in front of the site, purge it too: a page it still holds links the old
+  `/_shop/assets/…` or `/_account/assets/…` URLs, which no longer exist.
+- A theme or template of your own that links `/_shop/assets/…` or `/_account/assets/…` directly
+  should link `/_thallo/shop/…` and `/_thallo/account/…` instead.
+
 ### Fixed
 - **The Appearance page's preview loaded unstyled** on a host set up as the production guide
   says (nginx with a static-file rule, CloudPanel's included): the framed page asked for its theme
