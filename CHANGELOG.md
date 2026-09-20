@@ -7,6 +7,10 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- The Appearance page's settings column is back to its original width, leaving the room to the
+  preview. The logo fields stay one under the other, which is what stopped them crowding.
+
 ## [1.0.0-beta.48] - 2026-09-20 — Developer Preview
 
 Previews, the storefront and the account pages load their styles and scripts on hosts set up as
