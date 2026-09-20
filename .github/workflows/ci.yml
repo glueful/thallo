@@ -149,8 +149,16 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist
 
-      - name: Cache extension discovery
-        run: php glueful extensions:cache
+      # NO `php glueful extensions:cache` step here, deliberately. Outside production the framework
+      # trusts bootstrap/cache/extensions.php for 5 seconds after it is written
+      # (EXTENSIONS_CACHE_TTL_DEV), and a cached boot loads the CACHED provider list — it ignores a
+      # test's own `extensions.enabled` override. Written just before PHPUnit starts (the database
+      # steps between take ~2s), it made the first seconds of every shard boot that way. That was
+      # invisible while Render ran first, since its boots override nothing; with Subscriptions
+      # first, CapabilityEngineTruthTableTest's engine-disabled boot landed inside the window, got
+      # the full provider list against a container built without the engine, failed to boot, and
+      # never registered its capability. The tests that need a cached boot write their own cache
+      # and restore it, mtime included (tests/Support/BootsFromExtensionProviderCache.php).
 
       # Every tests/Integration entry must be assigned to exactly one shard, or the split
       # silently stops running new directories. Fails loudly with the unassigned names.
