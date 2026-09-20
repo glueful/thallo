@@ -95,7 +95,8 @@ final class SeedBlockTypesTest extends AppTestCase
         self::assertSame(
             [
                 'headline', 'title', 'description', 'links', 'image', 'aside',
-                'orientation', 'split', 'reverse', 'background', 'heading_level',
+                'orientation', 'split', 'reverse', 'background', 'gradient_color', 'gradient_strength',
+                'heading_level',
             ],
             $heroFields,
         );

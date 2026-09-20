@@ -15,6 +15,7 @@ import type { Breakpoint, Resolution, StyleClassRef, StyleValue } from '@/style/
 import type { StylePropertyRow } from '@/queries/styleSchema'
 import { BREAKPOINT_LABELS } from '@/editor/breakpoint'
 import { classFieldState } from '@/editor/inspector/classFieldState'
+import { CHOICE_LABELS } from '@/editor/inspector/choiceLabels'
 import TokenScaleControl from './TokenScaleControl.vue'
 import ChoiceControl from './ChoiceControl.vue'
 
@@ -34,7 +35,7 @@ const props = defineProps<{
   /** Hide this row's breakpoint chips: the Style tab's group header carries them instead. */
   hideBreakpoints?: boolean
   /** Where the row is: a block's inspector (the default) or a style class's editor. */
-  context?: 'block' | 'class'
+  context?: 'block' | 'class' | 'region'
 }>()
 const emit = defineEmits<{
   /** Set (or clear with null) the value at one breakpoint (null breakpoint = non-responsive). */
@@ -255,6 +256,7 @@ const sourceLabel = computed(() => {
         <ChoiceControl
           v-else
           :choices="def.choices ?? []"
+          :labels="CHOICE_LABELS[def.path]"
           :model-value="currentValue"
           :name="def.path"
           @update:model-value="onPick"

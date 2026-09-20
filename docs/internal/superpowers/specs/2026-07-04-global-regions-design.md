@@ -245,6 +245,25 @@ Existing installs get nothing seeded — the layout fallback keeps them
 rendering exactly as today. (Optionally: the admin page offers "Start from
 the default layout" when a region is empty — plan decides if it's v1.)
 
+### Amended 2026-09-19 — a region's style
+
+A region's settings gain `style`: the block style record, validated against `RegionStyle` and
+rendered through `region_style_classes()`; the Regions page gives each region a Content tab and a
+Style tab. The contract is in the visual builder spec §1.3 ("modifiers, and a region's style").
+"The bar's look is the theme's alone" no longer holds; "unstyled means exactly the theme's" does.
+
+### Amended 2026-09-19 — a region block's settings
+
+A region's blocks always could carry `settings` — they are validated and rendered by the pipeline
+an entry's blocks are — but only the Design page could edit them. The Regions page now does, the
+light way: a card's **Block settings** button (a host hook on the blocks context, `settingsIntent`,
+null everywhere else) swaps the panel to that block's inspector — the Design page's
+`BlockInspector` without its Content tab (the card is the content form) and without Save as style
+class (that page's flow). There is no stage, no operations layer and no history here: an edit is
+written straight into the region's working copy (`RegionBlockInspector`), burst-safe within a
+tick, and the page saves the region as a whole. Making the Regions page a real stage — click to
+select, drag, undo — is the larger design this does not foreclose: the same inspector moves onto it.
+
 ## Out of scope (explicit)
 
 - Region **variants** and per-page `variant:{slug}` selection; transparent

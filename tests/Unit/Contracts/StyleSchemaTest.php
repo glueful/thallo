@@ -49,8 +49,13 @@ final class StyleSchemaTest extends TestCase
             // A tabs block's strip: the bar's corners and the tab's — the pill behind the active
             // label. Their own paths because `radius` is the panels area's.
             'tabs.bar_radius', 'tabs.tab_radius',
+            // Which sides a border is drawn on; and the backdrop pair — how much of the background
+            // colour shows, and how much of what lies behind it is blurred.
+            'border.sides', 'colors.surface_opacity', 'backdrop.blur',
+            // The third typography property: how far apart a text's lines sit.
+            'typography.line_height',
         ], $paths);
-        self::assertSame(5, StyleSchema::VERSION);
+        self::assertSame(7, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
     }
 
@@ -172,7 +177,52 @@ final class StyleSchemaTest extends TestCase
             StyleSchema::pathsInGroup('layout.item'),
             StyleCapabilities::fromDeclaration(['layout.item'])->paths(),
         );
-        self::assertSame(5, StyleSchema::VERSION);
+        self::assertSame(7, StyleSchema::VERSION);
+    }
+
+    public function testLineHeightJoinsTheTypographyGroupAndVariesByScreenAsSizeDoes(): void
+    {
+        // In the group, so every block that declares typography gains it on the target it already
+        // names; responsive, because a heading set large on a desktop wants tighter lines there.
+        $def = StyleSchema::property('typography.line_height');
+        self::assertNotNull($def);
+        self::assertSame('typography', $def->group);
+        self::assertSame(['tight', 'snug', 'normal', 'relaxed', 'loose'], $def->choices);
+        self::assertTrue($def->responsive);
+        self::assertSame(StyleSchema::property('typography.size')?->responsive, $def->responsive);
+        self::assertSame(
+            ['typography.size', 'typography.weight', 'typography.line_height'],
+            StyleSchema::pathsInGroup('typography'),
+        );
+    }
+
+    public function testBorderSidesJoinsTheBorderGroupAndTheBackdropPairIsItsOwn(): void
+    {
+        // A block that declares `border` gains Sides with it. The backdrop pair is a group of its
+        // own — a block opts in — though the opacity is a colour's and keeps the colour's prefix.
+        $sides = StyleSchema::property('border.sides');
+        $opacity = StyleSchema::property('colors.surface_opacity');
+        $blur = StyleSchema::property('backdrop.blur');
+        self::assertNotNull($sides);
+        self::assertNotNull($opacity);
+        self::assertNotNull($blur);
+
+        self::assertSame('border', $sides->group);
+        self::assertSame(['all', 'top', 'right', 'bottom', 'left'], $sides->choices);
+        self::assertSame('backdrop', $opacity->group);
+        self::assertSame(['100', '90', '80', '70', '60', '50'], $opacity->choices);
+        self::assertSame('backdrop', $blur->group);
+        self::assertSame(['none', 'sm', 'md', 'lg'], $blur->choices);
+        foreach ([$sides, $opacity, $blur] as $def) {
+            self::assertFalse($def->responsive, $def->path . ': as the border and the colours are not');
+        }
+        self::assertSame(['border.width', 'border.style', 'border.sides'], StyleSchema::pathsInGroup('border'));
+        self::assertSame(['colors.surface_opacity', 'backdrop.blur'], StyleSchema::pathsInGroup('backdrop'));
+        self::assertSame(
+            ['colors.surface', 'colors.text', 'colors.border'],
+            StyleSchema::pathsInGroup('colors'),
+            'a block that declares colours has not thereby declared a backdrop',
+        );
     }
 
     public function testTheTabStripsCornersMirrorTheBlocksOwn(): void

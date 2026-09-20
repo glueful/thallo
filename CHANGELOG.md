@@ -7,6 +7,58 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.46] - 2026-09-19 — Developer Preview
+
+The header and footer are styled from the admin — the bars and the blocks in them — and the Style
+tab gains border sides, background opacity, backdrop blur and line height.
+
+### Upgrade Notes
+- One migration, no new permissions, no dependency changes.
+- The documented sequence applies (docs/upgrading.md). The style schema and the compiler both move
+  on, so the compiled stylesheet is rebuilt under a new hash on the first request after PHP-FPM is
+  reloaded; `thallo:provision` brings the Container block's new settings to an existing install.
+  One migration, run by provision: it adds the hero's two gradient fields to an existing install.
+  A region's style needs none — it is stored in the settings a region already has.
+- A theme with its own `layout.twig` keeps working, and its header and footer ignore the new Style
+  tab until the template emits `region_style_classes()` on the bar and its inner element. A theme
+  with its own stylesheet should also name each bar's colour in `--t-surface-default`, or a
+  Background opacity with no colour chosen paints the bar transparent. Both are in THEMING.md
+  ("Regions").
+
+### Added
+- **The header and the footer have a Style tab**, on the Regions page beside their content:
+  padding, margins, shadow, corners, a border, colours, Background opacity and Backdrop blur. The
+  viewport buttons choose the breakpoint being edited, and the preview shows every change before
+  it is saved. Untouched, a bar looks exactly as the theme draws it, and **Use theme default** on
+  any setting gives the theme's value back. A rounded, lifted, see-through header that floats off
+  the page edge is now a matter of settings.
+- **Blocks in the header and footer have their settings on the Regions page.** Every card there
+  has a **Block settings** button: it opens that block's Layout, Style and Advanced tabs — the
+  ones the Design page shows — so a logo, a menu or a button in the header can be padded, coloured,
+  laid out, given style classes, an anchor or CSS classes without leaving the page. The preview
+  shows each change, and Save stores them with the region. Saving a block's styling *as* a style
+  class stays on the Design page; classes made there can be applied here.
+- **The hero's gradient takes a colour and a strength.** Two new fields beside Background in the
+  Block tab: *Gradient color* — the theme accent, as before, or any of the seventeen colour
+  families the site accent offers, in their light and dark values — and *Gradient strength*:
+  subtle (the faint wash a hero always had), medium or strong. They apply to the gradient
+  background only, and an untouched hero is unchanged.
+- **Line height** joins Size and Weight under Typography in the Style tab, for every block with
+  typography settings: tight, snug, normal, relaxed or loose, per breakpoint. The values are
+  ratios, so a line's height follows the text's size.
+- **Border sides**: a border on all sides or on one — top, right, bottom or left — for every block
+  that has border settings, under Effects.
+- **Background opacity and Backdrop blur**, beside Background, for the Container block and the two
+  regions: how much of the background colour shows, and how much of what lies behind it is
+  blurred. The opacity works with a chosen colour or, with none, on the colour the theme paints.
+
+### Fixed
+- Switching **Sticky** on cost the header its translucency: the sticky rule repainted the bar with
+  a solid background, over the theme's see-through one, so the blur behind it showed nothing.
+  Sticky now only pins the bar.
+- The style class editor offered to "Save as style class" — from inside a style class. The offer
+  is now the block inspector's alone.
+
 ## [1.0.0-beta.45] - 2026-09-19 — Developer Preview
 
 One style class goes on as many blocks as you choose it for.

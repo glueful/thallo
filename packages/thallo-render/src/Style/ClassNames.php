@@ -55,6 +55,10 @@ final class ClassNames
         'marker.shadow' => 'mshadow',
         'tabs.bar_radius' => 'barradius',
         'tabs.tab_radius' => 'tabradius',
+        'border.sides' => 'bsides',
+        'colors.surface_opacity' => 'bgo',
+        'backdrop.blur' => 'blur',
+        'typography.line_height' => 'leading',
     ];
 
     /**

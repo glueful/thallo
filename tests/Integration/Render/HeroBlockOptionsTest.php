@@ -41,6 +41,66 @@ final class HeroBlockOptionsTest extends AppTestCase
         );
     }
 
+    public function testTheGradientTakesAChosenColourAndStrength(): void
+    {
+        // Untouched — and with the two defaults chosen outright — a hero is the hero it always
+        // was: no class is added, so the theme's accent at its faint 9% stands.
+        foreach ([[], ['gradient_color' => 'accent', 'gradient_strength' => 'subtle']] as $data) {
+            $html = $this->hero(['title' => 'Hi'] + $data);
+            self::assertStringContainsString('thallo-block-hero--bg-gradient', $html);
+            self::assertStringNotContainsString('thallo-block-hero--gradient-', $html);
+        }
+
+        $html = $this->hero(['title' => 'Hi', 'gradient_color' => 'emerald', 'gradient_strength' => 'strong']);
+        self::assertStringContainsString(' thallo-block-hero--gradient-emerald', $html);
+        self::assertStringContainsString(' thallo-block-hero--gradient-strength-strong', $html);
+
+        // The template's list of families is the palette's, every one.
+        foreach (\Thallo\Render\Theme\ThemeColors::ACCENTS as $family) {
+            self::assertStringContainsString(
+                ' thallo-block-hero--gradient-' . $family,
+                $this->hero(['title' => 'Hi', 'gradient_color' => $family]),
+            );
+        }
+
+        // A stored value the template does not know never reaches the class attribute.
+        $html = $this->hero(['title' => 'Hi', 'gradient_color' => 'x" onload="y', 'gradient_strength' => 'max']);
+        self::assertStringNotContainsString('thallo-block-hero--gradient-', $html);
+        self::assertStringNotContainsString('onload', $html);
+
+        // The two fields are the gradient's: another background ignores them.
+        $html = $this->hero(['title' => 'Hi', 'background' => 'muted', 'gradient_color' => 'emerald']);
+        self::assertStringNotContainsString('thallo-block-hero--gradient-', $html);
+    }
+
+    public function testTheStylesheetHoldsEveryFamilyToThePaletteTheSiteAccentUses(): void
+    {
+        // One palette, two readers: a hero's emerald is the emerald a site accent would be, in
+        // light mode and in dark. The stylesheet is static, so a test holds it to the table.
+        $css = $this->css();
+        foreach (\Thallo\Render\Theme\ThemeColors::ACCENTS as $family) {
+            foreach (['light' => '', 'dark' => 'html[data-theme="dark"] '] as $mode => $prefix) {
+                $hex = \Thallo\Render\Theme\ThemeColors::tokens($family, 'slate', $mode)['--accent'];
+                self::assertStringContainsString(
+                    "\n{$prefix}.thallo-block-hero--gradient-{$family} { --hero-gradient: {$hex}; }",
+                    $css,
+                    "{$family} in {$mode} mode",
+                );
+            }
+        }
+        // The gradient reads both, falling back to what it always drew.
+        self::assertStringContainsString(
+            'color-mix(in srgb, var(--hero-gradient, var(--accent)) var(--hero-gradient-strength, 9%), var(--bg))',
+            $css,
+        );
+        foreach (['medium' => '18%', 'strong' => '32%'] as $strength => $percent) {
+            self::assertStringContainsString(
+                ".thallo-block-hero--gradient-strength-{$strength} { --hero-gradient-strength: {$percent}; }",
+                $css,
+            );
+        }
+    }
+
     public function testAsideBlocksRenderInTheMediaSlotInsteadOfAnImage(): void
     {
         $out = $this->hero([

@@ -47,7 +47,15 @@ final class RegionAdminApiTest extends AppTestCase
         self::assertContains('navigation', $regions[0]['palette']);
         self::assertNotContains('gallery', $regions[0]['palette']);   // header stays strict
         self::assertContains('html', $regions[1]['palette']);
-        self::assertSame(['sticky', 'width'], $regions[0]['settings_keys']);
+        self::assertSame(['sticky', 'width', 'style'], $regions[0]['settings_keys']);
+        self::assertSame(['width', 'style'], $regions[1]['settings_keys']);
+        // What the region's Style tab may offer: declared by the server, never hardcoded client-side.
+        foreach ($regions as $region) {
+            self::assertSame(
+                ['spacing', 'shadow', 'radius', 'colors', 'border', 'backdrop'],
+                $region['style_capabilities'],
+            );
+        }
         self::assertSame([], $regions[0]['blocks']);                   // absent row round-trips empty
     }
 
@@ -231,6 +239,40 @@ final class RegionAdminApiTest extends AppTestCase
      * Website plan phase 1b: the chrome preview must look like the live page — it loads the
      * operator's theme colours/design tokens and the site's custom CSS, which it skipped.
      */
+    public function testPreviewRendersAnUnsavedStyleAndLinksTheSheetThatDefinesIt(): void
+    {
+        // The Style tab is edited against the live preview: a posted, unsaved style must show
+        // there — its classes on the bar, and the compiled settings sheet that defines them.
+        $resp = $this->controller()->preview($this->previewDto([
+            'regions' => [
+                'header' => [
+                    'blocks' => [
+                        ['id' => 'prevhdrnav02', 'type' => 'navigation', 'data' => ['menu' => 'main']],
+                    ],
+                    'settings' => ['style' => [
+                        'radius' => ['type' => 'token', 'value' => 'radius.full'],
+                        'colors' => ['surface_opacity' => ['type' => 'choice', 'value' => '60']],
+                    ]],
+                ],
+            ],
+        ]), \Symfony\Component\HttpFoundation\Request::create('https://admin.test/v1/admin/regions/preview'));
+        self::assertSame(200, $resp->getStatusCode(), (string) $resp->getContent());
+        $html = json_decode((string) $resp->getContent(), true)['data']['html'];
+        self::assertSame(1, preg_match('~<header class="([^"]*)"~', $html, $bar));
+        self::assertContains('t-radius-full', explode(' ', $bar[1]));
+        self::assertContains('t-bgo-60', explode(' ', $bar[1]));
+        self::assertMatchesRegularExpression('~/theme-assets/settings-[0-9a-f]{16}\.css~', $html);
+
+        // And a style a region cannot have is refused by the preview as a save would refuse it:
+        // the validation exception the framework answers with a 422.
+        $this->expectException(\Thallo\Core\Content\Validation\ValidationException::class);
+        $this->controller()->preview($this->previewDto([
+            'regions' => ['header' => ['blocks' => [], 'settings' => ['style' => [
+                'visibility' => ['base' => ['type' => 'choice', 'value' => 'hidden']],
+            ]]]],
+        ]), \Symfony\Component\HttpFoundation\Request::create('https://admin.test/v1/admin/regions/preview'));
+    }
+
     public function testPreviewLoadsThemeColoursAndCustomCssLikeTheLivePage(): void
     {
         $this->container()->get(\Thallo\Core\Settings\GeneralSettings::class)

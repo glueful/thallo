@@ -319,6 +319,29 @@ const CASES = {
     'c0.child2>.thallo-block-tabs__label': at({ 'border-top-left-radius': '6px' }),
   },
 
+  // Modifiers. The accent at 80% is a colour WITH an alpha — the opacity utility repainted from
+  // the colour the background utility named — behind a 12px blur, with a border on one side only.
+  // A nested container given ONLY an opacity paints nothing: the variable is registered as
+  // non-inheriting, so it must not mix its parent's accent (an unregistered one would). And a
+  // colour with no opacity is still the plain rgb() it always was, with all four sides drawn.
+  'backdrop-and-sides': {
+    'c1.root': at({
+      'background-color': /^color\(srgb [\d. ]+ \/ 0\.8\)$/,
+      'backdrop-filter': 'blur(12px)',
+      'border-bottom-width': '1px',
+      'border-top-width': '0px',
+      'border-left-width': '0px',
+      'border-right-width': '0px',
+    }),
+    // Fully transparent, as a mix spells it: `color(srgb 0 0 0 / 0)`.
+    'c2.root': at({ 'background-color': /^color\(srgb 0 0 0 \/ 0\)$/ }),
+    'c3.root': at({
+      'background-color': 'rgb(37, 99, 235)',
+      'border-top-width': '2px',
+      'border-bottom-width': '2px',
+    }),
+  },
+
   // A shell snippet as a terminal. What only a browser can show: the prompt is DRAWN (generated
   // content, so neither copied nor selected) in the accent; an empty line, a block holding nothing
   // but its newline, still has a line's height; one line is one line high — the newline inside a

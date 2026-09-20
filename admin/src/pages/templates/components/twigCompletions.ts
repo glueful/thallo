@@ -19,6 +19,7 @@ const FUNCTIONS = [
   'icon',
   'region_blocks',
   'region_settings',
+  'region_style_classes',
   'site_favicon',
   'custom_css',
   'form_render',

@@ -3,13 +3,12 @@
 // controls the block inspector uses — a class declares no capabilities, so every group shows.
 // Two tabs, split by the same tab map as the inspector's (container-layout spec §12.2): Style, and
 // a class Layout tab that borrows no context from a block.
-import { computed, nextTick, ref } from 'vue'
+import { computed, ref } from 'vue'
 import type { BlockType } from '@/queries/blockTypes'
 import { useStyleSchema } from '@/queries/styleSchema'
-import type { Breakpoint, StyleValue } from '@/style/types'
-import { absent, present } from '@/editor/ops/types'
-import { setPath, settingSegments } from '@/editor/ops/apply'
+import type { Breakpoint } from '@/style/types'
 import StyleTab from '@/editor/inspector/StyleTab.vue'
+import { useStyleRecord } from '@/editor/inspector/useStyleRecord'
 import ClassLayoutTab from './ClassLayoutTab.vue'
 import InvalidChoiceNotice from '@/editor/inspector/controls/InvalidChoiceNotice.vue'
 import { REPLACEMENT, invalidChoicesIn } from '@/editor/inspector/layoutContext'
@@ -50,31 +49,12 @@ const block = computed(() => ({
   settings: { style: props.modelValue },
 }))
 
-/**
- * What this editor emitted earlier IN THIS TICK. One click can write several declarations — a
- * linked box writes every side — each emitted before the parent has fed the last one back as
- * `modelValue`, which happens a tick later. Built on the prop alone, every write in the burst would
- * start from the same stale value and the last would overwrite the rest. So within a tick a write
- * builds on the one before it; once the tick has passed the prop is the authority again, whether
- * or not the parent took what it was handed.
- */
-let pending: Record<string, unknown> | null = null
-
-function write(mutate: (settings: Record<string, unknown>) => Record<string, unknown>): void {
-  if (pending === null) {
-    void nextTick(() => {
-      pending = null
-    })
-  }
-  const next = mutate({ style: pending ?? props.modelValue })
-  const style = next.style
-  pending = typeof style === 'object' && style !== null ? (style as Record<string, unknown>) : {}
-  emit('update:modelValue', pending)
-}
-
-function onSet(path: string, bp: Breakpoint | null, value: StyleValue | null): void {
-  write((s) => setPath(s, settingSegments(path, bp), value === null ? absent() : present(value)))
-}
+// One click can write several declarations (a linked box writes every side) before the parent
+// feeds the first back: the shared writer builds each on the one before it, within a tick.
+const { set: onSet, setAll: onSetAll } = useStyleRecord(
+  () => props.modelValue,
+  (next) => emit('update:modelValue', next),
+)
 
 /**
  * Stored choices the contract no longer offers (container-layout spec §11.1). The tab below shows
@@ -89,16 +69,6 @@ const labelOf = (path: string): string => {
 /** A property that is not responsive is stored bare, not under a breakpoint. */
 const storedAt = (path: string, bp: Breakpoint): Breakpoint | null =>
   propertyDefinition(path)?.responsive ? bp : null
-
-function onSetAll(path: string, value: StyleValue): void {
-  write((s) => {
-    let next = s
-    for (const bp of ['base', 'md', 'lg'] as Breakpoint[]) {
-      next = setPath(next, settingSegments(path, bp), present(value))
-    }
-    return next
-  })
-}
 </script>
 
 <template>

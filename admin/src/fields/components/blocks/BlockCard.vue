@@ -137,6 +137,17 @@ function onHeaderKeydown(event: KeyboardEvent): void {
         <UIcon name="i-lucide-grip-vertical" class="size-4 text-muted" />
       </button>
       <UButton
+        v-if="ctx.settingsIntent"
+        variant="ghost"
+        color="neutral"
+        size="xs"
+        icon="i-lucide-sliders-horizontal"
+        :data-test="`block-settings-${block.id}`"
+        aria-label="Block settings"
+        title="Layout, style and advanced settings"
+        @click="ctx.settingsIntent(block.id)"
+      />
+      <UButton
         variant="ghost"
         color="neutral"
         size="xs"
@@ -221,6 +232,17 @@ function onHeaderKeydown(event: KeyboardEvent): void {
         :data-test="`block-move-down-${block.id}`"
         aria-label="Move down"
         @click="move(1)"
+      />
+      <UButton
+        v-if="ctx.settingsIntent"
+        variant="ghost"
+        color="neutral"
+        size="xs"
+        icon="i-lucide-sliders-horizontal"
+        :data-test="`block-settings-${block.id}`"
+        aria-label="Block settings"
+        title="Layout, style and advanced settings"
+        @click="ctx.settingsIntent(block.id)"
       />
       <UButton
         variant="ghost"

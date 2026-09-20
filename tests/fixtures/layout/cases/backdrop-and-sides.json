@@ -1,0 +1,126 @@
+{
+  "case": "backdrop-and-sides",
+  "note": "Three properties that modify what others declare: a border's sides, the surface's opacity, and the backdrop blur. An opacity with no colour of its own mixes nothing — and never its parent's colour.",
+  "tree": {
+    "id": "lf0000000941",
+    "type": "layout_fixture",
+    "data": {
+      "content": [
+        {
+          "id": "ct0000000941",
+          "type": "layout_fixture",
+          "data": {
+            "content": [
+              {
+                "id": "rt000000941",
+                "type": "rich_text",
+                "data": {
+                  "body": "<p>Text</p>"
+                }
+              },
+              {
+                "id": "ct0000000942",
+                "type": "layout_fixture",
+                "data": {
+                  "content": [
+                    {
+                      "id": "rt000000942",
+                      "type": "rich_text",
+                      "data": {
+                        "body": "<p>Text</p>"
+                      }
+                    }
+                  ]
+                },
+                "settings": {
+                  "style": {
+                    "colors": {
+                      "surface_opacity": {
+                        "type": "choice",
+                        "value": "50"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "settings": {
+            "style": {
+              "colors": {
+                "surface": {
+                  "type": "token",
+                  "value": "color.accent"
+                },
+                "surface_opacity": {
+                  "type": "choice",
+                  "value": "80"
+                }
+              },
+              "backdrop": {
+                "blur": {
+                  "type": "choice",
+                  "value": "md"
+                }
+              },
+              "border": {
+                "width": {
+                  "type": "choice",
+                  "value": "thin"
+                },
+                "style": {
+                  "type": "choice",
+                  "value": "solid"
+                },
+                "sides": {
+                  "type": "choice",
+                  "value": "bottom"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "ct0000000943",
+          "type": "layout_fixture",
+          "data": {
+            "content": [
+              {
+                "id": "rt000000943",
+                "type": "rich_text",
+                "data": {
+                  "body": "<p>Text</p>"
+                }
+              }
+            ]
+          },
+          "settings": {
+            "style": {
+              "colors": {
+                "surface": {
+                  "type": "token",
+                  "value": "color.accent"
+                }
+              },
+              "border": {
+                "width": {
+                  "type": "choice",
+                  "value": "thick"
+                },
+                "style": {
+                  "type": "choice",
+                  "value": "solid"
+                },
+                "sides": {
+                  "type": "choice",
+                  "value": "all"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "settings": {}
+  }
+}

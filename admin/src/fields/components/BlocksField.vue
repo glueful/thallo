@@ -22,11 +22,19 @@ import BlockOutlineRail from './blocks/BlockOutlineRail.vue'
 // BlockList. Container regions recurse through BlockList INSIDE this tree — the
 // registry only ever mounts BlocksField for entry-level fields. `depth` is kept
 // for the registry contract; nesting depth is tracked through BlockList.
-const props = defineProps<{ field: FieldDef; depth?: number; paletteInsert?: boolean }>()
+const props = defineProps<{
+  field: FieldDef
+  depth?: number
+  paletteInsert?: boolean
+  /** The host shows a block's settings beside this list: every card offers Block settings. */
+  blockSettings?: boolean
+}>()
 const emit = defineEmits<{
   select: [id: string, modifiers: { shift: boolean; meta: boolean }]
   /** A gap, Add block or the header `/` in the Design page: arm the Blocks tab here (Phase C.1). */
   'insert-request': [position: Position]
+  /** Block settings on a card (with `blockSettings`): the host opens that block's settings. */
+  'settings-request': [id: string]
 }>()
 const model = defineModel<BlockInstance[]>({ default: () => [] })
 
@@ -245,6 +253,7 @@ const context: BlocksContext = {
   selectIntent: (id, modifiers) => emit('select', id, modifiers),
   fieldName: props.field.name,
   insertIntent: props.paletteInsert ? (position) => emit('insert-request', position) : null,
+  settingsIntent: props.blockSettings ? (id) => emit('settings-request', id) : null,
   dragGroup: `blocks-${newBlockId()}`,
   onDragEnd,
   dragVersion,

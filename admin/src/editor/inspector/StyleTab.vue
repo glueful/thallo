@@ -30,8 +30,14 @@ const props = defineProps<{
   /** A sibling multi-selection (spec §5.5): `block` is its anchor. */
   blocks?: BlockInstance[]
   blockTypes?: (BlockType | null)[]
-  /** A block's inspector (the default) or a style class's editor: passed to every field. */
-  context?: 'block' | 'class'
+  /**
+   * A block's inspector (the default), a style class's editor, or a chrome region's Style tab:
+   * passed to every field. Only a block offers to save its declarations as a style class — a
+   * class already is one, and a region has none.
+   */
+  context?: 'block' | 'class' | 'region'
+  /** A block's inspector on a page with no save-as-class flow (the Regions page). */
+  noSaveAsClass?: boolean
 }>()
 
 const multi = computed(() => (props.blocks?.length ?? 0) > 1)
@@ -48,7 +54,12 @@ const GROUPS: { key: string; label: string; match: (row: StylePropertyRow) => bo
   // Alignment splits across tabs: only text alignment is left here.
   { key: 'text', label: 'Text', match: (r) => r.group === 'alignment' },
   { key: 'typography', label: 'Typography', match: (r) => r.group === 'typography' },
-  { key: 'colors', label: 'Colours', match: (r) => r.group === 'colors' },
+  // The backdrop pair modifies the background, so it sits with the colours.
+  {
+    key: 'colors',
+    label: 'Colours',
+    match: (r) => r.group === 'colors' || r.group === 'backdrop',
+  },
   {
     key: 'effects',
     label: 'Effects',
@@ -71,6 +82,7 @@ const LABELS: Record<string, string> = {
   'alignment.text': 'Text alignment',
   'typography.size': 'Size',
   'typography.weight': 'Weight',
+  'typography.line_height': 'Line height',
   visibility: 'Visibility',
   shadow: 'Shadow',
   radius: 'Corners',
@@ -83,6 +95,9 @@ const LABELS: Record<string, string> = {
   'colors.border': 'Border colour',
   'border.width': 'Border width',
   'border.style': 'Border style',
+  'border.sides': 'Border sides',
+  'colors.surface_opacity': 'Background opacity',
+  'backdrop.blur': 'Backdrop blur',
 }
 
 /** The capability paths of one type: an entry names a path, or a group that expands to its paths. */
@@ -258,7 +273,10 @@ function setCount(rows: StylePropertyRow[]): number {
           </template>
         </div>
       </section>
-      <div v-if="!multi" class="border-t border-default pt-3">
+      <div
+        v-if="!multi && !noSaveAsClass && (context ?? 'block') === 'block'"
+        class="border-t border-default pt-3"
+      >
         <UButton
           size="xs"
           variant="ghost"

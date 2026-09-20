@@ -4,6 +4,9 @@ import { refDebounced } from '@vueuse/core'
 import { usePreviewRegions, useRegions, useSaveRegion, type RegionData } from '@/queries/regions'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import BlocksField from '@/fields/components/BlocksField.vue'
+import RegionStyleEditor from './components/RegionStyleEditor.vue'
+import RegionBlockInspector from './components/RegionBlockInspector.vue'
+import type { Breakpoint } from '@/style/types'
 import { useNotify } from '@/composables/useNotify'
 import { ApiError } from '@/api/errors'
 
@@ -108,6 +111,29 @@ const footerWidth = computed<string>({
     if (state.footer) state.footer.settings = { ...state.footer.settings, width: v }
   },
 })
+/**
+ * A region's own style (its Style tab): `settings.style`, the record a block keeps in the same
+ * place. An emptied record is REMOVED, not stored as `{}` — the server stores no style for it, and
+ * a region whose last declaration was taken away is clean again, not dirty against `{}`.
+ */
+function styleOf(slug: string): Record<string, unknown> {
+  const style = state[slug]?.settings.style
+  return typeof style === 'object' && style !== null ? (style as Record<string, unknown>) : {}
+}
+function setStyle(slug: string, style: Record<string, unknown>): void {
+  const s = state[slug]
+  if (!s) return
+  const { style: _dropped, ...rest } = s.settings
+  s.settings = Object.keys(style).length === 0 ? rest : { ...rest, style }
+}
+
+/**
+ * The block whose settings are open, per region: chosen from its card's Block settings button.
+ * While one is open the region's own tabs step aside (hidden, not unmounted: the block list keeps
+ * its state) and the panel shows that block's Layout, Style and Advanced.
+ */
+const blockSettingsFor = reactive<Record<string, string | null>>({ header: null, footer: null })
+
 const widthOptions = [
   { label: 'Contained', value: 'contained' },
   { label: 'Full width', value: 'full' },
@@ -119,11 +145,35 @@ const editorTabs = [
   { label: 'Header', value: 'header', slot: 'header' as const },
   { label: 'Footer', value: 'footer', slot: 'footer' as const },
 ]
+// Inside each region: what it holds, and how the bar itself looks.
+const regionTab = reactive<Record<string, string>>({ header: 'content', footer: 'content' })
+const regionTabs = [
+  { label: 'Content', value: 'content', slot: 'content' as const },
+  { label: 'Style', value: 'style', slot: 'style' as const },
+]
 
 const VIEWPORT_WIDTHS = { desktop: '100%', tablet: '768px', mobile: '390px' } as const
 type Viewport = keyof typeof VIEWPORT_WIDTHS
 const viewport = ref<Viewport>('desktop')
 const stageWidth = computed(() => VIEWPORT_WIDTHS[viewport.value])
+
+// The viewport IS the breakpoint being edited, both ways round: a responsive style value is
+// written where the stage is showing it, and choosing a breakpoint in the Style tab resizes the
+// stage to match.
+const VIEWPORT_BREAKPOINT: Record<Viewport, Breakpoint> = {
+  mobile: 'base',
+  tablet: 'md',
+  desktop: 'lg',
+}
+const activeBreakpoint = computed<Breakpoint>({
+  get: () => VIEWPORT_BREAKPOINT[viewport.value],
+  set: (bp) => {
+    const match = (Object.keys(VIEWPORT_BREAKPOINT) as Viewport[]).find(
+      (v) => VIEWPORT_BREAKPOINT[v] === bp,
+    )
+    if (match) viewport.value = match
+  },
+})
 
 // ── Live chrome preview (region-preview plan) ───────────────────────────────
 const preview = usePreviewRegions()
@@ -252,7 +302,13 @@ onBeforeUnmount(() => {
       <div v-else class="flex h-full min-h-0 gap-4">
         <!-- Left: the region editors (design-canvas inspector pattern).
              unmount-on-hide false so edits + dirty state survive tab switches. -->
-        <aside class="w-96 shrink-0 overflow-y-auto" data-test="regions-inspector">
+        <!-- The Design page's inspector column, for the same reasons (its scrollbar proofs): a
+             gutter keeps the Style tab's chips and badges clear of the scrollbar, and stops the
+             breakpoint dot on a flush-right row from scrolling the panel sideways. -->
+        <aside
+          class="w-[25rem] shrink-0 overflow-y-auto pe-4 [scrollbar-gutter:stable]"
+          data-test="regions-inspector"
+        >
           <UTabs
             v-model="editorTab"
             :items="editorTabs"
@@ -284,15 +340,67 @@ onBeforeUnmount(() => {
                   Rendered on every page. Empty means the theme’s built-in header; hide per page via
                   the page’s presentation settings.
                 </p>
-                <UFormField label="Width">
-                  <USelect
-                    v-model="headerWidth"
-                    :items="widthOptions"
-                    class="w-full"
-                    data-test="region-header-width"
+                <div
+                  v-if="blockSettingsFor.header !== null"
+                  class="space-y-3"
+                  data-test="region-block-settings-header"
+                >
+                  <UButton
+                    size="xs"
+                    variant="ghost"
+                    color="neutral"
+                    icon="i-lucide-arrow-left"
+                    data-test="region-block-settings-back"
+                    @click="blockSettingsFor.header = null"
+                  >
+                    Back to the header
+                  </UButton>
+                  <RegionBlockInspector
+                    v-model:blocks="state.header.blocks"
+                    v-model:active-breakpoint="activeBreakpoint"
+                    :block-id="blockSettingsFor.header"
+                    @close="blockSettingsFor.header = null"
                   />
-                </UFormField>
-                <BlocksField v-model="state.header.blocks" :field="paletteField('header')" />
+                </div>
+                <UTabs
+                  v-show="blockSettingsFor.header === null"
+                  v-model="regionTab.header"
+                  :items="regionTabs"
+                  :unmount-on-hide="false"
+                  size="xs"
+                  variant="link"
+                  data-test="region-header-tabs"
+                >
+                  <template #content>
+                    <div class="space-y-4 pt-3">
+                      <UFormField label="Width">
+                        <USelect
+                          v-model="headerWidth"
+                          :items="widthOptions"
+                          class="w-full"
+                          data-test="region-header-width"
+                        />
+                      </UFormField>
+                      <BlocksField
+                        v-model="state.header.blocks"
+                        :field="paletteField('header')"
+                        block-settings
+                        @settings-request="(id) => (blockSettingsFor.header = id)"
+                      />
+                    </div>
+                  </template>
+                  <template #style>
+                    <div class="pt-3">
+                      <RegionStyleEditor
+                        v-model:active-breakpoint="activeBreakpoint"
+                        region="header"
+                        :model-value="styleOf('header')"
+                        :capabilities="regionMeta.header?.style_capabilities ?? []"
+                        @update:model-value="(style) => setStyle('header', style)"
+                      />
+                    </div>
+                  </template>
+                </UTabs>
               </div>
             </template>
 
@@ -315,15 +423,67 @@ onBeforeUnmount(() => {
                   </UChip>
                 </div>
                 <p class="text-sm text-muted">Empty means the theme’s built-in footer.</p>
-                <UFormField label="Width">
-                  <USelect
-                    v-model="footerWidth"
-                    :items="widthOptions"
-                    class="w-full"
-                    data-test="region-footer-width"
+                <div
+                  v-if="blockSettingsFor.footer !== null"
+                  class="space-y-3"
+                  data-test="region-block-settings-footer"
+                >
+                  <UButton
+                    size="xs"
+                    variant="ghost"
+                    color="neutral"
+                    icon="i-lucide-arrow-left"
+                    data-test="region-block-settings-back"
+                    @click="blockSettingsFor.footer = null"
+                  >
+                    Back to the footer
+                  </UButton>
+                  <RegionBlockInspector
+                    v-model:blocks="state.footer.blocks"
+                    v-model:active-breakpoint="activeBreakpoint"
+                    :block-id="blockSettingsFor.footer"
+                    @close="blockSettingsFor.footer = null"
                   />
-                </UFormField>
-                <BlocksField v-model="state.footer.blocks" :field="paletteField('footer')" />
+                </div>
+                <UTabs
+                  v-show="blockSettingsFor.footer === null"
+                  v-model="regionTab.footer"
+                  :items="regionTabs"
+                  :unmount-on-hide="false"
+                  size="xs"
+                  variant="link"
+                  data-test="region-footer-tabs"
+                >
+                  <template #content>
+                    <div class="space-y-4 pt-3">
+                      <UFormField label="Width">
+                        <USelect
+                          v-model="footerWidth"
+                          :items="widthOptions"
+                          class="w-full"
+                          data-test="region-footer-width"
+                        />
+                      </UFormField>
+                      <BlocksField
+                        v-model="state.footer.blocks"
+                        :field="paletteField('footer')"
+                        block-settings
+                        @settings-request="(id) => (blockSettingsFor.footer = id)"
+                      />
+                    </div>
+                  </template>
+                  <template #style>
+                    <div class="pt-3">
+                      <RegionStyleEditor
+                        v-model:active-breakpoint="activeBreakpoint"
+                        region="footer"
+                        :model-value="styleOf('footer')"
+                        :capabilities="regionMeta.footer?.style_capabilities ?? []"
+                        @update:model-value="(style) => setStyle('footer', style)"
+                      />
+                    </div>
+                  </template>
+                </UTabs>
               </div>
             </template>
           </UTabs>

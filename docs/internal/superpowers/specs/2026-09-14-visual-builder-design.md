@@ -112,6 +112,9 @@ properties.
 | `border` | `width` (`none, thin, thick`), `style` (`solid, dashed`) | choice, reset | no |
 | `marker` | `radius`, `shadow` | token, reset | as `radius` and `shadow`: no, yes |
 | `tabs` | `bar_radius`, `tab_radius` | token, reset | as `radius`: no |
+| `typography` | + `line_height` (`tight, snug, normal, relaxed, loose`) | choice, reset | yes |
+| `border` | + `sides` (`all, top, right, bottom, left`) | choice, reset | no |
+| `backdrop` | `colors.surface_opacity` (`100`–`50`), `backdrop.blur` (`none, sm, md, lg`) | choice, reset | no |
 
 **Amended 2026-09-19 — `marker`.** A block's marker — a feature's icon chip or number badge — has
 corners and a shadow of its own, set in the Style tab under **Marker**. They are their own paths
@@ -128,6 +131,30 @@ radio is checked, in CSS). Their own paths because the block's `radius` is the p
 mirror `radius` and compile to `border-radius` under their own class names (`t-barradius-*`,
 `t-tabradius-*`). The schema moves to 5 and the compiler to 6. The strip's variant and colours stay
 the block's own fields: the same data-to-settings move, and as separate.
+
+**Amended 2026-09-19 — modifiers, and a region's style.** Three properties adjust what others
+declare. `border.sides` joins the `border` group, so every block with a border has it;
+`colors.surface_opacity` and `backdrop.blur` are the `backdrop` group, which a block or region opts
+into (the container does). Sides and opacity are *modifiers*: later rules in the sheet that adjust
+an earlier utility's declarations — one side is the width's four less three; the opacity repaints
+the background as a `color-mix` of `--t-surface`, which the background utility now names as well as
+painting (its own declared value is unchanged, so an opaque background computes as it always did).
+With no colour chosen the mix falls back to `--t-surface-default`, which a theme sets on an element
+it paints, else to nothing. Both variables are registered non-inheriting, so a child given only an
+opacity never mixes its parent's colour. A modifier's reset rule is empty — reverting the
+declarations it shares would undo the utility beside it — but is written, since every class the
+emitter can write has a rule. The schema moves to 6 and the compiler to 7.
+
+`typography.line_height` (amended the same day) is the group's third property: unitless ratios
+(1.1, 1.25, 1.5, 1.65, 1.9), responsive as size is, and in the group — so every block that declares
+typography gains it on the target it already names. The schema moves to 7 and the compiler to 8.
+
+The chrome regions take the same style record in `settings.style`, validated against
+`RegionStyle` (contracts): spacing, shadow, radius, colours, border, backdrop — not visibility (a
+page's presentation hides chrome), layout or typography; no style classes, no Advanced fields. Two
+targets: `root`, the bar, and `inner`, where a theme pads and so where padding lands. Templates
+emit through `region_style_classes(slug, target, settings?)`; the third argument is for the admin's
+chrome preview, which renders posted settings.
 
 Alignment is typed by meaning. `alignment.text` is `text-align` on a text target.
 `alignment.content` places a row target's children horizontally (`justify-content` on a

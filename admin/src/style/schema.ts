@@ -105,6 +105,20 @@ const PROPERTIES: PropertyDefinition[] = [
   // Their own paths for the same reason: `radius` is the panels area's.
   token('tabs.bar_radius', 'tabs', false, 'radius'),
   token('tabs.tab_radius', 'tabs', false, 'radius'),
+  // Which sides the border is drawn on: in the border's group, so a block with a border has it.
+  choice('border.sides', 'border', false, ['all', 'top', 'right', 'bottom', 'left']),
+  // The backdrop pair, a group a block or region opts into: how much of the background colour
+  // shows (a percentage), and how much of what lies behind the element is blurred.
+  choice('colors.surface_opacity', 'backdrop', false, ['100', '90', '80', '70', '60', '50']),
+  choice('backdrop.blur', 'backdrop', false, ['none', 'sm', 'md', 'lg']),
+  // The third typography property: how far apart a text's lines sit. Responsive, as size is.
+  choice('typography.line_height', 'typography', true, [
+    'tight',
+    'snug',
+    'normal',
+    'relaxed',
+    'loose',
+  ]),
 ]
 
 const BY_PATH = new Map(PROPERTIES.map((p) => [p.path, p]))

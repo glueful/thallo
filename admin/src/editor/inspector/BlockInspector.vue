@@ -50,6 +50,13 @@ const props = defineProps<{
   proseLocked?: boolean
   /** Fill empty cells (spec §11.3) for the selected block, as the page judged it. */
   fill?: (FillAvailability & { preparing: boolean }) | null
+  /**
+   * Two things a host without the Design page's stage leaves out (the Regions page): the Content
+   * tab, where the block's card is already its content form, and the offer to save the block's
+   * declarations as a style class, which is that page's flow. Both default to present.
+   */
+  noContent?: boolean
+  noSaveAsClass?: boolean
 }>()
 const emit = defineEmits<{
   'patch-data': [name: string, value: unknown]
@@ -71,7 +78,7 @@ const emit = defineEmits<{
   /** The Layout tab's link out of a block to the parent whose mode governs it. */
 }>()
 
-const tab = ref('content')
+const tab = ref(props.noContent ? 'style' : 'content')
 const multi = computed(() => (props.blocks?.length ?? 0) > 1)
 const ALL_TABS = [
   { label: 'Content', value: 'content', slot: 'content' as const },
@@ -103,6 +110,7 @@ const hasLayout = computed(() => hasTab(declaredPaths.value, 'layout'))
 const tabs = computed(() =>
   ALL_TABS.filter((t) => {
     if (t.value === 'layout') return hasLayout.value
+    if (t.value === 'content') return !props.noContent && !multi.value
     // A multi-selection edits settings only: Layout and Style, never Content or Advanced.
     return multi.value ? t.value === 'style' : true
   }),
@@ -230,6 +238,7 @@ const proseField = computed(() =>
           :active-breakpoint="activeBreakpoint"
           :blocks="blocks"
           :block-types="blockTypes"
+          :no-save-as-class="noSaveAsClass"
           @set="(path, bp, value) => emit('set-setting', path, bp, value)"
           @set-all="(path, value) => emit('set-all', path, value)"
           @update:active-breakpoint="(bp) => emit('update:activeBreakpoint', bp)"
