@@ -4,44 +4,63 @@ on:
   push:
   pull_request:
 
-# The Integration suite is split into two measured, time-balanced shards (~110s local each;
-# timing source: a --log-junit run aggregated per directory, 2026-07-22). A NEW top-level entry
-# under tests/Integration — directory OR loose *Test.php — MUST be added to exactly one shard
-# list below; the "Shard coverage guard" step fails every job if an entry is unassigned, so a
-# new directory can never silently skip CI.
+# The Integration suite is split into four measured shards. Each CI job starts from a FRESH
+# database, so a shard is measured the same way: reset, migrate, run it alone (2026-09-20, on a
+# developer machine: 95s, 86s, 95s and 126s). Measure like that, not by aggregating one full run
+# per directory — the database fills as a long run proceeds and every later test slows with it, so
+# a full run said Render was 218s of 830s when alone it is 70s.
+#
+# It was two shards when measured on 2026-07-22. By September shard A took over 15 minutes on a CI
+# runner and was killed by the watchdog below at 98%, with no failing test. When a shard nears the
+# watchdog again, re-measure and split further rather than raising the limit.
+#
+# Regrouping changes which directory meets the fresh database first, and that is how a hidden
+# order dependency shows: this split found that provision re-granted cross-workspace authority to
+# administrators, which the old order never looked at after a provision had run. Verify a new
+# grouping locally, each shard on a fresh database, before relying on it.
+#
+# A NEW top-level entry under tests/Integration — directory OR loose *Test.php — MUST be added to
+# exactly one shard list below; the "Shard coverage guard" step fails every job if an entry is
+# unassigned or listed twice, so a new directory can never silently skip CI.
 env:
+  # ~95s alone
   INTEGRATION_SHARD_A: >-
     tests/Integration/Render
-    tests/Integration/Commerce
-    tests/Integration/Search
-    tests/Integration/Subscriptions
-  INTEGRATION_SHARD_B: >-
-    tests/Integration/Tenancy
-    tests/Integration/Account
-    tests/Integration/Analytics
-    tests/Integration/Authority
-    tests/Integration/Blocks
-    tests/Integration/Capabilities
     tests/Integration/Collections
-    tests/Integration/Console
+    tests/Integration/Search
+  # ~86s alone
+  INTEGRATION_SHARD_B: >-
+    tests/Integration/Commerce
+  # ~95s alone
+  INTEGRATION_SHARD_C: >-
     tests/Integration/Content
-    tests/Integration/Contracts
-    tests/Integration/Forms
+    tests/Integration/Account
+    tests/Integration/Tenancy
+    tests/Integration/Signup
+  # ~126s alone
+  INTEGRATION_SHARD_D: >-
+    tests/Integration/Subscriptions
     tests/Integration/Http
-    tests/Integration/ImportExport
-    tests/Integration/Importers
-    tests/Integration/Indexing
-    tests/Integration/Migrations
-    tests/Integration/Navigation
+    tests/Integration/Settings
+    tests/Integration/Setup
+    tests/Integration/Seo
+    tests/Integration/Workflow
     tests/Integration/Pipeline
+    tests/Integration/ImportExport
+    tests/Integration/Console
+    tests/Integration/Navigation
+    tests/Integration/Forms
+    tests/Integration/Updates
+    tests/Integration/Blocks
+    tests/Integration/Migrations
+    tests/Integration/Importers
+    tests/Integration/Contracts
     tests/Integration/Routing
     tests/Integration/Schema
-    tests/Integration/Seo
-    tests/Integration/Settings
-    tests/Integration/Updates
-    tests/Integration/Setup
-    tests/Integration/Signup
-    tests/Integration/Workflow
+    tests/Integration/Capabilities
+    tests/Integration/Analytics
+    tests/Integration/Authority
+    tests/Integration/Indexing
     tests/Integration/ApiKeyScopesTest.php
     tests/Integration/DeliveryFlowTest.php
     tests/Integration/FoundationFlowTest.php
@@ -55,7 +74,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [lint-unit, integration-a, integration-b]
+        shard: [lint-unit, integration-a, integration-b, integration-c, integration-d]
 
     services:
       postgres:
@@ -137,8 +156,14 @@ jobs:
       # silently stops running new directories. Fails loudly with the unassigned names.
       - name: Shard coverage guard
         run: |
-          covered=$(printf '%s %s' "$INTEGRATION_SHARD_A" "$INTEGRATION_SHARD_B" | tr ' ' '\n' | sed '/^$/d; s#^tests/Integration/##' | sort)
+          covered=$(printf '%s %s %s %s' "$INTEGRATION_SHARD_A" "$INTEGRATION_SHARD_B" "$INTEGRATION_SHARD_C" "$INTEGRATION_SHARD_D" | tr ' ' '\n' | sed '/^$/d; s#^tests/Integration/##' | sort)
           actual=$(ls tests/Integration | sort)
+          twice=$(echo "$covered" | uniq -d)
+          if [ -n "$twice" ]; then
+            echo "::error::tests/Integration entries assigned to MORE than one shard (they would run twice):"
+            echo "$twice"
+            exit 1
+          fi
           missing=$(comm -23 <(echo "$actual") <(echo "$covered"))
           stale=$(comm -13 <(echo "$actual") <(echo "$covered"))
           if [ -n "$missing" ]; then
@@ -193,6 +218,12 @@ jobs:
               ;;
             integration-b)
               timeout --signal=KILL 900 vendor/bin/phpunit $INTEGRATION_SHARD_B
+              ;;
+            integration-c)
+              timeout --signal=KILL 900 vendor/bin/phpunit $INTEGRATION_SHARD_C
+              ;;
+            integration-d)
+              timeout --signal=KILL 900 vendor/bin/phpunit $INTEGRATION_SHARD_D
               ;;
           esac
 
