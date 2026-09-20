@@ -7,6 +7,14 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.49] - 2026-09-20 — Developer Preview
+
+The Appearance page gives the room back to its preview.
+
+### Upgrade Notes
+- No migrations, no new permissions, no dependency changes. The documented sequence applies
+  (docs/upgrading.md).
+
 ### Changed
 - The Appearance page's settings column is back to its original width, leaving the room to the
   preview. The logo fields stay one under the other, which is what stopped them crowding.
