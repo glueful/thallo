@@ -7,6 +7,21 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.47] - 2026-09-20 — Developer Preview
+
+A security fix for installs with workspaces, and the site's look gets a page of its own with a
+live preview.
+
+### Upgrade Notes
+- **Security — upgrade if you use workspaces.** Provision had been re-granting cross-workspace
+  authority to the `administrator` role; see Security below. This release's one migration, run by
+  `thallo:provision`, takes it off that role. An administrator who should reach every workspace
+  needs the `workspace_manager` role from now on.
+- One migration, no new permissions, no dependency changes. The documented sequence applies
+  (docs/upgrading.md).
+- The theme, colours, design settings and logos are edited under **Site › Appearance** now, not
+  Settings › General. The settings themselves are unchanged.
+
 ### Added
 - **A live preview on the Appearance page**: your homepage, framed beside the settings, wearing
   the look as you choose it — theme, accent, neutral, corners, typefaces and page ground — at
