@@ -1,3 +1,8 @@
+---
+section: operations
+order: 1
+summary: "What a production site needs: the web server, the scheduler, the queue, and what each capability adds."
+---
 # Running Thallo in Production
 
 Everything on this page is stated once, per the capability that creates the obligation.
@@ -63,7 +68,7 @@ Two long-lived pieces, both plain PHP; nothing else to install with the default
 
 **The scheduler tick** evaluates `config/schedule.php` and runs the due jobs inside the tick:
 
-```
+```text
 * * * * * php /path/to/site/glueful queue:scheduler run >> /path/to/site/storage/logs/scheduler.log 2>&1
 ```
 
@@ -81,7 +86,7 @@ After=network.target postgresql.service
 [Service]
 User=deploy
 WorkingDirectory=/path/to/site
-ExecStart=/usr/bin/php glueful queue:work --queue=default,maintenance --sleep=3 --tries=3 --max-runtime=3600
+ExecStart=/usr/bin/php glueful queue:work --queue=default,maintenance,import-export --sleep=3 --tries=3 --max-runtime=3600
 Restart=always
 RestartSec=5
 
@@ -89,8 +94,11 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-Thallo dispatches to `default` and `maintenance`; add a queue name to `--queue` if an extension
-you enable documents its own. Sizing presets (`*_QUEUE_MEMORY`, `*_QUEUE_TIMEOUT`,
+Thallo dispatches to `default` and `maintenance`, and imports and exports (Settings › Import /
+Export) to `import-export`: a worker runs only the queues it is given, so an import stays
+"queued" on a worker that was not given that one. With workspaces on, tenancy adds
+`tenancy-purge` and `tenancy-maintenance`. Add a queue name to `--queue` if an extension you
+enable documents its own. Sizing presets (`*_QUEUE_MEMORY`, `*_QUEUE_TIMEOUT`,
 `*_QUEUE_MAX_JOBS`) live in `.env`. A small site that runs no worker can set
 `QUEUE_CONNECTION=sync`: every job then runs inline in the process that dispatched it, at the
 cost of slow work (mail) happening inside a request or a tick. Redis (`QUEUE_CONNECTION=redis`

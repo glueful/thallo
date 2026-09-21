@@ -58,7 +58,7 @@ A fresh install activates the core CMS (content, render, collections, navigation
 analytics, media, i18n, users/RBAC, audit, import/export) plus the bundled subscriptions
 billing engine. **Commerce, payments (Payvia), and Meilisearch ship installed but disabled** —
 content search needs none of them (it runs on your PostgreSQL database; turn it on under
-Settings → General). Enable the extensions from the in-admin extensions browser (Settings → Extensions) or:
+Settings → General). Enable the extensions from the in-admin extensions browser (**Extensions**) or:
 
 ```bash
 php glueful extensions:enable Commerce

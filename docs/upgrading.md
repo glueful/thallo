@@ -1,3 +1,8 @@
+---
+section: operations
+order: 2
+summary: "The upgrade sequence, and how to know when a newer Thallo is out."
+---
 # Upgrading Thallo
 
 ## The sequence (from 1.0.0-beta.21 on)
@@ -11,7 +16,7 @@ installed as `glueful/thallo-core` in `vendor/` (with the
 capability packs alongside it), so `composer update` moves Thallo the way it moves the framework,
 and `thallo:provision` finishes the job: pending migrations, install-role grants, starter block
 types, the extension cache, and the release's admin bundle published into `public/admin`. Read
-the release's **Upgrade Notes** in [CHANGELOG.md](../CHANGELOG.md) first.
+the release's **Upgrade Notes** in [CHANGELOG.md](https://github.com/glueful/thallo/blob/main/CHANGELOG.md) first.
 
 Your own files are never touched by an upgrade: `.env`, `config/` overrides, `app/`, `routes/`,
 `database/migrations/`, `themes/{name}/`, `storage/`, `public/storage/`.
@@ -75,7 +80,7 @@ website runs, and every release is exercised there by the exact upgrade every op
   (`opcache.validate_timestamps=0`, a common production tuning): OPcache then never re-reads
   changed files and keeps serving the previous release's classes. With PHP's default
   (validation on), nothing to do. Provision cannot do this for you: the CLI has its own OPcache.
-- **The release's Upgrade Notes** in [CHANGELOG.md](../CHANGELOG.md).
+- **The release's Upgrade Notes** in [CHANGELOG.md](https://github.com/glueful/thallo/blob/main/CHANGELOG.md).
 
 **Why the cache clears matter:** a compiled artifact from a previous release can construct
 services with outdated constructor signatures or route the old paths. Thallo's security-relevant

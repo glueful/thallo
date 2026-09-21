@@ -7,6 +7,20 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Fixed
+- **The production guide's queue worker never ran an import.** Its systemd unit listed the queues
+  `default,maintenance`, and the guide said Thallo dispatches to those two only. Imports and
+  exports go to `import-export`, and a worker runs only the queues it is given, so an import
+  started under Settings › Import / Export stayed "queued". The unit now lists `import-export`,
+  and the guide names tenancy's two queues as well (docs/production.md).
+- The README sent readers to "Settings → Extensions", and the documentation guide to "Settings ›
+  Capabilities". Both are **Extensions › Capabilities**.
+
+### Changed
+- `docs/` is laid out as the documentation's five sections (`getting-started`, `concepts`,
+  `guides`, `reference`, `operations`), and the four existing pages carry front matter that puts
+  each in its section. They stay where they are: other files link to them by path.
+
 ## [1.0.0-beta.51] - 2026-09-21 — Developer Preview
 
 A documentation section can be set up and published from the admin, with no shell. And two

@@ -1,3 +1,8 @@
+---
+section: guides
+order: 60
+summary: "Publish a folder of Markdown as a documentation section, from a deploy or from the admin."
+---
 # A documentation section on your site
 
 Thallo can publish a folder of Markdown as a documentation section: a sidebar of sections, the
@@ -21,7 +26,7 @@ php glueful thallo:import:markdown docs --type=docs --exclude=internal --publish
 ```
 
 Your pages are at `/docs/{page}` and `/docs` is their index. The importers capability has to be
-on (Settings › Capabilities).
+on (**Extensions › Capabilities**).
 
 ## Without a shell: from the admin
 
