@@ -7,7 +7,24 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **Documentation from the admin, with no shell.** Settings › Import / Export has a new adapter,
+  **Markdown folder (.zip)**: zip your docs folder, choose the content type, name any folders to
+  leave out, and run it as a dry run and then a commit. It is the same import
+  `thallo:import:markdown` runs, so it is repeatable: upload the folder again whenever the files
+  change, only what changed is written, a renamed page keeps its entry and redirects, and nothing
+  is deleted. The job's **Report** says what each file became, which links lead nowhere and which
+  pages no longer have a file. On a site with no docs section the page offers **Set up
+  documentation**, which does in one click what `thallo:docs:setup` does (`POST
+  /v1/admin/docs/setup`). An uploaded archive is unpacked with care: only Markdown is read out of
+  it, a name that points outside the import refuses the whole archive, and its unpacked size and
+  page count are capped. Needs PHP's `zip` extension (docs/documentation-sites.md).
+
 ### Fixed
+- **CSV, Markdown and WordPress imports could not be started from the admin.** The upload on
+  Settings › Import / Export accepted only NDJSON and stored every file as `.ndjson`, while each
+  importer knows its own files by their extension: a CSV was refused outright. The upload now
+  takes what the importers take and keeps the file's kind.
 - **The Tablet stage showed the phone layout.** On the Design page, Site › Appearance and Header &
   footer, the Tablet frame was 768px wide but drew its border inside that width, so the page got
   a 766px viewport: two pixels short of where Tablet settings begin. A grid set to two columns on
