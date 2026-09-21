@@ -7,6 +7,21 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.51] - 2026-09-21 — Developer Preview
+
+A documentation section can be set up and published from the admin, with no shell. And two
+things the editor got wrong are put right: the preview bar's Edit and Design links, and the
+Tablet stage.
+
+### Upgrade Notes
+- No migrations, no new permissions, no dependency changes. The documented sequence applies
+  (docs/upgrading.md).
+- **Admin URL** (Settings › General, or `RENDER_ADMIN_URL`) is now optional: empty means this
+  site's own admin, and the preview bar's Edit and Design links show with nothing set. They used
+  to be hidden when it was empty. A site installed from the setup screen holds the site's address
+  there, without `/admin`; it needs no change — that value is now read as the admin on the site.
+- Importing a `.zip` of Markdown needs PHP's `zip` extension. Nothing else does.
+
 ### Added
 - **Documentation from the admin, with no shell.** Settings › Import / Export has a new adapter,
   **Markdown folder (.zip)**: zip your docs folder, choose the content type, name any folders to
