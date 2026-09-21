@@ -119,6 +119,29 @@ const PROPERTIES: PropertyDefinition[] = [
     'relaxed',
     'loose',
   ]),
+  // Motion: how a block ENTERS as it scrolls into view (`motion`, any block); how a block that
+  // arranges children spaces out THEIR entrances (`motion.children`); and Ken Burns, a picture
+  // drifting inside its frame (`motion.media`). None is responsive: an entrance is one event.
+  choice('motion.entrance', 'motion', false, [
+    'none',
+    'fade',
+    'fade-up',
+    'fade-down',
+    'slide-left',
+    'slide-right',
+    'zoom-in',
+  ]),
+  choice('motion.duration', 'motion', false, ['fast', 'normal', 'slow']),
+  choice('motion.delay', 'motion', false, ['none', 'short', 'medium', 'long']),
+  choice('motion.repeat', 'motion', false, ['once', 'always']),
+  choice('motion.stagger', 'motion.children', false, ['none', 'short', 'medium', 'long']),
+  choice('motion.ken_burns', 'motion.media', false, [
+    'none',
+    'zoom-in',
+    'zoom-out',
+    'pan-left',
+    'pan-right',
+  ]),
 ]
 
 const BY_PATH = new Map(PROPERTIES.map((p) => [p.path, p]))

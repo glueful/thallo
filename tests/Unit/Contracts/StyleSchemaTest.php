@@ -54,8 +54,13 @@ final class StyleSchemaTest extends TestCase
             'border.sides', 'colors.surface_opacity', 'backdrop.blur',
             // The third typography property: how far apart a text's lines sit.
             'typography.line_height',
+            // Motion: how a block enters as it scrolls into view — and, on a block that arranges
+            // children, how far apart their entrances start.
+            'motion.entrance', 'motion.duration', 'motion.delay', 'motion.repeat', 'motion.stagger',
+            // Ken Burns: a picture drifting slowly inside its frame, for a block that has one.
+            'motion.ken_burns',
         ], $paths);
-        self::assertSame(7, StyleSchema::VERSION);
+        self::assertSame(8, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
     }
 
@@ -177,7 +182,37 @@ final class StyleSchemaTest extends TestCase
             StyleSchema::pathsInGroup('layout.item'),
             StyleCapabilities::fromDeclaration(['layout.item'])->paths(),
         );
-        self::assertSame(7, StyleSchema::VERSION);
+        self::assertSame(8, StyleSchema::VERSION);
+    }
+
+    public function testMotionIsABlocksOwnGroupAndStaggerIsTheArrangersAlone(): void
+    {
+        // `motion` is what ANY block may declare: an entrance, how long it takes, how long it
+        // waits, whether it replays. Stagger is a group of its own, because it is set on the
+        // block that arranges the children — a container — and staggers THEIR entrances.
+        self::assertSame(
+            ['motion.entrance', 'motion.duration', 'motion.delay', 'motion.repeat'],
+            StyleSchema::pathsInGroup('motion'),
+        );
+        self::assertSame(['motion.stagger'], StyleSchema::pathsInGroup('motion.children'));
+        // And Ken Burns is the group of a block with a picture in a frame: it is continuous, not
+        // an entrance, and lands on the FRAME.
+        self::assertSame(['motion.ken_burns'], StyleSchema::pathsInGroup('motion.media'));
+        $expected = [
+            'motion.entrance' => ['none', 'fade', 'fade-up', 'fade-down', 'slide-left', 'slide-right', 'zoom-in'],
+            'motion.duration' => ['fast', 'normal', 'slow'],
+            'motion.delay' => ['none', 'short', 'medium', 'long'],
+            'motion.repeat' => ['once', 'always'],
+            'motion.stagger' => ['none', 'short', 'medium', 'long'],
+            'motion.ken_burns' => ['none', 'zoom-in', 'zoom-out', 'pan-left', 'pan-right'],
+        ];
+        foreach ($expected as $path => $choices) {
+            $def = StyleSchema::property($path);
+            self::assertNotNull($def, $path);
+            self::assertSame($choices, $def->choices, $path);
+            // An entrance is one event, not a layout: it does not vary by screen size.
+            self::assertFalse($def->responsive, $path);
+        }
     }
 
     public function testLineHeightJoinsTheTypographyGroupAndVariesByScreenAsSizeDoes(): void

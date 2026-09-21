@@ -38,7 +38,7 @@ file_put_contents($out . '/settings.css', StyleCompiler::compile($vocabulary));
 
 $targets = [];
 foreach (StarterBlockTypes::definitions() as $definition) {
-    if (in_array($definition['slug'], ['heading', 'button', 'hero'], true)) {
+    if (in_array($definition['slug'], ['heading', 'button', 'hero', 'container'], true)) {
         $targets[$definition['slug']] = StyleTargets::fromDeclaration($definition['style_targets']);
     }
 }
@@ -101,6 +101,11 @@ $cases = [
     // not settings): emerald, strong — beside a twin that is the site accent, faint.
     'hero-gradient-emerald-strong' => ['block' => 'hero', 'settings' => [], 'classes' => [],
         'extra' => ' thallo-block-hero--gradient-emerald thallo-block-hero--gradient-strength-strong'],
+    // Ken Burns on a container's background: the FRAME clips, its direct picture drifts, and a
+    // picture deeper inside — the container's content — does not.
+    'ken-burns-zoom-in' => ['block' => 'container', 'settings' => ['style' => [
+        'motion' => ['ken_burns' => $choice('zoom-in')],
+    ]], 'classes' => []],
     // Line height: tight at base, given back to the theme at md, loose from lg.
     'line-height' => ['block' => 'heading', 'settings' => ['style' => ['typography' => ['line_height' => [
         'base' => $choice('tight'), 'md' => $reset, 'lg' => $choice('loose'),
@@ -169,6 +174,17 @@ foreach ($cases as $name => $case) {
         // The twin is the plain, NON-sticky bar: what the theme draws before any setting.
         $bar = "site-{$tag} thallo-region thallo-region-{$tag} thallo-region-{$tag}--contained";
         $control = $region('', '', 'control');
+    } elseif ($case['block'] === 'container') {
+        // The container's own markup: the background image is the root's DIRECT child; content
+        // pictures are inside the content area.
+        $pixel = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+        $band = static fn (string $extra, string $attr): string => '<div class="thallo-block '
+            . 'thallo-block-container' . $extra . '" data-' . $attr . '="root">'
+            . '<img class="thallo-block-container__bg" data-' . $attr . '="background" alt="" src="' . $pixel . '">'
+            . '<div class="thallo-block-container__inner"><img data-' . $attr . '="content" alt="" src="'
+            . $pixel . '"></div></div>';
+        $markup = $band($classes($case, 'root'), 'target');
+        $control = $band('', 'control');
     } elseif ($case['block'] === 'hero') {
         $hero = 'thallo-block thallo-block-hero thallo-block-hero--bg-gradient thallo-block-hero--vertical';
         $markup = '<section class="' . $hero . ($case['extra'] ?? '') . $classes($case, 'root') . '" data-target="root">'

@@ -319,6 +319,23 @@ const CASES = {
     'c0.child2>.thallo-block-tabs__label': at({ 'border-top-left-radius': '6px' }),
   },
 
+  // Entrances, as the utilities declare them — what the shared rule then reads. The behaviour
+  // (hidden until scrolled to, replay, reduced motion, no script) is motion.spec.js's; this holds
+  // the values: a slow entrance after a short delay, nothing on a block with no entrance, and a
+  // medium stagger that gives each child after the first its place's delay.
+  'motion-entrances': {
+    'c0.child0': at({
+      '--t-enter-duration': '1000ms',
+      '--t-enter-delay': '150ms',
+      '--t-enter-transform': 'translateY(1.5rem)',
+    }),
+    'c0.child1': at({ '--t-enter-duration': '', '--t-enter-transform': '' }),
+    // A registered <time> reads back in seconds.
+    'c3.child0': at({ '--t-enter-stagger': '0s' }),
+    'c3.child1': at({ '--t-enter-stagger': '0.15s' }),
+    'c3.child2': at({ '--t-enter-stagger': '0.3s' }),
+  },
+
   // Modifiers. The accent at 80% is a colour WITH an alpha — the opacity utility repainted from
   // the colour the background utility named — behind a 12px blur, with a border on one side only.
   // A nested container given ONLY an opacity paints nothing: the variable is registered as

@@ -186,6 +186,15 @@ final class CustomBlockStyleDeclarationApiTest extends AppTestCase
         self::assertSame(201, $this->create('later', ['spacing'])->getStatusCode());
     }
 
+    public function testACustomBlockCanBeGivenAnEntranceButNotAContainersOrAPicturesMotion(): void
+    {
+        $type = $this->json($this->create('promo', ['spacing', 'motion']))['data']['block_type'];
+        self::assertSame('root', $type['style_targets']['map']['motion'] ?? null);
+        // Stagger needs a children host and Ken Burns a picture frame: a one-box block has neither.
+        self::assertSame(422, $this->create('stagger', ['motion.children'])->getStatusCode());
+        self::assertSame(422, $this->create('drift', ['motion.media'])->getStatusCode());
+    }
+
     public function testAPageSavesTheChosenSettingsOnTheBlockAndIsRefusedTheOthers(): void
     {
         // What the declaration is FOR: the block's Style tab now writes settings a save accepts.

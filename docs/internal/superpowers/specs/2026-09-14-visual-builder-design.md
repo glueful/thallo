@@ -115,6 +115,7 @@ properties.
 | `typography` | + `line_height` (`tight, snug, normal, relaxed, loose`) | choice, reset | yes |
 | `border` | + `sides` (`all, top, right, bottom, left`) | choice, reset | no |
 | `backdrop` | `colors.surface_opacity` (`100`–`50`), `backdrop.blur` (`none, sm, md, lg`) | choice, reset | no |
+| `motion`, `motion.children`, `motion.media` | `motion.entrance`, `duration`, `delay`, `repeat`; `motion.stagger`; `motion.ken_burns` | choice, reset | no |
 
 **Amended 2026-09-19 — `marker`.** A block's marker — a feature's icon chip or number badge — has
 corners and a shadow of its own, set in the Style tab under **Marker**. They are their own paths
@@ -155,6 +156,36 @@ page's presentation hides chrome), layout or typography; no style classes, no Ad
 targets: `root`, the bar, and `inner`, where a theme pads and so where padding lands. Templates
 emit through `region_style_classes(slug, target, settings?)`; the third argument is for the admin's
 chrome preview, which renders posted settings.
+
+**Amended 2026-09-21 — motion.** Six choice properties in three groups, none responsive.
+`motion` (entrance, duration, delay, repeat) lands on a block's root; every starter block declares
+it except a part of another block or one with nothing to show (`tab`, `accordion_item`, `spacer`,
+`animated_text`), and it is one of the groups an admin-made block may take. `motion.children`
+(stagger) is the container's, on `inner`. `motion.media` (Ken Burns) lands on a picture *frame* —
+the target whose direct child is the picture: the container's `root`, the hero's `media`; not the
+image block, whose figure also holds its gutters and caption. The library declares all three in one
+place (`StarterBlockTypes::withMotion`), not block by block.
+
+An entrance utility only names values (`--t-enter-transform`, `--t-enter-duration`,
+`--t-enter-delay`); one shared rule hides and transitions, scoped to `html[data-thallo-motion]`,
+to `prefers-reduced-motion: no-preference` and to `:not([data-thallo-entered])`. The attribute on
+`html` is set by a byte-stable inline flag (`Motion::FLAG_JS`, hash published). The head is
+rendered before the body is known, so the renderer only NOTES that a block enters, and whoever
+turned the template into a page calls `RenderContextExtension::finish($html)`, which puts the flag
+and a deferred block asset (`block-motion.js`, an IntersectionObserver) before `</head>` (else
+before `<body`, else after the doctype). A first draft wrote it immediately before the first
+entering block; that made a `<script>` the block's sibling, which a theme's `:first-child` or `+`
+rule sees (the default theme's first-block rule for a hero carousel did). A page that is not
+finished has no flag and shows its blocks. The flag withdraws itself after 3s if the asset never
+ran. A canvas render never notes anything. Stagger is
+`:nth-child(k of :not(script))` on the host's children, capped at 12, through a registered
+non-inheriting `--t-enter-stagger`; like a span, the rule also reaches through the stage's
+`display: contents` block wrapper, which takes the child's place there. Ken Burns is CSS only: the frame clips, its direct
+`img, picture, video` child animates between `--t-kb-from` and `--t-kb-to`; those two are stated
+outside the reduced-motion query because the editor's Play reads them. Empty rules are written
+for values that declare nothing (`none`, `once`), as for modifiers. In the canvas motion is held
+still and `thallo:motion-play` replays one block (`data-thallo-motion-play`: `from`, a forced
+reflow, `to`). The schema moves to 8 and the compiler to 9.
 
 **Amended 2026-09-21 — a block type made in the admin declares style too.** §1.7 had a
 declaration only for code-declared types, so an admin-made block's Style tab was empty. Such a type

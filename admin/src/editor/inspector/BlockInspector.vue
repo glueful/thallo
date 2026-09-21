@@ -57,6 +57,8 @@ const props = defineProps<{
    */
   noContent?: boolean
   noSaveAsClass?: boolean
+  /** The host has a stage that can replay the block's motion (the Design page). */
+  canPlayMotion?: boolean
 }>()
 const emit = defineEmits<{
   'patch-data': [name: string, value: unknown]
@@ -75,6 +77,8 @@ const emit = defineEmits<{
   'detach-class': [id: string]
   'detach-all': []
   'save-as-class': []
+  /** The Style tab's Play: replay this block's motion on the stage. */
+  'play-motion': []
   /** The Layout tab's link out of a block to the parent whose mode governs it. */
 }>()
 
@@ -239,10 +243,12 @@ const proseField = computed(() =>
           :blocks="blocks"
           :block-types="blockTypes"
           :no-save-as-class="noSaveAsClass"
+          :can-play-motion="canPlayMotion"
           @set="(path, bp, value) => emit('set-setting', path, bp, value)"
           @set-all="(path, value) => emit('set-all', path, value)"
           @update:active-breakpoint="(bp) => emit('update:activeBreakpoint', bp)"
           @save-as-class="emit('save-as-class')"
+          @play-motion="emit('play-motion')"
         />
       </template>
       <template v-if="!multi" #advanced>

@@ -32,6 +32,7 @@ const LABELS: Record<string, { label: string; hint: string }> = {
   border: { label: 'Border', hint: 'Width, style and sides.' },
   shadow: { label: 'Shadow', hint: 'Drop shadow.' },
   visibility: { label: 'Visibility', hint: 'Show or hide per screen size.' },
+  motion: { label: 'Motion', hint: 'An entrance animation as the block scrolls into view.' },
   'layout.min_height': { label: 'Minimum height', hint: 'Half or full screen height.' },
   'layout.overflow': { label: 'Overflow', hint: 'Clip or scroll what does not fit.' },
   'layout.item': {

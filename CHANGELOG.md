@@ -8,6 +8,22 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Added
+- **Animation presets.** The designer's Style tab has a **Motion** group. **Entrance** brings a
+  block in as it scrolls into view — fade, fade up or down, slide from the left or right, zoom in —
+  with a **Duration**, a **Delay**, and **Repeat** (once, or every time it comes back into view).
+  A container's **Stagger children** brings its children in one after another. **Ken Burns** makes
+  a picture drift slowly inside its frame — zoom in or out, pan left or right — on a Container's
+  background image or video and on a Hero's picture, a hero slide in a carousel included. Every
+  block takes an entrance except the parts of another block (a tab, an accordion item), the spacer
+  and animated text; a block type made in the admin takes one when its **Motion** style group is
+  ticked. Motion can be saved in a style class like any other setting.
+  A theme writes nothing for it. A page with no entrance loads no script; a page with one gets a
+  small inline flag in its head and a deferred script, so nothing flashes before hiding. Visitors who ask for reduced motion, browsers without `IntersectionObserver`, and
+  a page whose script never arrives all see the block simply shown. In the designer motion is held
+  still, since a hidden or moving block cannot be edited, and the Motion group's **Play** replays
+  the selected block on the stage. Under a strict Content-Security-Policy, add the flag's hash to
+  `script-src` (THEMING.md §12.6). The settings reach an existing site with
+  `php glueful thallo:provision`.
 - **Style settings for the block types you make.** A block type created under Settings › Block
   types could have fields and a template, but its Style tab in the designer stayed empty: only
   block types declared in code could be styled. Its editor now has a **Style settings** card —

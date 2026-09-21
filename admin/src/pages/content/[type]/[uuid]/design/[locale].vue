@@ -640,6 +640,14 @@ function onOutlineSelect(id: string, modifiers: SelectModifiers): void {
   bridge.scrollTo(anchor)
 }
 
+/**
+ * The Style tab's Play. The stage holds motion still so a block can be edited; this replays the
+ * selection's entrance or drift once, as a visitor would see it.
+ */
+function playSelectedMotion(): void {
+  for (const block of selectedBlocks.value) bridge.playMotion(block.id)
+}
+
 // ── Stage toolbar intents (stage-toolbar spec §2/§4): mutate through the
 // FieldEditor (single tree authority), mirror ONLY after the commit. ──────────
 // Shared intent handlers (polish batch §4): the outline's keyboard emits and
@@ -2275,6 +2283,8 @@ function reloadStage(): void {
                 :class-names="classNames"
                 :class-options="classOptions"
                 :re-resolving="reResolving"
+                can-play-motion
+                @play-motion="playSelectedMotion"
                 @save-as-class="liftDialogOpen = true"
                 @apply-class="onApplyClass"
                 @remove-class="onRemoveClass"

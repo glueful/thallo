@@ -104,6 +104,7 @@ const bridge = vi.hoisted(() => {
       restoreScroll: vi.fn(),
       highlight: vi.fn(),
       scrollTo: vi.fn(),
+      playMotion: vi.fn(),
       mirrorMove: vi.fn(),
       dragBegin: vi.fn(),
       dragHover: vi.fn(),

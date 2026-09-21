@@ -1,0 +1,206 @@
+{
+  "case": "motion-entrances",
+  "note": "Entrances: a block at the top enters at once; one far below stays hidden until scrolled to, and one set to replay hides again when it leaves; a container staggers its children's entrances. Without JavaScript, and for a visitor who asks for reduced motion, nothing is ever hidden.",
+  "tree": {
+    "id": "lf0000000951",
+    "type": "layout_fixture",
+    "data": {
+      "content": [
+        {
+          "id": "hd000000901",
+          "type": "heading",
+          "data": {
+            "text": "Heading 1",
+            "level": "h2"
+          },
+          "settings": {
+            "style": {
+              "motion": {
+                "entrance": {
+                  "type": "choice",
+                  "value": "fade-up"
+                },
+                "duration": {
+                  "type": "choice",
+                  "value": "slow"
+                },
+                "delay": {
+                  "type": "choice",
+                  "value": "short"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "hd000000902",
+          "type": "heading",
+          "data": {
+            "text": "Heading 2",
+            "level": "h2"
+          },
+          "settings": {
+            "style": {}
+          }
+        },
+        {
+          "id": "lf0000000952",
+          "type": "layout_fixture",
+          "data": {
+            "content": [
+              {
+                "id": "hd000000903",
+                "type": "heading",
+                "data": {
+                  "text": "Heading 3",
+                  "level": "h2"
+                },
+                "settings": {
+                  "style": {}
+                }
+              }
+            ]
+          },
+          "settings": {
+            "style": {
+              "layout": {
+                "min_height": {
+                  "base": {
+                    "type": "choice",
+                    "value": "screen"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "lf0000000953",
+          "type": "layout_fixture",
+          "data": {
+            "content": [
+              {
+                "id": "hd000000904",
+                "type": "heading",
+                "data": {
+                  "text": "Heading 4",
+                  "level": "h2"
+                },
+                "settings": {
+                  "style": {}
+                }
+              }
+            ]
+          },
+          "settings": {
+            "style": {
+              "layout": {
+                "min_height": {
+                  "base": {
+                    "type": "choice",
+                    "value": "screen"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "hd000000908",
+          "type": "heading",
+          "data": {
+            "text": "Heading 8",
+            "level": "h2"
+          },
+          "settings": {
+            "style": {
+              "motion": {
+                "entrance": {
+                  "type": "choice",
+                  "value": "zoom-in"
+                },
+                "repeat": {
+                  "type": "choice",
+                  "value": "always"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "lf0000000954",
+          "type": "layout_fixture",
+          "data": {
+            "content": [
+              {
+                "id": "hd000000905",
+                "type": "heading",
+                "data": {
+                  "text": "Heading 5",
+                  "level": "h2"
+                },
+                "settings": {
+                  "style": {
+                    "motion": {
+                      "entrance": {
+                        "type": "choice",
+                        "value": "fade"
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "id": "hd000000906",
+                "type": "heading",
+                "data": {
+                  "text": "Heading 6",
+                  "level": "h2"
+                },
+                "settings": {
+                  "style": {
+                    "motion": {
+                      "entrance": {
+                        "type": "choice",
+                        "value": "fade"
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "id": "hd000000907",
+                "type": "heading",
+                "data": {
+                  "text": "Heading 7",
+                  "level": "h2"
+                },
+                "settings": {
+                  "style": {
+                    "motion": {
+                      "entrance": {
+                        "type": "choice",
+                        "value": "fade"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "settings": {
+            "style": {
+              "motion": {
+                "stagger": {
+                  "type": "choice",
+                  "value": "medium"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "settings": {}
+  }
+}
