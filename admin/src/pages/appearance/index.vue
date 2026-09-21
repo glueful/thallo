@@ -11,6 +11,8 @@ import AppearancePreview from './components/AppearancePreview.vue'
 import { blobDisplayUrl } from '@/queries/media'
 import { fetchRenderThemes, type ThemeCard } from '@/queries/templates'
 import ThemeGallery from './components/ThemeGallery.vue'
+import BrandColorField from './components/BrandColorField.vue'
+import FontFaceField from './components/FontFaceField.vue'
 import { useNotify } from '@/composables/useNotify'
 
 definePage({ meta: { requiresAuth: true } })
@@ -25,6 +27,8 @@ const { form, dirty, payload, saved } = useSettingsForm(data, {
   theme_neutral: 'slate',
   theme_radius: 'round',
   theme_font: 'sans',
+  theme_font_body: '',
+  theme_font_display: '',
   theme_background: 'plain',
   site_logo: '',
   site_logo_dark: '',
@@ -33,27 +37,7 @@ const { form, dirty, payload, saved } = useSettingsForm(data, {
 /** Read, never written here: the favicon preview's tab title, and what a preview opens through. */
 const siteName = computed(() => data.value?.site_name ?? '')
 
-// Theme color config (theme-color-config spec §8): closed Tailwind-family enums,
-// each shown with its 500-stop swatch. The default blue/slate reproduces today's look.
-const ACCENT_FAMILIES: Array<{ value: string; swatch: string }> = [
-  { value: 'red', swatch: '#ef4444' },
-  { value: 'orange', swatch: '#f97316' },
-  { value: 'amber', swatch: '#f59e0b' },
-  { value: 'yellow', swatch: '#eab308' },
-  { value: 'lime', swatch: '#84cc16' },
-  { value: 'green', swatch: '#22c55e' },
-  { value: 'emerald', swatch: '#10b981' },
-  { value: 'teal', swatch: '#14b8a6' },
-  { value: 'cyan', swatch: '#06b6d4' },
-  { value: 'sky', swatch: '#0ea5e9' },
-  { value: 'blue', swatch: '#3b82f6' },
-  { value: 'indigo', swatch: '#6366f1' },
-  { value: 'violet', swatch: '#8b5cf6' },
-  { value: 'purple', swatch: '#a855f7' },
-  { value: 'fuchsia', swatch: '#d946ef' },
-  { value: 'pink', swatch: '#ec4899' },
-  { value: 'rose', swatch: '#f43f5e' },
-]
+// The neutral is a closed family, shown with its 500 stop; the accent is BrandColorField's.
 const NEUTRAL_FAMILIES: Array<{ value: string; swatch: string }> = [
   { value: 'slate', swatch: '#64748b' },
   { value: 'gray', swatch: '#6b7280' },
@@ -67,20 +51,23 @@ const RADIUS_ITEMS = [
   { value: 'soft', label: 'Soft — 12px corners, rounded buttons' },
   { value: 'round', label: 'Round — 12px corners, pill buttons (default)' },
 ]
+// Every pairing but Custom is a system stack: it costs a visitor nothing to download.
 const FONT_ITEMS = [
   { value: 'sans', label: 'Sans — Figtree throughout (default)' },
   { value: 'editorial', label: 'Editorial — serif headings, sans body' },
   { value: 'serif', label: 'Serif — serif throughout' },
+  { value: 'humanist', label: 'Humanist — warm, open sans' },
+  { value: 'geometric', label: 'Geometric — round, even sans' },
+  { value: 'slab', label: 'Slab — slab-serif headings, sans body' },
+  { value: 'mono', label: 'Mono — monospace throughout' },
+  { value: 'system', label: "System — each visitor's own interface font" },
+  { value: 'custom', label: 'Custom — upload your own fonts' },
 ]
 const BACKGROUND_ITEMS = [
   { value: 'plain', label: 'Plain — white page, tinted panels (default)' },
   { value: 'tinted', label: 'Tinted — tinted page, white panels' },
 ]
-const accentItems = ACCENT_FAMILIES.map((f) => f.value)
 const neutralItems = NEUTRAL_FAMILIES.map((f) => f.value)
-const accentSwatch = computed(
-  () => ACCENT_FAMILIES.find((f) => f.value === form.theme_accent)?.swatch ?? '#3b82f6',
-)
 const neutralSwatch = computed(
   () => NEUTRAL_FAMILIES.find((f) => f.value === form.theme_neutral)?.swatch ?? '#64748b',
 )
@@ -94,6 +81,11 @@ const pendingLook = computed(() => ({
   radius: form.theme_radius,
   font: form.theme_font,
   background: form.theme_background,
+  // The site's own faces ride along only with the pairing that uses them. `none` is a saved
+  // face taken off but not yet saved: '' would mean "as saved" to the preview.
+  ...(form.theme_font === 'custom'
+    ? { font_body: form.theme_font_body || 'none', font_display: form.theme_font_display || 'none' }
+    : {}),
 }))
 
 // Live theme options (theme-setting spec §4): fetched from the render pack;
@@ -182,20 +174,11 @@ async function onSave() {
                 <!-- One per row, like the design settings below: side by side at this width the longer
                    description wrapped and pushed its select out of line with the other. -->
                 <div class="grid gap-6">
-                  <UFormField label="Accent" description="Your brand color.">
-                    <div class="flex items-center gap-2">
-                      <span
-                        class="inline-block size-4 rounded-full ring-1 ring-default"
-                        :style="{ background: accentSwatch }"
-                        data-test="theme-accent-swatch"
-                      />
-                      <USelect
-                        v-model="form.theme_accent"
-                        :items="accentItems"
-                        class="w-full"
-                        data-test="theme-accent"
-                      />
-                    </div>
+                  <UFormField
+                    label="Accent"
+                    description="A colour family, or your own brand colour."
+                  >
+                    <BrandColorField v-model="form.theme_accent" />
                   </UFormField>
                   <UFormField label="Neutral" description="Backgrounds, text, borders.">
                     <div class="flex items-center gap-2">
@@ -245,6 +228,23 @@ async function onSave() {
                       data-test="theme-font"
                     />
                   </UFormField>
+                  <div
+                    v-if="form.theme_font === 'custom'"
+                    class="space-y-4"
+                    data-test="custom-fonts"
+                  >
+                    <p class="text-xs text-muted">
+                      Upload .woff2 files. A variable font covers every weight from one file. With
+                      only a text font, headings use it too; with neither, the theme's own font
+                      stays.
+                    </p>
+                    <FontFaceField v-model="form.theme_font_body" role="body" label="Text" />
+                    <FontFaceField
+                      v-model="form.theme_font_display"
+                      role="display"
+                      label="Headings"
+                    />
+                  </div>
                   <UFormField label="Page ground" description="What the page sits on.">
                     <USelect
                       v-model="form.theme_background"

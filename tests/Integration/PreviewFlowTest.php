@@ -114,6 +114,46 @@ final class PreviewFlowTest extends AppTestCase
         self::assertSame('Secret draft', $preview['fields']['title']);
     }
 
+    // ── 1a. a preview may try the brand colour and the site's own faces before they are saved ──
+
+    public function testAPreviewCarriesABrandColourAndPendingFaces(): void
+    {
+        $uuid = $this->seedDraft('Brand', 'brand-preview');
+        $controller = $this->container()->get(\Thallo\Core\Content\Http\Controllers\PreviewController::class);
+        $mint = fn (\Thallo\Core\Content\Http\DTOs\MintPreviewData $data) => $controller->mint(
+            $data,
+            \Symfony\Component\HttpFoundation\Request::create('/'),
+            $uuid,
+            'en',
+        );
+
+        $res = $mint(new \Thallo\Core\Content\Http\DTOs\MintPreviewData(
+            accent: '#0A7C66',
+            font: 'custom',
+            font_body: 'fontbody0001',
+            font_display: 'none', // a saved face taken off, not yet saved
+        ));
+        self::assertSame(200, $res->getStatusCode(), (string) $res->getContent());
+        $token = (string) json_decode((string) $res->getContent(), true)['data']['token'];
+        $claims = (new \Thallo\Core\Content\Preview\EnginePreviewSessionVerifier($this->appContext()))
+            ->verify($token);
+        self::assertNotNull($claims);
+        self::assertSame('#0a7c66', $claims->accent);
+        self::assertSame(
+            ['font' => 'custom', 'font_body' => 'fontbody0001', 'font_display' => 'none'],
+            $claims->design,
+        );
+
+        self::assertSame(
+            422,
+            $mint(new \Thallo\Core\Content\Http\DTOs\MintPreviewData(accent: '#12'))->getStatusCode(),
+        );
+        self::assertSame(
+            422,
+            $mint(new \Thallo\Core\Content\Http\DTOs\MintPreviewData(font_body: '../../etc/passwd'))->getStatusCode(),
+        );
+    }
+
     // ── 1b. theme_url is null when rendered delivery is off (preview spec §4) ───
 
     public function testThemeUrlIsNullWhenRenderCapabilityDisabled(): void

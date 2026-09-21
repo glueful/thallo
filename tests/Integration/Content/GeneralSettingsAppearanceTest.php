@@ -22,6 +22,57 @@ final class GeneralSettingsAppearanceTest extends AppTestCase
         self::assertSame(422, $res->getStatusCode());
     }
 
+    public function testTheAccentMayBeTheSitesOwnBrandColour(): void
+    {
+        $controller = $this->container()->get(GeneralSettingsController::class);
+        $res = $controller->update(new UpdateGeneralSettingsData(theme_accent: '#0A7C66'));
+        self::assertSame(200, $res->getStatusCode(), (string) $res->getContent());
+        // Stored as the one spelling the stylesheet writes.
+        self::assertSame('#0a7c66', $this->container()->get(GeneralSettings::class)->themeAccent());
+
+        foreach (['#12345', 'rgb(1,2,3)', '#fff;}body{display:none'] as $bad) {
+            self::assertSame(
+                422,
+                $controller->update(new UpdateGeneralSettingsData(theme_accent: $bad))->getStatusCode(),
+                $bad,
+            );
+        }
+        // The neutral stays a family: a whole grey scale cannot be derived from one colour.
+        self::assertSame(
+            422,
+            $controller->update(new UpdateGeneralSettingsData(theme_neutral: '#777777'))->getStatusCode(),
+        );
+    }
+
+    public function testASiteMaySetItsOwnTypefaces(): void
+    {
+        $controller = $this->container()->get(GeneralSettingsController::class);
+        $res = $controller->update(new UpdateGeneralSettingsData(
+            theme_font: 'custom',
+            theme_font_body: 'fontbody0001',
+            theme_font_display: 'fonthead0001',
+        ));
+        self::assertSame(200, $res->getStatusCode(), (string) $res->getContent());
+        $provider = new \Thallo\Core\Settings\EngineThemeAppearanceProvider(
+            $this->container()->get(GeneralSettings::class),
+        );
+        self::assertSame('custom', $provider->font());
+        self::assertSame(['body' => 'fontbody0001', 'display' => 'fonthead0001'], $provider->fontFaces());
+
+        // '' takes a face off; the other stays.
+        $controller->update(new UpdateGeneralSettingsData(theme_font_display: ''));
+        self::assertSame(['body' => 'fontbody0001'], $provider->fontFaces());
+
+        self::assertSame(
+            422,
+            $controller->update(new UpdateGeneralSettingsData(theme_font_body: '../../etc/passwd'))->getStatusCode(),
+        );
+        // The pairings a site can choose between grew, and an unknown one is still refused.
+        $humanist = $controller->update(new UpdateGeneralSettingsData(theme_font: 'humanist'));
+        self::assertSame(200, $humanist->getStatusCode());
+        self::assertSame(422, $controller->update(new UpdateGeneralSettingsData(theme_font: 'comic'))->getStatusCode());
+    }
+
     public function testSaveRejectsUnknownNeutral(): void
     {
         $controller = $this->container()->get(GeneralSettingsController::class);

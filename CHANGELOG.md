@@ -8,6 +8,20 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Added
+- **Your brand colour, and your own fonts.** The accent was one of seventeen colour families;
+  it can now also be the site's own brand colour. On Site › Appearance choose **Brand colour…**
+  and pick or type a hex. The colour is used exactly as given on a light page; the label on it
+  is whichever of white and black reads (one of the two always clears AA, so a button is always
+  readable), and on a dark page the colour is lightened until it can be seen. The page says all
+  of this before you save, and warns where Thallo changes nothing: a light brand colour is hard
+  to read as link text on white. **Typefaces** gained five system pairings — Humanist,
+  Geometric, Slab, Mono and System, which cost a visitor nothing to download — and **Custom**:
+  upload a `.woff2` for the text, one for the headings, or both, and see each as a live
+  specimen. A variable font covers every weight from one file. The theme's own font is no
+  longer downloaded on a site whose text is set in another face. Both are previewed in the pane
+  before they are saved. The media library now accepts `.woff2` and lists fonts as a type of
+  their own. Theme authors: read `--accent-ink` for anything placed on `--accent`, never assume
+  white (THEMING.md §9.1, §9.6).
 - **Search with nothing to install, and a docs search box.** Content search needed a Meilisearch
   server. It now also runs on the database every site already has: PostgreSQL full-text search,
   with stemming in the page's language, prefix matching for search-as-you-type, titles ranked
@@ -110,6 +124,8 @@ as the next release, never a mutated tag.
   site that already runs Meilisearch has `MEILISEARCH_HOST` set and keeps using it; to be
   explicit, set `SEARCH_ENGINE=meilisearch`.
 - After upgrading, run `php glueful search:reindex` so an existing index holds clean text.
+- To upload your own fonts, an existing site's `config/uploads.php` needs `'font/woff2'` in
+  `allowed_types`. A new install has it.
 
 ## [1.0.0-beta.49] - 2026-09-20 — Developer Preview
 

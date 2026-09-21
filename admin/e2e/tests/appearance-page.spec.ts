@@ -25,6 +25,8 @@ const SETTINGS = {
   theme_neutral: 'slate',
   theme_radius: 'round',
   theme_font: 'sans',
+  theme_font_body: '',
+  theme_font_display: '',
   theme_background: 'plain',
   admin_url: '',
   listing_types: [],
@@ -109,6 +111,8 @@ test('Appearance is in the Site group, and saves only its own settings', async (
     theme_neutral: 'slate',
     theme_radius: 'sharp',
     theme_font: 'sans',
+    theme_font_body: '',
+    theme_font_display: '',
     theme_background: 'plain',
     site_logo: '',
     site_logo_dark: '',
@@ -206,6 +210,94 @@ test('the theme gallery shows each theme, and choosing one previews it before it
   await page.locator('[data-test="appearance-save"]').click()
   await expect.poll(() => saves.length).toBe(1)
   expect(saves[0]).toMatchObject({ theme: 'aurora' })
+})
+
+test('a brand colour says how it will read, and the site’s own font shows itself', async ({
+  page,
+}) => {
+  await openDesignPage(page)
+  const saves = await routeSettings(page)
+  const looks = await routePreview(page)
+  // The upload is the framework's blob route; the font it "stores" is the theme's real woff2,
+  // served back from the media URL as the site would serve it.
+  const FONT = readFileSync(
+    resolve(
+      __dirname,
+      '../../../packages/thallo-render/themes/default/assets/fonts/figtree-roman-latin.woff2',
+    ),
+  )
+  const uploads: string[] = []
+  await page.route('**/v1/blobs', (route) => {
+    if (route.request().method() !== 'POST') return route.fallback()
+    uploads.push(route.request().headers()['content-type'] ?? '')
+    return route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: { uuid: 'fontbody0001', blob_uuid: 'fontbody0001' },
+      }),
+    })
+  })
+  await page.route('**/v1/blobs/fontbody0001*', (route) =>
+    route.fulfill({ contentType: 'font/woff2', body: FONT }),
+  )
+  await page.goto('/admin/appearance')
+  await expect(page.locator('[data-test="theme-colors-card"]')).toBeVisible({ timeout: 20_000 })
+
+  // ── The brand colour ──
+  await page.locator('[data-test="theme-accent"]').click()
+  await page.getByRole('option', { name: 'Brand colour…' }).click()
+  const hex = page.getByLabel('Brand colour, as a hex')
+  await expect(hex).toHaveValue('#3b82f6') // starts from the colour the site has now
+  await hex.fill('#facc15')
+  const report = page.locator('[data-test="brand-report"]')
+  await expect(report).toContainText('black text')
+  await expect(page.locator('[data-test="brand-report-text"]')).toHaveAttribute(
+    'data-level',
+    'poor',
+  )
+  // The sample IS the button a visitor gets: the colour, with the ink the site will use.
+  const sample = page.locator('[data-test="brand-sample"]')
+  expect(await sample.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(
+    'rgb(250, 204, 21)',
+  )
+  expect(await sample.evaluate((el) => getComputedStyle(el).color)).toBe('rgb(0, 0, 0)')
+  await hex.fill('#1e3a')
+  await expect(page.locator('[data-test="brand-hex-error"]')).toBeVisible()
+  await hex.fill('#1e3a8a')
+  await expect(report).toContainText('white text')
+  await expect.poll(() => looks.at(-1)?.accent).toBe('#1e3a8a') // previewed, not saved
+  expect(saves).toEqual([])
+
+  // ── The site's own font ──
+  await page.locator('[data-test="theme-font"]').click()
+  await page.getByRole('option', { name: /^Custom/ }).click()
+  await expect(page.locator('[data-test="custom-fonts"]')).toBeVisible()
+  await page
+    .locator('[data-test="font-upload-body"]')
+    .setInputFiles({ name: 'Brand.woff2', mimeType: 'font/woff2', buffer: FONT })
+  const specimen = page.locator('[data-test="font-specimen-body"]')
+  await expect(specimen).toBeVisible()
+  expect(uploads).toHaveLength(1)
+  // The specimen is really set in the uploaded face: the browser loaded it from the media URL.
+  await expect
+    .poll(() => page.evaluate(() => document.fonts.check('16px "thallo-admin-face-body"')))
+    .toBe(true)
+  expect(await specimen.evaluate((el) => getComputedStyle(el).fontFamily)).toContain(
+    'thallo-admin-face-body',
+  )
+  await expect.poll(() => looks.at(-1)?.font_body).toBe('fontbody0001')
+  expect(looks.at(-1)).toMatchObject({ font: 'custom', font_display: 'none' })
+
+  await page.locator('[data-test="appearance-save"]').click()
+  await expect.poll(() => saves.length).toBe(1)
+  expect(saves[0]).toMatchObject({
+    theme_accent: '#1e3a8a',
+    theme_font: 'custom',
+    theme_font_body: 'fontbody0001',
+    theme_font_display: '',
+  })
 })
 
 test('Settings › General no longer holds the appearance cards, and links to where they went', async ({

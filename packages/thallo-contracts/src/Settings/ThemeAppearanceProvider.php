@@ -21,8 +21,16 @@ interface ThemeAppearanceProvider
     /** Corner radius scale: sharp | soft | round (the default). */
     public function radius(): string;
 
-    /** Typeface pairing: sans (the default) | editorial (serif display, sans body) | serif. */
+    /** Typeface pairing: sans (the default), a system pairing, or `custom` (the site's own faces). */
     public function font(): string;
+
+    /**
+     * The site's own typefaces, used by the `custom` pairing: media library uuids of woff2 files
+     * for the text (`body`) and the headings (`display`); a role with no face is absent.
+     *
+     * @return array{body?: string, display?: string}
+     */
+    public function fontFaces(): array;
 
     /** Page ground: plain (the default, white) | tinted (the neutral's surface tint). */
     public function background(): string;
