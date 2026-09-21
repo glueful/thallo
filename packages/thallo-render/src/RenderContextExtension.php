@@ -17,7 +17,9 @@ use Thallo\Contracts\Content\FormSealer;
 use Thallo\Contracts\Content\RegionReader;
 use Thallo\Contracts\Content\RichHtmlSanitizer;
 use Thallo\Contracts\Delivery\EntryTargetResolver;
+use Thallo\Contracts\Capability\CapabilityRegistry;
 use Thallo\Contracts\Delivery\EntryListReader;
+use Thallo\Contracts\Delivery\EntryTreeReader;
 use Thallo\Contracts\Delivery\FacetCountsReader;
 use Thallo\Contracts\Delivery\MediaUrlResolver;
 use Thallo\Contracts\Delivery\MediaVariantUrlResolver;
@@ -85,11 +87,14 @@ final class RenderContextExtension extends AbstractExtension
 
     /** Closed block-asset catalog (modern-blocks spec §1) — block_script() is
      *  DB-template vocabulary; only these names ever resolve to a script tag. */
-    public const BLOCK_SCRIPT_ASSETS = ['animated-text', 'code', 'gallery'];
+    public const BLOCK_SCRIPT_ASSETS = ['animated-text', 'code', 'docs-search', 'gallery', 'motion'];
 
     /** @var array<string,bool> per-render emitted set (bandwidth dedupe only —
      *  the asset's own exactly-once IIFE guard is the correctness authority). */
     private array $emittedBlockScripts = [];
+
+    /** A block of this render ENTERS: the finished page gets the motion flag ({@see finish()}). */
+    private bool $motionNeeded = false;
 
     /**
      * Preview-only block annotation (visual-canvas spec §2): when on, blocks()
@@ -222,6 +227,10 @@ final class RenderContextExtension extends AbstractExtension
         private readonly BlockStyleEmitter $styleEmitter = new BlockStyleEmitter(),
         /** The site's style classes (visual builder spec §4.3): soft-bound; null = no class layer. */
         private readonly ?StyleClassProvider $styleClasses = null,
+        /** Soft-bound (website plan, phase 2c): null → entry_tree() is an empty tree. */
+        private readonly ?EntryTreeReader $entryTree = null,
+        /** Soft-bound: null → search_enabled() is false, and a theme offers no search box. */
+        private readonly ?CapabilityRegistry $capabilities = null,
     ) {
         $this->locale = $defaultLocale;
     }
@@ -260,6 +269,13 @@ final class RenderContextExtension extends AbstractExtension
             new TwigFunction('asset', $this->asset(...)),
             new TwigFunction('facets', $this->facets(...)),
             new TwigFunction('entries', $this->entries(...)),
+            new TwigFunction('entry_tree', $this->entryTreeOf(...)),
+            new TwigFunction('search_enabled', $this->searchEnabled(...)),
+            new TwigFunction('markdown', $this->markdown(...), [
+                'needs_environment' => true,
+                'is_safe' => ['html'],
+            ]),
+            new TwigFunction('markdown_toc', $this->markdownToc(...), ['needs_environment' => true]),
             new TwigFunction('is_preview', $this->isPreview(...)),
             new TwigFunction('blocks', $this->blocks(...), [
                 'needs_environment' => true,
@@ -415,6 +431,65 @@ final class RenderContextExtension extends AbstractExtension
             $this->classRefsFor($frame['settings']['classes'] ?? null),
         );
         return $classes === [] ? '' : ' ' . implode(' ', $classes);
+    }
+
+    /**
+     * Notes that `$type` with `$settings` ENTERS — by its own setting or a style class's — so the
+     * finished page gets the motion flag ({@see finish()}). Never in the canvas: nothing is
+     * hidden while editing.
+     *
+     * @param array<string,mixed> $settings
+     */
+    private function noteMotion(string $type, array $settings): void
+    {
+        if ($this->motionNeeded || $this->annotateBlocks || $this->styleRegistry === null) {
+            return;
+        }
+        $targets = $this->styleRegistry->targetsFor($type);
+        $target = $targets?->targetFor('motion.entrance');
+        if ($targets === null || $target === null) {
+            return;
+        }
+        $classes = $this->styleEmitter->classesFor(
+            $settings,
+            $targets,
+            $target,
+            $this->classRefsFor($settings['classes'] ?? null),
+        );
+        foreach ($classes as $class) {
+            if (str_starts_with($class, 't-enter-') && $class !== 't-enter-none' && $class !== 't-enter-reset') {
+                $this->motionNeeded = true;
+                return;
+            }
+        }
+    }
+
+    /**
+     * The last step of a page's render, for whoever turned a template into a page: what the body
+     * turned out to need goes into the head. Today that is the motion flag ({@see Motion}) — it
+     * must be in force before the first entering block is parsed, and the head is written before
+     * the blocks are known. It goes in the head and never beside the block it protects: a script
+     * among blocks is a sibling, and a theme's `:first-child` or `+` rule would see it. A page a
+     * host does not finish has no flag, and its blocks are simply shown.
+     */
+    public function finish(string $html): string
+    {
+        if (!$this->motionNeeded) {
+            return $html;
+        }
+        $this->motionNeeded = false;
+        $tags = Motion::tags();
+        foreach (['~</head\s*>~i', '~<body[\s>]~i'] as $before) {
+            if (preg_match($before, $html, $m, PREG_OFFSET_CAPTURE) === 1) {
+                return substr($html, 0, $m[0][1]) . $tags . substr($html, $m[0][1]);
+            }
+        }
+        // A theme that leaves its head and body implied: straight after the doctype — never
+        // ahead of it, which would put the page in quirks mode.
+        if (preg_match('~\A\s*<!doctype[^>]*>~i', $html, $m) === 1) {
+            return $m[0] . $tags . substr($html, strlen($m[0]));
+        }
+        return $tags . $html;
     }
 
     /** `data-thallo-slot="<field>"` in canvas mode, nothing otherwise (spec §5.4); leading space. */
@@ -643,7 +718,7 @@ final class RenderContextExtension extends AbstractExtension
             ?? ThemeColors::DEFAULT_NEUTRAL;
 
         // Normalize (a preview override could be junk) — invalid → default.
-        $accent = ThemeColors::normalizeAccent($accent) ?? ThemeColors::DEFAULT_ACCENT;
+        $accent = ThemeColors::normalizeSiteAccent($accent) ?? ThemeColors::DEFAULT_ACCENT;
         $neutral = ThemeColors::normalizeNeutral($neutral) ?? ThemeColors::DEFAULT_NEUTRAL;
 
         // Design tokens (website plan phase 1b) ride in the same block, after the colours.
@@ -652,13 +727,49 @@ final class RenderContextExtension extends AbstractExtension
         $css = ThemeColors::css($accent, $neutral) . ThemeDesign::css(
             ThemeDesign::normalizeRadius($design['radius'] ?? '')
                 ?? $this->appearance?->radius() ?? ThemeDesign::DEFAULT_RADIUS,
-            ThemeDesign::normalizeFont($design['font'] ?? '')
-                ?? $this->appearance?->font() ?? ThemeDesign::DEFAULT_FONT,
+            $this->effectiveFont(),
             ThemeDesign::normalizeBackground($design['background'] ?? '')
                 ?? $this->appearance?->background() ?? ThemeDesign::DEFAULT_BACKGROUND,
             $neutral,
+            $this->effectiveFontFaces(),
         );
         return new \Twig\Markup($css === '' ? '' : "<style>{$css}</style>", 'UTF-8');
+    }
+
+    /** The typeface pairing this render uses: a preview's when it names one, else the saved one. */
+    private function effectiveFont(): string
+    {
+        return ThemeDesign::normalizeFont($this->appearanceDesignOverride['font'] ?? '')
+            ?? $this->appearance?->font() ?? ThemeDesign::DEFAULT_FONT;
+    }
+
+    /**
+     * The site's own faces as the URLs the media library serves them at — a preview's uuids when
+     * it names any, else the saved ones. A face the library no longer has is simply not used; a
+     * setting never reaches the stylesheet as anything but a looked-up URL.
+     *
+     * @return array{body?: string, display?: string}
+     */
+    private function effectiveFontFaces(): array
+    {
+        $uuids = $this->appearance?->fontFaces() ?? [];
+        foreach (['body' => 'font_body', 'display' => 'font_display'] as $role => $key) {
+            $previewed = $this->appearanceDesignOverride[$key] ?? null;
+            if (is_string($previewed)) {
+                unset($uuids[$role]);
+                if (ThemeDesign::normalizeFace($previewed) !== null) {
+                    $uuids[$role] = $previewed;
+                }
+            }
+        }
+        $faces = [];
+        foreach ($uuids as $role => $uuid) {
+            $url = $this->mediaUrls?->url($uuid);
+            if (is_string($url) && $url !== '') {
+                $faces[$role] = $url;
+            }
+        }
+        return $faces;
     }
 
     /**
@@ -1199,6 +1310,7 @@ final class RenderContextExtension extends AbstractExtension
                 // Settings (visual builder spec §1.2): every stored block carries them; the frame
                 // and the block context expose them to the style helpers and templates.
                 $settings = is_array($item['settings'] ?? null) ? $item['settings'] : [];
+                $this->noteMotion($type, $settings);
                 $this->blockFrames[] = [
                     'id' => $item['id'] ?? null,
                     'type' => $type,
@@ -1290,6 +1402,8 @@ final class RenderContextExtension extends AbstractExtension
         $this->resetBlockFrames();
         $this->resetPriorityImageClaim();
         $this->emittedBlockScripts = [];
+        $this->motionNeeded = false;
+        $this->markdownMemo = [];
         $this->setAssetContext(null, null);
         // Defaults-off here (not assignment-per-path like annotation) so render
         // paths unaware of the surface split — e.g. pack fragment renderers —
@@ -1363,6 +1477,84 @@ final class RenderContextExtension extends AbstractExtension
         $result = $this->entryReader->list($type, $opts, $this->locale);
         $this->collectTags($result['cache_tags']);
         return $result['items'];
+    }
+
+    /**
+     * Whether the site's search is on (the `thallo.search` capability): a theme offers a search
+     * box only where `GET /v1/search` will answer.
+     */
+    public function searchEnabled(): bool
+    {
+        return $this->capabilities?->isEnabled('thallo.search') ?? false;
+    }
+
+    /**
+     * Every published entry of a type as a navigation tree (a docs sidebar, previous and next):
+     * `groups` in the group field's enum order, `items` the same pages flat in reading order.
+     * `opts.group` and `opts.order` name the fields (default `section` and `order`). Carries its
+     * own cache tags like entries(); an unknown or undelivered type is an empty tree.
+     *
+     * @param array{group?: string, order?: string} $opts
+     * @return array{groups: list<array<string,mixed>>, items: list<array<string,mixed>>}
+     */
+    public function entryTreeOf(string $type, array $opts = []): array
+    {
+        if ($this->entryTree === null) {
+            return ['groups' => [], 'items' => []];
+        }
+        $group = is_string($opts['group'] ?? null) ? $opts['group'] : 'section';
+        $order = is_string($opts['order'] ?? null) ? $opts['order'] : 'order';
+        $tree = $this->entryTree->tree($type, $this->locale, $group, $order);
+        $this->collectTags($tree['cache_tags']);
+        return ['groups' => $tree['groups'], 'items' => $tree['items']];
+    }
+
+    /**
+     * A docs page's body: Markdown rendered by {@see Markdown\MarkdownRenderer} — generated HTML,
+     * raw HTML stripped, so it is safe to emit. A code fence is rendered by the theme's OWN
+     * `blocks/code.twig`, under a frame of its own so its style helpers answer for a code block
+     * whatever template called this. Anything that is not text renders nothing.
+     */
+    public function markdown(Environment $env, mixed $source): string
+    {
+        return $this->renderedMarkdown($env, $source)['html'];
+    }
+
+    /**
+     * The same render's h2/h3 outline, for an on-page table of contents.
+     *
+     * @return list<array{id:string,text:string,level:int}>
+     */
+    public function markdownToc(Environment $env, mixed $source): array
+    {
+        return $this->renderedMarkdown($env, $source)['toc'];
+    }
+
+    /** @var array<string,array{html:string,toc:list<array{id:string,text:string,level:int}>}> */
+    private array $markdownMemo = [];
+
+    /** @return array{html:string,toc:list<array{id:string,text:string,level:int}>} */
+    private function renderedMarkdown(Environment $env, mixed $source): array
+    {
+        if (!is_string($source)) {
+            return ['html' => '', 'toc' => []];
+        }
+        // The body and its contents are asked for separately: one render serves both.
+        $key = md5($source);
+        return $this->markdownMemo[$key] ??= (new Markdown\MarkdownRenderer())->render(
+            $source,
+            function (string $code, string $language) use ($env): string {
+                $this->blockFrames[] = ['id' => null, 'type' => 'code', 'settings' => [], 'editable_field' => null];
+                try {
+                    return $env->render('blocks/code.twig', [
+                        'data' => ['code' => $code, 'language' => $language, 'copy' => true],
+                        'block' => ['id' => null, 'type' => 'code', 'settings' => []],
+                    ]);
+                } finally {
+                    array_pop($this->blockFrames);
+                }
+            },
+        );
     }
 
     /**
@@ -1489,6 +1681,10 @@ final class RenderContextExtension extends AbstractExtension
      */
     public function fontFacesStyle(string $family, string $romanRel, ?string $italicRel = null): Markup
     {
+        // A site whose text is set in another face entirely would download this one for nothing.
+        if (!ThemeDesign::usesThemeFace($this->effectiveFont(), $this->effectiveFontFaces())) {
+            return new Markup('', 'UTF-8');
+        }
         $romanUrl = $this->assetUrlIfExists($romanRel);
         if ($romanUrl === null) {
             return new Markup('', 'UTF-8');

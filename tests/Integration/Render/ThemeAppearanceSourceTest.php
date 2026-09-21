@@ -37,6 +37,10 @@ final class ThemeAppearanceSourceTest extends AppTestCase
             {
                 return 'plain';
             }
+            public function fontFaces(): array
+            {
+                return [];
+            }
         };
     }
 

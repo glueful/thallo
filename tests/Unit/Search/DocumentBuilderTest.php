@@ -17,8 +17,9 @@ final class DocumentBuilderTest extends TestCase
     {
         $fields = [];
         foreach ($fieldTypes as $name => $type) {
-            $fields[$name] = new class ($name, $type) implements FieldDescriptor {
-                public function __construct(private string $n, private string $t)
+            [$type, $format] = array_pad(explode(':', $type, 2), 2, null);
+            $fields[$name] = new class ($name, $type, $format) implements FieldDescriptor {
+                public function __construct(private string $n, private string $t, private ?string $f)
                 {
                 }
                 public function name(): string
@@ -43,7 +44,11 @@ final class DocumentBuilderTest extends TestCase
                 }
                 public function format(): ?string
                 {
-                    return null;
+                    return $this->f;
+                }
+                public function enumValues(): array
+                {
+                    return [];
                 }
             };
         }
@@ -98,6 +103,58 @@ final class DocumentBuilderTest extends TestCase
         self::assertSame('Hello', $doc['title']);
         self::assertStringContainsString('World', $doc['body']);
         self::assertStringNotContainsString('5', $doc['body']); // number field skipped
+    }
+
+    public function testABodyIsIndexedAsTheWordsAReaderSeesNotAsItsMarkup(): void
+    {
+        // A snippet is shown to a visitor, and a tag name or a link target is not a word of the
+        // page: rich text loses its tags, Markdown (a plain text body) its syntax.
+        $doc = (new DocumentBuilder([]))->build(
+            $this->content([
+                'title' => 'Installing',
+                'html' => '<h2>Requirements</h2><p>PHP &amp; <strong>PostgreSQL</strong>.</p>',
+                'markdown' => "## Create a project\n\nRun `composer install`, then see [the guide](/docs/guide#x).\n\n"
+                    . "```bash\n$ php glueful thallo:provision\n```\n\n"
+                    . "| Key | Value |\n|---|---|\n| **APP_ENV** | production |\n"
+                    . "\n- [x] done\n\n> quoted ![diagram](img.png)",
+            ]),
+            $this->schema(['title' => 'string', 'html' => 'text:rich', 'markdown' => 'text:plain']),
+        );
+        self::assertStringContainsString('Requirements PHP & PostgreSQL.', $doc['body']);
+        self::assertStringNotContainsString('<', $doc['body']);
+        self::assertStringNotContainsString('strong', $doc['body']);
+        $kept = [
+            'Create a project', 'composer install', 'the guide', 'php glueful thallo:provision',
+            'APP_ENV', 'production', 'done', 'quoted', 'diagram',
+        ];
+        foreach ($kept as $words) {
+            self::assertStringContainsString($words, $doc['body'], $words);
+        }
+        foreach (['##', '`', '](', '/docs/guide', '|', '---', '**', '[x]', 'img.png', '> '] as $syntax) {
+            self::assertStringNotContainsString($syntax, $doc['body'], $syntax);
+        }
+    }
+
+    public function testAFieldThatHoldsAPathOrAUrlIsNotProse(): void
+    {
+        // A docs page carries the file it came from and where to edit it: not what it is about.
+        $doc = (new DocumentBuilder([]))->build(
+            $this->content([
+                'title' => 'Installing',
+                'summary' => 'Get it running.',
+                'source_path' => 'getting-started/01-install.md',
+                'edit_url' => 'https://github.com/acme/site/edit/main/docs/install.md',
+                'note' => 'Either/or is a phrase, and so stays.',
+            ]),
+            $this->schema([
+                'title' => 'string', 'summary' => 'string', 'source_path' => 'string',
+                'edit_url' => 'string', 'note' => 'string',
+            ]),
+        );
+        self::assertStringContainsString('Get it running.', $doc['body']);
+        self::assertStringContainsString('Either/or is a phrase', $doc['body']);
+        self::assertStringNotContainsString('01-install.md', $doc['body']);
+        self::assertStringNotContainsString('github.com', $doc['body']);
     }
 
     public function testTitleFallbackChainUsesEntryLabelThenFirstStringField(): void

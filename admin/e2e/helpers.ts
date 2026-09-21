@@ -110,6 +110,7 @@ export async function routeWorld(page: Page, world: World = {}): Promise<Recorde
       return json(route, fixture('api/content-types.json'))
     if (method === 'GET' && path === '/block-types')
       return json(route, fixture('api/block-types.json'))
+    if (method === 'GET' && path === '/patterns') return json(route, fixture('api/patterns.json'))
     if (method === 'GET' && path === '/render/style-schema')
       return json(route, fixture('api/style-schema.json'))
     if (method === 'GET' && path === '/style-classes') {
@@ -394,7 +395,11 @@ export function indicator(page: Page) {
 
 /** Open the inspector's Blocks tab (the Design page's one palette, Phase C.1). */
 export async function openBlocksTab(page: Page): Promise<void> {
-  await page.locator('[data-test="inspector-tabs"] button', { hasText: 'Blocks' }).click()
+  // By role: the Blocks tab's own view switch has a "Blocks" button too.
+  await page
+    .locator('[data-test="inspector-tabs"]')
+    .getByRole('tab', { name: 'Blocks', exact: true })
+    .click()
   await page.locator('[data-test="blocks-tab"]').waitFor()
 }
 
@@ -409,7 +414,17 @@ export async function dragTileTo(
   target: ReturnType<ReturnType<typeof stage>['locator']>,
   release = true,
 ): Promise<void> {
-  const tile = page.locator(`[data-test="palette-card-${slug}"]`)
+  return dragCardTo(page, `[data-test="palette-card-${slug}"]`, target, release)
+}
+
+/** The same gesture from any palette card: a block tile, or a section of the library. */
+export async function dragCardTo(
+  page: Page,
+  card: string,
+  target: ReturnType<ReturnType<typeof stage>['locator']>,
+  release = true,
+): Promise<void> {
+  const tile = page.locator(card)
   await tile.scrollIntoViewIfNeeded()
   // The target must sit in the iframe's viewport, clear of the bridge's edge auto-scroll zones:
   // a hover past the edge finds no element, and one near it scrolls the content away.

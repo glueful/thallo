@@ -141,6 +141,11 @@ $manager->addMigrationPath(
     'glueful/thallo-seo'
 );
 $manager->addMigrationPath(
+    $root . '/packages/thallo-search/migrations',
+    MigrationPriority::DEPENDENT,
+    'glueful/thallo-search'
+);
+$manager->addMigrationPath(
     $root . '/packages/thallo-workflow/migrations',
     MigrationPriority::DEPENDENT,
     'glueful/thallo-workflow'

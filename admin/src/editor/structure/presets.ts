@@ -141,7 +141,7 @@ function sectionChildren(align: 'center' | 'start'): PlannedChild[] {
           position: { parent: '', slot: 'content', index: 0 },
           settings: {
             style: {
-              colors: { text: { base: token('color.accent') } },
+              colors: { text: token('color.accent') },
               typography: { weight: { base: choice('semibold') } },
               spacing: { margin: { bottom: { base: token('spacing.sm') } } },
               alignment: { text: text(align) },
@@ -159,7 +159,7 @@ function sectionChildren(align: 'center' | 'start'): PlannedChild[] {
           position: { parent: '', slot: 'content', index: 2 },
           settings: {
             style: {
-              colors: { text: { base: token('color.muted') } },
+              colors: { text: token('color.muted') },
               typography: { size: { base: token('typography.size.lg') } },
               width: { base: token('width.content') },
               alignment: { text: text(align), self: text(align) },

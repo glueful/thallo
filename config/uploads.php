@@ -10,6 +10,9 @@ return [
         'video/*',
         'audio/*',
         'application/pdf',
+        // A site's own typefaces (Site › Appearance): woff2 only, the one format every browser a
+        // theme supports reads.
+        'font/woff2',
     ],
 
     // Maximum file size in bytes (10MB default)

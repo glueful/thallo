@@ -1,0 +1,98 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Build the thumbnails of the section and page library (admin/public/pattern-thumbs/<slug>.jpg):
+ * every pattern rendered through the DEFAULT theme's own templates and stylesheets and captured
+ * in Chromium by tools/style-proofs — so a thumbnail is the section, not a drawing of it. A
+ * section is captured whole at half scale (600px wide); a page is its first screens.
+ *
+ * Run it again when a pattern or the default theme's look changes; PatternThumbnailsTest fails
+ * while a pattern has no thumbnail, or a thumbnail no pattern.
+ *
+ *   DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-pattern-thumbnails
+ */
+
+declare(strict_types=1);
+
+use Thallo\Core\Content\Patterns\PatternLibrary;
+
+require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/lib/showcase.php';
+
+$root = dirname(__DIR__);
+$container = showcase_boot($root);
+$render = showcase_renderer($container, $root, 'default');
+
+$work = $root . '/tools/style-proofs/fixtures/patterns';
+$out = $root . '/admin/public/pattern-thumbs';
+foreach ([$work, $out] as $dir) {
+    if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
+        fwrite(STDERR, "cannot create {$dir}\n");
+        exit(1);
+    }
+}
+// A thumbnail no pattern owns is a stale file: start clean.
+foreach (glob($out . '/*.jpg') ?: [] as $stale) {
+    unlink($stale);
+}
+
+/**
+ * A form ships with no recipient — the author has to say where messages go, and until then the
+ * block says so in place of its fields. The PICTURE shows the form as it will look once set up.
+ */
+$configured = static function (array $blocks) use (&$configured): array {
+    return array_map(static function (array $block) use (&$configured): array {
+        if ($block['type'] === 'form' && ($block['data']['recipient'] ?? '') === '') {
+            $block['data']['recipient'] = 'hello@example.com';
+        }
+        foreach ($block['data'] as $key => $value) {
+            if (is_array($value) && $value !== [] && is_array($value[0] ?? null) && isset($value[0]['type'])) {
+                $block['data'][$key] = $configured($value);
+            }
+        }
+        return $block;
+    }, $blocks);
+};
+
+$jobs = [];
+foreach ($container->get(PatternLibrary::class)->all() as $pattern) {
+    $page = $work . '/' . $pattern['slug'] . '.html';
+    file_put_contents($page, $render(showcase_with_ids($configured($pattern['blocks'])), $pattern['slug']));
+    $jobs[] = [
+        'page' => $page,
+        'out' => $out . '/' . $pattern['slug'] . '.jpg',
+        'width' => 1200,
+        'scale' => 0.5,
+        'quality' => 80,
+        // The blocks themselves: the margins a theme puts around a band are the page's, not its.
+        'trim' => true,
+        // A page's thumbnail is its first screens; a section is shown whole.
+        'maxHeight' => $pattern['kind'] === 'page' ? 2400 : 1600,
+    ];
+}
+$jobsFile = $work . '/jobs.json';
+file_put_contents($jobsFile, json_encode($jobs));
+passthru('node ' . escapeshellarg($root . '/tools/style-proofs/capture-page.js') . ' ' . escapeshellarg($jobsFile), $status);
+if ($status !== 0) {
+    fwrite(STDERR, "The capture failed (run `npm install` in tools/style-proofs).\n");
+    exit(1);
+}
+// Each picture's size, for the admin to reserve its place before it loads: a card that grows
+// when its image arrives moves every card below it, under the author's pointer.
+$sizes = [];
+foreach (glob($out . '/*.jpg') ?: [] as $file) {
+    [$width, $height] = (array) getimagesize($file);
+    $sizes[basename($file, '.jpg')] = [(int) $width, (int) $height];
+}
+ksort($sizes);
+// Laid out as the admin's formatter lays JSON out, so a rebuild never fails its format check.
+$rows = [];
+foreach ($sizes as $slug => [$width, $height]) {
+    $rows[] = '  ' . json_encode($slug, JSON_THROW_ON_ERROR) . ": [{$width}, {$height}]";
+}
+file_put_contents(
+    $root . '/admin/src/editor/palette/patternThumbSizes.json',
+    "{\n" . implode(",\n", $rows) . "\n}\n",
+);
+$bytes = array_sum(array_map('filesize', glob($out . '/*.jpg') ?: []));
+fwrite(STDOUT, 'Wrote ' . count($jobs) . ' thumbnails to admin/public/pattern-thumbs (' . number_format($bytes) . " bytes).\n");

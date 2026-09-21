@@ -17,4 +17,10 @@ interface FieldDescriptor
     public function referenceSlugField(): ?string;
     /** Text-field presentation format ('plain' | 'rich'); null for non-text fields. */
     public function format(): ?string;
+    /**
+     * An enum field's options, in the order its author wrote them; [] for any other field.
+     *
+     * @return list<string>
+     */
+    public function enumValues(): array;
 }

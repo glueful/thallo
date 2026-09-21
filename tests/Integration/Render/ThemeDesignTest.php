@@ -43,6 +43,10 @@ final class ThemeDesignTest extends AppTestCase
             {
                 return $this->b;
             }
+            public function fontFaces(): array
+            {
+                return [];
+            }
         };
     }
 

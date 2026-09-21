@@ -18,6 +18,7 @@ export const qk = {
   contentTypes: () => ['content-types'] as const,
   contentType: (slug: string) => ['content-type', slug] as const,
   blockTypes: () => ['block-types'] as const,
+  patterns: () => ['patterns'] as const,
   styleSchema: () => ['style-schema'] as const,
   styleClasses: () => ['style-classes'] as const,
   styleClassUsage: (id: string) => ['style-class-usage', id] as const,

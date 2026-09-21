@@ -27,6 +27,8 @@ vi.mock('@/composables/useNotify', () => ({
 // The page renders FaviconPreview from blobDisplayUrl(form.site_favicon).
 vi.mock('@/queries/media', () => ({
   blobDisplayUrl: (uuid: string) => `/blobs/${uuid}`,
+  // The font fields (Custom typefaces) upload through it; their own spec covers the upload.
+  useUploadMedia: () => ({ mutateAsync: vi.fn(), isLoading: { value: false } }),
 }))
 // Theme card options come from the render pack's themes endpoint.
 const fetchRenderThemesMock = vi.hoisted(() => vi.fn())
@@ -71,6 +73,8 @@ const settings = (): GeneralSettings => ({
   theme_neutral: 'slate',
   theme_radius: 'round',
   theme_font: 'sans',
+  theme_font_body: '',
+  theme_font_display: '',
   theme_background: 'plain',
   admin_url: '',
   listing_types: ['post'],
@@ -83,6 +87,8 @@ const APPEARANCE = {
   theme_neutral: 'slate',
   theme_radius: 'round',
   theme_font: 'sans',
+  theme_font_body: '',
+  theme_font_display: '',
   theme_background: 'plain',
   site_logo: '',
   site_logo_dark: '',
@@ -97,6 +103,17 @@ async function save(wrapper: ReturnType<typeof mount>) {
   return calls[calls.length - 1]![0] as Record<string, unknown>
 }
 
+const themeCard = (name: string, title: string) => ({
+  name,
+  title,
+  version: null,
+  description: null,
+  author: null,
+  tags: [],
+  colors: null,
+  screenshot_url: null,
+})
+
 describe('appearance page', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -104,9 +121,11 @@ describe('appearance page', () => {
     saveMock.mockReset().mockResolvedValue({ ...settings() })
     notify.success.mockClear()
     notify.error.mockClear()
-    fetchRenderThemesMock
-      .mockReset()
-      .mockResolvedValue({ themes: ['default', 'corporate'], active: 'default' })
+    fetchRenderThemesMock.mockReset().mockResolvedValue({
+      themes: ['default', 'corporate'],
+      active: 'default',
+      cards: [themeCard('default', 'Default'), themeCard('corporate', 'corporate')],
+    })
   })
 
   it('shows the four appearance cards and nothing of how the site behaves', async () => {
@@ -159,10 +178,19 @@ describe('appearance page', () => {
     expect(await save(wrapper)).toEqual({ ...APPEARANCE, ...stored })
   })
 
-  it('the Theme card lists the themes; a failed fetch hides it without an error', async () => {
+  it('the Theme card is a gallery of the themes; a failed fetch hides it without an error', async () => {
     const wrapper = mount(AppearancePage)
     await flushPromises()
-    expect(wrapper.find('[data-test="theme-setting-select"]').text()).toContain('default')
+    // The saved theme is the chosen one and is marked live.
+    const live = wrapper.find('[data-test="theme-option-default"]')
+    expect(live.attributes('aria-checked')).toBe('true')
+    expect(live.find('[data-test="theme-live"]').exists()).toBe(true)
+
+    // Choosing another is only a choice until Save, which sends it with the rest of the form.
+    await wrapper.find('[data-test="theme-option-corporate"]').trigger('click')
+    expect(wrapper.find('[data-test="theme-pending"]').exists()).toBe(true)
+    expect(saveMock).not.toHaveBeenCalled()
+    expect(await save(wrapper)).toMatchObject({ theme: 'corporate' })
 
     fetchRenderThemesMock.mockRejectedValue(new Error('403'))
     const hidden = mount(AppearancePage)
@@ -278,6 +306,41 @@ describe('appearance page', () => {
       await vi.runAllTimersAsync()
       await flushPromises()
       expect(postMock).toHaveBeenCalledTimes(2)
+    })
+
+    it('previews a brand colour and the site’s own fonts before they are saved', async () => {
+      settingsData.value = { ...withHomepage(), theme_font_display: 'fonthead0001' }
+      const wrapper = mount(AppearancePage)
+      await flushPromises()
+      await vi.runAllTimersAsync()
+      await flushPromises()
+      // A saved face rides along only with the pairing that uses it.
+      expect(mintedWith(0).body).not.toHaveProperty('font_display')
+      expect(wrapper.find('[data-test="custom-fonts"]').exists()).toBe(false)
+
+      const page = wrapper.vm as unknown as { form: Record<string, string> }
+      page.form.theme_accent = '#0a7c66'
+      page.form.theme_font = 'custom'
+      page.form.theme_font_body = 'fontbody0001'
+      page.form.theme_font_display = '' // the saved headings face, taken off
+      await flushPromises()
+      await vi.runAllTimersAsync()
+      await flushPromises()
+
+      expect(wrapper.find('[data-test="custom-fonts"]').exists()).toBe(true)
+      expect(mintedWith(1).body).toMatchObject({
+        accent: '#0a7c66',
+        font: 'custom',
+        font_body: 'fontbody0001',
+        font_display: 'none', // '' would mean "as saved" to the preview
+      })
+      expect(saveMock).not.toHaveBeenCalled()
+      expect(await save(wrapper)).toMatchObject({
+        theme_accent: '#0a7c66',
+        theme_font: 'custom',
+        theme_font_body: 'fontbody0001',
+        theme_font_display: '',
+      })
     })
 
     it('names the theme only once another one is chosen — and drops it again when the choice goes back', async () => {

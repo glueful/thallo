@@ -115,6 +115,7 @@ properties.
 | `typography` | + `line_height` (`tight, snug, normal, relaxed, loose`) | choice, reset | yes |
 | `border` | + `sides` (`all, top, right, bottom, left`) | choice, reset | no |
 | `backdrop` | `colors.surface_opacity` (`100`–`50`), `backdrop.blur` (`none, sm, md, lg`) | choice, reset | no |
+| `motion`, `motion.children`, `motion.media` | `motion.entrance`, `duration`, `delay`, `repeat`; `motion.stagger`; `motion.ken_burns` | choice, reset | no |
 
 **Amended 2026-09-19 — `marker`.** A block's marker — a feature's icon chip or number badge — has
 corners and a shadow of its own, set in the Style tab under **Marker**. They are their own paths
@@ -155,6 +156,65 @@ page's presentation hides chrome), layout or typography; no style classes, no Ad
 targets: `root`, the bar, and `inner`, where a theme pads and so where padding lands. Templates
 emit through `region_style_classes(slug, target, settings?)`; the third argument is for the admin's
 chrome preview, which renders posted settings.
+
+**Amended 2026-09-21 — motion.** Six choice properties in three groups, none responsive.
+`motion` (entrance, duration, delay, repeat) lands on a block's root; every starter block declares
+it except a part of another block or one with nothing to show (`tab`, `accordion_item`, `spacer`,
+`animated_text`), and it is one of the groups an admin-made block may take. `motion.children`
+(stagger) is the container's, on `inner`. `motion.media` (Ken Burns) lands on a picture *frame* —
+the target whose direct child is the picture: the container's `root`, the hero's `media`; not the
+image block, whose figure also holds its gutters and caption. The library declares all three in one
+place (`StarterBlockTypes::withMotion`), not block by block.
+
+An entrance utility only names values (`--t-enter-transform`, `--t-enter-duration`,
+`--t-enter-delay`); one shared rule hides and transitions, scoped to `html[data-thallo-motion]`,
+to `prefers-reduced-motion: no-preference` and to `:not([data-thallo-entered])`. The attribute on
+`html` is set by a byte-stable inline flag (`Motion::FLAG_JS`, hash published). The head is
+rendered before the body is known, so the renderer only NOTES that a block enters, and whoever
+turned the template into a page calls `RenderContextExtension::finish($html)`, which puts the flag
+and a deferred block asset (`block-motion.js`, an IntersectionObserver) before `</head>` (else
+before `<body`, else after the doctype). A first draft wrote it immediately before the first
+entering block; that made a `<script>` the block's sibling, which a theme's `:first-child` or `+`
+rule sees (the default theme's first-block rule for a hero carousel did). A page that is not
+finished has no flag and shows its blocks. The flag withdraws itself after 3s if the asset never
+ran. A canvas render never notes anything. Stagger is
+`:nth-child(k of :not(script))` on the host's children, capped at 12, through a registered
+non-inheriting `--t-enter-stagger`; like a span, the rule also reaches through the stage's
+`display: contents` block wrapper, which takes the child's place there. Ken Burns is CSS only: the frame clips, its direct
+`img, picture, video` child animates between `--t-kb-from` and `--t-kb-to`; those two are stated
+outside the reduced-motion query because the editor's Play reads them. Empty rules are written
+for values that declare nothing (`none`, `once`), as for modifiers. In the canvas motion is held
+still and `thallo:motion-play` replays one block (`data-thallo-motion-play`: `from`, a forced
+reflow, `to`). The schema moves to 8 and the compiler to 9.
+
+**Amended 2026-09-21 — the section and page library.** The Blocks tab gains Sections and Pages.
+A pattern is a tree of ordinary blocks with ordinary settings and nothing else: there is no
+pattern entity, no link from an inserted section back to the library, and no new operation. The
+definitions are code (`Content\Patterns\StarterPatterns`); a page is a list of section slugs, so
+pages cannot drift from their sections. `PatternLibrary` lays each block over the block factory's
+canonical instance of its type and drops a pattern (and any page made of it) that needs a type the
+site has switched off. `GET /patterns` serves the trees WITHOUT ids — the editor mints them, as for
+every block it creates. A section is ONE block, so under a `pattern:` key it takes the palette's
+whole path (click, Enter, drag), with the library standing in for the factory and
+`checkInsertSubtree` for the tile preflight. A page is N `InsertBlock` operations in one
+transaction, judged first by `checkInsertSequence`, so it lands whole or not at all. Thumbnails are
+the admin's static files, captured from the default theme's real render
+(`scripts/build-pattern-thumbnails`); a test pairs every pattern with one, and another holds
+every pattern to the validation a page save runs, to the depth cap less one, and to rendering.
+Not yet: patterns contributed by a theme or a pack, and saving a selection as a pattern.
+
+**Amended 2026-09-21 — a block type made in the admin declares style too.** §1.7 had a
+declaration only for code-declared types, so an admin-made block's Style tab was empty. Such a type
+now carries ONE target — `root`, a `box`: its outermost element — and the admin chooses which
+capability GROUPS it supports, from the groups a box can carry (`CustomBlockStyle::GROUPS`; not
+`alignment.text`, which needs a text target, nor the parent-layout groups, which need a stack, nor
+the groups that belong to one block's parts). The block types API accepts `style_capabilities` on
+create and update (absent = leave the declaration alone; `[]` = clear it), offers the groups and
+names the code-declared slugs in its index, and refuses: a group outside the offer; any change to
+a code-declared type (provision re-syncs those from code); and — asked of the renderer through
+`BlockTemplateTargetCheck` — groups switched on over a template that does not style `root`, since
+a stored template that leaves a declared target unstyled refuses to load. A type with no template
+yet is not refused: the lint holds the template to the declaration when it is written.
 
 Alignment is typed by meaning. `alignment.text` is `text-align` on a text target.
 `alignment.content` places a row target's children horizontally (`justify-content` on a

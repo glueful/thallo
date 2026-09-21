@@ -20,6 +20,8 @@ export interface PaletteDragDeps {
   /** The stage iframe's rect in the main viewport, or null while the stage is not mounted. */
   iframeRect: () => DOMRect | null
   factory: { instance(slug: string): Promise<BlockInstance> }
+  /** What the ghost says for a slug; the slug itself when not given. */
+  labelOf?: (slug: string) => string
   coordinator: { begin(source: 'palette', payload: { block: BlockInstance }): string }
   notify: (err: unknown, title: string) => void
   /** A release below the threshold: the gesture was a click. */
@@ -209,7 +211,7 @@ export function createPaletteDrag(deps: PaletteDragDeps): PaletteDrag {
       const dy = last.y - origin.y
       if (Math.hypot(dx, dy) < threshold) return
       state = 'dragging'
-      showGhost(slug)
+      showGhost(deps.labelOf?.(slug) ?? slug)
       moveGhost(last.x, last.y)
       void startSession(gestureId)
       return

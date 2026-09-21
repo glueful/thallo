@@ -1,6 +1,11 @@
 {
   "name": "default",
+  "title": "Default",
   "version": "1.0.0",
+  "description": "Thallo's own theme: clean, light and dark, with every block styled. A sound base to clone and make yours.",
+  "author": "Thallo",
+  "tags": ["general", "light and dark", "all blocks"],
+  "screenshot": "screenshot.jpg",
   "menus": [
     "main"
   ],
@@ -50,6 +55,7 @@
     "assets/site.css",
     "assets/blocks.css",
     "assets/navigation.css",
-    "assets/stepper.css"
+    "assets/stepper.css",
+    "assets/docs.css"
   ]
 }

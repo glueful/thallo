@@ -34,6 +34,9 @@ export interface GeneralSettings {
   /** Design settings (website plan phase 1b): closed enums; the defaults are today's look. */
   theme_radius: string
   theme_font: string
+  /** The site's own faces (the `custom` pairing): media library uuids of woff2 files; '' = none. */
+  theme_font_body: string
+  theme_font_display: string
   theme_background: string
   /** Admin SPA base URL for the preview bar's Edit/Design links. */
   admin_url: string

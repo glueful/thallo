@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 7;
+    public const VERSION = 8;
 
     /** Platform breakpoints: `md` from 768px, `lg` from 1024px. */
     public const BREAKPOINTS = ['base', 'md', 'lg'];
@@ -149,6 +149,30 @@ final class StyleSchema
         // size is — a heading set large on a desktop wants tighter lines there.
         $defs[] = new PropertyDefinition('typography.line_height', 'typography', $choice, true, null, [
             'tight', 'snug', 'normal', 'relaxed', 'loose',
+        ]);
+
+        // Motion: how a block ENTERS as it scrolls into view. `motion` is a group any block may
+        // declare — the entrance, how long it takes, how long it waits, whether it replays each
+        // time. `motion.children` is the arranger's alone (a container's content area): stagger
+        // spaces out the entrances of ITS CHILDREN. None is responsive: an entrance is one event,
+        // not a layout.
+        $defs[] = new PropertyDefinition('motion.entrance', 'motion', $choice, false, null, [
+            'none', 'fade', 'fade-up', 'fade-down', 'slide-left', 'slide-right', 'zoom-in',
+        ]);
+        $defs[] = new PropertyDefinition('motion.duration', 'motion', $choice, false, null, [
+            'fast', 'normal', 'slow',
+        ]);
+        $defs[] = new PropertyDefinition('motion.delay', 'motion', $choice, false, null, [
+            'none', 'short', 'medium', 'long',
+        ]);
+        $defs[] = new PropertyDefinition('motion.repeat', 'motion', $choice, false, null, ['once', 'always']);
+        $defs[] = new PropertyDefinition('motion.stagger', 'motion.children', $choice, false, null, [
+            'none', 'short', 'medium', 'long',
+        ]);
+        // Ken Burns: a picture drifting slowly and continuously inside its frame. Not an entrance;
+        // the group of a block that HAS a picture in a frame, and it lands on the frame.
+        $defs[] = new PropertyDefinition('motion.ken_burns', 'motion.media', $choice, false, null, [
+            'none', 'zoom-in', 'zoom-out', 'pan-left', 'pan-right',
         ]);
 
         $byPath = [];

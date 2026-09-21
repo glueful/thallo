@@ -3,10 +3,11 @@ import { reactive, ref, watch, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 import * as z from 'zod'
 import type { Form, FormSubmitEvent } from '@nuxt/ui'
-import { useBlockTypeMutations } from '@/queries/blockTypes'
+import { useBlockTypeMutations, useBlockTypeStyleOptions } from '@/queries/blockTypes'
 import { validateContentTypeFields, type ContentTypeField } from '@/queries/contentTypes'
 import { toApiError } from '@/api/errors'
 import { useNotify } from '@/composables/useNotify'
+import BlockTypeStyleSettings from './components/BlockTypeStyleSettings.vue'
 
 definePage({ meta: { requiresAuth: true } })
 
@@ -28,6 +29,11 @@ type Schema = z.output<typeof schema>
 
 const state = reactive({ label: '', slug: '', icon: '', category: '', description: '' })
 const fields = ref<ContentTypeField[]>([])
+// The setting groups the new block offers in the designer. A new type has no template yet, so
+// nothing can refuse them; the template lint holds the template to them when it is written.
+const { data: styleOptions } = useBlockTypeStyleOptions()
+const styleGroups = ref<string[]>([])
+const styleError = ref<string | null>(null)
 const createForm = useTemplateRef<Form<Schema>>('createForm')
 
 // Auto-derive the slug from the label until the user edits the slug directly.
@@ -52,8 +58,10 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     notifyError(new Error(fieldError), 'Check the fields')
     return
   }
+  styleError.value = null
   try {
     await create.mutateAsync({
+      ...(styleGroups.value.length > 0 ? { style_capabilities: [...styleGroups.value] } : {}),
       slug: event.data.slug,
       label: event.data.label,
       icon: event.data.icon?.trim() || null,
@@ -65,6 +73,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     await router.push('/settings/block-types')
   } catch (e) {
     const err = toApiError(e)
+    if (err.fieldErrors.style_capabilities) styleError.value = err.fieldErrors.style_capabilities
     const fieldErrors = Object.entries(err.fieldErrors).map(([name, message]) => ({
       name,
       message,
@@ -164,6 +173,19 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
               <template #header><h2 class="font-semibold text-default">Fields</h2></template>
               <!-- Block schemas reject nested blocks/localized/filterable (spec §2). -->
               <ContentTypeFields v-model="fields" context="block-type" />
+            </UCard>
+
+            <UCard class="mt-6" data-test="block-type-style-card">
+              <template #header>
+                <h2 class="font-semibold text-default">Style settings</h2>
+              </template>
+              <BlockTypeStyleSettings
+                v-model="styleGroups"
+                :slug="state.slug || 'your-block'"
+                :options="styleOptions?.options ?? []"
+                :error="styleError"
+                creating
+              />
             </UCard>
           </div>
         </div>

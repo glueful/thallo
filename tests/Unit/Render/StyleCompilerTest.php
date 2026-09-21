@@ -126,6 +126,121 @@ final class StyleCompilerTest extends TestCase
         self::assertStringNotContainsString('.md\\:t-tabradius', $css, 'not responsive, as radius is not');
     }
 
+    public function testAnEntranceIsAStartingStateInVariablesAndOneSharedRuleAnimatesThemAll(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+
+        // The utilities only NAME where the block starts from, how long it takes and how long it
+        // waits. `none` and a reset start nowhere, so their rules are empty — but written, since
+        // every class the emitter can write has a rule.
+        self::assertStringContainsString('.t-enter-fade { --t-enter-transform: none; }', $css);
+        self::assertStringContainsString('.t-enter-fade-up { --t-enter-transform: translateY(1.5rem); }', $css);
+        self::assertStringContainsString('.t-enter-slide-left { --t-enter-transform: translateX(2rem); }', $css);
+        self::assertStringContainsString('.t-enter-zoom-in { --t-enter-transform: scale(0.92); }', $css);
+        self::assertStringContainsString(".t-enter-none { }\n", $css);
+        self::assertStringContainsString(".t-enter-reset { }\n", $css);
+        self::assertStringContainsString('.t-enterdur-slow { --t-enter-duration: 1000ms; }', $css);
+        self::assertStringContainsString('.t-enterdelay-short { --t-enter-delay: 150ms; }', $css);
+        self::assertStringContainsString('.t-enterdelay-reset { --t-enter-delay: revert-layer; }', $css);
+        // Repeat is read by the script, not by CSS.
+        self::assertStringContainsString(".t-enterrepeat-always { }\n", $css);
+
+        // ONE rule hides and animates every entrance, and only where three things hold: the
+        // visitor has not asked for reduced motion, the page's script has said it is running
+        // (html[data-thallo-motion] — so without JavaScript nothing is ever hidden), and the block
+        // has not entered yet.
+        $entrances = ':is(.t-enter-fade, .t-enter-fade-up, .t-enter-fade-down, .t-enter-slide-left, '
+            . '.t-enter-slide-right, .t-enter-zoom-in)';
+        self::assertStringContainsString('@media (prefers-reduced-motion: no-preference) {', $css);
+        self::assertStringContainsString(
+            "html[data-thallo-motion] {$entrances}:not([data-thallo-entered]) { opacity: 0; "
+                . 'transform: var(--t-enter-transform, none); }',
+            $css,
+        );
+        self::assertStringContainsString(
+            "html[data-thallo-motion] {$entrances} { transition: opacity var(--t-enter-duration, 600ms) ease-out, "
+                . 'transform var(--t-enter-duration, 600ms) cubic-bezier(0.2, 0.7, 0.2, 1); '
+                . 'transition-delay: calc(var(--t-enter-delay, 0ms) + var(--t-enter-stagger, 0ms)); }',
+            $css,
+        );
+        self::assertStringNotContainsString('.t-enter-none,', $css, 'none is not an entrance');
+        self::assertStringEndsWith("}\n}\n", $css, 'inside the layer, as everything is');
+    }
+
+    public function testKenBurnsClipsTheFrameAndDriftsThePictureDirectlyInsideIt(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+
+        // The class lands on the FRAME, which clips; what moves is the picture that is its
+        // DIRECT child — never a picture deeper inside (a container's content is not its
+        // background). `none` does nothing.
+        foreach (['zoom-in', 'zoom-out', 'pan-left', 'pan-right'] as $drift) {
+            self::assertStringContainsString(".t-kenburns-{$drift} { overflow: clip; }", $css);
+        }
+        self::assertStringContainsString(".t-kenburns-none { }\n", $css);
+        self::assertStringContainsString(".t-kenburns-reset { overflow: revert-layer; }\n", $css);
+
+        $frames = ':is(.t-kenburns-zoom-in, .t-kenburns-zoom-out, .t-kenburns-pan-left, .t-kenburns-pan-right)';
+        self::assertStringContainsString(
+            "{$frames} > :is(img, picture, video) { animation: t-kenburns 20s ease-in-out infinite alternate; "
+                . 'transform-origin: center; }',
+            $css,
+        );
+        self::assertStringContainsString(
+            '.t-kenburns-zoom-in > :is(img, picture, video) { --t-kb-from: scale(1); --t-kb-to: scale(1.15); }',
+            $css,
+        );
+        self::assertStringContainsString(
+            '.t-kenburns-pan-left > :is(img, picture, video) { --t-kb-from: scale(1.12) translateX(3%); '
+                . '--t-kb-to: scale(1.12) translateX(-3%); }',
+            $css,
+        );
+        self::assertStringContainsString(
+            '@keyframes t-kenburns { from { transform: var(--t-kb-from); } to { transform: var(--t-kb-to); } }',
+            $css,
+        );
+        // A visitor who asks for reduced motion gets a still picture: the drift is inside the
+        // same media query as the entrances.
+        $media = strpos($css, '@media (prefers-reduced-motion: no-preference) {');
+        self::assertNotFalse($media);
+        self::assertGreaterThan($media, strpos($css, 'animation: t-kenburns'));
+        // Where the drift starts and ends is only a pair of values, and it is stated outside the
+        // query: the editor's Play replays a drift by hand, whatever the editor's own preference.
+        self::assertLessThan($media, strpos($css, '--t-kb-from: scale(1);'));
+    }
+
+    public function testStaggerDelaysEachChildByItsPlaceAndDoesNotReachGrandchildren(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+
+        // The k-th child starts (k-1) steps late; a script tag among the children is not counted;
+        // past the twelfth the delay stops growing, so a long list does not wait for seconds.
+        // On the stage every block root sits in a display:contents wrapper, which takes the
+        // child's place: the delay reaches through it (as a span does), or Play would not stagger.
+        self::assertStringContainsString(
+            ".t-stagger-short > :nth-child(2 of :not(script)),\n"
+            . '.t-stagger-short > .thallo-preview-block:nth-child(2 of :not(script)) > *'
+            . ' { --t-enter-stagger: 80ms; }',
+            $css,
+        );
+        self::assertStringContainsString(
+            '.t-stagger-medium > .thallo-preview-block:nth-child(3 of :not(script)) > *'
+            . ' { --t-enter-stagger: 300ms; }',
+            $css,
+        );
+        self::assertStringContainsString(
+            '.t-stagger-long > .thallo-preview-block:nth-child(n+12 of :not(script)) > *'
+            . ' { --t-enter-stagger: 2750ms; }',
+            $css,
+        );
+        self::assertStringContainsString(".t-stagger-none { }\n", $css);
+        // Registered as non-inheriting: a block inside a staggered child keeps its own timing.
+        self::assertStringContainsString(
+            "@property --t-enter-stagger { syntax: '<time>'; inherits: false; initial-value: 0ms; }",
+            $css,
+        );
+    }
+
     public function testLineHeightCompilesToUnitlessValuesAtEveryBreakpoint(): void
     {
         $css = StyleCompiler::compile($this->vocabulary());
@@ -155,7 +270,7 @@ final class StyleCompilerTest extends TestCase
             '.t-bsides-left { border-top-width: 0; border-right-width: 0; border-bottom-width: 0; }',
             $css,
         );
-        self::assertStringContainsString(".t-bsides-all {  }\n", $css);
+        self::assertStringContainsString(".t-bsides-all { }\n", $css);
         self::assertStringContainsString(".t-bsides-reset { }\n", $css);
         self::assertGreaterThan(strpos($css, '.t-bw-thin {'), strpos($css, '.t-bsides-bottom {'));
     }

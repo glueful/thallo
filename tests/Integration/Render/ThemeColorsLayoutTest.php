@@ -40,6 +40,10 @@ final class ThemeColorsLayoutTest extends AppTestCase
             {
                 return 'plain';
             }
+            public function fontFaces(): array
+            {
+                return [];
+            }
         };
         $ext = new RenderContextExtension(
             null,

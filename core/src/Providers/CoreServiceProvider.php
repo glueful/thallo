@@ -580,6 +580,11 @@ final class CoreServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            \Thallo\Core\Content\Patterns\PatternLibrary::class => [
+                'class' => \Thallo\Core\Content\Patterns\PatternLibrary::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             ContentTypeRepository::class => [
                 'class' => ContentTypeRepository::class,
                 'shared' => true,
@@ -724,6 +729,11 @@ final class CoreServiceProvider extends ServiceProvider
                 'shared'   => true,
                 'autowire' => true,
             ],
+            \Thallo\Contracts\Delivery\EntryTreeReader::class => [
+                'class'    => \Thallo\Core\Content\Delivery\EngineEntryTreeReader::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
             // Commerce-Slice-2 Fix B: route-independent, tenant-scoped, published-only entry
             // read — the seam Thallo\Render\EntryBlocksRenderer composes to render a
             // route-less linked entry's blocks region (PublicRouteResolver::resolveEntry()
@@ -735,6 +745,11 @@ final class CoreServiceProvider extends ServiceProvider
             ],
             ContentWriter::class => [
                 'class'    => EngineContentWriter::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            \Thallo\Contracts\Authoring\ContentUpserter::class => [
+                'class'    => \Thallo\Core\Content\Authoring\EngineContentUpserter::class,
                 'shared'   => true,
                 'autowire' => true,
             ],
@@ -1525,6 +1540,11 @@ final class CoreServiceProvider extends ServiceProvider
     private static function contentControllerServices(): array
     {
         return [
+            \Thallo\Core\Content\Http\Controllers\PatternController::class => [
+                'class' => \Thallo\Core\Content\Http\Controllers\PatternController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             BlockTypeController::class => [
                 'class' => BlockTypeController::class,
                 'shared' => true,
@@ -2094,6 +2114,16 @@ final class CoreServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            \Thallo\Core\Content\Docs\DocsSetup::class => [
+                'class' => \Thallo\Core\Content\Docs\DocsSetup::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Console\DocsSetupCommand::class => [
+                'class' => \Thallo\Core\Content\Console\DocsSetupCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             PruneVersionsCommand::class => [
                 'class' => PruneVersionsCommand::class,
                 'shared' => true,
@@ -2403,6 +2433,7 @@ final class CoreServiceProvider extends ServiceProvider
         $this->commands([
             ResyncCommand::class,
             PruneVersionsCommand::class,
+            \Thallo\Core\Content\Console\DocsSetupCommand::class,
             PolicyManifestCommand::class,
             SeedBlockTypesCommand::class,
             SyncBlockTypesCommand::class,

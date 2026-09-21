@@ -1,0 +1,86 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Build a theme's gallery screenshot (`screenshot.jpg` at the theme's root): one showcase page —
+ * a hero, three features, a call to action — rendered through the theme's OWN templates and
+ * stylesheets, then captured in Chromium by tools/style-proofs. Reproducible, so a theme's
+ * thumbnail is the theme and not a mock-up of it. Run it again when the theme's look changes.
+ *
+ *   DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-theme-screenshot [theme]
+ *
+ * `theme` is `default` (the pack's) or an app theme under themes/. Any image works as a
+ * screenshot (THEMING.md §1); this is only how Thallo makes its own.
+ */
+
+declare(strict_types=1);
+
+require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/lib/showcase.php';
+
+$root = dirname(__DIR__);
+$name = $argv[1] ?? 'default';
+if (preg_match('/\A[a-z0-9][a-z0-9_-]*\z/i', $name) !== 1) {
+    fwrite(STDERR, "Not a theme name: {$name}\n");
+    exit(1);
+}
+$container = showcase_boot($root);
+$render = showcase_renderer($container, $root, $name);
+$themeDir = (new Thallo\Render\ThemeLocator($name, $root . '/themes'))->themeDir();
+
+$button = static fn (string $id, string $label, string $variant): array => [
+    'id' => $id, 'type' => 'button', 'settings' => [],
+    'data' => ['label' => $label, 'url' => '#', 'variant' => $variant, 'size' => 'lg'],
+];
+$feature = static fn (string $id, string $icon, string $title, string $text): array => [
+    'id' => $id, 'type' => 'feature', 'settings' => [],
+    'data' => ['icon' => $icon, 'title' => $title, 'description' => $text, 'variant' => 'outline',
+        'orientation' => 'vertical'],
+];
+$blocks = [
+    ['id' => 'shothero0001', 'type' => 'hero', 'settings' => [], 'data' => [
+        'headline' => 'A theme for Thallo',
+        'title' => 'Build the site you have in mind',
+        'description' => 'Pages made of blocks, styled by settings, and rendered fast from your own server.',
+        'links' => [$button('shotbtn00001', 'Get started', 'solid'), $button('shotbtn00002', 'See the blocks', 'outline')],
+    ]],
+    ['id' => 'shotgrid0001', 'type' => 'container', 'data' => ['element' => 'section', 'content' => [
+        $feature('shotfeat0001', 'layers', 'Made of blocks', 'Compose pages from a library you can extend.'),
+        $feature('shotfeat0002', 'palette', 'Styled by settings', 'Spacing, colour and motion without CSS.'),
+        $feature('shotfeat0003', 'zap', 'Fast by default', 'Cached pages and images sized for the screen.'),
+    ]], 'settings' => ['style' => [
+        'layout' => [
+            'display' => ['base' => ['type' => 'choice', 'value' => 'grid']],
+            'columns' => ['base' => ['type' => 'choice', 'value' => '3']],
+            'content_width' => ['base' => ['type' => 'token', 'value' => 'width.container']],
+            'gap' => ['base' => ['type' => 'token', 'value' => 'spacing.lg']],
+        ],
+        'spacing' => ['padding' => [
+            'top' => ['base' => ['type' => 'token', 'value' => 'spacing.2xl']],
+            'bottom' => ['base' => ['type' => 'token', 'value' => 'spacing.2xl']],
+        ]],
+    ]]],
+    ['id' => 'shotcta00001', 'type' => 'cta', 'settings' => [], 'data' => [
+        'title' => 'Ready when you are',
+        'description' => 'Install it, pick a theme, publish.',
+        'variant' => 'soft',
+        'links' => [$button('shotbtn00003', 'Read the docs', 'solid')],
+    ]],
+];
+
+$work = $root . '/tools/style-proofs/fixtures';
+if (!is_dir($work) && !mkdir($work, 0755, true)) {
+    fwrite(STDERR, "cannot create {$work}\n");
+    exit(1);
+}
+$page = $work . '/theme-screenshot.html';
+file_put_contents($page, $render($blocks, $name));
+
+$target = $themeDir . '/screenshot.jpg';
+$jobs = $work . '/theme-screenshot.jobs.json';
+file_put_contents($jobs, json_encode([['page' => $page, 'out' => $target, 'width' => 1200, 'height' => 900]]));
+passthru('node ' . escapeshellarg($root . '/tools/style-proofs/capture-page.js') . ' ' . escapeshellarg($jobs), $status);
+if ($status !== 0 || !is_file($target)) {
+    fwrite(STDERR, "The capture failed (run `npm install` in tools/style-proofs).\n");
+    exit(1);
+}
+fwrite(STDOUT, 'Wrote ' . $target . ' (' . number_format((int) filesize($target)) . " bytes).\n");

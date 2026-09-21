@@ -1,0 +1,133 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Build the real-browser fixtures of a documentation section (tools/runtime-browser/fixtures/docs/
+ * page.html, index.html): the whole path a site takes — `thallo:docs:setup`, a folder of
+ * Markdown imported, the pages SERVED by the application — with the theme's stylesheets inlined
+ * so the page stands alone. What tools/runtime-browser/tests/docs-layout.spec.js measures is what a
+ * visitor gets.
+ *
+ *   DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-docs-proof-fixtures
+ */
+
+declare(strict_types=1);
+
+use Symfony\Component\HttpFoundation\Request;
+use Thallo\Contracts\Authoring\ContentUpserter;
+use Thallo\Contracts\Capability\CapabilityRegistry;
+use Thallo\Contracts\Schema\ContentTypeReader;
+use Thallo\Core\Content\Authoring\EngineContentWriter;
+use Thallo\Core\Content\Docs\DocsSetup;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\ReferenceProjectionRepository;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Content\Validation\FieldValidator;
+use Thallo\Core\Tests\Support\TestApplication;
+use Thallo\Importers\Markdown\MarkdownFolderImport;
+use Thallo\Render\Style\StyleCompiler;
+use Thallo\Render\Style\ThemeStylesheetArtifact;
+use Thallo\Render\ThemeLocator;
+
+require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/lib/showcase.php';
+
+$root = dirname(__DIR__);
+$container = showcase_boot($root);
+
+// The pages carry the docs search box only where the site's search is on, and a capability is
+// read at BOOT. So this process switches it on, serves the pages from a fresh one, and puts the
+// switch back as it found it.
+if (!in_array('--serving', $argv, true)) {
+    $switch = $container->get(Thallo\Core\Capabilities\CapabilityStateStore::class);
+    $before = $switch->explicit('thallo.search');
+    $switch->put('thallo.search', true);
+    try {
+        passthru(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' --serving', $status);
+    } finally {
+        $switch->put('thallo.search', $before ?? false);
+    }
+    exit($status);
+}
+$context = $container->get(Glueful\Bootstrap\ApplicationContext::class);
+$db = $container->get(Glueful\Database\Connection::class);
+
+// A small docs folder that exercises the layout: a long sidebar, a long page with a wide table
+// and a long code line, and headings enough for "On this page".
+$dir = sys_get_temp_dir() . '/thallo-docs-proof-' . bin2hex(random_bytes(4));
+mkdir($dir . '/getting-started', 0777, true);
+mkdir($dir . '/guides', 0777, true);
+$columns = implode(' | ', array_map(static fn (int $i): string => "Column {$i}", range(1, 9)));
+$cells = implode(' | ', array_map(static fn (int $i): string => "a fairly long value {$i}", range(1, 9)));
+$sections = '';
+foreach (range(1, 8) as $n) {
+    $sections .= "## Section {$n}\n\n" . str_repeat("A paragraph of documentation that runs to a few lines. ", 8) . "\n\n"
+        . "### Detail {$n}\n\nMore, with `inline code` and a [link](02-first-page.md).\n\n";
+}
+file_put_contents($dir . '/getting-started/01-install.md', "---\nsummary: Get it running in a few minutes.\n---\n# Installing\n\n"
+    . "```bash\n$ composer create-project glueful/thallo my-site --stability=beta --no-interaction --prefer-dist --a-very-long-flag\n```\n\n"
+    . "| {$columns} |\n|" . str_repeat('---|', 9) . "\n| {$cells} |\n\n> A note worth reading.\n\n{$sections}");
+file_put_contents($dir . '/getting-started/02-first-page.md', "# Your first page\n\nShort.\n");
+foreach (range(1, 30) as $n) {
+    file_put_contents($dir . sprintf('/guides/%02d-guide-%02d.md', $n, $n), "# Guide number {$n}\n\nText.\n");
+}
+
+$db->table('content_types')->where('slug', '=', 'docs')->delete();
+$container->get(DocsSetup::class)->run('docs', ['getting-started', 'guides']);
+$types = new ContentTypeRepository($db);
+$entries = new EntryRepository($db, $context, $types);
+$report = (new MarkdownFolderImport(
+    new EngineContentWriter($entries, new PublishService(
+        $context,
+        $entries,
+        new VersionRepository($db),
+        $types,
+        new FieldValidator($db),
+        new ReferenceProjectionRepository($db),
+    ), $types, new FieldValidator($db)),
+    $container->get(ContentUpserter::class),
+    $container->get(ContentTypeReader::class),
+    $container->get(CapabilityRegistry::class),
+))->run($dir, ['type' => 'docs', 'publish' => true, 'edit_base' => 'https://example.com/edit']);
+if ($report['counts']['failed'] > 0) {
+    fwrite(STDERR, "The import failed: " . json_encode($report['files']) . "\n");
+    exit(1);
+}
+
+$theme = new ThemeLocator('default', $root . '/themes');
+$vocabulary = $theme->vocabulary();
+$sheets = array_map(static fn (string $rel): string => $theme->themeDir() . '/' . $rel, $vocabulary->stylesheets());
+$css = implode("\n", [
+    (string) file_get_contents($root . '/packages/thallo-render/assets/style/layers.css'),
+    ThemeStylesheetArtifact::build($sheets)->css,
+    StyleCompiler::compile($vocabulary),
+]);
+
+$out = $root . '/tools/runtime-browser/fixtures/docs';
+if (!is_dir($out) && !mkdir($out, 0755, true)) {
+    fwrite(STDERR, "cannot create {$out}\n");
+    exit(1);
+}
+$app = TestApplication::instance();
+foreach (['page' => '/docs/install', 'index' => '/docs'] as $name => $path) {
+    $response = $app->handle(Request::create($path, 'GET'));
+    if ($response->getStatusCode() !== 200) {
+        fwrite(STDERR, "{$path} answered {$response->getStatusCode()}\n");
+        exit(1);
+    }
+    // Stand-alone: the served page's linked stylesheets and scripts give way to the same CSS, inline.
+    $html = (string) preg_replace('~<link[^>]+rel="stylesheet"[^>]*>~i', '', (string) $response->getContent());
+    // The block scripts stay (the proofs answer them from the repo); the rest are the layout's.
+    $html = (string) preg_replace('~<script\b(?![^>]*/_thallo/runtime/block-)[^>]*\bsrc=[^>]*></script>~i', '', $html);
+    $html = (string) preg_replace('~</head>~i', "<style>\n{$css}\n</style></head>", $html, 1);
+    file_put_contents("{$out}/{$name}.html", $html);
+}
+
+// Leave the test database as it was found.
+$db->table('content_types')->where('slug', '=', 'docs')->delete();
+$container->get(Thallo\Core\Settings\SettingsStore::class)->forget('listing_types');
+array_map('unlink', glob($dir . '/*/*.md') ?: []);
+array_map('rmdir', glob($dir . '/*') ?: []);
+rmdir($dir);
+fwrite(STDOUT, "Docs proof fixtures written to tools/runtime-browser/fixtures/docs/ (page.html, index.html).\n");

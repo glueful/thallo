@@ -39,6 +39,10 @@ final class ThemeColorsStyleTest extends AppTestCase
             {
                 return 'plain';
             }
+            public function fontFaces(): array
+            {
+                return [];
+            }
         };
         return new RenderContextExtension(
             null,
@@ -60,6 +64,19 @@ final class ThemeColorsStyleTest extends AppTestCase
         self::assertStringContainsString(':root{', $out);
         self::assertStringContainsString('html[data-theme="dark"]{', $out);
         self::assertStringContainsString('--accent:#047857', $out);
+    }
+
+    public function testABrandColourIsEmittedAndCanBePreviewedBeforeItIsSaved(): void
+    {
+        $out = (string) $this->ext('#0a7c66', 'slate')->themeColorsStyle();
+        self::assertStringContainsString('--accent:#0a7c66;', $out);
+
+        $ext = $this->ext('blue', 'slate');
+        $ext->setThemeAppearanceOverride('#7C3AED', 'slate');
+        self::assertStringContainsString('--accent:#7c3aed;', (string) $ext->themeColorsStyle());
+        // Junk is junk whatever it looks like: never written into the stylesheet.
+        $ext->setThemeAppearanceOverride('#fff;}body{display:none', 'slate');
+        self::assertSame('', (string) $ext->themeColorsStyle());
     }
 
     public function testPreviewOverrideBeatsSaved(): void

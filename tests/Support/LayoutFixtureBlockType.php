@@ -23,7 +23,7 @@ final class LayoutFixtureBlockType
 
     /** Capabilities on the band root: the block's own box, plus how it sits in its parent. */
     private const ROOT = [
-        'spacing', 'width', 'visibility', 'colors', 'radius', 'border', 'shadow', 'backdrop',
+        'spacing', 'width', 'visibility', 'colors', 'radius', 'border', 'shadow', 'backdrop', 'motion',
         'layout.min_height', 'layout.overflow', 'layout.item',
     ];
 
@@ -31,7 +31,7 @@ final class LayoutFixtureBlockType
     private const INNER = [
         'layout.display', 'layout.direction', 'layout.wrap', 'layout.align_items', 'layout.columns',
         'layout.gap.column', 'layout.gap.row', 'layout.content_width', 'layout.gutter',
-        'alignment.content',
+        'alignment.content', 'motion.children',
     ];
 
     /** @return list<string> */

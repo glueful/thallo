@@ -56,6 +56,28 @@ final class MediaLibraryListTest extends AppTestCase
         self::assertGreaterThanOrEqual(1, $data['total'] ?? 0);
     }
 
+    public function testFontsAreATypeOfTheirOwn(): void
+    {
+        // A site's own typefaces live in the media library: the font picker lists only them, and
+        // they do not crowd the documents.
+        $font = $this->seedBlob('brand.woff2', 'font/woff2');
+        $image = $this->seedBlob('pic.jpg', 'image/jpeg');
+        $pdf = $this->seedBlob('terms.pdf', 'application/pdf');
+        $list = function (string $type): array {
+            $res = $this->container()->get(MediaAdminController::class)->index(
+                Request::create('/v1/admin/media', 'GET', ['page' => 1, 'per_page' => 30, 'type' => $type]),
+            );
+            return array_column((array) json_decode((string) $res->getContent(), true)['data']['media'], 'uuid');
+        };
+        self::assertSame([$font], $list('font'));
+        self::assertContains($pdf, $list('doc'));
+        self::assertNotContains($font, $list('doc'));
+        self::assertNotContains($image, $list('font'));
+
+        // And the uploader takes them: woff2, the one format every browser a theme supports reads.
+        self::assertContains('font/woff2', (array) config($this->appContext(), 'uploads.allowed_types'));
+    }
+
     /** @return list<array<string,mixed>> */
     private function listRows(): array
     {

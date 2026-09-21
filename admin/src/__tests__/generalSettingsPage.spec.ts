@@ -74,6 +74,8 @@ const settings = (): GeneralSettings => ({
   theme_neutral: 'slate',
   theme_radius: 'round',
   theme_font: 'sans',
+  theme_font_body: '',
+  theme_font_display: '',
   theme_background: 'plain',
   admin_url: '',
   listing_types: ['post'],

@@ -54,6 +54,38 @@ export interface BlockTypePayload {
   category?: string | null
   description?: string | null
   schema: ContentTypeField[]
+  /**
+   * The setting groups the block supports (its Style and Layout tabs). ABSENT leaves the type's
+   * declaration alone — what an editor sends when the choice was not touched, and always for a
+   * code-declared type; an empty list clears it.
+   */
+  style_capabilities?: string[]
+}
+
+/** What a block type made in the admin may be given, and which types are not the admin's to give. */
+export interface BlockTypeStyleOptions {
+  /** Setting groups on offer, in the server's order. */
+  options: string[]
+  /** Slugs whose declaration is code's: shown read-only. */
+  codeDeclared: string[]
+}
+
+export async function fetchBlockTypeStyleOptions(): Promise<BlockTypeStyleOptions> {
+  const { data, error, response } = await client.GET('/block-types')
+  if (error) throw toApiError(error, response)
+  const body = (
+    data as unknown as {
+      data?: { style_capability_options?: string[]; code_declared_slugs?: string[] }
+    }
+  )?.data
+  return {
+    options: body?.style_capability_options ?? [],
+    codeDeclared: body?.code_declared_slugs ?? [],
+  }
+}
+
+export function useBlockTypeStyleOptions() {
+  return useQuery({ key: [...qk.blockTypes(), 'style-options'], query: fetchBlockTypeStyleOptions })
 }
 
 export function useBlockTypeMutations() {

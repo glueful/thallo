@@ -32,6 +32,7 @@ abstract class AppTestCase extends TestCase
         'style_class_jobs', 'style_classes', 'style_generations',
         'render_template_versions', 'render_templates',
         'navigation_items', 'navigation_menus',
+        'search_documents',
         'workflow_transitions', 'workflow_review_states',
         'entry_schedules',
         'import_export_reports', 'import_export_errors', 'import_export_files',

@@ -55,6 +55,14 @@ final class ThemeClonerTest extends AppTestCase
 
         $config = json_decode((string) file_get_contents($this->themesDir . '/corporate/theme.json'), true);
         self::assertSame('corporate', $config['name']);
+        // The gallery card is the new theme's to write: a copy must not call itself "Default" by
+        // Thallo. It says where it came from, and keeps the screenshot — it does look the same.
+        self::assertArrayNotHasKey('title', $config);
+        self::assertArrayNotHasKey('author', $config);
+        self::assertArrayNotHasKey('tags', $config);
+        self::assertSame('A copy of the default theme.', $config['description']);
+        self::assertSame('screenshot.jpg', $config['screenshot']);
+        self::assertFileExists($this->themesDir . '/corporate/screenshot.jpg');
 
         // The clone is immediately a valid selectable theme.
         self::assertTrue((new RenderThemeValidator($this->themesDir))->isValidTheme('corporate'));

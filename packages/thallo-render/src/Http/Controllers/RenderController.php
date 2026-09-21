@@ -746,6 +746,9 @@ final class RenderController
             $typeSlug !== '' ? $typeSlug : null,
             $result['presentation'] ?? null,
         );
+        // The entry's type, as listing and archive templates already get it: a template that
+        // navigates its type (a docs sidebar, entry_tree(type)) need not be named after one.
+        $extra['type'] = $typeSlug;
         // seo-head spec §3: composed head data for the SAME entry identity the
         // cache tags below carry (tagResponse's uuid derivation) — entry renders
         // are the ONLY context that gains the `seo` key.
@@ -969,7 +972,7 @@ final class RenderController
         $context['presentation'] ??= $this->presentationContext(null, null);
 
         try {
-            $html = $env->render($template, $context);
+            $html = $this->extension->finish($env->render($template, $context));
         } catch (\Throwable $e) {
             $this->logger->error('thallo-render: template render failed', [
                 'template' => $template,

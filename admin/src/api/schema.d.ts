@@ -3136,6 +3136,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/patterns': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the section and page library
+     * @description Ready-made sections and starter pages, as block trees without ids. A pattern that uses a block type this site has switched off is not listed.
+     */
+    get: operations['getV1AdminPatterns']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/redirects/{uuid}': {
     parameters: {
       query?: never
@@ -5943,7 +5963,8 @@ export interface operations {
          *       "icon": "example",
          *       "category": "example",
          *       "description": "A short description.",
-         *       "schema": "example"
+         *       "schema": "example",
+         *       "style_capabilities": "example"
          *     }
          */
         'application/json': {
@@ -5979,6 +6000,8 @@ export interface operations {
             /** @description Inclusive upper bound for a `number` field (ints coerce). */
             max?: number | null
           }[]
+          /** @description The setting groups the block supports (its Style and Layout tabs), */
+          style_capabilities?: unknown[] | null
         }
       }
     }
@@ -6389,7 +6412,8 @@ export interface operations {
          *       "icon": "example",
          *       "category": "example",
          *       "description": "A short description.",
-         *       "schema": "example"
+         *       "schema": "example",
+         *       "style_capabilities": "example"
          *     }
          */
         'application/json': {
@@ -6423,6 +6447,8 @@ export interface operations {
             /** @description Inclusive upper bound for a `number` field (ints coerce). */
             max?: number | null
           }[]
+          /** @description The setting groups the block supports (its Style and Layout tabs), */
+          style_capabilities?: unknown[] | null
         }
       }
     }
@@ -23932,7 +23958,12 @@ export interface operations {
          *       "version_uuid": "example",
          *       "theme": "example",
          *       "accent": "example",
-         *       "neutral": "example"
+         *       "neutral": "example",
+         *       "radius": "example",
+         *       "font": "example",
+         *       "background": "example",
+         *       "font_body": "example",
+         *       "font_display": "example"
          *     }
          */
         'application/json': {
@@ -23944,6 +23975,14 @@ export interface operations {
           accent?: string | null
           /** @description Per-preview neutral family; enum-validated. */
           neutral?: string | null
+          /** @description Per-preview design settings (the Appearance page's pending Corners, */
+          radius?: string | null
+          font?: string | null
+          background?: string | null
+          /** @description Pending text face (`custom` pairing): a media uuid, or `none` to take it off. */
+          font_body?: string | null
+          /** @description Pending headings face: a media uuid, or `none` to take it off. */
+          font_display?: string | null
         }
       }
     }
@@ -27450,6 +27489,84 @@ export interface operations {
       }
     }
   }
+  getV1AdminPatterns: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Sections, then pages. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success: boolean
+            message: string
+            data: {
+              /** @description Sections in their categories' order, then pages. */
+              patterns?: unknown[]
+            }
+          }
+        }
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
   deleteV1AdminRedirectsByUuid: {
     parameters: {
       query?: never
@@ -29238,6 +29355,8 @@ export interface operations {
          *       "theme_neutral": "example",
          *       "theme_radius": "example",
          *       "theme_font": "example",
+         *       "theme_font_body": "example",
+         *       "theme_font_display": "example",
          *       "theme_background": "example",
          *       "admin_url": "example",
          *       "listing_types": "example"
@@ -29261,14 +29380,18 @@ export interface operations {
           site_favicon?: string | null
           /** @description Live theme name; '' clears to the env/config default. */
           theme?: string | null
-          /** @description Accent Tailwind family (theme-color-config spec §2); enum-validated in the controller. */
+          /** @description Accent: a colour family, or the brand colour as a hex; validated in the controller. */
           theme_accent?: string | null
           /** @description Neutral Tailwind family; enum-validated in the controller. */
           theme_neutral?: string | null
           /** @description Corner radius scale: sharp | soft | round; enum-validated in the controller. */
           theme_radius?: string | null
-          /** @description Typeface pairing: sans | editorial | serif; enum-validated in the controller. */
+          /** @description Typeface pairing, or `custom`; enum-validated in the controller. */
           theme_font?: string | null
+          /** @description Media library uuid of the site's own text face (woff2); '' clears. */
+          theme_font_body?: string | null
+          /** @description Media library uuid of the site's own headings face (woff2); '' clears. */
+          theme_font_display?: string | null
           /** @description Page ground: plain | tinted; enum-validated in the controller. */
           theme_background?: string | null
           /** @description Admin SPA base URL for preview-bar deep links; '' clears. */

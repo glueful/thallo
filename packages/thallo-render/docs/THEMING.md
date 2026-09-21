@@ -19,7 +19,8 @@ A theme is **just a folder** — no build step is required to *use* one.
 
 ```
 themes/<name>/
-  theme.json          # manifest: name, version, menus
+  theme.json          # manifest: name, version, menus, its gallery card
+  screenshot.jpg      # optional: the theme's picture in the admin's gallery
   templates/          # Twig: page templates + blocks/
   assets/             # site.css, blocks.css, blocks.js (+ images, fonts…)
 ```
@@ -28,6 +29,10 @@ themes/<name>/
 - **Pack default** (fallback, shipped with the render package):
   `packages/thallo-render/themes/default/`
 - **A site's own theme** (app-level): `<app-root>/themes/<name>/`
+
+**Every entry template gets its `type`.** `entry.twig`, `entry/{type}.twig`, `listing.twig` and
+`listing/{type}.twig` all receive the content type's slug as `type`, so a template that
+navigates its type — `entry_tree(type)` — need not be named after one.
 
 **Activation** — one of:
 - Admin → **Site › Appearance → Theme**, or
@@ -51,6 +56,34 @@ needs to ship the files it actually changes.
 `vocabulary` maps every name of the platform style vocabulary to a CSS value and
 `stylesheets` lists the theme's CSS in load order — both are required, and a theme
 missing either fails at load, on switch and in `thallo:doctor` (see §12).
+
+**The gallery card.** Site › Appearance shows every selectable theme as a card, and these
+optional `theme.json` keys are what the card says:
+
+```json
+{
+  "title": "Aurora",
+  "description": "A bright theme for studios and portfolios.",
+  "author": "Studio North",
+  "tags": ["portfolio", "light and dark"],
+  "screenshot": "screenshot.jpg",
+  "colors": { "background": "#0b1020", "text": "#ffffff", "accent": "#7c3aed" }
+}
+```
+
+| Key | What it is |
+|---|---|
+| `title` | The name shown on the card. Without it, the folder's name. |
+| `description` | Up to 300 characters. |
+| `author` | Who made it. |
+| `tags` | Up to six short words. |
+| `screenshot` | An image inside the theme's folder: `png`, `jpg` or `webp`, 2 MB at most. A `screenshot.jpg` (or `.png`, `.webp`) at the theme's root is found without being named. 4:3 is the card's shape; 1200×900 is what Thallo ships. |
+| `colors` | Hex colours for the thumbnail the admin **draws** when there is no screenshot, so a card is never blank. |
+
+None of it is required and none of it can break a theme: a wrong value is left off the card,
+never an error. Duplicating a theme resets its title, author and tags, says where it came
+from, and keeps the screenshot, which is true until you change the look. The site serves the
+screenshot at `/_thallo/theme-screenshot/<name>` — that one file and nothing else of a theme.
 
 ---
 
@@ -173,6 +206,21 @@ Functions:
 - `region_blocks(name)` / `region_settings(name)` — region HTML / settings.
 - `site_logo(variant?)`, `site_favicon()`, `custom_css()` — site identity.
 - `path(...)`, `facets(...)`, `video_embed(...)`.
+- `entries(type, {limit, order, category})` — the newest few published entries of a type (at
+  most twelve): what a blog block lists.
+- `entry_tree(type, {group: 'section', order: 'order'})` — **every** published entry of a type
+  as navigation: `groups` (each `key`, `label`, `items`) in the order of the group field's enum
+  options, sorted inside a group by the order field and then by title; and `items`, the same
+  pages flat in reading order, which is what previous and next walk. An item is `uuid`, `slug`,
+  `href`, `title`, `summary`, `group` — never the entry's body. Up to 500. A docs sidebar
+  (`entry/docs.twig`).
+- `search_enabled()` — whether the site's search is on. Offer a search box only inside it
+  (`_docs_search.twig`), so it is never one that cannot answer.
+- `markdown(text)` — render Markdown kept in a plain text field. GitHub-flavoured; every
+  heading gets a stable id and a `.heading-anchor` link; raw HTML is stripped and unsafe link
+  schemes refused, so the output is safe to emit as it is. A code fence is rendered by your
+  theme's own `blocks/code.twig`. `markdown_toc(text)` is the same render's `h2`/`h3` outline,
+  a list of `id`, `text`, `level`.
 - `layers_stylesheet_url()`, `theme_stylesheet_url()`, `settings_stylesheet_url()` —
   the three stylesheets a layout links (§2, §12).
 - `style_classes(target)`, `style_attrs(target)`, `token_class(property, value)` —
@@ -485,7 +533,8 @@ falls back to the light tokens.
 
 ### 8.5 Content-Security-Policy
 
-The resolver is the **only** inline script, and it is byte-stable. If you run a
+The resolver is one of two inline scripts (the other is the motion flag, §12.6, on a page
+with an entrance animation), and both are byte-stable. If you run a
 strict CSP, allow it by **hash** (no `unsafe-inline`, no per-request nonce that
 would break page caching). Add to `script-src`:
 
@@ -509,12 +558,30 @@ and dark mode.
 
 - **Accent** — one Tailwind hue family: `red, orange, amber, yellow, lime,
   green, emerald, teal, cyan, sky, blue, indigo, violet, purple, fuchsia, pink,
-  rose`.
-- **Neutral** — one Tailwind neutral family: `slate, gray, zinc, neutral, stone`.
+  rose` — **or the site's own brand colour, as a hex** (`#0a7c66`; `#abc` is written out).
+- **Neutral** — one Tailwind neutral family: `slate, gray, zinc, neutral, stone`. Always a
+  family: a whole grey scale cannot be derived from one colour.
 - **Defaults `blue` / `slate`** reproduce the shipped look exactly.
 
-Both are closed enums; a save `422`s on anything else. Stored in `GeneralSettings`
-as `theme_accent` / `theme_neutral`.
+A save `422`s on anything else. Stored in `GeneralSettings` as `theme_accent` /
+`theme_neutral`.
+
+**A brand colour is used exactly as given on a light page** — the brand is the brand — and
+Thallo derives what the owner cannot be asked to work out:
+
+- `--accent-ink`, the label on the accent, is whichever of white and black reads on it. Between
+  the two, one always clears WCAG AA, so a button's label is always readable. **Read
+  `--accent-ink` for anything you put on `--accent`**; never assume white. And use it ONLY
+  there: text on an ink fill reads `--bg` (the pair that inverts in both colour modes), and
+  text over pictures and dark scrims reads `--on-media`, which no setting changes. The default
+  theme is held to this by a test.
+- On the dark ground the colour is lifted toward white until it can be seen there (the
+  families do the same with a lighter stop), keeping its hue.
+
+The Appearance page says how the colour will read before it is saved, including the one thing
+Thallo does not change: a light brand colour is hard to read as link text on a white page.
+Only the site-wide accent may be a hex; the scoped Style block (§10) stays families, because
+its class is built from the family's name.
 
 ### 9.2 How it re-skins (tokens only)
 
@@ -548,15 +615,26 @@ logs) rather than emitting broken CSS.
 ### 9.6 Design settings (radius, typefaces, page ground)
 
 Next to the colours, **Site › Appearance → Design** carries three more closed enums,
-stored as `theme_radius`, `theme_font`, `theme_background` and emitted by the same
+stored as `theme_radius`, `theme_font`, `theme_background` (and, for the site's own fonts,
+`theme_font_body` / `theme_font_display`) and emitted by the same
 `theme_colors_style()` block (`Thallo\Render\Theme\ThemeDesign`), after the colours:
 
 - **Corners** — `round` (default: `--radius: 12px`, pill buttons), `soft`
   (`--radius: 12px`, `--radius-btn: 8px`), `sharp` (`--radius: 4px`, `--radius-lg: 8px`,
   `--radius-btn: 4px`). Buttons read `--radius-btn` unless a radius setting is set.
 - **Typefaces** — `sans` (default: Figtree throughout), `editorial` (a system serif
-  stack for `--font-display`, so headings), `serif` (both `--font-display` and
-  `--font-body`). System stacks only: the site's CSP is `'self'`, so nothing is fetched.
+  stack for `--font-display`, so headings), `serif`, `humanist`, `geometric`, `mono` and
+  `system` (both `--font-display` and `--font-body`), and `slab` (headings only). All system
+  stacks: they cost a visitor nothing and the site's CSP stays `'self'`.
+  **`custom` is the site's own fonts**: a `.woff2` for the text, one for the headings, or
+  both, uploaded on the Appearance page into the media library. Each is declared with
+  `@font-face` from the URL the library serves it at (`font-weight: 100 900`, so a variable
+  font covers every weight from one file) and put first in `--font-body` / `--font-display`
+  with a system stack behind it. With only a text font, headings follow it. A font the library
+  no longer has is simply not used.
+- **Your theme's own font is not downloaded when nothing is set in it.** `font_faces_style()`
+  emits its preload and `@font-face` only while the site's text is still the theme's face —
+  not for `serif`, `humanist`, `geometric`, `mono`, `system`, or `custom` with a text font.
 - **Page ground** — `plain` (default: white page, tinted panels) or `tinted`, which
   swaps the neutral family's `--bg` and `--surface` in light mode (a tinted page with
   white panels); dark mode is unchanged.
@@ -755,6 +833,33 @@ property silently takes its initial value — which is how a badge ships square 
 stylesheet says rounded. A test holds the default theme to it: every custom property it reads
 without a fallback is one it defines.
 
+#### A block type made in the admin
+
+A block type created under **Settings › Block types** gets style settings too, without code. Its
+editor has a **Style settings** card: tick the setting groups the block should offer in the
+designer — spacing, width, placement, typography, colours, backdrop, corners, border, shadow,
+visibility, minimum height, overflow, and sizing in a parent layout. Such a block has **one** style
+target, `root`, a box: its outermost element. Every chosen group lands there, and so do the
+Advanced tab's anchor, CSS classes and attributes. The template emits them:
+
+```twig
+{# blocks/promo_banner.twig #}
+<div class="promo-banner{{ style_classes('root') }}"{{ style_attrs('root') }}>
+  <h2>{{ data.title }}</h2>
+</div>
+```
+
+The order matters once: choosing groups for a block whose template does **not** emit them is
+refused, with the line to add, because that template would fail the lint below and stop
+rendering. Add the two helpers first, then tick the groups. For a new block type there is no
+template yet, so tick the groups first; the Theme editor then refuses a template that leaves the
+helpers out.
+
+Not offered to a block made in the admin: text alignment (it needs a `text` target) and the
+parent-layout groups (a `stack`: what arranges a container's children). A block that needs
+several targets, or those kinds, is declared in code. The style settings of a block type Thallo or
+a pack declares are shown read-only: they are set in code and re-synced on every upgrade.
+
 ### 12.3a The container's layout (what a theme must keep)
 
 A container is two elements: `root`, the band, and `__inner`, the content area. Its
@@ -855,3 +960,68 @@ Chrome 111, Firefox 113, Safari 16.2. `tools/style-proofs` proves the computed
 result of the cascade in Chromium, Firefox and WebKit against the real artifacts
 (see its README).
 
+
+### 12.6 Motion (entrances, stagger, Ken Burns)
+
+Motion is a group of style settings like any other: the editor picks a preset in the Style
+tab's **Motion** group, the emitter writes a utility class on the block, and the settings
+artifact carries the rules. A theme writes no CSS and no JavaScript for it.
+
+| Setting | Values | Lands on |
+|---|---|---|
+| Entrance | none, fade, fade-up, fade-down, slide-left, slide-right, zoom-in | the block's root |
+| Duration | fast (300ms), normal (600ms), slow (1s) | the block's root |
+| Delay | none, short (150ms), medium (300ms), long (600ms) | the block's root |
+| Repeat | once, every time it scrolls into view | the block's root |
+| Stagger children | none, short (80ms), medium (150ms), long (250ms) a child | the container's `inner` |
+| Ken Burns | none, zoom-in, zoom-out, pan-left, pan-right | a picture frame (below) |
+
+Every starter block takes an entrance except the ones that are a part of another block or
+have nothing to show (a tab, an accordion item, a spacer, animated text). A block type made
+in the admin takes one when its **Motion** group is switched on (§12.3).
+
+**How an entrance runs.** A block that enters is hidden until it scrolls into view, so the
+page must know *before that block is parsed* that the script which reveals it is coming;
+otherwise the block would paint and then vanish. The renderer notes, while it renders, that a
+block enters, and the finished page gets one small inline flag in its `<head>`, with a deferred
+`/_thallo/runtime/block-motion.js` beside it. It is never written beside the block: a script
+among blocks is a sibling, and your `:first-child` or `+` rules would see it. A page with no
+entrance pays nothing. The
+flag sets `data-thallo-motion` on `<html>`; every entrance rule is scoped to that attribute
+**and** to `prefers-reduced-motion: no-preference`, so a visitor who asks for reduced
+motion, a browser without `IntersectionObserver`, and a page whose script never arrives
+(the flag withdraws itself after three seconds) all get the block simply shown.
+
+**Stagger** delays each direct child of the container by its place, up to the twelfth;
+the children still need an entrance of their own. It does not reach grandchildren.
+
+**Ken Burns** is CSS only. The setting lands on a *frame*: the frame clips
+(`overflow: clip`) and the picture that is its **direct child** (`img`, `picture` or
+`video`) drifts slowly back and forth. Two starter blocks have one: the Container (its
+background image or video, under `root`) and the Hero (its picture, under `media`), which
+makes a hero slide in a carousel drift as well. The Image block is deliberately not a
+frame: its figure also holds the gutters and the caption, which a drifting picture would
+cover. Make the picture a container's background instead.
+
+**What a custom theme must keep.** For entrances: nothing beyond emitting
+`style_classes('root')`, which the template lint already requires. The flag goes before your
+layout's `</head>`; a layout that leaves its head implied gets it before `<body>`, or straight
+after the doctype. A package that renders pages of its own calls
+`RenderContextExtension::finish($html)` on the result, as the shop and account pages do; a
+page that is not finished has no flag and its blocks are simply shown. For Ken Burns: keep the
+picture a direct child of the element that emits the frame's target, and do not set a
+`transform` of your own on that picture.
+
+**In the editor** motion is held still: the canvas never receives the flag and a Ken
+Burns picture does not drift, because a hidden or moving block cannot be edited. The Motion
+group's **Play** replays the selected block once on the stage.
+
+**Content-Security-Policy.** The flag is the second byte-stable inline script (after the
+colour mode resolver, §8.5). Under a strict CSP add its hash to `script-src`:
+
+```
+script-src 'sha256-oITHwt56P1Z4Ld9JC9e+G5nYf5B76v5qE0R8X48Xz9E='
+```
+
+It is published as `Thallo\Render\Motion::FLAG_SHA256`, and a test fails the build if the
+script bytes drift from it.

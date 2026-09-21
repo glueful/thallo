@@ -7,6 +7,135 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.50] - 2026-09-21 — Developer Preview
+
+A design release: your brand colour and your own fonts, animation presets, a theme gallery, and
+a library of sections and pages. Beside it, a documentation section any site can use, and search
+that runs on the database you already have.
+
+### Upgrade Notes
+- One new migration, `search_documents` (the PostgreSQL search index): `php glueful
+  thallo:provision` creates it. It is created on every install, whether or not search is on.
+- The `thallo.search` capability no longer depends on the `glueful/meilisearch` extension. A
+  site that already runs Meilisearch has `MEILISEARCH_HOST` set and keeps using it; to be
+  explicit, set `SEARCH_ENGINE=meilisearch`.
+- After upgrading, run `php glueful search:reindex` so an existing index holds clean text.
+- To upload your own fonts, an existing site's `config/uploads.php` needs `'font/woff2'` in
+  `allowed_types`. A new install has it.
+- One new dependency, `league/commonmark` (it renders the docs section's Markdown): `composer
+  update` brings it in. No new permissions. Otherwise the documented sequence applies
+  (docs/upgrading.md).
+
+### Added
+- **Your brand colour, and your own fonts.** The accent was one of seventeen colour families;
+  it can now also be the site's own brand colour. On Site › Appearance choose **Brand colour…**
+  and pick or type a hex. The colour is used exactly as given on a light page; the label on it
+  is whichever of white and black reads (one of the two always clears AA, so a button is always
+  readable), and on a dark page the colour is lightened until it can be seen. The page says all
+  of this before you save, and warns where Thallo changes nothing: a light brand colour is hard
+  to read as link text on white. **Typefaces** gained five system pairings — Humanist,
+  Geometric, Slab, Mono and System, which cost a visitor nothing to download — and **Custom**:
+  upload a `.woff2` for the text, one for the headings, or both, and see each as a live
+  specimen. A variable font covers every weight from one file. The theme's own font is no
+  longer downloaded on a site whose text is set in another face. Both are previewed in the pane
+  before they are saved. The media library now accepts `.woff2` and lists fonts as a type of
+  their own. Theme authors: read `--accent-ink` for anything placed on `--accent`, never assume
+  white (THEMING.md §9.1, §9.6).
+- **Search with nothing to install, and a docs search box.** Content search needed a Meilisearch
+  server. It now also runs on the database every site already has: PostgreSQL full-text search,
+  with stemming in the page's language, prefix matching for search-as-you-type, titles ranked
+  above bodies and highlighted snippets, behind the same `GET /v1/search`. `SEARCH_ENGINE` is
+  `auto` (the default: Meilisearch where `MEILISEARCH_HOST` is set, PostgreSQL otherwise),
+  `postgres` or `meilisearch`; a choice that cannot be honoured is never swapped for the other
+  engine — search is unavailable and `php glueful search:status` says why. Turn search on under
+  Settings › General › Content search and run `php glueful search:reindex`. Documentation pages
+  then carry a search box in the sidebar and on the index: results as you type, scoped to the
+  docs, walked with the arrow keys, focused with `/`; without JavaScript there is no box rather
+  than a dead one. Themes get `search_enabled()`. What is indexed is now the words a reader sees:
+  rich text without its tags, Markdown without its syntax, and never a field that only holds a
+  URL or a file path — run `search:reindex` once to refresh an existing index.
+- **A documentation section for any site.** A folder of Markdown in git becomes a docs section:
+  a sidebar of sections, the page, an "On this page" outline, previous and next, and an "Edit this
+  page" link, with `/docs` as its index. `php glueful thallo:docs:setup` makes the content type (a
+  Markdown body kept as plain text, a section and an order for the sidebar, a summary) and lets
+  the site list it; `php glueful thallo:import:markdown docs --type=docs --publish` imports the
+  folder. The import is built for a deploy script: a file lands on the page it made last time,
+  only changed pages are written, a changed slug leaves a redirect, a file that is gone is
+  reported and never deleted, and `--dry-run` says what would change. Front matter is optional —
+  a file's name, folder, `NN-` prefix and first heading say the rest — and links between `.md`
+  files become links between the pages. The body is GitHub-flavoured Markdown (tables, task
+  lists, fenced code through the theme's own code block); raw HTML in a source file is stripped.
+  Themes get three functions: `markdown()`, `markdown_toc()` and `entry_tree()`, and every entry
+  template now receives its `type`. Not yet: colouring inside code listings, and images that
+  travel with the import (docs/documentation-sites.md).
+- **A section and page library.** The designer's Blocks tab has three views: **Blocks**, **Sections**
+  and **Pages**. Sections are ready-made parts of a page, each shown by a thumbnail of its real
+  render: four heroes, feature grids, how-it-works steps, numbers, testimonials, pricing plans, an
+  FAQ, two calls to action, an about section, latest posts and a contact form. A section is one
+  block, so it is added like any block — click it, press Enter in the filter, or drag it onto the
+  stage — and once on the page it is simply your blocks, to edit, restyle and rearrange. Pages are
+  starter pages made of those sections — Landing, About, Pricing, Contact, Services — and one click
+  lays the whole page down as a single step, so one undo takes it back out. Sections are built the
+  way the structure picker's Section preset builds one, carry placeholder copy and need no media,
+  so each is complete as inserted; a contact form asks for its recipient, as a new form block does.
+  A section that would nest too deep where it would land is refused with the reason, and a section
+  that needs a block type the site has switched off is not offered, nor is a page made of it. The
+  library is Thallo's own for now: themes and packs cannot add to it yet.
+- **A theme gallery.** Site › Appearance showed the live theme as a name in a select. It is now a
+  gallery: each theme is a card with its screenshot, title, version, author, description and
+  tags, and the live one is marked. Choosing a card shows that theme in the preview beside it;
+  Save makes it live, as before. A theme describes itself with optional `theme.json` keys —
+  `title`, `description`, `author`, `tags`, `screenshot`, `colors` — and a `screenshot.jpg` at its
+  root is found without being named. A theme with no screenshot gets a thumbnail drawn in its
+  own `colors`, so a card is never blank. None of the keys is required, and a wrong value is left
+  off the card rather than breaking the theme. The default theme ships its card and a real
+  screenshot, rendered from its own templates; a duplicated theme starts with a card of its own
+  that says where it came from (THEMING.md §1).
+- **Animation presets.** The designer's Style tab has a **Motion** group. **Entrance** brings a
+  block in as it scrolls into view — fade, fade up or down, slide from the left or right, zoom in —
+  with a **Duration**, a **Delay**, and **Repeat** (once, or every time it comes back into view).
+  A container's **Stagger children** brings its children in one after another. **Ken Burns** makes
+  a picture drift slowly inside its frame — zoom in or out, pan left or right — on a Container's
+  background image or video and on a Hero's picture, a hero slide in a carousel included. Every
+  block takes an entrance except the parts of another block (a tab, an accordion item), the spacer
+  and animated text; a block type made in the admin takes one when its **Motion** style group is
+  ticked. Motion can be saved in a style class like any other setting.
+  A theme writes nothing for it. A page with no entrance loads no script; a page with one gets a
+  small inline flag in its head and a deferred script, so nothing flashes before hiding. Visitors who ask for reduced motion, browsers without `IntersectionObserver`, and
+  a page whose script never arrives all see the block simply shown. In the designer motion is held
+  still, since a hidden or moving block cannot be edited, and the Motion group's **Play** replays
+  the selected block on the stage. Under a strict Content-Security-Policy, add the flag's hash to
+  `script-src` (THEMING.md §12.6). The settings reach an existing site with
+  `php glueful thallo:provision`.
+- **Style settings for the block types you make.** A block type created under Settings › Block
+  types could have fields and a template, but its Style tab in the designer stayed empty: only
+  block types declared in code could be styled. Its editor now has a **Style settings** card —
+  tick the groups the block should offer (spacing, width, placement, typography, colours,
+  backdrop, corners, border, shadow, visibility, minimum height, overflow, sizing in a parent
+  layout) and they appear in the designer's Style and Layout tabs for that block, style classes
+  included. The settings land on the block's outermost element, so its template adds
+  `{{ style_classes('root') }}` and `{{ style_attrs('root') }}` there; the card shows the snippet.
+  Choosing groups for a block whose template does not emit them yet is refused, with the line to
+  add, rather than breaking the block. The style settings of Thallo's own block types are shown
+  read-only (THEMING.md §12.3).
+
+### Changed
+- The Appearance page's settings column is 25rem wide, the width of the side panel on the Design
+  and Header & footer pages, so the three pages line up. Accent and Neutral sit one under the
+  other, like every other field in the column: side by side at that width, the longer description
+  wrapped and pushed its select out of line.
+
+### Fixed
+- In dark mode the **Dark hero** and the **solid pricing plan** showed white text on a light
+  fill: both paint with the ink colour, which turns light in dark mode, but took their text
+  from the accent's label colour, which stayed white. They now take the page ground, the pair
+  that inverts in both modes; text over pictures reads a new fixed `--on-media` token. Found
+  while making the accent's label colour follow a brand colour.
+- The structure picker's **Section** and **Section split** presets wrote the colour of their
+  eyebrow and lead text in a shape only responsive settings take, so a page holding a freshly
+  made section was refused on save with "is not responsive". They now write the colour as the
+  plain value it is, and a test holds every preset's children to the shape the server accepts.
+
 ## [1.0.0-beta.49] - 2026-09-20 — Developer Preview
 
 The Appearance page gives the room back to its preview.

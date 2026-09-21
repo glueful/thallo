@@ -48,7 +48,13 @@ final class ThemeVocabularyTest extends TestCase
         self::assertSame('999px', $vocabulary->value('radius.full'));
         self::assertSame('transparent', $vocabulary->value('color.transparent'));
         self::assertSame(
-            ['assets/site.css', 'assets/blocks.css', 'assets/navigation.css', 'assets/stepper.css'],
+            [
+                'assets/site.css',
+                'assets/blocks.css',
+                'assets/navigation.css',
+                'assets/stepper.css',
+                'assets/docs.css',
+            ],
             $vocabulary->stylesheets(),
         );
     }

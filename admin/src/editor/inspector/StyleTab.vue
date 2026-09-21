@@ -38,6 +38,8 @@ const props = defineProps<{
   context?: 'block' | 'class' | 'region'
   /** A block's inspector on a page with no save-as-class flow (the Regions page). */
   noSaveAsClass?: boolean
+  /** The host has a stage that can replay a block's motion: only then is Play offered. */
+  canPlayMotion?: boolean
 }>()
 
 const multi = computed(() => (props.blocks?.length ?? 0) > 1)
@@ -47,6 +49,8 @@ const emit = defineEmits<{
   'update:activeBreakpoint': [breakpoint: Breakpoint]
   /** Lift the block's explicit declarations into a new class (spec §4.5). */
   'save-as-class': []
+  /** Play the block's motion once on the stage (it is off while editing). */
+  'play-motion': []
 }>()
 
 const GROUPS: { key: string; label: string; match: (row: StylePropertyRow) => boolean }[] = [
@@ -69,6 +73,14 @@ const GROUPS: { key: string; label: string; match: (row: StylePropertyRow) => bo
   { key: 'marker', label: 'Marker', match: (r) => r.group === 'marker' },
   // A tabs block's strip — the bar and the active tab's pill; the block's Effects are the panel's.
   { key: 'tabs', label: 'Tabs', match: (r) => r.group === 'tabs' },
+  // How the block enters, how a container spaces out its children's entrances, and Ken Burns:
+  // three capability groups, so a block shows only what it can do, under one heading.
+  {
+    key: 'motion',
+    label: 'Motion',
+    match: (r) =>
+      r.group === 'motion' || r.group === 'motion.children' || r.group === 'motion.media',
+  },
   { key: 'visibility', label: 'Visibility', match: (r) => r.group === 'visibility' },
 ]
 
@@ -96,6 +108,12 @@ const LABELS: Record<string, string> = {
   'border.width': 'Border width',
   'border.style': 'Border style',
   'border.sides': 'Border sides',
+  'motion.entrance': 'Entrance',
+  'motion.duration': 'Duration',
+  'motion.delay': 'Delay',
+  'motion.repeat': 'Repeat',
+  'motion.stagger': 'Stagger children',
+  'motion.ken_burns': 'Ken Burns',
   'colors.surface_opacity': 'Background opacity',
   'backdrop.blur': 'Backdrop blur',
 }
@@ -202,6 +220,22 @@ function setCount(rows: StylePropertyRow[]): number {
             >
               {{ setCount(group.rows) }} set
             </span>
+          </button>
+          <button
+            v-if="
+              canPlayMotion &&
+              group.key === 'motion' &&
+              !isFolded(group.key) &&
+              setCount(group.rows) > 0
+            "
+            type="button"
+            class="ms-auto inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal text-primary hover:bg-elevated"
+            title="Animations are off while you edit. Play this block's once on the stage."
+            data-test="motion-play"
+            @click="emit('play-motion')"
+          >
+            <UIcon name="i-lucide-play" class="size-3" />
+            Play
           </button>
           <div
             v-if="!isFolded(group.key) && group.responsive"

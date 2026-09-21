@@ -69,6 +69,10 @@ final class LayerOrderTest extends AppTestCase
             {
                 return 'plain';
             }
+            public function fontFaces(): array
+            {
+                return [];
+            }
         };
         $ext = new \Thallo\Render\RenderContextExtension(
             null,

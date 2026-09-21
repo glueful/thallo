@@ -29,8 +29,8 @@ final class PackDescriptorRegistrationTest extends TestCase
 
             $sources = [
                 'glueful/thallo-analytics', 'glueful/thallo-collections', 'glueful/thallo-commerce',
-                'glueful/thallo-navigation', 'glueful/thallo-render', 'glueful/thallo-seo',
-                'glueful/thallo-tenancy', 'glueful/thallo-workflow',
+                'glueful/thallo-navigation', 'glueful/thallo-render', 'glueful/thallo-search',
+                'glueful/thallo-seo', 'glueful/thallo-tenancy', 'glueful/thallo-workflow',
             ];
             foreach ($sources as $source) {
                 self::assertTrue($manager->hasSource($source), "{$source} must register via the factory");

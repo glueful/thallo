@@ -337,6 +337,10 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     scrollTo(id: string): void {
       post({ type: 'thallo:scroll-to', id })
     },
+    /** Replay one block's entrance or Ken Burns drift on the stage, where motion is otherwise off. */
+    playMotion(id: string): void {
+      post({ type: 'thallo:motion-play', id })
+    },
     onBlockMove(cb: (id: string, delta: 1 | -1) => void): void {
       moveCb = cb
     },

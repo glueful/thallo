@@ -112,7 +112,14 @@ $entries->saveDraft(
         ['id' => 'grid00000001', 'type' => 'container', 'data' => ['element' => 'div', 'content' => [
             ['id' => 'gridhead0001', 'type' => 'heading', 'data' => ['text' => 'One'], 'settings' => []],
             ['id' => 'gridhead0002', 'type' => 'heading', 'data' => ['text' => 'Two'], 'settings' => []],
-            ['id' => 'gridhead0003', 'type' => 'heading', 'data' => ['text' => 'Three'], 'settings' => []],
+            // This one enters: the stage holds it still and visible, and the Style tab's Play
+            // replays it (motion-play.spec.ts).
+            ['id' => 'gridhead0003', 'type' => 'heading', 'data' => ['text' => 'Three'], 'settings' => [
+                'style' => ['motion' => [
+                    'entrance' => ['type' => 'choice', 'value' => 'fade-up'],
+                    'duration' => ['type' => 'choice', 'value' => 'slow'],
+                ]],
+            ]],
         ]], 'settings' => ['style' => ['layout' => [
             'display' => ['base' => ['type' => 'choice', 'value' => 'grid']],
             'columns' => ['base' => ['type' => 'choice', 'value' => '3']],
@@ -170,6 +177,7 @@ $post = static fn (string $path): Request => Request::create($path, 'POST', [], 
 
 $json('content-types', (string) $container->get(ContentTypeController::class)->index($get('/x'))->getContent());
 $json('block-types', (string) $container->get(BlockTypeController::class)->index($get('/x'))->getContent());
+$json('patterns', (string) $container->get(\Thallo\Core\Content\Http\Controllers\PatternController::class)->index()->getContent());
 $json('draft', (string) $container->get(EntryController::class)->getDraft($get('/x'), $entryUuid, 'en')->getContent());
 $json('style-schema', (string) $container->get(StyleSchemaController::class)->show()->getContent());
 $json('style-classes', (string) $container->get(StyleClassController::class)->index($get('/x'))->getContent());

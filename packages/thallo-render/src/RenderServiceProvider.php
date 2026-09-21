@@ -15,6 +15,7 @@ use Thallo\Render\Templates\DatabaseTemplateLoader;
 use Thallo\Render\Templates\IconSet;
 use Thallo\Render\Templates\IconInventory;
 use Thallo\Render\Templates\RuntimeAssetMap;
+use Thallo\Render\Templates\BlockTemplateTargetChecker;
 use Thallo\Render\Templates\TemplateLinter;
 use Thallo\Render\Templates\TemplateRepository;
 use Thallo\Contracts\Capability\Capability;
@@ -48,6 +49,8 @@ use Thallo\Contracts\Delivery\StorefrontWishlistResolver;
 use Thallo\Render\Http\Controllers\RenderController;
 use Thallo\Render\Http\Controllers\StyleSchemaController;
 use Thallo\Render\Http\Controllers\RuntimeAssetController;
+use Thallo\Render\Http\Controllers\ThemeScreenshotController;
+use Thallo\Render\Themes\ThemeGallery;
 use Thallo\Render\Http\Controllers\TemplatesAdminController;
 use Thallo\Render\Templates\TemplateCatalog;
 use Thallo\Render\Http\Middleware\PreviewSessionMiddleware;
@@ -65,6 +68,7 @@ use Thallo\Contracts\Delivery\RenderedPageCachePurge;
 use Thallo\Contracts\Preview\PreviewFragmentRenderer;
 use Thallo\Render\Http\Middleware\RenderCachePurge;
 use Thallo\Contracts\Style\BlockStyleRegistry;
+use Thallo\Contracts\Style\BlockTemplateTargetCheck;
 use Thallo\Contracts\Style\StyleArtifactCompiler;
 use Thallo\Render\Fragments\FragmentRenderer;
 use Thallo\Render\Fragments\FragmentVerification;
@@ -163,6 +167,11 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
                 'shared' => true,
                 'factory' => [self::class, 'makeCompiledStyleArtifacts'],
             ],
+            // Asked by whoever saves a block type's style declaration: does its template honour it?
+            BlockTemplateTargetCheck::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeBlockTemplateTargetCheck'],
+            ],
             // The compile seam provision and a theme switch go through (spec §2.4).
             StyleArtifactCompiler::class => [
                 'shared' => true,
@@ -190,6 +199,15 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
             ],
             RuntimeAssetController::class => [
                 'class' => RuntimeAssetController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            ThemeGallery::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeThemeGallery'],
+            ],
+            ThemeScreenshotController::class => [
+                'class' => ThemeScreenshotController::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -300,6 +318,7 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
             $container->get(ThemeLocator::class),
             $container->get(EventService::class),
             $container->get(ApplicationContext::class),
+            $container->get(ThemeGallery::class),
             $container->get(ThemeCloner::class),
         );
     }
@@ -333,6 +352,15 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
     {
         $context = $container->get(ApplicationContext::class);
         return new RenderThemeValidator($context->getBasePath() . '/themes');
+    }
+
+    public static function makeThemeGallery(ContainerInterface $container): ThemeGallery
+    {
+        return new ThemeGallery(
+            $container->get(ApplicationContext::class)->getBasePath() . '/themes',
+            dirname(__DIR__) . '/themes',
+            $container->get(PreviewThemeValidator::class),
+        );
     }
 
     public static function makeThemeCloner(ContainerInterface $container): ThemeCloner
@@ -527,6 +555,15 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
         return new CompiledStyleArtifacts($context->getBasePath() . '/storage/cache/style');
     }
 
+    public static function makeBlockTemplateTargetCheck(ContainerInterface $container): BlockTemplateTargetCheck
+    {
+        return new BlockTemplateTargetChecker(
+            $container->get(TemplateLinter::class),
+            $container->get(ThemeLocator::class),
+            $container->has(TemplateRepository::class) ? $container->get(TemplateRepository::class) : null,
+        );
+    }
+
     public static function makeStyleArtifactCompiler(ContainerInterface $container): StyleArtifactCompiler
     {
         $context = $container->get(ApplicationContext::class);
@@ -647,6 +684,14 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
             // entries() (blog-posts spec): soft-bound; null = [] (block renders nothing).
             entryReader: $container->has(EntryListReader::class)
                 ? $container->get(EntryListReader::class)
+                : null,
+            // search_enabled(): soft-bound; null = a theme offers no search box.
+            capabilities: $container->has(\Thallo\Contracts\Capability\CapabilityRegistry::class)
+                ? $container->get(\Thallo\Contracts\Capability\CapabilityRegistry::class)
+                : null,
+            // entry_tree() (website plan, phase 2c): soft-bound; null = an empty tree.
+            entryTree: $container->has(\Thallo\Contracts\Delivery\EntryTreeReader::class)
+                ? $container->get(\Thallo\Contracts\Delivery\EntryTreeReader::class)
                 : null,
             // form_render() (form-block spec §4): soft-bound; null = disabled notice.
             formSealer: $container->has(FormSealer::class)

@@ -78,6 +78,34 @@ concepts, guides, packs, reference, operations), `order` (number), `summary` (st
 and listing cards), `source_path` (string, repo path for the edit link). Front matter carries
 `slug`, `section`, `order`, `summary`; the file path is the fallback for `slug` and `section`.
 
+## Amended 2026-09-21 — what building phase 2 changed
+
+Three decisions above did not survive contact with the code, and one was added.
+
+- **URLs are `/docs/{slug}`, and the type is `docs`.** The public URL grammar is `/{type}/{slug}`;
+  a three-part path is already a taxonomy archive (`/{type}/{field}/{term}`). So the section is a
+  field that drives the sidebar, not a path segment, and the type's slug IS the URL prefix — there
+  is no `--prefix`. `/docs` is the type's listing page, which makes the docs index a template
+  (`listing/docs.twig`) and not a route.
+- **The body is Markdown, kept as written, in a plain text field** — not rich text. The rich-text
+  sanitizer has no tables and drops a code fence's language and a heading's id; and the importer
+  already stores raw Markdown in a plain field. The theme renders it at delivery with
+  `markdown()` (raw HTML stripped, so the generated HTML is safe), which also gives the TOC.
+- **The command is `thallo:import:markdown <folder> --type=docs`**, a folder import beside the
+  admin's single-file importer, over a new `ContentUpserter` contract (find by URL or by a field,
+  read, replace the draft, assign the URL with its redirect).
+- **Added: `thallo:docs:setup`**, so a docs section is a supported feature of any Thallo site and
+  not something thallo.dev happens to have; and the edit link is a per-page `edit_url` from
+  `--edit-base`, not a repository wired into the theme. `docs/documentation-sites.md` is the guide.
+
+Built: 2b whole, and 2c except syntax colouring. The search backend followed in its own slice:
+`PostgresFtsBackend` behind the existing `SearchBackend` port (a `search_documents` table whose
+vector Postgres generates itself, so every write is a plain builder write and workspace scoping
+is automatic), `SEARCH_ENGINE=auto|postgres|meilisearch` with auto preferring a configured
+Meilisearch, the `thallo.search` capability app-owned instead of owned by the Meilisearch
+extension, and the docs search box (`_docs_search.twig`, `block-docs-search.js`). Still to do:
+colouring inside code listings, images that travel with an import, and 2a — the corpus itself.
+
 ## Phases
 
 ### Phase 1 — Landing page (admin-authored)

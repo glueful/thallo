@@ -72,7 +72,7 @@ final class AccountPageRenderer
         ] + $extra;
 
         return new Response(
-            $env->render($template, $context),
+            $this->extension->finish($env->render($template, $context)),
             $status,
             ['Content-Type' => 'text/html; charset=UTF-8'],
         );

@@ -3277,4 +3277,55 @@ describe('Fill empty cells on the stage (container-layout spec §11.3)', () => {
     publish([{ enabled: true }, null as unknown as Record<string, unknown>, { id: 7 }])
     expect(button(el)).toBeNull()
   })
+
+  it('motion-play replays a block’s entrance: from its starting state, then released, then cleaned up', () => {
+    vi.useFakeTimers()
+    try {
+      document.body.innerHTML = ''
+      const w = wrapper(
+        'motion000001',
+        '<h2 class="thallo-block t-enter-fade-up">Title</h2><p class="t-enter-none">Still</p>',
+      )
+      const other = wrapper('motion000002', '<h2 class="thallo-block t-enter-fade">Other</h2>')
+      document.body.append(w, other)
+      const title = w.querySelector('h2')!
+
+      sendToBridge({ type: 'thallo:motion-play', id: 'motion000001' })
+      // Put at its starting state and released in one go (a forced reflow between the two is what
+      // makes the browser animate): what is left to see is the released state.
+      expect(title.getAttribute('data-thallo-motion-play')).toBe('to')
+      // `none` names no entrance, and another block is not this one.
+      expect(w.querySelector('p')!.hasAttribute('data-thallo-motion-play')).toBe(false)
+      expect(other.querySelector('h2')!.hasAttribute('data-thallo-motion-play')).toBe(false)
+
+      vi.advanceTimersByTime(5000)
+      expect(title.hasAttribute('data-thallo-motion-play')).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('motion-play lets a Ken Burns frame run for a while, then stills it again', () => {
+    vi.useFakeTimers()
+    try {
+      document.body.innerHTML = ''
+      const w = wrapper(
+        'motion000003',
+        '<div class="thallo-block t-kenburns-zoom-in"><img alt=""></div>',
+      )
+      document.body.append(w)
+      const frame = w.querySelector('div')!
+      sendToBridge({ type: 'thallo:motion-play', id: 'motion000003' })
+      expect(frame.hasAttribute('data-thallo-motion-play')).toBe(true)
+      vi.advanceTimersByTime(6000)
+      expect(
+        frame.hasAttribute('data-thallo-motion-play'),
+        'a drift is slow: it plays longer',
+      ).toBe(true)
+      vi.advanceTimersByTime(2500)
+      expect(frame.hasAttribute('data-thallo-motion-play')).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
