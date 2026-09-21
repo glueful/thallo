@@ -21,6 +21,14 @@ as the next release, never a mutated tag.
   page count are capped. Needs PHP's `zip` extension (docs/documentation-sites.md).
 
 ### Fixed
+- **The preview bar's Edit and Design links led to a 404 on every site installed from the setup
+  screen.** Setup saved the admin's address as the site's origin, without `/admin`, so the links
+  pointed at the site instead of the admin; the billing return was built from the same value.
+  Setup now saves the admin's full address. Sites already installed need do nothing: the site's
+  own address, given as the admin's, is read as the admin on it. **Admin URL** (Settings ›
+  General) is now optional — empty means this site's own admin, and the links work with nothing
+  set. It is for an admin hosted elsewhere, and the page warns, with a one-click correction,
+  when the value is not where the admin you are using runs.
 - **CSV, Markdown and WordPress imports could not be started from the admin.** The upload on
   Settings › Import / Export accepted only NDJSON and stored every file as `.ndjson`, while each
   importer knows its own files by their extension: a CSV was refused outright. The upload now

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AdminUrlField from './components/AdminUrlField.vue'
 import { computed, ref, watch } from 'vue'
 import { useGeneralSettings, useGeneralSettingsMutations } from '@/queries/generalSettings'
 import { useSettingsForm } from '@/composables/useSettingsForm'
@@ -158,18 +159,7 @@ async function onSave() {
                       class="w-full"
                     />
                   </UFormField>
-                  <UFormField
-                    label="Admin URL"
-                    description="This admin's base URL — powers the live preview bar's Edit/Design links."
-                  >
-                    <UInput
-                      v-model="form.admin_url"
-                      type="url"
-                      placeholder="https://admin.example.com"
-                      class="w-full"
-                      data-test="admin-url-input"
-                    />
-                  </UFormField>
+                  <AdminUrlField v-model="form.admin_url" />
                 </div>
               </UCard>
             </div>

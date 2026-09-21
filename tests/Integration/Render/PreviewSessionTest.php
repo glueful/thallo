@@ -690,4 +690,24 @@ final class PreviewSessionTest extends AppTestCase
         self::assertStringContainsString("https://other-admin.test/content/blog/{$entry}", $html);
         self::assertStringNotContainsString('https://admin.test/', $html);
     }
+
+    public function testTheSitesOwnAddressGivenAsTheAdminsLinksToTheAdminOnIt(): void
+    {
+        // What the setup screen saved until 1.0.0-beta.51: the site's address without /admin.
+        // Edit and Design then led to the theme's 404. The site is never its own admin, so the
+        // address is read as what was meant.
+        $entry = $this->seedDraftEntry('Bar origin');
+        $token = $this->container()->get(PreviewMinter::class)->mint($entry, 'en');
+        $this->container()->get(\Thallo\Core\Settings\GeneralSettings::class)
+            ->save(['admin_url' => 'https://site.test']);
+
+        $html = (string) $this->container()
+            ->get(\Thallo\Render\Http\Controllers\RenderController::class)
+            ->preview(Request::create("https://site.test/_preview/{$token}", 'GET'), $token)
+            ->getContent();
+
+        self::assertStringContainsString("https://site.test/admin/content/blog/{$entry}?locale=en", $html);
+        self::assertStringContainsString("https://site.test/admin/content/blog/{$entry}/design/en", $html);
+        self::assertStringNotContainsString("https://site.test/content/blog", $html);
+    }
 }

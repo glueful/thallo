@@ -86,16 +86,32 @@ final class PlanCheckoutUrlResolverTest extends AppTestCase
     }
 
     // ------------------------------------------------------------------
-    // Null-safety: no configured admin origin.
+    // No admin address set: the site's own admin, or none where the site brings its own.
     // ------------------------------------------------------------------
 
-    public function testNullWhenNoAdminOriginIsConfigured(): void
+    public function testASiteToldNothingLinksToItsOwnAdmin(): void
     {
+        // Thallo serves its admin at /admin on the site's host: the deploy's address is enough.
         $this->container()->get(GeneralSettings::class)->save(['admin_url' => '']);
+        $base = rtrim((string) config($this->appContext(), 'app.urls.base', ''), '/');
 
         $resolver = $this->container()->get(PlanCheckoutUrlResolver::class);
 
-        self::assertNull($resolver->resolve($this->appContext(), 'pro'));
+        self::assertSame("{$base}/admin/billing?plan=pro", $resolver->resolve($this->appContext(), 'pro'));
+    }
+
+    public function testNullWhenTheSiteBringsItsOwnAdminAndSaysNotWhere(): void
+    {
+        $ownAdmin = self::bootAppWithConfigOverride('thallo', ['admin' => ['enabled' => false]]);
+        try {
+            $ownAdmin->getContainer()->get(GeneralSettings::class)->save(['admin_url' => '']);
+            $resolver = $ownAdmin->getContainer()->get(PlanCheckoutUrlResolver::class);
+
+            self::assertNull($resolver->resolve($ownAdmin, 'pro'));
+        } finally {
+            self::resetSharedRepositoryConnection();
+            self::restoreSharedPermissionProvider();
+        }
     }
 
     // ------------------------------------------------------------------
