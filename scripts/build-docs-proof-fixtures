@@ -35,6 +35,21 @@ require __DIR__ . '/lib/showcase.php';
 
 $root = dirname(__DIR__);
 $container = showcase_boot($root);
+
+// The pages carry the docs search box only where the site's search is on, and a capability is
+// read at BOOT. So this process switches it on, serves the pages from a fresh one, and puts the
+// switch back as it found it.
+if (!in_array('--serving', $argv, true)) {
+    $switch = $container->get(Thallo\Core\Capabilities\CapabilityStateStore::class);
+    $before = $switch->explicit('thallo.search');
+    $switch->put('thallo.search', true);
+    try {
+        passthru(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' --serving', $status);
+    } finally {
+        $switch->put('thallo.search', $before ?? false);
+    }
+    exit($status);
+}
 $context = $container->get(Glueful\Bootstrap\ApplicationContext::class);
 $db = $container->get(Glueful\Database\Connection::class);
 
@@ -103,7 +118,8 @@ foreach (['page' => '/docs/install', 'index' => '/docs'] as $name => $path) {
     }
     // Stand-alone: the served page's linked stylesheets and scripts give way to the same CSS, inline.
     $html = (string) preg_replace('~<link[^>]+rel="stylesheet"[^>]*>~i', '', (string) $response->getContent());
-    $html = (string) preg_replace('~<script\b[^>]*\bsrc=[^>]*></script>~i', '', $html);
+    // The block scripts stay (the proofs answer them from the repo); the rest are the layout's.
+    $html = (string) preg_replace('~<script\b(?![^>]*/_thallo/runtime/block-)[^>]*\bsrc=[^>]*></script>~i', '', $html);
     $html = (string) preg_replace('~</head>~i', "<style>\n{$css}\n</style></head>", $html, 1);
     file_put_contents("{$out}/{$name}.html", $html);
 }

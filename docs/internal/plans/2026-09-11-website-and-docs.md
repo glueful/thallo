@@ -98,9 +98,13 @@ Three decisions above did not survive contact with the code, and one was added.
   not something thallo.dev happens to have; and the edit link is a per-page `edit_url` from
   `--edit-base`, not a repository wired into the theme. `docs/documentation-sites.md` is the guide.
 
-Built in this slice: 2b whole, 2c except search and syntax colouring. Still to do: the Postgres
-full-text backend and the docs search box, colouring inside code listings, images that travel
-with an import, and 2a — the corpus itself.
+Built: 2b whole, and 2c except syntax colouring. The search backend followed in its own slice:
+`PostgresFtsBackend` behind the existing `SearchBackend` port (a `search_documents` table whose
+vector Postgres generates itself, so every write is a plain builder write and workspace scoping
+is automatic), `SEARCH_ENGINE=auto|postgres|meilisearch` with auto preferring a configured
+Meilisearch, the `thallo.search` capability app-owned instead of owned by the Meilisearch
+extension, and the docs search box (`_docs_search.twig`, `block-docs-search.js`). Still to do:
+colouring inside code listings, images that travel with an import, and 2a — the corpus itself.
 
 ## Phases
 

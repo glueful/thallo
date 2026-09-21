@@ -52,6 +52,11 @@ final class ReindexCommandTest extends TestCase
             public bool $ensured = false;
             /** @var list<array<string,mixed>> */
             public array $upserted = [];
+            public function name(): string
+            {
+                return 'test double';
+            }
+
             public function ensureIndex(): void
             {
                 $this->ensured = true;

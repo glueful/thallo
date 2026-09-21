@@ -97,7 +97,16 @@ button; a `bash` fence draws the `$` prompt without it being copied.
 docs page can never carry markup or script of its own, whoever wrote the file.
 
 Not yet: images that travel with the import (link to an uploaded image or an absolute URL for
-now), syntax colouring inside code listings, and a docs search box.
+now), and syntax colouring inside code listings.
+
+## Search
+
+Turn on **Settings › General › Content search** and run `php glueful search:reindex` once. The
+sidebar and the index then carry a search box: results as you type, scoped to your docs, walked
+with the arrow keys, opened with Enter, focused with `/`. It uses the site's own PostgreSQL
+database — there is nothing to install — or Meilisearch if you have configured one
+(`packages/thallo-search/README.md`). Each import keeps the index in step. A visitor without
+JavaScript sees no search box rather than one that does nothing.
 
 ## Making it yours
 
@@ -105,4 +114,5 @@ The pages are rendered by two templates in the default theme, `entry/docs.twig` 
 `listing/docs.twig`, and styled by `assets/docs.css`. Neither template names the type, so for a
 type called `handbook` copy them to `entry/handbook.twig` and `listing/handbook.twig`. Three
 template functions do the work and are yours to use anywhere (THEMING.md §4.2):
-`markdown(text)`, `markdown_toc(text)` and `entry_tree(type)`.
+`markdown(text)`, `markdown_toc(text)` and `entry_tree(type)`. The search box is the partial
+`_docs_search.twig`, shown where `search_enabled()`.

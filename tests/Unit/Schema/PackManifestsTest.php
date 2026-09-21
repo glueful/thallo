@@ -21,12 +21,13 @@ final class PackManifestsTest extends TestCase
         'thallo-commerce' => ['dependent', \Thallo\Commerce\Schema\CommerceLinkSchemaVerifier::class],
         'thallo-navigation' => ['dependent', \Thallo\Navigation\Schema\NavigationSchemaVerifier::class],
         'thallo-render' => ['dependent', \Thallo\Render\Schema\RenderSchemaVerifier::class],
+        'thallo-search' => ['dependent', \Thallo\Search\Schema\SearchSchemaVerifier::class],
         'thallo-seo' => ['dependent', \Thallo\Seo\Schema\SeoSchemaVerifier::class],
         'thallo-tenancy' => ['dependent', \Thallo\Tenancy\Schema\TenancySchemaVerifier::class],
         'thallo-workflow' => ['dependent', \Thallo\Workflow\Schema\WorkflowSchemaVerifier::class],
     ];
 
-    private const SCHEMA_FREE = ['thallo-account', 'thallo-importers', 'thallo-search', 'thallo-subscriptions'];
+    private const SCHEMA_FREE = ['thallo-account', 'thallo-importers', 'thallo-subscriptions'];
 
     /** @return array<string, mixed> */
     private function glueful(string $pack): array

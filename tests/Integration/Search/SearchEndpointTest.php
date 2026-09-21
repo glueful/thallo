@@ -32,6 +32,11 @@ final class SearchEndpointTest extends AppTestCase
             public function __construct(private bool $healthy, private array $hits, private int $total)
             {
             }
+            public function name(): string
+            {
+                return 'test double';
+            }
+
             public function ensureIndex(): void
             {
             }

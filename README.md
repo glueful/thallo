@@ -57,7 +57,8 @@ local development; **payment links specifically require a canonical HTTPS origin
 A fresh install activates the core CMS (content, render, collections, navigation, SEO,
 analytics, media, i18n, users/RBAC, audit, import/export) plus the bundled subscriptions
 billing engine. **Commerce, payments (Payvia), and Meilisearch ship installed but disabled** —
-enable them from the in-admin extensions browser (Settings → Extensions) or:
+content search needs none of them (it runs on your PostgreSQL database; turn it on under
+Settings → General). Enable the extensions from the in-admin extensions browser (Settings → Extensions) or:
 
 ```bash
 php glueful extensions:enable Commerce

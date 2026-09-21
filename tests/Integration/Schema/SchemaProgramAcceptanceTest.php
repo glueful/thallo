@@ -35,14 +35,13 @@ final class SchemaProgramAcceptanceTest extends AppTestCase
         'thallo.accounts' => 'glueful/users',
         'thallo.commerce' => 'glueful/commerce',
         'thallo.importers' => 'glueful/import-export',
-        'thallo.search' => 'glueful/meilisearch',
         'thallo.subscriptions' => 'glueful/subscriptions',
         'thallo.tenancy' => 'glueful/tenancy',
     ];
 
     private const APP_OWNED = [
         'thallo.analytics', 'thallo.collections', 'thallo.navigation',
-        'thallo.render', 'thallo.seo', 'thallo.workflow',
+        'thallo.render', 'thallo.search', 'thallo.seo', 'thallo.workflow',
     ];
 
     // ── Step 1: closed inventory ─────────────────────────────────────────────────
@@ -94,8 +93,9 @@ final class SchemaProgramAcceptanceTest extends AppTestCase
         foreach (
             [
                 'glueful/thallo-analytics', 'glueful/thallo-collections', 'glueful/thallo-commerce',
-                'glueful/thallo-navigation', 'glueful/thallo-render', 'glueful/thallo-seo',
-                'glueful/thallo-tenancy', 'glueful/thallo-workflow', 'glueful/tenancy', 'app',
+                'glueful/thallo-navigation', 'glueful/thallo-render', 'glueful/thallo-search',
+                'glueful/thallo-seo', 'glueful/thallo-tenancy', 'glueful/thallo-workflow', 'glueful/tenancy',
+                'app',
             ] as $core
         ) {
             self::assertContains($core, $snapshot, "{$core} is core — always in the global view");

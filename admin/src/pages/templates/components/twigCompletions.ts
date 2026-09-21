@@ -45,6 +45,7 @@ const FUNCTIONS = [
   'entry_tree',
   'markdown',
   'markdown_toc',
+  'search_enabled',
   'is_preview',
   'media_image',
   'claim_priority_image',

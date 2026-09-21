@@ -146,6 +146,8 @@ final class DocsPagesTest extends AppTestCase
         self::assertStringContainsString('href="#requirements"', $toc[1]);
         self::assertStringContainsString('href="#create-a-project"', $toc[1]);
         self::assertStringContainsString('Get Thallo running.', $html);
+        // Search is off in this boot: the page offers no search box that could not answer.
+        self::assertStringNotContainsString('data-docs-search', $html);
         // The first page has no previous.
         self::assertStringNotContainsString('rel="prev"', $html);
     }

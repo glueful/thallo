@@ -32,6 +32,11 @@ final class SearchContentReindexerTest extends TestCase
             public array $deletes = [];
             public bool $throwOnUpsert = false;
             public int $ensured = 0;
+            public function name(): string
+            {
+                return 'test double';
+            }
+
             public function ensureIndex(): void
             {
                 $this->ensured++;

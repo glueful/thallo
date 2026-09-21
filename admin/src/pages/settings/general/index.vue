@@ -335,9 +335,10 @@ async function onSave() {
                     v-model="form.search_enabled"
                     data-test="search-enabled"
                     label="Content search"
-                    description="Public search API (/v1/search) and content reindexing. Needs the
-                      Meilisearch extension with a reachable server; after enabling, run the
-                      thallo:search:reindex command to index existing content."
+                    description="Public search API (/v1/search), the docs search box and content
+                      reindexing. Works with your site's own PostgreSQL database, or with
+                      Meilisearch if you have configured one. After enabling, run
+                      php glueful search:reindex to index existing content."
                   />
                 </div>
               </UCard>

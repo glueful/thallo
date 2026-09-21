@@ -8,6 +8,19 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Added
+- **Search with nothing to install, and a docs search box.** Content search needed a Meilisearch
+  server. It now also runs on the database every site already has: PostgreSQL full-text search,
+  with stemming in the page's language, prefix matching for search-as-you-type, titles ranked
+  above bodies and highlighted snippets, behind the same `GET /v1/search`. `SEARCH_ENGINE` is
+  `auto` (the default: Meilisearch where `MEILISEARCH_HOST` is set, PostgreSQL otherwise),
+  `postgres` or `meilisearch`; a choice that cannot be honoured is never swapped for the other
+  engine — search is unavailable and `php glueful search:status` says why. Turn search on under
+  Settings › General › Content search and run `php glueful search:reindex`. Documentation pages
+  then carry a search box in the sidebar and on the index: results as you type, scoped to the
+  docs, walked with the arrow keys, focused with `/`; without JavaScript there is no box rather
+  than a dead one. Themes get `search_enabled()`. What is indexed is now the words a reader sees:
+  rich text without its tags, Markdown without its syntax, and never a field that only holds a
+  URL or a file path — run `search:reindex` once to refresh an existing index.
 - **A documentation section for any site.** A folder of Markdown in git becomes a docs section:
   a sidebar of sections, the page, an "On this page" outline, previous and next, and an "Edit this
   page" link, with `/docs` as its index. `php glueful thallo:docs:setup` makes the content type (a
@@ -20,8 +33,8 @@ as the next release, never a mutated tag.
   files become links between the pages. The body is GitHub-flavoured Markdown (tables, task
   lists, fenced code through the theme's own code block); raw HTML in a source file is stripped.
   Themes get three functions: `markdown()`, `markdown_toc()` and `entry_tree()`, and every entry
-  template now receives its `type`. Not yet: a docs search box, colouring inside code listings,
-  and images that travel with the import (docs/documentation-sites.md).
+  template now receives its `type`. Not yet: colouring inside code listings, and images that
+  travel with the import (docs/documentation-sites.md).
 - **A section and page library.** The designer's Blocks tab has three views: **Blocks**, **Sections**
   and **Pages**. Sections are ready-made parts of a page, each shown by a thumbnail of its real
   render: four heroes, feature grids, how-it-works steps, numbers, testimonials, pricing plans, an
@@ -84,6 +97,14 @@ as the next release, never a mutated tag.
   eyebrow and lead text in a shape only responsive settings take, so a page holding a freshly
   made section was refused on save with "is not responsive". They now write the colour as the
   plain value it is, and a test holds every preset's children to the shape the server accepts.
+
+### Upgrade Notes
+- One new migration, `search_documents` (the PostgreSQL search index): `php glueful
+  thallo:provision` creates it. It is created on every install, whether or not search is on.
+- The `thallo.search` capability no longer depends on the `glueful/meilisearch` extension. A
+  site that already runs Meilisearch has `MEILISEARCH_HOST` set and keeps using it; to be
+  explicit, set `SEARCH_ENGINE=meilisearch`.
+- After upgrading, run `php glueful search:reindex` so an existing index holds clean text.
 
 ## [1.0.0-beta.49] - 2026-09-20 — Developer Preview
 
