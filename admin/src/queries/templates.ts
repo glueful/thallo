@@ -99,10 +99,30 @@ export async function restoreVersion(
   return (json.data ?? json) as { version_uuid: string }
 }
 
-/** Selectable themes + the active one (feeds the Site › Appearance Theme card). */
-export async function fetchRenderThemes(): Promise<{ themes: string[]; active: string }> {
+/** What a theme says about itself in its theme.json (the Appearance page's gallery card). */
+export interface ThemeCard {
+  name: string
+  title: string
+  version: string | null
+  description: string | null
+  author: string | null
+  tags: string[]
+  /** Hex colours the drawn thumbnail uses when there is no screenshot. */
+  colors: { background?: string; text?: string; accent?: string } | null
+  /** Site-relative, versioned by the file's mtime; null when the theme ships none. */
+  screenshot_url: string | null
+}
+
+export interface RenderThemes {
+  themes: string[]
+  active: string
+  cards: ThemeCard[]
+}
+
+/** Selectable themes, their cards, and the active one (feeds the Site › Appearance gallery). */
+export async function fetchRenderThemes(): Promise<RenderThemes> {
   const json = await authFetch(`${runtimeConfig.apiBase}/render/themes`)
-  return (json.data ?? json) as { themes: string[]; active: string }
+  return (json.data ?? json) as RenderThemes
 }
 
 /**

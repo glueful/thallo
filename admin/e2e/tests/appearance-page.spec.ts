@@ -1,4 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { openDesignPage } from '../helpers'
 
 // Site › Appearance, in a real browser: reached from the Site group in the sidebar, it shows how the
@@ -112,6 +114,98 @@ test('Appearance is in the Site group, and saves only its own settings', async (
     site_logo_dark: '',
     site_favicon: '',
   })
+})
+
+test('the theme gallery shows each theme, and choosing one previews it before it is saved', async ({
+  page,
+}) => {
+  await openDesignPage(page)
+  const saves = await routeSettings(page)
+  const looks = await routePreview(page)
+  const card = (name: string, more: Record<string, unknown>) => ({
+    name,
+    title: name,
+    version: null,
+    description: null,
+    author: null,
+    tags: [],
+    colors: null,
+    screenshot_url: null,
+    ...more,
+  })
+  await page.route('**/v1/admin/render/themes', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          themes: ['default', 'aurora'],
+          active: 'default',
+          cards: [
+            card('default', {
+              title: 'Default',
+              version: '1.0.0',
+              author: 'Thallo',
+              screenshot_url: '/_thallo/theme-screenshot/default?v=1',
+            }),
+            card('aurora', {
+              colors: { background: '#0b1020', text: '#ffffff', accent: '#7c3aed' },
+            }),
+          ],
+        },
+      }),
+    }),
+  )
+  // The REAL screenshot the default theme ships, served as the site serves it.
+  await page.route('**/_thallo/theme-screenshot/default*', (route) =>
+    route.fulfill({
+      contentType: 'image/jpeg',
+      body: readFileSync(
+        resolve(__dirname, '../../../packages/thallo-render/themes/default/screenshot.jpg'),
+      ),
+    }),
+  )
+  await page.goto('/admin/appearance')
+
+  const live = page.getByRole('radio', { name: /Default/ })
+  await expect(live).toBeVisible({ timeout: 20_000 })
+  await expect(live).toBeChecked()
+  await expect(live.locator('[data-test="theme-live"]')).toBeVisible()
+  // The screenshot really loaded and fills its 4:3 frame.
+  const shot = live.locator('img')
+  await expect.poll(() => shot.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(1200)
+  const frame = await shot.evaluate((img) => {
+    const r = img.getBoundingClientRect()
+    return r.width / r.height
+  })
+  expect(frame).toBeCloseTo(4 / 3, 1)
+
+  // A theme with no screenshot is drawn in its own colours, never blank.
+  const aurora = page.getByRole('radio', { name: /aurora/ })
+  const drawn = aurora.locator('[data-test="theme-thumbnail-drawn"]')
+  await expect(drawn).toBeVisible()
+  expect(await drawn.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(11, 16, 32)')
+
+  // Two cards side by side in the settings column, neither overflowing it.
+  const [a, b] = await Promise.all([live.boundingBox(), aurora.boundingBox()])
+  expect(a!.y).toBeCloseTo(b!.y, 0)
+  expect(b!.x).toBeGreaterThan(a!.x + a!.width - 1)
+
+  // Choosing it is only a choice: the preview is asked for THAT theme, and nothing is saved.
+  await aurora.click()
+  await expect(aurora).toBeChecked()
+  await expect(aurora.locator('[data-test="theme-pending"]')).toBeVisible()
+  await expect.poll(() => looks.at(-1)?.theme).toBe('aurora')
+  expect(saves).toEqual([])
+  // The keyboard moves the choice back, as in any radio group.
+  await page.keyboard.press('ArrowLeft')
+  await expect(live).toBeChecked()
+  await expect(live).toBeFocused()
+
+  await aurora.click()
+  await page.locator('[data-test="appearance-save"]').click()
+  await expect.poll(() => saves.length).toBe(1)
+  expect(saves[0]).toMatchObject({ theme: 'aurora' })
 })
 
 test('Settings › General no longer holds the appearance cards, and links to where they went', async ({

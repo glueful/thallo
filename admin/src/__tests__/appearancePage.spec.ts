@@ -97,6 +97,17 @@ async function save(wrapper: ReturnType<typeof mount>) {
   return calls[calls.length - 1]![0] as Record<string, unknown>
 }
 
+const themeCard = (name: string, title: string) => ({
+  name,
+  title,
+  version: null,
+  description: null,
+  author: null,
+  tags: [],
+  colors: null,
+  screenshot_url: null,
+})
+
 describe('appearance page', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -104,9 +115,11 @@ describe('appearance page', () => {
     saveMock.mockReset().mockResolvedValue({ ...settings() })
     notify.success.mockClear()
     notify.error.mockClear()
-    fetchRenderThemesMock
-      .mockReset()
-      .mockResolvedValue({ themes: ['default', 'corporate'], active: 'default' })
+    fetchRenderThemesMock.mockReset().mockResolvedValue({
+      themes: ['default', 'corporate'],
+      active: 'default',
+      cards: [themeCard('default', 'Default'), themeCard('corporate', 'corporate')],
+    })
   })
 
   it('shows the four appearance cards and nothing of how the site behaves', async () => {
@@ -159,10 +172,19 @@ describe('appearance page', () => {
     expect(await save(wrapper)).toEqual({ ...APPEARANCE, ...stored })
   })
 
-  it('the Theme card lists the themes; a failed fetch hides it without an error', async () => {
+  it('the Theme card is a gallery of the themes; a failed fetch hides it without an error', async () => {
     const wrapper = mount(AppearancePage)
     await flushPromises()
-    expect(wrapper.find('[data-test="theme-setting-select"]').text()).toContain('default')
+    // The saved theme is the chosen one and is marked live.
+    const live = wrapper.find('[data-test="theme-option-default"]')
+    expect(live.attributes('aria-checked')).toBe('true')
+    expect(live.find('[data-test="theme-live"]').exists()).toBe(true)
+
+    // Choosing another is only a choice until Save, which sends it with the rest of the form.
+    await wrapper.find('[data-test="theme-option-corporate"]').trigger('click')
+    expect(wrapper.find('[data-test="theme-pending"]').exists()).toBe(true)
+    expect(saveMock).not.toHaveBeenCalled()
+    expect(await save(wrapper)).toMatchObject({ theme: 'corporate' })
 
     fetchRenderThemesMock.mockRejectedValue(new Error('403'))
     const hidden = mount(AppearancePage)

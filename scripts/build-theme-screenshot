@@ -1,0 +1,164 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Build a theme's gallery screenshot (`screenshot.jpg` at the theme's root): one showcase page —
+ * a hero, three features, a call to action — rendered through the theme's OWN templates and
+ * stylesheets, then captured in Chromium by tools/style-proofs. Reproducible, so a theme's
+ * thumbnail is the theme and not a mock-up of it. Run it again when the theme's look changes.
+ *
+ *   DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-theme-screenshot [theme]
+ *
+ * `theme` is `default` (the pack's) or an app theme under themes/. Any image works as a
+ * screenshot (THEMING.md §1); this is only how Thallo makes its own.
+ */
+
+declare(strict_types=1);
+
+use Thallo\Contracts\Style\BlockStyleRegistry;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
+use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
+use Thallo\Core\Tests\Support\TestApplication;
+use Thallo\Render\RenderContextExtension;
+use Thallo\Render\Style\StyleCompiler;
+use Thallo\Render\Style\ThemeStylesheetArtifact;
+use Thallo\Render\ThemeLocator;
+use Thallo\Render\TwigFactory;
+
+require __DIR__ . '/../vendor/autoload.php';
+
+foreach (getenv() as $key => $value) {
+    $_ENV[$key] ??= $value;
+}
+$_ENV['DB_POOLING_ENABLED'] = 'false';
+$root = dirname(__DIR__);
+if (is_file($root . '/.env')) {
+    Dotenv\Dotenv::createImmutable($root)->safeLoad();
+}
+$env = static fn (string $key, ?string $default = null): ?string => $_ENV[$key] ?? (getenv($key) === false ? $default : getenv($key));
+$database = (string) $env('DB_PGSQL_DATABASE', '');
+if ($env('APP_ENV', 'development') !== 'testing' || ($database !== 'app_test' && !str_ends_with($database, '_test'))) {
+    fwrite(STDERR, "Refusing to build outside APP_ENV=testing on a test database (it syncs block types).\n");
+    exit(1);
+}
+
+$name = $argv[1] ?? 'default';
+if (preg_match('/\A[a-z0-9][a-z0-9_-]*\z/i', $name) !== 1) {
+    fwrite(STDERR, "Not a theme name: {$name}\n");
+    exit(1);
+}
+
+$container = TestApplication::instance()->getContainer();
+$container->get(StarterBlockTypeSeeder::class)->seedMissing();
+$blockTypes = $container->get(BlockTypeRepository::class);
+foreach ($container->get(BlockTypeKind::class)->definitions() as $definition) {
+    $payload = $definition->payload;
+    $row = $blockTypes->findBySlug((string) $payload['slug']);
+    if ($row !== null) {
+        $blockTypes->updateStyle(
+            (string) $row['uuid'],
+            $payload['style_capabilities'] ?? null,
+            $payload['style_targets'] ?? null,
+            $payload['flags'] ?? null,
+            $row['starter_content'] ?? $payload['starter_content'] ?? null,
+        );
+    }
+}
+$container->get(BlockStyleRegistry::class)->reset();
+
+$theme = new ThemeLocator($name, $root . '/themes');
+if ($theme->activePaths()['name'] !== $name) {
+    fwrite(STDERR, "No loadable theme '{$name}'.\n");
+    exit(1);
+}
+$vocabulary = $theme->vocabulary();
+$themeDir = $theme->themeDir();
+$sheets = array_map(static fn (string $rel): string => $themeDir . '/' . $rel, $vocabulary->stylesheets());
+$css = implode("\n", [
+    (string) file_get_contents($root . '/packages/thallo-render/assets/style/layers.css'),
+    ThemeStylesheetArtifact::build($sheets)->css,
+    StyleCompiler::compile($vocabulary),
+]);
+
+// The theme's own faces, when it ships them where the default does: a thumbnail in a fallback
+// face is not the theme.
+$faces = '';
+foreach (glob($themeDir . '/assets/fonts/*-roman-*.woff2') ?: [] as $font) {
+    $family = ucfirst((string) strstr(basename($font), '-', true));
+    $faces .= "@font-face { font-family: \"{$family}\"; src: url(\"file://{$font}\") format(\"woff2\"); "
+        . "font-weight: 100 900; font-display: block; }\n";
+}
+
+$button = static fn (string $id, string $label, string $variant): array => [
+    'id' => $id, 'type' => 'button', 'settings' => [],
+    'data' => ['label' => $label, 'url' => '#', 'variant' => $variant, 'size' => 'lg'],
+];
+$feature = static fn (string $id, string $icon, string $title, string $text): array => [
+    'id' => $id, 'type' => 'feature', 'settings' => [],
+    'data' => ['icon' => $icon, 'title' => $title, 'description' => $text, 'variant' => 'outline',
+        'orientation' => 'vertical'],
+];
+$blocks = [
+    ['id' => 'shothero0001', 'type' => 'hero', 'settings' => [], 'data' => [
+        'headline' => 'A theme for Thallo',
+        'title' => 'Build the site you have in mind',
+        'description' => 'Pages made of blocks, styled by settings, and rendered fast from your own server.',
+        'links' => [$button('shotbtn00001', 'Get started', 'solid'), $button('shotbtn00002', 'See the blocks', 'outline')],
+    ]],
+    ['id' => 'shotgrid0001', 'type' => 'container', 'data' => ['element' => 'section', 'content' => [
+        $feature('shotfeat0001', 'layers', 'Made of blocks', 'Compose pages from a library you can extend.'),
+        $feature('shotfeat0002', 'palette', 'Styled by settings', 'Spacing, colour and motion without CSS.'),
+        $feature('shotfeat0003', 'zap', 'Fast by default', 'Cached pages and images sized for the screen.'),
+    ]], 'settings' => ['style' => [
+        'layout' => [
+            'display' => ['base' => ['type' => 'choice', 'value' => 'grid']],
+            'columns' => ['base' => ['type' => 'choice', 'value' => '3']],
+            'content_width' => ['base' => ['type' => 'token', 'value' => 'width.container']],
+            'gap' => ['base' => ['type' => 'token', 'value' => 'spacing.lg']],
+        ],
+        'spacing' => ['padding' => [
+            'top' => ['base' => ['type' => 'token', 'value' => 'spacing.2xl']],
+            'bottom' => ['base' => ['type' => 'token', 'value' => 'spacing.2xl']],
+        ]],
+    ]]],
+    ['id' => 'shotcta00001', 'type' => 'cta', 'settings' => [], 'data' => [
+        'title' => 'Ready when you are',
+        'description' => 'Install it, pick a theme, publish.',
+        'variant' => 'soft',
+        'links' => [$button('shotbtn00003', 'Read the docs', 'solid')],
+    ]],
+];
+
+$extension = $container->get(RenderContextExtension::class);
+$extension->resetPerRenderState();
+$extension->setBlockAnnotations(false);
+$twig = (new TwigFactory($theme, $extension, $root . '/storage/cache/twig'))->environment();
+$body = $twig->createTemplate('{{ blocks(l) }}')->render(['l' => $blocks]);
+
+$work = $root . '/tools/style-proofs/fixtures';
+if (!is_dir($work) && !mkdir($work, 0755, true)) {
+    fwrite(STDERR, "cannot create {$work}\n");
+    exit(1);
+}
+$page = $work . '/theme-screenshot.html';
+file_put_contents($page, <<<HTML
+<!doctype html>
+<meta charset="utf-8">
+<title>{$name}</title>
+<style>
+{$faces}
+{$css}
+body { margin: 0; }
+</style>
+<main>{$body}</main>
+HTML);
+
+$target = $themeDir . '/screenshot.jpg';
+$node = 'node ' . escapeshellarg($root . '/tools/style-proofs/screenshot-theme.js')
+    . ' ' . escapeshellarg($page) . ' ' . escapeshellarg($target);
+passthru($node, $status);
+if ($status !== 0 || !is_file($target)) {
+    fwrite(STDERR, "The capture failed (run `npm install` in tools/style-proofs).\n");
+    exit(1);
+}
+fwrite(STDOUT, 'Wrote ' . $target . ' (' . number_format((int) filesize($target)) . " bytes).\n");

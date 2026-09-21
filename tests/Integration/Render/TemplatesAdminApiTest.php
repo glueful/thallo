@@ -35,6 +35,7 @@ final class TemplatesAdminApiTest extends AppTestCase
             $c->get(\Thallo\Render\ThemeLocator::class),
             $c->get(\Glueful\Events\EventService::class),
             $c->get(\Glueful\Bootstrap\ApplicationContext::class),
+            $c->get(\Thallo\Render\Themes\ThemeGallery::class),
             $c->get(\Thallo\Render\Templates\ThemeCloner::class),
         );
     }

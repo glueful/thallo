@@ -8,6 +8,16 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Added
+- **A theme gallery.** Site › Appearance showed the live theme as a name in a select. It is now a
+  gallery: each theme is a card with its screenshot, title, version, author, description and
+  tags, and the live one is marked. Choosing a card shows that theme in the preview beside it;
+  Save makes it live, as before. A theme describes itself with optional `theme.json` keys —
+  `title`, `description`, `author`, `tags`, `screenshot`, `colors` — and a `screenshot.jpg` at its
+  root is found without being named. A theme with no screenshot gets a thumbnail drawn in its
+  own `colors`, so a card is never blank. None of the keys is required, and a wrong value is left
+  off the card rather than breaking the theme. The default theme ships its card and a real
+  screenshot, rendered from its own templates; a duplicated theme starts with a card of its own
+  that says where it came from (THEMING.md §1).
 - **Animation presets.** The designer's Style tab has a **Motion** group. **Entrance** brings a
   block in as it scrolls into view — fade, fade up or down, slide from the left or right, zoom in —
   with a **Duration**, a **Delay**, and **Repeat** (once, or every time it comes back into view).

@@ -9,7 +9,8 @@ import AssetField from '@/fields/components/AssetField.vue'
 import FaviconPreview from './components/FaviconPreview.vue'
 import AppearancePreview from './components/AppearancePreview.vue'
 import { blobDisplayUrl } from '@/queries/media'
-import { fetchRenderThemes } from '@/queries/templates'
+import { fetchRenderThemes, type ThemeCard } from '@/queries/templates'
+import ThemeGallery from './components/ThemeGallery.vue'
 import { useNotify } from '@/composables/useNotify'
 
 definePage({ meta: { requiresAuth: true } })
@@ -97,15 +98,15 @@ const pendingLook = computed(() => ({
 
 // Live theme options (theme-setting spec §4): fetched from the render pack;
 // a fetch failure (pack absent, no permission) just hides the card.
-const availableThemes = ref<string[]>([])
+const themeCards = ref<ThemeCard[]>([])
 onMounted(async () => {
   try {
     // A failed fetch hides the card; so does a body without the list, which must not be assigned —
     // the template reads its length.
-    const themes: unknown = (await fetchRenderThemes()).themes
-    availableThemes.value = Array.isArray(themes) ? (themes as string[]) : []
+    const cards: unknown = (await fetchRenderThemes()).cards
+    themeCards.value = Array.isArray(cards) ? (cards as ThemeCard[]) : []
   } catch {
-    availableThemes.value = []
+    themeCards.value = []
   }
 })
 
@@ -155,19 +156,18 @@ async function onSave() {
              cards scroll. Below xl the preview comes first, full width. -->
         <div v-else class="grid gap-6 xl:grid-cols-[minmax(0,25rem)_minmax(0,1fr)]">
           <div class="order-2 space-y-6 xl:order-1">
-            <UCard v-if="availableThemes.length > 0" data-test="theme-card">
-              <template #header><h2 class="font-semibold text-default">Theme</h2></template>
-              <UFormField
-                label="Live theme"
-                description="Applies on the next page view — no restart. Preview a theme first via a preview session; duplicate one from the Theme editor."
-              >
-                <USelect
-                  v-model="form.theme"
-                  :items="availableThemes"
-                  class="w-full"
-                  data-test="theme-setting-select"
-                />
-              </UFormField>
+            <UCard v-if="themeCards.length > 0" data-test="theme-card">
+              <template #header>
+                <h2 class="font-semibold text-default">Theme</h2>
+                <p class="text-sm text-muted">
+                  Choose one to see it in the preview; Save makes it live on the next page view. To
+                  make your own, duplicate a theme in the
+                  <RouterLink to="/templates" class="text-primary hover:underline"
+                    >Theme editor</RouterLink
+                  >.
+                </p>
+              </template>
+              <ThemeGallery v-model="form.theme" :cards="themeCards" :live="data?.theme ?? ''" />
             </UCard>
 
             <UCard data-test="theme-colors-card">
