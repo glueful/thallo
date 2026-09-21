@@ -175,6 +175,10 @@ final class MeilisearchSmokeTest extends AppTestCase
                 {
                     return null;
                 }
+                public function enumValues(): array
+                {
+                    return [];
+                }
             };
         }
         return new class ($fields) implements ContentSchemaReader {

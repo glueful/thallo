@@ -51,3 +51,5 @@ tools/runtime-browser/fixtures/layout/
 # scripts/build-parity-fixtures renders the candidate compositions the references are compared
 # against; only the case definitions and the measurements are committed.
 tools/runtime-browser/fixtures/parity/
+# scripts/build-docs-proof-fixtures serves a documentation section (docs-layout.spec.js).
+tools/runtime-browser/fixtures/docs/

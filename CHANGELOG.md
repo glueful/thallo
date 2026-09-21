@@ -8,6 +8,20 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Added
+- **A documentation section for any site.** A folder of Markdown in git becomes a docs section:
+  a sidebar of sections, the page, an "On this page" outline, previous and next, and an "Edit this
+  page" link, with `/docs` as its index. `php glueful thallo:docs:setup` makes the content type (a
+  Markdown body kept as plain text, a section and an order for the sidebar, a summary) and lets
+  the site list it; `php glueful thallo:import:markdown docs --type=docs --publish` imports the
+  folder. The import is built for a deploy script: a file lands on the page it made last time,
+  only changed pages are written, a changed slug leaves a redirect, a file that is gone is
+  reported and never deleted, and `--dry-run` says what would change. Front matter is optional —
+  a file's name, folder, `NN-` prefix and first heading say the rest — and links between `.md`
+  files become links between the pages. The body is GitHub-flavoured Markdown (tables, task
+  lists, fenced code through the theme's own code block); raw HTML in a source file is stripped.
+  Themes get three functions: `markdown()`, `markdown_toc()` and `entry_tree()`, and every entry
+  template now receives its `type`. Not yet: a docs search box, colouring inside code listings,
+  and images that travel with the import (docs/documentation-sites.md).
 - **A section and page library.** The designer's Blocks tab has three views: **Blocks**, **Sections**
   and **Pages**. Sections are ready-made parts of a page, each shown by a thumbnail of its real
   render: four heroes, feature grids, how-it-works steps, numbers, testimonials, pricing plans, an

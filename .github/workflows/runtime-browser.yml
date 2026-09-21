@@ -9,6 +9,9 @@ on:
       - 'tools/runtime-browser/**'
       - 'scripts/build-layout-proof-fixtures'
       - 'scripts/build-parity-fixtures'
+      - 'scripts/build-docs-proof-fixtures'
+      - 'packages/thallo-importers/**'
+      - 'core/src/Content/Docs/**'
       - 'admin/src/assets/print.css'
       - 'admin/src/pages/commerce/orders/components/InvoiceDocument.vue'
       - 'admin/src/pages/commerce/orders/**/invoice.vue'
@@ -21,6 +24,9 @@ on:
       - 'tools/runtime-browser/**'
       - 'scripts/build-layout-proof-fixtures'
       - 'scripts/build-parity-fixtures'
+      - 'scripts/build-docs-proof-fixtures'
+      - 'packages/thallo-importers/**'
+      - 'core/src/Content/Docs/**'
       - 'admin/src/assets/print.css'
       - 'admin/src/pages/commerce/orders/components/InvoiceDocument.vue'
       - 'admin/src/pages/commerce/orders/**/invoice.vue'
@@ -123,6 +129,12 @@ jobs:
       - name: Build the parity fixtures
         working-directory: .
         run: php scripts/build-parity-fixtures
+
+      # A documentation section as the application serves it (docs-layout.spec.js): set up,
+      # imported from Markdown, fetched through the kernel. Gitignored, like the rest.
+      - name: Build the docs fixtures
+        working-directory: .
+        run: php scripts/build-docs-proof-fixtures
 
       - uses: actions/setup-node@v6
         with:

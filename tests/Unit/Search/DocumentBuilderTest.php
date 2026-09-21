@@ -45,6 +45,10 @@ final class DocumentBuilderTest extends TestCase
                 {
                     return null;
                 }
+                public function enumValues(): array
+                {
+                    return [];
+                }
             };
         }
         return new class ($fields) implements ContentSchemaReader {
