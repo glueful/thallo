@@ -2690,7 +2690,7 @@
                                             "string",
                                             "null"
                                         ],
-                                        "description": "The admin SPA's own origin \u2014 sent by the web setup form.",
+                                        "description": "Where the admin is: its origin and base path. Sent by the web setup form.",
                                         "maxLength": 300
                                     }
                                 },
@@ -81036,7 +81036,7 @@
                                             "string",
                                             "null"
                                         ],
-                                        "description": "Admin SPA base URL for preview-bar deep links; '' clears."
+                                        "description": "Where the admin is, when hosted elsewhere; '' means this site's own, at \/admin."
                                     },
                                     "listing_types": {
                                         "type": [

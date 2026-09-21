@@ -29512,7 +29512,7 @@ export interface operations {
           theme_font_display?: string | null
           /** @description Page ground: plain | tinted; enum-validated in the controller. */
           theme_background?: string | null
-          /** @description Admin SPA base URL for preview-bar deep links; '' clears. */
+          /** @description Where the admin is, when hosted elsewhere; '' means this site's own, at /admin. */
           admin_url?: string | null
           /** @description Content types with public listings/archives; */
           listing_types?: string[] | null
