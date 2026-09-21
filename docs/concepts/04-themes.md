@@ -85,8 +85,9 @@ template, so it works on any theme that reads them.
   hex is not offered here. The defaults are `blue` and `slate`.
 - **Design.** **Corners** (`round`, `soft` or `sharp`), **Typefaces** and **Page ground**
   (`plain` or `tinted`). **Typefaces** offers nine choices: the theme's own face, seven pairings
-  built from fonts the visitor already has, and **Custom**, which uses `.woff2` files you upload
-  into the media library.
+  (five of them built from fonts the visitor already has; Editorial and Slab still use the
+  theme's face for the text), and **Custom**, which uses `.woff2` files you upload into the
+  media library.
 - **Logos & site icon.** The site logo, a dark-scheme variant, and the favicon.
 
 Each choice is emitted as a small `:root` override plus its dark-mode counterpart, after the

@@ -200,11 +200,15 @@ How Thallo thinks. Explanation, not steps.
   framework (Commerce, Payvia, Meilisearch) and how they differ from Thallo's own packs.
 
 ### api — The content API
-- **File** `concepts/07-api.md` · **Order** 7 · **Status** todo
+- **File** `concepts/07-api.md` · **Order** 7 · **Status** done
 - **Summary** "Read your content as JSON: the delivery API, API keys, and the reference every install serves."
-- **Sources** `core/routes/content.php`, `core/src/Content/Delivery/`, `core/src/Content/Http/Controllers/`,
-  `config/api.php`, `config/documentation.php`, `admin/src/pages/developers/api-keys/`,
-  `docs/openapi.json` (generated: for shapes, not for prose), `core/src/Setup/ApiReferencePublisher.php`
+- **Sources** `core/routes/content.php`, `core/src/Content/Delivery/` (`FilterCompiler.php`, `SortCompiler.php`,
+  `DeliveryVisibility.php`, `DeliveryItemShaper.php`, `DeliveryEtag.php`), `core/src/Content/Http/DeliveryAccessMiddleware.php`,
+  `core/src/Content/Http/OptionalApiKeyAuthMiddleware.php`, `core/src/Content/Http/Controllers/`,
+  `core/src/Settings/GeneralSettings.php` (page size, cache TTL), `admin/src/pages/developers/api-keys/`,
+  `docs/openapi.json` (generated, and incomplete: it omits `fields`; for shapes, not prose),
+  `core/src/Setup/ApiReferencePublisher.php`. Nothing in delivery reads `config/api.php`. A
+  request and response composed from the source is acceptable; there is no server to run one.
 - **Must cover** Two APIs: delivery (public, read-only, published content) and admin
   (`/v1/admin`, authenticated, what the admin itself uses). The delivery routes that exist.
   Listing, filtering, sorting and paging as the code implements them. Expanding references.
@@ -213,14 +217,17 @@ How Thallo thinks. Explanation, not steps.
   response.
 
 ### workspaces — Workspaces
-- **File** `concepts/08-workspaces.md` · **Order** 8 · **Status** todo
+- **File** `concepts/08-workspaces.md` · **Order** 8 · **Status** done
 - **Summary** "Running several sites on one install: what a workspace is and what it separates."
-- **Sources** `packages/thallo-tenancy/README.md`, `packages/thallo-tenancy/src/`, `config/tenancy.php`,
-  `admin/src/pages/workspaces/`, `core/src/Content/Authorization/`, `docs/limitations.md`
+- **Sources** `packages/thallo-tenancy/src/ThalloTenantTables.php` (what is per workspace), `core/src/Settings/SystemKeys.php`
+  (what stays install-wide), `packages/thallo-tenancy/src/`, `config/tenancy.php`, `vendor/glueful/tenancy/config/tenancy.php`,
+  `vendor/glueful/tenancy/src/Resolution/`, `admin/src/pages/workspaces/`, `admin/src/pages/settings/workspaces/`,
+  `admin/src/components/tenancy/`, `admin/src/navigation/shapeTenancyNav.ts`, `core/src/Content/Authorization/`, `docs/limitations.md`
 - **Must cover** A single-site install needs none of this, and says so first. What a workspace
   is and what is separated per workspace (content, settings, media, roles) and what is shared.
   How a request is matched to a workspace (domains). Members and per-workspace roles. That it is
-  enabled in stages, by command, not by a switch — with a link to the operations page.
+  enabled in stages, resumable, from **Settings › Workspaces** or the command line, never by the
+  generic extension toggle — with a link to the operations page.
 
 ---
 
@@ -229,49 +236,59 @@ How Thallo thinks. Explanation, not steps.
 One job each, start to finish.
 
 ### appearance — Set your colours, fonts and logo
-- **File** `guides/01-appearance.md` · **Order** 1 · **Status** todo
+- **File** `guides/01-appearance.md` · **Order** 1 · **Status** done
 - **Summary** "Give the site your brand colour, your own fonts and your logo, and see it before you save."
-- **Sources** `admin/src/pages/appearance/`, `packages/thallo-render/docs/THEMING.md` §9,
-  `packages/thallo-render/src/Theme/ThemeColors.php`, `packages/thallo-render/src/Theme/ThemeDesign.php`,
-  `core/src/Http/Controllers/GeneralSettingsController.php`, `config/uploads.php`,
-  `admin/e2e/tests/appearance-page.spec.ts`
+- **Sources** `admin/src/pages/appearance/`, `admin/src/registry/appearanceModule.ts`, `admin/src/style/contrast.ts`,
+  `packages/thallo-render/docs/THEMING.md` §9, `packages/thallo-render/src/Theme/ThemeColors.php`,
+  `packages/thallo-render/src/Theme/ThemeDesign.php`, `core/src/Http/Controllers/GeneralSettingsController.php`,
+  `config/uploads.php`, `vendor/glueful/framework/src/Uploader/FileUploader.php`, `admin/e2e/tests/appearance-page.spec.ts`
 - **Must cover** The theme gallery. Accent: a colour family or **Brand colour…** with a hex;
   what Thallo does with it in light and in dark mode, and the warning about light colours as
   link text. Neutral, corners, page ground. Typefaces: the pairings that download nothing, and
   **Custom** with `.woff2` uploads (and the `font/woff2` upload setting an older install needs).
+  Editorial and Slab still download the theme's own face for the body; do not say every pairing
+  downloads nothing.
   Logos and the favicon. The preview pane and its device sizes. Nothing changes until **Save**.
 
 ### header-and-footer — Edit the header and footer
-- **File** `guides/02-header-and-footer.md` · **Order** 2 · **Status** todo
+- **File** `guides/02-header-and-footer.md` · **Order** 2 · **Status** done
 - **Summary** "Change what is in the site's header and footer, and how they look."
-- **Sources** `admin/src/pages/regions/`, `core/src/Content/Regions/`,
+- **Sources** `admin/src/pages/regions/`, `core/src/Content/Regions/`, `packages/thallo-contracts/src/Style/RegionStyle.php`
+  (what a region's Style tab offers), `admin/src/editor/inspector/StyleTab.vue`, `core/src/Content/Blocks/StarterBlockTypes.php`
+  (the Navigation block's `menu` field), `admin/src/fields/components/blocks/BlockFields.vue`,
   `packages/thallo-render/docs/THEMING.md` §3, `admin/e2e/tests/regions-style.spec.ts`
 - **Must cover** **Site › Header & footer**. The Content tab: the blocks a region holds. The
   Style tab: what can be styled. The options a region has (sticky, width). The live preview. How
   a region relates to a navigation menu.
 
 ### navigation — Build the site's menus
-- **File** `guides/03-navigation.md` · **Order** 3 · **Status** todo
+- **File** `guides/03-navigation.md` · **Order** 3 · **Status** done
 - **Summary** "Create a menu, order its links, and show it in the header."
-- **Sources** `packages/thallo-navigation/README.md`, `packages/thallo-navigation/src/`,
-  `admin/src/pages/navigation/`, `packages/thallo-render/themes/default/templates/blocks/navigation.twig`
+- **Sources** `packages/thallo-navigation/src/`, `admin/src/pages/navigation/`, `admin/src/__tests__/navigationPage.spec.ts`,
+  `core/src/Content/Starter/Kinds/NavigationMenuKind.php` (the seeded menu), `core/src/Content/Starter/Kinds/RegionKind.php`,
+  `core/src/Content/Regions/RegionDefinitions.php`, `core/src/Content/Blocks/StarterBlockTypes.php` (the Navigation block's fields),
+  `admin/src/fields/components/blocks/BlockFields.vue`, `admin/src/registry/navigationModule.ts`,
+  `packages/thallo-render/themes/default/templates/blocks/navigation.twig` (the README is stale: drag-and-drop, icons and descriptions exist)
 - **Must cover** Creating a menu. Adding links to entries and to URLs. Nesting and ordering.
-  Placing the menu with the Navigation block. Menus per locale, if the code supports it.
+  Placing the menu with the Navigation block. Per-locale labels, and that an entry item resolves
+  per locale (one tree per menu).
 
 ### sections-and-pages — Use the section and page library
-- **File** `guides/04-sections-and-pages.md` · **Order** 4 · **Status** todo
+- **File** `guides/04-sections-and-pages.md` · **Order** 4 · **Status** done
 - **Summary** "Start a page from ready-made sections and pages instead of an empty stage."
 - **Sources** `core/src/Content/Patterns/StarterPatterns.php`, `core/src/Content/Patterns/PatternLibrary.php`,
-  `admin/src/editor/palette/`, `admin/e2e/tests/pattern-library.spec.ts`
+  `admin/src/pages/content/[type]/[uuid]/design/[locale].vue` (`insertFromPalette`, `insertPage`, `armInsertTarget`),
+  `admin/src/queries/patterns.ts`, `tests/Integration/Content/PatternLibraryTest.php`,
+  `admin/src/__tests__/blocks-palette-library.spec.ts`, `admin/e2e/tests/pattern-library.spec.ts`
 - **Must cover** The Blocks tab's three views. Dragging or clicking a section in. Inserting a
   whole page, and that it is one step in the history. The list of sections and pages that ship,
   from the source. Why a pattern can be missing (it uses a block type that is switched off).
 
 ### style-classes — Reuse styling with style classes
-- **File** `guides/05-style-classes.md` · **Order** 5 · **Status** todo
+- **File** `guides/05-style-classes.md` · **Order** 5 · **Status** done
 - **Summary** "Save a block's styling as a named class, apply it elsewhere, and change it once for all."
 - **Sources** `packages/thallo-render/docs/THEMING.md` §12.4, `admin/src/pages/settings/style-classes/`,
-  `admin/src/editor/inspector/SaveAsStyleClassDialog.vue`, `core/src/Content/Style/`,
+  `admin/src/editor/inspector/SaveAsStyleClassDialog.vue`, `core/src/Content/Style/Classes/`,
   `core/src/Content/Console/RunStyleClassJobCommand.php`, `admin/e2e/tests/style-class-picker.spec.ts`
 - **Must cover** Saving a class from a block. Applying it to another. Editing the class and what
   follows. A block's own settings against its class's: which wins. Detaching and removing a
@@ -279,23 +296,27 @@ One job each, start to finish.
   worker.
 
 ### animation — Animate blocks as they scroll into view
-- **File** `guides/06-animation.md` · **Order** 6 · **Status** todo
+- **File** `guides/06-animation.md` · **Order** 6 · **Status** done
 - **Summary** "Add entrances, stagger a group, and set a slow zoom on a picture."
 - **Sources** `packages/thallo-render/docs/THEMING.md` §12.6, `packages/thallo-render/src/Style/StyleCompiler.php`
-  (motion), `admin/e2e/tests/motion-play.spec.ts`, `tests/Integration/Render/MotionOnAServedPageTest.php`
-- **Must cover** The Motion group in the Style tab. Entrance presets, speed and delay. Stagger
+  (motion), `core/src/Content/Blocks/StarterBlockTypes.php` (which blocks offer what), `admin/src/editor/inspector/StyleTab.vue`,
+  `admin/src/editor/inspector/choiceLabels.ts`, `packages/thallo-render/runtime/block-motion.js`, `packages/thallo-render/src/Motion.php`,
+  `admin/e2e/tests/motion-play.spec.ts`, `tests/Integration/Render/MotionOnAServedPageTest.php`
+- **Must cover** The Motion group in the Style tab. Entrance presets, **Duration** and **Delay**. Stagger
   on a Container. Ken Burns, and the two places it works. **Play** on the stage. What a visitor
   who asked for reduced motion sees, and what happens without JavaScript.
 
 ### forms — Add a form and receive submissions
-- **File** `guides/07-forms.md` · **Order** 7 · **Status** todo
-- **Summary** "Put a form on a page, get its submissions in the admin, and be emailed about them."
-- **Sources** `core/src/Content/Forms/`, `core/config/forms.php`, `core/routes/forms.php`,
-  `admin/src/pages/submissions/`, `packages/thallo-render/themes/default/templates/blocks/` (the form block),
-  `admin/src/pages/settings/email/`
-- **Must cover** The form block and its fields. Where submissions arrive. Email notification
-  and the mail settings it needs. The spam protection the code has. Mail is sent inline, in the
-  request (the pilot found no queued mail anywhere): say what that means for a slow mail server.
+- **File** `guides/07-forms.md` · **Order** 7 · **Status** done
+- **Summary** "Put a contact form on a page and read its submissions in the admin."
+- **Sources** `core/src/Content/Forms/`, `core/config/forms.php`, `core/routes/forms.php`, `core/routes/admin.php`,
+  `core/src/Content/Blocks/StarterBlockTypes.php` (the form block's settings), `core/src/Http/Controllers/FormSubmitController.php`,
+  `core/src/Http/Controllers/FormSubmissionsController.php`, `admin/src/pages/submissions/`,
+  `packages/thallo-render/src/RenderContextExtension.php` (`form_render`), `packages/thallo-render/themes/default/templates/blocks/form.twig`,
+  `packages/thallo-render/themes/default/assets/blocks.css`
+- **Must cover** The form block and its fields. Where submissions arrive. The spam protection the
+  code has. **No notification email is sent**: `FormMailSender` has no implementation anywhere,
+  so say so and do not describe mail settings.
 
 ### media — Manage images and files
 - **File** `guides/08-media.md` · **Order** 8 · **Status** todo

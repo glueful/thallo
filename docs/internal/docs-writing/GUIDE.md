@@ -97,7 +97,7 @@ value breaks the preview on GitHub.
 | `slug` | The page's URL: `/docs/{slug}`. As PAGES.md gives it. Lower-case, hyphens. |
 | `section` | The folder's name. |
 | `order` | The page's place in its section, as PAGES.md gives it. |
-| `summary` | One sentence, shown under the title and on the index. It says what the reader gets. No "This page…". |
+| `summary` | One sentence, shown under the title and on the index. It says what the reader gets. No "This page…". The row's summary was written before the code was read: if the code makes it false, write a true one and report it. Title and slug never change. |
 | `draft: true` | Keeps an unfinished page out of the import. Remove it when the page is done. |
 
 **URLs are flat.** There is no `/docs/concepts/blocks`: it is `/docs/blocks`, whatever folder the
@@ -178,7 +178,8 @@ guides that use the concept.
 **Guides — a recipe.** The reader has a job. Title it by the job ("Add a contact form"). Open
 with what they will have at the end and what they need first. Then numbered steps in the order
 they are done, each starting with a verb. End with how to check it worked. No theory: link to
-the concept.
+the concept. A guide that tours a feature with several ways in (three ways to insert a section)
+numbers only the part that is a sequence.
 
 **Reference — a lookup.** The reader knows what they want. Tables and short entries in a
 predictable order, complete rather than friendly. Every item the source has, none it has not.
@@ -196,6 +197,9 @@ Every page, whatever its kind:
   **Settings › Import / Export**. Use `›` between levels. The menu's labels are in
   `admin/src/registry/*Module.ts`. Where the sidebar and a page's own heading differ in case
   ("Block Types" against "Block types"), the sidebar wins: it is the path the reader follows.
+  A block's settings in the inspector are labelled by machine (`humanize()` in
+  `BlockFields.vue`: `success_message` shows as "success message"). Quote them as shown, in
+  bold, lower-case; the reader is matching what is on the screen.
 - Shows what success looks like.
 - Is as long as its job needs. Most pages are 300 to 900 words; a concept page whose row asks a
   lot runs to 1,500. A reference page is as long as its source. Never drop a verified fact to
@@ -213,7 +217,8 @@ This repository is Thallo's source. A reader has an **install**: a project made 
   your report, not something to paper over.
 - Paths in this repository that a reader never sees (`core/src/…`, `packages/…/src/…`, `admin/`,
   `tests/`, `scripts/`) do not belong in a page, except in a page written for people who
-  contribute to Thallo itself.
+  contribute to Thallo itself. A class constant an operator has to copy (a CSP hash) may be
+  named by its class: `Thallo\Render\Motion::FLAG_SHA256`.
 - `skeleton/` in this repository is the project a reader gets. Read it to learn what their
   install looks like.
 
@@ -247,7 +252,7 @@ Write the way the CHANGELOG and the existing four pages are written: plain, exac
 | the Design view | the visual page builder | page builder, editor, designer |
 | the stage | the live page inside the Design view | canvas, preview (the preview is a separate thing) |
 | the Blocks tab | the side panel's tab that offers blocks, sections and pages to insert | block picker, palette, library |
-| Style tab, Layout tab | the inspector's tabs | styling panel |
+| Style tab, Layout tab, Advanced tab | the inspector's tabs | styling panel |
 | style class | a named, reusable set of style settings | CSS class, preset |
 | pattern | a ready-made section or page in the Blocks tab's library (the admin's own views are called **Sections** and **Pages**; "pattern" is the word for the concept) | template, snippet |
 | theme | the Twig templates and CSS that render the site | skin, template pack |
@@ -255,7 +260,7 @@ Write the way the CHANGELOG and the existing four pages are written: plain, exac
 | design tokens | the named values (colours, spacing, type) a theme defines and the site's settings change | CSS variables, theme variables |
 | the style vocabulary | the set of tokens and choices `theme.json` declares for the Design view | style contract, vocabulary of tokens |
 | `theme.json` | a theme's manifest | theme config, manifest file |
-| region | the header or the footer (Site › Header & footer) | global block, partial |
+| region | the header or the footer (Site › Header & footer); the code calls them chrome | global block, partial, chrome |
 | capability | a feature that can be switched on (Extensions › Capabilities) | plugin, add-on, module |
 | pack | the Composer package a capability ships in (`glueful/thallo-*`) | plugin |
 | workspace | a tenant: one site among several on an install | tenant (in prose), account |

@@ -42,6 +42,36 @@ reproduced beyond what the report says.
 - **No `queue:failed` / `queue:retry` command and no admin screen** for failed jobs.
   (scheduler-and-queues)
 
+- **Form notification email has never worked.** `FormMailSender` is an interface with no
+  implementation anywhere (`core/`, `packages/`, `skeleton/`, `vendor/`); `FormNotifier` no-ops
+  and logs nothing, the visitor sees success, the block type's own description promises the
+  email. `delivery: email_only` therefore loses the submission without a trace; `recipient` is
+  required and unused; **success message** is dead because no theme ships the script that shows
+  it. Verified by the coordinator. (forms)
+- **Editor-only state leaks through an expanded reference.** `DeliveryItemShaper::shape()`
+  strips `_`-prefixed keys from root rows only, after `ReferenceResolver::expand()` has spliced
+  target rows in, so a target's `fields._presentation` is served at
+  `data.fields.{ref}[n].fields._presentation`. Read, not yet reproduced; write the test first.
+  (api)
+- **The delivery API's `published_at` is not ISO-8601.** `Timestamps` is never called on the
+  delivery path; the raw `timestamp without time zone` is emitted, while `docs/openapi.json`
+  declares `format: date-time`. `?expand=` is merged into `?fields=` and narrows the response.
+  (api)
+- **Saving a logo or favicon does not purge the rendered page cache.** `ThemeAppearanceChanged`
+  fires only for theme, accent, neutral, radius, font and background, and the cache key omits
+  the logo, so visitors keep the old logo for up to `render.cache_ttl`. (appearance)
+- **A single asset cannot be cleared from the admin.** `AssetField.vue` has a remove control only
+  in its `multiple` branch, so a chosen logo or favicon cannot be unset. (appearance)
+- **The API key create modal hints scopes the delivery API does not check** (`read:*`,
+  `write:posts`; it checks `read:content` / `read:content:{type}`); an empty Scopes field is full
+  access; scopes cannot be edited after creation from the detail pane though the endpoint
+  exists. (api)
+- **Navigation: the editor allows six levels, the default theme draws three**; deeper items are
+  stored and served and never shown. A 409 on save discards the unsaved tree. (navigation)
+- **The tenancy enablement screen's remedy for the capability is a command that is refused**
+  (see above); enabling is refused outright with any data collection defined, and on a cache
+  driver without pattern purge, with no warning before the button. (workspaces)
+
 ## Things a reader cannot do, or is not told
 
 - **Nothing creates the PostgreSQL database.** Provision fails on the connection test if it is
@@ -72,6 +102,25 @@ reproduced beyond what the report says.
   (design-view)
 - **`search:reindex` exists only while the search capability is on.** (capabilities)
 
+- **The section and page library cannot be extended** (no config, directory or event); nothing
+  saves a hand-built section back; the header and footer have no palette. (sections-and-pages)
+- **A style class job's id is shown nowhere in the admin**, though the CLI needs it; a failed
+  everywhere-job cannot be retried; a class can only be archived; style classes are in no
+  import or export. (style-classes)
+- **Regions are not per locale, have no draft, preview, versions or undo**; only two exist; a
+  region cannot carry a style class; the preview frame runs no scripts. (header-and-footer)
+- **Menus are unversioned and unpreviewable**; nothing shows where a menu is used, and deleting
+  one does not warn; the tree editor's buttons have no accessible names. (navigation)
+- **No faithful motion preview on the stage**; Ken Burns has no timing control; the CSP hash is
+  surfaced nowhere; no repeat cap. (animation)
+- **Form submissions have no retention, bulk delete or per-form view**; no field builder, file
+  uploads or CAPTCHA, and none of it is in `docs/limitations.md`. (forms)
+- **Workspaces need three restarts to enable**, and cannot be disabled with more than one
+  workspace; `docs/limitations.md` is silent on all of it. (workspaces)
+- **API keys can only be minted in the admin.** (api)
+- **`TENANCY_TRASH_RETENTION_DAYS`, `TENANCY_HOST_COOLDOWN_DAYS` are in no `.env.example`.**
+  (workspaces)
+
 ## Stale prose in the repository (the pages follow the code)
 
 - `README.md`: "default `thallo`" database and `createdb thallo` (no such default; provision
@@ -97,6 +146,18 @@ reproduced beyond what the report says.
 - `packages/thallo-render/themes/default/theme.json`'s `menus` key: nothing found that reads it.
 - `docs/production.md` (fixed): `sync`; "dispatches to `default` and `maintenance`"; mail as a
   background job.
+- `packages/thallo-render/docs/THEMING.md` §9.6 and the `ThemeDesign` docblock: "every pairing
+  but custom costs a visitor nothing" — Editorial and Slab still download the theme's face. §3's
+  `region_settings` omits `style`. §12.6 matched the code on every value.
+- `packages/thallo-navigation/README.md`: "up/down/indent/outdent", "drag-drop out of scope",
+  "no icons or badges" — all shipped. `packages/thallo-tenancy/README.md`: "switched on through
+  the capabilities" — it is protected and refused there. `docs/internal/OUTSTANDING.md`: form
+  submissions "best-effort-emailed" (never); public origin "config-only" (admin-settable now).
+- `config/documentation.php` says admin routes enforce `thallo.*` permissions; they use
+  `content.*`, `users.*`, `styles.manage`, `system.access`, `tenancy.*`. `config/api.php`'s
+  operator list is not what the delivery API supports, and nothing in delivery reads it.
+  `core/src/Content/Delivery/Timestamps.php` documents a normalisation the delivery path does
+  not perform.
 - Code comments: `admin/src/editor/palette/order.ts` ("flat list, no category headings");
   `BlockTypeRepository` ("no nesting in v1"); `ContentTypeRepository::updateSchema()` ("backfill
   planned"); `ScheduledTasksController` ("QueueManager isn't container-registered");
@@ -107,7 +168,11 @@ reproduced beyond what the report says.
 ## Where a picture is missing
 
 Every writer named where the page suffers without one. When images travel with the import,
-these are the first to add: the Design view's layout and its breakpoint rule; the Sections and
+these are the first to add: the theme gallery and the brand-colour report; the header and footer
+editor and its Block settings; the Sections view (thumbnails); the Advanced tab's style class
+row and a cascade diagram; the menu tree editor; the Motion group; the form block's settings
+and the Submissions screen; Developers › API Keys and the `/api-docs` reference; Workspaces ›
+Domains and the enablement timeline; the Design view's layout and its breakpoint rule; the Sections and
 Pages views (they are thumbnails); the block toolbar; the setup form and the admin Home; the
 Settings › Content Types field editor and the entry's Publishing panel; Settings › Block Types;
 Site › Appearance and the theme gallery; Extensions › Capabilities; the preview bar; Utilities
