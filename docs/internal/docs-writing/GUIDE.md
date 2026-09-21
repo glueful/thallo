@@ -22,9 +22,15 @@ menu that is not there costs them an hour and costs Thallo their trust.
 - If you cannot find something, leave it out. Do not fill a gap with what another CMS does.
 - Do not describe a feature from its name. `thallo:resync` may not do what "resync" suggests:
   read the command.
-- Prefer the code to the prose. A README, a plan under `docs/internal/` or a CHANGELOG entry can
-  be out of date; the code, the tests and the config files are not. When they disagree, the
-  code wins, and you say so in your report (§8).
+- Prefer the code to the prose. A README, an existing docs page, a plan under `docs/internal/`, a
+  CHANGELOG entry, a code comment or a docblock can be out of date; the code that runs and the
+  tests are not. When they disagree, the code wins, and you say so in your report (§8).
+- **That includes PAGES.md.** Its "must cover" lists were written partly from the same prose. The
+  first pilot was asked to document `QUEUE_CONNECTION=sync` and mail sent by the queue; neither
+  exists, and the writer who read the driver code found out. If the code contradicts your row,
+  the code wins: write what is true and report the row.
+- A config file listing an option does not make the option work. `config/queue.php` lists a
+  `sync` connection that no driver implements. Find the code that reads the key.
 - Never write a version number into a page ("since beta.50"). `CHANGELOG.md` holds history. The
   docs describe the product as it is.
 - Thallo is a **Developer Preview**. Do not promise stability, support or a roadmap. What is not
@@ -72,7 +78,7 @@ title: "Install Thallo"
 slug: install
 section: getting-started
 order: 2
-summary: "Create a project, set it up, and sign in: about five minutes."
+summary: "Create a project, set it up, and sign in to the admin."
 ---
 
 Opening paragraph: what this page gets you, in two or three sentences.
@@ -133,6 +139,11 @@ headings the same on one page.
   `js`, `text`. It is shown as the block's label.
 - In a `bash` block, start each command the reader types with `$ ` and leave output lines
   without it. The theme draws the prompt and the copy button copies only the commands.
+- More than a line or two of output goes in its own `text` block after the command, not in the
+  `bash` block. A crontab line is `text` too: it is neither typed at a prompt nor output. A
+  systemd unit is `ini`.
+- Output you quote is exact, except a secret: replace a token, key or password with its name in
+  capitals (`SETUP_TOKEN`), and say that you did.
 - One block, one purpose. Do not put three alternatives in one block for the reader to pick
   apart.
 - Use real values the reader can recognise as examples: `my-site`, `example.com`,
@@ -181,10 +192,13 @@ Every page, whatever its kind:
 - Opens with what the reader gets, not with background.
 - Says what the reader needs before they start, if anything.
 - Names things as the admin names them, in bold, with the path through the menu:
-  **Settings › Import / Export**. Use `›` between levels.
+  **Settings › Import / Export**. Use `›` between levels. The menu's labels are in
+  `admin/src/registry/*Module.ts`. Where the sidebar and a page's own heading differ in case
+  ("Block Types" against "Block types"), the sidebar wins: it is the path the reader follows.
 - Shows what success looks like.
-- Is as long as its job needs. Most pages are 300 to 900 words. A reference page is as long as
-  its source.
+- Is as long as its job needs. Most pages are 300 to 900 words; a page whose row asks a lot runs
+  to 1,200. A reference page is as long as its source. Never drop a verified fact to reach a
+  number: cut words, not facts.
 
 ## 6. The reader's site is not this repository
 
@@ -230,6 +244,7 @@ Write the way the CHANGELOG and the existing four pages are written: plain, exac
 | Container | the one layout block: flex or grid | section, row, column block |
 | the Design view | the visual page builder | page builder, editor, designer |
 | the stage | the live page inside the Design view | canvas, preview (the preview is a separate thing) |
+| the Blocks tab | the side panel's tab that offers blocks, sections and pages to insert | block picker, palette, library |
 | Style tab, Layout tab | the inspector's tabs | styling panel |
 | style class | a named, reusable set of style settings | CSS class, preset |
 | pattern | a ready-made section or page in the Blocks tab's library | template, snippet |
@@ -266,12 +281,15 @@ Write **one page per task** unless you are told otherwise. For each page:
    vendor/bin/phpunit tests/Unit/Docs
    ```
 
-7. Rehearse the import (it writes nothing):
+7. Rehearse the import. With `--dry-run` it writes nothing:
 
    ```bash
-   php glueful thallo:docs:setup
    php glueful thallo:import:markdown docs --type=docs --exclude=internal --dry-run
    ```
+
+   It needs the environment prefix from §1, and it needs the `docs` content type to exist on
+   that database. `php glueful thallo:docs:setup` makes it, once, and **it writes**: if you were
+   told the database is prepared, or you share it with other writers, do not run it.
 
    Your file must be listed as `created` or `updated`, at the URL you expect. A broken link to a
    page that PAGES.md plans but nobody has written yet is fine. Any other broken link is yours.

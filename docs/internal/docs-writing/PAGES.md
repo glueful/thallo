@@ -37,12 +37,14 @@ For someone who has never used Thallo. One path, no choices.
   limitations. Where to go next: install.
 
 ### install — Install Thallo
-- **File** `getting-started/02-install.md` · **Order** 2 · **Status** todo
+- **File** `getting-started/02-install.md` · **Order** 2 · **Status** done
 - **Summary** "Create a project, set it up, and sign in to the admin."
 - **Sources** `README.md` (Requirements, Quickstart), `skeleton/README.md`, `skeleton/.env.example`,
   `core/src/Setup/Console/ProvisionCommand.php`, `core/src/Setup/Console/CreateAdminCommand.php`,
   `core/src/Setup/Console/DoctorCommand.php`, `core/src/Setup/Doctor/Doctor.php`,
-  `core/src/Setup/SetupService.php`, `admin/src/pages/setup.vue`
+  `core/src/Setup/SetupService.php`, `core/src/Setup/PgsqlDatabaseConfigFactory.php`,
+  `core/src/Http/Controllers/SetupController.php`, `core/src/Content/Starter/Kinds/ContentTypeKind.php`,
+  `vendor/glueful/framework/src/Installer/Installer.php`, `skeleton/composer.json`, `admin/src/pages/setup.vue`
 - **Must cover** Requirements, exactly as the README and the doctor check them. The
   create-project command. Creating the database. What `thallo:provision` does, step by step, and
   what it prints. Running `thallo:doctor` when something is wrong. The two ways to make the
@@ -100,12 +102,14 @@ How Thallo thinks. Explanation, not steps.
   content types.
 
 ### blocks — Blocks and block types
-- **File** `concepts/02-blocks.md` · **Order** 2 · **Status** todo
+- **File** `concepts/02-blocks.md` · **Order** 2 · **Status** done
 - **Summary** "What a block is, how a page's body is stored, and how a block becomes HTML."
 - **Sources** `core/src/Content/Blocks/StarterBlockTypes.php`, `core/src/Content/Blocks/`,
   `packages/thallo-render/docs/THEMING.md` §4, `packages/thallo-render/themes/default/templates/blocks/`,
   `admin/src/pages/settings/block-types/`, `core/src/Content/Console/SeedBlockTypesCommand.php`,
-  `core/src/Content/Console/SyncBlockTypesCommand.php`, `core/src/Content/Console/RunBlockBackfillCommand.php`
+  `core/src/Content/Console/SyncBlockTypesCommand.php`, `core/src/Content/Validation/FieldValidator.php`
+  (a block's shape and the depth cap), `core/src/Content/Starter/Kinds/ContentTypeKind.php`,
+  `admin/src/editor/palette/order.ts`
 - **Must cover** A page's body is a list of blocks, stored as data, never as HTML. A block has a
   type, its data and its settings. Blocks that hold blocks, and how deep they nest. A block type
   defines a block's fields; the starter set, counted from the source; making your own. One Twig
@@ -266,8 +270,8 @@ One job each, start to finish.
   `admin/src/pages/submissions/`, `packages/thallo-render/themes/default/templates/blocks/` (the form block),
   `admin/src/pages/settings/email/`
 - **Must cover** The form block and its fields. Where submissions arrive. Email notification
-  and the mail settings it needs. The spam protection the code has. That mail is sent by the
-  queue, with a link to the scheduler and queues page.
+  and the mail settings it needs. The spam protection the code has. Mail is sent inline, in the
+  request (the pilot found no queued mail anywhere): say what that means for a slow mail server.
 
 ### media — Manage images and files
 - **File** `guides/08-media.md` · **Order** 8 · **Status** todo
@@ -359,8 +363,12 @@ One job each, start to finish.
 - **Sources** `admin/src/pages/developers/webhooks/`, `core/src/Events/`, `core/src/Content/Events/`,
   `config/events.php`, `core/src/Settings/GeneralSettings.php` (`webhooks_enabled`)
 - **Must cover** Switching webhooks on. Creating one. The events that exist and the payload of
-  each. Signing and how a receiver checks it. Retries and the delivery log. That delivery is a
-  queue job.
+  each. Signing and how a receiver checks it. Retries and the delivery log. Delivery is queued on
+  the `webhooks` queue (`config/api.php`). **First establish that delivery works at all:** the
+  pilot read `WebhookDispatcher::queueDelivery()` in `vendor/glueful/framework/src/Api/Webhooks/`
+  as passing a job OBJECT to `QueueManager::push(string $job, …)`, which would throw. Find what
+  Thallo's own content webhooks actually call, find a test that proves a delivery, and if there
+  is none, say so in your report and do not describe delivery as working.
 
 ### accounts — Let visitors sign up and sign in
 - **File** `guides/17-accounts.md` · **Order** 17 · **Status** todo
@@ -477,17 +485,20 @@ Running a live site.
 - **File** `upgrading.md` (exists, stays at the top of `docs/`) · **Order** 2 · **Status** done
 
 ### scheduler-and-queues — The scheduler and the queue
-- **File** `operations/03-scheduler-and-queues.md` · **Order** 3 · **Status** todo
+- **File** `operations/03-scheduler-and-queues.md` · **Order** 3 · **Status** done
 - **Summary** "The one cron line every site needs, what runs on it, and three ways to run background jobs."
-- **Sources** `config/schedule.php`, `config/queue.php`, `core/config/import_export.php`, `docs/production.md`,
-  `skeleton/.env.example` (the queue block), `admin/src/pages/utilities/scheduled-tasks/`,
-  `admin/src/pages/utilities/health/`, `php glueful queue:work --help`, `php glueful queue:scheduler --help`
+- **Sources** `config/schedule.php`, `config/queue.php`, `core/config/import_export.php`,
+  `vendor/glueful/framework/src/Scheduler/JobScheduler.php`, `vendor/glueful/framework/src/Queue/QueueWorker.php`,
+  `vendor/glueful/framework/src/Queue/Drivers/`, `core/src/Content/Scheduling/SchedulerHeartbeat.php`,
+  `core/src/Http/Controllers/HealthAdminController.php`, `core/src/Http/Controllers/ScheduledTasksController.php`,
+  `skeleton/.env.example` (the queue block), `php glueful queue:work --help`, `php glueful queue:scheduler --help`
 - **Must cover** The scheduler cron line and every job it runs, from `config/schedule.php`, with
-  its schedule. How to tell it is running (**Utilities › Health**). What is a queue job: mail,
-  imports and exports, webhooks, style class jobs, backfills. Every queue name the code
-  dispatches to — find them all. The three ways to run the queue, with the trade-off of each:
-  `QUEUE_CONNECTION=sync`; a worker under a supervisor; a cron line with `--stop-when-empty` —
-  and test the third before recommending it. A control-panel example (one cron form, filled in).
+  its schedule; that they run inside the tick, not on the queue. How to tell it is running
+  (**Utilities › Health**). What is a queue job, and every queue name the code dispatches to.
+  The ways to get queued work done: a worker under a supervisor; a cron line with
+  `--stop-when-empty`, with the limits the worker's code implies; one job by hand. There is no
+  inline (`sync`) connection, and mail is sent inline, not queued: the pilot established both.
+  A control-panel cron form, filled in.
 
 ### backups — Back up and restore
 - **File** `operations/04-backups.md` · **Order** 4 · **Status** todo

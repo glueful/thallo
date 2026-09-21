@@ -94,14 +94,18 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-Thallo dispatches to `default` and `maintenance`, and imports and exports (Settings › Import /
-Export) to `import-export`: a worker runs only the queues it is given, so an import stays
-"queued" on a worker that was not given that one. With workspaces on, tenancy adds
-`tenancy-purge` and `tenancy-maintenance`. Add a queue name to `--queue` if an extension you
-enable documents its own. Sizing presets (`*_QUEUE_MEMORY`, `*_QUEUE_TIMEOUT`,
-`*_QUEUE_MAX_JOBS`) live in `.env`. A small site that runs no worker can set
-`QUEUE_CONNECTION=sync`: every job then runs inline in the process that dispatched it, at the
-cost of slow work (mail) happening inside a request or a tick. Redis (`QUEUE_CONNECTION=redis`
+A worker runs only the queues it is given. Thallo's own jobs go to `default`; imports and exports
+(Settings › Import / Export) go to `import-export`, so an import stays "queued" on a worker that
+was not given that one; **Run now** under Utilities › Scheduled Tasks puts a task on its own queue
+(`maintenance` for most). With workspaces on, tenancy adds `tenancy-purge` and
+`tenancy-maintenance`. [The scheduler and the queue](operations/03-scheduler-and-queues.md) lists
+every queue and what arrives on it. Add a queue name to `--queue` if an extension you enable
+documents its own. Sizing presets (`*_QUEUE_MEMORY`, `*_QUEUE_TIMEOUT`,
+`*_QUEUE_MAX_JOBS`) live in `.env`. A site that cannot keep a worker under a supervisor can
+drain the queue from a second cron line instead (`queue:work --stop-when-empty`); the same page
+gives the line and its limits. There is no inline connection: `config/queue.php` lists `sync` and
+`null`, but only the `database` and `redis` drivers exist, so `QUEUE_CONNECTION=sync` resolves
+no driver. Redis (`QUEUE_CONNECTION=redis`
 plus `REDIS_*`) is optional and only worth it under real load.
 
 

@@ -13,6 +13,11 @@ as the next release, never a mutated tag.
   exports go to `import-export`, and a worker runs only the queues it is given, so an import
   started under Settings › Import / Export stayed "queued". The unit now lists `import-export`,
   and the guide names tenancy's two queues as well (docs/production.md).
+- **The production guide recommended a queue setting that does not exist.** It told a small site
+  to set `QUEUE_CONNECTION=sync` to run jobs inline, and `.env.example` listed `sync` and `null`
+  as choices. Only the `database` and `redis` drivers exist: with `sync` no driver resolves and
+  no job runs. The guide now says so and points at draining the queue from cron instead
+  (docs/operations/03-scheduler-and-queues.md).
 - The README sent readers to "Settings → Extensions", and the documentation guide to "Settings ›
   Capabilities". Both are **Extensions › Capabilities**.
 
