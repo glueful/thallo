@@ -7,6 +7,54 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.51] - 2026-09-21 — Developer Preview
+
+A documentation section can be set up and published from the admin, with no shell. And two
+things the editor got wrong are put right: the preview bar's Edit and Design links, and the
+Tablet stage.
+
+### Upgrade Notes
+- No migrations, no new permissions, no dependency changes. The documented sequence applies
+  (docs/upgrading.md).
+- **Admin URL** (Settings › General, or `RENDER_ADMIN_URL`) is now optional: empty means this
+  site's own admin, and the preview bar's Edit and Design links show with nothing set. They used
+  to be hidden when it was empty. A site installed from the setup screen holds the site's address
+  there, without `/admin`; it needs no change — that value is now read as the admin on the site.
+- Importing a `.zip` of Markdown needs PHP's `zip` extension. Nothing else does.
+
+### Added
+- **Documentation from the admin, with no shell.** Settings › Import / Export has a new adapter,
+  **Markdown folder (.zip)**: zip your docs folder, choose the content type, name any folders to
+  leave out, and run it as a dry run and then a commit. It is the same import
+  `thallo:import:markdown` runs, so it is repeatable: upload the folder again whenever the files
+  change, only what changed is written, a renamed page keeps its entry and redirects, and nothing
+  is deleted. The job's **Report** says what each file became, which links lead nowhere and which
+  pages no longer have a file. On a site with no docs section the page offers **Set up
+  documentation**, which does in one click what `thallo:docs:setup` does (`POST
+  /v1/admin/docs/setup`). An uploaded archive is unpacked with care: only Markdown is read out of
+  it, a name that points outside the import refuses the whole archive, and its unpacked size and
+  page count are capped. Needs PHP's `zip` extension (docs/documentation-sites.md).
+
+### Fixed
+- **The preview bar's Edit and Design links led to a 404 on every site installed from the setup
+  screen.** Setup saved the admin's address as the site's origin, without `/admin`, so the links
+  pointed at the site instead of the admin; the billing return was built from the same value.
+  Setup now saves the admin's full address. Sites already installed need do nothing: the site's
+  own address, given as the admin's, is read as the admin on it. **Admin URL** (Settings ›
+  General) is now optional — empty means this site's own admin, and the links work with nothing
+  set. It is for an admin hosted elsewhere, and the page warns, with a one-click correction,
+  when the value is not where the admin you are using runs.
+- **CSV, Markdown and WordPress imports could not be started from the admin.** The upload on
+  Settings › Import / Export accepted only NDJSON and stored every file as `.ndjson`, while each
+  importer knows its own files by their extension: a CSV was refused outright. The upload now
+  takes what the importers take and keeps the file's kind.
+- **The Tablet stage showed the phone layout.** On the Design page, Site › Appearance and Header &
+  footer, the Tablet frame was 768px wide but drew its border inside that width, so the page got
+  a 766px viewport: two pixels short of where Tablet settings begin. A grid set to two columns on
+  Tablet stacked in one, and the Layout tab said Tablet while the stage showed Base. The frame's
+  edge is now drawn outside it, so Tablet is 768px and Mobile 390px to the page. Published pages
+  were never affected; only what the editor showed.
+
 ## [1.0.0-beta.50] - 2026-09-21 — Developer Preview
 
 A design release: your brand colour and your own fonts, animation presets, a theme gallery, and

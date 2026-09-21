@@ -8,6 +8,11 @@ import SetupPage from '@/pages/setup.vue'
 // header the unauthenticated POST /admin/setup requires in production.
 
 vi.mock('@/runtime/config', () => ({ runtimeConfig: { installed: false, defaultLocale: 'en' } }))
+// The test runner serves from '/', so the admin's own address is given: what matters is that the
+// page sends IT, and not window.location.origin.
+vi.mock('@/runtime/adminAddress', () => ({
+  runningAdminAddress: () => 'https://example.com/admin',
+}))
 vi.mock('@/composables/useNotify', () => ({
   useNotify: () => ({ error: vi.fn(), success: vi.fn() }),
 }))
@@ -54,6 +59,16 @@ describe('setup page — setup link token', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect((init.headers as Record<string, string>)['X-Setup-Token']).toBe('abc123')
+  })
+
+  it('tells the server where this admin is: its full address, not the site’s origin', async () => {
+    // The origin alone is the SITE. Saved as the admin's address it sent the preview bar's Edit
+    // and Design links to a 404 on every site installed from this screen.
+    const { wrapper } = await mountAt('/setup')
+    await fillAndSubmit(wrapper)
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    const sent = JSON.parse(String(init.body)) as { admin_url: string }
+    expect(sent.admin_url).toBe('https://example.com/admin')
   })
 
   it('sends no token header when the link carries none (local zero-config setup)', async () => {

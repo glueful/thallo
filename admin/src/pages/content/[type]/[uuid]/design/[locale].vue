@@ -64,6 +64,8 @@ import {
   activeBreakpoint,
   BREAKPOINT_OF_VIEWPORT,
   setActiveBreakpoint,
+  STAGE_FRAME_EDGE,
+  STAGE_WIDTHS,
   VIEWPORT_OF_BREAKPOINT,
   type ViewportPreset,
 } from '@/editor/breakpoint'
@@ -404,9 +406,7 @@ function onActiveBreakpoint(bp: Breakpoint): void {
   viewport.value = VIEWPORT_OF_BREAKPOINT[bp]
 }
 setActiveBreakpoint(BREAKPOINT_OF_VIEWPORT[viewport.value])
-const stageWidth = computed(
-  () => ({ desktop: '100%', tablet: '768px', mobile: '390px' })[viewport.value],
-)
+const stageWidth = computed(() => STAGE_WIDTHS[viewport.value])
 
 // ── Selection (spec §5) ────────────────────────────────────────────────────────
 interface FieldEditorExposed {
@@ -2653,7 +2653,8 @@ function reloadStage(): void {
               v-if="iframeSrc"
               ref="iframeEl"
               :src="iframeSrc"
-              class="h-full min-h-[70vh] w-full rounded border border-default bg-white"
+              class="h-full min-h-[70vh] w-full"
+              :class="STAGE_FRAME_EDGE"
               title="Page preview"
               data-test="canvas-iframe"
               @load="onIframeLoad()"

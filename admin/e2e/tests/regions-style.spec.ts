@@ -139,3 +139,12 @@ test('a header block’s settings open from its card, and an edit reaches the pr
   await expect(page.locator('[data-test="region-header-tabs"]')).toBeVisible()
   await expect(page.locator(`[data-test="block-settings-${BUTTON.id}"]`)).toBeVisible()
 })
+
+test('the Tablet preview of the header and footer has a tablet’s viewport', async ({ page }) => {
+  await openRegionsPage(page)
+  const frame = page.locator('[data-test="region-preview-frame"]')
+  await page.locator('[data-test="regions-viewport-tablet"]').click()
+  await expect.poll(() => frame.evaluate((el) => el.clientWidth)).toBe(768)
+  await page.locator('[data-test="regions-viewport-mobile"]').click()
+  await expect.poll(() => frame.evaluate((el) => el.clientWidth)).toBe(390)
+})

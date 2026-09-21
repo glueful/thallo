@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { runningAdminAddress } from '@/runtime/adminAddress'
 import { computed, reactive, ref, useTemplateRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import * as z from 'zod'
@@ -109,9 +110,9 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         'content-type': 'application/json',
         ...(setupToken.value !== '' ? { 'X-Setup-Token': setupToken.value } : {}),
       },
-      // admin_url: the SPA's own origin — powers the preview bar's
-      // Edit/Design deep links with zero configuration.
-      body: JSON.stringify({ ...event.data, admin_url: window.location.origin }),
+      // admin_url: where this admin is — its origin AND the path it is served under. The
+      // origin alone is the site, and the preview bar's Edit/Design links built from it 404.
+      body: JSON.stringify({ ...event.data, admin_url: runningAdminAddress() }),
     })
     const body = (await res.json().catch(() => null)) as ApiErrorBody | null
 

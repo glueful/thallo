@@ -23,6 +23,33 @@ php glueful thallo:import:markdown docs --type=docs --exclude=internal --publish
 Your pages are at `/docs/{page}` and `/docs` is their index. The importers capability has to be
 on (Settings › Capabilities).
 
+## Without a shell: from the admin
+
+Everything above can be done under **Settings › Import / Export**, for a site whose owner has
+the admin and not a terminal.
+
+1. Choose the adapter **Markdown folder (.zip)**. On a site with no docs section the page offers
+   **Set up documentation**: one click does what `thallo:docs:setup` does.
+2. Zip your docs folder and choose the file. It does not matter whether the zip holds the
+   folder or only what is inside it: a folder that wraps every page is set aside, so a page has
+   the same path whichever way it was packed, and the same path the command would give it.
+3. Name any **folders to leave out**, give the address for **“Edit this page” links** if you want
+   them, and decide whether the pages are **published**.
+4. Run it as a **dry run** first. The job's **Report** says what each file would become, which
+   links lead nowhere, and which pages no longer have a file. Then run it as a **commit**.
+
+It is the same import, with the same rules: upload the folder again whenever the files change,
+only what changed is written, and nothing is deleted. Pages are written as the person who is
+signed in, so on a site with the review workflow they are published only if that person may
+publish without review; otherwise they are saved as drafts and the report says so.
+
+An upload is unpacked with care: only Markdown files are read out of the archive, a name that
+points outside the import refuses the whole archive, and an archive that unpacks to more than
+50 MB or holds more than 2,000 pages is refused. It needs PHP's `zip` extension.
+
+Imports are background jobs. They run while a queue worker is running, or at once on a site
+set to `QUEUE_CONNECTION=sync` ([production guide](production.md#running-the-scheduler-and-the-queue)).
+
 ## The content type
 
 `thallo:docs:setup` makes an ordinary content type; you can open it under Settings › Content

@@ -2322,6 +2322,26 @@ export interface paths {
     patch: operations['patchV1AdminContenttypesBySlugSchema']
     trace?: never
   }
+  '/docs/setup': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Set up a documentation section
+     * @description Creates the content type a docs section needs (title, summary, section, order, a plain-text Markdown body, source_path, edit_url) and adds it to the listing types, so `/{type}` is an index and `/{type}/{page}` a page. Idempotent. Requires `content.manage`.
+     */
+    post: operations['postV1AdminDocsSetup']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/entries': {
     parameters: {
       query?: never
@@ -2948,7 +2968,7 @@ export interface paths {
     put?: never
     /**
      * Upload an import file
-     * @description Stores an NDJSON import source file on the uploads disk and returns its {disk, path} for POST /import-export/imports. Requires `content.manage`.
+     * @description Stores an import source file on the uploads disk — an NDJSON bundle, a CSV, a Markdown file, a WordPress export or a .zip of Markdown files — and returns its {disk, path} for POST /import-export/imports. Requires `content.manage`.
      */
     post: operations['postV1AdminImportexportUpload']
     delete?: never
@@ -22834,6 +22854,104 @@ export interface operations {
       }
     }
   }
+  postV1AdminDocsSetup: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: {
+      content: {
+        /**
+         * @example {
+         *       "type": "example",
+         *       "sections": "example"
+         *     }
+         */
+        'application/json': {
+          /** @description The type's slug, which is the URL: `docs` serves /docs. Default `docs`. */
+          type?: string | null
+          /** @description The sidebar's groups, in order (lower-case, hyphenated). */
+          sections?: unknown[] | null
+        }
+      }
+    }
+    responses: {
+      /** @description The type already existed; `missing` names the fields it lacks. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The type was created. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description The type or a section cannot be a URL segment. */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
   getV1AdminEntries: {
     parameters: {
       query: {
@@ -29394,7 +29512,7 @@ export interface operations {
           theme_font_display?: string | null
           /** @description Page ground: plain | tinted; enum-validated in the controller. */
           theme_background?: string | null
-          /** @description Admin SPA base URL for preview-bar deep links; '' clears. */
+          /** @description Where the admin is, when hosted elsewhere; '' means this site's own, at /admin. */
           admin_url?: string | null
           /** @description Content types with public listings/archives; */
           listing_types?: string[] | null

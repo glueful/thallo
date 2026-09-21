@@ -2690,7 +2690,7 @@
                                             "string",
                                             "null"
                                         ],
-                                        "description": "The admin SPA's own origin \u2014 sent by the web setup form.",
+                                        "description": "Where the admin is: its origin and base path. Sent by the web setup form.",
                                         "maxLength": 300
                                     }
                                 },
@@ -69074,6 +69074,159 @@
                 }
             }
         },
+        "\/v1\/admin\/docs\/setup": {
+            "post": {
+                "operationId": "postV1AdminDocsSetup",
+                "summary": "Set up a documentation section",
+                "tags": [
+                    "Thallo Admin"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates the content type a docs section needs (title, summary, section, order, a plain-text Markdown body, source_path, edit_url) and adds it to the listing types, so `\/{type}` is an index and `\/{type}\/{page}` a page. Idempotent. Requires `content.manage`.",
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "type": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "The type's slug, which is the URL: `docs` serves \/docs. Default `docs`."
+                                    },
+                                    "sections": {
+                                        "type": [
+                                            "array",
+                                            "null"
+                                        ],
+                                        "items": {},
+                                        "description": "The sidebar's groups, in order (lower-case, hyphenated)."
+                                    }
+                                }
+                            },
+                            "example": {
+                                "type": "example",
+                                "sections": "example"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The type already existed; `missing` names the fields it lacks."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The type or a section cannot be a URL segment."
+                    },
+                    "201": {
+                        "description": "The type was created."
+                    }
+                }
+            }
+        },
         "\/v1\/admin\/entries": {
             "get": {
                 "operationId": "getV1AdminEntries",
@@ -75601,7 +75754,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Stores an NDJSON import source file on the uploads disk and returns its {disk, path} for POST \/import-export\/imports. Requires `content.manage`.",
+                "description": "Stores an import source file on the uploads disk \u2014 an NDJSON bundle, a CSV, a Markdown file, a WordPress export or a .zip of Markdown files \u2014 and returns its {disk, path} for POST \/import-export\/imports. Requires `content.manage`.",
                 "responses": {
                     "200": {
                         "description": "Successful response"
@@ -80883,7 +81036,7 @@
                                             "string",
                                             "null"
                                         ],
-                                        "description": "Admin SPA base URL for preview-bar deep links; '' clears."
+                                        "description": "Where the admin is, when hosted elsewhere; '' means this site's own, at \/admin."
                                     },
                                     "listing_types": {
                                         "type": [

@@ -7,6 +7,7 @@
 import { computed, ref, watch } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
 import { client } from '@/api/client'
+import { STAGE_FRAME_EDGE, STAGE_WIDTHS, type ViewportPreset } from '@/editor/breakpoint'
 
 export interface PendingLook {
   /**
@@ -32,8 +33,7 @@ const props = defineProps<{
   look: PendingLook
 }>()
 
-const VIEWPORT_WIDTHS = { desktop: '100%', tablet: '768px', mobile: '390px' } as const
-type Viewport = keyof typeof VIEWPORT_WIDTHS
+type Viewport = ViewportPreset
 const viewport = ref<Viewport>('desktop')
 const VIEWPORTS: { value: Viewport; icon: string; label: string }[] = [
   { value: 'desktop', icon: 'i-lucide-monitor', label: 'Desktop viewport' },
@@ -142,13 +142,13 @@ function openInTab(): void {
       >.
     </p>
     <div v-else class="overflow-auto rounded bg-elevated/40 p-2">
-      <div class="mx-auto transition-[width]" :style="{ width: VIEWPORT_WIDTHS[viewport] }">
+      <div class="mx-auto transition-[width]" :style="{ width: STAGE_WIDTHS[viewport] }">
         <iframe
           v-if="url"
           :src="url"
           title="Appearance preview"
-          class="h-[70vh] w-full rounded border border-default bg-white"
-          :class="{ 'opacity-60': loading }"
+          class="h-[70vh] w-full"
+          :class="[STAGE_FRAME_EDGE, { 'opacity-60': loading }]"
           data-test="appearance-preview-frame"
         />
         <p v-else class="py-16 text-center text-sm text-muted">

@@ -27,6 +27,8 @@ import { useContentTypes } from '@/queries/contentTypes'
 import { runtimeConfig } from '@/runtime/config'
 import { useNotify } from '@/composables/useNotify'
 import { useCapabilitiesStore } from '@/stores/capabilities'
+import MarkdownFolderFields from './MarkdownFolderFields.vue'
+import { MARKDOWN_FOLDER, folderOptions, reportLines } from './markdownFolder'
 
 const caps = useCapabilitiesStore()
 caps.ensureLoaded()
@@ -68,7 +70,12 @@ async function onExport() {
 const importAdapter = ref('')
 // Format-adapter keys belong to the thallo.importers pack; the core snapshot
 // importer (thallo.content) is always available regardless of the capability.
-const FORMAT_ADAPTER_KEYS = ['csv.content', 'markdown.content', 'wordpress.content']
+const FORMAT_ADAPTER_KEYS = [
+  'csv.content',
+  'markdown.content',
+  'wordpress.content',
+  MARKDOWN_FOLDER,
+]
 const importerItems = computed(() =>
   (adapters.value?.importers ?? [])
     .filter((a) => caps.isEnabled('thallo.importers') || !FORMAT_ADAPTER_KEYS.includes(a.key))
@@ -101,6 +108,11 @@ const WXR_KEYS = ['title', 'excerpt', 'slug', 'date', 'status', 'author']
 const isCsv = computed(() => importAdapter.value === 'csv.content')
 const isMarkdown = computed(() => importAdapter.value === 'markdown.content')
 const isWordpress = computed(() => importAdapter.value === 'wordpress.content')
+// A folder of Markdown as a .zip: no mapping — the importer reads each file's own front matter.
+const isFolder = computed(() => importAdapter.value === MARKDOWN_FOLDER)
+const folderType = ref('')
+const folderEditBase = ref('')
+const folderExclude = ref('')
 // Markdown and WordPress both route a converted HTML body into a chosen field.
 const hasBodyField = computed(() => isMarkdown.value || isWordpress.value)
 const needsWizard = computed(() => isCsv.value || isMarkdown.value || isWordpress.value)
@@ -178,6 +190,7 @@ watchEffect(() => {
 
 // Required fields must be satisfied (mapped to a source key, or — Markdown/WordPress — the body field).
 const wizardReady = computed(() => {
+  if (isFolder.value) return folderType.value !== ''
   if (!needsWizard.value) return true
   if (wizardType.value === '') return false
   if (isCsv.value && sourceKeys.value.length === 0) return false
@@ -221,6 +234,16 @@ function wizardOptions(): Record<string, unknown> {
   return options
 }
 
+function folderChoices() {
+  return {
+    type: folderType.value,
+    publish: wizardPublish.value,
+    editBase: folderEditBase.value,
+    exclude: folderExclude.value,
+    locale: runtimeConfig.defaultLocale,
+  }
+}
+
 async function onImport() {
   const file = selectedFile.value
   if (!file || !importAdapter.value || !wizardReady.value) return
@@ -232,7 +255,11 @@ async function onImport() {
       disk: uploaded.disk,
       path: uploaded.path,
       mode: importMode.value,
-      options: needsWizard.value ? wizardOptions() : undefined,
+      options: isFolder.value
+        ? { ...folderOptions(folderChoices()) }
+        : needsWizard.value
+          ? wizardOptions()
+          : undefined,
     })
     success(
       importMode.value === 'dry_run' ? 'Dry run queued' : 'Import queued',
@@ -297,6 +324,14 @@ async function onRetry(job: IeJob) {
 const errorsJob = ref<IeJob | null>(null)
 const errorsUuid = computed(() => errorsJob.value?.uuid ?? '')
 const { data: jobErrors, status: errorsStatus } = useJobErrors(errorsUuid)
+// A folder import's rows are its report — what each page became — not only its errors.
+const isReport = computed(() => errorsJob.value?.adapter === MARKDOWN_FOLDER)
+const jobRows = computed(() =>
+  isReport.value ? reportLines(jobErrors.value ?? []) : (jobErrors.value ?? []),
+)
+function severityColor(severity: string): 'error' | 'warning' | 'neutral' {
+  return severity === 'error' ? 'error' : severity === 'warning' ? 'warning' : 'neutral'
+}
 
 function fmtTime(v?: string | null): string {
   if (!v) return '—'
@@ -328,9 +363,9 @@ function fmtTime(v?: string | null): string {
     <template #body>
       <div class="mx-auto w-full max-w-4xl space-y-6">
         <p class="text-sm text-muted">
-          Export content as NDJSON; import an NDJSON bundle, a CSV, a Markdown document, or a
-          WordPress export (WXR). Jobs run in the background — they progress only while a queue
-          worker is running.
+          Export content as NDJSON; import an NDJSON bundle, a CSV, a Markdown document, a folder of
+          Markdown as a .zip (a documentation section), or a WordPress export (WXR). Jobs run in the
+          background — they progress only while a queue worker is running.
         </p>
 
         <div class="grid gap-6 md:grid-cols-2">
@@ -431,6 +466,15 @@ function fmtTime(v?: string | null): string {
                 <UFormField v-if="needsWizard" label="On commit">
                   <USwitch v-model="wizardPublish" label="Publish imported entries" />
                 </UFormField>
+
+                <MarkdownFolderFields
+                  v-if="isFolder"
+                  v-model:type="folderType"
+                  v-model:publish="wizardPublish"
+                  v-model:edit-base="folderEditBase"
+                  v-model:exclude="folderExclude"
+                  :content-types="contentTypes ?? []"
+                />
               </div>
 
               <UFormField
@@ -438,11 +482,13 @@ function fmtTime(v?: string | null): string {
                 :hint="
                   isWordpress
                     ? 'A WordPress export (.xml / .wxr)'
-                    : isMarkdown
-                      ? 'A .md / .mdx file with optional front matter'
-                      : isCsv
-                        ? 'CSV with a header row'
-                        : 'NDJSON exported from Thallo'
+                    : isFolder
+                      ? 'A .zip of your docs folder'
+                      : isMarkdown
+                        ? 'A .md / .mdx file with optional front matter'
+                        : isCsv
+                          ? 'CSV with a header row'
+                          : 'NDJSON exported from Thallo'
                 "
               >
                 <div class="flex items-center gap-2">
@@ -467,6 +513,7 @@ function fmtTime(v?: string | null): string {
                 icon="i-lucide-upload"
                 :loading="importing || runImport.isLoading.value"
                 :disabled="!selectedFile || !importAdapter || !wizardReady"
+                data-test="run-import"
                 @click="onImport"
               >
                 {{ importMode === 'dry_run' ? 'Run dry run' : 'Import' }}
@@ -527,7 +574,21 @@ function fmtTime(v?: string | null): string {
 
               <div class="flex shrink-0 items-center gap-1">
                 <UButton
-                  v-if="job.failed_records > 0 || job.error_overflow_count > 0"
+                  v-if="job.adapter === MARKDOWN_FOLDER && !isJobActive(job.status)"
+                  label="Report"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  icon="i-lucide-list-checks"
+                  :data-test="`job-report-${job.uuid}`"
+                  @click="
+                    () => {
+                      errorsJob = job
+                    }
+                  "
+                />
+                <UButton
+                  v-else-if="job.failed_records > 0 || job.error_overflow_count > 0"
                   label="Errors"
                   color="neutral"
                   variant="ghost"
@@ -583,11 +644,13 @@ function fmtTime(v?: string | null): string {
     :accept="
       isWordpress
         ? '.xml,.wxr'
-        : isCsv
-          ? '.csv'
-          : isMarkdown
-            ? '.md,.mdx,.markdown'
-            : '.ndjson,.jsonl,.json'
+        : isFolder
+          ? '.zip'
+          : isCsv
+            ? '.csv'
+            : isMarkdown
+              ? '.md,.mdx,.markdown'
+              : '.ndjson,.jsonl,.json'
     "
     class="hidden"
     @change="onFilePicked"
@@ -595,7 +658,7 @@ function fmtTime(v?: string | null): string {
 
   <UModal
     :open="errorsJob !== null"
-    title="Job errors"
+    :title="isReport ? 'Import report' : 'Job errors'"
     @update:open="
       (v: boolean) => {
         if (!v) errorsJob = null
@@ -608,17 +671,19 @@ function fmtTime(v?: string | null): string {
         <USkeleton class="h-10" />
       </div>
       <UEmpty
-        v-else-if="!(jobErrors ?? []).length"
+        v-else-if="!jobRows.length"
         icon="i-lucide-check"
-        title="No recorded errors"
-        description="This job has no stored error records."
+        :title="isReport ? 'Nothing to report' : 'No recorded errors'"
+        :description="
+          isReport ? 'This import read no pages.' : 'This job has no stored error records.'
+        "
       />
       <ul v-else class="divide-y divide-default">
-        <li v-for="err in jobErrors" :key="err.uuid" class="py-2">
+        <li v-for="err in jobRows" :key="err.uuid" class="py-2">
           <div class="flex items-center gap-2">
             <UBadge
               :label="err.severity"
-              :color="err.severity === 'error' ? 'error' : 'warning'"
+              :color="severityColor(err.severity)"
               variant="subtle"
               size="xs"
               class="capitalize"

@@ -6467,7 +6467,7 @@ export interface operations {
           admin_email: string
           admin_password: string
           locale: string
-          /** @description The admin SPA's own origin — sent by the web setup form. */
+          /** @description Where the admin is: its origin and base path. Sent by the web setup form. */
           admin_url?: string | null
         }
       }
