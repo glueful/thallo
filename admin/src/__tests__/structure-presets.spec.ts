@@ -2,11 +2,11 @@
 // responsive result for every path it owns, so a value sitting at one breakpoint — the block's own
 // or a style class's — cannot defeat the arrangement.
 import { describe, expect, it } from 'vitest'
-import { planPreset, presetDepth, PRESETS } from '@/editor/structure/presets'
+import { planPreset, presetDepth, PRESETS, type PlannedChild } from '@/editor/structure/presets'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import type { StyleClassRef } from '@/style/types'
 import { resolve } from '@/style/resolver'
-import { propertyDefinition } from '@/style/schema'
+import { propertyDefinition, styleProperties } from '@/style/schema'
 
 const container = (id: string, style: Record<string, unknown> = {}): BlockInstance =>
   ({
@@ -253,5 +253,47 @@ describe('presetDepth', () => {
     for (const key of Object.keys(PRESETS)) {
       expect(presetDepth(key, regionsOf), key).toBeGreaterThanOrEqual(1)
     }
+  })
+})
+
+// A preset's children carry settings straight into the document, so their SHAPE is the server's
+// to accept: a responsive property is a map of breakpoints, every other one the value itself.
+// The Section presets once gave their eyebrow and lead a colour as `{ base: … }`; colour is not
+// responsive, so the server refused the whole apply with "is not responsive".
+describe('the settings a preset gives its children', () => {
+  const isValue = (v: unknown): boolean =>
+    typeof v === 'object' && v !== null && typeof (v as { type?: unknown }).type === 'string'
+
+  function check(style: Record<string, unknown>, where: string): void {
+    for (const def of styleProperties()) {
+      let node: unknown = style
+      for (const segment of def.path.split('.')) {
+        node =
+          typeof node === 'object' && node !== null
+            ? (node as Record<string, unknown>)[segment]
+            : undefined
+      }
+      if (node === undefined) continue
+      if (def.responsive) {
+        expect(isValue(node), `${where} ${def.path}: a map of breakpoints`).toBe(false)
+        for (const v of Object.values(node as Record<string, unknown>)) {
+          expect(isValue(v), `${where} ${def.path}`).toBe(true)
+        }
+      } else {
+        expect(isValue(node), `${where} ${def.path}: the value itself, it is not responsive`).toBe(
+          true,
+        )
+      }
+    }
+  }
+  function walk(children: PlannedChild[], where: string): void {
+    children.forEach((child, i) => {
+      check(child.settings.style, `${where}[${i}] ${child.type}`)
+      walk(child.children ?? [], `${where}[${i}]`)
+    })
+  }
+
+  it('are in the shape the server accepts, all the way down', () => {
+    for (const [key, preset] of Object.entries(PRESETS)) walk(preset.children, key)
   })
 })

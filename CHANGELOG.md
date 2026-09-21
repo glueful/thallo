@@ -52,6 +52,12 @@ as the next release, never a mutated tag.
   other, like every other field in the column: side by side at that width, the longer description
   wrapped and pushed its select out of line.
 
+### Fixed
+- The structure picker's **Section** and **Section split** presets wrote the colour of their
+  eyebrow and lead text in a shape only responsive settings take, so a page holding a freshly
+  made section was refused on save with "is not responsive". They now write the colour as the
+  plain value it is, and a test holds every preset's children to the shape the server accepts.
+
 ## [1.0.0-beta.49] - 2026-09-20 — Developer Preview
 
 The Appearance page gives the room back to its preview.
