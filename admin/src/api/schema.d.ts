@@ -23961,7 +23961,9 @@ export interface operations {
          *       "neutral": "example",
          *       "radius": "example",
          *       "font": "example",
-         *       "background": "example"
+         *       "background": "example",
+         *       "font_body": "example",
+         *       "font_display": "example"
          *     }
          */
         'application/json': {
@@ -23977,6 +23979,10 @@ export interface operations {
           radius?: string | null
           font?: string | null
           background?: string | null
+          /** @description Pending text face (`custom` pairing): a media uuid, or `none` to take it off. */
+          font_body?: string | null
+          /** @description Pending headings face: a media uuid, or `none` to take it off. */
+          font_display?: string | null
         }
       }
     }
@@ -29349,6 +29355,8 @@ export interface operations {
          *       "theme_neutral": "example",
          *       "theme_radius": "example",
          *       "theme_font": "example",
+         *       "theme_font_body": "example",
+         *       "theme_font_display": "example",
          *       "theme_background": "example",
          *       "admin_url": "example",
          *       "listing_types": "example"
@@ -29372,14 +29380,18 @@ export interface operations {
           site_favicon?: string | null
           /** @description Live theme name; '' clears to the env/config default. */
           theme?: string | null
-          /** @description Accent Tailwind family (theme-color-config spec §2); enum-validated in the controller. */
+          /** @description Accent: a colour family, or the brand colour as a hex; validated in the controller. */
           theme_accent?: string | null
           /** @description Neutral Tailwind family; enum-validated in the controller. */
           theme_neutral?: string | null
           /** @description Corner radius scale: sharp | soft | round; enum-validated in the controller. */
           theme_radius?: string | null
-          /** @description Typeface pairing: sans | editorial | serif; enum-validated in the controller. */
+          /** @description Typeface pairing, or `custom`; enum-validated in the controller. */
           theme_font?: string | null
+          /** @description Media library uuid of the site's own text face (woff2); '' clears. */
+          theme_font_body?: string | null
+          /** @description Media library uuid of the site's own headings face (woff2); '' clears. */
+          theme_font_display?: string | null
           /** @description Page ground: plain | tinted; enum-validated in the controller. */
           theme_background?: string | null
           /** @description Admin SPA base URL for preview-bar deep links; '' clears. */

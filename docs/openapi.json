@@ -71419,6 +71419,20 @@
                                             "string",
                                             "null"
                                         ]
+                                    },
+                                    "font_body": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "Pending text face (`custom` pairing): a media uuid, or `none` to take it off."
+                                    },
+                                    "font_display": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "Pending headings face: a media uuid, or `none` to take it off."
                                     }
                                 }
                             },
@@ -71429,7 +71443,9 @@
                                 "neutral": "example",
                                 "radius": "example",
                                 "font": "example",
-                                "background": "example"
+                                "background": "example",
+                                "font_body": "example",
+                                "font_display": "example"
                             }
                         }
                     }
@@ -80818,7 +80834,7 @@
                                             "string",
                                             "null"
                                         ],
-                                        "description": "Accent Tailwind family (theme-color-config spec \u00a72); enum-validated in the controller."
+                                        "description": "Accent: a colour family, or the brand colour as a hex; validated in the controller."
                                     },
                                     "theme_neutral": {
                                         "type": [
@@ -80839,7 +80855,21 @@
                                             "string",
                                             "null"
                                         ],
-                                        "description": "Typeface pairing: sans | editorial | serif; enum-validated in the controller."
+                                        "description": "Typeface pairing, or `custom`; enum-validated in the controller."
+                                    },
+                                    "theme_font_body": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "Media library uuid of the site's own text face (woff2); '' clears."
+                                    },
+                                    "theme_font_display": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "Media library uuid of the site's own headings face (woff2); '' clears."
                                     },
                                     "theme_background": {
                                         "type": [
@@ -80886,6 +80916,8 @@
                                 "theme_neutral": "example",
                                 "theme_radius": "example",
                                 "theme_font": "example",
+                                "theme_font_body": "example",
+                                "theme_font_display": "example",
                                 "theme_background": "example",
                                 "admin_url": "example",
                                 "listing_types": "example"
