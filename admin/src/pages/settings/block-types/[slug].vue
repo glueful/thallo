@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useBlockTypes, useBlockTypeMutations, useBlockTypeMigrations } from '@/queries/blockTypes'
+import {
+  useBlockTypes,
+  useBlockTypeMutations,
+  useBlockTypeMigrations,
+  useBlockTypeStyleOptions,
+} from '@/queries/blockTypes'
+import { ApiError } from '@/api/errors'
 import { validateContentTypeFields, type ContentTypeField } from '@/queries/contentTypes'
 import { useNotify } from '@/composables/useNotify'
 import BlockTypeLifecycle from './components/BlockTypeLifecycle.vue'
+import BlockTypeStyleSettings from './components/BlockTypeStyleSettings.vue'
 
 definePage({ meta: { requiresAuth: true } })
 
@@ -31,6 +38,19 @@ const category = ref('')
 const description = ref('')
 const fields = ref<ContentTypeField[]>([])
 
+// Style settings: the groups this block offers in the designer. `savedGroups` is what the server
+// holds; the choice is SENT only when it differs, because an absent key is how a save says "leave
+// the declaration alone" — and a code-declared type's is never the admin's to send.
+const { data: styleOptions } = useBlockTypeStyleOptions()
+const codeDeclared = computed(() => (styleOptions.value?.codeDeclared ?? []).includes(slug.value))
+const styleGroups = ref<string[]>([])
+const savedGroups = ref<string[]>([])
+const styleError = ref<string | null>(null)
+const styleChanged = computed(
+  () =>
+    !codeDeclared.value && JSON.stringify(styleGroups.value) !== JSON.stringify(savedGroups.value),
+)
+
 // Hydrate ONCE per load (background refetches must not clobber in-progress edits).
 let hydrated = false
 watch(
@@ -42,6 +62,8 @@ watch(
     category.value = t.category ?? ''
     description.value = t.description ?? ''
     fields.value = t.schema.map((f) => ({ ...f }))
+    styleGroups.value = [...(t.style_capabilities ?? [])]
+    savedGroups.value = [...styleGroups.value]
     hydrated = true
   },
   { immediate: true },
@@ -53,6 +75,8 @@ async function onSave() {
     notifyError(new Error(fieldError), 'Check the fields')
     return
   }
+  styleError.value = null
+  const sent = styleChanged.value ? [...styleGroups.value] : null
   try {
     await update.mutateAsync({
       slug: slug.value,
@@ -61,9 +85,15 @@ async function onSave() {
       category: category.value.trim() || null,
       description: description.value.trim() || null,
       schema: fields.value.map((f) => ({ ...f, name: f.name.trim() })),
+      ...(sent === null ? {} : { style_capabilities: sent }),
     })
+    if (sent !== null) savedGroups.value = sent
     success('Block type updated', 'Future saves validate against the new schema.')
   } catch (e) {
+    // A refused declaration is explained on the card, beside the choice it refuses.
+    if (e instanceof ApiError && e.fieldErrors.style_capabilities) {
+      styleError.value = e.fieldErrors.style_capabilities
+    }
     notifyError(e, 'Couldn’t update block type')
   }
 }
@@ -187,6 +217,19 @@ async function onToggleActive() {
                    renaming a field 422s here — declare a migration instead (Usage &
                    lifecycle → Migrate fields). -->
               <ContentTypeFields v-model="fields" context="block-type" />
+            </UCard>
+
+            <UCard class="mt-6" data-test="block-type-style-card">
+              <template #header>
+                <h2 class="font-semibold text-default">Style settings</h2>
+              </template>
+              <BlockTypeStyleSettings
+                v-model="styleGroups"
+                :slug="slug"
+                :options="styleOptions?.options ?? []"
+                :code-declared="codeDeclared"
+                :error="styleError"
+              />
             </UCard>
           </div>
         </div>

@@ -156,6 +156,19 @@ targets: `root`, the bar, and `inner`, where a theme pads and so where padding l
 emit through `region_style_classes(slug, target, settings?)`; the third argument is for the admin's
 chrome preview, which renders posted settings.
 
+**Amended 2026-09-21 — a block type made in the admin declares style too.** §1.7 had a
+declaration only for code-declared types, so an admin-made block's Style tab was empty. Such a type
+now carries ONE target — `root`, a `box`: its outermost element — and the admin chooses which
+capability GROUPS it supports, from the groups a box can carry (`CustomBlockStyle::GROUPS`; not
+`alignment.text`, which needs a text target, nor the parent-layout groups, which need a stack, nor
+the groups that belong to one block's parts). The block types API accepts `style_capabilities` on
+create and update (absent = leave the declaration alone; `[]` = clear it), offers the groups and
+names the code-declared slugs in its index, and refuses: a group outside the offer; any change to
+a code-declared type (provision re-syncs those from code); and — asked of the renderer through
+`BlockTemplateTargetCheck` — groups switched on over a template that does not style `root`, since
+a stored template that leaves a declared target unstyled refuses to load. A type with no template
+yet is not refused: the lint holds the template to the declaration when it is written.
+
 Alignment is typed by meaning. `alignment.text` is `text-align` on a text target.
 `alignment.content` places a row target's children horizontally (`justify-content` on a
 horizontal flex row only). `alignment.self` places a box target within its parent through auto

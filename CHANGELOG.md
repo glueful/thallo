@@ -7,6 +7,19 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **Style settings for the block types you make.** A block type created under Settings › Block
+  types could have fields and a template, but its Style tab in the designer stayed empty: only
+  block types declared in code could be styled. Its editor now has a **Style settings** card —
+  tick the groups the block should offer (spacing, width, placement, typography, colours,
+  backdrop, corners, border, shadow, visibility, minimum height, overflow, sizing in a parent
+  layout) and they appear in the designer's Style and Layout tabs for that block, style classes
+  included. The settings land on the block's outermost element, so its template adds
+  `{{ style_classes('root') }}` and `{{ style_attrs('root') }}` there; the card shows the snippet.
+  Choosing groups for a block whose template does not emit them yet is refused, with the line to
+  add, rather than breaking the block. The style settings of Thallo's own block types are shown
+  read-only (THEMING.md §12.3).
+
 ### Changed
 - The Appearance page's settings column is 25rem wide, the width of the side panel on the Design
   and Header & footer pages, so the three pages line up. Accent and Neutral sit one under the
