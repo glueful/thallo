@@ -3136,6 +3136,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/patterns': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the section and page library
+     * @description Ready-made sections and starter pages, as block trees without ids. A pattern that uses a block type this site has switched off is not listed.
+     */
+    get: operations['getV1AdminPatterns']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/redirects/{uuid}': {
     parameters: {
       query?: never
@@ -27443,6 +27463,84 @@ export interface operations {
           [name: string]: unknown
         }
         content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  getV1AdminPatterns: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Sections, then pages. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success: boolean
+            message: string
+            data: {
+              /** @description Sections in their categories' order, then pages. */
+              patterns?: unknown[]
+            }
+          }
+        }
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
       }
       /** @description Unexpected server error. */
       500: {

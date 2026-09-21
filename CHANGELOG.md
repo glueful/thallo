@@ -8,6 +8,19 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Added
+- **A section and page library.** The designer's Blocks tab has three views: **Blocks**, **Sections**
+  and **Pages**. Sections are ready-made parts of a page, each shown by a thumbnail of its real
+  render: four heroes, feature grids, how-it-works steps, numbers, testimonials, pricing plans, an
+  FAQ, two calls to action, an about section, latest posts and a contact form. A section is one
+  block, so it is added like any block — click it, press Enter in the filter, or drag it onto the
+  stage — and once on the page it is simply your blocks, to edit, restyle and rearrange. Pages are
+  starter pages made of those sections — Landing, About, Pricing, Contact, Services — and one click
+  lays the whole page down as a single step, so one undo takes it back out. Sections are built the
+  way the structure picker's Section preset builds one, carry placeholder copy and need no media,
+  so each is complete as inserted; a contact form asks for its recipient, as a new form block does.
+  A section that would nest too deep where it would land is refused with the reason, and a section
+  that needs a block type the site has switched off is not offered, nor is a page made of it. The
+  library is Thallo's own for now: themes and packs cannot add to it yet.
 - **A theme gallery.** Site › Appearance showed the live theme as a name in a select. It is now a
   gallery: each theme is a card with its screenshot, title, version, author, description and
   tags, and the live one is marked. Choosing a card shows that theme in the preview beside it;

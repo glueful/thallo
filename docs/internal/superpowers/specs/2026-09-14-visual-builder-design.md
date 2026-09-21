@@ -187,6 +187,22 @@ for values that declare nothing (`none`, `once`), as for modifiers. In the canva
 still and `thallo:motion-play` replays one block (`data-thallo-motion-play`: `from`, a forced
 reflow, `to`). The schema moves to 8 and the compiler to 9.
 
+**Amended 2026-09-21 — the section and page library.** The Blocks tab gains Sections and Pages.
+A pattern is a tree of ordinary blocks with ordinary settings and nothing else: there is no
+pattern entity, no link from an inserted section back to the library, and no new operation. The
+definitions are code (`Content\Patterns\StarterPatterns`); a page is a list of section slugs, so
+pages cannot drift from their sections. `PatternLibrary` lays each block over the block factory's
+canonical instance of its type and drops a pattern (and any page made of it) that needs a type the
+site has switched off. `GET /patterns` serves the trees WITHOUT ids — the editor mints them, as for
+every block it creates. A section is ONE block, so under a `pattern:` key it takes the palette's
+whole path (click, Enter, drag), with the library standing in for the factory and
+`checkInsertSubtree` for the tile preflight. A page is N `InsertBlock` operations in one
+transaction, judged first by `checkInsertSequence`, so it lands whole or not at all. Thumbnails are
+the admin's static files, captured from the default theme's real render
+(`scripts/build-pattern-thumbnails`); a test pairs every pattern with one, and another holds
+every pattern to the validation a page save runs, to the depth cap less one, and to rendering.
+Not yet: patterns contributed by a theme or a pack, and saving a selection as a pattern.
+
 **Amended 2026-09-21 — a block type made in the admin declares style too.** §1.7 had a
 declaration only for code-declared types, so an admin-made block's Style tab was empty. Such a type
 now carries ONE target — `root`, a `box`: its outermost element — and the admin chooses which

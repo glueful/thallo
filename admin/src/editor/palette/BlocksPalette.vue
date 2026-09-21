@@ -4,22 +4,40 @@
 // (or the page's default), a pointer-down starts a drag the page's palette drag owns. A tile the
 // target refuses is inert to click and Enter and says why, but stays draggable — the same type
 // may be legal elsewhere on the stage.
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+//
+// It also holds the section and page library (Sections, Pages). A section is ONE block, so its
+// card is a tile in every respect — the same click, Enter and drag, emitted down the same path
+// under a `pattern:` key the page tells apart from a type's slug. A page is several sections:
+// it is inserted whole, by click, and has no drag.
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import type { BlockType } from '@/queries/blockTypes'
+import {
+  patternKey,
+  patternThumbnail,
+  patternThumbnailSize,
+  type Pattern,
+} from '@/queries/patterns'
 import type { Legality } from '@/editor/structure/legality'
 import { groupByCategory, orderTypes } from './order'
 
 const props = defineProps<{
   types: BlockType[]
+  /** The section and page library; empty hides the view switch. */
+  patterns?: Pattern[]
   /** The resolved armed target's label, or null when nothing is armed. */
   target: { label: string } | null
   /** The armed target resolved to nothing (its block or gap is gone). */
   stale: boolean
-  /** Click availability against the effective target — the page's tile preflight. */
+  /** Click availability against the effective target — the page's tile preflight. A section is
+   *  asked about by its `pattern:` key. */
   clickable: (slug: string) => Legality
+  /** Whether a page may be inserted whole at the effective target. */
+  pageClickable?: (slug: string) => Legality
 }>()
 const emit = defineEmits<{
+  /** A block type's slug, or a section's `pattern:` key. */
   insert: [slug: string]
+  'insert-page': [slug: string]
   'clear-target': []
   'pointer-down': [slug: string, event: PointerEvent]
 }>()
@@ -41,6 +59,59 @@ const clickableSlugs = computed(() =>
 const reasonOf = (slug: string): string | undefined => {
   const v = verdicts.value.get(slug)
   return v && !v.ok ? v.message : undefined
+}
+
+// ── The library ─────────────────────────────────────────────────────────────
+type View = 'blocks' | 'sections' | 'pages'
+const VIEWS: { value: View; label: string }[] = [
+  { value: 'blocks', label: 'Blocks' },
+  { value: 'sections', label: 'Sections' },
+  { value: 'pages', label: 'Pages' },
+]
+const view = ref<View>('blocks')
+const library = computed(() => props.patterns ?? [])
+const kind = computed(() => (view.value === 'pages' ? 'page' : 'section'))
+const matching = computed(() => {
+  const q = query.value.trim().toLowerCase()
+  return library.value.filter(
+    (p) =>
+      p.kind === kind.value &&
+      (q === '' || `${p.label} ${p.category} ${p.description}`.toLowerCase().includes(q)),
+  )
+})
+/** The matching patterns under their categories, in the library's own order. */
+const patternGroups = computed(() => {
+  const out: { category: string; items: Pattern[] }[] = []
+  for (const p of matching.value) {
+    const group = out.find((g) => g.category === p.category)
+    if (group) group.items.push(p)
+    else out.push({ category: p.category, items: [p] })
+  }
+  return out
+})
+function patternReason(p: Pattern): string | undefined {
+  const verdict =
+    p.kind === 'page'
+      ? (props.pageClickable?.(p.slug) ?? { ok: true as const })
+      : props.clickable(patternKey(p.slug))
+  return verdict.ok ? undefined : verdict.message
+}
+// A thumbnail that does not load gives way to a plain card, never a broken image.
+const missingThumbs = reactive(new Set<string>())
+
+function insertPattern(p: Pattern): void {
+  if (patternReason(p) !== undefined) return
+  if (p.kind === 'page') emit('insert-page', p.slug)
+  else emit('insert', patternKey(p.slug))
+}
+/** A page has no drag, so every click inserts; a section's mouse click is the pointer path's. */
+function onPatternClick(p: Pattern, event: MouseEvent): void {
+  if (p.kind === 'section' && event.detail > 0) return
+  insertPattern(p)
+}
+function onPatternPointerDown(p: Pattern, event: PointerEvent): void {
+  if (p.kind !== 'section' || event.button !== 0) return
+  emit('pointer-down', patternKey(p.slug), event)
 }
 
 // An armed target focuses the search: `+`, type, Enter stays three actions. The tab may mount
@@ -67,8 +138,13 @@ function onSearchKeydown(event: KeyboardEvent): void {
   }
   if (event.key === 'Enter') {
     event.preventDefault()
-    const first = clickableSlugs.value[0]
-    if (first) emit('insert', first)
+    if (view.value === 'blocks') {
+      const first = clickableSlugs.value[0]
+      if (first) emit('insert', first)
+      return
+    }
+    const first = matching.value.find((p) => patternReason(p) === undefined)
+    if (first) insertPattern(first)
   }
 }
 
@@ -90,7 +166,7 @@ function onTilePointerDown(slug: string, event: PointerEvent): void {
       ref="search"
       v-model="query"
       type="text"
-      placeholder="Filter blocks…"
+      :placeholder="`Filter ${view}…`"
       class="w-full rounded border border-default bg-transparent px-2 py-1 text-sm outline-none"
       data-test="palette-search"
       @keydown="onSearchKeydown"
@@ -114,8 +190,86 @@ function onTilePointerDown(slug: string, event: PointerEvent): void {
         Cancel
       </button>
     </div>
+    <div
+      v-if="library.length > 0"
+      class="grid grid-cols-3 gap-0.5 rounded-md bg-elevated p-0.5"
+      data-test="palette-views"
+    >
+      <button
+        v-for="v in VIEWS"
+        :key="v.value"
+        type="button"
+        class="rounded px-2 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        :class="
+          view === v.value ? 'bg-default text-default shadow-sm' : 'text-muted hover:text-default'
+        "
+        :aria-pressed="view === v.value ? 'true' : 'false'"
+        :data-test="`palette-view-${v.value}`"
+        @click="view = v.value"
+      >
+        {{ v.label }}
+      </button>
+    </div>
+    <template v-if="view !== 'blocks'">
+      <section
+        v-for="group in patternGroups"
+        :key="group.category"
+        class="space-y-1.5"
+        :data-test="`pattern-group-${group.category}`"
+      >
+        <h4
+          v-if="view === 'sections'"
+          class="text-[11px] font-semibold uppercase tracking-wide text-muted"
+        >
+          {{ group.category }}
+        </h4>
+        <div class="grid gap-2" :class="view === 'pages' ? 'grid-cols-2' : 'grid-cols-1'">
+          <button
+            v-for="p in group.items"
+            :key="p.slug"
+            type="button"
+            class="flex select-none flex-col overflow-hidden rounded-md border border-default bg-default text-left text-xs transition-colors hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary aria-disabled:opacity-50"
+            :class="p.kind === 'section' ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'"
+            :aria-disabled="patternReason(p) !== undefined ? 'true' : undefined"
+            :title="patternReason(p) ?? p.description"
+            :data-test="`pattern-card-${p.slug}`"
+            @click="(e: MouseEvent) => onPatternClick(p, e)"
+            @pointerdown="(e: PointerEvent) => onPatternPointerDown(p, e)"
+          >
+            <!-- A section is shown whole, up to a height; a page is its first screens. -->
+            <span
+              class="block w-full overflow-hidden border-b border-default bg-white"
+              :class="view === 'pages' ? 'aspect-[3/4]' : 'max-h-44'"
+            >
+              <img
+                v-if="!missingThumbs.has(p.slug)"
+                :src="patternThumbnail(p.slug)"
+                :width="patternThumbnailSize(p.slug)?.[0]"
+                :height="patternThumbnailSize(p.slug)?.[1]"
+                alt=""
+                loading="lazy"
+                decoding="async"
+                draggable="false"
+                class="pointer-events-none block h-auto w-full"
+                :class="view === 'pages' ? 'h-full object-cover object-top' : ''"
+                @error="missingThumbs.add(p.slug)"
+              />
+              <span
+                v-else
+                class="flex h-16 w-full items-center justify-center bg-elevated text-muted"
+                data-test="pattern-thumb-missing"
+              >
+                <UIcon name="i-lucide-layout-template" class="size-5" />
+              </span>
+            </span>
+            <span class="truncate px-2 py-1.5 font-medium">{{ p.label }}</span>
+          </button>
+        </div>
+      </section>
+      <p v-if="!matching.length" class="px-2 py-1.5 text-sm text-muted">No {{ view }} match.</p>
+    </template>
     <section
-      v-for="group in groups"
+      v-for="group in view === 'blocks' ? groups : []"
       :key="group.category"
       class="space-y-1.5"
       :data-test="`palette-group-${group.category}`"
@@ -140,6 +294,8 @@ function onTilePointerDown(slug: string, event: PointerEvent): void {
         </button>
       </div>
     </section>
-    <p v-if="!ordered.length" class="px-2 py-1.5 text-sm text-muted">No block types match.</p>
+    <p v-if="view === 'blocks' && !ordered.length" class="px-2 py-1.5 text-sm text-muted">
+      No block types match.
+    </p>
   </div>
 </template>

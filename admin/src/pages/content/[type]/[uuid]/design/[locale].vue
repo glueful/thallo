@@ -43,7 +43,13 @@ import { BREAKPOINT_LABELS } from '@/editor/breakpoint'
 import { resolveTarget, tilePreflight, type InsertTarget } from '@/editor/palette/target'
 import { useBlockFactory } from '@/queries/blockFactory'
 import { createPaletteDrag } from '@/editor/palette/usePaletteDrag'
-import type { Legality, LegalityContext } from '@/editor/structure/legality'
+import {
+  checkInsertSequence,
+  checkInsertSubtree,
+  type Legality,
+  type LegalityContext,
+} from '@/editor/structure/legality'
+import { instantiate, isPatternKey, patternSlug, usePatterns } from '@/queries/patterns'
 import {
   EMPTY_SELECTION,
   extend,
@@ -998,6 +1004,25 @@ function currentDoc(): EditorDocument {
 // waits for the factory, checks the token, resolves the intent against the document as it is
 // then, and inserts through the coordinator. A refusal keeps the target and says why.
 const blockFactory = useBlockFactory()
+// The section and page library rides the same palette. A section is ONE block, so under its
+// `pattern:` key it takes the palette's whole path — click, Enter, drag — with the library
+// standing in for the block factory; only what makes the block differs.
+const { data: patternData } = usePatterns()
+const patterns = computed(() => patternData.value ?? [])
+const patternBySlug = (slug: string) => patterns.value.find((p) => p.slug === slug) ?? null
+const paletteFactory = {
+  async instance(key: string): Promise<BlockInstance> {
+    if (!isPatternKey(key)) return blockFactory.instance(key)
+    const block = patternBySlug(patternSlug(key))
+    const made = block ? instantiate(block)[0] : undefined
+    if (!made) throw new Error('That section is no longer in the library.')
+    return made
+  },
+}
+const paletteLabel = (key: string): string =>
+  isPatternKey(key)
+    ? (patternBySlug(patternSlug(key))?.label ?? 'Section')
+    : (paletteTypes.value.find((t) => t.slug === key)?.label ?? key)
 const insertTarget = ref<InsertTarget | null>(null)
 const targetStale = ref(false)
 let insertAttempt = 0
@@ -1029,11 +1054,29 @@ onMounted(() =>
 const paletteTarget = computed(() =>
   insertTarget.value && resolvedTarget.value ? { label: resolvedTarget.value.label } : null,
 )
+const NOWHERE: Legality = { ok: false, reason: 'no-slot', message: 'Nowhere to insert' }
 function paletteClickable(slug: string): Legality {
   const at = resolvedTarget.value
-  return at
-    ? tilePreflight(slug, at.position, currentDoc(), legalityContext())
-    : { ok: false, reason: 'no-slot', message: 'Nowhere to insert' }
+  if (!at) return NOWHERE
+  if (!isPatternKey(slug)) return tilePreflight(slug, at.position, currentDoc(), legalityContext())
+  // A section is judged as the tree it is — its depth counts from where it would land.
+  const pattern = patternBySlug(patternSlug(slug))
+  const block = pattern ? instantiate(pattern)[0] : undefined
+  return block ? checkInsertSubtree(currentDoc(), at.position, block, legalityContext()) : NOWHERE
+}
+/** A page's sections, one after another from the target. */
+function pageInserts(slug: string, position: Position) {
+  const pattern = patternBySlug(slug)
+  return (pattern ? instantiate(pattern) : []).map((block, k) => ({
+    position: { ...position, index: position.index + k },
+    block,
+  }))
+}
+function pageClickable(slug: string): Legality {
+  const at = resolvedTarget.value
+  if (!at) return NOWHERE
+  const inserts = pageInserts(slug, at.position)
+  return inserts.length ? checkInsertSequence(currentDoc(), inserts, legalityContext()) : NOWHERE
 }
 function armInsertTarget(target: InsertTarget): void {
   insertTarget.value = target
@@ -1064,7 +1107,8 @@ let paletteBlock: BlockInstance | null = null
 const paletteDrag = createPaletteDrag({
   bridge,
   iframeRect: () => iframeEl.value?.getBoundingClientRect() ?? null,
-  factory: blockFactory,
+  factory: paletteFactory,
+  labelOf: paletteLabel,
   coordinator,
   notify: notifyError,
   onClick: (slug) => void insertFromPalette(slug),
@@ -1112,7 +1156,7 @@ async function insertFromPalette(slug: string): Promise<void> {
   const attempt = ++insertAttempt
   let block: BlockInstance
   try {
-    block = await blockFactory.instance(slug)
+    block = await paletteFactory.instance(slug)
   } catch (err) {
     notifyError(err, "Couldn't add block")
     return
@@ -1134,6 +1178,40 @@ async function insertFromPalette(slug: string): Promise<void> {
   ringSelection()
   revealAfterPaint = block.id
   inspectorTab.value = 'block'
+}
+/**
+ * A starter page: its sections inserted one after another at the target, as ONE transaction — one
+ * undo takes the whole page back out. Judged as a sequence first, so a page that does not fit
+ * (a slot that refuses containers, the nesting cap) inserts nothing rather than half of itself.
+ */
+async function insertPage(slug: string): Promise<void> {
+  const intent = effectiveTarget()
+  if (!intent) return
+  insertAttempt++
+  const at = resolveTarget(intent, currentDoc(), legalityContext(), historySequence.value)
+  if (!at) {
+    insertTarget.value = null
+    targetStale.value = true
+    return
+  }
+  const inserts = pageInserts(slug, at.position)
+  if (inserts.length === 0) return
+  const verdict = checkInsertSequence(currentDoc(), inserts, legalityContext())
+  if (!verdict.ok) {
+    warning('That page does not fit here', verdict.message)
+    return
+  }
+  coordinator.cancel()
+  await applyDrop(
+    inserts.map(({ position, block }) => ({ type: 'InsertBlock' as const, position, block })),
+  )
+  insertTarget.value = null
+  targetStale.value = false
+  const first = inserts[0]!.block
+  selectOne(first.id)
+  fieldEditorRef.value?.selectBlockById(first.id)
+  ringSelection()
+  revealAfterPaint = first.id
 }
 /**
  * A block inserted from the palette is not on the stage until the next apply paints it; once
@@ -2334,7 +2412,10 @@ function reloadStage(): void {
                   :types="paletteTypes"
                   :target="paletteTarget"
                   :stale="targetStale"
+                  :patterns="patterns"
                   :clickable="paletteClickable"
+                  :page-clickable="pageClickable"
+                  @insert-page="insertPage"
                   @insert="insertFromPalette"
                   @clear-target="clearInsertTarget"
                   @pointer-down="(slug: string, e: PointerEvent) => paletteDrag.begin(slug, e)"

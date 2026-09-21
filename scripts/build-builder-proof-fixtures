@@ -177,6 +177,7 @@ $post = static fn (string $path): Request => Request::create($path, 'POST', [], 
 
 $json('content-types', (string) $container->get(ContentTypeController::class)->index($get('/x'))->getContent());
 $json('block-types', (string) $container->get(BlockTypeController::class)->index($get('/x'))->getContent());
+$json('patterns', (string) $container->get(\Thallo\Core\Content\Http\Controllers\PatternController::class)->index()->getContent());
 $json('draft', (string) $container->get(EntryController::class)->getDraft($get('/x'), $entryUuid, 'en')->getContent());
 $json('style-schema', (string) $container->get(StyleSchemaController::class)->show()->getContent());
 $json('style-classes', (string) $container->get(StyleClassController::class)->index($get('/x'))->getContent());
