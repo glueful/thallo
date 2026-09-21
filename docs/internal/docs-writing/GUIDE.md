@@ -41,7 +41,7 @@ Ways to check a fact, from the repository root:
 ```bash
 php glueful list                      # every console command that exists
 php glueful <command> --help          # its real arguments and options
-git grep -n "some_config_key"         # where a key is read, and its default
+git grep -n "some_config_key" -- ':!core/resources'   # where a key is read; skip the built admin
 ```
 
 `php glueful` needs a database. In this repository's test setup, prefix it with:
@@ -93,7 +93,7 @@ value breaks the preview on GitHub.
 
 | Key | Rule |
 |---|---|
-| `title` | The page's name, as PAGES.md gives it. Sentence case. No "Thallo" unless it is the subject. |
+| `title` | The page's name, exactly as the row's heading gives it (`### slug — Title`); the lint checks it. |
 | `slug` | The page's URL: `/docs/{slug}`. As PAGES.md gives it. Lower-case, hyphens. |
 | `section` | The folder's name. |
 | `order` | The page's place in its section, as PAGES.md gives it. |
@@ -167,8 +167,9 @@ Each section holds one kind of page. Keep them apart: a guide that stops to expl
 loses the reader who came to get a job done, and a concept page full of steps explains nothing.
 
 **Getting started — a lesson.** The reader has never used Thallo. One path, no choices, every
-step shown with its command and what they should see afterwards. It ends with something working
-and one link onward.
+step shown with what to do and what they should see afterwards. A step in the admin names the
+control; a step in a terminal shows the command. It ends with something working and one link
+onward. The section's first page is an orientation, not a lesson, and has no steps.
 
 **Concepts — an explanation.** The reader wants to understand. Say what the thing is, why it is
 that way, how it relates to its neighbours, and where its edges are. Few commands. Link to the
@@ -196,9 +197,9 @@ Every page, whatever its kind:
   `admin/src/registry/*Module.ts`. Where the sidebar and a page's own heading differ in case
   ("Block Types" against "Block types"), the sidebar wins: it is the path the reader follows.
 - Shows what success looks like.
-- Is as long as its job needs. Most pages are 300 to 900 words; a page whose row asks a lot runs
-  to 1,200. A reference page is as long as its source. Never drop a verified fact to reach a
-  number: cut words, not facts.
+- Is as long as its job needs. Most pages are 300 to 900 words; a concept page whose row asks a
+  lot runs to 1,500. A reference page is as long as its source. Never drop a verified fact to
+  reach a number: cut words, not facts. If a row plainly holds two pages, say so in your report.
 
 ## 6. The reader's site is not this repository
 
@@ -222,7 +223,8 @@ Write the way the CHANGELOG and the existing four pages are written: plain, exac
 
 - Second person, present tense, active voice. "Run the command. Thallo writes `.env`."
 - Short sentences. One idea each. Cut every word that carries nothing.
-- British spelling: colour, behaviour, organise, licence (noun).
+- British spelling: colour, behaviour, organise, licence (noun). A label is quoted as the admin
+  spells it, even where that is American (**Localized**).
 - Say what happens, then why it matters, in that order.
 - No marketing: not "powerful", "seamless", "simply", "just", "easy", "robust", "blazing".
   If something takes one command, show the one command; the reader will see that it is easy.
@@ -247,8 +249,12 @@ Write the way the CHANGELOG and the existing four pages are written: plain, exac
 | the Blocks tab | the side panel's tab that offers blocks, sections and pages to insert | block picker, palette, library |
 | Style tab, Layout tab | the inspector's tabs | styling panel |
 | style class | a named, reusable set of style settings | CSS class, preset |
-| pattern | a ready-made section or page in the Blocks tab's library | template, snippet |
+| pattern | a ready-made section or page in the Blocks tab's library (the admin's own views are called **Sections** and **Pages**; "pattern" is the word for the concept) | template, snippet |
 | theme | the Twig templates and CSS that render the site | skin, template pack |
+| template | one Twig file of a theme | view, layout (layout.twig is the one template called the layout) |
+| design tokens | the named values (colours, spacing, type) a theme defines and the site's settings change | CSS variables, theme variables |
+| the style vocabulary | the set of tokens and choices `theme.json` declares for the Design view | style contract, vocabulary of tokens |
+| `theme.json` | a theme's manifest | theme config, manifest file |
 | region | the header or the footer (Site › Header & footer) | global block, partial |
 | capability | a feature that can be switched on (Extensions › Capabilities) | plugin, add-on, module |
 | pack | the Composer package a capability ships in (`glueful/thallo-*`) | plugin |
@@ -284,10 +290,10 @@ Write **one page per task** unless you are told otherwise. For each page:
 7. Rehearse the import. With `--dry-run` it writes nothing:
 
    ```bash
-   php glueful thallo:import:markdown docs --type=docs --exclude=internal --dry-run
+   bash -c 'export DB_PGSQL_DATABASE=app_test APP_ENV=testing CACHE_DRIVER=array CACHE_TAGS=false QUERY_CACHE_ENABLED=false QUERY_CACHE_STORE=array; php glueful thallo:import:markdown docs --type=docs --exclude=internal --dry-run'
    ```
 
-   It needs the environment prefix from §1, and it needs the `docs` content type to exist on
+   Its per-file warnings print after the file's line. It needs the `docs` content type to exist on
    that database. `php glueful thallo:docs:setup` makes it, once, and **it writes**: if you were
    told the database is prepared, or you share it with other writers, do not run it.
 
@@ -333,6 +339,5 @@ Write one page of Thallo's documentation: the page whose slug is "<slug>".
    out and tell me.
 4. Write the page at the path the row gives, with the front matter the row gives.
 5. Run the docs lint and the import's dry run as the guide describes, and fix what they report.
-6. Set the page's Status to done in PAGES.md.
-7. Reply with the report the guide asks for in section 8. Do not commit.
+6. Reply with the report the guide asks for in section 8. Do not commit.
 ```

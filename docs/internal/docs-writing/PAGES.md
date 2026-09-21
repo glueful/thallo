@@ -13,11 +13,15 @@ it is the contract; this file is the work list.
   it leads — but a fact that is in none of them and nowhere you can find does not go in the page.
 - **Must cover** is the least the page has to answer. It is a list of questions, not of
   headings: shape the page the way GUIDE.md §5 says its section is shaped.
-- **Status** is `todo`, `draft` (file exists with `draft: true`) or `done`. Update it when you
-  finish a page.
+- **Status** is `todo`, `draft` (file exists with `draft: true`) or `done`. Whoever coordinates
+  the writing updates it; a writer does not edit this file.
 
 Paths under `admin/src/` are the admin's screens: read them for the exact labels, fields and
-order of what a reader sees. Paths under `tests/` show what the code is proven to do.
+order of what a reader sees. Paths under `tests/` show what the code is proven to do. The pack
+READMEs (`packages/*/README.md`) predate the capability switchboard and the `glueful` binary:
+several tell the reader to edit a `config/thallo.php` that a project does not ship, to run
+`./thallo extensions:enable …`, or that a pack is removable. Use them for what a pack is, not for
+how it is switched on.
 
 ---
 
@@ -26,10 +30,11 @@ order of what a reader sees. Paths under `tests/` show what the code is proven t
 For someone who has never used Thallo. One path, no choices.
 
 ### introduction — What Thallo is
-- **File** `getting-started/01-introduction.md` · **Order** 1 · **Status** todo
+- **File** `getting-started/01-introduction.md` · **Order** 1 · **Status** done
 - **Summary** "What Thallo is, who it is for, and what a site built with it is made of."
-- **Sources** `README.md`, `skeleton/README.md`, `docs/limitations.md`, `config/capabilities.php`,
-  `core/config/thallo.php`, `packages/*/README.md`
+- **Sources** `README.md`, `skeleton/README.md`, `docs/limitations.md`, `core/config/thallo.php`
+  (the `capabilities` map), `core/src/Capabilities/`, `skeleton/config/extensions.php`,
+  `core/composer.json`, `packages/*/README.md`
 - **Must cover** What Thallo is in two sentences: a CMS installed with Composer, with an admin,
   a visual page builder, a theme layer that renders the site, and an API over the same content.
   What "hybrid" means here: the same entries are served as rendered pages and as JSON. What is
@@ -53,28 +58,34 @@ For someone who has never used Thallo. One path, no choices.
   What the reader sees when it worked.
 
 ### first-page — Build your first page
-- **File** `getting-started/03-first-page.md` · **Order** 3 · **Status** todo
+- **File** `getting-started/03-first-page.md` · **Order** 3 · **Status** done
 - **Summary** "Open the Design view, lay out a page from the library, and publish it."
 - **Sources** `admin/src/pages/content/[type]/[uuid]/design/[locale].vue`,
-  `admin/src/editor/palette/`, `admin/src/editor/structure/presets.ts`,
-  `core/src/Content/Patterns/StarterPatterns.php`, `admin/e2e/tests/pattern-library.spec.ts`,
-  `admin/e2e/tests/structure-picker.spec.ts`, `packages/thallo-render/docs/THEMING.md` §12
-- **Must cover** Where pages live (**Content › Pages**). Creating an entry and opening the
-  Design view. The three parts of the screen: the side panel with its tabs, the stage, the
-  inspector. Inserting a starter page from the **Pages** view of the Blocks tab. Changing a
+  `packages/thallo-render/assets/preview/preview-bridge.js` (what happens on the stage),
+  `admin/src/pages/content/[type]/[uuid]/components/PublishPanel.vue`, `admin/src/utils/homepageButton.ts`,
+  `admin/src/editor/palette/`, `admin/src/queries/patterns.ts`,
+  `core/src/Content/Patterns/StarterPatterns.php`, `admin/e2e/tests/pattern-library.spec.ts`
+- **Must cover** Where pages live (**Content › Pages**). Giving the entry a slug and saving its
+  route before anything else: a page without a route can be published and renders nowhere.
+  Creating an entry and opening the Design view. The two parts of the screen: the side panel
+  with its tabs (the **Block** tab is the inspector, and shows only while a block is selected)
+  and the stage. Inserting a starter page from the **Pages** view of the Blocks tab. Changing a
   block's text on the stage. Adding a section from the **Sections** view. Switching the stage
   between desktop, tablet and mobile, and what that changes about an edit. Saving, previewing,
   publishing. Setting the page as the homepage (**Settings › General**). Links on: the Design
   view concept, content types.
 
 ### first-content-type — Model your own content
-- **File** `getting-started/04-first-content-type.md` · **Order** 4 · **Status** todo
+- **File** `getting-started/04-first-content-type.md` · **Order** 4 · **Status** done
 - **Summary** "Make a content type, add entries, and list them on the site."
-- **Sources** `admin/src/pages/settings/content-types/`, `admin/src/fields/`,
-  `core/src/Content/Schema/`, `core/src/Content/Validation/FieldValidator.php`,
-  `core/src/Settings/GeneralSettings.php` (listing types), `packages/thallo-render/docs/THEMING.md` §2,
-  `packages/thallo-render/themes/default/templates/listing.twig`, `.../entry.twig`
-- **Must cover** A worked example (a blog: title, summary, body, date). Creating the type under
+- **Sources** `admin/src/pages/settings/content-types/`, `admin/src/components/ContentTypeFields.vue`
+  (the field builder), `admin/src/queries/contentTypes.ts` (`FIELD_TYPES`: what the Type list offers),
+  `core/src/Content/Schema/FieldDefinition.php`, `core/src/Content/Validation/FieldValidator.php`,
+  `core/src/Settings/GeneralSettings.php` (listing types), `core/src/Content/Delivery/EnginePublicRouteResolver.php`
+  (the URL grammar and the listing allowlist), `core/routes/content.php`, `core/src/Content/Delivery/DeliveryVisibility.php`,
+  `packages/thallo-render/themes/default/templates/listing.twig`, `.../_listing_rows.twig`, `.../entry.twig`
+- **Must cover** A worked example — Events (title, excerpt, starts_at, body); a blog already
+  ships as the starter **Posts** type. Creating the type under
   **Settings › Content Types**. The field types that exist, by their real names. Adding two
   entries and publishing them. The URLs an entry and a listing get (`/{type}/{slug}` and
   `/{type}`), and the **listing types** setting that turns the listing on. That the same entries
@@ -87,12 +98,14 @@ For someone who has never used Thallo. One path, no choices.
 How Thallo thinks. Explanation, not steps.
 
 ### content-model — Content types, entries and fields
-- **File** `concepts/01-content-model.md` · **Order** 1 · **Status** todo
+- **File** `concepts/01-content-model.md` · **Order** 1 · **Status** done
 - **Summary** "How content is modelled: types, fields, entries, references, locales and versions."
 - **Sources** `core/src/Content/Schema/`, `core/src/Content/Repositories/ContentTypeRepository.php`,
   `core/src/Content/Repositories/EntryRepository.php`, `core/src/Content/Repositories/VersionRepository.php`,
-  `core/src/Content/Validation/FieldValidator.php`, `core/src/Content/Routing/`,
-  `core/src/Content/Console/RunBackfillCommand.php`, `core/src/Content/Console/PruneVersionsCommand.php`,
+  `core/src/Content/Validation/FieldValidator.php`, `core/src/Content/Repositories/RouteRepository.php`,
+  `core/src/Content/Seo/RedirectRepository.php`, `core/src/Content/Delivery/EnginePublicRouteResolver.php`,
+  `core/src/Content/Services/MigrationService.php`, `core/src/Content/Backfill/BackfillRunner.php`,
+  `core/src/Content/Schema/Migration/`, `core/src/Content/Console/PruneVersionsCommand.php`,
   `packages/thallo-collections/README.md`
 - **Must cover** A content type is a schema; an entry follows it. Every field type and what it
   stores. References between entries. How an entry gets its slug and URL, and what happens to
@@ -118,13 +131,17 @@ How Thallo thinks. Explanation, not steps.
   it, and a theme change needs no content migration.
 
 ### design-view — The Design view
-- **File** `concepts/03-design-view.md` · **Order** 3 · **Status** todo
+- **File** `concepts/03-design-view.md` · **Order** 3 · **Status** done
 - **Summary** "How the visual builder works: the stage, the Container, breakpoints, and settings that are saved as data."
 - **Sources** `packages/thallo-render/docs/THEMING.md` §12 (all of it),
   `packages/thallo-render/src/Style/StyleCompiler.php`, `packages/thallo-render/src/Style/BlockStyleEmitter.php`,
-  `admin/src/editor/breakpoint.ts`, `admin/src/editor/inspector/LayoutTab.vue`,
-  `admin/src/editor/inspector/`, `admin/src/editor/structure/`, `admin/src/editor/ops/`,
-  `admin/e2e/tests/` (the proofs say what each control does)
+  `packages/thallo-render/assets/preview/preview-bridge.js` (what the stage itself does),
+  `core/src/Content/Http/Controllers/PreviewController.php` (the stage is the real page; the render gate),
+  `admin/src/editor/breakpoint.ts`, `admin/src/editor/inspector/tabMap.ts` (which property sits in which tab),
+  `admin/src/editor/inspector/LayoutTab.vue`, `.../StyleTab.vue`, `.../layoutLabels.ts`,
+  `admin/src/editor/inspector/controls/ResponsiveField.vue`, `admin/src/editor/structure/`,
+  `admin/src/editor/ops/types.ts`, `admin/src/editor/ops/history.ts`,
+  `admin/e2e/tests/stage-viewport-width.spec.ts`, `.../layout-mode-switch.spec.ts`, `.../grid-outline.spec.ts`, `.../grid-fill.spec.ts`
 - **Must cover** The stage is the real page, rendered by the theme. Edits are operations on the
   page's data, each one undoable. The Container: one block that lays out its children as flex
   or grid. The three breakpoints, their widths, and the rule that catches everyone: **a setting
@@ -134,12 +151,15 @@ How Thallo thinks. Explanation, not steps.
   library. Motion. What the Design view deliberately does not do (free-form CSS, pixel values).
 
 ### themes — Themes
-- **File** `concepts/04-themes.md` · **Order** 4 · **Status** todo
+- **File** `concepts/04-themes.md` · **Order** 4 · **Status** done
 - **Summary** "What a theme is, what it controls, and what it leaves to the site's settings."
 - **Sources** `packages/thallo-render/docs/THEMING.md` §1–§3, §8–§11,
   `packages/thallo-render/themes/default/theme.json`, `packages/thallo-render/themes/default/templates/`,
-  `packages/thallo-render/src/Themes/`, `packages/thallo-render/src/Theme/ThemeColors.php`,
-  `packages/thallo-render/src/Theme/ThemeDesign.php`, `core/config/theme.php`
+  `packages/thallo-render/src/RenderThemeValidator.php` (what makes a theme selectable),
+  `packages/thallo-render/src/ActiveThemeSource.php`, `packages/thallo-render/src/ThemeLocator.php`,
+  `packages/thallo-render/src/Http/Controllers/RenderController.php` (the template hierarchy),
+  `core/src/Content/Delivery/EnginePublicRouteResolver.php`, `packages/thallo-render/src/Theme/ThemeColors.php`,
+  `packages/thallo-render/src/Theme/ThemeDesign.php`
 - **Must cover** A theme is a folder: Twig templates, CSS, `theme.json`. The template hierarchy:
   which template renders which URL, and how a template named after a content type wins. Layout,
   regions and blocks. What the site's owner changes without touching the theme (**Site ›
@@ -148,13 +168,16 @@ How Thallo thinks. Explanation, not steps.
   it is chosen. Link on: make a theme.
 
 ### publishing — Drafts, preview and publishing
-- **File** `concepts/05-publishing.md` · **Order** 5 · **Status** todo
+- **File** `concepts/05-publishing.md` · **Order** 5 · **Status** done
 - **Summary** "The life of an entry: draft, preview, review, publish, schedule, unpublish."
 - **Sources** `core/src/Content/Services/PublishService.php`, `core/src/Content/Preview/`,
+  `core/src/Content/Http/Controllers/PublicationController.php`, `.../ScheduleController.php`, `.../PreviewController.php`,
   `packages/thallo-render/src/Http/Controllers/RenderController.php` (preview, previewBar),
+  `packages/thallo-render/themes/default/templates/layout.twig` (the preview bar),
   `core/src/Content/Scheduling/`, `core/src/Content/Console/RunDueSchedulesCommand.php`,
-  `packages/thallo-workflow/README.md`, `packages/thallo-workflow/src/`, `admin/src/pages/workflow/`,
-  `core/src/Content/Pipeline/`, `core/src/Content/Console/ResyncCommand.php`
+  `core/src/Content/Retention/`, `core/src/Content/Console/PruneVersionsCommand.php`,
+  `packages/thallo-workflow/src/`, `admin/src/pages/content/[type]/[uuid]/components/PublishPanel.vue`,
+  `.../WorkflowPanel.vue`, `core/src/Content/Console/ResyncCommand.php`
 - **Must cover** Saving writes a draft; the live site does not change. Preview: a signed,
   time-limited session that shows drafts through the real theme, and the bar across its top.
   Publishing makes a version live and what else it sets off (cache, search index, webhooks).
@@ -163,11 +186,12 @@ How Thallo thinks. Explanation, not steps.
   `thallo:resync` is for.
 
 ### capabilities — Capabilities and packs
-- **File** `concepts/06-capabilities.md` · **Order** 6 · **Status** todo
+- **File** `concepts/06-capabilities.md` · **Order** 6 · **Status** done
 - **Summary** "How Thallo's features are packaged, and what switching one on or off does."
-- **Sources** `config/capabilities.php`, `core/src/Capabilities/`, `packages/thallo-contracts/README.md`,
-  `packages/*/README.md`, `admin/src/pages/extensions/`, `config/extensions.php`,
-  `scripts/check-pack-boundaries.php`
+- **Sources** `core/config/thallo.php` (the `capabilities` map), `core/src/Capabilities/`,
+  `core/src/Providers/CoreServiceProvider.php` (`makeCapabilityRegistry`), `core/src/Http/Controllers/CapabilityAdminController.php`,
+  `packages/*/src/*ServiceProvider.php` (where each `new Capability(...)` lives), `admin/src/pages/extensions/`,
+  `admin/src/queries/capabilityManagement.ts`, `skeleton/config/extensions.php`
 - **Must cover** A capability is a feature with a switch; a pack is the Composer package it
   ships in. The list of capabilities, from the config, each in a line, with its default. Off
   means inactive, not uninstalled: the code and the tables stay, the routes, menus and blocks go.
