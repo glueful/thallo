@@ -1,21 +1,4 @@
 export interface paths {
-  '/_thallo/account/{file}': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /** Account Asset */
-    get: operations['accountAsset']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
   '/_account/session': {
     parameters: {
       query?: never
@@ -50,23 +33,6 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/_thallo/preview-assets/{token}/{path}': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /** GET /_thallo/preview-assets/{token}/{path} */
-    get: operations['getPreviewassetsByTokenByPath']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
   '/_preview/exit': {
     parameters: {
       query?: never
@@ -76,23 +42,6 @@ export interface paths {
     }
     /** GET /_preview/exit */
     get: operations['getPreviewExit']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/_thallo/shop/{file}': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /** GET /_thallo/shop/{file} */
-    get: operations['getShopAssetsByFile']
     put?: never
     post?: never
     delete?: never
@@ -288,6 +237,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/_thallo/account/{file}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Account Asset */
+    get: operations['accountAsset']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/_thallo/layers.css': {
     parameters: {
       query?: never
@@ -305,6 +271,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/_thallo/preview-assets/{token}/{path}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** GET /_thallo/preview-assets/{token}/{path} */
+    get: operations['getThalloPreviewassetsByTokenByPath']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/_thallo/runtime/{file}': {
     parameters: {
       query?: never
@@ -314,6 +297,23 @@ export interface paths {
     }
     /** GET /_thallo/runtime/{file} */
     get: operations['getThalloRuntimeByFile']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/_thallo/shop/{file}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** GET /_thallo/shop/{file} */
+    get: operations['getThalloShopByFile']
     put?: never
     post?: never
     delete?: never
@@ -5048,43 +5048,6 @@ export interface components {
 }
 export type $defs = Record<string, never>
 export interface operations {
-  accountAsset: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        file: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-    }
-  }
   accountSession: {
     parameters: {
       query?: never
@@ -5212,86 +5175,11 @@ export interface operations {
       }
     }
   }
-  getPreviewassetsByTokenByPath: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        token: string
-        path: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-    }
-  }
   getPreviewExit: {
     parameters: {
       query?: never
       header?: never
       path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-    }
-  }
-  getShopAssetsByFile: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        file: string
-      }
       cookie?: never
     }
     requestBody?: never
@@ -5741,6 +5629,43 @@ export interface operations {
       }
     }
   }
+  accountAsset: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        file: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
   getThalloLayerscss: {
     parameters: {
       query?: never
@@ -5776,7 +5701,82 @@ export interface operations {
       }
     }
   }
+  getThalloPreviewassetsByTokenByPath: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        token: string
+        path: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
   getThalloRuntimeByFile: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        file: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  getThalloShopByFile: {
     parameters: {
       query?: never
       header?: never

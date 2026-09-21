@@ -660,63 +660,6 @@
         }
     },
     "paths": {
-        "\/_thallo\/account\/{file}": {
-            "get": {
-                "operationId": "accountAsset",
-                "summary": "Account Asset",
-                "tags": [
-                    " Account"
-                ],
-                "parameters": [
-                    {
-                        "name": "file",
-                        "in": "path",
-                        "required": true,
-                        "description": "",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "500": {
-                        "description": "Unexpected server error.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "\/_account\/session": {
             "get": {
                 "operationId": "accountSession",
@@ -930,136 +873,12 @@
                 }
             }
         },
-        "\/_thallo\/preview-assets\/{token}\/{path}": {
-            "get": {
-                "operationId": "getPreviewassetsByTokenByPath",
-                "summary": "GET \/_thallo\/preview-assets\/{token}\/{path}",
-                "tags": [
-                    " Preview Assets"
-                ],
-                "parameters": [
-                    {
-                        "name": "token",
-                        "in": "path",
-                        "required": true,
-                        "description": "",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "path",
-                        "in": "path",
-                        "required": true,
-                        "description": "",
-                        "schema": {
-                            "type": "string",
-                            "pattern": ".+"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "500": {
-                        "description": "Unexpected server error.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "\/_preview\/exit": {
             "get": {
                 "operationId": "getPreviewExit",
                 "summary": "GET \/_preview\/exit",
                 "tags": [
                     " Preview"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "500": {
-                        "description": "Unexpected server error.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "\/_thallo\/shop\/{file}": {
-            "get": {
-                "operationId": "getShopAssetsByFile",
-                "summary": "GET \/_thallo\/shop\/{file}",
-                "tags": [
-                    " Shop"
-                ],
-                "parameters": [
-                    {
-                        "name": "file",
-                        "in": "path",
-                        "required": true,
-                        "description": "",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
                 ],
                 "responses": {
                     "200": {
@@ -1675,6 +1494,63 @@
                 }
             }
         },
+        "\/_thallo\/account\/{file}": {
+            "get": {
+                "operationId": "accountAsset",
+                "summary": "Account Asset",
+                "tags": [
+                    " Thallo"
+                ],
+                "parameters": [
+                    {
+                        "name": "file",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "\/_thallo\/layers.css": {
             "get": {
                 "operationId": "getThalloLayerscss",
@@ -1721,10 +1597,134 @@
                 }
             }
         },
+        "\/_thallo\/preview-assets\/{token}\/{path}": {
+            "get": {
+                "operationId": "getThalloPreviewassetsByTokenByPath",
+                "summary": "GET \/_thallo\/preview-assets\/{token}\/{path}",
+                "tags": [
+                    " Thallo"
+                ],
+                "parameters": [
+                    {
+                        "name": "token",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "path",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string",
+                            "pattern": ".+"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "\/_thallo\/runtime\/{file}": {
             "get": {
                 "operationId": "getThalloRuntimeByFile",
                 "summary": "GET \/_thallo\/runtime\/{file}",
+                "tags": [
+                    " Thallo"
+                ],
+                "parameters": [
+                    {
+                        "name": "file",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "\/_thallo\/shop\/{file}": {
+            "get": {
+                "operationId": "getThalloShopByFile",
+                "summary": "GET \/_thallo\/shop\/{file}",
                 "tags": [
                     " Thallo"
                 ],
@@ -38867,6 +38867,14 @@
                                                 }
                                             }
                                         }
+                                    },
+                                    "style_capabilities": {
+                                        "type": [
+                                            "array",
+                                            "null"
+                                        ],
+                                        "items": {},
+                                        "description": "The setting groups the block supports (its Style and Layout tabs),"
                                     }
                                 },
                                 "required": [
@@ -38880,7 +38888,8 @@
                                 "icon": "example",
                                 "category": "example",
                                 "description": "A short description.",
-                                "schema": "example"
+                                "schema": "example",
+                                "style_capabilities": "example"
                             }
                         }
                     }
@@ -39954,6 +39963,14 @@
                                                 }
                                             }
                                         }
+                                    },
+                                    "style_capabilities": {
+                                        "type": [
+                                            "array",
+                                            "null"
+                                        ],
+                                        "items": {},
+                                        "description": "The setting groups the block supports (its Style and Layout tabs),"
                                     }
                                 },
                                 "required": [
@@ -39965,7 +39982,8 @@
                                 "icon": "example",
                                 "category": "example",
                                 "description": "A short description.",
-                                "schema": "example"
+                                "schema": "example",
+                                "style_capabilities": "example"
                             }
                         }
                     }
@@ -71382,6 +71400,25 @@
                                             "null"
                                         ],
                                         "description": "Per-preview neutral family; enum-validated."
+                                    },
+                                    "radius": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "Per-preview design settings (the Appearance page's pending Corners,"
+                                    },
+                                    "font": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "background": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
                                     }
                                 }
                             },
@@ -71389,7 +71426,10 @@
                                 "version_uuid": "example",
                                 "theme": "example",
                                 "accent": "example",
-                                "neutral": "example"
+                                "neutral": "example",
+                                "radius": "example",
+                                "font": "example",
+                                "background": "example"
                             }
                         }
                     }
@@ -94629,10 +94669,6 @@
         {
             "name": " Preview",
             "description": "Operations related to  Preview"
-        },
-        {
-            "name": " Preview Assets",
-            "description": "Operations related to  Preview Assets"
         },
         {
             "name": " Shop",

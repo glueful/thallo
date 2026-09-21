@@ -5943,7 +5943,8 @@ export interface operations {
          *       "icon": "example",
          *       "category": "example",
          *       "description": "A short description.",
-         *       "schema": "example"
+         *       "schema": "example",
+         *       "style_capabilities": "example"
          *     }
          */
         'application/json': {
@@ -5979,6 +5980,8 @@ export interface operations {
             /** @description Inclusive upper bound for a `number` field (ints coerce). */
             max?: number | null
           }[]
+          /** @description The setting groups the block supports (its Style and Layout tabs), */
+          style_capabilities?: unknown[] | null
         }
       }
     }
@@ -6389,7 +6392,8 @@ export interface operations {
          *       "icon": "example",
          *       "category": "example",
          *       "description": "A short description.",
-         *       "schema": "example"
+         *       "schema": "example",
+         *       "style_capabilities": "example"
          *     }
          */
         'application/json': {
@@ -6423,6 +6427,8 @@ export interface operations {
             /** @description Inclusive upper bound for a `number` field (ints coerce). */
             max?: number | null
           }[]
+          /** @description The setting groups the block supports (its Style and Layout tabs), */
+          style_capabilities?: unknown[] | null
         }
       }
     }
@@ -23932,7 +23938,10 @@ export interface operations {
          *       "version_uuid": "example",
          *       "theme": "example",
          *       "accent": "example",
-         *       "neutral": "example"
+         *       "neutral": "example",
+         *       "radius": "example",
+         *       "font": "example",
+         *       "background": "example"
          *     }
          */
         'application/json': {
@@ -23944,6 +23953,10 @@ export interface operations {
           accent?: string | null
           /** @description Per-preview neutral family; enum-validated. */
           neutral?: string | null
+          /** @description Per-preview design settings (the Appearance page's pending Corners, */
+          radius?: string | null
+          font?: string | null
+          background?: string | null
         }
       }
     }
