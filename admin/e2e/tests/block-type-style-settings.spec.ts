@@ -43,6 +43,14 @@ test('a new block type is created with the setting groups chosen for it', async 
 
 test('a code-declared block type shows its style settings read-only', async ({ page }) => {
   await openDesignPage(page)
+  // The edit page's usage card reads a real body; the world answers unrouted requests empty.
+  await page.route('**/v1/admin/block-types/button/usage', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, data: { total: 0, per_type: [], allowlists: [] } }),
+    }),
+  )
   await page.goto('/admin/settings/block-types/button')
   const card = page.locator('[data-test="block-type-style-card"]')
   await expect(card.locator('[data-test="style-code-declared"]')).toBeVisible({ timeout: 20_000 })
