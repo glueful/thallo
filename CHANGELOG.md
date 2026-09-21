@@ -7,6 +7,25 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.50] - 2026-09-21 — Developer Preview
+
+A design release: your brand colour and your own fonts, animation presets, a theme gallery, and
+a library of sections and pages. Beside it, a documentation section any site can use, and search
+that runs on the database you already have.
+
+### Upgrade Notes
+- One new migration, `search_documents` (the PostgreSQL search index): `php glueful
+  thallo:provision` creates it. It is created on every install, whether or not search is on.
+- The `thallo.search` capability no longer depends on the `glueful/meilisearch` extension. A
+  site that already runs Meilisearch has `MEILISEARCH_HOST` set and keeps using it; to be
+  explicit, set `SEARCH_ENGINE=meilisearch`.
+- After upgrading, run `php glueful search:reindex` so an existing index holds clean text.
+- To upload your own fonts, an existing site's `config/uploads.php` needs `'font/woff2'` in
+  `allowed_types`. A new install has it.
+- One new dependency, `league/commonmark` (it renders the docs section's Markdown): `composer
+  update` brings it in. No new permissions. Otherwise the documented sequence applies
+  (docs/upgrading.md).
+
 ### Added
 - **Your brand colour, and your own fonts.** The accent was one of seventeen colour families;
   it can now also be the site's own brand colour. On Site › Appearance choose **Brand colour…**
@@ -116,16 +135,6 @@ as the next release, never a mutated tag.
   eyebrow and lead text in a shape only responsive settings take, so a page holding a freshly
   made section was refused on save with "is not responsive". They now write the colour as the
   plain value it is, and a test holds every preset's children to the shape the server accepts.
-
-### Upgrade Notes
-- One new migration, `search_documents` (the PostgreSQL search index): `php glueful
-  thallo:provision` creates it. It is created on every install, whether or not search is on.
-- The `thallo.search` capability no longer depends on the `glueful/meilisearch` extension. A
-  site that already runs Meilisearch has `MEILISEARCH_HOST` set and keeps using it; to be
-  explicit, set `SEARCH_ENGINE=meilisearch`.
-- After upgrading, run `php glueful search:reindex` so an existing index holds clean text.
-- To upload your own fonts, an existing site's `config/uploads.php` needs `'font/woff2'` in
-  `allowed_types`. A new install has it.
 
 ## [1.0.0-beta.49] - 2026-09-20 — Developer Preview
 
