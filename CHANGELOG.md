@@ -93,6 +93,11 @@ as the next release, never a mutated tag.
   wrapped and pushed its select out of line.
 
 ### Fixed
+- In dark mode the **Dark hero** and the **solid pricing plan** showed white text on a light
+  fill: both paint with the ink colour, which turns light in dark mode, but took their text
+  from the accent's label colour, which stayed white. They now take the page ground, the pair
+  that inverts in both modes; text over pictures reads a new fixed `--on-media` token. Found
+  while making the accent's label colour follow a brand colour.
 - The structure picker's **Section** and **Section split** presets wrote the colour of their
   eyebrow and lead text in a shape only responsive settings take, so a page holding a freshly
   made section was refused on save with "is not responsive". They now write the colour as the
