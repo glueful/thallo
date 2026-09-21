@@ -7,6 +7,7 @@ import BlocksField from '@/fields/components/BlocksField.vue'
 import RegionStyleEditor from './components/RegionStyleEditor.vue'
 import RegionBlockInspector from './components/RegionBlockInspector.vue'
 import type { Breakpoint } from '@/style/types'
+import { STAGE_FRAME_EDGE, STAGE_WIDTHS, type ViewportPreset } from '@/editor/breakpoint'
 import { useNotify } from '@/composables/useNotify'
 import { ApiError } from '@/api/errors'
 
@@ -152,10 +153,9 @@ const regionTabs = [
   { label: 'Style', value: 'style', slot: 'style' as const },
 ]
 
-const VIEWPORT_WIDTHS = { desktop: '100%', tablet: '768px', mobile: '390px' } as const
-type Viewport = keyof typeof VIEWPORT_WIDTHS
+type Viewport = ViewportPreset
 const viewport = ref<Viewport>('desktop')
-const stageWidth = computed(() => VIEWPORT_WIDTHS[viewport.value])
+const stageWidth = computed(() => STAGE_WIDTHS[viewport.value])
 
 // The viewport IS the breakpoint being edited, both ways round: a responsive style value is
 // written where the stage is showing it, and choosing a breakpoint in the Style tab resizes the
@@ -503,7 +503,8 @@ onBeforeUnmount(() => {
               :src="previewUrl"
               sandbox="allow-same-origin"
               title="Chrome preview"
-              class="h-full min-h-[70vh] w-full rounded border border-default bg-white"
+              class="h-full min-h-[70vh] w-full"
+              :class="STAGE_FRAME_EDGE"
               data-test="region-preview-frame"
             />
             <p v-else class="py-16 text-center text-sm text-muted">Starting preview…</p>

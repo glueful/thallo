@@ -103,6 +103,13 @@ test('Appearance is in the Site group, and saves only its own settings', async (
   )
   expect(saves).toEqual([])
 
+  // The Tablet preview is a tablet to the page inside it: 768px of viewport, not 768px of frame.
+  const previewFrame = page.locator('[data-test="appearance-preview-frame"]')
+  await page.locator('[data-test="appearance-preview-tablet"]').click()
+  await expect.poll(() => previewFrame.evaluate((el) => el.clientWidth)).toBe(768)
+  await page.locator('[data-test="appearance-preview-mobile"]').click()
+  await expect.poll(() => previewFrame.evaluate((el) => el.clientWidth)).toBe(390)
+
   await page.locator('[data-test="appearance-save"]').click()
   await expect.poll(() => saves.length).toBe(1)
   expect(saves[0]).toEqual({

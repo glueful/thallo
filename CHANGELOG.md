@@ -7,6 +7,14 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Fixed
+- **The Tablet stage showed the phone layout.** On the Design page, Site › Appearance and Header &
+  footer, the Tablet frame was 768px wide but drew its border inside that width, so the page got
+  a 766px viewport: two pixels short of where Tablet settings begin. A grid set to two columns on
+  Tablet stacked in one, and the Layout tab said Tablet while the stage showed Base. The frame's
+  edge is now drawn outside it, so Tablet is 768px and Mobile 390px to the page. Published pages
+  were never affected; only what the editor showed.
+
 ## [1.0.0-beta.50] - 2026-09-21 — Developer Preview
 
 A design release: your brand colour and your own fonts, animation presets, a theme gallery, and
