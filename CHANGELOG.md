@@ -163,6 +163,10 @@ as the next release, never a mutated tag.
   Capabilities". Both are **Extensions › Capabilities**.
 
 ### Changed
+- `.env.example` leaves mail unset: its placeholder host and sender counted as configured, so a
+  new site reported mail as available and failed at the first send. It also documents
+  `SESSION_COOKIE_SECURE`. `config/uploads.php` drops two keys nothing read
+  (`validate_mime_by_content`, `max_filename_length`).
 - `docs/` is laid out as the documentation's five sections (`getting-started`, `concepts`,
   `guides`, `reference`, `operations`), and the four existing pages carry front matter that puts
   each in its section. They stay where they are: other files link to them by path.
