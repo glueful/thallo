@@ -34,9 +34,10 @@ set it to `false` and the job is never registered.
 | `domain_reverification_sweep` | `0 * * * *` | Re-verifies due custom-domain ownership proofs | `TENANCY_REVERIFICATION_ENABLED` |
 | `session_cleaner` | `0 0 * * *` | Cleans up expired user sessions | `SESSION_CLEANER_ENABLED` |
 | `log_cleanup` | `0 1 * * *` | Deletes log files older than `LOG_RETENTION_DAYS` (30) | `LOG_CLEANUP_ENABLED` |
-| `database_backup` | `0 2 * * *` | Takes a full database backup, keeping `BACKUP_RETENTION_DAYS` (7) | `DB_BACKUP_ENABLED`, off by default (it produces no dump; see [backups](04-backups.md)) |
+| `database_backup` | `0 2 * * *` | Takes a full database backup, keeping `BACKUP_RETENTION_DAYS` (7) | `DB_BACKUP_ENABLED`, off by default (see [backups](04-backups.md)) |
 | `signup_intent_sweep` | `15 2 * * *` | Removes expired and sanitised public-signup intents | `SIGNUP_SWEEP_ENABLED` |
 | `cache_maintenance` | `0 3 * * *` | Runs cache maintenance | `CACHE_MAINTENANCE_ENABLED` |
+| `webhook_cleanup` | `30 3 * * *` | Deletes webhook delivery records past their retention (delivered 7 days, failed 30) | `WEBHOOK_CLEANUP_ENABLED` |
 | `update_check` | `0 4 * * *` | Asks Packagist whether a newer `glueful/thallo-core` is published | `UPDATE_CHECK_ENABLED` |
 
 `DB_BACKUP_SCHEDULE` changes the backup's cron expression; the other schedules are fixed in the
@@ -93,8 +94,7 @@ These are the queues Thallo dispatches to:
 |---|---|
 | `default` | Style class detach-everywhere and remove-everywhere jobs, content type and block type backfills, filter-index jobs |
 | `import-export` | Imports and exports started from **Settings › Import / Export** |
-| `webhooks` | Meant for content webhook deliveries (`WEBHOOKS_QUEUE` renames it); nothing reaches it today — see [webhooks](../guides/16-webhooks.md) |
-| `maintenance`, `critical`, `notifications` | Only what **Utilities › Scheduled Tasks**'s **Run now** puts there, and only for a job whose row names that queue |
+| `webhooks` | Content webhook deliveries and their retries (`WEBHOOKS_QUEUE` renames it) — see [webhooks](../guides/16-webhooks.md) |
 | `tenancy-purge`, `tenancy-maintenance` | Workspace purges and host-cooldown sweeps, once workspaces are on |
 
 An extension you enable may add its own; its own documentation names it.
@@ -113,7 +113,7 @@ After=network.target postgresql.service
 [Service]
 User=deploy
 WorkingDirectory=/path/to/site
-ExecStart=/usr/bin/php glueful queue:work --queue=default,import-export,tenancy-maintenance --sleep=3 --tries=3 --max-runtime=3600
+ExecStart=/usr/bin/php glueful queue:work --queue=default,webhooks,import-export,tenancy-maintenance --sleep=3 --tries=3 --max-runtime=3600
 Restart=always
 RestartSec=5
 
@@ -131,7 +131,7 @@ one. `--memory` and `--max-jobs` are the other two limits.
 If you cannot run a supervisor, a cron line can drain the queue instead:
 
 ```text
-*/5 * * * * php /path/to/site/glueful queue:work --queue=default,import-export,tenancy-maintenance --stop-when-empty --max-runtime=240 >> /path/to/site/storage/logs/queue.log 2>&1
+*/5 * * * * php /path/to/site/glueful queue:work --queue=default,webhooks,import-export,tenancy-maintenance --stop-when-empty --max-runtime=240 >> /path/to/site/storage/logs/queue.log 2>&1
 ```
 
 `--stop-when-empty` ends the run as soon as one pass over every named queue takes no job.
@@ -173,6 +173,20 @@ the worker moves on.
 
 Failures are logged too. The worker writes a `Queue job failed` entry with the queue, the job's
 uuid, its attempt count and the error message.
+
+To see and recover failed jobs from a shell:
+
+```bash
+$ php glueful queue:failed                 # newest first: uuid, queue, job class, when, error
+$ php glueful queue:retry <uuid>           # put one back on its queue as a new job
+$ php glueful queue:retry --all --queue=webhooks
+$ php glueful queue:forget <uuid>          # delete one
+$ php glueful queue:flush --queue=import-export
+```
+
+A retry checks the stored job's signature first, so a job altered after it failed is refused, not
+run. The commands work on the `database` and `redis` connections; `--connection=` picks one other
+than the default. There is no admin screen for failed jobs.
 
 ## Check it worked
 

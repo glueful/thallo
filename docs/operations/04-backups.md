@@ -77,19 +77,16 @@ the file `backup_` and the time it started, deletes files matching `backup_*.sql
 `storage/backups` older than the retention, and appends a summary to
 `storage/logs/database-backup.log`.
 
-**It produces no dump.** The task reads its driver, database name, user and password from the top
-level of the `database` configuration, and `config/database.php` keeps none of them there — the
-connection settings live under `pgsql`, under different names. With no driver to read, it takes
-the MySQL path on a PostgreSQL site, runs `mysqldump` with empty credentials, records the failure
-in its own statistics and finishes as a success. The log line says so:
+It runs `pg_dump` with the site's own `DB_PGSQL_*` settings: the password travels in the
+`PGPASSWORD` environment variable, never on the command line, and `DB_PGSQL_SSL_MODE` becomes
+`PGSSLMODE`. `pg_dump` must be on the scheduler host's `PATH`, and no older than the server's
+major version. A night that makes no dump fails the job: the summary reads
+`Database backup failed` with the reason, and the queue log records a critical failure.
 
-```text
-- Backup created: No
-```
-
-So the job is off by default, and should stay off: take the dump yourself, from cron or from your
-host's backup service. A site whose `.env` sets `DB_BACKUP_ENABLED=true` runs it and gets the
-failure line every night.
+The job is off by default. Turn it on with `DB_BACKUP_ENABLED=true`, run
+`php glueful queue:scheduler run` once, and check `storage/backups` holds a new file. The dump stays on the same machine as the
+database, so it protects you from a bad migration or a mistaken delete, not from losing the host:
+copy `storage/backups` somewhere else as well.
 
 ## Restore a site
 

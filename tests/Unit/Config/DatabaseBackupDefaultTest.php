@@ -7,10 +7,9 @@ namespace Thallo\Core\Tests\Unit\Config;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The framework's DatabaseBackupTask reads flat `driver`/`database`/`username` keys the stock
- * config/database.php does not have, takes the MySQL path on a PostgreSQL site, and produces no
- * dump. It was enabled by default in production, so every production site ran a nightly job that
- * backed up nothing. It is off until the task works; a site that turns it on does so knowingly.
+ * Before framework 1.86 the scheduled backup could not dump a stock install, yet it was on by default
+ * in production. It works now, but stays off by default: it needs pg_dump on the scheduler host and
+ * writes to the same machine as the database, so a site turns it on deliberately.
  */
 final class DatabaseBackupDefaultTest extends TestCase
 {

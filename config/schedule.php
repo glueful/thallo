@@ -42,8 +42,8 @@ return [
                     'retention_days' => env('BACKUP_RETENTION_DAYS', 7)
                 ]
             ],
-            // Off until the framework's DatabaseBackupTask can read the stock database config: it
-            // takes the MySQL path on a PostgreSQL site and produces no dump (docs/operations/04-backups.md).
+            // Off by default: it needs pg_dump on the scheduler host and writes to storage/backups on
+            // the same machine. Turn it on deliberately (docs/operations/04-backups.md).
             'enabled' => env('DB_BACKUP_ENABLED', false),
             'description' => 'Create automated database backups',
         ],
@@ -56,6 +56,13 @@ return [
             ],
             'description' => 'Perform cache maintenance',
             'enabled' => env('CACHE_MAINTENANCE_ENABLED', true),
+        ],
+        [
+            'name' => 'webhook_cleanup',
+            'schedule' => '30 3 * * *',
+            'handler_class' => 'Glueful\\Api\\Webhooks\\Jobs\\WebhookCleanupJob',
+            'description' => 'Delete webhook delivery records past api.webhooks.cleanup retention',
+            'enabled' => env('WEBHOOK_CLEANUP_ENABLED', true),
         ],
         [
             'name' => 'notification_retry_processor',

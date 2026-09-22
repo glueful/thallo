@@ -756,6 +756,11 @@ options for each.
 | `migrate:verify` | Classify descriptor schema state (ready/adoptable/divergent); `--adopt` writes verified receipts |
 | `queue:scheduler` | Advanced job scheduling and management system |
 | `queue:work` | Start a queue worker to process jobs |
+| `queue:failed` | List failed queue jobs (`--queue=`, `--limit=`, `--json`) |
+| `queue:retry` | Put failed jobs back on their queue (`<uuid>…` or `--all`, optional `--queue=`) |
+| `queue:forget` | Delete one failed job |
+| `queue:flush` | Delete all failed jobs, or one queue's with `--queue=` |
+| `webhook:cleanup` | Delete webhook delivery records past their retention |
 | `cache:clear` | Clear application cache (aliased `cache:flush`) |
 | `cache:delete` | Delete cached entries by key or pattern |
 | `cache:expire` | Set new TTL/expiration for cached items |

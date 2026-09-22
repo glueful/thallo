@@ -86,7 +86,7 @@ After=network.target postgresql.service
 [Service]
 User=deploy
 WorkingDirectory=/path/to/site
-ExecStart=/usr/bin/php glueful queue:work --queue=default,maintenance,import-export --sleep=3 --tries=3 --max-runtime=3600
+ExecStart=/usr/bin/php glueful queue:work --queue=default,webhooks,import-export,tenancy-maintenance --sleep=3 --tries=3 --max-runtime=3600
 Restart=always
 RestartSec=5
 

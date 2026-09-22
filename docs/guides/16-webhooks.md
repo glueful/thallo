@@ -10,15 +10,13 @@ A webhook posts a content event to a URL you own, so another system hears that a
 published instead of polling for it. You register the endpoint in the admin, and Thallo signs
 every request with a secret only you and it hold.
 
-Read this before you build against it. **Send test event** in the admin posts to your endpoint
-straight away, and that is the request to write your receiver against. Deliveries made by content
-events take a different path: the delivery is recorded in the log, but the job that would post it
-is never queued, so those rows stay at **Pending** and nothing arrives at the endpoint. Register
-the webhook and prove your receiver with the test event; do not build anything that depends on
-content events reaching it.
+A content event is recorded in the delivery log and queued on the `webhooks` queue, and a queue
+worker posts it. Run a worker that takes that queue, as in
+[the scheduler and queues](../operations/03-scheduler-and-queues.md): without one, deliveries
+wait at **Pending**. **Send test event** skips the queue and posts straight away.
 
-You need an endpoint on a public `https://` URL that accepts POST, and a user with the
-`system.access` permission.
+You need an endpoint on a public `https://` URL that accepts POST, a queue worker that takes the
+`webhooks` queue, and a user with the `system.access` permission.
 
 ## Switch content webhooks on
 
@@ -141,7 +139,9 @@ counts as a failure.
 
 Open the webhook and press **Send test event** under **Actions**. Thallo posts to the endpoint
 during the request and waits for the answer, then reports "Test delivered" with the status code
-your endpoint returned, or "Test delivery failed" with the reason.
+your endpoint returned, or "Test delivery failed" with the reason. Like a real delivery, it refuses
+an endpoint on `localhost` or a private or reserved address before sending anything; to test a
+receiver on your own machine, expose it through a public tunnel.
 
 The test request is not shaped like a content event, which matters when you write the receiver:
 
@@ -176,6 +176,14 @@ failed or retrying delivery has a **Retry** button.
 
 Above it, **Last 30 days** counts Success, Delivered, Failed and Pending for the webhook.
 
+A delivery your endpoint does not accept with a 2xx is marked **Retrying** and sent again on its
+own after 1 minute, 5 minutes, 30 minutes, 2 hours and 12 hours; **Next retry** shows when. After
+five attempts it is marked **Failed**. **Retry** sends a failed or retrying delivery again at once.
+
+Records do not pile up: the nightly `webhook_cleanup` job deletes delivered ones after 7 days and
+failed ones after 30 (`webhooks.cleanup` in `config/api.php`). Pending and retrying ones are never
+removed by age. `php glueful webhook:cleanup` runs the same cleanup on demand.
+
 ## Pause, rotate or remove a webhook
 
 Everything is in the webhook's detail pane.
@@ -186,11 +194,12 @@ Everything is in the webhook's detail pane.
   and its badge in the list reads **Paused**.
 - **Rotate signing secret** issues a new one and shows it once. There is no overlap: the old
   secret stops verifying the moment you rotate, so change the receiver's copy at the same time.
-- **Delete webhook** removes the webhook after a confirmation.
+- **Delete webhook** removes the webhook and its delivery history after a confirmation.
 
 ## Check it worked
 
 Press **Send test event** and confirm two things: your receiver logged a request whose signature
-verified, and the admin reported the status code your endpoint returned. That is what you can
-confirm today. Publishing an entry adds a row under **Recent deliveries** with its payload, and
-that row stays **Pending** — the endpoint is not called.
+verified, and the admin reported the status code your endpoint returned. Then publish an entry the
+webhook listens to. A row appears under **Recent deliveries** at **Pending**, and once the worker
+takes it, it reads **Delivered** with your endpoint's status code, and your receiver logged the
+event.

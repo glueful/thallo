@@ -34,6 +34,13 @@ final class ShippedConfigTruthTest extends TestCase
             $config = $this->load($dir, 'schedule');
             $jobs = array_column($config['jobs'], null, 'name');
 
+            // The app's schedule replaces the framework's list (framework 1.86), so the framework's
+            // webhook delivery cleanup runs only if it is listed here.
+            self::assertSame(
+                'Glueful\\Api\\Webhooks\\Jobs\\WebhookCleanupJob',
+                $jobs['webhook_cleanup']['handler_class'] ?? null,
+                $dir
+            );
             $retry = $jobs['notification_retry_processor']['parameters'];
             self::assertSame(50, (int) ($retry['options']['limit'] ?? 0), $dir);
             self::assertArrayNotHasKey('settings', $config, $dir);

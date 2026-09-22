@@ -190,7 +190,8 @@ async function confirmDelete() {
     <UModal v-model:open="pendingDelete" title="Delete webhook">
       <template #body>
         <p class="text-sm text-muted">
-          Delete this webhook? The endpoint will stop receiving events. This cannot be undone.
+          Delete this webhook and its delivery history? The endpoint will stop receiving events.
+          This cannot be undone.
         </p>
       </template>
       <template #footer>

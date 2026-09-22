@@ -79,9 +79,8 @@ The shipped `.env.example` is a production file: `APP_ENV=production`, `APP_DEBU
 `BASE_URL` to the canonical HTTPS origin — every absolute URL Thallo writes comes from it and
 never from the request's `Host` header.
 
-Thallo does not redirect HTTP to HTTPS itself. `FORCE_HTTPS` only feeds the advice
-`php glueful security:check` prints; no middleware acts on it. Terminate TLS in front of PHP and
-redirect there.
+Thallo does not redirect HTTP to HTTPS itself, and no setting makes it. Terminate TLS in front of
+PHP and redirect there.
 
 Behind a reverse proxy or a load balancer, list its addresses in `TRUSTED_PROXIES`
 (comma-separated, CIDR allowed). Empty trusts none, and the forwarded headers are ignored, so
@@ -234,9 +233,12 @@ $ php glueful security:check --production
 ```
 
 Doctor prints one row per check; `keys` must be OK. `security:check` prints seven groups and a
-summary table with a readiness score; the first group is the one that carries signal, and it
-lists the same production warnings boot writes to the error log — outside production it reads
-"not applicable". Then confirm from outside that the policy arrives:
+summary. The first two, the production warnings boot writes to the error log and a readiness score
+built from them, read "not applicable" outside production. The other five check the database
+answers, `.env` is readable by its owner only and `storage/` is writable, `APP_KEY`, `JWT_KEY` and
+`TOKEN_SALT` are at least 32 characters, access tokens live at most a day and refresh tokens at
+most 90 days, and CORS does not allow every origin with credentials. Any failure fails the
+command. Then confirm from outside that the policy arrives:
 
 ```bash
 $ curl -sI https://example.com/ | grep -i content-security-policy

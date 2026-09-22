@@ -13,23 +13,17 @@ Every entry carries its evidence:
 
 ## Bugs in the framework (need a Glueful release)
 
-**Status 2026-09-22: every known framework defect is fixed on the framework's `dev` branch, not
-yet released** (sixteen commits after v1.85.8; see **Fixed** below). Each fix is generic: it is
-tested in the framework, works on SQLite, MySQL and PostgreSQL, and the failed-job commands serve
-the Redis driver too. The API skeleton (`glueful/api-skeleton`, what new Glueful apps start from)
-carries the same config corrections. Thallo still runs v1.85.8, so none of it reaches a site until
-a framework release is tagged and Thallo requires it.
+**Status 2026-09-22: framework 1.86.2 is released and Thallo requires it.** Every fix below marked
+"framework" shipped in 1.86.0–1.86.2. Each is generic: tested in the framework, working on SQLite,
+MySQL and
+PostgreSQL, with the failed-job commands serving the Redis driver too; the API skeleton carries
+the same config corrections. Thallo's follow-ups are done: the webhook delete dialog, the
+`webhook_cleanup` job in the schedule, the `webhooks` queue in the documented worker line, and
+the docs for the failed-job commands, the backup and `security:check`.
 
-**When Thallo requires the release:**
-
-- Change the webhook delete dialog back to saying the delivery history is deleted: the framework
-  now deletes it with the subscription.
-- Add the `webhook_cleanup` job to Thallo's `config/schedule.php` (both copies). The release
-  makes an app's schedule list replace the framework's whole, so Thallo does not get the job
-  otherwise (and, until the release, the framework's jobs merge into Thallo's by position).
-- Decide whether the database backup goes back on by default.
-- Document `queue:failed`, `queue:retry`, `queue:forget` and `queue:flush` in the scheduler and
-  queues page and the CLI reference, and drop "no failed-job command" from the limitations.
+- **The database backup stays off by default.** It now works, but it needs `pg_dump` on the
+  scheduler host and writes to the same machine as the database. Decide whether to turn it on for
+  new installs.
 
 ## Bugs in Thallo
 
@@ -259,29 +253,29 @@ Kept for the record; each is in the CHANGELOG.
   Test.
 - **Editor-only `_presentation` leaked through expanded references.** Stripped at every depth.
   Test.
-- **Content webhooks never delivered** (framework, unreleased). Both enqueue paths passed a job
+- **Content webhooks never delivered** (framework 1.86.0). Both enqueue paths passed a job
   object to `QueueManager::push(string)`, a `TypeError`; they now push the class and delivery id.
   "Send test event" now applies the delivery's destination guard. Test.
-- **The scheduled database backup could not back up a stock install** (framework, unreleased).
+- **The scheduled database backup could not back up a stock install** (framework 1.86.0).
   The task now reads the stock nested config, passes the password through the dump tool's
   environment, and logs "failed" when no backup is made; the job fails when no backup exists.
   Test, plus a real `pg_dump` run. Thallo keeps it off until the release is required.
-- **Deleting a webhook subscription left its deliveries behind** (framework, unreleased). They are
+- **Deleting a webhook subscription left its deliveries behind** (framework 1.86.0). They are
   now deleted with it. Test.
-- **The webhook `cleanup` config was read by nothing** (framework, unreleased). `Webhook::cleanup()`
+- **The webhook `cleanup` config was read by nothing** (framework 1.86.0). `Webhook::cleanup()`
   applies it; a daily job and `webhook:cleanup` run it. Test.
-- **No way to see or retry failed queue jobs** (framework, unreleased). `queue:failed`,
+- **No way to see or retry failed queue jobs** (framework 1.86.0). `queue:failed`,
   `queue:retry`, `queue:forget` and `queue:flush`; a retry verifies the stored signature first.
   Test.
-- **`permissions:diff` reported every Thallo permission as unenforced** (framework, unreleased).
+- **`permissions:diff` reported every Thallo permission as unenforced** (framework 1.86.0).
   It read only controller attributes. It now also counts the parameters of middleware named in
   `permissions.enforcing_middleware`, and Thallo declares `content_permission` there. Test.
-- **`security:check` reported checks it never ran** (framework, unreleased). Five steps were
+- **`security:check` reported checks it never ran** (framework 1.86.0). Five steps were
   hard-coded passes; they now check the database, `.env` and `storage/` permissions, the signing
   secrets, token lifetimes and CORS credentials. The production validation stopped recommending
   `FORCE_HTTPS` and `HSTS_HEADER` (read by nothing) and judges the active engine's database
   password. Test.
-- **The database queue's health check always failed** (framework, unreleased; found while fixing
+- **The database queue's health check always failed** (framework 1.86.0; found while fixing
   `security:check`). It probed with a query the builder refuses. Test.
 - **Dead config** (framework and Thallo). Removed from both: the `sync` and `null` queue
   connections, the schedule's `settings` block, `queue_mapping` and per-job `queue`/`timeout`/
@@ -289,27 +283,32 @@ Kept for the record; each is in the CHANGELOG.
   `extensions.install.auto_enable`, `allowed_operators` and `MAIL_BCC`. `MAIL_LOGO_URL` was wrongly
   listed: it is a mail template variable. The notification retry job's limit and the framework's
   own `log_cleanup` retention now reach the key their job reads. Test.
-- **An app's config lists merged into the framework's by position** (framework, unreleased;
+- **An app's config lists merged into the framework's by position** (framework 1.86.0;
   found checking the fixes against other Glueful apps). An app's Nth scheduled job took every key
   it lacked from the framework's Nth job: Thallo's `log_cleanup` carried both retention keys and
   the `queue`/`timeout` keys Thallo removed leaked back in. Lists now replace; maps still merge.
   Test.
-- **The failed-job commands worked only on the database driver** (framework, unreleased). A
+- **The failed-job commands worked only on the database driver** (framework 1.86.0). A
   `FailedJobStore` contract, implemented by the database and Redis drivers, backs them. Test.
-- **The ORM id fix would have broken creates on tables without a sequence** (framework,
-  unreleased; found in review). PostgreSQL has no `lastval` there; the id read now returns null and
+- **The ORM id fix would have broken creates on tables without a sequence** (framework 1.86.0; found in review). PostgreSQL has no `lastval` there; the id read now returns null and
   leaves the key as the database set it. Test, plus a PostgreSQL probe on a temp table.
-- **The query validator refused ordinary text** (framework, unreleased). A value reading like
+- **The query validator refused ordinary text** (framework 1.86.0). A value reading like
   "; delete …" was refused (an import failed on "would be deleted; delete nothing"), and a value
   over 64 KB raised a warning the error handler turns into an exception. Values are bound, so the
   check protected nothing; it is gone. Test.
-- **The framework's failed-job helper did not work** (framework, unreleased). `FailedJobProvider`
+- **The framework's failed-job helper did not work** (framework 1.86.0). `FailedJobProvider`
   read and wrote columns `queue_failed_jobs` never had, its requeue was a stub, and its trend
   query was MySQL-only. It now works over the real table on every engine and is the one
   implementation behind the database driver and the failed-job commands. Test.
-- **Every ORM-created auto-increment model came back with id 1** (framework, unreleased; found
+- **Every ORM-created auto-increment model came back with id 1** (framework 1.86.0; found
   while fixing the webhooks). The id is now read from the connection that ran the insert. Test.
-- **Two database-queue workers could run the same job** (framework, unreleased). The reservation
+- **Automatic webhook retries never ran** (framework 1.86.1). The worker runs a driverless copy
+  of a job, so a job's own `release($delay)` requeued nothing and the delivery sat at
+  **Retrying**. The queue wrapper now carries out the release. Test.
+- **An empty array in config wiped the value below it** (framework 1.86.2; a regression in
+  1.86.0, caught by Thallo's suite). A package's `'source_roots' => []` removed Thallo's uploads
+  root, so admin imports could not find their file. `[]` adds nothing again. Test.
+- **Two database-queue workers could run the same job** (framework 1.86.0). The reservation
   is a conditional claim; the loser takes the next job. Test.
 - **`LOG_RETENTION_DAYS` changed nothing.** Filed here as a framework bug, it was Thallo's: the
   shipped schedule passed `retentionDays`, and the framework's job reads `options.retention_days`.
