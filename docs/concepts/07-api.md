@@ -149,7 +149,9 @@ delivery API:
 | Scope | Reads |
 |---|---|
 | `read:content` | Every content type. |
-| `read:content:{type}` | That one content type. Wildcards are matched, so `read:content:*` behaves like `read:content`. |
+| `read:content:{type}` | That one content type. |
+
+Scopes are matched as wildcards, so `read:content:*` and `read:*` both read every type.
 
 A key created with no scopes at all has full access. A key that does not satisfy either scope for
 the type it asks for gets 403 — unless the type has **Public delivery** on, which anyone may
@@ -159,6 +161,16 @@ path: sending a bad key to a public type fails.
 The detail pane holds the rest of a key's life. **Rotate key** issues a fresh key and keeps the
 old one working for a grace period you choose, so a deploy can overlap. **Revoke key** stops it
 at once.
+
+The same four things can be done from a terminal, which suits a deploy script. A key belongs to
+a user, named by uuid:
+
+```bash
+$ php glueful apikey:create --user=<user-uuid> --name="Site build" --scopes=read:content
+$ php glueful apikey:list --user=<user-uuid>
+$ php glueful apikey:rotate <key-uuid> --grace=24   # hours the old key keeps working
+$ php glueful apikey:revoke <key-uuid>
+```
 
 ## What the delivery API never returns
 

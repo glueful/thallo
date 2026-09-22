@@ -154,8 +154,10 @@ A backfill that fails part-way is resumed by uuid:
 $ php glueful thallo:schema:backfill <migration-uuid>
 ```
 
-The admin does not offer this yet: renames and deletes go through the admin API, and the field
-editor will not let you take a field away.
+The admin does not run migrations yet; renames and deletes go through the admin API. The field
+editor does show **Remove field** and lets you change a field's type, but saving either is
+refused with a message that points at the migration route. A field cannot be retyped at all:
+add a new field and leave the old one.
 
 ## Collections hold data, not pages
 

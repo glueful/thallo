@@ -23,6 +23,10 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **Removing a field said migrations were "planned for a later release".** Delete and rename
+  migrations have shipped; the refusal now names the migration route and says a field cannot be
+  retyped. The API key form's scope example was `write:posts`, which grants nothing Thallo
+  checks; it now shows `read:content` and `read:content:posts`.
 - **A referenced entry's page settings leaked into the delivery API.** The editor-only
   `_presentation` key was stripped from the requested entry but not from the entries its
   reference fields expand to, so each one carried its title and layout settings into the public

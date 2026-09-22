@@ -118,8 +118,8 @@ async function submit() {
             >Scopes</label
           >
           <p class="mb-2 text-xs text-muted">
-            Limit what the key can do (e.g. <code>read:*</code>, <code>write:posts</code>). Leave
-            empty for full access.
+            Limit what the key can read: <code>read:content</code> for every content type,
+            <code>read:content:posts</code> for one. Leave empty for full access.
           </p>
           <div v-if="scopes.length" class="mb-2 flex flex-wrap gap-1">
             <UBadge

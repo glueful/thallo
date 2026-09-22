@@ -142,8 +142,10 @@ Two things follow from that, and they decide the numbers you choose:
 - The worker takes no lock, and two runs that overlap are not prevented from taking the same job.
   Keep `--max-runtime` comfortably below the cron interval, and run one such line, not several.
 - On the `database` connection, a job still reserved after `retry_after` seconds
-  (`config/queue.php`, 90 by default) is released back to its queue and can be taken again. If
-  your jobs run longer than that, raise `retry_after`.
+  (`config/queue.php`, 90 by default) counts as abandoned. The next worker to look for work
+  puts it back on its queue and can take it again. A single worker never does this to the job it
+  is running, but a second, overlapping run will, so if your jobs run longer than that, raise
+  `retry_after`.
 
 Queued work waits up to the cron interval before it starts, so an import or a style class change
 sits "queued" for that long. A supervised worker starts it within `--sleep` seconds.
