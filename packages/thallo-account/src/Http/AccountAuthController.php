@@ -17,6 +17,8 @@ use Thallo\Account\AccountReturnPath;
 use Thallo\Account\Settings\AccountSettingsStore;
 use Thallo\Contracts\Account\StorefrontAccountRecovery;
 use Thallo\Contracts\Account\StorefrontAccountRegistration;
+use Thallo\Contracts\Account\StorefrontTwoFactor;
+use Glueful\Auth\Session\AuthenticatedSession;
 
 /**
  * The account pack's write surface: register, verify, sign in, recover, sign out. Every method
@@ -25,9 +27,9 @@ use Thallo\Contracts\Account\StorefrontAccountRegistration;
  * live here:
  *
  *  - Login ALWAYS runs through {@see LoginOrchestrator}, never {@see \Glueful\Auth\AuthenticationService}
- *    directly, so the two-factor gate is un-bypassable. A challenge outcome fails closed: no
- *    session is issued, no cookie is set, and the visitor is told the storefront cannot complete
- *    the second factor yet.
+ *    directly, so the two-factor gate is un-bypassable. A challenge outcome issues no session:
+ *    the challenge token goes into a short-lived HttpOnly cookie (never a URL) and the visitor is
+ *    sent to the code page, whose POST completes sign-in through {@see StorefrontTwoFactor}.
  *  - Registration and recovery are neutral: the responses for a known and an unknown address are
  *    identical, so the storefront can never become an account-existence oracle. The redirect
  *    Location after a register attempt is fixed (never carries the intent id), and the pending
@@ -41,9 +43,13 @@ final class AccountAuthController
     /** Short-lived HttpOnly carrier for a verified password-reset token (kept out of the URL). */
     public const RESET_TOKEN_COOKIE = 'account_reset_token';
 
+    /** Short-lived HttpOnly carrier for a pending two-factor challenge token (kept out of the URL). */
+    public const TWO_FACTOR_COOKIE = 'account_two_factor';
+
     public function __construct(
         private readonly StorefrontAccountRegistration $registration,
         private readonly StorefrontAccountRecovery $recovery,
+        private readonly StorefrontTwoFactor $twoFactor,
         private readonly LoginOrchestrator $login,
         private readonly SessionCookieIssuer $cookies,
         private readonly SessionLogout $sessionLogout,
@@ -84,16 +90,19 @@ final class AccountAuthController
         }
 
         if (!$outcome->isAuthenticated()) {
-            // Two-factor challenge. The storefront has no second-factor step yet, so it refuses
-            // rather than route around the gate: no session, no cookie. The validated `next`
-            // survives the re-render so it still applies once the visitor can complete sign-in.
-            // 2FA is NAVIGATION, not an error code: `return_to` deliberately does NOT apply here —
-            // the themed page is the dedicated flow until a real challenge step exists.
-            return $this->renderer->render($request, 'account/login.twig', [
-                'error' => 'This account needs an extra verification step the storefront cannot complete yet.',
-                'email' => $email,
-                'next' => $safeNext,
-            ], 422);
+            // Two-factor challenge: no session yet. The token rides an HttpOnly cookie for as long
+            // as the challenge lives, and the visitor goes to the code page. The validated `next`
+            // travels with them. 2FA is NAVIGATION, not an error code: `return_to` does not apply.
+            $challenge = $outcome->challenge();
+            $location = '/account/login/verify' . ($safeNext !== null ? '?next=' . rawurlencode($safeNext) : '');
+            $response = new RedirectResponse($location, Response::HTTP_SEE_OTHER);
+            $response->headers->setCookie($this->shortLivedCookie(
+                self::TWO_FACTOR_COOKIE,
+                $challenge->token,
+                max(60, $challenge->expiresIn),
+            ));
+
+            return $response;
         }
 
         // Precedence: a safe `next` wins, else the operator's configured post-login target, else
@@ -103,6 +112,30 @@ final class AccountAuthController
         $response = new RedirectResponse($target, Response::HTTP_SEE_OTHER);
 
         return $this->cookies->issue($response, $outcome->session());
+    }
+
+    /** The second sign-in step: the emailed code against the pending challenge. */
+    public function completeTwoFactor(Request $request): Response
+    {
+        $token = (string) $request->cookies->get(self::TWO_FACTOR_COOKIE, '');
+        if ($token === '') {
+            return new RedirectResponse('/account/login', Response::HTTP_SEE_OTHER);
+        }
+        $safeNext = $this->safeNext($request);
+
+        $session = $this->twoFactor->completeLogin($token, trim($this->input($request, 'code')));
+        if ($session === null) {
+            return $this->renderer->render($request, 'account/two-factor.twig', [
+                'error' => 'That code is wrong or has expired. Try again, or sign in again for a new code.',
+                'next' => $safeNext,
+            ], 422);
+        }
+
+        $target = $this->returnPaths->resolve($safeNext, $this->settings->afterLogin(), '/account');
+        $response = new RedirectResponse($target, Response::HTTP_SEE_OTHER);
+        $response->headers->clearCookie(self::TWO_FACTOR_COOKIE, '/account');
+
+        return $this->cookies->issue($response, AuthenticatedSession::fromSessionArray($session));
     }
 
     public function register(Request $request): Response

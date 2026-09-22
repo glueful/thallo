@@ -39,6 +39,10 @@ $router->get('/account/login', [AccountPageController::class, 'loginPage'])
     ->middleware($page)->name('account.login');
 $router->post('/account/login', [AccountAuthController::class, 'login'])
     ->middleware($anonymousForm)->name('account.login.submit');
+$router->get('/account/login/verify', [AccountPageController::class, 'twoFactorPage'])
+    ->middleware($page)->name('account.login.verify');
+$router->post('/account/login/verify', [AccountAuthController::class, 'completeTwoFactor'])
+    ->middleware($anonymousForm)->name('account.login.verify.submit');
 
 // Register + emailed-OTP verification.
 $router->get('/account/register', [AccountPageController::class, 'registerPage'])

@@ -122,8 +122,9 @@ code, which the next two screens exchange for a new password, so outgoing email 
 and `TWO_FACTOR_CHALLENGE_TTL` (300 seconds each), `TWO_FACTOR_DISABLE_FRESHNESS` (300) and
 `TWO_FACTOR_TEMPLATE` (`two-factor-pin`). Two-factor is a property of an account, switched from
 the terminal — `php glueful 2fa:status`, `2fa:enable` and `2fa:disable`, each taking a user UUID —
-and the **Details** tab shows a **2FA on** or **2FA off** badge. The admin's sign-in screen has no
-second step, so an account with two-factor on cannot sign in to the admin.
+and the **Details** tab shows a **2FA on** or **2FA off** badge. Signing in to an account with
+two-factor on emails a code, and the admin's sign-in screen asks for it before letting you in; to
+get a new code, start the sign-in again.
 
 `SESSION_COOKIE_ENABLED` is not about the admin: it carries the sign-in for the site's own
 visitors. See [accounts](17-accounts.md).

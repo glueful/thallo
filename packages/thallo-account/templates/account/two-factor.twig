@@ -1,0 +1,19 @@
+{% extends 'account/layout.twig' %}
+{% block account_heading %}Enter your code{% endblock %}
+{% block account %}
+  <p class="account__notice">
+    We emailed you a 6-digit sign-in code. Enter it to finish signing in.
+  </p>
+  <form method="post" action="/account/login/verify" class="account__form">
+    {# A validated post-login redirect target, as on the sign-in form. #}
+    <input type="hidden" name="next" value="{{ next|default('') }}">
+    <label class="account__field">
+      <span>Code</span>
+      <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
+    </label>
+    <button type="submit" class="account__submit">Verify and sign in</button>
+  </form>
+  <p class="account__links">
+    <a href="/account/login">Sign in again for a new code</a>
+  </p>
+{% endblock %}

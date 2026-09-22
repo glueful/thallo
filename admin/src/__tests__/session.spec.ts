@@ -38,6 +38,59 @@ describe('session store', () => {
     expect(s.refreshToken).toBe('rjwt')
   })
 
+  it('login hands back a two-factor challenge instead of failing, and stays signed out', async () => {
+    // Login answers { two_factor_required, challenge_token, expires_in, delivered_to } when the
+    // account has 2FA on. The store read it as a malformed session and threw, locking the admin out.
+    ;(globalThis.fetch as any).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          message: 'Two-factor verification required',
+          data: {
+            two_factor_required: true,
+            challenge_token: 'chal-1',
+            expires_in: 300,
+            delivered_to: 'a***@b.c',
+          },
+        }),
+        { status: 200 },
+      ),
+    )
+    const { useSessionStore } = await import('@/stores/session')
+    const s = useSessionStore()
+
+    const challenge = await s.login('a@b.c', 'pw')
+
+    expect(challenge).toEqual({ token: 'chal-1', expiresIn: 300, deliveredTo: 'a***@b.c' })
+    expect(s.isAuthenticated).toBe(false)
+  })
+
+  it('completing the challenge posts the code and stores the session', async () => {
+    const fetchMock = globalThis.fetch as any
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            access_token: 'jwt',
+            refresh_token: 'rjwt',
+            user: { uuid: 'u1', email: 'a@b.c' },
+          },
+        }),
+        { status: 200 },
+      ),
+    )
+    const { useSessionStore } = await import('@/stores/session')
+    const s = useSessionStore()
+
+    await s.completeTwoFactor('chal-1', '123456')
+
+    const req = fetchMock.mock.calls.at(-1)[0] as Request
+    expect(new URL(req.url).pathname).toBe('/v1/2fa/verify')
+    expect(await req.clone().json()).toEqual({ challenge_token: 'chal-1', code: '123456' })
+    expect(s.isAuthenticated).toBe(true)
+    expect(s.accessToken).toBe('jwt')
+  })
+
   it('refresh posts the stored refresh token and rotates it', async () => {
     const fetchMock = globalThis.fetch as any
     fetchMock.mockResolvedValue(

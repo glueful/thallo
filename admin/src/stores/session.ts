@@ -75,6 +75,29 @@ function readAuthBody(json: unknown): {
   }
 }
 
+/** What login returns when the account has two-factor on: complete it with completeTwoFactor(). */
+export interface TwoFactorChallenge {
+  token: string
+  expiresIn: number
+  deliveredTo: string
+}
+
+function readChallenge(json: unknown): TwoFactorChallenge | null {
+  const root = (json ?? {}) as { data?: unknown }
+  const body = (root.data ?? json ?? {}) as {
+    two_factor_required?: unknown
+    challenge_token?: unknown
+    expires_in?: unknown
+    delivered_to?: unknown
+  }
+  if (body.two_factor_required !== true || typeof body.challenge_token !== 'string') return null
+  return {
+    token: body.challenge_token,
+    expiresIn: typeof body.expires_in === 'number' ? body.expires_in : 0,
+    deliveredTo: typeof body.delivered_to === 'string' ? body.delivered_to : '',
+  }
+}
+
 export const useSessionStore = defineStore(
   'session',
   () => {
@@ -119,7 +142,9 @@ export const useSessionStore = defineStore(
       }
     }
 
-    async function login(email: string, password: string): Promise<void> {
+    // Resolves null once signed in, or with the challenge when the account has two-factor on:
+    // the caller asks for the emailed code and passes it to completeTwoFactor().
+    async function login(email: string, password: string): Promise<TwoFactorChallenge | null> {
       // The endpoint accepts username OR email in the `username` field.
       const { data, error, response } = await core.POST('/v1/auth/login', {
         body: { username: email, password },
@@ -127,6 +152,23 @@ export const useSessionStore = defineStore(
       // Surface the backend's own message (toApiError falls back to a cause-neutral generic only
       // when the response carries none); login.vue adds the "Sign in failed" title.
       if (error) throw toApiError(error, response)
+      const challenge = readChallenge(data)
+      if (challenge !== null) return challenge
+      await startSession(data)
+      return null
+    }
+
+    // The second step of a two-factor login: the challenge token plus the emailed code return the
+    // same session a plain login does.
+    async function completeTwoFactor(challengeToken: string, code: string): Promise<void> {
+      const { data, error, response } = await core.POST('/v1/2fa/verify', {
+        body: { challenge_token: challengeToken, code } as never,
+      })
+      if (error) throw toApiError(error, response)
+      await startSession(data)
+    }
+
+    async function startSession(data: unknown): Promise<void> {
       const { access, refresh, user: u } = readAuthBody(data)
       if (access === null || u === null) throw new Error('Malformed login response.')
       setSession(access, refresh, u)
@@ -178,6 +220,7 @@ export const useSessionStore = defineStore(
       setSession,
       clear,
       login,
+      completeTwoFactor,
       refresh,
       logout,
     }

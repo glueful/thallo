@@ -32,6 +32,7 @@ the pickers. Nothing needs to be created for it: no entry, no route and no templ
 | Page | URL |
 |---|---|
 | Sign in | `/account/login` |
+| Enter your sign-in code (accounts with two-factor on) | `/account/login/verify` |
 | Register | `/account/register` |
 | Verify email | `/account/verify` |
 | Forgot password | `/account/forgot-password` |
@@ -39,7 +40,7 @@ the pickers. Nothing needs to be created for it: no entry, no route and no templ
 | Set a new password | `/account/reset-password` |
 | Account dashboard | `/account` |
 
-The six anonymous pages render without the site's header and footer — a single card on a plain
+The seven anonymous pages render without the site's header and footer — a single card on a plain
 background, with the site logo at the top of the card, or the site's name when no logo is set.
 The signed-in dashboard at `/account` keeps the header and footer, so a visitor can get back to
 the site from it.
@@ -169,8 +170,6 @@ Three ways to change the rest, in increasing order of effort:
 - There is no profile page. A visitor cannot change their name, their email or their username.
 - The dashboard's only links come from other packs. With none installed, it shows the greeting
   and **Sign out**.
-- An account with two-factor authentication cannot sign in on the site: the page refuses rather
-  than skip the second factor, and says so.
 - The wording of the verification and reset emails comes from the mail extension's built-in
   templates. The admin has no screen for editing them.
 

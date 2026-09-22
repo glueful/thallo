@@ -56,9 +56,6 @@ the docs for the failed-job commands, the backup and `security:check`.
 - **Navigation: the editor allows six levels, the default theme draws three.** Code. Deeper items
   are stored and served and never shown. A 409 on save clears the unsaved tree and refetches.
   (navigation)
-- **Two-factor sign-in is unsupported.** Code. Login answers with a `challenge_token`; the admin's
-  session store rejects it as "Malformed login response", and the storefront refuses challenge
-  outcomes because it has no second-factor screen. (users-and-roles, accounts)
 - **The workspaces enablement screen gives no warning before its refusals.** Code. Enabling is
   refused with any data collection defined, and on a cache driver without pattern purge.
   (workspaces)
@@ -302,6 +299,9 @@ Kept for the record; each is in the CHANGELOG.
   implementation behind the database driver and the failed-job commands. Test.
 - **Every ORM-created auto-increment model came back with id 1** (framework 1.86.0; found
   while fixing the webhooks). The id is now read from the connection that ran the insert. Test.
+- **Two-factor sign-in was unsupported.** The admin read the challenge as a malformed session and
+  the storefront refused it. The admin asks for the emailed code; the storefront has a code page
+  (`/account/login/verify`) over a new `StorefrontTwoFactor` contract. Test.
 - **Automatic webhook retries never ran** (framework 1.86.1). The worker runs a driverless copy
   of a job, so a job's own `release($delay)` requeued nothing and the delivery sat at
   **Retrying**. The queue wrapper now carries out the release. Test.

@@ -23,6 +23,12 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **An account with two-factor on can sign in.** Login answers such an account with a challenge,
+  and neither the admin nor the storefront had a second step: the admin failed with "Malformed
+  login response" and the storefront refused. The admin's sign-in now asks for the emailed code;
+  the storefront sends the visitor to `/account/login/verify` (the challenge token rides a
+  short-lived HttpOnly cookie, never the URL) and the code completes sign-in. No session is issued
+  before the code, and an enrollment token can never sign anyone in.
 - **Framework 1.86.2 is required (repinned).** Content webhooks now deliver, and a failed delivery
   is retried on its own: they were recorded and never queued, and a scheduled retry never ran. Deleting a webhook deletes its delivery history (the dialog says so again), a
   nightly `webhook_cleanup` job keeps delivery records to 7 days (delivered) and 30 (failed), and
