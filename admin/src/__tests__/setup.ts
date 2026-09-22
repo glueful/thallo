@@ -1,6 +1,7 @@
 // Vitest global setup.
 import { afterEach, beforeEach, vi } from 'vitest'
 import { enableAutoUnmount } from '@vue/test-utils'
+import { Tooltip } from '@unovis/ts'
 
 // Unmount every @vue/test-utils wrapper after each test. Without this, wrappers stay mounted
 // for the rest of the file while specs share module-level data refs — the next test's
@@ -41,6 +42,21 @@ globalThis.Request = BaseAwareRequest as unknown as typeof Request
 // jsdom has no layout/scroll implementation, so provide the browser method as a no-op.
 if (typeof globalThis.HTMLElement?.prototype.scrollIntoView !== 'function') {
   globalThis.HTMLElement.prototype.scrollIntoView = () => undefined
+}
+
+// @unovis's Tooltip positions itself from a throttled callback (throttle-debounce), which can
+// fire AFTER the test that mounted the chart has resolved and jsdom has taken `document` away:
+// `ReferenceError: document is not defined`, unhandled, failing the whole run (exit 1) with every
+// assertion passed. It surfaced on CI, where the slower run let the timer outlive the
+// environment. Same family as the rAF/getBBox shim below: make the late callback inert rather
+// than let it reach a torn-down DOM.
+const tooltipProto = Tooltip.prototype as unknown as Record<string, unknown>
+const setContainerPosition = tooltipProto._setContainerPosition
+if (typeof setContainerPosition === 'function') {
+  tooltipProto._setContainerPosition = function (this: unknown, ...args: unknown[]): unknown {
+    if (typeof document === 'undefined') return undefined
+    return (setContainerPosition as (...a: unknown[]) => unknown).apply(this, args)
+  }
 }
 
 // jsdom implements no SVG layout engine, so @unovis's axis auto-margin pass — which calls
