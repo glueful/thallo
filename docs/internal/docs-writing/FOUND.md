@@ -1,9 +1,9 @@
 # What writing the docs found
 
 Each page's writer reported what the code did not do, what the prose got wrong, and what a
-reader would miss. This is that list, kept so nothing is lost. `FOUND-REVIEW.md` checked every
-entry against the code on 2026-09-22; this version applies its corrections, merges its
-duplicates and moves fixed work to the end.
+reader would miss. This is that list, kept so nothing is lost. A review checked every entry
+against the code on 2026-09-22; this version applies its corrections, merges its duplicates and
+moves fixed work to **Fixed** at the end. Anything still listed above that section is open.
 
 Every entry carries its evidence:
 
@@ -12,6 +12,9 @@ Every entry carries its evidence:
 - **Reported**: the writer's claim, not yet confirmed. Prove it before fixing it.
 
 ## Bugs in the framework (need a Glueful release)
+
+**Status 2026-09-22: none fixed.** Each is still present in the installed framework (v1.85.8) and
+in the local framework checkout. Thallo works around the backup by shipping it off.
 
 - **Content webhooks never deliver.** Code, and the review ran the type probe.
   `WebhookDispatcher::queueDelivery()` and `Webhook::retry()` pass a job object to
@@ -30,8 +33,6 @@ Every entry carries its evidence:
   same job. Expired reservations are released inside `pop()`, so a lone worker never releases its
   own running job; a second, overlapping worker reclaims one older than `retry_after`.
   (scheduler-and-queues)
-- **`log_cleanup` ignores `LOG_RETENTION_DAYS`.** Code. The config passes `retentionDays`;
-  `LogCleanupTask` reads `retention_days`. (troubleshooting)
 - **No `queue:failed` or `queue:retry` command, and no admin screen for failed jobs.** Code, by
   inventory. (scheduler-and-queues)
 
@@ -56,11 +57,6 @@ Every entry carries its evidence:
 - **Block-built page bodies are not indexed.** Code. `DocumentBuilder::INDEXABLE_TYPES` is
   `string` and `text`, so a Design-view page contributes only its title. Thallo search and the
   Meilisearch extension both declare `search:status`; which one wins is Reported. (search)
-
-- **Analytics keeps recording content events after it is switched off in the admin.** Code.
-  The content and collection event bridge in `CoreServiceProvider` reads only the
-  `thallo.capabilities` config map, not the stored admin switch; only the auth listeners honour
-  the switch. (found while fixing the analytics README)
 
 ### Admin
 
@@ -267,6 +263,11 @@ Kept for the record; each is in the CHANGELOG.
   Test.
 - **Editor-only `_presentation` leaked through expanded references.** Stripped at every depth.
   Test.
+- **`LOG_RETENTION_DAYS` changed nothing.** Filed here as a framework bug, it was Thallo's: the
+  shipped schedule passed `retentionDays`, and the framework's job reads `options.retention_days`.
+  The schedule now passes the right key. Test.
+- **Analytics kept recording after an admin switch-off.** The content and collection bridge read
+  only the config map at boot. It now checks the live switch on every event. Test.
 - **Admin text that said something false:** the restore toast (Test), the tenancy remedy (Test),
   the doctor's `thallo setup` line, the `RENDER_ENABLED` hint, the bulk-locale error, the
   shared-fields banner, the role delete dialog, the webhook delete dialog, the block-type
