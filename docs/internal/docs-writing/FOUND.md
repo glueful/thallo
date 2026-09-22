@@ -100,14 +100,22 @@ what follows is still open or unchecked.
 
 ## Where a picture is missing
 
-When images travel with the import, these are the first to add: the theme gallery and the
-brand-colour report; the header and footer editor and its Block settings; the Sections and Pages
-views; the Advanced tab's style class row and a cascade diagram; the menu tree editor; the Motion
-group; the form block's settings and the Submissions screen; Developers › API Keys and the
-`/api-docs` reference; Workspaces › Domains and the enablement timeline; the Design view's layout
-and its breakpoint rule; the block toolbar; the setup form and the admin Home; the Settings ›
-Content Types field editor and the entry's Publishing panel; Settings › Block Types; Site ›
-Appearance; Extensions › Capabilities; the preview bar; Utilities › Health and Scheduled Tasks.
+Captured 2026-09-22 from the live site (1.0.0-beta.51, so older than `dev`), in
+`docs/images/screenshots/`, with the signed-in account's email masked: Appearance (theme gallery),
+the header and footer editor, the content-type field editor, Block Types, Extensions (installed
+and Capabilities), Utilities › Health and Scheduled Tasks, Developers › API Keys, the `/api-docs`
+reference, Submissions, the entry's Publishing panel, and in the Design view its layout, the
+Blocks palette, the Sections and Pages views, the block toolbar, the Style tab, the Motion group,
+the Advanced tab's style class row, and the preview bar (the strip above the stage).
+
+Still missing, because the live site has nothing to show or showing it would change it: the menu
+tree editor (no menus), the brand-colour report (needs a colour typed in), the form block's
+settings (no form on a page), Workspaces › Domains and the enablement timeline (tenancy off), the
+setup form (installed), the admin Home (shows the account email), the breakpoint rule and the
+cascade diagram (drawn, not captured). The docs import still needs image support before any of
+these appear in the published docs. Screens changed on `dev` since beta.51 (field labels, the
+listing switch, scheduled unpublish, Settings › Accounts › Emails, the Submissions filters) need
+recapturing after the next deploy.
 
 ## Fixed
 
