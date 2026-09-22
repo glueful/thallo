@@ -29,8 +29,10 @@ the docs for the failed-job commands, the backup and `security:check`.
 - **Three "default locale"s can disagree:** `i18n_locales.is_default`, Settings › General and
   `config/i18n.php`. Code. Disabling a language does not stop the delivery API serving it
   (Code). (languages)
-- **`search:status` is declared twice** — by Thallo search and by the Meilisearch extension; which
-  one runs while both are enabled is Reported, not checked. (search)
+- **`search:status` is declared twice** (fixed on `glueful/meilisearch`'s `dev` branch, awaiting
+  its 2.0.0 release). Thallo's won, as the later registration, and nothing said so. The extension's
+  commands are now `meilisearch:*`, and the framework's console (`dev`) logs any name taken twice.
+  When 2.0.0 ships, require it. (search)
 
 ### Admin
 
