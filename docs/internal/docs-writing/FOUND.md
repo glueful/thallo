@@ -13,21 +13,20 @@ Every entry carries its evidence:
 
 ## Bugs in the framework (need a Glueful release)
 
-**Status 2026-09-22: every item fixed on the framework's `dev` branch, not yet released.** Eight
-commits after v1.85.8 (see **Fixed** below). Fixing them turned up three more, all fixed: the ORM
-gave every new auto-increment model id 1, the failed-job helper was written for columns the table
-never had, and the query validator refused ordinary text. Two framework defects found by
-verification stay open, under **Setup, operations and security**: `permissions:diff` cannot see
-route-middleware enforcement, and `security:check` reports five checks it never runs. Thallo still
-runs v1.85.8, so none of this reaches a site until a framework release is tagged and Thallo
-requires it.
+**Status 2026-09-22: every known framework defect is fixed on the framework's `dev` branch, not
+yet released** (sixteen commits after v1.85.8; see **Fixed** below). Each fix is generic: it is
+tested in the framework, works on SQLite, MySQL and PostgreSQL, and the failed-job commands serve
+the Redis driver too. The API skeleton (`glueful/api-skeleton`, what new Glueful apps start from)
+carries the same config corrections. Thallo still runs v1.85.8, so none of it reaches a site until
+a framework release is tagged and Thallo requires it.
 
 **When Thallo requires the release:**
 
 - Change the webhook delete dialog back to saying the delivery history is deleted: the framework
   now deletes it with the subscription.
-- Add the `webhook_cleanup` job to Thallo's `config/schedule.php` (both copies). Thallo's schedule
-  replaces the framework default, so it does not get the job otherwise.
+- Add the `webhook_cleanup` job to Thallo's `config/schedule.php` (both copies). The release
+  makes an app's schedule list replace the framework's whole, so Thallo does not get the job
+  otherwise (and, until the release, the framework's jobs merge into Thallo's by position).
 - Decide whether the database backup goes back on by default.
 - Document `queue:failed`, `queue:retry`, `queue:forget` and `queue:flush` in the scheduler and
   queues page and the CLI reference, and drop "no failed-job command" from the limitations.
@@ -86,15 +85,12 @@ requires it.
 
 ### Setup, operations and security
 
-- **`QUEUE_CONNECTION=sync` resolves no driver.** Code. `config/queue.php` lists `sync` and
-  `null`; only `database` and `redis` exist. Fixed in the docs; the config still lists them.
 - **The APIs and `/api-docs` send no security headers.** Verified 2026-09-22 by requests through
   the full HTTP stack: the rendered site and the admin page send nosniff, a referrer policy and
   X-Frame-Options (HSTS too on the site); `/v1/admin/*`, `/v1/content/*` and `/api-docs` send none.
   This is Thallo's routing choice, not a framework defect: the framework's `security_headers`
-  middleware is opt-in and no Thallo route uses it. `config/security.php`'s `headers` block is read
-  by nothing, and `config/http.php` carries a commented-out line naming a class that does not
-  exist. There is no HTTPS redirect: the docs say that is the web server's job. (security)
+  middleware is opt-in and no Thallo route uses it. There is no HTTPS redirect: the docs say that is
+  the web server's job. (security)
 - **`thallo:doctor` checks the theme in `RENDER_THEME`**, not the one chosen in Appearance.
   Code. A theme's stylesheets do not fall back to the default's (templates do); a theme without
   a valid manifest can fail to load rather than render unstyled. (make-a-theme)
@@ -107,12 +103,6 @@ requires it.
 - **The account pages: no profile surface, no auto-login after verification, no admin editor for
   the mails.** Code. A mail transport failure may be invisible because the mail channel reports
   available on an unconfigured install (Reported). (accounts)
-- **`permissions:diff` reports every Thallo permission as unenforced** (framework). Verified
-  2026-09-22 with the real scanner inside Thallo: it sees one enforced permission, `users.view`,
-  and flags all 21 of Thallo's, which 232 route declarations enforce through
-  `content_permission:` middleware. The framework's scanner reads only `#[RequiresPermission]` /
-  `#[RequiresRole]` attributes, and there is no way for route middleware to report what it
-  enforces. (permissions)
 - **No workspace role can hold `workflow.bypass`.** Verified by code. It is missing from
   `CapabilityCatalog`, so overrides and custom roles cannot grant it, and the baseline matrix in
   `config/tenancy.php` gives it to nobody, owner included: with workspaces on, every publish needs a
@@ -132,15 +122,6 @@ requires it.
 - **Enabling workspaces from a terminal has no way out of `failed`.** Code. Retry exists in the
   service and the admin, not the command. No shipped command prints a user uuid for `--owner`.
   (multi-site)
-- **`security:check` reports checks it never runs** (framework). Verified 2026-09-22 in the code:
-  five of its seven steps (health, file permissions, configuration, authentication, network) are
-  hard-coded passes that print "validated". Only the production validation and the readiness
-  score do real work. (security)
-- **Dead config.** Code, by search. `extensions.install.auto_enable` in `config/extensions.php`;
-  the `settings` block of `config/schedule.php` (`SCHEDULER_ENABLED`, `MAX_CONCURRENT_JOBS`,
-  `USE_QUEUE_FOR_SCHEDULED_JOBS`, `queue_mapping`, which names a job that does not exist); each
-  job's `queue`, `timeout` and `retry_attempts` on the inline scheduler path; `allowed_operators`
-  in `config/api.php` (its comment now says so); `MAIL_BCC` and `MAIL_LOGO_URL`.
 
 ## Things a reader cannot do, or is not told
 
@@ -203,6 +184,7 @@ A missing feature is not a regression. These are product decisions to make, or t
 - **No CLI lists block types; the `links` block's items are raw JSON.**
 - **Pack config is overridable only by creating a file that does not ship** (`config/render.php`,
   `search.php`, `seo.php` …). No `config:cache`, and no effective-config view.
+- **`UPLOADS_STRIP_EXIF` is read by nothing** (see Media above).
 
 ### Site features
 
@@ -291,6 +273,32 @@ Kept for the record; each is in the CHANGELOG.
 - **No way to see or retry failed queue jobs** (framework, unreleased). `queue:failed`,
   `queue:retry`, `queue:forget` and `queue:flush`; a retry verifies the stored signature first.
   Test.
+- **`permissions:diff` reported every Thallo permission as unenforced** (framework, unreleased).
+  It read only controller attributes. It now also counts the parameters of middleware named in
+  `permissions.enforcing_middleware`, and Thallo declares `content_permission` there. Test.
+- **`security:check` reported checks it never ran** (framework, unreleased). Five steps were
+  hard-coded passes; they now check the database, `.env` and `storage/` permissions, the signing
+  secrets, token lifetimes and CORS credentials. The production validation stopped recommending
+  `FORCE_HTTPS` and `HSTS_HEADER` (read by nothing) and judges the active engine's database
+  password. Test.
+- **The database queue's health check always failed** (framework, unreleased; found while fixing
+  `security:check`). It probed with a query the builder refuses. Test.
+- **Dead config** (framework and Thallo). Removed from both: the `sync` and `null` queue
+  connections, the schedule's `settings` block, `queue_mapping` and per-job `queue`/`timeout`/
+  `retry_attempts`; from the framework, `app.force_https` and `security.headers`; from Thallo,
+  `extensions.install.auto_enable`, `allowed_operators` and `MAIL_BCC`. `MAIL_LOGO_URL` was wrongly
+  listed: it is a mail template variable. The notification retry job's limit and the framework's
+  own `log_cleanup` retention now reach the key their job reads. Test.
+- **An app's config lists merged into the framework's by position** (framework, unreleased;
+  found checking the fixes against other Glueful apps). An app's Nth scheduled job took every key
+  it lacked from the framework's Nth job: Thallo's `log_cleanup` carried both retention keys and
+  the `queue`/`timeout` keys Thallo removed leaked back in. Lists now replace; maps still merge.
+  Test.
+- **The failed-job commands worked only on the database driver** (framework, unreleased). A
+  `FailedJobStore` contract, implemented by the database and Redis drivers, backs them. Test.
+- **The ORM id fix would have broken creates on tables without a sequence** (framework,
+  unreleased; found in review). PostgreSQL has no `lastval` there; the id read now returns null and
+  leaves the key as the database set it. Test, plus a PostgreSQL probe on a temp table.
 - **The query validator refused ordinary text** (framework, unreleased). A value reading like
   "; delete …" was refused (an import failed on "would be deleted; delete nothing"), and a value
   over 64 KB raised a warning the error handler turns into an exception. Values are bound, so the
