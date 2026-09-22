@@ -27,7 +27,9 @@ has one menu, **Main**, holding a single link, **Home**, to `/`, and its header 
 The menu joins the list on the left, which shows each menu's name, its slug and how many items it
 holds. Drag a row by its handle to reorder the list. The row's overflow button offers **Rename**,
 **Move up**, **Move down** and **Delete**. Deleting removes the menu and all of its items, and
-cannot be undone.
+cannot be undone. The confirmation lists where the menu is shown — the header or footer, and each
+entry whose Navigation block uses it, draft or published — since those blocks show nothing once it
+is gone. A theme template that names the menu is not in that list.
 
 ## Add a link to a page
 

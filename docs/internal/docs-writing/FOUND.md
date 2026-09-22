@@ -98,8 +98,7 @@ A missing feature is not a regression. These are product decisions to make, or t
 - **Regions are not per locale and have no draft, versions or undo.** Only header and footer
   exist. The region preview frame exists and runs no scripts. A region's root cannot carry a style
   class; its child blocks can.
-- **Menus are unversioned and unpreviewable**; nothing shows where a menu is used, and deleting
-  one does not warn. Some tree-editor buttons lack accessible names; audit them one by one.
+- **Menus are unversioned and unpreviewable.**
 - **Motion: the stage restates the site's transition rules.** Audited 2026-09-22. The stage reuses
   the compiled classes and variables but writes its transition and animation rules a second time
   in `packages/thallo-render/assets/preview/preview.css`, so easing and fallback durations can
@@ -153,6 +152,8 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **Deleting a menu gave no warning, and tree buttons had no names.** The confirmation lists where
+  the menu is shown; the five icon-only row buttons are named. Tests.
 - **Form submissions had no retention, bulk delete or per-form view.** All three. Tests.
 - **`site.locales` was always empty.** It lists the enabled languages. Test.
 - **Scheduled unpublish had no UI.** The schedule picks Publish or Unpublish. Test.

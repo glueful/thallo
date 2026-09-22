@@ -211,6 +211,24 @@ final class NavigationApiTest extends AppTestCase
         self::assertContains('rate_limit', (array) ($route['middleware'] ?? []));
     }
 
+    public function testUsageNamesTheRegionsShowingTheMenu(): void
+    {
+        $this->admin()->create($this->req(['slug' => 'usage', 'name' => 'Usage']));
+        $this->container()->get(\Thallo\Core\Content\Regions\RegionRepository::class)->save('footer', [
+            ['id' => 'f1', 'type' => 'navigation', 'data' => ['menu' => 'usage']],
+        ], [], null);
+
+        $res = $this->admin()->usage('usage');
+
+        self::assertSame(200, $res->getStatusCode());
+        self::assertSame(
+            [['kind' => 'region', 'id' => 'footer', 'label' => 'Footer', 'content_type' => null]],
+            $this->data($res)['usage'],
+        );
+        self::assertSame(404, $this->admin()->usage('no-such-menu')->getStatusCode());
+        self::assertNotNull($this->findRoute('GET', '/v1/admin/navigation/menus/{slug}/usage'));
+    }
+
     public function testCreateAppendsPositionAndListOrdersByInsertion(): void
     {
         // Created out of alphabetical order — the list must follow position (insertion),

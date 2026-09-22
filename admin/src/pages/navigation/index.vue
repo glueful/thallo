@@ -5,7 +5,9 @@ import {
   useNavMenus,
   useNavMenu,
   useNavigationMutations,
+  fetchMenuUsage,
   type NavMenuSummary,
+  type NavMenuUse,
   type NavTreeItem,
 } from '@/queries/navigation'
 import { useLocales } from '@/queries/locales'
@@ -228,11 +230,20 @@ async function submitRename(): Promise<void> {
 const deleteOpen = ref(false)
 const deleteSlug = ref('')
 const deleteName = ref('')
+// Where the menu is shown, so the confirmation says what the delete would take down. Null while
+// loading; a failed lookup leaves the plain warning.
+const deleteUsage = ref<NavMenuUse[] | null>(null)
 
-function openDelete(menu: NavMenuSummary): void {
+async function openDelete(menu: NavMenuSummary): Promise<void> {
   deleteSlug.value = menu.slug
   deleteName.value = menu.name
+  deleteUsage.value = null
   deleteOpen.value = true
+  try {
+    deleteUsage.value = await fetchMenuUsage(menu.slug)
+  } catch {
+    deleteUsage.value = []
+  }
 }
 
 async function confirmDelete(): Promise<void> {
@@ -645,6 +656,24 @@ async function save(): Promise<void> {
             Delete the menu “<span class="text-default font-medium">{{ deleteName }}</span
             >”? This removes the menu and all of its items. This can’t be undone.
           </p>
+          <div
+            v-if="deleteUsage && deleteUsage.length"
+            class="mt-3 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm"
+            data-test="nav-menu-delete-usage"
+          >
+            <p class="font-medium">It is shown in:</p>
+            <ul class="mt-1 list-disc ps-5">
+              <li v-for="use in deleteUsage" :key="`${use.kind}:${use.id}`">
+                {{ use.label }}
+                <span class="text-muted">{{
+                  use.kind === 'region' ? '(region)' : `(${use.content_type ?? 'entry'})`
+                }}</span>
+              </li>
+            </ul>
+            <p class="mt-1 text-muted">
+              Those Navigation blocks will show nothing until they are pointed at another menu.
+            </p>
+          </div>
         </template>
         <template #footer>
           <div class="flex w-full justify-end gap-2">

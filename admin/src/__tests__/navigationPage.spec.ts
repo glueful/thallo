@@ -19,7 +19,9 @@ const reorderMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const renameMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const removeMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 
+const usageMock = vi.hoisted(() => vi.fn().mockResolvedValue([]))
 vi.mock('@/queries/navigation', () => ({
+  fetchMenuUsage: (...a: unknown[]) => usageMock(...a),
   useNavMenus: () => ({ data: menusData, isLoading: menusLoading }),
   useNavMenu: () => ({ data: detailData, refetch }),
   useNavigationMutations: () => ({
@@ -294,6 +296,27 @@ describe('navigation page', () => {
 
     expect(removeMock).toHaveBeenCalledWith('main')
     expect(notify.success).toHaveBeenCalled()
+  })
+
+  it('the delete confirmation names where the menu is shown', async () => {
+    menusData.value = [{ slug: 'main', name: 'Main', item_count: 2, lock_version: 0 }]
+    usageMock.mockResolvedValueOnce([
+      { kind: 'region', id: 'header', label: 'Header', content_type: null },
+      { kind: 'entry', id: 'e1', label: 'Landing', content_type: 'pages' },
+    ])
+    const wrapper = mountPage()
+    await flushPromises()
+
+    const dropdown = wrapper.findAllComponents({ name: 'DropdownMenu' })[0]!
+    const items = dropdown.props('items') as { label: string; onSelect?: () => void }[][]
+    items.flat().find((i) => i.label === 'Delete')!.onSelect!()
+    await flushPromises()
+
+    expect(usageMock).toHaveBeenCalledWith('main')
+    const warning = document.body.querySelector('[data-test="nav-menu-delete-usage"]')
+    expect(warning?.textContent).toContain('Header')
+    expect(warning?.textContent).toContain('Landing')
+    wrapper.unmount()
   })
 
   it('selecting a menu renders the editor and save sends the working tree', async () => {

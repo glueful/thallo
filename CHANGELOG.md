@@ -63,6 +63,9 @@ as the next release, never a mutated tag.
 - **Form submissions: a per-form filter, bulk delete and retention.** Submissions filters by form
   and deletes ticked rows together; `FORMS_RETENTION_DAYS` has the scheduler delete older ones,
   and `thallo:forms:prune` does it by hand.
+- **Deleting a menu says where it is shown.** The confirmation lists the regions and entries whose
+  Navigation blocks use it (`GET /v1/admin/navigation/menus/{slug}/usage`, contract
+  `MenuUsageReader`). The tree editor's row buttons are named for screen readers.
 
 ### Fixed
 - **`site.locales` was always empty.** It lists the enabled languages' codes. Test.

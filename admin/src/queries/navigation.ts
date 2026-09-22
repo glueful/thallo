@@ -63,6 +63,20 @@ export async function renameMenu(slug: string, name: string): Promise<void> {
   await authFetch(`${base()}/menus/${slug}`, { method: 'PUT', body: JSON.stringify({ name }) })
 }
 
+/** A place a menu is shown: a region, or an entry (draft or published). */
+export interface NavMenuUse {
+  kind: 'region' | 'entry'
+  id: string
+  label: string
+  content_type: string | null
+}
+
+export async function fetchMenuUsage(slug: string): Promise<NavMenuUse[]> {
+  const json = await authFetch(`${base()}/menus/${slug}/usage`)
+  const d = (json.data ?? json) as { usage?: NavMenuUse[] }
+  return d.usage ?? []
+}
+
 export async function deleteMenu(slug: string): Promise<void> {
   await authFetch(`${base()}/menus/${slug}`, { method: 'DELETE' })
 }

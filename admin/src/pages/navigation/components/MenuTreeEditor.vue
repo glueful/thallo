@@ -143,6 +143,13 @@ function onIconClear(): void {
   iconPickerFor.value.icon = null
   changed()
 }
+
+/** How a row's buttons name it to a screen reader: its label here, else its page's title. */
+function nameOf(item: NavTreeItem): string {
+  const label = item.labels[props.locale]?.trim()
+  if (label) return `“${label}”`
+  return item.kind === 'entry' && item.target_title ? `“${item.target_title}”` : 'this item'
+}
 </script>
 
 <template>
@@ -270,6 +277,7 @@ function onIconClear(): void {
           variant="ghost"
           icon="i-lucide-arrow-up"
           data-test="tree-item-up"
+          :aria-label="`Move ${nameOf(item)} up`"
           @click="move(i, -1)"
         />
         <UButton
@@ -277,6 +285,7 @@ function onIconClear(): void {
           variant="ghost"
           icon="i-lucide-arrow-down"
           data-test="tree-item-down"
+          :aria-label="`Move ${nameOf(item)} down`"
           @click="move(i, 1)"
         />
         <UButton
@@ -284,6 +293,7 @@ function onIconClear(): void {
           variant="ghost"
           icon="i-lucide-indent-increase"
           data-test="tree-item-indent"
+          :aria-label="`Nest ${nameOf(item)} under the item above`"
           :disabled="!canIndent(i)"
           @click="indent(i)"
         />
@@ -293,6 +303,7 @@ function onIconClear(): void {
           variant="ghost"
           icon="i-lucide-indent-decrease"
           data-test="tree-item-outdent"
+          :aria-label="`Move ${nameOf(item)} out one level`"
           @click="emit('outdent', i)"
         />
         <UButton
@@ -301,6 +312,7 @@ function onIconClear(): void {
           variant="ghost"
           icon="i-lucide-trash-2"
           data-test="tree-item-remove"
+          :aria-label="`Remove ${nameOf(item)}`"
           @click="remove(i)"
         />
       </div>
