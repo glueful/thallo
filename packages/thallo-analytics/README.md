@@ -45,9 +45,8 @@ new Capability('thallo.analytics', label: 'Analytics', description: '…');
   Capabilities**. The switch is stored system-wide and overrides the deploy-time
   `thallo.capabilities` config map.
 - **Gated.** When disabled, the read API routes are never registered (`404`) and the pack's auth
-  listeners do not subscribe. The core bridge for content and collection events is wired by
-  `CoreServiceProvider`, which boots before this pack registers its capability, so it reads only the
-  deploy-time `thallo.capabilities` config map: an admin switch-off alone does not stop it.
+  listeners do not subscribe. The core bridge for content and collection events is always wired and
+  checks the same switch on every event, so it stops recording as soon as Analytics is off.
   Migrations run on install (not enable), so disabling preserves the tables.
 - **Permission.** The pack declares `analytics.read`; the host app grants it to `administrator` in its
   own dependent migration.

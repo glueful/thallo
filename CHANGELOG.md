@@ -23,6 +23,9 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **Analytics kept recording content and collection events after it was switched off in the
+  admin.** The event bridge read only the config file's capability map at boot. It now checks the
+  Extensions › Capabilities switch on every event.
 - **`LOG_RETENTION_DAYS` changed nothing.** The scheduled log cleanup reads its retention from
   `options.retention_days`; the shipped schedule passed `retentionDays`, so every site kept thirty
   days of logs whatever it set. The schedule now passes the key the job reads.
