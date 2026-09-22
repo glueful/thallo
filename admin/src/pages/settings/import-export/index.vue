@@ -29,6 +29,7 @@ import { useNotify } from '@/composables/useNotify'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import MarkdownFolderFields from './MarkdownFolderFields.vue'
 import { MARKDOWN_FOLDER, folderOptions, reportLines } from './markdownFolder'
+import { importerChoices } from './importerChoices'
 
 const caps = useCapabilitiesStore()
 caps.ensureLoaded()
@@ -68,18 +69,8 @@ async function onExport() {
 
 // ── Import ──────────────────────────────────────────────────────────────────
 const importAdapter = ref('')
-// Format-adapter keys belong to the thallo.importers pack; the core snapshot
-// importer (thallo.content) is always available regardless of the capability.
-const FORMAT_ADAPTER_KEYS = [
-  'csv.content',
-  'markdown.content',
-  'wordpress.content',
-  MARKDOWN_FOLDER,
-]
 const importerItems = computed(() =>
-  (adapters.value?.importers ?? [])
-    .filter((a) => caps.isEnabled('thallo.importers') || !FORMAT_ADAPTER_KEYS.includes(a.key))
-    .map((a) => ({ label: a.label, value: a.key })),
+  importerChoices(adapters.value?.importers ?? [], caps.isEnabled('thallo.importers')),
 )
 watchEffect(() => {
   if (!importAdapter.value && importerItems.value.length) {

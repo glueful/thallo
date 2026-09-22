@@ -42,8 +42,6 @@ the docs for the failed-job commands, the backup and `security:check`.
 - **The workspaces enablement screen gives no warning before its refusals.** Code. Enabling is
   refused with any data collection defined, and on a cache driver without pattern purge.
   (workspaces)
-- **`csv.users` shows on the Import page past the capability gate, with no mapping UI there.**
-  Code. A gated publish is counted as a failed record (Reported). (import-content)
 - **A block type's template cannot be created from the admin.** Code. The copy now says to put
   it in the theme's templates folder. A block-type migration locks the entries until a worker runs
   and the dialog does not say so (Reported). (make-a-block-type)
@@ -191,6 +189,8 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **`csv.users` showed on the Import page, and a publish held for review counted as a failed
+  record.** The users import is gone from that page; a held publish is a warning. Test.
 - **Pack blocks declared no `layout.item`.** All nine do now. Test.
 - **The scheduler check could not change the Health page's overall status.** The status now
   counts every check. Test.

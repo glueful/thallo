@@ -137,10 +137,9 @@ few seconds while anything is moving; **Refresh** at the top right forces it. A 
 A job stores at most 1,000 records of each severity — `error_cap_per_severity` in
 `config/import_export.php` — and counts the rest.
 
-One case reads oddly. With the approval workflow on, an entry the importer may not publish counts
-as a failed record although its draft was created: the row failed at the publish, not at the write.
-Leave **Publish imported entries** off and publish the drafts through the review queue. See
-[drafts, preview and publishing](../concepts/05-publishing.md).
+With the approval workflow on, an entry the importer may not publish is saved as a draft and
+reported as a warning, "Saved as a draft, not published", not as a failed record. Send the drafts
+through the review queue. See [drafts, preview and publishing](../concepts/05-publishing.md).
 
 ## Move a site with a content bundle
 

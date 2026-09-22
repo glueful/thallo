@@ -23,6 +23,12 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **An import whose publish waits for review reports a warning, not a failure.** With the approval
+  workflow on, a CSV, Markdown or WordPress row the importer could not publish was saved as a
+  draft but counted as a failed record, so retrying the job imported it again as a second draft. It
+  now counts as imported, with a "Saved as a draft, not published" warning.
+- **The users import no longer shows on Settings › Import / Export**, where it had no column
+  mapping and appeared even with the importers switched off. It lives under **Users › Import**.
 - **Shop and account blocks can be sized inside a Container.** The five shop blocks and four
   account blocks did not declare the item settings (basis, span, grow, shrink, align self), so they
   were the only blocks a layout could not size. `thallo:provision` updates existing block types.
