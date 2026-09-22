@@ -23,6 +23,13 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **Framework 1.86.2 is required (repinned).** Content webhooks now deliver, and a failed delivery
+  is retried on its own: they were recorded and never queued, and a scheduled retry never ran. Deleting a webhook deletes its delivery history (the dialog says so again), a
+  nightly `webhook_cleanup` job keeps delivery records to 7 days (delivered) and 30 (failed), and
+  **Send test event** refuses local and private addresses. Failed queue jobs can be listed and
+  retried (`queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`). The scheduled database
+  backup takes a real `pg_dump` (still off by default). `security:check` runs the checks it
+  reports. The docs cover each, and the documented worker line now takes the `webhooks` queue.
 - **The shipped config listed settings nothing reads.** The `sync` and `null` queue connections
   (no such drivers), the schedule's `settings` block, `queue_mapping` and each job's `queue`,
   `timeout` and `retry_attempts` (scheduled jobs run inline in the scheduler; **Run now** uses the
@@ -107,9 +114,19 @@ as the next release, never a mutated tag.
 ### Upgrade Notes
 - If your `.env` sets `RENDER_SITE_NAME` or `SEO_SITE_NAME`, put that name in Settings › General
   › Site name instead; both keys are no longer read.
-- **Turn the broken backup job off.** Your `config/schedule.php` is your own copy and still runs
-  `database_backup` whenever `APP_ENV=production`; it produces no dump. Set `DB_BACKUP_ENABLED=false`
-  in `.env` and take your own backups (docs/operations/04-backups.md).
+- **Decide on the backup job.** Your `config/schedule.php` is your own copy and runs
+  `database_backup` whenever `APP_ENV=production`. With framework 1.86 it takes a real `pg_dump`
+  (needs `pg_dump` on the scheduler host) and fails its job when it cannot. Keep it with
+  `DB_BACKUP_ENABLED=true`, or set it to `false` and take your own backups
+  (docs/operations/04-backups.md).
+- **Add `webhooks` to your queue worker**
+  (`--queue=default,webhooks,import-export,tenancy-maintenance`): content webhook deliveries wait
+  on that queue.
+- **Add the `webhook_cleanup` job to your `config/schedule.php`.** From framework 1.86 your schedule
+  list replaces the framework's whole, so the job runs only if it is listed; copy it from the
+  shipped `config/schedule.php`.
+- **Run `php glueful security:check`** after upgrading: it now runs real checks and can fail where
+  it passed.
 - **Drop settings nothing reads.** Your own `config/schedule.php`, `config/queue.php`,
   `config/extensions.php`, `config/api.php` and `.env` keep the dead keys listed under Fixed; they
   change nothing, so delete them when convenient. In `config/schedule.php`, give the
