@@ -23,6 +23,9 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **A scheduler that is not running turns the Health page's status to warning.** The overall
+  status was the framework's, taken before Thallo's scheduler check was added, so a site with no
+  cron entry read "ok" above a warning. It now counts every check.
 - **A workspace's owner and admin can publish without a review.** `workflow.bypass` was missing from
   the capability catalogue, so no workspace role could hold it, not even through a role override:
   with workspaces on, every publish needed a review. It is in the catalogue now, and the built-in

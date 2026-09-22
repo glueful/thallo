@@ -81,8 +81,6 @@ the docs for the failed-job commands, the backup and `security:check`.
 - **Pack blocks (five shop, four account) declare no `layout.item`.** Code. They lack the
   Container's basis, span, grow, shrink and align-self controls; the browser still sizes them,
   and some declare a width. (block-library)
-- **The scheduler check cannot change the Health page's overall status.** Code. It is appended
-  after the framework's overall status is taken. (troubleshooting)
 - **`import-export:cleanup` leaves completed exports on disk** (fixed on `glueful/import-export`'s
   `dev` branch, awaiting its next release). It unlinked only `tmp`-role files, which nothing
   records, then deleted every row. It now deletes a finished job's result and tmp files through
@@ -196,6 +194,8 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **The scheduler check could not change the Health page's overall status.** The status now
+  counts every check. Test.
 - **No workspace role could hold `workflow.bypass`** (not intended, decided 2026-09-22). It is in
   the catalogue, and the built-in `owner` and `admin` hold it. Test.
 - **`token` could not be saved from the field builder, and `box` was never offered.** The builder

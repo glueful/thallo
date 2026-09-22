@@ -65,9 +65,8 @@ its own status and message, and any issues, warnings and recommendations the che
 | config | `APP_KEY` and `JWT_KEY` are set and not the shipped placeholders, and `.env` exists | Error, listing each issue. In production it also folds in `APP_DEBUG` being on and keys shorter than 32 characters |
 | scheduler | How long ago the scheduler last ticked | Warning past five minutes, or when it has never ticked; the recommendation under the message is the cron line to add |
 
-The overall status is computed from the first four checks only. The scheduler check is added
-afterwards, so a site whose cron entry is missing still reports an overall status of ok: read the
-scheduler row itself. The config check's recommendations behave the same way — a wildcard
+The overall status counts every check, the scheduler's included: error when any check errs,
+warning when any warns. The config check's recommendations are different — a wildcard
 `CORS_ALLOWED_ORIGINS`, an empty `CSP_HEADER`, no `HSTS_HEADER`, `LOG_LEVEL=debug` — they are
 listed but never change the status.
 
