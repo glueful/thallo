@@ -189,6 +189,37 @@ final class QueryCompilerTest extends CollectionsTestCase
     }
 
     /**
+     * like matches whatever the value's case, and takes a `%` or `_` in it as that character —
+     * the same rule as every other text search in Thallo.
+     */
+    public function testLikeFilterIgnoresCaseAndTakesWildcardsLiterally(): void
+    {
+        $this->connection()->table($this->def->tableName)->insert([
+            'uuid' => 'qct-uuid-0005',
+            'title' => '50%_off',
+            'score' => 1,
+            'body' => null,
+            'tags' => null,
+            'status' => null,
+            'created_at' => '2024-01-01 00:00:00',
+            'updated_at' => '2024-01-01 00:00:00',
+            'created_by_type' => null,
+            'created_by_id' => null,
+            'updated_by_type' => null,
+            'updated_by_id' => null,
+        ]);
+
+        $lower = $this->compiler()->list($this->def, ['filter' => ['title' => ['like' => 'alpha']]]);
+        self::assertSame(2, $lower->total);
+
+        $wildcards = $this->compiler()->list($this->def, ['filter' => ['title' => ['like' => '50%_']]]);
+        self::assertSame(['50%_off'], array_column($wildcards->data, 'title'));
+
+        $literalUnderscore = $this->compiler()->list($this->def, ['filter' => ['title' => ['like' => 'a_pha']]]);
+        self::assertSame(0, $literalUnderscore->total);
+    }
+
+    /**
      * gt filter (score > 10) returns rows with score 20 and 30.
      */
     public function testGtFilterReturnsMatchingRows(): void

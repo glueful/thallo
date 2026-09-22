@@ -19,9 +19,7 @@ waited on a release has shipped, and Thallo's follow-ups are done (see Fixed).
 
 ## Bugs in Thallo
 
-- **Collections' `filter[field][like]` is case-sensitive on PostgreSQL and treats `%` and `_` as
-  wildcards.** It is part of the public collections API, so switching it to `whereContains()`
-  changes a contract: decide, then document. Code.
+None open. Every bug this list carried is under **Fixed**, with its test.
 
 ## Things a reader cannot do, or is not told
 
@@ -86,6 +84,9 @@ Kept for the record; each is in the CHANGELOG.
   files through their disk (1.2.1, backups page updated); customer reset mail uses its own
   template (users 2.5); plan prices and Stripe plan changes (subscriptions 2.4, payvia 2.9);
   unconfigured mail reports itself (framework 1.87).
+- **A collection's `like` filter matched case and read `%`/`_` as wildcards** (decided
+  2026-09-22: one text-search rule). It uses `whereContains()`; the change is in the upgrade
+  notes and the content-model page. Test.
 - **Media, all four:** search folds case and matches literally (`whereContains()`; API key search
   too); deleted files are purged after 30 days (`blob_purge` scheduled); optimized images'
   variants follow the file; `UPLOADS_STRIP_EXIF` is read and strips metadata by default. Docs

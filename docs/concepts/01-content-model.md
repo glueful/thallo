@@ -165,5 +165,9 @@ table with a generated CRUD API, no publishing and no URLs. Reach for one when y
 are queried rather than read. Collections are a [capability](06-capabilities.md), under
 **Collections** in the sidebar.
 
+A collection's rows are queried with the same bracket filters as the delivery API, plus
+`filter[field][like]=term` for text: it matches a row whose field contains the term, whatever the
+case, and a `%` or `_` in the term is matched as that character rather than as a wildcard.
+
 Next: [blocks and block types](02-blocks.md), which is what a `blocks` field holds, or
 [model your own content](../getting-started/04-first-content-type.md) to build a type of your own.

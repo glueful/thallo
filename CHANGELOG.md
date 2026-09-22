@@ -77,6 +77,9 @@ as the next release, never a mutated tag.
   without history, site-wide SEO fallbacks and more.
 
 ### Fixed
+- **A collection's `like` filter matched case on PostgreSQL** and read a `%` or `_` in the term as
+  a wildcard. It matches whatever the case, and takes both characters literally, like every other
+  text search in Thallo. Test.
 - **Media and API key search matched case on PostgreSQL**, though the API key filter promised
   otherwise, and read `%` and `_` as wildcards. Both use the framework's case-folding, literal
   `whereContains()`. Test.
@@ -308,6 +311,9 @@ as the next release, never a mutated tag.
   already fallen behind the extension. The default theme's `menus` key, which nothing read, is gone.
 
 ### Upgrade Notes
+- **A collection's `filter[field][like]` changed.** It ignores case now (it was case-sensitive on
+  PostgreSQL), and a `%` or `_` in the term matches that character instead of acting as a
+  wildcard. A client that relied on either gets more rows, or fewer.
 - **Thallo now requires glueful/framework 1.87, glueful/meilisearch 2.0, glueful/subscriptions
   2.4, glueful/payvia 2.9, glueful/users 2.5 and glueful/import-export 1.2.1.** Run
   `composer update`, then `php glueful migrate:run` for the plan price columns.
