@@ -19,6 +19,14 @@ vi.mock('@/queries/contentTypes', () => ({
   }),
   validateContentTypeFields: () => null,
 }))
+const generalData = ref<{ listing_types: string[] } | undefined>(undefined)
+const saveGeneralMock = vi.fn()
+vi.mock('@/queries/generalSettings', () => ({
+  useGeneralSettings: () => ({ data: generalData }),
+  useGeneralSettingsMutations: () => ({
+    save: { mutateAsync: saveGeneralMock, isLoading: ref(false) },
+  }),
+}))
 vi.mock('@/composables/useNotify', () => ({
   useNotify: () => ({ success: notify.success, error: notify.error }),
 }))
@@ -68,8 +76,31 @@ describe('content-type editor toggles', () => {
     setActivePinia(createPinia())
     typeData.value = pagesType()
     updateMetaMock.mockReset()
+    saveGeneralMock.mockReset().mockResolvedValue({})
+    generalData.value = { listing_types: ['posts'] }
     notify.success.mockClear()
     notify.error.mockClear()
+  })
+
+  it('turns the listing page on by adding the slug to the listing types', async () => {
+    const wrapper = mountEditor()
+    await flushPromises()
+
+    await wrapper.find('[data-test="listing-toggle"]').trigger('click')
+    await flushPromises()
+
+    expect(saveGeneralMock).toHaveBeenCalledWith({ listing_types: ['posts', 'pages'] })
+  })
+
+  it('turns the listing page off by removing only this slug', async () => {
+    generalData.value = { listing_types: ['posts', 'pages'] }
+    const wrapper = mountEditor()
+    await flushPromises()
+
+    await wrapper.find('[data-test="listing-toggle"]').trigger('click')
+    await flushPromises()
+
+    expect(saveGeneralMock).toHaveBeenCalledWith({ listing_types: ['posts'] })
   })
 
   it('PATCHes mount_at_root when the toggle flips', async () => {

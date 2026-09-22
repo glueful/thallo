@@ -90,11 +90,12 @@ Go back with the arrow and add a second entry the same way. The list shows both,
 ## Turn the listing on
 
 An entry page works the moment the entry is published. A type's index page does not: it is off
-until you name the type. Go to **Settings › General**, find **Public listings**, add **Events** to
-**Listing types**, and press **Save**.
+until you turn it on. Go to **Settings › Content Types**, open **Events**, and switch **Listing
+page** on. The same list lives under **Settings › General › Public listings › Listing types**, and
+either place changes it.
 
 `/events` now serves the type's published entries, ten to a page, with page two at
-`/events/page/2`. Without the setting, `/events` is a 404 while `/events/<slug>` still works.
+`/events/page/2`, under the heading **Events**. Without the setting, `/events` is a 404 while `/events/<slug>` still works.
 
 The same setting turns on term archives at `/events/<field>/<term>`, for any `reference` field
 that is **Filterable**. The starter **Posts** type has one: list **Posts** too and

@@ -178,8 +178,8 @@ adds `preview_revision`.
 |---|---|
 | `index.twig` | `entry` and `seo`, when a homepage entry is configured. |
 | `entry.twig`, `entry/{type}.twig` | `entry`, `type` (the content type's slug) and `seo`. |
-| `listing.twig`, `listing/{type}.twig` | `items`, `pagination`, `type`. |
-| `archive.twig`, `archive/{type}.twig` | `items`, `pagination`, `type`, plus `term` (the term's own entry) and `field`. |
+| `listing.twig`, `listing/{type}.twig` | `items`, `pagination`, `type`, `type_name`. |
+| `archive.twig`, `archive/{type}.twig` | `items`, `pagination`, `type`, `type_name`, plus `term` (the term's own entry) and `field`. |
 | `terms.twig`, `terms/{type}.twig` | `terms` (`uuid`, `slug`, `count`, `href` each), `type`, `field`. |
 | `404.twig`, `error.twig` | Nothing beyond the shared variables. |
 | `blocks/{type}.twig` | `data`, the block's fields; `block`, with `id`, `type`, `data` and `settings`; `index`, its place in the list; `region_slug`, set when the block is in a region; and the caller's `entry`, `site` and `current_path`. |
@@ -187,7 +187,8 @@ adds `preview_revision`.
 
 `entry` is `uuid`, `locale`, `version`, `published_at` and `fields`. An item of `items` is the
 same, plus `href`. `pagination` is `page`, `per_page`, `total`, `total_pages`, `prev_path` and
-`next_path`; the paths are built for you, so a template never assembles a page URL. `seo` is
+`next_path`; the paths are built for you, so a template never assembles a page URL. `type` is the
+content type's slug and `type_name` its name, the one to print in a heading. `seo` is
 `title`, `description`, `canonical`, `alternates`, `x_default`, `og`, `twitter_card` and
 `robots` — `seo_head()` turns it into tags.
 

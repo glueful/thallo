@@ -92,8 +92,8 @@ From a slug, the site builds:
 | `/{type}/terms/{field}` | The index of terms for `{field}`. |
 | `/{locale}/…` | Any of the above, in a non-default locale. |
 
-Only the types chosen under **Settings › General › Listing types** get the listing and archive
-URLs. Everything else serves entry pages alone.
+Only the types whose **Listing page** is on (the switch on the content type, or **Settings ›
+General › Listing types**) get the listing and archive URLs. Everything else serves entry pages alone.
 
 Change an entry's slug and Thallo writes a 301 from the old one to the entry, so the old URL keeps
 working. Claiming a slug clears any redirect that pointed away from it. These automatic redirects

@@ -54,8 +54,12 @@ as the next release, never a mutated tag.
   for scripts.
 - **`thallo:blocks:list` and `thallo:capabilities`.** A shell can list the block types, and list
   capabilities and turn one on or off under the admin's rules.
+- **A content type turns its own listing page on.** A **Listing page** switch on the content type
+  edits the same list as Settings › General › Listing types.
 
 ### Fixed
+- **A listing page's heading printed the type's slug.** It prints the name; templates get
+  `type_name`. Test.
 - **Ken Burns never stopped.** A drift runs there and back once and rests, and holds still under
   the pointer or keyboard focus, so a moving background can be stopped (WCAG 2.2.2). Test.
 - **A starter page gave the page two headings.** Inserting one hides the theme's page title, since
