@@ -67,19 +67,20 @@ Drag a row by its handle, or use the up and down arrows. The indent button nests
 row above it; the outdent button, which appears only on a nested row, lifts it back out. Dragging
 works between levels as well, except into a row's own children.
 
-A menu holds at most 500 items and nests at most six deep. The default theme renders three of
-those levels: a top-level item, its children and their children. A **dropdown** submenu flattens
-children and grandchildren into one panel; a **columns** submenu gives each child a column of its
-own children. Items deeper than that are stored but not drawn.
+A menu holds at most 500 items and nests at most six deep; the indent button is off, and a drag
+refused, where a row would go deeper. The default theme renders three of those levels: a top-level
+item, its children and their children. A **dropdown** submenu flattens children and grandchildren
+into one panel; a **columns** submenu gives each child a column of its own children. Items deeper
+than that are stored but not drawn, and the editor marks each one with its level.
 
 ## Save
 
 Press **Save**. The whole tree is written in one go and every cached page is discarded, so the
 site shows the new menu at once.
 
-If somebody else saved the same menu while you had it open, your write is refused, theirs is
-loaded in its place, and the admin says "The menu changed since you loaded it — reloaded the
-latest version". Your unsaved edits are gone: make them again on the tree in front of you.
+If somebody else saved the same menu while you had it open, your write is refused and the editor
+says so, with your changes still on screen. **Load the latest** drops them and shows their
+version; **Save mine over it** writes yours in its place.
 
 ## Show the menu in the header
 

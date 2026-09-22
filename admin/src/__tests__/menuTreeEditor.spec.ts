@@ -186,4 +186,25 @@ describe('MenuTreeEditor', () => {
     expect(items.map((i) => i.url)).toEqual(['/b', '/a'])
     expect(wrapper.emitted('changed')).toBeTruthy()
   })
+
+  it('stops indenting at the six levels the server accepts', () => {
+    const lastIndent = (items: NavTreeItem[]) => {
+      const buttons = mountEditor(items).findAll('[data-test="tree-item-indent"]')
+      return buttons[buttons.length - 1]!
+    }
+    // 'b' sits at level 5: indenting it under 'a' makes level 6, which is allowed.
+    const five = url('l1', [url('l2', [url('l3', [url('l4', [url('a'), url('b')])])])])
+    expect(lastIndent([five]).attributes('disabled')).toBeUndefined()
+
+    // 'b' sits at level 6: a seventh level would be refused on save, so the button is off.
+    const six = url('l1', [url('l2', [url('l3', [url('l4', [url('l5', [url('a'), url('b')])])])])])
+    expect(lastIndent([six]).attributes('disabled')).toBeDefined()
+  })
+
+  it('marks items deeper than the three levels the default theme draws', () => {
+    const tree = url('l1', [url('l2', [url('l3', [url('l4')])])])
+    const wrapper = mountEditor([tree])
+
+    expect(wrapper.findAll('[data-test="tree-item-too-deep"]')).toHaveLength(1)
+  })
 })

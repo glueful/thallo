@@ -240,6 +240,26 @@ async function confirmDelete(): Promise<void> {
   deleteOpen.value = false
 }
 
+// Someone else saved the menu after it was loaded. The unsaved tree stays on screen until the
+// editor chooses: load the latest (dropping the edits) or save these edits over it.
+const conflict = ref(false)
+watch(selected, () => {
+  conflict.value = false
+})
+
+async function discardAndReload(): Promise<void> {
+  conflict.value = false
+  dirty.value = false
+  await refetch()
+}
+
+async function saveOverLatest(): Promise<void> {
+  conflict.value = false
+  // While dirty, a refetch keeps the working tree and brings the latest lock version.
+  await refetch()
+  await save()
+}
+
 async function save(): Promise<void> {
   if (!detail.value) return
   try {
@@ -253,10 +273,7 @@ async function save(): Promise<void> {
     success('Menu saved')
   } catch (e) {
     if (e instanceof ApiError && e.status === 409) {
-      // Someone else changed the menu since we loaded it: drop local edits and reload.
-      dirty.value = false
-      await refetch()
-      notifyError(e, 'The menu changed since you loaded it — reloaded the latest version')
+      conflict.value = true
       return
     }
     notifyError(e, 'Couldn’t save the menu')
@@ -425,6 +442,34 @@ async function save(): Promise<void> {
               </div>
             </div>
 
+            <UAlert
+              v-if="conflict"
+              class="mb-3"
+              color="warning"
+              variant="subtle"
+              icon="i-lucide-git-compare"
+              title="Someone else saved this menu after you opened it"
+              description="Your changes are still here. Load their version to start again from it, or save yours over it."
+              data-test="nav-conflict"
+            >
+              <template #actions>
+                <UButton
+                  label="Load the latest"
+                  color="neutral"
+                  variant="outline"
+                  size="sm"
+                  data-test="nav-conflict-discard"
+                  @click="discardAndReload"
+                />
+                <UButton
+                  label="Save mine over it"
+                  color="warning"
+                  size="sm"
+                  data-test="nav-conflict-overwrite"
+                  @click="saveOverLatest"
+                />
+              </template>
+            </UAlert>
             <MenuTreeEditor :items="working" :locale="locale || 'en'" @changed="dirty = true" />
 
             <div class="mt-4 flex items-center gap-3">

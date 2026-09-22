@@ -23,6 +23,10 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **A menu conflict keeps your edits.** When someone else saved the menu first, the editor threw
+  away the unsaved tree and reloaded. It now keeps it on screen and offers **Load the latest** or
+  **Save mine over it**. The editor also stops nesting at the six levels a save accepts, and marks
+  items deeper than the three levels the default theme draws.
 - **An API key's scopes can be changed after it is created.** The detail pane showed them
   read-only though the endpoint existed; **Edit** beside **Scopes** now changes them in place.
 - **A failed workspace enablement can be resumed or abandoned from the terminal.**

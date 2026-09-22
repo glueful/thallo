@@ -34,9 +34,6 @@ the docs for the failed-job commands, the backup and `security:check`.
 
 ### Admin
 
-- **Navigation: the editor allows six levels, the default theme draws three.** Code. Deeper items
-  are stored and served and never shown. A 409 on save clears the unsaved tree and refetches.
-  (navigation)
 - **The workspaces enablement screen gives no warning before its refusals.** Code. Enabling is
   refused with any data collection defined, and on a cache driver without pattern purge.
   (workspaces)
@@ -181,6 +178,8 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **Navigation depth and the 409 that lost edits.** The editor stops at six levels, marks items
+  past the theme's three, and keeps the tree on a conflict. Test.
 - **API key scopes could not be edited after creation.** The detail pane edits them. Test.
 - **Enabling workspaces from a terminal had no way out of `failed`.** `--retry` and `--cancel`;
   `--owner` takes an email; `thallo:create-admin` prints the uuid. Test.

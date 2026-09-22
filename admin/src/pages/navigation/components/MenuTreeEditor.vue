@@ -7,11 +7,31 @@ import type { NavTreeItem, NavTargetStatus } from '@/queries/navigation'
 // the working tree as a reactive clone) and bubbles `changed`. Outdent is handled by the
 // PARENT level (which owns both arrays): a child level emits `outdent(childIndex)` and the
 // parent splices the item out of the child array into its own, after the holding item.
-const props = defineProps<{
-  items: NavTreeItem[]
-  locale: string
-  canOutdent?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    items: NavTreeItem[]
+    locale: string
+    canOutdent?: boolean
+    /** This level's depth: 1 for the top of the menu. */
+    depth?: number
+  }>(),
+  { canOutdent: false, depth: 1 },
+)
+
+// The server refuses a tree deeper than this (MenuTreeDTO::MAX_DEPTH).
+const MAX_DEPTH = 6
+// The default theme's navigation draws this many levels; deeper items are saved but not shown.
+const THEME_DEPTH = 3
+
+/** Levels an item's subtree spans, itself included. */
+function height(item: NavTreeItem): number {
+  return 1 + Math.max(0, ...item.children.map(height))
+}
+
+/** Indenting nests the item one level down, under its previous sibling. */
+function canIndent(index: number): boolean {
+  return index > 0 && props.depth + height(props.items[index]!) <= MAX_DEPTH
+}
 const emit = defineEmits<{ changed: []; outdent: [index: number] }>()
 
 const STATUS_COLOR: Record<NavTargetStatus, 'success' | 'warning' | 'error' | 'neutral' | 'info'> =
@@ -61,7 +81,11 @@ const list = computed<NavTreeItem[]>({
 // Reject dropping an item into its own subtree (would detach a cycle). Sortable's move
 // event carries the dragged element and the destination list element.
 function onMove(e: { dragged: HTMLElement; to: HTMLElement }): boolean {
-  return !e.dragged.contains(e.to)
+  if (e.dragged.contains(e.to)) return false
+  // Nor past the depth the server accepts.
+  const depth = Number(e.to.dataset.depth ?? 1)
+  const span = Number(e.dragged.dataset.height ?? 1)
+  return depth + span - 1 <= MAX_DEPTH
 }
 
 // Exposed for tests: `onMove` (guard) and `list` (the drag-commit setter).
@@ -69,7 +93,7 @@ defineExpose({ onMove, list })
 
 /** Indent: nest under the previous sibling. */
 function indent(index: number): void {
-  if (index === 0) return
+  if (!canIndent(index)) return
   const [item] = props.items.splice(index, 1)
   props.items[index - 1]!.children.push(item!)
   changed()
@@ -132,8 +156,14 @@ function onIconClear(): void {
     class="space-y-2"
     :class="{ 'min-h-8 rounded border border-dashed border-default': items.length === 0 }"
     data-test="tree-children"
+    :data-depth="depth"
   >
-    <li v-for="(item, i) in items" :key="item.uuid ?? `new-${i}`" data-test="tree-item">
+    <li
+      v-for="(item, i) in items"
+      :key="item.uuid ?? `new-${i}`"
+      data-test="tree-item"
+      :data-height="height(item)"
+    >
       <div class="border-default flex flex-wrap items-center gap-2 rounded border p-2">
         <UButton
           size="xs"
@@ -226,6 +256,14 @@ function onIconClear(): void {
           />
         </div>
 
+        <UBadge
+          v-if="depth > THEME_DEPTH"
+          color="warning"
+          variant="subtle"
+          data-test="tree-item-too-deep"
+        >
+          Level {{ depth }}: the default theme draws three
+        </UBadge>
         <span class="grow" />
         <UButton
           size="xs"
@@ -246,6 +284,7 @@ function onIconClear(): void {
           variant="ghost"
           icon="i-lucide-indent-increase"
           data-test="tree-item-indent"
+          :disabled="!canIndent(i)"
           @click="indent(i)"
         />
         <UButton
@@ -268,10 +307,11 @@ function onIconClear(): void {
 
       <!-- Children ALWAYS render as a droppable level (empty → a thin dashed strip via the
            child level's own tree-children class), so an item can receive children by drag. -->
-      <div class="border-default mt-2 ml-6 border-l pl-3">
+      <div v-if="depth < MAX_DEPTH" class="border-default mt-2 ml-6 border-l pl-3">
         <MenuTreeEditor
           :items="item.children"
           :locale="locale"
+          :depth="depth + 1"
           :can-outdent="true"
           @changed="changed()"
           @outdent="(childIndex: number) => outdentChild(i, childIndex)"
