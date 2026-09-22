@@ -23,6 +23,10 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **"Used in" counts images placed inside blocks.** The media library's list of entries using a
+  file read an entry's top-level asset fields only, so an image in an Image, Hero or Gallery block
+  was never counted and could look safe to delete. Block images count now, however deeply nested.
+  `php glueful thallo:media:rebuild-usage` recomputes the list for content saved before.
 - **The media panel's File URL is a web address.** It showed the file's storage path, which no
   browser can open. It shows the address the file is served at, and for a private file the signed
   link, labelled as one that expires.
@@ -208,6 +212,8 @@ as the next release, never a mutated tag.
   already fallen behind the extension. The default theme's `menus` key, which nothing read, is gone.
 
 ### Upgrade Notes
+- **Run `php glueful thallo:media:rebuild-usage` once** so the media library's **Used in** lists
+  include images already placed inside blocks.
 - **Add `'workflow.bypass'` to the `owner` and `admin` lists in your `config/tenancy.php`** if you
   run workspaces: that file is your own copy, and a new install's copy lists it.
 - **Delete `config/payvia.php` unless you edited it.** An existing site keeps its copy, and it

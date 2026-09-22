@@ -125,10 +125,11 @@ deleted and the bytes stay on the disk. The library stops listing the file, `/v1
 answers 404, and there is no undo in the admin. The deletion is recorded under
 **Users & Access › Audit Log**.
 
-Before you delete, read the panel's **Used in** list. It names the entries that point at the
-file through an asset field, with each one's status. It is built from asset fields only — an
-image placed in a page's body through a block is not counted — so read it as a floor, not as a
-guarantee.
+Before you delete, read the panel's **Used in** list. It names the entries whose drafts point at
+the file, through an asset field or a block inside one (an Image block in a page's body, say),
+with each one's status. Header, footer and settings images, such as the site logo, are not
+entries and are not listed. On a site upgraded from a release that did not count block images,
+run `php glueful thallo:media:rebuild-usage` once to fill the list in.
 
 A page that used a deleted file still renders. The theme resolves the image first and skips the
 element when it cannot, so the picture goes and everything around it stays.

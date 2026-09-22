@@ -181,6 +181,17 @@ $ php glueful thallo:policy:manifest --export > policy.json
 
 ## Content
 
+### thallo:media:rebuild-usage
+
+Recompute the media library's **Used in** lists from every entry's drafts, counting images in
+asset fields and in the blocks inside them. It adds what is missing and removes what no draft
+references. **Writes.** Safe to re-run; run it once after upgrading from a release that did not
+count images inside blocks.
+
+```bash
+$ php glueful thallo:media:rebuild-usage
+```
+
 ### thallo:resync
 
 Re-drive the publishing pipeline for published content: the published-reference projection, the
