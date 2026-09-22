@@ -104,7 +104,8 @@ final class FormNotifierTest extends TestCase
         $service->method('send')->willReturnCallback(
             function (string $type, Notifiable $to, string $subject, array $data, array $options) use (&$calls): array {
                 $calls[] = [$type, $to->routeNotificationFor('email'), $subject, $data, $options];
-                return ['status' => 'success', 'channels' => ['email' => ['status' => 'success']]];
+                // NotificationService::send()'s real answer: channel detail sits under `sync`.
+                return ['status' => 'success', 'sync' => ['channels' => ['email' => ['status' => 'success']]]];
             },
         );
         (new NotificationFormMailSender($service))->send('owner@site.test', 'New Contact submission', "Name: Ada");
@@ -115,7 +116,10 @@ final class FormNotifierTest extends TestCase
         self::assertSame(['email'], $calls[0][4]['channels']);
 
         $failing = $this->createMock(NotificationService::class);
-        $failing->method('send')->willReturn(['status' => 'failed', 'channels' => ['email' => ['status' => 'failed']]]);
+        $failing->method('send')->willReturn([
+            'status' => 'failed',
+            'sync' => ['channels' => ['email' => ['status' => 'failed']]],
+        ]);
         $this->expectException(\RuntimeException::class);
         (new NotificationFormMailSender($failing))->send('owner@site.test', 's', 'b');
     }

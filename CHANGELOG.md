@@ -45,6 +45,10 @@ as the next release, never a mutated tag.
   and signs every other device out. New contract: `StorefrontAccountProfile`.
 
 ### Fixed
+- **Signup and form notification mail was reported undelivered after it was sent.** Both read the
+  notification service's answer in a shape it has not used since framework 1.42, so every
+  successful send counted as a failure. A registering customer got a code for a signup that had
+  already been thrown away, and workspace signup answered 503. Test.
 - **One default language.** The default language in Settings › Languages, the default locale in
   Settings › General and `config/i18n.php` could each say something different, and most of the site
   read the config value. The default language is the only one now: Settings › General shows and
