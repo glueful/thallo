@@ -84,8 +84,7 @@ A missing feature is not a regression. These are product decisions to make, or t
 
 ### Design and themes
 
-- **`skeleton/themes/` ships empty**, with no README or starter. There is no way to inherit the
-  default theme's CSS. The Appearance preview needs a homepage entry, and `theme_neutral` offers
+- **A theme cannot inherit the default theme's CSS**, only its templates. The Appearance preview needs a homepage entry, and `theme_neutral` offers
   five families.
 - **A block type made in the admin gets exactly one style target** (by design). Whether anything
   warns before deactivation is unchecked.
@@ -150,6 +149,8 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **`skeleton/themes/` shipped empty.** A README with the clone command as the starter, and what
+  falls back.
 - **A style class job's id was nowhere in the admin, and a failed job could not be retried.** The
   card shows the id and offers Run again. Test.
 - **Deleting a menu gave no warning, and tree buttons had no names.** The confirmation lists where

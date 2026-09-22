@@ -69,6 +69,8 @@ as the next release, never a mutated tag.
 - **A style class job shows its id and can be run again.** The Everywhere card prints the job id
   (with the `thallo:style-classes:run-job` command while it runs) and offers **Run again** on a
   failed job.
+- **A new site's `themes/` says how to start a theme.** Its README gives the clone command, what a
+  theme holds, and what falls back to the default theme (templates) and what does not (CSS).
 
 ### Fixed
 - **`site.locales` was always empty.** It lists the enabled languages' codes. Test.
