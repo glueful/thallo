@@ -21,6 +21,12 @@ import {
   type UpdatePlanInput,
 } from '@/queries/subscriptionsBilling'
 import { toApiError } from '@/api/errors'
+import {
+  BILLING_INTERVALS,
+  fromMinorUnits,
+  toMinorUnits,
+  type BillingInterval,
+} from '@/utils/planPrice'
 import { useNotify } from '@/composables/useNotify'
 
 const props = defineProps<{
@@ -76,6 +82,9 @@ interface FormState {
   providerPriceId: string
   status: PlanStatus
   sortOrderInput: string
+  priceInput: string
+  currency: string
+  interval: BillingInterval
 }
 
 function blankState(): FormState {
@@ -86,6 +95,9 @@ function blankState(): FormState {
     providerPriceId: '',
     status: 'draft',
     sortOrderInput: '0',
+    priceInput: '',
+    currency: 'USD',
+    interval: 'month',
   }
 }
 
@@ -97,6 +109,10 @@ function stateFromPlan(p: SubscriptionPlan): FormState {
     providerPriceId: p.provider_price_id ?? '',
     status: p.status,
     sortOrderInput: String(p.sort_order),
+    priceInput:
+      p.price_amount == null ? '' : fromMinorUnits(p.price_amount, p.price_currency ?? 'USD'),
+    currency: p.price_currency ?? 'USD',
+    interval: (p.billing_interval as BillingInterval | null) ?? 'month',
   }
 }
 
@@ -154,9 +170,34 @@ function buildProviderIdentifiers(): ProviderIdentifiers | null {
 const planKeyError = ref<string | null>(null)
 const displayNameError = ref<string | null>(null)
 const sortOrderError = ref<string | null>(null)
+const priceError = ref<string | null>(null)
+const INTERVAL_ITEMS = BILLING_INTERVALS.map((i) => ({ label: `per ${i}`, value: i }))
+
+/** The display price to send: all three fields, or all null when the price is left empty. */
+function buildPrice(): {
+  price_amount: number | null
+  price_currency: string | null
+  billing_interval: string | null
+} | null {
+  if (state.priceInput.trim() === '') {
+    return { price_amount: null, price_currency: null, billing_interval: null }
+  }
+  const currency = state.currency.trim().toUpperCase()
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    priceError.value = 'Currency must be a three-letter code, such as USD.'
+    return null
+  }
+  const amount = toMinorUnits(state.priceInput, currency)
+  if (amount === null) {
+    priceError.value = 'Price must be a number, such as 19 or 19.99.'
+    return null
+  }
+  return { price_amount: amount, price_currency: currency, billing_interval: state.interval }
+}
 const submitError = ref<string | null>(null)
 
 function resetErrors() {
+  priceError.value = null
   planKeyError.value = null
   displayNameError.value = null
   sortOrderError.value = null
@@ -227,13 +268,15 @@ async function submit() {
 
   const entitlements = buildEntitlements()
   const providerIdentifiers = entitlements === null ? null : buildProviderIdentifiers()
+  const price = buildPrice()
 
   if (
     planKeyError.value !== null ||
     displayNameError.value !== null ||
     sortOrderError.value !== null ||
     entitlements === null ||
-    providerIdentifiers === null
+    providerIdentifiers === null ||
+    price === null
   ) {
     return
   }
@@ -249,6 +292,7 @@ async function submit() {
         provider_identifiers: providerIdentifiers,
         status: state.status,
         sort_order: sortOrder,
+        ...price,
       }
       await update.mutateAsync({ planKey: editing.value.plan_key, input: payload })
       success('Plan saved', `“${payload.display_name}” was updated.`)
@@ -263,6 +307,7 @@ async function submit() {
         provider_identifiers: providerIdentifiers,
         status: state.status,
         sort_order: sortOrder,
+        ...price,
       }
       await create.mutateAsync(payload)
       success('Plan created', `“${payload.display_name}” is ready.`)
@@ -326,6 +371,36 @@ async function submit() {
             class="w-full"
             data-test="plan-status-input"
           />
+        </UFormField>
+
+        <UFormField
+          label="Price"
+          name="price"
+          help="Shown on the plan picker; the payment gateway decides the charge. Leave empty for none."
+          :error="priceError ?? undefined"
+        >
+          <div class="flex gap-2">
+            <UInput
+              v-model="state.priceInput"
+              placeholder="19.99"
+              class="min-w-0 flex-1"
+              data-test="plan-price-input"
+            />
+            <UInput
+              v-model="state.currency"
+              maxlength="3"
+              class="w-20"
+              aria-label="Currency"
+              data-test="plan-currency-input"
+            />
+            <USelect
+              v-model="state.interval"
+              :items="INTERVAL_ITEMS"
+              class="w-32"
+              aria-label="Billing interval"
+              data-test="plan-interval-input"
+            />
+          </div>
         </UFormField>
 
         <UFormField label="Provider price ID" name="providerPriceId" help="Optional.">

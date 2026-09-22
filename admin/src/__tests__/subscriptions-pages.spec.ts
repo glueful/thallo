@@ -128,6 +128,9 @@ function plan(overrides: Partial<SubscriptionPlan> = {}): SubscriptionPlan {
     description: null,
     entitlements: {},
     provider_price_id: null,
+    price_amount: null,
+    price_currency: null,
+    billing_interval: null,
     provider_identifiers: {},
     status: 'active',
     sort_order: 0,
@@ -270,6 +273,28 @@ describe('subscriptions/plans page', () => {
         display_name: 'Growth',
         status: 'draft',
         entitlements: {},
+      }),
+    )
+  })
+
+  it('sends a display price in minor units, and none when the price is left empty', async () => {
+    const wrapper = mountPage(PlansIndex)
+    await flushPromises()
+    await wrapper.find('[data-test="new-plan"]').trigger('click')
+    await flushPromises()
+    const editor = wrapper.findComponent(PlanEditor)
+    await editor.find('[data-test="plan-key-input"]').setValue('growth')
+    await editor.find('[data-test="plan-display-name-input"]').setValue('Growth')
+    await editor.find('[data-test="plan-price-input"]').setValue('19.99')
+    await editor.find('[data-test="plan-currency-input"]').setValue('usd')
+    await editor.find('#plan-form').trigger('submit')
+    await flushPromises()
+
+    expect(createPlanMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        price_amount: 1999,
+        price_currency: 'USD',
+        billing_interval: 'month',
       }),
     )
   })

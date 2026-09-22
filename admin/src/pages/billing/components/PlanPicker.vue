@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Task 19 (Phase C, spec §5.3): the "no subscription yet" state -- lists the active gateway's
-// `purchasable_plans` (plan_key + name only, no prices -- `SelfBillingController::meta()` never
-// returns pricing) and lets the workspace start a checkout. Purely presentational: the parent
+// `purchasable_plans` (name, and the display price when the plan has one) and lets the workspace
+// start a checkout. Purely presentational: the parent
 // page owns the checkout mutation, the idempotency token, and the resulting redirect/poll -- this
 // component only emits the chosen `plan_key`.
 //
@@ -12,6 +12,7 @@
 // render is the correct outcome, never a silent fallback to "no selection".
 import { computed, ref, watch } from 'vue'
 import type { WorkspacePurchasablePlan } from '@/queries/workspaceBilling'
+import { planChoiceLabel } from '@/utils/planPrice'
 
 const props = defineProps<{
   plans: WorkspacePurchasablePlan[]
@@ -41,7 +42,9 @@ watch(
   { immediate: true },
 )
 
-const items = computed(() => props.plans.map((p) => ({ label: p.name, value: p.plan_key })))
+const items = computed(() =>
+  props.plans.map((p) => ({ label: planChoiceLabel(p), value: p.plan_key })),
+)
 
 function submit() {
   const key = selected.value.trim()

@@ -42,6 +42,10 @@ export interface WorkspaceLiveOrigination {
 export interface WorkspacePurchasablePlan {
   plan_key: string
   name: string
+  /** Display price (minor units, currency, interval); absent or null without one. */
+  price_amount?: number | null
+  price_currency?: string | null
+  billing_interval?: string | null
 }
 
 export interface WorkspaceBillingMeta {

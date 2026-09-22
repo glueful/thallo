@@ -121,6 +121,10 @@ export interface SubscriptionPlan {
   provider_identifiers: ProviderIdentifiers
   status: PlanStatus
   sort_order: number
+  /** Display price in minor units, with its currency and interval; all null without a price. */
+  price_amount: number | null
+  price_currency: string | null
+  billing_interval: string | null
   created_at: string | null
   updated_at: string | null
 }
@@ -135,6 +139,9 @@ export interface CreatePlanInput {
   provider_identifiers?: ProviderIdentifiers
   status: PlanStatus
   sort_order?: number
+  price_amount?: number | null
+  price_currency?: string | null
+  billing_interval?: string | null
 }
 
 export interface UpdatePlanInput {
@@ -146,6 +153,9 @@ export interface UpdatePlanInput {
   provider_identifiers?: ProviderIdentifiers
   status?: PlanStatus
   sort_order?: number
+  price_amount?: number | null
+  price_currency?: string | null
+  billing_interval?: string | null
 }
 
 function normalizeEntitlements(raw: unknown): PlanEntitlements {
@@ -185,6 +195,9 @@ function normalizePlan(raw: Record<string, unknown>): SubscriptionPlan {
     provider_identifiers: normalizeProviderIdentifiers(raw.provider_identifiers),
     status: normalizePlanStatus(raw.status),
     sort_order: typeof raw.sort_order === 'number' ? raw.sort_order : 0,
+    price_amount: typeof raw.price_amount === 'number' ? raw.price_amount : null,
+    price_currency: typeof raw.price_currency === 'string' ? raw.price_currency : null,
+    billing_interval: typeof raw.billing_interval === 'string' ? raw.billing_interval : null,
     created_at: typeof raw.created_at === 'string' ? raw.created_at : null,
     updated_at: typeof raw.updated_at === 'string' ? raw.updated_at : null,
   }

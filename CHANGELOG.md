@@ -28,6 +28,9 @@ as the next release, never a mutated tag.
   owner account there, confirms their email, is signed in, and lands on **Workspace billing** with
   the plan chosen to pay for it. A signed-in visitor goes straight to billing. It needs **Workspace
   signup** on in Settings › Workspaces.
+- **Plans show what they cost.** The plan editor takes a display price (amount, currency and
+  interval), and the workspace plan picker shows it beside each plan's name. It is for display;
+  the payment provider still decides the charge. Needs glueful/subscriptions 2.4.
 
 ### Fixed
 - **One default language.** The default language in Settings › Languages, the default locale in

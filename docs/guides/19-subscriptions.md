@@ -66,7 +66,11 @@ the admin elsewhere. With neither set, checkout is refused before it starts.
 6. Add a **Provider identifiers** row: the gateway's key on the left (`stripe`, `paystack`) and the
    price or plan id from that provider's dashboard on the right. Until a plan has one, the editor
    says so — "this plan isn't purchasable through any gateway" — and it is exactly true.
-7. Press **Create**.
+7. Fill in **Price** if the plan picker should say what it costs: the amount (`19.99`), the
+   three-letter currency (`USD`) and **per month**, **per year**, **per week** or **per day**. It is
+   for display only; the provider charges whatever its price or plan id says, so keep the two in
+   step. Leave it empty for a plan with no price shown.
+8. Press **Create**.
 
 **Provider price ID** is a separate, older field. It correlates webhooks for subscriptions that
 already existed; it is never read to decide purchasability. Use **Provider identifiers**.
