@@ -96,7 +96,7 @@ Other screens hold configuration the same way, in the database rather than in `.
 - **Settings › Email** — the mail transport. Each value resolves per send: the saved row first,
   the `services.mail` config and its `MAIL_*` variables second.
 - **Settings › Payments** — gateway credentials, stored encrypted. Consulted before the
-  `PAYVIA_*` values in `config/payvia.php`.
+  `PAYVIA_*` environment values.
 
 ## Site and URLs
 

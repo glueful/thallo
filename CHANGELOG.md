@@ -142,8 +142,17 @@ as the next release, never a mutated tag.
 - `docs/` is laid out as the documentation's five sections (`getting-started`, `concepts`,
   `guides`, `reference`, `operations`), and the four existing pages carry front matter that puts
   each in its section. They stay where they are: other files link to them by path.
+- `.env.example` lists every setting the shipped config reads that it left out: `PREVIEW_TTL`,
+  `CONTENT_SCHEDULER_ENABLED`, `VERSION_KEEP`, `VERSION_MAX_AGE_DAYS`,
+  `WORKFLOW_ALLOW_SELF_REVIEW`, `PUBLIC_URL_BASE`, `MEILISEARCH_HOST`, `MEILISEARCH_KEY`,
+  `TENANCY_TRASH_RETENTION_DAYS` and `TENANCY_HOST_COOLDOWN_DAYS`, each commented with its default.
+- `config/payvia.php` is no longer shipped. It copied the payment extension's defaults because a
+  cached boot once skipped extension `register()`; the framework now runs it, and the copy had
+  already fallen behind the extension. The default theme's `menus` key, which nothing read, is gone.
 
 ### Upgrade Notes
+- **Delete `config/payvia.php` unless you edited it.** An existing site keeps its copy, and it
+  shadows the payment extension's defaults, including ones added since it was written.
 - **Delivery API clients: `published_at` changed format**, from `2026-02-11 09:30:00` to
   `2026-02-11T09:30:00+00:00`. A client that parsed the old string by hand should parse ISO-8601.
 - If your `.env` sets `RENDER_SITE_NAME` or `SEO_SITE_NAME`, put that name in Settings › General

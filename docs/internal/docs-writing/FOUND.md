@@ -21,9 +21,6 @@ the same config corrections. Thallo's follow-ups are done: the webhook delete di
 `webhook_cleanup` job in the schedule, the `webhooks` queue in the documented worker line, and
 the docs for the failed-job commands, the backup and `security:check`.
 
-- **The database backup stays off by default.** It now works, but it needs `pg_dump` on the
-  scheduler host and writes to the same machine as the database. Decide whether to turn it on for
-  new installs.
 
 ## Bugs in Thallo
 
@@ -191,18 +188,6 @@ A missing feature is not a regression. These are product decisions to make, or t
   keep the old key in `APP_PREVIOUS_KEYS`, then re-save the gateway secrets under Settings ›
   Payments.
 
-### Missing from `.env.example`
-
-`PREVIEW_TTL`, `VERSION_KEEP`, `VERSION_MAX_AGE_DAYS`, `WORKFLOW_ALLOW_SELF_REVIEW`,
-`CONTENT_SCHEDULER_ENABLED`, `TENANCY_TRASH_RETENTION_DAYS`, `TENANCY_HOST_COOLDOWN_DAYS`,
-`PUBLIC_URL_BASE`. `MEILISEARCH_HOST` appears only in a comment.
-
-## Stale prose still in the repository
-
-- `packages/thallo-render/themes/default/theme.json`'s `menus` key: nothing reads it.
-- `config/payvia.php`'s header explains that a cached boot skips extension `register()`.
-  Unchecked against the current framework.
-
 ## Where a picture is missing
 
 When images travel with the import, these are the first to add: the theme gallery and the
@@ -218,6 +203,14 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **The database backup stays off by default** (decided 2026-09-22). It works, but it needs
+  `pg_dump` on the scheduler host and writes to the same machine as the database.
+- **`.env.example` left out settings the config reads.** `PREVIEW_TTL`, `VERSION_KEEP`,
+  `VERSION_MAX_AGE_DAYS`, `WORKFLOW_ALLOW_SELF_REVIEW`, `CONTENT_SCHEDULER_ENABLED`, the two tenancy
+  retention days, `PUBLIC_URL_BASE` and `MEILISEARCH_HOST` each have a line now. Test.
+- **Stale prose:** `config/payvia.php` explained a cached-boot gap the framework has closed; the
+  file is gone, and the cached-boot test proves payvia's own defaults reach that boot. The default
+  theme's unread `menus` key is gone. Test.
 - **Downloading an export failed on every stock install.** Results were recorded on a `local`
   disk no storage config defined. Core supplies it now, and the exporter writes through
   `import_export.result_disk`. Test.
