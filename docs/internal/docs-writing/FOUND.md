@@ -13,11 +13,14 @@ Every entry carries its evidence:
 
 ## Bugs in the framework (need a Glueful release)
 
-**Status 2026-09-22: every item fixed on the framework's `dev` branch, not yet released.** Seven
-commits after v1.85.8 (see **Fixed** below). Fixing them turned up two more, both fixed: the ORM
-gave every new auto-increment model id 1, and the failed-job helper was written for columns the
-table never had. Thallo still runs v1.85.8, so none of this
-reaches a site until a framework release is tagged and Thallo requires it.
+**Status 2026-09-22: every item fixed on the framework's `dev` branch, not yet released.** Eight
+commits after v1.85.8 (see **Fixed** below). Fixing them turned up three more, all fixed: the ORM
+gave every new auto-increment model id 1, the failed-job helper was written for columns the table
+never had, and the query validator refused ordinary text. Two framework defects found by
+verification stay open, under **Setup, operations and security**: `permissions:diff` cannot see
+route-middleware enforcement, and `security:check` reports five checks it never runs. Thallo still
+runs v1.85.8, so none of this reaches a site until a framework release is tagged and Thallo
+requires it.
 
 **When Thallo requires the release:**
 
@@ -85,11 +88,13 @@ reaches a site until a framework release is tagged and Thallo requires it.
 
 - **`QUEUE_CONNECTION=sync` resolves no driver.** Code. `config/queue.php` lists `sync` and
   `null`; only `database` and `redis` exist. Fixed in the docs; the config still lists them.
-- **Security headers cover the rendered site only.** Code. The rendered site now sends nosniff,
-  a referrer policy, X-Frame-Options and HSTS; the SPA documents send their own. The framework's
-  `SecurityHeadersMiddleware` is applied to no route, so admin and delivery JSON get none of it,
-  and `config/security.php`'s `headers` block is read by nothing. There is no HTTPS redirect:
-  the docs now say that is the web server's job. (security)
+- **The APIs and `/api-docs` send no security headers.** Verified 2026-09-22 by requests through
+  the full HTTP stack: the rendered site and the admin page send nosniff, a referrer policy and
+  X-Frame-Options (HSTS too on the site); `/v1/admin/*`, `/v1/content/*` and `/api-docs` send none.
+  This is Thallo's routing choice, not a framework defect: the framework's `security_headers`
+  middleware is opt-in and no Thallo route uses it. `config/security.php`'s `headers` block is read
+  by nothing, and `config/http.php` carries a commented-out line naming a class that does not
+  exist. There is no HTTPS redirect: the docs say that is the web server's job. (security)
 - **`thallo:doctor` checks the theme in `RENDER_THEME`**, not the one chosen in Appearance.
   Code. A theme's stylesheets do not fall back to the default's (templates do); a theme without
   a valid manifest can fail to load rather than render unstyled. (make-a-theme)
@@ -102,9 +107,16 @@ reaches a site until a framework release is tagged and Thallo requires it.
 - **The account pages: no profile surface, no auto-login after verification, no admin editor for
   the mails.** Code. A mail transport failure may be invisible because the mail channel reports
   available on an unconfigured install (Reported). (accounts)
-- **`permissions:diff` may report every Thallo permission as unenforced**, blind to the
-  `content_permission:` middleware (Reported). `workflow.bypass` is not in `CapabilityCatalog`
-  (Code). (permissions)
+- **`permissions:diff` reports every Thallo permission as unenforced** (framework). Verified
+  2026-09-22 with the real scanner inside Thallo: it sees one enforced permission, `users.view`,
+  and flags all 21 of Thallo's, which 232 route declarations enforce through
+  `content_permission:` middleware. The framework's scanner reads only `#[RequiresPermission]` /
+  `#[RequiresRole]` attributes, and there is no way for route middleware to report what it
+  enforces. (permissions)
+- **No workspace role can hold `workflow.bypass`.** Verified by code. It is missing from
+  `CapabilityCatalog`, so overrides and custom roles cannot grant it, and the baseline matrix in
+  `config/tenancy.php` gives it to nobody, owner included: with workspaces on, every publish needs a
+  review. Decide whether that is intended. (permissions)
 - **Self-serve checkout sends a public visitor into the admin.** Code. Pricing deep-links to the
   admin's `/billing`; there is no public subscribe flow and **Change plan** is disabled. The
   Thallo plan picker has no price, currency or interval. A plan is purchasable through its
@@ -120,9 +132,10 @@ reaches a site until a framework release is tagged and Thallo requires it.
 - **Enabling workspaces from a terminal has no way out of `failed`.** Code. Retry exists in the
   service and the admin, not the command. No shipped command prints a user uuid for `--owner`.
   (multi-site)
-- **No path to re-key stored secrets.** Code. `encryption:rotate` binds `{table}.{column}` as the
-  AAD; the payment settings store binds the settings key. `security:check`'s score is mostly
-  stubs (Reported). (security)
+- **`security:check` reports checks it never runs** (framework). Verified 2026-09-22 in the code:
+  five of its seven steps (health, file permissions, configuration, authentication, network) are
+  hard-coded passes that print "validated". Only the production validation and the readiness
+  score do real work. (security)
 - **Dead config.** Code, by search. `extensions.install.auto_enable` in `config/extensions.php`;
   the `settings` block of `config/schedule.php` (`SCHEDULER_ENABLED`, `MAX_CONCURRENT_JOBS`,
   `USE_QUEUE_FOR_SCHEDULED_JOBS`, `queue_mapping`, which names a job that does not exist); each
@@ -209,6 +222,14 @@ A missing feature is not a regression. These are product decisions to make, or t
 - **The tenancy status commands print raw JSON; `analytics:prune` is unscheduled.**
 - **`SECURITY.md` has no dedicated address, PGP key or disclosure window.**
 
+### Security
+
+- **No automated re-key of stored secrets.** Verified 2026-09-22. `encryption:rotate` binds
+  `{table}.{column}` as the encryption context and the payment settings store binds the settings
+  key, so the command cannot re-encrypt them. A path exists and is documented in the security page:
+  keep the old key in `APP_PREVIOUS_KEYS`, then re-save the gateway secrets under Settings ›
+  Payments.
+
 ### Missing from `.env.example`
 
 `PREVIEW_TTL`, `VERSION_KEEP`, `VERSION_MAX_AGE_DAYS`, `WORKFLOW_ALLOW_SELF_REVIEW`,
@@ -270,6 +291,10 @@ Kept for the record; each is in the CHANGELOG.
 - **No way to see or retry failed queue jobs** (framework, unreleased). `queue:failed`,
   `queue:retry`, `queue:forget` and `queue:flush`; a retry verifies the stored signature first.
   Test.
+- **The query validator refused ordinary text** (framework, unreleased). A value reading like
+  "; delete …" was refused (an import failed on "would be deleted; delete nothing"), and a value
+  over 64 KB raised a warning the error handler turns into an exception. Values are bound, so the
+  check protected nothing; it is gone. Test.
 - **The framework's failed-job helper did not work** (framework, unreleased). `FailedJobProvider`
   read and wrote columns `queue_failed_jobs` never had, its requeue was a stub, and its trend
   query was MySQL-only. It now works over the real table on every engine and is the one
@@ -303,7 +328,8 @@ Kept for the record; each is in the CHANGELOG.
   every pack README (removable, `config/thallo.php`, `./thallo extensions:enable`, the navigation,
   SEO, search and commerce claims, and full READMEs for account, subscriptions and tenancy);
   `OUTSTANDING.md` on form mail; `STOREFRONT_ACCOUNTS.md`; `PER_LOCALE_RBAC.md`'s permission
-  names; `operations/tenancy.md`; the pack config comments on where the switch lives; `docs/production.md`, `docs/upgrading.md` and
+  names; `operations/tenancy.md`; the pack config comments on where the switch lives;
+  `docs/production.md`, `docs/upgrading.md` and
   `skeleton/README.md` on `public/storage/`; the tenancy maintenance queue in the worker docs.
 - **Docs claims the review disproved:** `read:*` does read every type; keys can be minted from
   the CLI; the bundle importer upserts; a lone database-queue worker keeps its own job.
