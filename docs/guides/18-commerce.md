@@ -194,8 +194,12 @@ entry has gone; run it if `thallo:commerce:diagnose` reports a stale count.
 
 ## What the store does not do yet
 
-- **Marketplace mode is unsupported.** The **Marketplace** settings tab exists, but
-  `thallo:commerce:diagnose` reports an enabled marketplace as a warning.
+- **Marketplace mode is unsupported.** The **Marketplace** settings tab exists, and its switch
+  turns marketplace mode on for the install, but `thallo:commerce:diagnose` reports an enabled
+  marketplace as a warning. The commerce extension's seller and payout routes also need
+  `COMMERCE_MARKETPLACE_ENABLED=true` in `.env` when the app boots, so until it is set the tab's
+  default-seller list stays empty; the same variable turns on the scheduler's payout, reserve and
+  webhook sweeps.
 - **One merchant account per install.** Every workspace settles through the same gateway account.
 - **A placed order cannot be edited.** Drafts are editable until you finalise them; after that the
   remedies are cancel, mark paid or refund.

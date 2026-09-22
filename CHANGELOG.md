@@ -71,6 +71,10 @@ as the next release, never a mutated tag.
   failed job.
 - **A new site's `themes/` says how to start a theme.** Its README gives the clone command, what a
   theme holds, and what falls back to the default theme (templates) and what does not (CSS).
+- **Known limitations name the rest.** `docs/limitations.md` adds the boundaries of installing,
+  content, design and site features: no database creation, no field retyping, the default theme's
+  two fields, create-only format imports, one homepage, fixed section library, regions and menus
+  without history, site-wide SEO fallbacks and more.
 
 ### Fixed
 - **`site.locales` was always empty.** It lists the enabled languages' codes. Test.

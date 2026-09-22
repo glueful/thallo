@@ -66,73 +66,42 @@ the docs for the failed-job commands, the backup and `security:check`.
 ## Things a reader cannot do, or is not told
 
 A missing feature is not a regression. These are product decisions to make, or to document in
-`docs/limitations.md`.
-
-### Install and setup
-
-- **Nothing creates the PostgreSQL database.** Provision needs an existing one. The install page
-  and both READMEs now say so.
+`docs/limitations.md`. The boundaries decided on 2026-09-22 are documented there now (see Fixed);
+what follows is still open or unchecked.
 
 ### Content
 
-- **Content-type schema migrations have no admin UI.** The field editor shows Remove and type
-  changes; the save refuses both and now names the migration route. A field can never be retyped.
-- **The default theme renders only `title` and `body` of a custom type.** Every other field needs a
-  template, and a rich-text `body` renders escaped.
-- **Content imports.** CSV and the other format adapters only create; the bundle importer
-  upserts. The bundle carries the blob manifest, not the files.
+- **A rich-text `body` renders escaped in the default theme's entry template.** Not yet traced:
+  confirm, then decide whether the template should render sanitised HTML.
 
 ### Design and themes
 
-- **A theme cannot inherit the default theme's CSS**, only its templates. The Appearance preview needs a homepage entry, and `theme_neutral` offers
-  five families.
-- **A block type made in the admin gets exactly one style target** (by design). Whether anything
-  warns before deactivation is unchecked.
-- **The section and page library cannot be extended** (no config, directory or event), and
-  nothing saves a hand-built section back. Regions have block palettes; they have no Sections or
-  Pages view.
+- **A theme cannot inherit the default theme's CSS**, only its templates. The Appearance preview
+  needs a homepage entry, and `theme_neutral` offers five families.
+- **Whether anything warns before an admin-made block type is deactivated** is unchecked.
+- **Regions have block palettes but no Sections or Pages view.** The region preview frame runs no
+  scripts.
 - **A style class can only be archived, and style classes are in no export.**
-- **Regions are not per locale and have no draft, versions or undo.** Only header and footer
-  exist. The region preview frame exists and runs no scripts. A region's root cannot carry a style
-  class; its child blocks can.
-- **Menus are unversioned and unpreviewable.**
 - **Motion: the stage restates the site's transition rules.** Audited 2026-09-22. The stage reuses
   the compiled classes and variables but writes its transition and animation rules a second time
   in `packages/thallo-render/assets/preview/preview.css`, so easing and fallback durations can
   drift from `StyleCompiler::motionRules()`. The CSP hash is computed and tested; timings match
   apart from Play's documented 8-second Ken Burns. An "always" entrance replays without a cap, on
   scroll only.
-- **`is_preview()` and `is_canvas()` read one flag.** Disk templates are parsed and their theme config validated, but get no admin template
-  lint.
+- **`is_preview()` and `is_canvas()` read one flag.** Disk templates are parsed and their theme
+  config validated, but get no admin template lint.
 - **The `links` block's items are raw JSON.**
-- **Pack config is overridable only by creating a file that does not ship** (`config/render.php`,
-  `search.php`, `seo.php` …). No `config:cache`, and no effective-config view.
+- **No `config:cache`.**
 - **`UPLOADS_STRIP_EXIF` is read by nothing** (see Media above).
 
 ### Site features
 
 - **Forms: no field builder, file uploads or CAPTCHA.**
-- **Workspaces need several restarts to enable**, and cannot be disabled with more than one
-  workspace. The exact count depends on the deployment.
-- **Languages:** a single homepage, not one per language. Whether
-  `direction` does anything, and whether a language can be removed, is unchecked.
-- **SEO:** no per-type fallbacks or robots groups from the admin, and `config/seo.php` does not
-  ship. Whether a redirect can be edited, target an entry or pick its locale is unchecked.
-- **Commerce: the marketplace tab's runtime switch is undocumented.** Customers are read-only and
-  documented; the tab works end to end (checked 2026-09-22). `docs/guides/18-commerce.md` calls
-  marketplace unsupported and does not mention the switch or `COMMERCE_MARKETPLACE_ENABLED`.
-- **Accounts:** dashboard items come from a code registry. Name the exact missing no-code
-  controls before writing this up; templates and account settings do exist.
-- **No admin UI for a resource-scoped (per-language) grant.**
-- **`SECURITY.md` has no dedicated address, PGP key or disclosure window.**
-
-### Security
-
-- **No automated re-key of stored secrets.** Verified 2026-09-22. `encryption:rotate` binds
-  `{table}.{column}` as the encryption context and the payment settings store binds the settings
-  key, so the command cannot re-encrypt them. A path exists and is documented in the security page:
-  keep the old key in `APP_PREVIOUS_KEYS`, then re-save the gateway secrets under Settings ›
-  Payments.
+- **Languages:** whether `direction` does anything, and whether a language can be removed, is
+  unchecked.
+- **SEO:** whether a redirect can be edited, target an entry or pick its locale is unchecked.
+- **`SECURITY.md` has no dedicated address, PGP key or disclosure window.** Needs the maintainer's
+  contact address.
 
 ## Where a picture is missing
 
@@ -149,6 +118,11 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **Boundaries documented in `docs/limitations.md`** (decided 2026-09-22): no database creation,
+  workspace restarts, pack config files, manual secret re-keying, no field retyping, the default
+  theme's two fields, create-only format imports, one homepage, one style target, a fixed section
+  and page library, regions and menus without history, site-wide SEO fallbacks, no per-language
+  grant screen, the account dashboard in code. The marketplace switch is in the commerce guide.
 - **`skeleton/themes/` shipped empty.** A README with the clone command as the starter, and what
   falls back.
 - **A style class job's id was nowhere in the admin, and a failed job could not be retried.** The
