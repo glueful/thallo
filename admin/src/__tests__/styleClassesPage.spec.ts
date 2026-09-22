@@ -186,6 +186,37 @@ describe('style classes page', () => {
     wrapper.unmount()
   })
 
+  it('a failed job shows its id and runs again after confirming', async () => {
+    queueMutate
+      .mockReset()
+      .mockResolvedValue({ id: 'job00000002', status: 'running', kind: 'remove' })
+    job.value = {
+      id: 'job00000001',
+      class_id: 'band00000001',
+      kind: 'remove',
+      status: 'failed',
+      passes: 3,
+      work_items_total: 1,
+      work_items_done: 0,
+      work_items_failed: 1,
+      failure_report: [{ source: 'entry_draft', id: 'e1', reason: 'still references the class' }],
+    }
+    list.value = { generation: 5, classes: [{ ...band, locked_by_job: null }] }
+    const r = router('/settings/style-classes/band00000001')
+    await r.isReady()
+    const wrapper = mount(EditPage, { global: { plugins: [r] }, attachTo: document.body })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="style-class-job-id"]').text()).toContain('job00000001')
+    await wrapper.find('[data-test="style-class-job-retry"]').trigger('click')
+    await flushPromises()
+    ;(document.body.querySelector('[data-test="style-class-job-confirm"]') as HTMLElement).click()
+    await flushPromises()
+
+    expect(queueMutate).toHaveBeenCalledWith({ id: 'band00000001', kind: 'remove' })
+    wrapper.unmount()
+  })
+
   it('a version conflict keeps the edits, adopts the current version and refetches', async () => {
     mutate.mockRejectedValueOnce(
       new ApiError(

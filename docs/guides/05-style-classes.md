@@ -105,7 +105,9 @@ on, how many documents are done, how many were refused, and why.
 
 A job makes at most five passes. A document that someone saved while the job was rewriting it is
 refused and retried on the next pass. If references remain after the fifth pass, the job is
-recorded as failed and names every document still carrying the class.
+recorded as failed and names every document still carrying the class. A failed job unlocks the
+class: fix or open the documents it names, then press **Run again** on the card to queue the same
+job once more.
 
 ### Finish a job without a queue worker
 
@@ -117,9 +119,8 @@ $ php glueful thallo:style-classes:run-job <job-id>
 ```
 
 The command prints the job's status, the passes it made, and how many documents it finished and
-refused. It also resumes a job that stopped part way. The admin does not print the id: it is the
-`locked_by_job` value on the class's row in the `style_classes` table. To run these jobs without
-the shell, keep a worker on the `default` queue — see
+refused. It also resumes a job that stopped part way. The id is printed on the card as **Job**,
+followed by this command while the job is running. To run these jobs without the shell, keep a worker on the `default` queue — see
 [the scheduler and the queue](../operations/03-scheduler-and-queues.md).
 
 ## Retire a class you no longer want

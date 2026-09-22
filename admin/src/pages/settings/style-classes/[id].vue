@@ -261,6 +261,26 @@ async function onSave() {
                     {{ f.source }} {{ f.id }}: {{ f.reason }}
                   </li>
                 </ul>
+                <p class="mt-2 text-xs text-muted" data-test="style-class-job-id">
+                  Job <code>{{ job.id }}</code>
+                  <template v-if="job.status === 'running'">
+                    — if it stays at this pass, no queue worker is taking it. Run it from a shell
+                    with <code>php glueful thallo:style-classes:run-job {{ job.id }}</code
+                    >.
+                  </template>
+                </p>
+                <UButton
+                  v-if="job.status === 'failed'"
+                  class="mt-2"
+                  size="xs"
+                  variant="subtle"
+                  icon="i-lucide-rotate-ccw"
+                  data-test="style-class-job-retry"
+                  :disabled="locked"
+                  @click="jobKind = job.kind"
+                >
+                  Run again
+                </UButton>
               </div>
             </div>
           </UCard>

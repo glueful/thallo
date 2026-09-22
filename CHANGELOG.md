@@ -66,6 +66,9 @@ as the next release, never a mutated tag.
 - **Deleting a menu says where it is shown.** The confirmation lists the regions and entries whose
   Navigation blocks use it (`GET /v1/admin/navigation/menus/{slug}/usage`, contract
   `MenuUsageReader`). The tree editor's row buttons are named for screen readers.
+- **A style class job shows its id and can be run again.** The Everywhere card prints the job id
+  (with the `thallo:style-classes:run-job` command while it runs) and offers **Run again** on a
+  failed job.
 
 ### Fixed
 - **`site.locales` was always empty.** It lists the enabled languages' codes. Test.

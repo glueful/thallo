@@ -92,9 +92,7 @@ A missing feature is not a regression. These are product decisions to make, or t
 - **The section and page library cannot be extended** (no config, directory or event), and
   nothing saves a hand-built section back. Regions have block palettes; they have no Sections or
   Pages view.
-- **A style class job's id is shown nowhere in the admin**, though the CLI needs it. A failed
-  everywhere-job cannot be retried from the admin; a class can only be archived; style classes are
-  in no export.
+- **A style class can only be archived, and style classes are in no export.**
 - **Regions are not per locale and have no draft, versions or undo.** Only header and footer
   exist. The region preview frame exists and runs no scripts. A region's root cannot carry a style
   class; its child blocks can.
@@ -152,6 +150,8 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **A style class job's id was nowhere in the admin, and a failed job could not be retried.** The
+  card shows the id and offers Run again. Test.
 - **Deleting a menu gave no warning, and tree buttons had no names.** The confirmation lists where
   the menu is shown; the five icon-only row buttons are named. Tests.
 - **Form submissions had no retention, bulk delete or per-form view.** All three. Tests.
