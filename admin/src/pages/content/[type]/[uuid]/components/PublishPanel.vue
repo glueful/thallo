@@ -121,8 +121,9 @@ async function onPreview() {
 }
 
 // ── Preview in theme ─────────────────────────────────────────────────────────
-// Always shown; mints on click. theme_url is SERVER-decided (null = rendered
-// delivery off) — the SPA never builds theme URLs or consults capability state.
+// Shown while Rendered delivery is on; mints on click. theme_url is still
+// SERVER-decided (null = rendered delivery turned off since the page loaded), so
+// the SPA never builds a theme URL itself.
 const themePreview = useThemePreview(props.uuid, props.locale)
 async function onThemePreview() {
   try {

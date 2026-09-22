@@ -66,7 +66,8 @@ provider by design.
 
 Switching a capability off does not uninstall it. The code and its tables stay; its routes,
 menus and blocks go. **Extensions › Capabilities** is where the switches are, and
-[capabilities and packs](../concepts/06-capabilities.md) explains what each one costs to run.
+[capabilities and packs](../concepts/06-capabilities.md) explains what switching one on asks of
+you: a migration, a setting, a command or a cron line.
 
 ## A Developer Preview
 

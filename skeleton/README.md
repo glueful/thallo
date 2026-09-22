@@ -8,11 +8,14 @@ here; Thallo itself is installed by Composer as `glueful/thallo-core` and upgrad
 ```bash
 composer create-project --prefer-dist --stability=beta glueful/thallo my-site
 cd my-site
-php glueful thallo:doctor          # PHP, extensions, paths, database reachability
+createdb my_site                   # provision configures a database; it does not create one
 php glueful thallo:provision       # database + keys + migrations + admin bundle + API reference
 ```
 
-or the same through the launcher: `./thallo doctor`, `./thallo provision`, or `./thallo setup`
+Provision checks the host first and stops on a failure; `php glueful thallo:doctor` runs the full
+set of checks (PHP, extensions, paths, database reachability) when something fails.
+
+The same commands run through the launcher: `./thallo doctor`, `./thallo provision`, or `./thallo setup`
 for provision followed by the first admin. Provision prints the link to create the first admin
 in your browser (or run `php glueful thallo:create-admin`). The API reference is served at
 `/api-docs`, generated into `docs/` by provision from your install's own routes.

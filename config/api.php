@@ -455,8 +455,8 @@ return [
         | Allowed Operators
         |--------------------------------------------------------------------------
         |
-        | List of operators that can be used in filters.
-        | Remove operators from this list to disable them globally.
+        | Nothing in this release reads this list. The delivery API's filter
+        | operators are fixed by Thallo's FilterCompiler, per field type.
         |
         */
         'allowed_operators' => [
