@@ -116,6 +116,25 @@ function toggle(name: string, on: boolean): void {
     <p v-if="error" class="text-sm text-error" data-test="style-settings-error">{{ error }}</p>
 
     <div
+      v-if="!creating && !codeDeclared"
+      class="flex flex-wrap items-center gap-2 text-xs text-muted"
+      data-test="block-template-row"
+    >
+      <span
+        >Template: <code class="text-default">blocks/{{ slug }}.twig</code></span
+      >
+      <UButton
+        :to="`/templates?path=blocks/${slug}.twig`"
+        label="Open in the Theme editor"
+        icon="i-lucide-file-code-2"
+        color="neutral"
+        variant="link"
+        size="xs"
+        data-test="block-template-open"
+      />
+    </div>
+
+    <div
       v-if="!codeDeclared && modelValue.length > 0"
       class="space-y-2 rounded-md bg-elevated p-3 text-xs text-muted"
       data-test="style-template-hint"

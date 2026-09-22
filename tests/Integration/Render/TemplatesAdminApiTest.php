@@ -145,6 +145,38 @@ final class TemplatesAdminApiTest extends AppTestCase
         );
     }
 
+    public function testAMissingBlockTemplateOpensAsAStarterThatSavesClean(): void
+    {
+        // A block type's template could not be started from the admin: show() answered 404, and
+        // the Theme editor only opens listed files. The starter carries the type's style settings
+        // and one element per slot, the two things a block template must have to be saved.
+        $this->container()->get(\Thallo\Core\Content\Http\Controllers\BlockTypeController::class)->store(
+            new \Thallo\Core\Content\Http\DTOs\BlockTypeData(
+                slug: 'promo-strip',
+                label: 'Promo strip',
+                icon: null,
+                description: null,
+                schema: [
+                    new \Thallo\Core\Content\Http\DTOs\FieldDefinitionData(name: 'title', type: 'string'),
+                    new \Thallo\Core\Content\Http\DTOs\FieldDefinitionData(name: 'items', type: 'blocks'),
+                ],
+                style_capabilities: ['spacing', 'colors', 'layout.item'],
+            ),
+            Request::create('/x', 'POST', [], [], [], ['CONTENT_TYPE' => 'application/json'], '{}'),
+        );
+
+        $shown = $this->json($this->api()->show(Request::create('/x', 'GET'), 'blocks/promo-strip.twig'));
+
+        self::assertSame('starter', $shown['data']['origin'] ?? null);
+        $source = (string) $shown['data']['source'];
+        self::assertStringContainsString("style_attrs('root')", $source);
+        self::assertStringContainsString("slot_attrs('items')", $source);
+        $saved = $this->api()->save($this->putReq($source), 'blocks/promo-strip.twig');
+        self::assertSame(200, $saved->getStatusCode(), (string) $saved->getContent());
+
+        self::assertSame(404, $this->api()->show(Request::create('/x', 'GET'), 'entry/nope.twig')->getStatusCode());
+    }
+
     public function testSaveValidatesPathThemeAndPolicy(): void
     {
         // Policy violation → 422 with line-numbered errors.

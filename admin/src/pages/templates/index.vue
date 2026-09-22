@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { ApiError } from '@/api/errors'
 import { useNotify } from '@/composables/useNotify'
 import {
@@ -196,7 +197,15 @@ function openHistory(): void {
   historyOpen.value = true
 }
 
-onMounted(loadList)
+// A link can name the file to open: the block type page links a block's template here, and a
+// block template that does not exist yet comes back as a starter, which saving creates.
+const route = useRoute()
+onMounted(async () => {
+  await loadList()
+  if (typeof route.query.path === 'string' && route.query.path !== '') {
+    await open(route.query.path)
+  }
+})
 </script>
 
 <template>
@@ -390,6 +399,14 @@ onMounted(loadList)
           >
             Package template — saving creates a database override; the package file is never
             modified.
+          </p>
+          <p
+            v-else-if="origin === 'starter'"
+            class="text-xs text-muted"
+            data-test="starter-origin-note"
+          >
+            New template — this block type has none yet. The starter already carries its style
+            settings and slots; add the markup, then save to create it.
           </p>
           <p v-else-if="origin !== 'db'" class="text-xs text-muted" data-test="fs-origin-note">
             Filesystem template ({{ origin }}) — saving creates a database override that shadows it.

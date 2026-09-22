@@ -37,9 +37,6 @@ the docs for the failed-job commands, the backup and `security:check`.
 - **The workspaces enablement screen gives no warning before its refusals.** Code. Enabling is
   refused with any data collection defined, and on a cache driver without pattern purge.
   (workspaces)
-- **A block type's template cannot be created from the admin.** Code. The copy now says to put
-  it in the theme's templates folder. A block-type migration locks the entries until a worker runs
-  and the dialog does not say so (Reported). (make-a-block-type)
 - **Media.** Split, each needs its own check:
   - The panel's "File URL" shows the raw storage path, not `display_url`. Code.
   - Search uses `LIKE`; case sensitivity depends on the collation. Code.
@@ -178,6 +175,9 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **A block type's template could not be created from the admin, and the migration dialog did not
+  mention the worker.** The block type page opens the template, a missing one starts from a
+  generated starter that saves clean, and the card names the worker. Test.
 - **Navigation depth and the 409 that lost edits.** The editor stops at six levels, marks items
   past the theme's three, and keeps the tree on a conflict. Test.
 - **API key scopes could not be edited after creation.** The detail pane edits them. Test.

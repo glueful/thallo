@@ -9,6 +9,11 @@ const fetchTemplatesMock = vi.hoisted(() => vi.fn())
 const fetchTemplateMock = vi.hoisted(() => vi.fn())
 const saveTemplateMock = vi.hoisted(() => vi.fn())
 const cloneThemeMock = vi.hoisted(() => vi.fn())
+const routeState = vi.hoisted(() => ({
+  path: '/templates',
+  params: {},
+  query: {} as Record<string, string>,
+}))
 
 vi.mock('@/queries/templates', async (importOriginal) => ({
   // violationsFrom (pure) comes from the real module; the fetchers are mocked.
@@ -24,7 +29,7 @@ vi.mock('@/composables/useNotify', () => ({
 }))
 // Nuxt UI's Link override pulls useRoute from vue-router/auto (UButton renders through it).
 vi.mock('vue-router/auto', () => ({
-  useRoute: () => ({ path: '/templates', params: {}, query: {} }),
+  useRoute: () => routeState,
   useRouter: () => ({ push: vi.fn(), resolve: vi.fn() }),
 }))
 
@@ -59,7 +64,44 @@ describe('templates page', () => {
     fetchTemplateMock.mockReset().mockResolvedValue(detail())
     saveTemplateMock.mockReset()
     cloneThemeMock.mockReset()
+    routeState.query = {}
     document.body.innerHTML = ''
+  })
+
+  it('opens the template a link names', async () => {
+    routeState.query = { path: 'entry.twig' }
+    mountPage()
+    await flushPromises()
+
+    expect(fetchTemplateMock).toHaveBeenCalledWith('entry.twig', 'default')
+  })
+
+  it('a block template that does not exist yet opens as a starter that emits the style settings', async () => {
+    // The block type page links here; before, a block's template could not be started in the admin.
+    routeState.query = { path: 'blocks/hero-banner.twig' }
+    const starterSource =
+      "<div class=\"thallo-block thallo-block-hero-banner{{ style_classes('root') }}\"{{ style_attrs('root') }}>\n</div>\n"
+    fetchTemplateMock.mockResolvedValue({
+      path: 'blocks/hero-banner.twig',
+      theme: 'default',
+      origin: 'starter',
+      source: starterSource,
+      version_uuid: null,
+    })
+    saveTemplateMock.mockResolvedValue({ version_uuid: 'v1' })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    const editor = wrapper.findComponent({ name: 'TemplateEditor' })
+    const starter = String(editor.props('modelValue'))
+    expect(starter).toContain("style_attrs('root')")
+    expect(starter).toContain("style_classes('root')")
+    expect(starter).toContain('thallo-block-hero-banner')
+    expect(notify.error).not.toHaveBeenCalled()
+
+    await wrapper.find('[data-test="save-template"]').trigger('click')
+    await flushPromises()
+    expect(saveTemplateMock).toHaveBeenCalledWith('blocks/hero-banner.twig', starter, 'default')
   })
 
   it('lists templates grouped by family with origin badges', async () => {

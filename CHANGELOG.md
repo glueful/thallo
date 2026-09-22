@@ -23,6 +23,10 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **A block type's template can be started from the admin.** The block type page now links to
+  its template in the Theme editor, and a template the theme does not have yet opens as a starter
+  that already carries the type's style settings and slots, so it saves on the first try. The
+  field-migration card also says the backfill needs a running queue worker.
 - **A menu conflict keeps your edits.** When someone else saved the menu first, the editor threw
   away the unsaved tree and reloaded. It now keeps it on screen and offers **Load the latest** or
   **Save mine over it**. The editor also stops nesting at the six levels a save accepts, and marks

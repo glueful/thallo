@@ -3,13 +3,21 @@
 // them on its outermost element. A code-declared type's groups are shown, never offered for edit.
 import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import BlockTypeStyleSettings from '@/pages/settings/block-types/components/BlockTypeStyleSettings.vue'
 
 const OPTIONS = ['spacing', 'colors', 'radius', 'layout.item', 'brand-new-group']
 
+// The template row renders a link, which needs a router.
+const router = createRouter({
+  history: createMemoryHistory(),
+  routes: [{ path: '/:pathMatch(.*)*', component: { template: '<div />' } }],
+})
+
 function mountPicker(props: Record<string, unknown>) {
   return mount(BlockTypeStyleSettings, {
     props: { slug: 'promo', options: OPTIONS, modelValue: [], ...props } as never,
+    global: { plugins: [router] },
   })
 }
 /** The last `update:modelValue` payload. */
@@ -73,5 +81,16 @@ describe('a block type’s style settings', () => {
   it('shows the server’s refusal where the choice was made', () => {
     const w = mountPicker({ modelValue: ['spacing'], error: 'blocks/promo.twig does not emit…' })
     expect(w.find('[data-test="style-settings-error"]').text()).toContain('does not emit')
+  })
+
+  it('links a saved block type to its template in the Theme editor', async () => {
+    // The template could not be started from the admin; the Theme editor opens it, or a starter.
+    const w = mountPicker({})
+    const link = w.find('[data-test="block-template-open"]')
+    expect(link.exists()).toBe(true)
+    expect(link.attributes('href')).toBe('/templates?path=blocks/promo.twig')
+
+    const creating = mountPicker({ creating: true })
+    expect(creating.find('[data-test="block-template-open"]').exists()).toBe(false)
   })
 })

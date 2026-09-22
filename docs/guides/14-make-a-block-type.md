@@ -55,6 +55,12 @@ A block type's slug is the name of its template. Create the file in your theme:
 themes/my-theme/templates/blocks/testimonial.twig
 ```
 
+Or start it in the admin: on the block type's page, **Open in the Theme editor** beside
+**Template** opens `blocks/testimonial.twig`. When the theme has none yet, the editor starts it for
+you with the type's style settings and slots already in place; add the markup and press **Save**.
+A template saved there is stored in the database, layered over the theme's files, and needs
+`RENDER_DB_TEMPLATES` on (the default).
+
 The template is rendered with a `data` object holding that block's fields, so the four fields
 above arrive as `data.quote`, `data.author`, `data.role` and `data.avatar`.
 
@@ -139,7 +145,7 @@ Open the type from **Settings › Block Types**.
   **Usage & lifecycle** card instead: choose **Rename** or **Delete**, name the field, and press
   **Start migration**. The schema changes at once and a background job rewrites every current
   draft and publication; entries holding the block cannot be saved or published until it
-  finishes, so it needs a queue worker — see
+  finishes, and it moves only while a queue worker runs, which the card says — see
   [the scheduler and the queue](../operations/03-scheduler-and-queues.md). A failed migration is
   re-driven with `php glueful thallo:blocks:migration:backfill <uuid>`.
 - **The slug never changes.** A block that needs a different template is a new block type.
