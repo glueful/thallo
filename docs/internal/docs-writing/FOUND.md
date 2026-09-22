@@ -54,10 +54,10 @@ the docs for the failed-job commands, the backup and `security:check`.
   and account-only mail templates need its password-reset mail to take a template name. The
   unconfigured-mail report is fixed on the framework's `dev` branch (no default host or sender).
   (accounts)
-- **Self-serve checkout sends a public visitor into the admin.** Code. Pricing deep-links to the
-  admin's `/billing`; there is no public subscribe flow and **Change plan** is disabled. The
-  Thallo plan picker has no price, currency or interval. A plan is purchasable through its
-  provider mappings, not the scalar `provider_price_id`. (subscriptions)
+- **Self-serve checkout needs releases to finish.** Signup from the pricing page, plan prices and
+  **Change plan** are built. Plan prices need glueful/subscriptions 2.4.0 and Stripe plan changes
+  need glueful/payvia 2.9.0; when those ship, require them in `core/composer.json`.
+  (subscriptions)
 - **`import-export:cleanup` leaves completed exports on disk** (fixed on `glueful/import-export`'s
   `dev` branch, awaiting its next release). It unlinked only `tmp`-role files, which nothing
   records, then deleted every row. It now deletes a finished job's result and tmp files through
@@ -168,6 +168,11 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **Self-serve checkout sent a public visitor into the admin, with no price and no plan change**
+  (decided 2026-09-22). A pricing card leads to a public signup page that creates the workspace,
+  signs the visitor in and opens billing with the plan chosen. Plans carry a display price.
+  **Change plan** switches a Stripe subscription, prorated; on Paystack it offers cancelling at
+  period end. Tests.
 - **A headless front end could not read an asset's alt text or caption** (decided 2026-09-22).
   `?expand=` naming an asset field returns `{uuid, url, alt, caption, mime_type}`, for public
   files; the bare uuid stays the default. Test.
