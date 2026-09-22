@@ -184,7 +184,8 @@ final class BlocksRenderingTest extends AppTestCase
         // 20 = visual builder spec §2.3 — layered delivery helpers joined, shop_styles_url left
         // 21 = visual builder spec §2.4 — settings_stylesheet_url() joined the allowlist
         // 22 = visual builder spec §2.5 — style targets helpers joined
-        self::assertSame(26, TemplatePolicy::CACHE_VERSION);
+        // 27 = media_text() joined the allowlist (the Image block's alt text and caption fallback)
+        self::assertSame(27, TemplatePolicy::CACHE_VERSION);
 
         // DB templates calling the allowlisted functions lint clean.
         $linter = $this->container()->get(TemplateLinter::class);

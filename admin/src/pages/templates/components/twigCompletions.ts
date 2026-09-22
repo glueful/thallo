@@ -48,6 +48,7 @@ const FUNCTIONS = [
   'search_enabled',
   'is_preview',
   'media_image',
+  'media_text',
   'claim_priority_image',
   'color_mode_enabled',
   'color_mode_script',

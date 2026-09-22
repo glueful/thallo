@@ -23,6 +23,9 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **A file's alt text and caption reach the page.** Set in the media library, they were read by
+  nothing: an Image block with no alt of its own shipped `alt=""`. An Image block whose own alt or
+  caption is empty now uses the file's, and templates can read them with the new `media_text()`.
 - **"Used in" counts images placed inside blocks.** The media library's list of entries using a
   file read an entry's top-level asset fields only, so an image in an Image, Hero or Gallery block
   was never counted and could look safe to delete. Block images count now, however deeply nested.

@@ -61,9 +61,10 @@ Select a file to open its preview and, beside it, its panel. An image preview ha
 
 **Save changes** writes all four at once.
 
-Alt text, caption and tags are notes for whoever picks the file next. The theme does not read
-them, and they are not returned by the [content API](../concepts/07-api.md): the alt text a
-visitor's screen reader announces comes from the block, below.
+The alt text and caption follow the file onto pages: an **Image** block whose own **alt** or
+**caption** is empty uses the file's, and a block's own always wins. A template can read them
+with `media_text()`. Tags stay in the library. The [content API](../concepts/07-api.md) returns
+an asset field as the file's uuid only, so a headless front end does not receive them.
 
 ## Put a file into content
 
@@ -71,8 +72,8 @@ An entry field of type asset takes one: drop a file on it to upload, or press **
 library**. Either opens **Add media**, which has an **Upload** tab and a **Media library** tab.
 
 In the [Design view](../concepts/03-design-view.md), the **Image** block's **image** field uses
-the same picker. Fill in **alt** with what a screen reader should say — that is the field the
-theme renders — and **caption** to print a line under the picture. The **Gallery** block holds
+the same picker. Fill in **alt** with what a screen reader should say, and **caption** to print a
+line under the picture; left empty, each falls back to the file's own from the library. The **Gallery** block holds
 Image blocks and takes each one's **alt** the same way.
 
 ## How an image reaches the page

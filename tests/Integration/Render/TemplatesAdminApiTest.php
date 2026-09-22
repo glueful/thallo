@@ -165,6 +165,10 @@ final class TemplatesAdminApiTest extends AppTestCase
             Request::create('/x', 'POST', [], [], [], ['CONTENT_TYPE' => 'application/json'], '{}'),
         );
 
+        // The declarations are read once per request; this test changes block types inside one.
+        $registry = $this->container()->get(\Thallo\Contracts\Style\BlockStyleRegistry::class);
+        self::assertInstanceOf(\Thallo\Core\Content\Style\EngineBlockStyleRegistry::class, $registry);
+        $registry->reset();
         $shown = $this->json($this->api()->show(Request::create('/x', 'GET'), 'blocks/promo-strip.twig'));
 
         self::assertSame('starter', $shown['data']['origin'] ?? null);

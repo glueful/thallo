@@ -299,6 +299,34 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringContainsString('/blobs/' . $dark, $out);
     }
 
+    public function testAnImageBlockWithoutItsOwnAltUsesTheFilesAltTextAndCaption(): void
+    {
+        // Alt text and a caption set on the file in the media library reached no page: the Image
+        // block read its own fields only, so a blank alt shipped as alt="".
+        $uuid = \Glueful\Helpers\Utils::generateNanoID();
+        $this->connection()->table('blobs')->insert([
+            'uuid' => $uuid, 'name' => 'harbour.png', 'mime_type' => 'image/png',
+            'size' => 1, 'url' => 'uploads/harbour.png', 'visibility' => 'public',
+            'status' => 'active', 'created_by' => 'user00000001',
+            'created_at' => gmdate('Y-m-d H:i:s'),
+        ]);
+        $this->connection()->table('media_meta')->insert([
+            'blob_uuid' => $uuid, 'alt_text' => 'Boats in the harbour at dusk', 'caption' => 'Oban, 2026',
+            'created_at' => gmdate('Y-m-d H:i:s'),
+        ]);
+
+        $fallback = $this->render([['id' => 'imf', 'type' => 'image', 'data' => ['image' => $uuid]]]);
+        self::assertStringContainsString('alt="Boats in the harbour at dusk"', $fallback);
+        self::assertStringContainsString('<figcaption>Oban, 2026</figcaption>', $fallback);
+
+        // The block's own alt and caption still win.
+        $own = $this->render([['id' => 'imo', 'type' => 'image', 'data' => [
+            'image' => $uuid, 'alt' => 'A harbour', 'caption' => 'Mine',
+        ]]]);
+        self::assertStringContainsString('alt="A harbour"', $own);
+        self::assertStringNotContainsString('Oban, 2026', $own);
+    }
+
     public function testImageBlockSizesThroughSettingsAndNeverInline(): void
     {
         $uuid = \Glueful\Helpers\Utils::generateNanoID();

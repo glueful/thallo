@@ -43,6 +43,7 @@ An item of `entries()` carries `uuid`, `locale`, `version`, `published_at`, `fie
 |---|---|---|
 | `media(uuid)` | A public URL for a file in the media library, or `null` when the file is not anonymously retrievable. | `{% set avatar = media(data.avatar) %}` |
 | `media_image(uuid, widths)` | `src` and `srcset` for an image, or `null` for anything that is not a servable image. `widths` is a list of positive integers; the first eight distinct ones are used. `srcset` is `null` when no variant can be served. | `{% set img = media_image(data.image, [480, 768, 1024]) %}` |
+| `media_text(uuid)` | The file's `alt` and `caption` from the media library, as strings — empty when none is set or the file is not public. For a fallback when a block's own is blank. | `alt="{{ data.alt ?: media_text(data.image).alt }}"` |
 | `claim_priority_image()` | `true` for the first image on the page that asks, `false` for every one after, and always `false` inside a region. Call it only once `media_image()` has resolved. | `{% set priority = claim_priority_image() %}` |
 | `video_embed(url)` | `provider` and `id` for a YouTube or Vimeo URL, `null` for anything else. The template builds the player from them; a URL is never embedded as it stands. | `{% set emb = video_embed(data.url) %}` |
 | `site_logo(variant)` | The site logo's URL. `variant` is `light` (the default) or `dark`; anything else, and an unset logo, give `null`. | `{% set logo = site_logo('dark') %}` |
