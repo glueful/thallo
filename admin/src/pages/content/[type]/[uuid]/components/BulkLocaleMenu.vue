@@ -82,11 +82,7 @@ async function runPublishAll() {
     const { ok, fail } = await batch(targets, (code) => publishEntry(props.uuid, code))
     refresh()
     if (fail === 0) success(`Published ${ok} locale(s)`)
-    else
-      warning(
-        `Published ${ok}, failed ${fail}`,
-        'Locales without a valid route can’t be published.',
-      )
+    else warning(`Published ${ok}, failed ${fail}`, 'Open each language that failed to see why.')
   } catch (e) {
     notifyError(e, 'Bulk publish failed')
   } finally {

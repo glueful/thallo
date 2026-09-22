@@ -437,7 +437,7 @@ function fmtTime(v?: string | null): string {
                   :hint="
                     isWordpress
                       ? 'The post body (content:encoded HTML) is stored here'
-                      : 'The Markdown body is converted to HTML and stored here'
+                      : 'A rich-text field gets HTML; a plain-text field keeps the Markdown as written'
                   "
                 >
                   <USelect

@@ -381,7 +381,7 @@ async function onSave({ quiet = false }: { quiet?: boolean } = {}): Promise<bool
               variant="subtle"
               icon="i-lucide-link"
               title="Some fields are shared across locales"
-              :description="`Editing these applies to every locale: ${sharedFields.join(', ')}.`"
+              :description="`A new translation starts with a copy of these; after that each language keeps its own: ${sharedFields.join(', ')}.`"
             />
             <div v-if="draftStatus === 'pending'" class="space-y-3">
               <USkeleton v-for="n in 4" :key="n" class="h-10" />

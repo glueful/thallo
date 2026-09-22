@@ -23,6 +23,14 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **Admin messages that said something false.** Restoring a version said the draft now carried
+  that version; the restore makes it the live page again and leaves the draft alone, and the toast
+  now says so. The workspaces capability told you to run `extensions:enable`, which refuses a
+  protected provider; it now points at Settings › Workspaces. Deleting a webhook no longer claims
+  its delivery history goes with it. The doctor's failure line, the bulk-locale error, the
+  Rendered-delivery hint, the shared-fields banner, the roles page, the block-type template hint
+  and the import hint for Markdown each described behaviour Thallo does not have, and now describe
+  what it does.
 - **The Design view could publish a page that has no URL.** Publishing succeeds without a route
   and the page then renders nowhere; the form editor saves the slug first, but the Design view has
   no slug field and published anyway. It now refuses, and says to set the slug in the editor's

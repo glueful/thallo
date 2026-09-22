@@ -122,9 +122,9 @@ function toggle(name: string, on: boolean): void {
     >
       <p v-if="creating">
         When you write the block’s template,
-        <code class="text-default">blocks/{{ slug }}.twig</code>, in the Theme editor, it has to
-        emit them on its outermost element. The editor will not save a template that leaves them
-        out.
+        <code class="text-default">blocks/{{ slug }}.twig</code> in your theme’s templates folder,
+        it has to emit them on its outermost element. The Theme editor will not save a template that
+        leaves them out.
       </p>
       <p v-else>
         The block’s template,

@@ -4,8 +4,8 @@ import { useVersions, useRollback } from '@/queries/versions'
 import { useNotify } from '@/composables/useNotify'
 
 // Sidebar Versions tab: the same list/restore as the standalone versions page, in
-// panel form. Restoring stays in-tab — useRollback invalidates the draft query and
-// the editor re-seeds its fields from the refreshed draft (no navigation needed).
+// panel form. Restoring makes that version the LIVE one again (the server re-pins the
+// publication); the draft is left exactly as it is, and the toast says so.
 const props = defineProps<{ uuid: string; locale: string; type: string }>()
 const { success, error: notifyError } = useNotify()
 
@@ -19,7 +19,7 @@ const restoring = computed(() => rollback.isLoading.value)
 async function onRestore(versionUuid: string) {
   try {
     await rollback.mutateAsync(versionUuid)
-    success('Version restored', 'The draft now carries this version’s content.')
+    success('Version restored', 'The live page shows this version again. Your draft is unchanged.')
   } catch (e) {
     notifyError(e, 'Restore failed')
   }
