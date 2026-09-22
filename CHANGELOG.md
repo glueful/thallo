@@ -23,6 +23,9 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **The media panel's File URL is a web address.** It showed the file's storage path, which no
+  browser can open. It shows the address the file is served at, and for a private file the signed
+  link, labelled as one that expires.
 - **Settings › Workspaces says what stands in the way before you enable.** A defined data
   collection refused enabling only at the confirm step, after the tenancy extension had been
   installed and migrated, and a cache driver that cannot purge by pattern only after you pressed

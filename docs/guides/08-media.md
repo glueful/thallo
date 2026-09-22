@@ -55,7 +55,9 @@ Select a file to open its preview and, beside it, its panel. An image preview ha
 - **Title** renames the file in the library. It is what the search box matches.
 - **Alt text** and **Caption** are free text.
 - **Tags** takes one tag at a time: type it and press Enter, click a tag to remove it.
-- **File URL** is the file's path on its disk, not a web address.
+- **File URL** is the address the file is served at, with a copy button. A private file shows a
+  **Signed link** instead: it works without signing in, and stops working when it expires
+  (`uploads.signed_urls.ttl`, an hour by default).
 
 **Save changes** writes all four at once.
 

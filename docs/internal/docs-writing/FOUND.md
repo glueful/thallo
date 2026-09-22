@@ -37,7 +37,6 @@ the docs for the failed-job commands, the backup and `security:check`.
 ### Admin
 
 - **Media.** Split, each needs its own check:
-  - The panel's "File URL" shows the raw storage path, not `display_url`. Code.
   - Search uses `LIKE`; case sensitivity depends on the collation. Code.
   - Deleting a file soft-deletes it; the bytes are never reclaimed. Code.
   - Alt text, caption and tags reach the admin API but no theme, delivery field or block.
@@ -171,6 +170,7 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **Media: the panel's File URL showed the storage path.** It shows `display_url`. Test.
 - **The workspaces enablement screen gave no warning before its refusals.** The status lists
   `blockers`, the admin shows them and keeps Enable off, and a collection refuses the first
   stage. Test.
