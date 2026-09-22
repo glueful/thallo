@@ -139,14 +139,12 @@ final class InstallRoleGrantsTest extends AppTestCase
     private function freshInstall(): void
     {
         $this->channel()->forget(InstallRoleGrants::LEDGER_KEY);
-        $roles = new RoleRepository(null, $this->appContext());
-        $rolePerms = new RolePermissionRepository(null, $this->appContext());
-        foreach (['superuser', 'administrator'] as $slug) {
-            $uuid = (string) $roles->findRoleBySlug($slug)?->getUuid();
-            foreach ($rolePerms->getRolePermissions($uuid) as $rp) {
-                $rolePerms->revokePermissionFromRole($uuid, (string) $rp->getPermissionUuid());
-            }
-        }
+        // Removed outright: Aegis's revoke soft-deletes, and the leftover rows would outlive this
+        // test and be counted by others.
+        $this->connection()->getPDO()->exec(
+            "DELETE FROM role_permissions WHERE role_uuid IN "
+            . "(SELECT uuid FROM roles WHERE slug IN ('superuser', 'administrator'))"
+        );
     }
 
     private function revoke(string $role, string $slug): void
@@ -155,7 +153,9 @@ final class InstallRoleGrantsTest extends AppTestCase
         $permUuid = (new PermissionRepository(null, $this->appContext()))->findPermissionBySlug($slug)?->getUuid();
         self::assertNotNull($roleUuid);
         self::assertNotNull($permUuid);
-        (new RolePermissionRepository(null, $this->appContext()))->revokePermissionFromRole($roleUuid, $permUuid);
+        $this->connection()->getPDO()
+            ->prepare('DELETE FROM role_permissions WHERE role_uuid = ? AND permission_uuid = ?')
+            ->execute([$roleUuid, $permUuid]);
     }
 
     public function testActivatesTheRbacProviderWhenBootSkippedIt(): void
