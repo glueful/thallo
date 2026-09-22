@@ -470,11 +470,16 @@ One job each, start to finish.
   exact about what the preview does not do yet.
 
 ### subscriptions — Charge for plans
-- **File** `guides/19-subscriptions.md` · **Order** 19 · **Status** todo
+- **File** `guides/19-subscriptions.md` · **Order** 19 · **Status** done
 - **Summary** "Define plans, show pricing on a page, and let a workspace subscribe."
-- **Sources** `packages/thallo-subscriptions/README.md`, `packages/thallo-subscriptions/src/`,
-  `admin/src/pages/subscriptions/`, `admin/src/pages/billing/`, `core/src/Settings/EngineAdminUrlProvider.php`
-- **Must cover** What the subscriptions engine is for and who subscribes. Plans. The pricing
+- **Sources** `packages/thallo-subscriptions/src/`, `admin/src/pages/subscriptions/`, `admin/src/pages/billing/`,
+  `admin/src/registry/subscriptionsModule.ts`, `admin/src/utils/shapeTenancyNav.ts`, `packages/thallo-contracts/src/Billing/PlanCheckoutUrlResolver.php`,
+  `packages/thallo-render/src/RenderContextExtension.php` (`plan_checkout_url`), `packages/thallo-render/themes/default/templates/blocks/pricing_plan.twig`,
+  `core/src/Content/Blocks/StarterBlockTypes.php` (the pricing blocks are core starters), `core/src/Content/Authorization/CapabilityCatalog.php`,
+  `config/tenancy.php`, `vendor/glueful/subscriptions/src/Plans/PlanPurchasability.php`, `vendor/glueful/subscriptions/config/subscriptions.php`,
+  `core/src/Settings/EngineAdminUrlProvider.php`
+- **Must cover** What the subscriptions engine is for and who subscribes: it bills a workspace
+  for its use of the install, never a site visitor. Plans. The pricing
   blocks and how a plan's button reaches checkout. The billing page and the return from the
   payment provider. What it needs from the install (`BASE_URL`, the admin's address).
 
@@ -485,11 +490,14 @@ One job each, start to finish.
 Things you look up. Complete, in a predictable order.
 
 ### cli — Command line reference
-- **File** `reference/01-cli.md` · **Order** 1 · **Status** todo
-- **Summary** "Every `php glueful` command Thallo adds, with its arguments and options."
-- **Sources** `php glueful list` and `php glueful <command> --help` for every `thallo:*` and
-  `search:*` command; the command classes under `core/src/**/Console/`, `packages/*/src/Console/`
-- **Must cover** Every `thallo:*` command, grouped (setup, content, blocks, docs and imports,
+- **File** `reference/01-cli.md` · **Order** 1 · **Status** done
+- **Summary** "Every command Thallo adds to the console, with its arguments and options."
+- **Sources** `php glueful list` and `php glueful <command> --help`; the command classes under
+  `core/src/**/Console/` and `packages/*/src/Console/`; `packages/*/src/*ServiceProvider.php` (`$this->commands`:
+  a command inside a capability gate is missing from `list` while the capability is off). The `search:*`
+  commands `list` prints are the Meilisearch extension's; Thallo's are `search:reindex` and `search:status`.
+  Whether a command writes is read from its class, not from `--help`.
+- **Must cover** Every command Thallo adds — `thallo:*`, `render:*`, `analytics:prune`, `search:reindex`, `search:status` — grouped (setup, content, blocks, docs and imports,
   search, tenancy, commerce, maintenance). For each: one line on what it does, its arguments and
   options exactly as `--help` prints them, whether it writes, and an example. The framework's
   own commands a site owner uses (`migrate:*`, `queue:*`, `cache:*`, `extensions:*`,
@@ -497,11 +505,12 @@ Things you look up. Complete, in a predictable order.
   development; list the ones you left out in your report.
 
 ### configuration — Configuration reference
-- **File** `reference/02-configuration.md` · **Order** 2 · **Status** todo
-- **Summary** "The `.env` keys and config files a site owner sets, with their defaults."
-- **Sources** `skeleton/.env.example`, `skeleton/config/`, `core/config/`, `config/`,
-  `core/src/Settings/GeneralSettings.php` and `core/src/Settings/SystemKeys.php` (what the admin
-  stores instead of `.env`)
+- **File** `reference/02-configuration.md` · **Order** 2 · **Status** done
+- **Summary** "The environment keys and config files a site owner sets, with their defaults."
+- **Sources** `skeleton/.env.example`, `skeleton/config/`, `core/config/`, `config/` (its `development/` and
+  `testing/` folders prove the environment overlay), `vendor/glueful/framework/src/Bootstrap/ConfigurationLoader.php`
+  and `ApplicationContext::mergeConfigDefaults()` (the layering), `core/src/Settings/GeneralSettings.php`,
+  `admin/src/pages/settings/general/index.vue` (the labels), `vendor/glueful/commerce/config/commerce.php`
 - **Must cover** How configuration is layered: `.env`, `config/*.php`, and settings saved in the
   admin, and which wins. The keys a site owner actually touches, grouped (site and URLs,
   database, mail, queue and scheduler, storage and uploads, search, security, rendering and
@@ -509,42 +518,54 @@ Things you look up. Complete, in a predictable order.
   framework key: link to the file.
 
 ### template-functions — Template functions
-- **File** `reference/03-template-functions.md` · **Order** 3 · **Status** todo
+- **File** `reference/03-template-functions.md` · **Order** 3 · **Status** done
 - **Summary** "Every function, filter and variable a Thallo template can use."
-- **Sources** `packages/thallo-render/docs/THEMING.md` §4.1–§4.2, `packages/thallo-render/src/RenderContextExtension.php`,
-  `packages/thallo-render/src/Templates/TemplatePolicy.php` (the sandbox policy: what is allowed),
-  `admin/src/pages/templates/components/twigCompletions.ts` (the list the theme editor offers — it must agree)
+- **Sources** `packages/thallo-render/src/RenderContextExtension.php` (`getFunctions`/`getFilters`: the only complete list;
+  THEMING §4.2 is a stale subset), `packages/thallo-render/src/Http/Controllers/RenderController.php` and
+  `packages/thallo-render/src/SiteContext.php` (what each template receives), `core/src/Http/Controllers/RegionAdminController.php`,
+  `packages/thallo-render/src/Templates/TemplatePolicy.php` (the allowlist — enforced for database templates only),
+  `admin/src/pages/templates/components/twigCompletions.ts` (must agree with the policy)
 - **Must cover** Every function with its signature, what it returns and a one-line example,
   grouped by purpose (content, media, navigation, regions, localisation, assets, search, docs,
   commerce, accounts). The variables each kind of template receives. What the template sandbox
   refuses. Anything in the code that is not in THEMING.md, and the reverse, goes in your report.
 
 ### block-library — The block library
-- **File** `reference/04-block-library.md` · **Order** 4 · **Status** todo
+- **File** `reference/04-block-library.md` · **Order** 4 · **Status** done
 - **Summary** "Every block that ships: what it is for, its fields, and its style settings."
 - **Sources** `core/src/Content/Blocks/StarterBlockTypes.php`, `packages/thallo-render/docs/THEMING.md` §4.4,
-  `packages/thallo-render/themes/default/templates/blocks/`, the packs that add blocks
-  (`packages/thallo-commerce/`, `packages/thallo-account/`, `packages/thallo-subscriptions/`, `packages/thallo-navigation/`)
+  `packages/thallo-render/themes/default/templates/blocks/`, the two packs that add blocks:
+  `packages/thallo-account/src/Blocks/AccountBlockTypesContributor.php` and
+  `packages/thallo-commerce/src/Starter/ShopBlockTypesContributor.php` (subscriptions and navigation add none;
+  the pricing and navigation blocks are core starters), `admin/src/pages/settings/block-types/components/BlockTypeStyleSettings.vue`
+  (the labels for style capability groups)
 - **Must cover** Every block type, grouped as the Blocks tab groups them. For each: what it is
-  for, its fields with their types, whether it holds other blocks, its template's file name,
-  and the capability it needs if it is not always there. Count them from the source: do not
+  for, its fields with their types, whether it holds other blocks, which style settings it
+  offers (by label; what each does is the style settings page's), and the capability it needs if
+  it is not always there. The template is always `blocks/{slug}.twig`: say it once. Count them from the source: do not
   repeat a number from elsewhere.
 
 ### style-settings — Style settings reference
-- **File** `reference/05-style-settings.md` · **Order** 5 · **Status** todo
+- **File** `reference/05-style-settings.md` · **Order** 5 · **Status** done
 - **Summary** "Every setting in the Style and Layout tabs, its choices, and the CSS it becomes."
-- **Sources** `packages/thallo-render/docs/THEMING.md` §12.1–§12.3a, §11, `packages/thallo-contracts/src/Style/`,
-  `packages/thallo-render/src/Style/StyleCompiler.php`, `packages/thallo-render/src/Style/ClassNames.php`
+- **Sources** `packages/thallo-render/docs/THEMING.md` §12.1–§12.3a, `packages/thallo-contracts/src/Style/StyleSchema.php`,
+  `.../Vocabulary.php`, `.../StyleTargets.php`, `.../CascadeResolver.php`, `packages/thallo-render/src/Style/StyleCompiler.php`,
+  `packages/thallo-render/src/Style/ClassNames.php`, `admin/src/editor/inspector/StyleTab.vue` (`LABELS`),
+  `.../layoutLabels.ts`, `.../choiceLabels.ts`, `.../tabMap.ts`, `core/src/Content/Blocks/CustomBlockStyle.php`,
+  `admin/src/editor/breakpoint.ts`. A long reference: 51 properties, about 3,500 words.
 - **Must cover** The vocabulary: each token family and its steps. Each property: its path, its
   choices, whether it is responsive, the class it emits and the declaration behind it. The
   breakpoints and their widths. How a reset works. Which properties a given block offers
   (targets). This page is for theme authors and the curious: say so at the top.
 
 ### permissions — Permissions reference
-- **File** `reference/06-permissions.md` · **Order** 6 · **Status** todo
+- **File** `reference/06-permissions.md` · **Order** 6 · **Status** done
 - **Summary** "Every permission, what it allows, and which roles hold it on a new install."
-- **Sources** `core/src/Content/Authorization/`, `core/src/Setup/InstallRoleGrants.php`,
-  `core/routes/admin.php` (which route asks for which permission), `core/src/Content/Console/PolicyManifestCommand.php`
+- **Sources** `php glueful permissions:list` (the whole declared catalogue, with owners),
+  `vendor/glueful/aegis/migrations/003_SeedDefaultRoles.php`, `core/database/dependent-migrations/` (004–015 seed
+  Thallo's permissions and roles), `core/src/Providers/CoreServiceProvider.php` (`permissions()`),
+  `core/src/Setup/InstallRoleGrants.php`, `core/routes/admin.php` and `packages/*/routes/` (which route asks for which),
+  `config/tenancy.php` (`role_matrix`), `core/src/Content/Authorization/CapabilityCatalog.php`
 - **Must cover** Every permission string with a line on what it opens, grouped. The roles a new
   install has and the permissions each is granted. Permissions that imply others.
 
@@ -580,44 +601,52 @@ Running a live site.
   A control-panel cron form, filled in.
 
 ### backups — Back up and restore
-- **File** `operations/04-backups.md` · **Order** 4 · **Status** todo
+- **File** `operations/04-backups.md` · **Order** 4 · **Status** done
 - **Summary** "What to back up, the backup job that ships, and how to restore a site."
-- **Sources** `config/schedule.php` (`database_backup`), the `DatabaseBackupJob` it names (in
-  `vendor/glueful/framework/`), `skeleton/.env.example` (`DB_BACKUP_*`), `config/storage.php`,
-  `core/src/Content/ImportExport/`
+- **Sources** `config/schedule.php` (`database_backup` and its `DB_BACKUP_*` keys — no `.env.example` names them),
+  `vendor/glueful/framework/src/Tasks/DatabaseBackupTask.php` (where the behaviour is; the job is a wrapper),
+  `config/app.php` (`paths.backups`), `config/storage.php`, `core/src/Content/ImportExport/`,
+  `php glueful thallo:provision --help` (`--force`), `thallo:resync`
 - **Must cover** The three things that make a site: the database, `storage/` (uploads), and
   `.env` with its keys. What the scheduled backup does, where it writes, how long it keeps.
   Restoring, step by step, and the keys that must match for encrypted values and signed previews
   to survive. The NDJSON export as a content-only copy, and what it leaves out.
 
 ### troubleshooting — Health checks and troubleshooting
-- **File** `operations/05-troubleshooting.md` · **Order** 5 · **Status** todo
+- **File** `operations/05-troubleshooting.md` · **Order** 5 · **Status** done
 - **Summary** "Find out what is wrong: the doctor, the Health page, the logs, and the usual causes."
 - **Sources** `core/src/Setup/Doctor/Doctor.php`, `core/src/Setup/Console/DoctorCommand.php`,
-  `admin/src/pages/utilities/health/`, `admin/src/pages/utilities/cache/`, `config/logging.php`,
+  `vendor/glueful/framework/src/Services/HealthService.php`, `core/src/Content/Scheduling/SchedulerHeartbeat.php`,
+  `core/src/Http/Controllers/CacheAdminController.php`, `core/src/Setup/AdminBundlePublisher.php`,
+  `packages/thallo-render/src/Console/ClearRenderCacheCommand.php`, `packages/thallo-render/src/Http/Middleware/RenderCachePurge.php`,
+  `vendor/glueful/framework/src/Logging/LogManager.php` (the real file names), `config/logging.php`,
   `docs/production.md` (PHP-served asset paths), `tests/Integration/Render/PreviewAssetsUnderProxiedPrefixTest.php`
 - **Must cover** `thallo:doctor` and each check it makes. The Health page and each check. Where
   logs are. Clearing caches and when it is the answer. A table of symptoms to causes, only for
-  problems the code or the tests show are real: unstyled preview, 404 on `/admin` deep links,
-  scheduled publishing not happening, imports stuck at queued, preview bar links to the wrong
-  place, media URLs pointing at localhost.
+  problems the code or the tests show are real: unstyled preview, `/admin` assets 404 when the
+  bundle was never published, scheduled publishing not happening, imports stuck at queued,
+  preview bar links to the wrong place, canonical and OG URLs missing at a localhost `BASE_URL`.
 
 ### security — Security
-- **File** `operations/06-security.md` · **Order** 6 · **Status** todo
+- **File** `operations/06-security.md` · **Order** 6 · **Status** done
 - **Summary** "What Thallo protects by default, the secrets a site holds, and what is yours to do."
-- **Sources** `SECURITY.md`, `config/security.php`, `config/cors.php`, `config/session.php`, `config/auth.php`,
-  `skeleton/.env.example`, `core/src/Setup/SetupService.php` (the setup token), `packages/thallo-render/src/Templates/TemplatePolicy.php`
-  (template sandbox), `packages/thallo-render/docs/THEMING.md` §8.5 and §9.5 (CSP)
+- **Sources** `SECURITY.md`, `config/security.php` (its `headers` and `password` blocks are read by nothing),
+  `config/cors.php` (the live CORS config), `config/session.php`, `config/auth.php`, `skeleton/.env.example`,
+  `core/src/Http/Controllers/SetupController.php` and `core/src/Setup/Console/ProvisionCommand.php` (the setup token),
+  `packages/thallo-render/src/Templates/TemplatePolicy.php` (database templates only), `vendor/glueful/framework/src/Application.php`
+  (`ContentSecurityPolicy::fromEnv`), `packages/thallo-render/docs/THEMING.md` §8.5 and §9.5 (say no CSP ships; one does, report-only)
 - **Must cover** The keys provision generates and what each protects; rotating them. The setup
   token. HTTPS and the production defaults of `.env`. The content security policy the theme
   needs. The template sandbox. Upload restrictions. API keys and their scopes. How to report a
   vulnerability, word for word from `SECURITY.md`.
 
 ### multi-site — Turn on workspaces
-- **File** `operations/07-multi-site.md` · **Order** 7 · **Status** todo
+- **File** `operations/07-multi-site.md` · **Order** 7 · **Status** done
 - **Summary** "Enable multi-tenancy in stages, give each workspace its domain, and turn it off again."
-- **Sources** `packages/thallo-tenancy/README.md`, `packages/thallo-tenancy/src/Console/`, `config/tenancy.php`,
-  `skeleton/.env.example` (the tenancy block), `php glueful thallo:tenancy:* --help`, `docs/limitations.md`
+- **Sources** `packages/thallo-tenancy/src/Enablement/`, `packages/thallo-tenancy/src/Resolution/`,
+  `packages/thallo-tenancy/src/Console/`, `config/tenancy.php`, `skeleton/.env.example` (the tenancy block),
+  `docs/internal/operations/tenancy.md` (purge recovery and the cooldown sweep; its `extensions:enable tenancy` is wrong),
+  the starter-sync commands `thallo:tenant:sync`, `thallo:tenant:blocks:sync`, `thallo:tenant:seed` (the disable gate demands them)
 - **Must cover** That this is a one-way-looking door with a way back: read the whole page first.
   The stages of `thallo:tenancy:enable` and what each changes. Activating full resolution.
   Tenants, domains and members by command. Diagnosing. Disabling. What a single-store install

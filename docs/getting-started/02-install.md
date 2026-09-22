@@ -32,7 +32,8 @@ Composer installs Thallo into `vendor/`, copies `.env.example` to `.env`, and bu
 extension cache. The directories you own — `app/`, `routes/`, `config/`, `themes/` and
 `database/migrations/` — start empty.
 
-`.env` ships in production mode: debug off, API docs off, HTTPS enforced.
+`.env` ships in production mode: debug off. HTTPS is enforced by your web server, not by Thallo. (The API reference at `/api-docs` is
+on unless you set `API_DOCS_ENABLED=false`; see [configuration](../reference/02-configuration.md).)
 
 ## Create the database
 

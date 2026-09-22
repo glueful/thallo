@@ -46,8 +46,8 @@ follow keep showing drafts and you can walk the site as it would be.
 A bar runs across the top of the previewed page. Its first line is the entry's real publication
 state: "Published — previewing the latest draft", "Published without a route — previewing the
 latest draft", or "Draft — not published yet". Then the actions. **Edit** and **Design** return to
-the entry in the admin, and appear only when **Settings › General › Admin URL** tells the site
-where the admin is. **View live** appears only for a published entry with a route. **Exit
+the entry in the admin: at this site's own admin, or wherever **Settings › General › Admin URL**
+says it is hosted instead. **View live** appears only for a published entry with a route. **Exit
 preview** ends the session; otherwise it dies with the token.
 
 ## Publishing pins a version

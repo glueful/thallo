@@ -19,7 +19,7 @@ types, the extension cache, and the release's admin bundle published into `publi
 the release's **Upgrade Notes** in [CHANGELOG.md](https://github.com/glueful/thallo/blob/main/CHANGELOG.md) first.
 
 Your own files are never touched by an upgrade: `.env`, `config/` overrides, `app/`, `routes/`,
-`database/migrations/`, `themes/{name}/`, `storage/`, `public/storage/`.
+`database/migrations/`, `themes/{name}/`, `storage/`.
 
 ## One-time move for installs created before beta.21
 

@@ -103,6 +103,11 @@ final class DocsCorpusTest extends TestCase
             }
             self::assertSame($row['order'], $front['order'] ?? '', "{$path}: order");
             self::assertNotSame('', trim($front['summary'] ?? ''), "{$path}: summary");
+            self::assertDoesNotMatchRegularExpression(
+                '/[`*_\[]/',
+                $front['summary'] ?? '',
+                "{$path}: the summary is plain text; Markdown in it prints literally",
+            );
 
             if ($folder !== null) {
                 self::assertSame($row['slug'], $front['slug'] ?? '', "{$path}: slug");

@@ -42,12 +42,17 @@ Ways to check a fact, from the repository root:
 php glueful list                      # every console command that exists
 php glueful <command> --help          # its real arguments and options
 git grep -n "some_config_key" -- ':!core/resources'   # where a key is read; skip the built admin
+git grep -n "pattern" -- '*.vue'                          # zsh eats --include=; give git the glob
+php glueful permissions:list                              # every declared permission, with its owner
 ```
 
-`php glueful` needs a database. In this repository's test setup, prefix it with:
+`git grep` does not see `vendor/`; there, `/usr/bin/grep -rn` is the tool.
+
+`php glueful` needs a database. In this repository's test setup, run it through `bash -c` with
+the variables exported (zsh does not split them):
 
 ```bash
-DB_PGSQL_DATABASE=app_test APP_ENV=testing CACHE_DRIVER=array CACHE_TAGS=false QUERY_CACHE_ENABLED=false QUERY_CACHE_STORE=array
+bash -c 'export DB_PGSQL_DATABASE=app_test APP_ENV=testing CACHE_DRIVER=array CACHE_TAGS=false QUERY_CACHE_ENABLED=false QUERY_CACHE_STORE=array; php glueful list'
 ```
 
 ## 2. Where a page goes
@@ -97,7 +102,7 @@ value breaks the preview on GitHub.
 | `slug` | The page's URL: `/docs/{slug}`. As PAGES.md gives it. Lower-case, hyphens. |
 | `section` | The folder's name. |
 | `order` | The page's place in its section, as PAGES.md gives it. |
-| `summary` | One sentence, shown under the title and on the index. It says what the reader gets. No "This page…". The row's summary was written before the code was read: if the code makes it false, write a true one and report it. Title and slug never change. |
+| `summary` | One sentence, shown under the title and on the index, as plain text: no backticks or other Markdown, which print literally. It says what the reader gets. No "This page…". The row's summary was written before the code was read: if the code makes it false, write a true one and report it. Title and slug never change. |
 | `draft: true` | Keeps an unfinished page out of the import. Remove it when the page is done. |
 
 **URLs are flat.** There is no `/docs/concepts/blocks`: it is `/docs/blocks`, whatever folder the
@@ -147,7 +152,9 @@ headings the same on one page.
   capitals (`SETUP_TOKEN`), and say that you did. A `[OK]` or `[ERROR]` box (Symfony's styled
   output, which most `php glueful` commands print) is described, not quoted.
 - One block, one purpose. Do not put three alternatives in one block for the reader to pick
-  apart.
+  apart. Several sibling commands on a reference page go in a table, one per row.
+- A value the reader supplies is written `<user-uuid>` inside a fence. In prose the same angle
+  brackets read as HTML and fail the lint: write "the user's uuid".
 - Use real values the reader can recognise as examples: `my-site`, `example.com`,
   `/path/to/site`. Never a real secret, never a key that looks real.
 - Every command has been run, or read from the source, by you (§1).
@@ -264,6 +271,9 @@ Write the way the CHANGELOG and the existing four pages are written: plain, exac
 | template | one Twig file of a theme | view, layout (layout.twig is the one template called the layout) |
 | design tokens | the named values (colours, spacing, type) a theme defines and the site's settings change | CSS variables, theme variables |
 | the style vocabulary | the set of tokens and choices `theme.json` declares for the Design view | style contract, vocabulary of tokens |
+| setting | one thing the Style or Layout tab sets (the code says managed property) | property, option |
+| style target | the element of a block a setting lands on (`root`, `inner`, …) | slot, part |
+| style capabilities | the settings a block declares it offers — always the two words, since "capability" alone means Extensions › Capabilities | capabilities |
 | `theme.json` | a theme's manifest | theme config, manifest file |
 | region | the header or the footer (Site › Header & footer); the code calls them chrome | global block, partial, chrome |
 | capability | a feature that can be switched on (Extensions › Capabilities) | plugin, add-on, module |

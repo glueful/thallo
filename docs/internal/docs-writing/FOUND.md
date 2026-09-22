@@ -117,6 +117,42 @@ reproduced beyond what the report says.
   for the mails, and a mail transport failure is invisible in the admin because the mail channel
   reports available on an unconfigured install. (accounts)
 
+- **The scheduled database backup can never produce a backup — verified.** `DatabaseBackupTask`
+  reads `config['driver']`, `['database']`, `['username']` from a config whose keys are `engine`
+  and `pgsql { db, user, pass }`, falls back to `mysqldump` with empty credentials on a
+  PostgreSQL site, swallows the failure and logs "completed". Enabled by default in production.
+  Framework code; Thallo should ship `DB_BACKUP_ENABLED=false` until it is fixed. (backups)
+- **No security headers are sent and no HTTPS redirect exists — verified.**
+  `SecurityHeadersMiddleware` is applied to no route (one commented-out line in `config/http.php`);
+  `config/security.php`'s `headers` block is read by nothing; `force_https` is read only by a
+  recommendation list. `.env.example` says "HTTPS enforced". Only the CSP reaches a response,
+  via `CSP_HEADER`. (security)
+- **The API reference is on in production — verified.** `skeleton/config/app.php` defaults
+  `api_docs_enabled` to `true`, overriding the framework's production-off default; `.env.example`
+  and the production guide said off. Decide the default. (configuration, security)
+- **Three site names.** `SITE_NAME` (Settings › General) has one consumer, the starter region
+  seed; templates and `og:site_name` read `RENDER_SITE_NAME`; the SEO title template reads
+  `SEO_SITE_NAME`. Renaming the site in the admin changes nothing a visitor sees. (configuration)
+- **`permissions:diff` reports every Thallo permission as unenforced**, blind to the
+  `content_permission:` middleware. `workflow.bypass` is not in `CapabilityCatalog`. (permissions)
+- **`thallo:tenancy:hosts:sweep` queues onto `tenancy-maintenance`**, which no documented worker
+  line worked until now. (cli)
+- **Self-serve checkout sends a public visitor into the admin**; there is no public subscribe
+  flow. **Change plan** is permanently disabled. No price, currency or interval exists in Thallo.
+  A plan with only `provider_price_id` is silently unpurchasable. (subscriptions)
+- **Pack blocks (all nine) declare no `layout.item`**, so none can be sized inside a Container.
+  (block-library)
+- **The scheduler check cannot affect the Health page's overall status.** `log_cleanup` ignores
+  `LOG_RETENTION_DAYS` (parameter-name mismatch). `LOG_FILE_PATH` is relative and unresolved:
+  under FPM, logs may not land in `storage/logs/` — confirm. (troubleshooting)
+- **`import-export:cleanup` deletes the file rows but leaves completed exports on disk**, now
+  unreachable from the admin. A bundle import needs `thallo:resync` and nothing says so.
+  (backups)
+- **Enabling workspaces from a terminal has no way out of `failed`** (retry is HTTP-only); no
+  command prints a user UUID for `--owner`. (multi-site)
+- **No path to re-key stored secrets**: `encryption:rotate`'s AAD is `{table}.{column}`, the
+  payment store's is the settings key. `security:check`'s score is mostly stubs. (security)
+
 ## Things a reader cannot do, or is not told
 
 - **Nothing creates the PostgreSQL database.** Provision fails on the connection test if it is
@@ -180,6 +216,17 @@ reproduced beyond what the report says.
 - **Every visitor-facing account thing is fixed in code**: the dashboard is empty until a
   developer registers items. (accounts)
 
+- **No CLI lists block types; the `links` block's items are raw JSON.** (block-library)
+- **No admin surface shows which settings a code-declared block offers.** (style-settings)
+- **A theme cannot see `site.locales`** (always empty); `is_preview()` and `is_canvas()` are one
+  flag; disk templates get no check at all. (template-functions)
+- **Pack config is overridable only by creating a file that does not ship**
+  (`config/render.php`, `search.php`, `seo.php` …). No `config:cache`, no effective-config view.
+  `MAIL_BCC` and `MAIL_LOGO_URL` are read by nothing. (configuration)
+- **No admin UI for a resource-scoped (per-language) grant.** (permissions)
+- **The tenancy commands print raw JSON with no paging; `analytics:prune` is unscheduled.** (cli)
+- **`SECURITY.md` has no dedicated address, PGP key or disclosure window.** (security)
+
 ## Stale prose in the repository (the pages follow the code)
 
 - `README.md`: "default `thallo`" database and `createdb thallo` (no such default; provision
@@ -223,6 +270,15 @@ reproduced beyond what the report says.
   and endpoint "not part of this pack"). `config/storage.php`'s S3 comment names a package
   the code does not know. `THEMING.md` §4.2 `media(uuid, variant)`; §12.3 omits Motion;
   `ThemeLocator` and `render.php` "resolved at boot"; `ThemeCloneCommand` "templates page".
+- `skeleton/.env.example`: "API docs off in production", "HTTPS enforcement follows APP_ENV",
+  `DB_USER` (code reads `DB_USERNAME`), `users.read` (code checks `users.view`), `LOG_FILE_PATH`
+  relative. `docs/production.md` (fixed): API docs, HTTPS, `public/storage/` as uploads.
+  `docs/upgrading.md` and `skeleton/README.md` (fixed in docs): `public/storage/`.
+  `core/config/thallo.php`: "writes SITE_NAME to .env" (it writes a settings row).
+  `config/payvia.php` header on cached boot. `docs/internal/PER_LOCALE_RBAC.md` names permissions
+  that do not exist. `docs/internal/operations/tenancy.md`: `extensions:enable tenancy`.
+  `THEMING.md` §4.2 is a stale subset of the functions (22 missing); §8.5/§9.5 "no CSP ships";
+  its §9.6 sits before §9.5. `DoctorCommand`'s failure box names `thallo setup`.
 - Code comments: `admin/src/editor/palette/order.ts` ("flat list, no category headings");
   `BlockTypeRepository` ("no nesting in v1"); `ContentTypeRepository::updateSchema()` ("backfill
   planned"); `ScheduledTasksController` ("QueueManager isn't container-registered");

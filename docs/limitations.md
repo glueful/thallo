@@ -3,7 +3,7 @@ section: reference
 order: 90
 summary: "The current boundaries of the Developer Preview, stated plainly."
 ---
-# Known Limitations (Developer Preview)
+# Known limitations
 
 Stated plainly so you can decide with open eyes. None of these are bugs; each is a deliberate
 current boundary.

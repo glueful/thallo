@@ -112,7 +112,7 @@ After=network.target postgresql.service
 [Service]
 User=deploy
 WorkingDirectory=/path/to/site
-ExecStart=/usr/bin/php glueful queue:work --queue=default,import-export --sleep=3 --tries=3 --max-runtime=3600
+ExecStart=/usr/bin/php glueful queue:work --queue=default,import-export,tenancy-maintenance --sleep=3 --tries=3 --max-runtime=3600
 Restart=always
 RestartSec=5
 
@@ -130,7 +130,7 @@ one. `--memory` and `--max-jobs` are the other two limits.
 If you cannot run a supervisor, a cron line can drain the queue instead:
 
 ```text
-*/5 * * * * php /path/to/site/glueful queue:work --queue=default,import-export --stop-when-empty --max-runtime=240 >> /path/to/site/storage/logs/queue.log 2>&1
+*/5 * * * * php /path/to/site/glueful queue:work --queue=default,import-export,tenancy-maintenance --stop-when-empty --max-runtime=240 >> /path/to/site/storage/logs/queue.log 2>&1
 ```
 
 `--stop-when-empty` ends the run as soon as one pass over every named queue takes no job.
