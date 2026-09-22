@@ -38,4 +38,13 @@ final class SiteNameTest extends AppTestCase
         $this->container()->get(GeneralSettings::class)->save(['site_name' => 'Acme']);
         self::assertSame('About — Acme', $template->invoke($resolver, 'About'));
     }
+
+    public function testSiteLocalesListsTheEnabledLanguages(): void
+    {
+        $manager = $this->container()->get(\Glueful\Extensions\I18n\Contracts\LocaleManagerInterface::class);
+        $enabled = array_map(static fn(array $l): string => (string) $l['code'], $manager->enabled());
+
+        self::assertNotSame([], $enabled);
+        self::assertSame($enabled, SiteContext::build($this->appContext(), 'en')['locales']);
+    }
 }

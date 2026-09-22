@@ -62,6 +62,7 @@ as the next release, never a mutated tag.
   Unpublish; the API already accepted both.
 
 ### Fixed
+- **`site.locales` was always empty.** It lists the enabled languages' codes. Test.
 - **A listing page's heading printed the type's slug.** It prints the name; templates get
   `type_name`. Test.
 - **Ken Burns never stopped.** A drift runs there and back once and rests, and holds still under

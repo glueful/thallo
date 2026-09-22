@@ -146,7 +146,9 @@ That is enough for a switcher in the layout:
 {% endif %}
 ```
 
-`site.locales` exists in the template context but is always empty; do not build anything on it.
+`site.locales` lists the enabled languages' codes in their **Settings › Languages** order, so a
+theme can show every language, including those an entry has not been translated into yet.
+`seo.alternates` above lists only the translations that exist.
 The header and the footer are one set of blocks for the whole site, so a switcher belongs in the
 theme's templates rather than in a region. Menu labels, on the other hand, are held per language:
 see [build the site's menus](03-navigation.md).

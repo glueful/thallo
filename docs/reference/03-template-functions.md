@@ -164,7 +164,7 @@ Twig's own filters are available too, within the limits the sandbox sets below.
 
 | Variable | What it holds |
 |---|---|
-| `site` | `name`, `locale` (the locale this page rendered in), `version` (the installed Thallo version, `null` in a development checkout) and `locales`, which is present but always empty. |
+| `site` | `name`, `locale` (the locale this page rendered in), `version` (the installed Thallo version, `null` in a development checkout) and `locales`, the enabled languages' codes in their Settings › Languages order. |
 | `current_path` | The normalised request path, for marking the current item in a menu. |
 | `presentation` | `show_title`, `layout` (`centered` or `full`), `header` and `footer` (`default` or `hidden`), and `style_classes`, the page's own style frame as classes for `main`. Composed from the page's override, then `theme.json`'s per-type setting, then its default. |
 

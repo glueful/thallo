@@ -106,8 +106,7 @@ A missing feature is not a regression. These are product decisions to make, or t
   drift from `StyleCompiler::motionRules()`. The CSP hash is computed and tested; timings match
   apart from Play's documented 8-second Ken Burns. An "always" entrance replays without a cap, on
   scroll only.
-- **A theme cannot see `site.locales`** (always empty). `is_preview()` and `is_canvas()` read one
-  flag. Disk templates are parsed and their theme config validated, but get no admin template
+- **`is_preview()` and `is_canvas()` read one flag.** Disk templates are parsed and their theme config validated, but get no admin template
   lint.
 - **The `links` block's items are raw JSON.**
 - **Pack config is overridable only by creating a file that does not ship** (`config/render.php`,
@@ -120,7 +119,7 @@ A missing feature is not a regression. These are product decisions to make, or t
   `form_key`; the admin does not). No field builder, file uploads or CAPTCHA.
 - **Workspaces need several restarts to enable**, and cannot be disabled with more than one
   workspace. The exact count depends on the deployment.
-- **Languages:** a single homepage, not one per language; `site.locales` is empty. Whether
+- **Languages:** a single homepage, not one per language. Whether
   `direction` does anything, and whether a language can be removed, is unchecked.
 - **SEO:** no per-type fallbacks or robots groups from the admin, and `config/seo.php` does not
   ship. Whether a redirect can be edited, target an entry or pick its locale is unchecked.
@@ -155,6 +154,7 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **`site.locales` was always empty.** It lists the enabled languages. Test.
 - **Scheduled unpublish had no UI.** The schedule picks Publish or Unpublish. Test.
 - **Content-type fields had no labels.** A Label per field, and readable names otherwise. Tests.
 - **Listings: the switch was far from the type, and the heading printed the slug.** A Listing page
