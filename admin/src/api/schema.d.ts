@@ -2830,6 +2830,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/form-submissions/delete': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Delete several submissions
+     * @description Permanently removes the named submissions (up to 500); unknown uuids are ignored. Requires `content.manage`.
+     */
+    post: operations['postV1AdminFormsubmissionsDelete']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/form-submissions/export.csv': {
     parameters: {
       query?: never
@@ -2842,6 +2862,26 @@ export interface paths {
      * @description Streams the filtered submissions as CSV: fixed metadata columns unioned with every field key seen across the rows. Requires `content.manage`.
      */
     get: operations['getV1AdminFormsubmissionsExportcsv']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/form-submissions/forms': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Forms with submissions
+     * @description Each form that has submissions: its key, latest name and count, for the per-form filter. Requires `content.manage`.
+     */
+    get: operations['getV1AdminFormsubmissionsForms']
     put?: never
     post?: never
     delete?: never
@@ -25918,6 +25958,82 @@ export interface operations {
       }
     }
   }
+  postV1AdminFormsubmissionsDelete: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Deleted; `deleted` is how many. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description No list of uuids, or more than 500. */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
   getV1AdminFormsubmissionsExportcsv: {
     parameters: {
       query?: never
@@ -25928,6 +26044,75 @@ export interface operations {
     requestBody?: never
     responses: {
       /** @description A text/csv attachment. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  getV1AdminFormsubmissionsForms: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The forms. */
       200: {
         headers: {
           [name: string]: unknown

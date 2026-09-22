@@ -766,6 +766,19 @@ $ php glueful render:theme:clone my-theme
 
 [Make a theme](../guides/13-make-a-theme.md) starts here.
 
+### thallo:forms:prune
+
+Delete form submissions older than `FORMS_RETENTION_DAYS`. **Writes.** With no retention set it
+deletes nothing. The scheduler's `form_submissions_prune` job runs it nightly.
+
+| Option | What it does |
+|---|---|
+| `--days=DAYS` | Override: delete submissions older than this many days |
+
+```bash
+$ php glueful thallo:forms:prune --days=180
+```
+
 ### thallo:capabilities
 
 List every capability with what was requested, whether its engine can back it, and whether it is

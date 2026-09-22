@@ -87,11 +87,17 @@ message per field.
 
 Open **Submissions** in the sidebar. Its badge counts unread submissions.
 
-- The list is newest first, and **All**, **Unread** and **Read** filter it.
+- The list is newest first. The form menu above it narrows it to one form, and **All**,
+  **Unread** and **Read** filter it by state.
 - Clicking a row opens it and marks it read.
 - The detail pane shows each label and value as the visitor saw them, and **Submitted from**
   with the page's URL.
-- **Delete** removes one submission permanently, after a confirmation.
+- **Delete** removes one submission permanently, after a confirmation. To remove several, tick
+  them (or **Select all**) and press **Delete** with the count beside it.
+
+Submissions are kept until someone deletes them, unless you set a retention in `.env`:
+`FORMS_RETENTION_DAYS=180` has the scheduler delete, every night, each submission older than 180
+days. `php glueful thallo:forms:prune --days=180` does the same once, by hand.
 
 Values are normalised before they are stored: text is trimmed, a checkbox reads Yes or No, an
 address that is not an email address is refused, a value over 5,000 characters is refused, and
@@ -101,8 +107,8 @@ The screen and its API need the `content.manage` permission.
 
 ## Export the submissions as CSV
 
-**Export CSV** downloads `form-submissions.csv` with the status filter you are looking at
-applied. The columns are `submitted_at`, `form_name`, `source_url`, `ip` and `user_agent`,
+**Export CSV** downloads `form-submissions.csv` with the form and status filters you are looking
+at applied. The columns are `submitted_at`, `form_name`, `source_url`, `ip` and `user_agent`,
 followed by one column for every field key that appears in the exported rows.
 
 ## The notification email

@@ -115,8 +115,7 @@ A missing feature is not a regression. These are product decisions to make, or t
 
 ### Site features
 
-- **Form submissions have no retention, bulk delete or per-form view** (the API filters by
-  `form_key`; the admin does not). No field builder, file uploads or CAPTCHA.
+- **Forms: no field builder, file uploads or CAPTCHA.**
 - **Workspaces need several restarts to enable**, and cannot be disabled with more than one
   workspace. The exact count depends on the deployment.
 - **Languages:** a single homepage, not one per language. Whether
@@ -154,6 +153,7 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **Form submissions had no retention, bulk delete or per-form view.** All three. Tests.
 - **`site.locales` was always empty.** It lists the enabled languages. Test.
 - **Scheduled unpublish had no UI.** The schedule picks Publish or Unpublish. Test.
 - **Content-type fields had no labels.** A Label per field, and readable names otherwise. Tests.

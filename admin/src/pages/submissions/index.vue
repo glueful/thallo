@@ -4,6 +4,7 @@ import {
   useSubmissions,
   useSubmission,
   useSubmissionMutations,
+  useSubmissionForms,
   downloadSubmissionsCsv,
   type SubmissionStatus,
   type SubmissionSummary,
@@ -14,10 +15,16 @@ definePage({ meta: { requiresAuth: true } })
 
 const { success, error: notifyError } = useNotify()
 
-// Status filter (form_key filtering is available via the API for deep links; the UI
-// filters by triage state, which is what an editor actually triages by).
+// Filters: which form, and triage state.
 const statusFilter = ref<'' | SubmissionStatus>('')
-const filter = computed(() => ({ status: statusFilter.value }))
+const formFilter = ref('')
+const filter = computed(() => ({ status: statusFilter.value, formKey: formFilter.value }))
+const { data: forms } = useSubmissionForms()
+const ALL_FORMS = '__all__'
+const formItems = computed(() => [
+  { label: 'All forms', value: ALL_FORMS },
+  ...(forms.value ?? []).map((f) => ({ label: `${f.form_name} (${f.count})`, value: f.form_key })),
+])
 const { data: submissions } = useSubmissions(filter)
 const rows = computed<SubmissionSummary[]>(() => submissions.value ?? [])
 
@@ -70,11 +77,37 @@ async function confirmDelete(): Promise<void> {
   deleteOpen.value = false
 }
 
+// Bulk delete: tick rows, then delete them together (confirmed, like a single delete).
+const checked = ref<string[]>([])
+const allChecked = computed(
+  () => rows.value.length > 0 && rows.value.every((r) => checked.value.includes(r.uuid)),
+)
+function toggleChecked(uuid: string, on: boolean): void {
+  checked.value = on
+    ? [...new Set([...checked.value, uuid])]
+    : checked.value.filter((u) => u !== uuid)
+}
+function toggleAll(on: boolean): void {
+  checked.value = on ? rows.value.map((r) => r.uuid) : []
+}
+const bulkOpen = ref(false)
+async function confirmBulkDelete(): Promise<void> {
+  try {
+    const deleted = await mutations.removeMany.mutateAsync(checked.value)
+    if (checked.value.includes(selected.value)) selected.value = ''
+    checked.value = []
+    success(deleted === 1 ? '1 submission deleted' : `${deleted} submissions deleted`)
+  } catch (e) {
+    notifyError(e, 'Couldn’t delete the submissions')
+  }
+  bulkOpen.value = false
+}
+
 const exporting = ref(false)
 async function exportCsv(): Promise<void> {
   exporting.value = true
   try {
-    await downloadSubmissionsCsv({ status: statusFilter.value })
+    await downloadSubmissionsCsv({ status: statusFilter.value, formKey: formFilter.value })
   } catch (e) {
     notifyError(e, 'Couldn’t export submissions')
   } finally {
@@ -130,6 +163,39 @@ const filters: { label: string; value: '' | SubmissionStatus; test: string }[] =
             </UButton>
           </div>
 
+          <USelect
+            :model-value="formFilter === '' ? ALL_FORMS : formFilter"
+            :items="formItems"
+            class="mb-3 w-full"
+            aria-label="Filter by form"
+            data-test="filter-form"
+            @update:model-value="(v: unknown) => (formFilter = v === ALL_FORMS ? '' : String(v))"
+          />
+
+          <div v-if="rows.length > 0" class="mb-2 flex items-center justify-between gap-2 px-3">
+            <UCheckbox
+              :model-value="allChecked"
+              label="Select all"
+              data-test="submissions-select-all"
+              @update:model-value="(v: unknown) => toggleAll(v === true)"
+            />
+            <UButton
+              v-if="checked.length > 0"
+              icon="i-lucide-trash-2"
+              color="error"
+              variant="subtle"
+              size="xs"
+              data-test="submissions-bulk-delete-open"
+              @click="
+                () => {
+                  bulkOpen = true
+                }
+              "
+            >
+              Delete {{ checked.length }}
+            </UButton>
+          </div>
+
           <p
             v-if="rows.length === 0"
             class="py-8 text-center text-sm text-muted"
@@ -139,7 +205,14 @@ const filters: { label: string; value: '' | SubmissionStatus; test: string }[] =
           </p>
 
           <ul v-else class="flex flex-col gap-1">
-            <li v-for="row in rows" :key="row.uuid">
+            <li v-for="row in rows" :key="row.uuid" class="flex items-start gap-1">
+              <UCheckbox
+                class="mt-2.5 pl-3"
+                :model-value="checked.includes(row.uuid)"
+                :aria-label="`Select the submission from ${row.submitted_at}`"
+                data-test="submission-check"
+                @update:model-value="(v: unknown) => toggleChecked(row.uuid, v === true)"
+              />
               <button
                 type="button"
                 class="flex w-full items-start gap-2 rounded-md px-3 py-2 text-left hover:bg-elevated/50"
@@ -215,6 +288,36 @@ const filters: { label: string; value: '' | SubmissionStatus; test: string }[] =
           </div>
         </section>
       </div>
+
+      <UModal v-model:open="bulkOpen" title="Delete submissions">
+        <template #body>
+          <p class="text-sm text-muted">
+            This permanently deletes {{ checked.length }}
+            {{ checked.length === 1 ? 'submission' : 'submissions' }}. This can’t be undone.
+          </p>
+        </template>
+        <template #footer>
+          <div class="flex justify-end gap-2">
+            <UButton
+              color="neutral"
+              variant="ghost"
+              @click="
+                () => {
+                  bulkOpen = false
+                }
+              "
+              >Cancel</UButton
+            >
+            <UButton
+              color="error"
+              data-test="submissions-bulk-delete"
+              :loading="mutations.removeMany.isLoading.value"
+              @click="confirmBulkDelete"
+              >Delete</UButton
+            >
+          </div>
+        </template>
+      </UModal>
 
       <!-- Delete confirmation (teleports). MUST live inside #body so UDashboardPanel renders it. -->
       <UModal v-model:open="deleteOpen" title="Delete submission">

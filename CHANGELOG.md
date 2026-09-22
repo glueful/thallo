@@ -60,6 +60,9 @@ as the next release, never a mutated tag.
   one the form shows the name made readable ("Starts at", not `starts_at`).
 - **Unpublish on a schedule from the admin.** The Publishing tab's schedule chooses Publish or
   Unpublish; the API already accepted both.
+- **Form submissions: a per-form filter, bulk delete and retention.** Submissions filters by form
+  and deletes ticked rows together; `FORMS_RETENTION_DAYS` has the scheduler delete older ones,
+  and `thallo:forms:prune` does it by hand.
 
 ### Fixed
 - **`site.locales` was always empty.** It lists the enabled languages' codes. Test.

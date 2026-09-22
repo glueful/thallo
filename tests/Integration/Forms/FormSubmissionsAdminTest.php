@@ -23,12 +23,17 @@ final class FormSubmissionsAdminTest extends AppTestCase
         return $this->container()->get(FormSubmissionRepository::class);
     }
 
-    private function seed(string $key, string $status, string $email): string
-    {
+    private function seed(
+        string $key,
+        string $status,
+        string $email,
+        string $submittedAt = '2026-07-09 10:00:00',
+        string $name = 'Contact',
+    ): string {
         return $this->repo()->store(new FormSubmission(
             uuid: '',
             formKey: $key,
-            formName: 'Contact',
+            formName: $name,
             sourceUrl: '/contact',
             fieldsSnapshot: [['key' => 'email', 'label' => 'Email', 'type' => 'email']],
             values: ['email' => $email, 'consent' => true],
@@ -36,7 +41,7 @@ final class FormSubmissionsAdminTest extends AppTestCase
             status: $status,
             ip: '127.0.0.1',
             userAgent: 'test',
-            submittedAt: '2026-07-09 10:00:00',
+            submittedAt: $submittedAt,
         ));
     }
 
@@ -96,5 +101,72 @@ final class FormSubmissionsAdminTest extends AppTestCase
         self::assertStringContainsString('submitted_at,form_name,source_url,ip,user_agent,email,consent', $csv);
         self::assertStringContainsString('a@x.test', $csv);
         self::assertStringContainsString('Yes', $csv); // consent bool → Yes
+    }
+
+    public function testFormsListsEachFormWithItsCount(): void
+    {
+        $this->seed('ka', 'unread', 'a@x.test');
+        $this->seed('ka', 'unread', 'b@x.test');
+        $this->seed('kb', 'unread', 'c@x.test', name: 'Newsletter');
+
+        $forms = $this->json($this->controller()->forms())['data']['forms'];
+
+        self::assertSame([
+            ['form_key' => 'ka', 'form_name' => 'Contact', 'count' => 2],
+            ['form_key' => 'kb', 'form_name' => 'Newsletter', 'count' => 1],
+        ], $forms);
+    }
+
+    public function testBulkDeleteRemovesOnlyTheNamedSubmissions(): void
+    {
+        $a = $this->seed('ka', 'unread', 'a@x.test');
+        $b = $this->seed('ka', 'unread', 'b@x.test');
+        $keep = $this->seed('ka', 'unread', 'c@x.test');
+
+        $res = $this->controller()->destroyMany(Request::create(
+            '/x',
+            'POST',
+            [],
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            (string) json_encode(['uuids' => [$a, $b, 'missing00000']]),
+        ));
+
+        self::assertSame(200, $res->getStatusCode());
+        self::assertSame(2, $this->json($res)['data']['deleted']);
+        self::assertNull($this->repo()->find($a));
+        self::assertNotNull($this->repo()->find($keep));
+    }
+
+    public function testBulkDeleteNeedsAList(): void
+    {
+        $res = $this->controller()->destroyMany(Request::create('/x', 'POST', [], [], [], [], '{}'));
+
+        self::assertSame(422, $res->getStatusCode());
+    }
+
+    public function testRetentionDeletesOnlySubmissionsPastTheCutoff(): void
+    {
+        $old = $this->seed('ka', 'read', 'old@x.test', gmdate('Y-m-d H:i:s', time() - 100 * 86400));
+        $recent = $this->seed('ka', 'read', 'new@x.test', gmdate('Y-m-d H:i:s', time() - 5 * 86400));
+
+        self::assertSame(1, $this->repo()->deleteOlderThan(gmdate('Y-m-d H:i:s', time() - 30 * 86400)));
+        self::assertNull($this->repo()->find($old));
+        self::assertNotNull($this->repo()->find($recent));
+    }
+
+    public function testThePruneCommandDoesNothingWithoutARetention(): void
+    {
+        $old = $this->seed('ka', 'read', 'old@x.test', gmdate('Y-m-d H:i:s', time() - 400 * 86400));
+        $tester = new \Symfony\Component\Console\Tester\CommandTester(
+            $this->container()->get(\Thallo\Core\Content\Console\PruneFormSubmissionsCommand::class),
+        );
+
+        self::assertSame(0, $tester->execute([]));
+        self::assertNotNull($this->repo()->find($old));
+
+        self::assertSame(0, $tester->execute(['--days' => '30']));
+        self::assertNull($this->repo()->find($old));
     }
 }

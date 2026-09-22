@@ -123,6 +123,14 @@ return [
             'enabled' => env('ANALYTICS_PRUNE_ENABLED', true),
         ],
         [
+            'name' => 'form_submissions_prune',
+            'schedule' => '50 3 * * *',
+            'handler_class' => \Thallo\Core\Jobs\RunConsoleCommandJob::class,
+            'parameters' => ['command' => \Thallo\Core\Content\Console\PruneFormSubmissionsCommand::class],
+            'description' => 'Delete form submissions past FORMS_RETENTION_DAYS (no-op when unset)',
+            'enabled' => env('FORMS_PRUNE_ENABLED', true),
+        ],
+        [
             'name' => 'commerce_carts_prune',
             'schedule' => '20 * * * *',
             'handler_class' => \Thallo\Core\Jobs\RunConsoleCommandJob::class,
