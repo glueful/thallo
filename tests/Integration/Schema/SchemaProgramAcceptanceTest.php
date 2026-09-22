@@ -177,6 +177,9 @@ final class SchemaProgramAcceptanceTest extends AppTestCase
         $tenancy = $registry->availability('thallo.tenancy');
         self::assertFalse($tenancy->available);
         self::assertStringContainsString('glueful/tenancy', (string) $tenancy->reason);
+        // A protected provider is refused by extensions:enable, so that is not the remedy to show.
+        self::assertStringNotContainsString('extensions:enable', (string) $tenancy->remedy);
+        self::assertStringContainsString('Settings › Workspaces', (string) $tenancy->remedy);
         self::assertFalse($registry->isEnabled('thallo.tenancy'));
 
         foreach (self::APP_OWNED as $id) {

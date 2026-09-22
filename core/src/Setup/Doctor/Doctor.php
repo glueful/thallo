@@ -30,12 +30,16 @@ final class Doctor
      * @param list<string> $loadedExtensions
      * @param (\Closure(string): ?int)|null $httpProbe GET a URL, return the final HTTP status or
      *        null when unreachable; defaults to a short-timeout stream request. Injected for tests.
+     * @param ?string $storedTheme the theme chosen on the Appearance page (the raw settings row),
+     *        which wins over RENDER_THEME at runtime; null or empty when none is stored or the
+     *        database cannot be read.
      */
     public function __construct(
         private readonly string $basePath,
         private readonly string $phpVersion,
         private readonly array $loadedExtensions,
         private readonly ?\Closure $httpProbe = null,
+        private readonly ?string $storedTheme = null,
     ) {
     }
 
@@ -56,6 +60,7 @@ final class Doctor
 
         $checks[] = $this->envTargetCheck();
         $checks[] = $this->writableStorageCheck();
+        $checks[] = $this->logExposureCheck();
         $checks[] = $this->keysCheck();
         $environment = $this->environmentCheck();
         $assetRouting = $this->assetRoutingCheck();
@@ -118,6 +123,42 @@ final class Doctor
      * (debug output, API docs, no HTTPS enforcement) is the silent mistake this warns about.
      * Local hosts are fine in any mode. Null when there is no .env to read yet.
      */
+    /**
+     * Log files under public/ are served to anyone who asks for them. A relative LOG_FILE_PATH once
+     * put every request's log in public/storage/logs/ (a web request's working directory is
+     * public/); the config now resolves it against the site, but the files it already wrote stay
+     * until someone deletes them. A warning, not a failure: this runs inside provision, and a
+     * failure would stop an upgrade halfway.
+     */
+    private function logExposureCheck(): Check
+    {
+        $public = $this->basePath . '/public';
+        $found = [];
+        if (is_dir($public)) {
+            $files = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($public, \FilesystemIterator::SKIP_DOTS),
+            );
+            foreach ($files as $file) {
+                if ($file->isFile() && str_ends_with(strtolower($file->getFilename()), '.log')) {
+                    $found[] = substr($file->getPathname(), strlen($this->basePath) + 1);
+                    if (count($found) === 3) {
+                        break;
+                    }
+                }
+            }
+        }
+        if ($found === []) {
+            return Check::ok('log-exposure', 'No log files under public/.');
+        }
+        sort($found);
+
+        return Check::warn(
+            'log-exposure',
+            'Log files under public/ are served to anyone: ' . implode(', ', $found) . '. Delete them, '
+                . 'and remove a relative LOG_FILE_PATH from .env (logs then go to storage/logs/).',
+        );
+    }
+
     private function environmentCheck(): ?Check
     {
         $env = $this->basePath . '/.env';
@@ -212,30 +253,42 @@ final class Doctor
         return Check::ok('api-routing', 'File-shaped API paths reach PHP.');
     }
 
-    /** The public BASE_URL to probe, or null when unset or local (nothing to probe). */
     /**
      * The active theme must map the platform vocabulary and list its stylesheets (visual
      * builder spec §2.2): a theme that fails this cannot load, so say so before activation.
-     * `RENDER_THEME` names an app theme under themes/; absent means the shipped default.
+     * The Appearance page's choice wins, as it does at runtime (ActiveThemeSource); otherwise
+     * `RENDER_THEME` names an app theme under themes/, and absent means the shipped default.
      */
     /** @return array{0: ?ThemeVocabulary, 1: Check} the vocabulary when it loads, and the verdict */
     private function themeVocabularyCheck(): array
     {
         $env = $this->basePath . '/.env';
-        $name = is_file($env) ? (string) ((new EnvWriter($env))->get('RENDER_THEME') ?? 'default') : 'default';
-        $name = $name === '' ? 'default' : $name;
+        $envTheme = is_file($env) ? (string) ((new EnvWriter($env))->get('RENDER_THEME') ?? 'default') : 'default';
+        $envTheme = $envTheme === '' ? 'default' : $envTheme;
+        $stored = $this->storedTheme ?? '';
+        $name = $stored !== '' ? $stored : $envTheme;
+        // A broken stored choice does not break the site: the runtime logs it and serves RENDER_THEME.
+        $source = $stored !== ''
+            ? "the theme chosen on the Appearance page; until it is fixed the site serves RENDER_THEME={$envTheme}"
+            : "RENDER_THEME={$name}";
+        if (preg_match('/\A[a-z0-9][a-z0-9_-]*\z/i', $name) !== 1) {
+            return [null, Check::fail('theme-vocabulary', "\"{$name}\" is not a valid theme name ({$source}).")];
+        }
         $dir = $name === 'default'
             ? dirname((new \ReflectionClass(ThemeLocator::class))->getFileName(), 2) . '/themes/default'
             : $this->basePath . '/themes/' . $name;
         if (!is_file($dir . '/theme.json')) {
             return [null, Check::fail(
                 'theme-vocabulary',
-                "Theme \"{$name}\" has no theme.json at themes/{$name}/theme.json (RENDER_THEME={$name}).",
+                "Theme \"{$name}\" has no theme.json at themes/{$name}/theme.json ({$source}).",
             )];
         }
         $json = json_decode((string) file_get_contents($dir . '/theme.json'), true);
         if (!is_array($json)) {
-            return [null, Check::fail('theme-vocabulary', "Theme \"{$name}\": theme.json is not valid JSON.")];
+            return [null, Check::fail(
+                'theme-vocabulary',
+                "Theme \"{$name}\": theme.json is not valid JSON ({$source}).",
+            )];
         }
         try {
             $vocabulary = ThemeVocabulary::fromThemeJson($json, $dir);
@@ -243,10 +296,14 @@ final class Doctor
             return [null, Check::fail(
                 'theme-vocabulary',
                 $e->getMessage() . " — every theme maps the platform vocabulary and lists its stylesheets "
-                . "(RENDER_THEME={$name}; see packages/thallo-render/docs/THEMING.md).",
+                . "({$source}; see packages/thallo-render/docs/THEMING.md).",
             )];
         }
-        return [$vocabulary, Check::ok('theme-vocabulary', "Theme \"{$name}\" maps the platform vocabulary.")];
+        $from = $stored !== '' ? 'chosen on the Appearance page' : "RENDER_THEME={$name}";
+        return [$vocabulary, Check::ok(
+            'theme-vocabulary',
+            "Theme \"{$name}\" ({$from}) maps the platform vocabulary.",
+        )];
     }
 
     /**
@@ -265,6 +322,7 @@ final class Doctor
             );
     }
 
+    /** The public BASE_URL to probe, or null when unset or local (nothing to probe). */
     private function publicBaseUrl(): ?string
     {
         $env = $this->basePath . '/.env';

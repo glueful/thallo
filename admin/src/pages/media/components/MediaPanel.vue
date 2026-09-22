@@ -103,9 +103,11 @@ async function confirmDelete() {
   }
 }
 
+// The address the file is served at — never the storage path, which is not a URL. A private
+// file's is signed and expires, so a copied link stops working.
 async function copyUrl() {
-  await navigator.clipboard.writeText(props.item.url)
-  success('File URL copied')
+  await navigator.clipboard.writeText(props.item.display_url)
+  success(props.item.visibility === 'private' ? 'Signed link copied' : 'File URL copied')
 }
 
 function fmtDate(v?: string | null): string {
@@ -184,10 +186,12 @@ function fmtDate(v?: string | null): string {
 
     <!-- File URL -->
     <div>
-      <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted"
-        >File URL</label
+      <label
+        class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted"
+        data-test="media-file-url-label"
+        >{{ item.visibility === 'private' ? 'Signed link — it expires' : 'File URL' }}</label
       >
-      <UInput :model-value="item.url" readonly class="w-full">
+      <UInput :model-value="item.display_url" readonly class="w-full" data-test="media-file-url">
         <template #trailing>
           <UButton
             icon="i-lucide-copy"

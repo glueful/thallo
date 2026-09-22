@@ -3,7 +3,7 @@ import { reactive, ref, useTemplateRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import * as z from 'zod'
 import type { Form, FormSubmitEvent } from '@nuxt/ui'
-import { useSessionStore } from '@/stores/session'
+import { useSessionStore, type TwoFactorChallenge } from '@/stores/session'
 import { toApiError } from '@/api/errors'
 import { useNotify } from '@/composables/useNotify'
 
@@ -25,13 +25,29 @@ const loading = ref(false)
 const { error: notifyError } = useNotify()
 const loginForm = useTemplateRef<Form<Schema>>('loginForm')
 
+// Two-factor accounts: login returns a challenge and the page asks for the emailed code.
+const challenge = ref<TwoFactorChallenge | null>(null)
+const codeSchema = z.object({
+  code: z.string().regex(/^\d{6}$/, 'Enter the 6-digit code from your email.'),
+})
+type CodeSchema = z.output<typeof codeSchema>
+const codeState = reactive({ code: '' })
+
+async function goOn() {
+  // Honour ?redirect= from the auth guard; default to Home.
+  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+  await router.push(redirect)
+}
+
 async function onSubmit(event: FormSubmitEvent<Schema>) {
   loading.value = true
   try {
-    await session.login(event.data.email, event.data.password)
-    // Honour ?redirect= from the auth guard; default to Home.
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
-    await router.push(redirect)
+    const pending = await session.login(event.data.email, event.data.password)
+    if (pending !== null) {
+      challenge.value = pending
+      return
+    }
+    await goOn()
   } catch (e) {
     const err = toApiError(e)
     // Map any per-field validation messages onto the inputs; toast the overall reason.
@@ -45,10 +61,67 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     loading.value = false
   }
 }
+
+async function onCode(event: FormSubmitEvent<CodeSchema>) {
+  if (challenge.value === null) return
+  loading.value = true
+  try {
+    await session.completeTwoFactor(challenge.value.token, event.data.code)
+    await goOn()
+  } catch (e) {
+    notifyError(toApiError(e), 'Verification failed')
+  } finally {
+    loading.value = false
+  }
+}
+
+function startOver() {
+  challenge.value = null
+  codeState.code = ''
+}
 </script>
 
 <template>
-  <UForm ref="loginForm" :schema="schema" :state="state" class="space-y-4" @submit="onSubmit">
+  <UForm
+    v-if="challenge"
+    :schema="codeSchema"
+    :state="codeState"
+    class="space-y-4"
+    @submit="onCode"
+  >
+    <h1 class="text-lg font-semibold text-highlighted">Enter your code</h1>
+    <p class="text-sm text-muted">
+      We sent a 6-digit code to {{ challenge.deliveredTo }}. It expires in
+      {{ Math.max(1, Math.round(challenge.expiresIn / 60)) }} minutes.
+    </p>
+
+    <UFormField label="Code" name="code">
+      <UInput
+        v-model="codeState.code"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+        maxlength="6"
+        class="w-full"
+        :ui="{ base: 'bg-white/35' }"
+      />
+    </UFormField>
+
+    <UButton type="submit" block :loading="loading">Verify and sign in</UButton>
+    <div class="text-center">
+      <UButton variant="link" color="neutral" size="sm" @click="startOver">
+        Use a different account, or send a new code
+      </UButton>
+    </div>
+  </UForm>
+
+  <UForm
+    v-else
+    ref="loginForm"
+    :schema="schema"
+    :state="state"
+    class="space-y-4"
+    @submit="onSubmit"
+  >
     <h1 class="text-lg font-semibold text-highlighted">Sign in</h1>
 
     <UFormField label="Email" name="email">

@@ -110,8 +110,11 @@ async function loadTemplates() {
   try {
     const result = await fetchEmailTemplates()
     // Commerce's order emails MOVED to Commerce › Settings › Emails (store-settings spec
-    // §4.2 follow-up) — same registry, same API, managed beside their switches instead of here.
-    templates.value = result.templates.filter((t) => t.owner !== 'thallo-commerce')
+    // §4.2 follow-up) and the customers' account emails live in Settings › Accounts — same
+    // registry, same API, managed beside the settings they belong to instead of here.
+    templates.value = result.templates.filter(
+      (t) => t.owner !== 'thallo-commerce' && t.owner !== 'thallo-account',
+    )
     partials.value = result.partials
     templatesVisible.value = true
   } catch (e) {

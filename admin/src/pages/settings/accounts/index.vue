@@ -8,6 +8,7 @@ import {
   type AccountSettings,
 } from '@/queries/accountSettings'
 import PathCombobox from './components/PathCombobox.vue'
+import AccountEmailsSection from './components/AccountEmailsSection.vue'
 
 // Verified-capability guard: direct navigation to this page requires thallo.accounts to be
 // ENABLED (not merely visible in the sidebar). The router guard reads isEnabled().
@@ -75,8 +76,9 @@ onMounted(load)
     <template #body>
       <div class="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6">
         <p class="text-sm text-muted">
-          The account pages, and where visitors land after signing in or out. Redirects must be
-          site-relative paths (a single leading <code>/</code>); leave one blank to use the default.
+          The account pages, where visitors land after signing in or out, and the emails they
+          receive. Redirects must be site-relative paths (a single leading <code>/</code>); leave
+          one blank to use the default.
         </p>
 
         <div v-if="loading" class="flex flex-col gap-3">
@@ -167,6 +169,8 @@ onMounted(load)
               >
             </div>
           </section>
+
+          <AccountEmailsSection />
         </template>
       </div>
     </template>

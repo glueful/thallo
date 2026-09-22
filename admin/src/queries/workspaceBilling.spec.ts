@@ -68,7 +68,17 @@ describe('workspace billing query layer', () => {
         origination: null,
         operator_contact_required: false,
         operator_contact_reason: null,
-        purchasable_plans: [{ plan_key: 'pro', name: 'Pro' }],
+        // Prices absent on the wire normalize to null; plan changes default to unsupported.
+        purchasable_plans: [
+          {
+            plan_key: 'pro',
+            name: 'Pro',
+            price_amount: null,
+            price_currency: null,
+            billing_interval: null,
+          },
+        ],
+        plan_change_supported: false,
       })
     })
 

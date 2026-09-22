@@ -51,7 +51,7 @@ final class PlanCheckoutUrlResolverTest extends AppTestCase
         // phpunit.xml's RENDER_ADMIN_URL=https://admin.test is the deploy-time fallback
         // (no DB override in this test) — see GeneralSettings/EngineAdminUrlProvider.
         self::assertSame(
-            'https://admin.test/billing?plan=pro',
+            'https://admin.test/signup?plan=pro',
             $resolver->resolve($this->appContext(), 'pro'),
         );
     }
@@ -67,7 +67,7 @@ final class PlanCheckoutUrlResolverTest extends AppTestCase
         $resolver = $this->container()->get(PlanCheckoutUrlResolver::class);
 
         self::assertSame(
-            'https://other-admin.test/billing?plan=team',
+            'https://other-admin.test/signup?plan=team',
             $resolver->resolve($this->appContext(), 'team'),
         );
     }
@@ -80,7 +80,7 @@ final class PlanCheckoutUrlResolverTest extends AppTestCase
         $resolver = $this->container()->get(PlanCheckoutUrlResolver::class);
 
         self::assertSame(
-            'https://admin.test/billing?plan=definitely-not-a-real-plan',
+            'https://admin.test/signup?plan=definitely-not-a-real-plan',
             $resolver->resolve($this->appContext(), 'definitely-not-a-real-plan'),
         );
     }
@@ -97,7 +97,7 @@ final class PlanCheckoutUrlResolverTest extends AppTestCase
 
         $resolver = $this->container()->get(PlanCheckoutUrlResolver::class);
 
-        self::assertSame("{$base}/admin/billing?plan=pro", $resolver->resolve($this->appContext(), 'pro'));
+        self::assertSame("{$base}/admin/signup?plan=pro", $resolver->resolve($this->appContext(), 'pro'));
     }
 
     public function testNullWhenTheSiteBringsItsOwnAdminAndSaysNotWhere(): void

@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Http;
 
+use Thallo\Core\Content\Delivery\AssetExpander;
+use Thallo\Core\Content\Delivery\DeliveryItemShaper;
 use Thallo\Core\Content\Delivery\DeliveryRepository;
+use Thallo\Core\Content\Delivery\EngineMediaUrlResolver;
 use Thallo\Core\Content\Delivery\FilterCompiler;
 use Thallo\Core\Content\Delivery\ReferenceResolver;
 use Thallo\Core\Content\Delivery\SortCompiler;
@@ -47,10 +50,14 @@ final class DeliveryApiTest extends AppTestCase
         $this->type = (new ContentTypeRepository($this->connection()))->create([
             'slug' => 'post',
             'name' => 'Post',
+            'public_delivery' => true,
             'schema' => [
                 ['name' => 'title', 'type' => 'string', 'required' => true],
                 ['name' => 'body', 'type' => 'text'],
                 ['name' => 'priority', 'type' => 'number', 'filterable' => true, 'filter_type' => 'number'],
+                ['name' => 'related', 'type' => 'reference'],
+                ['name' => 'cover', 'type' => 'asset'],
+                ['name' => 'gallery', 'type' => 'asset', 'multiple' => true],
             ],
         ]);
     }
@@ -91,7 +98,55 @@ final class DeliveryApiTest extends AppTestCase
                 ),
                 'en',
             ),
+            shaper: $this->shaper($repo, $types),
         );
+    }
+
+    private function shaper(DeliveryRepository $repo, ContentTypeRepository $types): DeliveryItemShaper
+    {
+        return new DeliveryItemShaper(
+            $types,
+            new ReferenceResolver($repo),
+            new Projector(),
+            new CanonicalProjector(
+                $repo,
+                new RouteRepository($this->connection(), new RedirectRepository($this->connection())),
+                $types,
+                new \Thallo\Core\Content\Seo\CanonicalPathBuilder(
+                    new PathRenderer('/{locale}/{type}/{slug}', null, 'en'),
+                    $this->container()->get(\Glueful\Extensions\I18n\Contracts\LocaleManagerInterface::class),
+                ),
+                'en',
+            ),
+            assets: new AssetExpander(
+                $this->connection(),
+                new EngineMediaUrlResolver($this->connection(), '/api/v1/blobs', true, 'public'),
+            ),
+        );
+    }
+
+    /** A blobs row plus its media-library words. */
+    private function seedAsset(string $visibility = 'public', string $alt = 'A red door'): string
+    {
+        $uuid = \Glueful\Helpers\Utils::generateNanoID();
+        $this->connection()->table('blobs')->insert([
+            'uuid' => $uuid,
+            'name' => 'door.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 123,
+            'url' => 'uploads/door.jpg',
+            'visibility' => $visibility,
+            'status' => 'active',
+            'created_by' => 'user00000001',
+            'created_at' => gmdate('Y-m-d H:i:s'),
+        ]);
+        $this->connection()->table('media_meta')->insert([
+            'blob_uuid' => $uuid,
+            'alt_text' => $alt,
+            'caption' => 'Front door, 2026',
+            'created_at' => gmdate('Y-m-d H:i:s'),
+        ]);
+        return $uuid;
     }
 
     private function entries(): EntryRepository
@@ -198,6 +253,137 @@ final class DeliveryApiTest extends AppTestCase
         self::assertStringNotContainsString('_presentation', (string) $resp->getContent());
     }
 
+    public function testPresentationIsStrippedFromExpandedReferences(): void
+    {
+        // The root strip ran after expansion had spliced whole target rows in, so a
+        // referenced entry's _presentation was served inside the root's payload, at
+        // every depth the expansion reached.
+        $deep = $this->publish([
+            'title' => 'Deep',
+            '_presentation' => ['show_title' => false, 'layout' => 'full'],
+        ]);
+        $near = $this->publish([
+            'title' => 'Near',
+            'related' => $deep,
+            '_presentation' => ['layout' => 'centered'],
+        ]);
+        $root = $this->publish(['title' => 'Root', 'related' => $near]);
+
+        foreach ([[], ['expand' => 'related']] as $query) {
+            $resp = $this->controller()->show($this->get($query), $this->showQuery($query), 'post', $root);
+            self::assertSame(200, $resp->getStatusCode());
+            $body = (string) $resp->getContent();
+            $data = json_decode($body, true)['data'];
+
+            self::assertSame('Near', $data['fields']['related']['fields']['title']);
+            self::assertSame('Deep', $data['fields']['related']['fields']['related']['fields']['title']);
+            self::assertStringNotContainsString('_presentation', $body);
+        }
+    }
+
+    public function testPublishedAtIsIso8601AsTheApiReferenceSays(): void
+    {
+        // docs/openapi.json declares format: date-time; the raw database timestamp was served.
+        $uuid = $this->publish(['title' => 'Dated']);
+
+        $data = json_decode((string) $this->controller()->show($this->get(), $this->showQuery(), 'post', $uuid)
+            ->getContent(), true)['data'];
+        $listed = json_decode((string) $this->controller()->index($this->get(), $this->listQuery(), 'post')
+            ->getContent(), true)['data']['items'][0];
+
+        $iso = '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/';
+        self::assertMatchesRegularExpression($iso, (string) $data['published_at']);
+        self::assertMatchesRegularExpression($iso, (string) $listed['published_at']);
+    }
+
+    public function testExpandWithoutFieldsExpandsAndKeepsEveryField(): void
+    {
+        // The field selector folds ?expand= into ?fields=, so asking to expand one reference
+        // returned only that field.
+        $target = $this->publish(['title' => 'Target']);
+        $root = $this->publish(['title' => 'Root', 'body' => 'Kept', 'priority' => 3, 'related' => $target]);
+        $query = ['expand' => 'related'];
+
+        $response = $this->controller()->show($this->get($query), $this->showQuery($query), 'post', $root);
+        $fields = json_decode((string) $response->getContent(), true)['data']['fields'];
+
+        self::assertSame('Root', $fields['title']);
+        self::assertSame('Kept', $fields['body']);
+        self::assertSame(3, (int) $fields['priority']);
+        self::assertSame('Target', $fields['related']['fields']['title'] ?? null);
+    }
+
+    public function testAssetFieldsStayUuidsUnlessExpanded(): void
+    {
+        $cover = $this->seedAsset();
+        $root = $this->publish(['title' => 'Root', 'cover' => $cover]);
+
+        $response = $this->controller()->show($this->get(), $this->showQuery(), 'post', $root);
+        $fields = json_decode((string) $response->getContent(), true)['data']['fields'];
+
+        self::assertSame($cover, $fields['cover']);
+    }
+
+    public function testExpandedAssetCarriesItsUrlAndWords(): void
+    {
+        $cover = $this->seedAsset();
+        $first = $this->seedAsset(alt: 'First');
+        $hidden = $this->seedAsset('private');
+        $root = $this->publish(['title' => 'Root', 'cover' => $cover, 'gallery' => [$first, $hidden]]);
+        $query = ['expand' => 'cover,gallery'];
+
+        $response = $this->controller()->show($this->get($query), $this->showQuery($query), 'post', $root);
+        $fields = json_decode((string) $response->getContent(), true)['data']['fields'];
+
+        self::assertSame([
+            'uuid' => $cover,
+            'url' => '/api/v1/blobs/' . $cover,
+            'alt' => 'A red door',
+            'caption' => 'Front door, 2026',
+            'mime_type' => 'image/jpeg',
+        ], $fields['cover']);
+        self::assertSame('Root', $fields['title']);
+        // A file the public cannot fetch is never described: it expands to null, like an
+        // unpublished reference.
+        self::assertSame('First', $fields['gallery'][0]['alt']);
+        self::assertNull($fields['gallery'][1]);
+    }
+
+    public function testEditingAnExpandedAssetChangesTheEtag(): void
+    {
+        $cover = $this->seedAsset();
+        $root = $this->publish(['title' => 'Root', 'cover' => $cover]);
+        $query = ['expand' => 'cover'];
+
+        $before = $this->controller()->show($this->get($query), $this->showQuery($query), 'post', $root);
+        $this->connection()->table('media_meta')
+            ->where('blob_uuid', '=', $cover)
+            ->update(['alt_text' => 'A blue door']);
+        $after = $this->controller()->show(
+            $this->get($query, ['If-None-Match' => (string) $before->headers->get('ETag')]),
+            $this->showQuery($query),
+            'post',
+            $root,
+        );
+
+        self::assertSame(200, $after->getStatusCode());
+        $fields = json_decode((string) $after->getContent(), true)['data']['fields'];
+        self::assertSame('A blue door', $fields['cover']['alt']);
+    }
+
+    public function testFieldsStillNarrowWhenGiven(): void
+    {
+        $target = $this->publish(['title' => 'Target']);
+        $root = $this->publish(['title' => 'Root', 'body' => 'Dropped', 'related' => $target]);
+        $query = ['fields' => 'title,related', 'expand' => 'related'];
+
+        $response = $this->controller()->show($this->get($query), $this->showQuery($query), 'post', $root);
+        $fields = json_decode((string) $response->getContent(), true)['data']['fields'];
+
+        self::assertSame(['title', 'related'], array_keys($fields));
+        self::assertSame('Target', $fields['related']['fields']['title'] ?? null);
+    }
+
     public function testShowReturnsPublishedFields(): void
     {
         $uuid = $this->publish(['title' => 'Hello show', 'priority' => 1]);
@@ -264,6 +450,21 @@ final class DeliveryApiTest extends AppTestCase
         $resp = $this->controller()->show($this->get(), $this->showQuery(), 'post', 'old');
 
         self::assertSame(404, $resp->getStatusCode());
+    }
+
+    public function testALanguageThatIsNotEnabledIsNotServed(): void
+    {
+        // Disabling a language did not stop the API: ?locale= was used as given, so a disabled
+        // language's published content stayed readable.
+        $uuid = $this->publishInLocale('en', ['title' => 'English', 'priority' => 1]);
+        $controller = $this->controller(new FakeLocaleManager());
+
+        $list = $controller->index($this->get(['locale' => 'de']), $this->listQuery(['locale' => 'de']), 'post');
+        $one = $controller->show($this->get(['locale' => 'de']), $this->showQuery(['locale' => 'de']), 'post', $uuid);
+
+        self::assertSame(404, $list->getStatusCode());
+        self::assertSame(404, $one->getStatusCode());
+        self::assertStringContainsString('de', (string) $one->getContent());
     }
 
     public function testShowFallsBackThroughI18nLocaleChainByUuid(): void

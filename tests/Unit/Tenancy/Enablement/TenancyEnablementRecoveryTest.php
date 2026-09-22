@@ -56,6 +56,25 @@ final class TenancyEnablementRecoveryTest extends AppTestCase
         self::assertNull($status->pendingSlug);
     }
 
+    public function testAFailureBeforeTheRetrofitCanBeCancelled(): void
+    {
+        $store = $this->container()->get(EnablementStore::class);
+        $store->recordFailure(EnablementStep::MIGRATING_EXTENSION, 'failed');
+
+        $status = $this->container()->get(TenancyEnablement::class)->cancel();
+
+        self::assertSame(EnablementStep::OFF, $status->step);
+        self::assertNull($status->failure);
+    }
+
+    public function testAFailureAfterTheRetrofitCannotBeCancelled(): void
+    {
+        $this->container()->get(EnablementStore::class)->recordFailure(EnablementStep::ENABLING_ENFORCEMENT, 'failed');
+
+        $this->expectException(EnablementException::class);
+        $this->container()->get(TenancyEnablement::class)->cancel();
+    }
+
     public function testCancelRejectsPostRetrofitState(): void
     {
         $this->container()->get(EnablementStore::class)->setStep(EnablementStep::RELOADING);

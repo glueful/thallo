@@ -9,21 +9,13 @@
  *   - local: Local filesystem (included)
  *   - memory: In-memory storage for testing (included)
  *
- * Optional adapters (install via Composer):
- *   - S3/MinIO/DigitalOcean Spaces/Wasabi:
- *       composer require league/flysystem-aws-s3-v3
+ * Other drivers are registered by driver packages, never by a Flysystem adapter alone:
+ *   - s3 (S3, MinIO, DigitalOcean Spaces, Wasabi): composer require glueful/storage-s3
+ *   - gcs (Google Cloud Storage):                   composer require glueful/storage-gcs
+ *   - azure (Azure Blob Storage):                   composer require glueful/storage-azure
  *
- *   - Google Cloud Storage:
- *       composer require league/flysystem-google-cloud-storage
- *
- *   - Azure Blob Storage:
- *       composer require league/flysystem-azure-blob-storage
- *
- *   - SFTP:
- *       composer require league/flysystem-sftp-v3
- *
- *   - FTP:
- *       composer require league/flysystem-ftp
+ * Any other driver (SFTP, FTP …) needs a StorageDriverFactoryInterface tagged
+ * `storage.driver_factory`. An unregistered driver fails with a message naming the package.
  */
 
 $root = dirname(__DIR__);

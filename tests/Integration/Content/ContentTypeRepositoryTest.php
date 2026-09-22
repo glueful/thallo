@@ -33,4 +33,24 @@ final class ContentTypeRepositoryTest extends AppTestCase
         $this->repo()->updateSchema($uuid, [['name' => 'body', 'type' => 'text']]);
         self::assertSame(2, $this->repo()->findByUuid($uuid)['schema_version']);
     }
+
+    public function testARemovedFieldIsRefusedWithTheWayToRemoveIt(): void
+    {
+        // The refusal promised that migrating content was "planned for a later release";
+        // delete and rename migrations have shipped. The message names that route, and
+        // says plainly that a retype has none.
+        $uuid = $this->repo()->create(['slug' => 'post', 'name' => 'Post', 'schema' => [
+            ['name' => 'title', 'type' => 'string'],
+            ['name' => 'body', 'type' => 'text'],
+        ]]);
+        try {
+            $this->repo()->updateSchema($uuid, [['name' => 'title', 'type' => 'string']]);
+            self::fail('expected the removal to be refused');
+        } catch (\Thallo\Core\Content\Schema\SchemaParseException $e) {
+            self::assertStringContainsString('body', $e->getMessage());
+            self::assertStringContainsString('/content-types/{slug}/migrations', $e->getMessage());
+            self::assertStringContainsString('cannot be retyped', $e->getMessage());
+            self::assertStringNotContainsString('planned', $e->getMessage());
+        }
+    }
 }

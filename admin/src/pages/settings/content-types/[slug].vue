@@ -8,6 +8,7 @@ import {
   type ContentTypeField,
 } from '@/queries/contentTypes'
 import { useNotify } from '@/composables/useNotify'
+import { useGeneralSettings, useGeneralSettingsMutations } from '@/queries/generalSettings'
 
 definePage({ meta: { requiresAuth: true } })
 
@@ -71,6 +72,30 @@ async function onTogglePublicDelivery(value: boolean) {
   } catch (e) {
     publicDelivery.value = !value
     notifyError(e, 'Couldn’t update public delivery')
+  }
+}
+
+// The type's listing page (/{slug}) is on while the slug is in Settings › General's listing
+// types. The switch edits that one list, so both places always agree.
+const { data: generalSettings } = useGeneralSettings()
+const { save: saveGeneral } = useGeneralSettingsMutations()
+const listingTypes = computed(() => generalSettings.value?.listing_types ?? [])
+const hasListing = computed(() => listingTypes.value.includes(slug.value))
+
+async function onToggleListing(value: boolean) {
+  const next = value
+    ? [...new Set([...listingTypes.value, slug.value])]
+    : listingTypes.value.filter((t) => t !== slug.value)
+  try {
+    await saveGeneral.mutateAsync({ listing_types: next })
+    success(
+      value ? 'Listing page on' : 'Listing page off',
+      value
+        ? `Published entries of this type are listed at /${slug.value}.`
+        : `/${slug.value} no longer lists this type's entries.`,
+    )
+  } catch (e) {
+    notifyError(e, 'Couldn’t update the listing page')
   }
 }
 
@@ -180,6 +205,18 @@ async function confirmDelete() {
                       data-test="public-delivery-toggle"
                       :label="publicDelivery ? 'Yes' : 'No'"
                       @update:model-value="onTogglePublicDelivery"
+                    />
+                  </dd>
+                </div>
+                <div class="col-span-2 flex items-center justify-between gap-3 lg:col-span-1">
+                  <dt class="text-muted">Listing page</dt>
+                  <dd class="text-default">
+                    <USwitch
+                      :model-value="hasListing"
+                      :disabled="saveGeneral.isLoading.value || !generalSettings"
+                      data-test="listing-toggle"
+                      :label="hasListing ? `/${slug}` : 'Off'"
+                      @update:model-value="onToggleListing"
                     />
                   </dd>
                 </div>

@@ -9,6 +9,7 @@ const detailData = ref<SubmissionDetail | undefined>(undefined)
 const markReadMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const removeMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const downloadMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+const removeManyMock = vi.hoisted(() => vi.fn().mockResolvedValue(2))
 const notify = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }))
 
 vi.mock('@/queries/formSubmissions', () => ({
@@ -18,6 +19,10 @@ vi.mock('@/queries/formSubmissions', () => ({
   useSubmissionMutations: () => ({
     markRead: { mutateAsync: markReadMock },
     remove: { mutateAsync: removeMock },
+    removeMany: { mutateAsync: removeManyMock, isLoading: ref(false) },
+  }),
+  useSubmissionForms: () => ({
+    data: ref([{ form_key: 'k1', form_name: 'Contact', count: 2 }]),
   }),
   downloadSubmissionsCsv: (...a: unknown[]) => downloadMock(...a),
 }))
@@ -140,6 +145,25 @@ describe('submissions page', () => {
     await wrapper.find('[data-test="filter-read"]').trigger('click')
     await wrapper.find('[data-test="submissions-export"]').trigger('click')
     await flushPromises()
-    expect(downloadMock).toHaveBeenCalledWith({ status: 'read' })
+    expect(downloadMock).toHaveBeenCalledWith({ status: 'read', formKey: '' })
+  })
+
+  it('deletes the ticked submissions together, after confirming', async () => {
+    listData.value = [summary({ uuid: 'u1' }), summary({ uuid: 'u2' }), summary({ uuid: 'u3' })]
+    removeManyMock.mockClear()
+    const wrapper = mountPage()
+    await flushPromises()
+
+    const checks = wrapper.findAll('[data-test="submission-check"]')
+    await checks[0]!.trigger('click')
+    await checks[1]!.trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-test="submissions-bulk-delete-open"]').trigger('click')
+    await flushPromises()
+    document.querySelector<HTMLElement>('[data-test="submissions-bulk-delete"]')?.click()
+    await flushPromises()
+
+    expect(removeManyMock).toHaveBeenCalledWith(['u1', 'u2'])
+    wrapper.unmount()
   })
 })

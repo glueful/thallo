@@ -306,7 +306,7 @@ final class ContentTypeApiTest extends AppTestCase
         );
 
         self::assertSame(422, $resp->getStatusCode());
-        self::assertStringContainsString('destructive', (string) $resp->getContent());
+        self::assertStringContainsString('This save only adds fields', (string) $resp->getContent());
     }
 
     public function testDestroySoftDeletesContentType(): void

@@ -139,6 +139,14 @@ final class ImportUploadTest extends AppTestCase
         $c->get(SettingsStore::class)->forget('listing_types');
     }
 
+    public function testTheMergedUploadsRootIsTheSitesStorageNotThePackages(): void
+    {
+        // The site's config/import_export.php wins over the core package's empty default.
+        $root = config($this->appContext(), 'import_export.source_roots.uploads');
+        self::assertSame($this->appContext()->getBasePath() . '/storage/uploads', $root);
+        self::assertStringNotContainsString('/vendor/', (string) $root);
+    }
+
     public function testAPlainJsonBundleIsStillTakenAsNdjson(): void
     {
         $result = $this->upload('bundle.json', '{}');

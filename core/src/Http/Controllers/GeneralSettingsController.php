@@ -64,6 +64,21 @@ final class GeneralSettingsController
         return Response::success(['settings' => $this->settings->all()], 'General settings retrieved.');
     }
 
+    /**
+     * The site's identity as every rendered page shows it.
+     *
+     * @return list<string>
+     */
+    private function identity(): array
+    {
+        return [
+            $this->settings->siteLogo(),
+            $this->settings->siteLogoDark(),
+            $this->settings->siteFavicon(),
+            $this->settings->siteName(),
+        ];
+    }
+
     /** PUT /v1/admin/settings/general */
     #[ApiOperation(
         summary: 'Update general settings',
@@ -98,7 +113,18 @@ final class GeneralSettingsController
             $this->settings->themeFont(),
             $this->settings->themeBackground(),
         ];
+        $identityBefore = $this->identity();
         $searchBefore = $this->settings->searchEnabled();
+
+        if ($input->default_locale !== null && $input->default_locale !== $this->settings->defaultLocale()) {
+            // Saved separately so a language that cannot be the default is refused before anything
+            // else is written.
+            try {
+                $this->settings->save(['default_locale' => $input->default_locale]);
+            } catch (\InvalidArgumentException $e) {
+                return Response::validation(['default_locale' => $e->getMessage()]);
+            }
+        }
 
         $this->settings->save([
             'theme' => $input->theme,
@@ -114,7 +140,6 @@ final class GeneralSettingsController
             'theme_background' => $input->theme_background,
             'site_name' => $input->site_name,
             'site_preview_url' => $input->site_preview_url,
-            'default_locale' => $input->default_locale,
             'default_per_page' => $input->default_per_page,
             'max_per_page' => $input->max_per_page,
             'cache_ttl' => $input->cache_ttl,
@@ -147,6 +172,10 @@ final class GeneralSettingsController
             ($input->theme_accent !== null && $this->settings->themeAccent() !== $accentBefore)
             || ($input->theme_neutral !== null && $this->settings->themeNeutral() !== $neutralBefore)
             || $designAfter !== $designBefore
+            // What every page shows of the site but the cache key does not carry: without this a new
+            // logo, favicon or name was served stale for up to render.cache_ttl. (A custom font file
+            // is in the key already.)
+            || $this->identity() !== $identityBefore
         ) {
             $this->events?->dispatch(new ThemeAppearanceChanged(
                 $this->settings->themeAccent(),

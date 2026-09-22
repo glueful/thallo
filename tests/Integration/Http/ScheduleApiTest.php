@@ -209,6 +209,37 @@ final class ScheduleApiTest extends AppTestCase
         self::assertSame('2999-07-01T07:00:00Z', $this->json($response)['data']['schedule']['run_at']);
     }
 
+    public function testTheListSaysWhetherTheSchedulerIsTickingAndWhyAScheduleFailed(): void
+    {
+        // A failed schedule showed only a badge, and nothing at the entry said the scheduler cron
+        // was missing: an editor waited for a publish that could never happen.
+        $channel = $this->container()->get(\Thallo\Contracts\Settings\SystemChannel::class);
+        $saved = $channel->get(\Thallo\Core\Content\Scheduling\SchedulerHeartbeat::KEY);
+        $channel->forget(\Thallo\Core\Content\Scheduling\SchedulerHeartbeat::KEY);
+        try {
+            $entry = $this->entry();
+            $this->connection()->table('entry_schedules')->insert([
+                'uuid' => 'sched0000001', 'entry_uuid' => $entry, 'locale' => 'en', 'action' => 'publish',
+                'run_at' => date('Y-m-d H:i:s', time() - 3600), 'status' => 'failed', 'attempts' => 3,
+                'failure_reason' => 'The entry has no published route.',
+                'created_at' => date('Y-m-d H:i:s'),
+            ]);
+
+            $body = json_decode((string) $this->controller()->index(Request::create('/'), $entry)->getContent(), true);
+
+            self::assertFalse($body['data']['scheduler']['ticking']);
+            self::assertSame('The entry has no published route.', $body['data']['schedules'][0]['failure_reason']);
+
+            $this->container()->get(\Thallo\Core\Content\Scheduling\SchedulerHeartbeat::class)->beat();
+            $body = json_decode((string) $this->controller()->index(Request::create('/'), $entry)->getContent(), true);
+            self::assertTrue($body['data']['scheduler']['ticking']);
+        } finally {
+            $saved === null
+                ? $channel->forget(\Thallo\Core\Content\Scheduling\SchedulerHeartbeat::KEY)
+                : $channel->put(\Thallo\Core\Content\Scheduling\SchedulerHeartbeat::KEY, $saved);
+        }
+    }
+
     private function controller(): ScheduleController
     {
         return $this->container()->get(ScheduleController::class);

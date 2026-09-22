@@ -207,6 +207,9 @@ final class ListingArchivePagesTest extends AppTestCase
         self::assertSame(200, $res->getStatusCode());
         $html = (string) $res->getContent();
         self::assertStringContainsString('Kernel post', $html);
+        // The heading is the type's name, not its slug.
+        self::assertStringContainsString('<h1>Post</h1>', $html);
+        self::assertStringContainsString('<title>Post —', $html);
         // Ready hrefs, no path() loop (absolute here: suite sets PUBLIC_URL_BASE).
         self::assertStringContainsString('href="https://site.test/post/kernel-post"', $html);
         // The broad type tag is on the response (the §4 purge pin).

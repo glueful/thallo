@@ -7,13 +7,17 @@
 // page is the equivalent of the typed-client guarantee: a backend path change is fixed once.
 import { responseError } from './errors'
 
-interface Envelope<T> {
+export interface Envelope<T> {
   success?: boolean
   message?: string
   data?: T
 }
 
-async function postJson<T>(path: string, body: unknown, fallback: string): Promise<Envelope<T>> {
+export async function postJson<T>(
+  path: string,
+  body: unknown,
+  fallback: string,
+): Promise<Envelope<T>> {
   const res = await fetch(path, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

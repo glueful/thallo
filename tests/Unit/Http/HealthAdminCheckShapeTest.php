@@ -62,4 +62,17 @@ final class HealthAdminCheckShapeTest extends TestCase
             HealthAdminController::shapeCheck('weird', 'not-an-array'),
         );
     }
+
+    public function testTheOverallStatusCountsEveryCheckIncludingThallosOwn(): void
+    {
+        // The scheduler check was appended after the framework took its overall status, so a
+        // missing cron line left the page saying "ok" above a warning.
+        $ok = ['name' => 'database', 'status' => 'ok', 'message' => ''];
+        $warn = ['name' => 'scheduler', 'status' => 'warning', 'message' => ''];
+        $error = ['name' => 'cache', 'status' => 'error', 'message' => ''];
+
+        self::assertSame('ok', HealthAdminController::overallStatus([$ok]));
+        self::assertSame('warning', HealthAdminController::overallStatus([$ok, $warn]));
+        self::assertSame('error', HealthAdminController::overallStatus([$warn, $error, $ok]));
+    }
 }

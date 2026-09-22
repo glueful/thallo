@@ -116,7 +116,7 @@ async function declareMigration() {
     await declareBlockTypeMigration(props.slug, ops)
     warning(
       'Migration started',
-      'Saves and publishes of entries using this block are blocked until the backfill completes.',
+      'Saves and publishes of entries using this block are blocked until the backfill completes. It runs on the queue, so a queue worker has to be running.',
     )
     migrateOpen.value = false
     await cache.invalidateQueries({ key: qk.blockTypeMigrations(props.slug) })
@@ -173,6 +173,9 @@ async function declareMigration() {
         </p>
         <p class="text-muted">
           Entries containing this block cannot be saved or published until it completes.
+          <span v-if="activeMigration.status === 'running'" data-testid="block-migration-worker">
+            It moves only while a queue worker is running (<code>php glueful queue:work</code>).
+          </span>
           <span v-if="activeMigration.status === 'failed'">
             Re-drive it with
             <code>php glueful thallo:blocks:migration:backfill {{ activeMigration.uuid }}</code
@@ -235,7 +238,8 @@ async function declareMigration() {
         <p class="text-sm text-muted">
           Declare rename/delete operations. The schema flips immediately and a background backfill
           rewrites every current draft and publication; affected entries are locked until it
-          completes.
+          completes. The backfill runs on the queue, so it moves only while a queue worker is
+          running.
         </p>
         <div
           v-for="(row, i) in opRows"

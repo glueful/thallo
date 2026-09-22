@@ -13,8 +13,8 @@ use Glueful\Extensions\Aegis\Repositories\RoleRepository;
 /**
  * "Superuser has full access" was a description, not a fact: Aegis seeds its own 15 rows and
  * nothing granted Thallo's or any pack's permissions to the install roles. The grantor persists
- * the declared catalog and then grants every permission row to superuser, and every row but
- * system.config to administrator — additively and idempotently, so provision can re-run it.
+ * the declared catalog and grants the install roles each permission once: at install everything,
+ * and on a later provision only what is new, so a revocation made since stays revoked.
  */
 final class InstallRoleGrantsTest extends AppTestCase
 {
@@ -42,48 +42,120 @@ final class InstallRoleGrantsTest extends AppTestCase
         return $slugs;
     }
 
-    public function testSuperuserGetsEveryPermissionAndAdministratorAllButWhatIsWithheldFromIt(): void
+    public function testAFreshInstallGivesSuperuserEverythingAndAdministratorAllButWhatIsWithheld(): void
     {
-        // Order-independent: an earlier install in this process may already have granted
-        // everything, so take one grant away and prove apply() puts it back.
-        $this->revokeFromSuperuser('content.manage');
+        $this->freshInstall();
 
         $report = $this->grants()->apply();
 
-        $all = array_map(
-            static fn ($p): string => $p->getSlug(),
-            (new PermissionRepository(null, $this->appContext()))->findAllPermissions(),
-        );
-        sort($all);
+        $all = $this->allSlugs();
         self::assertContains('content.manage', $all, 'the catalog sync persisted Thallo\'s core slugs');
         self::assertContains('styles.manage', $all, 'style classes have their own permission (visual builder §4.1)');
         self::assertContains('audit.view', $all, 'extension declarations (audit) are persisted too');
         self::assertContains('analytics.read', $all, 'migration-seeded pack permissions are present');
 
         self::assertSame($all, $this->roleSlugs('superuser'));
-        // An administrator runs ONE site. Configuring the system, and authority ACROSS workspaces
-        // (the authority migration takes both tenancy permissions away from this role and gives
-        // them to workspace_manager), are withheld — and provision re-runs this on every upgrade,
-        // so whatever is not withheld here is handed back each time.
+        // An administrator runs ONE site: configuring the system, and authority ACROSS workspaces,
+        // are withheld.
         $withheld = ['system.config', 'tenancy.access_any', 'tenancy.manage'];
-        self::assertContains('tenancy.access_any', $all);
-        self::assertContains('tenancy.manage', $all);
-        self::assertSame(
-            array_values(array_diff($all, $withheld)),
-            $this->roleSlugs('administrator'),
-        );
-        self::assertGreaterThanOrEqual(1, $report->granted['superuser'], 'the revoked grant was restored');
+        self::assertSame(array_values(array_diff($all, $withheld)), $this->roleSlugs('administrator'));
+        self::assertSame(count($all), $report->granted['superuser']);
     }
 
-    private function revokeFromSuperuser(string $slug): void
+    public function testARevokedPermissionStaysRevokedOnTheNextProvision(): void
     {
-        $roles = new RoleRepository(null, $this->appContext());
-        $perms = new PermissionRepository(null, $this->appContext());
-        $role = $roles->findRoleBySlug('superuser')?->getUuid();
-        $perm = $perms->findPermissionBySlug($slug)?->getUuid();
-        if ($role !== null && $perm !== null) {
-            (new RolePermissionRepository(null, $this->appContext()))->revokePermissionFromRole($role, $perm);
-        }
+        // Provision used to grant whatever a role lacked, so an operator's revocation came back on
+        // every upgrade.
+        $this->freshInstall();
+        $this->grants()->apply();
+        $this->revoke('administrator', 'content.manage');
+
+        $this->grants()->apply();
+
+        self::assertNotContains('content.manage', $this->roleSlugs('administrator'));
+    }
+
+    public function testAPermissionAddedLaterReachesTheInstallRoles(): void
+    {
+        $this->dropPermission('brandnew.manage');
+        $this->freshInstall();
+        $this->grants()->apply();
+        (new PermissionRepository(null, $this->appContext()))->create([
+            'name' => 'Brand new',
+            'slug' => 'brandnew.manage',
+            'description' => 'A permission a pack added on upgrade',
+            'category' => 'Test',
+            'is_system' => true,
+        ]);
+
+        $report = $this->grants()->apply();
+
+        self::assertContains('brandnew.manage', $this->roleSlugs('superuser'));
+        self::assertContains('brandnew.manage', $this->roleSlugs('administrator'));
+        self::assertSame(1, $report->granted['superuser']);
+        $this->dropPermission('brandnew.manage');
+    }
+
+    private function dropPermission(string $slug): void
+    {
+        $pdo = $this->connection()->getPDO();
+        $pdo->prepare(
+            'DELETE FROM role_permissions WHERE permission_uuid IN (SELECT uuid FROM permissions WHERE slug = ?)'
+        )->execute([$slug]);
+        $pdo->prepare('DELETE FROM permissions WHERE slug = ?')->execute([$slug]);
+    }
+
+    public function testTheFirstProvisionOnAnExistingSiteKeepsItsRevocations(): void
+    {
+        // An existing site has grants but no record of what provision offered. What exists before
+        // the catalog sync is taken as already offered; only what the sync adds is granted.
+        $this->freshInstall();
+        $this->grants()->apply();
+        $this->revoke('administrator', 'content.manage');
+        $this->channel()->forget(InstallRoleGrants::LEDGER_KEY);
+
+        $this->grants()->apply();
+
+        self::assertNotContains('content.manage', $this->roleSlugs('administrator'));
+    }
+
+    /** @return list<string> */
+    private function allSlugs(): array
+    {
+        $all = array_map(
+            static fn ($p): string => $p->getSlug(),
+            (new PermissionRepository(null, $this->appContext()))->findAllPermissions(),
+        );
+        sort($all);
+        return $all;
+    }
+
+    private function channel(): \Thallo\Contracts\Settings\SystemChannel
+    {
+        return $this->container()->get(\Thallo\Contracts\Settings\SystemChannel::class);
+    }
+
+    /** No record of grants, and the install roles hold nothing: the state web setup starts from. */
+    private function freshInstall(): void
+    {
+        $this->channel()->forget(InstallRoleGrants::LEDGER_KEY);
+        // Removed outright: Aegis's revoke soft-deletes, and the leftover rows would outlive this
+        // test and be counted by others.
+        $this->connection()->getPDO()->exec(
+            "DELETE FROM role_permissions WHERE role_uuid IN "
+            . "(SELECT uuid FROM roles WHERE slug IN ('superuser', 'administrator'))"
+        );
+    }
+
+    private function revoke(string $role, string $slug): void
+    {
+        $roleUuid = (new RoleRepository(null, $this->appContext()))->findRoleBySlug($role)?->getUuid();
+        $permUuid = (new PermissionRepository(null, $this->appContext()))->findPermissionBySlug($slug)?->getUuid();
+        self::assertNotNull($roleUuid);
+        self::assertNotNull($permUuid);
+        $this->connection()->getPDO()
+            ->prepare('DELETE FROM role_permissions WHERE role_uuid = ? AND permission_uuid = ?')
+            ->execute([$roleUuid, $permUuid]);
     }
 
     public function testActivatesTheRbacProviderWhenBootSkippedIt(): void
@@ -94,7 +166,7 @@ final class InstallRoleGrantsTest extends AppTestCase
         $manager = $this->container()->get('permission.manager');
         $manager->clearProvider();
         self::assertNull($manager->getProvider(), 'precondition: no active provider');
-        $this->revokeFromSuperuser('content.manage');
+        $this->freshInstall();
 
         $report = $this->grants()->apply();
 

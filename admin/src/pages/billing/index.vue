@@ -22,11 +22,9 @@
 //   6. entitling but NOT provider_managed -- "provider-managed-elsewhere": granted directly by
 //      the platform operator (no `provider_subscription_id`), so a self-serve `POST /cancel`
 //      would always 409 `not_provider_managed` -- the UI never offers a button that can only fail.
-//   7. active (entitling + provider_managed) -- plan, period end, Cancel with per-mode confirm.
-//
-// Plan changes on an active/non_renewing subscription are never offered (§1 ruling: "cancel
-// first or contact your platform operator") -- both those panels render that pinned message next
-// to a disabled control rather than a working plan-change picker.
+//   7. active (entitling + provider_managed) -- plan, period end, Cancel with per-mode confirm, and
+//      Change plan: switched at the provider where it can (meta.plan_change_supported), otherwise
+//      the dialog explains cancelling and subscribing again.
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
@@ -43,6 +41,7 @@ import { apiErrorCode, toApiError } from '@/api/errors'
 import { useNotify } from '@/composables/useNotify'
 import EngineStateNotice from '@/pages/subscriptions/components/EngineStateNotice.vue'
 import PlanPicker from './components/PlanPicker.vue'
+import ChangePlanDialog from './components/ChangePlanDialog.vue'
 import CheckoutPendingPanel from './components/CheckoutPendingPanel.vue'
 import CancelDialog from './components/CancelDialog.vue'
 
@@ -170,6 +169,7 @@ async function onPickerSubscribe(planKey: string) {
 
 // ── Cancel dialog ────────────────────────────────────────────────────────────
 const cancelOpen = ref(false)
+const changePlanOpen = ref(false)
 
 function planLabelFor(m: WorkspaceBillingMeta | undefined, planKey: string | null): string | null {
   if (planKey === null) return null
@@ -298,7 +298,8 @@ const activePlanLabel = computed(() =>
               — this subscription will not renew.
             </p>
             <p class="text-xs text-muted">
-              Cancel first or contact your platform operator to change plans.
+              To move to another plan, subscribe again once access ends, or contact your platform
+              operator.
             </p>
           </div>
         </template>
@@ -342,17 +343,13 @@ const activePlanLabel = computed(() =>
                 @click="cancelOpen = true"
               />
               <UButton
-                disabled
                 color="neutral"
-                variant="ghost"
-                size="sm"
+                variant="outline"
                 label="Change plan"
-                data-test="billing-change-plan-disabled"
+                data-test="billing-change-plan"
+                @click="changePlanOpen = true"
               />
             </div>
-            <p class="text-xs text-muted">
-              Cancel first or contact your platform operator to change plans.
-            </p>
           </div>
         </template>
       </div>
@@ -360,4 +357,16 @@ const activePlanLabel = computed(() =>
   </UDashboardPanel>
 
   <CancelDialog v-model:open="cancelOpen" :plan-label="activePlanLabel" />
+  <ChangePlanDialog
+    v-model:open="changePlanOpen"
+    :plans="purchasablePlans"
+    :current-plan-key="subscription?.plan_key ?? null"
+    :supported="meta?.plan_change_supported === true"
+    @cancel-instead="
+      () => {
+        changePlanOpen = false
+        cancelOpen = true
+      }
+    "
+  />
 </template>

@@ -1,3 +1,8 @@
+---
+section: guides
+order: 60
+summary: "Publish a folder of Markdown as a documentation section, from a deploy or from the admin."
+---
 # A documentation section on your site
 
 Thallo can publish a folder of Markdown as a documentation section: a sidebar of sections, the
@@ -21,7 +26,7 @@ php glueful thallo:import:markdown docs --type=docs --exclude=internal --publish
 ```
 
 Your pages are at `/docs/{page}` and `/docs` is their index. The importers capability has to be
-on (Settings › Capabilities).
+on (**Extensions › Capabilities**).
 
 ## Without a shell: from the admin
 
@@ -47,8 +52,10 @@ An upload is unpacked with care: only Markdown files are read out of the archive
 points outside the import refuses the whole archive, and an archive that unpacks to more than
 50 MB or holds more than 2,000 pages is refused. It needs PHP's `zip` extension.
 
-Imports are background jobs. They run while a queue worker is running, or at once on a site
-set to `QUEUE_CONNECTION=sync` ([production guide](production.md#running-the-scheduler-and-the-queue)).
+Imports are background jobs on the `import-export` queue. They run while a queue worker that
+was given that queue is running, or when a cron line drains it
+([the scheduler and the queue](operations/03-scheduler-and-queues.md)). Until then the job reads
+"queued".
 
 ## The content type
 

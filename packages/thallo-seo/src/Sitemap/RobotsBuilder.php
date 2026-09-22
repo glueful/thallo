@@ -12,13 +12,19 @@ final class RobotsBuilder
      */
     public function __construct(
         private readonly array $groups,
-        private readonly string $origin,
+        private readonly string|\Closure $origin,
     ) {
+    }
+
+    /** The origin now: a fixed one, or the request's (see SeoServiceProvider::originSupplier()). */
+    private function origin(): string
+    {
+        return trim(is_string($this->origin) ? $this->origin : ($this->origin)());
     }
 
     public function hasOrigin(): bool
     {
-        return trim($this->origin) !== '';
+        return $this->origin() !== '';
     }
 
     public function render(): string
@@ -34,7 +40,7 @@ final class RobotsBuilder
             }
             $lines[] = '';
         }
-        $lines[] = 'Sitemap: ' . rtrim($this->origin, '/') . '/sitemap.xml';
+        $lines[] = 'Sitemap: ' . rtrim($this->origin(), '/') . '/sitemap.xml';
         return implode("\n", $lines) . "\n";
     }
 }

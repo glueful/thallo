@@ -7,6 +7,7 @@ import { useEntries, useCreateEntry, useDeleteEntry, type EntryListRow } from '@
 import { useLocales } from '@/queries/locales'
 import { useNotify } from '@/composables/useNotify'
 import { useGeneralSettings } from '@/queries/generalSettings'
+import { useContentTypes } from '@/queries/contentTypes'
 import TablePagination from '@/components/TablePagination.vue'
 
 definePage({ meta: { requiresAuth: true } })
@@ -69,6 +70,14 @@ function translatedCount(locales: string[]): number {
 // Home badge (homepage-setting spec §1): mark the entry currently set as
 // the site homepage wherever it appears.
 const { data: generalSettings } = useGeneralSettings()
+
+// The Design view edits a blocks field; a type without one has nothing to design.
+const { data: contentTypes } = useContentTypes()
+const hasBlocks = computed(() =>
+  (contentTypes.value?.find((c) => c.slug === type.value)?.schema ?? []).some(
+    (f) => f.type === 'blocks',
+  ),
+)
 
 const columns: TableColumn<EntryListRow>[] = [
   { accessorKey: 'display_title', header: 'Title' },
@@ -173,6 +182,7 @@ function statusColor(s: string): 'success' | 'warning' | 'neutral' {
               :to="`/content/${type}/${row.original.uuid}`"
             />
             <UButton
+              v-if="hasBlocks"
               color="neutral"
               variant="ghost"
               size="xs"

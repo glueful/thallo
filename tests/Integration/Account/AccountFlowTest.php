@@ -30,7 +30,7 @@ use Thallo\Render\TwigFactory;
  * directly — exactly as the signup integration suite does — and drives everything from verify
  * onward through the kernel: OTP → identity, sign in → HttpOnly cookie, /account → 200, sign out →
  * cookie cleared, and the authority tables stay empty throughout. The remaining tests pin the CSRF
- * matrix as a gate, the two-factor fail-closed rule, template resolution, route gating, registration
+ * matrix as a gate, template resolution, route gating, registration
  * neutrality, and that the session-cookie transport is present with Thallo's defaults and absent
  * when explicitly disabled.
  */
@@ -52,7 +52,11 @@ final class AccountFlowTest extends AppTestCase
 
         // OTP -> created identity. Anonymous unsafe POST, so it must carry same-origin provenance.
         $verify = $this->postSameOrigin('/account/verify/' . $intentUuid, ['otp' => $otp]);
-        self::assertSame(302, $verify->getStatusCode(), (string) $verify->getContent());
+        self::assertSame(303, $verify->getStatusCode(), (string) $verify->getContent());
+        // Verifying the address signs the new customer in: they no longer retype the password
+        // they chose a minute ago.
+        self::assertSame('/account', $verify->headers->get('Location'));
+        self::assertArrayHasKey('gf_session', $this->cookiesFrom($verify));
 
         // Sign in over the cookie transport.
         $login = $this->postSameOrigin('/account/login', [
@@ -148,48 +152,6 @@ final class AccountFlowTest extends AppTestCase
     {
         self::assertSame(200, $this->get('/account/login')->getStatusCode());
         self::assertContains($this->get('/account')->getStatusCode(), [302, 401]);
-    }
-
-    public function testLoginFailsClosedForATwoFactorEnabledAccount(): void
-    {
-        // The framework's 2FA subsystem is globally off in the test env (TWO_FACTOR_ENABLED unset),
-        // so a live challenge cannot arise. The security property under test is narrower and does
-        // not need that subsystem: when the orchestrator reports a challenge, the controller issues
-        // NO cookie. A real LoginOrchestrator wired to a TwoFactorService that reports the account
-        // as 2FA-enabled produces exactly that outcome.
-        $this->seedUser('twofa@example.test');
-
-        $twoFactor = new class implements TwoFactorServiceInterface {
-            public function isEnabled(string $userUuid): bool
-            {
-                return true;
-            }
-
-            /** @return array{token: string, expires_in: int, delivered_to: string} */
-            public function beginLogin(array $user, ?string $preferredProvider = null): array
-            {
-                return ['token' => 'challenge-token', 'expires_in' => 300, 'delivered_to' => 'e***@example.test'];
-            }
-        };
-
-        $controller = new AccountAuthController(
-            $this->container()->get(StorefrontAccountRegistration::class),
-            $this->container()->get(StorefrontAccountRecovery::class),
-            new LoginOrchestrator($this->container()->get(AuthenticationService::class), $twoFactor),
-            $this->container()->get(SessionCookieIssuer::class),
-            $this->container()->get(SessionLogout::class),
-            $this->container()->get(AccountPageRenderer::class),
-            $this->container()->get(AccountReturnPath::class),
-            $this->container()->get(AccountSettingsStore::class),
-            $this->container()->get(LoggerInterface::class),
-        );
-
-        $request = Request::create('/account/login', 'POST', [
-            'email' => 'twofa@example.test',
-            'password' => 'sufficiently-long-secret',
-        ]);
-
-        self::assertArrayNotHasKey('gf_session', $this->cookiesFrom($controller->login($request)));
     }
 
     public function testRegistrationIsNeutralForAnAlreadyRegisteredEmail(): void
@@ -374,48 +336,6 @@ final class AccountFlowTest extends AppTestCase
             self::assertSame(422, $response->getStatusCode(), "return_to {$returnTo} must fall back");
             self::assertStringNotContainsString('evil.example', (string) $response->getContent());
         }
-    }
-
-    public function testATwoFactorChallengeStaysOnTheThemed422EvenWithAValidReturnTo(): void
-    {
-        // 2FA is navigation, not an error code: the storefront fails closed on the themed page —
-        // never a 303 with a code — even when the custom page supplied a valid return_to.
-        $this->seedUser('prg2fa@example.test');
-
-        $twoFactor = new class implements TwoFactorServiceInterface {
-            public function isEnabled(string $userUuid): bool
-            {
-                return true;
-            }
-
-            /** @return array{token: string, expires_in: int, delivered_to: string} */
-            public function beginLogin(array $user, ?string $preferredProvider = null): array
-            {
-                return ['token' => 'challenge-token', 'expires_in' => 300, 'delivered_to' => 'e***@example.test'];
-            }
-        };
-
-        $controller = new AccountAuthController(
-            $this->container()->get(StorefrontAccountRegistration::class),
-            $this->container()->get(StorefrontAccountRecovery::class),
-            new LoginOrchestrator($this->container()->get(AuthenticationService::class), $twoFactor),
-            $this->container()->get(SessionCookieIssuer::class),
-            $this->container()->get(SessionLogout::class),
-            $this->container()->get(AccountPageRenderer::class),
-            $this->container()->get(AccountReturnPath::class),
-            $this->container()->get(AccountSettingsStore::class),
-            $this->container()->get(LoggerInterface::class),
-        );
-
-        $response = $controller->login(Request::create('/account/login', 'POST', [
-            'email' => 'prg2fa@example.test',
-            'password' => 'sufficiently-long-secret',
-            'return_to' => '/signin',
-        ]));
-
-        self::assertSame(422, $response->getStatusCode());
-        self::assertNull($response->headers->get('Location'));
-        self::assertArrayNotHasKey('gf_session', $this->cookiesFrom($response));
     }
 
     public function testLogoutRedirectsToASafeNextAsA303(): void

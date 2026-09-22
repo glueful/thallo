@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Thallo\Seo;
 
+use Thallo\Contracts\Delivery\CanonicalPublicOriginResolver;
+use Thallo\Contracts\Settings\SiteNameProvider;
 use Glueful\Extensions\DeclaresLoadOrder;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\ServiceProvider;
@@ -87,8 +89,57 @@ final class SeoServiceProvider extends ServiceProvider implements DeclaresLoadOr
         $context = $container->get(ApplicationContext::class);
         return new RobotsBuilder(
             (array) config($context, 'seo.robots', []),
-            (string) config($context, 'thallo.seo.public_url_base', ''),
+            self::originSupplier($container),
         );
+    }
+
+    /**
+     * The absolute origin the sitemap and robots.txt write their URLs against, resolved per
+     * request (a workspace has its own). PUBLIC_URL_BASE wins; without it, the site's canonical
+     * origin — BASE_URL, or the workspace's — through the one trusted-origin contract, never the
+     * request's Host header. They used to read PUBLIC_URL_BASE only, a key no .env.example names,
+     * so a stock install answered 409 for both.
+     *
+     * @return \Closure(): string
+     */
+    private static function originSupplier(ContainerInterface $container): \Closure
+    {
+        $context = $container->get(ApplicationContext::class);
+        return static function () use ($container, $context): string {
+            $canonical = $container->has(CanonicalPublicOriginResolver::class)
+                ? static fn (): string => $container->get(CanonicalPublicOriginResolver::class)->currentOrigin($context)
+                : null;
+            return self::resolveOrigin((string) config($context, 'thallo.seo.public_url_base', ''), $canonical);
+        };
+    }
+
+    /**
+     * An explicit base wins; otherwise the canonical origin, unless it is unusable. The localhost
+     * default is the unconfigured state, and a sitemap of localhost URLs is worse than none.
+     *
+     * @param (\Closure(): string)|null $canonical
+     */
+    public static function resolveOrigin(string $explicit, ?\Closure $canonical): string
+    {
+        if (trim($explicit) !== '') {
+            return rtrim(trim($explicit), '/');
+        }
+        if ($canonical === null) {
+            return '';
+        }
+        try {
+            $origin = rtrim(trim($canonical()), '/');
+        } catch (\Throwable) {
+            return '';
+        }
+        $parts = parse_url($origin);
+        $host = strtolower(trim((string) ($parts['host'] ?? ''), '[]'));
+        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+        $local = in_array($host, ['', 'localhost', '127.0.0.1', '::1'], true);
+        if (!in_array($scheme, ['http', 'https'], true) || $local) {
+            return '';
+        }
+        return $origin;
     }
 
     public static function makeSitemapCache(ContainerInterface $container): SitemapCache
@@ -106,7 +157,7 @@ final class SeoServiceProvider extends ServiceProvider implements DeclaresLoadOr
         return new SitemapBuilder(
             $container->get(ContentDeliveryReader::class),
             $container->get(SitemapCache::class),
-            (string) config($context, 'thallo.seo.public_url_base', ''),
+            self::originSupplier($container),
         );
     }
 
@@ -121,7 +172,10 @@ final class SeoServiceProvider extends ServiceProvider implements DeclaresLoadOr
             static fn (string $entryUuid, string $locale): ?array => $repo->find($entryUuid, $locale),
             fallbacks: (array) config($context, 'seo.fallbacks', []),
             defaults: [
-                'site_name' => (string) ($defaults['site_name'] ?? 'Thallo'),
+                // Settings › General › Site name, read per call through the contract.
+                'site_name' => static fn (): string => $container->has(SiteNameProvider::class)
+                    ? $container->get(SiteNameProvider::class)->siteName()
+                    : 'Thallo',
                 'default_og_image' => (string) ($defaults['default_og_image'] ?? ''),
                 'title_template' => (string) ($defaults['title_template'] ?? '{title} — {site_name}'),
             ],

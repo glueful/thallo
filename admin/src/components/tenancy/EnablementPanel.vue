@@ -41,6 +41,7 @@ const label = computed(() => {
   if (action.value === 'disable') return 'Disable workspaces'
   return props.status.step === 'off' ? 'Enable workspaces' : 'Continue'
 })
+const blockers = computed(() => props.status.blockers ?? [])
 const showConfirm = computed(
   () =>
     props.status.step === 'awaiting_confirm' ||
@@ -83,6 +84,21 @@ const showConfirm = computed(
     >
       {{ error ?? status.failure }}
     </p>
+    <UAlert
+      v-if="blockers.length"
+      class="mt-4"
+      color="warning"
+      variant="subtle"
+      icon="i-lucide-octagon-alert"
+      title="Workspaces cannot be enabled yet"
+      data-testid="enablement-blockers"
+    >
+      <template #description>
+        <ul class="list-disc space-y-1 ps-4">
+          <li v-for="b in blockers" :key="b.code">{{ b.message }}</li>
+        </ul>
+      </template>
+    </UAlert>
     <p v-if="status.cli_fallback" class="mt-4 text-sm font-mono break-all">
       {{ status.cli_fallback }}
     </p>
@@ -92,6 +108,7 @@ const showConfirm = computed(
         :icon="action === 'disable' ? 'i-lucide-power' : 'i-lucide-arrow-right'"
         :color="action === 'disable' ? 'error' : 'primary'"
         :loading="busy"
+        :disabled="action === 'begin' && blockers.length > 0"
         :data-testid="
           action === 'finalize' ? 'enablement-reload-continue' : `enablement-action-${action}`
         "

@@ -16,7 +16,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class SitemapController
 {
-    private const ERR = 'SEO origin (thallo.seo.public_url_base) is not configured.';
+    private const ERR = 'No public origin: set BASE_URL to the site\'s address (PUBLIC_URL_BASE overrides it).';
 
     public function __construct(private readonly SitemapBuilder $builder)
     {

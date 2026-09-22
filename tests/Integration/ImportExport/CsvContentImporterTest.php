@@ -86,6 +86,57 @@ final class CsvContentImporterTest extends AppTestCase
         self::assertTrue($fields['featured']); // CSV "true" coerced to bool
     }
 
+    public function testAPublishHeldForReviewIsAWarningNotAFailedRow(): void
+    {
+        // The draft is saved either way. Counting the row as failed made a retry import it again,
+        // as a second draft.
+        $this->seedType();
+        $this->seedJob($this->writeCsv("Title,Views,Featured\nHello,42,true\nWorld,7,false\n"));
+        $real = $this->container()->get(ContentWriter::class);
+        $held = new class ($real) implements ContentWriter {
+            public function __construct(private readonly ContentWriter $inner)
+            {
+            }
+
+            public function createDraft(
+                string $contentTypeUuid,
+                string $locale,
+                array $fields,
+                ?string $actor = null,
+            ): string {
+                return $this->inner->createDraft($contentTypeUuid, $locale, $fields, $actor);
+            }
+
+            public function validate(string $contentTypeUuid, string $locale, array $fields): array
+            {
+                return $this->inner->validate($contentTypeUuid, $locale, $fields);
+            }
+
+            public function publish(string $entryUuid, string $locale, ?string $actor = null): string
+            {
+                throw new \Thallo\Contracts\Authoring\PublishBlocked('This language needs a review.');
+            }
+        };
+        $importer = new CsvContentImporter(
+            $this->appContext(),
+            $this->connection(),
+            $held,
+            $this->container()->get(ContentTypeReader::class),
+            $this->container()->get(\Thallo\Contracts\Capability\CapabilityRegistry::class),
+        );
+
+        $result = $importer->process(
+            new ImportBatch('batchcsv0001', 'jobcsv000001', 1, 0, 20),
+            new ImportContext($this->appContext(), 'jobcsv000001', 'commit', null, self::OPTIONS + ['publish' => true]),
+        );
+
+        self::assertSame(2, $result->processedRecords);
+        self::assertSame(0, $result->failedRecords);
+        self::assertSame(['warning', 'warning'], array_column($result->errors, 'severity'));
+        self::assertSame('csv_publish_held', $result->errors[0]['code']);
+        self::assertSame(2, $this->connection()->table('entries')->count());
+    }
+
     public function testAnInvalidRowIsReportedAndDoesNotAbortTheBatch(): void
     {
         $this->seedType();

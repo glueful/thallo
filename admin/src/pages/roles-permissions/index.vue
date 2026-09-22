@@ -250,8 +250,8 @@ async function confirmDelete() {
   >
     <template #body>
       <p class="text-sm text-muted">
-        Delete <span class="text-default">“{{ pendingDelete?.name }}”</span>? Users assigned this
-        role will lose it.
+        Delete <span class="text-default">“{{ pendingDelete?.name }}”</span>? A role can be deleted
+        only while nobody holds it, and the built-in roles cannot be deleted.
       </p>
     </template>
     <template #footer>

@@ -223,4 +223,41 @@ final class DocumentBuilderTest extends TestCase
         self::assertStringContainsString('ghost', $joined);  // unknown field
         self::assertStringContainsString('views', $joined);  // non-string field
     }
+
+    public function testABlocksFieldIsIndexedAsTheWordsItsBlocksShow(): void
+    {
+        // A Design-view page keeps its content in a `blocks` field, and only string/text fields
+        // were indexed: the page was findable by its title alone.
+        $blocks = [['type' => 'heading', 'data' => ['text' => 'Pricing plans']]];
+        $extractor = new class implements \Thallo\Contracts\Search\BlockTextExtractor {
+            /** @var list<mixed> */
+            public array $seen = [];
+
+            public function textOf(mixed $blocks): array
+            {
+                $this->seen[] = $blocks;
+                return ['Pricing plans', 'Every plan includes support.'];
+            }
+        };
+        $builder = new DocumentBuilder([], $extractor);
+
+        $doc = $builder->build(
+            $this->content(['title' => 'Plans', 'body' => $blocks]),
+            $this->schema(['title' => 'string', 'body' => 'blocks'])
+        );
+
+        self::assertSame('Plans', $doc['title']);
+        self::assertSame('Pricing plans Every plan includes support.', $doc['body']);
+        self::assertSame([$blocks], $extractor->seen);
+    }
+
+    public function testWithoutAnExtractorABlocksFieldIsSkipped(): void
+    {
+        $doc = (new DocumentBuilder([]))->build(
+            $this->content(['title' => 'Plans', 'body' => [['type' => 'heading', 'data' => ['text' => 'x']]]]),
+            $this->schema(['title' => 'string', 'body' => 'blocks'])
+        );
+
+        self::assertSame('', $doc['body']);
+    }
 }

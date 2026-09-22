@@ -105,19 +105,27 @@ test('a page lands whole, as one transaction', async ({ page }) => {
   await pricing.click()
 
   const h = await historyLength(page, 1)
-  const ops = h.history[0]!.ops as unknown as {
-    type: string
+  const all = h.history[0]!.ops as unknown as { type: string }[]
+  // A page header, the plans, an FAQ and a call to action, then the page title hidden because the
+  // header carries the heading: five operations, one undo.
+  expect(all.map((op) => op.type)).toEqual([...Array(4).fill('InsertBlock'), 'SetPageSettings'])
+
+  const ops = all.filter((op) => op.type === 'InsertBlock') as unknown as {
     position: { index: number }
     block: { id: string; type: string }
   }[]
-  // A page header, the plans, an FAQ and a call to action: four sections, one undo.
-  expect(ops.map((op) => op.type)).toEqual(Array(4).fill('InsertBlock'))
   expect(ops.map((op) => op.position.index)).toEqual([9, 10, 11, 12])
   expect(ops.map((op) => op.block.type)).toEqual(['hero', 'container', 'container', 'container'])
   expect(idsIn(h.document, ['body'])).toEqual([...BODY, ...ops.map((op) => op.block.id)])
+  expect(
+    (h.document as { _presentation?: { show_title?: boolean } })._presentation?.show_title,
+  ).toBe(false)
 
   await page.keyboard.press('ControlOrMeta+z')
   await expect.poll(async () => idsIn((await hooks(page)).document, ['body'])).toEqual(BODY)
+  // The one undo takes the hidden title back with the blocks.
+  const undone = (await hooks(page)).document as { _presentation?: { show_title?: boolean } }
+  expect(undone._presentation?.show_title).toBeUndefined()
 })
 
 test('a section that would nest too deep where it would land is refused, with the reason', async ({

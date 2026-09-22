@@ -78,7 +78,16 @@ $profiles = [
 ];
 
 $profile = $profiles[$selectedProfile] ?? $profiles[$defaultProfile];
-$logDirectory = rtrim((string) env('LOG_FILE_PATH', $root . '/storage/logs/'), '/') . '/';
+// A relative LOG_FILE_PATH is relative to the SITE. Taken as given it was relative to the process,
+// and a web request's working directory is public/: the logs landed in public/storage/logs/, where
+// the web server serves them to anyone.
+$logDirectory = (string) env('LOG_FILE_PATH', '');
+if ($logDirectory === '') {
+    $logDirectory = $root . '/storage/logs';
+} elseif (!str_starts_with($logDirectory, '/') && preg_match('#\A[A-Za-z]:[\\/]#', $logDirectory) !== 1) {
+    $logDirectory = $root . '/' . $logDirectory;
+}
+$logDirectory = rtrim($logDirectory, '/\\') . '/';
 
 /**
  * Logging Configuration

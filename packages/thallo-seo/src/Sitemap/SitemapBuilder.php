@@ -21,13 +21,19 @@ final class SitemapBuilder
     public function __construct(
         private readonly ContentDeliveryReader $reader,
         private readonly SitemapCache $cache,
-        private readonly string $origin,
+        private readonly string|\Closure $origin,
     ) {
+    }
+
+    /** The origin now: a fixed one, or the request's (see SeoServiceProvider::originSupplier()). */
+    private function origin(): string
+    {
+        return trim(is_string($this->origin) ? $this->origin : ($this->origin)());
     }
 
     public function hasOrigin(): bool
     {
-        return trim($this->origin) !== '';
+        return $this->origin() !== '';
     }
 
     /**
@@ -89,7 +95,7 @@ final class SitemapBuilder
 
     private function sitemapIndex(int $pages): string
     {
-        $base = rtrim($this->origin, '/');
+        $base = rtrim($this->origin(), '/');
         $out = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         $out .= '<sitemapindex xmlns="' . self::XMLNS . '">' . "\n";
         for ($n = 1; $n <= $pages; $n++) {

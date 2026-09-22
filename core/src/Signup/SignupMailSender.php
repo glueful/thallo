@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Thallo\Core\Signup;
 
 use Glueful\Notifications\Services\NotificationService;
+use Thallo\Core\Support\EmailDelivery;
 
 final class SignupMailSender
 {
@@ -12,14 +13,19 @@ final class SignupMailSender
     {
     }
 
-    public function sendVerification(string $intentUuid, string $email, string $otp, int $ttlSeconds): void
-    {
+    public function sendVerification(
+        string $intentUuid,
+        string $email,
+        string $otp,
+        int $ttlSeconds,
+        string $template = 'verification',
+    ): void {
         $result = $this->notifications->send(
             'signup_verification',
             new SignupEmailRecipient($email),
             'Verify your email address',
             [
-                'template_name' => 'verification',
+                'template_name' => $template,
                 'otp' => $otp,
                 'expiry_minutes' => max(1, (int) ceil($ttlSeconds / 60)),
             ],
@@ -52,8 +58,7 @@ final class SignupMailSender
     /** @param array<string,mixed> $result */
     private function assertSent(array $result): void
     {
-        $email = is_array($result['channels']['email'] ?? null) ? $result['channels']['email'] : [];
-        if (($email['status'] ?? null) !== 'success' && ($result['status'] ?? null) !== 'duplicate') {
+        if (!EmailDelivery::delivered($result)) {
             throw new SignupException('Verification email could not be delivered.', 503);
         }
     }

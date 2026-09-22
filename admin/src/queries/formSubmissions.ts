@@ -72,6 +72,33 @@ export async function deleteSubmission(uuid: string): Promise<void> {
   await authFetch(`${base()}/${uuid}`, { method: 'DELETE' })
 }
 
+/** Delete several at once; answers how many were deleted. */
+export async function deleteSubmissions(uuids: string[]): Promise<number> {
+  const json = await authFetch(`${base()}/delete`, {
+    method: 'POST',
+    body: JSON.stringify({ uuids }),
+  })
+  const d = (json.data ?? json) as { deleted?: number }
+  return d.deleted ?? 0
+}
+
+/** A form that has submissions: the per-form filter's options. */
+export interface SubmissionForm {
+  form_key: string
+  form_name: string
+  count: number
+}
+
+export async function fetchSubmissionForms(): Promise<SubmissionForm[]> {
+  const json = await authFetch(`${base()}/forms`)
+  const d = (json.data ?? json) as { forms?: SubmissionForm[] }
+  return d.forms ?? []
+}
+
+export function useSubmissionForms() {
+  return useQuery({ key: () => ['form-submissions', 'forms'], query: fetchSubmissionForms })
+}
+
 export async function fetchUnreadCount(): Promise<number> {
   const json = await authFetch(`${base()}/unread-count`)
   const d = (json.data ?? json) as { count?: number }
@@ -144,6 +171,10 @@ export function useSubmissionMutations() {
     }),
     remove: useMutation({
       mutation: (uuid: string) => deleteSubmission(uuid),
+      onSettled: invalidate,
+    }),
+    removeMany: useMutation({
+      mutation: (uuids: string[]) => deleteSubmissions(uuids),
       onSettled: invalidate,
     }),
   }

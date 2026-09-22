@@ -128,7 +128,8 @@ final class SeoHeadRenderTest extends AppTestCase
 
         $html = $this->renderPage('/blog');
 
-        self::assertStringContainsString('<title>blog — Thallo</title>', $html);
+        // The listing's title is the type's name (Blog), not its slug.
+        self::assertStringContainsString('<title>Blog — Thallo</title>', $html);
         self::assertStringNotContainsString('rel="canonical"', $html);
         self::assertStringNotContainsString('property="og:', $html);
         self::assertStringNotContainsString('name="description"', $html);

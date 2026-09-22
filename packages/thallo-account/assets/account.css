@@ -252,6 +252,44 @@
   color: #64748b;
 }
 
+.account__form + .account__field,
+.account__field + .account__form {
+  margin-top: 1.75rem;
+}
+
+.account__subheading {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.account__back {
+  margin: 0 0 1.25rem;
+  font-size: 0.875rem;
+}
+
+.account__back a {
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.account__back a:hover {
+  text-decoration: underline;
+}
+
+.account__value {
+  margin: 0.25rem 0 1.5rem;
+  color: #334155;
+  overflow-wrap: anywhere;
+}
+
+.account__hint {
+  margin: 0.75rem 0 0;
+  color: #64748b;
+  font-size: 0.8125rem;
+}
+
 .account__welcome {
   margin: 0 0 1.25rem;
   color: #334155;

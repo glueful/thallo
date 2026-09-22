@@ -38,6 +38,17 @@ final class AccountPageController
         return $this->renderer->render($request, 'account/login.twig', ['next' => $next]);
     }
 
+    public function twoFactorPage(Request $request): Response
+    {
+        // Without a pending challenge there is no code to enter: start sign-in again.
+        if ((string) $request->cookies->get(AccountAuthController::TWO_FACTOR_COOKIE, '') === '') {
+            return new \Symfony\Component\HttpFoundation\RedirectResponse('/account/login', Response::HTTP_SEE_OTHER);
+        }
+        $next = $this->returnPaths->validate((string) $request->query->get('next', ''));
+
+        return $this->renderer->render($request, 'account/two-factor.twig', ['next' => $next]);
+    }
+
     public function registerPage(Request $request): Response
     {
         return $this->renderer->render($request, 'account/register.twig');

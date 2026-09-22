@@ -112,4 +112,33 @@ describe('tenancy components', () => {
     })
     expect(wrapper.find('[data-testid="first-tenant-confirm"]').exists()).toBe(true)
   })
+
+  it('names what stands in the way and keeps Enable off until it is cleared', () => {
+    // Enabling was refused with a data collection defined, but only after the extension had been
+    // installed and migrated; nothing on the screen said so first.
+    const wrapper = mount(EnablementPanel, {
+      props: {
+        status: {
+          step: 'off',
+          enabled: false,
+          schema_state: 'narrow',
+          progress: 0,
+          reloading: false,
+          mode: 'off',
+          pending_slug: null,
+          pending_name: null,
+          failure: null,
+          cli_fallback: null,
+          blockers: [{ code: 'collections', message: 'A data collection is defined.' }],
+        },
+      },
+    })
+
+    expect(wrapper.find('[data-testid="enablement-blockers"]').text()).toContain(
+      'A data collection is defined.',
+    )
+    expect(
+      wrapper.find('[data-testid="enablement-action-begin"]').attributes('disabled'),
+    ).toBeDefined()
+  })
 })

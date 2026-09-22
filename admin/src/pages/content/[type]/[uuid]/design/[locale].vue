@@ -49,7 +49,13 @@ import {
   type Legality,
   type LegalityContext,
 } from '@/editor/structure/legality'
-import { instantiate, isPatternKey, patternSlug, usePatterns } from '@/queries/patterns'
+import {
+  holdsPageHeading,
+  instantiate,
+  isPatternKey,
+  patternSlug,
+  usePatterns,
+} from '@/queries/patterns'
 import {
   EMPTY_SELECTION,
   extend,
@@ -96,6 +102,7 @@ import SeoPanel from '../components/SeoPanel.vue'
 import VersionsPanel from '../components/VersionsPanel.vue'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { usePublish } from '@/queries/publish'
+import { fetchRoutes, useRoutes } from '@/queries/routes'
 import { useEntryLocales } from '@/queries/entries'
 import { localeStatus } from '../components/localeStatus'
 import CanvasOutline from './components/CanvasOutline.vue'
@@ -1202,9 +1209,31 @@ async function insertPage(slug: string): Promise<void> {
     return
   }
   coordinator.cancel()
-  await applyDrop(
-    inserts.map(({ position, block }) => ({ type: 'InsertBlock' as const, position, block })),
-  )
+  const drop: OperationBody[] = inserts.map(({ position, block }) => ({
+    type: 'InsertBlock' as const,
+    position,
+    block,
+  }))
+  // A starter page opens with its own h1; the theme's title above it would be a second one. The
+  // change rides the SAME transaction as the blocks, so one undo takes the whole page back out.
+  const hidesTitle =
+    holdsPageHeading(inserts.map((i) => i.block)) && presentationOverride.value.show_title !== false
+  if (hidesTitle) {
+    const current = fields.value._presentation
+    drop.push({
+      type: 'SetPageSettings',
+      field: '_presentation',
+      from: current === undefined ? { present: false } : { present: true, value: current },
+      to: { present: true, value: { ...presentationOverride.value, show_title: false } },
+    })
+  }
+  await applyDrop(drop)
+  if (hidesTitle) {
+    success(
+      'Page title hidden',
+      'The page’s first section carries the heading. Show page title, on the Page tab, brings it back.',
+    )
+  }
   insertTarget.value = null
   targetStale.value = false
   const first = inserts[0]!.block
@@ -2067,12 +2096,29 @@ async function saveDraftOnly({ quiet = false }: { quiet?: boolean } = {}): Promi
 // Navbar publish (parity with the editor): publishing pins the SAVED draft,
 // so a dirty canvas saves first and a failed save blocks the publish.
 const publish = usePublish(uuid.value, locale.value, type.value)
+const { data: routeRows } = useRoutes(uuid)
 const { data: entryLocaleSummaries } = useEntryLocales(uuid)
 const isPublished = computed(() => {
   const summary = (entryLocaleSummaries.value ?? []).find((s) => s.locale === locale.value)
   return summary ? localeStatus(summary).key === 'published' : false
 })
+/**
+ * Whether this page has a URL in the language being edited. Publishing succeeds without one and
+ * the page then renders nowhere; the form editor saves the slug before publishing, and the
+ * Design view has no slug field of its own, so it refuses instead.
+ */
+async function hasUrl(): Promise<boolean> {
+  const rows = routeRows.value ?? (await fetchRoutes(uuid.value))
+  return rows.some((r) => r.locale === locale.value && r.slug !== '')
+}
 async function onPublish(): Promise<void> {
+  if (!(await hasUrl())) {
+    warning(
+      'Give this page a URL before publishing',
+      'Without one it would be published but reachable nowhere. Set its slug in the editor’s Publishing panel.',
+    )
+    return
+  }
   // One action, one toast: the save publishing implies stays silent; failures still report.
   if (dirty.value && !(await saveDraftOnly({ quiet: true }))) return
   try {
@@ -2319,8 +2365,8 @@ function reloadStage(): void {
         <UIcon name="i-lucide-monitor-off" class="mx-auto size-8 text-muted" />
         <p class="font-medium">Rendered delivery is disabled</p>
         <p class="text-sm text-muted">
-          The visual canvas previews your site's real theme output. Enable rendered delivery
-          (RENDER_ENABLED) to use it — the form editor covers everything else.
+          The visual canvas previews your site's real theme output. Turn on Rendered delivery under
+          Extensions › Capabilities to use it — the form editor covers everything else.
         </p>
         <UButton variant="subtle" color="neutral" :to="`/content/${type}/${uuid}?locale=${locale}`">
           Open the form editor

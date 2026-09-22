@@ -23,7 +23,7 @@ vi.mock('@/queries/generalSettings', () => ({
   useGeneralSettingsMutations: () => ({ save: { mutateAsync: vi.fn(), isLoading: ref(false) } }),
 }))
 vi.mock('@/queries/schedules', () => ({
-  useSchedules: () => ({ data: ref([]) }),
+  useSchedules: () => ({ data: ref({ schedules: [], schedulerTicking: true }) }),
   useScheduleMutations: () => ({
     create: { mutateAsync: vi.fn(), isLoading: ref(false) },
     cancel: { mutateAsync: vi.fn(), isLoading: ref(false) },

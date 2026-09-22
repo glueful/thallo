@@ -1,7 +1,8 @@
 <?php
 
 return [
-    // Instance display name. Editable from Settings › General (writes SITE_NAME to .env).
+    // Instance display name, the seed for a fresh install. Settings › General › Site name stores its
+    // own value in the settings table, which wins once saved; SITE_NAME is only the fallback.
     'site_name' => env('SITE_NAME', 'Thallo'),
 
     // Glueful storage disk that backs media blob references (see docs/internal/V1_DESIGN.md §8).
@@ -84,8 +85,6 @@ return [
         'api_base' => env('ADMIN_API_BASE', '/v1/admin'),
         // The frontend preview URL template; the SPA appends/embeds the minted token.
         'site_preview_url' => env('SITE_PREVIEW_URL', ''),
-        // Phase 1 is en-only in the UI; locale stays in the data model.
-        'default_locale' => env('ADMIN_DEFAULT_LOCALE', (string) env('I18N_DEFAULT_LOCALE', 'en')),
         // Whether the default first-party admin SPA is mounted at /admin. The bundled admin is a
         // REPLACEABLE client of the /v1/admin API — set this false to bring your own (point
         // bundle_path at your build, or disable and register a different mount in a provider).

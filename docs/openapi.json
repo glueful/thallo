@@ -3,7 +3,7 @@
     "info": {
         "title": "Thallo CMS API",
         "version": "1.0.0",
-        "description": "The Thallo headless CMS API.\n\n## Authentication\n\n- **Delivery API** (`\/v1\/content\/*`) \u2014 send an API key in the `X-API-Key` header. The key must carry `read:content` or `read:content:{type}` unless the content type explicitly opts into public delivery. Keys are environment-prefixed (`gf_live_*` \/ `gf_test_*`) and provisioned out of band.\n- **Admin API** (`\/v1\/admin\/*`) \u2014 send a bearer JWT in the `Authorization` header (`Authorization: Bearer <token>`). Each route also enforces a `thallo.*` permission (named in the operation description). Obtain a token from your Glueful auth endpoint (e.g. `POST \/v1\/auth\/login`).\n- **Preview** (`GET \/v1\/preview\/{token}`) \u2014 unauthenticated: the signed, short-lived token in the path is itself the capability.\n\nOnly published content is ever returned by the delivery API; drafts are reachable only through a valid preview token."
+        "description": "The Thallo headless CMS API.\n\n## Authentication\n\n- **Delivery API** (`\/v1\/content\/*`) \u2014 send an API key in the `X-API-Key` header. The key must carry `read:content` or `read:content:{type}` unless the content type explicitly opts into public delivery. Keys are environment-prefixed (`gf_live_*` \/ `gf_test_*`) and provisioned out of band.\n- **Admin API** (`\/v1\/admin\/*`) \u2014 send a bearer JWT in the `Authorization` header (`Authorization: Bearer <token>`). Each route also enforces a permission (`content.*`, `users.*`, `styles.manage`, `system.access` and so on; named in the operation description). Obtain a token from your Glueful auth endpoint (e.g. `POST \/v1\/auth\/login`).\n- **Preview** (`GET \/v1\/preview\/{token}`) \u2014 unauthenticated: the signed, short-lived token in the path is itself the capability.\n\nOnly published content is ever returned by the delivery API; drafts are reachable only through a valid preview token."
     },
     "servers": [
         {
@@ -2073,10 +2073,443 @@
                 }
             }
         },
+        "\/account\/login\/verify": {
+            "get": {
+                "operationId": "accountLoginVerify",
+                "summary": "Account Login Verify",
+                "tags": [
+                    "Account"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "operationId": "accountLoginVerifySubmit",
+                "summary": "Account Login Verify Submit",
+                "tags": [
+                    "Account"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "\/account\/logout": {
             "post": {
                 "operationId": "accountLogout",
                 "summary": "Account Logout",
+                "tags": [
+                    "Account"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "\/account\/password": {
+            "post": {
+                "operationId": "accountProfilePassword",
+                "summary": "Account Profile Password",
+                "tags": [
+                    "Account"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "\/account\/profile": {
+            "get": {
+                "operationId": "accountProfile",
+                "summary": "Account Profile",
+                "tags": [
+                    "Account"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "operationId": "accountProfileName",
+                "summary": "Account Profile Name",
                 "tags": [
                     "Account"
                 ],
@@ -38384,6 +38817,121 @@
                 }
             }
         },
+        "\/v1\/admin\/billing\/plan": {
+            "post": {
+                "operationId": "thalloSubscriptionsBillingPlan",
+                "summary": "Change the workspace subscription's plan",
+                "tags": [
+                    "Thallo Subscriptions"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "\/v1\/admin\/block-types": {
             "get": {
                 "operationId": "getV1AdminBlocktypes",
@@ -38470,7 +39018,8 @@
                                                                                 "asset",
                                                                                 "json",
                                                                                 "blocks",
-                                                                                "token"
+                                                                                "token",
+                                                                                "box"
                                                                             ]
                                                                         },
                                                                         "required": {
@@ -38561,6 +39110,12 @@
                                                                             ]
                                                                         },
                                                                         "domain": {
+                                                                            "type": [
+                                                                                "string",
+                                                                                "null"
+                                                                            ]
+                                                                        },
+                                                                        "label": {
                                                                             "type": [
                                                                                 "string",
                                                                                 "null"
@@ -38864,6 +39419,13 @@
                                                         "null"
                                                     ],
                                                     "description": "Inclusive upper bound for a `number` field (ints coerce)."
+                                                },
+                                                "label": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "What the entry form calls the field (80 characters at most)."
                                                 }
                                             }
                                         }
@@ -39096,7 +39658,8 @@
                                                                             "asset",
                                                                             "json",
                                                                             "blocks",
-                                                                            "token"
+                                                                            "token",
+                                                                            "box"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -39187,6 +39750,12 @@
                                                                         ]
                                                                     },
                                                                     "domain": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "label": {
                                                                         "type": [
                                                                             "string",
                                                                             "null"
@@ -39340,7 +39909,8 @@
                                                                             "asset",
                                                                             "json",
                                                                             "blocks",
-                                                                            "token"
+                                                                            "token",
+                                                                            "box"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -39431,6 +40001,12 @@
                                                                         ]
                                                                     },
                                                                     "domain": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "label": {
                                                                         "type": [
                                                                             "string",
                                                                             "null"
@@ -39960,6 +40536,13 @@
                                                         "null"
                                                     ],
                                                     "description": "Inclusive upper bound for a `number` field (ints coerce)."
+                                                },
+                                                "label": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "What the entry form calls the field (80 characters at most)."
                                                 }
                                             }
                                         }
@@ -40059,7 +40642,8 @@
                                                                             "asset",
                                                                             "json",
                                                                             "blocks",
-                                                                            "token"
+                                                                            "token",
+                                                                            "box"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -40150,6 +40734,12 @@
                                                                         ]
                                                                     },
                                                                     "domain": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "label": {
                                                                         "type": [
                                                                             "string",
                                                                             "null"
@@ -40463,7 +41053,8 @@
                                                                             "asset",
                                                                             "json",
                                                                             "blocks",
-                                                                            "token"
+                                                                            "token",
+                                                                            "box"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -40554,6 +41145,12 @@
                                                                         ]
                                                                     },
                                                                     "domain": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "label": {
                                                                         "type": [
                                                                             "string",
                                                                             "null"
@@ -40835,7 +41432,8 @@
                                                                             "asset",
                                                                             "json",
                                                                             "blocks",
-                                                                            "token"
+                                                                            "token",
+                                                                            "box"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -40926,6 +41524,12 @@
                                                                         ]
                                                                     },
                                                                     "domain": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "label": {
                                                                         "type": [
                                                                             "string",
                                                                             "null"
@@ -65860,7 +66464,8 @@
                                                                                 "asset",
                                                                                 "json",
                                                                                 "blocks",
-                                                                                "token"
+                                                                                "token",
+                                                                                "box"
                                                                             ]
                                                                         },
                                                                         "required": {
@@ -65951,6 +66556,12 @@
                                                                             ]
                                                                         },
                                                                         "domain": {
+                                                                            "type": [
+                                                                                "string",
+                                                                                "null"
+                                                                            ]
+                                                                        },
+                                                                        "label": {
                                                                             "type": [
                                                                                 "string",
                                                                                 "null"
@@ -66243,6 +66854,13 @@
                                                         "null"
                                                     ],
                                                     "description": "Inclusive upper bound for a `number` field (ints coerce)."
+                                                },
+                                                "label": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "What the entry form calls the field (80 characters at most)."
                                                 }
                                             }
                                         }
@@ -66470,7 +67088,8 @@
                                                                             "asset",
                                                                             "json",
                                                                             "blocks",
-                                                                            "token"
+                                                                            "token",
+                                                                            "box"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -66561,6 +67180,12 @@
                                                                         ]
                                                                     },
                                                                     "domain": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "label": {
                                                                         "type": [
                                                                             "string",
                                                                             "null"
@@ -66704,7 +67329,8 @@
                                                                             "asset",
                                                                             "json",
                                                                             "blocks",
-                                                                            "token"
+                                                                            "token",
+                                                                            "box"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -66795,6 +67421,12 @@
                                                                         ]
                                                                     },
                                                                     "domain": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "label": {
                                                                         "type": [
                                                                             "string",
                                                                             "null"
@@ -67271,7 +67903,8 @@
                                                                             "asset",
                                                                             "json",
                                                                             "blocks",
-                                                                            "token"
+                                                                            "token",
+                                                                            "box"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -67362,6 +67995,12 @@
                                                                         ]
                                                                     },
                                                                     "domain": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "label": {
                                                                         "type": [
                                                                             "string",
                                                                             "null"
@@ -68689,6 +69328,13 @@
                                                         "null"
                                                     ],
                                                     "description": "Inclusive upper bound for a `number` field (ints coerce)."
+                                                },
+                                                "label": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "What the entry form calls the field (80 characters at most)."
                                                 }
                                             }
                                         }
@@ -68778,7 +69424,8 @@
                                                                             "asset",
                                                                             "json",
                                                                             "blocks",
-                                                                            "token"
+                                                                            "token",
+                                                                            "box"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -68869,6 +69516,12 @@
                                                                         ]
                                                                     },
                                                                     "domain": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "label": {
                                                                         "type": [
                                                                             "string",
                                                                             "null"
@@ -74689,6 +75342,125 @@
                 }
             }
         },
+        "\/v1\/admin\/form-submissions\/delete": {
+            "post": {
+                "operationId": "postV1AdminFormsubmissionsDelete",
+                "summary": "Delete several submissions",
+                "tags": [
+                    "Thallo Forms"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Permanently removes the named submissions (up to 500); unknown uuids are ignored. Requires `content.manage`.",
+                "responses": {
+                    "200": {
+                        "description": "Deleted; `deleted` is how many."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "No list of uuids, or more than 500."
+                    }
+                }
+            }
+        },
         "\/v1\/admin\/form-submissions\/export.csv": {
             "get": {
                 "operationId": "getV1AdminFormsubmissionsExportcsv",
@@ -74705,6 +75477,122 @@
                 "responses": {
                     "200": {
                         "description": "A text\/csv attachment."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "\/v1\/admin\/form-submissions\/forms": {
+            "get": {
+                "operationId": "getV1AdminFormsubmissionsForms",
+                "summary": "Forms with submissions",
+                "tags": [
+                    "Thallo Forms"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Each form that has submissions: its key, latest name and count, for the per-form filter. Requires `content.manage`.",
+                "responses": {
+                    "200": {
+                        "description": "The forms."
                     },
                     "401": {
                         "description": "Unauthenticated.",
@@ -77653,6 +78541,136 @@
                     },
                     "422": {
                         "description": "Invalid tree (kind, url, labels, depth, count, target)."
+                    }
+                }
+            }
+        },
+        "\/v1\/admin\/navigation\/menus\/{slug}\/usage": {
+            "get": {
+                "operationId": "getV1AdminNavigationMenusBySlugUsage",
+                "summary": "Where a menu is shown",
+                "tags": [
+                    "Thallo Navigation"
+                ],
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The regions and entries whose Navigation blocks show the menu, for the delete warning. A theme template that names the menu is not listed.",
+                "responses": {
+                    "200": {
+                        "description": "The places, regions first: kind, id, label, content_type."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Unknown menu."
                     }
                 }
             }

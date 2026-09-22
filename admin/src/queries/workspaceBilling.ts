@@ -42,6 +42,10 @@ export interface WorkspaceLiveOrigination {
 export interface WorkspacePurchasablePlan {
   plan_key: string
   name: string
+  /** Display price (minor units, currency, interval); absent or null without one. */
+  price_amount?: number | null
+  price_currency?: string | null
+  billing_interval?: string | null
 }
 
 export interface WorkspaceBillingMeta {
@@ -53,6 +57,8 @@ export interface WorkspaceBillingMeta {
   operator_contact_required: boolean
   operator_contact_reason: string | null
   purchasable_plans: WorkspacePurchasablePlan[]
+  /** Whether Change plan can switch the live subscription at its provider. */
+  plan_change_supported: boolean
 }
 
 function normalizeSubscription(raw: unknown): WorkspaceBillingSubscription | null {
@@ -82,7 +88,13 @@ function normalizePurchasablePlans(raw: unknown): WorkspacePurchasablePlan[] {
     if (typeof entry !== 'object' || entry === null) continue
     const r = entry as Record<string, unknown>
     if (typeof r.plan_key === 'string' && typeof r.name === 'string') {
-      out.push({ plan_key: r.plan_key, name: r.name })
+      out.push({
+        plan_key: r.plan_key,
+        name: r.name,
+        price_amount: typeof r.price_amount === 'number' ? r.price_amount : null,
+        price_currency: typeof r.price_currency === 'string' ? r.price_currency : null,
+        billing_interval: typeof r.billing_interval === 'string' ? r.billing_interval : null,
+      })
     }
   }
   return out
@@ -101,6 +113,7 @@ export async function fetchWorkspaceBillingMeta(): Promise<WorkspaceBillingMeta>
     operator_contact_reason:
       typeof raw.operator_contact_reason === 'string' ? raw.operator_contact_reason : null,
     purchasable_plans: normalizePurchasablePlans(raw.purchasable_plans),
+    plan_change_supported: raw.plan_change_supported === true,
   }
 }
 
@@ -291,6 +304,24 @@ export function useWorkspaceCancelMutation() {
   const cache = useQueryCache()
   return useMutation({
     mutation: (mode: string) => cancelWorkspaceSubscription(mode),
+    onSettled: () => cache.invalidateQueries({ key: qkWorkspaceBillingMeta() }),
+  })
+}
+
+/** `POST /plan {plan_key}` -- 202 means requested: the plan changes when the provider confirms. */
+export async function changeWorkspacePlan(planKey: string): Promise<{ plan_key: string }> {
+  const json = await authFetch(`${base()}/plan`, {
+    method: 'POST',
+    body: JSON.stringify({ plan_key: planKey }),
+  })
+  const raw = (json.data ?? json) as Record<string, unknown>
+  return { plan_key: typeof raw.plan_key === 'string' ? raw.plan_key : planKey }
+}
+
+export function useWorkspaceChangePlanMutation() {
+  const cache = useQueryCache()
+  return useMutation({
+    mutation: (planKey: string) => changeWorkspacePlan(planKey),
     onSettled: () => cache.invalidateQueries({ key: qkWorkspaceBillingMeta() }),
   })
 }

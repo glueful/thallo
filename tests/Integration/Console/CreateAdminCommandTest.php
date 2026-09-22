@@ -50,12 +50,29 @@ final class CreateAdminCommandTest extends AppTestCase
     {
         $exit = $this->tester()->execute([
             '--admin-email' => 'admin@example.com',
-            '--admin-password' => 'a-strong-password',
+            '--admin-password' => 'A-str0ng-password!',
             '--site-name' => 'Demo',
         ], ['interactive' => false]);
 
         self::assertSame(0, $exit);
         self::assertTrue($this->service()->isInstalled());
+    }
+
+    public function testPrintsTheNewAccountsUuid(): void
+    {
+        // thallo:tenancy:enable --owner and thallo:superuser:grant take a user uuid, and no
+        // command printed one.
+        $tester = $this->tester();
+        $tester->execute([
+            '--admin-email' => 'admin@example.com',
+            '--admin-password' => 'A-str0ng-password!',
+            '--site-name' => 'Demo',
+        ], ['interactive' => false]);
+
+        $user = $this->container()->get(\Glueful\Extensions\Users\Repositories\UserRepository::class)
+            ->findByEmail('admin@example.com');
+        self::assertIsArray($user);
+        self::assertStringContainsString((string) $user['uuid'], $tester->getDisplay());
     }
 
     public function testAlreadyInstalledExitsSuccessWithoutSecondAdmin(): void
@@ -65,7 +82,7 @@ final class CreateAdminCommandTest extends AppTestCase
         $tester = $this->tester();
         $exit = $tester->execute([
             '--admin-email' => 'second@example.com',
-            '--admin-password' => 'a-strong-password',
+            '--admin-password' => 'A-str0ng-password!',
         ], ['interactive' => false]);
 
         self::assertSame(0, $exit);
@@ -77,10 +94,23 @@ final class CreateAdminCommandTest extends AppTestCase
         );
     }
 
+    public function testAWeakPasswordIsRefusedByTheSetupFormsRules(): void
+    {
+        $tester = $this->tester();
+        $exit = $tester->execute([
+            '--admin-email' => 'admin@example.com',
+            '--admin-password' => 'a-strong-password',
+        ], ['interactive' => false]);
+
+        self::assertSame(1, $exit);
+        self::assertStringContainsString('At least 1 number', $tester->getDisplay());
+        self::assertFalse($this->service()->isInstalled());
+    }
+
     public function testQuietMissingAdminEmailFailsFast(): void
     {
         $tester = $this->tester();
-        $exit = $tester->execute(['--admin-password' => 'a-strong-password'], ['interactive' => false]);
+        $exit = $tester->execute(['--admin-password' => 'A-str0ng-password!'], ['interactive' => false]);
 
         self::assertSame(1, $exit);
         self::assertStringContainsString('admin-email', $tester->getDisplay());

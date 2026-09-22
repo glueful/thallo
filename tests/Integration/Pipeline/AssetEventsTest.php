@@ -115,6 +115,42 @@ final class AssetEventsTest extends AppTestCase
         self::assertCount(1, $captured['updated'], 'primary EntryUpdated still fires once');
     }
 
+    public function testAnImageInsideABlockIsAttachedToo(): void
+    {
+        // "Used in" counted asset fields at the top of an entry only, so an image placed inside a
+        // block, which is where the Design view puts every image, was never counted.
+        $this->container()->get(\Thallo\Core\Content\Blocks\StarterBlockTypeSeeder::class)->seedMissing();
+        $types = new ContentTypeRepository($this->connection());
+        $page = $types->create([
+            'slug' => 'blockpage', 'name' => 'Block page',
+            'schema' => [
+                ['name' => 'title', 'type' => 'string', 'required' => true],
+                ['name' => 'body', 'type' => 'blocks'],
+            ],
+        ]);
+        $entry = $this->containerEntries()->createEntry($page, 'en', 1, 'user00000001');
+        $captured = $this->spy();
+
+        $this->containerEntries()->saveDraft(
+            $entry,
+            'en',
+            ['title' => 'Page', 'body' => [[
+                'type' => 'hero',
+                'data' => ['title' => 'Outer', 'image' => 'b3abcdefghij', 'aside' => [[
+                    'type' => 'hero',
+                    'data' => ['title' => 'Inner', 'image' => 'b4abcdefghij'],
+                ]]],
+            ]]],
+            1,
+            (int) $this->containerEntries()->findDraft($entry, 'en')['lock_version'],
+            'user00000001'
+        );
+
+        $attached = array_map(static fn (AssetAttached $e): string => $e->asset, $captured['attached']);
+        sort($attached);
+        self::assertSame(['b3abcdefghij', 'b4abcdefghij'], $attached);
+    }
+
     public function testReplaceEmitsDetachOldAndAttachNew(): void
     {
         // First save: hero = b1

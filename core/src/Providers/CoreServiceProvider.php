@@ -26,6 +26,8 @@ use Thallo\Core\Content\Forms\DefaultFormSealer;
 use Thallo\Core\Content\Forms\FormFieldDerivation;
 use Thallo\Core\Content\Forms\FormMailSender;
 use Thallo\Core\Content\Forms\FormNotifier;
+use Glueful\Notifications\Services\NotificationService;
+use Thallo\Core\Content\Forms\NotificationFormMailSender;
 use Thallo\Core\Content\Forms\FormSubmissionRepository;
 use Thallo\Core\Content\Forms\Spam\DefaultFormGuard;
 use Thallo\Core\Content\Forms\Spam\FormSubmissionGuard;
@@ -367,13 +369,85 @@ final class CoreServiceProvider extends ServiceProvider
         ];
 
         return [
-            \Thallo\Contracts\Account\StorefrontAccountRegistration::class =>
-                $bind(\Thallo\Core\Account\AppStorefrontAccountRegistration::class),
+            \Thallo\Contracts\Account\StorefrontAccountRegistration::class => [
+                'factory' => [self::class, 'makeStorefrontAccountRegistration'],
+                'shared' => true,
+            ],
             \Thallo\Contracts\Account\StorefrontAccountRecovery::class =>
                 $bind(\Thallo\Core\Account\AppStorefrontAccountRecovery::class),
+            \Thallo\Core\Account\AccountMailTemplateChooser::class => [
+                'factory' => [self::class, 'makeAccountMailTemplateChooser'],
+                'shared' => true,
+            ],
+            \Thallo\Contracts\Account\StorefrontAccountProfile::class =>
+                $bind(\Thallo\Core\Account\AppStorefrontAccountProfile::class),
             \Thallo\Contracts\Account\AccountNavigationRegistry::class =>
                 $bind(\Thallo\Core\Account\InMemoryAccountNavigationRegistry::class),
+            \Thallo\Contracts\Account\StorefrontTwoFactor::class => [
+                'factory' => [self::class, 'makeStorefrontTwoFactor'],
+                'shared' => true,
+            ],
         ];
+    }
+
+    /**
+     * The storefront's second sign-in step over the users extension's two-factor service, which
+     * is registered only while that extension is enabled; without it nothing can be verified.
+     */
+    public static function makeMediaTextResolver(
+        ContainerInterface $container,
+    ): \Thallo\Core\Content\Delivery\EngineMediaTextResolver {
+        return new \Thallo\Core\Content\Delivery\EngineMediaTextResolver(
+            $container->get(\Glueful\Database\Connection::class),
+            $container->get(MediaUrlResolver::class),
+        );
+    }
+
+    /** Soft-bound: without the mail extension's registry, customers get the built-in templates. */
+    public static function makeAccountMailTemplateChooser(
+        ContainerInterface $container,
+    ): \Thallo\Core\Account\AccountMailTemplateChooser {
+        $registry = \Glueful\Extensions\Contracts\Email\EmailTemplateRegistry::class;
+
+        return new \Thallo\Core\Account\AccountMailTemplateChooser(
+            $container->has($registry) ? $container->get($registry) : null,
+        );
+    }
+
+    public static function makeStorefrontAccountRegistration(
+        ContainerInterface $container,
+    ): \Thallo\Core\Account\AppStorefrontAccountRegistration {
+        $users = 'Glueful\\Extensions\\Users\\Repositories\\UserRepository';
+        $sessionFor = !$container->has($users)
+            ? null
+            : static function (string $uuid) use ($container, $users): ?array {
+                $user = $container->get($users)->findByUuid($uuid);
+                if (!is_array($user) || (string) ($user['status'] ?? '') !== 'active') {
+                    return null;
+                }
+                $session = $container->get(\Glueful\Auth\TokenManager::class)->createUserSession($user);
+                return $session === [] ? null : $session;
+            };
+
+        return new \Thallo\Core\Account\AppStorefrontAccountRegistration(
+            $container->get(\Thallo\Core\Signup\CustomerSignupService::class),
+            $container->get(\Thallo\Core\Signup\SignupCoordinator::class),
+            $container->get(\Psr\Log\LoggerInterface::class),
+            $sessionFor,
+        );
+    }
+
+    public static function makeStorefrontTwoFactor(
+        ContainerInterface $container,
+    ): \Thallo\Core\Account\AppStorefrontTwoFactor {
+        $service = 'Glueful\\Extensions\\Users\\TwoFactor\\TwoFactorService';
+        if (!$container->has($service)) {
+            return new \Thallo\Core\Account\AppStorefrontTwoFactor(null);
+        }
+
+        return new \Thallo\Core\Account\AppStorefrontTwoFactor(
+            static fn (string $token, string $code): array => $container->get($service)->verify($token, $code)
+        );
     }
 
     /** @return array<string, array<string, mixed>> */
@@ -482,8 +556,12 @@ final class CoreServiceProvider extends ServiceProvider
 
     public static function makeFormNotifier(ContainerInterface $container): FormNotifier
     {
-        // FormMailSender is a soft seam: unbound → the notifier no-ops (spec §10).
+        // An app may bind its own FormMailSender; otherwise the notification service's email
+        // channel sends it — the default install used to bind nothing and send nothing.
         $sender = $container->has(FormMailSender::class) ? $container->get(FormMailSender::class) : null;
+        if (!$sender instanceof FormMailSender && $container->has(NotificationService::class)) {
+            $sender = new NotificationFormMailSender($container->get(NotificationService::class));
+        }
         return new FormNotifier(
             $sender instanceof FormMailSender ? $sender : null,
             $container->get(LoggerInterface::class),
@@ -693,6 +771,12 @@ final class CoreServiceProvider extends ServiceProvider
                 'shared'   => true,
                 'autowire' => true,
             ],
+            // Describes asset fields a delivery caller names in ?expand.
+            \Thallo\Core\Content\Delivery\AssetExpander::class => [
+                'class'    => \Thallo\Core\Content\Delivery\AssetExpander::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
             \Thallo\Core\Content\Delivery\DeliveryItemShaper::class => [
                 'class'    => \Thallo\Core\Content\Delivery\DeliveryItemShaper::class,
                 'shared'   => true,
@@ -808,6 +892,12 @@ final class CoreServiceProvider extends ServiceProvider
             ],
             \Thallo\Core\Content\Blocks\Sources\PublishedEntriesSource::class => [
                 'class' => \Thallo\Core\Content\Blocks\Sources\PublishedEntriesSource::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            // Where a menu is shown (the navigation pack's delete warning).
+            \Thallo\Contracts\Navigation\MenuUsageReader::class => [
+                'class' => \Thallo\Core\Content\Navigation\EngineMenuUsageReader::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -1186,6 +1276,16 @@ final class CoreServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            \Thallo\Contracts\Search\BlockTextExtractor::class => [
+                'class' => \Thallo\Core\Content\Blocks\EngineBlockTextExtractor::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Contracts\Settings\SiteNameProvider::class => [
+                'class'    => \Thallo\Core\Settings\EngineSiteNameProvider::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
             SiteLogoProvider::class => [
                 'class'    => EngineSiteLogoProvider::class,
                 'shared'   => true,
@@ -1235,6 +1335,11 @@ final class CoreServiceProvider extends ServiceProvider
             MediaUrlResolver::class => [
                 'shared' => true,
                 'factory' => [self::class, 'makeMediaUrlResolver'],
+            ],
+            // A file's alt text and caption for rendered pages (the Image block's fallback).
+            \Thallo\Contracts\Delivery\MediaTextResolver::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeMediaTextResolver'],
             ],
             // One object, two interfaces: the batch seam IS the single-url
             // resolver, so the servability predicate cannot drift between them.
@@ -2134,6 +2239,21 @@ final class CoreServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            \Thallo\Core\Content\Console\PruneFormSubmissionsCommand::class => [
+                'class' => \Thallo\Core\Content\Console\PruneFormSubmissionsCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Console\ListBlockTypesCommand::class => [
+                'class' => \Thallo\Core\Content\Console\ListBlockTypesCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Capabilities\Console\CapabilitiesCommand::class => [
+                'class' => \Thallo\Core\Capabilities\Console\CapabilitiesCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             PolicyManifestCommand::class => [
                 'class' => PolicyManifestCommand::class,
                 'shared' => true,
@@ -2220,7 +2340,26 @@ final class CoreServiceProvider extends ServiceProvider
     }
 
     /** Config files that ship as core/config DEFAULTS (merged below; the root config/ overrides). */
-    private const CORE_CONFIG = ['thallo', 'forms', 'signup', 'theme', 'import_export'];
+    private const CORE_CONFIG = ['thallo', 'forms', 'signup', 'theme', 'import_export', 'permissions'];
+
+    /**
+     * The admin's import upload writes to the `uploads` storage disk, and an import job reads its
+     * file back through `import_export.source_roots.uploads`. The core config file cannot name that
+     * root — it lives under vendor/ on an install, and a path built from it pointed there, so every
+     * admin-started import failed to find its file — but the disk's own root is known here. A site
+     * that sets the root itself still wins: defaults merge under the site's config.
+     *
+     * @param array<string,mixed> $defaults
+     * @return array<string,mixed>
+     */
+    private static function withUploadsRoot(array $defaults, ApplicationContext $context): array
+    {
+        $root = config($context, 'storage.disks.uploads.root');
+        if (is_string($root) && $root !== '') {
+            $defaults['source_roots'] = ['uploads' => rtrim($root, '/')] + (array) ($defaults['source_roots'] ?? []);
+        }
+        return $defaults;
+    }
 
     public function register(ApplicationContext $context): void
     {
@@ -2232,8 +2371,24 @@ final class CoreServiceProvider extends ServiceProvider
         foreach (self::CORE_CONFIG as $name) {
             /** @var array<string,mixed> $defaults */
             $defaults = require self::corePath("config/{$name}.php");
+            if ($name === 'import_export') {
+                $defaults = self::withUploadsRoot($defaults, $context);
+            }
             $this->mergeConfig($name, $defaults);
         }
+
+        // Export results are recorded on the `local` disk (import_export.result_disk) and read
+        // back through it, but no storage config defined one, so every Download failed. A site's
+        // own `local` disk, or another result_disk, still wins: defaults merge under its config.
+        $this->mergeConfig('storage', [
+            'disks' => [
+                'local' => [
+                    'driver' => 'local',
+                    'root' => rtrim($context->getBasePath(), '/') . '/storage',
+                    'visibility' => 'private',
+                ],
+            ],
+        ]);
 
         // DI bindings are contributed declaratively via services(). The first-run commands
         // register HERE, not in boot(): boot() needs a reachable database, and in production a
@@ -2368,8 +2523,36 @@ final class CoreServiceProvider extends ServiceProvider
         return $declared;
     }
 
+    /**
+     * The default language as stored (Settings › Languages), or null when none is: config/i18n.php
+     * is only the seed an install starts from. Read at boot so every `i18n.default_locale` reader
+     * agrees with the admin.
+     */
+    public static function storedDefaultLocale(ContainerInterface $container): ?string
+    {
+        $manager = \Glueful\Extensions\I18n\Contracts\LocaleManagerInterface::class;
+        if (!$container->has($manager)) {
+            return null;
+        }
+        foreach ($container->get($manager)->all() as $row) {
+            if (is_array($row) && (bool) ($row['is_default'] ?? false) && is_string($row['code'] ?? null)) {
+                return $row['code'];
+            }
+        }
+        return null;
+    }
+
     public function boot(ApplicationContext $context): void
     {
+        try {
+            $stored = self::storedDefaultLocale($context->getContainer());
+            if ($stored !== null && $stored !== config($context, 'i18n.default_locale')) {
+                $context->overrideConfig('i18n.default_locale', $stored);
+            }
+        } catch (\Throwable) {
+            // No database yet (first run, provisioning): the config seed stands.
+        }
+
         // Thallo's own migrations are declared by core/composer.json's manifest (two lanes,
         // `glueful/thallo-core` and `glueful/thallo-core:dependent`, each naming the source every
         // earlier database recorded its files under as previous_sources), so provision sees them
@@ -2437,7 +2620,11 @@ final class CoreServiceProvider extends ServiceProvider
         // commands() is a console-only no-op in the HTTP phase (runningInConsole() guards it).
         $this->commands([
             ResyncCommand::class,
+            \Thallo\Core\Content\Console\MediaUsageRebuildCommand::class,
             PruneVersionsCommand::class,
+            \Thallo\Core\Content\Console\ListBlockTypesCommand::class,
+            \Thallo\Core\Content\Console\PruneFormSubmissionsCommand::class,
+            \Thallo\Core\Capabilities\Console\CapabilitiesCommand::class,
             \Thallo\Core\Content\Console\DocsSetupCommand::class,
             PolicyManifestCommand::class,
             SeedBlockTypesCommand::class,
@@ -2489,14 +2676,6 @@ final class CoreServiceProvider extends ServiceProvider
         $this->listenersRegistered = true;
 
         $events = app($context, EventService::class);
-
-        // `CoreServiceProvider` (app provider) boots before `AnalyticsServiceProvider`
-        // (pack provider), so CapabilityRegistry::isEnabled() would return false for
-        // 'thallo.analytics' at this point (the capability is only registered during the pack's
-        // own boot()). Read the capabilities override config directly instead — same semantics as
-        // DefaultCapabilityRegistry::isEnabled() but without the "must be registered" prerequisite.
-        $capOverrides = (array) config($context, 'thallo.capabilities', []);
-        $analyticsOn = ($capOverrides['thallo.analytics'] ?? true) === true;
 
         // event class => list of listener service ids (lazy '@' form).
         //
@@ -2574,9 +2753,9 @@ final class CoreServiceProvider extends ServiceProvider
         // (class_exists) so removing the pack drops this wiring cleanly with no dangling reference.
         // CollectionAuditListener is unconditional (installed-gated only): a disabled-but-installed
         // analytics pack must still audit programmatic row mutations. AnalyticsBridgeListener is
-        // ENABLED-gated: disabling thallo.analytics hard-stops collection ingestion, consistent with
-        // the pack's auth listeners and the read API — no content or collection facts are written
-        // while the capability is off (spec §7).
+        // always wired and ENABLED-gated per event (it reads the live switchboard itself): disabling
+        // thallo.analytics, in the admin or the config map, hard-stops collection ingestion,
+        // consistent with the pack's auth listeners and the read API (spec §7).
         if (class_exists(CollectionRowCreated::class)) {
             $listeners[CollectionRowCreated::class] = [CollectionAuditListener::class];
             $listeners[CollectionRowUpdated::class] = [CollectionAuditListener::class];
@@ -2585,27 +2764,22 @@ final class CoreServiceProvider extends ServiceProvider
             $listeners[CollectionUpdated::class] = [CollectionAuditListener::class];
             $listeners[CollectionDropped::class] = [CollectionAuditListener::class];
 
-            if ($analyticsOn) {
-                $listeners[CollectionRowCreated::class][] = AnalyticsBridgeListener::class;
-                $listeners[CollectionRowUpdated::class][] = AnalyticsBridgeListener::class;
-                $listeners[CollectionRowDeleted::class][] = AnalyticsBridgeListener::class;
-                $listeners[CollectionCreated::class][] = AnalyticsBridgeListener::class;
-                $listeners[CollectionUpdated::class][] = AnalyticsBridgeListener::class;
-                $listeners[CollectionDropped::class][] = AnalyticsBridgeListener::class;
-            }
+            $listeners[CollectionRowCreated::class][] = AnalyticsBridgeListener::class;
+            $listeners[CollectionRowUpdated::class][] = AnalyticsBridgeListener::class;
+            $listeners[CollectionRowDeleted::class][] = AnalyticsBridgeListener::class;
+            $listeners[CollectionCreated::class][] = AnalyticsBridgeListener::class;
+            $listeners[CollectionUpdated::class][] = AnalyticsBridgeListener::class;
+            $listeners[CollectionDropped::class][] = AnalyticsBridgeListener::class;
         }
 
-        // Content entry events → analytics facts. The analytics bridge is ENABLED-gated: disabling
-        // thallo.analytics hard-stops content ingestion, consistent with the pack's auth listeners,
-        // the collection block above, and the read API (spec §7). The audit bridge (CollectionAuditListener)
-        // remains unconditional/installed-gated and is unaffected by this gate.
-        if ($analyticsOn) {
-            $listeners[EntryCreated::class][]    = AnalyticsBridgeListener::class;
-            $listeners[EntryUpdated::class][]    = AnalyticsBridgeListener::class;
-            $listeners[EntryDeleted::class][]    = AnalyticsBridgeListener::class;
-            $listeners[EntryPublished::class][]  = AnalyticsBridgeListener::class;
-            $listeners[EntryUnpublished::class][] = AnalyticsBridgeListener::class;
-        }
+        // Content entry events → analytics facts. The bridge gates itself per event on the live
+        // switchboard (see AnalyticsBridgeListener), so an admin switch-off stops content ingestion
+        // on the next event. The audit bridge (CollectionAuditListener) is unaffected.
+        $listeners[EntryCreated::class][]    = AnalyticsBridgeListener::class;
+        $listeners[EntryUpdated::class][]    = AnalyticsBridgeListener::class;
+        $listeners[EntryDeleted::class][]    = AnalyticsBridgeListener::class;
+        $listeners[EntryPublished::class][]  = AnalyticsBridgeListener::class;
+        $listeners[EntryUnpublished::class][] = AnalyticsBridgeListener::class;
 
         $listeners[DomainReverificationFailed::class][] = DomainReverificationAuditListener::class;
         $listeners[DomainRevoked::class][] = DomainReverificationAuditListener::class;

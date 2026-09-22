@@ -110,7 +110,11 @@ final class ContentExporterTest extends AppTestCase
 
     private function exporter(): ContentExporter
     {
-        return new ContentExporter($this->appContext(), $this->connection());
+        return new ContentExporter(
+            $this->appContext(),
+            $this->connection(),
+            $this->container()->get(\Glueful\Storage\StorageManager::class),
+        );
     }
 
     private function seedPublishedEntry(): void

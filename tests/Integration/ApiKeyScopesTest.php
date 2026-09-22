@@ -44,4 +44,19 @@ final class ApiKeyScopesTest extends AppTestCase
 
         self::assertSame(404, $response->getStatusCode());
     }
+
+    public function testTheNameSearchIgnoresCase(): void
+    {
+        $created = ApiKeyService::create($this->appContext(), [
+            'user_uuid' => 'u-1',
+            'name' => 'Storefront Reader',
+            'scopes' => ['posts.read'],
+        ]);
+        $controller = $this->container()->get(ApiKeyAdminController::class);
+
+        $response = $controller->index(new \Thallo\Core\Http\DTOs\ApiKeyListQuery(q: 'storefront'));
+
+        $keys = json_decode((string) $response->getContent(), true)['data']['api_keys'] ?? [];
+        self::assertContains($created['key']->uuid, array_column($keys, 'uuid'));
+    }
 }

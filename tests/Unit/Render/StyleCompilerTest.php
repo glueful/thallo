@@ -182,8 +182,14 @@ final class StyleCompilerTest extends TestCase
 
         $frames = ':is(.t-kenburns-zoom-in, .t-kenburns-zoom-out, .t-kenburns-pan-left, .t-kenburns-pan-right)';
         self::assertStringContainsString(
-            "{$frames} > :is(img, picture, video) { animation: t-kenburns 20s ease-in-out infinite alternate; "
+            "{$frames} > :is(img, picture, video) { animation: t-kenburns 20s ease-in-out 2 alternate both; "
                 . 'transform-origin: center; }',
+            $css,
+        );
+        // WCAG 2.2.2: the drift ends (there and back, then rests) and holds still under the
+        // pointer or keyboard focus.
+        self::assertStringContainsString(
+            "{$frames}:is(:hover, :focus-within) > :is(img, picture, video) { animation-play-state: paused; }",
             $css,
         );
         self::assertStringContainsString(

@@ -152,6 +152,8 @@ describe('BlockTypeLifecycle component', () => {
     const status = wrapper.find('[data-testid="block-migration-status"]')
     expect(status.exists()).toBe(true)
     expect(status.text()).toContain('2/5')
+    // It runs on the queue: without a worker it never moves, and the panel says so.
+    expect(wrapper.find('[data-testid="block-migration-worker"]').text()).toContain('queue:work')
     expect(wrapper.find('[data-testid="block-migrate"]').attributes('disabled')).toBeDefined()
     expect(wrapper.find('[data-testid="block-delete"]').attributes('disabled')).toBeDefined()
   })

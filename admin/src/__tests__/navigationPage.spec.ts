@@ -19,7 +19,9 @@ const reorderMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const renameMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const removeMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 
+const usageMock = vi.hoisted(() => vi.fn().mockResolvedValue([]))
 vi.mock('@/queries/navigation', () => ({
+  fetchMenuUsage: (...a: unknown[]) => usageMock(...a),
   useNavMenus: () => ({ data: menusData, isLoading: menusLoading }),
   useNavMenu: () => ({ data: detailData, refetch }),
   useNavigationMutations: () => ({
@@ -296,6 +298,27 @@ describe('navigation page', () => {
     expect(notify.success).toHaveBeenCalled()
   })
 
+  it('the delete confirmation names where the menu is shown', async () => {
+    menusData.value = [{ slug: 'main', name: 'Main', item_count: 2, lock_version: 0 }]
+    usageMock.mockResolvedValueOnce([
+      { kind: 'region', id: 'header', label: 'Header', content_type: null },
+      { kind: 'entry', id: 'e1', label: 'Landing', content_type: 'pages' },
+    ])
+    const wrapper = mountPage()
+    await flushPromises()
+
+    const dropdown = wrapper.findAllComponents({ name: 'DropdownMenu' })[0]!
+    const items = dropdown.props('items') as { label: string; onSelect?: () => void }[][]
+    items.flat().find((i) => i.label === 'Delete')!.onSelect!()
+    await flushPromises()
+
+    expect(usageMock).toHaveBeenCalledWith('main')
+    const warning = document.body.querySelector('[data-test="nav-menu-delete-usage"]')
+    expect(warning?.textContent).toContain('Header')
+    expect(warning?.textContent).toContain('Landing')
+    wrapper.unmount()
+  })
+
   it('selecting a menu renders the editor and save sends the working tree', async () => {
     menusData.value = [{ slug: 'main', name: 'Main', item_count: 1, lock_version: 1 }]
     const wrapper = mountPage()
@@ -369,7 +392,8 @@ describe('navigation page', () => {
     expect((label.element as HTMLInputElement).value).toBe('')
   })
 
-  it('a 409 on save reloads the menu and notifies instead of overwriting', async () => {
+  it('a 409 on save keeps the unsaved tree and asks what to do', async () => {
+    // It used to drop the working tree and reload, losing every unsaved edit.
     menusData.value = [{ slug: 'main', name: 'Main', item_count: 1, lock_version: 1 }]
     const wrapper = mountPage()
     await flushPromises()
@@ -382,8 +406,54 @@ describe('navigation page', () => {
     await wrapper.find('[data-test="tree-save"]').trigger('click')
     await flushPromises()
 
-    expect(refetch).toHaveBeenCalledTimes(1)
-    expect(notify.error).toHaveBeenCalled()
+    expect(refetch).not.toHaveBeenCalled()
+    expect(wrapper.findAll('[data-test="tree-item"]')).toHaveLength(2)
+    expect(wrapper.find('[data-test="nav-conflict"]').exists()).toBe(true)
     expect(notify.success).not.toHaveBeenCalled()
+  })
+
+  it('after a 409, "load the latest" discards the edits and reloads', async () => {
+    menusData.value = [{ slug: 'main', name: 'Main', item_count: 1, lock_version: 1 }]
+    const wrapper = mountPage()
+    await flushPromises()
+    await wrapper.find('[data-test="nav-menu-row"]').trigger('click')
+    detailData.value = detail()
+    await flushPromises()
+    await wrapper.find('[data-test="tree-add-root"]').trigger('click')
+    saveMock.mockRejectedValue(new ApiError('conflict', 409, {}, null))
+    await wrapper.find('[data-test="tree-save"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.find('[data-test="nav-conflict-discard"]').trigger('click')
+    await flushPromises()
+
+    expect(refetch).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('[data-test="nav-conflict"]').exists()).toBe(false)
+  })
+
+  it('after a 409, "save mine over it" saves the same tree against the latest version', async () => {
+    menusData.value = [{ slug: 'main', name: 'Main', item_count: 1, lock_version: 1 }]
+    const wrapper = mountPage()
+    await flushPromises()
+    await wrapper.find('[data-test="nav-menu-row"]').trigger('click')
+    detailData.value = detail()
+    await flushPromises()
+    await wrapper.find('[data-test="tree-add-root"]').trigger('click')
+    saveMock.mockRejectedValueOnce(new ApiError('conflict', 409, {}, null))
+    await wrapper.find('[data-test="tree-save"]').trigger('click')
+    await flushPromises()
+
+    refetch.mockImplementationOnce(async () => {
+      detailData.value = { ...detail(), lock_version: 2 }
+    })
+    saveMock.mockResolvedValueOnce(detail())
+    await wrapper.find('[data-test="nav-conflict-overwrite"]').trigger('click')
+    await flushPromises()
+
+    expect(saveMock).toHaveBeenCalledTimes(2)
+    const second = saveMock.mock.calls[1]![0] as { lockVersion: number; items: unknown[] }
+    expect(second.lockVersion).toBe(2)
+    expect(second.items).toHaveLength(2)
+    expect(notify.success).toHaveBeenCalled()
   })
 })

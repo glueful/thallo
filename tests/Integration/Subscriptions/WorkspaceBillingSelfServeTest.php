@@ -274,7 +274,12 @@ final class WorkspaceBillingSelfServeTest extends AppTestCase
         self::assertArrayNotHasKey('can_manage_billing', $body);
         self::assertArrayHasKey('plan_key', $body['purchasable_plans'][0]);
         self::assertArrayHasKey('name', $body['purchasable_plans'][0]);
-        self::assertCount(2, $body['purchasable_plans'][0], 'plan_key + name ONLY -- no prices/uuid');
+        // The name and the display price (so the picker can say what a plan costs), never the plan's
+        // uuid or its gateway identifier.
+        self::assertSame(
+            ['plan_key', 'name', 'price_amount', 'price_currency', 'billing_interval'],
+            array_keys($body['purchasable_plans'][0]),
+        );
     }
 
     public function testMetaIsTwoHundredEvenWhenSelfServeDisabled(): void

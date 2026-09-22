@@ -2,6 +2,7 @@
 import { computed, reactive, ref, watch, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 import { useContentTypes } from '@/queries/contentTypes'
+import { fieldLabel } from '@/utils/fieldLabel'
 import { useDraft, useSaveDraft } from '@/queries/drafts'
 import { useEntryLocales, useCreateLocaleDraft } from '@/queries/entries'
 import { usePublish } from '@/queries/publish'
@@ -72,9 +73,11 @@ watch(visiblePanels, (panels) => {
 // The content-type schema drives the field editor.
 const { data: contentTypes } = useContentTypes()
 const contentType = computed(() => contentTypes.value?.find((c) => c.slug === type.value))
+const hasBlocks = computed(() => (contentType.value?.schema ?? []).some((f) => f.type === 'blocks'))
 const schema = computed<FieldDef[]>(() =>
   (contentType.value?.schema ?? []).map((f) => ({
     name: String(f.name ?? ''),
+    label: fieldLabel({ name: String(f.name ?? ''), label: f.label }),
     type: (f.type ?? 'string') as FieldDef['type'],
     required: f.required ?? undefined,
     enum: f.enum ?? undefined,
@@ -336,7 +339,9 @@ async function onSave({ quiet = false }: { quiet?: boolean } = {}): Promise<bool
             :summaries="entryLocales ?? []"
             :addable="addableLocales"
           />
+          <!-- The Design view edits a blocks field; a type without one has nothing to design. -->
           <UButton
+            v-if="hasBlocks"
             variant="outline"
             color="neutral"
             icon="i-lucide-layout-template"
@@ -381,7 +386,7 @@ async function onSave({ quiet = false }: { quiet?: boolean } = {}): Promise<bool
               variant="subtle"
               icon="i-lucide-link"
               title="Some fields are shared across locales"
-              :description="`Editing these applies to every locale: ${sharedFields.join(', ')}.`"
+              :description="`A new translation starts with a copy of these; after that each language keeps its own: ${sharedFields.join(', ')}.`"
             />
             <div v-if="draftStatus === 'pending'" class="space-y-3">
               <USkeleton v-for="n in 4" :key="n" class="h-10" />

@@ -35,13 +35,12 @@ use Thallo\Tenancy\System\SystemFlags;
  * So the binding lives in `CoreServiceProvider::services()`, and this test is what stops it from
  * silently migrating into `register()`/`boot()` later.
  *
- * A BOUND override is not the same as a WORKING one, so `instanceof` alone is not the pin. The
- * same cached-boot rule that kills `register()` also kills every extension's
- * `mergeConfig()` — including payvia's own `config/payvia.php` defaults — which left
- * `config('payvia.gateways')` EMPTY, and the override's config-gated whitelist therefore refused
- * every `payvia.gateways.{id}.*` key while still resolving as the right class. The remediation is
- * the app-published `config/payvia.php` (read by `ConfigurationLoader` in BOTH boot modes); the
- * proof that it works is below: this test seeds a real platform credential through
+ * A BOUND override is not the same as a WORKING one, so `instanceof` alone is not the pin. Cached
+ * boots once skipped every extension's `register()`, and with it payvia's `mergeConfig()` defaults:
+ * `config('payvia.gateways')` was EMPTY and the override's config-gated whitelist refused every
+ * `payvia.gateways.{id}.*` key while still resolving as the right class. Thallo published a copy of
+ * payvia's config to cover that. The framework now registers providers on a cached boot too, so the
+ * copy is gone and payvia's own defaults must reach this boot. This test seeds a real platform credential through
  * {@see PlatformPaymentSettingsStore} and asserts the cached boot SERVES it, both straight off the
  * seam and through {@see PayviaSettings} — the read path drivers and signature verification use.
  */
@@ -94,9 +93,8 @@ final class PlatformPayviaOverrideCachedBootTest extends AppTestCase
                 'a cached-provider boot must resolve the APP-owned override — no register()-only wiring',
             );
 
-            // The gateway map must be READABLE on this boot — this is what payvia's own
-            // register()-time mergeConfig() cannot supply here, and what the app-published
-            // config/payvia.php exists to guarantee.
+            // The gateway map must be READABLE on this boot: payvia's own register()-time
+            // mergeConfig() supplies it, with no app-published copy of its config.
             self::assertSame(
                 ['paystack', 'stripe'],
                 array_keys((array) config($cachedApp, 'payvia.gateways', [])),

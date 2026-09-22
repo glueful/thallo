@@ -54,7 +54,7 @@ final class DeliveryController
      * @param ContentTypeRepository $types    resolves the {type} slug to its schema
      * @param FilterCompiler        $filters  compiles `filter[...]` against filterable fields
      * @param SortCompiler          $sorts    compiles `sort` against filterable fields
-     * @param ReferenceResolver     $references batch-expands reference/asset fields (no N+1)
+     * @param ReferenceResolver     $references batch-expands reference fields (no N+1)
      * @param Projector             $projector applies `fields`/`expand` to the `fields` object
      * @param DeliveryEtag          $etags    ETag/Cache-Control/Cache-Tag validators
      */
@@ -125,6 +125,9 @@ final class DeliveryController
         }
         $schema = ContentTypeSchema::fromArray($typeRow['schema']);
         $typeUuid = (string) $typeRow['uuid'];
+        if (($refusal = $this->localeRefusal($query->locale)) !== null) {
+            return $refusal;
+        }
         $locale = $this->locale($query->locale);
 
         try {
@@ -142,7 +145,17 @@ final class DeliveryController
         if ($query->wantsPagination()) {
             [$page, $perPage] = $this->pageParams($query);
             $result = $this->delivery->paginatePublished($typeUuid, $locale, $page, $perPage, $filter, $order);
-            $rows = $this->shape($result['data'], $schema, $selector, $locale, $typeUuid, $scopes, $expanded);
+            $rows = $this->shape(
+                $result['data'],
+                $schema,
+                $selector,
+                $locale,
+                $typeUuid,
+                $scopes,
+                $expanded,
+                self::narrows($request),
+                self::expandedNames($request),
+            );
             $response = Response::paginated(
                 array_map(fn(array $r): array => $this->item($r), $rows),
                 $result['total'],
@@ -156,7 +169,17 @@ final class DeliveryController
         $limit = $this->limit($query);
         $cursor = Cursor::decode($query->cursor ?? '');
         $rows = $this->delivery->listPublished($typeUuid, $locale, $limit, $filter, $order, $cursor);
-        $shaped = $this->shape($rows, $schema, $selector, $locale, $typeUuid, $scopes, $expanded);
+        $shaped = $this->shape(
+            $rows,
+            $schema,
+            $selector,
+            $locale,
+            $typeUuid,
+            $scopes,
+            $expanded,
+            self::narrows($request),
+            self::expandedNames($request),
+        );
 
         $nextCursor = null;
         if (count($rows) === $limit && $rows !== []) {
@@ -206,6 +229,9 @@ final class DeliveryController
         }
         $schema = ContentTypeSchema::fromArray($typeRow['schema']);
         $typeUuid = (string) $typeRow['uuid'];
+        if (($refusal = $this->localeRefusal($query->locale)) !== null) {
+            return $refusal;
+        }
         $locales = $this->localeChain($query->locale);
 
         $result = $this->resolver->resolve($typeUuid, $type, $locales, $slugOrUuid);
@@ -231,6 +257,8 @@ final class DeliveryController
             $typeUuid,
             $this->grantedScopes($request),
             $expanded,
+            self::narrows($request),
+            self::expandedNames($request),
         );
         $item = $this->item($shaped[0]);
         $item['seo'] = $this->canonical->project(
@@ -326,8 +354,62 @@ final class DeliveryController
         string $typeUuid,
         ?array $grantedScopes,
         ?ExpandedTargets $expanded = null,
+        bool $narrow = true,
+        array $expandAssets = [],
     ): array {
-        return $this->itemShaper()->shape($rows, $schema, $selector, $locale, $typeUuid, $grantedScopes, $expanded);
+        return $this->itemShaper()->shape(
+            $rows,
+            $schema,
+            $selector,
+            $locale,
+            $typeUuid,
+            $grantedScopes,
+            $expanded,
+            $narrow,
+            $expandAssets,
+        );
+    }
+
+    /**
+     * The top-level names in `?expand` (`author(name),cover` → author, cover): asset fields
+     * among them are described rather than left as uuids.
+     *
+     * @return list<string>
+     */
+    private static function expandedNames(Request $request): array
+    {
+        $expand = $request->query->all()['expand'] ?? null;
+        if (!is_string($expand)) {
+            return [];
+        }
+        $names = [];
+        $depth = 0;
+        $current = '';
+        foreach (str_split($expand . ',') as $char) {
+            if ($char === '(' || $char === '{') {
+                $depth++;
+            } elseif ($char === ')' || $char === '}') {
+                $depth = max(0, $depth - 1);
+            } elseif ($char === ',' && $depth === 0) {
+                if (preg_match('/^\s*([A-Za-z0-9_]+)/', $current, $m) === 1) {
+                    $names[] = $m[1];
+                }
+                $current = '';
+                continue;
+            }
+            $current .= $char;
+        }
+        return array_values(array_unique($names));
+    }
+
+    /**
+     * Whether the response is narrowed to the requested fields: only when `?fields` is given. The
+     * field selector folds `?expand` into the same tree, and an expand-only request must expand
+     * the named references without dropping every other field.
+     */
+    private static function narrows(Request $request): bool
+    {
+        return is_string($request->query->all()['fields'] ?? null);
     }
 
     /**

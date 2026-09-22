@@ -76,6 +76,7 @@ function meta(overrides: Partial<WorkspaceBillingMeta> = {}): WorkspaceBillingMe
     operator_contact_required: false,
     operator_contact_reason: null,
     purchasable_plans: [{ plan_key: 'pro', name: 'Pro' }],
+    plan_change_supported: false,
     ...overrides,
   }
 }
@@ -211,10 +212,10 @@ describe('billing/index page: meta-first states', () => {
     expect(wrapper.find('[data-test="subscription-active"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="subscription-plan"]').text()).toBe('pro')
     expect(wrapper.find('[data-test="billing-cancel"]').exists()).toBe(true)
-    // Plan changes are never offered on an active subscription (§1 ruling).
-    const changePlan = wrapper.find('[data-test="billing-change-plan-disabled"]')
+    // Change plan is offered: the dialog switches the plan, or says how where the provider can't.
+    const changePlan = wrapper.find('[data-test="billing-change-plan"]')
       .element as HTMLButtonElement
-    expect(changePlan.disabled).toBe(true)
+    expect(changePlan.disabled).toBe(false)
   })
 
   it('non_renewing: shows the access-until date, no cancel control', async () => {

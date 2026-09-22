@@ -21,7 +21,7 @@ final class ThemeFixture
     public static function json(string $name, array $extra = []): string
     {
         $base = json_decode((string) file_get_contents(self::DEFAULT_THEME_JSON), true);
-        $json = ['name' => $name, 'version' => '1.0.0', 'menus' => ['main']]
+        $json = ['name' => $name, 'version' => '1.0.0']
             + $extra
             + ['vocabulary' => $base['vocabulary'], 'stylesheets' => ['assets/site.css']];
         return (string) json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);

@@ -257,6 +257,56 @@ final class DoctorTest extends TestCase
         self::assertStringContainsString('themes/ghost', $checks['theme-vocabulary']->message);
     }
 
+    public function testTheThemeChosenOnTheAppearancePageIsCheckedOverRenderTheme(): void
+    {
+        $dir = $this->tempProjectWithEnv("APP_ENV=production\n");
+        mkdir($dir . '/themes/custom/templates', 0755, true);
+        file_put_contents($dir . '/themes/custom/theme.json', json_encode(['name' => 'custom']));
+        $checks = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql'], null, 'custom'))->preflight());
+
+        self::assertSame(Check::FAIL, $checks['theme-vocabulary']->status);
+        self::assertStringContainsString('"custom"', $checks['theme-vocabulary']->message);
+        self::assertStringContainsString('Appearance', $checks['theme-vocabulary']->message);
+        self::assertStringContainsString('RENDER_THEME=default', $checks['theme-vocabulary']->message);
+    }
+
+    public function testAMissingAppearanceThemeSaysTheSiteFallsBack(): void
+    {
+        $dir = $this->tempProjectWithEnv("APP_ENV=production\n");
+        $checks = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql'], null, 'ghost'))->preflight());
+
+        self::assertSame(Check::FAIL, $checks['theme-vocabulary']->status);
+        self::assertStringContainsString('themes/ghost', $checks['theme-vocabulary']->message);
+        self::assertStringContainsString('Appearance', $checks['theme-vocabulary']->message);
+    }
+
+    public function testAnUnsafeAppearanceThemeNameIsRefusedWithoutTouchingThePath(): void
+    {
+        $dir = $this->tempProjectWithEnv("APP_ENV=production\n");
+        $checks = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql'], null, '../etc'))->preflight());
+
+        self::assertSame(Check::FAIL, $checks['theme-vocabulary']->status);
+        self::assertStringContainsString('not a valid theme name', $checks['theme-vocabulary']->message);
+    }
+
+    public function testAValidAppearanceThemeIsOkAndNamesItsSource(): void
+    {
+        $dir = $this->tempProjectWithEnv("APP_ENV=production\nRENDER_THEME=ghost\n");
+        $checks = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql'], null, 'default'))->preflight());
+
+        self::assertSame(Check::OK, $checks['theme-vocabulary']->status);
+        self::assertStringContainsString('Appearance', $checks['theme-vocabulary']->message);
+    }
+
+    public function testNoStoredChoiceFallsBackToRenderTheme(): void
+    {
+        $dir = $this->tempProjectWithEnv("APP_ENV=production\nRENDER_THEME=ghost\n");
+        $checks = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql'], null, ''))->preflight());
+
+        self::assertSame(Check::FAIL, $checks['theme-vocabulary']->status);
+        self::assertStringContainsString('RENDER_THEME=ghost', $checks['theme-vocabulary']->message);
+    }
+
     public function testTheStyleArtifactCheckWarnsUntilProvisionCompilesIt(): void
     {
         $dir = $this->tempProjectWithEnv("APP_ENV=production\n");
@@ -285,5 +335,22 @@ final class DoctorTest extends TestCase
         file_put_contents($dir . '/themes/custom/theme.json', json_encode(['name' => 'custom']));
         $checks = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql']))->preflight());
         self::assertArrayNotHasKey('style-artifact', $checks, 'the vocabulary failure is the verdict');
+    }
+
+    public function testALogFileUnderTheWebRootWarnsAndSaysWhatToDelete(): void
+    {
+        // A relative LOG_FILE_PATH once wrote request logs into public/storage/logs/, which the web
+        // server serves. The config no longer does it; a site that already has such files must
+        // be told, because nothing else will remove them.
+        $dir = $this->tempProject(withEnv: true, withExample: true);
+        $clean = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql']))->preflight());
+        self::assertSame(Check::OK, $clean['log-exposure']->status);
+
+        mkdir($dir . '/public/storage/logs', 0755, true);
+        file_put_contents($dir . '/public/storage/logs/framework.log', 'x');
+        $exposed = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql']))->preflight());
+        self::assertSame(Check::WARN, $exposed['log-exposure']->status);
+        self::assertStringContainsString('public/storage/logs/framework.log', $exposed['log-exposure']->message);
+        self::assertStringContainsString('LOG_FILE_PATH', $exposed['log-exposure']->message);
     }
 }

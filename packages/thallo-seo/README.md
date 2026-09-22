@@ -1,13 +1,15 @@
 # glueful/thallo-seo
 
-A removable **SEO** capability pack for [Thallo](https://thallo.dev): **sitemaps**, **per-entry SEO
+An **SEO** capability pack for [Thallo](https://thallo.dev): **sitemaps**, **per-entry SEO
 meta**, and **robots.txt**. Packaged as a capability pack that depends only on the framework and
 `glueful/thallo-contracts` — never on `glueful/thallo` (the application).
 
-Thallo is headless, so this pack emits **descriptors and feeds the frontend consumes**, not
-server-rendered HTML: JSON meta for the `<head>`, plus crawler-standard `sitemap.xml` / `robots.txt`.
-Canonical/hreflang are **not** here — they already ship on the core delivery `seo` object
-(`GET /v1/content/{type}/{slug}`); the frontend composes both.
+The pack itself emits **descriptors and feeds**, not HTML: JSON meta for the `<head>`, plus
+crawler-standard `sitemap.xml` / `robots.txt`. Canonical/hreflang are **not** here — they ship on
+the core delivery `seo` object (`GET /v1/content/{type}/{slug}`). Both kinds of consumer are
+served: on a rendered site, core's `EngineSeoHeadProvider` composes this pack's meta with the
+canonical/hreflang data and `thallo-render` prints it through the `seo_head()` Twig function; a
+headless frontend fetches the meta endpoint and composes the two itself.
 
 ## What it provides
 
@@ -17,6 +19,7 @@ Canonical/hreflang are **not** here — they already ship on the core delivery `
   is verbatim). Public; published content only.
 - **Meta overrides (admin)** — `GET`/`PUT /v1/admin/seo/meta/{entryUuid}?locale=` behind `auth` +
   `content_permission:seo.manage`, backed by the `seo_meta` table (`(entry_uuid, locale)` unique).
+  The entry editor's SEO panel edits them.
 - **Sitemaps** — `GET /sitemap.xml` is **adaptive**: a single `<urlset>` at or below 50 000 URLs, a
   `<sitemapindex>` listing page files above it; `GET /sitemap/{n}.xml` serves each page (with
   `<lastmod>` + `xhtml:link` hreflang alternates). Rendered XML is cached and dropped on any content
@@ -36,7 +39,8 @@ only through `glueful/thallo-contracts`:
 - `ContentTypeReader::findUuidBySlug()` — resolves the meta endpoint's `{type}` slug.
 - `ContentLifecycleEvent` — the pure event the pack listens to for sitemap cache invalidation.
 
-The repo's `composer boundaries` check enforces this (no `App\` references in `src/`).
+The repo's `composer boundaries` check enforces this (no `Thallo\Core\` references in `src/` or
+`routes/`).
 
 ## The capability
 
@@ -46,8 +50,9 @@ The provider registers one capability in `boot()`:
 new Capability('thallo.seo', label: 'SEO', description: 'Sitemaps, per-entry SEO meta, and robots.txt.');
 ```
 
-- **Enabled by default.** Disable it by setting `'thallo.seo' => false` in `config/thallo.php`'s
-  `capabilities` switchboard.
+- **Enabled by default.** An operator turns it off or on in the admin under **Extensions ›
+  Capabilities**. The switch is stored system-wide and overrides the deploy-time
+  `thallo.capabilities` config map.
 - **Gated end-to-end.** When disabled, the meta, sitemap, robots, and admin routes are never
   registered (`404`) and the cache-invalidation listener is not wired. Migrations run on install (not
   enable), so disabling preserves `seo_meta`.
@@ -59,41 +64,39 @@ new Capability('thallo.seo', label: 'SEO', description: 'Sitemaps, per-entry SEO
 The pack's own config merges under `seo` (`config/seo.php`):
 
 - `fallbacks` — per-type-slug map `{ title_field, description_field, image_field }`.
-- `defaults` — `site_name`, `default_og_image`, `title_template` (e.g. `"{title} — {site_name}"`).
+- `defaults` — `default_og_image` (`SEO_DEFAULT_OG_IMAGE`) and `title_template`
+  (`SEO_TITLE_TEMPLATE`, default `"{title} — {site_name}"`). `{site_name}` is the Site name from
+  Settings › General, read at request time.
 - `robots` — list of `{ user_agent, allow: [...], disallow: [...] }` groups.
 
-The absolute origin for the feeds is the **existing core key** `config('thallo.seo.public_url_base')`
-(env `PUBLIC_URL_BASE`) — the same key `PathRenderer` reads. **The feeds require it:**
-`/sitemap.xml`, `/sitemap/{n}.xml`, and `/robots.txt` return **`409 Conflict`** (plain text) when it
-is empty, rather than emitting crawler-invalid relative URLs. Meta is unaffected (it carries no
-absolute URLs).
+The absolute origin for the feeds is resolved per request. `config('thallo.seo.public_url_base')`
+(env `PUBLIC_URL_BASE`) wins when set; otherwise it is the site's canonical public origin from
+`CanonicalPublicOriginResolver` (`BASE_URL`, or the workspace's own origin). A localhost or
+non-http(s) origin counts as unset. **The feeds require an origin:** `/sitemap.xml`,
+`/sitemap/{n}.xml`, and `/robots.txt` return **`409 Conflict`** (plain text) without one, rather
+than emitting crawler-invalid relative URLs. Meta is unaffected (it carries no absolute URLs).
 
 ## Install
 
-The pack is **bundled by default** in the Thallo create-project template. To add it to an existing app
-(it lives as a path package in this monorepo):
+The pack ships with Thallo: `glueful/thallo-core` requires it at the same version and the project's
+`config/serviceproviders.php` loads its provider, so there is nothing to install or enable per pack.
+`php glueful migrate:run` creates `seo_meta` and declares the `seo.manage` permission with the rest
+of the schema.
 
-1. `composer require glueful/thallo-seo`
-2. `./thallo extensions:enable thallo-seo` (writes the provider into the `config/extensions.php`
-   allow-list and recompiles the extension cache)
-3. `./thallo migrate:run` to create `seo_meta` and declare the `seo.manage` permission.
+Set `BASE_URL` to the public site origin (e.g. `https://example.com`) so the feeds emit absolute
+URLs; set `PUBLIC_URL_BASE` only to override it. Optionally set the `SEO_DEFAULT_OG_IMAGE` /
+`SEO_TITLE_TEMPLATE` defaults.
 
-Set `PUBLIC_URL_BASE` (e.g. `https://example.com`) so the feeds emit absolute URLs, and
-optionally the `SEO_SITE_NAME` / `SEO_DEFAULT_OG_IMAGE` / `SEO_TITLE_TEMPLATE` defaults.
+## Headless frontends
 
-## Frontend integration
-
-Thallo is headless, so the SPA/site wires these up:
+A frontend that does not use `thallo-render` wires these up itself:
 
 - Fetch `/v1/seo/meta/{type}/{slug}` per page and inject the fields into `<head>` (compose
   canonical/hreflang from the core delivery `seo` object).
 - Reverse-proxy `/sitemap.xml`, `/sitemap/*.xml`, and `/robots.txt` to the site root.
 
-## Remove
-
-`./thallo extensions:disable thallo-seo`, then `composer remove glueful/thallo-seo`. The CMS core boots
-unchanged; the `thallo.seo` capability disappears and all SEO routes are gone. `seo_meta` remains on
-disk (drop it manually if you want the data gone).
+Switching the capability off (Extensions › Capabilities) removes every SEO route. `seo_meta`
+stays on disk.
 
 ## Out of scope (deferred)
 

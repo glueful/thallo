@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { fieldLabel } from '@/utils/fieldLabel'
 // Builder for a content type's field schema. v-models a ContentTypeField[]; the parent owns the
 // array and persists it (create → POST /content-types, edit → PATCH /content-types/{slug}/schema).
 // Also reused by the BLOCK-TYPE builder (context="block-type"): block schemas reject nested
@@ -11,6 +12,7 @@ import {
   type FieldType,
 } from '@/queries/contentTypes'
 import { useBlockTypes } from '@/queries/blockTypes'
+import { useStyleSchema } from '@/queries/styleSchema'
 
 const props = withDefaults(defineProps<{ context?: 'content-type' | 'block-type' }>(), {
   context: 'content-type',
@@ -28,6 +30,12 @@ const blockTypeItems = computed(() =>
   (allBlockTypes.value ?? [])
     .filter((t) => t.active)
     .map((t) => ({ label: t.label, value: t.slug })),
+)
+
+// A `token` field draws from one vocabulary domain, and the server refuses one without it.
+const { data: styleSchema } = useStyleSchema()
+const domainItems = computed(() =>
+  Object.keys(styleSchema.value?.vocabulary.domains ?? {}).map((d) => ({ label: d, value: d })),
 )
 
 // Target options for `reference` fields — the content types an entry can point at.
@@ -70,6 +78,9 @@ function onTypeChange(index: number, type: FieldType) {
     ...(type === 'reference' || type === 'asset' ? {} : { multiple: false, max_items: null }),
     // The block-type allowlist only applies to blocks fields; blocks are never filterable.
     ...(type === 'blocks' ? { filterable: false } : { block_types: undefined }),
+    // A token's domain only applies to token fields. Tokens and boxes are never filterable.
+    ...(type === 'token' ? {} : { domain: undefined }),
+    ...(type === 'token' || type === 'box' ? { filterable: false } : {}),
   })
 }
 
@@ -112,11 +123,25 @@ function setEnum(index: number, text: string) {
           />
         </UFormField>
 
+        <UFormField label="Label" class="flex-1">
+          <UInput
+            :model-value="field.label ?? ''"
+            :placeholder="fieldLabel({ name: field.name || 'title' })"
+            class="w-full"
+            maxlength="80"
+            data-test="field-label"
+            @update:model-value="
+              patch(index, { label: String($event).trim() === '' ? null : String($event) })
+            "
+          />
+        </UFormField>
+
         <UFormField label="Type">
           <USelect
             :model-value="field.type"
             :items="typeItems"
             class="w-40"
+            data-test="field-type"
             @update:model-value="onTypeChange(index, $event as FieldType)"
           />
         </UFormField>
@@ -190,6 +215,21 @@ function setEnum(index: number, text: string) {
         />
       </UFormField>
 
+      <UFormField
+        v-if="field.type === 'token'"
+        label="Token domain"
+        hint="The design tokens authors pick from"
+      >
+        <USelect
+          :model-value="field.domain ?? undefined"
+          :items="domainItems"
+          placeholder="Choose a domain"
+          class="w-full"
+          data-test="token-domain"
+          @update:model-value="patch(index, { domain: String($event) })"
+        />
+      </UFormField>
+
       <UFormField v-if="field.type === 'enum'" label="Allowed values" hint="Comma-separated">
         <UInput
           :model-value="enumText(field)"
@@ -222,7 +262,7 @@ function setEnum(index: number, text: string) {
           @update:model-value="patch(index, { required: $event })"
         />
         <!-- Block schemas: localized/filterable are rejected server-side (spec §2);
-             blocks fields themselves are never filterable. -->
+             blocks, token and box fields are never filterable. -->
         <USwitch
           v-if="context === 'content-type'"
           :model-value="field.localized"
@@ -230,7 +270,7 @@ function setEnum(index: number, text: string) {
           @update:model-value="patch(index, { localized: $event })"
         />
         <USwitch
-          v-if="context === 'content-type' && field.type !== 'blocks'"
+          v-if="context === 'content-type' && !['blocks', 'token', 'box'].includes(field.type)"
           :model-value="field.filterable"
           label="Filterable"
           @update:model-value="patch(index, { filterable: $event })"

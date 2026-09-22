@@ -5,7 +5,9 @@ import {
   useNavMenus,
   useNavMenu,
   useNavigationMutations,
+  fetchMenuUsage,
   type NavMenuSummary,
+  type NavMenuUse,
   type NavTreeItem,
 } from '@/queries/navigation'
 import { useLocales } from '@/queries/locales'
@@ -228,16 +230,45 @@ async function submitRename(): Promise<void> {
 const deleteOpen = ref(false)
 const deleteSlug = ref('')
 const deleteName = ref('')
+// Where the menu is shown, so the confirmation says what the delete would take down. Null while
+// loading; a failed lookup leaves the plain warning.
+const deleteUsage = ref<NavMenuUse[] | null>(null)
 
-function openDelete(menu: NavMenuSummary): void {
+async function openDelete(menu: NavMenuSummary): Promise<void> {
   deleteSlug.value = menu.slug
   deleteName.value = menu.name
+  deleteUsage.value = null
   deleteOpen.value = true
+  try {
+    deleteUsage.value = await fetchMenuUsage(menu.slug)
+  } catch {
+    deleteUsage.value = []
+  }
 }
 
 async function confirmDelete(): Promise<void> {
   await deleteMenu(deleteSlug.value)
   deleteOpen.value = false
+}
+
+// Someone else saved the menu after it was loaded. The unsaved tree stays on screen until the
+// editor chooses: load the latest (dropping the edits) or save these edits over it.
+const conflict = ref(false)
+watch(selected, () => {
+  conflict.value = false
+})
+
+async function discardAndReload(): Promise<void> {
+  conflict.value = false
+  dirty.value = false
+  await refetch()
+}
+
+async function saveOverLatest(): Promise<void> {
+  conflict.value = false
+  // While dirty, a refetch keeps the working tree and brings the latest lock version.
+  await refetch()
+  await save()
 }
 
 async function save(): Promise<void> {
@@ -253,10 +284,7 @@ async function save(): Promise<void> {
     success('Menu saved')
   } catch (e) {
     if (e instanceof ApiError && e.status === 409) {
-      // Someone else changed the menu since we loaded it: drop local edits and reload.
-      dirty.value = false
-      await refetch()
-      notifyError(e, 'The menu changed since you loaded it — reloaded the latest version')
+      conflict.value = true
       return
     }
     notifyError(e, 'Couldn’t save the menu')
@@ -425,6 +453,34 @@ async function save(): Promise<void> {
               </div>
             </div>
 
+            <UAlert
+              v-if="conflict"
+              class="mb-3"
+              color="warning"
+              variant="subtle"
+              icon="i-lucide-git-compare"
+              title="Someone else saved this menu after you opened it"
+              description="Your changes are still here. Load their version to start again from it, or save yours over it."
+              data-test="nav-conflict"
+            >
+              <template #actions>
+                <UButton
+                  label="Load the latest"
+                  color="neutral"
+                  variant="outline"
+                  size="sm"
+                  data-test="nav-conflict-discard"
+                  @click="discardAndReload"
+                />
+                <UButton
+                  label="Save mine over it"
+                  color="warning"
+                  size="sm"
+                  data-test="nav-conflict-overwrite"
+                  @click="saveOverLatest"
+                />
+              </template>
+            </UAlert>
             <MenuTreeEditor :items="working" :locale="locale || 'en'" @changed="dirty = true" />
 
             <div class="mt-4 flex items-center gap-3">
@@ -600,6 +656,24 @@ async function save(): Promise<void> {
             Delete the menu “<span class="text-default font-medium">{{ deleteName }}</span
             >”? This removes the menu and all of its items. This can’t be undone.
           </p>
+          <div
+            v-if="deleteUsage && deleteUsage.length"
+            class="mt-3 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm"
+            data-test="nav-menu-delete-usage"
+          >
+            <p class="font-medium">It is shown in:</p>
+            <ul class="mt-1 list-disc ps-5">
+              <li v-for="use in deleteUsage" :key="`${use.kind}:${use.id}`">
+                {{ use.label }}
+                <span class="text-muted">{{
+                  use.kind === 'region' ? '(region)' : `(${use.content_type ?? 'entry'})`
+                }}</span>
+              </li>
+            </ul>
+            <p class="mt-1 text-muted">
+              Those Navigation blocks will show nothing until they are pointed at another menu.
+            </p>
+          </div>
         </template>
         <template #footer>
           <div class="flex w-full justify-end gap-2">

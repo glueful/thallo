@@ -77,7 +77,7 @@ final class SetupApiTest extends AppTestCase
         return [
             'site_name'      => 'thallo.dev',
             'admin_email'    => 'admin@thallo.dev',
-            'admin_password' => 'correct horse battery',
+            'admin_password' => 'Correct.horse.b4ttery!',
             'locale'         => 'en',
         ];
     }
@@ -108,6 +108,17 @@ final class SetupApiTest extends AppTestCase
         $footer = $regions->find('footer');
         self::assertNotNull($footer);
         self::assertSame(['rich_text'], array_column($footer['blocks'], 'type'));
+    }
+
+    public function testAWeakAdminPasswordIsRefused(): void
+    {
+        $body = ['admin_password' => 'correct horse battery'] + $this->validBody();
+
+        $resp = $this->controller()->setup($this->setupData($body));
+
+        self::assertSame(422, $resp->getStatusCode());
+        self::assertStringContainsString('At least 1 number', (string) $resp->getContent());
+        self::assertFalse($this->service()->isInstalled());
     }
 
     public function testSecondSetupIsPermanentlyLockedWith409(): void

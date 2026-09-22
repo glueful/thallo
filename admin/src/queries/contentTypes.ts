@@ -17,12 +17,15 @@ export const FIELD_TYPES = [
   'json',
   'blocks',
   'token',
+  'box',
 ] as const
 export type FieldType = (typeof FIELD_TYPES)[number]
 
 /** One field definition within a content type's schema. */
 export interface ContentTypeField {
   name: string
+  /** What the entry form calls the field; absent shows the name made readable. */
+  label?: string | null
   type: FieldType
   required: boolean
   localized: boolean

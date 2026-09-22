@@ -7,8 +7,9 @@ forgotten password, and sign out. That is the whole surface. The zero-authority 
 structural, not a rule to remember: the activation path a customer travels has no branch that could
 reach `addMember()`, and a test asserts the authority tables stay empty after a shopper activates.
 
-The feature ships as the removable `glueful/thallo-account` capability pack, built on neutral
-contracts in `glueful/thallo-contracts` and app-side glue over the existing signup pipeline.
+The feature ships as the `glueful/thallo-account` capability pack, built on neutral contracts in
+`glueful/thallo-contracts` and core-side glue over the existing signup pipeline. The user guide is
+`docs/guides/17-accounts.md`.
 
 ## Requirements
 
@@ -27,11 +28,13 @@ contracts in `glueful/thallo-contracts` and app-side glue over the existing sign
 
 ## Enabling the capability
 
-`thallo.accounts` is a Thallo capability and is **on by default** — a registered capability with no
-`false` entry in the `thallo.capabilities` switchboard is enabled. To turn the account surface off,
-set it to `false` in that config map; the pack's routes and templates then do not register, while
-the framework's own `/auth/*` identity infrastructure is untouched (the capability gates Thallo's
-product surface, never global identity infrastructure).
+`thallo.accounts` is a Thallo capability whose owning package is `glueful/users`. Left untouched it
+follows that extension, which a new project enables, so it is **on by default**. An operator turns
+the account surface off or on in the admin under **Extensions › Capabilities**; the switch is a
+system-wide row that overrides the deploy-time `thallo.capabilities` config map. Off, the pack's
+routes and block types do not register (every `/account` URL is a 404), while the framework's own
+`/auth/*` identity infrastructure is untouched (the capability gates Thallo's product surface, never
+global identity infrastructure).
 
 ## What registration collects
 
@@ -65,8 +68,20 @@ exactly the protection its role requires.
 | `GET /account` | cookie | The signed-in account page |
 | `POST /account/logout` | cookie | Sign out; clears the session cookie |
 
-Every route is classified `tenant_system`: a storefront account is a global identity with no tenant
-scope.
+Identity is global, but the pages read workspace-owned redirect settings and render the store's
+public chrome, so every `/account` route resolves a public tenant profile first
+(`tenant_profile:public` + `tenant_bootstrap`); with tenancy off that falls back to the `''`
+sentinel. Only the two chrome routes below are `tenant_system`, because they carry no tenant-scoped
+data:
+
+| Route | Auth | Purpose |
+|-------|------|---------|
+| `GET /_account/session` | optional cookie | Private, no-store sign-in state for the account chrome |
+| `GET /_thallo/account/{file}` | none | The pack's fingerprinted scripts and stylesheets |
+
+The operator's settings live at `GET`/`PUT /v1/admin/settings/accounts` (the admin's **Settings ›
+Accounts** screen): **After sign in** (blank uses `/account`) and **After sign out** (blank uses
+`/account/login`). A sign-in form's `next` value overrides **After sign in**.
 
 ### How the anonymous routes are protected (the CSRF matrix)
 
@@ -87,8 +102,9 @@ without a policy fails that test rather than shipping unprotected:
 2. **`POST /account/verify/{intentUuid}`** checks the code and, on success, **activates** the intent
    into a real Glueful identity: a user row and a profile, and nothing else. The shopper is then sent
    to sign in.
-3. **`POST /account/login`** verifies credentials through the framework's `LoginOrchestrator` and
-   issues the session cookie. Login always runs through the orchestrator, so the two-factor gate is
+3. **`POST /account/login`** verifies credentials through the framework's `LoginOrchestrator`,
+   issues the session cookie and redirects to the form's `next`, else **After sign in**, else
+   `/account`. Login always runs through the orchestrator, so the two-factor gate is
    un-bypassable: if an account requires a second factor, login **fails closed** — no session, no
    cookie — because the storefront has no second-factor step yet.
 
@@ -140,6 +156,8 @@ universal shell hydrated client-side from a private, no-store endpoint (`/_accou
 The `/account` page itself is different: it is uncached and cookie-authenticated, so it renders the
 signed-in visitor's own name directly and embeds a per-session CSRF token safely.
 
-**The header block and the `/_account/session` endpoint are not part of this pack** — they ship in
-the companion account-chrome work. This pack builds the server-rendered `/account/*` pages; the
-cache-safe chrome is layered on top separately.
+The header block and the `/_account/session` endpoint are part of this pack. The block is
+`auth-state` (**Account state**), with a signed-out and a signed-in slot; both branches are in the
+cached HTML and the pack's script hides the wrong one, so it is presentation only. The pack also
+ships three form blocks that put a flow straight onto a page: `login-form`, `register-form` and
+`forgot-password-form`.

@@ -7,6 +7,372 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.52] - 2026-09-22 — Developer Preview
+
+A visitor can buy a plan without an operator: signup from a pricing card, prices on the plans, and
+Change plan. Customers get a profile page and their own emails. The delivery API describes an
+asset when you ask it to. Setup, the scheduler and the command line each gained what they were
+missing, and a handful of long-standing faults are gone — signup mail that reported itself
+undelivered after it was sent, a rich-text body printed as escaped HTML, searches that ignored
+case only on some databases, and a Ken Burns drift that never stopped.
+
+### Security
+- **Request logs were written into the web root, where anyone could download them.**
+  `.env.example` set `LOG_FILE_PATH=storage/logs`, and the logging config used that relative path
+  as given; a web request's working directory is `public/`, so every request logged to
+  `public/storage/logs/`, which the web server serves. A relative path is now relative to the site,
+  `.env.example` no longer sets it, and `thallo:doctor` warns about any `.log` file under `public/`.
+  **An existing site must act** (see Upgrade Notes).
+- **The rendered site sent no security headers of its own.** A site had them only if its web
+  server added them. Every rendered page now carries `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: SAMEORIGIN` and, over
+  HTTPS, `Strict-Transport-Security: max-age=31536000` — never replacing one already set, and never
+  a framing header on a preview or inside the Design view's stage, which the admin frames. Thallo
+  still does not redirect HTTP to HTTPS: `.env.example` said it did, and now says to do it in the
+  web server. Its unread `HSTS_HEADER` line is gone.
+
+### Added
+- **Self-serve signup from the pricing page.** A **Pricing plan** card with a plan key now links to
+  the admin's new public signup page (`/signup?plan=…`). A visitor creates their workspace and
+  owner account there, confirms their email, is signed in, and lands on **Workspace billing** with
+  the plan chosen to pay for it. A signed-in visitor goes straight to billing. It needs **Workspace
+  signup** on in Settings › Workspaces.
+- **Plans show what they cost.** The plan editor takes a display price (amount, currency and
+  interval), and the workspace plan picker shows it beside each plan's name. It is for display;
+  the payment provider still decides the charge. Needs glueful/subscriptions 2.4.
+- **Workspaces change plan themselves.** **Change plan** on Workspace billing switches an active
+  Stripe subscription to another purchasable plan, prorated, through the new
+  `POST /v1/admin/billing/plan`. Paystack cannot, so the dialog offers cancelling at period end
+  instead. Needs glueful/payvia with plan-change support, and glueful/subscriptions 2.4 so the
+  switch shows up once the provider's webhook lands.
+- The workspace plan picker now receives plan prices; the billing query dropped them.
+- **Asset fields expand in the delivery API.** Name one in `?expand=` and each file comes back as
+  `{uuid, url, alt, caption, mime_type}`, so a headless front end gets the alt text and caption
+  set in the media library. A private file expands to `null`; unnamed asset fields stay uuids.
+- **Customers have a profile page.** `/account/profile`, linked from the account dashboard,
+  changes a signed-in customer's name and password. A password change asks for the current one
+  and signs every other device out. New contract: `StorefrontAccountProfile`.
+- **Customers' emails are edited apart from the admin's.** Settings › Accounts › Emails edits the
+  verification and password reset mails a site's visitors get; the admin's own stay in Settings ›
+  Email. The reset mail uses its template with glueful/users 2.5.
+- **The scheduler runs the maintenance commands.** Version pruning (while `VERSION_KEEP` or
+  `VERSION_MAX_AGE_DAYS` is set), `import-export:cleanup`, `analytics:prune`, cart pruning and,
+  with the marketplace on, its payout, reserve and webhook sweeps. Each has an `.env` switch.
+- **The tenancy status commands print a table.** `thallo:tenancy:status` and
+  `thallo:tenancy:resolution:status` read like the rest of the CLI; `--json` keeps the raw status
+  for scripts.
+- **`thallo:blocks:list` and `thallo:capabilities`.** A shell can list the block types, and list
+  capabilities and turn one on or off under the admin's rules.
+- **A content type turns its own listing page on.** A **Listing page** switch on the content type
+  edits the same list as Settings › General › Listing types.
+- **Content-type fields have labels.** A field's **Label** is what the entry form shows; without
+  one the form shows the name made readable ("Starts at", not `starts_at`).
+- **Unpublish on a schedule from the admin.** The Publishing tab's schedule chooses Publish or
+  Unpublish; the API already accepted both.
+- **Form submissions: a per-form filter, bulk delete and retention.** Submissions filters by form
+  and deletes ticked rows together; `FORMS_RETENTION_DAYS` has the scheduler delete older ones,
+  and `thallo:forms:prune` does it by hand.
+- **Deleting a menu says where it is shown.** The confirmation lists the regions and entries whose
+  Navigation blocks use it (`GET /v1/admin/navigation/menus/{slug}/usage`, contract
+  `MenuUsageReader`). The tree editor's row buttons are named for screen readers.
+- **A style class job shows its id and can be run again.** The Everywhere card prints the job id
+  (with the `thallo:style-classes:run-job` command while it runs) and offers **Run again** on a
+  failed job.
+- **A new site's `themes/` says how to start a theme.** Its README gives the clone command, what a
+  theme holds, and what falls back to the default theme (templates) and what does not (CSS).
+- **Known limitations name the rest.** `docs/limitations.md` adds the boundaries of installing,
+  content, design and site features: no database creation, no field retyping, the default theme's
+  two fields, create-only format imports, one homepage, fixed section library, regions and menus
+  without history, site-wide SEO fallbacks and more.
+
+### Fixed
+- **A collection's `like` filter matched case on PostgreSQL** and read a `%` or `_` in the term as
+  a wildcard. It matches whatever the case, and takes both characters literally, like every other
+  text search in Thallo. Test.
+- **Media and API key search matched case on PostgreSQL**, though the API key filter promised
+  otherwise, and read `%` and `_` as wildcards. Both use the framework's case-folding, literal
+  `whereContains()`. Test.
+- **Deleted uploads stayed on disk for good.** The scheduler's `blob_purge` job removes them after
+  `UPLOADS_PURGE_DELETED_AFTER_DAYS` (30).
+- **A rich-text body showed its HTML tags.** The default entry template printed every text `body`
+  escaped. A body whose format is rich text now renders as sanitised HTML; entry templates get
+  `rich_fields` to tell. Test.
+- **`site.locales` was always empty.** It lists the enabled languages' codes. Test.
+- **A listing page's heading printed the type's slug.** It prints the name; templates get
+  `type_name`. Test.
+- **Ken Burns never stopped.** A drift runs there and back once and rests, and holds still under
+  the pointer or keyboard focus, so a moving background can be stopped (WCAG 2.2.2). Test.
+- **A starter page gave the page two headings.** Inserting one hides the theme's page title, since
+  its first section carries the h1, in the same change as the blocks — one undo takes both back.
+  Test.
+- **Design was offered on entries with nothing to design.** The button is shown only for types
+  with a blocks field; there, every insert silently did nothing. Test.
+- **The first admin's password rules held only in the browser.** The web setup form's rules (a
+  number, both cases, a special character, no whitespace, no `1234`) are now checked on the server
+  and by `thallo:create-admin`, which accepted any 8 characters. Test.
+- **`thallo:create-admin` left `SETUP_TOKEN` in `.env`.** It blanks it, as web setup does.
+- **Provision printed a setup link nobody else could open without saying so.** A local or unset
+  `BASE_URL` now comes with a warning. Test.
+- **Signup and form notification mail was reported undelivered after it was sent.** Both read the
+  notification service's answer in a shape it has not used since framework 1.42, so every
+  successful send counted as a failure. A registering customer got a code for a signup that had
+  already been thrown away, and workspace signup answered 503. Test.
+- **One default language.** The default language in Settings › Languages, the default locale in
+  Settings › General and `config/i18n.php` could each say something different, and most of the site
+  read the config value. The default language is the only one now: Settings › General shows and
+  sets it (only an enabled language can be the default), and every part of the site reads it.
+  `I18N_DEFAULT_LOCALE` only names the default a new install starts with; `ADMIN_DEFAULT_LOCALE`
+  is no longer read.
+- **A new customer is signed in once they verify their address.** Registering ended on the sign-in
+  page, asking for the password they had just chosen. Verifying now signs them in and takes them to
+  their account, or to **After sign in** when set.
+- **A disabled language is no longer served by the content API.** `?locale=` was used as given, so
+  a language switched off in Settings › Languages stayed readable through the API for as long as
+  it had published content. A language that is not enabled now answers `404`.
+- **A file's alt text and caption reach the page.** Set in the media library, they were read by
+  nothing: an Image block with no alt of its own shipped `alt=""`. An Image block whose own alt or
+  caption is empty now uses the file's, and templates can read them with the new `media_text()`.
+- **"Used in" counts images placed inside blocks.** The media library's list of entries using a
+  file read an entry's top-level asset fields only, so an image in an Image, Hero or Gallery block
+  was never counted and could look safe to delete. Block images count now, however deeply nested.
+  `php glueful thallo:media:rebuild-usage` recomputes the list for content saved before.
+- **The media panel's File URL is a web address.** It showed the file's storage path, which no
+  browser can open. It shows the address the file is served at, and for a private file the signed
+  link, labelled as one that expires.
+- **Settings › Workspaces says what stands in the way before you enable.** A defined data
+  collection refused enabling only at the confirm step, after the tenancy extension had been
+  installed and migrated, and a cache driver that cannot purge by pattern only after you pressed
+  **Enable**. The status now lists both as `blockers` up front (also in `thallo:tenancy:status`),
+  the admin keeps **Enable workspaces** off while one stands, and a collection refuses the first
+  stage instead of the last.
+- **A permission revoked from Superuser or Administrator stays revoked.** `thallo:provision`, which
+  every upgrade runs, granted the two install roles whatever they lacked, so a revocation came back
+  on the next upgrade. It now keeps a record of what it has offered each role and grants only
+  permissions that are new since. On the first provision after this upgrade, every permission that
+  already existed counts as offered, so revocations made before it stay too.
+- **A block type's template can be started from the admin.** The block type page now links to
+  its template in the Theme editor, and a template the theme does not have yet opens as a starter
+  that already carries the type's style settings and slots, so it saves on the first try. The
+  field-migration card also says the backfill needs a running queue worker.
+- **A menu conflict keeps your edits.** When someone else saved the menu first, the editor threw
+  away the unsaved tree and reloaded. It now keeps it on screen and offers **Load the latest** or
+  **Save mine over it**. The editor also stops nesting at the six levels a save accepts, and marks
+  items deeper than the three levels the default theme draws.
+- **An API key's scopes can be changed after it is created.** The detail pane showed them
+  read-only though the endpoint existed; **Edit** beside **Scopes** now changes them in place.
+- **A failed workspace enablement can be resumed or abandoned from the terminal.**
+  `thallo:tenancy:enable` printed the failed state and stopped; retry and cancel were in the admin
+  only. It now prints the reason and takes `--retry` and `--cancel`, and a failure before the
+  retrofit can be cancelled (the admin gains that too). `--owner` takes an email as well as a uuid,
+  and `thallo:create-admin` prints the new account's uuid.
+- **The cart works on a site served over plain http.** The cart and guest-order cookies were always
+  `Secure`, which a browser drops on a host it does not treat as secure (Safari on `localhost`, a
+  `.test` site), so the cart silently emptied. They follow `SESSION_COOKIE_SECURE`, the storefront
+  session cookie's switch, which stays on by default.
+- **An import whose publish waits for review reports a warning, not a failure.** With the approval
+  workflow on, a CSV, Markdown or WordPress row the importer could not publish was saved as a
+  draft but counted as a failed record, so retrying the job imported it again as a second draft. It
+  now counts as imported, with a "Saved as a draft, not published" warning.
+- **The users import no longer shows on Settings › Import / Export**, where it had no column
+  mapping and appeared even with the importers switched off. It lives under **Users › Import**.
+- **Shop and account blocks can be sized inside a Container.** The five shop blocks and four
+  account blocks did not declare the item settings (basis, span, grow, shrink, align self), so they
+  were the only blocks a layout could not size. `thallo:provision` updates existing block types.
+- **A scheduler that is not running turns the Health page's status to warning.** The overall
+  status was the framework's, taken before Thallo's scheduler check was added, so a site with no
+  cron entry read "ok" above a warning. It now counts every check.
+- **A workspace's owner and admin can publish without a review.** `workflow.bypass` was missing from
+  the capability catalogue, so no workspace role could hold it, not even through a role override:
+  with workspaces on, every publish needed a review. It is in the catalogue now, and the built-in
+  `owner` and `admin` roles hold it; an owner can grant it to other roles.
+- **A `token` field can be finished in the field builder, and `box` is offered.** The builder
+  listed `token` without asking for its vocabulary domain, which the server requires, so it could
+  never be saved; it now has a **Token domain** picker. `box`, which the server accepted, was never
+  offered. Neither shows the Filterable switch, which the server refuses for both.
+- **Downloading an export failed on every stock install.** Export results were recorded on a
+  `local` storage disk that no storage config defined, so **Download** on the job's row broke. Core
+  now supplies that disk, rooted at the site's `storage/` (a site's own `local` disk wins), and the
+  exporter writes through `import_export.result_disk` instead of a path of its own, so the disk a
+  job records is the disk its files are on.
+- **`thallo:doctor` checks the live theme.** It checked the theme `RENDER_THEME` names, but the
+  theme chosen on the Appearance page wins at runtime. When the database can be reached it now
+  checks the chosen theme, names which one it checked, and says that a chosen theme which no longer
+  loads leaves the site on the `RENDER_THEME` theme.
+- **A failed schedule says why, and a schedule that cannot run says so.** The Publishing tab
+  showed a failed schedule as a badge, with the reason stored but hidden, and nothing warned that
+  a missing scheduler cron meant a pending schedule would never fire. The reason now shows under
+  the failed schedule, and while one is pending and the scheduler has not ticked for five minutes
+  the tab says it will not happen on time.
+- **A chosen image can be removed.** A single-image field (the site logo, dark logo, favicon, the
+  invoice logo, any single asset field in an entry) had no remove control, so once set it could
+  only be replaced. It has a **Remove** button now; the settings pages save the removal as unset.
+- **The delivery API's `published_at` is ISO-8601** (`2026-02-11T09:30:00+00:00`), as the API
+  reference declares; it was the raw database timestamp.
+- **`?expand=` no longer narrows the response.** The field selector folded it into `?fields=`, so
+  expanding one reference returned only that field. Alone it now expands and keeps every field;
+  with `?fields=` it expands within the fields asked for.
+- **Pages built in the Design view are searchable.** Search indexed only `string` and `text` fields,
+  so a page whose content is blocks was found by its title alone. A `blocks` field now contributes
+  the text of every block, nested blocks included, read by each block type's schema (so settings,
+  links and colours stay out). Run `php glueful search:reindex` to index existing pages.
+- **An account with two-factor on can sign in.** Login answers such an account with a challenge,
+  and neither the admin nor the storefront had a second step: the admin failed with "Malformed
+  login response" and the storefront refused. The admin's sign-in now asks for the emailed code;
+  the storefront sends the visitor to `/account/login/verify` (the challenge token rides a
+  short-lived HttpOnly cookie, never the URL) and the code completes sign-in. No session is issued
+  before the code, and an enrollment token can never sign anyone in.
+- **Framework 1.86.2 is required (repinned).** Content webhooks now deliver, and a failed delivery
+  is retried on its own: they were recorded and never queued, and a scheduled retry never ran. Deleting a webhook deletes its delivery history (the dialog says so again), a
+  nightly `webhook_cleanup` job keeps delivery records to 7 days (delivered) and 30 (failed), and
+  **Send test event** refuses local and private addresses. Failed queue jobs can be listed and
+  retried (`queue:failed`, `queue:retry`, `queue:forget`, `queue:flush`). The scheduled database
+  backup takes a real `pg_dump` (still off by default). `security:check` runs the checks it
+  reports. The docs cover each, and the documented worker line now takes the `webhooks` queue.
+- **The shipped config listed settings nothing reads.** The `sync` and `null` queue connections
+  (no such drivers), the schedule's `settings` block, `queue_mapping` and each job's `queue`,
+  `timeout` and `retry_attempts` (scheduled jobs run inline in the scheduler; **Run now** uses the
+  `default` queue), the extension installer's `auto_enable`, the API's `allowed_operators` and
+  `MAIL_BCC` are gone. The notification retry job now gets its limit under `options`, where it
+  reads it; the configuration reference no longer claims `SCHEDULE_QUEUE_*` route anything.
+- **`permissions:diff` can see Thallo's permissions.** Thallo declares its `content_permission`
+  middleware in `permissions.enforcing_middleware`, so the framework's diff counts the permissions
+  it enforces once the framework release that reads the setting is installed.
+- **Analytics kept recording content and collection events after it was switched off in the
+  admin.** The event bridge read only the config file's capability map at boot. It now checks the
+  Extensions › Capabilities switch on every event.
+- **`LOG_RETENTION_DAYS` changed nothing.** The scheduled log cleanup reads its retention from
+  `options.retention_days`; the shipped schedule passed `retentionDays`, so every site kept thirty
+  days of logs whatever it set. The schedule now passes the key the job reads.
+- **Removing a field said migrations were "planned for a later release".** Delete and rename
+  migrations have shipped; the refusal now names the migration route and says a field cannot be
+  retyped. The API key form's scope example was `write:posts`, which grants nothing Thallo
+  checks; it now shows `read:content` and `read:content:posts`.
+- **A referenced entry's page settings leaked into the delivery API.** The editor-only
+  `_presentation` key was stripped from the requested entry but not from the entries its
+  reference fields expand to, so each one carried its title and layout settings into the public
+  JSON. They are now dropped at every depth, in reference and blocks fields alike.
+- **Admin messages that said something false.** Restoring a version said the draft now carried
+  that version; the restore makes it the live page again and leaves the draft alone, and the toast
+  now says so. The workspaces capability told you to run `extensions:enable`, which refuses a
+  protected provider; it now points at Settings › Workspaces. Deleting a webhook no longer claims
+  its delivery history goes with it. The doctor's failure line, the bulk-locale error, the
+  Rendered-delivery hint, the shared-fields banner, the roles page, the block-type template hint
+  and the import hint for Markdown each described behaviour Thallo does not have, and now describe
+  what it does.
+- **The Design view could publish a page that has no URL.** Publishing succeeds without a route
+  and the page then renders nowhere; the form editor saves the slug first, but the Design view has
+  no slug field and published anyway. It now refuses, and says to set the slug in the editor's
+  Publishing panel.
+- **A new logo, favicon or site name was served stale.** The page cache was cleared when colours
+  or the design changed, not when these did, so visitors saw the old ones for up to
+  `render.cache_ttl`. Saving any of them now clears it.
+- **Renaming the site in the admin changed nothing visitors see.** Settings › General › Site name
+  fed only the starter header; templates and `og:site_name` read `RENDER_SITE_NAME`, the SEO title
+  read `SEO_SITE_NAME`, and the shop and account pages kept copies of the first. The setting is now
+  the one source for all of them, read per request. `RENDER_SITE_NAME` and `SEO_SITE_NAME` are
+  gone: set the name in the admin (`SITE_NAME` remains its default).
+- **The sitemap and `robots.txt` answered 409 on a stock install.** They read only
+  `PUBLIC_URL_BASE`, a key no `.env.example` names. They now use the site's canonical origin —
+  `BASE_URL`, or a workspace's own address — resolved per request, with `PUBLIC_URL_BASE` still an
+  override. The `localhost` default still answers 409, and the message now names `BASE_URL`.
+- **Contact forms never emailed anyone.** The form block promised an email to its recipient, but
+  nothing implemented the mail sender, so the notifier returned without sending or logging. Form
+  notifications now go through the email channel and **Settings › Email**, like the rest of
+  Thallo's mail. And an `email_only` form used to lose every submission it could not send — with
+  no mailer, all of them; it now stores a submission whose email did not go.
+- **The nightly database backup ran on every production site and backed up nothing.** The
+  framework's backup task reads connection settings the stock `config/database.php` does not have,
+  takes the MySQL path on a PostgreSQL site and logs its own failure as a finished job. It is now
+  off by default (`DB_BACKUP_ENABLED`) until the task works. Take your own dumps
+  (docs/operations/04-backups.md).
+- **Every import started from the admin failed to find its file on a real install.** The upload
+  writes to the site's `storage/uploads`; the root the import job read it back through was
+  computed inside the `thallo-core` package's own config, which on an install lives under
+  `vendor/`, so the job looked in `vendor/glueful/storage/uploads`. The root now defaults to the
+  uploads disk's own root, where the upload writes; a site that sets it itself still wins. Nothing
+  to change on an existing site. Found by the writer of the import guide.
+- **The production guide's queue worker never ran an import.** Its systemd unit listed the queues
+  `default,maintenance`, and the guide said Thallo dispatches to those two only. Imports and
+  exports go to `import-export`, and a worker runs only the queues it is given, so an import
+  started under Settings › Import / Export stayed "queued". The unit now lists `import-export`,
+  and the guide names tenancy's two queues as well (docs/production.md).
+- **The production guide recommended a queue setting that does not exist.** It told a small site
+  to set `QUEUE_CONNECTION=sync` to run jobs inline, and `.env.example` listed `sync` and `null`
+  as choices. Only the `database` and `redis` drivers exist: with `sync` no driver resolves and
+  no job runs. The guide now says so and points at draining the queue from cron instead
+  (docs/operations/03-scheduler-and-queues.md).
+- The README sent readers to "Settings → Extensions", and the documentation guide to "Settings ›
+  Capabilities". Both are **Extensions › Capabilities**.
+
+### Changed
+- `.env.example` leaves mail unset: its placeholder host and sender counted as configured, so a
+  new site reported mail as available and failed at the first send. It also documents
+  `SESSION_COOKIE_SECURE`. `config/uploads.php` drops two keys nothing read
+  (`validate_mime_by_content`, `max_filename_length`).
+- `docs/` is laid out as the documentation's five sections (`getting-started`, `concepts`,
+  `guides`, `reference`, `operations`), and the four existing pages carry front matter that puts
+  each in its section. They stay where they are: other files link to them by path.
+- `.env.example` lists every setting the shipped config reads that it left out: `PREVIEW_TTL`,
+  `CONTENT_SCHEDULER_ENABLED`, `VERSION_KEEP`, `VERSION_MAX_AGE_DAYS`,
+  `WORKFLOW_ALLOW_SELF_REVIEW`, `PUBLIC_URL_BASE`, `MEILISEARCH_HOST`, `MEILISEARCH_KEY`,
+  `TENANCY_TRASH_RETENTION_DAYS` and `TENANCY_HOST_COOLDOWN_DAYS`, each commented with its default.
+- `config/payvia.php` is no longer shipped. It copied the payment extension's defaults because a
+  cached boot once skipped extension `register()`; the framework now runs it, and the copy had
+  already fallen behind the extension. The default theme's `menus` key, which nothing read, is gone.
+
+### Upgrade Notes
+- **A collection's `filter[field][like]` changed.** It ignores case now (it was case-sensitive on
+  PostgreSQL), and a `%` or `_` in the term matches that character instead of acting as a
+  wildcard. A client that relied on either gets more rows, or fewer.
+- **Thallo now requires glueful/framework 1.87, glueful/meilisearch 2.0, glueful/subscriptions
+  2.4, glueful/payvia 2.9, glueful/users 2.5 and glueful/import-export 1.2.1.** Run
+  `composer update`, then `php glueful migrate:run` for the plan price columns.
+- **Add the `blob_purge` job to your `config/schedule.php`** (copy it from a new site's file) so
+  deleted uploads leave the disk; your schedule replaces the framework's list.
+- **Set `MAIL_HOST` and `MAIL_FROM`** if they are unset: mail no longer falls back to a placeholder
+  host and sender, and reports itself unconfigured instead.
+- **Uploaded images are now stripped of their metadata.** `UPLOADS_STRIP_EXIF=false` keeps it.
+- **Meilisearch's own commands moved to `meilisearch:*`.** `search:status` and `search:reindex`
+  are Thallo's and unchanged.
+- **Check the default language** in Settings › Languages: the site now uses it everywhere. A
+  default locale saved in Settings › General before this release, and `I18N_DEFAULT_LOCALE`, no
+  longer override it.
+- **Run `php glueful thallo:media:rebuild-usage` once** so the media library's **Used in** lists
+  include images already placed inside blocks.
+- **Add `'workflow.bypass'` to the `owner` and `admin` lists in your `config/tenancy.php`** if you
+  run workspaces: that file is your own copy, and a new install's copy lists it.
+- **Delete `config/payvia.php` unless you edited it.** An existing site keeps its copy, and it
+  shadows the payment extension's defaults, including ones added since it was written.
+- **Delivery API clients: `published_at` changed format**, from `2026-02-11 09:30:00` to
+  `2026-02-11T09:30:00+00:00`. A client that parsed the old string by hand should parse ISO-8601.
+- If your `.env` sets `RENDER_SITE_NAME` or `SEO_SITE_NAME`, put that name in Settings › General
+  › Site name instead; both keys are no longer read.
+- **Decide on the backup job.** Your `config/schedule.php` is your own copy and runs
+  `database_backup` whenever `APP_ENV=production`. With framework 1.86 it takes a real `pg_dump`
+  (needs `pg_dump` on the scheduler host) and fails its job when it cannot. Keep it with
+  `DB_BACKUP_ENABLED=true`, or set it to `false` and take your own backups
+  (docs/operations/04-backups.md).
+- **Add `webhooks` to your queue worker**
+  (`--queue=default,webhooks,import-export,tenancy-maintenance`): content webhook deliveries wait
+  on that queue.
+- **Add the `webhook_cleanup` job to your `config/schedule.php`.** From framework 1.86 your schedule
+  list replaces the framework's whole, so the job runs only if it is listed; copy it from the
+  shipped `config/schedule.php`.
+- **Run `php glueful security:check`** after upgrading: it now runs real checks and can fail where
+  it passed.
+- **Drop settings nothing reads.** Your own `config/schedule.php`, `config/queue.php`,
+  `config/extensions.php`, `config/api.php` and `.env` keep the dead keys listed under Fixed; they
+  change nothing, so delete them when convenient. In `config/schedule.php`, give the
+  `notification_retry_processor` job `'parameters' => ['options' => ['limit' => 50]]`.
+- **Make `LOG_RETENTION_DAYS` count.** In your `config/schedule.php`, change the `log_cleanup`
+  job's `'parameters' => ['retentionDays' => …]` to
+  `'parameters' => ['options' => ['retention_days' => env('LOG_RETENTION_DAYS', 30)]]`.
+- **Check for exposed logs.** Remove a `LOG_FILE_PATH=storage/logs` line from `.env` (logs then go
+  to `storage/logs/` under the site), then delete `public/storage/logs/`. Your `config/logging.php`
+  is your own copy and keeps the old behaviour until the line is gone; `php glueful thallo:doctor`
+  reports any log file still under `public/`. If logs were served, rotate any secret they could
+  hold.
+
 ## [1.0.0-beta.51] - 2026-09-21 — Developer Preview
 
 A documentation section can be set up and published from the admin, with no shell. And two

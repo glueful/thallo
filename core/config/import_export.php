@@ -1,25 +1,22 @@
 <?php
 
 /**
- * Import/Export configuration (shadows glueful/import-export's own config).
+ * Import/Export defaults (shadows glueful/import-export's own config so a new key in a new
+ * release reaches every install).
  *
- * The only deviation from the extension defaults is `source_roots`: the `uploads` disk physically
- * lives at storage/uploads, but the importer resolves an `uploads`-disk path against base/uploads by
- * default. Pointing the root at the real location lets files written by the admin import-upload
- * endpoint (POST /v1/admin/import-export/upload) resolve correctly. All other keys mirror the
- * extension so this shadow file doesn't drop any defaults.
+ * `source_roots` is deliberately EMPTY here: this file ships inside the thallo-core package, at
+ * vendor/glueful/thallo-core/config/ on an install, and cannot know where the site is. A path built
+ * from __DIR__ here pointed into vendor/, and every admin-started import failed to find its file.
+ * CoreServiceProvider fills the `uploads` root from the uploads disk's own root when it merges
+ * these defaults; a site that sets it in its config/import_export.php still wins.
  */
 
 declare(strict_types=1);
 
-$root = dirname(__DIR__, 2); // the repo root (this file lives in core/config)
-
 return [
     'routes_enabled' => true,
     'source_disk' => 'uploads',
-    'source_roots' => [
-        'uploads' => $root . '/storage/uploads',
-    ],
+    'source_roots' => [],
     'result_disk' => 'local',
     'private_path' => null,
     'tmp_disk' => 'local',

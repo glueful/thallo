@@ -17,7 +17,8 @@ final class SeoMetaResolver
     /**
      * @param callable(string,string):(?array<string,mixed>) $overrideFor  (entryUuid, locale) => seo_meta row|null
      * @param array<string,array{title_field?:string,description_field?:string,image_field?:string}> $fallbacks
-     * @param array{site_name:string,default_og_image:string,title_template:string} $defaults
+     * @param array{site_name:string|\Closure,default_og_image:string,title_template:string} $defaults
+     *        `site_name` may be a supplier: a shared resolver must see a rename made after it was built
      */
     public function __construct(
         private readonly ContentDeliveryReader $reader,
@@ -53,7 +54,7 @@ final class SeoMetaResolver
         } elseif ($fieldTitle !== null) {
             $title = $this->applyTemplate($fieldTitle);
         } else {
-            $title = $this->defaults['site_name'];
+            $title = $this->siteName();
         }
 
         // overrideString() so an empty-string OG override falls back like title/description do.
@@ -106,7 +107,13 @@ final class SeoMetaResolver
     {
         return strtr($this->defaults['title_template'], [
             '{title}' => $title,
-            '{site_name}' => $this->defaults['site_name'],
+            '{site_name}' => $this->siteName(),
         ]);
+    }
+
+    private function siteName(): string
+    {
+        $name = $this->defaults['site_name'];
+        return $name instanceof \Closure ? (string) $name() : (string) $name;
     }
 }

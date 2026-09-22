@@ -13,6 +13,23 @@ vi.mock('@/queries/accountSettings', async (importOriginal) => {
     saveAccountRedirects: (...a: unknown[]) => saveAccountRedirects(...a),
   }
 })
+const fetchEmailTemplates = vi.fn()
+vi.mock('@/queries/email', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/queries/email')>()
+  return { ...actual, fetchEmailTemplates: (...a: unknown[]) => fetchEmailTemplates(...a) }
+})
+
+const template = (key: string, owner: string, label: string) => ({
+  key,
+  label,
+  description: `${label} description`,
+  owner,
+  placeholders: [],
+  subject: 'Subject',
+  body: '<p>Body</p>',
+  overridden: false,
+})
+
 vi.mock('vue-router/auto', () => ({
   useRoute: () => ({ path: '/settings/accounts', params: {}, query: {} }),
   useRouter: () => ({ push: vi.fn(), resolve: vi.fn() }),
@@ -42,6 +59,32 @@ describe('settings/accounts page', () => {
   beforeEach(() => {
     fetchAccountSettings.mockReset().mockResolvedValue(settings())
     saveAccountRedirects.mockReset().mockResolvedValue(settings())
+    fetchEmailTemplates.mockReset().mockResolvedValue({
+      templates: [
+        template('verification', 'glueful/email-notification', 'Verification'),
+        template('account.verification', 'thallo-account', 'Customer email verification'),
+        template('account.password_reset', 'thallo-account', 'Customer password reset'),
+      ],
+      partials: [],
+    })
+  })
+
+  it("lists only the customers' own emails", async () => {
+    const wrapper = mount(AccountSettingsPage)
+    await flushPromises()
+
+    const emails = wrapper.findAll('[data-testid="account-email"]').map((e) => e.text())
+    expect(emails).toHaveLength(2)
+    expect(emails[0]).toContain('Customer email verification')
+    expect(emails[1]).toContain('Customer password reset')
+  })
+
+  it('says the built-in emails are used when the email extension is unavailable', async () => {
+    fetchEmailTemplates.mockRejectedValue(new Error('404'))
+    const wrapper = mount(AccountSettingsPage)
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="account-emails-unavailable"]').exists()).toBe(true)
   })
 
   it('renders the allowlisted page inventory and the current redirect', async () => {

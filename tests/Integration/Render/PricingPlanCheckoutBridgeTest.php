@@ -203,7 +203,7 @@ final class PricingPlanCheckoutBridgeTest extends AppTestCase
             'plan_key' => 'pro',
         ]);
 
-        self::assertStringContainsString('href="https://admin.test/billing?plan=pro"', $out);
+        self::assertStringContainsString('href="https://admin.test/signup?plan=pro"', $out);
         self::assertStringNotContainsString(self::AUTHORED_URL, $out);
     }
 }

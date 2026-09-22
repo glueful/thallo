@@ -276,6 +276,7 @@ async function onSave() {
                       <AssetField
                         v-model="form.site_logo"
                         :field="logoField"
+                        empty-value=""
                         :library-button="false"
                       />
                     </div>
@@ -289,6 +290,7 @@ async function onSave() {
                       <AssetField
                         v-model="form.site_logo_dark"
                         :field="logoDarkField"
+                        empty-value=""
                         :library-button="false"
                       />
                     </div>
@@ -305,6 +307,7 @@ async function onSave() {
                       <AssetField
                         v-model="form.site_favicon"
                         :field="faviconField"
+                        empty-value=""
                         :library-button="false"
                         :preview="false"
                       />

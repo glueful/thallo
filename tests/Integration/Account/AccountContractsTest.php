@@ -246,6 +246,7 @@ final class AccountContractsTest extends AppTestCase
             $this->container()->get(UserRepository::class),
             $sessions,
             $this->container()->get(LoggerInterface::class),
+            new \Thallo\Core\Account\AccountMailTemplateChooser(null),
         );
 
         $token = (string) $recovery->verify('revoke@example.test', '123456')->resetToken;

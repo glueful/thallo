@@ -3,12 +3,15 @@
 declare(strict_types=1);
 
 return [
-    // NOTE: enable/disable is NOT configured here — the capability switchboard in the app's
-    // config/thallo.php ('capabilities' => ['thallo.render' => false]) is the only gate.
+    // NOTE: enable/disable is NOT configured here. The switch is Extensions › Capabilities in the
+    // admin; until it is flipped there, the app's optional config/thallo.php 'capabilities' map
+    // ('thallo.render' => false) sets the default.
 
     // Active theme name: an app-level themes/{name}/ directory, falling back to the
-    // pack-embedded default theme. RESOLVED AT BOOT (v1): changing it requires an app
-    // restart / extension-cache rebuild.
+    // pack-embedded default theme. This env value is read at boot, so changing it requires an
+    // app restart / config-cache rebuild. It is the fallback: a theme chosen on the admin's
+    // Appearance page (Site › Appearance → Theme) overrides it and is read per request
+    // (ActiveThemeSource), so that choice needs no restart.
     'theme' => env('RENDER_THEME', 'default'),
 
     // Entry uuid rendered at `/` (through index.twig) — the DEPLOY DEFAULT: the
@@ -18,13 +21,10 @@ return [
     // config error (never a themed 404); a broken DB override logs + falls back.
     'homepage_entry' => env('RENDER_HOMEPAGE_ENTRY', ''),
 
-    // site.name in the template context.
-    'site_name' => env('RENDER_SITE_NAME', 'Thallo'),
-
     // First-PATH-SEGMENT prefixes the catch-all must never render ('v1' reserves /v1 and
     // /v1/... but NOT /v1abc). Reserved hits return the framework's standard JSON 404.
-    // Admin SPA base URL for the preview bar's "Edit"/"Design" links (e.g.
-    // https://admin.example.com). Empty = the links don't render.
+    // Where the admin is, for the preview bar's "Edit"/"Design" links, when it is hosted elsewhere
+    // (e.g. https://admin.example.com). Empty = this site's own admin, at BASE_URL/admin.
     'admin_url' => env('RENDER_ADMIN_URL', ''),
 
     // 'api-docs' is the framework's API reference (API_DOCS_PATH default); '/docs' is NOT

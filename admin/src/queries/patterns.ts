@@ -41,6 +41,26 @@ export function instantiate(pattern: Pattern): BlockInstance[] {
   return pattern.blocks.map((block) => allocateIds(block))
 }
 
+/**
+ * Whether inserted blocks carry the page's own heading: a block, at any depth, whose
+ * `heading_level` is `h1`. The starter pages open with such a hero or page header, and the theme
+ * prints the entry title as an h1 too unless the page's Show title is off.
+ */
+export function holdsPageHeading(blocks: readonly unknown[]): boolean {
+  const visit = (value: unknown): boolean => {
+    if (Array.isArray(value)) return value.some(visit)
+    if (value === null || typeof value !== 'object') return false
+    const record = value as Record<string, unknown>
+    const data = record.data
+    if (data !== null && typeof data === 'object') {
+      if ((data as Record<string, unknown>).heading_level === 'h1') return true
+      return Object.values(data as Record<string, unknown>).some(visit)
+    }
+    return false
+  }
+  return blocks.some(visit)
+}
+
 // A section rides the palette's one insert path (click, Enter, drag) beside the block types. What
 // travels down that path is a string, so a section is named apart from a block type's slug.
 const KEY = 'pattern:'

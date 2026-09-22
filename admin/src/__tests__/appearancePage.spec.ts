@@ -44,11 +44,17 @@ vi.mock('vue-router/auto', () => ({
 vi.mock('@/fields/components/AssetField.vue', () => ({
   default: {
     name: 'AssetField',
-    props: { field: { type: Object, required: true }, modelValue: { type: String, default: '' } },
+    props: {
+      field: { type: Object, required: true },
+      modelValue: { type: String, default: '' },
+      emptyValue: { type: String, default: undefined },
+    },
     emits: ['update:modelValue'],
     template:
-      '<button type="button" data-test="stub-logo-pick" ' +
-      "@click=\"$emit('update:modelValue', 'blob00000042')\">{{ modelValue }}</button>",
+      '<span><button type="button" data-test="stub-logo-pick" ' +
+      "@click=\"$emit('update:modelValue', 'blob00000042')\">{{ modelValue }}</button>" +
+      '<button type="button" data-test="stub-logo-clear" ' +
+      '@click="$emit(\'update:modelValue\', emptyValue)">clear</button></span>',
   },
 }))
 
@@ -153,6 +159,17 @@ describe('appearance page', () => {
     expect(wrapper.find('[data-test="stub-logo-pick"]').text()).toBe('blob00000007')
     await wrapper.find('[data-test="stub-logo-pick"]').trigger('click')
     expect(await save(wrapper)).toMatchObject({ site_logo: 'blob00000042' })
+  })
+
+  it('removing the logo saves it as unset, not as unchanged', async () => {
+    // A missing key reads as "unchanged" to the settings save, so the picker must hand back ''.
+    settingsData.value = { ...settings(), site_logo: 'blob00000007' }
+    const wrapper = mount(AppearancePage)
+    await flushPromises()
+    await wrapper
+      .get('[data-test="site-logo-picker"] [data-test="stub-logo-clear"]')
+      .trigger('click')
+    expect(await save(wrapper)).toMatchObject({ site_logo: '' })
   })
 
   it('saved colours and design settings hydrate and are sent back as they are', async () => {

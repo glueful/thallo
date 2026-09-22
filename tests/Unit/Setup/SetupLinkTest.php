@@ -6,6 +6,7 @@ namespace Thallo\Core\Tests\Unit\Setup;
 
 use Thallo\Core\Http\Controllers\SetupController;
 use Thallo\Core\Setup\Console\ProvisionCommand;
+use Thallo\Core\Setup\SetupToken;
 use Glueful\Installer\EnvWriter;
 use PHPUnit\Framework\TestCase;
 
@@ -31,12 +32,21 @@ final class SetupLinkTest extends TestCase
         self::assertStringNotContainsString('?st=', $lines[0]);
     }
 
+    public function testALocalBaseUrlIsCalledOut(): void
+    {
+        foreach (['http://localhost:8000', 'http://127.0.0.1', 'http://thallo.localhost', '', null] as $local) {
+            self::assertNotNull(ProvisionCommand::baseUrlWarning($local), var_export($local, true));
+        }
+        self::assertStringContainsString('not set', (string) ProvisionCommand::baseUrlWarning(''));
+        self::assertNull(ProvisionCommand::baseUrlWarning('https://example.com'));
+    }
+
     public function testACompletedSetupBlanksTheTokenAndLeavesTheRestOfEnvAlone(): void
     {
         $env = (string) tempnam(sys_get_temp_dir(), 'thallo-env');
         file_put_contents($env, "APP_KEY=abc\nSETUP_TOKEN=tok123\n");
 
-        SetupController::clearSetupToken($env);
+        SetupToken::clear($env);
 
         self::assertSame('', (new EnvWriter($env))->get('SETUP_TOKEN'));
         self::assertSame('abc', (new EnvWriter($env))->get('APP_KEY'));

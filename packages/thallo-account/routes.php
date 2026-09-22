@@ -6,6 +6,7 @@ use Glueful\Routing\Router;
 use Thallo\Account\Http\AccountAssetController;
 use Thallo\Account\Http\AccountAuthController;
 use Thallo\Account\Http\AccountPageController;
+use Thallo\Account\Http\AccountProfileController;
 use Thallo\Account\Http\AccountSessionController;
 
 /** @var Router $router */
@@ -39,6 +40,10 @@ $router->get('/account/login', [AccountPageController::class, 'loginPage'])
     ->middleware($page)->name('account.login');
 $router->post('/account/login', [AccountAuthController::class, 'login'])
     ->middleware($anonymousForm)->name('account.login.submit');
+$router->get('/account/login/verify', [AccountPageController::class, 'twoFactorPage'])
+    ->middleware($page)->name('account.login.verify');
+$router->post('/account/login/verify', [AccountAuthController::class, 'completeTwoFactor'])
+    ->middleware($anonymousForm)->name('account.login.verify.submit');
 
 // Register + emailed-OTP verification.
 $router->get('/account/register', [AccountPageController::class, 'registerPage'])
@@ -66,11 +71,19 @@ $router->get('/account/reset-password', [AccountPageController::class, 'resetPas
 $router->post('/account/reset-password', [AccountAuthController::class, 'resetPassword'])
     ->middleware($anonymousForm)->name('account.reset.submit');
 
-// The signed-in shell + sign out. These — and only these — require the session cookie.
+// The signed-in shell + sign out. These and the profile routes require the session cookie.
 $router->get('/account', [AccountPageController::class, 'dashboard'])
     ->middleware($authedShell)->name('account.dashboard');
 $router->post('/account/logout', [AccountAuthController::class, 'logout'])
     ->middleware($authedMutation)->name('account.logout');
+
+// The customer's own profile: name and password.
+$router->get('/account/profile', [AccountProfileController::class, 'page'])
+    ->middleware($authedShell)->name('account.profile');
+$router->post('/account/profile', [AccountProfileController::class, 'saveName'])
+    ->middleware($authedMutation)->name('account.profile.name');
+$router->post('/account/password', [AccountProfileController::class, 'changePassword'])
+    ->middleware($authedMutation)->name('account.profile.password');
 
 // --- Account chrome: the header/footer block's asset + the private hydration endpoint ---
 

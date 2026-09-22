@@ -80,8 +80,9 @@ return [
                 . 'type explicitly opts into public delivery. Keys are environment-prefixed '
                 . '(`gf_live_*` / `gf_test_*`) and provisioned out of band.',
             '- **Admin API** (`/v1/admin/*`) — send a bearer JWT in the `Authorization` header '
-                . '(`Authorization: Bearer <token>`). Each route also enforces a `thallo.*` '
-                . 'permission (named in the operation description). Obtain a token from your '
+                . '(`Authorization: Bearer <token>`). Each route also enforces a permission '
+                . '(`content.*`, `users.*`, `styles.manage`, `system.access` and so on; named in the '
+                . 'operation description). Obtain a token from your '
                 . 'Glueful auth endpoint (e.g. `POST /v1/auth/login`).',
             '- **Preview** (`GET /v1/preview/{token}`) — unauthenticated: the signed, '
                 . 'short-lived token in the path is itself the capability.',

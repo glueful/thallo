@@ -125,3 +125,41 @@ describe('AssetField — choose from library', () => {
     wrapper.unmount()
   })
 })
+
+describe('AssetField — clearing a single asset', () => {
+  // Only the multiple branch had a remove control: a chosen logo or favicon could not be unset.
+  it('a chosen single asset can be removed, leaving no value', async () => {
+    const wrapper = mount(AssetField, {
+      props: { field: { name: 'image', type: 'asset' as const }, modelValue: 'blob00000001' },
+    })
+
+    await wrapper.get('[data-test="asset-single-remove"]').trigger('click')
+
+    const emitted = wrapper.emitted('update:modelValue') ?? []
+    expect(emitted[emitted.length - 1]).toEqual([undefined])
+  })
+
+  it('a host that stores an empty string gets one, even with the preview hidden', async () => {
+    const wrapper = mount(AssetField, {
+      props: {
+        field: { name: 'site_favicon', type: 'asset' as const },
+        modelValue: 'blob00000001',
+        preview: false,
+        emptyValue: '',
+      },
+    })
+
+    await wrapper.get('[data-test="asset-single-remove"]').trigger('click')
+
+    const emitted = wrapper.emitted('update:modelValue') ?? []
+    expect(emitted[emitted.length - 1]).toEqual([''])
+  })
+
+  it('offers no remove control while nothing is chosen', () => {
+    const wrapper = mount(AssetField, {
+      props: { field: { name: 'image', type: 'asset' as const }, modelValue: undefined },
+    })
+
+    expect(wrapper.find('[data-test="asset-single-remove"]').exists()).toBe(false)
+  })
+})

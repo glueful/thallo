@@ -13,15 +13,28 @@ export interface ScheduleRow {
   [k: string]: unknown
 }
 
+/** An entry's schedules, and whether the scheduler that runs them is ticking. */
+export interface EntrySchedules {
+  schedules: ScheduleRow[]
+  schedulerTicking: boolean
+}
+
 // The schedules-list response body isn't typed in the spec; cast to the known contract.
-export async function fetchSchedules(uuid: string): Promise<ScheduleRow[]> {
+export async function fetchSchedules(uuid: string): Promise<EntrySchedules> {
   const { data, error, response } = await client.GET('/entries/{uuid}/schedules', {
     params: { path: { uuid } },
   })
   if (error) throw toApiError(error, response)
-  return (
-    (data as unknown as { data?: { schedules?: ScheduleRow[] } } | undefined)?.data?.schedules ?? []
-  )
+  const body = (
+    data as unknown as
+      | { data?: { schedules?: ScheduleRow[]; scheduler?: { ticking?: boolean } } }
+      | undefined
+  )?.data
+  return {
+    schedules: body?.schedules ?? [],
+    // An older server sends no status: assume ticking rather than raise a false alarm.
+    schedulerTicking: body?.scheduler?.ticking ?? true,
+  }
 }
 
 export function useSchedules(uuid: MaybeRefOrGetter<string>) {

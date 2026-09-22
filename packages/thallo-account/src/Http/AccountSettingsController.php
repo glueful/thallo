@@ -35,6 +35,7 @@ final class AccountSettingsController
         ['label' => 'Verify email', 'path' => '/account/verify'],
         ['label' => 'Forgot password', 'path' => '/account/forgot-password'],
         ['label' => 'Account dashboard', 'path' => '/account'],
+        ['label' => 'Profile', 'path' => '/account/profile'],
     ];
 
     public function __construct(

@@ -223,6 +223,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/billing/plan': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Change the workspace subscription's plan */
+    post: operations['thalloSubscriptionsBillingPlan']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/block-types': {
     parameters: {
       query?: never
@@ -2813,6 +2830,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/form-submissions/delete': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Delete several submissions
+     * @description Permanently removes the named submissions (up to 500); unknown uuids are ignored. Requires `content.manage`.
+     */
+    post: operations['postV1AdminFormsubmissionsDelete']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/form-submissions/export.csv': {
     parameters: {
       query?: never
@@ -2825,6 +2862,26 @@ export interface paths {
      * @description Streams the filtered submissions as CSV: fixed metadata columns unioned with every field key seen across the rows. Requires `content.manage`.
      */
     get: operations['getV1AdminFormsubmissionsExportcsv']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/form-submissions/forms': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Forms with submissions
+     * @description Each form that has submissions: its key, latest name and count, for the per-form filter. Requires `content.manage`.
+     */
+    get: operations['getV1AdminFormsubmissionsForms']
     put?: never
     post?: never
     delete?: never
@@ -3149,6 +3206,26 @@ export interface paths {
      * @description Whole-tree PUT guarded by lock_version (the GET payload carries it); a stale version is a 409 — reload and retry.
      */
     put: operations['putV1AdminNavigationMenusBySlugItems']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/navigation/menus/{slug}/usage': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Where a menu is shown
+     * @description The regions and entries whose Navigation blocks show the menu, for the delete warning. A theme template that names the menu is not listed.
+     */
+    get: operations['getV1AdminNavigationMenusBySlugUsage']
+    put?: never
     post?: never
     delete?: never
     options?: never
@@ -5842,6 +5919,75 @@ export interface operations {
       }
     }
   }
+  thalloSubscriptionsBillingPlan: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
   getV1AdminBlocktypes: {
     parameters: {
       query?: never
@@ -5884,6 +6030,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -5900,6 +6047,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 /** @description Style capability paths or groups (visual builder §1.7); null = none. */
                 style_capabilities?: unknown[] | null
@@ -6019,6 +6167,8 @@ export interface operations {
             min?: number | null
             /** @description Inclusive upper bound for a `number` field (ints coerce). */
             max?: number | null
+            /** @description What the entry form calls the field (80 characters at most). */
+            label?: string | null
           }[]
           /** @description The setting groups the block supports (its Style and Layout tabs), */
           style_capabilities?: unknown[] | null
@@ -6066,6 +6216,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -6082,6 +6233,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 /** @description Style capability paths or groups (visual builder §1.7); null = none. */
                 style_capabilities?: unknown[] | null
@@ -6210,6 +6362,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -6226,6 +6379,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 /** @description Style capability paths or groups (visual builder §1.7); null = none. */
                 style_capabilities?: unknown[] | null
@@ -6466,6 +6620,8 @@ export interface operations {
             min?: number | null
             /** @description Inclusive upper bound for a `number` field (ints coerce). */
             max?: number | null
+            /** @description What the entry form calls the field (80 characters at most). */
+            label?: string | null
           }[]
           /** @description The setting groups the block supports (its Style and Layout tabs), */
           style_capabilities?: unknown[] | null
@@ -6506,6 +6662,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -6522,6 +6679,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 /** @description Style capability paths or groups (visual builder §1.7); null = none. */
                 style_capabilities?: unknown[] | null
@@ -6667,6 +6825,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -6683,6 +6842,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 /** @description Style capability paths or groups (visual builder §1.7); null = none. */
                 style_capabilities?: unknown[] | null
@@ -6811,6 +6971,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -6827,6 +6988,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 /** @description Style capability paths or groups (visual builder §1.7); null = none. */
                 style_capabilities?: unknown[] | null
@@ -21414,6 +21576,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -21430,6 +21593,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 schema_version?: number
                 created_by?: string | null
@@ -21551,6 +21715,8 @@ export interface operations {
             min?: number | null
             /** @description Inclusive upper bound for a `number` field (ints coerce). */
             max?: number | null
+            /** @description What the entry form calls the field (80 characters at most). */
+            label?: string | null
           }[]
         }
       }
@@ -21598,6 +21764,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -21614,6 +21781,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 schema_version?: number
                 created_by?: string | null
@@ -21742,6 +21910,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -21758,6 +21927,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 schema_version?: number
                 created_by?: string | null
@@ -21994,6 +22164,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -22010,6 +22181,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 schema_version?: number
                 created_by?: string | null
@@ -22699,6 +22871,8 @@ export interface operations {
             min?: number | null
             /** @description Inclusive upper bound for a `number` field (ints coerce). */
             max?: number | null
+            /** @description What the entry form calls the field (80 characters at most). */
+            label?: string | null
           }[]
         }
       }
@@ -22739,6 +22913,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -22755,6 +22930,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 schema_version?: number
                 created_by?: string | null
@@ -25802,6 +25978,82 @@ export interface operations {
       }
     }
   }
+  postV1AdminFormsubmissionsDelete: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Deleted; `deleted` is how many. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description No list of uuids, or more than 500. */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
   getV1AdminFormsubmissionsExportcsv: {
     parameters: {
       query?: never
@@ -25812,6 +26064,75 @@ export interface operations {
     requestBody?: never
     responses: {
       /** @description A text/csv attachment. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  getV1AdminFormsubmissionsForms: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The forms. */
       200: {
         headers: {
           [name: string]: unknown
@@ -27583,6 +27904,84 @@ export interface operations {
       }
       /** @description Invalid tree (kind, url, labels, depth, count, target). */
       422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  getV1AdminNavigationMenusBySlugUsage: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The places, regions first: kind, id, label, content_type. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Unknown menu. */
+      404: {
         headers: {
           [name: string]: unknown
         }

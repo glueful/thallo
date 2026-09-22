@@ -7,9 +7,8 @@ compile against. **No engine logic, storage, or I/O.**
 
 - Strict semver. Additive change = minor; any interface / DTO / event / capability-id
   break = major.
-- **0.x freeze trigger:** this package stays `0.x` while only first-party packs exist.
-  It moves to `1.0` only **before** documenting third-party pack authoring or accepting
-  external packs — so the seams are proven (by the Phase D reference extraction) first.
+- **Released in lockstep:** the package carries the monorepo's version, and every first-party
+  pack and `glueful/thallo-core` require it at `self.version`.
 
 ## Boundary rule
 

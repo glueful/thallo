@@ -1,9 +1,9 @@
 import type { BlockType } from '@/queries/blockTypes'
 
-// The one order for every block picker (Phase C.1): a FLAT, type-to-filter tile list with no
-// category headings — categories only cluster the tiles so related blocks stay adjacent (named
-// categories alphabetical, uncategorised last; stable within a category). The query matches the
-// label, the slug and the description, case-insensitively.
+// The one order for every block picker: named categories alphabetical, uncategorised last,
+// stable within a category. The palette then shows each category as its own headed section
+// (groupByCategory below). The query matches the label, the slug and the description,
+// case-insensitively.
 export function orderTypes(types: BlockType[], query: string): BlockType[] {
   const q = query.trim().toLowerCase()
   const matching =
