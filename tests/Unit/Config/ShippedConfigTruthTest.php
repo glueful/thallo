@@ -49,7 +49,7 @@ final class ShippedConfigTruthTest extends TestCase
                 $dead = array_intersect(array_keys($job), ['queue', 'timeout', 'retry_attempts']);
                 self::assertSame([], $dead, "{$dir}{$name}");
                 self::assertSame([], array_diff(array_keys((array) ($job['parameters'] ?? [])), [
-                    'options', 'cleanupType', 'operation', 'retryType', 'backupType',
+                    'options', 'cleanupType', 'operation', 'retryType', 'backupType', 'command', 'arguments',
                 ]), "{$dir}{$name}");
             }
         }

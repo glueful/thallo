@@ -81,8 +81,6 @@ A missing feature is not a regression. These are product decisions to make, or t
   changes; the save refuses both and now names the migration route. A field can never be retyped.
 - **Scheduled unpublish has no UI.** The API and the runner accept it; the Publishing panel only
   posts `publish`.
-- **Version pruning is CLI-only and unscheduled**, so `entry_versions` grows unless an operator
-  prunes.
 - **The default theme renders only `title` and `body` of a custom type.** Every other field needs a
   template, and a rich-text `body` renders escaped.
 - **A listing is a 404 until the type is in `listing_types`**, a setting far from the type. The
@@ -92,8 +90,7 @@ A missing feature is not a regression. These are product decisions to make, or t
   `show_title` stays on. Verify the whole pattern application first.
 - **The Design button may show on entries of a type with no `blocks` field.** Not traced.
 - **Content imports.** CSV and the other format adapters only create; the bundle importer
-  upserts. The bundle carries the blob manifest, not the files. Nothing schedules
-  `import-export:cleanup`.
+  upserts. The bundle carries the blob manifest, not the files.
 
 ### Design and themes
 
@@ -132,12 +129,13 @@ A missing feature is not a regression. These are product decisions to make, or t
   `direction` does anything, and whether a language can be removed, is unchecked.
 - **SEO:** no per-type fallbacks or robots groups from the admin, and `config/seo.php` does not
   ship. Whether a redirect can be edited, target an entry or pick its locale is unchecked.
-- **Commerce sweeps are not in `config/schedule.php`.** Read-only Customers and the marketplace tab
-  are unchecked.
+- **Commerce: the marketplace tab's runtime switch is undocumented.** Customers are read-only and
+  documented; the tab works end to end (checked 2026-09-22). `docs/guides/18-commerce.md` calls
+  marketplace unsupported and does not mention the switch or `COMMERCE_MARKETPLACE_ENABLED`.
 - **Accounts:** dashboard items come from a code registry. Name the exact missing no-code
   controls before writing this up; templates and account settings do exist.
 - **No admin UI for a resource-scoped (per-language) grant.**
-- **The tenancy status commands print raw JSON; `analytics:prune` is unscheduled.**
+- **The tenancy status commands print raw JSON.**
 - **`SECURITY.md` has no dedicated address, PGP key or disclosure window.**
 
 ### Security
@@ -163,6 +161,8 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **Maintenance commands were unscheduled** (version pruning, `import-export:cleanup`,
+  `analytics:prune`, commerce sweeps). `config/schedule.php` runs them. Test.
 - **Setup: the CLI's weaker admin password, the kept `SETUP_TOKEN`, and the silent localhost
   link.** The form's password rules hold on the server and in `thallo:create-admin`, which also
   blanks the token; provision warns on a local `BASE_URL`. Tests.
