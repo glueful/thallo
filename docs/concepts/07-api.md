@@ -52,7 +52,7 @@ object:
 | `uuid` | The entry's uuid, stable across locales and versions. |
 | `locale` | The locale this body was read in. |
 | `version` | The published version number. |
-| `published_at` | When that version was pinned. |
+| `published_at` | When that version was pinned, as ISO-8601 (`2026-02-11T09:30:00+00:00`). |
 | `fields` | The entry's fields, named as the content type names them. |
 | `seo` | On the single-entry route only: `canonical`, `alternates` and `x_default`, each an object of `locale`, `href`, `content_type` and `slug`. |
 
@@ -121,7 +121,9 @@ every level.
 
 `?fields=` takes a comma-separated list of field names and narrows the `fields` object to them.
 It does two things at once: it projects the response, and it decides which references are
-expanded — a reference field you did not name is left as a raw uuid. The envelope keys are not
+expanded — a reference field you did not name is left as a raw uuid. `?expand=` alone expands the
+reference fields it names and keeps every other field; combined with `?fields=`, it expands within
+the fields you asked for. The envelope keys are not
 projectable; `uuid`, `locale`, `version` and `published_at` are always there.
 
 ## Reading a locale
@@ -232,7 +234,7 @@ The body:
     "uuid": "0f3c9d2a1b7e",
     "locale": "en",
     "version": 4,
-    "published_at": "2026-02-11 09:30:00",
+    "published_at": "2026-02-11T09:30:00+00:00",
     "fields": {
       "title": "A second look at type",
       "excerpt": "Why the body face changed.",

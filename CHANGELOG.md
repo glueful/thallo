@@ -23,6 +23,11 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **The delivery API's `published_at` is ISO-8601** (`2026-02-11T09:30:00+00:00`), as the API
+  reference declares; it was the raw database timestamp.
+- **`?expand=` no longer narrows the response.** The field selector folded it into `?fields=`, so
+  expanding one reference returned only that field. Alone it now expands and keeps every field;
+  with `?fields=` it expands within the fields asked for.
 - **Pages built in the Design view are searchable.** Search indexed only `string` and `text` fields,
   so a page whose content is blocks was found by its title alone. A `blocks` field now contributes
   the text of every block, nested blocks included, read by each block type's schema (so settings,
@@ -122,6 +127,8 @@ as the next release, never a mutated tag.
   each in its section. They stay where they are: other files link to them by path.
 
 ### Upgrade Notes
+- **Delivery API clients: `published_at` changed format**, from `2026-02-11 09:30:00` to
+  `2026-02-11T09:30:00+00:00`. A client that parsed the old string by hand should parse ISO-8601.
 - If your `.env` sets `RENDER_SITE_NAME` or `SEO_SITE_NAME`, put that name in Settings › General
   › Site name instead; both keys are no longer read.
 - **Decide on the backup job.** Your `config/schedule.php` is your own copy and runs

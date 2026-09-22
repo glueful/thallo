@@ -29,11 +29,6 @@ the docs for the failed-job commands, the backup and `security:check`.
 
 ### Content, publishing and delivery
 
-- **The delivery API's `published_at` is not ISO-8601.** Code, and the review ran the probe.
-  `DeliveryItemShaper::item()` forwards the raw `timestamp without time zone`; `docs/openapi.json`
-  declares `format: date-time`. (api)
-- **`?expand=` narrows the response.** Code. `FieldSelector` merges `expand` into the field
-  selection, so asking to expand one reference drops the other fields. (api)
 - **A failed schedule is silent.** Code. The reason is stored on the row; the Publishing panel
   shows a status badge and no reason, and nothing at the entry warns that the scheduler cron is
   missing. (publishing)
@@ -298,6 +293,8 @@ Kept for the record; each is in the CHANGELOG.
   implementation behind the database driver and the failed-job commands. Test.
 - **Every ORM-created auto-increment model came back with id 1** (framework 1.86.0; found
   while fixing the webhooks). The id is now read from the connection that ran the insert. Test.
+- **The delivery API's `published_at` was not ISO-8601, and `?expand=` narrowed the response.**
+  Items now carry ISO-8601; an expand-only request keeps every field. Test.
 - **Block-built page bodies were not indexed.** A `blocks` field now contributes the text of each
   block through the engine's `BlockTextExtractor`. Test.
 - **Two-factor sign-in was unsupported.** The admin read the challenge as a malformed session and

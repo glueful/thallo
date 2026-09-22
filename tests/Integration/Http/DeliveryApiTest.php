@@ -228,6 +228,51 @@ final class DeliveryApiTest extends AppTestCase
         }
     }
 
+    public function testPublishedAtIsIso8601AsTheApiReferenceSays(): void
+    {
+        // docs/openapi.json declares format: date-time; the raw database timestamp was served.
+        $uuid = $this->publish(['title' => 'Dated']);
+
+        $data = json_decode((string) $this->controller()->show($this->get(), $this->showQuery(), 'post', $uuid)
+            ->getContent(), true)['data'];
+        $listed = json_decode((string) $this->controller()->index($this->get(), $this->listQuery(), 'post')
+            ->getContent(), true)['data']['items'][0];
+
+        $iso = '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/';
+        self::assertMatchesRegularExpression($iso, (string) $data['published_at']);
+        self::assertMatchesRegularExpression($iso, (string) $listed['published_at']);
+    }
+
+    public function testExpandWithoutFieldsExpandsAndKeepsEveryField(): void
+    {
+        // The field selector folds ?expand= into ?fields=, so asking to expand one reference
+        // returned only that field.
+        $target = $this->publish(['title' => 'Target']);
+        $root = $this->publish(['title' => 'Root', 'body' => 'Kept', 'priority' => 3, 'related' => $target]);
+        $query = ['expand' => 'related'];
+
+        $response = $this->controller()->show($this->get($query), $this->showQuery($query), 'post', $root);
+        $fields = json_decode((string) $response->getContent(), true)['data']['fields'];
+
+        self::assertSame('Root', $fields['title']);
+        self::assertSame('Kept', $fields['body']);
+        self::assertSame(3, (int) $fields['priority']);
+        self::assertSame('Target', $fields['related']['fields']['title'] ?? null);
+    }
+
+    public function testFieldsStillNarrowWhenGiven(): void
+    {
+        $target = $this->publish(['title' => 'Target']);
+        $root = $this->publish(['title' => 'Root', 'body' => 'Dropped', 'related' => $target]);
+        $query = ['fields' => 'title,related', 'expand' => 'related'];
+
+        $response = $this->controller()->show($this->get($query), $this->showQuery($query), 'post', $root);
+        $fields = json_decode((string) $response->getContent(), true)['data']['fields'];
+
+        self::assertSame(['title', 'related'], array_keys($fields));
+        self::assertSame('Target', $fields['related']['fields']['title'] ?? null);
+    }
+
     public function testShowReturnsPublishedFields(): void
     {
         $uuid = $this->publish(['title' => 'Hello show', 'priority' => 1]);
