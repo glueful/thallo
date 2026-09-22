@@ -13,26 +13,13 @@ Every entry carries its evidence:
 
 ## Bugs in the framework (need a Glueful release)
 
-**Status 2026-09-22: none fixed.** Each is still present in the installed framework (v1.85.8) and
-in the local framework checkout. Thallo works around the backup by shipping it off.
+**Status 2026-09-22: three fixed in the framework's `dev` branch, not yet released.** Webhook
+delivery, the backup task and the queue claim are committed after v1.85.8 (see **Fixed** below).
+Thallo still runs v1.85.8 until a framework release is tagged and required, so keep the backup off
+and the Content webhooks switch in mind until then. What remains open is listed here.
 
-- **Content webhooks never deliver.** Code, and the review ran the type probe.
-  `WebhookDispatcher::queueDelivery()` and `Webhook::retry()` pass a job object to
-  `QueueManager::push(string $job, …)` under `strict_types`, a certain `TypeError`. The delivery
-  row is written first and stays `pending`. The event dispatcher logs the listener error, so the
-  publish succeeds with nothing on screen. **Retry** 500s on a failed or retrying row; a pending
-  row is refused before it. **Send test event** is synchronous and works, with no guard on the
-  destination address. The `cleanup` config is read by nothing. Deleting a subscription may
-  orphan its delivery rows (Reported); the dialog no longer claims they are removed. Until the
-  framework is fixed, consider hiding the Content webhooks switch. (webhooks)
-- **The scheduled database backup cannot back up a stock install.** Code. `DatabaseBackupTask`
-  reads flat `driver`, `database`, `username` keys from a config shaped `engine` and
-  `pgsql { db, user, pass }`, falls back to `mysqldump` with empty credentials, and logs
-  "completed" with `Backup created: No`. Thallo now ships the job off. (backups)
-- **`DatabaseQueue::pop()` takes no row lock.** Code. Two workers on one queue can select the
-  same job. Expired reservations are released inside `pop()`, so a lone worker never releases its
-  own running job; a second, overlapping worker reclaims one older than `retry_after`.
-  (scheduler-and-queues)
+- **Webhook leftovers.** The `cleanup` config is read by nothing. Deleting a subscription may orphan
+  its delivery rows (Reported); the dialog no longer claims they are removed. (webhooks)
 - **No `queue:failed` or `queue:retry` command, and no admin screen for failed jobs.** Code, by
   inventory. (scheduler-and-queues)
 
@@ -263,6 +250,15 @@ Kept for the record; each is in the CHANGELOG.
   Test.
 - **Editor-only `_presentation` leaked through expanded references.** Stripped at every depth.
   Test.
+- **Content webhooks never delivered** (framework, unreleased). Both enqueue paths passed a job
+  object to `QueueManager::push(string)`, a `TypeError`; they now push the class and delivery id.
+  "Send test event" now applies the delivery's destination guard. Test.
+- **The scheduled database backup could not back up a stock install** (framework, unreleased).
+  The task now reads the stock nested config, passes the password through the dump tool's
+  environment, and logs "failed" when no backup is made; the job fails when no backup exists.
+  Test, plus a real `pg_dump` run. Thallo keeps it off until the release is required.
+- **Two database-queue workers could run the same job** (framework, unreleased). The reservation
+  is a conditional claim; the loser takes the next job. Test.
 - **`LOG_RETENTION_DAYS` changed nothing.** Filed here as a framework bug, it was Thallo's: the
   shipped schedule passed `retentionDays`, and the framework's job reads `options.retention_days`.
   The schedule now passes the right key. Test.
