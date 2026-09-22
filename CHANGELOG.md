@@ -325,8 +325,9 @@ case only on some databases, and a Ken Burns drift that never stopped.
   PostgreSQL), and a `%` or `_` in the term matches that character instead of acting as a
   wildcard. A client that relied on either gets more rows, or fewer.
 - **Thallo now requires glueful/framework 1.87, glueful/meilisearch 2.0, glueful/subscriptions
-  2.4, glueful/payvia 2.9, glueful/users 2.5 and glueful/import-export 1.2.1.** Run
-  `composer update`, then `php glueful migrate:run` for the plan price columns.
+  2.4, glueful/payvia 2.9, glueful/users 2.5 and glueful/import-export 1.2.1.** The documented
+  sequence applies — `composer update && php glueful thallo:provision` — which runs the plan
+  price migration with the rest.
 - **Add the `blob_purge` job to your `config/schedule.php`** (copy it from a new site's file) so
   deleted uploads leave the disk; your schedule replaces the framework's list.
 - **Set `MAIL_HOST` and `MAIL_FROM`** if they are unset: mail no longer falls back to a placeholder
