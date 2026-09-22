@@ -7,6 +7,15 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.52] - 2026-09-22 — Developer Preview
+
+A visitor can buy a plan without an operator: signup from a pricing card, prices on the plans, and
+Change plan. Customers get a profile page and their own emails. The delivery API describes an
+asset when you ask it to. Setup, the scheduler and the command line each gained what they were
+missing, and a handful of long-standing faults are gone — signup mail that reported itself
+undelivered after it was sent, a rich-text body printed as escaped HTML, searches that ignored
+case only on some databases, and a Ken Burns drift that never stopped.
+
 ### Security
 - **Request logs were written into the web root, where anyone could download them.**
   `.env.example` set `LOG_FILE_PATH=storage/logs`, and the logging config used that relative path
