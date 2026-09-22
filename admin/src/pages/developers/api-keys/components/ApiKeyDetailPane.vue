@@ -15,7 +15,7 @@ import { useTenancyAccessStore } from '@/stores/tenancyAccess'
 const props = defineProps<{ item: ApiKey }>()
 const emit = defineEmits<{ revoked: [uuid: string]; rotated: [item: ApiKey] }>()
 
-const { rotate, revoke, updateTenant } = useApiKeyMutations()
+const { rotate, revoke, updateTenant, updateScopes } = useApiKeyMutations()
 const { success, error: notifyError } = useNotify()
 
 const showRotate = ref(false)
@@ -43,6 +43,35 @@ async function saveTenantBinding() {
     success('Workspace binding updated')
   } catch (e) {
     notifyError(e, 'Could not update the workspace binding')
+  }
+}
+
+// Scopes edit in place: the same chips as the create form, saved as one list. An empty list
+// means full access, which the form says before it is saved.
+const editingScopes = ref(false)
+const draftScopes = ref<string[]>([])
+const scopeInput = ref('')
+
+function startScopes() {
+  draftScopes.value = [...props.item.scopes]
+  scopeInput.value = ''
+  editingScopes.value = true
+}
+function addScope() {
+  const token = scopeInput.value.trim()
+  if (token && !draftScopes.value.includes(token)) draftScopes.value.push(token)
+  scopeInput.value = ''
+}
+function removeScope(token: string) {
+  draftScopes.value = draftScopes.value.filter((t) => t !== token)
+}
+async function saveScopes() {
+  try {
+    await updateScopes.mutateAsync({ uuid: props.item.uuid, scopes: draftScopes.value })
+    editingScopes.value = false
+    success('Scopes updated')
+  } catch (e) {
+    notifyError(e, 'Could not update the scopes')
   }
 }
 
@@ -115,7 +144,7 @@ async function confirmRevoke() {
       description="Rotate it to issue a fresh key with the same settings."
     />
 
-    <!-- Scopes -->
+    <!-- Workspace -->
     <div>
       <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Workspace</h3>
       <div v-if="access.access.manage_platform" class="flex gap-2">
@@ -139,18 +168,75 @@ async function confirmRevoke() {
 
     <!-- Scopes -->
     <div>
-      <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Scopes</h3>
-      <div v-if="item.scopes.length" class="flex flex-wrap gap-1">
-        <UBadge
-          v-for="s in item.scopes"
-          :key="s"
-          :label="s"
+      <div class="mb-2 flex items-center justify-between gap-2">
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-muted">Scopes</h3>
+        <UButton
+          v-if="!editingScopes && item.status !== 'revoked'"
+          label="Edit"
+          icon="i-lucide-pencil"
           color="neutral"
-          variant="subtle"
-          size="sm"
+          variant="ghost"
+          size="xs"
+          data-test="scopes-edit"
+          @click="startScopes"
         />
       </div>
-      <p v-else class="text-sm text-muted">Full access — no scope restriction.</p>
+      <template v-if="editingScopes">
+        <div v-if="draftScopes.length" class="mb-2 flex flex-wrap gap-1">
+          <UBadge
+            v-for="s in draftScopes"
+            :key="s"
+            color="neutral"
+            variant="subtle"
+            size="sm"
+            class="cursor-pointer"
+            :data-test="`scope-chip-${s}`"
+            @click="removeScope(s)"
+          >
+            {{ s }}
+            <UIcon name="i-lucide-x" class="ms-1 size-3" />
+          </UBadge>
+        </div>
+        <p v-else class="mb-2 text-sm text-warning" data-test="scopes-full-access">
+          No scopes: saved like this, the key has full access.
+        </p>
+        <UInput
+          v-model="scopeInput"
+          placeholder="Add a scope and press Enter"
+          class="w-full"
+          data-test="scope-input"
+          @keydown.enter.prevent="addScope"
+        />
+        <div class="mt-2 flex justify-end gap-2">
+          <UButton
+            label="Cancel"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            @click="editingScopes = false"
+          />
+          <UButton
+            label="Save scopes"
+            size="sm"
+            :loading="updateScopes.isLoading.value"
+            data-test="scopes-save"
+            @click="saveScopes"
+          />
+        </div>
+      </template>
+      <template v-else>
+        <div v-if="item.scopes.length" class="flex flex-wrap gap-1">
+          <UBadge
+            v-for="s in item.scopes"
+            :key="s"
+            :label="s"
+            color="neutral"
+            variant="subtle"
+            size="sm"
+          />
+        </div>
+        <p v-else class="text-sm text-muted">Full access — no scope restriction.</p>
+      </template>
     </div>
 
     <!-- Allowed IPs -->

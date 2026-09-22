@@ -160,9 +160,10 @@ the type it asks for gets 403 — unless the type has **Public delivery** on, wh
 read. A key that is wrong, revoked or expired is 401, and it never falls through to the public
 path: sending a bad key to a public type fails.
 
-The detail pane holds the rest of a key's life. **Rotate key** issues a fresh key and keeps the
-old one working for a grace period you choose, so a deploy can overlap. **Revoke key** stops it
-at once.
+The detail pane holds the rest of a key's life. **Edit** beside **Scopes** changes what the key
+may read, at once and without a new key; emptying the list gives it full access, and the pane says
+so before you save. **Rotate key** issues a fresh key and keeps the old one working for a grace
+period you choose, so a deploy can overlap. **Revoke key** stops it at once.
 
 The same four things can be done from a terminal, which suits a deploy script. A key belongs to
 a user, named by uuid:

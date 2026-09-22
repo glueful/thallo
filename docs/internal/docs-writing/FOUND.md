@@ -34,8 +34,6 @@ the docs for the failed-job commands, the backup and `security:check`.
 
 ### Admin
 
-- **API key scopes cannot be edited after creation from the detail pane**, though the endpoint
-  exists. Code. (api)
 - **Navigation: the editor allows six levels, the default theme draws three.** Code. Deeper items
   are stored and served and never shown. A 409 on save clears the unsaved tree and refetches.
   (navigation)
@@ -183,6 +181,7 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **API key scopes could not be edited after creation.** The detail pane edits them. Test.
 - **Enabling workspaces from a terminal had no way out of `failed`.** `--retry` and `--cancel`;
   `--owner` takes an email; `thallo:create-admin` prints the uuid. Test.
 - **Commerce permissions and the always-Secure cart cookie.** The permissions were never the

@@ -23,6 +23,8 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **An API key's scopes can be changed after it is created.** The detail pane showed them
+  read-only though the endpoint existed; **Edit** beside **Scopes** now changes them in place.
 - **A failed workspace enablement can be resumed or abandoned from the terminal.**
   `thallo:tenancy:enable` printed the failed state and stopped; retry and cancel were in the admin
   only. It now prints the reason and takes `--retry` and `--cancel`, and a failure before the
