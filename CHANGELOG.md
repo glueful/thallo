@@ -23,6 +23,9 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **A chosen image can be removed.** A single-image field (the site logo, dark logo, favicon, the
+  invoice logo, any single asset field in an entry) had no remove control, so once set it could
+  only be replaced. It has a **Remove** button now; the settings pages save the removal as unset.
 - **The delivery API's `published_at` is ISO-8601** (`2026-02-11T09:30:00+00:00`), as the API
   reference declares; it was the raw database timestamp.
 - **`?expand=` no longer narrows the response.** The field selector folded it into `?fields=`, so

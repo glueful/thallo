@@ -190,6 +190,7 @@ async function submit(): Promise<void> {
         v-if="canManage"
         v-model="form.logoBlobUuid"
         :field="logoField"
+        empty-value=""
         :library-button="false"
         :preview="false"
         media-type="image"

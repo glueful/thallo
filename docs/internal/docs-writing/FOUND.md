@@ -43,8 +43,6 @@ the docs for the failed-job commands, the backup and `security:check`.
 
 ### Admin
 
-- **A single asset cannot be cleared.** Code. `AssetField.vue` has a remove control only in its
-  `multiple` branch, so a chosen logo or favicon cannot be unset. (appearance)
 - **API key scopes cannot be edited after creation from the detail pane**, though the endpoint
   exists. Code. (api)
 - **Navigation: the editor allows six levels, the default theme draws three.** Code. Deeper items
@@ -293,6 +291,8 @@ Kept for the record; each is in the CHANGELOG.
   implementation behind the database driver and the failed-job commands. Test.
 - **Every ORM-created auto-increment model came back with id 1** (framework 1.86.0; found
   while fixing the webhooks). The id is now read from the connection that ran the insert. Test.
+- **A single asset could not be cleared.** Single asset fields have a **Remove** button; settings
+  hosts save the removal as `''`. Test.
 - **The delivery API's `published_at` was not ISO-8601, and `?expand=` narrowed the response.**
   Items now carry ISO-8601; an expand-only request keeps every field. Test.
 - **Block-built page bodies were not indexed.** A `blocks` field now contributes the text of each

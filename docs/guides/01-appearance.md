@@ -90,7 +90,8 @@ The file goes to the media library, which accepts a font only while `font/woff2`
 ## Upload your logo and favicon
 
 The **Logos & site icon** card has three pickers. Press one for a chooser with an **Upload** tab
-and a **Media library** tab; either way it stores one file.
+and a **Media library** tab; either way it stores one file. **Remove**, beside a chosen file,
+unsets it.
 
 - **Site logo** — shown by the Logo block and by themes. When it is unset, the site name is shown
   instead.

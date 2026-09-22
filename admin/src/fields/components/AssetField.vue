@@ -19,8 +19,11 @@ const props = withDefaults(
      * (`isAcceptedMediaFile`'s own contract) — defaults to 'image': every pre-existing caller
      * (site logo/favicon, content assets) only ever picks images. */
     mediaType?: string
+    /** What a removed single asset becomes. Content fields drop the value (the default); a
+     * settings form that reads a missing key as "unchanged" passes '' so the removal saves. */
+    emptyValue?: string
   }>(),
-  { libraryButton: true, preview: true, mediaType: 'image' },
+  { libraryButton: true, preview: true, mediaType: 'image', emptyValue: undefined },
 )
 // Stores blob uuid(s) — the backend FieldValidator::assetExistsOnMediaDisk validates by uuid.
 // Single: string | undefined. Multiple: string[].
@@ -78,6 +81,10 @@ watch(file, async (f) => {
 
 function removeUuid(uuid: string) {
   multiUuids.value = multiUuids.value.filter((u) => u !== uuid)
+}
+
+function clearSingle() {
+  model.value = props.emptyValue
 }
 
 // Choose-or-upload: the picker modal (tabbed: upload / library) emits a blob
@@ -171,6 +178,17 @@ function onLibraryPick(uuid: string) {
             data-test="asset-single-preview"
           />
         </div>
+        <UButton
+          v-if="singleUuid && !upload.isLoading.value"
+          size="xs"
+          variant="ghost"
+          color="neutral"
+          icon="i-lucide-x"
+          data-test="asset-single-remove"
+          @click="clearSingle"
+        >
+          Remove
+        </UButton>
       </div>
     </template>
 
