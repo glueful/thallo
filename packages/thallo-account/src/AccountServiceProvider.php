@@ -8,12 +8,14 @@ use Glueful\Auth\Session\SameOriginGuard;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Cache\CacheStore;
 use Glueful\Cache\Contracts\EdgeCacheInterface;
+use Glueful\Extensions\Contracts\Email\EmailTemplateRegistry;
 use Glueful\Extensions\ServiceProvider;
 use Psr\Container\ContainerInterface;
 use Thallo\Account\AccountReturnPath;
 use Thallo\Account\Assets\AccountAssetMap;
 use Thallo\Account\Blocks\AccountBlockTypesContributor;
 use Thallo\Account\Contribution\AccountTemplatePathContributor;
+use Thallo\Account\Email\AccountEmailTemplates;
 use Thallo\Account\Http\AccountAssetController;
 use Thallo\Account\Http\AccountAuthController;
 use Thallo\Account\Http\AccountPageController;
@@ -149,6 +151,10 @@ final class AccountServiceProvider extends ServiceProvider
         }
 
         $this->loadRoutesFrom(__DIR__ . '/../routes.php');
+        // The customers' own verification and reset mails, editable apart from the admin's.
+        if ($container->has(EmailTemplateRegistry::class)) {
+            $container->get(EmailTemplateRegistry::class)->register(...AccountEmailTemplates::definitions());
+        }
         // The admin API for account settings — same capability gate as the public routes, so it is
         // absent (404) when thallo.accounts is off.
         $this->loadRoutesFrom(__DIR__ . '/../routes/admin-routes.php');

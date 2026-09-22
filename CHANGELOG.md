@@ -43,6 +43,9 @@ as the next release, never a mutated tag.
 - **Customers have a profile page.** `/account/profile`, linked from the account dashboard,
   changes a signed-in customer's name and password. A password change asks for the current one
   and signs every other device out. New contract: `StorefrontAccountProfile`.
+- **Customers' emails are edited apart from the admin's.** Settings › Accounts › Emails edits the
+  verification and password reset mails a site's visitors get; the admin's own stay in Settings ›
+  Email. The reset mail uses its template with glueful/users 2.5.
 
 ### Fixed
 - **Signup and form notification mail was reported undelivered after it was sent.** Both read the

@@ -49,11 +49,10 @@ the docs for the failed-job commands, the backup and `security:check`.
   has none; when that release ships, require it and update `docs/operations/06-security.md`.
   Framing on the APIs and an HTTPS redirect stay deliberately out: JSON is not framed, and TLS is
   the web server's job. (security)
-- **The account pages: no profile surface and no admin editor for the account mails.** Code. Both
-  are features to decide on: a profile page needs an update endpoint the users extension lacks,
-  and account-only mail templates need its password-reset mail to take a template name. The
-  unconfigured-mail report is fixed on the framework's `dev` branch (no default host or sender).
-  (accounts)
+- **Customer reset mail waits on glueful/users 2.5.0.** Its reset mail takes a template name;
+  until it ships, Thallo's customers get the built-in reset template. When it ships, require
+  `^2.5` in `core/composer.json`. The unconfigured-mail report is fixed on the framework's `dev`
+  branch (no default host or sender). (accounts)
 - **Self-serve checkout needs releases to finish.** Signup from the pricing page, plan prices and
   **Change plan** are built. Plan prices need glueful/subscriptions 2.4.0 and Stripe plan changes
   need glueful/payvia 2.9.0; when those ship, require them in `core/composer.json`.
@@ -168,6 +167,11 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **The account pages had no profile surface and no editor for the customers' mails** (decided
+  2026-09-22). `/account/profile` changes name and password; Settings › Accounts › Emails edits
+  the customer verification and reset mails. Tests.
+- **Signup and form mail counted as undelivered after it was sent.** Found while testing the
+  account mails: both senders read a result shape the framework dropped in 1.42. Test.
 - **Self-serve checkout sent a public visitor into the admin, with no price and no plan change**
   (decided 2026-09-22). A pricing card leads to a public signup page that creates the workspace,
   signs the visitor in and opens billing with the plan chosen. Plans carry a display price.

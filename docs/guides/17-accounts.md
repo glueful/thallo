@@ -75,6 +75,12 @@ MAIL_FROM_NAME=My site
 The password above is a placeholder; put your own in. Thallo sends the code while the request
 runs, so no queue worker has to be running for it to arrive.
 
+The wording is yours to change. **Settings › Accounts › Emails** holds the two mails a visitor
+gets, **Customer email verification** and **Customer password reset**, apart from the admin's own
+verification and reset mails in **Settings › Email**. Open one to edit its subject and body, send
+a test, or go back to the default. `{{otp}}` is the code and `{{expiry_minutes}}` how long it
+lasts; the reset mail also has `{{name}}`, the customer's first name.
+
 These values in `.env` set how long a code lives and how often one can be asked for:
 
 | Key | Default | What it sets |
@@ -107,11 +113,12 @@ arrives. The reason is written to `storage/logs/`, which is the only place to lo
 
 ## Choose where visitors land after signing in and out
 
-Go to **Settings › Accounts**. The panel has two parts.
+Go to **Settings › Accounts**. The panel has three parts; the third, **Emails**, is described
+under [the mail that carries the code](#set-up-the-mail-that-carries-the-code).
 
 **Account pages** lists the six pages an operator normally links to — Sign in, Register, Verify
-email, Forgot password, Account dashboard, Profile — each one a link you can open in a new tab. It is a
-list, not a setting: the URLs are fixed.
+email, Forgot password, Account dashboard, Profile — each one a link you can open in a new tab.
+It is a list, not a setting: the URLs are fixed.
 
 **Redirects** holds the two settings:
 
@@ -177,8 +184,6 @@ Three ways to change the rest, in increasing order of effort:
 
 - A visitor cannot change their email address. The profile page changes the name and the
   password only.
-- The wording of the verification and reset emails comes from the mail extension's built-in
-  templates. The admin has no screen for editing them.
 
 ## Check it worked
 
