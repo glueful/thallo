@@ -38,6 +38,7 @@ set it to `false` and the job is never registered.
 | `signup_intent_sweep` | `15 2 * * *` | Removes expired and sanitised public-signup intents | `SIGNUP_SWEEP_ENABLED` |
 | `cache_maintenance` | `0 3 * * *` | Runs cache maintenance | `CACHE_MAINTENANCE_ENABLED` |
 | `webhook_cleanup` | `30 3 * * *` | Deletes webhook delivery records past their retention (delivered 7 days, failed 30) | `WEBHOOK_CLEANUP_ENABLED` |
+| `blob_purge` | `40 3 * * *` | Removes deleted uploads, file and row, once `UPLOADS_PURGE_DELETED_AFTER_DAYS` (30) have passed | `BLOB_PURGE_ENABLED` |
 | `import_export_cleanup` | `45 3 * * *` | Deletes finished import and export files older than `import_export.retention_days` (30) | `IMPORT_EXPORT_CLEANUP_ENABLED` |
 | `form_submissions_prune` | `50 3 * * *` | Deletes form submissions older than `FORMS_RETENTION_DAYS`; does nothing while it is 0 | `FORMS_PRUNE_ENABLED` |
 | `update_check` | `0 4 * * *` | Asks Packagist whether a newer `glueful/thallo-core` is published | `UPDATE_CHECK_ENABLED` |

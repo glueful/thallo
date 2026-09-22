@@ -95,6 +95,11 @@ framing header, because the admin frames them and may do so from another host. B
 HSTS appears only once `TRUSTED_PROXIES` lets the request know it arrived over HTTPS. The admin at
 `/admin` carries its own policy and the same three headers.
 
+Every other response, the JSON APIs and the API reference at `/api-docs` included, carries
+`X-Content-Type-Options: nosniff` and `Referrer-Policy: strict-origin-when-cross-origin` wherever
+it did not set them. Those responses are not framed and send no framing header or HSTS: framing
+matters only for pages, and HTTPS is set up where TLS ends.
+
 The `headers` block in `config/security.php` is not what sends them: only `CSP_HEADER` from it
 reaches a response. To send a stricter HSTS (with `includeSubDomains` or `preload`), or these
 headers on files your web server serves directly, set them in the web server.
@@ -183,6 +188,9 @@ than on what the browser claims.
 - `max_size` caps one file at 10 MB; `UPLOADS_MAX_SIZE` changes it, in bytes.
 - The first 64 KB of every upload is scanned, and a file containing `<?php`, `<?=` or `<script`
   is refused — which is what keeps an SVG carrying script out.
+- JPEG, PNG and WebP images are stripped of their embedded metadata (EXIF, XMP, IPTC and
+  comments, which carry a phone's GPS position, camera and timestamps) before they are stored,
+  without re-encoding; a JPEG keeps its orientation. `UPLOADS_STRIP_EXIF=false` keeps it.
 - Each file is stored under a generated name on the `uploads` disk, `storage/uploads/` by
   default. That is outside the document root: the bytes are served by the application at
   `/v1/blobs/{uuid}`, never as a file the web server might execute.

@@ -70,7 +70,7 @@
   ],
   "require": {
     "php": "^8.3",
-    "glueful/framework": "^1.80",
+    "glueful/framework": "^1.87",
     "glueful/thallo-core": "*"
   },
   "require-dev": {

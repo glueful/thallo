@@ -65,6 +65,13 @@ return [
             'enabled' => env('WEBHOOK_CLEANUP_ENABLED', true),
         ],
         [
+            'name' => 'blob_purge',
+            'schedule' => '40 3 * * *',
+            'handler_class' => 'Glueful\\Uploader\\Jobs\\BlobPurgeJob',
+            'description' => 'Remove deleted uploads past uploads.purge_deleted_after_days',
+            'enabled' => env('BLOB_PURGE_ENABLED', true),
+        ],
+        [
             'name' => 'notification_retry_processor',
             'schedule' => '*/10 * * * *',
             'handler_class' => 'Glueful\\Queue\\Jobs\\NotificationRetryJob',

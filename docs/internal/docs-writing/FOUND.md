@@ -13,55 +13,15 @@ Every entry carries its evidence:
 
 ## Bugs in the framework (need a Glueful release)
 
-**Status 2026-09-22: framework 1.86.2 is released and Thallo requires it.** Every fix below marked
-"framework" shipped in 1.86.0–1.86.2. Each is generic: tested in the framework, working on SQLite,
-MySQL and
-PostgreSQL, with the failed-job commands serving the Redis driver too; the API skeleton carries
-the same config corrections. Thallo's follow-ups are done: the webhook delete dialog, the
-`webhook_cleanup` job in the schedule, the `webhooks` queue in the documented worker line, and
-the docs for the failed-job commands, the backup and `security:check`.
-
+**Status 2026-09-22: framework 1.87.0 is released and Thallo requires it**, with meilisearch
+2.0.0, subscriptions 2.4.0, payvia 2.9.0, users 2.5.0 and import-export 1.2.1. Every fix that
+waited on a release has shipped, and Thallo's follow-ups are done (see Fixed).
 
 ## Bugs in Thallo
 
-### Content, publishing and delivery
-
-- **`search:status` is declared twice** (fixed on `glueful/meilisearch`'s `dev` branch, awaiting
-  its 2.0.0 release). Thallo's won, as the later registration, and nothing said so. The extension's
-  commands are now `meilisearch:*`, and the framework's console (`dev`) logs any name taken twice.
-  When 2.0.0 ships, require it. (search)
-
-### Admin
-
-- **Media.** Split, each needs its own check:
-  - Search uses `LIKE`; case sensitivity depends on the collation. Code.
-  - Deleting a file soft-deletes it; the bytes are never reclaimed. Code.
-  - Optimize leaves stale resized images (fixed on the framework's `dev` branch: the variant cache
-    and its ETag are versioned by the blob's size and update time).
-  - `UPLOADS_STRIP_EXIF` is read by nothing. Code, by search.
-  (media)
-
-### Setup, operations and security
-
-- **The APIs and `/api-docs` send no security headers** (fixed on the framework's `dev` branch,
-  awaiting the next framework patch). The rendered site and the admin page send their own. The
-  framework's response chokepoint now adds `nosniff` and a referrer policy to every response that
-  has none; when that release ships, require it and update `docs/operations/06-security.md`.
-  Framing on the APIs and an HTTPS redirect stay deliberately out: JSON is not framed, and TLS is
-  the web server's job. (security)
-- **Customer reset mail waits on glueful/users 2.5.0.** Its reset mail takes a template name;
-  until it ships, Thallo's customers get the built-in reset template. When it ships, require
-  `^2.5` in `core/composer.json`. The unconfigured-mail report is fixed on the framework's `dev`
-  branch (no default host or sender). (accounts)
-- **Self-serve checkout needs releases to finish.** Signup from the pricing page, plan prices and
-  **Change plan** are built. Plan prices need glueful/subscriptions 2.4.0 and Stripe plan changes
-  need glueful/payvia 2.9.0; when those ship, require them in `core/composer.json`.
-  (subscriptions)
-- **`import-export:cleanup` leaves completed exports on disk** (fixed on `glueful/import-export`'s
-  `dev` branch, awaiting its next release). It unlinked only `tmp`-role files, which nothing
-  records, then deleted every row. It now deletes a finished job's result and tmp files through
-  their disk and keeps the rows when a file cannot be deleted. When that release ships, require it
-  and update the cleanup paragraph in `docs/operations/04-backups.md`. (backups)
+- **Collections' `filter[field][like]` is case-sensitive on PostgreSQL and treats `%` and `_` as
+  wildcards.** It is part of the public collections API, so switching it to `whereContains()`
+  changes a contract: decide, then document. Code.
 
 ## Things a reader cannot do, or is not told
 
@@ -87,7 +47,6 @@ what follows is still open or unchecked.
   config validated, but get no admin template lint.
 - **The `links` block's items are raw JSON.**
 - **No `config:cache`.**
-- **`UPLOADS_STRIP_EXIF` is read by nothing** (see Media above).
 
 ### Site features
 
@@ -121,6 +80,16 @@ recapturing after the next deploy.
 
 Kept for the record; each is in the CHANGELOG.
 
+- **Released and required (2026-09-22):** `search:status` is Thallo's alone (meilisearch 2.0
+  moved its commands to `meilisearch:*`); the APIs and `/api-docs` send `nosniff` and a referrer
+  policy (framework 1.87, security page updated); `import-export:cleanup` deletes finished jobs'
+  files through their disk (1.2.1, backups page updated); customer reset mail uses its own
+  template (users 2.5); plan prices and Stripe plan changes (subscriptions 2.4, payvia 2.9);
+  unconfigured mail reports itself (framework 1.87).
+- **Media, all four:** search folds case and matches literally (`whereContains()`; API key search
+  too); deleted files are purged after 30 days (`blob_purge` scheduled); optimized images'
+  variants follow the file; `UPLOADS_STRIP_EXIF` is read and strips metadata by default. Docs
+  updated. Tests.
 - **A rich-text body rendered escaped** (confirmed 2026-09-22). It renders through `safe_html`
   when the field's format is rich; entry templates get `rich_fields`. Test.
 - **Boundaries documented in `docs/limitations.md`** (decided 2026-09-22): no database creation,

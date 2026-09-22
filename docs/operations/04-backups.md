@@ -171,10 +171,12 @@ on the `import-export` queue runs it and writes
 `storage/import-export/exports/{job uuid}/thallo-content-0001.ndjson`, one file per batch;
 **Download** on the job's row in the admin streams them back as one file.
 
-Those result files stay on disk. `php glueful import-export:cleanup` deletes a finished job's
-temporary files and its rows — including the row that **Download** needs — and leaves the NDJSON
-where it is. Each one holds every entry on the site, so delete them once you have them somewhere
-safe.
+Each result file holds every entry on the site, so do not keep them longer than you need to.
+The scheduler's `import_export_cleanup` job runs `php glueful import-export:cleanup` every night:
+it deletes each finished job older than `import_export.retention_days` (30), its NDJSON and temporary
+files through the disk they were written to, and then its row, after which **Download** has
+nothing to stream. A job whose file cannot be deleted keeps its row for the next run. Copy an
+export somewhere safe before it ages out; `--days=N` runs the cleanup by hand with another age.
 
 After importing a bundle, run `php glueful thallo:resync`. The importer writes rows straight to
 the tables, so nothing that normally follows a publish has run.

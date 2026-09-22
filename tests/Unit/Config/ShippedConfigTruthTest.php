@@ -41,6 +41,12 @@ final class ShippedConfigTruthTest extends TestCase
                 $jobs['webhook_cleanup']['handler_class'] ?? null,
                 $dir
             );
+            // Deleted uploads are purged only if the app's list names the framework job (1.87).
+            self::assertSame(
+                'Glueful\\Uploader\\Jobs\\BlobPurgeJob',
+                $jobs['blob_purge']['handler_class'] ?? null,
+                $dir,
+            );
             $retry = $jobs['notification_retry_processor']['parameters'];
             self::assertSame(50, (int) ($retry['options']['limit'] ?? 0), $dir);
             self::assertArrayNotHasKey('settings', $config, $dir);

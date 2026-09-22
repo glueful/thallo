@@ -56,6 +56,23 @@ final class MediaLibraryListTest extends AppTestCase
         self::assertGreaterThanOrEqual(1, $data['total'] ?? 0);
     }
 
+    public function testSearchIgnoresCaseAndTakesWildcardsLiterally(): void
+    {
+        $harbour = $this->seedBlob('Harbour-At-Dusk.jpg');
+        $percent = $this->seedBlob('50%_off.png');
+        $other = $this->seedBlob('fifty-off.png');
+        $controller = $this->container()->get(MediaAdminController::class);
+        $search = function (string $q) use ($controller): array {
+            $response = $controller->index(Request::create('/v1/admin/media', 'GET', ['q' => $q, 'per_page' => 30]));
+            $data = json_decode((string) $response->getContent(), true)['data'] ?? [];
+
+            return array_column($data['media'] ?? [], 'uuid');
+        };
+
+        self::assertContains($harbour, $search('harbour'));
+        self::assertSame([$percent], array_values(array_intersect([$percent, $other], $search('50%_'))));
+    }
+
     public function testFontsAreATypeOfTheirOwn(): void
     {
         // A site's own typefaces live in the media library: the font picker lists only them, and

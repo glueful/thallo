@@ -77,6 +77,11 @@ as the next release, never a mutated tag.
   without history, site-wide SEO fallbacks and more.
 
 ### Fixed
+- **Media and API key search matched case on PostgreSQL**, though the API key filter promised
+  otherwise, and read `%` and `_` as wildcards. Both use the framework's case-folding, literal
+  `whereContains()`. Test.
+- **Deleted uploads stayed on disk for good.** The scheduler's `blob_purge` job removes them after
+  `UPLOADS_PURGE_DELETED_AFTER_DAYS` (30).
 - **A rich-text body showed its HTML tags.** The default entry template printed every text `body`
   escaped. A body whose format is rich text now renders as sanitised HTML; entry templates get
   `rich_fields` to tell. Test.
@@ -303,6 +308,16 @@ as the next release, never a mutated tag.
   already fallen behind the extension. The default theme's `menus` key, which nothing read, is gone.
 
 ### Upgrade Notes
+- **Thallo now requires glueful/framework 1.87, glueful/meilisearch 2.0, glueful/subscriptions
+  2.4, glueful/payvia 2.9, glueful/users 2.5 and glueful/import-export 1.2.1.** Run
+  `composer update`, then `php glueful migrate:run` for the plan price columns.
+- **Add the `blob_purge` job to your `config/schedule.php`** (copy it from a new site's file) so
+  deleted uploads leave the disk; your schedule replaces the framework's list.
+- **Set `MAIL_HOST` and `MAIL_FROM`** if they are unset: mail no longer falls back to a placeholder
+  host and sender, and reports itself unconfigured instead.
+- **Uploaded images are now stripped of their metadata.** `UPLOADS_STRIP_EXIF=false` keeps it.
+- **Meilisearch's own commands moved to `meilisearch:*`.** `search:status` and `search:reindex`
+  are Thallo's and unchanged.
 - **Check the default language** in Settings › Languages: the site now uses it everywhere. A
   default locale saved in Settings › General before this release, and `I18N_DEFAULT_LOCALE`, no
   longer override it.

@@ -42,7 +42,8 @@ is refused, which rules out an SVG that carries script.
 ## Find a file again
 
 The list is newest first, thirty files to a page, with the count and a pager at the bottom. The
-search box matches the file's name. The buttons above it — **All**, **Images**, **Videos**,
+search box matches the file's name, in any case, and takes `%` and `_` as the characters they
+are. The buttons above it — **All**, **Images**, **Videos**,
 **Audio** and **Docs** — narrow by type. **Docs** means everything that is not an image, a
 video, audio or a font, so a typeface uploaded from **Site › Appearance** shows up only under
 **All**.
@@ -99,8 +100,9 @@ is `gd` or `imagick`.
 original. If the re-encode is no smaller, Thallo keeps the original bytes and says
 **Already optimal**.
 
-Variants already in the cache keep the old bytes until their entry expires, so the saving
-reaches a page later than it reaches the library.
+Resized variants follow the new file at once: each one is keyed to the file's size and last
+change, so the next request for a thumbnail or a `srcset` width is made from the optimized
+original.
 
 ## Where the files are stored
 
@@ -121,9 +123,11 @@ Nothing in `storage/uploads/` is in the database, so it needs backing up alongsi
 
 ## Delete a file
 
-Press **Delete**, then **Delete** in the confirmation. The deletion is soft: the row is marked
-deleted and the bytes stay on the disk. The library stops listing the file, `/v1/blobs/{uuid}`
-answers 404, and there is no undo in the admin. The deletion is recorded under
+Press **Delete**, then **Delete** in the confirmation. The library stops listing the file,
+`/v1/blobs/{uuid}` answers 404, and there is no undo in the admin. The bytes stay on the disk for
+a grace period, 30 days by default (`UPLOADS_PURGE_DELETED_AFTER_DAYS`); then the scheduler's
+`blob_purge` job removes the file and its row for good. `php glueful blobs:purge` does it by
+hand. The deletion is recorded under
 **Users & Access › Audit Log**.
 
 Before you delete, read the panel's **Used in** list. It names the entries whose drafts point at
