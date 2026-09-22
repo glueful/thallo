@@ -132,6 +132,16 @@ jobs:
           QUERY_CACHE_ENABLED=false
           QUERY_CACHE_STORE=array
           QUEUE_CONNECTION=database
+          # Framework 1.87 dropped the placeholder SMTP host and sender, so mail is unconfigured
+          # unless an app says otherwise — and an unconfigured email channel reports itself
+          # unavailable, which changes what public signup does. The suite wants the channel
+          # present and its sends failing (nothing listens on 1025), as a real install has it
+          # before SMTP is set up.
+          MAIL_MAILER=smtp
+          MAIL_HOST=127.0.0.1
+          MAIL_PORT=1025
+          MAIL_FROM=ci@thallo.test
+          MAIL_FROM_NAME=Thallo
           EOF
 
       - name: Setup PHP
