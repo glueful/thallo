@@ -5884,6 +5884,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -6066,6 +6067,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -6210,6 +6212,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -6506,6 +6509,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -6667,6 +6671,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -6811,6 +6816,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -21414,6 +21420,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -21598,6 +21605,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -21742,6 +21750,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -21994,6 +22003,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null
@@ -22739,6 +22749,7 @@ export interface operations {
                     | 'json'
                     | 'blocks'
                     | 'token'
+                    | 'box'
                   required?: boolean | null
                   localized?: boolean | null
                   filterable?: boolean | null

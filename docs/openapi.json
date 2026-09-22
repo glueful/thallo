@@ -3,7 +3,7 @@
     "info": {
         "title": "Thallo CMS API",
         "version": "1.0.0",
-        "description": "The Thallo headless CMS API.\n\n## Authentication\n\n- **Delivery API** (`\/v1\/content\/*`) \u2014 send an API key in the `X-API-Key` header. The key must carry `read:content` or `read:content:{type}` unless the content type explicitly opts into public delivery. Keys are environment-prefixed (`gf_live_*` \/ `gf_test_*`) and provisioned out of band.\n- **Admin API** (`\/v1\/admin\/*`) \u2014 send a bearer JWT in the `Authorization` header (`Authorization: Bearer <token>`). Each route also enforces a `thallo.*` permission (named in the operation description). Obtain a token from your Glueful auth endpoint (e.g. `POST \/v1\/auth\/login`).\n- **Preview** (`GET \/v1\/preview\/{token}`) \u2014 unauthenticated: the signed, short-lived token in the path is itself the capability.\n\nOnly published content is ever returned by the delivery API; drafts are reachable only through a valid preview token."
+        "description": "The Thallo headless CMS API.\n\n## Authentication\n\n- **Delivery API** (`\/v1\/content\/*`) \u2014 send an API key in the `X-API-Key` header. The key must carry `read:content` or `read:content:{type}` unless the content type explicitly opts into public delivery. Keys are environment-prefixed (`gf_live_*` \/ `gf_test_*`) and provisioned out of band.\n- **Admin API** (`\/v1\/admin\/*`) \u2014 send a bearer JWT in the `Authorization` header (`Authorization: Bearer <token>`). Each route also enforces a permission (`content.*`, `users.*`, `styles.manage`, `system.access` and so on; named in the operation description). Obtain a token from your Glueful auth endpoint (e.g. `POST \/v1\/auth\/login`).\n- **Preview** (`GET \/v1\/preview\/{token}`) \u2014 unauthenticated: the signed, short-lived token in the path is itself the capability.\n\nOnly published content is ever returned by the delivery API; drafts are reachable only through a valid preview token."
     },
     "servers": [
         {
@@ -2031,6 +2031,96 @@
             "post": {
                 "operationId": "accountLoginSubmit",
                 "summary": "Account Login Submit",
+                "tags": [
+                    "Account"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "\/account\/login\/verify": {
+            "get": {
+                "operationId": "accountLoginVerify",
+                "summary": "Account Login Verify",
+                "tags": [
+                    "Account"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "operationId": "accountLoginVerifySubmit",
+                "summary": "Account Login Verify Submit",
                 "tags": [
                     "Account"
                 ],
@@ -38470,7 +38560,8 @@
                                                                                 "asset",
                                                                                 "json",
                                                                                 "blocks",
-                                                                                "token"
+                                                                                "token",
+                                                                                "box"
                                                                             ]
                                                                         },
                                                                         "required": {
@@ -39096,7 +39187,8 @@
                                                                             "asset",
                                                                             "json",
                                                                             "blocks",
-                                                                            "token"
+                                                                            "token",
+                                                                            "box"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -39340,7 +39432,8 @@
                                                                             "asset",
                                                                             "json",
                                                                             "blocks",
-                                                                            "token"
+                                                                            "token",
+                                                                            "box"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -40059,7 +40152,8 @@
                                                                             "asset",
                                                                             "json",
                                                                             "blocks",
-                                                                            "token"
+                                                                            "token",
+                                                                            "box"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -40463,7 +40557,8 @@
                                                                             "asset",
                                                                             "json",
                                                                             "blocks",
-                                                                            "token"
+                                                                            "token",
+                                                                            "box"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -40835,7 +40930,8 @@
                                                                             "asset",
                                                                             "json",
                                                                             "blocks",
-                                                                            "token"
+                                                                            "token",
+                                                                            "box"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -65860,7 +65956,8 @@
                                                                                 "asset",
                                                                                 "json",
                                                                                 "blocks",
-                                                                                "token"
+                                                                                "token",
+                                                                                "box"
                                                                             ]
                                                                         },
                                                                         "required": {
@@ -66470,7 +66567,8 @@
                                                                             "asset",
                                                                             "json",
                                                                             "blocks",
-                                                                            "token"
+                                                                            "token",
+                                                                            "box"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -66704,7 +66802,8 @@
                                                                             "asset",
                                                                             "json",
                                                                             "blocks",
-                                                                            "token"
+                                                                            "token",
+                                                                            "box"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -67271,7 +67370,8 @@
                                                                             "asset",
                                                                             "json",
                                                                             "blocks",
-                                                                            "token"
+                                                                            "token",
+                                                                            "box"
                                                                         ]
                                                                     },
                                                                     "required": {
@@ -68778,7 +68878,8 @@
                                                                             "asset",
                                                                             "json",
                                                                             "blocks",
-                                                                            "token"
+                                                                            "token",
+                                                                            "box"
                                                                         ]
                                                                     },
                                                                     "required": {

@@ -23,6 +23,10 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **A `token` field can be finished in the field builder, and `box` is offered.** The builder
+  listed `token` without asking for its vocabulary domain, which the server requires, so it could
+  never be saved; it now has a **Token domain** picker. `box`, which the server accepted, was never
+  offered. Neither shows the Filterable switch, which the server refuses for both.
 - **Downloading an export failed on every stock install.** Export results were recorded on a
   `local` storage disk that no storage config defined, so **Download** on the job's row broke. Core
   now supplies that disk, rooted at the site's `storage/` (a site's own `local` disk wins), and the

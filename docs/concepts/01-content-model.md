@@ -49,9 +49,7 @@ A field has a name matching `[a-z][a-z0-9_]*`, a type, and the options its type 
 | `json` | Any object or array, unvalidated. |
 | `blocks` | An ordered list of [blocks](02-blocks.md). |
 | `token` | One named value from a style vocabulary. |
-
-A twelfth type, `box`, holds four numeric sides. Block types use it; the content type editor does
-not offer it.
+| `box` | Four numeric sides (top, right, bottom, left), in pixels. |
 
 Three switches sit on every field. **Required** holds on an entry's own fields at every save; a
 field that is present but empty is rejected only at publish. **Localized** is explained below.

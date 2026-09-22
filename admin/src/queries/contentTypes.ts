@@ -17,6 +17,7 @@ export const FIELD_TYPES = [
   'json',
   'blocks',
   'token',
+  'box',
 ] as const
 export type FieldType = (typeof FIELD_TYPES)[number]
 

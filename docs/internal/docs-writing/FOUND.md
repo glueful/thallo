@@ -26,9 +26,6 @@ the docs for the failed-job commands, the backup and `security:check`.
 
 ### Content, publishing and delivery
 
-- **`token` is offered as a field type and cannot be saved from the admin.** Code. The schema
-  editor has no domain input and the server requires one. `box` is allowed by the backend and
-  never offered. (first-content-type)
 - **Three "default locale"s can disagree:** `i18n_locales.is_default`, Settings › General and
   `config/i18n.php`. Code. Disabling a language does not stop the delivery API serving it
   (Code). (languages)
@@ -203,6 +200,8 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **`token` could not be saved from the field builder, and `box` was never offered.** The builder
+  asks for the token's domain and offers `box`. Test.
 - **The database backup stays off by default** (decided 2026-09-22). It works, but it needs
   `pg_dump` on the scheduler host and writes to the same machine as the database.
 - **`.env.example` left out settings the config reads.** `PREVIEW_TTL`, `VERSION_KEEP`,

@@ -59,8 +59,9 @@ These are the types the **Type** list offers:
 | `json` | An object or an array, edited as JSON. |
 | `blocks` | A page body: an ordered list of blocks. |
 
-The list also offers `token`, which the field builder cannot finish: a token field has to name a
-style vocabulary domain, and the form does not ask for one.
+Two more types serve design settings. `token` holds one named value from the style vocabulary;
+choose which set in **Token domain** (`color`, `spacing` and so on). `box` holds four numeric
+sides, such as a padding. Neither can be filterable.
 
 The eye button above the fields, **Preview the entry form**, shows the form authors will get.
 Nothing typed into it is kept.
