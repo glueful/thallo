@@ -99,14 +99,15 @@ badge becomes Scheduled, and the schedule is listed under the field with its act
 status; the cross beside it cancels it while it is still pending. A second publish scheduled for
 the same locale replaces the pending one rather than queueing another.
 
-A schedule fires only if the site's scheduler cron line is installed, and nothing at the entry
-says when it is not. The `schedules_run` job fires due rows every minute — see
+A schedule fires only if the site's scheduler cron line is installed. While a schedule is pending
+and the scheduler has not ticked for five minutes, the **Publishing** tab says it will not happen
+on time. The `schedules_run` job fires due rows every minute — see
 [the scheduler and the queue](../operations/03-scheduler-and-queues.md).
 **Settings › General › Publish scheduler** stops the firing while the cron tick keeps running.
 
 A due schedule takes the publish path the button takes, with the same validation and review gate,
-as the user who created it. Its status ends at `done`, at `failed` with the reason stored, or at
-`canceled` when the entry has been deleted. Unpublishing on a schedule is in the admin API, but
+as the user who created it. Its status ends at `done`, at `failed` with the reason shown under
+it, or at `canceled` when the entry has been deleted. Unpublishing on a schedule is in the admin API, but
 the admin has no control for it.
 
 ## Version history and restoring

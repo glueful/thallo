@@ -23,6 +23,11 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **A failed schedule says why, and a schedule that cannot run says so.** The Publishing tab
+  showed a failed schedule as a badge, with the reason stored but hidden, and nothing warned that
+  a missing scheduler cron meant a pending schedule would never fire. The reason now shows under
+  the failed schedule, and while one is pending and the scheduler has not ticked for five minutes
+  the tab says it will not happen on time.
 - **A chosen image can be removed.** A single-image field (the site logo, dark logo, favicon, the
   invoice logo, any single asset field in an entry) had no remove control, so once set it could
   only be replaced. It has a **Remove** button now; the settings pages save the removal as unset.

@@ -29,9 +29,6 @@ the docs for the failed-job commands, the backup and `security:check`.
 
 ### Content, publishing and delivery
 
-- **A failed schedule is silent.** Code. The reason is stored on the row; the Publishing panel
-  shows a status badge and no reason, and nothing at the entry warns that the scheduler cron is
-  missing. (publishing)
 - **`token` is offered as a field type and cannot be saved from the admin.** Code. The schema
   editor has no domain input and the server requires one. `box` is allowed by the backend and
   never offered. (first-content-type)
@@ -291,6 +288,8 @@ Kept for the record; each is in the CHANGELOG.
   implementation behind the database driver and the failed-job commands. Test.
 - **Every ORM-created auto-increment model came back with id 1** (framework 1.86.0; found
   while fixing the webhooks). The id is now read from the connection that ran the insert. Test.
+- **A failed schedule was silent.** The reason shows under a failed schedule, and the Publishing
+  tab warns while a schedule is pending and the scheduler is not ticking. Test.
 - **A single asset could not be cleared.** Single asset fields have a **Remove** button; settings
   hosts save the removal as `''`. Test.
 - **The delivery API's `published_at` was not ISO-8601, and `?expand=` narrowed the response.**

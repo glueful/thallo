@@ -83,12 +83,19 @@ describe('F4 publishing queries', () => {
     })
   })
 
-  it('fetchSchedules returns data.schedules', async () => {
+  it('fetchSchedules returns data.schedules and whether the scheduler is ticking', async () => {
     GET.mockResolvedValue({
-      data: { data: { schedules: [{ uuid: 's1', action: 'publish', run_at: 'x' }] } },
+      data: {
+        data: {
+          schedules: [{ uuid: 's1', action: 'publish', run_at: 'x' }],
+          scheduler: { ticking: false },
+        },
+      },
       error: undefined,
     })
-    expect((await fetchSchedules('e1'))[0].uuid).toBe('s1')
+    const result = await fetchSchedules('e1')
+    expect(result.schedules[0].uuid).toBe('s1')
+    expect(result.schedulerTicking).toBe(false)
   })
 
   it('mintPreview returns the token; buildPreviewUrl appends it', async () => {

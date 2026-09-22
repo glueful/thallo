@@ -187,7 +187,13 @@ async function onCancelSchedule(scheduleUuid: string) {
   }
 }
 const localeSchedules = computed(() =>
-  (schedules.value ?? []).filter((s) => !s.locale || s.locale === props.locale),
+  (schedules.value?.schedules ?? []).filter((s) => !s.locale || s.locale === props.locale),
+)
+// Every schedule waits on the scheduler's cron tick; say so while one is pending and it is not.
+const schedulerDown = computed(
+  () =>
+    schedules.value?.schedulerTicking === false &&
+    localeSchedules.value.some((s) => (s.status ?? 'pending') === 'pending'),
 )
 
 // Void handler for UButton's typed onClick — an inline toggle returns a value.
@@ -316,6 +322,10 @@ function toggleSchedule(): void {
             Schedule
           </UButton>
         </div>
+        <p v-if="schedulerDown" class="text-xs text-warning" data-test="scheduler-not-running">
+          The scheduler is not running, so this will not happen on time. An administrator needs to
+          add its cron entry (Utilities › Health shows the line).
+        </p>
         <ul v-if="localeSchedules.length" class="space-y-1">
           <li
             v-for="s in localeSchedules"
@@ -325,6 +335,13 @@ function toggleSchedule(): void {
             <span class="text-muted">
               {{ s.action }} · {{ s.run_at }}
               <UBadge size="sm" variant="subtle">{{ s.status ?? 'pending' }}</UBadge>
+              <span
+                v-if="s.status === 'failed' && typeof s.failure_reason === 'string'"
+                class="block text-xs text-error"
+                data-test="schedule-failure"
+              >
+                {{ s.failure_reason }}
+              </span>
             </span>
             <UButton
               color="error"
