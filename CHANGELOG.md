@@ -23,6 +23,9 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **`LOG_RETENTION_DAYS` changed nothing.** The scheduled log cleanup reads its retention from
+  `options.retention_days`; the shipped schedule passed `retentionDays`, so every site kept thirty
+  days of logs whatever it set. The schedule now passes the key the job reads.
 - **Removing a field said migrations were "planned for a later release".** Delete and rename
   migrations have shipped; the refusal now names the migration route and says a field cannot be
   retyped. The API key form's scope example was `write:posts`, which grants nothing Thallo
@@ -95,6 +98,9 @@ as the next release, never a mutated tag.
 - **Turn the broken backup job off.** Your `config/schedule.php` is your own copy and still runs
   `database_backup` whenever `APP_ENV=production`; it produces no dump. Set `DB_BACKUP_ENABLED=false`
   in `.env` and take your own backups (docs/operations/04-backups.md).
+- **Make `LOG_RETENTION_DAYS` count.** In your `config/schedule.php`, change the `log_cleanup`
+  job's `'parameters' => ['retentionDays' => …]` to
+  `'parameters' => ['options' => ['retention_days' => env('LOG_RETENTION_DAYS', 30)]]`.
 - **Check for exposed logs.** Remove a `LOG_FILE_PATH=storage/logs` line from `.env` (logs then go
   to `storage/logs/` under the site), then delete `public/storage/logs/`. Your `config/logging.php`
   is your own copy and keeps the old behaviour until the line is gone; `php glueful thallo:doctor`

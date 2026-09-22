@@ -29,8 +29,11 @@ return [
             'name' => 'log_cleanup',
             'schedule' => '0 1 * * *',
             'handler_class' => 'Glueful\\Queue\\Jobs\\LogCleanupJob',
+            // LogCleanupJob reads options.retention_days; any other key is ignored and it keeps 30.
             'parameters' => [
-                'retentionDays' => env('LOG_RETENTION_DAYS', 30)
+                'options' => [
+                    'retention_days' => env('LOG_RETENTION_DAYS', 30),
+                ],
             ],
             'description' => 'Clean up old log files',
             'enabled' => env('LOG_CLEANUP_ENABLED', true),
