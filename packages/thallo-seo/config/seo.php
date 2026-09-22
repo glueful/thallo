@@ -3,8 +3,9 @@
 declare(strict_types=1);
 
 return [
-    // NOTE: enable/disable is NOT configured here — the capability switchboard in the app's
-    // config/thallo.php ('capabilities' => ['thallo.seo' => false]) is the only gate.
+    // NOTE: enable/disable is NOT configured here. The switch is Extensions › Capabilities in the
+    // admin; until it is flipped there, the app's optional config/thallo.php 'capabilities' map
+    // ('thallo.seo' => false) sets the default.
 
     // Per-type fallback field mapping: which entry field feeds each meta slot when there
     // is no per-entry override. Keyed by content-type slug.

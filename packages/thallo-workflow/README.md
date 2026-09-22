@@ -2,8 +2,8 @@
 
 A single-stage **editorial approval workflow** for [Thallo](https://thallo.dev) — submit →
 review → approve/request-changes over the draft/publish lifecycle — packaged as a
-**removable capability pack**. Core stays workflow-agnostic behind one tiny seam: the
-`PublishGate` contract. With the pack absent or disabled, publishing behaves exactly as
+**capability pack**. Core stays workflow-agnostic behind one tiny seam: the
+`PublishGate` contract. With the capability disabled, publishing behaves exactly as
 stock Thallo.
 
 ## The state machine
@@ -51,16 +51,17 @@ emergency publishes never vanish from governance history.
 - Routes (capability → `auth` → `content_permission`), under `/v1/admin/workflow`:
   `POST /entries/{uuid}/{locale}/submit|approve|request-changes|withdraw`,
   `GET /entries/{uuid}/{locale}` (state + history), `GET /queue` (paginated in-review
-  list, enriched with draft title/type via the `DraftSummaryReader` contract).
+  list, enriched with draft title/type via the `DraftSummaryReader` contract). The admin's
+  **Review queue** page (`/workflow`) lists that queue.
 - Events `ReviewSubmitted` / `ReviewApproved` / `ChangesRequested` are dispatched for
   future notification wiring; nothing consumes them in v1.
 
 ## The capability
 
-`thallo.workflow`, **enabled by default** when installed. Disable via the app's
-`config/thallo.php` switchboard (`'capabilities' => ['thallo.workflow' => false]`): routes
-404, the lifecycle listener is not wired, and the gate short-circuits — publish behaves
-exactly as current core. There is deliberately no `enabled` config key in the pack.
+`thallo.workflow`, **enabled by default**. An operator turns it off or on in the admin under
+**Extensions › Capabilities** (stored system-wide; it overrides the deploy-time
+`thallo.capabilities` config map). Off: routes 404, the lifecycle listener is not wired, and the
+gate short-circuits — publish behaves exactly as current core. There is deliberately no `enabled` config key in the pack.
 
 ## Boundary
 
@@ -70,12 +71,12 @@ imported). Lifecycle reactions subscribe to the `ContentLifecycleEvent` contract
 (`name()`/`payload()`), never the engine's concrete event classes. The repo's
 `composer boundaries` check enforces this.
 
-## Install / remove
+## Install
 
-Bundled by default in the Thallo create-project template. To add to an existing app:
-`composer require glueful/thallo-workflow`, `./thallo extensions:enable thallo-workflow`,
-`./thallo migrate:run`. To remove: disable + `composer remove` — core boots and publishes
-unchanged; the workflow tables remain on disk (drop manually if you want the data gone).
+The pack ships with Thallo: `glueful/thallo-core` requires it at the same version and the project's
+`config/serviceproviders.php` loads its provider, so there is nothing to install or enable per pack.
+`php glueful migrate:run` creates its tables with the rest of the schema. Switching the capability
+off leaves the workflow tables on disk.
 
 ## Out of scope (v1)
 

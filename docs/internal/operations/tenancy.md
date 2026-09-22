@@ -9,25 +9,28 @@ Tenancy has two providers with different lifecycles:
   administration, domain lifecycle, and tenant-context runner even when row-level enforcement is
   off.
 - `Glueful\Extensions\Tenancy\TenancyServiceProvider` is the optional enforcement provider in
-  `config/extensions.php`. The enablement machine adds it only after retrofit succeeds and removes
-  it during disable. It owns tenant resolution, middleware, table scoping, the query guard, and
+  `config/extensions.php`, listed there under `protected`. The enablement machine adds it only after
+  retrofit succeeds and removes it during disable. It owns tenant resolution, middleware, table scoping, the query guard, and
   insert stamping.
 
 For upgrades to `glueful/tenancy` 2.0.0 or later, ensure the control-plane provider appears before
-`App\Providers\CoreServiceProvider`:
+`Thallo\Core\Providers\CoreServiceProvider`:
 
 ```php
 return [
     'enabled' => [
         'Glueful\\Extensions\\Tenancy\\TenancyControlPlaneProvider',
-        'App\\Providers\\CoreServiceProvider',
+        'Thallo\\Core\\Providers\\CoreServiceProvider',
     ],
 ];
 ```
 
-`php glueful extensions:enable tenancy` manages only the enforcement provider; it cannot add the
-always-on control-plane provider. A deployment upgrading an existing installation must merge the
-`config/serviceproviders.php` entry explicitly.
+Because the enforcement provider is protected, `php glueful extensions:enable glueful/tenancy`
+refuses it and points at the enablement flow, and the Extensions › Capabilities switchboard cannot
+turn `thallo.tenancy` on. Workspaces are enabled through Settings › Workspaces or
+`php glueful thallo:tenancy:enable`. Neither path adds the always-on control-plane provider: a
+deployment upgrading an existing installation must merge the `config/serviceproviders.php` entry
+explicitly.
 
 Normal workers use the persisted `SystemFlags::enforcementActive()` state, not service-binding
 presence, to decide whether tenant-aware work is permitted. `RELOADING`, `FINALIZING`, and
