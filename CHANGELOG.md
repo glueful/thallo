@@ -23,6 +23,10 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **A referenced entry's page settings leaked into the delivery API.** The editor-only
+  `_presentation` key was stripped from the requested entry but not from the entries its
+  reference fields expand to, so each one carried its title and layout settings into the public
+  JSON. They are now dropped at every depth, in reference and blocks fields alike.
 - **Admin messages that said something false.** Restoring a version said the draft now carried
   that version; the restore makes it the live page again and leaves the draft alone, and the toast
   now says so. The workspaces capability told you to run `extensions:enable`, which refuses a

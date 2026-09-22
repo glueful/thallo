@@ -47,10 +47,12 @@ final class DeliveryApiTest extends AppTestCase
         $this->type = (new ContentTypeRepository($this->connection()))->create([
             'slug' => 'post',
             'name' => 'Post',
+            'public_delivery' => true,
             'schema' => [
                 ['name' => 'title', 'type' => 'string', 'required' => true],
                 ['name' => 'body', 'type' => 'text'],
                 ['name' => 'priority', 'type' => 'number', 'filterable' => true, 'filter_type' => 'number'],
+                ['name' => 'related', 'type' => 'reference'],
             ],
         ]);
     }
@@ -196,6 +198,34 @@ final class DeliveryApiTest extends AppTestCase
         self::assertSame('Presented', $data['fields']['title']);
         self::assertArrayNotHasKey('_presentation', $data['fields']);
         self::assertStringNotContainsString('_presentation', (string) $resp->getContent());
+    }
+
+    public function testPresentationIsStrippedFromExpandedReferences(): void
+    {
+        // The root strip ran after expansion had spliced whole target rows in, so a
+        // referenced entry's _presentation was served inside the root's payload, at
+        // every depth the expansion reached.
+        $deep = $this->publish([
+            'title' => 'Deep',
+            '_presentation' => ['show_title' => false, 'layout' => 'full'],
+        ]);
+        $near = $this->publish([
+            'title' => 'Near',
+            'related' => $deep,
+            '_presentation' => ['layout' => 'centered'],
+        ]);
+        $root = $this->publish(['title' => 'Root', 'related' => $near]);
+
+        foreach ([[], ['expand' => 'related']] as $query) {
+            $resp = $this->controller()->show($this->get($query), $this->showQuery($query), 'post', $root);
+            self::assertSame(200, $resp->getStatusCode());
+            $body = (string) $resp->getContent();
+            $data = json_decode($body, true)['data'];
+
+            self::assertSame('Near', $data['fields']['related']['fields']['title']);
+            self::assertSame('Deep', $data['fields']['related']['fields']['related']['fields']['title']);
+            self::assertStringNotContainsString('_presentation', $body);
+        }
     }
 
     public function testShowReturnsPublishedFields(): void
