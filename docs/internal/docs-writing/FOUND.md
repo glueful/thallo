@@ -13,15 +13,20 @@ Every entry carries its evidence:
 
 ## Bugs in the framework (need a Glueful release)
 
-**Status 2026-09-22: three fixed in the framework's `dev` branch, not yet released.** Webhook
-delivery, the backup task and the queue claim are committed after v1.85.8 (see **Fixed** below).
-Thallo still runs v1.85.8 until a framework release is tagged and required, so keep the backup off
-and the Content webhooks switch in mind until then. What remains open is listed here.
+**Status 2026-09-22: every item fixed on the framework's `dev` branch, not yet released.** Six
+commits after v1.85.8 (see **Fixed** below). Fixing them turned up one more: the ORM gave every
+new auto-increment model id 1, which is fixed too. Thallo still runs v1.85.8, so none of this
+reaches a site until a framework release is tagged and Thallo requires it.
 
-- **Webhook leftovers.** The `cleanup` config is read by nothing. Deleting a subscription may orphan
-  its delivery rows (Reported); the dialog no longer claims they are removed. (webhooks)
-- **No `queue:failed` or `queue:retry` command, and no admin screen for failed jobs.** Code, by
-  inventory. (scheduler-and-queues)
+**When Thallo requires the release:**
+
+- Change the webhook delete dialog back to saying the delivery history is deleted: the framework
+  now deletes it with the subscription.
+- Add the `webhook_cleanup` job to Thallo's `config/schedule.php` (both copies). Thallo's schedule
+  replaces the framework default, so it does not get the job otherwise.
+- Decide whether the database backup goes back on by default.
+- Document `queue:failed`, `queue:retry`, `queue:forget` and `queue:flush` in the scheduler and
+  queues page and the CLI reference, and drop "no failed-job command" from the limitations.
 
 ## Bugs in Thallo
 
@@ -257,6 +262,15 @@ Kept for the record; each is in the CHANGELOG.
   The task now reads the stock nested config, passes the password through the dump tool's
   environment, and logs "failed" when no backup is made; the job fails when no backup exists.
   Test, plus a real `pg_dump` run. Thallo keeps it off until the release is required.
+- **Deleting a webhook subscription left its deliveries behind** (framework, unreleased). They are
+  now deleted with it. Test.
+- **The webhook `cleanup` config was read by nothing** (framework, unreleased). `Webhook::cleanup()`
+  applies it; a daily job and `webhook:cleanup` run it. Test.
+- **No way to see or retry failed queue jobs** (framework, unreleased). `queue:failed`,
+  `queue:retry`, `queue:forget` and `queue:flush`; a retry verifies the stored signature first.
+  Test.
+- **Every ORM-created auto-increment model came back with id 1** (framework, unreleased; found
+  while fixing the webhooks). The id is now read from the connection that ran the insert. Test.
 - **Two database-queue workers could run the same job** (framework, unreleased). The reservation
   is a conditional claim; the loser takes the next job. Test.
 - **`LOG_RETENTION_DAYS` changed nothing.** Filed here as a framework bug, it was Thallo's: the
