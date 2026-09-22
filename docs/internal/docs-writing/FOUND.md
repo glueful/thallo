@@ -13,9 +13,10 @@ Every entry carries its evidence:
 
 ## Bugs in the framework (need a Glueful release)
 
-**Status 2026-09-22: every item fixed on the framework's `dev` branch, not yet released.** Six
-commits after v1.85.8 (see **Fixed** below). Fixing them turned up one more: the ORM gave every
-new auto-increment model id 1, which is fixed too. Thallo still runs v1.85.8, so none of this
+**Status 2026-09-22: every item fixed on the framework's `dev` branch, not yet released.** Seven
+commits after v1.85.8 (see **Fixed** below). Fixing them turned up two more, both fixed: the ORM
+gave every new auto-increment model id 1, and the failed-job helper was written for columns the
+table never had. Thallo still runs v1.85.8, so none of this
 reaches a site until a framework release is tagged and Thallo requires it.
 
 **When Thallo requires the release:**
@@ -269,6 +270,10 @@ Kept for the record; each is in the CHANGELOG.
 - **No way to see or retry failed queue jobs** (framework, unreleased). `queue:failed`,
   `queue:retry`, `queue:forget` and `queue:flush`; a retry verifies the stored signature first.
   Test.
+- **The framework's failed-job helper did not work** (framework, unreleased). `FailedJobProvider`
+  read and wrote columns `queue_failed_jobs` never had, its requeue was a stub, and its trend
+  query was MySQL-only. It now works over the real table on every engine and is the one
+  implementation behind the database driver and the failed-job commands. Test.
 - **Every ORM-created auto-increment model came back with id 1** (framework, unreleased; found
   while fixing the webhooks). The id is now read from the connection that ran the insert. Test.
 - **Two database-queue workers could run the same job** (framework, unreleased). The reservation
