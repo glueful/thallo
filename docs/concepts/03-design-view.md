@@ -8,7 +8,8 @@ summary: "How the visual builder works: the stage, the Container, breakpoints, a
 
 The Design view is where a page's blocks are arranged and styled. Open an entry under
 **Content** and press **Design**. It is not a drawing program: every edit changes the entry's
-data, and what you see is your own theme rendering that data.
+data, and what you see is your own theme rendering that data. The button appears only on entries
+of a type with a **blocks** field, since those are what the Design view arranges.
 
 ## The stage is the page
 

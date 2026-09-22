@@ -72,6 +72,7 @@ watch(visiblePanels, (panels) => {
 // The content-type schema drives the field editor.
 const { data: contentTypes } = useContentTypes()
 const contentType = computed(() => contentTypes.value?.find((c) => c.slug === type.value))
+const hasBlocks = computed(() => (contentType.value?.schema ?? []).some((f) => f.type === 'blocks'))
 const schema = computed<FieldDef[]>(() =>
   (contentType.value?.schema ?? []).map((f) => ({
     name: String(f.name ?? ''),
@@ -336,7 +337,9 @@ async function onSave({ quiet = false }: { quiet?: boolean } = {}): Promise<bool
             :summaries="entryLocales ?? []"
             :addable="addableLocales"
           />
+          <!-- The Design view edits a blocks field; a type without one has nothing to design. -->
           <UButton
+            v-if="hasBlocks"
             variant="outline"
             color="neutral"
             icon="i-lucide-layout-template"

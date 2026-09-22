@@ -84,9 +84,6 @@ A missing feature is not a regression. These are product decisions to make, or t
 - **A listing is a 404 until the type is in `listing_types`**, a setting far from the type. The
   listing's `h1` prints the slug, not the Name.
 - **Content-type fields have no labels.** The starter form reads "title" and "body".
-- **The Landing page pattern may duplicate the page heading** (theme title plus hero title), if
-  `show_title` stays on. Verify the whole pattern application first.
-- **The Design button may show on entries of a type with no `blocks` field.** Not traced.
 - **Content imports.** CSV and the other format adapters only create; the bundle importer
   upserts. The bundle carries the blob manifest, not the files.
 
@@ -158,6 +155,9 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **Starter pages duplicated the page heading; Design showed on types without blocks** (verified
+  2026-09-22). Inserting a starter page hides the theme title; the button needs a blocks field.
+  Tests.
 - **No CLI listed block types or ran the capability switchboard.** `thallo:blocks:list` and
   `thallo:capabilities`. Test.
 - **The tenancy status commands printed raw JSON.** A table, with `--json` for scripts. Test.

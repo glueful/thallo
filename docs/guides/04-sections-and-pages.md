@@ -56,6 +56,11 @@ Open **Pages** and click a card. A page has no drag: clicking is the only way in
 Its sections are inserted one after another at the same place, as one transaction. One undo takes
 the whole page back out.
 
+Every starter page opens with a section that carries the page's heading, so inserting one also
+sets **Show page title** on the **Page** tab to **Hide**; otherwise the theme would print the
+entry's title above it as a second heading. Thallo says so when it does. Set it back to **Show**
+if you want both.
+
 A page goes in whole or not at all. If the sequence would not fit — a slot that refuses
 containers, or the five-level nesting cap — Thallo inserts nothing and says `That page does not
 fit here`.

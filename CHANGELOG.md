@@ -56,6 +56,10 @@ as the next release, never a mutated tag.
   capabilities and turn one on or off under the admin's rules.
 
 ### Fixed
+- **A starter page gave the page two headings.** Inserting one hides the theme's page title, since
+  its first section carries the h1. Test.
+- **Design was offered on entries with nothing to design.** The button is shown only for types
+  with a blocks field; there, every insert silently did nothing. Test.
 - **The first admin's password rules held only in the browser.** The web setup form's rules (a
   number, both cases, a special character, no whitespace, no `1234`) are now checked on the server
   and by `thallo:create-admin`, which accepted any 8 characters. Test.

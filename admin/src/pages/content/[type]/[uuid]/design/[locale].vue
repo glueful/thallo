@@ -49,7 +49,13 @@ import {
   type Legality,
   type LegalityContext,
 } from '@/editor/structure/legality'
-import { instantiate, isPatternKey, patternSlug, usePatterns } from '@/queries/patterns'
+import {
+  holdsPageHeading,
+  instantiate,
+  isPatternKey,
+  patternSlug,
+  usePatterns,
+} from '@/queries/patterns'
 import {
   EMPTY_SELECTION,
   extend,
@@ -1206,6 +1212,17 @@ async function insertPage(slug: string): Promise<void> {
   await applyDrop(
     inserts.map(({ position, block }) => ({ type: 'InsertBlock' as const, position, block })),
   )
+  // A starter page opens with its own h1; the theme's title above it would be a second one.
+  if (
+    holdsPageHeading(inserts.map((i) => i.block)) &&
+    presentationOverride.value.show_title !== false
+  ) {
+    patchPresentation('show_title', false)
+    success(
+      'Page title hidden',
+      'The page’s first section carries the heading. Show page title, on the Page tab, brings it back.',
+    )
+  }
   insertTarget.value = null
   targetStale.value = false
   const first = inserts[0]!.block

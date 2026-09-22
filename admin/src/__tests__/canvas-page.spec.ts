@@ -2557,6 +2557,32 @@ describe('canvas page', () => {
       expect(link.exists()).toBe(true)
       expect(link.attributes('to')).toBe('/content/page/entry0000001/design/en')
       wrapper.unmount()
+
+      // A type with no blocks field has nothing to design: no button.
+      const loaded = contentTypes.value
+      contentTypes.value = loaded.map((t) => ({
+        ...t,
+        schema: t.schema.filter((f) => f.type !== 'blocks'),
+      })) as typeof loaded
+      try {
+        const bare = mount(EditorPage, {
+          shallow: true,
+          global: {
+            stubs: {
+              DashboardPanel: { template: '<div><slot name="header" /><slot name="body" /></div>' },
+              DashboardNavbar: {
+                template:
+                  '<div><slot name="leading" /><slot name="title" /><slot name="right" /></div>',
+              },
+            },
+          },
+        })
+        await flushPromises()
+        expect(bare.find('[data-test="design-link"]').exists()).toBe(false)
+        bare.unmount()
+      } finally {
+        contentTypes.value = loaded
+      }
     })
   })
 
