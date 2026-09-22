@@ -23,6 +23,11 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **The nightly database backup ran on every production site and backed up nothing.** The
+  framework's backup task reads connection settings the stock `config/database.php` does not have,
+  takes the MySQL path on a PostgreSQL site and logs its own failure as a finished job. It is now
+  off by default (`DB_BACKUP_ENABLED`) until the task works. Take your own dumps
+  (docs/operations/04-backups.md).
 - **Every import started from the admin failed to find its file on a real install.** The upload
   writes to the site's `storage/uploads`; the root the import job read it back through was
   computed inside the `thallo-core` package's own config, which on an install lives under

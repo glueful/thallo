@@ -48,7 +48,9 @@ return [
                     'retention_days' => env('BACKUP_RETENTION_DAYS', 7)
                 ]
             ],
-            'enabled' => env('DB_BACKUP_ENABLED', env('APP_ENV') === 'production'),
+            // Off until the framework's DatabaseBackupTask can read the stock database config: it
+            // takes the MySQL path on a PostgreSQL site and produces no dump (docs/operations/04-backups.md).
+            'enabled' => env('DB_BACKUP_ENABLED', false),
             'description' => 'Create automated database backups',
             'queue' => $criticalQueue,
             'timeout' => 1800,

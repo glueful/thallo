@@ -34,7 +34,7 @@ set it to `false` and the job is never registered.
 | `domain_reverification_sweep` | `0 * * * *` | Re-verifies due custom-domain ownership proofs | `TENANCY_REVERIFICATION_ENABLED` |
 | `session_cleaner` | `0 0 * * *` | Cleans up expired user sessions | `SESSION_CLEANER_ENABLED` |
 | `log_cleanup` | `0 1 * * *` | Deletes log files older than `LOG_RETENTION_DAYS` (30) | `LOG_CLEANUP_ENABLED` |
-| `database_backup` | `0 2 * * *` | Takes a full database backup, keeping `BACKUP_RETENTION_DAYS` (7) | `DB_BACKUP_ENABLED`, on by default only when `APP_ENV=production` |
+| `database_backup` | `0 2 * * *` | Takes a full database backup, keeping `BACKUP_RETENTION_DAYS` (7) | `DB_BACKUP_ENABLED`, off by default (it produces no dump; see [backups](04-backups.md)) |
 | `signup_intent_sweep` | `15 2 * * *` | Removes expired and sanitised public-signup intents | `SIGNUP_SWEEP_ENABLED` |
 | `cache_maintenance` | `0 3 * * *` | Runs cache maintenance | `CACHE_MAINTENANCE_ENABLED` |
 | `update_check` | `0 4 * * *` | Asks Packagist whether a newer `glueful/thallo-core` is published | `UPDATE_CHECK_ENABLED` |

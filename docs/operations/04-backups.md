@@ -66,7 +66,7 @@ else in that file — not by a queue worker. See
 
 | Setting | Key in `.env` | Default |
 |---|---|---|
-| Whether it runs | `DB_BACKUP_ENABLED` | on only when `APP_ENV=production` |
+| Whether it runs | `DB_BACKUP_ENABLED` | off |
 | When it runs | `DB_BACKUP_SCHEDULE` | `0 2 * * *` |
 | How long it keeps | `BACKUP_RETENTION_DAYS` | 7 |
 
@@ -87,9 +87,9 @@ in its own statistics and finishes as a success. The log line says so:
 - Backup created: No
 ```
 
-Take the dump yourself, from cron or from your host's backup service. Set
-`DB_BACKUP_ENABLED=false` in `.env` so the job stops running and stops adding failure lines to
-the log.
+So the job is off by default, and should stay off: take the dump yourself, from cron or from your
+host's backup service. A site whose `.env` sets `DB_BACKUP_ENABLED=true` runs it and gets the
+failure line every night.
 
 ## Restore a site
 
