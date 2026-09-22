@@ -156,11 +156,11 @@ Five install-wide roles are seeded, each with a level. The level decides who may
 | User | `user` | 10 | `content.view`. |
 
 `php glueful thallo:provision` — and the setup that creates the first admin — persists the declared
-catalogue and then grants Superuser and Administrator every permission row they do not already
-hold, so a permission a newly installed pack brings reaches both. The three withheld from
-Administrator are withheld in the code and stay off. Nothing else is remembered: a permission you
-revoke from either role by hand is granted back the next time provision runs, which
-[upgrading](../upgrading.md) does.
+catalogue and grants Superuser and Administrator each permission once. The first admin's setup
+grants them everything; a later provision, which [upgrading](../upgrading.md) runs, grants only the
+permissions that are new since, such as those a newly installed pack brings. A record of what each
+role has been offered is kept, so a permission you revoke from either role by hand stays revoked.
+The three withheld from Administrator are withheld in the code.
 
 Workspace Manager, Editor and User are granted by migration and are not touched again, so a change
 you make to one of them stands.

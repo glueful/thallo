@@ -23,6 +23,11 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **A permission revoked from Superuser or Administrator stays revoked.** `thallo:provision`, which
+  every upgrade runs, granted the two install roles whatever they lacked, so a revocation came back
+  on the next upgrade. It now keeps a record of what it has offered each role and grants only
+  permissions that are new since. On the first provision after this upgrade, every permission that
+  already existed counts as offered, so revocations made before it stay too.
 - **A block type's template can be started from the admin.** The block type page now links to
   its template in the Theme editor, and a template the theme does not have yet opens as a starter
   that already carries the type's style settings and slots, so it saves on the first try. The

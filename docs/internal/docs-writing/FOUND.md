@@ -57,9 +57,6 @@ the docs for the failed-job commands, the backup and `security:check`.
   has none; when that release ships, require it and update `docs/operations/06-security.md`.
   Framing on the APIs and an HTTPS redirect stay deliberately out: JSON is not framed, and TLS is
   the web server's job. (security)
-- **Provision re-grants the install roles' permissions on every run.** Code. It reapplies grants
-  to superuser and administrator, so a permission revoked from those two comes back on upgrade.
-  Other roles are untouched. (users-and-roles)
 - **The account pages: no profile surface, no auto-login after verification, no admin editor for
   the mails.** Code. A mail transport failure may be invisible because the mail channel reports
   available on an unconfigured install (Reported). (accounts)
@@ -177,6 +174,8 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **Provision re-granted the install roles' permissions on every run.** A ledger records what each
+  role was offered; only new permissions are granted. Test.
 - **A block type's template could not be created from the admin, and the migration dialog did not
   mention the worker.** The block type page opens the template, a missing one starts from a
   generated starter that saves clean, and the card names the worker. Test.

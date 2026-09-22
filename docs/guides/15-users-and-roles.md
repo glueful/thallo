@@ -48,10 +48,10 @@ Five roles are seeded, each with a level. The level is what decides who may hand
 | User | 10 | `content.view`. |
 
 `php glueful thallo:provision` grants Superuser and Administrator every permission the install
-declares, including those a newly installed pack brings, and [upgrading](../upgrading.md) runs it
-again. It keeps no memory of what you revoked, so a permission you take off either of those two
-roles is granted back the next time it runs. The three withheld from Administrator are withheld in
-the code, and stay off.
+declares, and [upgrading](../upgrading.md) runs it again for the permissions a newly installed pack
+brings. Each permission is granted to those roles once: a permission you take off either of them
+stays off through later provisions. The three withheld from Administrator are withheld in the
+code.
 
 These roles are install-wide. A workspace's own `owner`, `admin`, `member` and `viewer` are a
 separate set, described in [workspaces](../concepts/08-workspaces.md). The full permission
