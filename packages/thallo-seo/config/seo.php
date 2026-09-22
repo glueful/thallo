@@ -13,7 +13,6 @@ return [
 
     // Site-wide defaults used when neither an override nor a fallback field is present.
     'defaults' => [
-        'site_name' => env('SEO_SITE_NAME', 'Thallo'),
         'default_og_image' => env('SEO_DEFAULT_OG_IMAGE', ''),
         'title_template' => env('SEO_TITLE_TEMPLATE', '{title} — {site_name}'),
     ],

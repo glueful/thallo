@@ -48,7 +48,7 @@ gets its own title and description. Switch locale in the header and fill the tab
 
 Thallo adds four tags you do not edit: `og:type` (`website` on the homepage, `article`
 everywhere else), `og:url` and `<link rel="canonical">`, both the entry's canonical URL, and
-`og:site_name` from `RENDER_SITE_NAME`. An entry published in more than one locale also gets a
+`og:site_name`, the site's name from **Settings › General**. An entry published in more than one locale also gets a
 `<link rel="alternate" hreflang="…">` per locale and an `x-default`.
 
 Values are escaped before they are written, and a URL that is neither `http://`, `https://` nor
@@ -80,8 +80,7 @@ Three values in `.env` feed the defaults:
 
 | Setting | Default | What it does |
 |---|---|---|
-| `SEO_SITE_NAME` | `Thallo` | Replaces `{site_name}` in the title template, and is the title of a page that has none of its own. |
-| `SEO_TITLE_TEMPLATE` | `{title} — {site_name}` | Applied to a title taken from a field. |
+| `SEO_TITLE_TEMPLATE` | `{title} — {site_name}` | Applied to a title taken from a field. `{site_name}` is the site's name from **Settings › General**, which is also the title of a page that has none of its own. |
 | `SEO_DEFAULT_OG_IMAGE` | empty | The `og:image` of every page without one. |
 
 To feed the meta slots from fields of your own, add `config/seo.php` to the project and map them

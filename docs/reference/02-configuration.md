@@ -106,9 +106,7 @@ Other screens hold configuration the same way, in the database rather than in `.
 | `APP_ENV` | `development` | `production`, `staging`, `development` or `testing`. It is the default for debug, HTTPS enforcement and the log profile, and it names the `config/` environment folder. `.env.example` ships `production`. |
 | `APP_DEBUG` | off in production, on elsewhere | Detailed errors. |
 | `BASE_URL` | `http://localhost` | The canonical public origin. Every absolute URL — media, sitemaps, canonical and OG tags, the storefront's CSRF origin — comes from this, never from the request's `Host` header. Payment links need it to be HTTPS with no non-default port. |
-| `SITE_NAME` | `Thallo` | The default behind Settings › General **Site name**. |
-| `RENDER_SITE_NAME` | `Thallo` | `site.name` in a template, and `og:site_name`. |
-| `SEO_SITE_NAME` | `Thallo` | Replaces `{site_name}` in the SEO title template. |
+| `SITE_NAME` | `Thallo` | The default behind Settings › General **Site name**, which is `site.name` in every template, `og:site_name` and `{site_name}` in the SEO title. |
 | `RENDER_ADMIN_URL` | empty | Where the admin lives, for the preview bar's Edit and Design links and the billing return. Empty means this site's own admin at `BASE_URL` + `/admin`. |
 | `API_DOCS_ENABLED` | `true` | Serves the API reference. Set it to `false` to stop. |
 | `API_DOCS_PATH` | `/api-docs` | Where the reference is served. `/docs` is the site's own documentation, not this. |

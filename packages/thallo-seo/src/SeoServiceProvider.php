@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Thallo\Seo;
 
 use Thallo\Contracts\Delivery\CanonicalPublicOriginResolver;
+use Thallo\Contracts\Settings\SiteNameProvider;
 use Glueful\Extensions\DeclaresLoadOrder;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\ServiceProvider;
@@ -171,7 +172,10 @@ final class SeoServiceProvider extends ServiceProvider implements DeclaresLoadOr
             static fn (string $entryUuid, string $locale): ?array => $repo->find($entryUuid, $locale),
             fallbacks: (array) config($context, 'seo.fallbacks', []),
             defaults: [
-                'site_name' => (string) ($defaults['site_name'] ?? 'Thallo'),
+                // Settings › General › Site name, read per call through the contract.
+                'site_name' => static fn (): string => $container->has(SiteNameProvider::class)
+                    ? $container->get(SiteNameProvider::class)->siteName()
+                    : 'Thallo',
                 'default_og_image' => (string) ($defaults['default_og_image'] ?? ''),
                 'title_template' => (string) ($defaults['title_template'] ?? '{title} — {site_name}'),
             ],

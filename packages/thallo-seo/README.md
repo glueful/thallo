@@ -79,7 +79,8 @@ The pack is **bundled by default** in the Thallo create-project template. To add
 3. `./thallo migrate:run` to create `seo_meta` and declare the `seo.manage` permission.
 
 Set `PUBLIC_URL_BASE` (e.g. `https://example.com`) so the feeds emit absolute URLs, and
-optionally the `SEO_SITE_NAME` / `SEO_DEFAULT_OG_IMAGE` / `SEO_TITLE_TEMPLATE` defaults.
+optionally the `SEO_DEFAULT_OG_IMAGE` / `SEO_TITLE_TEMPLATE` defaults. The site's name comes from
+Settings › General.
 
 ## Frontend integration
 

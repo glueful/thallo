@@ -23,6 +23,11 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **Renaming the site in the admin changed nothing visitors see.** Settings › General › Site name
+  fed only the starter header; templates and `og:site_name` read `RENDER_SITE_NAME`, the SEO title
+  read `SEO_SITE_NAME`, and the shop and account pages kept copies of the first. The setting is now
+  the one source for all of them, read per request. `RENDER_SITE_NAME` and `SEO_SITE_NAME` are
+  gone: set the name in the admin (`SITE_NAME` remains its default).
 - **The sitemap and `robots.txt` answered 409 on a stock install.** They read only
   `PUBLIC_URL_BASE`, a key no `.env.example` names. They now use the site's canonical origin —
   `BASE_URL`, or a workspace's own address — resolved per request, with `PUBLIC_URL_BASE` still an
@@ -62,6 +67,8 @@ as the next release, never a mutated tag.
   each in its section. They stay where they are: other files link to them by path.
 
 ### Upgrade Notes
+- If your `.env` sets `RENDER_SITE_NAME` or `SEO_SITE_NAME`, put that name in Settings › General
+  › Site name instead; both keys are no longer read.
 - **Turn the broken backup job off.** Your `config/schedule.php` is your own copy and still runs
   `database_backup` whenever `APP_ENV=production`; it produces no dump. Set `DB_BACKUP_ENABLED=false`
   in `.env` and take your own backups (docs/operations/04-backups.md).
