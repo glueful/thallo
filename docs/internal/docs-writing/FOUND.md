@@ -105,7 +105,12 @@ A missing feature is not a regression. These are product decisions to make, or t
   class; its child blocks can.
 - **Menus are unversioned and unpreviewable**; nothing shows where a menu is used, and deleting
   one does not warn. Some tree-editor buttons lack accessible names; audit them one by one.
-- **Motion:** stage fidelity, Ken Burns timing, the CSP hash and a repeat cap. Not audited.
+- **Motion: the stage restates the site's transition rules.** Audited 2026-09-22. The stage reuses
+  the compiled classes and variables but writes its transition and animation rules a second time
+  in `packages/thallo-render/assets/preview/preview.css`, so easing and fallback durations can
+  drift from `StyleCompiler::motionRules()`. The CSP hash is computed and tested; timings match
+  apart from Play's documented 8-second Ken Burns. An "always" entrance replays without a cap, on
+  scroll only.
 - **A theme cannot see `site.locales`** (always empty). `is_preview()` and `is_canvas()` read one
   flag. Disk templates are parsed and their theme config validated, but get no admin template
   lint.
@@ -155,6 +160,8 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **Ken Burns looped forever with no way to stop it.** One drift there and back, then rest; paused
+  under hover and focus. Test.
 - **Starter pages duplicated the page heading; Design showed on types without blocks** (verified
   2026-09-22). Inserting a starter page hides the theme title; the button needs a blocks field.
   Tests.

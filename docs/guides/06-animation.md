@@ -103,8 +103,9 @@ frame: the **Container**, whose background image or video drifts behind its cont
 | Pan left | sits at 112% and drifts 3% to the left |
 | Pan right | sits at 112% and drifts 3% to the right |
 
-The drift takes 20 seconds, then reverses, and goes on for as long as the page is open. It does not
-wait to be scrolled to. **Play** runs it for eight seconds on the stage.
+The drift takes 20 seconds, then reverses, and then the picture rests where it started. It does
+not wait to be scrolled to, and it holds still while the pointer is over the frame or something
+inside it has keyboard focus. **Play** runs it for eight seconds on the stage.
 
 The **Image** block is deliberately not a frame: its figure also holds the gutters and the caption,
 which a drifting picture would cover. Where you want a large picture that drifts, make it a

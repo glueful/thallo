@@ -56,6 +56,8 @@ as the next release, never a mutated tag.
   capabilities and turn one on or off under the admin's rules.
 
 ### Fixed
+- **Ken Burns never stopped.** A drift runs there and back once and rests, and holds still under
+  the pointer or keyboard focus, so a moving background can be stopped (WCAG 2.2.2). Test.
 - **A starter page gave the page two headings.** Inserting one hides the theme's page title, since
   its first section carries the h1. Test.
 - **Design was offered on entries with nothing to design.** The button is shown only for types
