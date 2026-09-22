@@ -23,6 +23,10 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **The Design view could publish a page that has no URL.** Publishing succeeds without a route
+  and the page then renders nowhere; the form editor saves the slug first, but the Design view has
+  no slug field and published anyway. It now refuses, and says to set the slug in the editor's
+  Publishing panel.
 - **A new logo, favicon or site name was served stale.** The page cache was cleared when colours
   or the design changed, not when these did, so visitors saw the old ones for up to
   `render.cache_ttl`. Saving any of them now clears it.

@@ -96,6 +96,7 @@ import SeoPanel from '../components/SeoPanel.vue'
 import VersionsPanel from '../components/VersionsPanel.vue'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { usePublish } from '@/queries/publish'
+import { fetchRoutes, useRoutes } from '@/queries/routes'
 import { useEntryLocales } from '@/queries/entries'
 import { localeStatus } from '../components/localeStatus'
 import CanvasOutline from './components/CanvasOutline.vue'
@@ -2067,12 +2068,29 @@ async function saveDraftOnly({ quiet = false }: { quiet?: boolean } = {}): Promi
 // Navbar publish (parity with the editor): publishing pins the SAVED draft,
 // so a dirty canvas saves first and a failed save blocks the publish.
 const publish = usePublish(uuid.value, locale.value, type.value)
+const { data: routeRows } = useRoutes(uuid)
 const { data: entryLocaleSummaries } = useEntryLocales(uuid)
 const isPublished = computed(() => {
   const summary = (entryLocaleSummaries.value ?? []).find((s) => s.locale === locale.value)
   return summary ? localeStatus(summary).key === 'published' : false
 })
+/**
+ * Whether this page has a URL in the language being edited. Publishing succeeds without one and
+ * the page then renders nowhere; the form editor saves the slug before publishing, and the
+ * Design view has no slug field of its own, so it refuses instead.
+ */
+async function hasUrl(): Promise<boolean> {
+  const rows = routeRows.value ?? (await fetchRoutes(uuid.value))
+  return rows.some((r) => r.locale === locale.value && r.slug !== '')
+}
 async function onPublish(): Promise<void> {
+  if (!(await hasUrl())) {
+    warning(
+      'Give this page a URL before publishing',
+      'Without one it would be published but reachable nowhere. Set its slug in the editor’s Publishing panel.',
+    )
+    return
+  }
   // One action, one toast: the save publishing implies stays silent; failures still report.
   if (dirty.value && !(await saveDraftOnly({ quiet: true }))) return
   try {

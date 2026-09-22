@@ -21,8 +21,9 @@ The form editor lists the content type's own fields. The starter Pages type has 
 line of text, and **body**, which holds the blocks. Type a title — `Home` will do.
 
 On the right, under **Publishing**, the **Slug** field follows the title as you type it. This is
-the entry's URL on the site, and the page cannot be the homepage without one. Press **Save
-route** beside it, then press the save icon in the top bar (**Save draft**).
+the entry's URL on the site: the page cannot be the homepage without one, and the Design view
+will not publish it without one. Press **Save route** beside it, then press the save icon in the
+top bar (**Save draft**).
 
 Save before you go on. The Design view loads the draft from the server, not from this screen.
 

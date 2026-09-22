@@ -45,6 +45,13 @@ vi.mock('@/queries/styleClasses', () => ({
 const draft = ref<{ fields: Record<string, unknown>; lock_version: number } | null>(null)
 const { saveMock } = vi.hoisted(() => ({ saveMock: vi.fn() }))
 const publishMock = vi.hoisted(() => vi.fn())
+const routesMock = vi.hoisted(() => ({
+  rows: [{ locale: 'en', slug: 'home' }] as { locale: string; slug: string }[],
+}))
+vi.mock('@/queries/routes', () => ({
+  useRoutes: () => ({ data: { value: routesMock.rows } }),
+  fetchRoutes: async () => routesMock.rows,
+}))
 vi.mock('@/queries/publish', () => ({
   usePublish: () => ({ mutateAsync: publishMock, isLoading: ref(false) }),
 }))
@@ -338,6 +345,28 @@ describe('canvas page', () => {
     expect(notify.success).toHaveBeenCalledTimes(1)
     expect(notify.success).toHaveBeenCalledWith('Published')
     wrapper.unmount()
+  })
+
+  it('a page with no URL in this language is not published, and the toast says where to give it one', async () => {
+    // Publishing succeeds without a route, and the page then renders nowhere: the form editor
+    // saves the slug first, the Design view had no slug and published anyway.
+    mintMock.mockResolvedValue({ token: 't1', themeUrl: 'https://site.test/_preview/tok1' })
+    publishMock.mockReset().mockResolvedValue(undefined)
+    routesMock.rows = [{ locale: 'fr', slug: 'accueil' }]
+    try {
+      const wrapper = mountPage()
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-publish"]').trigger('click')
+      await flushPromises()
+
+      expect(publishMock).not.toHaveBeenCalled()
+      expect(notify.warning).toHaveBeenCalledTimes(1)
+      expect(String(notify.warning.mock.calls[0]![0])).toContain('URL')
+      expect(String(notify.warning.mock.calls[0]![1])).toContain('Publishing')
+      wrapper.unmount()
+    } finally {
+      routesMock.rows = [{ locale: 'en', slug: 'home' }]
+    }
   })
 
   it('a publish refused for a nested block selects that block, opens its Block tab and names the field', async () => {
