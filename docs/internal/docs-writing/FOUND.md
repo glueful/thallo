@@ -93,9 +93,11 @@ the docs for the failed-job commands, the backup and `security:check`.
   and some declare a width. (block-library)
 - **The scheduler check cannot change the Health page's overall status.** Code. It is appended
   after the framework's overall status is taken. (troubleshooting)
-- **`import-export:cleanup` leaves completed exports on disk.** Code. It unlinks only temporary
-  files, then deletes every file and job row, so finished exports become unreachable from the
-  admin and are never removed. (backups)
+- **`import-export:cleanup` leaves completed exports on disk** (fixed on `glueful/import-export`'s
+  `dev` branch, awaiting its next release). It unlinked only `tmp`-role files, which nothing
+  records, then deleted every row. It now deletes a finished job's result and tmp files through
+  their disk and keeps the rows when a file cannot be deleted. When that release ships, require it
+  and update the cleanup paragraph in `docs/operations/04-backups.md`. (backups)
 - **Enabling workspaces from a terminal has no way out of `failed`.** Code. Retry exists in the
   service and the admin, not the command. No shipped command prints a user uuid for `--owner`.
   (multi-site)
@@ -216,6 +218,9 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **Downloading an export failed on every stock install.** Results were recorded on a `local`
+  disk no storage config defined. Core supplies it now, and the exporter writes through
+  `import_export.result_disk`. Test.
 - **`thallo:doctor` checked the theme in `RENDER_THEME`**, not the one chosen in Appearance. With
   the database reachable it now checks the stored choice, says which source it checked, and says
   the site serves `RENDER_THEME` while a stored choice is broken. Test.

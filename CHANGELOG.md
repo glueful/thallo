@@ -23,6 +23,11 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **Downloading an export failed on every stock install.** Export results were recorded on a
+  `local` storage disk that no storage config defined, so **Download** on the job's row broke. Core
+  now supplies that disk, rooted at the site's `storage/` (a site's own `local` disk wins), and the
+  exporter writes through `import_export.result_disk` instead of a path of its own, so the disk a
+  job records is the disk its files are on.
 - **`thallo:doctor` checks the live theme.** It checked the theme `RENDER_THEME` names, but the
   theme chosen on the Appearance page wins at runtime. When the database can be reached it now
   checks the chosen theme, names which one it checked, and says that a chosen theme which no longer
