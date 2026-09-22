@@ -59,17 +59,20 @@ configuration problem it finds.
 One document per published entry per locale, for every content type. An entry is indexed when
 its content type has not been deleted, the entry is active, and it has a route for that locale.
 
-- **Fields.** Every `string` and `text` field of the type.
+- **Fields.** Every `string`, `text` and `blocks` field of the type.
 - **Title.** The field named `title`; failing that the entry's slug; failing that the first
   indexed string field.
 - **Body.** The remaining indexed fields, as the words a reader sees. A `rich` text field loses
   its tags; a `plain` text field loses its Markdown syntax; a field whose whole value is one URL
   or one file path is left out, because it is where a page came from rather than what it says.
+  A `blocks` field (a page built in the Design view) contributes the text of every block in page
+  order, nested blocks included: each block's string and text fields, read by that block type's
+  schema, so a setting, a link or a colour is never indexed as a word.
 
 Left out: drafts, scheduled entries that have not gone live yet, and every field that is not
-`string` or `text` — `number`, `boolean`, `datetime`, `enum`, `reference`, `asset`, `json`,
-`token`, and `blocks`. A page whose body is blocks built in the Design view therefore has no body
-in the index; its title and its own string fields are still found.
+`string`, `text` or `blocks` — `number`, `boolean`, `datetime`, `enum`, `reference`, `asset`,
+`json` and `token`. Pages already indexed pick up their block text on the next
+`php glueful search:reindex`.
 
 Visibility is not baked into a document. It is resolved from the live content types on every
 request, so turning a type's **Public delivery** off drops it out of anonymous results at once,

@@ -23,6 +23,10 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **Pages built in the Design view are searchable.** Search indexed only `string` and `text` fields,
+  so a page whose content is blocks was found by its title alone. A `blocks` field now contributes
+  the text of every block, nested blocks included, read by each block type's schema (so settings,
+  links and colours stay out). Run `php glueful search:reindex` to index existing pages.
 - **An account with two-factor on can sign in.** Login answers such an account with a challenge,
   and neither the admin nor the storefront had a second step: the admin failed with "Malformed
   login response" and the storefront refused. The admin's sign-in now asks for the emailed code;

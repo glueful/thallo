@@ -43,9 +43,8 @@ the docs for the failed-job commands, the backup and `security:check`.
 - **Three "default locale"s can disagree:** `i18n_locales.is_default`, Settings › General and
   `config/i18n.php`. Code. Disabling a language does not stop the delivery API serving it
   (Code). (languages)
-- **Block-built page bodies are not indexed.** Code. `DocumentBuilder::INDEXABLE_TYPES` is
-  `string` and `text`, so a Design-view page contributes only its title. Thallo search and the
-  Meilisearch extension both declare `search:status`; which one wins is Reported. (search)
+- **`search:status` is declared twice** — by Thallo search and by the Meilisearch extension; which
+  one runs while both are enabled is Reported, not checked. (search)
 
 ### Admin
 
@@ -299,6 +298,8 @@ Kept for the record; each is in the CHANGELOG.
   implementation behind the database driver and the failed-job commands. Test.
 - **Every ORM-created auto-increment model came back with id 1** (framework 1.86.0; found
   while fixing the webhooks). The id is now read from the connection that ran the insert. Test.
+- **Block-built page bodies were not indexed.** A `blocks` field now contributes the text of each
+  block through the engine's `BlockTextExtractor`. Test.
 - **Two-factor sign-in was unsupported.** The admin read the challenge as a malformed session and
   the storefront refused it. The admin asks for the emailed code; the storefront has a code page
   (`/account/login/verify`) over a new `StorefrontTwoFactor` contract. Test.
