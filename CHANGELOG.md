@@ -7,6 +7,14 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Security
+- **Request logs were written into the web root, where anyone could download them.**
+  `.env.example` set `LOG_FILE_PATH=storage/logs`, and the logging config used that relative path
+  as given; a web request's working directory is `public/`, so every request logged to
+  `public/storage/logs/`, which the web server serves. A relative path is now relative to the site,
+  `.env.example` no longer sets it, and `thallo:doctor` warns about any `.log` file under `public/`.
+  **An existing site must act** (see Upgrade Notes).
+
 ### Fixed
 - **Every import started from the admin failed to find its file on a real install.** The upload
   writes to the site's `storage/uploads`; the root the import job read it back through was
@@ -31,6 +39,13 @@ as the next release, never a mutated tag.
 - `docs/` is laid out as the documentation's five sections (`getting-started`, `concepts`,
   `guides`, `reference`, `operations`), and the four existing pages carry front matter that puts
   each in its section. They stay where they are: other files link to them by path.
+
+### Upgrade Notes
+- **Check for exposed logs.** Remove a `LOG_FILE_PATH=storage/logs` line from `.env` (logs then go
+  to `storage/logs/` under the site), then delete `public/storage/logs/`. Your `config/logging.php`
+  is your own copy and keeps the old behaviour until the line is gone; `php glueful thallo:doctor`
+  reports any log file still under `public/`. If logs were served, rotate any secret they could
+  hold.
 
 ## [1.0.0-beta.51] - 2026-09-21 — Developer Preview
 

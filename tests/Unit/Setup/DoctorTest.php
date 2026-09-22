@@ -286,4 +286,21 @@ final class DoctorTest extends TestCase
         $checks = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql']))->preflight());
         self::assertArrayNotHasKey('style-artifact', $checks, 'the vocabulary failure is the verdict');
     }
+
+    public function testALogFileUnderTheWebRootWarnsAndSaysWhatToDelete(): void
+    {
+        // A relative LOG_FILE_PATH once wrote request logs into public/storage/logs/, which the web
+        // server serves. The config no longer does it; a site that already has such files must
+        // be told, because nothing else will remove them.
+        $dir = $this->tempProject(withEnv: true, withExample: true);
+        $clean = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql']))->preflight());
+        self::assertSame(Check::OK, $clean['log-exposure']->status);
+
+        mkdir($dir . '/public/storage/logs', 0755, true);
+        file_put_contents($dir . '/public/storage/logs/framework.log', 'x');
+        $exposed = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql']))->preflight());
+        self::assertSame(Check::WARN, $exposed['log-exposure']->status);
+        self::assertStringContainsString('public/storage/logs/framework.log', $exposed['log-exposure']->message);
+        self::assertStringContainsString('LOG_FILE_PATH', $exposed['log-exposure']->message);
+    }
 }
