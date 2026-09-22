@@ -35,7 +35,7 @@ The **Import** card's first control is **Adapter**. Pick the one that matches yo
 | **WordPress (WXR)** | `.xml`, `.wxr` | each post or page in the export |
 | **Thallo Content Bundle** | `.ndjson`, `.jsonl`, `.json` | one line |
 
-An upload is refused above 50 MB. `max_file_size` in `config/import_export.php` changes that, and
+An upload is refused above 50 MB. `max_file_size` in a `config/import_export.php` you create changes that, and
 `batch_size` (500) sets how many records one queued batch handles.
 
 **Markdown folder (.zip)** works differently from the rest: it finds pages again on a later run and

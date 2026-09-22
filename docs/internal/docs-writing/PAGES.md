@@ -376,7 +376,7 @@ One job each, start to finish.
 - **Sources** `packages/thallo-importers/src/`, `core/src/Content/ImportExport/`, `core/src/Http/Controllers/ImportExportController.php`
   (the upload: accepted kinds and the size cap), `admin/src/pages/settings/import-export/`,
   `admin/src/pages/users/components/UserBulkImportModal.vue` (where `csv.users` lives), `vendor/glueful/import-export/`,
-  `config/import_export.php`
+  `core/config/import_export.php` and `CoreServiceProvider::withUploadsRoot()`
 - **Must cover** **Settings › Import / Export** and the importers capability. Each adapter: what
   file it takes, how fields are mapped, what it does with HTML. Dry run, then commit. The jobs
   list, errors and reports. Exporting and re-importing NDJSON to move a site. That imports are

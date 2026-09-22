@@ -80,8 +80,8 @@ reproduced beyond what the report says.
   no SSRF guard. Delete orphans the delivery rows though the dialog says they are removed. The
   `cleanup` config is read by nothing. (webhooks)
 - **Every admin-started import failed on a real install — fixed.** The upload root was computed
-  in the core package's own config, which lives under `vendor/` on an install. The site's
-  `config/import_export.php` now owns it. (import-content)
+  in the core package's own config, which lives under `vendor/` on an install. It now defaults
+  to the uploads disk's root. (import-content)
 - **The sitemap and `robots.txt` are 409 on a stock install.** They read `PUBLIC_URL_BASE`,
   which is in no `.env.example`, has no `BASE_URL` fallback and no doctor check. **Settings ›
   General › Site name** reaches neither `og:site_name` nor the SEO title template. (seo)

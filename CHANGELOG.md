@@ -11,11 +11,9 @@ as the next release, never a mutated tag.
 - **Every import started from the admin failed to find its file on a real install.** The upload
   writes to the site's `storage/uploads`; the root the import job read it back through was
   computed inside the `thallo-core` package's own config, which on an install lives under
-  `vendor/`, so the job looked in `vendor/glueful/storage/uploads`. The root is now set by the
-  site's own `config/import_export.php`, which the skeleton ships; the package default names no
-  root. Found by the writer of the import guide. **An existing site adds that file**: copy
-  `config/import_export.php` from the skeleton (three lines: the `uploads` root is
-  `dirname(__DIR__) . '/storage/uploads'`).
+  `vendor/`, so the job looked in `vendor/glueful/storage/uploads`. The root now defaults to the
+  uploads disk's own root, where the upload writes; a site that sets it itself still wins. Nothing
+  to change on an existing site. Found by the writer of the import guide.
 - **The production guide's queue worker never ran an import.** Its systemd unit listed the queues
   `default,maintenance`, and the guide said Thallo dispatches to those two only. Imports and
   exports go to `import-export`, and a worker runs only the queues it is given, so an import
