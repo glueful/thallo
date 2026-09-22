@@ -4,14 +4,20 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Forms;
 
-use Thallo\Core\Content\Forms\DefaultFormSealer;
-use Thallo\Core\Content\Forms\FieldDef;
-use Thallo\Core\Content\Forms\FormSubmissionRepository;
-use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Encryption\EncryptionService;
+use Psr\Log\NullLogger;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Thallo\Contracts\Content\FormSealer;
+use Thallo\Core\Content\Forms\DefaultFormSealer;
+use Thallo\Core\Content\Forms\FieldDef;
+use Thallo\Core\Content\Forms\FormMailSender;
+use Thallo\Core\Content\Forms\FormNotifier;
+use Thallo\Core\Content\Forms\FormSubmissionRepository;
+use Thallo\Core\Content\Forms\NotificationFormMailSender;
+use Thallo\Core\Content\Forms\Spam\FormSubmissionGuard;
+use Thallo\Core\Http\Controllers\FormSubmitController;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class FormSubmitEndpointTest extends AppTestCase
 {
@@ -126,15 +132,75 @@ final class FormSubmitEndpointTest extends AppTestCase
         self::assertStringContainsString('/contact?form_ok=', (string) $res->headers->get('Location'));
     }
 
-    public function testEmailOnlyDeliveryDoesNotStore(): void
+    public function testTheContainerBindsTheEmailChannelSenderByDefault(): void
+    {
+        $notifier = $this->container()->get(FormNotifier::class);
+        $sender = (new \ReflectionProperty(FormNotifier::class, 'sender'))->getValue($notifier);
+        self::assertInstanceOf(NotificationFormMailSender::class, $sender);
+    }
+
+    public function testEmailOnlyStoresNothingWhenTheMailWent(): void
     {
         $token = $this->sealContactForm('owner@site.test', ['delivery' => 'email_only']);
-        $res = $this->postForm([
+        $sent = [];
+        $res = $this->submitThrough($this->notifierThat(sends: true, log: $sent), [
             '_form' => $token, '_t' => (string) (time() - 5),
             'name' => 'Zoe', 'email' => 'zoe@x.test', 'message' => 'hi',
-        ], json: true);
-        self::assertTrue($this->json($res)['ok']);              // still a success to the visitor
-        self::assertSame(0, $this->countSubmissions('zoe@x.test')); // email-only: nothing stored
+        ]);
+        self::assertTrue($this->json($res)['ok']);
+        self::assertCount(1, $sent, 'the notification is the only copy, so it had to go');
+        self::assertSame(0, $this->countSubmissions('zoe@x.test'));
+    }
+
+    public function testEmailOnlyKeepsTheSubmissionWhenTheMailDidNotGo(): void
+    {
+        // "Email only" used to mean: if the mail fails, the message is gone. With no mailer the
+        // default install could send nothing, so every such submission was lost without a trace.
+        $token = $this->sealContactForm('owner@site.test', ['delivery' => 'email_only']);
+        $sent = [];
+        $res = $this->submitThrough($this->notifierThat(sends: false, log: $sent), [
+            '_form' => $token, '_t' => (string) (time() - 5),
+            'name' => 'Yan', 'email' => 'yan@x.test', 'message' => 'hi',
+        ]);
+        self::assertTrue($this->json($res)['ok']);
+        self::assertSame(1, $this->countSubmissions('yan@x.test'), 'kept, so it can still be read in the admin');
+    }
+
+    /** @param list<string> $log */
+    private function notifierThat(bool $sends, array &$log): FormNotifier
+    {
+        $sender = new class ($sends, $log) implements FormMailSender {
+            /** @param list<string> $log */
+            public function __construct(private bool $sends, private array &$log)
+            {
+            }
+
+            public function send(string $to, string $subject, string $body): void
+            {
+                if (!$this->sends) {
+                    throw new \RuntimeException('mail transport unavailable');
+                }
+                $this->log[] = $to;
+            }
+        };
+        return new FormNotifier($sender, new NullLogger());
+    }
+
+    /** @param array<string,string> $data */
+    private function submitThrough(FormNotifier $notifier, array $data): Response
+    {
+        $c = $this->container();
+        $controller = new FormSubmitController(
+            $c->get(FormSealer::class),
+            $c->get(FormSubmissionGuard::class),
+            $c->get(FormSubmissionRepository::class),
+            $notifier,
+            new NullLogger(),
+        );
+        $req = Request::create('/_forms/submit', 'POST', $data);
+        $req->server->set('REMOTE_ADDR', '10.0.1.' . random_int(1, 250));
+        $req->headers->set('Accept', 'application/json');
+        return $controller->submit($req);
     }
 
     public function testExpiredDescriptorReturnsReloadMessage(): void

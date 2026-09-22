@@ -34,8 +34,9 @@ Open the **Delivery** group.
   the block renders "This form isn't configured yet — set a recipient email to activate it."
   in place of the fields. `FORMS_DEFAULT_RECIPIENT` in `.env` gives every form on the site a
   fallback address.
-- **delivery** — `store_and_email` keeps the submission in the admin. `email_only` stores
-  nothing at all, and "The notification email" below explains why that loses the submission.
+- **delivery** — `store_and_email` keeps every submission in the admin and emails the recipient.
+  `email_only` emails the recipient and stores nothing, unless the email could not be sent: then
+  the submission is stored after all, so it is never lost.
 - **success message** — the text a theme's own JavaScript receives after a clean submit. The
   default theme has no JavaScript, so it does not display it.
 - **redirect url** — where a visitor lands after a clean submit. It must start with a single
@@ -106,14 +107,15 @@ followed by one column for every field key that appears in the exported rows.
 
 ## The notification email
 
-Thallo does not send it. The submit request asks the notifier to email the recipient, the
-notifier finds that no mail sender is bound, and it returns without sending or logging
-anything; the visitor still sees success. **Settings › Email** configures the mailer the rest of
-the admin uses, and form notifications do not go through it.
+Each submission is emailed to **recipient** as plain text: the subject is "New {form name}
+submission", the body lists each field's label and value in the form's order, and the page it came
+from. It goes through the same mail settings as the rest of Thallo's email — **Settings › Email** —
+so the form mails only once those settings can send. Until then, `store_and_email` still keeps
+every submission, and `email_only` keeps the ones it could not send.
 
-So **recipient** is, today, the switch that activates a form rather than an inbox, and
-`email_only` delivery drops the submission: nothing is stored and nothing is sent. Leave
-**delivery** on `store_and_email` and read the submissions in the admin.
+A mail failure is written to the log (`form notification failed`) and never shown to the visitor,
+who sees the same success either way. To bind your own sender instead, an app can register an
+implementation of `Thallo\Core\Content\Forms\FormMailSender`.
 
 Nothing about a submission is queued. Validation, storage and the notification attempt all run
 inside the visitor's POST, so a mail server that answered slowly would hold that request open

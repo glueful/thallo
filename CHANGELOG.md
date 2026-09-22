@@ -23,6 +23,11 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **Contact forms never emailed anyone.** The form block promised an email to its recipient, but
+  nothing implemented the mail sender, so the notifier returned without sending or logging. Form
+  notifications now go through the email channel and **Settings › Email**, like the rest of
+  Thallo's mail. And an `email_only` form used to lose every submission it could not send — with
+  no mailer, all of them; it now stores a submission whose email did not go.
 - **The nightly database backup ran on every production site and backed up nothing.** The
   framework's backup task reads connection settings the stock `config/database.php` does not have,
   takes the MySQL path on a PostgreSQL site and logs its own failure as a finished job. It is now
@@ -53,6 +58,9 @@ as the next release, never a mutated tag.
   each in its section. They stay where they are: other files link to them by path.
 
 ### Upgrade Notes
+- **Turn the broken backup job off.** Your `config/schedule.php` is your own copy and still runs
+  `database_backup` whenever `APP_ENV=production`; it produces no dump. Set `DB_BACKUP_ENABLED=false`
+  in `.env` and take your own backups (docs/operations/04-backups.md).
 - **Check for exposed logs.** Remove a `LOG_FILE_PATH=storage/logs` line from `.env` (logs then go
   to `storage/logs/` under the site), then delete `public/storage/logs/`. Your `config/logging.php`
   is your own copy and keeps the old behaviour until the line is gone; `php glueful thallo:doctor`
