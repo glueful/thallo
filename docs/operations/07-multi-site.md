@@ -71,8 +71,11 @@ next stage.
 3. Confirm the first workspace. This is the stage that changes the database.
 
    ```bash
-   $ php glueful thallo:tenancy:enable --slug=my-site --name="My Site" --owner=<user-uuid>
+   $ php glueful thallo:tenancy:enable --slug=my-site --name="My Site" --owner=you@example.com
    ```
+
+   `--owner` takes the owner's email or uuid; an address no account has is refused before
+   anything changes. `thallo:create-admin` prints the uuid of the account it creates.
 
    In order, it raises the write barrier; creates the first workspace with that slug and name and
    gives the owner the `owner` role in it; proves that no business key would collide once every
@@ -94,9 +97,10 @@ You have finished when `thallo:tenancy:status` reports `step` `on`, `enabled` `t
 `schema_state` `widened`, and `thallo:tenancy:diagnose` exits 0. The admin's sidebar now has a
 **Workspaces** group.
 
-If a stage fails, the step becomes `failed` and `failure` carries the reason. Running the command
-again does nothing in that state: resume it from **Settings › Workspaces** with **Retry**, which
-picks up at the stage that failed.
+If a stage fails, the step becomes `failed` and `failure` carries the reason, and the command
+prints it. Fix the cause, then run it with `--retry`, which picks up at the stage that failed — or
+use **Retry** in **Settings › Workspaces**. A failure before the confirm stage can be abandoned
+instead with `--cancel`, which returns the step to `off`.
 
 ## Turn on domain routing
 

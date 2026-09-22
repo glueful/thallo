@@ -23,6 +23,11 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **A failed workspace enablement can be resumed or abandoned from the terminal.**
+  `thallo:tenancy:enable` printed the failed state and stopped; retry and cancel were in the admin
+  only. It now prints the reason and takes `--retry` and `--cancel`, and a failure before the
+  retrofit can be cancelled (the admin gains that too). `--owner` takes an email as well as a uuid,
+  and `thallo:create-admin` prints the new account's uuid.
 - **The cart works on a site served over plain http.** The cart and guest-order cookies were always
   `Secure`, which a browser drops on a host it does not treat as secure (Safari on `localhost`, a
   `.test` site), so the cart silently emptied. They follow `SESSION_COOKIE_SECURE`, the storefront

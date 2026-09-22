@@ -83,7 +83,8 @@ Create the first admin account and the site settings. Run it after `thallo:provi
 | `--admin-password=ADMIN-PASSWORD` | First admin password |
 | `--locale=LOCALE` | Default locale [default: `"en"`] |
 
-It asks for anything you leave out. With `-n`, the email and the password are required.
+It asks for anything you leave out. With `-n`, the email and the password are required. It prints
+the new account's uuid, which `thallo:superuser:grant` takes.
 
 ```bash
 $ php glueful thallo:create-admin --admin-email=you@example.com
@@ -450,14 +451,17 @@ Advance the multi-tenancy enablement flow. **Writes.**
 |---|---|
 | `--slug=SLUG` | First tenant slug |
 | `--name=NAME` | First tenant name |
-| `--owner=OWNER` | Owner user UUID |
+| `--owner=OWNER` | The owner: an account email or uuid |
+| `--retry` | Resume a failed run from the step that failed |
+| `--cancel` | Abandon a run that has not reached the retrofit; the step returns to `off` |
 
 The flow is staged: each run advances it by one step and prints where it stopped. When it reaches
 the confirmation step, run it again with all three options to name the first workspace and adopt
-the existing content into it. Two of the steps need a fresh process, and the command says so.
+the existing content into it. Two of the steps need a fresh process, and the command says so. A
+failed run prints its reason and waits for `--retry` or `--cancel`.
 
 ```bash
-$ php glueful thallo:tenancy:enable --slug=acme --name="Acme" --owner=<user-uuid>
+$ php glueful thallo:tenancy:enable --slug=acme --name="Acme" --owner=you@example.com
 ```
 
 ### thallo:tenancy:disable

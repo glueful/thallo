@@ -58,6 +58,23 @@ final class CreateAdminCommandTest extends AppTestCase
         self::assertTrue($this->service()->isInstalled());
     }
 
+    public function testPrintsTheNewAccountsUuid(): void
+    {
+        // thallo:tenancy:enable --owner and thallo:superuser:grant take a user uuid, and no
+        // command printed one.
+        $tester = $this->tester();
+        $tester->execute([
+            '--admin-email' => 'admin@example.com',
+            '--admin-password' => 'a-strong-password',
+            '--site-name' => 'Demo',
+        ], ['interactive' => false]);
+
+        $user = $this->container()->get(\Glueful\Extensions\Users\Repositories\UserRepository::class)
+            ->findByEmail('admin@example.com');
+        self::assertIsArray($user);
+        self::assertStringContainsString((string) $user['uuid'], $tester->getDisplay());
+    }
+
     public function testAlreadyInstalledExitsSuccessWithoutSecondAdmin(): void
     {
         $this->service()->install('Demo', 'first@example.com', 'a-strong-password', 'en');

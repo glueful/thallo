@@ -78,9 +78,6 @@ the docs for the failed-job commands, the backup and `security:check`.
   records, then deleted every row. It now deletes a finished job's result and tmp files through
   their disk and keeps the rows when a file cannot be deleted. When that release ships, require it
   and update the cleanup paragraph in `docs/operations/04-backups.md`. (backups)
-- **Enabling workspaces from a terminal has no way out of `failed`.** Code. Retry exists in the
-  service and the admin, not the command. No shipped command prints a user uuid for `--owner`.
-  (multi-site)
 
 ## Things a reader cannot do, or is not told
 
@@ -186,6 +183,8 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **Enabling workspaces from a terminal had no way out of `failed`.** `--retry` and `--cancel`;
+  `--owner` takes an email; `thallo:create-admin` prints the uuid. Test.
 - **Commerce permissions and the always-Secure cart cookie.** The permissions were never the
   problem: they are in Thallo's catalogue and install grants them; the commerce guide and README
   said otherwise and are corrected. The cart and guest-order cookies follow
