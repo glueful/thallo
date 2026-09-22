@@ -74,8 +74,8 @@ built yet.
 - **Schema changes that rename or remove a field are not in the admin.** The field editor refuses
   them and names the migration route in the admin API. A field cannot be retyped at all: add a new
   field instead. See [the content model](concepts/01-content-model.md).
-- **The default theme shows a custom type's `title` and `body` only.** Every other field needs a
-  template of your own (`templates/entry/{type}.twig`); see
+- **The default theme shows a custom type's `title` and `body` only.** A rich-text `body` renders
+  as sanitised HTML and a plain one as text. Every other field needs a template of your own (`templates/entry/{type}.twig`); see
   [make your own theme](guides/13-make-a-theme.md).
 - **Format imports only create.** CSV and the other format importers add new entries and never
   update existing ones; the bundle importer updates. A bundle carries the list of its media, not

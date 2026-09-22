@@ -69,11 +69,6 @@ A missing feature is not a regression. These are product decisions to make, or t
 `docs/limitations.md`. The boundaries decided on 2026-09-22 are documented there now (see Fixed);
 what follows is still open or unchecked.
 
-### Content
-
-- **A rich-text `body` renders escaped in the default theme's entry template.** Not yet traced:
-  confirm, then decide whether the template should render sanitised HTML.
-
 ### Design and themes
 
 - **A theme cannot inherit the default theme's CSS**, only its templates. The Appearance preview
@@ -118,6 +113,8 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **A rich-text body rendered escaped** (confirmed 2026-09-22). It renders through `safe_html`
+  when the field's format is rich; entry templates get `rich_fields`. Test.
 - **Boundaries documented in `docs/limitations.md`** (decided 2026-09-22): no database creation,
   workspace restarts, pack config files, manual secret re-keying, no field retyping, the default
   theme's two fields, create-only format imports, one homepage, one style target, a fixed section

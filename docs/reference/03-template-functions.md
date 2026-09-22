@@ -177,7 +177,7 @@ adds `preview_revision`.
 | Template | Also receives |
 |---|---|
 | `index.twig` | `entry` and `seo`, when a homepage entry is configured. |
-| `entry.twig`, `entry/{type}.twig` | `entry`, `type` (the content type's slug) and `seo`. |
+| `entry.twig`, `entry/{type}.twig` | `entry`, `type` (the content type's slug), `seo` and `rich_fields`, the names of the type's rich-text fields: render those through `safe_html`, and print every other text field as it is, escaped. |
 | `listing.twig`, `listing/{type}.twig` | `items`, `pagination`, `type`, `type_name`. |
 | `archive.twig`, `archive/{type}.twig` | `items`, `pagination`, `type`, `type_name`, plus `term` (the term's own entry) and `field`. |
 | `terms.twig`, `terms/{type}.twig` | `terms` (`uuid`, `slug`, `count`, `href` each), `type`, `field`. |

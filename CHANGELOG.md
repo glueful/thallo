@@ -77,6 +77,9 @@ as the next release, never a mutated tag.
   without history, site-wide SEO fallbacks and more.
 
 ### Fixed
+- **A rich-text body showed its HTML tags.** The default entry template printed every text `body`
+  escaped. A body whose format is rich text now renders as sanitised HTML; entry templates get
+  `rich_fields` to tell. Test.
 - **`site.locales` was always empty.** It lists the enabled languages' codes. Test.
 - **A listing page's heading printed the type's slug.** It prints the name; templates get
   `type_name`. Test.
