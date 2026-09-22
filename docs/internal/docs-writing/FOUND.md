@@ -72,8 +72,6 @@ A missing feature is not a regression. These are product decisions to make, or t
 
 - **Nothing creates the PostgreSQL database.** Provision needs an existing one. The install page
   and both READMEs now say so.
-- **No CLI for the capability switchboard.** Some flips need a reload; which ones depends on the
-  capability.
 
 ### Content
 
@@ -114,7 +112,7 @@ A missing feature is not a regression. These are product decisions to make, or t
 - **A theme cannot see `site.locales`** (always empty). `is_preview()` and `is_canvas()` read one
   flag. Disk templates are parsed and their theme config validated, but get no admin template
   lint.
-- **No CLI lists block types; the `links` block's items are raw JSON.**
+- **The `links` block's items are raw JSON.**
 - **Pack config is overridable only by creating a file that does not ship** (`config/render.php`,
   `search.php`, `seo.php` …). No `config:cache`, and no effective-config view.
 - **`UPLOADS_STRIP_EXIF` is read by nothing** (see Media above).
@@ -160,6 +158,8 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **No CLI listed block types or ran the capability switchboard.** `thallo:blocks:list` and
+  `thallo:capabilities`. Test.
 - **The tenancy status commands printed raw JSON.** A table, with `--json` for scripts. Test.
 - **Maintenance commands were unscheduled** (version pruning, `import-export:cleanup`,
   `analytics:prune`, commerce sweeps). `config/schedule.php` runs them. Test.

@@ -69,6 +69,10 @@ Reading and changing this list needs the `system.access` permission; without it 
 "Operator access required". A flip saves immediately and takes effect on the next request, so
 reload the admin after switching something.
 
+From a shell, `php glueful thallo:capabilities` prints the same list, and `--enable=ID` or
+`--disable=ID` flips one under the same rules. Long-running workers keep the old state until they
+restart. See the [command reference](../reference/01-cli.md#thallocapabilities).
+
 **Content search** also appears in **Settings › General**. It is not a second switch: both write
 the same `thallo.search` state.
 

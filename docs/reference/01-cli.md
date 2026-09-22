@@ -283,6 +283,20 @@ $ php glueful thallo:style-classes:run-job <job-id>
 
 ## Blocks
 
+### thallo:blocks:list
+
+List the block types: slug, label, category, whether it is active, and each field with its type.
+**Reads only.** The same list as **Settings › Block Types**.
+
+| Option | What it does |
+|---|---|
+| `--tenant=TENANT` | Workspace uuid; required once workspaces are on |
+| `--json` | Print the rows as JSON, for scripts |
+
+```bash
+$ php glueful thallo:blocks:list
+```
+
 ### thallo:blocks:seed
 
 Seed the starter block types, skipping any slug that already exists. **Writes.** Aliased as
@@ -752,10 +766,29 @@ $ php glueful render:theme:clone my-theme
 
 [Make a theme](../guides/13-make-a-theme.md) starts here.
 
+### thallo:capabilities
+
+List every capability with what was requested, whether its engine can back it, and whether it is
+on — the list **Extensions › Capabilities** shows. **Reads only**, unless you flip one. **Writes**
+with `--enable` or `--disable`.
+
+| Option | What it does |
+|---|---|
+| `--enable=ENABLE` | Turn this capability on; refused while its engine cannot back it |
+| `--disable=DISABLE` | Turn this capability off |
+| `--json` | Print the list as JSON, for scripts |
+
+A flip takes effect on the next request and clears the compiled route cache. Queue workers and
+other long-running processes keep the old state until they restart.
+
+```bash
+$ php glueful thallo:capabilities --disable=thallo.accounts
+```
+
 ### analytics:prune
 
-Delete raw analytics facts past the retention window. **Writes.** No scheduled job runs it, so put
-it on cron yourself if you want the table kept down.
+Delete raw analytics facts past the retention window. **Writes.** The scheduler's
+`analytics_prune` job runs it nightly.
 
 ```bash
 $ php glueful analytics:prune

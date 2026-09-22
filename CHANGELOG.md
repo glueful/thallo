@@ -52,6 +52,8 @@ as the next release, never a mutated tag.
 - **The tenancy status commands print a table.** `thallo:tenancy:status` and
   `thallo:tenancy:resolution:status` read like the rest of the CLI; `--json` keeps the raw status
   for scripts.
+- **`thallo:blocks:list` and `thallo:capabilities`.** A shell can list the block types, and list
+  capabilities and turn one on or off under the admin's rules.
 
 ### Fixed
 - **The first admin's password rules held only in the browser.** The web setup form's rules (a
