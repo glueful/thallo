@@ -14,6 +14,13 @@ as the next release, never a mutated tag.
   `public/storage/logs/`, which the web server serves. A relative path is now relative to the site,
   `.env.example` no longer sets it, and `thallo:doctor` warns about any `.log` file under `public/`.
   **An existing site must act** (see Upgrade Notes).
+- **The rendered site sent no security headers of its own.** A site had them only if its web
+  server added them. Every rendered page now carries `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: SAMEORIGIN` and, over
+  HTTPS, `Strict-Transport-Security: max-age=31536000` — never replacing one already set, and never
+  a framing header on a preview or inside the Design view's stage, which the admin frames. Thallo
+  still does not redirect HTTP to HTTPS: `.env.example` said it did, and now says to do it in the
+  web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
 - **Every import started from the admin failed to find its file on a real install.** The upload

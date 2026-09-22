@@ -7,8 +7,9 @@ summary: "What Thallo protects by default, the secrets a site holds, and what is
 ---
 
 Thallo generates its own keys, locks its first-run setup screen, hashes every credential it
-stores, and refuses a template or an upload that could run code. It does not terminate TLS, send
-the transport security headers or choose your policy. This page covers both halves.
+stores, refuses a template or an upload that could run code, and sends baseline security headers
+on its pages. It does not terminate TLS, redirect to HTTPS or choose your content policy. This
+page covers both halves.
 
 ## The three keys provision generates
 
@@ -86,13 +87,18 @@ Behind a reverse proxy or a load balancer, list its addresses in `TRUSTED_PROXIE
 (comma-separated, CIDR allowed). Empty trusts none, and the forwarded headers are ignored, so
 the client IP a rate limit counts and the audit log records is the proxy's.
 
-Of the `headers` block in `config/security.php`, only `CSP_HEADER` reaches a response.
-`HSTS_HEADER`, `X_FRAME_OPTIONS`, `X_CONTENT_TYPE_OPTIONS` and `X_XSS_PROTECTION` are read by
-nothing and are not sent: set `Strict-Transport-Security`, `X-Frame-Options`,
-`X-Content-Type-Options` and `Referrer-Policy` in the web server. The admin at `/admin` is a
-separate case — it is a mounted single-page app and its document carries its own policy plus
-`X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin` and
-`X-Frame-Options: SAMEORIGIN`.
+Every page the site renders carries `X-Content-Type-Options: nosniff`,
+`Referrer-Policy: strict-origin-when-cross-origin` and `X-Frame-Options: SAMEORIGIN`, and, on a
+request that arrived over HTTPS, `Strict-Transport-Security: max-age=31536000`. A header that is
+already set is kept, so a value your web server or a controller sets wins. Two exceptions keep
+the Design view working: a preview, and any page opened inside the Design view's stage, carry no
+framing header, because the admin frames them and may do so from another host. Behind a proxy,
+HSTS appears only once `TRUSTED_PROXIES` lets the request know it arrived over HTTPS. The admin at
+`/admin` carries its own policy and the same three headers.
+
+The `headers` block in `config/security.php` is not what sends them: only `CSP_HEADER` from it
+reaches a response. To send a stricter HSTS (with `includeSubDomains` or `preload`), or these
+headers on files your web server serves directly, set them in the web server.
 
 The API reference at `/api-docs` is served in every environment, including production. Set
 `API_DOCS_ENABLED=false` to stop serving it.
