@@ -71,9 +71,6 @@ the docs for the failed-job commands, the backup and `security:check`.
   has none; when that release ships, require it and update `docs/operations/06-security.md`.
   Framing on the APIs and an HTTPS redirect stay deliberately out: JSON is not framed, and TLS is
   the web server's job. (security)
-- **`thallo:doctor` checks the theme in `RENDER_THEME`**, not the one chosen in Appearance.
-  Code. A theme's stylesheets do not fall back to the default's (templates do); a theme without
-  a valid manifest can fail to load rather than render unstyled. (make-a-theme)
 - **Provision re-grants the install roles' permissions on every run.** Code. It reapplies grants
   to superuser and administrator, so a permission revoked from those two comes back on upgrade.
   Other roles are untouched. (users-and-roles)
@@ -219,6 +216,9 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **`thallo:doctor` checked the theme in `RENDER_THEME`**, not the one chosen in Appearance. With
+  the database reachable it now checks the stored choice, says which source it checked, and says
+  the site serves `RENDER_THEME` while a stored choice is broken. Test.
 - **Request logs were written into the web root.** A relative `LOG_FILE_PATH` resolved against
   `public/` under FPM. Relative paths now resolve against the project root, and the doctor warns
   about any `.log` under `public/`. Test.

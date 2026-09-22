@@ -31,7 +31,7 @@ looks healthy, or some checks failed. The command's exit status follows: a FAIL 
 | `storage` | `storage/` exists and is writable | FAIL when it is missing or read-only |
 | `keys` | `APP_KEY`, `TOKEN_SALT` and `JWT_KEY` all have a value | WARN, naming the ones that are empty |
 | `asset-routing` | Fetches `/theme-assets/site.css?t=default` on your public `BASE_URL` | WARN on 404: the web server is serving PHP-generated paths from disk |
-| `theme-vocabulary` | The theme named by `RENDER_THEME` has a `theme.json` that maps the platform vocabulary and lists its stylesheets | FAIL, with the reason the manifest was rejected |
+| `theme-vocabulary` | The live theme (the one chosen on the Appearance page, else `RENDER_THEME`) has a `theme.json` that maps the platform vocabulary and lists its stylesheets | FAIL, with the reason the manifest was rejected |
 | `style-artifact` | The compiled stylesheet for that theme is published under `storage/cache/style/` | WARN, naming the file — run `php glueful thallo:provision` |
 | `api-routing` | Fetches `/v1/admin/render/templates/custom.css?theme=default` on your public `BASE_URL` | WARN on 404 or 405: the same web-server fault, for file-shaped API paths |
 | `environment` | `APP_ENV` against the host in `BASE_URL` | WARN when a public host runs in anything but production mode |
@@ -44,9 +44,10 @@ as local and skipped — and they give no verdict at all when the host cannot be
 machine you run the command on. The `database` row appears only once the database is configured
 in `.env`.
 
-`theme-vocabulary` reads `RENDER_THEME` from `.env`. A theme chosen in the admin is a database
-setting, and the doctor does not see it: the row tells you about the theme your environment
-names, not necessarily the live one.
+`theme-vocabulary` checks the theme chosen on the **Appearance** page when the database can be
+reached, and the one `RENDER_THEME` names in `.env` otherwise; the row says which it checked. A
+chosen theme that no longer loads does not take the site down: the site serves the `RENDER_THEME`
+theme until you fix it or choose another, and the row says so.
 
 ## Read the Health page
 

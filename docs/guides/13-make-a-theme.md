@@ -106,8 +106,8 @@ every custom property your CSS reads.
 Three keys are required. `name` is the theme's own name. `vocabulary` maps every name of the
 style vocabulary to a CSS value, and `stylesheets` lists the theme's CSS files in load order.
 Miss a vocabulary name, or list a stylesheet that is not there, and the theme cannot load, cannot
-be switched to, and is reported by `php glueful thallo:doctor` — which checks the theme
-`RENDER_THEME` names, not the one chosen in the admin.
+be switched to, and is reported by `php glueful thallo:doctor` — which checks the theme chosen on
+the Appearance page, or the one `RENDER_THEME` names when none is chosen.
 
 These are the names, written `domain.name` — `spacing.lg`, `typography.size.2xl`:
 

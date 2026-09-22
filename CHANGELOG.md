@@ -23,6 +23,10 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **`thallo:doctor` checks the live theme.** It checked the theme `RENDER_THEME` names, but the
+  theme chosen on the Appearance page wins at runtime. When the database can be reached it now
+  checks the chosen theme, names which one it checked, and says that a chosen theme which no longer
+  loads leaves the site on the `RENDER_THEME` theme.
 - **A failed schedule says why, and a schedule that cannot run says so.** The Publishing tab
   showed a failed schedule as a badge, with the reason stored but hidden, and nothing warned that
   a missing scheduler cron meant a pending schedule would never fire. The reason now shows under
