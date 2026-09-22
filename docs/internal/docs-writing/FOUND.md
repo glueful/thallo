@@ -135,7 +135,6 @@ A missing feature is not a regression. These are product decisions to make, or t
 - **Accounts:** dashboard items come from a code registry. Name the exact missing no-code
   controls before writing this up; templates and account settings do exist.
 - **No admin UI for a resource-scoped (per-language) grant.**
-- **The tenancy status commands print raw JSON.**
 - **`SECURITY.md` has no dedicated address, PGP key or disclosure window.**
 
 ### Security
@@ -161,6 +160,7 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **The tenancy status commands printed raw JSON.** A table, with `--json` for scripts. Test.
 - **Maintenance commands were unscheduled** (version pruning, `import-export:cleanup`,
   `analytics:prune`, commerce sweeps). `config/schedule.php` runs them. Test.
 - **Setup: the CLI's weaker admin password, the kept `SETUP_TOKEN`, and the silent localhost

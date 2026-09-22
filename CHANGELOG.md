@@ -49,6 +49,9 @@ as the next release, never a mutated tag.
 - **The scheduler runs the maintenance commands.** Version pruning (while `VERSION_KEEP` or
   `VERSION_MAX_AGE_DAYS` is set), `import-export:cleanup`, `analytics:prune`, cart pruning and,
   with the marketplace on, its payout, reserve and webhook sweeps. Each has an `.env` switch.
+- **The tenancy status commands print a table.** `thallo:tenancy:status` and
+  `thallo:tenancy:resolution:status` read like the rest of the CLI; `--json` keeps the raw status
+  for scripts.
 
 ### Fixed
 - **The first admin's password rules held only in the browser.** The web setup form's rules (a

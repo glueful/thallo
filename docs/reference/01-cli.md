@@ -447,8 +447,12 @@ state or manage a workspace, a member or a domain answer with JSON.
 
 ### thallo:tenancy:status
 
-Show multi-tenancy enablement status. **Reads only.** It warns when a step is waiting for a fresh
-process, or when an interrupted enablement still has to be finished.
+Show multi-tenancy enablement status as a table. **Reads only.** It warns when a step is waiting
+for a fresh process, or when an interrupted enablement still has to be finished.
+
+| Option | What it does |
+|---|---|
+| `--json` | Print the raw status as JSON, for scripts |
 
 ```bash
 $ php glueful thallo:tenancy:status
@@ -564,8 +568,8 @@ $ php glueful thallo:tenancy:domain add --tenant=<tenant-uuid> --host=www.exampl
 
 ### thallo:tenancy:resolution:status
 
-Show full-resolution status: whether a public request is matched to a workspace by its host.
-**Reads only.**
+Show full-resolution status as a table: whether a public request is matched to a workspace by its
+host. **Reads only.** `--json` prints the raw status for scripts.
 
 ```bash
 $ php glueful thallo:tenancy:resolution:status

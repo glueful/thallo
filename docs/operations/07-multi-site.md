@@ -46,9 +46,10 @@ $ php glueful thallo:tenancy:resolution:status
 $ php glueful thallo:tenancy:diagnose
 ```
 
-`thallo:tenancy:status` prints the enablement machine as JSON: `step`, `enabled`, `schema_state`,
-`progress`, `reloading`, `mode`, `pending_slug`, `pending_name` and `failure`. On an install that
-has never been through the flow, `step` is `off`, `enabled` is `false` and `schema_state` is
+`thallo:tenancy:status` prints the enablement machine as a table: `step`, `enabled`,
+`schema_state`, `progress`, `reloading`, `mode`, `pending slug`, `pending name`, `failure`, `cli
+fallback` and `blockers`. `--json` prints the same status as JSON for a script. On an install that
+has never been through the flow, `step` is `off`, `enabled` is `no` and `schema_state` is
 `none`. The other steps are `migrating_extension`, `awaiting_confirm`, `retrofitting`,
 `enabling_enforcement`, `reloading`, `finalizing`, `on`, `disabling`, `disabled_widened` and
 `failed`.
@@ -97,7 +98,7 @@ next stage.
    $ php glueful thallo:tenancy:enable
    ```
 
-You have finished when `thallo:tenancy:status` reports `step` `on`, `enabled` `true` and
+You have finished when `thallo:tenancy:status` reports `step` `on`, `enabled` `yes` and
 `schema_state` `widened`, and `thallo:tenancy:diagnose` exits 0. The admin's sidebar now has a
 **Workspaces** group.
 
@@ -234,8 +235,8 @@ exists, domain routing is not active, and no starter definition is out of step.
 3. Restart the app, then run `php glueful thallo:tenancy:disable` once more. It verifies that the
    install serves correctly unscoped and lowers the barrier.
 
-You are done when `thallo:tenancy:status` reports `step` `disabled_widened`, `enabled` `false` and
-`reloading` `false`. To turn workspaces back on, run `thallo:tenancy:enable`, restart, and run it
+You are done when `thallo:tenancy:status` reports `step` `disabled_widened`, `enabled` `no` and
+`reloading` `no`. To turn workspaces back on, run `thallo:tenancy:enable`, restart, and run it
 again: there is no second retrofit.
 
 ## Commands that are not part of this flow
