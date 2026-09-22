@@ -23,6 +23,9 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **A disabled language is no longer served by the content API.** `?locale=` was used as given, so
+  a language switched off in Settings › Languages stayed readable through the API for as long as
+  it had published content. A language that is not enabled now answers `404`.
 - **A file's alt text and caption reach the page.** Set in the media library, they were read by
   nothing: an Image block with no alt of its own shipped `alt=""`. An Image block whose own alt or
   caption is empty now uses the file's, and templates can read them with the new `media_text()`.

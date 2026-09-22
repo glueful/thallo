@@ -154,8 +154,9 @@ see [build the site's menus](03-navigation.md).
 
 Switch **Enabled** off in the language's row. If the language holds entries, **Disable this
 language?** says how many are published and how many are drafts and asks you to confirm with
-**Disable language**. The site stops serving that language's URLs; the drafts, versions and
-publications stay in the database, and switching the language back on brings its pages back.
+**Disable language**. The site stops serving that language's URLs, and the content API answers
+`404` for `?locale=` naming it; the drafts, versions and publications stay in the database, and
+switching the language back on brings its pages back.
 
 There is no delete. A language that has ever been used stays in the list, disabled.
 

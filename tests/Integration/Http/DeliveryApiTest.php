@@ -341,6 +341,21 @@ final class DeliveryApiTest extends AppTestCase
         self::assertSame(404, $resp->getStatusCode());
     }
 
+    public function testALanguageThatIsNotEnabledIsNotServed(): void
+    {
+        // Disabling a language did not stop the API: ?locale= was used as given, so a disabled
+        // language's published content stayed readable.
+        $uuid = $this->publishInLocale('en', ['title' => 'English', 'priority' => 1]);
+        $controller = $this->controller(new FakeLocaleManager());
+
+        $list = $controller->index($this->get(['locale' => 'de']), $this->listQuery(['locale' => 'de']), 'post');
+        $one = $controller->show($this->get(['locale' => 'de']), $this->showQuery(['locale' => 'de']), 'post', $uuid);
+
+        self::assertSame(404, $list->getStatusCode());
+        self::assertSame(404, $one->getStatusCode());
+        self::assertStringContainsString('de', (string) $one->getContent());
+    }
+
     public function testShowFallsBackThroughI18nLocaleChainByUuid(): void
     {
         $uuid = $this->publishInLocale('en', ['title' => 'English fallback', 'priority' => 1]);
