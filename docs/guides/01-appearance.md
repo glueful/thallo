@@ -118,14 +118,8 @@ Press **Save**. Thallo answers `Appearance saved — Changes apply on the next p
 writes only this page's settings, so nothing on **Settings › General** is disturbed. A value
 outside the lists above is refused rather than stored.
 
-Open the site and reload. The theme, the colours and the design settings are live at once: saving
-one of them clears the rendered page cache. A new logo or favicon does not clear it, so a page
-already cached keeps the old image until its entry expires — an hour by default,
-`RENDER_CACHE_TTL` in `.env`. To see it immediately, clear the cache:
-
-```bash
-$ php glueful render:cache:clear
-```
+Open the site and reload. Everything on this page is live at once: saving the theme, a colour,
+a design setting, a logo or the favicon clears the rendered page cache.
 
 For what these settings cannot do — CSS of your own, loaded after everything else — open
 **Site › Theme editor** and edit `custom.css`.

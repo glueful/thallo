@@ -23,6 +23,9 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **A new logo, favicon or site name was served stale.** The page cache was cleared when colours
+  or the design changed, not when these did, so visitors saw the old ones for up to
+  `render.cache_ttl`. Saving any of them now clears it.
 - **Renaming the site in the admin changed nothing visitors see.** Settings › General › Site name
   fed only the starter header; templates and `og:site_name` read `RENDER_SITE_NAME`, the SEO title
   read `SEO_SITE_NAME`, and the shop and account pages kept copies of the first. The setting is now

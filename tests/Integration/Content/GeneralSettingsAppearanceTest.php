@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace Thallo\Core\Tests\Integration\Content;
 
 use Glueful\Bootstrap\ApplicationContext;
+use Glueful\Events\EventService;
 use Thallo\Contracts\Delivery\PreviewThemeValidator;
+use Thallo\Contracts\Settings\ThemeAppearanceChanged;
 use Thallo\Contracts\Style\StyleArtifactCompiler;
 use Thallo\Contracts\Style\StyleCompileFailed;
 use Thallo\Core\Http\Controllers\GeneralSettingsController;
 use Thallo\Core\Http\DTOs\UpdateGeneralSettingsData;
 use Thallo\Core\Settings\GeneralSettings;
+use Thallo\Core\Settings\SettingsStore;
 use Thallo\Core\Tests\Support\AppTestCase;
 
 final class GeneralSettingsAppearanceTest extends AppTestCase
@@ -175,5 +178,42 @@ final class GeneralSettingsAppearanceTest extends AppTestCase
         $compiled = [];
         $controller->update(new UpdateGeneralSettingsData(theme_accent: 'violet'));
         self::assertSame([], $compiled, 'an unchanged theme is not recompiled');
+    }
+
+    public function testChangingWhatAPageShowsOfTheSiteClearsTheRenderedPages(): void
+    {
+        // The page cache is purged on ThemeAppearanceChanged, and that fired for colours and the
+        // design only: a new logo, favicon, font file or site name was served stale for up to
+        // render.cache_ttl. Each now clears it — and saving the same value again does not.
+        $fired = 0;
+        $this->container()->get(EventService::class)->addListener(
+            ThemeAppearanceChanged::class,
+            static function () use (&$fired): void {
+                ++$fired;
+            },
+        );
+        $controller = $this->container()->get(GeneralSettingsController::class);
+        $store = $this->container()->get(SettingsStore::class);
+        try {
+            foreach (
+                [
+                    ['site_logo' => 'logo00000001'],
+                    ['site_logo_dark' => 'logo00000002'],
+                    ['site_favicon' => 'icon00000001'],
+                    ['site_name' => 'Acme Studio'],
+                ] as $change
+            ) {
+                $before = $fired;
+                self::assertSame(200, $controller->update(new UpdateGeneralSettingsData(...$change))->getStatusCode());
+                self::assertSame($before + 1, $fired, 'a change of ' . array_key_first($change));
+
+                $controller->update(new UpdateGeneralSettingsData(...$change));
+                self::assertSame($before + 1, $fired, 'the same ' . array_key_first($change) . ' again purges nothing');
+            }
+        } finally {
+            foreach (['site_logo', 'site_logo_dark', 'site_favicon', 'site_name'] as $key) {
+                $store->forget($key);
+            }
+        }
     }
 }
