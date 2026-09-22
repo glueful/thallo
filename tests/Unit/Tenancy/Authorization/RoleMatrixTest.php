@@ -24,6 +24,9 @@ final class RoleMatrixTest extends AppTestCase
         yield 'admin cannot manage members' => ['admin', 'tenant.members.manage', false];
         yield 'member edits' => ['member', 'content.edit', true];
         yield 'member cannot publish' => ['member', 'content.publish', false];
+        yield 'owner publishes without review' => ['owner', 'workflow.bypass', true];
+        yield 'admin publishes without review' => ['admin', 'workflow.bypass', true];
+        yield 'member needs review' => ['member', 'workflow.bypass', false];
         yield 'viewer views' => ['viewer', 'content.view', true];
         yield 'viewer cannot create' => ['viewer', 'content.create', false];
         yield 'unknown role denied' => ['ghost', 'content.view', false];
@@ -35,6 +38,7 @@ final class RoleMatrixTest extends AppTestCase
         $matrix = new RoleMatrix($this->appContext());
         self::assertSame(config($this->appContext(), 'tenancy.role_matrix'), $matrix->capabilities());
         self::assertTrue($matrix->isTenantCapability('workflow.review'));
+        self::assertTrue($matrix->isTenantCapability('workflow.bypass'));
         self::assertFalse($matrix->isTenantCapability('system.access'));
     }
 }

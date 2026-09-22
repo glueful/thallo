@@ -99,7 +99,7 @@ Four roles are built in:
 | Role | What it reaches |
 |---|---|
 | `owner` | Everything `admin` reaches, plus members, domains, roles and billing. |
-| `admin` | Content and its routes, the content model, navigation, SEO, templates, style classes, data collections, commerce, analytics and the review queue. |
+| `admin` | Content and its routes, the content model, navigation, SEO, templates, style classes, data collections, commerce, analytics, the review queue, and publishing without a review. |
 | `member` | View, create and edit content. |
 | `viewer` | View content. |
 

@@ -75,6 +75,8 @@ final class TenantAuthorizationTruthTableTest extends RetrofittedTenantTestCase
             'templates.manage',
             'analytics.read',
             'workflow.review',
+            // Owners and admins publish without review; nobody could before.
+            'workflow.bypass',
         ];
 
         $this->runAsTenant(self::$tenantAUuid, function () use (

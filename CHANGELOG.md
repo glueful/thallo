@@ -23,6 +23,10 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **A workspace's owner and admin can publish without a review.** `workflow.bypass` was missing from
+  the capability catalogue, so no workspace role could hold it, not even through a role override:
+  with workspaces on, every publish needed a review. It is in the catalogue now, and the built-in
+  `owner` and `admin` roles hold it; an owner can grant it to other roles.
 - **A `token` field can be finished in the field builder, and `box` is offered.** The builder
   listed `token` without asking for its vocabulary domain, which the server requires, so it could
   never be saved; it now has a **Token domain** picker. `box`, which the server accepted, was never
@@ -155,6 +159,8 @@ as the next release, never a mutated tag.
   already fallen behind the extension. The default theme's `menus` key, which nothing read, is gone.
 
 ### Upgrade Notes
+- **Add `'workflow.bypass'` to the `owner` and `admin` lists in your `config/tenancy.php`** if you
+  run workspaces: that file is your own copy, and a new install's copy lists it.
 - **Delete `config/payvia.php` unless you edited it.** An existing site keeps its copy, and it
   shadows the payment extension's defaults, including ones added since it was written.
 - **Delivery API clients: `published_at` changed format**, from `2026-02-11 09:30:00` to

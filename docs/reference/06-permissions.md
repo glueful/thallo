@@ -33,7 +33,7 @@ as an entry is published, against the language being published.
 
 ## Thallo's permissions
 
-These twenty-two are Thallo's own catalogue, in the groups the catalogue gives them. They are also
+These twenty-three are Thallo's own catalogue, in the groups the catalogue gives them. They are also
 the capabilities a workspace role can hold.
 
 ### Content
@@ -63,6 +63,7 @@ the capabilities a workspace role can hold.
 |---|---|
 | `analytics.read` | The analytics summary, series and breakdown. |
 | `workflow.review` | Approving a submission and requesting changes on it, and the **Review queue**. |
+| `workflow.bypass` | Publishing a language whose review is not approved. A workspace's `owner` and `admin` hold it. |
 
 ### Workspace
 
@@ -109,7 +110,6 @@ part of the catalogue above, so a workspace role cannot hold them: they are inst
 | `roles.assign` | Giving a role to an account and taking it away, one account or several at a time. |
 | `tenancy.manage` | Workspaces: the list, creating, seeding, suspending, reactivating, trashing, restoring and purging one. The enablement flow and its diagnostics. Host resolution, the public origin and the workspace signup settings. **Settings › Payments**. Binding an API key to a workspace. |
 | `tenancy.access_any` | Entering a workspace you are not a member of, as a platform operator. Every escalation granted is written to the audit log. |
-| `workflow.bypass` | Publishing a language whose review is not approved. |
 | `audit.view` | **Users & Access › Audit Log**: the list and one entry. |
 | `email.templates.manage` | **Settings › Email**: the templates, resetting one, the transport settings, and a test send. |
 | `i18n.view` | Reading the configured languages, the translations and the missing ones. |

@@ -74,10 +74,6 @@ the docs for the failed-job commands, the backup and `security:check`.
 - **The account pages: no profile surface, no auto-login after verification, no admin editor for
   the mails.** Code. A mail transport failure may be invisible because the mail channel reports
   available on an unconfigured install (Reported). (accounts)
-- **No workspace role can hold `workflow.bypass`.** Verified by code. It is missing from
-  `CapabilityCatalog`, so overrides and custom roles cannot grant it, and the baseline matrix in
-  `config/tenancy.php` gives it to nobody, owner included: with workspaces on, every publish needs a
-  review. Decide whether that is intended. (permissions)
 - **Self-serve checkout sends a public visitor into the admin.** Code. Pricing deep-links to the
   admin's `/billing`; there is no public subscribe flow and **Change plan** is disabled. The
   Thallo plan picker has no price, currency or interval. A plan is purchasable through its
@@ -200,6 +196,8 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **No workspace role could hold `workflow.bypass`** (not intended, decided 2026-09-22). It is in
+  the catalogue, and the built-in `owner` and `admin` hold it. Test.
 - **`token` could not be saved from the field builder, and `box` was never offered.** The builder
   asks for the token's domain and offers `box`. Test.
 - **The database backup stays off by default** (decided 2026-09-22). It works, but it needs
