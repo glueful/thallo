@@ -68,11 +68,11 @@ the docs for the failed-job commands, the backup and `security:check`.
 
 ### Setup, operations and security
 
-- **The APIs and `/api-docs` send no security headers.** Verified 2026-09-22 by requests through
-  the full HTTP stack: the rendered site and the admin page send nosniff, a referrer policy and
-  X-Frame-Options (HSTS too on the site); `/v1/admin/*`, `/v1/content/*` and `/api-docs` send none.
-  This is Thallo's routing choice, not a framework defect: the framework's `security_headers`
-  middleware is opt-in and no Thallo route uses it. There is no HTTPS redirect: the docs say that is
+- **The APIs and `/api-docs` send no security headers** (fixed on the framework's `dev` branch,
+  awaiting the next framework patch). The rendered site and the admin page send their own. The
+  framework's response chokepoint now adds `nosniff` and a referrer policy to every response that
+  has none; when that release ships, require it and update `docs/operations/06-security.md`.
+  Framing on the APIs and an HTTPS redirect stay deliberately out: JSON is not framed, and TLS is
   the web server's job. (security)
 - **`thallo:doctor` checks the theme in `RENDER_THEME`**, not the one chosen in Appearance.
   Code. A theme's stylesheets do not fall back to the default's (templates do); a theme without
