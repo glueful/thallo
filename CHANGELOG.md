@@ -31,6 +31,12 @@ as the next release, never a mutated tag.
 - **Plans show what they cost.** The plan editor takes a display price (amount, currency and
   interval), and the workspace plan picker shows it beside each plan's name. It is for display;
   the payment provider still decides the charge. Needs glueful/subscriptions 2.4.
+- **Workspaces change plan themselves.** **Change plan** on Workspace billing switches an active
+  Stripe subscription to another purchasable plan, prorated, through the new
+  `POST /v1/admin/billing/plan`. Paystack cannot, so the dialog offers cancelling at period end
+  instead. Needs glueful/payvia with plan-change support, and glueful/subscriptions 2.4 so the
+  switch shows up once the provider's webhook lands.
+- The workspace plan picker now receives plan prices; the billing query dropped them.
 
 ### Fixed
 - **One default language.** The default language in Settings › Languages, the default locale in

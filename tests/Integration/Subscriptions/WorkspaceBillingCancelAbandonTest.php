@@ -78,6 +78,7 @@ final class WorkspaceBillingCancelAbandonTest extends AppTestCase
         $pdo->exec('DELETE FROM subscription_checkout_originations');
         $pdo->exec('DELETE FROM subscription_checkout_subject_guards');
         $pdo->exec('DELETE FROM subscriptions');
+        $pdo->exec("DELETE FROM subscription_plans WHERE plan_key = 'team'");
         $this->connection()->table('thallo_system_flags')
             ->where('key', '=', 'subscriptions.self_serve_checkout_enabled')
             ->delete();
@@ -288,6 +289,125 @@ final class WorkspaceBillingCancelAbandonTest extends AppTestCase
         $response = $controller->cancel($this->cancelRequest($actor, ['mode' => 'stop_renewal']));
         self::assertSame(409, $response->getStatusCode());
         self::assertSame('payvia_unavailable', $this->errorCode($response));
+    }
+
+    // ==================================================================
+    // Change plan
+    // ==================================================================
+
+    public function testChangePlanOnAGatewayThatCannotSwitchIsRefusedWithGuidance(): void
+    {
+        // The default driver (Paystack) cannot switch a live subscription's plan.
+        [$workspace, $actor] = $this->seedWorkspaceAndVerifiedActor();
+        $this->seedProviderManagedSubscription($workspace, $this->defaultGatewayName(), 'sub_ps_001');
+
+        $response = $this->controller()->changePlan($this->planRequest($actor, ['plan_key' => 'team']));
+
+        self::assertSame(409, $response->getStatusCode());
+        self::assertSame('plan_change_unsupported', $this->errorCode($response));
+        self::assertStringContainsString('cancel', strtolower((string) $response->getContent()));
+    }
+
+    public function testChangePlanWithoutAProviderManagedSubscriptionIsRefused(): void
+    {
+        [, $actor] = $this->seedWorkspaceAndVerifiedActor();
+
+        $response = $this->controller()->changePlan($this->planRequest($actor, ['plan_key' => 'team']));
+
+        self::assertSame(409, $response->getStatusCode());
+        self::assertSame('not_provider_managed', $this->errorCode($response));
+    }
+
+    public function testChangePlanAsksTheProviderToSwitchToThePlansPrice(): void
+    {
+        $double = $this->planChangeDouble();
+        [$workspace, $actor] = $this->seedWorkspaceAndVerifiedActor();
+        $this->seedProviderManagedSubscription($workspace, $this->defaultGatewayName(), 'sub_st_001');
+        $this->seedPurchasablePlan('team', 'price_team');
+
+        $response = $this->controller()->changePlan($this->planRequest($actor, ['plan_key' => 'team']));
+
+        self::assertSame(202, $response->getStatusCode(), (string) $response->getContent());
+        self::assertSame(['id' => 'sub_st_001', 'plan' => 'price_team'], $double->changeCalls[0]);
+        self::assertSame('seeded-plan', $this->connection()->table('subscriptions')
+            ->where('tenant_uuid', '=', $workspace)->first()['plan_key'], 'the webhook moves the plan, not this call');
+    }
+
+    public function testChangePlanToAPlanThatCannotBeBoughtIsRefused(): void
+    {
+        $double = $this->planChangeDouble();
+        [$workspace, $actor] = $this->seedWorkspaceAndVerifiedActor();
+        $this->seedProviderManagedSubscription($workspace, $this->defaultGatewayName(), 'sub_st_002');
+
+        $response = $this->controller()->changePlan($this->planRequest($actor, ['plan_key' => 'nowhere']));
+
+        self::assertSame(409, $response->getStatusCode());
+        self::assertSame('plan_not_purchasable', $this->errorCode($response));
+        self::assertSame([], $double->changeCalls);
+    }
+
+    public function testAProviderRefusalIsReported(): void
+    {
+        $double = $this->planChangeDouble();
+        $double->answer = ['status' => 'failed', 'message' => 'No such price: price_team'];
+        [$workspace, $actor] = $this->seedWorkspaceAndVerifiedActor();
+        $this->seedProviderManagedSubscription($workspace, $this->defaultGatewayName(), 'sub_st_003');
+        $this->seedPurchasablePlan('team', 'price_team');
+
+        $response = $this->controller()->changePlan($this->planRequest($actor, ['plan_key' => 'team']));
+
+        self::assertSame(502, $response->getStatusCode());
+        self::assertStringContainsString('No such price', (string) $response->getContent());
+    }
+
+    private function planChangeDouble(): \Thallo\Core\Tests\Support\RecordingPlanChangeGateway
+    {
+        $capability = \Glueful\Extensions\Payvia\Contracts\SubscriptionPlanChangeCapableGateway::class;
+        if (!interface_exists($capability)) {
+            self::markTestSkipped('Needs glueful/payvia 2.9, which declares the plan-change capability.');
+        }
+        $double = new \Thallo\Core\Tests\Support\RecordingPlanChangeGateway();
+        $this->registerDriver($double);
+
+        return $double;
+    }
+
+    private function seedPurchasablePlan(string $planKey, string $identifier): void
+    {
+        $this->connection()->getPDO()
+            ->prepare('DELETE FROM subscription_plans WHERE plan_key = ?')
+            ->execute([$planKey]);
+        $this->connection()->table('subscription_plans')->insert([
+            'uuid' => Utils::generateNanoID(12),
+            'plan_key' => $planKey,
+            'display_name' => ucfirst($planKey),
+            'entitlements' => '{}',
+            'status' => 'active',
+            'sort_order' => 0,
+            'audience' => 'tenant',
+            'owner_tenant_uuid' => '',
+            'provider_identifiers' => json_encode([$this->defaultGatewayName() => $identifier]),
+            'created_at' => gmdate('Y-m-d H:i:s'),
+        ]);
+    }
+
+    /** @param array<string,mixed> $body */
+    private function planRequest(?string $actorUuid, array $body): Request
+    {
+        $request = Request::create(
+            '/v1/admin/billing/plan',
+            'POST',
+            [],
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json'],
+            (string) json_encode($body),
+        );
+        if ($actorUuid !== null) {
+            $request->attributes->set('auth.user', new UserIdentity(uuid: $actorUuid));
+        }
+
+        return $request;
     }
 
     public function testCancelRequiresAuthentication(): void

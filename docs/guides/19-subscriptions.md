@@ -165,7 +165,13 @@ If a checkout is left half-finished, the page shows **A checkout is already in p
 **Resume checkout** and **Abandon checkout**. Paystack cannot confirm a session dead, so abandoning
 is unavailable there and the page says so — resume it, or ask the operator. Once a subscription is
 running, the workspace can **Cancel subscription**, choosing **Cancel at the end of the billing
-period** or **Cancel immediately**. Changing plan is not offered: cancel first, or ask the operator.
+period** or **Cancel immediately**.
+
+**Change plan** opens a list of the other purchasable plans. On Stripe the choice takes effect at
+once: the subscription moves to the new plan's price, the difference is prorated on the next
+invoice, and a pending cancellation is withdrawn. The page shows the new plan once the provider's
+webhook lands. Paystack cannot move a subscription between plans, so there the dialog says so and
+offers **Cancel at period end** instead; subscribe to the new plan once access ends.
 
 When a checkout sticks and neither side can move it, the operator resolves it from a shell:
 
