@@ -58,6 +58,8 @@ as the next release, never a mutated tag.
   edits the same list as Settings › General › Listing types.
 - **Content-type fields have labels.** A field's **Label** is what the entry form shows; without
   one the form shows the name made readable ("Starts at", not `starts_at`).
+- **Unpublish on a schedule from the admin.** The Publishing tab's schedule chooses Publish or
+  Unpublish; the API already accepted both.
 
 ### Fixed
 - **A listing page's heading printed the type's slug.** It prints the name; templates get

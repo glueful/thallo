@@ -160,6 +160,8 @@ async function onSetHomepage() {
 const { data: schedules } = useSchedules(() => props.uuid)
 const scheduleOpen = ref(false)
 const runAt = ref('')
+// What the schedule does when it comes due: publish the draft, or take the entry down.
+const scheduleAction = ref<'publish' | 'unpublish'>('publish')
 const { create: createSchedule, cancel: cancelSchedule } = useScheduleMutations(
   props.uuid,
   props.locale,
@@ -168,12 +170,13 @@ async function onSchedule() {
   if (!runAt.value) return
   try {
     await createSchedule.mutateAsync({
-      action: 'publish',
+      action: scheduleAction.value,
       run_at: new Date(runAt.value).toISOString(),
     })
     runAt.value = ''
     scheduleOpen.value = false
-    success('Scheduled')
+    success(scheduleAction.value === 'publish' ? 'Publish scheduled' : 'Unpublish scheduled')
+    scheduleAction.value = 'publish'
   } catch (e) {
     notifyError(e, 'Couldn’t schedule')
   }
@@ -301,15 +304,34 @@ function toggleSchedule(): void {
           variant="ghost"
           icon="i-lucide-clock"
           square
-          aria-label="Schedule publish"
+          aria-label="Schedule publish or unpublish"
           data-test="schedule-toggle"
           @click="toggleSchedule()"
         />
       </div>
 
       <div v-if="scheduleOpen || localeSchedules.length" class="space-y-2">
+        <UFieldGroup v-if="scheduleOpen" size="sm">
+          <UButton
+            v-for="opt in [
+              { label: 'Publish', value: 'publish' as const },
+              { label: 'Unpublish', value: 'unpublish' as const },
+            ]"
+            :key="opt.value"
+            color="neutral"
+            :variant="scheduleAction === opt.value ? 'solid' : 'outline'"
+            :aria-pressed="scheduleAction === opt.value"
+            :data-test="`schedule-action-${opt.value}`"
+            @click="scheduleAction = opt.value"
+          >
+            {{ opt.label }}
+          </UButton>
+        </UFieldGroup>
         <div v-if="scheduleOpen" class="flex items-end gap-2">
-          <UFormField label="Publish at" class="flex-1">
+          <UFormField
+            :label="scheduleAction === 'publish' ? 'Publish at' : 'Unpublish at'"
+            class="flex-1"
+          >
             <UInput v-model="runAt" type="datetime-local" class="w-full" />
           </UFormField>
           <UButton

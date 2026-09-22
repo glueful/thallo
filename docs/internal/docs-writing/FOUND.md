@@ -77,8 +77,6 @@ A missing feature is not a regression. These are product decisions to make, or t
 
 - **Content-type schema migrations have no admin UI.** The field editor shows Remove and type
   changes; the save refuses both and now names the migration route. A field can never be retyped.
-- **Scheduled unpublish has no UI.** The API and the runner accept it; the Publishing panel only
-  posts `publish`.
 - **The default theme renders only `title` and `body` of a custom type.** Every other field needs a
   template, and a rich-text `body` renders escaped.
 - **Content imports.** CSV and the other format adapters only create; the bundle importer
@@ -157,6 +155,7 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **Scheduled unpublish had no UI.** The schedule picks Publish or Unpublish. Test.
 - **Content-type fields had no labels.** A Label per field, and readable names otherwise. Tests.
 - **Listings: the switch was far from the type, and the heading printed the slug.** A Listing page
   switch on the content type; the heading prints the name. Tests.

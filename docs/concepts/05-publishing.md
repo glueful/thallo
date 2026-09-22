@@ -91,13 +91,15 @@ dropped. A redirect that points at the entry answers 410 while it is unpublished
 
 Publishing again does not restore the old pin: it makes a new version from the current draft.
 
-## Scheduling a publish
+## Scheduling a publish or an unpublish
 
-The clock button in the **Publishing** tab opens **Publish at**. Give a date and time — read in
-your browser's time zone, stored in UTC — and press **Schedule**. It must be in the future. The
-badge becomes Scheduled, and the schedule is listed under the field with its action, time and
-status; the cross beside it cancels it while it is still pending. A second publish scheduled for
-the same locale replaces the pending one rather than queueing another.
+The clock button in the **Publishing** tab opens the schedule. Choose **Publish** or **Unpublish**,
+give a date and time — read in your browser's time zone, stored in UTC — and press **Schedule**.
+It must be in the future. A pending publish turns the badge to Scheduled, and every schedule is
+listed under the field with its action, time and status; the cross beside it cancels it while it
+is still pending. A second schedule of the same action for the same locale replaces the pending
+one rather than queueing another, so an entry can hold one publish and one unpublish at once: a
+campaign page that goes live on Monday and comes down on Friday.
 
 A schedule fires only if the site's scheduler cron line is installed. While a schedule is pending
 and the scheduler has not ticked for five minutes, the **Publishing** tab says it will not happen
@@ -107,8 +109,8 @@ on time. The `schedules_run` job fires due rows every minute — see
 
 A due schedule takes the publish path the button takes, with the same validation and review gate,
 as the user who created it. Its status ends at `done`, at `failed` with the reason shown under
-it, or at `canceled` when the entry has been deleted. Unpublishing on a schedule is in the admin API, but
-the admin has no control for it.
+it, or at `canceled` when the entry has been deleted. A due unpublish takes the **Unpublish** path
+the same way.
 
 ## Version history and restoring
 

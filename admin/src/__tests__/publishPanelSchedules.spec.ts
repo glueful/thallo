@@ -24,10 +24,11 @@ vi.mock('@/queries/generalSettings', () => ({
   useGeneralSettings: () => ({ data: ref({}) }),
   useGeneralSettingsMutations: () => ({ save: { mutateAsync: vi.fn(), isLoading: ref(false) } }),
 }))
+const createMock = vi.hoisted(() => vi.fn())
 vi.mock('@/queries/schedules', () => ({
   useSchedules: () => ({ data: scheduleData }),
   useScheduleMutations: () => ({
-    create: { mutateAsync: vi.fn(), isLoading: ref(false) },
+    create: { mutateAsync: createMock, isLoading: ref(false) },
     cancel: { mutateAsync: vi.fn(), isLoading: ref(false) },
   }),
 }))
@@ -98,5 +99,21 @@ describe('the Publishing panel’s schedules', () => {
     wrapper = mountPanel()
     await flushPromises()
     expect(wrapper.find('[data-test="scheduler-not-running"]').exists()).toBe(false)
+  })
+
+  it('schedules an unpublish as well as a publish', async () => {
+    scheduleData.value = { schedules: [], schedulerTicking: true }
+    createMock.mockReset().mockResolvedValue({})
+    const wrapper = mountPanel()
+    await flushPromises()
+
+    await wrapper.get('[data-test="schedule-toggle"]').trigger('click')
+    await wrapper.get('[data-test="schedule-action-unpublish"]').trigger('click')
+    expect(wrapper.text()).toContain('Unpublish at')
+    await wrapper.get('input[type="datetime-local"]').setValue('2026-10-01T09:00')
+    await wrapper.get('[data-test="schedule-confirm"]').trigger('click')
+    await flushPromises()
+
+    expect(createMock).toHaveBeenCalledWith(expect.objectContaining({ action: 'unpublish' }))
   })
 })
