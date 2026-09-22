@@ -66,9 +66,6 @@ the docs for the failed-job commands, the backup and `security:check`.
 - **Provision re-grants the install roles' permissions on every run.** Code. It reapplies grants
   to superuser and administrator, so a permission revoked from those two comes back on upgrade.
   Other roles are untouched. (users-and-roles)
-- **Commerce permissions reach the install roles only on re-provision.** Code. Which non-superuser
-  roles lack them after enablement is Reported. The cart cookie is `Secure` unconditionally.
-  Code. (commerce)
 - **The account pages: no profile surface, no auto-login after verification, no admin editor for
   the mails.** Code. A mail transport failure may be invisible because the mail channel reports
   available on an unconfigured install (Reported). (accounts)
@@ -189,6 +186,10 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **Commerce permissions and the always-Secure cart cookie.** The permissions were never the
+  problem: they are in Thallo's catalogue and install grants them; the commerce guide and README
+  said otherwise and are corrected. The cart and guest-order cookies follow
+  `SESSION_COOKIE_SECURE`. Test.
 - **`csv.users` showed on the Import page, and a publish held for review counted as a failed
   record.** The users import is gone from that page; a held publish is a warning. Test.
 - **Pack blocks declared no `layout.item`.** All nine do now. Test.

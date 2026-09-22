@@ -23,6 +23,10 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **The cart works on a site served over plain http.** The cart and guest-order cookies were always
+  `Secure`, which a browser drops on a host it does not treat as secure (Safari on `localhost`, a
+  `.test` site), so the cart silently emptied. They follow `SESSION_COOKIE_SECURE`, the storefront
+  session cookie's switch, which stays on by default.
 - **An import whose publish waits for review reports a warning, not a failure.** With the approval
   workflow on, a CSV, Markdown or WordPress row the importer could not publish was saved as a
   draft but counted as a failed record, so retrying the job imported it again as a second draft. It

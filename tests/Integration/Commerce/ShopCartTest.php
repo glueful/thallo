@@ -65,6 +65,25 @@ final class ShopCartTest extends AppTestCase
     // cookie custody
     // ------------------------------------------------------------------
 
+    public function testTheCartCookieFollowsTheSessionCookieSecureSwitch(): void
+    {
+        // Always Secure, the cart silently failed on a plain-http host a browser does not treat
+        // as secure (Safari on localhost, a .test site under MAMP). It follows the same switch as
+        // the storefront session cookie, SESSION_COOKIE_SECURE, which defaults to on.
+        putenv('SESSION_COOKIE_SECURE=false');
+        $_ENV['SESSION_COOKIE_SECURE'] = 'false';
+        $this->appContext()->forgetConfig('auth');
+        try {
+            $cookie = $this->cartCookieFrom($this->add($this->seedVariant(), 1));
+            self::assertNotNull($cookie);
+            self::assertFalse($cookie->isSecure());
+        } finally {
+            putenv('SESSION_COOKIE_SECURE');
+            unset($_ENV['SESSION_COOKIE_SECURE']);
+            $this->appContext()->forgetConfig('auth');
+        }
+    }
+
     public function testFirstMutationMintsTheCartCookieWithExactAttributes(): void
     {
         $variant = $this->seedVariant();

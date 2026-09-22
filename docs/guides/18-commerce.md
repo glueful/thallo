@@ -29,9 +29,9 @@ $ php glueful thallo:provision
 `extensions:enable` migrates each extension's own schema and rewrites `config/extensions.php`.
 `migrate:run` then creates Thallo's commerce tables — the product-to-entry link, the product slug
 ledger, the checkout-attempt ledger and the payment-link delivery log — and declares two
-permissions, `commerce.view` and `commerce.manage`. `thallo:provision` grants every declared
-permission to the `superuser` and `administrator` roles; without it the Commerce screens load and
-every request behind them is refused.
+permissions, `commerce.view` and `commerce.manage`. Both are part of Thallo's own catalogue, so
+the `superuser` and `administrator` roles already hold them from install. `thallo:provision`
+finishes the setup, as after any upgrade.
 
 Reload the admin. **Extensions › Capabilities** now shows **Commerce** as **On**, and the sidebar
 has a **Commerce** section: **Overview**, **Products**, **Orders**, **Discounts**, **Reviews**,
