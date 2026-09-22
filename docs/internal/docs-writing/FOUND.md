@@ -72,6 +72,51 @@ reproduced beyond what the report says.
   (see above); enabling is refused outright with any data collection defined, and on a cache
   driver without pattern purge, with no warning before the button. (workspaces)
 
+- **Content webhooks never deliver — proven.** `WebhookDispatcher::queueDelivery()` and
+  `Webhook::retry()` both call `QueueManager::push($job)` with an object where a string is
+  typed, under `strict_types`: a guaranteed `TypeError`. The delivery row is written first, so
+  it sits at `pending` for ever; the event dispatcher swallows the throw, so publishing succeeds
+  silently; the admin's **Retry** button 500s. **Send test event** works (synchronous) but has
+  no SSRF guard. Delete orphans the delivery rows though the dialog says they are removed. The
+  `cleanup` config is read by nothing. (webhooks)
+- **Every admin-started import failed on a real install — fixed.** The upload root was computed
+  in the core package's own config, which lives under `vendor/` on an install. The site's
+  `config/import_export.php` now owns it. (import-content)
+- **The sitemap and `robots.txt` are 409 on a stock install.** They read `PUBLIC_URL_BASE`,
+  which is in no `.env.example`, has no `BASE_URL` fallback and no doctor check. **Settings ›
+  General › Site name** reaches neither `og:site_name` nor the SEO title template. (seo)
+- **Two-factor locks an admin out.** Login answers with a `challenge_token`; the admin's session
+  store throws "Malformed login response". A visitor account with 2FA cannot sign in on the
+  site either. (users-and-roles, accounts)
+- **Block-built page bodies are not indexed.** `DocumentBuilder::INDEXABLE_TYPES` is
+  `string` and `text`, so a Design-view page contributes only its title. `search:status` is
+  also registered by the Meilisearch extension under the same name. (search)
+- **`thallo:doctor` checks the theme in `RENDER_THEME`**, not the one chosen in Appearance.
+  A filesystem theme is never linted. A theme's stylesheets do not fall back to the default's
+  (templates do), so a minimal theme renders unstyled. (make-a-theme)
+- **The admin's Markdown import hint is wrong for the default case**: a `text` field is `plain`
+  by default and gets the raw Markdown, not HTML. `csv.users` leaks past the capability gate on
+  the Import page and has no mapping UI there. A gated publish is counted as a failed record.
+  (import-content)
+- **Three "default locale"s can disagree** (`i18n_locales.is_default`, Settings › General,
+  `config/i18n.php`). The editor's banner says shared fields apply to every locale; they are
+  copied once. Disabling a language does not stop the delivery API serving it. (languages)
+- **The role delete dialog says users lose the role**; deletion is refused for every seeded
+  role and for any assigned role. `.env.example` says `users.read`; the code checks
+  `users.view`. Provision re-grants every revoked permission on each upgrade. (users-and-roles)
+- **A block type's template cannot be created from the admin**, though the admin's copy says
+  to write it in the Theme editor. A block-type migration locks the entries until a worker
+  runs, and the dialog does not say so. (make-a-block-type)
+- **The media panel's "File URL" is a bare storage path**, not a URL. "Used in" ignores blocks.
+  Alt text, caption and tags reach no theme, API or block. Search is case-sensitive `LIKE`.
+  Deleted files are never reclaimed; Optimize leaves stale variants. `UPLOADS_STRIP_EXIF` is
+  read by nothing. (media)
+- **Commerce permissions reach the roles only on re-provision**, so an operator who enables
+  Commerce and stops gets 403s. The cart cookie is `Secure` unconditionally. (commerce)
+- **The account pages: no profile surface, no auto-login after verification**, no admin editor
+  for the mails, and a mail transport failure is invisible in the admin because the mail channel
+  reports available on an unconfigured install. (accounts)
+
 ## Things a reader cannot do, or is not told
 
 - **Nothing creates the PostgreSQL database.** Provision fails on the connection test if it is
@@ -121,6 +166,20 @@ reproduced beyond what the report says.
 - **`TENANCY_TRASH_RETENTION_DAYS`, `TENANCY_HOST_COOLDOWN_DAYS` are in no `.env.example`.**
   (workspaces)
 
+- **Navigation: no home page per language, `site.locales` is empty, `direction` does nothing,
+  a language cannot be removed, a fresh install seeds none.** (languages)
+- **Content imports are create-only; the bundle carries the blob manifest, not the files;
+  nothing schedules `import-export:cleanup`.** (import-content)
+- **No per-type SEO fallbacks or robots groups from the admin; `config/seo.php` does not ship;
+  a redirect cannot be edited, target an entry, or pick its locale.** (seo)
+- **`PUBLIC_URL_BASE`, `TENANCY_*_DAYS`, `MEILISEARCH_HOST` are in no `.env.example`.**
+- **`themes/` ships empty; no way to inherit the default theme's CSS; Duplicate is icon-only.**
+  (make-a-theme)
+- **Commerce sweeps are not in `config/schedule.php`; Customers is read-only; a marketplace tab
+  ships while `thallo:commerce:diagnose` calls it unsupported.** (commerce)
+- **Every visitor-facing account thing is fixed in code**: the dashboard is empty until a
+  developer registers items. (accounts)
+
 ## Stale prose in the repository (the pages follow the code)
 
 - `README.md`: "default `thallo`" database and `createdb thallo` (no such default; provision
@@ -158,6 +217,12 @@ reproduced beyond what the report says.
   operator list is not what the delivery API supports, and nothing in delivery reads it.
   `core/src/Content/Delivery/Timestamps.php` documents a normalisation the delivery path does
   not perform.
+- Pack READMEs, again: thallo-seo ("headless-only"), thallo-search (envelope, slug fallback,
+  missing keys), thallo-commerce (four blocks, "enabled by default"), thallo-importers,
+  thallo-account. `docs/internal/STOREFRONT_ACCOUNTS.md` (routes, the eight pages, the block
+  and endpoint "not part of this pack"). `config/storage.php`'s S3 comment names a package
+  the code does not know. `THEMING.md` §4.2 `media(uuid, variant)`; §12.3 omits Motion;
+  `ThemeLocator` and `render.php` "resolved at boot"; `ThemeCloneCommand` "templates page".
 - Code comments: `admin/src/editor/palette/order.ts` ("flat list, no category headings");
   `BlockTypeRepository` ("no nesting in v1"); `ContentTypeRepository::updateSchema()` ("backfill
   planned"); `ScheduledTasksController` ("QueueManager isn't container-registered");

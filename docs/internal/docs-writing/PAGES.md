@@ -319,39 +319,49 @@ One job each, start to finish.
   so say so and do not describe mail settings.
 
 ### media — Manage images and files
-- **File** `guides/08-media.md` · **Order** 8 · **Status** todo
+- **File** `guides/08-media.md` · **Order** 8 · **Status** done
 - **Summary** "Upload, find and reuse images, documents and fonts."
-- **Sources** `admin/src/pages/media/`, `core/src/Content/Media/`, `core/src/Http/Controllers/MediaAdminController.php`,
-  `config/uploads.php`, `config/storage.php`, `config/filesystem.php`
+- **Sources** `admin/src/pages/media/`, `admin/src/queries/media.ts`, `core/src/Http/Controllers/MediaAdminController.php`,
+  `core/src/Content/Delivery/EngineMediaUrlResolver.php`, `.../EngineMediaVariantUrlResolver.php`,
+  `core/src/Content/Pipeline/Listeners/MediaUsageProjector.php`, `core/src/Content/Repositories/EntryRepository.php` (`assetTargets`),
+  `packages/thallo-render/src/RenderContextExtension.php` (`mediaImage`), `packages/thallo-render/themes/default/templates/blocks/image.twig`,
+  `vendor/glueful/framework/src/Controllers/UploadController.php`, `vendor/glueful/framework/src/Uploader/FileUploader.php`,
+  `vendor/glueful/framework/routes/blobs.php`, `config/uploads.php`, `config/storage.php`
 - **Must cover** Uploading and the types and size allowed, and where that is configured. Filters
   by type. Alt text. How images are resized and served. Where files are stored and the choice of
   disk. What deleting a file that is in use does.
 
 ### languages — Publish in more than one language
-- **File** `guides/09-languages.md` · **Order** 9 · **Status** todo
+- **File** `guides/09-languages.md` · **Order** 9 · **Status** done
 - **Summary** "Add a language, translate entries, and give each language its URLs."
-- **Sources** `admin/src/pages/settings/languages/`, `core/src/Content/Localization/`, `config/i18n.php`,
-  `packages/thallo-render/docs/THEMING.md` (locale helpers in §4.2), `docs/internal/PER_LOCALE_RBAC.md`
-  (for context only: verify against the code)
+- **Sources** `admin/src/pages/settings/languages/`, the locale toolbar in `admin/src/pages/content/[type]/[uuid]/index.vue`,
+  `core/src/Content/Localization/`, `core/src/Content/Delivery/EnginePublicRouteResolver.php`, `core/src/Content/Seo/CanonicalPathBuilder.php`,
+  `packages/thallo-render/src/SiteContext.php` (`site.locale`; `site.locales` is empty), `packages/thallo-render/src/RenderContextExtension.php`
+  (`seoHead`: `seo.alternates`), `core/src/Content/Seo/EngineSeoHeadProvider.php`, `config/i18n.php`
 - **Must cover** Adding and enabling a locale. The default locale. Translating an entry: each
   locale is its own draft and its own published version. The URLs of a translated page. What a
   visitor gets when a translation does not exist. A language switcher in the theme.
 
 ### seo — Titles, descriptions, sitemaps and redirects
-- **File** `guides/10-seo.md` · **Order** 10 · **Status** todo
+- **File** `guides/10-seo.md` · **Order** 10 · **Status** done
 - **Summary** "Control how pages appear in search results and what happens to old URLs."
-- **Sources** `packages/thallo-seo/README.md`, `packages/thallo-seo/src/`, `core/src/Content/Seo/`,
-  `admin/src/pages/settings/redirects/`, the SEO tab in `admin/src/pages/content/[type]/[uuid]/`
+- **Sources** `packages/thallo-seo/src/`, `core/src/Content/Seo/`, `packages/thallo-render/src/RenderContextExtension.php` (`seoHead`),
+  `packages/thallo-render/themes/default/templates/layout.twig`, `admin/src/pages/settings/redirects/`,
+  `admin/src/pages/content/[type]/redirects.vue` (the second redirects screen),
+  `admin/src/pages/content/[type]/[uuid]/components/SeoPanel.vue` (mounted in the form editor and the Design view).
+  The pack README describes a headless-only pack; the code renders the head.
 - **Must cover** The SEO tab of an entry: what each field becomes in the page's head. Defaults
   when a field is empty. The sitemap and robots URLs. Redirects: the ones Thallo makes when a
   slug changes, and making your own.
 
 ### search — Add search to the site
-- **File** `guides/11-search.md` · **Order** 11 · **Status** todo
+- **File** `guides/11-search.md` · **Order** 11 · **Status** done
 - **Summary** "Turn on content search, build the index, and choose between PostgreSQL and Meilisearch."
-- **Sources** `packages/thallo-search/README.md`, `packages/thallo-search/src/Engine/`,
-  `packages/thallo-search/src/Index/DocumentBuilder.php`, `.env.example` (`SEARCH_ENGINE`, `MEILISEARCH_*`),
-  `packages/thallo-render/themes/default/templates/_docs_search.twig`
+- **Sources** `packages/thallo-search/src/Engine/`, `packages/thallo-search/src/Index/DocumentBuilder.php`,
+  `packages/thallo-search/src/Http/SearchController.php`, `packages/thallo-search/routes/public-routes.php`,
+  `packages/thallo-search/config/search.php`, `core/src/Content/Delivery/EngineIndexableContentReader.php`,
+  `vendor/glueful/meilisearch/config/meilisearch.php` (`MEILISEARCH_HOST`; no `.env.example` names it),
+  `packages/thallo-render/themes/default/templates/_docs_search.twig`, `packages/thallo-render/runtime/block-docs-search.js`
 - **Must cover** Switching it on (**Settings › General**). `search:reindex` once. What is
   indexed and what is left out. The search API route and one request. `SEARCH_ENGINE` and when
   Meilisearch is used. Per-type configuration, if the config has it. Showing a search box in a
@@ -361,22 +371,27 @@ One job each, start to finish.
 - **File** `documentation-sites.md` (exists, stays at the top of `docs/`) · **Order** 60 · **Status** done
 
 ### import-content — Import content from CSV, WordPress or Markdown
-- **File** `guides/12-import-content.md` · **Order** 12 · **Status** todo
+- **File** `guides/12-import-content.md` · **Order** 12 · **Status** done
 - **Summary** "Bring existing content in: map a CSV, import a WordPress export, or move a Thallo site."
-- **Sources** `packages/thallo-importers/README.md`, `packages/thallo-importers/src/`,
-  `core/src/Content/ImportExport/`, `admin/src/pages/settings/import-export/`, `core/config/import_export.php`
+- **Sources** `packages/thallo-importers/src/`, `core/src/Content/ImportExport/`, `core/src/Http/Controllers/ImportExportController.php`
+  (the upload: accepted kinds and the size cap), `admin/src/pages/settings/import-export/`,
+  `admin/src/pages/users/components/UserBulkImportModal.vue` (where `csv.users` lives), `vendor/glueful/import-export/`,
+  `config/import_export.php`
 - **Must cover** **Settings › Import / Export** and the importers capability. Each adapter: what
   file it takes, how fields are mapped, what it does with HTML. Dry run, then commit. The jobs
   list, errors and reports. Exporting and re-importing NDJSON to move a site. That imports are
   queue jobs on the `import-export` queue. Link: documentation sites for the Markdown folder.
 
 ### make-a-theme — Make your own theme
-- **File** `guides/13-make-a-theme.md` · **Order** 13 · **Status** todo
+- **File** `guides/13-make-a-theme.md` · **Order** 13 · **Status** done
 - **Summary** "Start a theme from the default one, override a template, and ship your own CSS."
 - **Sources** `packages/thallo-render/docs/THEMING.md` (all), `packages/thallo-render/src/Console/ThemeCloneCommand.php`,
-  `packages/thallo-render/src/ThemeLocator.php`, `packages/thallo-render/src/Themes/`,
-  `packages/thallo-render/README.md`, `core/config/theme.php`, `admin/src/pages/templates/`,
-  `packages/thallo-render/themes/default/`, `packages/thallo-render/src/Style/ThemeCssLint.php`
+  `packages/thallo-render/src/ThemeLocator.php`, `packages/thallo-render/config/render.php`,
+  `packages/thallo-render/src/Style/ThemeVocabulary.php`, `packages/thallo-contracts/src/Style/Vocabulary.php` (the required tokens),
+  `packages/thallo-render/src/Http/Controllers/TemplatesAdminController.php`, `packages/thallo-render/src/Templates/TemplateCatalog.php`,
+  `admin/src/pages/templates/`, `packages/thallo-render/themes/default/`, `packages/thallo-render/src/Style/ThemeCssLint.php`.
+  Templates fall back to the default theme file by file; stylesheets do not — a theme serves only
+  the CSS its own `theme.json` names.
 - **Must cover** Where a site's themes live in an install. Cloning the default theme, by
   whatever means the code provides. `theme.json` and its keys, the screenshot. Overriding one
   template and leaving the rest to the default, if the code supports inheritance — find out.
@@ -384,29 +399,42 @@ One job each, start to finish.
   keep for the Design view to work. Making the theme live. The **Theme editor** in the admin.
 
 ### make-a-block-type — Make your own block type
-- **File** `guides/14-make-a-block-type.md` · **Order** 14 · **Status** todo
+- **File** `guides/14-make-a-block-type.md` · **Order** 14 · **Status** done
 - **Summary** "Define a block's fields in the admin, write its template, and give it style settings."
-- **Sources** `admin/src/pages/settings/block-types/`, `core/src/Content/Blocks/`,
-  `packages/thallo-render/docs/THEMING.md` §4 and §12.3, `admin/e2e/tests/block-type-style-settings.spec.ts`
+- **Sources** `admin/src/pages/settings/block-types/`, `core/src/Content/Blocks/`, `core/src/Content/Http/Controllers/BlockTypeController.php`
+  (the style refusal), `packages/thallo-contracts/src/Style/StyleTargets.php`, `packages/thallo-render/src/RenderContextExtension.php` (`blocks`:
+  the missing-template behaviour), `packages/thallo-render/src/Templates/TargetLint.php`, `.../DatabaseTemplateLoader.php`,
+  `admin/src/editor/inspector/tabMap.ts`, `core/src/Content/Schema/FieldDefinition.php`,
+  `packages/thallo-render/docs/THEMING.md` §4 and §12.3 (§4.2's `media(uuid, variant)` is wrong: one argument; `media_image` exists)
 - **Must cover** A worked example (a testimonial). Creating the type and its fields. The Twig
-  template: its file name and where it goes, the data it receives. Style settings for a block
-  type you make. What happens on a site with no template for the type. Changing the type later.
+  template: its file name and where it goes (on disk, in the site's own theme: the admin cannot
+  create one), the data it receives. Style settings, and the order that trips a reader: the
+  template must carry the helpers before a group can be ticked. What happens on a site with no
+  template for the type. Changing the type later.
 
 ### users-and-roles — Users, roles and permissions
-- **File** `guides/15-users-and-roles.md` · **Order** 15 · **Status** todo
-- **Summary** "Invite people, decide what each may do, and keep an audit trail."
+- **File** `guides/15-users-and-roles.md` · **Order** 15 · **Status** done
+- **Summary** "Create accounts, decide what each may do, and read the trail of who changed what."
 - **Sources** `admin/src/pages/users/`, `admin/src/pages/roles-permissions/`, `admin/src/pages/audit-log/`,
-  `core/src/Content/Authorization/`, `core/src/Setup/InstallRoleGrants.php`,
-  `core/src/Setup/Console/SuperuserGrantCommand.php`, `config/users.php`, `config/auth.php`
+  `core/src/Support/UserRoleAssignmentPolicy.php`, `.../RoleAuthority.php`, `.../AuthorityContinuityGuard.php`,
+  `core/src/Http/Controllers/UserAdminController.php`, `.../AssignableRolesController.php`, `core/routes/admin.php`,
+  `core/src/Setup/InstallRoleGrants.php`, `core/database/dependent-migrations/004_SeedRolesAndPermissions.php`,
+  `vendor/glueful/aegis/migrations/003_SeedDefaultRoles.php`, `core/src/Setup/Console/SuperuserGrantCommand.php`,
+  `config/users.php`, `config/auth.php`. (`core/src/Content/Authorization/` is the workspace role layer, not this.)
+  There is no invitation flow: an administrator sets the password.
 - **Must cover** Creating a user. The roles that ship and what each may do, from the source.
   Changing a role's permissions. The superuser and the two commands about it. Sign-in options
   the config offers. The audit log.
 
 ### webhooks — Notify other systems with webhooks
-- **File** `guides/16-webhooks.md` · **Order** 16 · **Status** todo
-- **Summary** "Call another service when content is published, and verify the call on the other end."
-- **Sources** `admin/src/pages/developers/webhooks/`, `core/src/Events/`, `core/src/Content/Events/`,
-  `config/events.php`, `core/src/Settings/GeneralSettings.php` (`webhooks_enabled`)
+- **File** `guides/16-webhooks.md` · **Order** 16 · **Status** done
+- **Summary** "Register an endpoint, verify the signature Thallo signs its requests with, and read the delivery log."
+- **Sources** `admin/src/pages/developers/webhooks/`, `admin/src/queries/webhooks.ts` (the event list the admin offers),
+  `core/src/Content/Events/`, `core/src/Providers/CoreServiceProvider.php` (`registerEventListeners`),
+  `core/src/Content/Pipeline/Listeners/DispatchWebhookListener.php`, `core/routes/admin.php`,
+  `core/database/dependent-migrations/007_CreateWebhookTables.php`, `config/api.php` (the `webhooks` block),
+  `vendor/glueful/framework/src/Api/Webhooks/` (`Webhook.php`, `WebhookDispatcher.php`, `WebhookSignature.php`),
+  `core/src/Settings/GeneralSettings.php` (`webhooks_enabled`)
 - **Must cover** Switching webhooks on. Creating one. The events that exist and the payload of
   each. Signing and how a receiver checks it. Retries and the delivery log. Delivery is queued on
   the `webhooks` queue (`config/api.php`). **First establish that delivery works at all:** the
@@ -416,21 +444,27 @@ One job each, start to finish.
   is none, say so in your report and do not describe delivery as working.
 
 ### accounts — Let visitors sign up and sign in
-- **File** `guides/17-accounts.md` · **Order** 17 · **Status** todo
+- **File** `guides/17-accounts.md` · **Order** 17 · **Status** done
 - **Summary** "Give the site's visitors accounts: registration, sign-in and account pages."
-- **Sources** `packages/thallo-account/README.md`, `packages/thallo-account/src/`, `core/src/Account/`,
-  `core/src/Signup/`, `core/config/signup.php`, `core/routes/signup.php`, `admin/src/pages/settings/accounts/`,
-  `admin/src/pages/settings/signup/`, `docs/internal/STOREFRONT_ACCOUNTS.md` (context only)
+- **Sources** `packages/thallo-account/src/`, `packages/thallo-account/routes.php`, `core/src/Account/`, `core/src/Signup/`,
+  `core/config/signup.php`, `admin/src/pages/settings/accounts/`, `core/src/Content/Blocks/ContributedBlockTypeReconciler.php`,
+  `packages/thallo-render/src/ThemeLocator.php`, `packages/thallo-render/src/Templates/TemplateCatalog.php`, `admin/src/pages/templates/index.vue`,
+  `vendor/glueful/email-notification/src/EmailChannel.php`, `vendor/glueful/framework/config/services.php` (the mail defaults).
+  (`core/routes/signup.php` and Settings › Signup are member and workspace signup, not this;
+  `docs/internal/STOREFRONT_ACCOUNTS.md` is stale in three places.)
 - **Must cover** The accounts capability. What pages it adds to the site and their URLs. The
   settings. Email verification and the mail it needs. How a theme styles the account pages.
 
 ### commerce — Sell products
-- **File** `guides/18-commerce.md` · **Order** 18 · **Status** todo
+- **File** `guides/18-commerce.md` · **Order** 18 · **Status** done
 - **Summary** "Switch on the store, add a product, take a payment, and see the order."
-- **Sources** `packages/thallo-commerce/README.md`, `packages/thallo-commerce/src/`, `admin/src/pages/commerce/`,
-  `admin/src/pages/settings/payments.vue`, `config/payvia.php`, `README.md` (What's on by default),
-  `docs/production.md` (commerce obligations), `docs/limitations.md`
-- **Must cover** Enabling Commerce and Payvia, exactly as the README says. Payment settings, and
+- **Sources** `packages/thallo-commerce/routes/shop-routes.php` (the route list), `packages/thallo-commerce/src/` (`Http/Shop/`,
+  `Starter/`, `Payments/`, `Console/`, `Diagnostics/`), `packages/thallo-commerce/src/Starter/ShopBlockTypesContributor.php`,
+  `packages/thallo-commerce/config/thallo-commerce.php`, `vendor/glueful/commerce/config/commerce.php`, `admin/src/pages/commerce/`,
+  `admin/src/pages/settings/payments.vue`, `core/src/Settings/PlatformPaymentSettingsStore.php` (the admin's values win over `config/payvia.php`),
+  `core/src/Setup/InstallRoleGrants.php`, `docs/production.md` (commerce obligations), `docs/limitations.md`.
+  (The pack README is stale: four blocks not five, "enabled by default", `./thallo`.)
+- **Must cover** Enabling Commerce and Payvia, as the code has it. Payment settings, and
   why payment links need a canonical HTTPS `BASE_URL`. A product and its variants. The shop
   blocks and pages. Cart and checkout. Orders in the admin. The cron lines commerce adds. Be
   exact about what the preview does not do yet.

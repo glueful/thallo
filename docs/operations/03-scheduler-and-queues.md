@@ -92,7 +92,7 @@ These are the queues Thallo dispatches to:
 |---|---|
 | `default` | Style class detach-everywhere and remove-everywhere jobs, content type and block type backfills, filter-index jobs |
 | `import-export` | Imports and exports started from **Settings › Import / Export** |
-| `webhooks` | Content webhook deliveries (`WEBHOOKS_QUEUE` renames it) |
+| `webhooks` | Meant for content webhook deliveries (`WEBHOOKS_QUEUE` renames it); nothing reaches it today — see [webhooks](../guides/16-webhooks.md) |
 | `maintenance`, `critical`, `notifications` | Only what **Utilities › Scheduled Tasks**'s **Run now** puts there, and only for a job whose row names that queue |
 | `tenancy-purge`, `tenancy-maintenance` | Workspace purges and host-cooldown sweeps, once workspaces are on |
 

@@ -153,8 +153,9 @@ among others. That is a working install.
 ## Why BASE_URL matters
 
 `BASE_URL` is the install's canonical public origin. Every absolute URL Thallo emits — media
-URLs, sitemaps, canonical and OG tags, payment links — is built from it, never from the
-request's Host header. Unset or localhost counts as unconfigured: that is safe, but canonical
+URLs, canonical and OG tags, payment links — is built from it, never from the request's Host
+header. (The sitemap and `robots.txt` read `PUBLIC_URL_BASE` instead; see
+[SEO](../guides/10-seo.md).) Unset or localhost counts as unconfigured: that is safe, but canonical
 and OG URLs are then left out. Plain HTTP is fine for local development; minting payment links
 requires an HTTPS origin with no non-default port. Set it to the real origin before the site is
 public, and set `APP_ENV=production` with it.

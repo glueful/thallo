@@ -136,14 +136,16 @@ headings the same on one page.
 **Code.**
 
 - Always name the language on a fence: `bash`, `php`, `twig`, `json`, `ini`, `nginx`, `css`,
-  `js`, `text`. It is shown as the block's label.
+  `js`, `xml`, `text`, or whatever the block holds. It is shown as the block's label. A CSV or a
+  crontab line is `text`.
 - In a `bash` block, start each command the reader types with `$ ` and leave output lines
   without it. The theme draws the prompt and the copy button copies only the commands.
 - More than a line or two of output goes in its own `text` block after the command, not in the
   `bash` block. A crontab line is `text` too: it is neither typed at a prompt nor output. A
   systemd unit is `ini`.
 - Output you quote is exact, except a secret: replace a token, key or password with its name in
-  capitals (`SETUP_TOKEN`), and say that you did.
+  capitals (`SETUP_TOKEN`), and say that you did. A `[OK]` or `[ERROR]` box (Symfony's styled
+  output, which most `php glueful` commands print) is described, not quoted.
 - One block, one purpose. Do not put three alternatives in one block for the reader to pick
   apart.
 - Use real values the reader can recognise as examples: `my-site`, `example.com`,
@@ -152,9 +154,9 @@ headings the same on one page.
 
 **Links.**
 
-- To another page: a **relative link to its `.md` file**, exactly as on GitHub —
-  `[upgrading](../upgrading.md)`, `[blocks](../concepts/blocks.md#overriding-a-template)`. The
-  import turns it into the page's URL. Never write `/docs/...` by hand.
+- To another page: a **relative link to its `.md` file**, exactly as on GitHub, with the file's
+  `NN-` prefix — `[upgrading](../upgrading.md)`, `[blocks](../concepts/02-blocks.md#a-block-is-data-not-markup)`.
+  The import turns it into the page's URL. Never write `/docs/...` by hand.
 - To a page that does not exist yet: still link to the file PAGES.md names. The import reports
   it as a broken link until that page is written, which is how the gap stays visible.
 - To code in the repository: do not link. Name the path in inline code (`config/queue.php`). A
@@ -199,11 +201,14 @@ Every page, whatever its kind:
   ("Block Types" against "Block types"), the sidebar wins: it is the path the reader follows.
   A block's settings in the inspector are labelled by machine (`humanize()` in
   `BlockFields.vue`: `success_message` shows as "success message"). Quote them as shown, in
-  bold, lower-case; the reader is matching what is on the screen.
+  bold, lower-case; the reader is matching what is on the screen. An icon-only control whose
+  only name is an `aria-label` is named by what it opens or does ("the **Routes by locale**
+  button"), never by a made-up label.
 - Shows what success looks like.
-- Is as long as its job needs. Most pages are 300 to 900 words; a concept page whose row asks a
-  lot runs to 1,500. A reference page is as long as its source. Never drop a verified fact to
-  reach a number: cut words, not facts. If a row plainly holds two pages, say so in your report.
+- Is as long as its job needs. A page with one job is 300 to 900 words; a row that asks for
+  several subjects runs to 1,500, and a reference page is as long as its source. Never drop a
+  verified fact to reach a number: cut words, not facts. If a row plainly holds two pages, say
+  so in your report.
 
 ## 6. The reader's site is not this repository
 
@@ -265,6 +270,9 @@ Write the way the CHANGELOG and the existing four pages are written: plain, exac
 | pack | the Composer package a capability ships in (`glueful/thallo-*`) | plugin |
 | workspace | a tenant: one site among several on an install | tenant (in prose), account |
 | the admin | the app at `/admin` | dashboard, backend, CMS panel |
+| the media library | **Media** in the admin; a file in it | asset library, uploads, DAM |
+| file | one item in the media library (the code says asset, blob) | asset, blob, attachment |
+| language | one of the site's languages, in prose; a label that says locale is quoted as it is | locale (in prose) |
 | preview | the draft, rendered by the theme, in a signed session | staging |
 | publish | make an entry's draft the live version | deploy, release |
 | provision | `php glueful thallo:provision` | install script, setup (setup is the web screen) |
@@ -300,7 +308,9 @@ Write **one page per task** unless you are told otherwise. For each page:
 
    Its per-file warnings print after the file's line. It needs the `docs` content type to exist on
    that database. `php glueful thallo:docs:setup` makes it, once, and **it writes**: if you were
-   told the database is prepared, or you share it with other writers, do not run it.
+   told the database is prepared, or you share it with other writers, do not run it. The test
+   suite wipes that database, so the type can be gone when you get there: if the command says
+   there is no content type "docs", skip the dry run, say so in your report, and rely on the lint.
 
    Your file must be listed as `created` or `updated`, at the URL you expect. A broken link to a
    page that PAGES.md plans but nobody has written yet is fine. Any other broken link is yours.
