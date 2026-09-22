@@ -23,6 +23,9 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **Shop and account blocks can be sized inside a Container.** The five shop blocks and four
+  account blocks did not declare the item settings (basis, span, grow, shrink, align self), so they
+  were the only blocks a layout could not size. `thallo:provision` updates existing block types.
 - **A scheduler that is not running turns the Health page's status to warning.** The overall
   status was the framework's, taken before Thallo's scheduler check was added, so a site with no
   cron entry read "ok" above a warning. It now counts every check.

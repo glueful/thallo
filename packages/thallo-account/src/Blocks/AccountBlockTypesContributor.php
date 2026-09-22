@@ -66,8 +66,8 @@ final class AccountBlockTypesContributor implements StarterBlockTypeContributor
                         'enforce_block_types' => true,
                     ],
                 ],
-                styleCapabilities: ['spacing', 'visibility'],
-                styleTargets: StyleTargets::root('box', ['spacing', 'visibility']),
+                styleCapabilities: ['spacing', 'visibility', 'layout.item'],
+                styleTargets: StyleTargets::root('box', ['spacing', 'visibility', 'layout.item']),
             ),
             new StarterBlockTypeDefinition(
                 sourceId: 'thallo-account:login-form',
@@ -85,9 +85,11 @@ final class AccountBlockTypesContributor implements StarterBlockTypeContributor
                     ['name' => 'next', 'type' => 'string'],
                     ['name' => 'show_links', 'type' => 'boolean'],
                 ],
-                styleCapabilities: ['spacing', 'width', 'radius', 'colors.surface', 'border', 'shadow', 'visibility'],
+                styleCapabilities: [
+                    'spacing', 'width', 'radius', 'colors.surface', 'border', 'shadow', 'visibility', 'layout.item',
+                ],
                 styleTargets: StyleTargets::root('box', [
-                    'spacing', 'width', 'radius', 'colors.surface', 'border', 'shadow', 'visibility',
+                    'spacing', 'width', 'radius', 'colors.surface', 'border', 'shadow', 'visibility', 'layout.item',
                 ]),
             ),
             new StarterBlockTypeDefinition(
@@ -102,9 +104,11 @@ final class AccountBlockTypesContributor implements StarterBlockTypeContributor
                 schema: [
                     ['name' => 'heading', 'type' => 'string'],
                 ],
-                styleCapabilities: ['spacing', 'width', 'radius', 'colors.surface', 'border', 'shadow', 'visibility'],
+                styleCapabilities: [
+                    'spacing', 'width', 'radius', 'colors.surface', 'border', 'shadow', 'visibility', 'layout.item',
+                ],
                 styleTargets: StyleTargets::root('box', [
-                    'spacing', 'width', 'radius', 'colors.surface', 'border', 'shadow', 'visibility',
+                    'spacing', 'width', 'radius', 'colors.surface', 'border', 'shadow', 'visibility', 'layout.item',
                 ]),
             ),
             new StarterBlockTypeDefinition(
@@ -119,9 +123,11 @@ final class AccountBlockTypesContributor implements StarterBlockTypeContributor
                 schema: [
                     ['name' => 'heading', 'type' => 'string'],
                 ],
-                styleCapabilities: ['spacing', 'width', 'radius', 'colors.surface', 'border', 'shadow', 'visibility'],
+                styleCapabilities: [
+                    'spacing', 'width', 'radius', 'colors.surface', 'border', 'shadow', 'visibility', 'layout.item',
+                ],
                 styleTargets: StyleTargets::root('box', [
-                    'spacing', 'width', 'radius', 'colors.surface', 'border', 'shadow', 'visibility',
+                    'spacing', 'width', 'radius', 'colors.surface', 'border', 'shadow', 'visibility', 'layout.item',
                 ]),
             ),
         ];
