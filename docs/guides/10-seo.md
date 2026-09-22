@@ -107,13 +107,14 @@ anything.
 
 ## Serve the sitemap and robots.txt
 
-The feeds need an absolute origin of their own: set `PUBLIC_URL_BASE` in `.env` to the site's
-public origin, the same value as `BASE_URL`. It is a separate setting, and a fresh install leaves
-it empty. While it is empty all three feeds answer `409` with the plain-text body
-`SEO origin (thallo.seo.public_url_base) is not configured.` rather than publish relative URLs a
-crawler cannot follow.
+The feeds write absolute URLs against the site's public origin: `BASE_URL`, or a workspace's own
+address when workspaces are on. `PUBLIC_URL_BASE` in `.env` overrides it, for a site whose feeds
+must name a different address. While the origin is still the `http://localhost` default, all
+three feeds answer `409` with the plain-text body
+`No public origin: set BASE_URL to the site's address (PUBLIC_URL_BASE overrides it).` rather
+than publish URLs a crawler cannot follow.
 
-With it set, three URLs answer:
+With a real origin, three URLs answer:
 
 - `/sitemap.xml` — a `<urlset>` of up to 50 000 URLs. Above that it becomes a `<sitemapindex>`
   listing the page files instead.

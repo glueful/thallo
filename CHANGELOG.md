@@ -23,6 +23,10 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **The sitemap and `robots.txt` answered 409 on a stock install.** They read only
+  `PUBLIC_URL_BASE`, a key no `.env.example` names. They now use the site's canonical origin —
+  `BASE_URL`, or a workspace's own address — resolved per request, with `PUBLIC_URL_BASE` still an
+  override. The `localhost` default still answers 409, and the message now names `BASE_URL`.
 - **Contact forms never emailed anyone.** The form block promised an email to its recipient, but
   nothing implemented the mail sender, so the notifier returned without sending or logging. Form
   notifications now go through the email channel and **Settings › Email**, like the rest of

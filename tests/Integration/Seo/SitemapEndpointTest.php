@@ -51,6 +51,23 @@ final class SitemapEndpointTest extends AppTestCase
         self::assertSame(409, $resp->getStatusCode());
     }
 
+    public function testWithoutPublicUrlBaseTheFactoryAsksForTheCanonicalOrigin(): void
+    {
+        // The suite's BASE_URL is the unconfigured localhost default, so a builder the container
+        // makes with no PUBLIC_URL_BASE has no origin — and the refusal names BASE_URL, the key a
+        // site actually has.
+        $app = self::bootAppWithConfigOverride('thallo', ['seo' => ['public_url_base' => '']]);
+        try {
+            $builder = $app->getContainer()->get(SitemapBuilder::class);
+            self::assertFalse($builder->hasOrigin());
+            $resp = (new SitemapController($builder))->index(new Request());
+            self::assertSame(409, $resp->getStatusCode());
+            self::assertStringContainsString('BASE_URL', (string) $resp->getContent());
+        } finally {
+            self::resetSharedRepositoryConnection();
+        }
+    }
+
     public function testSitemapPageOutOfRangeIs404(): void
     {
         $this->seedBilingualPublishedEntry(); // total « PAGE_SIZE → exactly one page file

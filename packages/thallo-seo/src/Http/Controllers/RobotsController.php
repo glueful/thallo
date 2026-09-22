@@ -12,7 +12,7 @@ use Symfony\Component\HttpFoundation\Response;
 /** Serves robots.txt (plain text). 409 when no absolute origin is configured. */
 final class RobotsController
 {
-    private const ERR = 'SEO origin (thallo.seo.public_url_base) is not configured.';
+    private const ERR = 'No public origin: set BASE_URL to the site\'s address (PUBLIC_URL_BASE overrides it).';
 
     public function __construct(private readonly RobotsBuilder $builder)
     {
