@@ -72,10 +72,6 @@ A missing feature is not a regression. These are product decisions to make, or t
 
 - **Nothing creates the PostgreSQL database.** Provision needs an existing one. The install page
   and both READMEs now say so.
-- **`SETUP_TOKEN` is kept after `thallo:create-admin`**, and blanked only after web setup.
-- **The CLI accepts an 8-character admin password**; the web form applies the shared policy.
-  Compare the two against the policy's tests before quoting a rule count.
-- **Provision prints the setup link from `BASE_URL`**, which is often still `localhost` then.
 - **No CLI for the capability switchboard.** Some flips need a reload; which ones depends on the
   capability.
 
@@ -167,6 +163,9 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **Setup: the CLI's weaker admin password, the kept `SETUP_TOKEN`, and the silent localhost
+  link.** The form's password rules hold on the server and in `thallo:create-admin`, which also
+  blanks the token; provision warns on a local `BASE_URL`. Tests.
 - **The account pages had no profile surface and no editor for the customers' mails** (decided
   2026-09-22). `/account/profile` changes name and password; Settings › Accounts › Emails edits
   the customer verification and reset mails. Tests.

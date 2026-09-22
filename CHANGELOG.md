@@ -48,6 +48,12 @@ as the next release, never a mutated tag.
   Email. The reset mail uses its template with glueful/users 2.5.
 
 ### Fixed
+- **The first admin's password rules held only in the browser.** The web setup form's rules (a
+  number, both cases, a special character, no whitespace, no `1234`) are now checked on the server
+  and by `thallo:create-admin`, which accepted any 8 characters. Test.
+- **`thallo:create-admin` left `SETUP_TOKEN` in `.env`.** It blanks it, as web setup does.
+- **Provision printed a setup link nobody else could open without saying so.** A local or unset
+  `BASE_URL` now comes with a warning. Test.
 - **Signup and form notification mail was reported undelivered after it was sent.** Both read the
   notification service's answer in a shape it has not used since framework 1.42, so every
   successful send counted as a failure. A registering customer got a code for a signup that had

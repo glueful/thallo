@@ -82,6 +82,9 @@ Next: create the first admin
 ```
 
 Keep that link: it carries this install's `SETUP_TOKEN`. Running provision again prints it again.
+The link is built from `BASE_URL`; while that is unset or a local address, provision adds a
+warning that the link opens only on the machine it ran on. Set `BASE_URL` to the site's real
+address and run provision again for a link you can open from elsewhere.
 
 For a scripted install, give the connection as options — `--db-host`, `--db-port`, `--db-name`,
 `--db-user`, `--db-password`, `--db-schema`, `--db-sslmode` — and pass `-n` so nothing is asked.
@@ -126,9 +129,9 @@ Open the setup link provision printed. The form asks for **Site name**, **Admin 
 upper-case letter and a special character; it may not contain whitespace or `1234`. **Create
 admin** submits the form and takes you to the sign-in page.
 
-Setup is single-use. Once the first admin exists, the endpoint refuses every later attempt, and
-the token is blanked from `.env`. Completing setup in the browser also records the origin you
-used as `BASE_URL`.
+Setup is single-use. Once the first admin exists, by the form or the command below, the endpoint
+refuses every later attempt and the token is blanked from `.env`. Completing setup in the browser
+also records the origin you used as `BASE_URL`.
 
 From the terminal instead:
 
@@ -136,8 +139,9 @@ From the terminal instead:
 $ php glueful thallo:create-admin
 ```
 
-It asks for the site name (default `Thallo`), the first admin email, the password (at least 8
-characters) and the default locale (default `en`), then prints where to sign in. For a scripted
+It asks for the site name (default `Thallo`), the first admin email, the password and the default
+locale (default `en`), then prints where to sign in. The password follows the same rules as the
+form, and a weaker one is refused with the rules it breaks. For a scripted
 install, pass `--site-name`, `--admin-email`, `--admin-password` and `--locale`; with `-n` the
 email and password options are required.
 
