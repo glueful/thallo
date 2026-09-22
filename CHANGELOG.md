@@ -23,6 +23,15 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **The shipped config listed settings nothing reads.** The `sync` and `null` queue connections
+  (no such drivers), the schedule's `settings` block, `queue_mapping` and each job's `queue`,
+  `timeout` and `retry_attempts` (scheduled jobs run inline in the scheduler; **Run now** uses the
+  `default` queue), the extension installer's `auto_enable`, the API's `allowed_operators` and
+  `MAIL_BCC` are gone. The notification retry job now gets its limit under `options`, where it
+  reads it; the configuration reference no longer claims `SCHEDULE_QUEUE_*` route anything.
+- **`permissions:diff` can see Thallo's permissions.** Thallo declares its `content_permission`
+  middleware in `permissions.enforcing_middleware`, so the framework's diff counts the permissions
+  it enforces once the framework release that reads the setting is installed.
 - **Analytics kept recording content and collection events after it was switched off in the
   admin.** The event bridge read only the config file's capability map at boot. It now checks the
   Extensions › Capabilities switch on every event.
@@ -101,6 +110,10 @@ as the next release, never a mutated tag.
 - **Turn the broken backup job off.** Your `config/schedule.php` is your own copy and still runs
   `database_backup` whenever `APP_ENV=production`; it produces no dump. Set `DB_BACKUP_ENABLED=false`
   in `.env` and take your own backups (docs/operations/04-backups.md).
+- **Drop settings nothing reads.** Your own `config/schedule.php`, `config/queue.php`,
+  `config/extensions.php`, `config/api.php` and `.env` keep the dead keys listed under Fixed; they
+  change nothing, so delete them when convenient. In `config/schedule.php`, give the
+  `notification_retry_processor` job `'parameters' => ['options' => ['limit' => 50]]`.
 - **Make `LOG_RETENTION_DAYS` count.** In your `config/schedule.php`, change the `log_cleanup`
   job's `'parameters' => ['retentionDays' => …]` to
   `'parameters' => ['options' => ['retention_days' => env('LOG_RETENTION_DAYS', 30)]]`.

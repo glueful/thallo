@@ -452,22 +452,6 @@ return [
 
         /*
         |--------------------------------------------------------------------------
-        | Allowed Operators
-        |--------------------------------------------------------------------------
-        |
-        | Nothing in this release reads this list. The delivery API's filter
-        | operators are fixed by Thallo's FilterCompiler, per field type.
-        |
-        */
-        'allowed_operators' => [
-            'eq', 'ne', 'gt', 'gte', 'lt', 'lte',
-            'contains', 'starts', 'ends',
-            'in', 'nin', 'between',
-            'null', 'not_null',
-        ],
-
-        /*
-        |--------------------------------------------------------------------------
         | Search Driver
         |--------------------------------------------------------------------------
         |

@@ -62,7 +62,6 @@ return [
      */
     'install' => [
         'enabled'     => env('EXTENSIONS_INSTALL_ENABLED', env('APP_ENV') !== 'production'),
-        'auto_enable' => (bool) env('EXTENSIONS_INSTALL_AUTO_ENABLE', true),
         'timeout'     => (int) env('EXTENSIONS_INSTALL_TIMEOUT', 600),
         'vendor'      => 'glueful/',
         // Absolute path to a CLI php for the detached install runner. Leave null to

@@ -54,9 +54,10 @@ and unpublish off. The tick still runs — it just fires no actions.
 - **warning** — the last tick is older than five minutes, or there has never been one. The
   recommendation under the message is the cron line to add.
 
-**Utilities › Scheduled Tasks** lists the same jobs with their cron expression, their next run,
-their queue, and whether they are enabled. **Run now** does not run the job in the request: it
-puts the job on the queue named in its row, so it runs when a worker takes that queue.
+**Utilities › Scheduled Tasks** lists the same jobs with their cron expression, their next run
+and whether they are enabled. **Run now** does not run the job in the request: it puts the job on
+the `default` queue, so it runs when a worker takes that queue. On its schedule a job runs inline
+in the scheduler's own process instead, and needs no worker.
 
 From a shell, `php glueful queue:scheduler list` prints the enabled jobs and their schedules. A
 job switched off in `.env` is absent from that list.

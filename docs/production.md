@@ -103,10 +103,9 @@ every queue and what arrives on it. Add a queue name to `--queue` if an extensio
 documents its own. Sizing presets (`*_QUEUE_MEMORY`, `*_QUEUE_TIMEOUT`,
 `*_QUEUE_MAX_JOBS`) live in `.env`. A site that cannot keep a worker under a supervisor can
 drain the queue from a second cron line instead (`queue:work --stop-when-empty`); the same page
-gives the line and its limits. There is no inline connection: `config/queue.php` lists `sync` and
-`null`, but only the `database` and `redis` drivers exist, so `QUEUE_CONNECTION=sync` resolves
-no driver. Redis (`QUEUE_CONNECTION=redis`
-plus `REDIS_*`) is optional and only worth it under real load.
+gives the line and its limits. There is no inline connection: only the `database` and `redis`
+drivers exist. Redis (`QUEUE_CONNECTION=redis` plus `REDIS_*`) is optional and only worth it
+under real load.
 
 
 ## PHP-served asset paths (web server)

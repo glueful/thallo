@@ -161,12 +161,11 @@ key behind them.
 
 | Key | Default | What it does |
 |---|---|---|
-| `QUEUE_CONNECTION` | `database` | `database` or `redis`. Those are the only drivers that exist; `config/queue.php` also lists `sync` and `null`, which resolve nothing. |
+| `QUEUE_CONNECTION` | `database` | `database` or `redis`, the only drivers that exist. |
 | `QUEUE_PAYLOAD_SIGNING` | `true` | HMAC-signs persisted queue and scheduler payloads with `APP_KEY`. |
 | `QUEUE_REQUIRE_SIGNED_PAYLOADS` | `true` | Refuses unsigned payloads. Turn it off only while draining older jobs. |
 | `QUEUE_WORKER_SLEEP` | `3` | Seconds a worker waits when a queue is empty. |
 | `QUEUE_MAX_TRIES` | `3` | Attempts before a job is failed. |
-| `SCHEDULE_QUEUE_CRITICAL`, `SCHEDULE_QUEUE_MAINTENANCE`, `SCHEDULE_QUEUE_NOTIFICATIONS`, `SCHEDULE_QUEUE_SYSTEM` | `critical`, `maintenance`, `notifications`, `system` | Which queue each scheduled job is routed to. |
 
 Each queue has a memory limit, a timeout and a job cap, named for the queue:
 `DEFAULT_QUEUE_MEMORY` (128 MB), `DEFAULT_QUEUE_TIMEOUT` (60 s), `DEFAULT_QUEUE_MAX_JOBS` (1000),

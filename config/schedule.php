@@ -3,14 +3,11 @@
 /**
  * Scheduler Configuration
  *
- * Defines scheduled jobs and cron tasks for the application.
- * Enhanced with better error handling and monitoring.
+ * Each job runs inline, in the process that runs `php glueful queue:scheduler run`, when its cron
+ * `schedule` is due. A job takes `name`, `schedule`, `handler_class`, optional `parameters`
+ * (handed to the handler as its data), optional `enabled`, optional `persistence` and a
+ * `description`. Nothing else is read: there is no per-job queue, timeout or retry count here.
  */
-
-$criticalQueue = env('SCHEDULE_QUEUE_CRITICAL', 'critical');
-$maintenanceQueue = env('SCHEDULE_QUEUE_MAINTENANCE', 'maintenance');
-$notificationsQueue = env('SCHEDULE_QUEUE_NOTIFICATIONS', 'notifications');
-$systemQueue = env('SCHEDULE_QUEUE_SYSTEM', 'system');
 
 return [
     'jobs' => [
@@ -21,9 +18,6 @@ return [
             'parameters' => ['cleanupType' => 'expired'],
             'description' => 'Clean up expired user sessions',
             'enabled' => env('SESSION_CLEANER_ENABLED', true),
-            'queue' => $maintenanceQueue,
-            'timeout' => 300,
-            'retry_attempts' => 3,
         ],
         [
             'name' => 'log_cleanup',
@@ -37,9 +31,6 @@ return [
             ],
             'description' => 'Clean up old log files',
             'enabled' => env('LOG_CLEANUP_ENABLED', true),
-            'queue' => $maintenanceQueue,
-            'timeout' => 600,
-            'retry_attempts' => 2,
         ],
         [
             'name' => 'database_backup',
@@ -55,9 +46,6 @@ return [
             // takes the MySQL path on a PostgreSQL site and produces no dump (docs/operations/04-backups.md).
             'enabled' => env('DB_BACKUP_ENABLED', false),
             'description' => 'Create automated database backups',
-            'queue' => $criticalQueue,
-            'timeout' => 1800,
-            'retry_attempts' => 1,
         ],
         [
             'name' => 'cache_maintenance',
@@ -68,20 +56,14 @@ return [
             ],
             'description' => 'Perform cache maintenance',
             'enabled' => env('CACHE_MAINTENANCE_ENABLED', true),
-            'queue' => $maintenanceQueue,
-            'timeout' => 600,
-            'retry_attempts' => 2,
         ],
         [
             'name' => 'notification_retry_processor',
             'schedule' => '*/10 * * * *',
             'handler_class' => 'Glueful\\Queue\\Jobs\\NotificationRetryJob',
-            'parameters' => ['limit' => 50],
+            'parameters' => ['options' => ['limit' => 50]],
             'description' => 'Process queued notification retries',
             'enabled' => env('NOTIFICATION_RETRIES_ENABLED', true),
-            'queue' => $notificationsQueue,
-            'timeout' => 300,
-            'retry_attempts' => 2,
         ],
         [
             'name' => 'schedules_run',
@@ -97,9 +79,6 @@ return [
             'parameters' => [],
             'description' => 'Re-verify due custom-domain ownership proofs',
             'enabled' => env('TENANCY_REVERIFICATION_ENABLED', true),
-            'queue' => $maintenanceQueue,
-            'timeout' => 300,
-            'retry_attempts' => 1,
         ],
         [
             'name' => 'update_check',
@@ -108,9 +87,6 @@ return [
             'parameters' => [],
             'description' => 'Ask Packagist whether a newer glueful/thallo-core is published (the update notice)',
             'enabled' => env('UPDATE_CHECK_ENABLED', true),
-            'queue' => $maintenanceQueue,
-            'timeout' => 60,
-            'retry_attempts' => 0,
         ],
         [
             'name' => 'signup_intent_sweep',
@@ -119,27 +95,6 @@ return [
             'parameters' => [],
             'description' => 'Remove expired and sanitized public-signup intents',
             'enabled' => env('SIGNUP_SWEEP_ENABLED', true),
-            'queue' => $maintenanceQueue,
-            'timeout' => 300,
-            'retry_attempts' => 1,
         ],
-    ],
-
-    'settings' => [
-        'enabled' => env('SCHEDULER_ENABLED', true),
-        'max_concurrent_jobs' => env('MAX_CONCURRENT_JOBS', 5),
-        'default_timeout' => env('DEFAULT_JOB_TIMEOUT', 300),
-        'default_queue' => env('DEFAULT_SCHEDULED_QUEUE', 'scheduled'),
-        'log_execution' => env('LOG_JOB_EXECUTION', true),
-        'notification_on_failure' => env('NOTIFY_ON_JOB_FAILURE', env('APP_ENV') === 'production'),
-        'queue_connection' => env('SCHEDULE_QUEUE_CONNECTION', 'default'),
-        'use_queue_for_all_jobs' => env('USE_QUEUE_FOR_SCHEDULED_JOBS', true),
-    ],
-
-    'queue_mapping' => [
-        $criticalQueue => ['database_backup'],
-        $maintenanceQueue => ['session_cleaner', 'log_cleanup', 'cache_maintenance'],
-        $notificationsQueue => ['notification_retry_processor'],
-        $systemQueue => ['queue_maintenance'],
     ],
 ];
