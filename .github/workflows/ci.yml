@@ -60,6 +60,8 @@ env:
     tests/Integration/Capabilities
     tests/Integration/Analytics
     tests/Integration/Authority
+    tests/Integration/Jobs
+    tests/Integration/Mail
     tests/Integration/Indexing
     tests/Integration/ApiKeyScopesTest.php
     tests/Integration/DeliveryFlowTest.php

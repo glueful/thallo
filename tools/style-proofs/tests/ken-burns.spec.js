@@ -1,6 +1,7 @@
 // Ken Burns: the class lands on a FRAME, which clips; the picture that is the frame's direct child
-// drifts, slowly and for ever; a picture deeper inside the frame does not. A visitor who asked for
-// reduced motion gets a still picture.
+// drifts there and back once and then rests, and holds still under the pointer (WCAG 2.2.2); a
+// picture deeper inside the frame never drifts. A visitor who asked for reduced motion gets a
+// still picture.
 'use strict';
 
 const { test, expect } = require('@playwright/test');
@@ -19,8 +20,9 @@ test('the frame clips and its own picture drifts; a picture in its content does 
   const background = await computed(page, NAME, 'background', 'animation-name');
   expect(background.theme).toBe('none');
   expect(background.styled).toBe('t-kenburns');
-  expect((await computed(page, NAME, 'background', 'animation-iteration-count')).styled).toBe('infinite');
+  expect((await computed(page, NAME, 'background', 'animation-iteration-count')).styled).toBe('2');
   expect((await computed(page, NAME, 'background', 'animation-direction')).styled).toBe('alternate');
+  expect((await computed(page, NAME, 'background', 'animation-fill-mode')).styled).toBe('both');
 
   const content = await computed(page, NAME, 'content', 'animation-name');
   expect(content.styled).toBe('none');
@@ -34,6 +36,15 @@ test('the frame clips and its own picture drifts; a picture in its content does 
   const first = await sample();
   await page.waitForTimeout(600);
   expect(await sample()).not.toBe(first);
+});
+
+test('the drift pauses while the pointer is over the frame', async ({ page }) => {
+  await page.goto('/tools/style-proofs/fixtures/index.html');
+  const frame = page.locator(`[data-case="${NAME}"] [data-target="root"]`);
+  const picture = page.locator(`[data-case="${NAME}"] [data-target="background"]`);
+
+  await frame.hover();
+  expect(await picture.evaluate((el) => getComputedStyle(el).animationPlayState)).toBe('paused');
 });
 
 test('with reduced motion requested the picture is still', async ({ browser }) => {

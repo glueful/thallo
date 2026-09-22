@@ -94,7 +94,8 @@ as the next release, never a mutated tag.
 - **Ken Burns never stopped.** A drift runs there and back once and rests, and holds still under
   the pointer or keyboard focus, so a moving background can be stopped (WCAG 2.2.2). Test.
 - **A starter page gave the page two headings.** Inserting one hides the theme's page title, since
-  its first section carries the h1. Test.
+  its first section carries the h1, in the same change as the blocks — one undo takes both back.
+  Test.
 - **Design was offered on entries with nothing to design.** The button is shown only for types
   with a blocks field; there, every insert silently did nothing. Test.
 - **The first admin's password rules held only in the browser.** The web setup form's rules (a

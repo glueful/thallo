@@ -1209,15 +1209,26 @@ async function insertPage(slug: string): Promise<void> {
     return
   }
   coordinator.cancel()
-  await applyDrop(
-    inserts.map(({ position, block }) => ({ type: 'InsertBlock' as const, position, block })),
-  )
-  // A starter page opens with its own h1; the theme's title above it would be a second one.
-  if (
-    holdsPageHeading(inserts.map((i) => i.block)) &&
-    presentationOverride.value.show_title !== false
-  ) {
-    patchPresentation('show_title', false)
+  const drop: OperationBody[] = inserts.map(({ position, block }) => ({
+    type: 'InsertBlock' as const,
+    position,
+    block,
+  }))
+  // A starter page opens with its own h1; the theme's title above it would be a second one. The
+  // change rides the SAME transaction as the blocks, so one undo takes the whole page back out.
+  const hidesTitle =
+    holdsPageHeading(inserts.map((i) => i.block)) && presentationOverride.value.show_title !== false
+  if (hidesTitle) {
+    const current = fields.value._presentation
+    drop.push({
+      type: 'SetPageSettings',
+      field: '_presentation',
+      from: current === undefined ? { present: false } : { present: true, value: current },
+      to: { present: true, value: { ...presentationOverride.value, show_title: false } },
+    })
+  }
+  await applyDrop(drop)
+  if (hidesTitle) {
     success(
       'Page title hidden',
       'The page’s first section carries the heading. Show page title, on the Page tab, brings it back.',
