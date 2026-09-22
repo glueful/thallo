@@ -105,4 +105,33 @@ final class ContentTypeSchemaTest extends TestCase
         ]);
         self::assertNull($schema->field('n')->format);
     }
+
+    public function testAFieldKeepsItsLabel(): void
+    {
+        $schema = ContentTypeSchema::fromArray([
+            ['name' => 'title', 'type' => 'string', 'label' => '  Headline  '],
+            ['name' => 'body', 'type' => 'text', 'label' => ''],
+        ]);
+
+        self::assertSame('Headline', $schema->field('title')?->label);
+        self::assertNull($schema->field('body')?->label);
+        self::assertSame('Headline', $schema->toArray()[0]['label'] ?? null);
+        self::assertArrayNotHasKey('label', $schema->toArray()[1]);
+    }
+
+    public function testALabelLongerThanEightyCharactersIsRefused(): void
+    {
+        $this->expectException(SchemaParseException::class);
+        ContentTypeSchema::fromArray([['name' => 'title', 'type' => 'string', 'label' => str_repeat('x', 81)]]);
+    }
+
+    public function testALabelSurvivesTheAdminRequest(): void
+    {
+        $field = (new \Glueful\Validation\RequestDataHydrator())->hydrate(
+            \Thallo\Core\Content\Http\DTOs\FieldDefinitionData::class,
+            ['name' => 'title', 'type' => 'string', 'label' => 'Headline'],
+        );
+
+        self::assertSame('Headline', ContentTypeSchema::fromArray([$field->toArray()])->field('title')?->label);
+    }
 }

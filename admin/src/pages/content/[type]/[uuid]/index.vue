@@ -2,6 +2,7 @@
 import { computed, reactive, ref, watch, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 import { useContentTypes } from '@/queries/contentTypes'
+import { fieldLabel } from '@/utils/fieldLabel'
 import { useDraft, useSaveDraft } from '@/queries/drafts'
 import { useEntryLocales, useCreateLocaleDraft } from '@/queries/entries'
 import { usePublish } from '@/queries/publish'
@@ -76,6 +77,7 @@ const hasBlocks = computed(() => (contentType.value?.schema ?? []).some((f) => f
 const schema = computed<FieldDef[]>(() =>
   (contentType.value?.schema ?? []).map((f) => ({
     name: String(f.name ?? ''),
+    label: fieldLabel({ name: String(f.name ?? ''), label: f.label }),
     type: (f.type ?? 'string') as FieldDef['type'],
     required: f.required ?? undefined,
     enum: f.enum ?? undefined,

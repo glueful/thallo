@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { fieldLabel } from '@/utils/fieldLabel'
 // Builder for a content type's field schema. v-models a ContentTypeField[]; the parent owns the
 // array and persists it (create → POST /content-types, edit → PATCH /content-types/{slug}/schema).
 // Also reused by the BLOCK-TYPE builder (context="block-type"): block schemas reject nested
@@ -119,6 +120,19 @@ function setEnum(index: number, text: string) {
             placeholder="title"
             class="w-full"
             @update:model-value="patch(index, { name: String($event) })"
+          />
+        </UFormField>
+
+        <UFormField label="Label" class="flex-1">
+          <UInput
+            :model-value="field.label ?? ''"
+            :placeholder="fieldLabel({ name: field.name || 'title' })"
+            class="w-full"
+            maxlength="80"
+            data-test="field-label"
+            @update:model-value="
+              patch(index, { label: String($event).trim() === '' ? null : String($event) })
+            "
           />
         </UFormField>
 

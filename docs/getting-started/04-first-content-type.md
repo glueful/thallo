@@ -36,8 +36,10 @@ The **Fields** card starts empty. Press **Add field** four times and fill the ro
 | `body` | `blocks` | — |
 
 A field name starts with a lower-case letter and carries only lower-case letters, digits and
-underscores. It is also the field's label in the entry form, so `starts_at` is what an author
-sees. Two fields of one type cannot share a name.
+underscores. Two fields of one type cannot share a name. **Label**, beside it, is what the entry
+form calls the field, up to 80 characters; left empty, the form shows the name made readable, so
+`starts_at` reads "Starts at". The label can change at any time; the name is what the content
+and the API use.
 
 Every field has three switches. **Required** refuses a save with the field missing, and a publish
 with it empty. **Localized** gives the field a separate value per locale instead of one shared

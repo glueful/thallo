@@ -223,6 +223,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/billing/plan': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Change the workspace subscription's plan */
+    post: operations['thalloSubscriptionsBillingPlan']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/block-types': {
     parameters: {
       query?: never
@@ -5842,6 +5859,75 @@ export interface operations {
       }
     }
   }
+  thalloSubscriptionsBillingPlan: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
   getV1AdminBlocktypes: {
     parameters: {
       query?: never
@@ -5901,6 +5987,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 /** @description Style capability paths or groups (visual builder §1.7); null = none. */
                 style_capabilities?: unknown[] | null
@@ -6020,6 +6107,8 @@ export interface operations {
             min?: number | null
             /** @description Inclusive upper bound for a `number` field (ints coerce). */
             max?: number | null
+            /** @description What the entry form calls the field (80 characters at most). */
+            label?: string | null
           }[]
           /** @description The setting groups the block supports (its Style and Layout tabs), */
           style_capabilities?: unknown[] | null
@@ -6084,6 +6173,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 /** @description Style capability paths or groups (visual builder §1.7); null = none. */
                 style_capabilities?: unknown[] | null
@@ -6229,6 +6319,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 /** @description Style capability paths or groups (visual builder §1.7); null = none. */
                 style_capabilities?: unknown[] | null
@@ -6469,6 +6560,8 @@ export interface operations {
             min?: number | null
             /** @description Inclusive upper bound for a `number` field (ints coerce). */
             max?: number | null
+            /** @description What the entry form calls the field (80 characters at most). */
+            label?: string | null
           }[]
           /** @description The setting groups the block supports (its Style and Layout tabs), */
           style_capabilities?: unknown[] | null
@@ -6526,6 +6619,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 /** @description Style capability paths or groups (visual builder §1.7); null = none. */
                 style_capabilities?: unknown[] | null
@@ -6688,6 +6782,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 /** @description Style capability paths or groups (visual builder §1.7); null = none. */
                 style_capabilities?: unknown[] | null
@@ -6833,6 +6928,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 /** @description Style capability paths or groups (visual builder §1.7); null = none. */
                 style_capabilities?: unknown[] | null
@@ -21437,6 +21533,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 schema_version?: number
                 created_by?: string | null
@@ -21558,6 +21655,8 @@ export interface operations {
             min?: number | null
             /** @description Inclusive upper bound for a `number` field (ints coerce). */
             max?: number | null
+            /** @description What the entry form calls the field (80 characters at most). */
+            label?: string | null
           }[]
         }
       }
@@ -21622,6 +21721,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 schema_version?: number
                 created_by?: string | null
@@ -21767,6 +21867,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 schema_version?: number
                 created_by?: string | null
@@ -22020,6 +22121,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 schema_version?: number
                 created_by?: string | null
@@ -22709,6 +22811,8 @@ export interface operations {
             min?: number | null
             /** @description Inclusive upper bound for a `number` field (ints coerce). */
             max?: number | null
+            /** @description What the entry form calls the field (80 characters at most). */
+            label?: string | null
           }[]
         }
       }
@@ -22766,6 +22870,7 @@ export interface operations {
                   min?: number | null
                   max?: number | null
                   domain?: string | null
+                  label?: string | null
                 }[]
                 schema_version?: number
                 created_by?: string | null

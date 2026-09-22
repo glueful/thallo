@@ -56,6 +56,8 @@ as the next release, never a mutated tag.
   capabilities and turn one on or off under the admin's rules.
 - **A content type turns its own listing page on.** A **Listing page** switch on the content type
   edits the same list as Settings › General › Listing types.
+- **Content-type fields have labels.** A field's **Label** is what the entry form shows; without
+  one the form shows the name made readable ("Starts at", not `starts_at`).
 
 ### Fixed
 - **A listing page's heading printed the type's slug.** It prints the name; templates get
