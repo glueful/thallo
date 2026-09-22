@@ -39,11 +39,17 @@ the pickers. Nothing needs to be created for it: no entry, no route and no templ
 | Enter your reset code | `/account/verify-reset` |
 | Set a new password | `/account/reset-password` |
 | Account dashboard | `/account` |
+| Profile | `/account/profile` |
 
 The seven anonymous pages render without the site's header and footer — a single card on a plain
 background, with the site logo at the top of the card, or the site's name when no logo is set.
-The signed-in dashboard at `/account` keeps the header and footer, so a visitor can get back to
-the site from it.
+The signed-in pages, the dashboard at `/account` and the profile, keep the header and footer, so
+a visitor can get back to the site from them.
+
+The dashboard links to **Profile**, where a signed-in visitor changes their first and last name
+and their password. A password change asks for the current one, applies the same eight-character
+rule as registration, and signs the account out on every other device; the device that made the
+change stays signed in. The email is shown but cannot be changed there.
 
 Registration asks for first name, last name, email and a password of at least eight characters.
 The email doubles as the username. A verified visitor becomes an ordinary user row — they appear
@@ -95,15 +101,16 @@ arrives. The reason is written to `storage/logs/`, which is the only place to lo
    **Resend code**, and check `storage/logs/` before trying a third time.
 4. You are signed in and taken to your account (or to **After sign in** under Settings › Accounts,
    when set).
-5. Confirm the dashboard says **Signed in as** your email, then press **Sign out**.
+5. Confirm the dashboard says **Signed in as** your email. Open **Profile**, change your name and
+   press **Save name**, then go back and press **Sign out**.
 6. Open **Users & Access › Users** in the admin: the new visitor is in the list.
 
 ## Choose where visitors land after signing in and out
 
 Go to **Settings › Accounts**. The panel has two parts.
 
-**Account pages** lists the five pages an operator normally links to — Sign in, Register, Verify
-email, Forgot password, Account dashboard — each one a link you can open in a new tab. It is a
+**Account pages** lists the six pages an operator normally links to — Sign in, Register, Verify
+email, Forgot password, Account dashboard, Profile — each one a link you can open in a new tab. It is a
 list, not a setting: the URLs are fixed.
 
 **Redirects** holds the two settings:
@@ -168,9 +175,8 @@ Three ways to change the rest, in increasing order of effort:
 
 ## What the account pages cannot do yet
 
-- There is no profile page. A visitor cannot change their name, their email or their username.
-- The dashboard's only links come from other packs. With none installed, it shows the greeting
-  and **Sign out**.
+- A visitor cannot change their email address. The profile page changes the name and the
+  password only.
 - The wording of the verification and reset emails comes from the mail extension's built-in
   templates. The admin has no screen for editing them.
 

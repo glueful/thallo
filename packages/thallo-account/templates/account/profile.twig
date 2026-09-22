@@ -1,0 +1,45 @@
+{% extends 'account/layout.twig' %}
+{% block account_heading %}Your profile{% endblock %}
+{% block account %}
+  <p class="account__back"><a href="/account">Back to your account</a></p>
+  {% if notice %}
+    <p class="account__notice account__notice--ok" role="status">{{ notice }}</p>
+  {% endif %}
+
+  <form method="post" action="/account/profile" class="account__form" aria-labelledby="profile-name-heading">
+    <h2 id="profile-name-heading" class="account__subheading">Name</h2>
+    <input type="hidden" name="_token" value="{{ csrf_token }}">
+    <label class="account__field">
+      <span>First name</span>
+      <input type="text" name="first_name" value="{{ first_name }}" autocomplete="given-name" maxlength="100" required>
+    </label>
+    {% if name_errors.first_name is defined %}<p class="account__error" role="alert">{{ name_errors.first_name }}</p>{% endif %}
+    <label class="account__field">
+      <span>Last name</span>
+      <input type="text" name="last_name" value="{{ last_name }}" autocomplete="family-name" maxlength="100" required>
+    </label>
+    {% if name_errors.last_name is defined %}<p class="account__error" role="alert">{{ name_errors.last_name }}</p>{% endif %}
+    <button type="submit" class="account__submit">Save name</button>
+  </form>
+
+  <div class="account__field">
+    <span>Email</span>
+    <p class="account__value">{{ email }}</p>
+  </div>
+
+  <form method="post" action="/account/password" class="account__form" aria-labelledby="profile-password-heading">
+    <h2 id="profile-password-heading" class="account__subheading">Password</h2>
+    <input type="hidden" name="_token" value="{{ csrf_token }}">
+    {% if password_error is defined and password_error %}<p class="account__error" role="alert">{{ password_error }}</p>{% endif %}
+    <label class="account__field">
+      <span>Current password</span>
+      <input type="password" name="current_password" autocomplete="current-password" required>
+    </label>
+    <label class="account__field">
+      <span>New password</span>
+      <input type="password" name="password" autocomplete="new-password" minlength="8" required>
+    </label>
+    <button type="submit" class="account__submit">Change password</button>
+    <p class="account__hint">Changing it signs you out on every other device.</p>
+  </form>
+{% endblock %}

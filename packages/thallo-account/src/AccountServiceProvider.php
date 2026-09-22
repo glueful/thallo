@@ -17,6 +17,7 @@ use Thallo\Account\Contribution\AccountTemplatePathContributor;
 use Thallo\Account\Http\AccountAssetController;
 use Thallo\Account\Http\AccountAuthController;
 use Thallo\Account\Http\AccountPageController;
+use Thallo\Account\Http\AccountProfileController;
 use Thallo\Account\Http\AccountPageRenderer;
 use Thallo\Account\Http\AccountSessionController;
 use Thallo\Account\Http\AccountSettingsController;
@@ -68,6 +69,11 @@ final class AccountServiceProvider extends ServiceProvider
             ],
             AccountPageController::class => [
                 'class' => AccountPageController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            AccountProfileController::class => [
+                'class' => AccountProfileController::class,
                 'shared' => true,
                 'autowire' => true,
             ],

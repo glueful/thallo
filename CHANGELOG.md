@@ -40,6 +40,9 @@ as the next release, never a mutated tag.
 - **Asset fields expand in the delivery API.** Name one in `?expand=` and each file comes back as
   `{uuid, url, alt, caption, mime_type}`, so a headless front end gets the alt text and caption
   set in the media library. A private file expands to `null`; unnamed asset fields stay uuids.
+- **Customers have a profile page.** `/account/profile`, linked from the account dashboard,
+  changes a signed-in customer's name and password. A password change asks for the current one
+  and signs every other device out. New contract: `StorefrontAccountProfile`.
 
 ### Fixed
 - **One default language.** The default language in Settings › Languages, the default locale in
