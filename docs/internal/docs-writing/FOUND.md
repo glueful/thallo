@@ -36,9 +36,6 @@ the docs for the failed-job commands, the backup and `security:check`.
 - **Media.** Split, each needs its own check:
   - Search uses `LIKE`; case sensitivity depends on the collation. Code.
   - Deleting a file soft-deletes it; the bytes are never reclaimed. Code.
-  - Alt text and caption reach no delivery field: the content API returns an asset as its uuid,
-    by design (spec §5, assets stay raw). A headless front end cannot read them. Decide whether
-    `?expand=` should cover asset fields.
   - Optimize leaves stale resized images (fixed on the framework's `dev` branch: the variant cache
     and its ETag are versioned by the blob's size and update time).
   - `UPLOADS_STRIP_EXIF` is read by nothing. Code, by search.
@@ -171,6 +168,9 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **A headless front end could not read an asset's alt text or caption** (decided 2026-09-22).
+  `?expand=` naming an asset field returns `{uuid, url, alt, caption, mime_type}`, for public
+  files; the bare uuid stays the default. Test.
 - **Three default locales could disagree** (decided 2026-09-22: the default language is the one
   truth). Settings › General shows and sets it, and the config value is copied from it at boot.
   Test.

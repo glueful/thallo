@@ -116,15 +116,20 @@ reads: the response carries the target's published version in place of the uuid,
 `entry_uuid`, `version_uuid`, `version` and `fields`. A target that is unpublished in the
 requested locale resolves to `null` — never to its draft. Expansion goes two levels deep, covers
 references inside a `blocks` field, and batch-loads, so a list of fifty entries costs one extra
-query per level rather than fifty. `asset` fields are never expanded: they stay as media uuids at
-every level.
+query per level rather than fifty.
+
+An `asset` field is a media uuid unless you name it in `?expand=`. Named, each file becomes an
+object of `uuid`, `url`, `alt`, `caption` and `mime_type` — the alt text and caption set in the
+media library, and a `url` relative to the API host. A file the public cannot fetch, such as a
+private one, expands to `null`. Only the entry's own asset fields expand; assets inside blocks
+and inside expanded references stay uuids. Editing a file's alt text or caption changes the
+response's ETag, but shared caches keep the old words until the type's cache TTL runs out.
 
 `?fields=` takes a comma-separated list of field names and narrows the `fields` object to them.
 It does two things at once: it projects the response, and it decides which references are
 expanded — a reference field you did not name is left as a raw uuid. `?expand=` alone expands the
 reference fields it names and keeps every other field; combined with `?fields=`, it expands within
-the fields you asked for. The envelope keys are not
-projectable; `uuid`, `locale`, `version` and `published_at` are always there.
+the fields you asked for. The envelope keys are not projectable; `uuid`, `locale`, `version` and `published_at` are always there.
 
 ## Reading a locale
 

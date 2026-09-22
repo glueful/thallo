@@ -37,6 +37,9 @@ as the next release, never a mutated tag.
   instead. Needs glueful/payvia with plan-change support, and glueful/subscriptions 2.4 so the
   switch shows up once the provider's webhook lands.
 - The workspace plan picker now receives plan prices; the billing query dropped them.
+- **Asset fields expand in the delivery API.** Name one in `?expand=` and each file comes back as
+  `{uuid, url, alt, caption, mime_type}`, so a headless front end gets the alt text and caption
+  set in the media library. A private file expands to `null`; unnamed asset fields stay uuids.
 
 ### Fixed
 - **One default language.** The default language in Settings › Languages, the default locale in
