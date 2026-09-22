@@ -41,8 +41,9 @@ for every stored language, disabled ones included.
 language is the one whose pages carry no prefix in their URLs; every other language's do. The only
 default language cannot be un-defaulted or disabled — set another one first.
 
-**Settings › General › Default locale** is a different setting. It chooses the language the admin
-opens an entry in, and its list is the enabled languages. It does not change what the site serves.
+**Settings › General › Default locale** is the same setting, shown there too: choosing a language in
+it makes that language the default, as **Set default** does, and the admin opens entries in it.
+`I18N_DEFAULT_LOCALE` in `.env` only names the default a new install starts with.
 
 ## Say which fields are translated
 

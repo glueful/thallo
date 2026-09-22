@@ -26,10 +26,6 @@ the docs for the failed-job commands, the backup and `security:check`.
 
 ### Content, publishing and delivery
 
-- **Three "default locale"s can disagree:** `i18n_locales.is_default`, Settings › General and
-  `config/i18n.php`. Code. Needs a decision, not only a fix: `i18n_locales` is install-wide while
-  the Settings › General value is stored per workspace, and the packs read `config/i18n.php`
-  directly. (languages)
 - **`search:status` is declared twice** (fixed on `glueful/meilisearch`'s `dev` branch, awaiting
   its 2.0.0 release). Thallo's won, as the later registration, and nothing said so. The extension's
   commands are now `meilisearch:*`, and the framework's console (`dev`) logs any name taken twice.
@@ -175,6 +171,9 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **Three default locales could disagree** (decided 2026-09-22: the default language is the one
+  truth). Settings › General shows and sets it, and the config value is copied from it at boot.
+  Test.
 - **No auto-login after account verification.** Verifying signs the customer in. Test.
 - **A disabled language was still served by the delivery API.** It answers 404. Test.
 - **Media alt text and caption reached no page.** The Image block falls back on them, and

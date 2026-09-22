@@ -79,7 +79,7 @@ takes effect on the next request, and never rewrites `.env`.
 | **Admin URL** | `render.admin_url` (`RENDER_ADMIN_URL`) | empty |
 | **Homepage** | `render.homepage_entry` (`RENDER_HOMEPAGE_ENTRY`) | empty |
 | **Listing types** | `render.listing_types` (`RENDER_LISTING_TYPES`) | empty |
-| **Default locale** | `thallo.admin.default_locale` (`ADMIN_DEFAULT_LOCALE`, then `I18N_DEFAULT_LOCALE`) | `en` |
+| **Default locale** | The default language (Settings › Languages); `I18N_DEFAULT_LOCALE` seeds a new install | `en` |
 | **Default items per page** | `thallo.delivery.default_per_page` (`DELIVERY_DEFAULT_PER_PAGE`) | `20` |
 | **Max items per page** | `thallo.delivery.max_per_page` (`DELIVERY_MAX_PER_PAGE`) | `100` |
 | **Cache TTL (seconds)** | `thallo.delivery.cache_ttl` (`DELIVERY_CACHE_TTL`) | `60` |

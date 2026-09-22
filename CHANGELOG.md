@@ -23,6 +23,12 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **One default language.** The default language in Settings › Languages, the default locale in
+  Settings › General and `config/i18n.php` could each say something different, and most of the site
+  read the config value. The default language is the only one now: Settings › General shows and
+  sets it (only an enabled language can be the default), and every part of the site reads it.
+  `I18N_DEFAULT_LOCALE` only names the default a new install starts with; `ADMIN_DEFAULT_LOCALE`
+  is no longer read.
 - **A new customer is signed in once they verify their address.** Registering ended on the sign-in
   page, asking for the password they had just chosen. Verifying now signs them in and takes them to
   their account, or to **After sign in** when set.
@@ -221,6 +227,9 @@ as the next release, never a mutated tag.
   already fallen behind the extension. The default theme's `menus` key, which nothing read, is gone.
 
 ### Upgrade Notes
+- **Check the default language** in Settings › Languages: the site now uses it everywhere. A
+  default locale saved in Settings › General before this release, and `I18N_DEFAULT_LOCALE`, no
+  longer override it.
 - **Run `php glueful thallo:media:rebuild-usage` once** so the media library's **Used in** lists
   include images already placed inside blocks.
 - **Add `'workflow.bypass'` to the `owner` and `admin` lists in your `config/tenancy.php`** if you
