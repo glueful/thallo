@@ -56,9 +56,11 @@ the docs for the failed-job commands, the backup and `security:check`.
   has none; when that release ships, require it and update `docs/operations/06-security.md`.
   Framing on the APIs and an HTTPS redirect stay deliberately out: JSON is not framed, and TLS is
   the web server's job. (security)
-- **The account pages: no profile surface, no auto-login after verification, no admin editor for
-  the mails.** Code. A mail transport failure may be invisible because the mail channel reports
-  available on an unconfigured install (Reported). (accounts)
+- **The account pages: no profile surface and no admin editor for the account mails.** Code. Both
+  are features to decide on: a profile page needs an update endpoint the users extension lacks,
+  and account-only mail templates need its password-reset mail to take a template name. The
+  unconfigured-mail report is fixed on the framework's `dev` branch (no default host or sender).
+  (accounts)
 - **Self-serve checkout sends a public visitor into the admin.** Code. Pricing deep-links to the
   admin's `/billing`; there is no public subscribe flow and **Change plan** is disabled. The
   Thallo plan picker has no price, currency or interval. A plan is purchasable through its
@@ -173,6 +175,7 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **No auto-login after account verification.** Verifying signs the customer in. Test.
 - **A disabled language was still served by the delivery API.** It answers 404. Test.
 - **Media alt text and caption reached no page.** The Image block falls back on them, and
   `media_text()` reads them. Test.

@@ -52,7 +52,11 @@ final class AccountFlowTest extends AppTestCase
 
         // OTP -> created identity. Anonymous unsafe POST, so it must carry same-origin provenance.
         $verify = $this->postSameOrigin('/account/verify/' . $intentUuid, ['otp' => $otp]);
-        self::assertSame(302, $verify->getStatusCode(), (string) $verify->getContent());
+        self::assertSame(303, $verify->getStatusCode(), (string) $verify->getContent());
+        // Verifying the address signs the new customer in: they no longer retype the password
+        // they chose a minute ago.
+        self::assertSame('/account', $verify->headers->get('Location'));
+        self::assertArrayHasKey('gf_session', $this->cookiesFrom($verify));
 
         // Sign in over the cookie transport.
         $login = $this->postSameOrigin('/account/login', [

@@ -180,8 +180,15 @@ final class AccountAuthController
             ], 422);
         }
 
-        // Identity created. Send them to sign in (auto-login is a later enhancement) and drop the
-        // pending-intent pointer.
+        // Identity created, and signed in when a session came with it: they chose the password a
+        // minute ago. Without one, they sign in. Either way the pending-intent pointer goes.
+        if ($result->session !== null) {
+            $target = $this->returnPaths->resolve(null, $this->settings->afterLogin(), '/account');
+            $response = new RedirectResponse($target, Response::HTTP_SEE_OTHER);
+            $response->headers->clearCookie(self::PENDING_INTENT_COOKIE, '/account');
+
+            return $this->cookies->issue($response, AuthenticatedSession::fromSessionArray($result->session));
+        }
         $response = new RedirectResponse('/account/login');
         $response->headers->clearCookie(self::PENDING_INTENT_COOKIE, '/account');
 

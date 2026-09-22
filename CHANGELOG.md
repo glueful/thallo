@@ -23,6 +23,9 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **A new customer is signed in once they verify their address.** Registering ended on the sign-in
+  page, asking for the password they had just chosen. Verifying now signs them in and takes them to
+  their account, or to **After sign in** when set.
 - **A disabled language is no longer served by the content API.** `?locale=` was used as given, so
   a language switched off in Settings › Languages stayed readable through the API for as long as
   it had published content. A language that is not enabled now answers `404`.

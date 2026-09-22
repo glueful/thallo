@@ -8,7 +8,8 @@ namespace Thallo\Contracts\Account;
  * The outcome of a registration step.
  *
  * `begin()` and `resend()` leave `pendingVerification` true with the intent to verify; `verify()`
- * resolves it to a created identity (or, for an existing-account handoff, no user). The intent
+ * resolves it to a created identity (or, for an existing-account handoff, no user), and signs the
+ * new customer in when it can. The intent
  * uuid and user uuid are opaque to the caller — a storefront never derives meaning from them.
  */
 final class RegistrationResult
@@ -17,6 +18,14 @@ final class RegistrationResult
         public readonly bool $pendingVerification,
         public readonly ?string $intentUuid,
         public readonly ?string $userUuid,
+        /**
+         * The new customer's session, when verification signed them in: the session array the
+         * cookie transport issues. Null when there is none to give (the storefront sends them
+         * to sign in instead).
+         *
+         * @var array<string,mixed>|null
+         */
+        public readonly ?array $session = null,
     ) {
     }
 }

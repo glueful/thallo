@@ -93,7 +93,8 @@ arrives. The reason is written to `storage/logs/`, which is the only place to lo
 2. Press **Create account**. The browser lands on **Enter your code**.
 3. Read the code from your inbox and enter it, then press **Verify**. If nothing arrived, press
    **Resend code**, and check `storage/logs/` before trying a third time.
-4. Sign in on the page you are returned to. There is no automatic sign-in after verifying.
+4. You are signed in and taken to your account (or to **After sign in** under Settings › Accounts,
+   when set).
 5. Confirm the dashboard says **Signed in as** your email, then press **Sign out**.
 6. Open **Users & Access › Users** in the admin: the new visitor is in the list.
 
