@@ -23,6 +23,12 @@ as the next release, never a mutated tag.
   web server. Its unread `HSTS_HEADER` line is gone.
 
 ### Fixed
+- **Settings › Workspaces says what stands in the way before you enable.** A defined data
+  collection refused enabling only at the confirm step, after the tenancy extension had been
+  installed and migrated, and a cache driver that cannot purge by pattern only after you pressed
+  **Enable**. The status now lists both as `blockers` up front (also in `thallo:tenancy:status`),
+  the admin keeps **Enable workspaces** off while one stands, and a collection refuses the first
+  stage instead of the last.
 - **A permission revoked from Superuser or Administrator stays revoked.** `thallo:provision`, which
   every upgrade runs, granted the two install roles whatever they lacked, so a revocation came back
   on the next upgrade. It now keeps a record of what it has offered each role and grants only

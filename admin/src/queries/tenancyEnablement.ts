@@ -31,6 +31,8 @@ export interface EnablementStatus {
   pending_name: string | null
   failure: string | null
   cli_fallback: string | null
+  /** What would refuse enabling, said before it starts. */
+  blockers?: { code: string; message: string }[]
 }
 
 export const qkEnablement = () => ['tenancy', 'enablement'] as const

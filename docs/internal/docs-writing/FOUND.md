@@ -36,9 +36,6 @@ the docs for the failed-job commands, the backup and `security:check`.
 
 ### Admin
 
-- **The workspaces enablement screen gives no warning before its refusals.** Code. Enabling is
-  refused with any data collection defined, and on a cache driver without pattern purge.
-  (workspaces)
 - **Media.** Split, each needs its own check:
   - The panel's "File URL" shows the raw storage path, not `display_url`. Code.
   - Search uses `LIKE`; case sensitivity depends on the collation. Code.
@@ -174,6 +171,9 @@ Appearance; Extensions › Capabilities; the preview bar; Utilities › Health a
 
 Kept for the record; each is in the CHANGELOG.
 
+- **The workspaces enablement screen gave no warning before its refusals.** The status lists
+  `blockers`, the admin shows them and keeps Enable off, and a collection refuses the first
+  stage. Test.
 - **Provision re-granted the install roles' permissions on every run.** A ledger records what each
   role was offered; only new permissions are granted. Test.
 - **A block type's template could not be created from the admin, and the migration dialog did not

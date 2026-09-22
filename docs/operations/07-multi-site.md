@@ -18,13 +18,17 @@ keeps in common. This page assumes you have read it.
 
 - **PostgreSQL.** The retrofit refuses any other driver before it touches anything. See
   [known limitations](../limitations.md).
-- **A cache driver that can purge by pattern.** Thallo probes the live driver on the first stage:
-  a driver that cannot delete by pattern fails the step with `Tenancy requires a cache driver that
+- **A cache driver that can purge by pattern.** Thallo probes the live driver: a driver that
+  cannot delete by pattern fails the first stage with `Tenancy requires a cache driver that
   supports pattern purge.` `CACHE_DRIVER=redis` passes; the Memcached driver does not implement
   pattern deletion at all.
-- **No data collections.** Enabling is refused while any collection definition exists.
-- **The UUID of the account that will own the first workspace.** The admin shows it as **User ID**
-  at the top of the person's page under **Users & Access › Users**.
+- **No data collections.** Enabling is refused while any collection definition exists, at the
+  first stage, before anything is installed.
+- **The account that will own the first workspace**, by email or uuid. The admin shows the uuid as
+  **User ID** at the top of the person's page under **Users & Access › Users**.
+
+**Settings › Workspaces** and `thallo:tenancy:status` list both refusals under `blockers` before
+you start, and the admin keeps **Enable workspaces** off while any stands.
 - **A window with no writes, and a fresh backup.** The retrofit raises a write barrier and keeps it
   up until the flow reaches `on`.
 
