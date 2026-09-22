@@ -22,6 +22,13 @@ as the next release, never a mutated tag.
   still does not redirect HTTP to HTTPS: `.env.example` said it did, and now says to do it in the
   web server. Its unread `HSTS_HEADER` line is gone.
 
+### Added
+- **Self-serve signup from the pricing page.** A **Pricing plan** card with a plan key now links to
+  the admin's new public signup page (`/signup?plan=…`). A visitor creates their workspace and
+  owner account there, confirms their email, is signed in, and lands on **Workspace billing** with
+  the plan chosen to pay for it. A signed-in visitor goes straight to billing. It needs **Workspace
+  signup** on in Settings › Workspaces.
+
 ### Fixed
 - **One default language.** The default language in Settings › Languages, the default locale in
   Settings › General and `config/i18n.php` could each say something different, and most of the site

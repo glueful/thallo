@@ -120,8 +120,15 @@ stack that holds **Pricing plan** cards — and **Pricing table**, a feature-com
 Select a **Pricing plan** card and open the **Block** tab. Its **price**, **billing period**,
 **billing cycle**, **features** (one per line), **badge**, **button label** and **button url** are
 all yours to type. The field that matters here is **plan key**: type the key of a plan in the
-catalogue, and the card's button stops using **button url** and links to the admin's billing page
-with that plan chosen — `/billing?plan={plan key}` under the **Admin URL**.
+catalogue, and the card's button stops using **button url** and links to the admin's signup page
+with that plan chosen — `/signup?plan={plan key}` under the **Admin URL**.
+
+On that page a visitor names their workspace and its address, enters their name, email and a
+password, and confirms the code emailed to them. The workspace is created with them as its owner,
+they are signed in, and they land on **Workspace billing** with the plan chosen, ready to pay. A
+visitor who is already signed in goes straight there. The page needs **Workspace signup** on, under
+**Settings › Workspaces**, which itself needs multi-workspace mode and working email; while it is
+off, the page says signup is unavailable when the form is sent.
 
 Thallo checks nothing about the key beyond its shape. If the capability is off, the engine is
 unavailable, no admin address is configured, or the field is empty or malformed, the button falls
