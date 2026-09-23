@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.56] - 2026-09-23 — Developer Preview
+
+Three things for building pages: a compact code block with a note in its caption, a hero whose
+aside can be padded and filled as a panel, and images that take an exact size or fill their column.
+No migrations: `thallo:provision` adds the new fields and settings to an existing site.
+
 ### Added
 - **A compact code block, with a note in its caption.** The Code block takes `size` — `compact` sets
   a dense snippet (an API response, a config excerpt) smaller and closer — and `note`, short text
