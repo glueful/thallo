@@ -16,6 +16,11 @@ as the next release, never a mutated tag.
   block: Padding (per breakpoint) and Background, landing on the aside — the blocks in the media
   column — while the block's own spacing and background stay the band's. The aside's corners and
   shadow are the block's Corners and Shadow, as before. Style settings schema 9, compiler 10.
+- **An image can take an exact size, or fill its column.** The Image block takes `width` and
+  `height` in pixels, each optional: one alone keeps the picture's proportions, both make a box it
+  fills — cropped, never stretched — and it is never wider than its column. `fill` makes it the
+  column's full width. Sizes are the image's own attributes, so the browser also picks a source
+  that fits. Existing sites gain the fields on `thallo:provision`.
 
 ## [1.0.0-beta.55] - 2026-09-23 — Developer Preview
 

@@ -90,7 +90,7 @@ and the Motion settings every other block has, are
 | **File** (`file`) | A download link to an uploaded file. | `file` (asset, required), `label` (string), `new_tab` (boolean) | — | — |
 | **Gallery** (`gallery`) | A responsive image grid with an optional lightbox. | `items` (blocks), `columns` (enum: 2, 3, 4), `aspect` (enum: natural, square, landscape), `lightbox` (boolean) | `items`: Image **only** | — |
 | **Icon** (`icon`) | A single decorative icon from the Lucide set, optionally linked. | `icon` (string, required), `size` (enum: small, medium, large), `align` (enum: start, center, end), `url` (string), `label` (string) | — | Text colour, Placement |
-| **Image** (`image`) | A single image with a caption. | `image` (asset, required), `alt` (string), `caption` (string) | — | Width, Placement, Corners, Shadow |
+| **Image** (`image`) | A single image with a caption. | `image` (asset, required), `alt` (string), `caption` (string), `width` (number, px), `height` (number, px), `fill` (boolean) | — | Width, Placement, Corners, Shadow |
 | **Logo** (`logo`) | The site logo from **Site › Appearance**; falls back to the site name. | `size` (enum: small, medium, large), `link_home` (boolean) | — | — |
 | **Logos** (`logos`) | A "trusted by" strip of brand logos. | `title` (string), `images` (asset, several), `grayscale` (boolean), `scroll` (boolean) | — | — |
 | **Video** (`video`) | An uploaded video or a YouTube or Vimeo embed. | `source` (enum: upload, embed), `video` (asset), `url` (string), `poster` (asset), `caption` (string), `width` (enum: normal, wide, full) | — | Width, Corners, Shadow |

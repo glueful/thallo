@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Image block sizes — geometry proof</title>
+<!-- The REAL theme sheets, by repo path: the proof server serves the repo root. -->
+<link rel="stylesheet" href="/packages/thallo-render/themes/default/assets/site.css">
+<link rel="stylesheet" href="/packages/thallo-render/themes/default/assets/blocks.css">
+<style>/* A 500px column, as a narrow content column would be. */ .col { width: 500px; }</style>
+</head>
+<body>
+<div class="col">
+  <!-- The picture is 400 × 200 (2:1). The markup is what blocks/image.twig emits for each case. -->
+  <figure class="thallo-block thallo-block-image" id="w"><img class="thallo-block-image__img" width="300" alt=""></figure>
+  <figure class="thallo-block thallo-block-image" id="h"><img class="thallo-block-image__img" height="100" alt=""></figure>
+  <figure class="thallo-block thallo-block-image" id="wh"><img class="thallo-block-image__img" width="300" height="300" alt=""></figure>
+  <figure class="thallo-block thallo-block-image thallo-block-image--fill" id="fill"><img class="thallo-block-image__img" alt=""></figure>
+  <figure class="thallo-block thallo-block-image" id="wide"><img class="thallo-block-image__img" width="900" alt=""></figure>
+  <figure class="thallo-block thallo-block-image" id="natural"><img class="thallo-block-image__img" alt=""></figure>
+</div>
+<script>
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200"><rect width="400" height="200" fill="#2563eb"/></svg>';
+  const src = 'data:image/svg+xml,' + encodeURIComponent(svg);
+  document.querySelectorAll('img').forEach((i) => { i.src = src; });
+</script>
+</body>
+</html>
