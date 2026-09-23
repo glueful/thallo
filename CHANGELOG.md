@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.54] - 2026-09-23 — Developer Preview
+
+A small release: a menu link can be told to open in a new window, the admin's lists honour the
+rows-per-page you pick, and the documentation sidebar can be scrolled to its end without moving
+the page under it.
+
 ### Added
 - **A menu link can open in a new window.** A toggle on each item in Settings › Navigation, for
   links to a page and to a web address alike. The rendered link carries `target="_blank"` with
