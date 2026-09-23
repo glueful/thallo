@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **A compact code block, with a note in its caption.** The Code block takes `size` — `compact` sets
+  a dense snippet (an API response, a config excerpt) smaller and closer — and `note`, short text
+  on the caption's right such as `200 OK` or `~/my-site`, beside the Copy button or in its place.
+  Existing sites gain both fields on `thallo:provision`.
+
 ## [1.0.0-beta.55] - 2026-09-23 — Developer Preview
 
 Two fixes found while rebuilding thallo.dev's homepage: the version pill runs its prefix into the
