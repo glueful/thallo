@@ -7,6 +7,43 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.53] - 2026-09-23 — Developer Preview
+
+A small release behind beta.52: the email settings page now shows the settings the chosen mailer
+actually uses instead of empty boxes, `.env.example` lists two switches it had left out, and the
+guide to publishing a docs folder says which section names the import matches folders against.
+
+### Fixed
+- **Settings › Email showed boxes the chosen mailer never reads.** A site sending through a
+  provider bridge — Brevo, SendGrid, Mailgun, SES, Postmark — saw Host, Encryption and Port empty
+  however they were set in `.env`, because those belong to the `smtp` mailer and an API bridge
+  reads none of them. The form now takes its shape from the mailer: an API bridge shows no SMTP
+  boxes at all, and says so, warning when its key is not set in the environment. Needs
+  glueful/email-notification 1.14.
+- **A provider that can send two ways can be told which to use.** Brevo sends through its own API
+  or its SMTP relay; the page now offers the choice, and the relay's username and password reach
+  the Brevo mailer instead of only the `smtp` one, which is where a credential saved against the
+  relay used to go nowhere.
+- `VERSION_PRUNE_ENABLED` and `FORMS_PRUNE_ENABLED` are read by the shipped `config/schedule.php`
+  but appeared in no `.env.example`.
+
+### Changed
+- **The BCC field is gone from Settings › Email.** The setting was stored and written into the
+  effective configuration, but nothing ever applied it to a send. A blind copy of every message is
+  worth having; it will come back when it sends.
+- Thallo now requires glueful/email-notification 1.14.
+- `docs/documentation-sites.md` names the five sections `thallo:docs:setup` makes and says what a
+  folder matching none of them does: the page imports with no section, and the sidebar holds those
+  pages in one unnamed group. The guide had explained how to override the default sections without
+  ever saying what they were.
+
+### Upgrade Notes
+- `composer update && php glueful thallo:provision`. No migrations, no new `.env` keys — the two
+  prune switches are commented defaults, already on.
+- **If your site sends through a provider bridge**, open Settings › Email after upgrading: Host,
+  Port and Encryption are no longer shown against it, and where the provider offers both ways out
+  the page now asks which one to use. It changes nothing until you save.
+
 ## [1.0.0-beta.52] - 2026-09-22 — Developer Preview
 
 A visitor can buy a plan without an operator: signup from a pricing card, prices on the plans, and
