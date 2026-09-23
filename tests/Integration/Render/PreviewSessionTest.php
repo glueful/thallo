@@ -691,6 +691,34 @@ final class PreviewSessionTest extends AppTestCase
         self::assertStringNotContainsString('https://admin.test/', $html);
     }
 
+    public function testTheBarStaysOutOfTheCanvasAndItsLinksLeaveAnyFrame(): void
+    {
+        // The Design view loads the preview as its stage (?canvas=1), inside the admin — which
+        // already shows the status and the actions. A bar in there repeated them, and its links
+        // navigated the FRAME: "Design" loaded the whole admin inside its own stage.
+        $entry = $this->seedDraftEntry('Canvas draft');
+        $token = $this->container()->get(PreviewMinter::class)->mint($entry, 'en');
+        $controller = $this->container()
+            ->get(\Thallo\Render\Http\Controllers\RenderController::class);
+
+        $canvas = (string) $controller
+            ->preview(Request::create("/_preview/{$token}?canvas=1", 'GET'), $token)
+            ->getContent();
+        self::assertStringNotContainsString('preview-banner', $canvas);
+
+        // A preview embedded anywhere else (Appearance shows one) keeps its bar, and every link
+        // on it targets the top window — the same window, for a preview opened in its own tab.
+        $html = (string) $controller
+            ->preview(Request::create("/_preview/{$token}", 'GET'), $token)
+            ->getContent();
+        self::assertStringContainsString('preview-banner', $html);
+        preg_match_all('#<a class="preview-banner__action"[^>]*>#', $html, $links);
+        self::assertNotEmpty($links[0]);
+        foreach ($links[0] as $link) {
+            self::assertStringContainsString('target="_top"', $link);
+        }
+    }
+
     public function testTheSitesOwnAddressGivenAsTheAdminsLinksToTheAdminOnIt(): void
     {
         // What the setup screen saved until 1.0.0-beta.51: the site's address without /admin.

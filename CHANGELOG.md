@@ -12,6 +12,11 @@ as the next release, never a mutated tag.
   its prefix and the version back to back, relying on a trailing space typed into the prefix — which
   the params editor trims on save. The template now puts one space between them itself, however the
   prefix was saved.
+- **The Design view could load the admin inside its own stage.** The stage renders the page as a
+  preview, and the preview bar came with it — repeating what the admin already shows, with links
+  that navigated the frame: "Design" opened the whole admin inside the canvas. The bar is left out of
+  the canvas, and its links target the top window wherever else a preview is framed, such as
+  Appearance.
 
 ## [1.0.0-beta.54] - 2026-09-23 — Developer Preview
 
