@@ -392,6 +392,27 @@ describe('navigation page', () => {
     expect((label.element as HTMLInputElement).value).toBe('')
   })
 
+  it('a link can be set to open in a new window, and that is what gets saved', async () => {
+    menusData.value = [{ slug: 'main', name: 'Main', item_count: 1, lock_version: 1 }]
+    const wrapper = mountPage()
+    await flushPromises()
+    await wrapper.find('[data-test="nav-menu-row"]').trigger('click')
+    detailData.value = detail()
+    await flushPromises()
+
+    const toggle = wrapper.find('[data-test="tree-item-new-tab"]')
+    expect(toggle.exists()).toBe(true)
+    expect(toggle.attributes('aria-pressed')).toBe('false') // off unless asked for
+
+    await toggle.trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="tree-item-new-tab"]').attributes('aria-pressed')).toBe('true')
+
+    await wrapper.find('[data-test="tree-save"]').trigger('click')
+    await flushPromises()
+    expect(saveMock.mock.calls[0]![0].items[0].new_tab).toBe(true)
+  })
+
   it('a 409 on save keeps the unsaved tree and asks what to do', async () => {
     // It used to drop the working tree and reload, losing every unsaved edit.
     menusData.value = [{ slug: 'main', name: 'Main', item_count: 1, lock_version: 1 }]

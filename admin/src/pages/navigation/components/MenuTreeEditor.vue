@@ -263,6 +263,25 @@ function nameOf(item: NavTreeItem): string {
           />
         </div>
 
+        <!-- Open in a new window (either kind): the words live in the label and title, since the
+             row has no space for them. -->
+        <UButton
+          size="xs"
+          :variant="item.new_tab ? 'solid' : 'subtle'"
+          :color="item.new_tab ? 'primary' : 'neutral'"
+          icon="i-lucide-external-link"
+          :aria-pressed="item.new_tab === true"
+          aria-label="Open in a new window"
+          title="Open in a new window"
+          data-test="tree-item-new-tab"
+          @click="
+            () => {
+              item.new_tab = !item.new_tab
+              changed()
+            }
+          "
+        />
+
         <UBadge
           v-if="depth > THEME_DEPTH"
           color="warning"

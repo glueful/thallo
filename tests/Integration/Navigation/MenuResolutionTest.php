@@ -72,6 +72,23 @@ final class MenuResolutionTest extends AppTestCase
         self::assertSame('', $tree[1]['description']);          // null column → empty string
     }
 
+    public function testNewTabReachesTheResolvedNodeAndDefaultsOff(): void
+    {
+        // "Open in a new window" is stored per item and read back with the node, so a template
+        // can emit target/rel without knowing anything about the item's kind.
+        $menu = $this->menus()->createMenu('main', 'Main');
+        $this->menus()->replaceTree((string) $menu['uuid'], 0, [
+            $this->item(['position' => 0, 'url' => 'https://example.test',
+                'labels' => json_encode(['en' => 'Ext']), 'new_tab' => 1]),
+            $this->item(['position' => 1, 'url' => '/here', 'labels' => json_encode(['en' => 'Here'])]),
+        ]);
+
+        $tree = $this->reader()->menu('main', 'en');
+        self::assertNotNull($tree);
+        self::assertTrue($tree[0]['new_tab']);
+        self::assertFalse($tree[1]['new_tab']); // absent column value is off, never null
+    }
+
     public function testUrlItemsAlwaysServeAndEntryItemsResolvePaths(): void
     {
         $entry = $this->seedBilingualPublishedEntry();

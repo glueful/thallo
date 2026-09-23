@@ -74,7 +74,7 @@ final class NavigationApiTest extends AppTestCase
         $tree = [
             'lock_version' => 0,
             'items' => [
-                ['kind' => 'url', 'url' => '/about', 'icon' => 'external-link',
+                ['kind' => 'url', 'url' => '/about', 'icon' => 'external-link', 'new_tab' => true,
                     'labels' => ['en' => 'About'], 'children' => []],
                 ['kind' => 'entry', 'entry_uuid' => $entry, 'labels' => ['en' => 'Hello'], 'children' => [
                     ['kind' => 'url', 'url' => 'https://example.test', 'labels' => ['en' => 'Ext'], 'children' => []],
@@ -91,6 +91,9 @@ final class NavigationApiTest extends AppTestCase
         // Per-item icon round-trips (nav-v2 spec §5); absent stays null.
         self::assertSame('external-link', $show['items'][0]['icon']);
         self::assertNull($show['items'][1]['icon']);
+        // "Open in a new window" is per item and off unless asked for.
+        self::assertTrue($show['items'][0]['new_tab']);
+        self::assertFalse($show['items'][1]['new_tab']);
         self::assertSame('published', $show['items'][1]['target_status']);
         // Exact canonical: the default locale collapses (no /en/ prefix).
         self::assertSame('https://site.test/blog/hello', (string) $show['items'][1]['target_url']);
