@@ -59,8 +59,11 @@ final class StyleSchemaTest extends TestCase
             'motion.entrance', 'motion.duration', 'motion.delay', 'motion.repeat', 'motion.stagger',
             // Ken Burns: a picture drifting slowly inside its frame, for a block that has one.
             'motion.ken_burns',
+            // A hero's aside — the blocks in its media column — padded and filled as a panel of
+            // its own. Their own paths, because `spacing` and `colors.surface` are the band's.
+            'aside.padding', 'aside.surface',
         ], $paths);
-        self::assertSame(8, StyleSchema::VERSION);
+        self::assertSame(9, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
     }
 
@@ -182,7 +185,7 @@ final class StyleSchemaTest extends TestCase
             StyleSchema::pathsInGroup('layout.item'),
             StyleCapabilities::fromDeclaration(['layout.item'])->paths(),
         );
-        self::assertSame(8, StyleSchema::VERSION);
+        self::assertSame(9, StyleSchema::VERSION);
     }
 
     public function testMotionIsABlocksOwnGroupAndStaggerIsTheArrangersAlone(): void

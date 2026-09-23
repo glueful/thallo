@@ -107,6 +107,9 @@ final class StyleCompilerTest extends TestCase
         // one block; the same declarations, because a corner is a corner.
         self::assertSame('t-mradius-full', ClassNames::for('marker.radius', 'radius.full'));
         self::assertSame('lg:t-mshadow-md', ClassNames::for('marker.shadow', 'shadow.md', 'lg'));
+        // A hero's aside, likewise: its padding and fill apart from the band's.
+        self::assertSame('md:t-apad-lg', ClassNames::for('aside.padding', 'spacing.lg', 'md'));
+        self::assertSame('t-abg-surface', ClassNames::for('aside.surface', 'color.surface'));
         self::assertStringContainsString('.t-mradius-full { border-radius: var(--t-radius-full); }', $css);
         self::assertStringContainsString('.t-mshadow-md { box-shadow: var(--t-shadow-md); }', $css);
         self::assertStringNotContainsString('.md\\:t-mradius', $css, 'not responsive, as radius is not');

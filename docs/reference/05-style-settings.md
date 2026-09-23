@@ -209,6 +209,17 @@ The Tabs block's strip, beside the panels area, which the block's own Corners se
 | Bar corners | `tabs.bar_radius` | no | `t-barradius-{name}` | `border-radius: var(--t-radius-{name})` |
 | Active tab corners | `tabs.tab_radius` | no | `t-tabradius-{name}` | `border-radius: var(--t-radius-{name})` |
 
+### Aside
+
+The Hero block's aside — the blocks in its media column — is a target of its own, so it can be
+padded and filled as a panel beside the band's own spacing and background. Its corners and shadow
+are the block's Corners and Shadow, which already land on the aside.
+
+| Setting | Path | Responsive | Class | Declaration |
+|---|---|---|---|---|
+| Padding | `aside.padding` | yes | `t-apad-{name}` | `padding: var(--t-spacing-{name})` |
+| Background | `aside.surface` | no | `t-abg-{name}` | `background: var(--t-color-{name})` |
+
 ### Motion
 
 None of these is responsive: an entrance is one event, not a layout. See
