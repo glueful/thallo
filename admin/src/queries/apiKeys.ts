@@ -89,7 +89,13 @@ export function useApiKeyList(
   q: MaybeRefOrGetter<string | undefined>,
 ) {
   return useQuery({
-    key: () => ['api-keys', toValue(page), toValue(status) ?? '', toValue(q) ?? ''],
+    key: () => [
+      'api-keys',
+      toValue(page),
+      toValue(perPage),
+      toValue(status) ?? '',
+      toValue(q) ?? '',
+    ],
     query: () =>
       fetchApiKeys({
         page: toValue(page),

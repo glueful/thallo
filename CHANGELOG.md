@@ -7,6 +7,30 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.54] - 2026-09-23 — Developer Preview
+
+A small release: a menu link can be told to open in a new window, the admin's lists honour the
+rows-per-page you pick, and the documentation sidebar can be scrolled to its end without moving
+the page under it.
+
+### Added
+- **A menu link can open in a new window.** A toggle on each item in Settings › Navigation, for
+  links to a page and to a web address alike. The rendered link carries `target="_blank"` with
+  `rel="noopener noreferrer"`, and a visually hidden "(opens in a new tab)" so a screen reader
+  knows the tab changed. Off for every item that exists. Adds a `new_tab` column to
+  `navigation_items`, so an upgrade runs `php glueful thallo:provision`.
+
+### Fixed
+- **Rows per page did nothing on the admin's lists.** The chosen size reached the request but not
+  the query's cache key, so the cached page came back unchanged: the table kept ten rows while
+  the footer counted twenty-five of them. Content lists, media, users, API keys, the audit log
+  and both webhook lists.
+- **The documentation sidebar could not be scrolled to its end.** The sticky sidebar and "On this
+  page" were sized as though they began where they stick, but the page's top padding sits above
+  them until it scrolls past — so the foot of each panel ran under the fold, its last rows out of
+  reach, and the panel's own scrolling appeared dead until the whole page was scrolled to the
+  bottom. A preview banner made it worse.
+
 ## [1.0.0-beta.53] - 2026-09-23 — Developer Preview
 
 A small release behind beta.52: the email settings page now shows the settings the chosen mailer

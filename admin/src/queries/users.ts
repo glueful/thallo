@@ -72,7 +72,7 @@ export function useUsers(
   search: MaybeRefOrGetter<string | undefined>,
 ) {
   return useQuery({
-    key: () => ['users', toValue(page), toValue(search) ?? ''],
+    key: () => ['users', toValue(page), toValue(perPage), toValue(search) ?? ''],
     query: () =>
       fetchUsers({ page: toValue(page), perPage: toValue(perPage), search: toValue(search) }),
   })

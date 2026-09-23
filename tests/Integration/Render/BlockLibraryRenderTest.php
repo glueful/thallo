@@ -589,6 +589,38 @@ final class BlockLibraryRenderTest extends AppTestCase
         );
     }
 
+    public function testNavigationLinkOpensANewWindowWhenTheItemSaysSo(): void
+    {
+        // "Open in a new window" is per item. The anchor carries rel alongside target — without
+        // it the opened page gets a handle on this one — and says so to a screen reader, which
+        // otherwise has no way to know the tab changed.
+        $menus = $this->container()->get(\Thallo\Navigation\MenuRepository::class);
+        $menu = $menus->createMenu('main', 'Main');
+        $now = gmdate('Y-m-d H:i:s');
+        $row = static fn (string $uuid, int $pos, string $url, string $label, bool $newTab): array => [
+            'uuid' => $uuid, 'parent_uuid' => null, 'position' => $pos, 'kind' => 'url',
+            'entry_uuid' => null, 'url' => $url, 'new_tab' => $newTab,
+            'labels' => json_encode(['en' => $label]), 'created_at' => $now, 'updated_at' => $now,
+        ];
+        $menus->replaceTree((string) $menu['uuid'], 0, [
+            $row('navitem00010', 0, 'https://example.test', 'Status', true),
+            $row('navitem00011', 1, '/about', 'About', false),
+        ]);
+
+        $out = $this->render([[
+            'id' => 'nav9a', 'type' => 'navigation', 'data' => ['menu' => 'main'],
+        ]]);
+
+        self::assertMatchesRegularExpression(
+            '#<a[^>]*href="https://example\.test"[^>]*target="_blank"[^>]*rel="noopener noreferrer"#',
+            $out,
+        );
+        self::assertStringContainsString('(opens in a new tab)', $out);
+        // The item that did not ask for it is untouched: one target on the page, not two.
+        self::assertSame(1, substr_count($out, 'target="_blank"'));
+        self::assertDoesNotMatchRegularExpression('#<a[^>]*href="/about"[^>]*target=#', $out);
+    }
+
     public function testNavigationRootNavCarriesAriaLabel(): void
     {
         $this->seedNavMenu();

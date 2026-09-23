@@ -123,7 +123,7 @@ export function useMediaList(
   q: MaybeRefOrGetter<string | undefined>,
 ) {
   return useQuery({
-    key: () => ['media', toValue(page), toValue(type) ?? '', toValue(q) ?? ''],
+    key: () => ['media', toValue(page), toValue(perPage), toValue(type) ?? '', toValue(q) ?? ''],
     query: () =>
       fetchMedia({
         page: toValue(page),

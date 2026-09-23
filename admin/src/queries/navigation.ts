@@ -16,6 +16,8 @@ export interface NavTreeItem {
   url?: string
   /** Optional Lucide icon name rendered before the label (nav-v2). */
   icon?: string | null
+  /** Open the link in a new window: the rendered anchor carries target and rel. */
+  new_tab?: boolean
   labels: Record<string, string>
   /** Optional locale → description shown under the label in dropdown/megamenu panels (nav-v2). */
   descriptions?: Record<string, string>

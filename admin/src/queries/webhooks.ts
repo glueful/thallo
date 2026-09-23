@@ -145,7 +145,13 @@ export function useSubscriptionList(
   activeOnly: MaybeRefOrGetter<boolean>,
 ) {
   return useQuery({
-    key: () => ['webhooks', 'subscriptions', toValue(page), toValue(activeOnly) ? 'active' : 'all'],
+    key: () => [
+      'webhooks',
+      'subscriptions',
+      toValue(page),
+      toValue(perPage),
+      toValue(activeOnly) ? 'active' : 'all',
+    ],
     query: () =>
       fetchSubscriptions({
         page: toValue(page),
@@ -280,6 +286,7 @@ export function useDeliveryList(
       toValue(subscription) ?? '',
       toValue(status) ?? '',
       toValue(page),
+      toValue(perPage),
     ],
     query: () =>
       fetchDeliveries({

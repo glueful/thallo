@@ -109,12 +109,23 @@ final class PackVerifierBehaviorTest extends TestCase
         foreach (self::VERIFIERS as $pack => $class) {
             $verifier = new $class();
             $migrationsDir = dirname(__DIR__, 3) . "/packages/{$pack}/migrations";
-            foreach ($verifier->migrationBasenames() as $basename) {
+            $ordered = $verifier->migrationBasenames();
+            foreach ($ordered as $basename) {
                 [$connection, $manager] = $this->isolatedFixture($pack);
                 $isSeed = str_contains($basename, 'Seed');
                 if ($isSeed) {
                     // Prerequisite exists, effect (the seeded slugs) absent.
                     $this->createMinimalPermissionsTable($connection);
+                }
+                // A pack's migrations are an ordered set: one that ALTERS a table needs the one
+                // that created it. Run the earlier files first, so the fixture is "everything
+                // before this migration" rather than "nothing at all" — still incomplete for the
+                // proof under test, which no earlier migration can satisfy.
+                foreach ($ordered as $earlier) {
+                    if ($earlier === $basename) {
+                        break;
+                    }
+                    $manager->migrate($migrationsDir . '/' . $earlier);
                 }
                 self::assertFalse(
                     $verifier->verify($connection, $basename),
