@@ -53,6 +53,27 @@ final class VersionShortcodeTest extends AppTestCase
         );
     }
 
+    public function testThePrefixIsSeparatedFromTheVersionWhateverWhitespaceItWasSavedWith(): void
+    {
+        // The params editor trims values, so a prefix typed as "Developer Preview " is stored as
+        // "Developer Preview" — and a template that relied on the trailing space glued the two
+        // words together on the live site ("Developer Preview1.0.0-beta.54"). The separator is
+        // the template's to add, and one space is one space however the prefix was saved.
+        $site = ['name' => 'Thallo', 'version' => '1.0.0-beta.54'];
+        foreach (['Developer Preview', 'Developer Preview ', ' Developer Preview  '] as $prefix) {
+            self::assertStringContainsString(
+                '<span class="thallo-shortcode-version">Developer Preview 1.0.0-beta.54</span>',
+                $this->shortcode(['prefix' => $prefix], $site),
+                'prefix ' . json_encode($prefix),
+            );
+        }
+        // No prefix, no stray space in front of the version.
+        self::assertStringContainsString(
+            '<span class="thallo-shortcode-version">1.0.0-beta.54</span>',
+            $this->shortcode([], $site),
+        );
+    }
+
     public function testADevelopmentCheckoutSaysSoInsteadOfAVersion(): void
     {
         $out = $this->shortcode([], ['name' => 'Thallo', 'version' => null]);

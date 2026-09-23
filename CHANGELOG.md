@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Fixed
+- **The version pill read "Developer Preview1.0.0-beta.54".** The `thallo-version` shortcode printed
+  its prefix and the version back to back, relying on a trailing space typed into the prefix — which
+  the params editor trims on save. The template now puts one space between them itself, however the
+  prefix was saved.
+
 ## [1.0.0-beta.54] - 2026-09-23 — Developer Preview
 
 A small release: a menu link can be told to open in a new window, the admin's lists honour the
