@@ -16,10 +16,24 @@ export interface EmailTransportSettings {
   >
 }
 
+/** What one mailer takes, as the extension reports it (glueful/email-notification 1.14). */
+export interface EmailMailerCapability {
+  /** Every way this mailer can send, e.g. ['brevo+api', 'brevo+smtp']. */
+  transports: string[]
+  /** The settings the mailer's CURRENT transport reads. */
+  fields: string[]
+  /** The same, per transport, so choosing one re-shapes the form without a round trip. */
+  fields_by_transport: Record<string, string[]>
+  /** Whether a keyed transport (an API bridge) has its key from the environment. */
+  key_set: boolean
+}
+
 export interface EmailSettingsPayload {
   settings: EmailTransportSettings
   /** The password is never returned — only whether one is currently stored. */
   password_set: boolean
+  /** Absent on an extension older than 1.14: the form then shows the SMTP fields, as it did. */
+  capabilities?: Record<string, EmailMailerCapability>
 }
 
 export interface EmailTemplatePlaceholder {
@@ -54,6 +68,7 @@ export interface EmailPartialRow {
 /** Flat keys per the extension's PUT contract; password only when non-empty. */
 export type EmailSettingsInput = Partial<{
   mailer: string
+  transport: string
   host: string
   port: string
   username: string
@@ -61,7 +76,6 @@ export type EmailSettingsInput = Partial<{
   encryption: string
   from: string
   from_name: string
-  bcc: string
   logo_url: string
 }>
 

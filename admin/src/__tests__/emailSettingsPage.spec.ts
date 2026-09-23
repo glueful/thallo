@@ -57,6 +57,52 @@ const settings = (): EmailSettingsPayload => ({
   password_set: true,
 })
 
+// A provider bridge (glueful/email-notification 1.14): Brevo sends through its own API or its
+// SMTP relay, and the two read different settings.
+const brevoSettings = (transport = 'brevo+api'): EmailSettingsPayload => ({
+  settings: {
+    default: 'brevo',
+    from: { address: 'no-reply@app.test', name: 'App' },
+    bcc: '',
+    logo_url: '',
+    mailers: {
+      smtp: { host: 'smtp.app.test', port: 587, username: 'mailer', encryption: 'tls' },
+      brevo: { transport, username: 'relay-user' },
+    },
+  },
+  password_set: true,
+  capabilities: {
+    smtp: {
+      transports: ['smtp'],
+      fields: ['host', 'port', 'encryption', 'username', 'password'],
+      fields_by_transport: { smtp: ['host', 'port', 'encryption', 'username', 'password'] },
+      key_set: false,
+    },
+    brevo: {
+      transports: ['brevo+api', 'brevo+smtp'],
+      fields: transport === 'brevo+api' ? [] : ['username', 'password'],
+      fields_by_transport: { 'brevo+api': [], 'brevo+smtp': ['username', 'password'] },
+      key_set: true,
+    },
+  },
+})
+
+const labels = (wrapper: ReturnType<typeof mountPage>): string[] =>
+  wrapper.findAll('label').map((l) => l.text())
+
+/** Drive a USelect through its Reka SelectRoot — the established pattern (commerceOrders.spec.ts):
+ * the options render in a portal, so opening the dropdown in jsdom is unreliable, and the
+ * `data-test` lands on the trigger button, not on the root. Match by document position. */
+function selectByTestId(wrapper: ReturnType<typeof mountPage>, dataTest: string) {
+  const roots = wrapper.findAllComponents({ name: 'SelectRoot' })
+  const triggers = Array.from(
+    (wrapper.element as Element).querySelectorAll<HTMLElement>('button[role="combobox"]'),
+  )
+  const index = triggers.findIndex((el) => el.getAttribute('data-test') === dataTest)
+  if (index === -1 || !roots[index]) throw new Error(`No SelectRoot for [data-test="${dataTest}"]`)
+  return roots[index]
+}
+
 const templates = (): EmailTemplateRow[] => [
   {
     key: 'verification',
@@ -146,6 +192,78 @@ describe('email settings page', () => {
       from: 'no-reply@app.test',
     })
     expect(payload).not.toHaveProperty('password') // blank keeps the stored one
+    wrapper.unmount()
+  })
+
+  it('shows only the settings the chosen transport reads', async () => {
+    fetchSettingsMock.mockResolvedValue(brevoSettings())
+    saveSettingsMock.mockResolvedValue(brevoSettings())
+    const wrapper = mountPage()
+    await flushPromises()
+
+    // An API bridge has no host, port, encryption or credentials — empty boxes against it
+    // were the bug (they showed the smtp mailer's settings, which it never reads).
+    expect(labels(wrapper)).not.toContain('Host')
+    expect(labels(wrapper)).not.toContain('Port')
+    expect(labels(wrapper)).not.toContain('Encryption')
+    expect(labels(wrapper)).not.toContain('Username')
+    expect(wrapper.find('[data-test="keyed-transport"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="keyed-transport"]').text()).not.toContain('not set')
+
+    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('Save'))
+    await saveBtn!.trigger('click')
+    await flushPromises()
+
+    const payload = saveSettingsMock.mock.calls[0]![0]
+    expect(payload).toMatchObject({ mailer: 'brevo', transport: 'brevo+api' })
+    for (const key of ['host', 'port', 'encryption', 'username', 'password']) {
+      expect(payload).not.toHaveProperty(key)
+    }
+    wrapper.unmount()
+  })
+
+  it('a provider that sends two ways offers the choice, and saves it', async () => {
+    fetchSettingsMock.mockResolvedValue(brevoSettings())
+    saveSettingsMock.mockResolvedValue(brevoSettings('brevo+smtp'))
+    const wrapper = mountPage()
+    await flushPromises()
+
+    selectByTestId(wrapper, 'transport-select').vm.$emit('update:modelValue', 'brevo+smtp')
+    await flushPromises()
+
+    // The relay takes the credentials, and still no host: it knows its own.
+    expect(labels(wrapper)).toContain('Username')
+    expect(labels(wrapper)).toContain('Password')
+    expect(labels(wrapper)).not.toContain('Host')
+    expect(wrapper.find('[data-test="keyed-transport"]').exists()).toBe(false)
+
+    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('Save'))
+    await saveBtn!.trigger('click')
+    await flushPromises()
+
+    const payload = saveSettingsMock.mock.calls[0]![0]
+    expect(payload).toMatchObject({ transport: 'brevo+smtp', username: 'relay-user' })
+    expect(payload).not.toHaveProperty('host')
+    wrapper.unmount()
+  })
+
+  it('a single-transport mailer offers no choice and sends none', async () => {
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="transport-select"]').exists()).toBe(false)
+    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('Save'))
+    await saveBtn!.trigger('click')
+    await flushPromises()
+    expect(saveSettingsMock.mock.calls[0]![0]).not.toHaveProperty('transport')
+    wrapper.unmount()
+  })
+
+  it('offers no BCC — the setting was stored but never applied to a send', async () => {
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(labels(wrapper)).not.toContain('BCC')
     wrapper.unmount()
   })
 

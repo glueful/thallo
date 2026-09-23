@@ -670,16 +670,16 @@
         },
         {
             "name": "glueful/email-notification",
-            "version": "v1.13.0",
+            "version": "v1.14.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/email-notification.git",
-                "reference": "1cfec9ec3d5fd41807c44c61b2444977c463b60d"
+                "reference": "8b006e552c3578db18ccea6b51f9d932de828f68"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/email-notification/zipball/1cfec9ec3d5fd41807c44c61b2444977c463b60d",
-                "reference": "1cfec9ec3d5fd41807c44c61b2444977c463b60d",
+                "url": "https://api.github.com/repos/glueful/email-notification/zipball/8b006e552c3578db18ccea6b51f9d932de828f68",
+                "reference": "8b006e552c3578db18ccea6b51f9d932de828f68",
                 "shasum": ""
             },
             "require": {
@@ -709,7 +709,7 @@
                 "glueful": {
                     "icon": "assets/icon.png",
                     "name": "EmailNotification",
-                    "version": "1.13.0",
+                    "version": "1.14.0",
                     "provider": "Glueful\\Extensions\\EmailNotification\\EmailNotificationServiceProvider",
                     "requires": {
                         "glueful": ">=1.79.0",
@@ -765,9 +765,9 @@
             ],
             "support": {
                 "issues": "https://github.com/glueful/email-notification/issues",
-                "source": "https://github.com/glueful/email-notification/tree/v1.13.0"
+                "source": "https://github.com/glueful/email-notification/tree/v1.14.0"
             },
-            "time": "2026-08-18T01:36:39+00:00"
+            "time": "2026-09-23T04:50:19+00:00"
         },
         {
             "name": "glueful/extension-contracts",
@@ -1792,7 +1792,7 @@
                 "glueful/aegis": "^1.15",
                 "glueful/audit": "^1.4",
                 "glueful/commerce": "^1.13",
-                "glueful/email-notification": "^1.13",
+                "glueful/email-notification": "^1.14",
                 "glueful/framework": "^1.87.0",
                 "glueful/i18n": "^1.2",
                 "glueful/import-export": "^1.2.1",

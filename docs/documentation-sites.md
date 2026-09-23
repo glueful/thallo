@@ -28,13 +28,20 @@ php glueful thallo:import:markdown docs --type=docs --exclude=internal --publish
 Your pages are at `/docs/{page}` and `/docs` is their index. The importers capability has to be
 on (**Extensions › Capabilities**).
 
+Step 1 makes five sections, in this sidebar order: `getting-started`, `concepts`, `guides`,
+`reference`, `operations`. **Your folders are matched against these names**, so a folder called
+`how-to` is in none of them and its pages arrive with no section at all. Name your folders after
+the sections you want, choose your own with `--sections=start,guides,reference`, or change them
+later under **Settings › Content types**.
+
 ## Without a shell: from the admin
 
 Everything above can be done under **Settings › Import / Export**, for a site whose owner has
 the admin and not a terminal.
 
 1. Choose the adapter **Markdown folder (.zip)**. On a site with no docs section the page offers
-   **Set up documentation**: one click does what `thallo:docs:setup` does.
+   **Set up documentation**: one click does what `thallo:docs:setup` does, with the same five
+   sections. To use your own, change them afterwards under **Settings › Content types**.
 2. Zip your docs folder and choose the file. It does not matter whether the zip holds the
    folder or only what is inside it: a folder that wraps every page is set aside, so a page has
    the same path whichever way it was packed, and the same path the command would give it.
@@ -94,7 +101,7 @@ summary: Get it running in a few minutes.
 |---|---|---|
 | URL | `slug` | The file's name, without an `NN-` prefix. A `README.md` or `index.md` is its folder. |
 | Title | `title` | The first `# heading`, which is then taken out of the body. Failing that, the name. |
-| Section | `section` | The top folder, when it is one of the type's sections. |
+| Section | `section` | The top folder, when it is one of the type's sections — exactly, so `Guides` and `03-guides` are not `guides`. A folder that matches none leaves the page with no section, and the sidebar holds those pages in one unnamed group. |
 | Order | `order` | The `NN-` prefix of the file's name. |
 | Summary | `summary` or `description` | None. |
 
