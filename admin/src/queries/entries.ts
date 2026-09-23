@@ -54,8 +54,9 @@ export function useEntries(
   q: MaybeRefOrGetter<string | undefined>,
 ) {
   return useQuery({
-    // page + q are part of the key so each page/filter is cached independently and refetches on change.
-    key: () => [...qk.entries(toValue(type)), toValue(page), toValue(q) ?? ''],
+    // page, perPage and q all identify a page of results, so each is part of the key: a cached
+    // page is only reused for the same slice, and changing any of them refetches.
+    key: () => [...qk.entries(toValue(type)), toValue(page), toValue(perPage), toValue(q) ?? ''],
     query: () =>
       fetchEntries({
         type: toValue(type),

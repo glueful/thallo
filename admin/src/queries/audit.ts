@@ -100,7 +100,12 @@ export function useAuditLogs(
   filters: MaybeRefOrGetter<AuditLogFilters>,
 ) {
   return useQuery({
-    key: () => ['audit-logs', toValue(page), JSON.stringify(toValue(filters) ?? {})],
+    key: () => [
+      'audit-logs',
+      toValue(page),
+      toValue(perPage),
+      JSON.stringify(toValue(filters) ?? {}),
+    ],
     query: () =>
       fetchAuditLogs({ page: toValue(page), perPage: toValue(perPage), filters: toValue(filters) }),
   })
