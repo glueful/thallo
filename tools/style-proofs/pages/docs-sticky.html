@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Docs sticky panel — geometry proof</title>
+<!-- The REAL theme sheets, by repo path: the proof server serves the repo root. -->
+<link rel="stylesheet" href="/packages/thallo-render/themes/default/assets/site.css">
+<link rel="stylesheet" href="/packages/thallo-render/themes/default/assets/docs.css">
+</head>
+<body>
+  <header class="site-header"><div class="site-header__inner"><strong>Thallo</strong></div></header>
+  <main id="main" class="layout--centered">
+    <div class="docs docs--with-toc">
+      <a class="docs__jump" href="#docs-nav">Browse the documentation</a>
+      <article class="docs__page">
+        <header class="docs__header"><h1 class="docs__title">A page</h1></header>
+        <div class="prose"><p>Body</p></div>
+      </article>
+      <aside class="docs__sidebar" id="docs-nav">
+        <nav class="docs__nav">
+          <section class="docs__group">
+            <h2 class="docs__group-title">Getting started</h2>
+            <ul class="docs__list" id="links"></ul>
+          </section>
+        </nav>
+      </aside>
+      <aside class="docs__toc"><nav><ul id="toc-links"></ul></nav></aside>
+    </div>
+  </main>
+  <footer class="site-footer" style="height:400px"></footer>
+<script>
+  // A sidebar taller than any viewport — the only case where the panel's own scrolling matters.
+  const rows = (id, n, label) => {
+    const ul = document.getElementById(id);
+    for (let i = 1; i <= n; i++) {
+      const li = document.createElement('li');
+      li.innerHTML = '<a class="docs__link" href="#">' + label + ' ' + i + '</a>';
+      ul.appendChild(li);
+    }
+  };
+  rows('links', 60, 'Page');
+  rows('toc-links', 40, 'Heading');
+  // ?banner=1 renders the preview banner a signed-in editor gets — the real page only emits the
+  // element when it applies, so the proof inserts it rather than hiding it.
+  if (new URLSearchParams(location.search).get('banner') === '1') {
+    const b = document.createElement('div');
+    b.className = 'preview-banner';
+    b.innerHTML = '<span>Preview</span><span>Actions</span>';
+    document.body.prepend(b);
+  }
+</script>
+</body>
+</html>
