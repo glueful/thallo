@@ -7,6 +7,11 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- **Number fields are plain text boxes.** A block's number fields take typed digits (anything else
+  is dropped) instead of a stepper, and clearing one unsets it. An image's width and height sit on
+  one row — `Width × Height`, in pixels, empty meaning auto.
+
 ### Fixed
 - **An optional choice that has its own `default` lists Default once.** The code block's size, the
   carousel's style and similar fields showed the admin's "Default" (unset) and the field's own
