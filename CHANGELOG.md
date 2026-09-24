@@ -7,6 +7,11 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- **The Design view's tabs fit the panel.** With a block selected, seven labelled tabs were each cut
+  short ("Blo…", "Cont…"). The page-wide tabs, SEO and Versions, are now icons, named by a tooltip
+  and for screen readers, so Block, Content, Blocks, Outline and Page show their labels in full.
+
 ## [1.0.0-beta.58] - 2026-09-24 — Developer Preview
 
 A version can now be restored to the draft, and the old Restore is named for what it does: Make

@@ -275,14 +275,20 @@ const inspectorTab = ref('content')
 const historySequence = ref(0)
 const caps = useCapabilitiesStore()
 const seoEnabled = computed(() => caps.isEnabled('thallo.seo'))
-const inspectorTabs = computed(() => [
-  ...(selected.value !== null ? [{ label: 'Block', value: 'block', slot: 'block' as const }] : []),
-  { label: 'Content', value: 'content', slot: 'content' as const },
-  { label: 'Blocks', value: 'blocks', slot: 'blocks' as const },
-  { label: 'Outline', value: 'outline', slot: 'outline' as const },
-  { label: 'Page', value: 'page', slot: 'page' as const },
-  ...(seoEnabled.value ? [{ label: 'SEO', value: 'seo', slot: 'seo' as const }] : []),
-  { label: 'Versions', value: 'versions', slot: 'versions' as const },
+// The tabs for editing the page carry labels; the page-wide ones — SEO and Versions — are icons,
+// named by a tooltip and for screen readers, so every label fits the panel even with a block
+// selected (seven labels did not, and each was cut short).
+type InspectorTab = { value: string; slot: string; label?: string; icon?: string; name?: string }
+const inspectorTabs = computed<InspectorTab[]>(() => [
+  ...(selected.value !== null ? [{ label: 'Block', value: 'block', slot: 'block' }] : []),
+  { label: 'Content', value: 'content', slot: 'content' },
+  { label: 'Blocks', value: 'blocks', slot: 'blocks' },
+  { label: 'Outline', value: 'outline', slot: 'outline' },
+  { label: 'Page', value: 'page', slot: 'page' },
+  ...(seoEnabled.value
+    ? [{ name: 'SEO', icon: 'i-lucide-search', value: 'seo', slot: 'seo' }]
+    : []),
+  { name: 'Versions', icon: 'i-lucide-history', value: 'versions', slot: 'versions' },
 ])
 
 const presentationOverride = computed<Record<string, unknown>>(() => {
@@ -2416,6 +2422,19 @@ function reloadStage(): void {
             data-test="inspector-tabs"
             variant="link"
           >
+            <template #leading="{ item }">
+              <template v-if="item.name">
+                <UTooltip :text="item.name" :content="{ side: 'bottom' }">
+                  <UIcon
+                    :name="item.icon!"
+                    class="size-4 shrink-0"
+                    aria-hidden="true"
+                    :data-test="`inspector-tab-icon-${item.value}`"
+                  />
+                </UTooltip>
+                <span class="sr-only">{{ item.name }}</span>
+              </template>
+            </template>
             <template #block>
               <BlockInspector
                 v-if="selectedBlock"
