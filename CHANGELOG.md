@@ -13,6 +13,9 @@ as the next release, never a mutated tag.
   `.right`, `.bottom` and `.left`. The single `aside.padding` of 1.0.0-beta.56 and 57 is retired: a
   stored value has no effect and is dropped the next time the page is saved, so set the aside's
   padding again in the new box. Style settings schema 10, compiler 11.
+- **A list in a rich_text reads as a list.** Its items sit a short step apart instead of a
+  paragraph's gap (the editor writes each item as a paragraph), indented by a bullet's width rather
+  than the browser's 40px.
 - **Headings balance their lines.** A heading that wraps now shares its words between its lines
   instead of filling the first and leaving a word or two alone on the last: the default theme sets
   `text-wrap: balance` on h1–h4. A browser without it wraps as before.
