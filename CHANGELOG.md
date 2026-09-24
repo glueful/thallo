@@ -7,6 +7,11 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.59] - 2026-09-24 — Developer Preview
+
+The Design view's tabs fit the panel: Outline, SEO and Versions are icons, so Block, Content, Blocks
+and Page show their labels in full. No migrations.
+
 ### Changed
 - **The Design view's tabs fit the panel.** With a block selected, seven labelled tabs were each cut
   short ("Blo…", "Cont…"). Outline, SEO and Versions are now icons — Outline's the one a blocks
