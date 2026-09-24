@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // A region block's settings, from the Regions page: the Design page's block inspector without its
-// stage. The block is chosen from its card; Layout, Style and Advanced are the same tabs over the
-// same settings a page's block has (the server validates and renders a region's blocks exactly as
+// stage. The block is chosen from its card; Content, Layout, Style and Advanced are the same tabs
+// over the same data and settings a page's block has (the server validates and renders a region's blocks exactly as
 // it does an entry's). What is NOT here is the Design page's machinery: no operations, no history
 // — an edit is written straight into the region's working copy, which the page saves as a whole.
 import { computed, nextTick, watch } from 'vue'
@@ -117,6 +117,19 @@ function prune(settings: Settings): Settings {
   return out
 }
 
+/** A Content edit: one of the block's own fields, written into the working copy like a setting. */
+function onPatchData(name: string, value: unknown): void {
+  const tree = pending ?? props.blocks
+  if (ops.findById(tree, props.blockId) === null) return
+  if (pending === null) {
+    void nextTick(() => {
+      pending = null
+    })
+  }
+  pending = ops.patchDataById(tree, props.blockId, name, value)
+  emit('update:blocks', pending)
+}
+
 function onSetSetting(path: string, bp: Breakpoint | null, value: StyleValue | null): void {
   writeSettings((s) =>
     setPath(s, settingSegments(path, bp), value === null ? absent() : present(value)),
@@ -189,8 +202,9 @@ function detachAll(): void {
     :parent="parent"
     :parent-type="parentType"
     :parent-classes="classRefsFor(parent)"
-    no-content
+    off-stage
     no-save-as-class
+    @patch-data="onPatchData"
     @set-setting="onSetSetting"
     @set-all="onSetAll"
     @set-advanced="onSetAdvanced"

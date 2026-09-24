@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **A region block's settings have a Content tab.** On the Regions page, a block's settings panel
+  has the Design view's four tabs — Content, Layout, Style, Advanced — and opens on Content, the
+  block's own fields; before, only Layout, Style and Advanced were there, and the fields were on the
+  card alone. A rich text body and the blocks inside a block stay on its card.
+
 ### Fixed
 - **A footer block in the footer region spans it.** The region lays its blocks out in a row, and a
   footer block there shrank to its content: pushed to the right, its copyright squeezed onto two
