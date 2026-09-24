@@ -17,6 +17,7 @@ import { useNotify } from '@/composables/useNotify'
 import PublishPanel from './components/PublishPanel.vue'
 import SeoPanel from './components/SeoPanel.vue'
 import VersionsPanel from './components/VersionsPanel.vue'
+import { restoredFields } from '@/editor/restoreVersion'
 import WorkflowPanel from './components/WorkflowPanel.vue'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useVisibleEditorPanels, type EntryEditorPanelContext } from '@/registry/entryEditorPanels'
@@ -209,6 +210,17 @@ watch(
   },
   { immediate: true },
 )
+
+// Restore to draft (Versions tab): the version's content fills the form. Like any edit it is kept
+// by saving the draft, and goes live only when published.
+function restoreVersionToDraft(v: {
+  version: number | undefined
+  fields: Record<string, unknown>
+}) {
+  fields.value = restoredFields(fields.value, v.fields)
+  const name = v.version === undefined ? 'That version' : `Version ${v.version}`
+  success(`${name} is in the form`, 'Save the draft to keep it. Publish to make it live.')
+}
 
 const showRoutes = ref(false)
 
@@ -442,6 +454,7 @@ async function onSave({ quiet = false }: { quiet?: boolean } = {}): Promise<bool
               :uuid="uuid"
               :locale="locale"
               :type="type"
+              @restore-draft="restoreVersionToDraft"
             />
             <component
               :is="panel.component"

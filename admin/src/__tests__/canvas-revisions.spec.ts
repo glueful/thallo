@@ -723,3 +723,36 @@ describe('undo and redo', () => {
     wrapper.unmount()
   })
 })
+
+describe('restore to draft', () => {
+  it('puts a version into the draft as one change, and one undo takes it back out', async () => {
+    applyMock.mockResolvedValue(accepted('e1', 1))
+    saveMock.mockResolvedValue({ data: { preview_cleared: false } })
+    const wrapper = await mountAndSettle()
+    const page = wrapper.vm as unknown as {
+      restoreVersionToDraft: (v: {
+        version: number
+        fields: Record<string, unknown>
+      }) => Promise<void>
+    }
+
+    await page.restoreVersionToDraft({
+      version: 7,
+      fields: {
+        title: 'T',
+        body: [{ id: 'blockold0001', type: 'card', data: { title: 'Old' }, settings: {} }],
+      },
+    })
+    await flushPromises()
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    expect(bodyIds()).toEqual(['blockold0001'])
+
+    await wrapper.find('[data-test="canvas-undo"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    expect(bodyIds()).toEqual(['blockaaa0001', 'blockbbb0002'])
+    wrapper.unmount()
+  })
+})

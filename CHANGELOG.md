@@ -7,6 +7,13 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **Restore a version to the draft.** Each version on the editor's Versions tab has **Restore to
+  draft**: its content becomes the draft — in the Design view as one change that one undo takes
+  back out, in the form as edits the next save keeps. Nothing goes live until it is published. The
+  old Restore button is now **Make live**, which is what it always did: the live page shows that
+  version again and the draft is unchanged.
+
 ### Changed
 - **A hero's aside is padded a side at a time.** The Style tab's Aside group draws its padding as
   the same four-cell box, with the link toggle, as the block's own Padding: `aside.padding.top`,
