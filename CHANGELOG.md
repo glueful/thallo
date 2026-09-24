@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.60] - 2026-09-24 — Developer Preview
+
+The Regions page's block settings gain a Content tab, a links block's title can be styled and its
+items are edited as a list of links, and a footer block in the footer region spans it. No
+migrations: `thallo:provision` gives existing links blocks the new settings and editor.
+
 ### Added
 - **A region block's settings have a Content tab.** On the Regions page, a block's settings panel
   has the Design view's four tabs — Content, Layout, Style, Advanced — and opens on Content, the
