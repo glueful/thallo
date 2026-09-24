@@ -7,6 +7,42 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.60] - 2026-09-24 — Developer Preview
+
+The Regions page's block settings gain a Content tab, a links block's title can be styled and its
+items are edited as a list of links, and a footer block in the footer region spans it. No
+migrations: `thallo:provision` gives existing links blocks the new settings and editor.
+
+### Added
+- **A region block's settings have a Content tab.** On the Regions page, a block's settings panel
+  has the Design view's four tabs — Content, Layout, Style, Advanced — and opens on Content, the
+  block's own fields; before, only Layout, Style and Advanced were there, and the fields were on the
+  card alone. A rich text body and the blocks inside a block stay on its card.
+- **A links block's title can be styled.** Its Style tab now has Typography (size, weight, line
+  height), Text colour and Text alignment, and they land on the title — a footer column's heading —
+  while spacing stays on the block. Existing sites take the settings on `thallo:provision`.
+- **A links block's items are edited as a list.** Each link is a row — label and URL — added,
+  moved and removed, instead of JSON typed into a text box. The items are the same JSON underneath,
+  so nothing is migrated. A json field may declare the `link-list` format for this editor, and
+  `thallo:provision` gives an existing links block the format.
+
+### Fixed
+- **A footer block in the footer region spans it.** The region lays its blocks out in a row, and a
+  footer block there shrank to its content: pushed to the right, its copyright squeezed onto two
+  lines. It now takes the region's full width, the copyright on the left and the social links on
+  the right.
+
+## [1.0.0-beta.59] - 2026-09-24 — Developer Preview
+
+The Design view's tabs fit the panel: Outline, SEO and Versions are icons, so Block, Content, Blocks
+and Page show their labels in full. No migrations.
+
+### Changed
+- **The Design view's tabs fit the panel.** With a block selected, seven labelled tabs were each cut
+  short ("Blo…", "Cont…"). Outline, SEO and Versions are now icons — Outline's the one a blocks
+  field's outline toggle uses — named by a tooltip and for screen readers, so Block, Content, Blocks
+  and Page show their labels in full.
+
 ## [1.0.0-beta.58] - 2026-09-24 — Developer Preview
 
 A version can now be restored to the draft, and the old Restore is named for what it does: Make

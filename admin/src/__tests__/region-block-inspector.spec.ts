@@ -1,9 +1,11 @@
 // A block inside a chrome region gets the settings a page's block has — Layout, Style, Advanced —
 // from the Regions page. The same inspector as the Design page's, without its stage: the block is
 // chosen from its card, and an edit is written straight into the region's working copy (there is
-// no operations layer here). Content stays in the card, where it already is.
+// no operations layer here). Its Content tab is the block's own fields; what only the card can
+// hold — a rich text body, the blocks inside — stays on the card, as there is no stage here.
 import { describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia } from 'pinia'
 import { ref } from 'vue'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import { classEditorSchema } from './helpers/classEditorSchema'
@@ -28,7 +30,11 @@ const TYPES = [
     ['spacing', 'colors', 'layout.display', 'layout.direction'],
     [{ name: 'content', type: 'blocks' }],
   ),
-  type('button', ['spacing', 'colors', 'radius', 'layout.item']),
+  type(
+    'button',
+    ['spacing', 'colors', 'radius', 'layout.item'],
+    [{ name: 'label', type: 'string' }],
+  ),
 ]
 const PANEL = {
   id: 'cls000000001',
@@ -96,6 +102,8 @@ function mountInspector(blocks: BlockInstance[], blockId: string, breakpoint = '
         void w.setProps({ blocks: next })
       },
     } as never,
+    // The Content tab's field widgets read the app's stores.
+    global: { plugins: [createPinia()] },
     attachTo: document.body,
   })
   return Object.assign(w, { emissions, last: () => emissions[emissions.length - 1]! })
@@ -112,16 +120,34 @@ async function openTab(w: Inspector, name: string) {
 }
 
 describe('a region block’s inspector', () => {
-  it('has Layout, Style and Advanced — not Content, which is the card’s', () => {
+  it('has the Design page’s four tabs, and opens on Content', () => {
     const w = mountInspector(tree(), 'butn00000001')
     expect(w.find('[data-test="block-inspector-title"]').text()).toBe('Button')
-    const tabs = w
-      .find('[data-test="block-inspector-tabs"]')
-      .findAll('button[role="tab"]')
-      .map((b) => b.text())
-    expect(tabs).toEqual(['Layout', 'Style', 'Advanced'])
+    const tabs = w.find('[data-test="block-inspector-tabs"]').findAll('button[role="tab"]')
+    expect(tabs.map((b) => b.text())).toEqual(['Content', 'Layout', 'Style', 'Advanced'])
+    expect(tabs[0]!.attributes('aria-selected')).toBe('true')
     // Saving a block's declarations as a class is the Design page's flow.
     expect(w.find('[data-test="save-as-style-class"]').exists()).toBe(false)
+    w.unmount()
+  })
+
+  it('a Content edit lands on the nested block’s data, and only there', async () => {
+    const w = mountInspector(tree(), 'butn00000001')
+    await w
+      .find('[data-test="block-inspector-tabs"] [role="tabpanel"] input')
+      .setValue('Get started')
+    await flushPromises()
+    const content = w.last()[1]!.data.content as BlockInstance[]
+    expect(content[0]!.data).toEqual({ label: 'Get started' })
+    expect(w.last()[0]!.data).toEqual({ label: 'First' })
+    w.unmount()
+  })
+
+  it('a container’s blocks are left to its card: no summary or add button with nowhere to go', () => {
+    const w = mountInspector(tree(), 'cont00000001')
+    expect(w.find('[data-test="region-summary-content"]').exists()).toBe(false)
+    expect(w.find('[data-test="region-add-content"]').exists()).toBe(false)
+    expect(w.find('[data-test="content-on-card"]').exists()).toBe(true)
     w.unmount()
   })
 

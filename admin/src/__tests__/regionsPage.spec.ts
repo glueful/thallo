@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent, h, ref } from 'vue'
 import type { RegionData } from '@/queries/regions'
 import { classEditorSchema } from './helpers/classEditorSchema'
@@ -289,7 +290,9 @@ describe('regions page (Header & footer)', () => {
     })
     wrapper.unmount()
   })
-  it('a card’s Block settings opens that block’s Layout, Style and Advanced; an edit is saved on the block', async () => {
+  it('a card’s Block settings opens that block’s Content, Layout, Style and Advanced; an edit is saved on the block', async () => {
+    // The Content tab's field widgets read the app's stores.
+    setActivePinia(createPinia())
     const wrapper = mount(RegionsPage, { attachTo: document.body })
     await flushPromises()
     // The page asks the list to offer Block settings on its cards.

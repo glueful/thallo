@@ -90,6 +90,37 @@ final class SyncBlockTypesTest extends AppTestCase
         }
     }
 
+    /**
+     * The same attach for a field's `format`, the hint that picks its editor: a links block's
+     * items, JSON underneath, are edited as a list of links once the row carries the format.
+     */
+    public function testSyncAttachesAMissingFormatToAnExistingField(): void
+    {
+        $this->seed();
+        $repo = new BlockTypeRepository($this->connection());
+        $links = $repo->findBySlug('links');
+        $stripped = array_values(array_map(static function (array $f): array {
+            unset($f['format']);
+            return $f;
+        }, $links['schema']));
+        $repo->applyMigratedSchema((string) $links['uuid'], $stripped);
+
+        $tester = new CommandTester($this->container()->get(SyncBlockTypesCommand::class));
+        $tester->execute([]);
+        self::assertStringContainsString('synced links', $tester->getDisplay());
+
+        $items = array_values(array_filter(
+            $repo->findBySlug('links')['schema'],
+            static fn (array $f): bool => ($f['name'] ?? '') === 'items',
+        ))[0];
+        self::assertSame('json', $items['type']);
+        self::assertSame('link-list', $items['format'] ?? null);
+
+        $again = new CommandTester($this->container()->get(SyncBlockTypesCommand::class));
+        $again->execute([]);
+        self::assertStringContainsString('Synced 0', $again->getDisplay());
+    }
+
     public function testSyncIsIdempotentWhenUpToDate(): void
     {
         $this->seed();

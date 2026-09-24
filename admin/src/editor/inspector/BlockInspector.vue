@@ -56,6 +56,11 @@ const props = defineProps<{
    * declarations as a style class, which is that page's flow. Both default to present.
    */
   noContent?: boolean
+  /**
+   * No stage (the Regions page): the Content tab is the block's own fields, and what only a stage
+   * or a card can edit — a rich text body, the blocks inside — is left to the block's card.
+   */
+  offStage?: boolean
   noSaveAsClass?: boolean
   /** The host has a stage that can replay the block's motion (the Design page). */
   canPlayMotion?: boolean
@@ -134,6 +139,12 @@ const title = computed(() =>
 const proseField = computed(() =>
   props.blockType && isProseBlockType(props.blockType) ? proseRichFieldName(props.blockType) : null,
 )
+/** Off the stage, the blocks-typed fields: their lists are the card's. */
+const cardFields = computed<string[]>(() =>
+  props.offStage
+    ? (props.blockType?.schema ?? []).filter((f) => f.type === 'blocks').map((f) => f.name)
+    : [],
+)
 </script>
 
 <template>
@@ -190,13 +201,21 @@ const proseField = computed(() =>
           </BlockFields>
         </BlocksContextProvider>
         <template v-else>
-          <p v-if="proseField" class="mb-2 text-xs text-muted" data-test="prose-on-stage">
+          <p
+            v-if="offStage && (proseField || cardFields.length > 0)"
+            class="mb-2 text-xs text-muted"
+            data-test="content-on-card"
+          >
+            {{ proseField ? 'Its text' : 'The blocks inside it' }} {{ proseField ? 'is' : 'are' }}
+            edited on its card.
+          </p>
+          <p v-else-if="proseField" class="mb-2 text-xs text-muted" data-test="prose-on-stage">
             Edit the text directly on the stage.
           </p>
           <BlockFields
             :block="block"
             :type="blockType ?? undefined"
-            :exclude="proseField ? [proseField] : []"
+            :exclude="[...(proseField ? [proseField] : []), ...cardFields]"
             @patch="(name, value) => emit('patch-data', name, value)"
             @insert-into="(field) => emit('insert-into', field)"
           />

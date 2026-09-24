@@ -122,11 +122,13 @@ test('a header block’s settings open from its card, and an edit reaches the pr
   await page.locator(`[data-test="block-settings-${BUTTON.id}"]`).click()
   const panel = page.locator('[data-test="region-block-settings-header"]')
   await expect(panel.locator('[data-test="block-inspector-title"]')).toHaveText('Button')
-  // Layout, Style and Advanced: the card is the block's content form already.
+  // The Design page's four tabs, opening on Content.
   const tabs = panel.locator('[data-test="block-inspector-tabs"]').getByRole('tab')
-  await expect(tabs).toHaveText(['Layout', 'Style', 'Advanced'])
+  await expect(tabs).toHaveText(['Content', 'Layout', 'Style', 'Advanced'])
+  await expect(tabs.first()).toHaveAttribute('aria-selected', 'true')
   await expect(page.locator('[data-test="region-header-tabs"]')).toBeHidden()
 
+  await tabs.getByText('Style', { exact: true }).click()
   await panel.locator('[data-test="style-field-radius"] [data-test="token-radius.none"]').click()
   await expect
     .poll(() => {

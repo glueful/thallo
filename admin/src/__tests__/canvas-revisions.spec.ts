@@ -176,6 +176,9 @@ function mountPage() {
           template: '<div><slot name="leading" /><slot name="title" /><slot name="right" /></div>',
         },
         RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' },
+        // A tooltip needs UApp's provider; the tooltips are not under test. Keyed by the component's
+        // own name: the Nuxt UI plugin imports it directly, so `UTooltip` would not match.
+        Tooltip: { template: '<div><slot /></div>' },
       },
     },
     attachTo: document.body,

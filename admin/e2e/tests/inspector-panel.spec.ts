@@ -70,7 +70,22 @@ test('every tab of the side panel fits it: no sideways scroll, nothing under the
   await page.locator('[data-test="block-inspector"]').waitFor()
   const list = page.locator('[data-test="inspector-tabs"] > [role="tablist"]')
   const names = (await list.getByRole('tab').allTextContents()).map((name) => name.trim())
-  expect(names).toEqual(['Block', 'Content', 'Blocks', 'Outline', 'Page', 'SEO', 'Versions'])
+  // Outline, SEO and Versions are icon tabs: their names are screen-reader text, still read here.
+  expect(names).toEqual(['Block', 'Content', 'Blocks', 'Page', 'Outline', 'SEO', 'Versions'])
+  // Seven labels did not fit the row, and each was cut short. Here they fitted by 3% — a slightly
+  // wider font, as on an editor's own machine, clipped them — so the row is held to headroom, not
+  // to fitting in this browser's font: its tabs at their natural widths take at most 90% of it.
+  const row = await list.evaluate((el) => {
+    const tabs = [...el.querySelectorAll<HTMLElement>('[role="tab"]')]
+    const natural = tabs.reduce((sum, tab) => {
+      tab.style.flexShrink = '0'
+      const width = tab.getBoundingClientRect().width
+      tab.style.flexShrink = ''
+      return sum + width
+    }, 0)
+    return { natural, available: el.clientWidth }
+  })
+  expect(row.natural, 'the tab row has no room to spare').toBeLessThanOrEqual(row.available * 0.9)
 
   for (const name of names) {
     await list.getByRole('tab', { name, exact: true }).click()

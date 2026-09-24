@@ -225,6 +225,9 @@ function mountPage() {
         // No router in the unit env; stub RouterLink to a plain anchor (the
         // established pattern — UButton :to renders through it).
         RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' },
+        // A tooltip needs UApp's provider; the tooltips are not under test. Keyed by the component's
+        // own name: the Nuxt UI plugin imports it directly, so `UTooltip` would not match.
+        Tooltip: { template: '<div><slot /></div>' },
       },
     },
     attachTo: document.body,
@@ -2791,5 +2794,28 @@ describe('canvas page', () => {
       expect(bridge.instance.restoreScroll).toHaveBeenCalledWith(560)
       wrapper.unmount()
     })
+  })
+})
+
+describe('the inspector tabs', () => {
+  it('names the Outline and Versions tabs with an icon, a label for screen readers and a tooltip', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    const wrapper = mountPage()
+    await flushPromises()
+    const tabs = wrapper.find('[data-test="inspector-tabs"]').findAll('[role="tab"]')
+    for (const [value, name] of [
+      ['outline', 'Outline'],
+      ['versions', 'Versions'],
+    ]) {
+      const tab = tabs.find((t) => t.find(`[data-test="inspector-tab-icon-${value}"]`).exists())!
+      expect(tab).toBeDefined()
+      // No visible label: the name is screen-reader text, so the tab still reads as its name.
+      expect(tab.find('[data-slot="label"]').exists()).toBe(false)
+      expect(tab.find('.sr-only').text()).toBe(name)
+    }
+    // The editing tabs keep their visible labels.
+    const labelled = tabs.map((t) => t.find('[data-slot="label"]')).filter((l) => l.exists())
+    expect(labelled.map((l) => l.text())).toEqual(['Content', 'Blocks', 'Page'])
+    wrapper.unmount()
   })
 })
