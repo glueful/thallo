@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import type { FieldDef } from '../types'
+import LinkListField from './LinkListField.vue'
 
 defineProps<{ field: FieldDef }>()
 // The MODEL is the parsed value (FieldValidator requires json fields to be an
@@ -50,7 +51,10 @@ watch(model, (v) => {
 </script>
 
 <template>
+  <!-- `link-list`: rows of links over the same JSON value. -->
+  <LinkListField v-if="field.format === 'link-list'" v-model="model" :field="field" />
   <UFormField
+    v-else
     :label="field.label ?? field.name"
     :required="field.required"
     :name="field.name"

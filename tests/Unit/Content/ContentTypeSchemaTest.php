@@ -68,6 +68,20 @@ final class ContentTypeSchemaTest extends TestCase
         ]);
     }
 
+    public function testJsonFieldAcceptsTheLinkListFormatAndRejectsOthers(): void
+    {
+        // An editor hint: a list of {label, url} links is edited as rows, still stored as JSON.
+        $schema = ContentTypeSchema::fromArray([
+            ['name' => 'items', 'type' => 'json', 'format' => 'link-list'],
+            ['name' => 'data', 'type' => 'json'],
+        ]);
+        self::assertSame('link-list', $schema->field('items')->format);
+        self::assertNull($schema->field('data')->format);
+
+        $this->expectException(SchemaParseException::class);
+        ContentTypeSchema::fromArray([['name' => 'items', 'type' => 'json', 'format' => 'table']]);
+    }
+
     public function testStringFieldAcceptsIconFormats(): void
     {
         // Editor hints (icon-picker spec §2): presentation metadata only —

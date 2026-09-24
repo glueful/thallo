@@ -12,6 +12,13 @@ as the next release, never a mutated tag.
   has the Design view's four tabs — Content, Layout, Style, Advanced — and opens on Content, the
   block's own fields; before, only Layout, Style and Advanced were there, and the fields were on the
   card alone. A rich text body and the blocks inside a block stay on its card.
+- **A links block's title can be styled.** Its Style tab now has Typography (size, weight, line
+  height), Text colour and Text alignment, and they land on the title — a footer column's heading —
+  while spacing stays on the block. Existing sites take the settings on `thallo:provision`.
+- **A links block's items are edited as a list.** Each link is a row — label and URL — added,
+  moved and removed, instead of JSON typed into a text box. The items are the same JSON underneath,
+  so nothing is migrated. A json field may declare the `link-list` format for this editor, and
+  `thallo:provision` gives an existing links block the format.
 
 ### Fixed
 - **A footer block in the footer region spans it.** The region lays its blocks out in a row, and a
