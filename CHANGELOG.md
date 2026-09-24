@@ -7,6 +7,13 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Fixed
+- **An upgrade no longer renders with the previous release's templates.** `thallo:provision` now
+  empties the compiled template cache (`storage/cache/twig`) along with the route table and the
+  rendered pages. Release archives stamp every file with the release time, so a compiled template
+  from before the upgrade could look fresh and keep winning — new block fields (the image's size,
+  the code block's note) were saved but never rendered.
+
 ## [1.0.0-beta.56] - 2026-09-23 — Developer Preview
 
 Three things for building pages: a compact code block with a note in its caption, a hero whose
