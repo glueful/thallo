@@ -217,8 +217,15 @@ are the block's Corners and Shadow, which already land on the aside.
 
 | Setting | Path | Responsive | Class | Declaration |
 |---|---|---|---|---|
-| Padding | `aside.padding` | yes | `t-apad-{name}` | `padding: var(--t-spacing-{name})` |
+| Padding top | `aside.padding.top` | yes | `t-apadt-{name}` | `padding-top: var(--t-spacing-{name})` |
+| Padding right | `aside.padding.right` | yes | `t-apadr-{name}` | `padding-right: var(--t-spacing-{name})` |
+| Padding bottom | `aside.padding.bottom` | yes | `t-apadb-{name}` | `padding-bottom: var(--t-spacing-{name})` |
+| Padding left | `aside.padding.left` | yes | `t-apadl-{name}` | `padding-left: var(--t-spacing-{name})` |
 | Background | `aside.surface` | no | `t-abg-{name}` | `background: var(--t-color-{name})` |
+
+The padding is set a side at a time, in the same four-cell box as the block's own Padding.
+1.0.0-beta.56 and 57 stored it as one value, `aside.padding`; that path is retired, so a stored
+value has no effect and is dropped the next time the page is saved.
 
 ### Motion
 

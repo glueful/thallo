@@ -43,7 +43,7 @@ export function useRollback(uuid: string, locale: string, type: string) {
   const cache = useQueryCache()
   return useMutation({
     mutation: (versionUuid: string) => rollbackEntry(uuid, locale, versionUuid),
-    // Rollback rewrites the draft and may change the list display.
+    // Rollback re-pins the live version (the draft is untouched) and may change the list display.
     onSettled() {
       cache.invalidateQueries({ key: qk.versions(uuid) })
       cache.invalidateQueries({ key: qk.draft(uuid, locale) })

@@ -108,7 +108,10 @@ final class StyleCompilerTest extends TestCase
         self::assertSame('t-mradius-full', ClassNames::for('marker.radius', 'radius.full'));
         self::assertSame('lg:t-mshadow-md', ClassNames::for('marker.shadow', 'shadow.md', 'lg'));
         // A hero's aside, likewise: its padding and fill apart from the band's.
-        self::assertSame('md:t-apad-lg', ClassNames::for('aside.padding', 'spacing.lg', 'md'));
+        self::assertSame('md:t-apadt-lg', ClassNames::for('aside.padding.top', 'spacing.lg', 'md'));
+        self::assertSame('t-apadl-sm', ClassNames::for('aside.padding.left', 'spacing.sm'));
+        self::assertStringContainsString('.t-apadt-lg { padding-top: var(--t-spacing-lg); }', $css);
+        self::assertStringContainsString('.md\\:t-apadr-lg', $css, 'responsive, as padding is');
         self::assertSame('t-abg-surface', ClassNames::for('aside.surface', 'color.surface'));
         self::assertStringContainsString('.t-mradius-full { border-radius: var(--t-radius-full); }', $css);
         self::assertStringContainsString('.t-mshadow-md { box-shadow: var(--t-shadow-md); }', $css);

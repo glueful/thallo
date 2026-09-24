@@ -104,7 +104,6 @@ const LABELS: Record<string, string> = {
   'marker.shadow': 'Shadow',
   'tabs.bar_radius': 'Bar corners',
   'tabs.tab_radius': 'Active tab corners',
-  'aside.padding': 'Padding',
   'aside.surface': 'Background',
   'colors.surface': 'Background',
   'colors.text': 'Text colour',
@@ -146,6 +145,8 @@ const allowed = computed<Set<string>>(() => {
 const BOXES: { label: string; prefix: string }[] = [
   { label: 'Padding', prefix: 'spacing.padding.' },
   { label: 'Margin', prefix: 'spacing.margin.' },
+  // A hero's aside pads a side at a time too, and is drawn the same way.
+  { label: 'Padding', prefix: 'aside.padding.' },
 ]
 type Item =
   | { kind: 'box'; label: string; sides: { key: string; def: StylePropertyRow }[] }

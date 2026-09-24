@@ -17,13 +17,16 @@ const locale = computed(() => String(route.query.locale ?? runtimeConfig.default
 const { data: versions, status } = useVersions(uuid, locale)
 const rollback = useRollback(uuid.value, locale.value, type.value)
 
-async function onRollback(versionUuid: string) {
+// Make live re-pins the publication; the draft is left as it is. To bring a version back into the
+// draft, use Restore to draft on the editor's Versions tab.
+async function onRollback(versionUuid: string, version: number | undefined) {
   try {
     await rollback.mutateAsync(versionUuid)
-    success('Rolled back')
+    const name = version === undefined ? 'That version' : `Version ${version}`
+    success(`${name} is live`, 'The live page shows this version again. Your draft is unchanged.')
     router.push(`/content/${type.value}/${uuid.value}?locale=${locale.value}`)
   } catch (e) {
-    notifyError(e, 'Rollback failed')
+    notifyError(e, 'Couldn’t make it live')
   }
 }
 </script>
@@ -64,9 +67,10 @@ async function onRollback(versionUuid: string) {
             size="sm"
             variant="subtle"
             :loading="rollback.isLoading.value"
-            @click="onRollback(v.uuid)"
+            :data-test="`version-make-live-${v.uuid}`"
+            @click="onRollback(v.uuid, v.version)"
           >
-            Restore
+            Make live
           </UButton>
         </li>
       </ul>

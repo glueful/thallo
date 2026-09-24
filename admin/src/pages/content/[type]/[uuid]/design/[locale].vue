@@ -100,6 +100,7 @@ import type { FieldDef } from '@/fields/types'
 import FieldEditor from '@/components/FieldEditor.vue'
 import SeoPanel from '../components/SeoPanel.vue'
 import VersionsPanel from '../components/VersionsPanel.vue'
+import { restoreOps } from '@/editor/restoreVersion'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { usePublish } from '@/queries/publish'
 import { fetchRoutes, useRoutes } from '@/queries/routes'
@@ -1263,6 +1264,26 @@ async function applyDrop(ops: OperationBody[] | null): Promise<void> {
   commitNow()
   await replayHistory()
   scheduleCommit(true)
+}
+
+/**
+ * Restore to draft (Versions tab): the version's content becomes the draft in one transaction, so
+ * one undo takes it back out. Autosave keeps it as any edit is kept; nothing goes live.
+ */
+async function restoreVersionToDraft(v: {
+  version: number | undefined
+  fields: Record<string, unknown>
+}) {
+  const name = v.version === undefined ? 'That version' : `Version ${v.version}`
+  const ops = restoreOps(snapshotFields(), v.fields)
+  if (ops.length === 0) {
+    success(`Your draft already matches ${name.charAt(0).toLowerCase()}${name.slice(1)}`)
+    return
+  }
+  // Blocks the version does not have cannot stay selected.
+  clearSelection()
+  await applyDrop(ops)
+  success(`${name} is in your draft`, 'Undo takes it back out. Publish to make it live.')
 }
 
 function blockFields(): string[] {
@@ -2520,6 +2541,7 @@ function reloadStage(): void {
                   :uuid="uuid"
                   :locale="locale"
                   :type="type"
+                  @restore-draft="restoreVersionToDraft"
                 />
               </div>
             </template>

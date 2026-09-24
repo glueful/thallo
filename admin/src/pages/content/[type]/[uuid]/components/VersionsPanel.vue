@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useVersions, useRollback } from '@/queries/versions'
+import { useVersions, useRollback, type VersionRow } from '@/queries/versions'
 import { useNotify } from '@/composables/useNotify'
 
-// Sidebar Versions tab: the same list/restore as the standalone versions page, in
-// panel form. Restoring makes that version the LIVE one again (the server re-pins the
-// publication); the draft is left exactly as it is, and the toast says so.
+// Sidebar Versions tab. Two things can be done with a published version:
+// - Restore to draft: the page puts the version's content into the draft, as one change the
+//   author can undo, review and publish. Nothing goes live. The panel only says which version.
+// - Make live: the server re-pins the publication to it; the draft is left exactly as it is,
+//   and the toast says so.
 const props = defineProps<{ uuid: string; locale: string; type: string }>()
+const emit = defineEmits<{
+  'restore-draft': [version: { version: number | undefined; fields: Record<string, unknown> }]
+}>()
 const { success, error: notifyError } = useNotify()
 
 const { data: versions, status } = useVersions(
@@ -16,12 +21,17 @@ const { data: versions, status } = useVersions(
 const rollback = useRollback(props.uuid, props.locale, props.type)
 const restoring = computed(() => rollback.isLoading.value)
 
-async function onRestore(versionUuid: string) {
+function onRestoreDraft(v: VersionRow) {
+  emit('restore-draft', { version: v.version, fields: (v.fields ?? {}) as Record<string, unknown> })
+}
+
+async function onMakeLive(v: VersionRow) {
   try {
-    await rollback.mutateAsync(versionUuid)
-    success('Version restored', 'The live page shows this version again. Your draft is unchanged.')
+    await rollback.mutateAsync(v.uuid)
+    const name = v.version === undefined ? 'That version' : `Version ${v.version}`
+    success(`${name} is live`, 'The live page shows this version again. Your draft is unchanged.')
   } catch (e) {
-    notifyError(e, 'Restore failed')
+    notifyError(e, 'Couldn’t make it live')
   }
 }
 </script>
@@ -48,15 +58,26 @@ async function onRestore(versionUuid: string) {
           <p class="truncate text-sm font-medium text-default">Version {{ v.version ?? v.uuid }}</p>
           <p class="text-xs text-muted">{{ v.created_at ?? '' }}</p>
         </div>
-        <UButton
-          size="sm"
-          variant="subtle"
-          :loading="restoring"
-          :data-test="`version-restore-${v.uuid}`"
-          @click="onRestore(v.uuid)"
-        >
-          Restore
-        </UButton>
+        <div class="flex shrink-0 items-center gap-1.5">
+          <UButton
+            size="sm"
+            variant="subtle"
+            :data-test="`version-restore-draft-${v.uuid}`"
+            @click="onRestoreDraft(v)"
+          >
+            Restore to draft
+          </UButton>
+          <UButton
+            size="sm"
+            variant="ghost"
+            color="neutral"
+            :loading="restoring"
+            :data-test="`version-make-live-${v.uuid}`"
+            @click="onMakeLive(v)"
+          >
+            Make live
+          </UButton>
+        </div>
       </li>
     </ul>
   </div>

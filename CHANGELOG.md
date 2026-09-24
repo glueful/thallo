@@ -7,6 +7,32 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.58] - 2026-09-24 — Developer Preview
+
+A version can now be restored to the draft, and the old Restore is named for what it does: Make
+live. Headings balance their lines, rich-text lists sit tight, and a hero's aside is padded a side
+at a time. No migrations; an aside padding saved on beta.56 or 57 needs setting again.
+
+### Added
+- **Restore a version to the draft.** Each version on the editor's Versions tab has **Restore to
+  draft**: its content becomes the draft — in the Design view as one change that one undo takes
+  back out, in the form as edits the next save keeps. Nothing goes live until it is published. The
+  old Restore button is now **Make live**, which is what it always did: the live page shows that
+  version again and the draft is unchanged.
+
+### Changed
+- **A hero's aside is padded a side at a time.** The Style tab's Aside group draws its padding as
+  the same four-cell box, with the link toggle, as the block's own Padding: `aside.padding.top`,
+  `.right`, `.bottom` and `.left`. The single `aside.padding` of 1.0.0-beta.56 and 57 is retired: a
+  stored value has no effect and is dropped the next time the page is saved, so set the aside's
+  padding again in the new box. Style settings schema 10, compiler 11.
+- **A list in a rich_text reads as a list.** Its items sit a short step apart instead of a
+  paragraph's gap (the editor writes each item as a paragraph), indented by a bullet's width rather
+  than the browser's 40px.
+- **Headings balance their lines.** A heading that wraps now shares its words between its lines
+  instead of filling the first and leaving a word or two alone on the last: the default theme sets
+  `text-wrap: balance` on h1–h4. A browser without it wraps as before.
+
 ## [1.0.0-beta.57] - 2026-09-24 — Developer Preview
 
 A fix for upgrades and a tidier block editor. `thallo:provision` now drops compiled templates, so

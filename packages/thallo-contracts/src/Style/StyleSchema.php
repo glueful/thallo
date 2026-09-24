@@ -12,7 +12,14 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 9;
+    public const VERSION = 10;
+
+    /**
+     * Paths that were once properties and are no longer. A stored value at one is dropped when a
+     * document is next saved rather than refused, and has no effect when it renders.
+     * `aside.padding` was one value for all four sides (1.0.0-beta.56 and 57); it is a side each.
+     */
+    public const RETIRED = ['aside.padding'];
 
     /** Platform breakpoints: `md` from 768px, `lg` from 1024px. */
     public const BREAKPOINTS = ['base', 'md', 'lg'];
@@ -177,7 +184,10 @@ final class StyleSchema
         // A hero's aside — the blocks in its media column — as a panel of its own: padded and filled.
         // Their own paths because `spacing` and `colors.surface` are the band's; the aside's corners
         // and shadow are the block's `radius` and `shadow`, which already land on the media box.
-        $defs[] = new PropertyDefinition('aside.padding', 'aside', $token, true, 'spacing');
+        // The padding is a side each, as the block's own is, so the Style tab draws the same box.
+        foreach (['top', 'right', 'bottom', 'left'] as $side) {
+            $defs[] = new PropertyDefinition("aside.padding.{$side}", 'aside', $token, true, 'spacing');
+        }
         $defs[] = new PropertyDefinition('aside.surface', 'aside', $token, false, 'color');
 
         $byPath = [];

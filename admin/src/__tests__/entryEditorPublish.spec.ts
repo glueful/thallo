@@ -133,3 +133,29 @@ describe('entry editor: navbar Publish', () => {
     expect(publishMock).not.toHaveBeenCalled()
   })
 })
+
+describe('entry editor: Restore to draft', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    notify.success.mockReset()
+    saveDraft.mockReset().mockResolvedValue(undefined)
+    saveRouteIfDirty.mockReset().mockResolvedValue(true)
+    publishMock.mockReset().mockResolvedValue(undefined)
+  })
+
+  it('puts the version into the form, which the next save keeps', async () => {
+    const wrapper = factory()
+    await flushPromises()
+
+    wrapper
+      .findComponent({ name: 'VersionsPanel' })
+      .vm.$emit('restore-draft', { version: 3, fields: { title: 'Original' } })
+    await flushPromises()
+    expect(notify.success).toHaveBeenCalledWith('Version 3 is in the form', expect.any(String))
+    expect(saveDraft).not.toHaveBeenCalled() // nothing saved, nothing published yet
+
+    await wrapper.find('[data-test="navbar-publish"]').trigger('click')
+    await flushPromises()
+    expect(saveDraft.mock.calls[0]![0]).toMatchObject({ fields: { title: 'Original' } })
+  })
+})

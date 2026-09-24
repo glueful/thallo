@@ -57,7 +57,10 @@ final class HeroAsideStyleTest extends AppTestCase
     {
         $token = static fn (string $v): array => ['type' => 'token', 'value' => $v];
         return [
-            'aside' => ['padding' => ['base' => $token('spacing.lg')], 'surface' => $token('color.surface')],
+            'aside' => [
+                'padding' => ['top' => ['base' => $token('spacing.lg')], 'left' => ['base' => $token('spacing.md')]],
+                'surface' => $token('color.surface'),
+            ],
             'spacing' => ['padding' => ['top' => ['base' => $token('spacing.xl')]]],
             'colors' => ['surface' => $token('color.surface-2')],
         ];
@@ -75,7 +78,11 @@ final class HeroAsideStyleTest extends AppTestCase
         $aside = $this->tag($html, 'thallo-block-hero__media');
         $root = $this->tag($html, 'thallo-block-hero');
 
-        $own = [ClassNames::for('aside.padding', 'spacing.lg'), ClassNames::for('aside.surface', 'color.surface')];
+        $own = [
+            ClassNames::for('aside.padding.top', 'spacing.lg'),
+            ClassNames::for('aside.padding.left', 'spacing.md'),
+            ClassNames::for('aside.surface', 'color.surface'),
+        ];
         $band = [
             ClassNames::for('spacing.padding.top', 'spacing.xl'),
             ClassNames::for('colors.surface', 'color.surface-2'),
@@ -95,6 +102,16 @@ final class HeroAsideStyleTest extends AppTestCase
         // The target is optional: no aside and no image, no media element — the settings wait.
         $html = $this->hero([], $this->style());
         self::assertStringNotContainsString('thallo-block-hero__media', $html);
-        self::assertStringNotContainsString(ClassNames::for('aside.padding', 'spacing.lg'), $html);
+        self::assertStringNotContainsString(ClassNames::for('aside.padding.top', 'spacing.lg'), $html);
+    }
+
+    public function testTheRetiredSingleAsidePaddingRendersNothingAndIsNotAnError(): void
+    {
+        // 1.0.0-beta.56 and 57 stored `aside.padding` as one value; a page not saved since still
+        // renders, and the old value simply has no effect.
+        $token = static fn (string $v): array => ['type' => 'token', 'value' => $v];
+        $html = $this->hero($this->asideBlocks(), ['aside' => ['padding' => ['lg' => $token('spacing.lg')]]]);
+        self::assertStringContainsString('thallo-block-hero__media', $html);
+        self::assertStringNotContainsString('t-apad', $html);
     }
 }
