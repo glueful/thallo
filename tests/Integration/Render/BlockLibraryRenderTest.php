@@ -327,6 +327,54 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringNotContainsString('Oban, 2026', $own);
     }
 
+    public function testAnImageTakesAnExactWidthHeightOrBothAndCanFillItsColumn(): void
+    {
+        // Exact sizes are the <img>'s width and height attributes — attributes, never inline
+        // style. One alone leaves the other to the picture's proportions; both make a box the
+        // picture fills, cropped (the theme's object-fit), and Fill makes it the column's width.
+        $uuid = \Glueful\Helpers\Utils::generateNanoID();
+        $this->connection()->table('blobs')->insert([
+            'uuid' => $uuid, 'name' => 'size.png', 'mime_type' => 'image/png',
+            'size' => 1, 'url' => 'uploads/size.png', 'visibility' => 'public',
+            'status' => 'active', 'created_by' => 'user00000001',
+            'created_at' => gmdate('Y-m-d H:i:s'),
+        ]);
+        $img = function (array $data) use ($uuid): string {
+            $out = $this->render([['id' => 'imz', 'type' => 'image', 'data' => ['image' => $uuid] + $data]]);
+            self::assertStringNotContainsString('style=', $out);
+            self::assertSame(1, preg_match('~<img [^>]*>~', $out, $m), $out);
+            return $m[0];
+        };
+        $w = $img(['width' => 480]);
+        self::assertStringContainsString(' width="480"', $w);
+        self::assertStringNotContainsString(' height=', $w);
+        // The browser picks a source for 480px, not for the whole screen.
+        self::assertStringContainsString('sizes="(max-width: 480px) 100vw, 480px"', $w);
+
+        $h = $img(['height' => 300]);
+        self::assertStringContainsString(' height="300"', $h);
+        self::assertStringNotContainsString(' width=', $h);
+
+        $both = $img(['width' => 480, 'height' => 300.4]);
+        self::assertStringContainsString(' width="480"', $both);
+        self::assertStringContainsString(' height="300"', $both, 'whole pixels');
+
+        // Fill: the column's width — a width in pixels gives way to it; a height still applies.
+        $fill = $this->render([['id' => 'imf', 'type' => 'image', 'data' => [
+            'image' => $uuid, 'fill' => true, 'width' => 480, 'height' => 300,
+        ]]]);
+        self::assertStringContainsString('class="thallo-block thallo-block-image thallo-block-image--fill"', $fill);
+        self::assertStringNotContainsString(' width="480"', $fill);
+        self::assertStringContainsString(' height="300"', $fill);
+
+        // Nothing usable, nothing emitted: zero, negative, text.
+        foreach ([0, -20, 'wide'] as $bad) {
+            $tag = $img(['width' => $bad, 'height' => $bad]);
+            self::assertStringNotContainsString(' width=', $tag);
+            self::assertStringNotContainsString(' height=', $tag);
+        }
+    }
+
     public function testImageBlockSizesThroughSettingsAndNeverInline(): void
     {
         $uuid = \Glueful\Helpers\Utils::generateNanoID();

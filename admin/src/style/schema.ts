@@ -142,6 +142,9 @@ const PROPERTIES: PropertyDefinition[] = [
     'pan-left',
     'pan-right',
   ]),
+  // A hero's aside — the blocks in its media column — padded and filled as a panel of its own.
+  token('aside.padding', 'aside', true, 'spacing'),
+  token('aside.surface', 'aside', false, 'color'),
 ]
 
 const BY_PATH = new Map(PROPERTIES.map((p) => [p.path, p]))

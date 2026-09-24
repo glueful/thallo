@@ -73,6 +73,8 @@ const GROUPS: { key: string; label: string; match: (row: StylePropertyRow) => bo
   { key: 'marker', label: 'Marker', match: (r) => r.group === 'marker' },
   // A tabs block's strip — the bar and the active tab's pill; the block's Effects are the panel's.
   { key: 'tabs', label: 'Tabs', match: (r) => r.group === 'tabs' },
+  // A hero's aside — its padding and fill; the aside's corners and shadow are the block's Effects.
+  { key: 'aside', label: 'Aside', match: (r) => r.group === 'aside' },
   // How the block enters, how a container spaces out its children's entrances, and Ken Burns:
   // three capability groups, so a block shows only what it can do, under one heading.
   {
@@ -102,6 +104,8 @@ const LABELS: Record<string, string> = {
   'marker.shadow': 'Shadow',
   'tabs.bar_radius': 'Bar corners',
   'tabs.tab_radius': 'Active tab corners',
+  'aside.padding': 'Padding',
+  'aside.surface': 'Background',
   'colors.surface': 'Background',
   'colors.text': 'Text colour',
   'colors.border': 'Border colour',

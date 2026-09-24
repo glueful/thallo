@@ -7,6 +7,27 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.56] - 2026-09-23 — Developer Preview
+
+Three things for building pages: a compact code block with a note in its caption, a hero whose
+aside can be padded and filled as a panel, and images that take an exact size or fill their column.
+No migrations: `thallo:provision` adds the new fields and settings to an existing site.
+
+### Added
+- **A compact code block, with a note in its caption.** The Code block takes `size` — `compact` sets
+  a dense snippet (an API response, a config excerpt) smaller and closer — and `note`, short text
+  on the caption's right such as `200 OK` or `~/my-site`, beside the Copy button or in its place.
+  Existing sites gain both fields on `thallo:provision`.
+- **A hero's aside can be styled as a panel.** The Style tab has an **Aside** group for the Hero
+  block: Padding (per breakpoint) and Background, landing on the aside — the blocks in the media
+  column — while the block's own spacing and background stay the band's. The aside's corners and
+  shadow are the block's Corners and Shadow, as before. Style settings schema 9, compiler 10.
+- **An image can take an exact size, or fill its column.** The Image block takes `width` and
+  `height` in pixels, each optional: one alone keeps the picture's proportions, both make a box it
+  fills — cropped, never stretched — and it is never wider than its column. `fill` makes it the
+  column's full width. Sizes are the image's own attributes, so the browser also picks a source
+  that fits. Existing sites gain the fields on `thallo:provision`.
+
 ## [1.0.0-beta.55] - 2026-09-23 — Developer Preview
 
 Two fixes found while rebuilding thallo.dev's homepage: the version pill runs its prefix into the

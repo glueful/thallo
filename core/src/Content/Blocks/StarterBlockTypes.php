@@ -246,14 +246,14 @@ final class StarterBlockTypes
                 ],
                 'style_capabilities' => [
                     'spacing', 'width', 'visibility', 'colors.surface', 'colors.text', 'typography', 'radius', 'shadow',
-                    'layout.item',
+                    'layout.item', 'aside',
                 ],
                 'style_targets' => StyleTargets::root('box', [
                     'spacing', 'width', 'visibility', 'colors.surface', 'colors.text',
                     'layout.item',
                 ], [
                     'targets' => ['title' => ['kind' => 'text'], 'media' => ['kind' => 'box', 'optional' => true]],
-                    'map' => ['typography' => 'title', 'radius' => 'media', 'shadow' => 'media'],
+                    'map' => ['typography' => 'title', 'radius' => 'media', 'shadow' => 'media', 'aside' => 'media'],
                 ]),
                 'schema' => [
                     ['name' => 'headline', 'type' => 'string'],
@@ -645,7 +645,12 @@ final class StarterBlockTypes
                     ['name' => 'image', 'type' => 'asset', 'required' => true],
                     ['name' => 'alt', 'type' => 'string'],
                     ['name' => 'caption', 'type' => 'string'],
-                    // Sizing is a `width` token and placement on the root (spec §7.2).
+                    // Sizing is a `width` token and placement on the root (spec §7.2) — and, for an
+                    // exact size, pixels: width alone or height alone keeps the picture's
+                    // proportions, both make a box it fills. `fill` is the column's width.
+                    ['name' => 'width', 'type' => 'number', 'min' => 1, 'max' => 4000],
+                    ['name' => 'height', 'type' => 'number', 'min' => 1, 'max' => 4000],
+                    ['name' => 'fill', 'type' => 'boolean'],
                 ]],
             // Responsive image grid (modern-blocks spec §2): items is hard-enforced
             // (enforce_block_types) to only accept `image` child blocks — unlike the
@@ -771,6 +776,10 @@ final class StarterBlockTypes
                     ]],
                     ['name' => 'label', 'type' => 'string'],
                     ['name' => 'copy', 'type' => 'boolean'],
+                    // Dense snippets — an API response, a config excerpt — set smaller and closer.
+                    ['name' => 'size', 'type' => 'enum', 'enum' => ['default', 'compact']],
+                    // Short text on the caption's right ("200 OK", "~/my-site"), beside Copy.
+                    ['name' => 'note', 'type' => 'string'],
                 ]],
             ['slug' => 'html', 'label' => 'HTML', 'icon' => 'i-lucide-code',
                 'category' => 'Advanced',

@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 8;
+    public const VERSION = 9;
 
     /** Platform breakpoints: `md` from 768px, `lg` from 1024px. */
     public const BREAKPOINTS = ['base', 'md', 'lg'];
@@ -174,6 +174,11 @@ final class StyleSchema
         $defs[] = new PropertyDefinition('motion.ken_burns', 'motion.media', $choice, false, null, [
             'none', 'zoom-in', 'zoom-out', 'pan-left', 'pan-right',
         ]);
+        // A hero's aside — the blocks in its media column — as a panel of its own: padded and filled.
+        // Their own paths because `spacing` and `colors.surface` are the band's; the aside's corners
+        // and shadow are the block's `radius` and `shadow`, which already land on the media box.
+        $defs[] = new PropertyDefinition('aside.padding', 'aside', $token, true, 'spacing');
+        $defs[] = new PropertyDefinition('aside.surface', 'aside', $token, false, 'color');
 
         $byPath = [];
         foreach ($defs as $def) {

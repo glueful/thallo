@@ -60,6 +60,33 @@ final class CodeBlockRenderTest extends AppTestCase
         self::assertStringContainsString('/_thallo/runtime/block-code.js', $out);
     }
 
+    public function testACompactSnippetAndANoteInTheCaption(): void
+    {
+        // Two additions for dense snippets — an API response, a config excerpt: `size = compact`
+        // sets the code smaller and closer, and `note` is short text on the caption's right
+        // ("200 OK", "~/my-site"), beside the Copy button or in its place.
+        $out = $this->render([
+            'code' => '{ "data": {} }', 'language' => 'json', 'label' => 'GET /v1/content/pages/home',
+            'size' => 'compact', 'note' => '200 <OK>', 'copy' => false,
+        ]);
+
+        self::assertStringContainsString('class="thallo-block thallo-block-code thallo-block-code--compact"', $out);
+        self::assertStringContainsString(
+            '<span class="thallo-block-code__note">200 &lt;OK&gt;</span>',
+            $out,
+            'a note is text',
+        );
+        // The note comes before the actions, so the runtime's Copy button still lands last.
+        self::assertLessThan(strpos($out, 'thallo-block-code__actions'), strpos($out, 'thallo-block-code__note'));
+
+        // Unset, neither shows: the default size, and no empty note element.
+        $plain = $this->render(['code' => 'x', 'language' => 'text']);
+        self::assertStringNotContainsString('--compact', $plain);
+        self::assertStringNotContainsString('thallo-block-code__note', $plain);
+        // An unknown size is the default, not a class built from input.
+        self::assertStringNotContainsString('thallo-block-code--', $this->render(['code' => 'x', 'size' => 'huge"']));
+    }
+
     public function testTheLanguageIsTheLabelWhenNoneIsGivenAndCopyCanBeOff(): void
     {
         $out = $this->render(['code' => 'SELECT 1;', 'language' => 'sql', 'copy' => false]);
