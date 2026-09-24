@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.58] - 2026-09-24 — Developer Preview
+
+A version can now be restored to the draft, and the old Restore is named for what it does: Make
+live. Headings balance their lines, rich-text lists sit tight, and a hero's aside is padded a side
+at a time. No migrations; an aside padding saved on beta.56 or 57 needs setting again.
+
 ### Added
 - **Restore a version to the draft.** Each version on the editor's Versions tab has **Restore to
   draft**: its content becomes the draft — in the Design view as one change that one undo takes
