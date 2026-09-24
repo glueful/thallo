@@ -9,8 +9,9 @@ as the next release, never a mutated tag.
 
 ### Changed
 - **The Design view's tabs fit the panel.** With a block selected, seven labelled tabs were each cut
-  short ("Blo…", "Cont…"). The page-wide tabs, SEO and Versions, are now icons, named by a tooltip
-  and for screen readers, so Block, Content, Blocks, Outline and Page show their labels in full.
+  short ("Blo…", "Cont…"). Outline, SEO and Versions are now icons — Outline's the one a blocks
+  field's outline toggle uses — named by a tooltip and for screen readers, so Block, Content, Blocks
+  and Page show their labels in full.
 
 ## [1.0.0-beta.58] - 2026-09-24 — Developer Preview
 

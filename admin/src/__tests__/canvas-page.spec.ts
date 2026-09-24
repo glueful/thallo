@@ -2798,19 +2798,24 @@ describe('canvas page', () => {
 })
 
 describe('the inspector tabs', () => {
-  it('names the page-wide Versions tab with an icon, its label for screen readers and a tooltip', async () => {
+  it('names the Outline and Versions tabs with an icon, a label for screen readers and a tooltip', async () => {
     mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
     const wrapper = mountPage()
     await flushPromises()
     const tabs = wrapper.find('[data-test="inspector-tabs"]').findAll('[role="tab"]')
-    const versions = tabs.find((t) => t.find('[data-test="inspector-tab-icon-versions"]').exists())!
-    expect(versions).toBeDefined()
-    // No visible label: the name is screen-reader text, so the tab still reads "Versions".
-    expect(versions.find('[data-slot="label"]').exists()).toBe(false)
-    expect(versions.find('.sr-only').text()).toBe('Versions')
-    // The content tabs keep their visible labels.
+    for (const [value, name] of [
+      ['outline', 'Outline'],
+      ['versions', 'Versions'],
+    ]) {
+      const tab = tabs.find((t) => t.find(`[data-test="inspector-tab-icon-${value}"]`).exists())!
+      expect(tab).toBeDefined()
+      // No visible label: the name is screen-reader text, so the tab still reads as its name.
+      expect(tab.find('[data-slot="label"]').exists()).toBe(false)
+      expect(tab.find('.sr-only').text()).toBe(name)
+    }
+    // The editing tabs keep their visible labels.
     const labelled = tabs.map((t) => t.find('[data-slot="label"]')).filter((l) => l.exists())
-    expect(labelled.map((l) => l.text())).toEqual(['Content', 'Blocks', 'Outline', 'Page'])
+    expect(labelled.map((l) => l.text())).toEqual(['Content', 'Blocks', 'Page'])
     wrapper.unmount()
   })
 })

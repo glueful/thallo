@@ -275,16 +275,16 @@ const inspectorTab = ref('content')
 const historySequence = ref(0)
 const caps = useCapabilitiesStore()
 const seoEnabled = computed(() => caps.isEnabled('thallo.seo'))
-// The tabs for editing the page carry labels; the page-wide ones — SEO and Versions — are icons,
-// named by a tooltip and for screen readers, so every label fits the panel even with a block
-// selected (seven labels did not, and each was cut short).
+// The tabs for editing carry labels; Outline, SEO and Versions are icons, named by a tooltip and
+// for screen readers, so the labels fit the panel even with a block selected (seven labels did
+// not, and each was cut short). Outline's icon is the one a blocks field's outline toggle uses.
 type InspectorTab = { value: string; slot: string; label?: string; icon?: string; name?: string }
 const inspectorTabs = computed<InspectorTab[]>(() => [
   ...(selected.value !== null ? [{ label: 'Block', value: 'block', slot: 'block' }] : []),
   { label: 'Content', value: 'content', slot: 'content' },
   { label: 'Blocks', value: 'blocks', slot: 'blocks' },
-  { label: 'Outline', value: 'outline', slot: 'outline' },
   { label: 'Page', value: 'page', slot: 'page' },
+  { name: 'Outline', icon: 'i-lucide-list-tree', value: 'outline', slot: 'outline' },
   ...(seoEnabled.value
     ? [{ name: 'SEO', icon: 'i-lucide-search', value: 'seo', slot: 'seo' }]
     : []),
