@@ -4,7 +4,9 @@
 **Amended 2026-09-24 after review:** per-session preview copies (§4.2), one atomic save with a real
 version contract (§4.5), exact revision-pair clearing (§4.5), one snapshot per render (§4.4), an
 inert page body and an explicit stage marker (§4.4, §5.4), regions shown on pages that hide them
-(§4.4), and the page switch and palette rules (§5.3).
+(§4.4), and the page switch and palette rules (§5.3). **Second amendment:** a pinned session
+baseline (§4.2), saves serialized across both regions (§4.5), and page switch and renewal as an
+explicit restore sequence (§5.3).
 **Extends:** `2026-07-04-global-regions-design.md` — this is its deferred "Canvas in-place region
 editing" (§8, out of scope list) and the "real Regions stage" its 2026-09-19 amendment left open.
 **Replaces:** the Regions page's form editor, its `POST /admin/regions/preview` endpoint,
@@ -91,19 +93,28 @@ requires `k`/`s`/`l`/`exp` for region tokens; an entry token carries no `k`.
 `kind: 'entry'|'regions'` (default `'entry'`), `session` and `page`; every existing consumer reads
 `kind === 'entry'` sessions only and refuses the other (§4.7).
 
-**Initialisation.** A new session starts with no working copy: the response carries the saved
-regions and their `lock_version`s read together, and a null pair. The stage renders the saved rows
-until the session's first apply. Re-minting after expiry (§6.5) starts a new session; the admin's
-next apply sends its whole document with a null pair, which creates the new session's copy. Nothing
-an editor does can read or replace another session's copy.
+**Initialisation.** Minting reads both saved regions and their `lock_version`s once, stores that
+snapshot as the session's **baseline** (§4.2) and returns the same snapshot, so the inspector and the
+stage start from one document. A new session has no working copy and a null pair; the stage renders
+the baseline until the session's first apply. Nothing an editor does can read or replace another
+session's baseline or copy. Renewal after expiry and a page switch are explicit restore sequences
+run by the admin (§5.3).
 
-### 4.2 Working copy
+### 4.2 Baseline and working copy
 
-`PreviewWorkingCopyStore` gains a per-session region key, `thallo:preview:working:regions:{s}`
-(tenant-segmented as today), where `{s}` is the token's session id. It is used with the existing
-compare-and-set protocol (`epoch`, `base_revision`, `baseline`) and TTL. The record's `fields` is
-`{header: {blocks, settings}, footer: {blocks, settings}}` — always both regions, so a render never
-mixes a session copy with a saved row.
+A region session has two records, both keyed by the token's session id `{s}` and tenant-segmented,
+both living exactly as long as the token:
+
+- **Baseline** — `thallo:preview:regions:baseline:{s}`: both regions' `{blocks, settings,
+  lock_version}` as of the mint, or as of this session's last successful save (§4.5). It is the
+  document the stage shows when there is no working copy.
+- **Working copy** — `thallo:preview:working:regions:{s}` in `PreviewWorkingCopyStore`, with the
+  existing compare-and-set protocol (`epoch`, `base_revision`, `baseline`). Its `fields` is
+  `{header: {blocks, settings}, footer: {blocks, settings}}` — always both regions.
+
+**What the stage renders:** the working copy if there is one, otherwise the baseline — never the
+live rows. If both are gone (the session expired), the stage renders an "editing session expired"
+page instead of any region content, and apply answers 410; the admin renews (§5.3).
 
 ### 4.3 Apply
 
@@ -120,11 +131,12 @@ null (§4.6). `style_generation` is the style-class generation the stage already
 `RenderController::preview` accepts a `regions` session. It renders the picked page's **published**
 version (never a draft) through the normal page path, with:
 
-- **One snapshot per render.** The render reads the session's working copy **once**, at the start,
-  and every region read in that render — header blocks and settings, footer blocks and settings —
-  and the revision carrier come from that one record, even if an apply completes during the render.
-  A region reader decorator in front of `EngineRegionReader` serves that snapshot while a `regions`
-  session is active; with no copy yet, it serves the saved rows read once at the same point.
+- **One snapshot per render.** The render reads the session's working copy — or, without one, its
+  baseline — **once**, at the start, and every region read in that render (header blocks and
+  settings, footer blocks and settings) and the revision carrier come from that one record, even if
+  an apply or a save completes during the render. A region reader decorator in front of
+  `EngineRegionReader` serves that snapshot while a `regions` session is active; it never falls back
+  to the live rows (§4.2).
 - **Annotation scoped to the chrome.** `RenderContextExtension` replaces the boolean
   `annotateBlocks` with an annotation scope: `none`, `entry` (today's canvas) or `regions`.
   `regionBlocks()` annotates when the scope is `regions` and suppresses as today otherwise; the entry
@@ -156,20 +168,29 @@ cookies and the `/_preview/*` framing allowance.
 
 ### 4.5 Save
 
-**One batch save.** `PUT /v1/admin/regions` — body `{token, regions: {header?: {blocks, settings,
-lock_version|null}, footer?: {…}}, preview_revision: {epoch, revision}|null}` → `{regions: {header:
-{lock_version}, footer: {lock_version}}, preview_cleared}`. Permission: `content.manage`. It:
+**One batch save.** `PUT /v1/admin/regions` — body `{token, regions: {header?: {blocks, settings},
+footer?: {…}}, expected: {header: lock_version|null, footer: lock_version|null}, preview_revision:
+{epoch, revision}|null}` → `{regions: {header: {blocks, settings, lock_version}, footer: {…}},
+preview_cleared}`. Permission: `content.manage`. `regions` holds the dirty regions only; `expected`
+always holds **both** regions' versions, the unchanged one included. It runs as one serialized
+section:
 
-1. validates the **complete candidate** — the posted regions over the saved ones — with
-   `RegionValidator` and the cross-region id check, so a block moved from the header to the footer is
-   judged on the final document, never on an intermediate one;
-2. checks each posted region's `lock_version` against the stored one — `null` means "the row must not
-   exist yet" — and answers 409 `REGION_VERSION_CONFLICT` naming the regions that moved, writing
-   nothing;
-3. writes every posted region in **one transaction**, each update conditioned on its expected
-   `lock_version` (`WHERE lock_version = ?`, or an insert that fails on an existing row), bumping it;
-4. after commit, dispatches the region-updated cache purge once and clears the session's working
-   copy only if it still holds exactly the submitted `preview_revision` pair (below).
+1. **Serialize.** Open a transaction and take the region write lock — a transaction-scoped advisory
+   lock on a fixed per-tenant key (`pg_advisory_xact_lock`) — held until commit. Every region writer
+   takes it: this endpoint, the per-region endpoint and the jobs' unconditional save. Absent rows
+   cannot be row-locked, which is why this is an advisory lock and not `SELECT … FOR UPDATE`.
+2. **Check both versions** against the stored rows, the unchanged region included — `null` means
+   "the row must not exist". Any mismatch answers 409 `REGION_VERSION_CONFLICT` naming the regions
+   that moved, and writes nothing.
+3. **Validate the complete candidate** — the posted regions over the stored ones, read under the
+   lock — with `RegionValidator` and the cross-region id check, so a block moved from the header to
+   the footer is judged on the final document, and two concurrent saves cannot each validate against
+   the other region's old contents.
+4. **Write** every posted region, bumping its `lock_version`, and commit.
+5. **After commit:** dispatch the region-updated cache purge once; set the session's **baseline** to
+   the committed snapshot of both regions and their new versions (§4.2); clear the session's working
+   copy only if it still holds exactly the submitted `preview_revision` pair (below). The response
+   carries that committed snapshot.
 
 **Version contract.** `RegionRepository::find()` returns `lock_version` (null for an absent row);
 `index`, the session response and the save response carry it. `save()` gains a conditional form that
@@ -182,7 +203,9 @@ never when the pair is null. The existing `clearIfRevision()` is not reused for 
 revision-only comparison would let a delayed save from epoch A clear epoch B when their revision
 numbers match.)
 
-`PUT /v1/admin/regions/{slug}` stays for API clients, with the same conditional `lock_version`.
+`PUT /v1/admin/regions/{slug}` stays for API clients with the same protection: it takes the region
+write lock, checks both regions' expected versions (`expected` in its body), validates the complete
+candidate under the lock, and writes.
 
 ### 4.6 Refresh
 
@@ -246,14 +269,23 @@ draft — stay in the Design page. The refactor is behaviour-preserving for the 
 tabs, and the stage. The Header / Footer switch sets the current region and follows `selection`
 (the root slot of the selected block).
 
-- **Save.** One call to the batch save (§4.5) with the dirty regions, their loaded `lock_version`s
-  and the accepted `preview_revision`. On success it records the returned versions and marks saved
-  **the history position that was submitted**; edits made while the save was in flight stay dirty.
-  On 409 it shows "Changed by someone else" with Reload, which discards the unsaved edits and loads
-  the saved regions and versions.
-- **Page switch.** Choosing another page re-mints the session for that page and keeps the document,
-  history and unsaved state; the next apply sends the whole document to the new session. Responses
-  (mint, apply, refresh) belonging to the previous page's session are ignored.
+- **Save versions.** The page keeps a **save baseline**: both regions' `lock_version`s as first
+  loaded. Only a successful save advances it (to the versions the save returns) and only Reload
+  replaces it. A mint response never replaces it — renewal and page switches keep the original
+  versions, so a save after either still detects another editor's save.
+- **Save.** One call to the batch save (§4.5) with the dirty regions, both expected versions from the
+  save baseline and the accepted `preview_revision`. On success it advances the save baseline and
+  marks saved **the history position that was submitted**; edits made while the save was in flight
+  stay dirty. On 409 it shows "Changed by someone else" with Reload, which discards the unsaved edits
+  and loads the saved regions and versions.
+- **Restore sequence** — used for a page switch and for renewal after expiry, never overlapping:
+  1. mint a session (for the chosen page, or the same page on renewal);
+  2. apply the **current complete document** to it with a null pair;
+  3. show the new stage only after that apply is accepted (until then the old stage stays, marked
+     "Switching…").
+  History, dirty state and the save baseline are kept throughout. Each sequence carries a generation
+  number; starting a new one abandons the one in flight, and any response (mint, apply, refresh)
+  from an abandoned sequence or an old session is ignored.
 - **Leaving** with unsaved edits uses the existing unsaved-changes guard.
 
 ### 5.4 The inert body
@@ -275,12 +307,16 @@ on the Design view (block-internal links are already inert there).
    homepage; with no homepage, the placeholder body (§4.4). A page that hides a region shows it
    anyway, with a notice (§4.4).
 4. **Render off.** The page shows the Design view's "rendered delivery is off" state.
-5. **Session expiry.** A 403/410 on apply re-mints once and retries with the whole document and a
-   null pair (§4.1), as the Design view does.
+5. **Session expiry.** A 403/410 on apply, or the stage's "editing session expired" page, runs the
+   restore sequence (§5.3) for the same page, so the renewed stage shows the editor's document, not
+   the live rows.
 6. **Invalid apply.** The stage keeps its last good state; the error shows until an apply succeeds.
-7. **Two editors.** Each has their own session and working copy. Opening the page never applies, so
-   editor B opening it cannot change editor A's stage; their applies land in separate records; the
-   first save wins and the second gets 409 (§4.5).
+7. **Two editors.** Each has their own session, baseline and working copy. Opening the page never
+   applies, so editor B opening it cannot change editor A's stage; their applies land in separate
+   records; saves are serialized and check both regions' versions, so the first save wins and the
+   second gets 409 (§4.5) — even when one saved the header and the other the footer.
+8. **Another editor saves while this one is editing.** This editor's stage keeps showing their own
+   document (baseline or working copy, §4.2) until they save, which then answers 409.
 
 ## 7. Testing
 
@@ -290,6 +326,10 @@ on the Design view (block-internal links are already inert there).
   - apply's validation, cross-region id check and compare-and-set, against the session's own key;
   - **two sessions:** opening a second session and applying in it leaves the first session's copy and
     stage untouched;
+  - **the pinned baseline:** another editor saving between this session's mint and its first render
+    does not change what the stage shows; after this editor's save clears the working copy, the stage
+    shows the committed snapshot, not a newer live row; an expired session renders the expired page,
+    never live rows;
   - the render — in a `regions` session only header and footer carry `data-thallo-block` /
     `data-thallo-slot`, their blocks come from the session copy, an empty region renders a slot, the
     body is untagged, the page is the published version, `<html data-thallo-canvas>` is set — and an
@@ -300,19 +340,25 @@ on the Design view (block-internal links are already inert there).
     hides them;
   - the batch save: the complete candidate validated (a block moved between regions saves), all
     regions written or none, versions returned, a stale version answering 409 with nothing written,
-    an absent row with `null`, the cache purged once;
+    a stale version of the **unchanged** region answering 409, an absent row with `null`, the cache
+    purged once;
+  - **the duplicate-id race:** two concurrent saves — one writing the header, one the footer, each
+    adding the same block id — leave exactly one committed and the other refused (409 or 422), never
+    both; the per-region endpoint is held to the same;
   - **exact pair clearing:** a delayed save from epoch A does not clear epoch B's record at the same
     revision number; a null pair clears nothing;
   - permissions.
 - **Admin vitest:** the region document and synthetic schema; the Region tab writing settings through
   history; the switch following the selection; Save sending dirty regions with their versions and
-  marking only the submitted position saved; the conflict message and Reload; a page switch keeping
-  the document and history and dropping a late response from the previous session.
+  marking only the submitted position saved; the conflict message and Reload; a mint response not
+  replacing the save baseline; the restore sequence applying the whole document with a null pair,
+  showing the new stage only after acceptance, and a second switch abandoning the first.
 - **Admin e2e:** selecting a header block opens its Block tab; drag reorder in the header; a block
   dragged from the Blocks tab into the footer; in-place text edit; undo; Save; a click on a body link
   navigates nowhere and selects nothing; a block not allowed at a region's root is refused while the
   same block is accepted inside a container that allows it; the empty-regions stage (both regions
-  empty) still loads as a stage. **The existing Design view e2e suite passes unchanged** — the proof
+  empty) still loads as a stage; **switching pages with unsaved edits and making no further edit
+  still shows those edits on the new stage**. **The existing Design view e2e suite passes unchanged** — the proof
   that §5.2's refactor preserved it.
 
 ## 8. Rollout
