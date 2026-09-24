@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Footer block in the footer region — width proof</title>
+<!-- The REAL theme sheets, by repo path: the proof server serves the repo root. -->
+<link rel="stylesheet" href="/packages/thallo-render/themes/default/assets/site.css">
+<link rel="stylesheet" href="/packages/thallo-render/themes/default/assets/blocks.css">
+</head>
+<body>
+<!-- What layout.twig and blocks/footer.twig emit for a saved footer region holding a footer block,
+     after a rich_text: the region's inner row, then the footer block. -->
+<footer class="site-footer thallo-region thallo-region-footer thallo-region-footer--contained">
+  <div class="site-footer__inner" id="inner">
+    <div class="thallo-block thallo-block-rich_text"><p>Tagline</p></div>
+    <footer class="thallo-block thallo-block-footer" id="footer">
+      <div class="thallo-block-footer__bar">
+        <div class="thallo-block-footer__left"><div class="thallo-block thallo-block-shortcode"><p class="thallo-shortcode-copyright" id="copy">© 2026 Thallo</p></div></div>
+        <div class="thallo-block-footer__right"><div class="thallo-block thallo-block-social_links"><div class="thallo-block thallo-block-social_link"><a class="thallo-block-social_link__link" href="#" aria-label="github">GH</a></div></div></div>
+      </div>
+    </footer>
+  </div>
+</footer>
+</body>
+</html>

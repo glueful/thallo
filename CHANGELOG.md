@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Fixed
+- **A footer block in the footer region spans it.** The region lays its blocks out in a row, and a
+  footer block there shrank to its content: pushed to the right, its copyright squeezed onto two
+  lines. It now takes the region's full width, the copyright on the left and the social links on
+  the right.
+
 ## [1.0.0-beta.59] - 2026-09-24 — Developer Preview
 
 The Design view's tabs fit the panel: Outline, SEO and Versions are icons, so Block, Content, Blocks
