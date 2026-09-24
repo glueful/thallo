@@ -8,6 +8,9 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Fixed
+- **An optional choice that has its own `default` lists Default once.** The code block's size, the
+  carousel's style and similar fields showed the admin's "Default" (unset) and the field's own
+  `default` side by side; they are now one entry, and choosing it clears the value.
 - **An upgrade no longer renders with the previous release's templates.** `thallo:provision` now
   empties the compiled template cache (`storage/cache/twig`) along with the route table and the
   rendered pages. Release archives stamp every file with the release time, so a compiled template

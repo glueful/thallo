@@ -11,9 +11,9 @@ const model = defineModel<string | null>()
 // "Default", which stores null (enumOptions.ts).
 const items = computed(() => enumItems(props.field))
 const selected = computed({
-  get: () => toSelected(model.value),
+  get: () => toSelected(model.value, props.field),
   set: (v: string) => {
-    model.value = fromSelected(v)
+    model.value = fromSelected(v, props.field)
   },
 })
 </script>

@@ -31,4 +31,23 @@ describe('enum options', () => {
     expect(fromSelected(UNSET)).toBeNull()
     expect(fromSelected('end')).toBe('end')
   })
+
+  it('a list that names its own default offers ONE Default, and it means not set', () => {
+    // The Code block's size is ['default', 'compact']: the synthetic Default beside the listed
+    // one showed "Default" and "default". The listed one is the Default — shown once, labelled
+    // "Default", and stored as null, exactly like the synthetic one.
+    const size = field({ enum: ['default', 'compact'] })
+    expect(enumItems(size)).toEqual([
+      { label: 'Default', value: 'default' },
+      { label: 'compact', value: 'compact' },
+    ])
+    expect(toSelected(null, size)).toBe('default')
+    expect(toSelected(undefined, size)).toBe('default')
+    expect(fromSelected('default', size)).toBeNull()
+    expect(fromSelected('compact', size)).toBe('compact')
+    // A required list is left as it is: its default is a value an author picks.
+    const required = field({ enum: ['default', 'compact'], required: true })
+    expect(enumItems(required).map((i) => i.value)).toEqual(['default', 'compact'])
+    expect(fromSelected('default', required)).toBe('default')
+  })
 })
