@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.57] - 2026-09-24 — Developer Preview
+
+A fix for upgrades and a tidier block editor. `thallo:provision` now drops compiled templates, so
+new block fields render straight after an upgrade. Number fields are plain text boxes, and an
+image's width and height share a row. No migrations.
+
 ### Changed
 - **Number fields are plain text boxes.** A block's number fields take typed digits (anything else
   is dropped) instead of a stepper, and clearing one unsets it. An image's width and height sit on
