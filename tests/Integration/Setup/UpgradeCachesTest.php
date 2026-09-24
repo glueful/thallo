@@ -32,4 +32,27 @@ final class UpgradeCachesTest extends AppTestCase
         self::assertNull($store->get('render:probe'));
         self::assertSame(['route table', 'rendered pages'], $cleared);
     }
+
+    public function testTheCompiledTemplatesAreDroppedToo(): void
+    {
+        // Twig reuses a compiled template while the template file is not NEWER than it — and a
+        // release archive stamps every file with its commit's time, which is in the past. So a
+        // template compiled on the old install after that moment kept serving the old markup
+        // (thallo.dev, 1.0.0-beta.56: code.twig and image.twig ignored their new fields). The
+        // compiled directory goes, and every template recompiles from the new files.
+        $dir = sys_get_temp_dir() . '/thallo-twig-' . bin2hex(random_bytes(4));
+        mkdir($dir . '/default/ab', 0755, true);
+        file_put_contents($dir . '/default/ab/stale.php', '<?php // compiled before the upgrade');
+
+        $cleared = (new UpgradeCaches(
+            $this->container()->get(RouteCache::class),
+            $this->container()->get(CacheStore::class),
+            $dir,
+        ))->clear();
+
+        self::assertFileDoesNotExist($dir . '/default/ab/stale.php');
+        self::assertDirectoryExists($dir, 'the directory itself stays, for the next compile');
+        self::assertSame(['route table', 'rendered pages', 'compiled templates'], $cleared);
+        @rmdir($dir);
+    }
 }

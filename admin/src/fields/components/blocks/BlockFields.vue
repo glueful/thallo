@@ -7,6 +7,7 @@
 import { computed } from 'vue'
 import { createReusableTemplate } from '@vueuse/core'
 import { fieldComponent } from '../../registry'
+import DimensionsField from '../DimensionsField.vue'
 import { toFieldDef } from '../../normalize'
 import type { ContentTypeField } from '@/queries/contentTypes'
 import type { BlockType } from '@/queries/blockTypes'
@@ -46,6 +47,15 @@ function displayFieldDef(f: Parameters<typeof toFieldDef>[0]): ReturnType<typeof
 // Region/field names arrive snake_case (background_image); show them space-separated
 // ("col 1") without inventing a schema-level label vocabulary.
 const humanize = (name: string): string => name.replace(/_/g, ' ')
+
+// A `width` number field followed by a `height` one (the Image block) is one control: Width ×
+// Height on a row. Keyed on the schema, not on a block slug, so any block that pairs them gets it.
+const pairedSize = computed<boolean>(() => {
+  const schema = props.type?.schema ?? []
+  const i = schema.findIndex((f) => f.name === 'width')
+  const next = i >= 0 ? schema[i + 1] : undefined
+  return i >= 0 && schema[i]!.type === 'number' && next?.name === 'height' && next.type === 'number'
+})
 
 // Collapsible-group layout: fields carrying a `group` fold into labelled sections
 // (collapsed by default); ungrouped fields render flat, always visible. Schema order
@@ -103,6 +113,14 @@ const menuOptions = computed(() =>
             </UButton>
           </div>
         </slot>
+        <DimensionsField
+          v-else-if="pairedSize && f.name === 'width'"
+          :width="block.data.width"
+          :height="block.data.height"
+          @update:width="(v: number | null) => patchData('width', v)"
+          @update:height="(v: number | null) => patchData('height', v)"
+        />
+        <template v-else-if="pairedSize && f.name === 'height'" />
         <UFormField
           v-else-if="block.type === 'navigation' && f.name === 'menu'"
           label="menu"

@@ -7,6 +7,27 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.57] - 2026-09-24 — Developer Preview
+
+A fix for upgrades and a tidier block editor. `thallo:provision` now drops compiled templates, so
+new block fields render straight after an upgrade. Number fields are plain text boxes, and an
+image's width and height share a row. No migrations.
+
+### Changed
+- **Number fields are plain text boxes.** A block's number fields take typed digits (anything else
+  is dropped) instead of a stepper, and clearing one unsets it. An image's width and height sit on
+  one row — `Width × Height`, in pixels, empty meaning auto.
+
+### Fixed
+- **An optional choice that has its own `default` lists Default once.** The code block's size, the
+  carousel's style and similar fields showed the admin's "Default" (unset) and the field's own
+  `default` side by side; they are now one entry, and choosing it clears the value.
+- **An upgrade no longer renders with the previous release's templates.** `thallo:provision` now
+  empties the compiled template cache (`storage/cache/twig`) along with the route table and the
+  rendered pages. Release archives stamp every file with the release time, so a compiled template
+  from before the upgrade could look fresh and keep winning — new block fields (the image's size,
+  the code block's note) were saved but never rendered.
+
 ## [1.0.0-beta.56] - 2026-09-23 — Developer Preview
 
 Three things for building pages: a compact code block with a note in its caption, a hero whose
