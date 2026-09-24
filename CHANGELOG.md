@@ -7,6 +7,11 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- **Headings balance their lines.** A heading that wraps now shares its words between its lines
+  instead of filling the first and leaving a word or two alone on the last: the default theme sets
+  `text-wrap: balance` on h1–h4. A browser without it wraps as before.
+
 ## [1.0.0-beta.57] - 2026-09-24 — Developer Preview
 
 A fix for upgrades and a tidier block editor. `thallo:provision` now drops compiled templates, so
