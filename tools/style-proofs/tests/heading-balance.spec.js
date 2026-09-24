@@ -2,11 +2,24 @@
 // leaving one or two words alone on the last. The promise is geometry, so it is measured in a
 // browser against the theme's own CSS: each line's width, first as the browser would wrap it
 // greedily (the case this guards against), then as the theme wraps it.
+//
+// Where a greedy wrap falls depends on the font's metrics, which differ between machines. So the
+// heading is first narrowed to just under its one-line width: whatever the font, a greedy wrap
+// then pushes only the last word down, and the case is always there to guard.
 'use strict';
 
 const { test, expect } = require('@playwright/test');
 
 // The width of each rendered line, from the boxes of the heading's words.
+const narrow = (page, id) => page.evaluate((id) => {
+  const el = document.getElementById(id);
+  el.style.whiteSpace = 'nowrap';
+  el.style.width = 'max-content';
+  const oneLine = el.getBoundingClientRect().width;
+  el.style.whiteSpace = '';
+  el.style.width = `${Math.floor(oneLine * 0.97)}px`;
+}, id);
+
 const lines = (page, id, greedy) => page.evaluate(({ id, greedy }) => {
   const el = document.getElementById(id);
   el.style.textWrap = greedy ? 'wrap' : '';
@@ -30,6 +43,7 @@ const lines = (page, id, greedy) => page.evaluate(({ id, greedy }) => {
 for (const id of ['h1', 'h2']) {
   test(`a wrapped ${id} shares its words between its lines`, async ({ page }) => {
     await page.goto('/tools/style-proofs/pages/heading-balance.html');
+    await narrow(page, id);
 
     const greedy = await lines(page, id, true);
     expect(greedy.length).toBeGreaterThan(1);
