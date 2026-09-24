@@ -143,7 +143,10 @@ const PROPERTIES: PropertyDefinition[] = [
     'pan-right',
   ]),
   // A hero's aside — the blocks in its media column — padded and filled as a panel of its own.
-  token('aside.padding', 'aside', true, 'spacing'),
+  // The padding is a side each, as the block's own is.
+  ...(['top', 'right', 'bottom', 'left'] as const).map((side) =>
+    token(`aside.padding.${side}`, 'aside', true, 'spacing'),
+  ),
   token('aside.surface', 'aside', false, 'color'),
 ]
 

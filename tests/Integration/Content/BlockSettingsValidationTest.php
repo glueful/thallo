@@ -165,6 +165,23 @@ final class BlockSettingsValidationTest extends AppTestCase
         self::assertSame(['advanced' => ['anchor' => 'top']], $clean['body'][0]['settings']);
     }
 
+    public function testARetiredPropertyIsDroppedOnSaveNotRefused(): void
+    {
+        // `aside.padding` was one value for all four sides in 1.0.0-beta.56 and 57; it became four
+        // side paths. A page that stored the old one still saves: the value is dropped, not refused.
+        $lg = ['type' => 'token', 'value' => 'spacing.lg'];
+        $style = ['style' => ['aside' => ['padding' => ['lg' => ['type' => 'token', 'value' => 'spacing.none']]]]];
+        $clean = $this->validator(['heading' => ['caps' => ['aside']]])
+            ->validate($this->schema(), ['body' => [$this->heading($style)]]);
+        self::assertSame([], $clean['body'][0]['settings']);
+
+        // The sides take its place, and are kept.
+        $sides = ['style' => ['aside' => ['padding' => ['top' => ['md' => $lg], 'left' => ['md' => $lg]]]]];
+        $clean = $this->validator(['heading' => ['caps' => ['aside']]])
+            ->validate($this->schema(), ['body' => [$this->heading($sides)]]);
+        self::assertSame($sides, $clean['body'][0]['settings']);
+    }
+
     public function testKindsResponsivenessAndResetFollowTheContract(): void
     {
         $v = $this->validator(['heading' => ['caps' => ['spacing', 'visibility', 'radius', 'colors.text']]]);

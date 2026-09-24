@@ -8,6 +8,11 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Changed
+- **A hero's aside is padded a side at a time.** The Style tab's Aside group draws its padding as
+  the same four-cell box, with the link toggle, as the block's own Padding: `aside.padding.top`,
+  `.right`, `.bottom` and `.left`. The single `aside.padding` of 1.0.0-beta.56 and 57 is retired: a
+  stored value has no effect and is dropped the next time the page is saved, so set the aside's
+  padding again in the new box. Style settings schema 10, compiler 11.
 - **Headings balance their lines.** A heading that wraps now shares its words between its lines
   instead of filling the first and leaving a word or two alone on the last: the default theme sets
   `text-wrap: balance` on h1–h4. A browser without it wraps as before.

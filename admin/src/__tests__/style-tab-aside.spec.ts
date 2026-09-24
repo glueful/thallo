@@ -1,6 +1,7 @@
 // A hero's aside — the blocks in its media column — is styled in the Style tab, under its own
 // group: padding and a fill that are the aside's, beside the band's own under Spacing and Colours.
-// They are separate paths (`aside.padding`, `aside.surface`) because one path holds one value.
+// They are separate paths because one path holds one value; the padding is a side each
+// (`aside.padding.top` …), drawn as the same four-cell box as the block's own Padding.
 import { beforeEach, describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import StyleTab from '@/editor/inspector/StyleTab.vue'
@@ -49,13 +50,16 @@ beforeEach(() => {
 describe('the contract the admin mirrors', () => {
   it('has the aside paths, shaped like the properties they sit beside, on the Style tab', () => {
     const by = new Map(styleProperties().map((p) => [p.path, p]))
-    const padding = by.get('aside.padding')!
+    expect(by.has('aside.padding')).toBe(false)
+    for (const side of ['top', 'right', 'bottom', 'left']) {
+      const padding = by.get(`aside.padding.${side}`)!
+      expect(padding).toMatchObject({ group: 'aside', responsive: true, tokenDomain: 'spacing' })
+      expect(padding.responsive).toBe(by.get(`spacing.padding.${side}`)!.responsive)
+      expect(tabOf(`aside.padding.${side}`)).toBe('style')
+    }
     const surface = by.get('aside.surface')!
-    expect(padding).toMatchObject({ group: 'aside', responsive: true, tokenDomain: 'spacing' })
     expect(surface).toMatchObject({ group: 'aside', responsive: false, tokenDomain: 'color' })
-    expect(padding.responsive).toBe(by.get('spacing.padding.top')!.responsive)
     expect(surface.responsive).toBe(by.get('colors.surface')!.responsive)
-    expect(tabOf('aside.padding')).toBe('style')
     expect(tabOf('aside.surface')).toBe('style')
   })
 })
@@ -66,7 +70,12 @@ describe('the Style tab', () => {
     const group = w.find('[data-test="style-group-aside"]')
     expect(group.exists()).toBe(true)
     expect(group.text()).toContain('Aside')
-    expect(group.find('[data-test="style-field-aside.padding"]').text()).toContain('Padding')
+    // The padding is the four-cell box with its link, as the block's own Padding is.
+    expect(group.text()).toContain('Padding')
+    for (const side of ['top', 'right', 'bottom', 'left']) {
+      expect(group.find(`[data-test="box-cell-aside.padding.${side}"]`).exists()).toBe(true)
+    }
+    expect(group.find('[data-test="box-link"]').exists()).toBe(true)
     expect(group.find('[data-test="style-field-aside.surface"]').text()).toContain('Background')
     // The band's own background is still there, under Colours: two elements, two slots.
     expect(
@@ -78,16 +87,20 @@ describe('the Style tab', () => {
     expect(mountTab(heading).find('[data-test="style-group-aside"]').exists()).toBe(false)
   })
 
-  it('writes the aside paths: padding at the breakpoint, the background bare', async () => {
+  it('writes the aside paths: padding a side each at the breakpoint, the background bare', async () => {
     const w = mountTab(hero, {}, 'md')
-    await w
-      .find('[data-test="style-field-aside.padding"] [data-test="token-spacing.lg"]')
-      .trigger('click')
+    // Linked (every side at the theme's), one pick writes all four sides.
+    await w.find('[data-test="box-cell-aside.padding.top"]').trigger('click')
+    await w.find('[data-test="style-group-aside"] [data-test="token-spacing.lg"]').trigger('click')
     await w
       .find('[data-test="style-field-aside.surface"] [data-test="token-color.surface"]')
       .trigger('click')
+    const lg = { type: 'token', value: 'spacing.lg' }
     expect(w.emitted('set')).toEqual([
-      ['aside.padding', 'md', { type: 'token', value: 'spacing.lg' }],
+      ['aside.padding.top', 'md', lg],
+      ['aside.padding.right', 'md', lg],
+      ['aside.padding.bottom', 'md', lg],
+      ['aside.padding.left', 'md', lg],
       ['aside.surface', null, { type: 'token', value: 'color.surface' }],
     ])
   })
