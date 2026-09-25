@@ -39,8 +39,9 @@ It joins the block's list, and the picker empties, ready for the next block. It 
 site's classes that are not archived, not locked by a running job, and not already on this
 block.
 
-Blocks in the header and the footer take classes the same way: **Site › Header & footer**,
-select a block, **Advanced**. **Save as style class** is not offered there.
+Blocks in the header and the footer take classes the same way: open **Site › Header & footer**,
+select the block on the stage, and use its **Advanced** tab; **Save as style class** is on its
+**Style** tab there too.
 
 ## Which wins, the block or its class
 
