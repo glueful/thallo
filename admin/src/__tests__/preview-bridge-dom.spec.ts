@@ -3329,3 +3329,93 @@ describe('Fill empty cells on the stage (container-layout spec §11.3)', () => {
     }
   })
 })
+
+// The header & footer stage (regions-stage spec §5.4): with <html data-thallo-canvas="regions">,
+// only the header and footer are the stage's; the page body between them is inert — no navigation,
+// no submission, no keyboard activation, no selection — while scrolling is untouched.
+describe('region-only mode', () => {
+  beforeEach(() => {
+    document.documentElement.setAttribute('data-thallo-canvas', 'regions')
+    document.body.innerHTML = `
+      <header><div data-thallo-slot="header" id="ro-header-slot"></div></header>
+      <main id="ro-main">
+        <a href="/elsewhere" id="ro-body-link">a body link</a>
+        <button type="button" id="ro-body-button">a body button</button>
+        <form id="ro-body-form" action="/submit"><input name="q"></form>
+      </main>`
+    document
+      .getElementById('ro-header-slot')!
+      .appendChild(
+        wrapper('ro-hdr-00001', '<p><a href="/h" id="ro-header-link">header link</a></p>'),
+      )
+  })
+  afterEach(() => {
+    document.documentElement.removeAttribute('data-thallo-canvas')
+  })
+
+  function fire(el: Element, event: Event): Event {
+    el.dispatchEvent(event)
+    return event
+  }
+
+  it('a click on a body link navigates nowhere and selects nothing', () => {
+    const click = fire(
+      document.getElementById('ro-body-link')!,
+      new MouseEvent('click', { bubbles: true, cancelable: true }),
+    )
+    expect(click.defaultPrevented).toBe(true)
+    expect(lastPost('thallo:block-select')).toBeUndefined()
+  })
+
+  it('a body form does not submit', () => {
+    const submit = fire(
+      document.getElementById('ro-body-form')!,
+      new Event('submit', { bubbles: true, cancelable: true }),
+    )
+    expect(submit.defaultPrevented).toBe(true)
+  })
+
+  it('Enter on a body link and Space on a body button are inert; Enter in the header is not', () => {
+    const enter = fire(
+      document.getElementById('ro-body-link')!,
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    )
+    const space = fire(
+      document.getElementById('ro-body-button')!,
+      new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }),
+    )
+    expect(enter.defaultPrevented).toBe(true)
+    expect(space.defaultPrevented).toBe(true)
+
+    const inHeader = fire(
+      document.getElementById('ro-header-link')!,
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    )
+    expect(inHeader.defaultPrevented).toBe(false)
+  })
+
+  it('a wheel over the body still scrolls', () => {
+    const wheel = fire(
+      document.getElementById('ro-main')!,
+      new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: 40 }),
+    )
+    expect(wheel.defaultPrevented).toBe(false)
+  })
+
+  it('a header block still selects', () => {
+    document
+      .getElementById('ro-header-link')!
+      .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(lastPost('thallo:block-select')).toMatchObject({ id: 'ro-hdr-00001' })
+  })
+
+  it('on the Design view stage the body is the stage’s as before', () => {
+    document.documentElement.setAttribute('data-thallo-canvas', 'entry')
+    const click = fire(
+      document.getElementById('ro-body-link')!,
+      new MouseEvent('click', { bubbles: true, cancelable: true }),
+    )
+    // Outside any block wrapper the entry stage lets a click through, as it always has.
+    expect(click.defaultPrevented).toBe(false)
+  })
+})
