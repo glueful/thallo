@@ -11,6 +11,10 @@ as the next release, never a mutated tag.
 - **Every write to the header and footer is serialized.** Region saves, starter updates and
   renames, style-class jobs and block backfills all take one database lock, so none can overwrite
   another mid-write; a starter rename now also bumps the region's version.
+- **Saving the header or footer checks that neither changed since it was loaded.** A save names
+  both regions' versions, and one saved by someone else in the meantime answers with a conflict
+  instead of being overwritten; `PUT /v1/admin/regions/{slug}` now requires `expected`, and a new
+  `PUT /v1/admin/regions` saves both regions at once, all or nothing.
 
 ## [1.0.0-beta.60] - 2026-09-24 — Developer Preview
 

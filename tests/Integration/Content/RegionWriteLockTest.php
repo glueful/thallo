@@ -227,6 +227,51 @@ final class RegionWriteLockTest extends AppTestCase
         self::assertStringContainsString('held', json_encode($this->repo()->find('header')['blocks']));
     }
 
+    /**
+     * The duplicate-id race (regions-stage spec §4.5): A writes the header adding id `x` and holds
+     * the lock; B — another process — saves the footer adding the same `x` with the versions it
+     * loaded before A. B waits on the lock before it reads or validates, then sees the header moved
+     * and writes nothing.
+     */
+    public function testConcurrentAdminSavesCannotPutOneIdInBothRegions(): void
+    {
+        $this->seedBlockTypes();
+        $this->repo()->save('header', $this->blocks('seed header'), [], null);
+        $this->repo()->save('footer', $this->blocks('seed footer'), [], null);
+        $loaded = [
+            'header' => $this->repo()->find('header')['lock_version'],
+            'footer' => $this->repo()->find('footer')['lock_version'],
+        ];
+        $shared = [['id' => 'dupdupdup001', 'type' => 'rich_text', 'data' => ['body' => '<p>x</p>']]];
+
+        $child = null;
+        $this->lock()->within(function () use ($loaded, $shared, &$child): void {
+            $this->repo()->saveExpected('header', $shared, [], $loaded['header'], null);
+            $child = $this->startWriter('admin-save', ['body' => [
+                'regions' => ['footer' => ['blocks' => $shared, 'settings' => []]],
+                'expected' => $loaded,
+            ]]);
+            $ready = $this->readLine($child['stdout']);
+            self::assertTrue($ready['ready'] ?? false);
+            $this->awaitLockWait((int) $ready['pid']);
+        });
+        $result = $this->readLine($child['stdout'], 15);
+        proc_close($child['proc']);
+        self::assertSame(409, $result['status']);
+        self::assertSame(['header'], $result['moved']);
+        self::assertStringNotContainsString('dupdupdup001', json_encode($this->repo()->find('footer')['blocks']));
+    }
+
+    private function seedBlockTypes(): void
+    {
+        $repo = new \Thallo\Core\Content\Blocks\BlockTypeRepository($this->connection());
+        foreach (\Thallo\Core\Content\Blocks\StarterBlockTypes::definitions() as $definition) {
+            if ($repo->findBySlug($definition['slug']) === null) {
+                $repo->create($definition);
+            }
+        }
+    }
+
     private function refFor(RegionsSource $source, string $slug): DocumentRef
     {
         $found = null;

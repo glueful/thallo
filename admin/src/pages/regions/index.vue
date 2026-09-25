@@ -9,7 +9,7 @@ import RegionBlockInspector from './components/RegionBlockInspector.vue'
 import type { Breakpoint } from '@/style/types'
 import { STAGE_FRAME_EDGE, STAGE_WIDTHS, type ViewportPreset } from '@/editor/breakpoint'
 import { useNotify } from '@/composables/useNotify'
-import { ApiError } from '@/api/errors'
+import { ApiError, apiErrorCode } from '@/api/errors'
 
 definePage({ meta: { requiresAuth: true } })
 
@@ -24,6 +24,8 @@ interface RegionState {
   blocks: BlockInstance[]
   settings: Record<string, unknown>
   dirty: boolean
+  /** The version this copy was loaded at — what a save names as expected. */
+  loadedVersion: number | null
 }
 const state = reactive<Record<string, RegionState>>({})
 let syncing = false
@@ -39,6 +41,7 @@ watch(
         blocks: JSON.parse(JSON.stringify(region.blocks)) as BlockInstance[],
         settings: { ...region.settings },
         dirty: false,
+        loadedVersion: region.lock_version ?? null,
       }
       void nextTick(() => {
         syncing = false
@@ -85,11 +88,24 @@ function paletteField(slug: string) {
 async function onSave(slug: string): Promise<void> {
   const s = state[slug]
   if (!s) return
+  const expected: Record<string, number | null> = {}
+  for (const [name, region] of Object.entries(state)) expected[name] = region.loadedVersion
   try {
-    await save.mutateAsync({ slug, blocks: s.blocks, settings: s.settings })
+    await save.mutateAsync({ slug, blocks: s.blocks, settings: s.settings, expected })
     s.dirty = false
     success('Region saved', 'Changes are live on the site immediately.')
   } catch (e) {
+    if (
+      e instanceof ApiError &&
+      e.status === 409 &&
+      apiErrorCode(e) === 'REGION_VERSION_CONFLICT'
+    ) {
+      notifyError(
+        e,
+        'Someone else saved the header or footer — reload the page to see their changes',
+      )
+      return
+    }
     notifyError(e, 'Couldn’t save the region')
   }
 }

@@ -14,6 +14,8 @@ export interface RegionData {
   settings_keys: string[]
   /** What this region may be styled with (its Style tab): declared by the server. */
   style_capabilities: string[]
+  /** The stored version a save names as expected (regions-stage spec §4.5); null = no row yet. */
+  lock_version: number | null
 }
 
 const qk = () => ['regions'] as const
@@ -54,10 +56,12 @@ export function useSaveRegion() {
       slug: string
       blocks: BlockInstance[]
       settings: Record<string, unknown>
+      /** Both regions' versions as loaded: a save against a moved one answers 409. */
+      expected: Record<string, number | null>
     }) => {
       const { data, error, response } = await client.PUT('/regions/{slug}', {
         params: { path: { slug: vars.slug } },
-        body: { blocks: vars.blocks, settings: vars.settings } as never,
+        body: { blocks: vars.blocks, settings: vars.settings, expected: vars.expected } as never,
       })
       if (error) throw toApiError(error, response)
       return data

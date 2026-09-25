@@ -87,6 +87,8 @@ const region = (slug: string, palette: string[], settingsKeys: string[]): Region
   palette,
   settings_keys: settingsKeys,
   style_capabilities: ['spacing', 'shadow', 'radius', 'colors', 'border', 'backdrop'],
+  // The header has been saved three times; the footer has no row yet.
+  lock_version: slug === 'header' ? 3 : null,
 })
 
 type Page = ReturnType<typeof mount>
@@ -146,6 +148,8 @@ describe('regions page (Header & footer)', () => {
     expect(call.slug).toBe('header')
     expect(call.settings.sticky).toBe(true)
     expect(call.blocks).toHaveLength(1)
+    // Both regions' versions as loaded, the unchanged footer's included (regions-stage §4.5).
+    expect((call as unknown as { expected: unknown }).expected).toEqual({ header: 3, footer: null })
     wrapper.unmount()
   })
 

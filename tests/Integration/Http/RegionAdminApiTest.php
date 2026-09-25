@@ -26,8 +26,14 @@ final class RegionAdminApiTest extends AppTestCase
         return $this->container()->get(RegionAdminController::class);
     }
 
+    /** A save body, naming both regions' current versions unless the test gives its own. */
     private function dto(array $body): UpdateRegionData
     {
+        $repo = new \Thallo\Core\Content\Regions\RegionRepository($this->connection());
+        $body += ['expected' => [
+            'header' => $repo->find('header')['lock_version'] ?? null,
+            'footer' => $repo->find('footer')['lock_version'] ?? null,
+        ]];
         /** @var UpdateRegionData */
         return (new RequestDataHydrator())->hydrate(UpdateRegionData::class, $body);
     }
@@ -190,15 +196,13 @@ final class RegionAdminApiTest extends AppTestCase
 
     public function testOutOfPaletteBlockIs422WithDotPath(): void
     {
-        try {
-            $this->controller()->update($this->dto([
-                'blocks' => [['id' => 'apibadblock1', 'type' => 'gallery', 'data' => ['images' => []]]],
-                'settings' => [],
-            ]), 'header');
-            self::fail('expected ValidationException');
-        } catch (ValidationException $e) {
-            self::assertArrayHasKey('blocks.0.type', $e->errors());
-        }
+        $resp = $this->controller()->update($this->dto([
+            'blocks' => [['id' => 'apibadblock1', 'type' => 'gallery', 'data' => ['images' => []]]],
+            'settings' => [],
+        ]), 'header');
+        self::assertSame(422, $resp->getStatusCode());
+        $errors = json_decode((string) $resp->getContent(), true)['error']['details'] ?? [];
+        self::assertArrayHasKey('blocks.0.type', $errors);
     }
 
     public function testUnknownSlugIs404(): void

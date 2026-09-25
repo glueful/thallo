@@ -46,6 +46,18 @@ switch ($path) {
         $persisted = $source->persist($ref, ['blocks' => $input['blocks']]);
         fwrite(STDOUT, json_encode(['persisted' => $persisted]) . "\n");
         break;
+    case 'admin-save':
+        $dto = (new \Glueful\Validation\RequestDataHydrator())->hydrate(
+            \Thallo\Core\Http\DTOs\SaveRegionsData::class,
+            $input['body'],
+        );
+        $resp = $container->get(\Thallo\Core\Http\Controllers\RegionAdminController::class)->saveAll($dto);
+        $decoded = json_decode((string) $resp->getContent(), true) ?? [];
+        fwrite(STDOUT, json_encode([
+            'status' => $resp->getStatusCode(),
+            'moved' => $decoded['error']['details']['moved'] ?? null,
+        ]) . "\n");
+        break;
     default:
         fwrite(STDERR, "unknown writer path: {$path}\n");
         exit(2);
