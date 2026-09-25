@@ -7,6 +7,13 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.62] - 2026-09-25 — Developer Preview
+
+A Links block's links are styled on their own — size, weight, line height, colour and padding, in a
+Link section of its Style tab — through block *parts*, a new way for a block type to declare
+repeated elements with a style of their own. A logo image no longer has a gap below it. No
+migrations: `thallo:provision` gives existing Links blocks the new section.
+
 ### Added
 - **A Links block's links have a style of their own.** Its Style tab now has a **Link** section
   below the title’s settings: each link’s size, weight, line height and colour, and
