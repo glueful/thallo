@@ -7,6 +7,14 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.61] - 2026-09-25 — Developer Preview
+
+The header and footer are edited on the stage: the Header & footer page shows a real page with its
+chrome live, edited as on the Design view, and one Save writes both regions, refusing if someone
+else saved first. No migrations. A custom theme's `layout.twig` needs the stage's hooks — the
+`data-thallo-canvas` marker and `region_slot_attrs()` on each region's wrapper (see THEMING.md) — to
+be edited there; API clients of `PUT /v1/admin/regions/{slug}` must now send `expected`.
+
 ### Added
 - **The header and footer are edited on the stage.** The Header & footer page shows a real page
   with its chrome live: click a header or footer block to open its settings, drag to move it, drag
