@@ -516,13 +516,13 @@ const same = (a: unknown, b: unknown) =>
  * session, apply and save endpoints are routed and recorded; each mocked session keeps its own
  * `{epoch, revision}` as the server does (a stale pair answers PREVIEW_REVISION_STALE); and the
  * stage is served from the fixture whose document equals the session's last accepted document —
- * before any apply, its own baseline (`baseline`, or `container` for that session) — on the
+ * before any apply, its own baseline (`baseline`, or the `container` or `empty` session's) — on the
  * session's page, with its revision metadata rewritten to the pair just accepted. A combination no
  * fixture renders is recorded in `unmatched` and answered 500, never with a stale stage.
  */
 export async function openRegionsStage(
   page: Page,
-  options: { session?: 'baseline' | 'container' } = {},
+  options: { session?: 'baseline' | 'container' | 'empty' } = {},
 ): Promise<RegionsRecorded> {
   await routeWorld(page)
   const recorded: RegionsRecorded = { sessions: [], applies: [], saves: [], unmatched: [] }
@@ -531,9 +531,27 @@ export async function openRegionsStage(
   const pageName = (uuid: string | null | undefined): 'home' | 'pageb' =>
     uuid === pages.pageb ? 'pageb' : 'home'
   const first = options.session ?? 'baseline'
-  const baselineSession = JSON.parse(
-    fixture(first === 'container' ? 'regions/session-container.json' : 'regions/session.json'),
-  ) as { data: { regions: Record<string, { lock_version: number | null }> } }
+  /**
+   * A session response opening on the named state: the captured session, or — for `empty` — the
+   * captured one with both regions as that scenario holds them (its versions kept).
+   */
+  const openingFor = (name: string) => {
+    const opening = JSON.parse(
+      fixture(name === 'container' ? 'regions/session-container.json' : 'regions/session.json'),
+    ) as { data: { regions: Record<string, Record<string, unknown>> } & Record<string, unknown> }
+    if (name === 'empty') {
+      for (const slug of ['header', 'footer'] as const) {
+        opening.data.regions[slug] = {
+          ...opening.data.regions[slug],
+          ...stages.empty!.document[slug],
+        }
+      }
+    }
+    return opening
+  }
+  const baselineSession = openingFor(first) as unknown as {
+    data: { regions: Record<string, { lock_version: number | null }> }
+  }
   const versions: Record<string, number | null> = {
     header: baselineSession.data.regions.header?.lock_version ?? null,
     footer: baselineSession.data.regions.footer?.lock_version ?? null,
@@ -622,11 +640,7 @@ export async function openRegionsStage(
       revision: 0,
       accepted: null,
     })
-    const opening = JSON.parse(
-      fixture(
-        baselineName === 'container' ? 'regions/session-container.json' : 'regions/session.json',
-      ),
-    ) as { data: Record<string, unknown> }
+    const opening = openingFor(baselineName)
     return json(
       route,
       JSON.stringify({

@@ -185,19 +185,13 @@ test('a heading is refused at the header’s root and accepted in its container,
 })
 
 test('both regions empty still loads as a stage', async ({ page }) => {
-  // The stage renders a region-only page even with nothing in either region.
-  const recorded = await openRegionsStage(page)
-  for (const id of ['e2ehdr000001', 'e2ehdr000002', 'e2ehdr000003', 'e2ehdr000004']) {
-    await select(page, id)
-    await page.keyboard.press('Delete')
-    await page.locator('[data-test="canvas-delete-confirm-yes"]').click()
-  }
-  await select(page, 'e2eftr000001')
-  await page.keyboard.press('Delete')
-  await page.locator('[data-test="canvas-delete-confirm-yes"]').click()
-  await acceptedIs(page, recorded, 'empty')
+  // A session whose saved header and footer are both empty: the stage is still a stage, with a
+  // slot for each region to drop into.
+  const recorded = await openRegionsStage(page, { session: 'empty' })
   await expect(regionsStage(page).locator('html')).toHaveAttribute('data-thallo-canvas', 'regions')
   await expect(regionsStage(page).locator('[data-thallo-slot="header"]')).toHaveCount(1)
   await expect(regionsStage(page).locator('[data-thallo-slot="footer"]')).toHaveCount(1)
+  await expect(regionsStage(page).locator('[data-thallo-block]')).toHaveCount(0)
+  expect(recorded.applies).toHaveLength(0)
   served(recorded)
 })
