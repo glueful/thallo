@@ -5,6 +5,7 @@ import { useColorMode } from '@vueuse/core'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import { useUpdateNotice, versionLabel } from '@/composables/useUpdateNotice'
+import { useMe } from '@/queries/account'
 
 const colorMode = useColorMode({ initialValue: 'system' })
 const router = useRouter()
@@ -25,6 +26,9 @@ const loggingOut = ref(false)
 // carries (Glueful auth returns uuid + email); the avatar falls back to its first letter.
 const userEmail = computed(() => session.user?.email ?? '')
 const userInitial = computed(() => (userEmail.value.charAt(0) || 'A').toUpperCase())
+// Your photo from Profile, when you have set one.
+const { data: me } = useMe()
+const userPhoto = computed(() => me.value?.profile.photo_url ?? undefined)
 
 async function confirmLogout() {
   loggingOut.value = true
@@ -94,10 +98,12 @@ const items = computed<DropdownMenuItem[][]>(() => [
     {
       label: 'Profile',
       icon: 'i-lucide-user',
+      to: '/account/profile',
     },
     {
       label: 'Security',
       icon: 'i-lucide-lock',
+      to: '/account/security',
     },
     {
       label: 'Log out',
@@ -149,7 +155,7 @@ const items = computed<DropdownMenuItem[][]>(() => [
       }"
     >
       <template #leading>
-        <UAvatar :text="userInitial" size="2xs" />
+        <UAvatar :src="userPhoto" :text="userInitial" size="2xs" />
       </template>
     </UButton>
 
