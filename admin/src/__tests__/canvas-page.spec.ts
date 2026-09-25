@@ -1266,6 +1266,44 @@ describe('canvas page', () => {
       wrapper.unmount()
     })
 
+    it('a part’s style edit is one SetSetting naming the part, saved in the part’s record', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      bridge.callbacks.select?.('blockaaa0001')
+      await flushPromises()
+      const inspector = wrapper.findComponent({ name: 'BlockInspector' })
+      inspector.vm.$emit('set-part-setting', 'link', 'typography.size', 'base', {
+        type: 'token',
+        value: 'typography.size.sm',
+      })
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+      await flushPromises()
+      const ops = lastOps() as Record<string, unknown>[]
+      expect(ops).toHaveLength(1)
+      expect(ops[0]).toMatchObject({
+        type: 'SetSetting',
+        block: 'blockaaa0001',
+        part: 'link',
+        path: 'typography.size',
+        breakpoint: 'base',
+      })
+      await wrapper.find('[data-test="canvas-save"]').trigger('click')
+      await flushPromises()
+      const body = saveMock.mock.calls[saveMock.mock.calls.length - 1]![0].fields.body as {
+        id: string
+        settings: Record<string, unknown>
+      }[]
+      expect(body.find((b) => b.id === 'blockaaa0001')!.settings).toEqual({
+        parts: {
+          link: { typography: { size: { base: { type: 'token', value: 'typography.size.sm' } } } },
+        },
+      })
+      wrapper.unmount()
+    })
+
     it('a block from another slot, or an edit that moves one away, narrows the selection', async () => {
       mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
       saveMock.mockResolvedValue(undefined)

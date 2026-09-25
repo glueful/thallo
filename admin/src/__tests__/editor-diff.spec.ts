@@ -108,6 +108,32 @@ describe('diffDocuments derives intent from what changed', () => {
     expect(ops[1]).toMatchObject({ path: 'radius', breakpoint: null })
   })
 
+  it('a part’s style becomes SetSetting naming the part, apart from the block’s own', () => {
+    const prev = base()
+    ;(prev.fields.body as BlockInstance[])[0]!.settings = {
+      style: { radius: { type: 'reset' } },
+    }
+    const next = base()
+    ;(next.fields.body as BlockInstance[])[0]!.settings = {
+      style: { radius: { type: 'reset' } },
+      parts: {
+        link: {
+          typography: { size: { md: { type: 'token', value: 'typography.size.sm' } } },
+          colors: { text: { type: 'token', value: 'color.accent' } },
+        },
+      },
+    }
+    const ops = derive(prev, next)
+    expect(ops).toHaveLength(2)
+    expect(ops[0]).toMatchObject({
+      type: 'SetSetting',
+      part: 'link',
+      path: 'typography.size',
+      breakpoint: 'md',
+    })
+    expect(ops[1]).toMatchObject({ type: 'SetSetting', part: 'link', path: 'colors.text' })
+  })
+
   it('a removed block is one RemoveBlock carrying its subtree; an inserted one is one InsertBlock', () => {
     const removed = base()
     removed.fields.body = (removed.fields.body as BlockInstance[]).filter((b) => b.id !== 's')

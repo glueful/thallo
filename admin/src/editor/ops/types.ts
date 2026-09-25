@@ -48,6 +48,8 @@ export type OperationBody =
   | {
       type: 'SetSetting'
       block: string
+      /** A part of the block (a links block's `link`): the path is in the part's own record. */
+      part?: string
       /** A §1.3 property path, e.g. `spacing.padding.top`. */
       path: string
       /** The breakpoint for a responsive property; null for a non-responsive one. */

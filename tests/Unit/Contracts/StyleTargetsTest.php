@@ -212,4 +212,49 @@ final class StyleTargetsTest extends TestCase
         $caps = StyleCapabilities::fromDeclaration(['spacing', 'alignment.content', 'radius']);
         self::assertSame([], $targets->validateAgainst($caps));
     }
+
+    public function testPartsDeclareTheirOwnLabelAndCapabilities(): void
+    {
+        $t = StyleTargets::fromDeclaration([
+            'targets' => ['root' => ['kind' => 'box']],
+            'map' => ['spacing' => 'root'],
+            'parts' => ['link' => [
+                'label' => 'Link',
+                'capabilities' => ['typography', 'colors.text', 'spacing.padding.top'],
+            ]],
+        ]);
+
+        self::assertSame(['link'], $t->parts());
+        self::assertTrue($t->isPart('link'));
+        self::assertFalse($t->isPart('root'));
+        self::assertSame('Link', $t->partLabel('link'));
+        $caps = $t->partCapabilities('link');
+        self::assertTrue($caps->allows('typography.size'));
+        self::assertTrue($caps->allows('colors.text'));
+        self::assertTrue($caps->allows('spacing.padding.top'));
+        self::assertFalse($caps->allows('spacing.padding.left'));
+        // A part is not a target: the block's own style never lands on it.
+        self::assertNotContains('link', $t->names());
+        self::assertNull($t->targetFor('typography.size'));
+    }
+
+    public function testAPartNamedLikeATargetOrWithAnUnknownCapabilityIsRefused(): void
+    {
+        $refused = static function (array $decl): string {
+            try {
+                StyleTargets::fromDeclaration($decl);
+            } catch (\InvalidArgumentException $e) {
+                return $e->getMessage();
+            }
+            return '';
+        };
+        self::assertStringContainsString('root', $refused([
+            'targets' => ['root' => ['kind' => 'box']],
+            'parts' => ['root' => ['capabilities' => ['typography']]],
+        ]));
+        self::assertStringContainsString('nope', $refused([
+            'targets' => ['root' => ['kind' => 'box']],
+            'parts' => ['link' => ['capabilities' => ['nope']]],
+        ]));
+    }
 }

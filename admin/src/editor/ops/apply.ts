@@ -47,9 +47,12 @@ export function readPath(target: Json, segments: string[]): ChangeValue<unknown>
   return { present: true, value: node === undefined ? null : node }
 }
 
-/** The settings path a `SetSetting` addresses: `style.<path>[.<breakpoint>]`. */
-export function settingSegments(path: string, breakpoint: string | null): string[] {
-  const segments = ['style', ...path.split('.')]
+/**
+ * The settings path a `SetSetting` addresses: `style.<path>[.<breakpoint>]`, or for a part of the
+ * block, `parts.<part>.<path>[.<breakpoint>]`.
+ */
+export function settingSegments(path: string, breakpoint: string | null, part?: string): string[] {
+  const segments = [...(part ? ['parts', part] : ['style']), ...path.split('.')]
   const def = propertyDefinition(path)
   if (breakpoint !== null && (def === null || def.responsive)) segments.push(breakpoint)
   return segments
@@ -144,7 +147,7 @@ export function createOperationApplier(
       case 'SetSetting':
         return patchBlock(doc, op.block, (b) => ({
           ...b,
-          settings: setPath(b.settings, settingSegments(op.path, op.breakpoint), op.to),
+          settings: setPath(b.settings, settingSegments(op.path, op.breakpoint, op.part), op.to),
         }))
       case 'SetAdvanced':
         return patchBlock(doc, op.block, (b) => ({

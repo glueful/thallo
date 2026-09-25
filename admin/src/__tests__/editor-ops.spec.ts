@@ -83,6 +83,22 @@ describe('editor operations apply and invert to the identical tree', () => {
     })
     expect(blocks(radius)[0]!.settings).toEqual({ style: { radius: { type: 'reset' } } })
 
+    const part = roundTrip({
+      ...meta,
+      type: 'SetSetting',
+      block: 'h1',
+      part: 'link',
+      path: 'typography.size',
+      breakpoint: 'base',
+      from: absent(),
+      to: present({ type: 'token', value: 'typography.size.sm' }),
+    })
+    expect(blocks(part)[0]!.settings).toEqual({
+      parts: {
+        link: { typography: { size: { base: { type: 'token', value: 'typography.size.sm' } } } },
+      },
+    })
+
     const adv = roundTrip({
       ...meta,
       type: 'SetAdvanced',

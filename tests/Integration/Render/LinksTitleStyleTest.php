@@ -15,7 +15,7 @@ use Thallo\Render\TwigFactory;
 /**
  * A links block's title — a footer column's heading — takes its own text style: size, weight,
  * line height, colour and alignment land on the title, while the block's spacing stays on the
- * block. The links under it are not the title's to restyle.
+ * block. The links under it have a style of their own: the block's `link` part.
  */
 final class LinksTitleStyleTest extends AppTestCase
 {
@@ -27,8 +27,11 @@ final class LinksTitleStyleTest extends AppTestCase
         $this->syncBlockStyleDeclarations();
     }
 
-    /** @param array<string,mixed> $style */
-    private function links(array $style, string $title = 'Product'): string
+    /**
+     * @param array<string,mixed> $style
+     * @param array<string,mixed> $parts
+     */
+    private function links(array $style, string $title = 'Product', array $parts = []): string
     {
         $base = $this->container()->get(ApplicationContext::class)->getBasePath();
         $extension = $this->container()->get(RenderContextExtension::class);
@@ -40,8 +43,11 @@ final class LinksTitleStyleTest extends AppTestCase
         ))->environment();
         return $env->createTemplate('{{ blocks(l) }}')->render(['l' => [[
             'id' => 'links0000001', 'type' => 'links',
-            'data' => ['title' => $title, 'items' => [['label' => 'Design view', 'url' => '/docs']]],
-            'settings' => ['style' => $style],
+            'data' => ['title' => $title, 'items' => [
+                ['label' => 'Design view', 'url' => '/docs'],
+                ['label' => 'Pricing', 'url' => '/pricing'],
+            ]],
+            'settings' => ['style' => $style] + ($parts === [] ? [] : ['parts' => $parts]),
         ]]]);
     }
 
@@ -89,5 +95,43 @@ final class LinksTitleStyleTest extends AppTestCase
         $html = $this->links(['colors' => ['text' => $token('color.muted')]], '');
         self::assertStringNotContainsString('thallo-block-links__title', $html);
         self::assertStringContainsString('thallo-block-links__list', $html);
+    }
+
+    public function testTheLinksTakeTheirOwnStyleFromTheLinkPart(): void
+    {
+        $token = static fn (string $v): array => ['type' => 'token', 'value' => $v];
+        $choice = static fn (string $v): array => ['type' => 'choice', 'value' => $v];
+        $html = $this->links(
+            ['typography' => ['size' => ['base' => $token('typography.size.lg')]]],
+            'Product',
+            ['link' => [
+                'typography' => [
+                    'size' => ['base' => $token('typography.size.sm')],
+                    'weight' => ['base' => $choice('bold')],
+                ],
+                'colors' => ['text' => $token('color.accent')],
+                'spacing' => ['padding' => ['top' => ['base' => $token('spacing.none')]]],
+            ]],
+        );
+        $own = [
+            ClassNames::for('typography.size', 'typography.size.sm'),
+            ClassNames::for('typography.weight', 'bold'),
+            ClassNames::for('colors.text', 'color.accent'),
+            ClassNames::for('spacing.padding.top', 'spacing.none'),
+        ];
+        // Every link carries the part's style; the title and the block carry none of it.
+        self::assertSame(2, preg_match_all('~<a class="thallo-block-links__link[^"]*"~', $html, $links));
+        foreach ($links[0] as $link) {
+            foreach ($own as $class) {
+                self::assertStringContainsString(' ' . $class, $link);
+            }
+            self::assertStringNotContainsString(ClassNames::for('typography.size', 'typography.size.lg'), $link);
+        }
+        $title = $this->tag($html, 'thallo-block-links__title');
+        self::assertStringContainsString(ClassNames::for('typography.size', 'typography.size.lg'), $title);
+        foreach ($own as $class) {
+            self::assertStringNotContainsString($class, $title);
+            self::assertStringNotContainsString($class, $this->tag($html, 'thallo-block-links'));
+        }
     }
 }
