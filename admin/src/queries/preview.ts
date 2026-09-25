@@ -2,6 +2,7 @@ import { useMutation } from '@pinia/colada'
 import { client } from '@/api/client'
 import { toApiError } from '@/api/errors'
 import { runtimeConfig } from '@/runtime/config'
+import type { ApplyPreviewOptions, ApplyPreviewResult, RevisionPair } from '@/editor/stage/types'
 
 // Mints a short-lived preview token for the entry's current draft (in the given locale).
 export async function mintPreview(uuid: string, locale: string): Promise<string> {
@@ -24,12 +25,6 @@ export function usePreview(uuid: string, locale: string) {
   return useMutation({
     mutation: () => mintPreview(uuid, locale),
   })
-}
-
-/** The accepted working-copy pair (visual builder spec §3.5). */
-export interface RevisionPair {
-  epoch: string
-  revision: number
 }
 
 export interface PreviewMintResult {
@@ -59,23 +54,6 @@ export function useThemePreview(uuid: string, locale: string) {
   return useMutation({
     mutation: () => mintPreviewData(uuid, locale),
   })
-}
-
-export interface ApplyPreviewOptions {
-  /** The pair the client last accepted; both null before its first apply. */
-  epoch: string | null
-  base_revision: number | null
-  /** The committed operations since `base_revision` (intent for the fragment path). */
-  operations: unknown[]
-}
-
-export interface ApplyPreviewResult extends RevisionPair {
-  /** The revision the stage showed before this one: what an in-place patch expects. */
-  baseline: number
-  style_generation: number
-  applied_at: string
-  /** Root block id => rendered wrapper (the fragment path, spec §3.5); null = refresh the page. */
-  fragments: Record<string, string> | null
 }
 
 // Apply the CURRENT working fields as the next working-copy revision (visual builder spec
