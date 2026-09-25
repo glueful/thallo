@@ -97,6 +97,32 @@ final class RegionSaveApiTest extends AppTestCase
         self::assertSame($before['header'], $out['header']['lock_version']);
     }
 
+    public function testAPostedRegionMustCarryBothItsBlocksAndItsSettings(): void
+    {
+        $this->seed();
+        $before = $this->versions();
+        foreach ([['settings' => []], ['blocks' => $this->note('hdr000000001', 'x')]] as $partial) {
+            $result = $this->saveAll(['regions' => ['header' => $partial], 'expected' => $before]);
+            self::assertSame(422, $result['status'], json_encode($partial));
+            $errors = $result['body']['error']['details'] ?? $result['body']['errors'] ?? [];
+            self::assertArrayHasKey('regions.header', $errors);
+        }
+        // Nothing was written: the header keeps its blocks and version.
+        self::assertSame($before, $this->versions());
+        self::assertStringContainsString('header', json_encode($this->repo()->find('header')['blocks']));
+    }
+
+    public function testASaveThatPostsNothingWritesNothingAndPurgesNothing(): void
+    {
+        $this->seed();
+        $before = $this->versions();
+        $this->purges = 0;
+        $result = $this->saveAll(['regions' => [], 'expected' => $before]);
+        self::assertSame(200, $result['status'], json_encode($result['body']));
+        self::assertSame($before, $this->versions());
+        self::assertSame(0, $this->purges);
+    }
+
     public function testTheCompleteCandidateIsValidated(): void
     {
         $this->seed();

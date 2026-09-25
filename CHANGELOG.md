@@ -21,7 +21,8 @@ as the next release, never a mutated tag.
 - **Saving the header or footer checks that neither changed since it was loaded.** A save names
   both regions' versions, and one saved by someone else in the meantime answers with a conflict
   instead of being overwritten; `PUT /v1/admin/regions/{slug}` now requires `expected`, and a new
-  `PUT /v1/admin/regions` saves both regions at once, all or nothing.
+  `PUT /v1/admin/regions` saves both regions at once, all or nothing (each posted region with both
+  its `blocks` and its `settings`).
 
 ### Fixed
 - **A block dropped into a row that wraps lands where you point, while the row is still one

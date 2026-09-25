@@ -177,13 +177,19 @@ export function useRegionHost(options: { regions: Ref<RegionData[] | undefined> 
   /** Show another published page: the restore sequence, through the editor's own path. */
   async function switchPage(next: string | undefined): Promise<void> {
     if (!editor || next === page.value) return
+    const previous = page.value
     page.value = next
     switching.value = true
     const mine = generation + 1
+    let switched = false
     try {
-      await editor.switchSession(host.renew)
+      switched = await editor.switchSession(host.renew)
     } finally {
-      if (mine === generation) switching.value = false
+      if (mine === generation) {
+        switching.value = false
+        // A switch that failed leaves the stage on the page it showed: so does the picker.
+        if (!switched) page.value = previous
+      }
     }
   }
 
@@ -207,12 +213,13 @@ export function useRegionHost(options: { regions: Ref<RegionData[] | undefined> 
     editor.commitNow() // save flushes pending edits first
     const sequence = editor.currentSequence()
     const regions = dirtyRegions(editor.snapshotFields())
+    const token = editor.previewToken.value
     saving.value = true
     try {
       const result = await saveRegions({
         regions,
         expected: baseline.value,
-        token: editor.previewToken.value || null,
+        token: token || null,
         preview_revision: editor.accepted.value,
       })
       baseline.value = versionsOf(result.regions)
@@ -221,7 +228,8 @@ export function useRegionHost(options: { regions: Ref<RegionData[] | undefined> 
         if (posted) saved.value = { ...saved.value, [slug]: JSON.stringify(posted) }
       }
       editor.markSaved(sequence)
-      if (result.previewCleared) {
+      // Only the session the save came from was cleared; a newer one keeps its pair.
+      if (result.previewCleared && editor.previewToken.value === token) {
         editor.accepted.value = null // the next apply starts a new epoch
         editor.displayed.value = null
       }
@@ -247,6 +255,7 @@ export function useRegionHost(options: { regions: Ref<RegionData[] | undefined> 
   async function reload(): Promise<void> {
     if (!editor) return
     generation++ // abandon any restore in flight
+    switching.value = false
     try {
       const session = await mintRegionSession(page.value)
       hidden.value = session.hidden

@@ -59,10 +59,11 @@ final class RegionsStageRenderTest extends AppTestCase
      * @param list<array<string,mixed>> $body
      * @param array<string,mixed> $presentation
      */
-    private function seedPage(array $body, array $presentation = []): string
+    private function seedPage(array $body, array $presentation = [], string $slug = 'stagepage'): string
     {
         $types = new ContentTypeRepository($this->connection());
-        $type = $types->create([
+        $existing = $types->findBySlug('page');
+        $type = $existing !== null ? (string) $existing['uuid'] : $types->create([
             'slug' => 'page',
             'name' => 'Page',
             'public_delivery' => true,
@@ -76,7 +77,7 @@ final class RegionsStageRenderTest extends AppTestCase
         $fields = ['title' => 'S', 'body' => $body]
             + ($presentation === [] ? [] : ['_presentation' => $presentation]);
         $entries->saveDraft($entry, 'en', $fields, 1, 0, 'user00000001');
-        (new RouteRepository($this->connection()))->assign($entry, $type, 'en', 'stagepage');
+        (new RouteRepository($this->connection()))->assign($entry, $type, 'en', $slug);
         (new PublishService(
             $this->appContext(),
             $entries,
@@ -342,5 +343,55 @@ final class RegionsStageRenderTest extends AppTestCase
         self::assertStringContainsString('data-thallo-block="draftonly001"', $html, 'the entry body is annotated');
         self::assertStringNotContainsString('data-thallo-block="hdr000000001"', $html);
         self::assertStringNotContainsString('data-thallo-slot="header"', $html);
+    }
+
+    public function testAPageWhoseTemplateFailsStillLoadsAsAStageWithItsRevision(): void
+    {
+        $this->seedBlockTypes();
+        $page = $this->seedPage($this->note('blockone0001', 'Published body'));
+        $this->saveRegions('Saved header', 'Saved footer');
+        // The template repository commits on its own connection: the override is removed again
+        // whatever happens, or it would break every later page render.
+        $templates = new \Thallo\Render\Templates\TemplateRepository($this->connection());
+        $row = $templates->save('default', 'entry/page.twig', "{% include 'partials/no-such-partial.twig' %}", null);
+        $loader = $this->container()->get(\Thallo\Render\TwigFactory::class)->environment()->getLoader();
+        self::assertInstanceOf(\Thallo\Render\Templates\RenderTemplateLoader::class, $loader);
+        $loader->resetForRender();
+        try {
+            $session = $this->mint($page);
+            $this->apply($session['token'], $this->doc('Stage header', 'Stage footer'));
+            $response = $this->container()->get(RenderController::class)
+                ->preview(Request::create("/_preview/{$session['token']}?canvas=1", 'GET'), $session['token']);
+            $html = (string) $response->getContent();
+        } finally {
+            $uuid = (string) ($row['uuid'] ?? $templates->find('default', 'entry/page.twig')['uuid'] ?? '');
+            $this->connection()->table('render_template_versions')->where('template_uuid', $uuid)->delete();
+            $this->connection()->table('render_templates')->where('uuid', $uuid)->delete();
+            $loader->resetForRender();
+        }
+
+        // The placeholder body, the chrome editable, and the pair the bridge checks patches against.
+        self::assertSame(200, $response->getStatusCode());
+        self::assertStringContainsString('Stage header', $html);
+        self::assertStringContainsString('data-thallo-slot="header"', $html);
+        self::assertStringContainsString('thallo-region-preview__placeholder', $html);
+        self::assertMatchesRegularExpression('/data-thallo-revision="1"/', $html);
+    }
+
+    public function testAPageUnpublishedAfterTheSessionFallsBackToTheHomepage(): void
+    {
+        $this->seedBlockTypes();
+        $home = $this->seedPage($this->note('homebody0001', 'Home body'), [], 'home');
+        $page = $this->seedPage($this->note('pagebody0001', 'Page body'), [], 'other');
+        $this->container()->get(\Thallo\Core\Settings\SettingsStore::class)->putMany(['homepage_entry' => $home]);
+        $this->saveRegions('Saved header', 'Saved footer');
+        $session = $this->mint($page);
+        self::assertStringContainsString('Page body', $this->stage($session['token']));
+
+        $this->container()->get(PublishService::class)->unpublish($page, 'en');
+        $html = $this->stage($session['token']);
+        self::assertStringContainsString('Home body', $html);
+        self::assertStringNotContainsString('Page body', $html);
+        self::assertStringContainsString('data-thallo-slot="header"', $html);
     }
 }

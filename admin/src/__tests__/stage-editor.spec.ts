@@ -38,6 +38,7 @@ vi.mock('@/queries/blockFactory', () => ({
 const notify = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
 vi.mock('@/composables/useNotify', () => ({ useNotify: () => notify }))
 
+const callbacks = vi.hoisted(() => ({}) as Record<string, (...args: never[]) => void>)
 const bridge = vi.hoisted(() => {
   const noop = () => {}
   return new Proxy(
@@ -46,7 +47,11 @@ const bridge = vi.hoisted(() => {
       stageRefresh: async () => ({ mode: 'patched', epoch: null, revision: null }),
       stageFragments: async () => ({ mode: 'patched', epoch: null, revision: null }),
     } as Record<string, unknown>,
-    { get: (target, key: string) => target[key] ?? noop },
+    {
+      get: (target, key: string) =>
+        target[key] ??
+        (key.startsWith('on') ? (cb: (...args: never[]) => void) => (callbacks[key] = cb) : noop),
+    },
   )
 })
 vi.mock('@/composables/useCanvasBridge', () => ({ useCanvasBridge: () => bridge }))
@@ -334,6 +339,60 @@ describe('the stage editor and its host', () => {
     expect(options.epoch).toBe('e3')
     expect(options.base_revision).toBe(2)
     expect(host.mint).toHaveBeenCalledTimes(1)
+    unmount()
+  })
+
+  it('a stage that reports its session expired is renewed with the document, once', async () => {
+    const host = fakeHost()
+    const { editor, unmount } = mountEditor(host)
+    host.initial.value = structuredClone(TREE)
+    await flushPromises()
+    callbacks.onSessionExpired!()
+    await flushPromises()
+    expect(host.renew).toHaveBeenCalledTimes(1)
+    expect(host.renew.mock.calls[0]).toEqual([TREE])
+    expect(editor.iframeSrc.value).toBe('https://site.test/_preview/t2?canvas=1')
+    expect(editor.accepted.value).toEqual({ epoch: 'e2', revision: 1 })
+    unmount()
+  })
+
+  it('no apply reaches the old session during a switch; the latest edit is applied to the new one after', async () => {
+    let finishApply!: (v: ReturnType<typeof applied>) => void
+    let finishRenew!: (r: StageRenewal) => void
+    const host = fakeHost({
+      renew: vi.fn<StageHost['renew']>(() => new Promise((resolve) => (finishRenew = resolve))),
+    })
+    const { editor, unmount } = mountEditor(host)
+    host.initial.value = structuredClone(TREE)
+    await flushPromises()
+    edit(editor, 'B')
+    await flushPromises()
+    host.apply.mockImplementationOnce(() => new Promise((resolve) => (finishApply = resolve)))
+    const first = editor.applyWorking() // in flight to the old session
+    await flushPromises()
+    const switching = editor.switchSession(host.renew)
+    await flushPromises()
+    finishApply(applied()) // the old apply answers mid-switch
+    await first
+    edit(editor, 'C') // an edit while "Switching…"
+    await flushPromises()
+    await editor.applyWorking()
+    await flushPromises()
+    expect(host.apply).toHaveBeenCalledTimes(1) // nothing more went to the old session
+
+    finishRenew({
+      token: 't2',
+      themeUrl: 'https://site.test/_preview/t2',
+      accepted: { epoch: 'e2', revision: 1 },
+      retryWithExistingPair: false,
+    })
+    await switching
+    await flushPromises()
+    expect(host.apply).toHaveBeenCalledTimes(2)
+    const [token, fields, options] = host.apply.mock.calls[1]!
+    expect(token).toBe('t2')
+    expect((fields.body as { data: { title: string } }[])[0]!.data.title).toBe('C')
+    expect(options.epoch).toBe('e2')
     unmount()
   })
 })

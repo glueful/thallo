@@ -400,6 +400,15 @@ describe('useCanvasBridge', () => {
     )
     expect(scroll).toHaveBeenCalledTimes(1) // non-number dropped
 
+    const expired = vi.fn()
+    bridge.onSessionExpired(expired)
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'thallo:session-expired', nonce: bridge.nonce },
+      }),
+    )
+    expect(expired).toHaveBeenCalledTimes(1)
+
     window.dispatchEvent(
       new MessageEvent('message', {
         data: { type: 'thallo:edit-start', id: 'b1', nonce: bridge.nonce },

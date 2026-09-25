@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
+import { useQuery } from '@pinia/colada'
 import { client } from '@/api/client'
 import { toApiError } from '@/api/errors'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
@@ -31,27 +31,6 @@ export async function fetchRegions(): Promise<RegionData[]> {
 
 export function useRegions() {
   return useQuery({ key: qk(), query: fetchRegions })
-}
-
-export function useSaveRegion() {
-  const cache = useQueryCache()
-  return useMutation({
-    mutation: async (vars: {
-      slug: string
-      blocks: BlockInstance[]
-      settings: Record<string, unknown>
-      /** Both regions' versions as loaded: a save against a moved one answers 409. */
-      expected: Record<string, number | null>
-    }) => {
-      const { data, error, response } = await client.PUT('/regions/{slug}', {
-        params: { path: { slug: vars.slug } },
-        body: { blocks: vars.blocks, settings: vars.settings, expected: vars.expected } as never,
-      })
-      if (error) throw toApiError(error, response)
-      return data
-    },
-    onSettled: () => cache.invalidateQueries({ key: qk() }),
-  })
 }
 
 /** One region as the server stores it: its blocks and its own settings. */

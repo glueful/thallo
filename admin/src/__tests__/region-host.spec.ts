@@ -309,6 +309,30 @@ describe('the save baseline and Save', () => {
     expect(editor.iframeSrc.value).toBe('/_preview/tok2?canvas=1')
     unmount()
   })
+  it('a save that clears its session’s copy leaves a newer session’s pair alone', async () => {
+    const { host, editor, unmount } = mountHost()
+    await flushPromises()
+    editHeader(editor, 'A')
+    await flushPromises()
+    let finish!: (v: unknown) => void
+    q.save.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)))
+    const saving = host.save()
+    await flushPromises()
+    await host.switchPage('pageb0000001') // a new session, with its own accepted pair
+    await flushPromises()
+    const pair = editor.accepted.value
+    expect(pair).not.toBeNull()
+    finish({
+      regions: {
+        header: { blocks: [], settings: {}, lock_version: 4 },
+        footer: { blocks: FOOTER, settings: {}, lock_version: null },
+      },
+      previewCleared: true, // cleared the OLD session's copy
+    })
+    await saving
+    expect(editor.accepted.value).toEqual(pair)
+    unmount()
+  })
 })
 
 describe('the restore sequence', () => {
@@ -394,6 +418,31 @@ describe('the restore sequence', () => {
     expect(token).toBe('tok2')
     expect(regions.header.blocks[0].data.label).toBe('C')
     expect(options.epoch).toBe('e2')
+    unmount()
+  })
+
+  it('Reload during a switch ends the switch', async () => {
+    const { host, unmount } = mountHost()
+    await flushPromises()
+    q.mint.mockImplementationOnce(() => new Promise(() => {})) // the switch's mint never answers
+    void host.switchPage('pageb0000001')
+    await flushPromises()
+    expect(host.switching.value).toBe(true)
+    await host.reload()
+    await flushPromises()
+    expect(host.switching.value).toBe(false)
+    unmount()
+  })
+
+  it('a switch that fails leaves the picker on the page the stage still shows', async () => {
+    const { host, editor, unmount } = mountHost()
+    await flushPromises()
+    q.mint.mockRejectedValueOnce(new ApiError('down', 500, {}, null))
+    await host.switchPage('pageb0000001')
+    await flushPromises()
+    expect(host.page.value).toBeUndefined()
+    expect(host.switching.value).toBe(false)
+    expect(editor.iframeSrc.value).toBe('/_preview/tok1?canvas=1')
     unmount()
   })
 })

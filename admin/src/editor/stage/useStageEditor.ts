@@ -1422,6 +1422,11 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
    * flush, suspension, and re-arm side effects.
    */
   async function runApply(auto: boolean): Promise<void> {
+    // A session switch owns the stage: what is edited meanwhile waits for the new session.
+    if (switchingNow) {
+      applyQueued.value = true
+      return
+    }
     applyQueued.value = false
     applying.value = true
     let succeeded = false
@@ -1511,7 +1516,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
         notifyError(e, 'Couldn’t apply the preview')
       }
     } finally {
-      applying.value = false
+      applying.value = switchingNow
       // Edits made while the session renewed apply once, with the adopted pair (spec §5.2).
       if (renewed && opsSinceApply.length > 0) void runApply(auto)
     }
@@ -1549,9 +1554,10 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
    * A renewal the host starts (a page switch): the same path a dead token takes, the document
    * applied on the new session and edits made meanwhile applied once afterwards.
    */
-  async function switchSession(renew: StageHost['renew']): Promise<void> {
+  async function switchSession(renew: StageHost['renew']): Promise<boolean> {
     cancelAutoTimer()
     const mine = ++switchSeq
+    switchingNow = true
     applying.value = true
     const appliedJson = JSON.stringify(fields.value)
     const payload = JSON.parse(appliedJson) as Record<string, unknown>
@@ -1561,21 +1567,33 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
       const renewal = await renewWith(renew, sentOps, payload)
       if (renewal.retryWithExistingPair) {
         opsSinceApply.unshift(...sentOps)
+        if (mine === switchSeq) switchingNow = false
         applying.value = false
         await runApply(true)
-        return
+        return true
       }
       lastApplied.value = appliedJson
       renewed = true
+      return true
     } catch (e) {
       if (!(e instanceof StageRenewalAbandoned)) notifyError(e, 'Couldn’t start the preview')
+      return false
     } finally {
       // A newer switch still in flight keeps the stage busy until it answers.
-      if (mine === switchSeq && applying.value) applying.value = false
-      if (renewed && opsSinceApply.length > 0) void runApply(true)
+      if (mine === switchSeq) {
+        switchingNow = false
+        if (applying.value) applying.value = false
+        // Whatever was edited during the switch — queued, or still unsent — applies once now.
+        const pending = opsSinceApply.length > 0 || applyQueued.value || stageStale.value
+        if (renewed && pending) void runApply(true)
+      }
     }
   }
   let switchSeq = 0
+  /** A session switch is in flight: applies wait for it. */
+  let switchingNow = false
+  // A stage showing its expired page renews through the host, as a dead token does (spec §6.5).
+  bridge.onSessionExpired(() => void switchSession(host.renew))
 
   /**
    * Start over from a fresh session and its tree (a Reload after a conflict): the document, its

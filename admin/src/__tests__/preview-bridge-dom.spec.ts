@@ -3507,3 +3507,19 @@ describe('region-only mode', () => {
     expect(space.defaultPrevented).toBe(false)
   })
 })
+
+describe('an expired regions session', () => {
+  afterEach(() => {
+    document.documentElement.removeAttribute('data-thallo-session-expired')
+  })
+
+  it('a stage showing the expired page says so to the parent when it says hello', () => {
+    posted.mockClear()
+    sendToBridge({ type: 'thallo:canvas-hello' })
+    expect(lastPost('thallo:session-expired')).toBeUndefined()
+
+    document.documentElement.setAttribute('data-thallo-session-expired', '')
+    sendToBridge({ type: 'thallo:canvas-hello' })
+    expect(lastPost('thallo:session-expired')).toBeDefined()
+  })
+})
