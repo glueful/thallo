@@ -8,7 +8,7 @@
 
 **Tech Stack:** PHP 8.3 (Glueful, PostgreSQL, PHPUnit), Twig 3 (render pack), the preview bridge (plain script), Nuxt UI admin (Vue 3, vitest, Playwright e2e in `admin/e2e`).
 
-**Spec:** `docs/internal/superpowers/specs/2026-09-24-regions-stage-design.md` (approved at `db32aee8`, wording fix `4fed4a03`). Section numbers below (§n) are the spec's. The stage map this plan builds on — every file:line cited in the brainstorming exploration — is summarised under **Shared contracts**.
+**Spec:** `docs/internal/superpowers/specs/2026-09-24-regions-stage-design.md` (approved at `db32aee8`, wording fix `4fed4a03`). **Amended after review (2026-09-25):** R1 always takes the lock and proves real concurrency; renewal has one owner in the host contract (R7, R8); a `PreviewSession` consumer inventory with kind checks (R2); rendered region fixtures from the real endpoints (R8); dependent clients and tests move with the task that breaks them (R4, R8); the real type names; `setBlockAnnotations` replaced at every caller. Section numbers below (§n) are the spec's. The stage map this plan builds on — every file:line cited in the brainstorming exploration — is summarised under **Shared contracts**.
 
 ## Global Constraints
 
@@ -21,7 +21,9 @@
 - **Saves send both regions' expected versions** and validate the complete candidate under the lock (§4.5).
 - **Clearing compares the full `{epoch, revision}` pair; a null pair clears nothing** (§4.5).
 - **One working-copy (or baseline) read per render** (§4.4).
-- **Entry sessions behave exactly as today** (§4.7); the existing Design view e2e suite passes unchanged (§7).
+- **Entry sessions behave exactly as today** (§4.7); **the Design view's specs and e2e tests pass unchanged** (§7). The Regions tests are replaced on purpose, in the task that replaces the page (R8).
+- **No compatibility shims:** a replaced API is replaced at every caller in the same task (`setBlockAnnotations` → `setAnnotationScope`, R5).
+- **Every task's gates pass at its own commit:** a task that changes a contract updates the clients and tests that depend on it in the same commit.
 - **PostgreSQL-only** (the advisory lock uses `pg_advisory_xact_lock`).
 - One release, one beta cut at the end — the cut, split, tags and pushes are the user's; work ends at the local commit.
 - Every change carries its CHANGELOG bullet under `## [Unreleased]` in the same commit.
@@ -46,11 +48,21 @@ The inputs the spec implies but no requirement names, most likely to bite first.
 
 **Server**
 
-- `Thallo\Core\Content\Regions\RegionWriteLock` (new) — `within(callable $fn): mixed`: opens a transaction on the app connection, runs `SELECT pg_advisory_xact_lock(?)` with a fixed per-tenant key (`crc32('thallo:regions:' . $tenantSegment)` as a signed 32-bit int; the tenant segment from `TenantCacheSegment` when present, else `''`), runs `$fn`, commits (rolls back and rethrows on exception). Re-entrant within one transaction (a nested call on an open transaction just runs `$fn`).
-- `RegionRepository` changes: `find(slug)` returns `lock_version: int|null` (`null` only for an absent row — never, since `find` returns null then; callers read `?->['lock_version']`); new `saveExpected(string $slug, array $blocks, array $settings, ?int $expected, ?string $by): int` — **must run inside `RegionWriteLock::within`** (asserts an open transaction), writes `WHERE lock_version = $expected` (or inserts when `$expected === null`, failing on an existing row), bumps and returns the new version, throws `RegionVersionConflict` when no row matched; the existing `save()` keeps its unconditional write and bump, now wrapped in `RegionWriteLock::within`.
+- `Thallo\Core\Content\Regions\RegionWriteLock` (new) — `within(callable $fn): mixed`: when no transaction is open (`$db->withinTransaction()` false) it opens one and commits after `$fn`; **in every case** it runs `SELECT pg_advisory_xact_lock(?)` before `$fn` — also inside an outer transaction someone else opened, since an open transaction is not a held lock. PostgreSQL transaction-level advisory locks are re-entrant for the session and released only when the **outermost** transaction ends, so acquiring again is correct and cheap. `key(): int` — `crc32('thallo:regions:' . $tenantSegment) & 0x7FFFFFFF` (non-negative, so the single-bigint lock appears in `pg_locks` as `classid = 0, objid = key, objsubid = 1`; the tenant segment from `TenantCacheSegment` when present, else `''`). `isHeld(): bool` — `SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND pid = pg_backend_pid() AND granted AND classid = 0 AND objid = :key AND objsubid = 1)`, the authoritative check `saveExpected` uses.
+- `RegionRepository` changes: `find(slug)` returns `lock_version: int|null` (`null` only for an absent row — never, since `find` returns null then; callers read `?->['lock_version']`); new `saveExpected(string $slug, array $blocks, array $settings, ?int $expected, ?string $by): int` — **must run inside `RegionWriteLock::within`** (asserts `RegionWriteLock::isHeld()`, not merely an open transaction), writes `WHERE lock_version = $expected` (or inserts when `$expected === null`, failing on an existing row), bumps and returns the new version, throws `RegionVersionConflict` when no row matched; the existing `save()` keeps its unconditional write and bump, now wrapped in `RegionWriteLock::within`.
 - `Thallo\Core\Content\Regions\RegionVersionConflict` (new exception) — `public readonly array $moved` (slugs).
 - `Thallo\Core\Content\Preview\RegionPreviewToken` (new) — claims `{k: "regions", s, p, l, exp}`; `mint(string $session, ?string $page, string $locale, int $exp, string $key): string`; `verify(string $token, string $key, int $now): self` (requires `k === 'regions'`, `s`, `l`, `exp`; same HMAC and base64url as `PreviewToken`); readonly `session`, `page`, `locale`, `expiresAt`. An entry token fails its `verify` (no `k`); a region token fails `PreviewToken::verify` (no `e`) — isolation by construction.
 - `Thallo\Contracts\Delivery\PreviewSession` gains `public readonly string $kind = 'entry'`, `public readonly ?string $session = null`, `public readonly ?string $page = null` (constructor named args, defaults keep every existing `new PreviewSession(...)` valid). `EnginePreviewSessionVerifier::verify` tries `PreviewToken`, then `RegionPreviewToken`, and maps the latter to `kind: 'regions'`, `entry: ''`.
+- **`PreviewSession` consumer inventory** (every place a verified session object is used; each gets an explicit kind check in R2 or R5):
+  | Consumer | Behaviour for `kind: 'regions'` |
+  |---|---|
+  | `PreviewSessionMiddleware` (cookie → request attribute) | passes it through unchanged (the attribute carries the kind) |
+  | `RenderController::session()` / `home()` / `page()` (in-session navigation, cookie-driven canvas) | treated as **no session**: clean public render, no annotation, no draft, no working-copy overlay — whatever the canvas cookie says |
+  | `RenderController::preview()` | the regions stage (R5) |
+  | `RenderController::themedEnv()` / appearance session | no per-preview theme (regions sessions carry none) |
+  | `EnginePublicRouteResolver::resolvePath()` / `resolveEntry()` (draft and working-copy overlay) | ignores it: published content only |
+  | `PreviewReader::readVerified()` | refuses (throws, as for a malformed session) — only entry sessions read drafts |
+  | `EntryController::applyPreview`, `PreviewFragments`, `resolvePreview($token)` | refuse by construction (they parse the raw token with `PreviewToken::verify`) — asserted by test |
 - `Thallo\Core\Content\Preview\RegionPreviewStore` (new) — constructed with `CacheStore`, `?TenantCacheSegment`, `?ApplicationContext`, `?\Closure $now = null` (defaults to `time(...)`). Records carry their `exp`; a record read at `now() > exp` is absent. Methods:
   - `putBaseline(string $s, array $regions, int $exp): void` — `$regions = ['header' => ['blocks'=>…, 'settings'=>…, 'lock_version'=>?int], 'footer' => …]`; cache TTL `max(1, $exp - now())`.
   - `baseline(string $s): ?array`
@@ -64,26 +76,35 @@ The inputs the spec implies but no requirement names, most likely to bite first.
   - `POST /v1/admin/regions/preview/apply` (`content.manage`) body `{token, regions: {header, footer}, epoch, base_revision, operations}` → `{epoch, revision, baseline, style_generation, applied_at}`; 409 `PREVIEW_REVISION_STALE` with `details.current {epoch, revision}` as entries do; 410 when the session's records are gone.
   - `PUT /v1/admin/regions` (`content.manage`) body `{token, regions: {header?, footer?}, expected: {header: ?int, footer: ?int}, preview_revision: {epoch, revision}|null}` → `{regions: {header: {blocks, settings, lock_version}, footer: …}, preview_cleared}`; 409 `REGION_VERSION_CONFLICT` `details.moved: string[]`; 422 dot-paths `regions.{slug}.…`.
   - `PUT /v1/admin/regions/{slug}` gains `expected: {header: ?int, footer: ?int}` (required) and runs the same section.
-- Render: `RenderContextExtension::setAnnotationScope(string $scope)` with `'none'|'entry'|'regions'` replaces `setBlockAnnotations(bool)` (kept as a thin wrapper mapping `true → 'entry'`, `false → 'none'` for callers outside this plan); `is_canvas()` is true for either non-`none` scope. `regionBlocks()` annotates in `regions` scope; the entry body annotates in `entry` scope only.
+- Render: `RenderContextExtension::setAnnotationScope(string $scope)` with `'none'|'entry'|'regions'` **replaces** `setBlockAnnotations(bool)` — the old method is removed and every caller changed in R5 (inventory in R5's Files); `is_canvas()` is true for either non-`none` scope. `regionBlocks()` annotates in `regions` scope; the entry body annotates in `entry` scope only.
 - The region reader decorator `Thallo\Render\Regions\RegionSessionReader` (render pack) implements `RegionReader`, constructed per render with the snapshot's regions; `RenderController` swaps it in for the render's duration.
 - Markup: `<html data-thallo-canvas="entry"|"regions">` on every canvas render (the value is the annotation scope; the theme runtime tests presence, the bridge reads the value); `layout.twig` header/footer inner elements carry `slot_attrs('header'|'footer')`; `<main data-thallo-epoch data-thallo-revision data-thallo-style-generation>` as today.
 
 **Admin**
 
-- `admin/src/queries/regions.ts` gains `mintRegionSession(page?: string)`, `applyRegions(token, fields, pair)`, `saveRegions(body)`, and `RegionData.lock_version`.
+- `admin/src/queries/regions.ts` gains `mintRegionSession(page?: string)`, `applyRegions(token, fields, options)`, `saveRegions(body)`, and `RegionData.lock_version`.
 - `admin/src/editor/stage/useStageEditor.ts` (new) — the extracted stage editing (§5.2). Signature:
   ```ts
   export interface StageHost {
     schema: Ref<FieldDef[]>
     initial: Ref<Record<string, unknown> | null>
     mint(): Promise<{ token: string; themeUrl: string | null; accepted: RevisionPair | null }>
-    apply(token: string, fields: Record<string, unknown>, pair: ApplyPair): Promise<ApplyResult>
+    apply(token: string, fields: Record<string, unknown>, options: ApplyPreviewOptions): Promise<ApplyPreviewResult>
     reconcileOnOpen: boolean
+    /**
+     * The ONE owner of renewal (a 403/410 on apply, or the stage reporting an expired session).
+     * Given the whole current document, it returns the new session to adopt: token, iframe src
+     * and the accepted pair. The entry host keeps today's behaviour (remint, load, retry with the
+     * existing pair); the region host runs the restore sequence (mint, apply the document with a
+     * null pair, return only after acceptance).
+     */
+    renew(fields: Record<string, unknown>): Promise<{ token: string; themeUrl: string | null; accepted: RevisionPair | null; retryWithExistingPair: boolean }>
   }
   export function useStageEditor(host: StageHost, refs: { iframe: Ref<HTMLIFrameElement | null>; fieldEditor: Ref<FieldEditorExposed | null> }): StageEditor
   ```
-  `StageEditor` exposes what the Design page template uses today: `fields`, `selection`, `selected`, `history` state (`canUndo`, `canRedo`, `undo`, `redo`, `isDirty`, `markSaved(seq)`, `currentSequence`), `accepted`, `iframeSrc`, `renderDisabled`, `onIframeLoad`, `runApply`, `remint`, the Blocks-tab and Outline bindings, and `applyDrop`. `ApplyPair`/`ApplyResult`/`RevisionPair` are the existing types from `admin/src/queries/preview.ts`, moved to `admin/src/editor/stage/types.ts` and re-exported.
-- `admin/src/pages/regions/useRegionHost.ts` (new) — the region `StageHost` plus the document mapping (§5.1): `toDocument(regions) → {header, footer, _region_header, _region_footer}`, `toPayload(fields) → {header: {blocks, settings}, footer: …}`, the save baseline, `save()`, `restore(page)` (the restore sequence).
+  **Renewal in the shared editor:** on 403/410 `runApply` stops applying, keeps `opsSinceApply` and every edit made meanwhile, awaits `host.renew(snapshot)`, adopts the returned token and pair, swaps `iframeSrc` **after** `renew` resolves, then — when `retryWithExistingPair` is false — runs one apply of the current document if edits arrived during renewal (drained ops, the adopted pair), so nothing queued is lost. `StageEditor` also exposes `switchSession(renew)` so a host-initiated restore (a page switch) runs through the same path.
+  `StageEditor` exposes what the Design page template uses today: `fields`, `selection`, `selected`, `history` state (`canUndo`, `canRedo`, `undo`, `redo`, `isDirty`, `markSaved(seq)`, `currentSequence`), `accepted`, `iframeSrc`, `renderDisabled`, `onIframeLoad`, `runApply`, `remint`, the Blocks-tab and Outline bindings, and `applyDrop`. `ApplyPreviewOptions`, `ApplyPreviewResult` and `RevisionPair` are the existing types in `admin/src/queries/preview.ts`; they move to `admin/src/editor/stage/types.ts`, and `preview.ts` imports them from there (no re-export shim).
+- `admin/src/pages/regions/useRegionHost.ts` (new) — the region `StageHost` plus the document mapping (§5.1): `toDocument(regions) → {header, footer, _region_header, _region_footer}`, `toPayload(fields) → {header: {blocks, settings}, footer: …}`, the save baseline, `save()`, and `renew(fields)` = the restore sequence for the current page; `switchPage(page)` sets the page and calls the editor's `switchSession(renew)`, guarded by a generation number.
 - Test ids: `regions-switch-header`, `regions-switch-footer`, `regions-page-picker`, `regions-save`, `regions-undo`, `regions-redo`, `regions-conflict`, `regions-conflict-reload`, `regions-hidden-notice`, `regions-switching`, `regions-tab-region`, `regions-stage`; the inspector keeps `canvas-inspector`, `inspector-tabs`, `block-inspector`.
 
 ---
@@ -98,10 +119,13 @@ The inputs the spec implies but no requirement names, most likely to bite first.
 **Interfaces:** Produces `RegionWriteLock::within`, `RegionRepository::saveExpected`, `RegionVersionConflict` (Shared contracts).
 
 - [ ] **Steps 1–4.** Tests, each failing first:
-  - `testWritersAreSerialized`: inside `$lock->within(fn () => …)` on the app connection, a **second PDO connection** (`new \PDO($dsn, $user, $pass)` from the test DB config) calls `SELECT pg_try_advisory_xact_lock(:key)` inside its own transaction and gets `false`; after `within` returns it gets `true`. (Proves every writer queues on one key; the key is read from `RegionWriteLock::key()` — make it a public method for this.)
+  - `testWritersAreSerialized`: inside `$lock->within(fn () => …)` on the app connection, a **second PDO connection** (`new \PDO($dsn, $user, $pass)` from the test DB config) calls `SELECT pg_try_advisory_xact_lock(:key)` inside its own transaction and gets `false`; after `within` returns it gets `true`.
+  - `testAnOuterTransactionStillTakesTheLock`: open an ordinary transaction on the app connection (`db()->transaction(...)`, as `StarterTransaction` does); inside it call `within()`; the second connection cannot acquire the key; **after `within` returns but before the outer transaction ends** it still cannot; after the outer transaction commits it can.
+  - `testIsHeldReflectsTheLock`: false outside, true inside `within`, true inside an outer transaction after `within` returned, false after it ends.
+  - **Real concurrency** (`testConcurrentWritersQueueBeforeReadingAndValidating`): a helper script `tests/Support/bin/region-writer.php <path> <args>` boots `TestApplication` against the test DB and runs one writer path — `admin-save` (the R4 batch-save section, via the controller) or `persist` (`RegionsSource::persist` on a `DocumentRef` it reads first). The test holds `within()` on the app connection, writes the header, and starts the child with `proc_open`; after 500 ms the child has not exited (it is blocked on the lock **before** its read); the test commits; the child exits and its JSON output shows it read the committed row (the admin save answers 409 for the stale version / `persist` returns false). Run once per writer path. (R1 lands the `persist` path; R4 adds the `admin-save` path to the same test.)
   - `testSaveExpectedWritesOnlyAgainstTheExpectedVersion`: seed `header` at version 3; `saveExpected('header', …, 3)` returns 4; `saveExpected('header', …, 3)` throws `RegionVersionConflict` with `moved === ['header']` and the row is unchanged.
   - `testSaveExpectedNullCreatesAndThenConflicts` (**Review Focus 1**): no `footer` row; `saveExpected('footer', …, null)` creates it at version 1; a second `saveExpected('footer', …, null)` throws.
-  - `testSaveExpectedOutsideTheLockIsRefused`: calling it with no open transaction throws `\LogicException`.
+  - `testSaveExpectedOutsideTheLockIsRefused`: calling it with no transaction throws `\LogicException`, and calling it **inside an ordinary transaction without `within()`** throws too (`isHeld()` false).
   - `testFindReturnsTheVersion`.
   - `testBackgroundPersistAndAdminSaveSerialize`: `RegionsSource::each` hands a `DocumentRef` at version 1; an admin `saveExpected(…, 1)` commits (version 2); `persist($ref, …)` returns `false` and the row keeps the admin's blocks; the reverse order — `persist` first (version 2), then `saveExpected(…, 1)` — throws `RegionVersionConflict`.
   - `testRenameBumpsTheVersion`: rename `old → header` leaves `lock_version` one higher.
@@ -119,38 +143,49 @@ The inputs the spec implies but no requirement names, most likely to bite first.
       public function key(): int
       {
           $segment = $this->tenantCache?->segment($this->context, 'regions') ?? '';
-          $crc = crc32('thallo:regions:' . $segment);
-          return $crc > 0x7FFFFFFF ? $crc - 0x100000000 : $crc;
+          return crc32('thallo:regions:' . $segment) & 0x7FFFFFFF;
       }
 
       /** @template T @param callable(): T $fn @return T */
       public function within(callable $fn): mixed
       {
           $db = db($this->context);
-          if ($db->inTransaction()) {
-              return $fn();
-          }
-          return $db->transaction(function () use ($db, $fn): mixed {
+          $locked = function () use ($db, $fn): mixed {
+              // Always acquire: an open transaction is not a held lock. Re-entrant for the session;
+              // released when the outermost transaction ends.
               $db->statement('SELECT pg_advisory_xact_lock(?)', [$this->key()]);
               return $fn();
-          });
+          };
+          return $db->withinTransaction() ? $locked() : $db->transaction($locked);
+      }
+
+      public function isHeld(): bool
+      {
+          $row = db($this->context)->selectOne(
+              'SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype = \'advisory\' AND pid = pg_backend_pid()'
+              . ' AND granted AND classid = 0 AND objid = ? AND objsubid = 1) AS held',
+              [$this->key()],
+          );
+          return (bool) ($row['held'] ?? false);
       }
   }
   ```
-  (Use the connection's real transaction/statement API — read `RegionRepository`'s existing `$this->db` usage and `db($this->context)->transaction(...)` in `PublishService` for the exact calls; keep the shape.)
+  (The connection API is `Glueful\Database\Connection::withinTransaction()` / `transaction()`; for the raw statement and single-row select use the calls `RegionRepository` / `PublishService` already make — `statement`/`selectOne` above name the intent; match the connection's real method names.)
 - [ ] **Step 5.** Changelog `### Changed`: "Every write to the header and footer is serialized: saves, starter updates, style-class jobs and block backfills take one lock, so none can overwrite another." Commit `feat(regions): one lock serializes every write to the regions table`.
 
 ## Task R2: the region preview token and the region preview store
 
 **Files:**
 - Create: `core/src/Content/Preview/RegionPreviewToken.php`, `core/src/Content/Preview/RegionPreviewStore.php`
-- Modify: `packages/thallo-contracts/src/Delivery/PreviewSession.php` (kind, session, page), `core/src/Content/Preview/EnginePreviewSessionVerifier.php` (region tokens), `core/src/Providers/CoreServiceProvider.php` (register the store)
+- Modify: `packages/thallo-contracts/src/Delivery/PreviewSession.php` (kind, session, page), `core/src/Content/Preview/EnginePreviewSessionVerifier.php` (region tokens), `core/src/Providers/CoreServiceProvider.php` (register the store), and the kind checks at every consumer in the inventory: `core/src/Content/Preview/PreviewReader.php`, `core/src/Content/Delivery/EnginePublicRouteResolver.php`, `packages/thallo-render/src/Http/Controllers/RenderController.php` (`session()`, `home()`, `page()`, `themedEnv()`)
 - Test: `tests/Unit/Content/RegionPreviewTokenTest.php`, `tests/Integration/Content/RegionPreviewStoreTest.php` (new)
 
 **Interfaces:** Produces `RegionPreviewToken`, `RegionPreviewStore`, `PreviewSession::$kind/$session/$page` (Shared contracts).
 
 - [ ] **Steps 1–4.** Tests:
   - Token: round-trip; a tampered payload fails; an expired one fails; **an entry token fails `RegionPreviewToken::verify`** and **a region token fails `PreviewToken::verify`**; the verifier maps a region token to `kind: 'regions'` with `session`/`page`, and an entry token to `kind: 'entry'` unchanged.
+  - **The consumer inventory** (Shared contracts), each with its kind check and a test: `PreviewReader::readVerified()` refuses a regions session; `EnginePublicRouteResolver::resolvePath()` / `resolveEntry()` given a regions session return published fields (no draft, no overlay); `EntryController::applyPreview`, `PreviewFragments` and `resolvePreview($token)` given a region token answer as for a foreign token.
+  - **`testARegionTokenInTheCookieDoesNotEditOrdinaryPages`** (in `tests/Integration/Render/`): with a region token in `thallo_preview` **and** `thallo_preview_canvas=1`, `GET /` and `GET /blog/hello` render the published content with no `data-thallo-block`, no `data-thallo-slot`, no edit regions and no draft — identical to an anonymous render.
   - Store (`now` injected as a closure over a mutable `$t`): `putBaseline` then `snapshot` gives `source: 'baseline'`, null pair; `accept(null, null, …)` then `snapshot` gives `source: 'working'`, revision 1; a stale pair is refused with the current pair returned; **`testTheWorkingCopyOutlivesFiveMinutesUntilTheTokenExpires`** — `exp = $t + 600`, accept at `$t`, set `$t += 301`, `snapshot` is still `working` with the edits; set `$t = exp + 1`, `snapshot` is null; **`testClearIfPairNeedsBothHalves`** — accept to `(A, 1)`; `clearIfPair(s, 'B', 1)` false and the copy remains; `clearIfPair(s, A, 2)` false; `clearIfPair(s, A, 1)` true; **`testSessionsAreIsolated`** — two session ids never read each other's baseline or copy.
 - [ ] **Step 3 detail.** The store's `locked()`/`read()` mirror `PreviewWorkingCopyStore` (copy the lock idiom, keyed per record); every record stores `exp`, and `read` returns null when `($this->now)() > $record['exp']`. The TTL passed to the cache is `max(1, $exp - ($this->now)())`.
 - [ ] **Step 5.** No changelog bullet (no behaviour yet). Commit `feat(preview): region preview tokens and a per-session region store`.
@@ -173,7 +208,8 @@ The inputs the spec implies but no requirement names, most likely to bite first.
 
 **Files:**
 - Modify: `core/src/Http/Controllers/RegionAdminController.php` (new `saveAll` action; `update` routed through the same section), `core/routes/admin.php` (`PUT /regions`), `core/src/Http/DTOs/` (`SaveRegionsData.php` new; the per-region DTO gains `expected`)
-- Test: `tests/Integration/Http/RegionSaveApiTest.php` (new)
+- Modify (clients of the per-region endpoint, in this same commit): `admin/src/queries/regions.ts` (`useSaveRegion` sends `expected` for both regions from the loaded `lock_version`s; `RegionData.lock_version`), `admin/src/pages/regions/index.vue` (keeps the loaded versions, passes them, shows a conflict message on 409 — a minimal change; R8 replaces the page), `admin/src/__tests__/regionsPage.spec.ts` and `admin/e2e/tests/regions-style.spec.ts` (their save payload expectations include `expected`)
+- Test: `tests/Integration/Http/RegionSaveApiTest.php` (new); the admin specs above; `tests/Support/bin/region-writer.php` gains the `admin-save` path and R1's concurrency test runs it
 
 **Interfaces:** Consumes R1 (`within`, `saveExpected`, `RegionVersionConflict`), R2 (`putBaseline`, `clearIfPair`), R3 (`validateBoth`). Produces `PUT /v1/admin/regions` and the conditional per-region update.
 
@@ -181,18 +217,20 @@ The inputs the spec implies but no requirement names, most likely to bite first.
   - A save of the footer only with both expected versions writes the footer, bumps its version, leaves the header, purges the region cache once (count `RegionUpdated` dispatches), returns both regions with versions.
   - **Complete candidate:** a block moved from header to footer in one save (both posted) succeeds; the same block id posted only in the footer while the stored header still has it answers 422.
   - **Stale unchanged region:** header saved by another request since; a footer-only save with the old header version answers 409 `moved: ['header']` and writes nothing.
-  - **The duplicate-id race, sequential form:** request A saves the header adding id `x` with expected `{h:1, f:1}`; request B saves the footer adding `x` with the same expected; B answers 409 (header moved). **Lock form:** inside `RegionWriteLock::within` on the app connection (simulating A mid-section), a second connection's `pg_try_advisory_xact_lock` is false — B cannot validate until A commits (reuse R1's helper).
+  - **The duplicate-id race, concurrent:** the test holds `within()`, writes the header adding id `x` (A, uncommitted), and starts `region-writer.php admin-save` saving the footer with the same `x` and the old expected versions (B); B stays blocked; A commits; B's output is 409 (header moved) and the stored footer lacks `x`. The sequential form (B after A committed) answers the same.
   - **Clearing:** with a session whose working copy is at `(E, 3)`, a save with `preview_revision {E, 3}` clears it and advances the baseline to the committed regions and versions (`snapshot` → `source: 'baseline'` with the new versions); a save with `{E, 2}` clears nothing (baseline still advanced); a save with `null` clears nothing.
   - **Absent row:** expected `footer: null` with no row creates it; a second save with `footer: null` answers 409 (**Review Focus 1**).
   - The per-region `PUT /regions/{slug}` requires `expected`, checks both, validates the complete candidate, and answers 409 the same way.
   - `content.manage` required; a region token from another session is accepted only for its own clearing (the save's authority is the permission, the token only names which session to clear/advance).
 - [ ] **Step 3 detail.** `saveAll` body: `$lock->within(function () use (…) { check both expected vs find(); build candidate = posted over stored; validateBoth(candidate) → 422; foreach posted: saveExpected; return committed snapshot; })`, then after commit: dispatch `RegionUpdated` once, `putBaseline(session, committed, exp)`, `clearIfPair` when `preview_revision` is non-null.
+- [ ] **Gates** include the admin vitest suite and the e2e suite (the Regions page still works with `expected`).
 - [ ] **Step 5.** Changelog `### Changed`: "Saving the header and footer checks that neither changed since it was loaded: a save against a region someone else saved answers with a conflict instead of overwriting it." Commit `feat(regions): one batch save checks both regions' versions under the region lock`.
 
 ## Task R5: the regions stage render
 
 **Files:**
 - Create: `packages/thallo-render/src/Regions/RegionSessionReader.php`, `packages/thallo-render/themes/default/templates/partials/region-stage-placeholder.twig` (the body placeholder, moved from `region-preview.twig`), `packages/thallo-render/themes/default/templates/region-session-expired.twig`
+- Modify: every `setBlockAnnotations` caller → `setAnnotationScope`, and the method removed: `packages/thallo-render/src/EntryBlocksRenderer.php:70`, `packages/thallo-render/src/Fragments/FragmentRenderer.php:54,78`, `packages/thallo-render/src/Http/Controllers/RenderController.php:993`, `packages/thallo-commerce/src/Http/Shop/ShopCartController.php:286`, `packages/thallo-commerce/src/Http/Shop/ShopPageRenderer.php:48`, `packages/thallo-commerce/src/Http/Shop/ShopCheckoutController.php:572`, `packages/thallo-account/src/Http/AccountPageRenderer.php:55` (re-grep in Step 3; the list is the inventory at plan time)
 - Modify: `packages/thallo-render/src/RenderContextExtension.php` (annotation scope; `regionBlocks` scoped; empty-region slot in `regions` scope; `region_hidden_override` for the layout), `packages/thallo-render/src/Http/Controllers/RenderController.php` (`preview` branches on `kind === 'regions'`: one `snapshot()` read, the decorator swapped in for the render, `resolveEntry($page)` published, placeholder when none, expired page when `snapshot()` is null, `<html data-thallo-canvas="regions">`; an entry canvas gets `data-thallo-canvas="entry"`), `packages/thallo-render/themes/default/templates/layout.twig` (region inner `slot_attrs`, the hidden override, `data-thallo-canvas`), `packages/thallo-render/runtime/runtime.js` (`isCanvas()` reads `document.documentElement.hasAttribute('data-thallo-canvas')`), `packages/thallo-render/fragments-verified.json` (re-record)
 - Test: `tests/Integration/Render/RegionsStageRenderTest.php` (new); existing `PreviewSessionTest`, `RegionRenderingTest`, `CanvasAnnotationTest` (or the annotation tests that exist) stay green unchanged
 
@@ -231,10 +269,10 @@ The inputs the spec implies but no requirement names, most likely to bite first.
 
 **Interfaces:** Produces `useStageEditor`, `StageHost`, `StageEditor` (Shared contracts).
 
-- [ ] **Step 1.** Write `stage-editor.spec.ts` against a fake host: `mint` is called on mount; with `reconcileOnOpen: false`, loading the iframe does **not** call `apply`; with `true`, it applies the hydrated tree once; an edit records history and applies with the drained ops; a 409 `PREVIEW_REVISION_STALE` adopts `details.current` and retries; a 410 re-mints once.
+- [ ] **Step 1.** Write `stage-editor.spec.ts` against a fake host: `mint` is called on mount; with `reconcileOnOpen: false`, loading the iframe does **not** call `apply`; with `true`, it applies the hydrated tree once; an edit records history and applies with the drained ops; a 409 `PREVIEW_REVISION_STALE` adopts `details.current` and retries; **renewal is the host's:** starting from a non-null accepted pair, a 410 calls `host.renew(document)` exactly once and nothing else re-mints; with `retryWithExistingPair: true` (the entry host) the editor loads the new iframe and retries with the existing pair (today's behaviour); with `false` the iframe swaps only after `renew` resolves, the returned pair is adopted, and **an edit made while `renew` was pending is applied once afterwards with the adopted pair** (no lost ops); `switchSession` runs the same path.
 - [ ] **Step 2.** Run it — fails (module missing).
-- [ ] **Step 3.** Move the stage-editing state and functions out of `design/[locale].vue` into the composable **verbatim** (the bridge wiring, history, `diffDocuments` watcher, `applyDrop`, `runApply`, `paintStage`, drag coordinator, structure picker, grid fill, selection, edit grant, Outline and Blocks-tab bindings), replacing the entry calls with `host.mint`/`host.apply`/`host.schema`/`host.initial`, and `maybeReconcileStash` with `if (host.reconcileOnOpen) …`. The page keeps: route params, draft hydration and `lock_version`, save/publish, routes, locales, SEO, versions, `_presentation`, restore to draft, the review mint. No behaviour change: move, don't rewrite.
-- [ ] **Step 4.** `stage-editor.spec.ts` green; **the three Design page specs green without edits**; `pnpm type-check`, `lint`, `fmt:check`, `pnpm test`; **`cd admin/e2e && pnpm exec playwright test` — all 47 green unchanged.**
+- [ ] **Step 3.** Move the stage-editing state and functions out of `design/[locale].vue` into the composable **verbatim** (the bridge wiring, history, `diffDocuments` watcher, `applyDrop`, `runApply`, `paintStage`, drag coordinator, structure picker, grid fill, selection, edit grant, Outline and Blocks-tab bindings), replacing the entry calls with `host.mint`/`host.apply`/`host.schema`/`host.initial`, `maybeReconcileStash` with `if (host.reconcileOnOpen) …`, and the inline re-mint in `runApply` with the renewal path above (the entry host's `renew` is today's re-mint code, moved, returning `retryWithExistingPair: true`). The page keeps: route params, draft hydration and `lock_version`, save/publish, routes, locales, SEO, versions, `_presentation`, restore to draft, the review mint. No behaviour change: move, don't rewrite.
+- [ ] **Step 4.** `stage-editor.spec.ts` green; **the three Design page specs green without edits**; `pnpm type-check`, `lint`, `fmt:check`, `pnpm test`; **`cd admin/e2e && pnpm exec playwright test` — green, with every Design view e2e test unchanged.**
 - [ ] **Step 5.** No changelog bullet (internal). Commit `refactor(canvas): the stage editor is a composable with a host`.
 
 ## Task R8: the Regions page on the stage
@@ -242,8 +280,9 @@ The inputs the spec implies but no requirement names, most likely to bite first.
 **Files:**
 - Create: `admin/src/pages/regions/useRegionHost.ts`, `admin/src/pages/regions/components/RegionSettingsTab.vue` (Sticky, Width, region Style — moved from `index.vue`), `admin/src/pages/regions/components/RegionsTopBar.vue`
 - Modify: `admin/src/pages/regions/index.vue` (rebuilt: top bar, the four inspector tabs — Block, Blocks, Region, Outline — and the stage iframe `data-test="regions-stage"`), `admin/src/queries/regions.ts` (the new calls; `lock_version`)
-- Delete: `admin/src/pages/regions/components/RegionBlockInspector.vue`, `admin/src/__tests__/region-block-inspector.spec.ts` (the off-stage inspector — its Content tab work lives on as the Block tab)
-- Test: `admin/src/__tests__/regionsPage.spec.ts` (rewritten), `admin/src/__tests__/region-host.spec.ts` (new)
+- Delete: `admin/src/pages/regions/components/RegionBlockInspector.vue`, `admin/src/__tests__/region-block-inspector.spec.ts` (the off-stage inspector — its Content tab work lives on as the Block tab); `usePreviewRegions` in `admin/src/queries/regions.ts` (the page no longer calls it)
+- Modify (the proof world, in this same task, because this task's gates run the e2e suite): `scripts/build-builder-proof-fixtures` — seed saved header and footer regions and two published pages (the homepage and a second page, `pageb`), then, **through the real endpoints and renderer** (`RegionPreviewController::session` / `apply`, `RenderController::preview` with the region token and `?canvas=1`), write `admin/e2e/fixtures/regions/` : `session.json` (the mint response), `stage-baseline.html` (the saved regions on the homepage), `stage-empty.html` (both regions accepted empty), `stage-edited.html` (the baseline with the header's first heading text accepted as `Edited header`), `stage-edited-pageb.html` (that same accepted document on `pageb`), and `stages.json` mapping each file to the canonical JSON of the accepted document and the page it was rendered for; `admin/e2e/helpers.ts` — move `openRegionsPage` out of `regions-style.spec.ts` into `helpers.ts` as `openRegionsStage(page, world)`: routes the session, apply and save endpoints (recording each call), and serves `/_preview/**` for a region token with **the fixture whose document equals the last accepted document (or the baseline before any apply) and whose page equals the session's page**; an unmatched combination fails the test (`throw new Error('no rendered fixture for …')`) rather than serving a stale stage; `.github/workflows/builder-proofs.yml` — the fixture step unchanged in command, and a `rm -rf admin/e2e/fixtures` before it
+- Test: `admin/src/__tests__/regionsPage.spec.ts` (rewritten), `admin/src/__tests__/region-host.spec.ts` (new), `admin/e2e/tests/regions-style.spec.ts` (rewritten for the stage: the header's Style on the Region tab; a block's settings open by selecting it on the stage), `admin/e2e/tests/regions-stage.spec.ts` (new — the proofs listed below)
 
 **Interfaces:** Consumes R3/R4 endpoints, R7 `useStageEditor`. Produces the page.
 
@@ -253,7 +292,7 @@ The inputs the spec implies but no requirement names, most likely to bite first.
   - Save posts dirty regions only, `expected` for both, the accepted `preview_revision`; marks saved **the submitted sequence**; an edit made while the save is in flight stays dirty.
   - **Review Focus 2:** after a save, undo once — the page is dirty again and the next Save sends the region with the advanced versions.
   - 409 `REGION_VERSION_CONFLICT` shows `regions-conflict`; Reload discards edits and loads saved regions and versions.
-  - **Restore sequence:** switching page calls mint then apply(whole document, null pair) and swaps the stage only after acceptance (`regions-switching` shown meanwhile); history and dirty kept; a second switch during the first abandons it (the first's responses ignored); renewal after a 410 runs the same sequence.
+  - **Restore sequence:** `renew` calls mint then apply(whole document, null pair) and resolves only after acceptance; switching page runs it through the editor's `switchSession` (`regions-switching` shown meanwhile); history, dirty state and the save baseline kept; a second switch during the first abandons it (the first's responses ignored). Renewal after a 410 is tested **through the shared editor** (R7's path) with this host: from a non-null accepted pair, the 410 leads to one `renew`, the stage swaps after acceptance, and an edit made during it is applied afterwards.
 
   `regionsPage.spec.ts`:
   - The top bar's switch sets the current region and **follows the selection** (selecting a footer block switches to Footer).
@@ -261,24 +300,28 @@ The inputs the spec implies but no requirement names, most likely to bite first.
   - The Region tab edits Sticky/Width/Style through history (undo reverts a Sticky change).
   - `regions-hidden-notice` shows when the session reports the picked page hides a region.
   - **Review Focus 5:** with unsaved edits, `beforeunload` is prevented (the handler sets `returnValue`), and the in-app guard asks on navigation; a fresh mount after a "reload" starts from the saved regions (the host mints a new session and applies nothing).
+
+  `regions-stage.spec.ts` (e2e, against the generated fixtures): selecting a header block on the stage opens its Block tab; drag reorder in the header; a block dragged from the Blocks tab into the footer; in-place text edit in a header block; undo; Save (one `PUT /regions` recorded with both `expected`); **a click on a body link navigates nowhere and selects nothing**; a block not allowed at a region's root is refused while accepted inside a container that allows it; **both regions empty still loads as a stage** (`stage-empty.html`: `data-thallo-canvas="regions"` present, both slots marked); **switching to `pageb` with the unsaved `Edited header` and no further edit shows `Edited header` on the new stage** (`stage-edited-pageb.html` served only because the restore applied that document to the new session).
+- [ ] **Gates:** run with the fixtures rebuilt from scratch — `rm -rf admin/e2e/fixtures && DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-builder-proof-fixtures` — then the admin vitest and the whole e2e suite (Design view tests unchanged).
 - [ ] **Step 5.** Changelog `### Added`: "**The header and footer are edited on the stage.** The Header & footer page shows a real page with its chrome live: click a header or footer block to open its settings, drag to move it, drag new blocks in from the Blocks tab, edit text in place, and undo — as on the Design view. The page body is shown for context and can't be selected. Edits stay yours until Save, which saves both regions at once and says so if someone else saved first." Commit `feat(regions): the header and footer are edited on the stage`.
 
-## Task R9: proofs, removals, docs and gates
+## Task R9: removals, docs and the full gates
 
 **Files:**
-- Delete: the old `POST /v1/admin/regions/preview` route and `RegionAdminController::preview`, `packages/thallo-render/themes/default/templates/region-preview.twig`, its tests (`RegionAdminApiTest` preview cases), `usePreviewRegions` in `admin/src/queries/regions.ts`
-- Create: `admin/e2e/tests/regions-stage.spec.ts`; the e2e fixture world gains region session/apply/save routes (follow `admin/e2e/helpers.ts` `openDesignPage` / `openRegionsPage` patterns)
-- Modify: `admin/e2e/tests/regions-style.spec.ts` (rewritten for the stage: the header's Style lives on the Region tab; a block's settings open by selecting it on the stage), `docs/reference/` region docs and `packages/thallo-render/docs/THEMING.md` (the stage, `data-thallo-canvas`, the region slots), `docs/internal/superpowers/specs/2026-07-04-global-regions-design.md` (a one-paragraph amendment pointing at the new spec)
-- Test: e2e
+- Delete: the `POST /v1/admin/regions/preview` route and `RegionAdminController::preview`, `packages/thallo-render/themes/default/templates/region-preview.twig` (its placeholder already moved to a partial in R5), and the preview cases in `tests/Integration/Http/RegionAdminApiTest.php`
+- Modify: the region docs in `docs/reference/`, `packages/thallo-render/docs/THEMING.md` (the stage, `data-thallo-canvas`, the region slots, `setAnnotationScope`), `docs/internal/superpowers/specs/2026-07-04-global-regions-design.md` (a one-paragraph amendment pointing at the new spec)
 
-- [ ] **Steps 1–4.** `regions-stage.spec.ts`: selecting a header block on the stage opens its Block tab; drag reorder in the header; a block dragged from the Blocks tab into the footer; in-place text edit in a header block; undo; Save (the fixture receives one `PUT /regions` with both `expected`); **a click on a body link navigates nowhere and selects nothing**; a block not allowed at a region's root is refused while accepted inside a container that allows it; **both regions empty still loads as a stage** (`data-thallo-canvas` present, slots marked); **switching pages with unsaved edits and no further edit shows those edits on the new stage**. Then: the whole e2e suite green (the Design view's specs unchanged).
-- [ ] **Step 5.** Full gates: `composer test` (after `test:migrate`), `phpcs` (exit code), `boundaries`, fragments re-recorded, style proofs, admin type-check/lint/fmt/vitest/e2e. Changelog `### Removed`: "The Header & footer page's separate preview (`POST /v1/admin/regions/preview` and `region-preview.twig`): the stage replaces it." Commit `chore(regions): the stage replaces the old region preview; proofs and docs`.
+- [ ] **Step 1.** A test that `POST /v1/admin/regions/preview` answers 404 (the route is gone) and that no template named `region-preview.twig` resolves.
+- [ ] **Step 2.** Run it — fails (the route still exists).
+- [ ] **Step 3.** Remove the route, action, template and their tests; update the docs.
+- [ ] **Step 4.** Full gates: `composer test:migrate` then `COMPOSER_PROCESS_TIMEOUT=0 composer test`, `composer phpcs` (exit code), `composer boundaries`, fragments re-recorded if any template changed, style proofs, admin type-check/lint/fmt/vitest, e2e with fixtures rebuilt from scratch.
+- [ ] **Step 5.** Changelog `### Removed`: "The Header & footer page's separate preview (`POST /v1/admin/regions/preview` and `region-preview.twig`): the stage replaces it." Commit `chore(regions): the stage replaces the old region preview; docs`.
 
 **Beta cut:** after R9, when the user asks — the release process in `docs/internal/RELEASING.md` (changelog cut commit, gates, `scripts/release-bake`, release commit, `scripts/verify-dist-archive`); split, tags and pushes are the user's.
 
 ## Self-review
 
-- **Spec coverage.** §2 decisions → R2–R8; §3 layout → R8; §4.1 session and initialisation → R2, R3; §4.2 baseline, working copy, expiry → R2 (store, clock test), R5 (never live rows, expired page); §4.3 apply → R3; §4.4 render (snapshot, scope, slots, hidden, empty, marker, carrier, no page) → R5; §4.5 batch save, writer inventory, version contract, exact clearing, per-region endpoint → R1, R4; §4.6 refresh → R7 (unchanged path) and R5 (carrier); §4.7 isolation → R2 (token classes), R3 (403), R5 (entry byte-identical); §5.1 document and palettes → R8; §5.2 shared stage code → R7; §5.3 save baseline, save, restore sequence, leaving → R8; §5.4 inert body → R6; §6 edge cases → R1, R4, R5, R8; §7 tests → each task; §8 rollout → R9.
+- **Spec coverage.** §2 decisions → R2–R8; §3 layout → R8; §4.1 session and initialisation → R2, R3; §4.2 baseline, working copy, expiry → R2 (store, clock test), R5 (never live rows, expired page); §4.3 apply → R3; §4.4 render (snapshot, scope, slots, hidden, empty, marker, carrier, no page) → R5; §4.5 batch save, writer inventory, version contract, exact clearing, per-region endpoint → R1, R4; §4.6 refresh → R7 (unchanged path) and R5 (carrier); §4.7 isolation → R2 (token classes), R3 (403), R5 (entry byte-identical); §5.1 document and palettes → R8; §5.2 shared stage code → R7; §5.3 save baseline, save, restore sequence, leaving → R8; §5.4 inert body → R6; §6 edge cases → R1, R4, R5, R8; §7 tests → each task; §8 rollout → R9. Review amendments: lock ownership and real concurrency → R1, R4; renewal owner → R7, R8; consumer inventory → R2; rendered fixtures → R8; dependent clients/tests with their task → R4, R8; type names and the `setBlockAnnotations` inventory → Shared contracts, R5.
 - **Placeholders.** None: every task names its files, tests and the behaviour each test pins; R1's lock is given in code; R7 is a move with named boundaries.
 - **Type consistency.** `RegionWriteLock::within/key`, `saveExpected`, `RegionVersionConflict::$moved`, `RegionPreviewToken::mint/verify`, `RegionPreviewStore::putBaseline/baseline/accept/current/snapshot/clearIfPair`, `PreviewSession::$kind/$session/$page`, `RegionValidator::validateBoth`, `setAnnotationScope`, `RegionSessionReader`, `StageHost`/`useStageEditor`, `useRegionHost` — used with the same names and shapes in every task that consumes them.
 - **Review Focus.** Five lines, each with its test: 1 → R1 and R4; 2 → R8; 3 → R5; 4 → R6; 5 → R8.
