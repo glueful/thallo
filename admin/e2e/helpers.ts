@@ -178,13 +178,14 @@ export async function routeWorld(page: Page, world: World = {}): Promise<Recorde
   return recorded
 }
 
-/** Sign in through the real login page (the session store is persisted, encrypted) and open the Design page. */
-export async function openDesignPage(page: Page, world: World = {}): Promise<Recorded> {
-  const recorded = await routeWorld(page, world)
-  await page.addInitScript(() => {
-    // Manual apply: a proof decides when the server judges the tree.
-    localStorage.setItem('thallo.canvas.auto_apply', '0')
-  })
+/**
+ * Sign in through the real login page and open `path`, waiting for `ready`. The persisted session
+ * rehydrates asynchronously, so on a slow load the route guard can run first and bounce the page
+ * back to sign-in. Whichever arrives is waited for, and a bounce is answered by signing in again
+ * rather than by failing the proof on the app's startup race. Three attempts: past that it is not
+ * a race any more.
+ */
+async function signInAndOpen(page: Page, path: string, ready: string, what: string): Promise<void> {
   async function signIn(): Promise<void> {
     await page.goto('/admin/login')
     await page.locator('input[type="email"]').fill('proofs@thallo.test')
@@ -195,18 +196,14 @@ export async function openDesignPage(page: Page, world: World = {}): Promise<Rec
     // hard navigation before they settle is what the guard races against.
     await page.waitForLoadState('networkidle').catch(() => undefined)
   }
-  // The persisted session rehydrates asynchronously, so on a slow load the route guard can run
-  // first and bounce the design page back to sign-in. Whichever arrives is waited for, and a
-  // bounce is answered by signing in again rather than by failing the proof on the app's startup
-  // race. Three attempts: past that it is not a race any more.
   for (let attempt = 0; ; attempt++) {
     await signIn()
-    await page.goto(designPath)
+    await page.goto(path)
     const landed = await Promise.race([
       page
-        .locator('[data-test="canvas-iframe"]')
+        .locator(ready)
         .waitFor({ timeout: 20_000 })
-        .then(() => 'design' as const)
+        .then(() => 'ready' as const)
         .catch(() => 'timeout' as const),
       page
         .locator('input[type="password"]')
@@ -214,9 +211,19 @@ export async function openDesignPage(page: Page, world: World = {}): Promise<Rec
         .then(() => 'login' as const)
         .catch(() => 'timeout' as const),
     ])
-    if (landed === 'design') break
-    if (attempt >= 2) throw new Error(`the Design page never opened (last state: ${landed})`)
+    if (landed === 'ready') return
+    if (attempt >= 2) throw new Error(`${what} never opened (last state: ${landed})`)
   }
+}
+
+/** Sign in through the real login page (the session store is persisted, encrypted) and open the Design page. */
+export async function openDesignPage(page: Page, world: World = {}): Promise<Recorded> {
+  const recorded = await routeWorld(page, world)
+  await page.addInitScript(() => {
+    // Manual apply: a proof decides when the server judges the tree.
+    localStorage.setItem('thallo.canvas.auto_apply', '0')
+  })
+  await signInAndOpen(page, designPath, '[data-test="canvas-iframe"]', 'the Design page')
   await stage(page).locator('[data-thallo-block]').first().waitFor()
   return recorded
 }
@@ -455,4 +462,264 @@ export async function dragCardTo(
     last = now
   }
   if (release) await page.mouse.up()
+}
+
+// ── The regions stage (regions stage plan R8) ─────────────────────────────────────────────────
+
+export interface RegionsDocument {
+  header: { blocks: unknown[]; settings: unknown }
+  footer: { blocks: unknown[]; settings: unknown }
+}
+
+export interface RegionsRecorded {
+  sessions: { page: string | null }[]
+  applies: {
+    token: string
+    regions: RegionsDocument
+    epoch: string | null
+    base_revision: number | null
+    operations: Operation[]
+  }[]
+  saves: {
+    regions: Partial<RegionsDocument>
+    expected: Record<string, number | null>
+    token: string | null
+    preview_revision: { epoch: string; revision: number } | null
+  }[]
+  /** Stage requests no fixture could answer: a proof fails on any. */
+  unmatched: string[]
+}
+
+interface StageFixture {
+  page: 'home' | 'pageb'
+  document: RegionsDocument
+  file: string
+}
+
+/** Keys sorted, and an empty list the same as an empty object: PHP writes `{}` as `[]`. */
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) return value.length === 0 ? {} : value.map(canonical)
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, canonical((value as Record<string, unknown>)[key])]),
+    )
+  }
+  return value
+}
+const same = (a: unknown, b: unknown) =>
+  JSON.stringify(canonical(a)) === JSON.stringify(canonical(b))
+
+/**
+ * Open the Header & footer page on the stage, in a world built from the regions fixtures. The
+ * session, apply and save endpoints are routed and recorded; each mocked session keeps its own
+ * `{epoch, revision}` as the server does (a stale pair answers PREVIEW_REVISION_STALE); and the
+ * stage is served from the fixture whose document equals the session's last accepted document —
+ * before any apply, its own baseline (`baseline`, or `container` for that session) — on the
+ * session's page, with its revision metadata rewritten to the pair just accepted. A combination no
+ * fixture renders is recorded in `unmatched` and answered 500, never with a stale stage.
+ */
+export async function openRegionsStage(
+  page: Page,
+  options: { session?: 'baseline' | 'container' } = {},
+): Promise<RegionsRecorded> {
+  await routeWorld(page)
+  const recorded: RegionsRecorded = { sessions: [], applies: [], saves: [], unmatched: [] }
+  const stages = JSON.parse(fixture('regions/stages.json')) as Record<string, StageFixture>
+  const pages = JSON.parse(fixture('regions/pages.json')) as Record<'home' | 'pageb', string>
+  const pageName = (uuid: string | null | undefined): 'home' | 'pageb' =>
+    uuid === pages.pageb ? 'pageb' : 'home'
+  const first = options.session ?? 'baseline'
+  const baselineSession = JSON.parse(
+    fixture(first === 'container' ? 'regions/session-container.json' : 'regions/session.json'),
+  ) as { data: { regions: Record<string, { lock_version: number | null }> } }
+  const versions: Record<string, number | null> = {
+    header: baselineSession.data.regions.header?.lock_version ?? null,
+    footer: baselineSession.data.regions.footer?.lock_version ?? null,
+  }
+
+  interface MockSession {
+    page: 'home' | 'pageb'
+    baseline: RegionsDocument
+    epoch: string
+    revision: number
+    accepted: RegionsDocument | null
+  }
+  const sessions = new Map<string, MockSession>()
+
+  await page.route('**/v1/admin/regions', async (route) => {
+    const request = route.request()
+    if (request.method() === 'PUT') {
+      const body = request.postDataJSON() as RegionsRecorded['saves'][number]
+      recorded.saves.push(body)
+      const moved = Object.entries(body.expected).some(([slug, v]) => versions[slug] !== v)
+      if (moved) {
+        return json(
+          route,
+          JSON.stringify({
+            success: false,
+            message: 'A region changed since it was loaded.',
+            error: { details: { code: 'REGION_VERSION_CONFLICT', moved: [] } },
+          }),
+          409,
+        )
+      }
+      const committed: Record<string, unknown> = {}
+      for (const slug of ['header', 'footer'] as const) {
+        const posted = body.regions[slug]
+        if (posted) versions[slug] = (versions[slug] ?? -1) + 1
+        committed[slug] = {
+          ...(posted ?? { blocks: [], settings: {} }),
+          lock_version: versions[slug],
+        }
+      }
+      return json(
+        route,
+        JSON.stringify({ success: true, data: { regions: committed, preview_cleared: false } }),
+      )
+    }
+    return json(route, fixture('regions/regions.json'))
+  })
+  await page.route('**/v1/admin/entries?*', (route) =>
+    json(
+      route,
+      JSON.stringify({
+        success: true,
+        data: {
+          entries: [
+            {
+              uuid: pages.pageb,
+              display_title: 'Page B',
+              status: 'published',
+              locales: ['en'],
+              updated_at: null,
+            },
+          ],
+          total: 1,
+          current_page: 1,
+          per_page: 100,
+        },
+      }),
+    ),
+  )
+  await page.route('**/v1/admin/block-types/*/instance', (route) => {
+    const slug = /block-types\/([^/]+)\/instance/.exec(route.request().url())![1]!
+    return json(route, fixture(`api/instance-${slug}.json`))
+  })
+  await page.route('**/v1/admin/regions/preview/session', (route) => {
+    const body = (route.request().postDataJSON() ?? {}) as { page?: string }
+    recorded.sessions.push({ page: body.page ?? null })
+    const n = recorded.sessions.length
+    const token = `proof-session-${n}`
+    // The first session is the page's opening one; later ones (a switch, a renewal) are restored
+    // by an apply before they are shown.
+    const baselineName = n === 1 ? first : 'baseline'
+    sessions.set(token, {
+      page: pageName(body.page),
+      baseline: stages[baselineName]!.document,
+      epoch: `proof-epoch-${n}`,
+      revision: 0,
+      accepted: null,
+    })
+    const opening = JSON.parse(
+      fixture(
+        baselineName === 'container' ? 'regions/session-container.json' : 'regions/session.json',
+      ),
+    ) as { data: Record<string, unknown> }
+    return json(
+      route,
+      JSON.stringify({
+        success: true,
+        data: { ...opening.data, token, theme_url: `/_preview/${token}` },
+      }),
+    )
+  })
+  await page.route('**/v1/admin/regions/preview/apply', (route) => {
+    const body = route.request().postDataJSON() as RegionsRecorded['applies'][number]
+    recorded.applies.push(body)
+    const session = sessions.get(body.token)
+    if (!session) return json(route, JSON.stringify({ success: false, message: 'expired' }), 410)
+    const current =
+      session.revision === 0 ? null : { epoch: session.epoch, revision: session.revision }
+    const matches =
+      current === null
+        ? body.epoch === null || body.epoch === session.epoch
+        : body.epoch === current.epoch && body.base_revision === current.revision
+    if (!matches) {
+      return json(
+        route,
+        JSON.stringify({
+          success: false,
+          message: 'The preview working copy moved on.',
+          error: { details: { code: 'PREVIEW_REVISION_STALE', current } },
+        }),
+        409,
+      )
+    }
+    session.revision += 1
+    session.accepted = body.regions
+    return json(
+      route,
+      JSON.stringify({
+        success: true,
+        data: {
+          epoch: session.epoch,
+          revision: session.revision,
+          baseline: session.revision - 1,
+          style_generation: 0,
+          applied_at: new Date().toISOString(),
+        },
+      }),
+    )
+  })
+  await page.route('**/_preview/**', (route) => {
+    const token = new URL(route.request().url()).pathname.split('/').pop() ?? ''
+    const session = sessions.get(token)
+    if (!session) return route.fulfill({ status: 410, body: 'expired' })
+    const doc = session.accepted ?? session.baseline
+    const hit = Object.entries(stages).find(
+      ([, s]) => s.page === session.page && same(s.document, doc),
+    )
+    if (!hit) {
+      recorded.unmatched.push(
+        `no rendered fixture for page ${session.page} and document ${JSON.stringify(canonical(doc))}`,
+      )
+      return route.fulfill({ status: 500, body: 'no rendered fixture' })
+    }
+    const html = fixture(`regions/${hit[1].file}`)
+      .replace(/data-thallo-epoch="[^"]*"/, `data-thallo-epoch="${session.epoch}"`)
+      .replace(/data-thallo-revision="[^"]*"/, `data-thallo-revision="${session.revision}"`)
+    return text(route, html, 'text/html')
+  })
+
+  await signInAndOpen(page, '/admin/regions', '[data-test="regions-stage"]', 'the Regions page')
+  await regionsStage(page).locator('[data-thallo-slot="header"]').first().waitFor()
+  return recorded
+}
+
+/** The regions stage iframe's document. */
+export function regionsStage(page: Page) {
+  return page.frameLocator('[data-test="regions-stage"]')
+}
+
+/** Wait until the last accepted apply's document is the named scenario's, exactly. */
+export async function acceptedIs(
+  page: Page,
+  recorded: RegionsRecorded,
+  name: string,
+): Promise<void> {
+  const stages = JSON.parse(fixture('regions/stages.json')) as Record<string, StageFixture>
+  const want = stages[name]!.document
+  const deadline = Date.now() + 10_000
+  for (;;) {
+    const last = recorded.applies.at(-1)?.regions
+    if (last && same(last, want)) return
+    if (Date.now() > deadline) {
+      throw new Error(
+        `the accepted document is not '${name}':\n  want ${JSON.stringify(canonical(want))}\n  got  ${JSON.stringify(canonical(last))}`,
+      )
+    }
+    await page.waitForTimeout(100)
+  }
 }

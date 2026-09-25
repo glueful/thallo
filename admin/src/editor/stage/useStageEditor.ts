@@ -77,6 +77,7 @@ import type {
   StageRenewal,
   StageSession,
 } from './types'
+import { StageRenewalAbandoned } from './types'
 
 export interface StageEditorRefs {
   iframe: Ref<HTMLIFrameElement | null>
@@ -1492,6 +1493,8 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
       succeeded = true
       if (!auto) autoSuspended.value = false // manual success re-arms auto
     } catch (e: unknown) {
+      // A newer renewal owns the stage (a page switch): it applies the document itself.
+      if (e instanceof StageRenewalAbandoned) return
       appliesAnswered++
       // Final failure: discard mirror-only DOM; keep dirty fields (v2/loop C pins).
       reloadStage()
@@ -1548,6 +1551,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
    */
   async function switchSession(renew: StageHost['renew']): Promise<void> {
     cancelAutoTimer()
+    const mine = ++switchSeq
     applying.value = true
     const appliedJson = JSON.stringify(fields.value)
     const payload = JSON.parse(appliedJson) as Record<string, unknown>
@@ -1564,11 +1568,29 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
       lastApplied.value = appliedJson
       renewed = true
     } catch (e) {
-      notifyError(e, 'Couldn’t start the preview')
+      if (!(e instanceof StageRenewalAbandoned)) notifyError(e, 'Couldn’t start the preview')
     } finally {
-      if (applying.value) applying.value = false
+      // A newer switch still in flight keeps the stage busy until it answers.
+      if (mine === switchSeq && applying.value) applying.value = false
       if (renewed && opsSinceApply.length > 0) void runApply(true)
     }
+  }
+  let switchSeq = 0
+
+  /**
+   * Start over from a fresh session and its tree (a Reload after a conflict): the document, its
+   * history, the accepted pair and the stage are all replaced; nothing is applied.
+   */
+  function restart(session: StageSession, tree: Record<string, unknown>): void {
+    cancelAutoTimer()
+    opsSinceApply.splice(0, opsSinceApply.length)
+    clearSelection()
+    history = null // the tree watcher starts a fresh history from the new tree
+    pendingRebase = false
+    fields.value = JSON.parse(JSON.stringify(tree)) as Record<string, unknown>
+    lastApplied.value = JSON.stringify(fields.value)
+    displayed.value = null
+    adopt(session, true)
   }
 
   /**
@@ -1959,6 +1981,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     previewToken,
     onIframeLoad,
     remint: mintAndLoad,
+    restart,
     refreshPreview,
     reloadStage,
     resetStage,

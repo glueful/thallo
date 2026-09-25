@@ -1,244 +1,194 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import { refDebounced } from '@vueuse/core'
-import { usePreviewRegions, useRegions, useSaveRegion, type RegionData } from '@/queries/regions'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { useRegions } from '@/queries/regions'
+import { useEntries } from '@/queries/entries'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
-import BlocksField from '@/fields/components/BlocksField.vue'
-import RegionStyleEditor from './components/RegionStyleEditor.vue'
-import RegionBlockInspector from './components/RegionBlockInspector.vue'
-import type { Breakpoint } from '@/style/types'
-import { STAGE_FRAME_EDGE, STAGE_WIDTHS, type ViewportPreset } from '@/editor/breakpoint'
-import { useNotify } from '@/composables/useNotify'
-import { ApiError, apiErrorCode } from '@/api/errors'
+import type { DropZone } from '@/editor/structure/coordinator'
+import { activeBreakpoint, STAGE_FRAME_EDGE } from '@/editor/breakpoint'
+import { useStageEditor } from '@/editor/stage/useStageEditor'
+import type { FieldEditorExposed } from '@/editor/stage/types'
+import FieldEditor from '@/components/FieldEditor.vue'
+import BlockInspector from '@/editor/inspector/BlockInspector.vue'
+import SaveAsStyleClassDialog from '@/editor/inspector/SaveAsStyleClassDialog.vue'
+import BlocksPalette from '@/editor/palette/BlocksPalette.vue'
+import CanvasOutline from '@/pages/content/[type]/[uuid]/design/components/CanvasOutline.vue'
+import MoveToDialog from '@/pages/content/[type]/[uuid]/design/components/MoveToDialog.vue'
+import UnsavedChangesModal from '@/components/UnsavedChangesModal.vue'
+import { createDirtyRegistry, useUnsavedGuard } from '@/composables/useSectionState'
+import RegionsTopBar from './components/RegionsTopBar.vue'
+import RegionSettingsTab from './components/RegionSettingsTab.vue'
+import { REGION_SLUGS, useRegionHost, type RegionSlug } from './useRegionHost'
 
-definePage({ meta: { requiresAuth: true } })
+// The header and footer, edited on the stage (regions stage spec §3, §5.3): a real published page
+// with the chrome from this editor's working copy, the Design view's stage editing over it, and
+// one Save for both regions. The page body is context — the stage keeps it inert.
+definePage({ meta: { requiresAuth: true, collapseSidebar: true } })
 
-const { success, error: notifyError } = useNotify()
-const { data, status } = useRegions()
-const save = useSaveRegion()
+const { data: regionData } = useRegions()
+const region = useRegionHost({ regions: regionData })
+const { currentRegion, hidden, saving, conflict, switching } = region
 
-// Local editable copy per region, synced from the server ONLY while clean —
-// a stale-query refetch must never clobber in-progress edits (the
-// settings/general lesson).
-interface RegionState {
-  blocks: BlockInstance[]
-  settings: Record<string, unknown>
-  dirty: boolean
-  /** The version this copy was loaded at — what a save names as expected. */
-  loadedVersion: number | null
+const iframeEl = ref<HTMLIFrameElement | null>(null)
+const fieldEditorRef = ref<FieldEditorExposed | null>(null)
+const stageEl = ref<HTMLElement | null>(null)
+const editor = useStageEditor(region.host, {
+  iframe: iframeEl,
+  fieldEditor: fieldEditorRef,
+  stage: stageEl,
+})
+region.bind(editor)
+// The stage applies every edit by itself: this page has no Apply button, and the Design view's
+// Auto switch (remembered per browser) does not reach it.
+editor.autoEnabled.value = true
+const {
+  fields,
+  historyState,
+  dirty,
+  undo,
+  redo,
+  iframeSrc,
+  renderDisabled,
+  onIframeLoad,
+  viewport,
+  setViewport,
+  onActiveBreakpoint,
+  stageWidth,
+  inspectorTab,
+  selection,
+  selected,
+  styleSchema,
+  selectedBlock,
+  selectedBlocksHost,
+  selectedBlockType,
+  selectedBlocks,
+  selectedBlockTypes,
+  selectedParent,
+  selectedParentType,
+  onSetSetting,
+  onSetAll,
+  onSetAdvanced,
+  onPatchData,
+  playSelectedMotion,
+  onInsertInto,
+  stageEditingId,
+  classRefsFor,
+  classNames,
+  classOptions,
+  reResolving,
+  onApplyClass,
+  onRemoveClass,
+  onReorderClasses,
+  onDetachClass,
+  onDetachAll,
+  liftDialogOpen,
+  lifting,
+  selectedStyle,
+  saveAsStyleClass,
+  selectedFill,
+  fillCells,
+  onOutlineSelect,
+  onOutlineDeselect,
+  moveBlockAndMirror,
+  duplicateAndMirror,
+  openDeleteConfirm,
+  runDrop,
+  moveToId,
+  currentDoc,
+  legalityContext,
+  deleteRequest,
+  deletePos,
+  cancelDelete,
+  confirmDelete,
+  armInsertTarget,
+  paletteTypes,
+  paletteTarget,
+  targetStale,
+  paletteClickable,
+  insertFromPalette,
+  clearInsertTarget,
+  paletteDrag,
+  autoSuspended,
+  toggleAuto,
+} = editor
+const schema = region.host.schema
+
+// ── The current region follows the selection (spec §3): a footer block selected is Footer. ──
+function holds(list: unknown, id: string): boolean {
+  if (!Array.isArray(list)) return false
+  return (list as BlockInstance[]).some(
+    (b) =>
+      b.id === id ||
+      Object.values(b.data ?? {}).some((value) => Array.isArray(value) && holds(value, id)),
+  )
 }
-const state = reactive<Record<string, RegionState>>({})
-let syncing = false
+function regionOf(id: string): RegionSlug | null {
+  return REGION_SLUGS.find((slug) => holds(fields.value[slug], id)) ?? null
+}
+watch(selected, (id) => {
+  const owner = id === null ? null : regionOf(id)
+  if (owner !== null) currentRegion.value = owner
+})
+function setCurrentRegion(next: RegionSlug): void {
+  if (next === currentRegion.value) return
+  // A selection in the other region does not follow the switch.
+  if (selected.value !== null && regionOf(selected.value) !== next) editor.clearSelection()
+  currentRegion.value = next
+}
 
-watch(
-  data,
-  (regions) => {
-    for (const region of regions ?? []) {
-      const existing = state[region.slug]
-      if (existing?.dirty) continue
-      syncing = true
-      state[region.slug] = {
-        blocks: JSON.parse(JSON.stringify(region.blocks)) as BlockInstance[],
-        settings: { ...region.settings },
-        dirty: false,
-        loadedVersion: region.lock_version ?? null,
-      }
-      void nextTick(() => {
-        syncing = false
-      })
-    }
-  },
-  { immediate: true, deep: true },
+// ── The inspector (spec §3): Block when a block is selected, Blocks, Region, and Outline. ──
+type InspectorTab = { value: string; slot: string; label?: string; icon?: string; name?: string }
+const inspectorTabs = computed<InspectorTab[]>(() => [
+  ...(selected.value !== null ? [{ label: 'Block', value: 'block', slot: 'block' }] : []),
+  { label: 'Blocks', value: 'blocks', slot: 'blocks' },
+  { label: 'Region', value: 'region', slot: 'region' },
+  { name: 'Outline', icon: 'i-lucide-list-tree', value: 'outline', slot: 'outline' },
+])
+inspectorTab.value = 'blocks'
+watch(inspectorTabs, (tabs) => {
+  if (!tabs.some((tab) => tab.value === inspectorTab.value)) inspectorTab.value = 'blocks'
+})
+
+/** The current region's settings, as the document holds them. */
+const regionSettings = computed<Record<string, unknown>>(() => {
+  const s = fields.value[`_region_${currentRegion.value}`]
+  return typeof s === 'object' && s !== null && !Array.isArray(s)
+    ? (s as Record<string, unknown>)
+    : {}
+})
+function setRegionSettings(next: Record<string, unknown>): void {
+  // Reassigned, so the tree watcher records the change as an edit undo can take back.
+  fields.value = { ...fields.value, [`_region_${currentRegion.value}`]: next }
+}
+const regionCapabilities = computed(
+  () => regionData.value?.find((r) => r.slug === currentRegion.value)?.style_capabilities ?? [],
 )
+/** The Outline shows the current region's tree. */
+const outlineSchema = computed(() => schema.value.filter((f) => f.name === currentRegion.value))
 
-watch(
-  state,
-  () => {
-    if (syncing) return
-    // A deep mutation marks every non-synced region dirty is too blunt — the
-    // per-region touch() below is the real dirty signal; this watch only
-    // covers nested block edits inside BlocksField models.
-    for (const region of data.value ?? []) {
-      const s = state[region.slug]
-      if (!s || s.dirty) continue
-      const clean =
-        JSON.stringify(s.blocks) === JSON.stringify(region.blocks) &&
-        JSON.stringify(s.settings) === JSON.stringify(region.settings)
-      if (!clean) s.dirty = true
-    }
-  },
-  { deep: true },
+// ── The page picker (spec §3): published pages, the homepage by default. ──
+const HOME = '@home'
+const { data: pageRows } = useEntries('page', 1, 100, undefined)
+const pageOptions = computed(() => [
+  { label: 'Homepage', value: HOME },
+  ...(pageRows.value?.entries ?? [])
+    .filter((row) => row.status === 'published')
+    .map((row) => ({ label: row.display_title, value: row.uuid })),
+])
+const pageValue = computed(() => region.page.value ?? HOME)
+function onPage(value: string): void {
+  void region.switchPage(value === HOME ? undefined : value)
+}
+
+// ── Leaving with unsaved edits (spec §5.3): the app's own guard. ──
+const registry = createDirtyRegistry()
+onBeforeUnmount(
+  registry.register({
+    id: 'regions',
+    label: 'Header & footer',
+    blocked: computed(() => dirty.value || saving.value),
+  }),
 )
-
-const regionMeta = computed<Record<string, RegionData>>(() => {
-  const out: Record<string, RegionData> = {}
-  for (const region of data.value ?? []) out[region.slug] = region
-  return out
-})
-
-function paletteField(slug: string) {
-  return {
-    name: 'blocks',
-    label: '',
-    type: 'blocks' as const,
-    blockTypes: regionMeta.value[slug]?.palette ?? [],
-  }
-}
-
-async function onSave(slug: string): Promise<void> {
-  const s = state[slug]
-  if (!s) return
-  const expected: Record<string, number | null> = {}
-  for (const [name, region] of Object.entries(state)) expected[name] = region.loadedVersion
-  try {
-    await save.mutateAsync({ slug, blocks: s.blocks, settings: s.settings, expected })
-    s.dirty = false
-    success('Region saved', 'Changes are live on the site immediately.')
-  } catch (e) {
-    if (
-      e instanceof ApiError &&
-      e.status === 409 &&
-      apiErrorCode(e) === 'REGION_VERSION_CONFLICT'
-    ) {
-      notifyError(
-        e,
-        'Someone else saved the header or footer — reload the page to see their changes',
-      )
-      return
-    }
-    notifyError(e, 'Couldn’t save the region')
-  }
-}
-
-const headerSticky = computed<boolean>({
-  get: () => state.header?.settings.sticky === true,
-  set: (v) => {
-    if (state.header) state.header.settings = { ...state.header.settings, sticky: v }
-  },
-})
-const headerWidth = computed<string>({
-  get: () => (state.header?.settings.width as string | undefined) ?? 'contained',
-  set: (v) => {
-    if (state.header) state.header.settings = { ...state.header.settings, width: v }
-  },
-})
-const footerWidth = computed<string>({
-  get: () => (state.footer?.settings.width as string | undefined) ?? 'contained',
-  set: (v) => {
-    if (state.footer) state.footer.settings = { ...state.footer.settings, width: v }
-  },
-})
-/**
- * A region's own style (its Style tab): `settings.style`, the record a block keeps in the same
- * place. An emptied record is REMOVED, not stored as `{}` — the server stores no style for it, and
- * a region whose last declaration was taken away is clean again, not dirty against `{}`.
- */
-function styleOf(slug: string): Record<string, unknown> {
-  const style = state[slug]?.settings.style
-  return typeof style === 'object' && style !== null ? (style as Record<string, unknown>) : {}
-}
-function setStyle(slug: string, style: Record<string, unknown>): void {
-  const s = state[slug]
-  if (!s) return
-  const { style: _dropped, ...rest } = s.settings
-  s.settings = Object.keys(style).length === 0 ? rest : { ...rest, style }
-}
-
-/**
- * The block whose settings are open, per region: chosen from its card's Block settings button.
- * While one is open the region's own tabs step aside (hidden, not unmounted: the block list keeps
- * its state) and the panel shows that block's Layout, Style and Advanced.
- */
-const blockSettingsFor = reactive<Record<string, string | null>>({ header: null, footer: null })
-
-const widthOptions = [
-  { label: 'Contained', value: 'contained' },
-  { label: 'Full width', value: 'full' },
-]
-
-// ── Two-panel layout (design-canvas pattern): left editor tabs, right stage ──
-const editorTab = ref('header')
-const editorTabs = [
-  { label: 'Header', value: 'header', slot: 'header' as const },
-  { label: 'Footer', value: 'footer', slot: 'footer' as const },
-]
-// Inside each region: what it holds, and how the bar itself looks.
-const regionTab = reactive<Record<string, string>>({ header: 'content', footer: 'content' })
-const regionTabs = [
-  { label: 'Content', value: 'content', slot: 'content' as const },
-  { label: 'Style', value: 'style', slot: 'style' as const },
-]
-
-type Viewport = ViewportPreset
-const viewport = ref<Viewport>('desktop')
-const stageWidth = computed(() => STAGE_WIDTHS[viewport.value])
-
-// The viewport IS the breakpoint being edited, both ways round: a responsive style value is
-// written where the stage is showing it, and choosing a breakpoint in the Style tab resizes the
-// stage to match.
-const VIEWPORT_BREAKPOINT: Record<Viewport, Breakpoint> = {
-  mobile: 'base',
-  tablet: 'md',
-  desktop: 'lg',
-}
-const activeBreakpoint = computed<Breakpoint>({
-  get: () => VIEWPORT_BREAKPOINT[viewport.value],
-  set: (bp) => {
-    const match = (Object.keys(VIEWPORT_BREAKPOINT) as Viewport[]).find(
-      (v) => VIEWPORT_BREAKPOINT[v] === bp,
-    )
-    if (match) viewport.value = match
-  },
-})
-
-// ── Live chrome preview (region-preview plan) ───────────────────────────────
-const preview = usePreviewRegions()
-const previewUrl = ref('') // blob: object URL (P1 pin — never srcdoc)
-const previewError = ref('')
-const previewStale = ref(false) // P2 pin: the iframe shows LAST GOOD, not current edits
-
-// Fingerprint of the editable state; debounced so typing doesn't spam renders.
-const stateFingerprint = computed(() => JSON.stringify(state))
-const debouncedFingerprint = refDebounced(stateFingerprint, 700)
-
-function setPreviewDocument(html: string): void {
-  const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
-  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
-  previewUrl.value = url
-}
-
-async function refreshPreview(): Promise<void> {
-  const regions: Record<string, { blocks: BlockInstance[]; settings: Record<string, unknown> }> = {}
-  for (const slug of ['header', 'footer']) {
-    const s = state[slug]
-    if (s) regions[slug] = { blocks: s.blocks, settings: s.settings }
-  }
-  try {
-    setPreviewDocument(await preview.mutateAsync({ regions }))
-    previewError.value = ''
-    previewStale.value = false
-  } catch (e) {
-    // Keep the last good preview but say so LOUDLY (P2): the iframe no longer
-    // reflects the current (invalid) edits until a refresh succeeds. Surface
-    // the dot-path detail — "field validation failed" alone is undebuggable.
-    const err = e instanceof ApiError ? e : null
-    const detail = err
-      ? Object.entries(err.fieldErrors)
-          .map(([path, message]) => `${path}: ${message}`)
-          .join(' · ')
-      : ''
-    previewError.value = detail || (e instanceof Error ? e.message : 'Preview failed')
-    previewStale.value = true
-  }
-}
-
-watch(debouncedFingerprint, () => {
-  if (Object.keys(state).length > 0) void refreshPreview()
-})
-
-onBeforeUnmount(() => {
-  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
-})
+const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
 </script>
 
 <template>
@@ -246,287 +196,255 @@ onBeforeUnmount(() => {
     <template #header>
       <UDashboardNavbar title="Header & footer">
         <template #default>
-          <!-- Viewport switcher (design-canvas pattern). -->
-          <UFieldGroup size="sm">
-            <UButton
-              variant="outline"
-              color="neutral"
-              icon="i-lucide-monitor"
-              aria-label="Desktop viewport"
-              data-test="regions-viewport-desktop"
-              :class="{ 'bg-elevated': viewport === 'desktop' }"
-              :ui="{ base: 'rounded-s' }"
-              @click="viewport = 'desktop'"
-            />
-            <UButton
-              variant="outline"
-              color="neutral"
-              icon="i-lucide-tablet"
-              aria-label="Tablet viewport"
-              data-test="regions-viewport-tablet"
-              :class="{ 'bg-elevated': viewport === 'tablet' }"
-              :ui="{ base: 'rounded-none' }"
-              @click="viewport = 'tablet'"
-            />
-            <UButton
-              variant="outline"
-              color="neutral"
-              icon="i-lucide-smartphone"
-              aria-label="Mobile viewport"
-              data-test="regions-viewport-mobile"
-              :class="{ 'bg-elevated': viewport === 'mobile' }"
-              :ui="{ base: 'rounded-e' }"
-              @click="viewport = 'mobile'"
-            />
-          </UFieldGroup>
-        </template>
-        <template #right>
-          <UBadge
-            v-if="previewStale"
-            color="warning"
-            variant="subtle"
-            data-test="region-preview-stale"
-          >
-            Preview not updated
-          </UBadge>
-          <UButton
-            size="sm"
-            variant="subtle"
-            color="neutral"
-            icon="i-lucide-refresh-cw"
-            :loading="preview.isLoading.value"
-            aria-label="Refresh preview"
-            data-test="region-preview-refresh"
-            @click="
-              () => {
-                void refreshPreview()
-              }
-            "
-          >
-            Refresh
-          </UButton>
+          <RegionsTopBar
+            :current-region="currentRegion"
+            :viewport="viewport"
+            :page-options="pageOptions"
+            :page="pageValue"
+            :can-undo="historyState.canUndo"
+            :can-redo="historyState.canRedo"
+            :dirty="dirty"
+            :saving="saving"
+            :switching="switching"
+            :conflict="conflict"
+            :paused="autoSuspended"
+            @update:current-region="setCurrentRegion"
+            @update:viewport="setViewport"
+            @update:page="onPage"
+            @undo="undo()"
+            @redo="redo()"
+            @save="region.save()"
+            @reload="region.reload()"
+            @resume="toggleAuto()"
+          />
         </template>
       </UDashboardNavbar>
     </template>
 
     <template #body>
-      <div v-if="status === 'pending'" class="flex h-full gap-4">
-        <USkeleton class="h-full w-96 shrink-0" />
-        <USkeleton class="h-full flex-1" />
+      <div
+        v-if="renderDisabled"
+        class="mx-auto max-w-md space-y-3 py-16 text-center"
+        data-test="regions-disabled"
+      >
+        <UIcon name="i-lucide-monitor-off" class="mx-auto size-8 text-muted" />
+        <p class="font-medium">Rendered delivery is disabled</p>
+        <p class="text-sm text-muted">
+          The header and footer are edited on your site's real theme output. Turn on Rendered
+          delivery under Extensions › Capabilities to use it.
+        </p>
       </div>
 
       <div v-else class="flex h-full min-h-0 gap-4">
-        <!-- Left: the region editors (design-canvas inspector pattern).
-             unmount-on-hide false so edits + dirty state survive tab switches. -->
-        <!-- The Design page's inspector column, for the same reasons (its scrollbar proofs): a
-             gutter keeps the Style tab's chips and badges clear of the scrollbar, and stops the
-             breakpoint dot on a flush-right row from scrolling the panel sideways. -->
+        <!-- The Design view's inspector column, for the same reasons: a stable gutter keeps chips
+             and badges clear of the scrollbar and stops the panel scrolling sideways. -->
         <aside
           class="w-[25rem] shrink-0 overflow-y-auto pe-4 [scrollbar-gutter:stable]"
-          data-test="regions-inspector"
+          data-test="canvas-inspector"
         >
+          <!-- The tree's single authority: the stage routes every intent through it, so it stays
+               mounted, out of sight — the stage and the Outline are how the regions are edited. -->
+          <div class="hidden">
+            <FieldEditor ref="fieldEditorRef" v-model="fields" :schema="schema" palette-insert />
+          </div>
+          <p
+            v-if="hidden.header || hidden.footer"
+            class="mb-2 rounded border border-default bg-elevated/50 p-2 text-xs text-muted"
+            data-test="regions-hidden-notice"
+          >
+            This page hides its
+            {{
+              hidden.header && hidden.footer
+                ? 'header and footer'
+                : hidden.header
+                  ? 'header'
+                  : 'footer'
+            }}
+            in its own settings; pick another page to see it on the stage.
+          </p>
           <UTabs
-            v-model="editorTab"
-            :items="editorTabs"
+            v-model="inspectorTab"
+            :items="inspectorTabs"
             :unmount-on-hide="false"
             size="xs"
+            data-test="inspector-tabs"
             variant="link"
-            data-test="regions-tabs"
           >
-            <template #header>
-              <div v-if="state.header" class="space-y-4 pt-3" data-test="region-header">
-                <div class="flex items-center justify-between gap-2">
-                  <USwitch v-model="headerSticky" label="Sticky" data-test="region-header-sticky" />
-                  <UChip :show="state.header.dirty" color="warning" size="sm">
-                    <UButton
-                      size="sm"
-                      :loading="save.isLoading.value"
-                      data-test="save-region-header"
-                      @click="
-                        () => {
-                          void onSave('header')
-                        }
-                      "
-                    >
-                      Save
-                    </UButton>
-                  </UChip>
-                </div>
-                <p class="text-sm text-muted">
-                  Rendered on every page. Empty means the theme’s built-in header; hide per page via
-                  the page’s presentation settings.
-                </p>
-                <div
-                  v-if="blockSettingsFor.header !== null"
-                  class="space-y-3"
-                  data-test="region-block-settings-header"
-                >
-                  <UButton
-                    size="xs"
-                    variant="ghost"
-                    color="neutral"
-                    icon="i-lucide-arrow-left"
-                    data-test="region-block-settings-back"
-                    @click="blockSettingsFor.header = null"
-                  >
-                    Back to the header
-                  </UButton>
-                  <RegionBlockInspector
-                    v-model:blocks="state.header.blocks"
-                    v-model:active-breakpoint="activeBreakpoint"
-                    :block-id="blockSettingsFor.header"
-                    @close="blockSettingsFor.header = null"
+            <template #leading="{ item }">
+              <template v-if="item.name">
+                <UTooltip :text="item.name" :content="{ side: 'bottom' }">
+                  <UIcon
+                    :name="item.icon!"
+                    class="size-4 shrink-0"
+                    aria-hidden="true"
+                    :data-test="`inspector-tab-icon-${item.value}`"
                   />
-                </div>
-                <UTabs
-                  v-show="blockSettingsFor.header === null"
-                  v-model="regionTab.header"
-                  :items="regionTabs"
-                  :unmount-on-hide="false"
-                  size="xs"
-                  variant="link"
-                  data-test="region-header-tabs"
-                >
-                  <template #content>
-                    <div class="space-y-4 pt-3">
-                      <UFormField label="Width">
-                        <USelect
-                          v-model="headerWidth"
-                          :items="widthOptions"
-                          class="w-full"
-                          data-test="region-header-width"
-                        />
-                      </UFormField>
-                      <BlocksField
-                        v-model="state.header.blocks"
-                        :field="paletteField('header')"
-                        block-settings
-                        @settings-request="(id) => (blockSettingsFor.header = id)"
-                      />
-                    </div>
-                  </template>
-                  <template #style>
-                    <div class="pt-3">
-                      <RegionStyleEditor
-                        v-model:active-breakpoint="activeBreakpoint"
-                        region="header"
-                        :model-value="styleOf('header')"
-                        :capabilities="regionMeta.header?.style_capabilities ?? []"
-                        @update:model-value="(style) => setStyle('header', style)"
-                      />
-                    </div>
-                  </template>
-                </UTabs>
+                </UTooltip>
+                <span class="sr-only">{{ item.name }}</span>
+              </template>
+            </template>
+            <template #block>
+              <BlockInspector
+                v-if="selectedBlock"
+                :block="selectedBlock"
+                :block-type="selectedBlockType"
+                :blocks="selectedBlocks"
+                :block-types="selectedBlockTypes"
+                :schema="styleSchema ?? null"
+                :classes="classRefsFor(selectedBlock)"
+                :class-names="classNames"
+                :class-options="classOptions"
+                :re-resolving="reResolving"
+                can-play-motion
+                @play-motion="playSelectedMotion"
+                @save-as-class="liftDialogOpen = true"
+                @apply-class="onApplyClass"
+                @remove-class="onRemoveClass"
+                @reorder-classes="onReorderClasses"
+                @detach-class="onDetachClass"
+                @detach-all="onDetachAll"
+                :parent="selectedParent"
+                :parent-type="selectedParentType"
+                :parent-classes="classRefsFor(selectedParent)"
+                :active-breakpoint="activeBreakpoint"
+                :fill="selectedFill"
+                :blocks-host="selectedBlocksHost"
+                :prose-locked="stageEditingId !== null && stageEditingId === selected"
+                @fill-cells="fillCells(selected)"
+                @patch-data="onPatchData"
+                @insert-into="onInsertInto"
+                @set-setting="onSetSetting"
+                @set-all="onSetAll"
+                @set-advanced="onSetAdvanced"
+                @update:active-breakpoint="onActiveBreakpoint"
+              />
+              <p v-else class="text-xs text-muted" data-test="block-inspector-empty">
+                Select a header or footer block on the stage or in the outline.
+              </p>
+              <SaveAsStyleClassDialog
+                v-model:open="liftDialogOpen"
+                :style="selectedStyle"
+                :saving="lifting"
+                @confirm="saveAsStyleClass"
+              />
+            </template>
+            <template #blocks>
+              <div class="pt-2" data-test="regions-tab-blocks">
+                <BlocksPalette
+                  :types="paletteTypes"
+                  :target="paletteTarget"
+                  :stale="targetStale"
+                  :patterns="[]"
+                  :clickable="paletteClickable"
+                  @insert="insertFromPalette"
+                  @clear-target="clearInsertTarget"
+                  @pointer-down="(slug: string, e: PointerEvent) => paletteDrag.begin(slug, e)"
+                />
               </div>
             </template>
-
-            <template #footer>
-              <div v-if="state.footer" class="space-y-4 pt-3" data-test="region-footer">
-                <div class="flex items-center justify-end gap-2">
-                  <UChip :show="state.footer.dirty" color="warning" size="sm">
-                    <UButton
-                      size="sm"
-                      :loading="save.isLoading.value"
-                      data-test="save-region-footer"
-                      @click="
-                        () => {
-                          void onSave('footer')
-                        }
-                      "
-                    >
-                      Save
-                    </UButton>
-                  </UChip>
-                </div>
-                <p class="text-sm text-muted">Empty means the theme’s built-in footer.</p>
-                <div
-                  v-if="blockSettingsFor.footer !== null"
-                  class="space-y-3"
-                  data-test="region-block-settings-footer"
-                >
-                  <UButton
-                    size="xs"
-                    variant="ghost"
-                    color="neutral"
-                    icon="i-lucide-arrow-left"
-                    data-test="region-block-settings-back"
-                    @click="blockSettingsFor.footer = null"
-                  >
-                    Back to the footer
-                  </UButton>
-                  <RegionBlockInspector
-                    v-model:blocks="state.footer.blocks"
-                    v-model:active-breakpoint="activeBreakpoint"
-                    :block-id="blockSettingsFor.footer"
-                    @close="blockSettingsFor.footer = null"
-                  />
-                </div>
-                <UTabs
-                  v-show="blockSettingsFor.footer === null"
-                  v-model="regionTab.footer"
-                  :items="regionTabs"
-                  :unmount-on-hide="false"
-                  size="xs"
-                  variant="link"
-                  data-test="region-footer-tabs"
-                >
-                  <template #content>
-                    <div class="space-y-4 pt-3">
-                      <UFormField label="Width">
-                        <USelect
-                          v-model="footerWidth"
-                          :items="widthOptions"
-                          class="w-full"
-                          data-test="region-footer-width"
-                        />
-                      </UFormField>
-                      <BlocksField
-                        v-model="state.footer.blocks"
-                        :field="paletteField('footer')"
-                        block-settings
-                        @settings-request="(id) => (blockSettingsFor.footer = id)"
-                      />
-                    </div>
-                  </template>
-                  <template #style>
-                    <div class="pt-3">
-                      <RegionStyleEditor
-                        v-model:active-breakpoint="activeBreakpoint"
-                        region="footer"
-                        :model-value="styleOf('footer')"
-                        :capabilities="regionMeta.footer?.style_capabilities ?? []"
-                        @update:model-value="(style) => setStyle('footer', style)"
-                      />
-                    </div>
-                  </template>
-                </UTabs>
+            <template #region>
+              <div data-test="regions-tab-region">
+                <RegionSettingsTab
+                  :key="currentRegion"
+                  :region="currentRegion"
+                  :settings="regionSettings"
+                  :capabilities="regionCapabilities"
+                  :active-breakpoint="activeBreakpoint"
+                  @update:settings="setRegionSettings"
+                  @update:active-breakpoint="onActiveBreakpoint"
+                />
+              </div>
+            </template>
+            <template #outline>
+              <div class="pt-2" data-test="outline-tab">
+                <CanvasOutline
+                  :fields="fields"
+                  :schema="outlineSchema"
+                  :selected="selected"
+                  :selected-ids="selection.ids"
+                  @select="onOutlineSelect"
+                  @move="moveBlockAndMirror"
+                  @delete-request="(id: string) => openDeleteConfirm(id, null)"
+                  @duplicate="duplicateAndMirror"
+                  @deselect="onOutlineDeselect"
+                  @drop="(id: string, zone: DropZone) => runDrop('outline', id, zone)"
+                  @move-to="(id: string) => (moveToId = id)"
+                  @insert-request="
+                    (parent: string, slot: string) =>
+                      armInsertTarget({ kind: 'into', parent, field: slot })
+                  "
+                />
+                <MoveToDialog
+                  :open="moveToId !== null"
+                  :block-id="moveToId"
+                  :doc="currentDoc()"
+                  :legality="legalityContext()"
+                  @update:open="(v: boolean) => (moveToId = v ? moveToId : null)"
+                  @confirm="
+                    (zone: DropZone) => {
+                      const id = moveToId
+                      moveToId = null
+                      if (id !== null) runDrop('outline', id, zone)
+                    }
+                  "
+                />
               </div>
             </template>
           </UTabs>
         </aside>
 
-        <!-- Right: the preview stage. Nothing is live until Save. -->
         <div
+          ref="stageEl"
           class="relative min-w-0 flex-1 overflow-auto rounded-lg border border-default bg-elevated/40 p-3"
-          data-test="region-preview"
+          data-test="canvas-stage"
         >
-          <p v-if="previewError" class="mb-2 text-sm text-error" data-test="region-preview-error">
-            {{ previewError }}
-          </p>
           <div class="mx-auto h-full transition-[width]" :style="{ width: stageWidth }">
             <iframe
-              v-if="previewUrl"
-              :src="previewUrl"
-              sandbox="allow-same-origin"
-              title="Chrome preview"
+              v-if="iframeSrc"
+              ref="iframeEl"
+              :src="iframeSrc"
               class="h-full min-h-[70vh] w-full"
               :class="STAGE_FRAME_EDGE"
-              data-test="region-preview-frame"
+              title="Header and footer on a page"
+              data-test="regions-stage"
+              @load="onIframeLoad()"
             />
             <p v-else class="py-16 text-center text-sm text-muted">Starting preview…</p>
+          </div>
+
+          <!-- Parent-side delete confirm, as on the Design view: the stage only requests. -->
+          <div
+            v-if="deleteRequest"
+            class="absolute z-10 w-fit rounded-lg border border-default bg-default p-3 shadow-lg"
+            :class="deletePos ? '' : 'inset-x-0 top-3 mx-auto'"
+            :style="deletePos ?? undefined"
+            data-test="canvas-delete-confirm"
+          >
+            <p class="mb-2 text-sm font-medium">Delete this block?</p>
+            <div class="flex justify-end gap-2">
+              <UButton
+                size="xs"
+                variant="ghost"
+                color="neutral"
+                data-test="canvas-delete-cancel"
+                @click="cancelDelete()"
+              >
+                Cancel
+              </UButton>
+              <UButton
+                size="xs"
+                color="error"
+                data-test="canvas-delete-confirm-yes"
+                @click="confirmDelete()"
+              >
+                Delete
+              </UButton>
+            </div>
           </div>
         </div>
       </div>
     </template>
   </UDashboardPanel>
+
+  <UnsavedChangesModal :state="leaveConfirm" @resolve="resolveLeave" />
 </template>

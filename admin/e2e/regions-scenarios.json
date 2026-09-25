@@ -1,0 +1,548 @@
+{
+  "_comment": "The regions stage's accepted states (regions stage plan R8). scripts/build-builder-proof-fixtures validates each (the validator's clean output must equal it), renders it through the real session, apply and preview path, and writes admin/e2e/fixtures/regions/. A block written {id, $factory: slug} is that type's factory instance (defaults, starter, settings) under the given id — what the palette tile inserts.",
+  "scenarios": [
+    {
+      "name": "baseline",
+      "page": "home",
+      "document": {
+        "header": {
+          "blocks": [
+            {
+              "id": "e2ehdr000001",
+              "type": "logo",
+              "data": {},
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000002",
+              "type": "navigation",
+              "data": {
+                "menu": "e2e-main"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000003",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Header note</p>"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000004",
+              "type": "button",
+              "data": {
+                "label": "Get started",
+                "url": "/start"
+              },
+              "settings": {}
+            }
+          ],
+          "settings": {}
+        },
+        "footer": {
+          "blocks": [
+            {
+              "id": "e2eftr000001",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Footer note</p>"
+              },
+              "settings": {}
+            }
+          ],
+          "settings": {}
+        }
+      }
+    },
+    {
+      "name": "empty",
+      "page": "home",
+      "document": {
+        "header": {
+          "blocks": [],
+          "settings": {}
+        },
+        "footer": {
+          "blocks": [],
+          "settings": {}
+        }
+      }
+    },
+    {
+      "name": "reordered",
+      "page": "home",
+      "document": {
+        "header": {
+          "blocks": [
+            {
+              "id": "e2ehdr000002",
+              "type": "navigation",
+              "data": {
+                "menu": "e2e-main"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000001",
+              "type": "logo",
+              "data": {},
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000003",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Header note</p>"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000004",
+              "type": "button",
+              "data": {
+                "label": "Get started",
+                "url": "/start"
+              },
+              "settings": {}
+            }
+          ],
+          "settings": {}
+        },
+        "footer": {
+          "blocks": [
+            {
+              "id": "e2eftr000001",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Footer note</p>"
+              },
+              "settings": {}
+            }
+          ],
+          "settings": {}
+        }
+      }
+    },
+    {
+      "name": "inserted",
+      "page": "home",
+      "document": {
+        "header": {
+          "blocks": [
+            {
+              "id": "e2ehdr000001",
+              "type": "logo",
+              "data": {},
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000002",
+              "type": "navigation",
+              "data": {
+                "menu": "e2e-main"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000003",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Header note</p>"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000004",
+              "type": "button",
+              "data": {
+                "label": "Get started",
+                "url": "/start"
+              },
+              "settings": {}
+            }
+          ],
+          "settings": {}
+        },
+        "footer": {
+          "blocks": [
+            {
+              "id": "e2eftr000001",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Footer note</p>"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2enew000001",
+              "$factory": "rich_text"
+            }
+          ],
+          "settings": {}
+        }
+      }
+    },
+    {
+      "name": "restyled",
+      "page": "home",
+      "document": {
+        "header": {
+          "blocks": [
+            {
+              "id": "e2ehdr000001",
+              "type": "logo",
+              "data": {},
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000002",
+              "type": "navigation",
+              "data": {
+                "menu": "e2e-main"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000003",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Header note</p>"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000004",
+              "type": "button",
+              "data": {
+                "label": "Get started",
+                "url": "/start"
+              },
+              "settings": {
+                "style": {
+                  "radius": {
+                    "type": "token",
+                    "value": "radius.lg"
+                  }
+                }
+              }
+            }
+          ],
+          "settings": {}
+        },
+        "footer": {
+          "blocks": [
+            {
+              "id": "e2eftr000001",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Footer note</p>"
+              },
+              "settings": {}
+            }
+          ],
+          "settings": {}
+        }
+      }
+    },
+    {
+      "name": "sticky",
+      "page": "home",
+      "document": {
+        "header": {
+          "blocks": [
+            {
+              "id": "e2ehdr000001",
+              "type": "logo",
+              "data": {},
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000002",
+              "type": "navigation",
+              "data": {
+                "menu": "e2e-main"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000003",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Header note</p>"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000004",
+              "type": "button",
+              "data": {
+                "label": "Get started",
+                "url": "/start"
+              },
+              "settings": {}
+            }
+          ],
+          "settings": {
+            "sticky": true
+          }
+        },
+        "footer": {
+          "blocks": [
+            {
+              "id": "e2eftr000001",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Footer note</p>"
+              },
+              "settings": {}
+            }
+          ],
+          "settings": {}
+        }
+      }
+    },
+    {
+      "name": "edited",
+      "page": "home",
+      "document": {
+        "header": {
+          "blocks": [
+            {
+              "id": "e2ehdr000001",
+              "type": "logo",
+              "data": {},
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000002",
+              "type": "navigation",
+              "data": {
+                "menu": "e2e-main"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000003",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Edited header</p>"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000004",
+              "type": "button",
+              "data": {
+                "label": "Get started",
+                "url": "/start"
+              },
+              "settings": {}
+            }
+          ],
+          "settings": {}
+        },
+        "footer": {
+          "blocks": [
+            {
+              "id": "e2eftr000001",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Footer note</p>"
+              },
+              "settings": {}
+            }
+          ],
+          "settings": {}
+        }
+      }
+    },
+    {
+      "name": "edited-pageb",
+      "page": "pageb",
+      "document": {
+        "header": {
+          "blocks": [
+            {
+              "id": "e2ehdr000001",
+              "type": "logo",
+              "data": {},
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000002",
+              "type": "navigation",
+              "data": {
+                "menu": "e2e-main"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000003",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Edited header</p>"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000004",
+              "type": "button",
+              "data": {
+                "label": "Get started",
+                "url": "/start"
+              },
+              "settings": {}
+            }
+          ],
+          "settings": {}
+        },
+        "footer": {
+          "blocks": [
+            {
+              "id": "e2eftr000001",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Footer note</p>"
+              },
+              "settings": {}
+            }
+          ],
+          "settings": {}
+        }
+      }
+    },
+    {
+      "name": "container",
+      "page": "home",
+      "document": {
+        "header": {
+          "blocks": [
+            {
+              "id": "e2ehdr000001",
+              "type": "logo",
+              "data": {},
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000002",
+              "type": "navigation",
+              "data": {
+                "menu": "e2e-main"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000003",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Header note</p>"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000004",
+              "type": "button",
+              "data": {
+                "label": "Get started",
+                "url": "/start"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000005",
+              "type": "container",
+              "data": {
+                "content": []
+              },
+              "settings": {}
+            }
+          ],
+          "settings": {}
+        },
+        "footer": {
+          "blocks": [
+            {
+              "id": "e2eftr000001",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Footer note</p>"
+              },
+              "settings": {}
+            }
+          ],
+          "settings": {}
+        }
+      }
+    },
+    {
+      "name": "container-heading",
+      "page": "home",
+      "document": {
+        "header": {
+          "blocks": [
+            {
+              "id": "e2ehdr000001",
+              "type": "logo",
+              "data": {},
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000002",
+              "type": "navigation",
+              "data": {
+                "menu": "e2e-main"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000003",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Header note</p>"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000004",
+              "type": "button",
+              "data": {
+                "label": "Get started",
+                "url": "/start"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000005",
+              "type": "container",
+              "data": {
+                "content": [
+                  {
+                    "id": "e2enew000002",
+                    "$factory": "heading"
+                  }
+                ]
+              },
+              "settings": {}
+            }
+          ],
+          "settings": {}
+        },
+        "footer": {
+          "blocks": [
+            {
+              "id": "e2eftr000001",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Footer note</p>"
+              },
+              "settings": {}
+            }
+          ],
+          "settings": {}
+        }
+      }
+    }
+  ]
+}

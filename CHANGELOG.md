@@ -7,6 +7,13 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **The header and footer are edited on the stage.** The Header & footer page shows a real page
+  with its chrome live: click a header or footer block to open its settings, drag to move it, drag
+  new blocks in from the Blocks tab, edit text in place, and undo — as on the Design view. The page
+  body is shown for context and can't be selected. Edits stay yours until Save, which saves both
+  regions at once and says so if someone else saved first.
+
 ### Changed
 - **Every write to the header and footer is serialized.** Region saves, starter updates and
   renames, style-class jobs and block backfills all take one database lock, so none can overwrite

@@ -35395,7 +35395,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a managed subscription plan. Entitlements must be a JSON object whose values are booleans, non-negative integers, or explicit null. Body: `plan_key` (required; unique key of lowercase letters, numbers, dot, underscore, hyphen), `display_name` (required), `description`, `entitlements` (required; entitlement map of bool|int>=0|null values), `provider_price_id`, `status` (required; one of draft, active, archived), `sort_order`. Requires the `subscriptions.plans.manage` permission.",
+                "description": "Creates a managed subscription plan. Entitlements must be a JSON object whose values are booleans, non-negative integers, or explicit null. Body: `plan_key` (required; unique key of lowercase letters, numbers, dot, underscore, hyphen), `display_name` (required), `description`, `entitlements` (required; entitlement map of bool|int>=0|null values), `provider_price_id`, `status` (required; one of draft, active, archived), `sort_order`, and a display price: `price_amount` (minor units), `price_currency` (ISO 4217) and `billing_interval` (day, week, month, year), all three or none. Requires the `subscriptions.plans.manage` permission.",
                 "responses": {
                     "200": {
                         "description": "Successful response"
@@ -35715,7 +35715,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Updates a managed subscription plan. `plan_key` is immutable. Active and archived plans cannot transition back to draft. Edits to active plans take effect immediately. Body: `display_name`, `description` (new description or null), `entitlements` (replacement entitlement map of bool|int>=0|null values), `provider_price_id`, `status` (one of draft, active, archived), `sort_order`. Requires the `subscriptions.plans.manage` permission.",
+                "description": "Updates a managed subscription plan. `plan_key` is immutable. Active and archived plans cannot transition back to draft. Edits to active plans take effect immediately. Body: `display_name`, `description` (new description or null), `entitlements` (replacement entitlement map of bool|int>=0|null values), `provider_price_id`, `status` (one of draft, active, archived), `sort_order`, `price_amount`, `price_currency`, `billing_interval` (a price is checked whole against the stored one). Requires the `subscriptions.plans.manage` permission.",
                 "responses": {
                     "200": {
                         "description": "Plan updated"
@@ -38359,7 +38359,7 @@
         },
         "\/v1\/admin\/billing\/cancel": {
             "post": {
-                "operationId": "thalloSubscriptionsBillingCancel",
+                "operationId": "postV1AdminBillingCancel",
                 "summary": "Cancel a workspace subscription",
                 "tags": [
                     "Thallo Subscriptions"
@@ -38474,7 +38474,7 @@
         },
         "\/v1\/admin\/billing\/checkout": {
             "post": {
-                "operationId": "thalloSubscriptionsBillingCheckout",
+                "operationId": "postV1AdminBillingCheckout",
                 "summary": "Start a workspace subscription checkout",
                 "tags": [
                     "Thallo Subscriptions"
@@ -38589,7 +38589,7 @@
         },
         "\/v1\/admin\/billing\/checkout\/abandon": {
             "post": {
-                "operationId": "thalloSubscriptionsBillingCheckoutAbandon",
+                "operationId": "postV1AdminBillingCheckoutAbandon",
                 "summary": "Abandon the workspace's stuck pending checkout",
                 "tags": [
                     "Thallo Subscriptions"
@@ -38704,7 +38704,7 @@
         },
         "\/v1\/admin\/billing\/meta": {
             "get": {
-                "operationId": "thalloSubscriptionsBillingMeta",
+                "operationId": "getV1AdminBillingMeta",
                 "summary": "Workspace billing status",
                 "tags": [
                     "Thallo Subscriptions"
@@ -38819,7 +38819,7 @@
         },
         "\/v1\/admin\/billing\/plan": {
             "post": {
-                "operationId": "thalloSubscriptionsBillingPlan",
+                "operationId": "postV1AdminBillingPlan",
                 "summary": "Change the workspace subscription's plan",
                 "tags": [
                     "Thallo Subscriptions"
@@ -79094,6 +79094,171 @@
                         }
                     }
                 }
+            },
+            "put": {
+                "operationId": "putV1AdminRegions",
+                "summary": "Save the header and footer",
+                "tags": [
+                    "Thallo Regions"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Writes the posted regions in one serialized section: both regions' expected versions are checked (the unchanged one too), the complete candidate is validated, and every posted region is written or none is. From the stage it also advances the session baseline and clears the working copy on an exact revision pair. Requires `content.manage`.",
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "regions": {
+                                        "type": "array",
+                                        "items": {},
+                                        "description": "array{blocks?: list<array<string,mixed>>, settings?: array<string,mixed>}>"
+                                    },
+                                    "expected": {
+                                        "type": [
+                                            "array",
+                                            "null"
+                                        ],
+                                        "items": {},
+                                        "description": "?int> every region's lock_version as loaded; null = no row yet"
+                                    },
+                                    "token": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "preview_revision": {
+                                        "type": [
+                                            "array",
+                                            "null"
+                                        ],
+                                        "items": {},
+                                        "description": "string, revision: int}|null"
+                                    }
+                                }
+                            },
+                            "example": {
+                                "regions": "example",
+                                "expected": "example",
+                                "token": "example",
+                                "preview_revision": "example"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Saved; both regions as committed."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "The candidate is invalid, or the expected versions are missing."
+                    },
+                    "409": {
+                        "description": "A region changed since it was loaded (REGION_VERSION_CONFLICT)."
+                    }
+                }
             }
         },
         "\/v1\/admin\/regions\/preview": {
@@ -79238,6 +79403,350 @@
                 }
             }
         },
+        "\/v1\/admin\/regions\/preview\/apply": {
+            "post": {
+                "operationId": "postV1AdminRegionsPreviewApply",
+                "summary": "Apply the header & footer to a stage session",
+                "tags": [
+                    "Thallo Regions"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Validates both regions as a save would (and block ids across them), then accepts them into the session's working copy by compare-and-set. Never writes a region. Requires `content.manage`.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "token": {
+                                        "type": "string"
+                                    },
+                                    "regions": {
+                                        "type": "array",
+                                        "items": {},
+                                        "description": "array{blocks?: list<array<string,mixed>>, settings?: array<string,mixed>}>"
+                                    },
+                                    "epoch": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "base_revision": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
+                                    },
+                                    "operations": {
+                                        "type": [
+                                            "array",
+                                            "null"
+                                        ],
+                                        "items": {}
+                                    }
+                                },
+                                "required": [
+                                    "token"
+                                ]
+                            },
+                            "example": {
+                                "token": "example",
+                                "regions": "example",
+                                "epoch": "example",
+                                "base_revision": 50,
+                                "operations": "example"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Accepted."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "A region is invalid, or a block id is used in both."
+                    },
+                    "409": {
+                        "description": "The working copy moved on (PREVIEW_REVISION_STALE)."
+                    },
+                    "410": {
+                        "description": "The session expired."
+                    }
+                }
+            }
+        },
+        "\/v1\/admin\/regions\/preview\/session": {
+            "post": {
+                "operationId": "postV1AdminRegionsPreviewSession",
+                "summary": "Open a header & footer stage session",
+                "tags": [
+                    "Thallo Regions"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mints a regions-stage preview token for a published page (the homepage by default), pins both saved regions and their versions as the session baseline, and returns them. Requires `content.view`.",
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "page": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    }
+                                }
+                            },
+                            "example": {
+                                "page": "example"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Session minted."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "message",
+                                        "errors"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "\/v1\/admin\/regions\/{slug}": {
             "put": {
                 "operationId": "putV1AdminRegionsBySlug",
@@ -79278,12 +79787,21 @@
                                         "type": "array",
                                         "items": {},
                                         "description": "Fixed per-region settings vocabulary."
+                                    },
+                                    "expected": {
+                                        "type": [
+                                            "array",
+                                            "null"
+                                        ],
+                                        "items": {},
+                                        "description": "?int> BOTH regions' lock_version as loaded (regions-stage spec \u00a74.5)."
                                     }
                                 }
                             },
                             "example": {
                                 "blocks": "example",
-                                "settings": "example"
+                                "settings": "example",
+                                "expected": "example"
                             }
                         }
                     }
@@ -84558,7 +85076,7 @@
         },
         "\/v1\/admin\/subscriptions\/meta": {
             "get": {
-                "operationId": "thalloSubscriptionsAdminMeta",
+                "operationId": "getV1AdminSubscriptionsMeta",
                 "summary": "Subscriptions engine + tenancy status",
                 "tags": [
                     "Thallo Subscriptions"
@@ -84673,7 +85191,7 @@
         },
         "\/v1\/admin\/subscriptions\/plans": {
             "get": {
-                "operationId": "thalloSubscriptionsAdminPlansIndex",
+                "operationId": "getV1AdminSubscriptionsPlans",
                 "summary": "List platform plans",
                 "tags": [
                     "Thallo Subscriptions"
@@ -84786,7 +85304,7 @@
                 }
             },
             "post": {
-                "operationId": "thalloSubscriptionsAdminPlansStore",
+                "operationId": "postV1AdminSubscriptionsPlans",
                 "summary": "Create a platform plan",
                 "tags": [
                     "Thallo Subscriptions"
@@ -84901,7 +85419,7 @@
         },
         "\/v1\/admin\/subscriptions\/plans\/import-config": {
             "post": {
-                "operationId": "thalloSubscriptionsAdminPlansImportConfig",
+                "operationId": "postV1AdminSubscriptionsPlansImportconfig",
                 "summary": "Import\/seed platform plans from config",
                 "tags": [
                     "Thallo Subscriptions"
@@ -85016,7 +85534,7 @@
         },
         "\/v1\/admin\/subscriptions\/plans\/{key}": {
             "patch": {
-                "operationId": "thalloSubscriptionsAdminPlansUpdate",
+                "operationId": "patchV1AdminSubscriptionsPlansByKey",
                 "summary": "Update a platform plan (plan_key is immutable)",
                 "tags": [
                     "Thallo Subscriptions"
@@ -85142,7 +85660,7 @@
         },
         "\/v1\/admin\/subscriptions\/plans\/{key}\/archive": {
             "post": {
-                "operationId": "thalloSubscriptionsAdminPlansArchive",
+                "operationId": "postV1AdminSubscriptionsPlansByKeyArchive",
                 "summary": "Archive a platform plan",
                 "tags": [
                     "Thallo Subscriptions"
@@ -85268,7 +85786,7 @@
         },
         "\/v1\/admin\/subscriptions\/self-serve": {
             "put": {
-                "operationId": "thalloSubscriptionsAdminSelfServeUpdate",
+                "operationId": "putV1AdminSubscriptionsSelfserve",
                 "summary": "Toggle the self-serve checkout operator switch",
                 "tags": [
                     "Thallo Subscriptions"
@@ -85383,7 +85901,7 @@
         },
         "\/v1\/admin\/subscriptions\/workspaces": {
             "get": {
-                "operationId": "thalloSubscriptionsAdminWorkspacesIndex",
+                "operationId": "getV1AdminSubscriptionsWorkspaces",
                 "summary": "List workspace billing status (paginated)",
                 "tags": [
                     "Thallo Subscriptions"
@@ -85498,7 +86016,7 @@
         },
         "\/v1\/admin\/subscriptions\/workspaces\/{uuid}": {
             "get": {
-                "operationId": "thalloSubscriptionsAdminWorkspacesShow",
+                "operationId": "getV1AdminSubscriptionsWorkspacesByUuid",
                 "summary": "Workspace billing detail",
                 "tags": [
                     "Thallo Subscriptions"
@@ -85624,7 +86142,7 @@
         },
         "\/v1\/admin\/subscriptions\/workspaces\/{uuid}\/cancel": {
             "post": {
-                "operationId": "thalloSubscriptionsAdminWorkspacesCancel",
+                "operationId": "postV1AdminSubscriptionsWorkspacesByUuidCancel",
                 "summary": "Cancel a workspace subscription",
                 "tags": [
                     "Thallo Subscriptions"
@@ -85750,7 +86268,7 @@
         },
         "\/v1\/admin\/subscriptions\/workspaces\/{uuid}\/overrides\/{entitlement}": {
             "put": {
-                "operationId": "thalloSubscriptionsAdminWorkspacesOverridesUpsert",
+                "operationId": "putV1AdminSubscriptionsWorkspacesByUuidOverridesByEntitlement",
                 "summary": "Set a workspace entitlement override",
                 "tags": [
                     "Thallo Subscriptions"
@@ -85883,7 +86401,7 @@
                 }
             },
             "delete": {
-                "operationId": "thalloSubscriptionsAdminWorkspacesOverridesDelete",
+                "operationId": "deleteV1AdminSubscriptionsWorkspacesByUuidOverridesByEntitlement",
                 "summary": "Remove a workspace entitlement override",
                 "tags": [
                     "Thallo Subscriptions"
@@ -86018,7 +86536,7 @@
         },
         "\/v1\/admin\/subscriptions\/workspaces\/{uuid}\/plan": {
             "put": {
-                "operationId": "thalloSubscriptionsAdminWorkspacesPlan",
+                "operationId": "putV1AdminSubscriptionsWorkspacesByUuidPlan",
                 "summary": "Start or change a workspace subscription plan",
                 "tags": [
                     "Thallo Subscriptions"

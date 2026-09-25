@@ -86,3 +86,14 @@ export interface FieldEditorExposed {
   parentOfBlockById: (id: string) => BlockInstance | null
   blocksHostFor: (id: string) => BlocksHost | null
 }
+
+/**
+ * Thrown by a host's `renew` when a newer renewal replaced it (a second page switch): the stage
+ * belongs to the newer one, so the editor says nothing and keeps what it has.
+ */
+export class StageRenewalAbandoned extends Error {
+  constructor() {
+    super('A newer session replaced this one.')
+    this.name = 'StageRenewalAbandoned'
+  }
+}
