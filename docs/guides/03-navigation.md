@@ -86,13 +86,12 @@ version; **Save mine over it** writes yours in its place.
 
 ## Show the menu in the header
 
-1. Open **Site › Header & footer**.
-2. On the **Header** tab, open **Content**.
-3. Press **Add block** and choose **Navigation**.
-4. Click the block's card to open it, and pick your menu in the **menu** field.
-5. Press **Save**.
+1. Open **Site › Header & footer**, and choose **Header** in the toolbar.
+2. On the **Blocks** tab, drag **Navigation** into the header on the stage, or click it.
+3. Select the new block on the stage and pick your menu in its **menu** field.
+4. Press **Save**.
 
-The pane beside the editor renders the header as you work. [Edit the header and
+The stage shows the header on a real page as you work. [Edit the header and
 footer](02-header-and-footer.md) covers the rest of that screen.
 
 The same block goes in the footer, and on a page: in the Design view its card is in the
