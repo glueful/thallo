@@ -10,7 +10,6 @@ use Thallo\Core\Content\Regions\RegionRepository;
 use Thallo\Core\Http\Controllers\RegionAdminController;
 use Thallo\Core\Http\DTOs\UpdateRegionData;
 use Thallo\Core\Tests\Support\AppTestCase;
-use Thallo\Core\Content\Validation\ValidationException;
 use Glueful\Validation\RequestDataHydrator;
 
 final class RegionAdminApiTest extends AppTestCase
@@ -36,12 +35,6 @@ final class RegionAdminApiTest extends AppTestCase
         ]];
         /** @var UpdateRegionData */
         return (new RequestDataHydrator())->hydrate(UpdateRegionData::class, $body);
-    }
-
-    private function previewDto(array $body): \Thallo\Core\Http\DTOs\PreviewRegionsData
-    {
-        /** @var \Thallo\Core\Http\DTOs\PreviewRegionsData */
-        return (new RequestDataHydrator())->hydrate(\Thallo\Core\Http\DTOs\PreviewRegionsData::class, $body);
     }
 
     public function testIndexExposesBothRegionsWithPalettes(): void
@@ -156,44 +149,6 @@ final class RegionAdminApiTest extends AppTestCase
         self::assertSame(['wishlist-link'], array_column($saved['blocks'], 'type'));
     }
 
-    public function testPreviewStripsNoScriptFallbacksTheFrameWouldOtherwiseShow(): void
-    {
-        // The SPA frames the preview with sandbox="allow-same-origin" and NO allow-scripts,
-        // so a browser inside it renders every <noscript> fallback — a stray "View cart"
-        // under the mini cart that no visitor ever sees on the real, scripted page. The
-        // preview must ship the shell state instead.
-        $controller = $this->controller();
-        $repo = new BlockTypeRepository($this->connection());
-        if ($repo->findBySlug('mini-cart') === null) {
-            $repo->create([
-                'slug' => 'mini-cart',
-                'label' => 'Mini cart',
-                'icon' => 'i-lucide-shopping-cart',
-                'category' => 'Commerce',
-                'description' => 'Live cart count with a drawer.',
-                'schema' => [],
-            ]);
-        }
-
-        $resp = $controller->preview($this->previewDto([
-            'regions' => [
-                'header' => [
-                    'blocks' => [['id' => 'prevhdrcart1', 'type' => 'mini-cart', 'data' => []]],
-                    'settings' => [],
-                ],
-            ],
-        ]), \Symfony\Component\HttpFoundation\Request::create('https://admin.test/v1/admin/regions/preview'));
-
-        self::assertSame(200, $resp->getStatusCode(), (string) $resp->getContent());
-        $html = json_decode((string) $resp->getContent(), true)['data']['html'];
-
-        self::assertStringContainsString('thallo-block-mini-cart', $html, 'the block itself still renders');
-        self::assertStringNotContainsString('<noscript', $html, 'no-JS fallbacks are stripped from the preview');
-        self::assertStringNotContainsString('__noscript', $html);
-        // The drawer's own "View cart" link survives — it is hidden by the shell, not stripped.
-        self::assertStringContainsString('data-shop-cart-drawer', $html);
-    }
-
     public function testOutOfPaletteBlockIs422WithDotPath(): void
     {
         $resp = $this->controller()->update($this->dto([
@@ -209,151 +164,6 @@ final class RegionAdminApiTest extends AppTestCase
     {
         $resp = $this->controller()->update($this->dto(['blocks' => [], 'settings' => []]), 'sidebar');
         self::assertSame(404, $resp->getStatusCode());
-    }
-
-    public function testPreviewRendersPostedChromeWithoutSaving(): void
-    {
-        $resp = $this->controller()->preview($this->previewDto([
-            'regions' => [
-                'header' => [
-                    'blocks' => [
-                        ['id' => 'prevhdrnav01', 'type' => 'navigation', 'data' => ['menu' => 'main']],
-                    ],
-                    'settings' => ['sticky' => true, 'width' => 'full'],
-                ],
-            ],
-        ]), \Symfony\Component\HttpFoundation\Request::create('https://admin.test/v1/admin/regions/preview'));
-        self::assertSame(200, $resp->getStatusCode(), (string) $resp->getContent());
-        $html = json_decode((string) $resp->getContent(), true)['data']['html'];
-        self::assertStringContainsString('thallo-block-navigation', $html);
-        self::assertStringContainsString('thallo-region-header--sticky', $html);
-        self::assertStringContainsString('thallo-region-header--full', $html);
-        self::assertStringContainsString('/_thallo/layers.css', $html);
-        self::assertMatchesRegularExpression('~/theme-assets/theme-[0-9a-f]{16}\.css~', $html);
-        // Blob-doc anchor (P1): absolute base so host-relative assets resolve.
-        self::assertStringContainsString('<base href="https://admin.test/">', $html);
-        self::assertStringNotContainsString('thallo-preview-block', $html); // never annotated
-        self::assertStringNotContainsString('<footer', $html);            // no footer posted, none saved
-
-        // NOTHING was written.
-        self::assertNull((new RegionRepository($this->connection()))->find('header'));
-    }
-
-    /**
-     * Website plan phase 1b: the chrome preview must look like the live page — it loads the
-     * operator's theme colours/design tokens and the site's custom CSS, which it skipped.
-     */
-    public function testPreviewRendersAnUnsavedStyleAndLinksTheSheetThatDefinesIt(): void
-    {
-        // The Style tab is edited against the live preview: a posted, unsaved style must show
-        // there — its classes on the bar, and the compiled settings sheet that defines them.
-        $resp = $this->controller()->preview($this->previewDto([
-            'regions' => [
-                'header' => [
-                    'blocks' => [
-                        ['id' => 'prevhdrnav02', 'type' => 'navigation', 'data' => ['menu' => 'main']],
-                    ],
-                    'settings' => ['style' => [
-                        'radius' => ['type' => 'token', 'value' => 'radius.full'],
-                        'colors' => ['surface_opacity' => ['type' => 'choice', 'value' => '60']],
-                    ]],
-                ],
-            ],
-        ]), \Symfony\Component\HttpFoundation\Request::create('https://admin.test/v1/admin/regions/preview'));
-        self::assertSame(200, $resp->getStatusCode(), (string) $resp->getContent());
-        $html = json_decode((string) $resp->getContent(), true)['data']['html'];
-        self::assertSame(1, preg_match('~<header class="([^"]*)"~', $html, $bar));
-        self::assertContains('t-radius-full', explode(' ', $bar[1]));
-        self::assertContains('t-bgo-60', explode(' ', $bar[1]));
-        self::assertMatchesRegularExpression('~/theme-assets/settings-[0-9a-f]{16}\.css~', $html);
-
-        // And a style a region cannot have is refused by the preview as a save would refuse it:
-        // the validation exception the framework answers with a 422.
-        $this->expectException(\Thallo\Core\Content\Validation\ValidationException::class);
-        $this->controller()->preview($this->previewDto([
-            'regions' => ['header' => ['blocks' => [], 'settings' => ['style' => [
-                'visibility' => ['base' => ['type' => 'choice', 'value' => 'hidden']],
-            ]]]],
-        ]), \Symfony\Component\HttpFoundation\Request::create('https://admin.test/v1/admin/regions/preview'));
-    }
-
-    public function testPreviewLoadsThemeColoursAndCustomCssLikeTheLivePage(): void
-    {
-        $this->container()->get(\Thallo\Core\Settings\GeneralSettings::class)
-            ->save(['theme_accent' => 'emerald', 'theme_radius' => 'sharp']);
-        // The appearance source memoises for the request's lifetime; the shared test boot
-        // has already rendered with the defaults, so drop its memo as a new request would.
-        $source = $this->container()->get(\Thallo\Render\ThemeAppearanceSource::class);
-        foreach (['accentMemo', 'neutralMemo', 'radiusMemo', 'fontMemo', 'backgroundMemo'] as $memo) {
-            $prop = new \ReflectionProperty($source, $memo);
-            $prop->setValue($source, null);
-        }
-        $put = \Symfony\Component\HttpFoundation\Request::create(
-            '/x',
-            'PUT',
-            [],
-            [],
-            [],
-            ['CONTENT_TYPE' => 'application/json'],
-            (string) json_encode(['source' => '.site-header { border-bottom: 2px solid red; }']),
-        );
-        $put->attributes->set('user', ['uuid' => 'user00000001']);
-        $saved = $this->container()->get(\Thallo\Render\Http\Controllers\TemplatesAdminController::class)
-            ->save($put, 'custom.css');
-        self::assertSame(200, $saved->getStatusCode(), (string) $saved->getContent());
-
-        $resp = $this->controller()->preview($this->previewDto([
-            'regions' => ['header' => ['blocks' => [
-                ['id' => 'prevhdrnav02', 'type' => 'navigation', 'data' => ['menu' => 'main']],
-            ], 'settings' => []]],
-        ]), \Symfony\Component\HttpFoundation\Request::create('https://admin.test/v1/admin/regions/preview'));
-        self::assertSame(200, $resp->getStatusCode(), (string) $resp->getContent());
-        $html = json_decode((string) $resp->getContent(), true)['data']['html'];
-
-        self::assertStringContainsString('--accent:#047857', $html, 'the operator\'s accent');
-        self::assertStringContainsString('--radius:4px', $html, 'the operator\'s design tokens');
-        self::assertMatchesRegularExpression(
-            '~<link rel="stylesheet" href="[^"]*/custom\.css\?v=~',
-            $html,
-            'the site custom CSS',
-        );
-
-        // Leave the shared boot as we found it.
-        $this->container()->get(\Thallo\Core\Settings\GeneralSettings::class)
-            ->save(['theme_accent' => 'blue', 'theme_radius' => 'round']);
-        foreach (['accentMemo', 'neutralMemo', 'radiusMemo', 'fontMemo', 'backgroundMemo'] as $memo) {
-            (new \ReflectionProperty($source, $memo))->setValue($source, null);
-        }
-    }
-
-    public function testPreviewFallsBackToTheSavedRowForAnUnpostedRegion(): void
-    {
-        $controller = $this->controller(); // seeds block types
-        (new RegionRepository($this->connection()))->save('footer', [
-            ['id' => 'prevftrrich1', 'type' => 'rich_text', 'data' => ['body' => '<p>Saved footer</p>']],
-        ], [], null);
-
-        $resp = $controller->preview($this->previewDto(['regions' => [
-            'header' => ['blocks' => [], 'settings' => []],
-        ]]), \Symfony\Component\HttpFoundation\Request::create('https://admin.test/x'));
-        $html = json_decode((string) $resp->getContent(), true)['data']['html'];
-        self::assertStringContainsString('Saved footer', $html);
-        // Posted-but-empty header previews as absent — no header element at all.
-        self::assertStringNotContainsString('<header', $html);
-    }
-
-    public function testPreviewSurfacesPaletteErrorsBeforeAnythingGoesLive(): void
-    {
-        try {
-            $this->controller()->preview($this->previewDto(['regions' => [
-                'header' => ['blocks' => [
-                    ['id' => 'prevbadblk01', 'type' => 'gallery', 'data' => ['images' => []]],
-                ], 'settings' => []],
-            ]]), \Symfony\Component\HttpFoundation\Request::create('https://admin.test/x'));
-            self::fail('expected ValidationException');
-        } catch (ValidationException $e) {
-            self::assertArrayHasKey('regions.header.blocks.0.type', $e->errors());
-        }
     }
 
     public function testRegionSaveDispatchesThePurgeEventThroughTheRealWiring(): void

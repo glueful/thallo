@@ -3297,26 +3297,6 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/regions/preview': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Preview chrome regions
-     * @description Renders the POSTED (unsaved) header/footer block lists through the real theme pipeline and returns a self-contained HTML document for an iframe. Validates exactly like a save (palette, schemas, settings) so errors surface BEFORE anything goes live. Never writes. Requires `content.view`.
-     */
-    post: operations['postV1AdminRegionsPreview']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
   '/regions/preview/apply': {
     parameters: {
       query?: never
@@ -28363,101 +28343,6 @@ export interface operations {
         content?: never
       }
       /** @description The candidate is invalid, or the expected versions are missing. */
-      422: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-    }
-  }
-  postV1AdminRegionsPreview: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: {
-      content: {
-        /**
-         * @example {
-         *       "regions": "example"
-         *     }
-         */
-        'application/json': {
-          /** @description array{blocks?: list<array<string,mixed>>, settings?: array<string,mixed>}> */
-          regions?: unknown[]
-        }
-      }
-    }
-    responses: {
-      /** @description Rendered preview document. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Unauthenticated. */
-      401: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Forbidden. */
-      403: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Render pack unavailable. */
-      409: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Same validation a save would fail. */
       422: {
         headers: {
           [name: string]: unknown

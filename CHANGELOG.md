@@ -23,6 +23,10 @@ as the next release, never a mutated tag.
   instead of being overwritten; `PUT /v1/admin/regions/{slug}` now requires `expected`, and a new
   `PUT /v1/admin/regions` saves both regions at once, all or nothing.
 
+### Removed
+- The Header & footer page's separate preview (`POST /v1/admin/regions/preview` and
+  `region-preview.twig`): the stage replaces it.
+
 ## [1.0.0-beta.60] - 2026-09-24 — Developer Preview
 
 The Regions page's block settings gain a Content tab, a links block's title can be styled and its
