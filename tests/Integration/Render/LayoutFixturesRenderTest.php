@@ -65,11 +65,11 @@ final class LayoutFixturesRenderTest extends AppTestCase
     {
         $extension = $this->container()->get(RenderContextExtension::class);
         $extension->resetPerRenderState();
-        $extension->setBlockAnnotations($annotations);
+        $extension->setAnnotationScope($annotations ? 'entry' : 'none');
         try {
             return $this->env()->createTemplate('{{ blocks(l) }}')->render(['l' => [$tree]]);
         } finally {
-            $extension->setBlockAnnotations(false);
+            $extension->setAnnotationScope('none');
         }
     }
 

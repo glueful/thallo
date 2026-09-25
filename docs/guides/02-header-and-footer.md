@@ -22,22 +22,29 @@ region holds one block, that fallback is gone — the theme renders your blocks 
 
 ## Open the editor
 
-Go to **Site › Header & footer**. On the left is the editor, with a **Header** tab and a
-**Footer** tab; each holds a **Content** tab, a **Style** tab and its own **Save**. On the right
-is a preview of both bars around a placeholder page body. Nothing reaches the site until you
-press **Save**, and each region saves on its own.
+Go to **Site › Header & footer**. The page is a stage, like [the Design view](../concepts/03-design-view.md):
+a real published page — the homepage unless you pick another in the toolbar — rendered by the
+theme, with the header and footer live on it. The page body is there for context; clicking it does
+nothing. On the left is the inspector. The toolbar holds a **Header | Footer** switch, the three
+widths, the page picker, **Undo** and **Redo**, and one **Save** for both regions. Nothing reaches
+the site until you press **Save**.
+
+The **Header | Footer** switch picks the *current region*: the one the **Blocks**, **Region** and
+**Outline** tabs work on. Selecting a block on the stage switches to its region.
 
 ## Add blocks to a region
 
-1. Choose the **Header** or **Footer** tab, then **Content**.
-2. Press **Add block** under the list, or the `+` that appears in the gap between two blocks.
-   A tile grid opens with a **Filter blocks…** box; pick a block type.
-3. Fill in the block's fields on its card.
-4. Reorder with the drag handle or **Move up** and **Move down**, copy with **Duplicate**, remove
-   with **Delete**, which asks to confirm.
+1. Choose **Header** or **Footer** in the toolbar, then the **Blocks** tab.
+2. Drag a tile onto the stage where the block should go, or click it to add it after the selected
+   block (or at the end of the region). Tiles the region does not take are dimmed.
+3. Click the new block on the stage: the **Block** tab opens with its **Content**, **Layout**,
+   **Style** and **Advanced**. Text you can double-click on the stage and type in place.
+4. Move a block with the arrows in its toolbar or by dragging its grip, copy it with
+   **Duplicate**, remove it with **Delete**, which asks to confirm. The **Outline** tab shows the
+   region's blocks as a tree and moves them precisely.
 
 A region takes a fixed list of block types, and the server enforces it: a type that is not on the
-list is refused at the save, not merely hidden in the picker.
+list is refused, not merely hidden in the palette.
 
 The header takes **Logo**, **Navigation**, **Button**, **Color mode**, **Social links**,
 **Container** and **Rich text**.
@@ -62,15 +69,17 @@ header's `main` menu stops being automatic as soon as the region holds blocks: a
 
 ## Set the bar's options
 
-Above the block list, **Width** is either **Contained** — the bar's content is held to the
-theme's page measure — or **Full width**, which lets it run edge to edge.
+The **Region** tab holds the current region's own settings. **Width** is either **Contained** —
+the bar's content is held to the theme's page measure — or **Full width**, which lets it run edge
+to edge.
 
-The header has one more control, at the top of its tab: **Sticky**. Switched on, the header stays
-at the top of the window as the visitor scrolls. The footer has no **Sticky**.
+The header has one more control: **Sticky**. Switched on, the header stays at the top of the window
+as the visitor scrolls. The footer has no **Sticky**.
 
 ## Style the bar
 
-The **Style** tab styles the bar itself, not the blocks in it. It offers three groups:
+Below them on the **Region** tab, **Style** styles the bar itself, not the blocks in it. It offers
+three groups:
 
 - **Spacing** — **Padding** on all four sides, **Margin** top and bottom.
 - **Colours** — **Background**, **Text colour**, **Border colour**, **Background opacity** and
@@ -82,33 +91,34 @@ A region is not a block: there is no Layout tab, no Advanced tab and no
 the theme pads; everything else lands on the bar.
 
 Padding, margin and shadow are responsive, so their value is written at the breakpoint the
-preview is showing, by the rule in [the Design view](../concepts/03-design-view.md). The other
+stage is showing, by the rule in [the Design view](../concepts/03-design-view.md). The other
 settings apply at every width.
 
-To style one block rather than the bar, press **Block settings** on its card. That swaps the
-region's tabs for the block's **Layout**, **Style** and **Advanced** — the same tabs the Design
-view's inspector shows. **Back to the header** returns.
+To style one block rather than the bar, select it on the stage: its **Block** tab has the same
+**Layout**, **Style** and **Advanced** the Design view's inspector shows.
 
-## Watch the preview
+## Watch the stage
 
-The right-hand pane renders both bars through the real theme, with the site's colours, fonts and
-custom CSS, around a **Page content** placeholder. It refreshes shortly after you stop typing;
-**Refresh** forces it. It validates the edit exactly as a save would, so a refusal appears here
-before anything goes live: the pane then keeps the last good render, marks it **Preview not
-updated**, and prints the reason above the frame.
+The stage renders the page through the real theme, with the site's colours, fonts and custom CSS,
+and your header and footer as they are now, saved or not. Each edit is checked exactly as a save
+would check it and then shown; an edit the server refuses is named in a message, and the stage
+stops updating until you press **Stage paused — resume** in the toolbar.
 
-The three buttons in the toolbar set the preview's width: desktop, tablet at 768px and mobile at
-390px. The one you choose is also the breakpoint a responsive style setting is written at.
+The three width buttons set the stage's width: desktop, tablet at 768px and mobile at 390px. The
+one you choose is also the breakpoint a responsive style setting is written at.
 
-Two things the preview will not do. Scripts are off inside its frame, so a dropdown menu or the
-**Color mode** switch does not operate there. And it needs the **Rendered delivery** capability
-(**Extensions › Capabilities**); without it the pane reports that the render pack is not active.
+Pick another page to see the bars around it; your unsaved edits come with you. If the page you
+pick hides the header or footer in its own settings, the inspector says so. The stage needs the
+**Rendered delivery** capability (**Extensions › Capabilities**); without it the page says so.
 
 ## Save, and hide a region where you do not want it
 
-Press **Save** on the region you changed — a dot on the button marks unsaved changes. Thallo
-confirms that the change is live on the site immediately: a region has no draft and no publish
-step, and no per-locale variant. One header and one footer serve the whole site.
+Press **Save** — a dot on the button marks unsaved changes. One save stores both regions, and the
+change is live on the site immediately: a region has no draft and no publish step, and no
+per-locale variant. One header and one footer serve the whole site. If someone else saved the
+header or footer since you opened the page, the save is refused and the toolbar says **Changed by
+someone else**; **Reload** discards your edits and loads theirs. Leaving the page with unsaved
+edits asks first.
 
 To drop the chrome from a single page, open that entry in the Design view, choose the **Page**
 tab, and set **Header** or **Footer** to **Hide**. **Theme default** follows the theme and

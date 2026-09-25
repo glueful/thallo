@@ -130,9 +130,14 @@ block type declares is [the block library](04-block-library.md).
 |---|---|---|
 | `is_canvas()` | `true` while rendering the Design view's stage. Use it to render a wrapper, or an empty-state hint, that the published page does not need. | `{% if is_canvas() %}` |
 | `is_preview()` | The same flag, under its older name. | `{% elseif is_preview() %}` |
+| `canvas_scope()` | Which stage is rendering: `entry` for the Design view, `regions` for the Header & footer page, or an empty string off the stage. Put it on the root element as `data-thallo-canvas`, as the default layout does: the stage scripts read it. | `<html{% if canvas_scope() %} data-thallo-canvas="{{ canvas_scope() }}"{% endif %}>` |
+| `region_stage()` | `true` on the Header & footer page's stage, where only the regions are edited. Render the header and footer wrappers there even when a region is empty, so each has a place to drop into. | `{% if headerHtml or region_stage() %}` |
+| `region_slot_attrs(slug)` | On the Header & footer page's stage, ` data-thallo-slot="header"` (or `footer`) for the element that wraps `region_blocks(slug)`; nothing anywhere else. | `<div{{ region_slot_attrs('header') }}>{{ headerHtml }}</div>` |
 
-Neither is a session check: a page opened in a preview session, but not on the stage, renders
-exactly as the live one.
+None of them is a session check: a page opened in a preview session, but not on a stage, renders
+exactly as the live one. On the Header & footer page's stage, `region_blocks` annotates the
+region's blocks for editing and returns an empty string, not `null`, for an empty region; the page
+body renders as published and is not annotated.
 
 ## Commerce
 
@@ -183,7 +188,8 @@ adds `preview_revision`.
 | `terms.twig`, `terms/{type}.twig` | `terms` (`uuid`, `slug`, `count`, `href` each), `type`, `field`. |
 | `404.twig`, `error.twig` | Nothing beyond the shared variables. |
 | `blocks/{type}.twig` | `data`, the block's fields; `block`, with `id`, `type`, `data` and `settings`; `index`, its place in the list; `region_slug`, set when the block is in a region; and the caller's `entry`, `site` and `current_path`. |
-| `region-preview.twig` | `header` and `footer`, each `blocks` and `settings`, and `base_href`. The admin renders this one; the public site never does. |
+| `region-stage.twig` | Nothing beyond the shared variables. The Header & footer page's stage renders it when no published page can be shown; the public site never does. |
+| `region-session-expired.twig` | Nothing beyond the shared variables. The Header & footer page's stage renders it once its session has expired. |
 
 `entry` is `uuid`, `locale`, `version`, `published_at` and `fields`. An item of `items` is the
 same, plus `href`. `pagination` is `page`, `per_page`, `total`, `total_pages`, `prev_path` and

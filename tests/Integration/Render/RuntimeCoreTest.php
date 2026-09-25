@@ -77,6 +77,7 @@ final class RuntimeCoreTest extends AppTestCase
             appendChild: function (c) { c.parent = node; node.children.push(c); return c; },
             getAttribute: function (n) { return attrs[n] === undefined ? null : attrs[n]; },
             setAttribute: function (n, v) { attrs[n] = String(v); },
+            removeAttribute: function (n) { delete attrs[n]; },
             matches: function (sel) { return sel === '.' + node.className; },
             querySelectorAll: function (sel) {
               var found = [];
@@ -143,8 +144,8 @@ final class RuntimeCoreTest extends AppTestCase
           'throwing module must not mark its component');
         assert(after.length === 3, 'modules after a throwing one must still run: ' + after.length);
 
-        // 4. Canvas policy: skip modules no-op when .thallo-preview-block exists.
-        docRoot.appendChild(el('thallo-preview-block'));
+        // 4. Canvas policy: skip modules no-op on a stage (<html data-thallo-canvas>).
+        document.documentElement.setAttribute('data-thallo-canvas', 'entry');
         var skipHits = 0, allowHits = 0;
         RT.register('skipper', { enhance: function () { skipHits++; }, selector: '.widget' });
         RT.register('allower', { enhance: function () { allowHits++; }, selector: '.widget',
@@ -152,8 +153,9 @@ final class RuntimeCoreTest extends AppTestCase
         RT.enhance(docRoot);
         assert(skipHits === 0, 'canvas skip module ran in canvas stage');
         assert(allowHits === 3, 'canvas allow module must still run: ' + allowHits);
-        docRoot.children.pop(); // leave the canvas stage: subsequent assertions test
-                                 // the return contract standalone, not canvas interplay.
+        // Leave the canvas stage: subsequent assertions test the return contract
+        // standalone, not canvas interplay.
+        document.documentElement.removeAttribute('data-thallo-canvas');
 
         // 5. Return contract: false = structural no-op — NOT marked, retried next pass.
         var noopCalls = 0;

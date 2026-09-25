@@ -165,7 +165,7 @@ final class AccountCacheIsolationTest extends AppTestCase
         /** @var \Thallo\Render\RenderContextExtension $extension */
         $extension = $this->container()->get(\Thallo\Render\RenderContextExtension::class);
         $extension->resetPerRenderState();
-        $extension->setBlockAnnotations(false);
+        $extension->setAnnotationScope('none');
         $extension->setLocale('en');
         $html = $extension->blocks($env, ['entry' => null, 'site' => []], [
             ['id' => 'authstateb01', 'type' => 'auth-state', 'data' => ['signed_out' => [], 'signed_in' => []]],
@@ -207,7 +207,7 @@ final class AccountCacheIsolationTest extends AppTestCase
             /** @var \Thallo\Render\RenderContextExtension $extension */
             $extension = $container->get(\Thallo\Render\RenderContextExtension::class);
             $extension->resetPerRenderState();
-            $extension->setBlockAnnotations(false);
+            $extension->setAnnotationScope('none');
             $extension->setLocale('en');
             $html = $extension->blocks($env, ['entry' => null, 'site' => []], [
                 ['id' => 'authstateb02', 'type' => 'auth-state', 'data' => ['signed_out' => [], 'signed_in' => []]],

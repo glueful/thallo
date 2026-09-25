@@ -117,7 +117,7 @@ final class AccountFormBlocksTest extends AppTestCase
             /** @var \Thallo\Render\RenderContextExtension $extension */
             $extension = $container->get(\Thallo\Render\RenderContextExtension::class);
             $extension->resetPerRenderState();
-            $extension->setBlockAnnotations(false);
+            $extension->setAnnotationScope('none');
             $extension->setLocale('en');
             $html = $extension->blocks($env, ['entry' => null, 'site' => []], [
                 ['id' => 'loginformoff1', 'type' => 'login-form', 'data' => []],
@@ -486,7 +486,7 @@ final class AccountFormBlocksTest extends AppTestCase
         /** @var \Thallo\Render\RenderContextExtension $extension */
         $extension = $this->container()->get(\Thallo\Render\RenderContextExtension::class);
         $extension->resetPerRenderState();
-        $extension->setBlockAnnotations(false);
+        $extension->setAnnotationScope('none');
         $extension->setLocale('en');
 
         return $extension->blocks($env, ['entry' => null, 'site' => []], [

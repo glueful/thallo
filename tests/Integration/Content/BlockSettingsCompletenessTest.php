@@ -240,7 +240,15 @@ final class BlockSettingsCompletenessTest extends AppTestCase
             ]]],
             'settings' => $settings,
         ]];
-        $dto = (new RequestDataHydrator())->hydrate(UpdateRegionData::class, ['blocks' => $blocks, 'settings' => []]);
+        $regions = new \Thallo\Core\Content\Regions\RegionRepository($this->connection());
+        $dto = (new RequestDataHydrator())->hydrate(UpdateRegionData::class, [
+            'blocks' => $blocks,
+            'settings' => [],
+            'expected' => [
+                'header' => $regions->find('header')['lock_version'] ?? null,
+                'footer' => $regions->find('footer')['lock_version'] ?? null,
+            ],
+        ]);
         try {
             $response = $this->container()->get(RegionAdminController::class)->update($dto, 'footer');
         } catch (\Thallo\Core\Content\Validation\ValidationException $e) {

@@ -29,6 +29,7 @@ use Thallo\Core\Http\Controllers\ImportExportController;
 use Thallo\Core\Http\Controllers\MediaAdminController;
 use Thallo\Core\Http\Controllers\PlatformPaymentsSettingsController;
 use Thallo\Core\Http\Controllers\RegionAdminController;
+use Thallo\Core\Http\Controllers\RegionPreviewController;
 use Thallo\Core\Http\Controllers\ScheduledTasksController;
 use Thallo\Core\Http\Controllers\TenancyAccessController;
 use Thallo\Core\Http\Controllers\UserAdminController;
@@ -279,9 +280,16 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
         $router->get('/regions', [RegionAdminController::class, 'index'])
             ->middleware('content_permission:content.view');
 
-    // Renders UNSAVED region payloads through the real theme pipeline (never writes).
-        $router->post('/regions/preview', [RegionAdminController::class, 'preview'])
+    // The header & footer stage (regions-stage spec §4.1, §4.3): a session pins both saved regions;
+    // an apply builds that session's own working copy. Neither writes a region.
+        $router->post('/regions/preview/session', [RegionPreviewController::class, 'session'])
         ->middleware('content_permission:content.view');
+        $router->post('/regions/preview/apply', [RegionPreviewController::class, 'apply'])
+        ->middleware('content_permission:content.manage');
+
+        // One batch save for both regions (regions-stage spec §4.5).
+        $router->put('/regions', [RegionAdminController::class, 'saveAll'])
+        ->middleware('content_permission:content.manage');
 
         $router->put('/regions/{slug}', [RegionAdminController::class, 'update'])
         ->middleware('content_permission:content.manage');

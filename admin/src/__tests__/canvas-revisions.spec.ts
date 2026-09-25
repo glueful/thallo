@@ -128,6 +128,7 @@ const bridge = vi.hoisted(() => {
       onEditStart: noop,
       onEditEnd: noop,
       onScroll: noop,
+      onSessionExpired: noop,
       restoreScroll: vi.fn(),
       highlight: vi.fn(),
       scrollTo: vi.fn(),

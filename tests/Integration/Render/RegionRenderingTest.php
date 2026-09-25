@@ -308,7 +308,7 @@ final class RegionRenderingTest extends AppTestCase
         }
 
         $ext = $this->container()->get(RenderContextExtension::class);
-        $ext->setBlockAnnotations(true);
+        $ext->setAnnotationScope('entry');
         try {
             $base = $this->appContext()->getBasePath();
             $env = (new TwigFactory(
@@ -333,7 +333,7 @@ final class RegionRenderingTest extends AppTestCase
             ]]);
             self::assertStringContainsString('thallo-preview-block', $after);
         } finally {
-            $ext->setBlockAnnotations(false);
+            $ext->setAnnotationScope('none');
         }
     }
 }

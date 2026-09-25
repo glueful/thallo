@@ -801,14 +801,14 @@ final class StarterTemplatesTest extends AppTestCase
         self::assertStringNotContainsString('thallo-block-gallery__empty', $live);
 
         // Preview annotation: placeholders visible.
-        $ext->setBlockAnnotations(true);
+        $ext->setAnnotationScope('entry');
         try {
             $preview = $this->renderList([
                 ['id' => 'ce2', 'type' => 'carousel', 'data' => ['style' => 'hero', 'slides' => []]],
                 ['id' => 'ge2', 'type' => 'gallery', 'data' => ['items' => []]],
             ]);
         } finally {
-            $ext->setBlockAnnotations(false);
+            $ext->setAnnotationScope('none');
         }
         self::assertStringContainsString('thallo-block-carousel__empty', $preview);
         self::assertStringContainsString('Empty carousel', $preview);
@@ -816,7 +816,7 @@ final class StarterTemplatesTest extends AppTestCase
         self::assertStringContainsString('Empty gallery', $preview);
 
         // A populated carousel never shows the placeholder, even in preview.
-        $ext->setBlockAnnotations(true);
+        $ext->setAnnotationScope('entry');
         try {
             $populated = $this->renderList([
                 ['id' => 'ce3', 'type' => 'carousel', 'data' => ['slides' => [
@@ -824,7 +824,7 @@ final class StarterTemplatesTest extends AppTestCase
                 ]]],
             ]);
         } finally {
-            $ext->setBlockAnnotations(false);
+            $ext->setAnnotationScope('none');
         }
         self::assertStringNotContainsString('thallo-block-carousel__empty', $populated);
     }

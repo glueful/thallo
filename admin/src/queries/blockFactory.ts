@@ -52,8 +52,23 @@ function isBlockList(value: unknown): value is Record<string, unknown>[] {
   )
 }
 
-/** Fresh ids for a block and every nested starter block inside its data. */
+/**
+ * The id a new block instance takes. An E2E build (`VITE_E2E`, set only by the proofs' web server)
+ * takes the next id a proof queued in `window.__thalloE2eBlockIds`, so its accepted documents name
+ * blocks it can match; everywhere else — and a production bundle folds this branch away — a fresh
+ * id. Block instances only: session, operation, transaction and drag ids never read the queue.
+ */
+export function nextInstanceId(): string {
+  if (import.meta.env.VITE_E2E === '1') {
+    const queued = (window as { __thalloE2eBlockIds?: unknown }).__thalloE2eBlockIds
+    if (Array.isArray(queued) && queued.length > 0) return String(queued.shift())
+  }
+  return newBlockId()
+}
+
+/** Fresh ids for a block and every nested starter block inside its data, the block first. */
 export function allocateIds(block: FactoryBlock): BlockInstance {
+  const id = nextInstanceId()
   const data: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(block.data)) {
     data[key] = isBlockList(value)
@@ -66,7 +81,7 @@ export function allocateIds(block: FactoryBlock): BlockInstance {
         )
       : value
   }
-  return { id: newBlockId(), type: block.type, data, settings: { ...block.settings } }
+  return { id, type: block.type, data, settings: { ...block.settings } }
 }
 
 /** The factory's block with its starter merged over the defaults. */

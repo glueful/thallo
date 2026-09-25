@@ -7,6 +7,40 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.61] - 2026-09-25 — Developer Preview
+
+The header and footer are edited on the stage: the Header & footer page shows a real page with its
+chrome live, edited as on the Design view, and one Save writes both regions, refusing if someone
+else saved first. No migrations. A custom theme's `layout.twig` needs the stage's hooks — the
+`data-thallo-canvas` marker and `region_slot_attrs()` on each region's wrapper (see THEMING.md) — to
+be edited there; API clients of `PUT /v1/admin/regions/{slug}` must now send `expected`.
+
+### Added
+- **The header and footer are edited on the stage.** The Header & footer page shows a real page
+  with its chrome live: click a header or footer block to open its settings, drag to move it, drag
+  new blocks in from the Blocks tab, edit text in place, and undo — as on the Design view. The page
+  body is shown for context and can't be selected. Edits stay yours until Save, which saves both
+  regions at once and says so if someone else saved first.
+
+### Changed
+- **Every write to the header and footer is serialized.** Region saves, starter updates and
+  renames, style-class jobs and block backfills all take one database lock, so none can overwrite
+  another mid-write; a starter rename now also bumps the region's version.
+- **Saving the header or footer checks that neither changed since it was loaded.** A save names
+  both regions' versions, and one saved by someone else in the meantime answers with a conflict
+  instead of being overwritten; `PUT /v1/admin/regions/{slug}` now requires `expected`, and a new
+  `PUT /v1/admin/regions` saves both regions at once, all or nothing (each posted region with both
+  its `blocks` and its `settings`).
+
+### Fixed
+- **A block dropped into a row that wraps lands where you point, while the row is still one
+  line.** The stage used to place any drop into a wrapping row last and point you to the outline;
+  it now does that only once the row has actually wrapped onto a second line.
+
+### Removed
+- The Header & footer page's separate preview (`POST /v1/admin/regions/preview` and
+  `region-preview.twig`): the stage replaces it.
+
 ## [1.0.0-beta.60] - 2026-09-24 — Developer Preview
 
 The Regions page's block settings gain a Content tab, a links block's title can be styled and its

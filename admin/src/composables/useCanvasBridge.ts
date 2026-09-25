@@ -129,6 +129,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   let editStartCb: ((id: string) => void) | null = null
   let editEndCb: ((id: string) => void) | null = null
   let scrollCb: ((y: number) => void) | null = null
+  let sessionExpiredCb: (() => void) | null = null
   let textChangedCb:
     | ((id: string, field: string, payload: { html?: string; text?: string }) => void)
     | null = null
@@ -294,6 +295,8 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     if (data.type === 'thallo:scroll' && typeof data.y === 'number') {
       scrollCb?.(data.y)
     }
+    // The stage is showing its expired page (regions-stage spec §6.5).
+    if (data.type === 'thallo:session-expired') sessionExpiredCb?.()
   }
 
   window.addEventListener('message', onMessage)
@@ -445,6 +448,9 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     },
     onScroll(cb: (y: number) => void): void {
       scrollCb = cb
+    },
+    onSessionExpired(cb: () => void): void {
+      sessionExpiredCb = cb
     },
     restoreScroll(y: number): void {
       post({ type: 'thallo:restore-scroll', y })

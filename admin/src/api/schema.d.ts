@@ -165,7 +165,7 @@ export interface paths {
     get?: never
     put?: never
     /** Cancel a workspace subscription */
-    post: operations['thalloSubscriptionsBillingCancel']
+    post: operations['postV1AdminBillingCancel']
     delete?: never
     options?: never
     head?: never
@@ -182,7 +182,7 @@ export interface paths {
     get?: never
     put?: never
     /** Start a workspace subscription checkout */
-    post: operations['thalloSubscriptionsBillingCheckout']
+    post: operations['postV1AdminBillingCheckout']
     delete?: never
     options?: never
     head?: never
@@ -199,7 +199,7 @@ export interface paths {
     get?: never
     put?: never
     /** Abandon the workspace's stuck pending checkout */
-    post: operations['thalloSubscriptionsBillingCheckoutAbandon']
+    post: operations['postV1AdminBillingCheckoutAbandon']
     delete?: never
     options?: never
     head?: never
@@ -214,7 +214,7 @@ export interface paths {
       cookie?: never
     }
     /** Workspace billing status */
-    get: operations['thalloSubscriptionsBillingMeta']
+    get: operations['getV1AdminBillingMeta']
     put?: never
     post?: never
     delete?: never
@@ -233,7 +233,7 @@ export interface paths {
     get?: never
     put?: never
     /** Change the workspace subscription's plan */
-    post: operations['thalloSubscriptionsBillingPlan']
+    post: operations['postV1AdminBillingPlan']
     delete?: never
     options?: never
     head?: never
@@ -3285,7 +3285,11 @@ export interface paths {
      * @description Every global region (header, footer) with its saved blocks, settings, allowed block palette and settings keys. Absent rows surface as empty lists so the editor always round-trips. Requires `content.view`.
      */
     get: operations['getV1AdminRegions']
-    put?: never
+    /**
+     * Save the header and footer
+     * @description Writes the posted regions in one serialized section: both regions' expected versions are checked (the unchanged one too), the complete candidate is validated, and every posted region is written or none is. From the stage it also advances the session baseline and clears the working copy on an exact revision pair. Requires `content.manage`.
+     */
+    put: operations['putV1AdminRegions']
     post?: never
     delete?: never
     options?: never
@@ -3293,7 +3297,7 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/regions/preview': {
+  '/regions/preview/apply': {
     parameters: {
       query?: never
       header?: never
@@ -3303,10 +3307,30 @@ export interface paths {
     get?: never
     put?: never
     /**
-     * Preview chrome regions
-     * @description Renders the POSTED (unsaved) header/footer block lists through the real theme pipeline and returns a self-contained HTML document for an iframe. Validates exactly like a save (palette, schemas, settings) so errors surface BEFORE anything goes live. Never writes. Requires `content.view`.
+     * Apply the header & footer to a stage session
+     * @description Validates both regions as a save would (and block ids across them), then accepts them into the session's working copy by compare-and-set. Never writes a region. Requires `content.manage`.
      */
-    post: operations['postV1AdminRegionsPreview']
+    post: operations['postV1AdminRegionsPreviewApply']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/regions/preview/session': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Open a header & footer stage session
+     * @description Mints a regions-stage preview token for a published page (the homepage by default), pins both saved regions and their versions as the session baseline, and returns them. Requires `content.view`.
+     */
+    post: operations['postV1AdminRegionsPreviewSession']
     delete?: never
     options?: never
     head?: never
@@ -3699,7 +3723,7 @@ export interface paths {
       cookie?: never
     }
     /** Subscriptions engine + tenancy status */
-    get: operations['thalloSubscriptionsAdminMeta']
+    get: operations['getV1AdminSubscriptionsMeta']
     put?: never
     post?: never
     delete?: never
@@ -3716,10 +3740,10 @@ export interface paths {
       cookie?: never
     }
     /** List platform plans */
-    get: operations['thalloSubscriptionsAdminPlansIndex']
+    get: operations['getV1AdminSubscriptionsPlans']
     put?: never
     /** Create a platform plan */
-    post: operations['thalloSubscriptionsAdminPlansStore']
+    post: operations['postV1AdminSubscriptionsPlans']
     delete?: never
     options?: never
     head?: never
@@ -3736,7 +3760,7 @@ export interface paths {
     get?: never
     put?: never
     /** Import/seed platform plans from config */
-    post: operations['thalloSubscriptionsAdminPlansImportConfig']
+    post: operations['postV1AdminSubscriptionsPlansImportconfig']
     delete?: never
     options?: never
     head?: never
@@ -3757,7 +3781,7 @@ export interface paths {
     options?: never
     head?: never
     /** Update a platform plan (plan_key is immutable) */
-    patch: operations['thalloSubscriptionsAdminPlansUpdate']
+    patch: operations['patchV1AdminSubscriptionsPlansByKey']
     trace?: never
   }
   '/subscriptions/plans/{key}/archive': {
@@ -3770,7 +3794,7 @@ export interface paths {
     get?: never
     put?: never
     /** Archive a platform plan */
-    post: operations['thalloSubscriptionsAdminPlansArchive']
+    post: operations['postV1AdminSubscriptionsPlansByKeyArchive']
     delete?: never
     options?: never
     head?: never
@@ -3786,7 +3810,7 @@ export interface paths {
     }
     get?: never
     /** Toggle the self-serve checkout operator switch */
-    put: operations['thalloSubscriptionsAdminSelfServeUpdate']
+    put: operations['putV1AdminSubscriptionsSelfserve']
     post?: never
     delete?: never
     options?: never
@@ -3802,7 +3826,7 @@ export interface paths {
       cookie?: never
     }
     /** List workspace billing status (paginated) */
-    get: operations['thalloSubscriptionsAdminWorkspacesIndex']
+    get: operations['getV1AdminSubscriptionsWorkspaces']
     put?: never
     post?: never
     delete?: never
@@ -3819,7 +3843,7 @@ export interface paths {
       cookie?: never
     }
     /** Workspace billing detail */
-    get: operations['thalloSubscriptionsAdminWorkspacesShow']
+    get: operations['getV1AdminSubscriptionsWorkspacesByUuid']
     put?: never
     post?: never
     delete?: never
@@ -3838,7 +3862,7 @@ export interface paths {
     get?: never
     put?: never
     /** Cancel a workspace subscription */
-    post: operations['thalloSubscriptionsAdminWorkspacesCancel']
+    post: operations['postV1AdminSubscriptionsWorkspacesByUuidCancel']
     delete?: never
     options?: never
     head?: never
@@ -3854,10 +3878,10 @@ export interface paths {
     }
     get?: never
     /** Set a workspace entitlement override */
-    put: operations['thalloSubscriptionsAdminWorkspacesOverridesUpsert']
+    put: operations['putV1AdminSubscriptionsWorkspacesByUuidOverridesByEntitlement']
     post?: never
     /** Remove a workspace entitlement override */
-    delete: operations['thalloSubscriptionsAdminWorkspacesOverridesDelete']
+    delete: operations['deleteV1AdminSubscriptionsWorkspacesByUuidOverridesByEntitlement']
     options?: never
     head?: never
     patch?: never
@@ -3872,7 +3896,7 @@ export interface paths {
     }
     get?: never
     /** Start or change a workspace subscription plan */
-    put: operations['thalloSubscriptionsAdminWorkspacesPlan']
+    put: operations['putV1AdminSubscriptionsWorkspacesByUuidPlan']
     post?: never
     delete?: never
     options?: never
@@ -5643,7 +5667,7 @@ export interface operations {
       }
     }
   }
-  thalloSubscriptionsBillingCancel: {
+  postV1AdminBillingCancel: {
     parameters: {
       query?: never
       header?: never
@@ -5712,7 +5736,7 @@ export interface operations {
       }
     }
   }
-  thalloSubscriptionsBillingCheckout: {
+  postV1AdminBillingCheckout: {
     parameters: {
       query?: never
       header?: never
@@ -5781,7 +5805,7 @@ export interface operations {
       }
     }
   }
-  thalloSubscriptionsBillingCheckoutAbandon: {
+  postV1AdminBillingCheckoutAbandon: {
     parameters: {
       query?: never
       header?: never
@@ -5850,7 +5874,7 @@ export interface operations {
       }
     }
   }
-  thalloSubscriptionsBillingMeta: {
+  getV1AdminBillingMeta: {
     parameters: {
       query?: never
       header?: never
@@ -5919,7 +5943,7 @@ export interface operations {
       }
     }
   }
-  thalloSubscriptionsBillingPlan: {
+  postV1AdminBillingPlan: {
     parameters: {
       query?: never
       header?: never
@@ -28241,7 +28265,7 @@ export interface operations {
       }
     }
   }
-  postV1AdminRegionsPreview: {
+  putV1AdminRegions: {
     parameters: {
       query?: never
       header?: never
@@ -28252,17 +28276,25 @@ export interface operations {
       content: {
         /**
          * @example {
-         *       "regions": "example"
+         *       "regions": "example",
+         *       "expected": "example",
+         *       "token": "example",
+         *       "preview_revision": "example"
          *     }
          */
         'application/json': {
           /** @description array{blocks?: list<array<string,mixed>>, settings?: array<string,mixed>}> */
           regions?: unknown[]
+          /** @description ?int> every region's lock_version as loaded; null = no row yet */
+          expected?: unknown[] | null
+          token?: string | null
+          /** @description string, revision: int}|null */
+          preview_revision?: unknown[] | null
         }
       }
     }
     responses: {
-      /** @description Rendered preview document. */
+      /** @description Saved; both regions as committed. */
       200: {
         headers: {
           [name: string]: unknown
@@ -28303,19 +28335,225 @@ export interface operations {
           }
         }
       }
-      /** @description Render pack unavailable. */
+      /** @description A region changed since it was loaded (REGION_VERSION_CONFLICT). */
       409: {
         headers: {
           [name: string]: unknown
         }
         content?: never
       }
-      /** @description Same validation a save would fail. */
+      /** @description The candidate is invalid, or the expected versions are missing. */
       422: {
         headers: {
           [name: string]: unknown
         }
         content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  postV1AdminRegionsPreviewApply: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        /**
+         * @example {
+         *       "token": "example",
+         *       "regions": "example",
+         *       "epoch": "example",
+         *       "base_revision": 50,
+         *       "operations": "example"
+         *     }
+         */
+        'application/json': {
+          token: string
+          /** @description array{blocks?: list<array<string,mixed>>, settings?: array<string,mixed>}> */
+          regions?: unknown[]
+          epoch?: string | null
+          base_revision?: number | null
+          operations?: unknown[] | null
+        }
+      }
+    }
+    responses: {
+      /** @description Accepted. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description The working copy moved on (PREVIEW_REVISION_STALE). */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The session expired. */
+      410: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description A region is invalid, or a block id is used in both. */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  postV1AdminRegionsPreviewSession: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: {
+      content: {
+        /**
+         * @example {
+         *       "page": "example"
+         *     }
+         */
+        'application/json': {
+          page?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Session minted. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            /** @example false */
+            success: boolean
+            message: string
+            errors: {
+              [key: string]: string[]
+            }
+          }
+        }
       }
       /** @description Unexpected server error. */
       500: {
@@ -28350,7 +28588,8 @@ export interface operations {
         /**
          * @example {
          *       "blocks": "example",
-         *       "settings": "example"
+         *       "settings": "example",
+         *       "expected": "example"
          *     }
          */
         'application/json': {
@@ -28358,6 +28597,8 @@ export interface operations {
           blocks?: unknown[]
           /** @description Fixed per-region settings vocabulary. */
           settings?: unknown[]
+          /** @description ?int> BOTH regions' lock_version as loaded (regions-stage spec §4.5). */
+          expected?: unknown[] | null
         }
       }
     }
@@ -31122,7 +31363,7 @@ export interface operations {
       }
     }
   }
-  thalloSubscriptionsAdminMeta: {
+  getV1AdminSubscriptionsMeta: {
     parameters: {
       query?: never
       header?: never
@@ -31191,7 +31432,7 @@ export interface operations {
       }
     }
   }
-  thalloSubscriptionsAdminPlansIndex: {
+  getV1AdminSubscriptionsPlans: {
     parameters: {
       query?: never
       header?: never
@@ -31260,7 +31501,7 @@ export interface operations {
       }
     }
   }
-  thalloSubscriptionsAdminPlansStore: {
+  postV1AdminSubscriptionsPlans: {
     parameters: {
       query?: never
       header?: never
@@ -31329,7 +31570,7 @@ export interface operations {
       }
     }
   }
-  thalloSubscriptionsAdminPlansImportConfig: {
+  postV1AdminSubscriptionsPlansImportconfig: {
     parameters: {
       query?: never
       header?: never
@@ -31398,7 +31639,7 @@ export interface operations {
       }
     }
   }
-  thalloSubscriptionsAdminPlansUpdate: {
+  patchV1AdminSubscriptionsPlansByKey: {
     parameters: {
       query?: never
       header?: never
@@ -31469,7 +31710,7 @@ export interface operations {
       }
     }
   }
-  thalloSubscriptionsAdminPlansArchive: {
+  postV1AdminSubscriptionsPlansByKeyArchive: {
     parameters: {
       query?: never
       header?: never
@@ -31540,7 +31781,7 @@ export interface operations {
       }
     }
   }
-  thalloSubscriptionsAdminSelfServeUpdate: {
+  putV1AdminSubscriptionsSelfserve: {
     parameters: {
       query?: never
       header?: never
@@ -31609,7 +31850,7 @@ export interface operations {
       }
     }
   }
-  thalloSubscriptionsAdminWorkspacesIndex: {
+  getV1AdminSubscriptionsWorkspaces: {
     parameters: {
       query?: never
       header?: never
@@ -31678,7 +31919,7 @@ export interface operations {
       }
     }
   }
-  thalloSubscriptionsAdminWorkspacesShow: {
+  getV1AdminSubscriptionsWorkspacesByUuid: {
     parameters: {
       query?: never
       header?: never
@@ -31749,7 +31990,7 @@ export interface operations {
       }
     }
   }
-  thalloSubscriptionsAdminWorkspacesCancel: {
+  postV1AdminSubscriptionsWorkspacesByUuidCancel: {
     parameters: {
       query?: never
       header?: never
@@ -31820,7 +32061,7 @@ export interface operations {
       }
     }
   }
-  thalloSubscriptionsAdminWorkspacesOverridesUpsert: {
+  putV1AdminSubscriptionsWorkspacesByUuidOverridesByEntitlement: {
     parameters: {
       query?: never
       header?: never
@@ -31892,7 +32133,7 @@ export interface operations {
       }
     }
   }
-  thalloSubscriptionsAdminWorkspacesOverridesDelete: {
+  deleteV1AdminSubscriptionsWorkspacesByUuidOverridesByEntitlement: {
     parameters: {
       query?: never
       header?: never
@@ -31964,7 +32205,7 @@ export interface operations {
       }
     }
   }
-  thalloSubscriptionsAdminWorkspacesPlan: {
+  putV1AdminSubscriptionsWorkspacesByUuidPlan: {
     parameters: {
       query?: never
       header?: never

@@ -12,7 +12,8 @@
  *
  *   DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-builder-proof-fixtures
  *
- * Writes admin/e2e/fixtures/canvas.html and admin/e2e/fixtures/api/*.json (gitignored).
+ * Writes admin/e2e/fixtures/canvas.html, admin/e2e/fixtures/api/*.json and, for the regions stage,
+ * admin/e2e/fixtures/regions/ (gitignored).
  */
 
 declare(strict_types=1);
@@ -227,4 +228,202 @@ file_put_contents($out . '/theme.css', ThemeStylesheetArtifact::build($files)->c
 file_put_contents($out . '/settings.css', StyleCompiler::compile($vocabulary));
 file_put_contents($out . '/entry.json', json_encode(['uuid' => $entryUuid, 'locale' => 'en', 'type' => 'page'], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
 
+// ── The regions stage (regions stage plan R8) ─────────────────────────────────────────────────
+// Two published pages (the homepage and `pageb`) and saved header and footer regions, then every
+// accepted state the proofs reach — authored once in admin/e2e/regions-scenarios.json — rendered
+// through the real session → apply → preview path. Each state is validated as a save would be and
+// must come out of the validator unchanged, so a proof matching the editor's accepted document
+// against a scenario matches exactly what the stage shows. The seeding runs in one transaction
+// that is rolled back: the test database keeps no regions, pages or homepage from this run.
+$regionsOut = $out . '/regions';
+if (!is_dir($regionsOut) && !mkdir($regionsOut, 0755, true)) {
+    fwrite(STDERR, "cannot create {$regionsOut}\n");
+    exit(1);
+}
+$scenarios = json_decode(
+    (string) file_get_contents($root . '/admin/e2e/regions-scenarios.json'),
+    true,
+    512,
+    JSON_THROW_ON_ERROR,
+)['scenarios'];
+
+/** Thrown to roll the regions seeding back once its fixtures are written. */
+final class RegionFixturesWritten extends RuntimeException
+{
+}
+
+/** Keys sorted all the way down, so two documents compare by content. */
+$canonical = static function (mixed $value) use (&$canonical): mixed {
+    if (!is_array($value)) {
+        return $value;
+    }
+    if (!array_is_list($value)) {
+        ksort($value);
+    }
+    return array_map($canonical, $value);
+};
+
+$db = $container->get(Glueful\Database\Connection::class);
+try {
+    $db->transaction(static function () use ($container, $contentTypes, $pageUuid, $entries, $page, $scenarios, $regionsOut, $out, $canonical): void {
+        $contentTypes->updateMeta($pageUuid, ['public_delivery' => true]);
+        // Published directly, as the render tests publish: no workflow gate stands between a proof
+        // fixture and its page.
+        $context = TestApplication::instance()->getContext();
+        $db = $container->get(Glueful\Database\Connection::class);
+        $publisher = new Thallo\Core\Content\Services\PublishService(
+            $context,
+            $entries,
+            new Thallo\Core\Content\Repositories\VersionRepository($db),
+            $contentTypes,
+            new Thallo\Core\Content\Validation\FieldValidator($db, $context, new BlockTypeRepository($db)),
+            new Thallo\Core\Content\Repositories\ReferenceProjectionRepository($db),
+        );
+        $routes = $container->get(Thallo\Core\Content\Repositories\RouteRepository::class);
+        $pages = [];
+        foreach (['home' => 'Home', 'pageb' => 'Page B'] as $name => $title) {
+            $uuid = $entries->createEntry($pageUuid, 'en', (int) $page['schema_version'], null);
+            $entries->saveDraft($uuid, 'en', ['title' => $title, 'body' => [
+                // A body link: the stage keeps it inert (regions-stage.spec.ts).
+                ['id' => "e2ebody{$name}", 'type' => 'rich_text', 'data' => [
+                    'body' => "<p>{$title} body. <a href=\"/elsewhere\" id=\"e2e-body-link\">A body link</a></p>",
+                ], 'settings' => []],
+            ]], (int) $page['schema_version'], 0, null);
+            $routes->assign($uuid, $pageUuid, 'en', "e2e-{$name}");
+            $publisher->publish($uuid, 'en', null);
+            $pages[$name] = $uuid;
+        }
+        $container->get(Thallo\Core\Settings\SettingsStore::class)->putMany(['homepage_entry' => $pages['home']]);
+        // The header's navigation shows a real menu, so it has geometry a drag can use. Items go in
+        // through the connection: the repository's tree write opens a transaction of its own.
+        $menu = $container->get(Thallo\Navigation\MenuRepository::class)->createMenu('e2e-main', 'Main');
+        $now = gmdate('Y-m-d H:i:s');
+        foreach ([['e2enavitem01', 'Pricing', '/pricing'], ['e2enavitem02', 'Docs', '/docs']] as $i => [$id, $label, $url]) {
+            $db->table('navigation_items')->insert([
+                'uuid' => $id, 'menu_uuid' => $menu['uuid'], 'parent_uuid' => null, 'position' => $i,
+                'kind' => 'url', 'entry_uuid' => null, 'url' => $url, 'icon' => null, 'new_tab' => false,
+                'labels' => json_encode(['en' => $label], JSON_THROW_ON_ERROR), 'descriptions' => null,
+                'created_at' => $now, 'updated_at' => $now,
+            ]);
+        }
+
+        // `{id, $factory: slug}` is that type's factory instance under the given id: the block the
+        // palette tile inserts (defaults, starter over them, the type's settings).
+        $factory = $container->get(Thallo\Core\Content\Blocks\BlockFactory::class);
+        $instances = [];
+        $expand = static function (array $blocks) use (&$expand, $factory, &$instances): array {
+            $out = [];
+            foreach ($blocks as $block) {
+                if (isset($block['$factory'])) {
+                    $slug = (string) $block['$factory'];
+                    $made = $factory->make($slug) ?? throw new RuntimeException("no block type '{$slug}'");
+                    $instances[$slug] = ['block' => $made['block'], 'starter' => $made['starter']];
+                    $block = [
+                        'id' => $block['id'],
+                        'type' => $made['block']['type'],
+                        'data' => array_merge($made['block']['data'], $made['starter']),
+                        'settings' => $made['block']['settings'],
+                    ];
+                }
+                foreach ($block['data'] ?? [] as $key => $value) {
+                    if (is_array($value) && array_is_list($value) && $value !== [] && is_array($value[0]) && (isset($value[0]['type']) || isset($value[0]['$factory']))) {
+                        $block['data'][$key] = $expand($value);
+                    }
+                }
+                $out[] = $block;
+            }
+            return $out;
+        };
+
+        $validator = $container->get(Thallo\Core\Content\Regions\RegionValidator::class);
+        $documents = [];
+        foreach ($scenarios as $scenario) {
+            $doc = $scenario['document'];
+            foreach (['header', 'footer'] as $slug) {
+                $doc[$slug]['blocks'] = $expand($doc[$slug]['blocks']);
+            }
+            try {
+                $clean = $validator->validateBoth($doc);
+            } catch (Thallo\Core\Content\Validation\ValidationException $e) {
+                fwrite(STDERR, "scenario '{$scenario['name']}' is invalid: " . json_encode($e->errors()) . "\n");
+                exit(1);
+            }
+            if (json_encode($canonical($clean)) !== json_encode($canonical($doc))) {
+                fwrite(STDERR, "scenario '{$scenario['name']}' does not survive validation unchanged:\n  authored "
+                    . json_encode($canonical($doc)) . "\n  clean    " . json_encode($canonical($clean)) . "\n");
+                exit(1);
+            }
+            $documents[$scenario['name']] = $doc;
+        }
+
+        $regions = $container->get(Thallo\Core\Content\Regions\RegionRepository::class);
+        $saveRows = static function (array $doc) use ($regions): void {
+            foreach (['header', 'footer'] as $slug) {
+                $regions->save($slug, $doc[$slug]['blocks'], $doc[$slug]['settings'], null);
+            }
+        };
+        $sessionOf = static function (?string $pageUuid) use ($container): array {
+            $dto = (new Glueful\Validation\RequestDataHydrator())->hydrate(
+                Thallo\Core\Http\DTOs\RegionSessionData::class,
+                ['page' => $pageUuid],
+            );
+            $body = (string) $container->get(Thallo\Core\Http\Controllers\RegionPreviewController::class)->session($dto)->getContent();
+            return [$body, json_decode($body, true, 512, JSON_THROW_ON_ERROR)['data']];
+        };
+        $write = static fn (string $name, string $body) => file_put_contents($regionsOut . '/' . $name, $body);
+
+        // The saved regions are the baseline: the page opens on them, and the regions list says so.
+        $saveRows($documents['baseline']);
+        [$body] = $sessionOf(null);
+        $write('session.json', $body);
+        $write('regions.json', (string) $container->get(Thallo\Core\Http\Controllers\RegionAdminController::class)->index()->getContent());
+        // The container proof starts from its own session, whose baseline is `container`.
+        $saveRows($documents['container']);
+        [$body] = $sessionOf(null);
+        $write('session-container.json', $body);
+        $saveRows($documents['baseline']);
+
+        // One session per state: mint for its page, apply its document, render the stage.
+        $stages = [];
+        foreach ($scenarios as $scenario) {
+            $name = (string) $scenario['name'];
+            [, $session] = $sessionOf($pages[$scenario['page']]);
+            $dto = (new Glueful\Validation\RequestDataHydrator())->hydrate(Thallo\Core\Http\DTOs\ApplyRegionsData::class, [
+                'token' => $session['token'],
+                'regions' => $documents[$name],
+                'epoch' => null,
+                'base_revision' => null,
+            ]);
+            $applied = $container->get(Thallo\Core\Http\Controllers\RegionPreviewController::class)->apply($dto);
+            if ($applied->getStatusCode() !== 200) {
+                fwrite(STDERR, "applying '{$name}' returned {$applied->getStatusCode()}: {$applied->getContent()}\n");
+                exit(1);
+            }
+            $token = (string) $session['token'];
+            $rendered = $container->get(RenderController::class)->preview(
+                Request::create('/_preview/' . $token . '?canvas=1', 'GET'),
+                $token,
+            );
+            if ($rendered->getStatusCode() !== 200) {
+                fwrite(STDERR, "the '{$name}' stage returned {$rendered->getStatusCode()}\n");
+                exit(1);
+            }
+            $write("stage-{$name}.html", (string) $rendered->getContent());
+            $stages[$name] = ['page' => $scenario['page'], 'document' => $documents[$name], 'file' => "stage-{$name}.html"];
+        }
+        $write('stages.json', json_encode($stages, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+        $write('pages.json', json_encode($pages, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+        foreach ($instances as $slug => $instance) {
+            file_put_contents(
+                $out . "/api/instance-{$slug}.json",
+                json_encode(['success' => true, 'data' => $instance], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR),
+            );
+        }
+        throw new RegionFixturesWritten();
+    });
+} catch (RegionFixturesWritten) {
+    // Written, and rolled back.
+}
+
 fwrite(STDOUT, "Wrote {$out}/canvas.html and " . count(glob($out . '/api/*.json') ?: []) . " API fixtures for entry {$entryUuid}.\n");
+fwrite(STDOUT, 'Wrote ' . count(glob($regionsOut . '/stage-*.html') ?: []) . " regions stages to {$regionsOut}.\n");

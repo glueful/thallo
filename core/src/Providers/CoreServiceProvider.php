@@ -1361,6 +1361,16 @@ final class CoreServiceProvider extends ServiceProvider
                 'shared' => true,
                 'factory' => [self::class, 'makePreviewWorkingCopyStore'],
             ],
+            // A regions-stage session's baseline and working copy (regions-stage spec §4.2).
+            \Thallo\Core\Content\Preview\RegionPreviewStore::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeRegionPreviewStore'],
+            ],
+            // The render pack reads a stage session's snapshot through the contract.
+            \Thallo\Contracts\Delivery\RegionStageSnapshots::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeRegionStageSnapshots'],
+            ],
             // The site style generation (visual builder spec §4.3): the per-site version of the
             // style-class definitions, incremented only by StyleClassRepository::write().
             \Thallo\Core\Content\Style\SiteStyleGeneration::class => [
@@ -1460,6 +1470,22 @@ final class CoreServiceProvider extends ServiceProvider
             $container->get(\Thallo\Tenancy\Cache\TenantCacheSegment::class),
             $container->get(ApplicationContext::class),
         );
+    }
+
+    public static function makeRegionPreviewStore(
+        ContainerInterface $container,
+    ): \Thallo\Core\Content\Preview\RegionPreviewStore {
+        return new \Thallo\Core\Content\Preview\RegionPreviewStore(
+            $container->get(CacheStore::class),
+            $container->get(\Thallo\Tenancy\Cache\TenantCacheSegment::class),
+            $container->get(ApplicationContext::class),
+        );
+    }
+
+    public static function makeRegionStageSnapshots(
+        ContainerInterface $container,
+    ): \Thallo\Contracts\Delivery\RegionStageSnapshots {
+        return $container->get(\Thallo\Core\Content\Preview\RegionPreviewStore::class);
     }
 
     public static function makeSystemKeyReconciler(ContainerInterface $container): SystemKeyReconcilerContract
@@ -2036,6 +2062,11 @@ final class CoreServiceProvider extends ServiceProvider
             ],
             RegionAdminController::class => [
                 'class' => RegionAdminController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Http\Controllers\RegionPreviewController::class => [
+                'class' => \Thallo\Core\Http\Controllers\RegionPreviewController::class,
                 'shared' => true,
                 'autowire' => true,
             ],

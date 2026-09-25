@@ -285,11 +285,11 @@ final class EditInPlaceMarkingTest extends AppTestCase
         // Direct filter calls: non-string -> '', and NO frame -> escaped value only
         // even with annotations on.
         $ext = $this->container()->get(\Thallo\Render\RenderContextExtension::class);
-        $ext->setBlockAnnotations(true);
+        $ext->setAnnotationScope('entry');
         $ext->resetBlockFrames();
         self::assertSame('x &lt;y&gt;', $ext->editableText('x <y>', 'f'));
         self::assertSame('', $ext->editableText(['array'], 'f'));
         self::assertSame('', $ext->editableText(null, 'f'));
-        $ext->setBlockAnnotations(false);
+        $ext->setAnnotationScope('none');
     }
 }

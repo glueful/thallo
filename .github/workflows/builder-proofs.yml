@@ -7,6 +7,7 @@ on:
       - 'admin/e2e/**'
       - 'packages/thallo-render/**'
       - 'core/src/Content/**'
+      - 'core/src/Http/Controllers/Region*'
       - 'scripts/build-builder-proof-fixtures'
       - 'tests/fixtures/composition/**'
       - '.github/workflows/builder-proofs.yml'
@@ -16,6 +17,7 @@ on:
       - 'admin/e2e/**'
       - 'packages/thallo-render/**'
       - 'core/src/Content/**'
+      - 'core/src/Http/Controllers/Region*'
       - 'scripts/build-builder-proof-fixtures'
       - 'tests/fixtures/composition/**'
       - '.github/workflows/builder-proofs.yml'
@@ -85,7 +87,10 @@ jobs:
           composer test:migrate
 
       - name: Build the proof fixtures from the real controllers
-        run: DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-builder-proof-fixtures
+        # From scratch: a fixture a changed scenario no longer writes must not linger.
+        run: |
+          rm -rf admin/e2e/fixtures
+          DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-builder-proof-fixtures
 
       - uses: pnpm/action-setup@v6
         with:

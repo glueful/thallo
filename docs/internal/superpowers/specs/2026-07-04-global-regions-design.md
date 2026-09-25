@@ -264,6 +264,17 @@ written straight into the region's working copy (`RegionBlockInspector`), burst-
 tick, and the page saves the region as a whole. Making the Regions page a real stage — click to
 select, drag, undo — is the larger design this does not foreclose: the same inspector moves onto it.
 
+### Amended 2026-09-25 — the regions stage
+
+The Regions page is now that larger design: a stage (`docs/internal/superpowers/specs/2026-09-24-regions-stage-design.md`).
+A regions preview session pins both saved regions as its baseline and builds its own working copy;
+the stage renders the picked published page with the chrome from that session, annotated for
+editing, and the page body inert. The Design view's stage editor edits both regions as one
+document, with history, and one batch save (`PUT /v1/admin/regions`) writes them under a single
+lock, checking both regions' versions. The card list, `RegionBlockInspector`, the blob preview
+(`POST /v1/admin/regions/preview`, `region-preview.twig`) and the per-region Save are gone; the
+per-region `PUT /v1/admin/regions/{slug}` stays, and now requires `expected`.
+
 ## Out of scope (explicit)
 
 - Region **variants** and per-page `variant:{slug}` selection; transparent

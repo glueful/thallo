@@ -3860,7 +3860,7 @@ export interface paths {
     put?: never
     /**
      * Create Subscription Plan
-     * @description Creates a managed subscription plan. Entitlements must be a JSON object whose values are booleans, non-negative integers, or explicit null. Body: `plan_key` (required; unique key of lowercase letters, numbers, dot, underscore, hyphen), `display_name` (required), `description`, `entitlements` (required; entitlement map of bool|int>=0|null values), `provider_price_id`, `status` (required; one of draft, active, archived), `sort_order`. Requires the `subscriptions.plans.manage` permission.
+     * @description Creates a managed subscription plan. Entitlements must be a JSON object whose values are booleans, non-negative integers, or explicit null. Body: `plan_key` (required; unique key of lowercase letters, numbers, dot, underscore, hyphen), `display_name` (required), `description`, `entitlements` (required; entitlement map of bool|int>=0|null values), `provider_price_id`, `status` (required; one of draft, active, archived), `sort_order`, and a display price: `price_amount` (minor units), `price_currency` (ISO 4217) and `billing_interval` (day, week, month, year), all three or none. Requires the `subscriptions.plans.manage` permission.
      */
     post: operations['subscriptionsPlansStore']
     delete?: never
@@ -3908,7 +3908,7 @@ export interface paths {
     head?: never
     /**
      * Update Subscription Plan
-     * @description Updates a managed subscription plan. `plan_key` is immutable. Active and archived plans cannot transition back to draft. Edits to active plans take effect immediately. Body: `display_name`, `description` (new description or null), `entitlements` (replacement entitlement map of bool|int>=0|null values), `provider_price_id`, `status` (one of draft, active, archived), `sort_order`. Requires the `subscriptions.plans.manage` permission.
+     * @description Updates a managed subscription plan. `plan_key` is immutable. Active and archived plans cannot transition back to draft. Edits to active plans take effect immediately. Body: `display_name`, `description` (new description or null), `entitlements` (replacement entitlement map of bool|int>=0|null values), `provider_price_id`, `status` (one of draft, active, archived), `sort_order`, `price_amount`, `price_currency`, `billing_interval` (a price is checked whole against the stored one). Requires the `subscriptions.plans.manage` permission.
      */
     patch: operations['subscriptionsPlansUpdate']
     trace?: never

@@ -950,6 +950,41 @@ describe('proposal drag (visual builder spec §5.3/§5.4)', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
   })
 
+  it('a wrapping row whose blocks share one line splits on x; once it has wrapped it proposes its end', () => {
+    const row = document.createElement('div')
+    row.setAttribute('data-thallo-slot', 'wrapped')
+    row.style.display = 'flex'
+    row.style.flexWrap = 'wrap'
+    const w1 = wrapper('fd-w-0000041')
+    const w2 = wrapper('fd-w-0000042')
+    row.append(w1, w2)
+    const mover = wrapper('fd-m-0000043')
+    document.body.append(row, mover)
+    stubRect(w1.firstElementChild as HTMLElement, { top: 0, bottom: 100, left: 0, right: 100 })
+    stubRect(w2.firstElementChild as HTMLElement, { top: 10, bottom: 90, left: 100, right: 200 })
+    stubRect(mover.firstElementChild as HTMLElement, { top: 900, bottom: 950, left: 0, right: 100 })
+    document.elementFromPoint = (x: number, y: number) =>
+      y < 300 ? (x < 100 ? w1.firstElementChild : x < 200 ? w2.firstElementChild : row) : null
+
+    gripDown(mover)
+    posted.mockClear()
+    pointerMove(50, 30) // left of w1's midpoint: before it
+    expect(proposals()[0]).toMatchObject({
+      zone: { slot: 'wrapped', index: 0, layout: 'linear-horizontal' },
+    })
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+
+    // w2 wraps onto a second line: positions in the row are no longer a single axis.
+    stubRect(w2.firstElementChild as HTMLElement, { top: 120, bottom: 220, left: 0, right: 100 })
+    gripDown(mover)
+    posted.mockClear()
+    pointerMove(50, 30)
+    expect(proposals()[0]).toMatchObject({ zone: { slot: 'wrapped', index: 2, layout: 'other' } })
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    row.remove()
+    mover.remove()
+  })
+
   it('a zone inside the dragged subtree is refused locally: no proposal, no indicator', () => {
     const { list, a } = dragList()
     const inner = document.createElement('div')
@@ -3327,5 +3362,164 @@ describe('Fill empty cells on the stage (container-layout spec §11.3)', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+// The header & footer stage (regions-stage spec §5.4): with <html data-thallo-canvas="regions">,
+// only the header and footer are the stage's; the page body between them is inert — no navigation,
+// no submission, no keyboard activation, no selection — while scrolling is untouched.
+describe('region-only mode', () => {
+  beforeEach(() => {
+    document.documentElement.setAttribute('data-thallo-canvas', 'regions')
+    document.body.innerHTML = `
+      <header><div data-thallo-slot="header" id="ro-header-slot"></div></header>
+      <main id="ro-main">
+        <a href="/elsewhere" id="ro-body-link">a body link</a>
+        <button type="button" id="ro-body-button">a body button</button>
+        <form id="ro-body-form" action="/submit"><input name="q"></form>
+      </main>`
+    document
+      .getElementById('ro-header-slot')!
+      .appendChild(
+        wrapper('ro-hdr-00001', '<p><a href="/h" id="ro-header-link">header link</a></p>'),
+      )
+  })
+  afterEach(() => {
+    document.documentElement.removeAttribute('data-thallo-canvas')
+  })
+
+  function fire(el: Element, event: Event): Event {
+    el.dispatchEvent(event)
+    return event
+  }
+
+  it('a click on a body link navigates nowhere and selects nothing', () => {
+    const click = fire(
+      document.getElementById('ro-body-link')!,
+      new MouseEvent('click', { bubbles: true, cancelable: true }),
+    )
+    expect(click.defaultPrevented).toBe(true)
+    expect(lastPost('thallo:block-select')).toBeUndefined()
+  })
+
+  it('a body form does not submit', () => {
+    const submit = fire(
+      document.getElementById('ro-body-form')!,
+      new Event('submit', { bubbles: true, cancelable: true }),
+    )
+    expect(submit.defaultPrevented).toBe(true)
+  })
+
+  it('Enter on a body link and Space on a body button are inert; Enter in the header is not', () => {
+    const enter = fire(
+      document.getElementById('ro-body-link')!,
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    )
+    const space = fire(
+      document.getElementById('ro-body-button')!,
+      new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }),
+    )
+    expect(enter.defaultPrevented).toBe(true)
+    expect(space.defaultPrevented).toBe(true)
+
+    const inHeader = fire(
+      document.getElementById('ro-header-link')!,
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    )
+    expect(inHeader.defaultPrevented).toBe(false)
+  })
+
+  it('a wheel over the body still scrolls', () => {
+    const wheel = fire(
+      document.getElementById('ro-main')!,
+      new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: 40 }),
+    )
+    expect(wheel.defaultPrevented).toBe(false)
+  })
+
+  it('a header block still selects', () => {
+    document
+      .getElementById('ro-header-link')!
+      .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(lastPost('thallo:block-select')).toMatchObject({ id: 'ro-hdr-00001' })
+  })
+
+  it('on the Design view stage the body is the stage’s as before', () => {
+    document.documentElement.setAttribute('data-thallo-canvas', 'entry')
+    const click = fire(
+      document.getElementById('ro-body-link')!,
+      new MouseEvent('click', { bubbles: true, cancelable: true }),
+    )
+    // Outside any block wrapper the entry stage lets a click through, as it always has.
+    expect(click.defaultPrevented).toBe(false)
+  })
+
+  it('the stage’s own controls outside the regions still work: the format bar and its link panel', () => {
+    const bar = document.createElement('div')
+    bar.className = 'thallo-canvas-format-bar'
+    bar.innerHTML =
+      '<button type="button" id="ro-bold">B</button>' +
+      '<div class="thallo-canvas-link-panel"><input id="ro-url" /></div>'
+    document.body.appendChild(bar)
+    const clicked = vi.fn()
+    document.getElementById('ro-bold')!.addEventListener('click', clicked)
+    const click = fire(
+      document.getElementById('ro-bold')!,
+      new MouseEvent('click', { bubbles: true, cancelable: true }),
+    )
+    expect(clicked).toHaveBeenCalledTimes(1)
+    expect(click.defaultPrevented).toBe(false)
+    const enter = fire(
+      document.getElementById('ro-url')!,
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    )
+    const space = fire(
+      document.getElementById('ro-url')!,
+      new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }),
+    )
+    expect(enter.defaultPrevented).toBe(false)
+    expect(space.defaultPrevented).toBe(false)
+    bar.remove()
+  })
+
+  it('with a header block selected, Enter on the page asks to edit it; Space on the page is not cancelled', () => {
+    const slot = document.getElementById('ro-header-slot')!
+    const prose = wrapper(
+      'ro-hdr-00002',
+      '<section><div class="thallo-edit-region" data-thallo-edit-block="ro-hdr-00002" ' +
+        'data-thallo-edit-field="body"><p>header note</p></div></section>',
+    )
+    slot.appendChild(prose)
+    prose.querySelector('section')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(lastPost('thallo:block-select')).toMatchObject({ id: 'ro-hdr-00002' })
+    posted.mockClear()
+    // Selection moves no focus: the key arrives on the body.
+    fire(
+      document.body,
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    )
+    expect(lastPost('thallo:edit-request')).toMatchObject({ id: 'ro-hdr-00002', field: 'body' })
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    const space = fire(
+      document.body,
+      new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }),
+    )
+    expect(space.defaultPrevented).toBe(false)
+  })
+})
+
+describe('an expired regions session', () => {
+  afterEach(() => {
+    document.documentElement.removeAttribute('data-thallo-session-expired')
+  })
+
+  it('a stage showing the expired page says so to the parent when it says hello', () => {
+    posted.mockClear()
+    sendToBridge({ type: 'thallo:canvas-hello' })
+    expect(lastPost('thallo:session-expired')).toBeUndefined()
+
+    document.documentElement.setAttribute('data-thallo-session-expired', '')
+    sendToBridge({ type: 'thallo:canvas-hello' })
+    expect(lastPost('thallo:session-expired')).toBeDefined()
   })
 })

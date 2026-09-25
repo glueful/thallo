@@ -162,6 +162,7 @@ const bridge = vi.hoisted(() => {
       onEditStart: (cb: (id: string) => void) => (callbacks.editStart = cb),
       onEditEnd: (cb: (id: string) => void) => (callbacks.editEnd = cb),
       onScroll: (cb: (y: number) => void) => (callbacks.scroll = cb),
+      onSessionExpired: vi.fn(),
       restoreScroll: vi.fn(),
       highlight: vi.fn(),
       scrollTo: vi.fn(),
