@@ -34,7 +34,7 @@ final class BlogPostsRenderTest extends AppTestCase
         $this->connection()->table('users')->where('id', '>', 0)->delete();
         // Annotation mode is a per-render flag on a shared singleton — reset it so a
         // preview test cannot leak annotation into a later public render.
-        $this->container()->get(RenderContextExtension::class)->setBlockAnnotations(false);
+        $this->container()->get(RenderContextExtension::class)->setAnnotationScope('none');
         parent::tearDown();
     }
 
@@ -75,7 +75,7 @@ final class BlogPostsRenderTest extends AppTestCase
 
     public function testEmptyShowsPlaceholderUnderPreviewAnnotation(): void
     {
-        $this->container()->get(RenderContextExtension::class)->setBlockAnnotations(true);
+        $this->container()->get(RenderContextExtension::class)->setAnnotationScope('entry');
         // Unknown type → entries() gate-fails to []; preview mode shows the placeholder.
         $out = $this->render([[
             'id' => 'bp2', 'type' => 'blog_posts',

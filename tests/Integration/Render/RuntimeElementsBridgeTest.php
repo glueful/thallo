@@ -224,13 +224,13 @@ final class RuntimeElementsBridgeTest extends AppTestCase
           assert(resolved === 1, 'resolveTarget consulted');
 
           // 8. Canvas gate FIRST: skip module on canvas mutates nothing at all.
-          var stage = docRoot.appendChild(el('thallo-preview-block'));
+          document.documentElement.setAttribute('data-thallo-canvas', 'entry');
           var h5 = docRoot.appendChild(el(''));
           upgrade('x-probe', h5);
           await flush();
           assert(!h5.classList.contains('probe-root'), 'canvas: no projection for skip module');
           assert(enhanced.length === 2, 'canvas: no enhancement for skip module');
-          docRoot.children.splice(docRoot.children.indexOf(stage), 1);
+          document.documentElement.removeAttribute('data-thallo-canvas');
 
           // 9. Disconnect before the deferred microtask cancels pending work.
           var h6 = docRoot.appendChild(el(''));

@@ -69,7 +69,7 @@ final class FragmentVerificationTest extends AppTestCase
 
     protected function tearDown(): void
     {
-        $this->container()->get(RenderContextExtension::class)->setBlockAnnotations(false);
+        $this->container()->get(RenderContextExtension::class)->setAnnotationScope('none');
         $this->container()->get(\Glueful\Cache\CacheStore::class)->deletePattern('render:*');
         parent::tearDown();
     }

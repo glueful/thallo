@@ -1763,9 +1763,8 @@ final class ShopJsRuntimeTest extends AppTestCase
         return $this->harnessPrelude($shopJsSrc, $runtimeSrc) . "\n\n" . <<<JS
         (async function canvasStage() {
           var doc = new Doc();
-          var preview = el('div');
-          preview.className = 'thallo-preview-block'; // the core's canvas probe matches this
-          doc.body.appendChild(preview);
+          // A stage render marks <html data-thallo-canvas> — the core's canvas probe reads it.
+          doc.documentElement.setAttribute('data-thallo-canvas', 'entry');
 
           var form = el('form', { action: '/_shop/cart/add' }, [el('button', { type: 'submit' })]);
           doc.body.appendChild(form);

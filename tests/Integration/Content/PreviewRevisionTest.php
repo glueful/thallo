@@ -57,7 +57,7 @@ final class PreviewRevisionTest extends AppTestCase
     {
         // A canvas render turns block annotation on for the process-shared extension; later
         // tests render through the same singleton without a controller to reset it.
-        $this->container()->get(RenderContextExtension::class)->setBlockAnnotations(false);
+        $this->container()->get(RenderContextExtension::class)->setAnnotationScope('none');
         parent::tearDown();
     }
 

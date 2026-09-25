@@ -57,11 +57,11 @@ final class StyleTargetsRenderTest extends AppTestCase
         self::assertStringNotContainsString('data-thallo-slot', $this->render($container));
         $extension = $this->container()->get(RenderContextExtension::class);
         $extension->resetPerRenderState();
-        $extension->setBlockAnnotations(true);
+        $extension->setAnnotationScope('entry');
         try {
             $html = $this->env()->createTemplate('{{ blocks(l) }}')->render(['l' => $container]);
         } finally {
-            $extension->setBlockAnnotations(false);
+            $extension->setAnnotationScope('none');
         }
         self::assertStringContainsString('data-thallo-slot="content"', $html);
     }

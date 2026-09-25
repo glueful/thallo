@@ -120,9 +120,9 @@ foreach ($definitions as $file) {
     }
     foreach (['public' => false, 'canvas' => true] as $mode => $annotations) {
         $extension->resetPerRenderState();
-        $extension->setBlockAnnotations($annotations);
+        $extension->setAnnotationScope($annotations ? 'entry' : 'none');
         $body = $twig->createTemplate('{{ blocks(l) }}')->render(['l' => [$case['new']]]);
-        $extension->setBlockAnnotations(false);
+        $extension->setAnnotationScope('none');
         $suffix = $mode === 'public' ? '' : '.canvas';
         file_put_contents(
             $out . '/' . $name . $suffix . '.html',

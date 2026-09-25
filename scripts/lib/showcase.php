@@ -94,7 +94,7 @@ function showcase_renderer(\Psr\Container\ContainerInterface $container, string 
 
     return static function (array $blocks, string $title) use ($extension, $twig, $faces, $css): string {
         $extension->resetPerRenderState();
-        $extension->setBlockAnnotations(false);
+        $extension->setAnnotationScope('none');
         $body = $twig->createTemplate('{{ blocks(l) }}')->render(['l' => $blocks]);
         return "<!doctype html>\n<meta charset=\"utf-8\">\n<title>{$title}</title>\n<style>\n{$faces}\n{$css}\n"
             . "body { margin: 0; }\n</style>\n<main>{$body}</main>\n";

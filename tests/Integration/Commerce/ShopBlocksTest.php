@@ -637,7 +637,7 @@ final class ShopBlocksTest extends AppTestCase
         /** @var RenderContextExtension $extension */
         $extension = $this->container()->get(RenderContextExtension::class);
         $extension->resetPerRenderState();
-        $extension->setBlockAnnotations(false);
+        $extension->setAnnotationScope('none');
         $extension->setLocale('en');
 
         return $extension->blocks($env, ['entry' => $entry, 'site' => []], [

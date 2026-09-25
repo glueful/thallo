@@ -27,7 +27,7 @@ final class ImageDisciplineRenderTest extends AppTestCase
         /** @var RenderContextExtension $ext */
         $ext = $this->container()->get(RenderContextExtension::class);
         $ext->resetPerRenderState();
-        $ext->setBlockAnnotations(false);
+        $ext->setAnnotationScope('none');
         $ext->setLocale('en');
         return $ext->blocks(
             $env,

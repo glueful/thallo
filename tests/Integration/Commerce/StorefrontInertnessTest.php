@@ -238,7 +238,7 @@ final class StorefrontInertnessTest extends AppTestCase
             /** @var RenderContextExtension $extension */
             $extension = $container->get(RenderContextExtension::class);
             $extension->resetPerRenderState();
-            $extension->setBlockAnnotations(false);
+            $extension->setAnnotationScope('none');
             $extension->setLocale('en');
             $html = $extension->blocks($env, ['entry' => null, 'site' => []], [
                 ['id' => 'b1', 'type' => 'mini-cart', 'data' => []],

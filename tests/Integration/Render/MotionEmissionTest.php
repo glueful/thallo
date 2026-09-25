@@ -39,7 +39,7 @@ final class MotionEmissionTest extends AppTestCase
         $base = $this->container()->get(ApplicationContext::class)->getBasePath();
         $extension = $this->container()->get(RenderContextExtension::class);
         $extension->resetPerRenderState();
-        $extension->setBlockAnnotations($canvas);
+        $extension->setAnnotationScope($canvas ? 'entry' : 'none');
         try {
             $env = (new TwigFactory(
                 new ThemeLocator('default', $base . '/themes'),
@@ -48,7 +48,7 @@ final class MotionEmissionTest extends AppTestCase
             ))->environment();
             return $extension->finish($env->createTemplate($page)->render(['l' => $blocks]));
         } finally {
-            $extension->setBlockAnnotations(false);
+            $extension->setAnnotationScope('none');
         }
     }
 

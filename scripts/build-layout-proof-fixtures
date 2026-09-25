@@ -113,9 +113,9 @@ $built = 0;
 foreach (LayoutFixtureBlockType::cases($root) as $name => $case) {
     foreach (['public' => false, 'canvas' => true] as $mode => $annotations) {
         $extension->resetPerRenderState();
-        $extension->setBlockAnnotations($annotations);
+        $extension->setAnnotationScope($annotations ? 'entry' : 'none');
         $body = $twig->createTemplate('{{ blocks(l) }}')->render(['l' => [$case['tree']]]);
-        $extension->setBlockAnnotations(false);
+        $extension->setAnnotationScope('none');
         $suffix = $mode === 'public' ? '' : '.canvas';
         // Finished as a served page is: what the blocks turned out to need (the motion flag) goes
         // into the page's head.
