@@ -67,6 +67,8 @@ const {
   onSetSetting,
   onSetAll,
   onSetAdvanced,
+  onSetPartSetting,
+  onSetPartAll,
   onPatchData,
   playSelectedMotion,
   onInsertInto,
@@ -316,6 +318,8 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
                 @set-setting="onSetSetting"
                 @set-all="onSetAll"
                 @set-advanced="onSetAdvanced"
+                @set-part-setting="onSetPartSetting"
+                @set-part-all="onSetPartAll"
                 @update:active-breakpoint="onActiveBreakpoint"
               />
               <p v-else class="text-xs text-muted" data-test="block-inspector-empty">

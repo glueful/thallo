@@ -452,6 +452,28 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
       return next
     })
   }
+  /** A part of the selected block (a links block's links): the part's own style record. */
+  function onSetPartSetting(
+    part: string,
+    path: string,
+    bp: Breakpoint | null,
+    value: StyleValue | null,
+  ): void {
+    if (selected.value === null) return
+    writeSettings(selected.value, (s) =>
+      setPath(s, settingSegments(path, bp, part), value === null ? absent() : present(value)),
+    )
+  }
+  function onSetPartAll(part: string, path: string, value: StyleValue): void {
+    if (selected.value === null) return
+    writeSettings(selected.value, (s) => {
+      let next = s
+      for (const bp of ['base', 'md', 'lg'] as Breakpoint[]) {
+        next = setPath(next, settingSegments(path, bp, part), present(value))
+      }
+      return next
+    })
+  }
   function onSetAdvanced(path: string, value: unknown): void {
     if (selected.value === null) return
     writeSettings(selected.value, (s) =>
@@ -2035,6 +2057,8 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     onSetSetting,
     onSetAll,
     onSetAdvanced,
+    onSetPartSetting,
+    onSetPartAll,
     onPatchData,
     playSelectedMotion,
     onInsertInto,

@@ -185,6 +185,21 @@ final class TemplateLinterTest extends AppTestCase
         self::assertSame([], $this->linter()->lint("{{ block_script('gallery') }}"));
     }
 
+    /** A block's parts are styled like its targets: named in the template, and every declared one used. */
+    public function testADeclaredPartIsStyledLikeATarget(): void
+    {
+        $this->syncBlockStyleDeclarations();
+        $linter = $this->linter();
+        $root = '<nav class="x{{ style_classes(\'root\') }}"{{ style_attrs(\'root\') }}>'
+            . '<p class="t{{ style_classes(\'title\') }}"{{ style_attrs(\'title\') }}></p>';
+        $styled = $root . '<a class="l{{ style_classes(\'link\') }}"></a></nav>';
+        self::assertSame([], $linter->lint($styled, 'blocks/links.twig'));
+
+        $unstyled = $linter->lint($root . '</nav>', 'blocks/links.twig');
+        self::assertCount(1, $unstyled);
+        self::assertStringContainsString('Declared style part "link" is never styled', $unstyled[0]['message']);
+    }
+
     /** Visual builder spec §2.5: the target rules apply to a block template whose type declares targets. */
     public function testStyleTargetRulesApplyToDeclaredBlockTemplates(): void
     {

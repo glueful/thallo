@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Logo block box — height proof</title>
+<!-- The REAL theme sheets, by repo path: the proof server serves the repo root. -->
+<link rel="stylesheet" href="/packages/thallo-render/themes/default/assets/site.css">
+<link rel="stylesheet" href="/packages/thallo-render/themes/default/assets/blocks.css">
+</head>
+<body>
+<!-- What layout.twig and blocks/logo.twig emit for a saved header holding a medium logo image. -->
+<header class="site-header thallo-region thallo-region-header thallo-region-header--contained">
+  <div class="site-header__inner">
+    <div class="thallo-block thallo-block-logo thallo-block-logo--medium" id="logo">
+      <a class="thallo-block-logo__link" href="/" id="link"><img class="thallo-block-logo__image" id="image" alt="Site"
+        src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='40'%3E%3Crect width='160' height='40' fill='%23333'/%3E%3C/svg%3E"></a>
+    </div>
+  </div>
+</header>
+</body>
+</html>

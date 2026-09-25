@@ -419,3 +419,91 @@ describe('BlockInspector', () => {
     expect(tabs).toEqual(['Content', 'Style', 'Advanced'])
   })
 })
+
+describe('a block’s parts', () => {
+  const links = {
+    ...type('links', ['spacing', 'typography']),
+    style_targets: {
+      targets: { root: { kind: 'box' }, title: { kind: 'text' } },
+      map: { spacing: 'root', typography: 'title' },
+      parts: { link: { label: 'Link', capabilities: ['typography', 'colors.text'] } },
+    },
+  } as BlockType
+
+  it('the Style tab has a section per part, writing to the part and not to the block', async () => {
+    const w = mount(BlockInspector, {
+      props: {
+        block: {
+          id: 'l1',
+          type: 'links',
+          data: {},
+          settings: {
+            parts: {
+              link: {
+                typography: { size: { base: { type: 'token', value: 'typography.size.sm' } } },
+              },
+            },
+          },
+        },
+        blockType: links,
+        schema,
+        classes: [],
+        activeBreakpoint: 'base',
+        noContent: true,
+      },
+    })
+    const part = w.find('[data-test="style-part-link"]')
+    expect(part.exists()).toBe(true)
+    expect(part.find('[data-test="style-part-title"]').text()).toBe('Link')
+    const fields = part
+      .findAll('[data-test^="style-field-"]')
+      .map((el) => el.attributes('data-test'))
+    expect(fields).toEqual([
+      'style-field-typography.size',
+      'style-field-typography.weight',
+      'style-field-colors.text',
+    ])
+    // The part's own value, not the block's.
+    expect(
+      part.find('[data-test="style-field-typography.size"] [data-test="style-state"]').text(),
+    ).toBe('set')
+
+    await part
+      .find('[data-test="style-field-typography.size"] [data-test="token-typography.size.lg"]')
+      .trigger('click')
+    expect(w.emitted('set-part-setting')?.[0]).toEqual([
+      'link',
+      'typography.size',
+      'base',
+      { type: 'token', value: 'typography.size.lg' },
+    ])
+    expect(w.emitted('set-setting')).toBeUndefined()
+  })
+
+  it('a block without parts, and a selection of several, show no part sections', () => {
+    const one = mount(BlockInspector, {
+      props: {
+        block: { id: 'h', type: 'heading', data: {}, settings: {} },
+        blockType: heading,
+        schema,
+        classes: [],
+        activeBreakpoint: 'base',
+        noContent: true,
+      },
+    })
+    expect(one.find('[data-test^="style-part-"]').exists()).toBe(false)
+    const block = { id: 'l1', type: 'links', data: {}, settings: {} }
+    const several = mount(BlockInspector, {
+      props: {
+        block,
+        blockType: links,
+        blocks: [block, { ...block, id: 'l2' }],
+        blockTypes: [links, links],
+        schema,
+        classes: [],
+        activeBreakpoint: 'base',
+      },
+    })
+    expect(several.find('[data-test^="style-part-"]').exists()).toBe(false)
+  })
+})

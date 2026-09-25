@@ -70,6 +70,14 @@ const emit = defineEmits<{
   'insert-into': [field: string]
   'set-setting': [path: string, breakpoint: Breakpoint | null, value: StyleValue | null]
   'set-all': [path: string, value: StyleValue]
+  /** A part of the block (a links block's links): the same controls, the part's own record. */
+  'set-part-setting': [
+    part: string,
+    path: string,
+    breakpoint: Breakpoint | null,
+    value: StyleValue | null,
+  ]
+  'set-part-all': [part: string, path: string, value: StyleValue]
   'set-advanced': [
     path: 'anchor' | 'css_classes' | 'attributes' | 'accessibility.label',
     value: unknown,
@@ -89,6 +97,34 @@ const emit = defineEmits<{
 
 const tab = ref(props.noContent ? 'style' : 'content')
 const multi = computed(() => (props.blocks?.length ?? 0) > 1)
+
+/**
+ * The block type's parts (StyleTargets `parts`): sub-elements styled on their own, each shown on
+ * the Style tab as its own section — the Style tab's controls over the part's record, offering only
+ * what the part declares. The block's style classes are the block's and never reach a part.
+ */
+const parts = computed(() => {
+  const declared = (props.blockType?.style_targets as { parts?: unknown } | null | undefined)?.parts
+  if (declared === null || typeof declared !== 'object') return []
+  return Object.entries(
+    declared as Record<string, { label?: string; capabilities?: string[] }>,
+  ).map(([name, spec]) => ({
+    name,
+    label: spec.label ?? name,
+    type: {
+      ...props.blockType!,
+      style_capabilities: spec.capabilities ?? [],
+      style_targets: null,
+    } as BlockType,
+    block: {
+      ...props.block,
+      settings: {
+        style: ((props.block.settings?.parts as Record<string, unknown> | undefined)?.[name] ??
+          {}) as Record<string, unknown>,
+      },
+    },
+  }))
+})
 const ALL_TABS = [
   { label: 'Content', value: 'content', slot: 'content' as const },
   { label: 'Layout', value: 'layout', slot: 'layout' as const },
@@ -269,6 +305,32 @@ const cardFields = computed<string[]>(() =>
           @save-as-class="emit('save-as-class')"
           @play-motion="emit('play-motion')"
         />
+        <template v-if="schema !== null && !multi">
+          <section
+            v-for="part in parts"
+            :key="part.name"
+            class="mt-5 space-y-3 border-t border-default pt-4"
+            :data-test="`style-part-${part.name}`"
+          >
+            <h4
+              class="text-[11px] font-semibold tracking-wide text-muted uppercase"
+              data-test="style-part-title"
+            >
+              {{ part.label }}
+            </h4>
+            <StyleTab
+              :block="part.block"
+              :block-type="part.type"
+              :schema="schema"
+              :classes="[]"
+              context="part"
+              :active-breakpoint="activeBreakpoint"
+              @set="(path, bp, value) => emit('set-part-setting', part.name, path, bp, value)"
+              @set-all="(path, value) => emit('set-part-all', part.name, path, value)"
+              @update:active-breakpoint="(bp) => emit('update:activeBreakpoint', bp)"
+            />
+          </section>
+        </template>
       </template>
       <template v-if="!multi" #advanced>
         <AdvancedTab

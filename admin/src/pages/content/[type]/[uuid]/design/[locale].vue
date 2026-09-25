@@ -162,6 +162,8 @@ const {
   onSetSetting,
   onSetAll,
   onSetAdvanced,
+  onSetPartSetting,
+  onSetPartAll,
   onPatchData,
   playSelectedMotion,
   onInsertInto,
@@ -765,6 +767,8 @@ async function openThemePreview(): Promise<void> {
                 @set-setting="onSetSetting"
                 @set-all="onSetAll"
                 @set-advanced="onSetAdvanced"
+                @set-part-setting="onSetPartSetting"
+                @set-part-all="onSetPartAll"
                 @update:active-breakpoint="onActiveBreakpoint"
               />
               <p v-else class="text-xs text-muted" data-test="block-inspector-empty">

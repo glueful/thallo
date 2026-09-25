@@ -35,7 +35,7 @@ const props = defineProps<{
    * passed to every field. Only a block offers to save its declarations as a style class — a
    * class already is one, and a region has none.
    */
-  context?: 'block' | 'class' | 'region'
+  context?: 'block' | 'class' | 'region' | 'part'
   /** A block's inspector on a page with no save-as-class flow (the Regions page). */
   noSaveAsClass?: boolean
   /** The host has a stage that can replay a block's motion: only then is Play offered. */

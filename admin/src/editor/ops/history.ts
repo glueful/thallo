@@ -40,7 +40,7 @@ function coalesceKey(op: Operation): string | null {
     case 'SetField':
       return `field:${op.block}:${op.field}`
     case 'SetSetting':
-      return `setting:${op.block}:${op.path}:${op.breakpoint ?? ''}`
+      return `setting:${op.block}:${op.part ?? ''}:${op.path}:${op.breakpoint ?? ''}`
     case 'SetAdvanced':
       return `advanced:${op.block}:${op.path}`
     case 'SetPageSettings':

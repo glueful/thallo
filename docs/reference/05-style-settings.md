@@ -386,6 +386,21 @@ declaration: every declared target is styled, no undeclared target is used, and 
 writes a `style` attribute or a `<style>` element. Which blocks declare what is in
 [the block library](04-block-library.md).
 
+A block may also declare **parts** under `style_targets`: repeated elements styled on their own,
+such as a Links block's links. A part is not a target: none of the block's settings land on it.
+It has its own capability list and its own record, in the block's settings under
+`parts.<name>`, and the Style tab shows it as a section of its own under the block's settings,
+named by the part's label. A template styles a part with `{{ style_classes('name') }}` on every
+element the part names, and the lint requires each declared part to be styled. The block's
+style classes never reach a part.
+
+```php
+'style_targets' => StyleTargets::root('box', ['spacing'], [/* the block's targets */])
+    + ['parts' => ['link' => ['label' => 'Link', 'capabilities' => [
+        'typography', 'colors.text', 'spacing.padding.top', /* … */
+    ]]]],
+```
+
 The Advanced tab's four values go through the same map, each owned by exactly one target: the
 anchor becomes that element's `id`, `data-*` attributes are copied to it, and the accessibility
 label becomes its `aria-label`. Your own CSS class names are appended to the same element's

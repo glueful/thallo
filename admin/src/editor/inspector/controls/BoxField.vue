@@ -26,7 +26,7 @@ const props = defineProps<{
   reResolving?: boolean
   styles?: Record<string, unknown>[]
   /** Where the row is: a block's inspector (the default) or a style class's editor. */
-  context?: 'block' | 'class' | 'region'
+  context?: 'block' | 'class' | 'region' | 'part'
 }>()
 const emit = defineEmits<{
   set: [path: string, breakpoint: Breakpoint | null, value: StyleValue | null]

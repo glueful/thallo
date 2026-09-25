@@ -7,6 +7,25 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.62] - 2026-09-25 — Developer Preview
+
+A Links block's links are styled on their own — size, weight, line height, colour and padding, in a
+Link section of its Style tab — through block *parts*, a new way for a block type to declare
+repeated elements with a style of their own. A logo image no longer has a gap below it. No
+migrations: `thallo:provision` gives existing Links blocks the new section.
+
+### Added
+- **A Links block's links have a style of their own.** Its Style tab now has a **Link** section
+  below the title’s settings: each link’s size, weight, line height and colour, and
+  the padding around it. Under the hood a block type can declare *parts* — repeated elements
+  styled on their own, with their own record under `settings.parts` — and a template styles one
+  with `style_classes('<part>')`; `thallo:provision` gives existing Links blocks the new section.
+
+### Fixed
+- **A logo image no longer has a gap below it.** The logo's link sat on a line of text and kept
+  the room a line reserves below the letters, space no setting could reach; the logo block is now
+  exactly as tall as its image, so its padding and the bar's are the only space around it.
+
 ## [1.0.0-beta.61] - 2026-09-25 — Developer Preview
 
 The header and footer are edited on the stage: the Header & footer page shows a real page with its

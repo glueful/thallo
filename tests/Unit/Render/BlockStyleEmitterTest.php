@@ -153,4 +153,28 @@ final class BlockStyleEmitterTest extends TestCase
         self::assertSame([], $emitter->classesFor([], $this->buttonTargets(), 'root'));
         self::assertSame([], $emitter->attrsFor(['settings' => null], $this->buttonTargets(), 'root'));
     }
+
+    public function testAPartsClassesComeFromItsOwnRecordAndNeverFromTheBlocks(): void
+    {
+        $targets = StyleTargets::fromDeclaration([
+            'targets' => ['root' => ['kind' => 'box']],
+            'map' => ['typography' => 'root'],
+            'parts' => ['link' => ['label' => 'Link', 'capabilities' => ['typography', 'colors.text']]],
+        ]);
+        $settings = [
+            'style' => ['typography' => ['size' => ['base' => ['type' => 'token', 'value' => 'typography.size.lg']]]],
+            'parts' => ['link' => [
+                'typography' => ['size' => ['md' => ['type' => 'token', 'value' => 'typography.size.sm']]],
+                'colors' => ['text' => ['type' => 'token', 'value' => 'color.accent']],
+                // Not the part's: dropped, never emitted.
+                'radius' => ['type' => 'token', 'value' => 'radius.full'],
+            ]],
+            // Style classes are the block's; a part does not inherit them.
+            'classes' => ['cls00000001'],
+        ];
+        $emitter = new BlockStyleEmitter();
+        self::assertSame(['md:t-size-sm', 't-fg-accent'], $emitter->classesFor($settings, $targets, 'link'));
+        self::assertSame(['t-size-lg'], $emitter->classesFor($settings, $targets, 'root'));
+        self::assertSame([], $emitter->attrsFor($settings, $targets, 'link'));
+    }
 }

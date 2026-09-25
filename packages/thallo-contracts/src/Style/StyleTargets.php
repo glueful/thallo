@@ -9,6 +9,10 @@ namespace Thallo\Contracts\Style;
  * §1.7). Style capabilities map by path or group; advanced paths (`advanced.anchor`,
  * `advanced.attributes`, `advanced.css_classes`, `advanced.accessibility.label`) map to exactly
  * one owner each. Kinds gate alignment: text → text target, content → row, self → box.
+ *
+ * A block may also declare PARTS: repeated sub-elements (a links block's links) styled on their
+ * own. A part is not a target — none of the block's style lands on it — but a style record of
+ * its own (`settings.parts.<name>`) holding only the part's capabilities.
  */
 final readonly class StyleTargets
 {
@@ -23,11 +27,13 @@ final readonly class StyleTargets
      * @param array<string, array{kind: TargetKind, optional: bool}> $targets
      * @param array<string, string> $styleMap exact style path → target
      * @param array<string, string> $advancedMap advanced path → target
+     * @param array<string, array{label: string, capabilities: StyleCapabilities}> $parts
      */
     private function __construct(
         private array $targets,
         private array $styleMap,
         private array $advancedMap,
+        private array $parts = [],
     ) {
     }
 
@@ -80,7 +86,24 @@ final readonly class StyleTargets
             }
         }
 
-        return new self($targets, $styleMap, $advancedMap);
+        $parts = [];
+        foreach ((array) ($decl['parts'] ?? []) as $name => $spec) {
+            if (!is_string($name) || $name === '' || isset($targets[$name])) {
+                throw new \InvalidArgumentException(
+                    sprintf('part "%s" must be named apart from every target', (string) $name),
+                );
+            }
+            $spec = is_array($spec) ? $spec : [];
+            $capabilities = StyleCapabilities::fromDeclaration(
+                is_array($spec['capabilities'] ?? null) ? array_values($spec['capabilities']) : null,
+            );
+            $parts[$name] = [
+                'label' => is_string($spec['label'] ?? null) ? $spec['label'] : ucfirst($name),
+                'capabilities' => $capabilities,
+            ];
+        }
+
+        return new self($targets, $styleMap, $advancedMap, $parts);
     }
 
     /**
@@ -108,6 +131,28 @@ final readonly class StyleTargets
     public function names(): array
     {
         return array_keys($this->targets);
+    }
+
+    /** @return list<string> the block's parts, declaration order */
+    public function parts(): array
+    {
+        return array_keys($this->parts);
+    }
+
+    public function isPart(string $name): bool
+    {
+        return isset($this->parts[$name]);
+    }
+
+    public function partLabel(string $part): string
+    {
+        return $this->parts[$part]['label'] ?? throw new \InvalidArgumentException("unknown part \"{$part}\"");
+    }
+
+    /** What a part may be styled with: its own capabilities, never the block's. */
+    public function partCapabilities(string $part): StyleCapabilities
+    {
+        return $this->parts[$part]['capabilities'] ?? throw new \InvalidArgumentException("unknown part \"{$part}\"");
     }
 
     public function kind(string $target): TargetKind
