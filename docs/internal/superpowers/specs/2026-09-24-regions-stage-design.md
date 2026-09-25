@@ -6,7 +6,9 @@ version contract (§4.5), exact revision-pair clearing (§4.5), one snapshot per
 inert page body and an explicit stage marker (§4.4, §5.4), regions shown on pages that hide them
 (§4.4), and the page switch and palette rules (§5.3). **Second amendment:** a pinned session
 baseline (§4.2), saves serialized across both regions (§4.5), and page switch and renewal as an
-explicit restore sequence (§5.3).
+explicit restore sequence (§5.3). **Third amendment:** both session records expire at the token's
+absolute expiry, with no 300-second cap (§4.2, §4.3); every region writer is named and serialized
+(§4.5).
 **Extends:** `2026-07-04-global-regions-design.md` — this is its deferred "Canvas in-place region
 editing" (§8, out of scope list) and the "real Regions stage" its 2026-09-19 amendment left open.
 **Replaces:** the Regions page's form editor, its `POST /admin/regions/preview` endpoint,
@@ -102,8 +104,11 @@ run by the admin (§5.3).
 
 ### 4.2 Baseline and working copy
 
-A region session has two records, both keyed by the token's session id `{s}` and tenant-segmented,
-both living exactly as long as the token:
+A region session has two records, both keyed by the token's session id `{s}` and tenant-segmented.
+Both expire at the **token's absolute expiry** (`exp`) — set when written, re-set to the same `exp`
+on every later write, never extended past it and never shorter. The entry working copy's 300-second
+cap does not apply to regions: an idle editor's accepted edits stay on the stage for as long as the
+session is valid.
 
 - **Baseline** — `thallo:preview:regions:baseline:{s}`: both regions' `{blocks, settings,
   lock_version}` as of the mint, or as of this session's last successful save (§4.5). It is the
@@ -122,8 +127,8 @@ page instead of any region content, and apply answers 410; the admin renews (§5
 base_revision, operations}` → `{epoch, revision, baseline, style_generation, applied_at}`.
 Permission: `content.manage` (as a region save). Steps: verify a `regions` token; cap the payload
 (1 MB, as entries); validate each region with `RegionValidator` (errors prefixed `regions.{slug}.`);
-check block ids are unique across both regions (§6.2); `accept` into the session's working copy with
-TTL `min(token remaining, 300)`. Both regions are always sent. No fragments: `fragments` is always
+check block ids are unique across both regions (§6.2); `accept` into the session's working copy,
+expiring at the token's `exp` (§4.2). Both regions are always sent. No fragments: `fragments` is always
 null (§4.6). `style_generation` is the style-class generation the stage already consumes.
 
 ### 4.4 Render
@@ -176,9 +181,9 @@ always holds **both** regions' versions, the unchanged one included. It runs as 
 section:
 
 1. **Serialize.** Open a transaction and take the region write lock — a transaction-scoped advisory
-   lock on a fixed per-tenant key (`pg_advisory_xact_lock`) — held until commit. Every region writer
-   takes it: this endpoint, the per-region endpoint and the jobs' unconditional save. Absent rows
-   cannot be row-locked, which is why this is an advisory lock and not `SELECT … FOR UPDATE`.
+   lock on a fixed per-tenant key (`pg_advisory_xact_lock`) — held until commit. Absent rows cannot
+   be row-locked, which is why this is an advisory lock and not `SELECT … FOR UPDATE`. Every region
+   writer takes it (the inventory below).
 2. **Check both versions** against the stored rows, the unchanged region included — `null` means
    "the row must not exist". Any mismatch answers 409 `REGION_VERSION_CONFLICT` naming the regions
    that moved, and writes nothing.
@@ -191,6 +196,20 @@ section:
    the committed snapshot of both regions and their new versions (§4.2); clear the session's working
    copy only if it still holds exactly the submitted `preview_revision` pair (below). The response
    carries that committed snapshot.
+
+**Writer inventory.** The lock lives in one helper (working name `RegionWriteLock::within(callable)`:
+open a transaction, take the advisory lock, run, commit), and every code path that writes the
+`regions` table runs inside it:
+
+| Writer | Path | Keeps |
+|---|---|---|
+| Batch save | `PUT /v1/admin/regions` (this section) | both-version check, complete-candidate validation |
+| Per-region save | `PUT /v1/admin/regions/{slug}` → `RegionAdminController::update` | the same checks |
+| Repository save | `RegionRepository::save()` — starter seeding and updates (`RegionKind::save`), `RetireAccountLinkCommand` | its unconditional write and version bump |
+| Document source | `RegionsSource::persist()` — style-class jobs and block backfills | its conditional `WHERE lock_version = ?` write and bump; a refused write is still recorded and retried by its caller |
+| Starter rename | `RegionKind::rename()` — the direct slug update | now also bumps `lock_version`, so an editor holding the old version gets 409 |
+
+A new writer must go through the helper; a test enumerates the writers (§7).
 
 **Version contract.** `RegionRepository::find()` returns `lock_version` (null for an absent row);
 `index`, the session response and the save response carry it. `save()` gains a conditional form that
@@ -345,6 +364,15 @@ on the Design view (block-internal links are already inert there).
   - **the duplicate-id race:** two concurrent saves — one writing the header, one the footer, each
     adding the same block id — leave exactly one committed and the other refused (409 or 422), never
     both; the per-region endpoint is held to the same;
+  - **background writes versus an admin save:** a `RegionsSource::persist()` write (a style-class job
+    or backfill) racing a batch save leaves the two serialized — the save answers 409 if the
+    background write landed first, and the background write is refused and retried if the save landed
+    first — and a starter rename bumps the version an open editor holds;
+  - **the writer inventory:** every code path that writes the `regions` table goes through
+    `RegionWriteLock` (a test that fails when a new direct writer appears);
+  - **the session lifetime:** with a controlled clock, apply edits, advance past 300 seconds while the
+    token is still valid, render — the edits are still on the stage; past the token's `exp` both
+    records are gone and the stage renders the expired page;
   - **exact pair clearing:** a delayed save from epoch A does not clear epoch B's record at the same
     revision number; a null pair clears nothing;
   - permissions.
