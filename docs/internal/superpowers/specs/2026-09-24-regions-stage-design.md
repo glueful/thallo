@@ -214,7 +214,8 @@ A new writer must go through the helper; a test enumerates the writers (§7).
 **Version contract.** `RegionRepository::find()` returns `lock_version` (null for an absent row);
 `index`, the session response and the save response carry it. `save()` gains a conditional form that
 writes against the caller's expected version instead of retrying against the latest; the existing
-unconditional form stays for jobs.
+unconditional form stays for starter seeding and updates and account-link retirement; jobs write
+through the conditional `RegionsSource::persist()` (the inventory above).
 
 **Exact pair clearing.** `PreviewWorkingCopyStore` gains `clearIfPair(key, epoch, revision)`: under
 the lock it clears only when the stored record's epoch **and** revision equal the given pair, and
