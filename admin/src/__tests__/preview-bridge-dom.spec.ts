@@ -950,6 +950,41 @@ describe('proposal drag (visual builder spec §5.3/§5.4)', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
   })
 
+  it('a wrapping row whose blocks share one line splits on x; once it has wrapped it proposes its end', () => {
+    const row = document.createElement('div')
+    row.setAttribute('data-thallo-slot', 'wrapped')
+    row.style.display = 'flex'
+    row.style.flexWrap = 'wrap'
+    const w1 = wrapper('fd-w-0000041')
+    const w2 = wrapper('fd-w-0000042')
+    row.append(w1, w2)
+    const mover = wrapper('fd-m-0000043')
+    document.body.append(row, mover)
+    stubRect(w1.firstElementChild as HTMLElement, { top: 0, bottom: 100, left: 0, right: 100 })
+    stubRect(w2.firstElementChild as HTMLElement, { top: 10, bottom: 90, left: 100, right: 200 })
+    stubRect(mover.firstElementChild as HTMLElement, { top: 900, bottom: 950, left: 0, right: 100 })
+    document.elementFromPoint = (x: number, y: number) =>
+      y < 300 ? (x < 100 ? w1.firstElementChild : x < 200 ? w2.firstElementChild : row) : null
+
+    gripDown(mover)
+    posted.mockClear()
+    pointerMove(50, 30) // left of w1's midpoint: before it
+    expect(proposals()[0]).toMatchObject({
+      zone: { slot: 'wrapped', index: 0, layout: 'linear-horizontal' },
+    })
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+
+    // w2 wraps onto a second line: positions in the row are no longer a single axis.
+    stubRect(w2.firstElementChild as HTMLElement, { top: 120, bottom: 220, left: 0, right: 100 })
+    gripDown(mover)
+    posted.mockClear()
+    pointerMove(50, 30)
+    expect(proposals()[0]).toMatchObject({ zone: { slot: 'wrapped', index: 2, layout: 'other' } })
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    row.remove()
+    mover.remove()
+  })
+
   it('a zone inside the dragged subtree is refused locally: no proposal, no indicator', () => {
     const { list, a } = dragList()
     const inner = document.createElement('div')
@@ -3417,5 +3452,58 @@ describe('region-only mode', () => {
     )
     // Outside any block wrapper the entry stage lets a click through, as it always has.
     expect(click.defaultPrevented).toBe(false)
+  })
+
+  it('the stage’s own controls outside the regions still work: the format bar and its link panel', () => {
+    const bar = document.createElement('div')
+    bar.className = 'thallo-canvas-format-bar'
+    bar.innerHTML =
+      '<button type="button" id="ro-bold">B</button>' +
+      '<div class="thallo-canvas-link-panel"><input id="ro-url" /></div>'
+    document.body.appendChild(bar)
+    const clicked = vi.fn()
+    document.getElementById('ro-bold')!.addEventListener('click', clicked)
+    const click = fire(
+      document.getElementById('ro-bold')!,
+      new MouseEvent('click', { bubbles: true, cancelable: true }),
+    )
+    expect(clicked).toHaveBeenCalledTimes(1)
+    expect(click.defaultPrevented).toBe(false)
+    const enter = fire(
+      document.getElementById('ro-url')!,
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    )
+    const space = fire(
+      document.getElementById('ro-url')!,
+      new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }),
+    )
+    expect(enter.defaultPrevented).toBe(false)
+    expect(space.defaultPrevented).toBe(false)
+    bar.remove()
+  })
+
+  it('with a header block selected, Enter on the page asks to edit it; Space on the page is not cancelled', () => {
+    const slot = document.getElementById('ro-header-slot')!
+    const prose = wrapper(
+      'ro-hdr-00002',
+      '<section><div class="thallo-edit-region" data-thallo-edit-block="ro-hdr-00002" ' +
+        'data-thallo-edit-field="body"><p>header note</p></div></section>',
+    )
+    slot.appendChild(prose)
+    prose.querySelector('section')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(lastPost('thallo:block-select')).toMatchObject({ id: 'ro-hdr-00002' })
+    posted.mockClear()
+    // Selection moves no focus: the key arrives on the body.
+    fire(
+      document.body,
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    )
+    expect(lastPost('thallo:edit-request')).toMatchObject({ id: 'ro-hdr-00002', field: 'body' })
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    const space = fire(
+      document.body,
+      new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }),
+    )
+    expect(space.defaultPrevented).toBe(false)
   })
 })

@@ -58,14 +58,28 @@ test('a click on a body link navigates nowhere and selects nothing', async ({ pa
   served(recorded)
 })
 
-// The theme's header is a wrapping row, and the stage places a drop into a wrapping row last (the
-// Design view's rule: "set the exact position in the outline"), so the reorder is the toolbar's.
-test('the toolbar moves a header block back, and undo takes it back at the advanced revision', async ({
+/** Drag a stage block's grip to before another block in a row, in steps. */
+async function dragGripBefore(page: Page, id: string, onto: string): Promise<void> {
+  await select(page, id)
+  const from = await centerOf(block(page, id).locator('[data-action="drag"]').first())
+  const box = (await host(page, onto).boundingBox())!
+  const to = { x: box.x + box.width * 0.2, y: box.y + box.height / 2 }
+  await page.mouse.move(from.x, from.y)
+  await page.mouse.down()
+  for (let i = 1; i <= 12; i++) {
+    await page.mouse.move(from.x + ((to.x - from.x) * i) / 12, from.y + ((to.y - from.y) * i) / 12)
+  }
+  await regionsStage(page).locator('.thallo-canvas-dragging').first().waitFor({ timeout: 2000 })
+  await page.waitForTimeout(250)
+  await page.mouse.move(to.x, to.y + 1)
+  await page.mouse.up()
+}
+
+test('a drag reorders the header, and undo takes it back at the advanced revision', async ({
   page,
 }) => {
   const recorded = await openRegionsStage(page)
-  await select(page, 'e2ehdr000002')
-  await block(page, 'e2ehdr000002').locator('[data-action="move-up"]').click()
+  await dragGripBefore(page, 'e2ehdr000002', 'e2ehdr000001')
   await acceptedIs(page, recorded, 'reordered')
   await page.locator('[data-test="regions-undo"]').click()
   await acceptedIs(page, recorded, 'baseline')

@@ -23,6 +23,11 @@ as the next release, never a mutated tag.
   instead of being overwritten; `PUT /v1/admin/regions/{slug}` now requires `expected`, and a new
   `PUT /v1/admin/regions` saves both regions at once, all or nothing.
 
+### Fixed
+- **A block dropped into a row that wraps lands where you point, while the row is still one
+  line.** The stage used to place any drop into a wrapping row last and point you to the outline;
+  it now does that only once the row has actually wrapped onto a second line.
+
 ### Removed
 - The Header & footer page's separate preview (`POST /v1/admin/regions/preview` and
   `region-preview.twig`): the stage replaces it.
