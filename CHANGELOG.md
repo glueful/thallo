@@ -7,6 +7,11 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- **Every write to the header and footer is serialized.** Region saves, starter updates and
+  renames, style-class jobs and block backfills all take one database lock, so none can overwrite
+  another mid-write; a starter rename now also bumps the region's version.
+
 ## [1.0.0-beta.60] - 2026-09-24 — Developer Preview
 
 The Regions page's block settings gain a Content tab, a links block's title can be styled and its
