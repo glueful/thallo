@@ -15,6 +15,13 @@ as the next release, never a mutated tag.
   saved from the header or footer belongs to that region and is offered only there. New
   `saved_sections` table and `POST /v1/admin/saved-sections`,
   `PATCH`/`DELETE /v1/admin/saved-sections/{id}`.
+- **Menus and landing page per role and per user.** Under **Users & Access**, a role's or a
+  user's new **Menus** tab hides the sidebar items they don't need and picks the page signing in
+  takes them to. A user's own choice beats their roles', and an item is hidden when any of their
+  roles hides it. Tidying only: a hidden page still opens for anyone whose permissions allow it.
+  New `admin_ui_settings` table, `GET`/`PUT /v1/admin/ui-settings/roles/{uuid}` (needs
+  `users.roles.manage`) and `/v1/admin/ui-settings/users/{uuid}` (needs `users.edit`), and a `ui`
+  object on `GET /v1/admin/account`.
 - **Header and footer sections and templates.** The header and footer editor now has a library of
   its own: header sections (Logo, menu and button; Announcement bar; Centred logo and menu) and
   footer ones (Link columns; Copyright and social links; Tagline and social links; Copyright line).
