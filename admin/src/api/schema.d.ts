@@ -3316,6 +3316,110 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/layouts': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the layouts
+     * @description Every page kind that can have a layout — for each content type, its single entry — with whether it has one (`custom`) or renders through the theme (`theme`), and when a target cannot have one, why. Requires `content.view`.
+     */
+    get: operations['getV1AdminLayouts']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/layouts/preview/apply': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Apply a layout to its editing session
+     * @description Validates the layout as a save would, then accepts it into the session's working copy by compare-and-set. Never writes a layout. Requires `templates.manage`.
+     */
+    post: operations['postV1AdminLayoutsPreviewApply']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/layouts/preview/session': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Open a layout editing session
+     * @description Mints a layout preview token for a surface and target, pins the saved layout (or the starter when there is none) and its version as the session baseline, and picks the sample the stage renders it against: the one asked for, the newest published item, or a placeholder built in memory. Requires `templates.manage`.
+     */
+    post: operations['postV1AdminLayoutsPreviewSession']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/layouts/{surface}/{target}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Save a layout
+     * @description Writes the layout if its version is still the one the editor loaded, then installs it as the editing session's baseline, clears the session's working copy on the exact revision pair, and purges the pages it renders. Requires `templates.manage`.
+     */
+    put: operations['putV1AdminLayoutsBySurfaceByTarget']
+    post?: never
+    /**
+     * Remove a layout
+     * @description Removes the layout if its version is still the one the editor loaded: the pages it rendered return to the theme's template, and the editing session that removed it ends. Requires `templates.manage`.
+     */
+    delete: operations['deleteV1AdminLayoutsBySurfaceByTarget']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/layouts/{surface}/{target}/samples': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List a layout's samples
+     * @description The published items a layout can be previewed against, newest first, up to 50, optionally filtered by `q`. Requires `templates.manage`.
+     */
+    get: operations['getV1AdminLayoutsBySurfaceByTargetSamples']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/render/style-schema': {
     parameters: {
       query?: never
@@ -24081,6 +24185,8 @@ export interface operations {
               theme_url?: string | null
               epoch?: string | null
               revision?: number | null
+              /** @description string, target: string, label: string}|null */
+              layout?: unknown[] | null
             }
           }
         }
@@ -28416,6 +28522,555 @@ export interface operations {
           [name: string]: unknown
         }
         content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  getV1AdminLayouts: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The layouts. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  postV1AdminLayoutsPreviewApply: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        /**
+         * @example {
+         *       "token": "example",
+         *       "layout": "example",
+         *       "epoch": "example",
+         *       "base_revision": 50,
+         *       "operations": "example"
+         *     }
+         */
+        'application/json': {
+          token: string
+          /** @description list<array<string,mixed>>, settings?: array<string,mixed>} */
+          layout?: unknown[]
+          epoch?: string | null
+          base_revision?: number | null
+          operations?: unknown[] | null
+        }
+      }
+    }
+    responses: {
+      /** @description Accepted. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description The working copy moved on (PREVIEW_REVISION_STALE). */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The session expired (LAYOUT_SESSION_EXPIRED) or its layout was removed (LAYOUT_SESSION_RETIRED). */
+      410: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The layout is invalid. */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  postV1AdminLayoutsPreviewSession: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        /**
+         * @example {
+         *       "surface": "example",
+         *       "target": "example",
+         *       "sample": "example"
+         *     }
+         */
+        'application/json': {
+          surface: string
+          target: string
+          sample?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Session opened. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description An unknown surface, or a target that cannot have a layout. */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  putV1AdminLayoutsBySurfaceByTarget: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        surface: string
+        target: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        /**
+         * @example {
+         *       "token": "example",
+         *       "layout": "example",
+         *       "expected_lock_version": 50,
+         *       "preview_revision": "example"
+         *     }
+         */
+        'application/json': {
+          token: string
+          /** @description list<array<string,mixed>>, settings?: array<string,mixed>} */
+          layout?: unknown[]
+          expected_lock_version: number
+          /** @description string, revision?: int}|null */
+          preview_revision?: unknown[] | null
+        }
+      }
+    }
+    responses: {
+      /** @description Saved; the layout as committed. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Someone saved or removed it since (LAYOUT_VERSION_CONFLICT). */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The editing session expired or its layout was removed. */
+      410: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The layout is invalid. */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  deleteV1AdminLayoutsBySurfaceByTarget: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        surface: string
+        target: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Removed; the tombstone's version. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Someone saved or removed it since (LAYOUT_VERSION_CONFLICT). */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            /** @example false */
+            success: boolean
+            message: string
+            errors: {
+              [key: string]: string[]
+            }
+          }
+        }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  getV1AdminLayoutsBySurfaceByTargetSamples: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        surface: string
+        target: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The samples. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
       }
       /** @description Unexpected server error. */
       500: {

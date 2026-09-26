@@ -80,6 +80,8 @@ final class LayoutRenderHelpersTest extends AppTestCase
         self::assertStringContainsString('data-thallo-block="layoutslot01"', $html);
         self::assertStringNotContainsString('data-thallo-block="bodyhead0001"', $html);
         self::assertStringNotContainsString('data-thallo-slot="body"', $html);
+        // The layout's own list is the stage's root slot: a block dragged in lands in it.
+        self::assertStringContainsString('data-thallo-slot="blocks"', $html);
         self::assertStringContainsString('From the post', $html, 'the sample body still shows');
     }
 

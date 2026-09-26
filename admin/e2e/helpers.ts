@@ -755,3 +755,223 @@ export async function acceptedIs(
     await page.waitForTimeout(100)
   }
 }
+
+// ── The layout stage (type layouts plan L9) ───────────────────────────────────────────────────
+
+export interface LayoutDocument {
+  blocks: unknown[]
+  settings: unknown
+}
+
+export interface LayoutRecorded {
+  sessions: { surface: string; target: string; sample: string | null }[]
+  applies: {
+    token: string
+    layout: LayoutDocument
+    epoch: string | null
+    base_revision: number | null
+    operations: Operation[]
+  }[]
+  saves: {
+    token: string
+    layout: LayoutDocument
+    expected_lock_version: number
+    preview_revision: { epoch: string; revision: number } | null
+  }[]
+  /** Stage requests no fixture could answer: a proof fails on any. */
+  unmatched: string[]
+}
+
+interface LayoutStageFixture {
+  layout: LayoutDocument
+  file: string
+}
+
+/**
+ * Open the post layout's editor on the stage, in a world built from the layout fixtures. The
+ * session, apply, samples and save endpoints are routed and recorded; each mocked session keeps its
+ * own `{epoch, revision}` as the server does; a save whose expected version is not the stored one
+ * answers LAYOUT_VERSION_CONFLICT (`options.moved` moves the stored version before the first save,
+ * as another editor's save would); and the stage is served from the fixture whose layout equals the
+ * session's last accepted layout, with its revision metadata rewritten to the pair just accepted.
+ */
+export async function openLayoutStage(
+  page: Page,
+  options: { moved?: boolean } = {},
+): Promise<LayoutRecorded> {
+  await routeWorld(page)
+  const recorded: LayoutRecorded = { sessions: [], applies: [], saves: [], unmatched: [] }
+  const stages = JSON.parse(fixture('layouts/stages.json')) as Record<string, LayoutStageFixture>
+  const opening = JSON.parse(fixture('layouts/session.json')) as {
+    data: { layout: LayoutDocument & { lock_version: number } } & Record<string, unknown>
+  }
+  let stored = opening.data.layout.lock_version + (options.moved ? 1 : 0)
+  interface MockSession {
+    baseline: LayoutDocument
+    epoch: string
+    revision: number
+    accepted: LayoutDocument | null
+  }
+  const sessions = new Map<string, MockSession>()
+
+  await page.route('**/v1/admin/layouts/entry/post/samples*', (route) =>
+    json(route, fixture('layouts/samples.json')),
+  )
+  await page.route('**/v1/admin/layouts/entry/post', (route) => {
+    const request = route.request()
+    if (request.method() !== 'PUT') return route.fulfill({ status: 405, body: '{}' })
+    const body = request.postDataJSON() as LayoutRecorded['saves'][number]
+    recorded.saves.push(body)
+    if (body.expected_lock_version !== stored) {
+      return json(
+        route,
+        JSON.stringify({
+          success: false,
+          message: 'This layout changed since it was loaded.',
+          error: { details: { code: 'LAYOUT_VERSION_CONFLICT', current: stored } },
+        }),
+        409,
+      )
+    }
+    stored += 1
+    return json(
+      route,
+      JSON.stringify({
+        success: true,
+        data: { layout: { ...body.layout, lock_version: stored }, preview_cleared: false },
+      }),
+    )
+  })
+  await page.route('**/v1/admin/block-types/*/instance', (route) => {
+    const slug = /block-types\/([^/]+)\/instance/.exec(route.request().url())![1]!
+    return json(route, fixture(`api/instance-${slug}.json`))
+  })
+  await page.route('**/v1/admin/layouts/preview/session', (route) => {
+    const body = (route.request().postDataJSON() ?? {}) as {
+      surface: string
+      target: string
+      sample?: string
+    }
+    recorded.sessions.push({
+      surface: body.surface,
+      target: body.target,
+      sample: body.sample ?? null,
+    })
+    const n = recorded.sessions.length
+    const token = `proof-layout-${n}`
+    sessions.set(token, {
+      baseline: stages.baseline!.layout,
+      epoch: `proof-epoch-${n}`,
+      revision: 0,
+      accepted: null,
+    })
+    // The page opens on the captured version; a later mint (Reload after a conflict) opens on the
+    // stored one, as a fresh mint would after another editor's save.
+    const layout = {
+      ...opening.data.layout,
+      lock_version: n === 1 ? opening.data.layout.lock_version : stored,
+    }
+    return json(
+      route,
+      JSON.stringify({
+        success: true,
+        data: { ...opening.data, layout, token, theme_url: `/_preview/${token}` },
+      }),
+    )
+  })
+  await page.route('**/v1/admin/layouts/preview/apply', (route) => {
+    const body = route.request().postDataJSON() as LayoutRecorded['applies'][number]
+    recorded.applies.push(body)
+    const session = sessions.get(body.token)
+    if (!session) {
+      return json(
+        route,
+        JSON.stringify({ success: false, error: { details: { code: 'LAYOUT_SESSION_EXPIRED' } } }),
+        410,
+      )
+    }
+    const current =
+      session.revision === 0 ? null : { epoch: session.epoch, revision: session.revision }
+    const matches =
+      current === null
+        ? body.epoch === null || body.epoch === session.epoch
+        : body.epoch === current.epoch && body.base_revision === current.revision
+    if (!matches) {
+      return json(
+        route,
+        JSON.stringify({
+          success: false,
+          message: 'The preview working copy moved on.',
+          error: { details: { code: 'PREVIEW_REVISION_STALE', current } },
+        }),
+        409,
+      )
+    }
+    session.revision += 1
+    session.accepted = body.layout
+    return json(
+      route,
+      JSON.stringify({
+        success: true,
+        data: {
+          epoch: session.epoch,
+          revision: session.revision,
+          baseline: session.revision - 1,
+          style_generation: 0,
+          applied_at: new Date().toISOString(),
+          fragments: null,
+        },
+      }),
+    )
+  })
+  await page.route('**/_preview/**', (route) => {
+    const token = new URL(route.request().url()).pathname.split('/').pop() ?? ''
+    const session = sessions.get(token)
+    if (!session) return route.fulfill({ status: 410, body: 'expired' })
+    const doc = session.accepted ?? session.baseline
+    const hit = Object.entries(stages).find(([, s]) => same(s.layout, doc))
+    if (!hit) {
+      recorded.unmatched.push(`no rendered fixture for layout ${JSON.stringify(canonical(doc))}`)
+      return route.fulfill({ status: 500, body: 'no rendered fixture' })
+    }
+    const html = fixture(`layouts/${hit[1].file}`)
+      .replace(/data-thallo-epoch="[^"]*"/, `data-thallo-epoch="${session.epoch}"`)
+      .replace(/data-thallo-revision="[^"]*"/, `data-thallo-revision="${session.revision}"`)
+    return text(route, html, 'text/html')
+  })
+
+  await signInAndOpen(
+    page,
+    '/admin/layouts/entry/post',
+    '[data-test="layout-stage"]',
+    'the layout editor',
+  )
+  await layoutStage(page).locator('.thallo-layout--entry').first().waitFor()
+  return recorded
+}
+
+/** The layout stage iframe's document. */
+export function layoutStage(page: Page) {
+  return page.frameLocator('[data-test="layout-stage"]')
+}
+
+/** Wait until the last accepted apply's layout is the named scenario's, exactly. */
+export async function layoutAcceptedIs(
+  page: Page,
+  recorded: LayoutRecorded,
+  name: string,
+): Promise<void> {
+  const stages = JSON.parse(fixture('layouts/stages.json')) as Record<string, LayoutStageFixture>
+  const want = stages[name]!.layout
+  const deadline = Date.now() + 10_000
+  for (;;) {
+    const last = recorded.applies.at(-1)?.layout
+    if (last && same(last, want)) return
+    if (Date.now() > deadline) {
+      throw new Error(
+        `the accepted layout is not '${name}':\n  want ${JSON.stringify(canonical(want))}\n  got  ${JSON.stringify(canonical(last))}`,
+      )
+    }
+    await page.waitForTimeout(100)
+  }
+}

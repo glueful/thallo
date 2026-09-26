@@ -133,6 +133,8 @@ final class LayoutSessionTest extends AppTestCase
         $saved = $this->session();
         self::assertFalse($saved['starter']);
         self::assertSame(1, $saved['layout']['lock_version']);
+        // Reset to starter needs the starter whatever the baseline: every session carries it.
+        self::assertSame(['entry_title', 'entry_content'], array_column($saved['starter_layout'], 'type'));
         self::assertSame('MARKER', $saved['layout']['blocks'][0]['data']['text']);
 
         $lock->within('entry', 'post', fn (): int => $repo->tombstone('entry', 'post', 1, null));

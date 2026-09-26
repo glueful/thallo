@@ -8,6 +8,18 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Added
+- **Layouts for content types.** Design every page of a kind at once: **Site › Layouts** lists each
+  content type's single post, and **Edit** opens it on the stage, around one of its published
+  posts (or a placeholder while there are none). Place the post's own **title**, **date**,
+  **cover**, **excerpt**, **categories** and any other field with the new **Fields** blocks, put
+  the post's content where it belongs with **Entry content**, add **Previous and next** and
+  **Related entries**, and style the lot with the blocks and classes you already use. The **Frame**
+  tab sets the width and whether the header and footer show. **Save** applies to every post of the
+  type at once — the reach says so beside the button; someone else's save shows **Changed by
+  someone else** with **Reload**. **Remove layout** returns every post to the theme's design.
+  Editing layouts needs the **Manage templates** permission. Renaming a field moves the layouts
+  that show it; deleting a field a layout shows is refused, naming the layout. Migration `037` adds
+  the `layouts` table.
 - **The changelog is a page of the docs**, at `/docs/changelog` under Reference: every released
   version, word for word, without the work in progress under [Unreleased]. Each release's cut
   refreshes it (`php scripts/sync-docs-changelog`), and a test fails while it is behind.

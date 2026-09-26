@@ -106,10 +106,11 @@ describe('the static manifest', () => {
       'collections',
       'analytics',
       'workflow',
-      // The Site group: how it looks, then its menus, its chrome, its templates.
+      // The Site group: how it looks, then its menus, its chrome, its layouts, its templates.
       'appearance',
       'navigation',
       'regions',
+      'layouts',
       'templates',
       'commerce',
       'submissions',
