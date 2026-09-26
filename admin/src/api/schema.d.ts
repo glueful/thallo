@@ -3526,6 +3526,50 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/saved-sections': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Save a section
+     * @description Saves one block — with everything inside it — to the Blocks tab's library. The block is validated as a page save would validate it and stored without ids. Body: `name` (required, up to 120 characters), `block`, and optionally `category` (default "Saved"), `description`, and where it belongs: `scope` `page` (the default) or `region` with `region` `header` or `footer`, whose palette must take the block. Requires `content.manage`.
+     */
+    post: operations['postV1AdminSavedsections']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/saved-sections/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /**
+     * Delete a saved section
+     * @description Removes a saved section from the library. Pages that inserted it keep their copies. Requires `content.manage`.
+     */
+    delete: operations['deleteV1AdminSavedsectionsById']
+    options?: never
+    head?: never
+    /**
+     * Rename a saved section
+     * @description Changes a saved section's `name`, `category` or `description`. Requires `content.manage`.
+     */
+    patch: operations['patchV1AdminSavedsectionsById']
+    trace?: never
+  }
   '/scheduled-tasks': {
     parameters: {
       query?: never
@@ -29734,6 +29778,297 @@ export interface operations {
           [name: string]: unknown
         }
         content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  postV1AdminSavedsections: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: {
+      content: {
+        /**
+         * @example {
+         *       "name": "Jane",
+         *       "block": "example",
+         *       "category": "example",
+         *       "description": "A short description.",
+         *       "scope": "example",
+         *       "region": "example"
+         *     }
+         */
+        'application/json': {
+          name?: string
+          block?: unknown[]
+          category?: string | null
+          description?: string | null
+          scope?: string | null
+          region?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Successful response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Saved; the library entry. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description A missing name, a block a page save would refuse, or one its region does not take. */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  deleteV1AdminSavedsectionsById: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Deleted. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description No such saved section. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  patchV1AdminSavedsectionsById: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: {
+      content: {
+        /**
+         * @example {
+         *       "name": "Jane",
+         *       "category": "example",
+         *       "description": "A short description."
+         *     }
+         */
+        'application/json': {
+          name?: string | null
+          category?: string | null
+          description?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Renamed; the library entry. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description No such saved section. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            /** @example false */
+            success: boolean
+            message: string
+            errors: {
+              [key: string]: string[]
+            }
+          }
+        }
       }
       /** @description Unexpected server error. */
       500: {

@@ -20,6 +20,8 @@ import LayoutTab from './LayoutTab.vue'
 import type { FillAvailability } from '@/editor/structure/gridFill'
 import { hasTab } from './tabMap'
 import AdvancedTab from './AdvancedTab.vue'
+import SaveSectionForm from './SaveSectionForm.vue'
+import type { SectionPlace } from '@/queries/patterns'
 
 const props = defineProps<{
   block: BlockInstance
@@ -31,6 +33,8 @@ const props = defineProps<{
   classNames?: Record<string, string>
   classOptions?: { id: string; name: string; archived: boolean; locked: boolean }[]
   reResolving?: boolean
+  /** Where a section saved from here belongs: a page body (the default), or a region. */
+  sectionPlace?: SectionPlace
   activeBreakpoint: Breakpoint
   /** A sibling multi-selection (spec §5.5): `block` is its anchor; only Style applies to all. */
   blocks?: BlockInstance[]
@@ -97,6 +101,14 @@ const emit = defineEmits<{
 
 const tab = ref(props.noContent ? 'style' : 'content')
 const multi = computed(() => (props.blocks?.length ?? 0) > 1)
+/** The Save as section form is open (for the block shown). */
+const savingSection = ref(false)
+watch(
+  () => props.block.id,
+  () => {
+    savingSection.value = false
+  },
+)
 
 /**
  * The block type's parts (StyleTargets `parts`): sub-elements styled on their own, each shown on
@@ -188,7 +200,25 @@ const cardFields = computed<string[]>(() =>
     <div class="flex items-center gap-2">
       <UIcon :name="blockType?.icon || 'i-lucide-box'" class="shrink-0" />
       <span class="text-sm font-medium" data-test="block-inspector-title">{{ title }}</span>
+      <UButton
+        v-if="!multi"
+        class="ms-auto"
+        size="xs"
+        variant="ghost"
+        color="neutral"
+        icon="i-lucide-bookmark-plus"
+        aria-label="Save as section"
+        title="Save as section"
+        data-test="save-as-section"
+        @click="savingSection = !savingSection"
+      />
     </div>
+    <SaveSectionForm
+      v-if="savingSection && !multi"
+      :block="block"
+      :place="sectionPlace"
+      @close="savingSection = false"
+    />
     <UTabs
       v-model="tab"
       :items="tabs"

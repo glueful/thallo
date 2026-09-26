@@ -1,5 +1,7 @@
-import { useQuery } from '@pinia/colada'
+import { useQuery, useQueryCache } from '@pinia/colada'
 import { authFetch } from '@/api/authFetch'
+import { client } from '@/api/client'
+import { toApiError } from '@/api/errors'
 import { runtimeConfig } from '@/runtime/config'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import { allocateIds, type FactoryBlock } from './blockFactory'
@@ -19,6 +21,23 @@ export interface Pattern {
   category: string
   description: string
   blocks: PatternBlock[]
+  /** Where it belongs: a page body, or the header or footer (a region's sections and templates). */
+  scope?: PatternScope
+  region?: 'header' | 'footer' | null
+  /** A section this site saved from the stage (renamed and deleted by `id`), not a shipped one. */
+  saved?: boolean
+  id?: string | null
+}
+
+export type PatternScope = 'page' | 'region'
+
+/** Where a section is saved from: a page body, or one region. */
+export type SectionPlace = { scope: 'page' } | { scope: 'region'; region: 'header' | 'footer' }
+
+/** Whether a pattern belongs where it is offered — a page body, or one region. */
+export function belongsIn(p: Pattern, place: SectionPlace): boolean {
+  if (place.scope === 'page') return (p.scope ?? 'page') === 'page'
+  return p.scope === 'region' && p.region === place.region
 }
 
 /** A factory block whose nested lists are pattern blocks too. */
@@ -78,3 +97,48 @@ export const patternThumbnailSize = (slug: string): [number, number] | undefined
 /** The thumbnail the admin ships for a pattern (built by scripts/build-pattern-thumbnails). */
 export const patternThumbnail = (slug: string): string =>
   `${import.meta.env.BASE_URL}pattern-thumbs/${slug}.jpg`
+
+// ── Saved sections ──────────────────────────────────────────────────────────
+// A block saved from the stage joins the library as a section of its own: inserted as a copy like
+// any other, renamed and deleted from its card. Each change refreshes the library.
+
+export interface SavedSectionLabels {
+  name?: string
+  category?: string
+  description?: string
+}
+export type SavedSectionInput = SavedSectionLabels & { name: string } & SectionPlace
+
+export function useSavedSections() {
+  const cache = useQueryCache()
+  const refresh = () => cache.invalidateQueries({ key: qk.patterns() })
+
+  /** Save one block, and everything inside it, to the library. */
+  async function save(block: BlockInstance, labels: SavedSectionInput): Promise<Pattern> {
+    const { data, error, response } = await client.POST('/saved-sections', {
+      body: { ...labels, block } as never,
+    })
+    if (error) throw toApiError(error, response)
+    await refresh()
+    return (data as unknown as { data: { section: Pattern } }).data.section
+  }
+
+  async function rename(id: string, labels: SavedSectionLabels): Promise<void> {
+    const { error, response } = await client.PATCH('/saved-sections/{id}', {
+      params: { path: { id } },
+      body: labels as never,
+    })
+    if (error) throw toApiError(error, response)
+    await refresh()
+  }
+
+  async function remove(id: string): Promise<void> {
+    const { error, response } = await client.DELETE('/saved-sections/{id}', {
+      params: { path: { id } },
+    })
+    if (error) throw toApiError(error, response)
+    await refresh()
+  }
+
+  return { save, rename, remove }
+}

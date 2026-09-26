@@ -92,10 +92,26 @@ function showcase_renderer(\Psr\Container\ContainerInterface $container, string 
     $extension = $container->get(RenderContextExtension::class);
     $twig = (new TwigFactory($theme, $extension, $root . '/storage/cache/twig'))->environment();
 
-    return static function (array $blocks, string $title) use ($extension, $twig, $faces, $css): string {
+    // A header's or footer's blocks are shown in the region the layout renders them in: its row.
+    return static function (
+        array $blocks,
+        string $title,
+        ?string $region = null,
+        array $site = [],
+    ) use (
+        $extension,
+        $twig,
+        $faces,
+        $css,
+    ): string {
         $extension->resetPerRenderState();
         $extension->setAnnotationScope('none');
-        $body = $twig->createTemplate('{{ blocks(l) }}')->render(['l' => $blocks]);
+        $body = $twig->createTemplate('{{ blocks(l) }}')->render(['l' => $blocks, 'site' => $site]);
+        if ($region !== null) {
+            $tag = $region === 'header' ? 'header' : 'footer';
+            $body = "<{$tag} class=\"site-{$region} thallo-region thallo-region-{$region} "
+                . "thallo-region-{$region}--contained\"><div class=\"site-{$region}__inner\">{$body}</div></{$tag}>";
+        }
         return "<!doctype html>\n<meta charset=\"utf-8\">\n<title>{$title}</title>\n<style>\n{$faces}\n{$css}\n"
             . "body { margin: 0; }\n</style>\n<main>{$body}</main>\n";
     };

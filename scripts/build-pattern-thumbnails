@@ -54,10 +54,39 @@ $configured = static function (array $blocks) use (&$configured): array {
     }, $blocks);
 };
 
+/**
+ * A header's pictures show a site as it will look: a name for the logo to fall back to, and a
+ * main menu with a few pages in it. The menu lives only while the pages render — rolled back
+ * before anything is captured, so the test database keeps what it had.
+ */
+$site = ['name' => 'Acme'];
+$db = $container->get(Glueful\Database\Connection::class);
+$db->getPDO()->beginTransaction();
+if ($db->table('navigation_menus')->where('slug', '=', 'main')->first() === null) {
+    $now = gmdate('Y-m-d H:i:s');
+    $db->table('navigation_menus')->insert([
+        'uuid' => 'showcasemenu', 'slug' => 'main', 'name' => 'Main', 'lock_version' => 0,
+        'position' => 0, 'created_at' => $now, 'updated_at' => $now,
+    ]);
+    foreach (['Home', 'About', 'Blog', 'Contact'] as $i => $label) {
+        $db->table('navigation_items')->insert([
+            'uuid' => 'showcaseitm' . $i, 'menu_uuid' => 'showcasemenu', 'parent_uuid' => null,
+            'position' => $i, 'kind' => 'url', 'entry_uuid' => null, 'url' => '#', 'icon' => null,
+            'labels' => json_encode(['en' => $label]), 'descriptions' => null,
+            'created_at' => $now, 'updated_at' => $now,
+        ]);
+    }
+}
+
 $jobs = [];
 foreach ($container->get(PatternLibrary::class)->all() as $pattern) {
     $page = $work . '/' . $pattern['slug'] . '.html';
-    file_put_contents($page, $render(showcase_with_ids($configured($pattern['blocks'])), $pattern['slug']));
+    file_put_contents($page, $render(
+        showcase_with_ids($configured($pattern['blocks'])),
+        $pattern['slug'],
+        $pattern['region'] ?? null,
+        $site,
+    ));
     $jobs[] = [
         'page' => $page,
         'out' => $out . '/' . $pattern['slug'] . '.jpg',
@@ -70,6 +99,7 @@ foreach ($container->get(PatternLibrary::class)->all() as $pattern) {
         'maxHeight' => $pattern['kind'] === 'page' ? 2400 : 1600,
     ];
 }
+$db->getPDO()->rollBack();
 $jobsFile = $work . '/jobs.json';
 file_put_contents($jobsFile, json_encode($jobs));
 passthru('node ' . escapeshellarg($root . '/tools/style-proofs/capture-page.js') . ' ' . escapeshellarg($jobsFile), $status);

@@ -22,8 +22,12 @@ are the library. The switch appears only when the library has something to offer
 The box at the top filters the view you are in — `Filter sections…`, `Filter pages…` — and matches
 a pattern's name, its category and its description.
 
-The library is part of the Design view. The header and footer editor (**Site › Header & footer**)
-has no **Sections** or **Pages** view.
+The library is part of the Design view, and of the header and footer editor (**Site › Header &
+footer**). Each offers only what belongs there: the Design view never shows the header's and
+footer's sections, and the header and footer editor never shows a page body's. In the header and
+footer editor the third view is **Templates** instead of **Pages**, and it shows only the region
+you are editing — header sections and templates while **Header** is on, footer ones on **Footer**.
+See [headers and footers](#headers-and-footers).
 
 ## Insert a section
 
@@ -86,6 +90,33 @@ fit here`.
 | Contact | Page header · Contact form · FAQ |
 | Services | Hero with highlights · Six features · How it works · Call to action, split |
 
+## Headers and footers
+
+The header and footer have a library of their own. Their sections are one block each, built to
+fill the region's row, and insert like any other section. A template is a whole header or footer:
+it **replaces** the region's blocks. If the region already has blocks, Thallo asks first —
+`Replace the whole header with Classic header? Undo brings it back.` — and changes nothing until
+you press **Replace**. The replace is one step: a single **Undo** puts the old header back. Nothing
+is saved until you press **Save**, as with any other change there.
+
+| Region | Sections |
+|---|---|
+| Header | Logo, menu and button · Announcement bar · Centred logo and menu |
+| Footer | Link columns · Copyright and social links · Tagline and social links · Copyright line |
+
+| Template | Sections |
+|---|---|
+| Classic header | Announcement bar · Logo, menu and button |
+| Simple header | Logo, menu and button |
+| Centred header | Centred logo and menu |
+| Four-column footer | Link columns · Copyright and social links |
+| Simple footer | Tagline and social links · Copyright line |
+
+The menu in them is **Main**, the one a new site starts with; pick another on the Navigation
+block's **Block** tab. The footer's links and social profiles point at `#` and the networks' home
+pages. Replace them with your own. The copyright line prints this year and the site's name, and
+keeps itself current.
+
 ## Edit what arrived
 
 Nothing in a pattern is a special kind of thing. Every part of it is a block you already have, and
@@ -102,6 +133,32 @@ Two sections carry more than copy.
   settings it needs.
 
 No pattern names an image, so nothing arrives broken on a site with an empty media library.
+
+## Save your own sections
+
+Any block you have built — a card, a pricing box, a container holding a whole band of blocks — can
+join the library:
+
+1. Select it on the stage (or in the Outline), so its **Block** tab opens.
+2. Press the bookmark button beside the block's name, **Save as section**.
+3. Give it a **Name**, and optionally a **Category** (it goes under **Saved** otherwise) and a
+   **Description**, then press **Save section**.
+
+It appears under **Sections**, in its category, with your other sections, and is inserted the
+same way: click it, or drag it onto the stage. What you insert is a copy — change it freely on the
+page; the saved section stays as it was, and pages that used it keep their copies when you later
+rename or delete it. A saved section has no picture on its card, only its name and description.
+
+A saved section is one block and everything inside it. To save several blocks as one section, put
+them in a **Container** first and save the container. Saved sections belong to the site, so
+everyone who edits content sees them; saving, renaming and deleting one needs the right to manage
+content. The pencil and bin on a saved section's card rename and delete it.
+
+A section saved in the header and footer editor belongs to the region you saved it from. It is
+offered there again, under that region's **Sections**, and never in the Design view. A section
+saved in the Design view is never offered in the header or footer. Only a block the region takes
+at its top level can be saved from there. A container always qualifies. A heading does not, since
+neither region takes a bare heading.
 
 ## Why a section or page is missing
 

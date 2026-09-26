@@ -62,8 +62,60 @@ vi.mock('@/queries/styleClasses', () => ({
     deleteUnreferenced: { mutateAsync: vi.fn(), isLoading: ref(false) },
   }),
 }))
-vi.mock('@/queries/blockFactory', () => ({
+vi.mock('@/queries/blockFactory', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/queries/blockFactory')>()),
   useBlockFactory: () => ({ make: vi.fn(), instance: vi.fn() }),
+}))
+const libraryPatterns = vi.hoisted(() => ({
+  list: [
+    {
+      slug: 'hero-centered',
+      kind: 'section',
+      scope: 'page',
+      region: null,
+      label: 'Centred hero',
+      category: 'Hero',
+      description: 'A page body section',
+      blocks: [{ type: 'container', data: { content: [] }, settings: {} }],
+    },
+    {
+      slug: 'header-logo-bar',
+      kind: 'section',
+      scope: 'region',
+      region: 'header',
+      label: 'Logo bar',
+      category: 'Header',
+      description: 'A logo for the header',
+      blocks: [{ type: 'logo', data: {}, settings: {} }],
+    },
+    {
+      slug: 'footer-links',
+      kind: 'section',
+      scope: 'region',
+      region: 'footer',
+      label: 'Footer links',
+      category: 'Footer',
+      description: 'Links for the footer',
+      blocks: [{ type: 'links', data: {}, settings: {} }],
+    },
+    {
+      slug: 'header-classic',
+      kind: 'page',
+      scope: 'region',
+      region: 'header',
+      label: 'Classic header',
+      category: 'Header',
+      description: 'A whole header',
+      blocks: [
+        { type: 'navigation', data: {}, settings: {} },
+        { type: 'logo', data: {}, settings: {} },
+      ],
+    },
+  ],
+}))
+vi.mock('@/queries/patterns', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/queries/patterns')>()),
+  usePatterns: () => ({ data: ref(libraryPatterns.list) }),
 }))
 vi.mock('@/composables/useNotify', () => ({
   useNotify: () => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }),
@@ -276,5 +328,71 @@ describe('the Header & footer page on the stage', () => {
       'false',
     )
     fresh.unmount()
+  })
+})
+
+describe('the library on the Header & footer page', () => {
+  const card = (w: Page, slug: string) => w.find(`[data-test="pattern-card-${slug}"]`)
+  const lastApplied = () =>
+    q.apply.mock.calls[q.apply.mock.calls.length - 1]![1].header.blocks as { type: string }[]
+
+  it('offers the current region’s own sections, never a page body’s', async () => {
+    const w = mountPage()
+    await flushPromises()
+    await openTab(w, 'Blocks')
+    await w.find('[data-test="palette-view-sections"]').trigger('click')
+    expect(card(w, 'header-logo-bar').exists()).toBe(true)
+    expect(card(w, 'hero-centered').exists()).toBe(false)
+    expect(card(w, 'footer-links').exists()).toBe(false)
+
+    await w.find('[data-test="regions-switch-footer"]').trigger('click')
+    await flushPromises()
+    expect(card(w, 'footer-links').exists()).toBe(true)
+    expect(card(w, 'header-logo-bar').exists()).toBe(false)
+    w.unmount()
+  })
+
+  it('a template replaces the whole region after asking, and one undo puts it back', async () => {
+    const w = mountPage()
+    await flushPromises()
+    await openTab(w, 'Blocks')
+    const pages = w.find('[data-test="palette-view-pages"]')
+    expect(pages.text()).toBe('Templates')
+    await pages.trigger('click')
+    await card(w, 'header-classic').trigger('click')
+    await flushPromises()
+    // The header has blocks: nothing changes until the replace is confirmed.
+    const ask = w.find('[data-test="template-replace"]')
+    expect(ask.text()).toContain('Classic header')
+    expect(q.apply).not.toHaveBeenCalled()
+
+    await w.find('[data-test="template-replace-confirm"]').trigger('click')
+    await flushPromises()
+    expect(w.find('[data-test="template-replace"]').exists()).toBe(false)
+    await vi.waitFor(() => expect(q.apply).toHaveBeenCalled(), { timeout: 3000 })
+    expect(lastApplied().map((b) => b.type)).toEqual(['navigation', 'logo'])
+
+    await w.find('[data-test="regions-undo"]').trigger('click')
+    await flushPromises()
+    await vi.waitFor(() => expect(q.apply).toHaveBeenCalledTimes(2), { timeout: 3000 })
+    expect(lastApplied().map((b) => (b as { id?: string }).id)).toEqual([
+      'hdr000000001',
+      'hdr000000002',
+    ])
+    w.unmount()
+  })
+
+  it('kept, the region stays as it was', async () => {
+    const w = mountPage()
+    await flushPromises()
+    await openTab(w, 'Blocks')
+    await w.find('[data-test="palette-view-pages"]').trigger('click')
+    await card(w, 'header-classic').trigger('click')
+    await flushPromises()
+    await w.find('[data-test="template-replace-keep"]').trigger('click')
+    await flushPromises()
+    expect(w.find('[data-test="template-replace"]').exists()).toBe(false)
+    expect(w.find('[data-test="regions-undo"]').attributes('disabled')).toBeDefined()
+    w.unmount()
   })
 })

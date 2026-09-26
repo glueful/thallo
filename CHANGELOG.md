@@ -7,6 +7,22 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **Save your own sections.** Select a block on the stage and press **Save as section** beside its
+  name: it joins the Blocks tab's **Sections**, under a category of your choice, and is inserted
+  as a copy wherever you use it next. Rename or delete it from its card. A saved section is one
+  block (a container holds several); it leaves the library if its block type is switched off. One
+  saved from the header or footer belongs to that region and is offered only there. New
+  `saved_sections` table and `POST /v1/admin/saved-sections`,
+  `PATCH`/`DELETE /v1/admin/saved-sections/{id}`.
+- **Header and footer sections and templates.** The header and footer editor now has a library of
+  its own: header sections (Logo, menu and button; Announcement bar; Centred logo and menu) and
+  footer ones (Link columns; Copyright and social links; Tagline and social links; Copyright line).
+  Its **Templates** view holds whole headers and footers. A template replaces the region's blocks
+  after asking, and one undo puts them back. The Design view no longer offers these, and the header
+  and footer no longer offer a page body's sections. Every library entry in `GET /v1/admin/patterns`
+  now carries `scope` (`page` or `region`), `region`, `saved` and `id`.
+
 ## [1.0.0-beta.63] - 2026-09-25 — Developer Preview
 
 The user menu's Profile and Security open real pages: your name and photo, your password, and email
