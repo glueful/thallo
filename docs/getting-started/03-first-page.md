@@ -45,11 +45,11 @@ Three things are on the screen.
 
 ## Insert a starter page
 
-Open the **Blocks** tab. Above the tiles are three views: **Blocks**, **Sections** and **Pages**.
+Open the **Blocks** tab. Above the tiles are three views: **Blocks**, **Sections** and **Templates**.
 The first offers one block at a time. The other two are the pattern library: whole pieces, built
 out of ordinary blocks, that arrive ready to edit.
 
-Open **Pages**. Five patterns are offered, each shown as a picture of what it inserts:
+Open **Templates**. Five patterns are offered, each shown as a picture of what it inserts:
 **Landing page**, **About**, **Pricing**, **Contact** and **Services**. Click **Landing page**.
 
 Its seven sections — a hero, a feature grid, how it works, testimonials, pricing, an FAQ and a

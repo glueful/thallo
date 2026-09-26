@@ -6,6 +6,7 @@ import type { Form, FormSubmitEvent } from '@nuxt/ui'
 import { useSessionStore, type TwoFactorChallenge } from '@/stores/session'
 import { toApiError } from '@/api/errors'
 import { useNotify } from '@/composables/useNotify'
+import { fetchMe } from '@/queries/account'
 
 definePage({ meta: { layout: 'auth' } })
 
@@ -34,9 +35,19 @@ type CodeSchema = z.output<typeof codeSchema>
 const codeState = reactive({ code: '' })
 
 async function goOn() {
-  // Honour ?redirect= from the auth guard; default to Home.
-  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
-  await router.push(redirect)
+  // Honour ?redirect= from the auth guard; then the landing page set for this user or their role
+  // (Users & Access); then Home.
+  if (typeof route.query.redirect === 'string') {
+    await router.push(route.query.redirect)
+    return
+  }
+  let landing: string | null = null
+  try {
+    landing = (await fetchMe()).ui.landing
+  } catch {
+    // The account could not be read: Home still works.
+  }
+  await router.push(landing ?? '/')
 }
 
 async function onSubmit(event: FormSubmitEvent<Schema>) {

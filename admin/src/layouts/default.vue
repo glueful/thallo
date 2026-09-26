@@ -2,6 +2,8 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { open, useVisibleNav } from '../navigation/sidebar'
+import { hideMenus, withContentTypes } from '../navigation/hiddenMenus'
+import { useMe } from '@/queries/account'
 import { autoCollapseSidebar } from '../navigation/sidebarAutoCollapse'
 import CapabilityErrorPanel from '@/components/CapabilityErrorPanel.vue'
 import { useCapabilitiesStore } from '@/stores/capabilities'
@@ -72,6 +74,8 @@ onBeforeUnmount(() => {
 })
 
 const nav = useVisibleNav()
+const { data: me } = useMe()
+const hiddenMenus = computed(() => me.value?.ui.hidden ?? [])
 const { data: contentTypes } = useContentTypes()
 // The authoritative "tenancy is switched on" signal — distinct from the `thallo.tenancy`
 // capability (which only means the pack is installed). /tenancy/status is operator-guarded, so
@@ -92,25 +96,16 @@ const { data: unreadSubmissions } = useUnreadCount()
 // nav.value[0] = main nav; inject live content types into the Content section's children,
 // and the live unread count as the Submissions badge (both unchanged for other items).
 const mainItems = computed(() => {
-  const enriched = nav.value[0].map((item) => {
-    if (item.label === 'Content') {
-      return {
-        ...item,
-        children: (contentTypes.value ?? []).map((ct) => ({
-          label: ct.name ?? ct.slug ?? 'Untitled',
-          icon: 'i-lucide-file-text',
-          to: `/content/${ct.slug}`,
-        })),
-      }
-    }
+  const enriched = withContentTypes(nav.value[0], contentTypes.value ?? []).map((item) => {
     if (item.label === 'Submissions') {
       const count = unreadSubmissions.value ?? 0
       return count > 0 ? { ...item, badge: String(count) } : item
     }
     return item
   })
+  // The menus hidden for this user or their role (Users & Access): tidying, not access.
   return shapeTenancyNav(
-    enriched,
+    hideMenus(enriched, hiddenMenus.value),
     tenancyAccess.access,
     tenant.selectedUuid,
     // Presentation hint (isVisible, not isEnabled): this only shapes the sidebar; the
@@ -123,7 +118,7 @@ const mainItems = computed(() => {
 // published and this browser has not dismissed it (same seam as the Submissions count).
 const { visible: updateVisible } = useUpdateNotice()
 const utilityItems = computed(() =>
-  nav.value[1].map((item) =>
+  hideMenus(nav.value[1], hiddenMenus.value).map((item) =>
     item.children
       ? {
           ...item,

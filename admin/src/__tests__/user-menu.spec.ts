@@ -50,6 +50,7 @@ describe('the user menu', () => {
       two_factor_enabled: false,
       two_factor_available: false,
       profile: { first_name: 'Ama', last_name: null, photo_url: '/v1/blobs/blob00000001' },
+      ui: { hidden: [], landing: null },
     }
     await flushPromises()
     expect(w.findComponent({ name: 'Avatar' }).props('src')).toBe('/v1/blobs/blob00000001')

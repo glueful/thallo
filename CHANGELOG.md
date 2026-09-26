@@ -7,6 +7,37 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.64] - 2026-09-26 — Developer Preview
+
+Your own sections, saved from the stage and reused as copies; a header and footer library of its
+own, with whole-header and whole-footer templates that replace a region after asking; the palette's
+Pages view renamed Templates; and, under Users & Access, menus and a landing page per role and per
+user. Two migrations: `034` (`saved_sections`) and `035` (`admin_ui_settings`).
+
+### Added
+- **Save your own sections.** Select a block on the stage and press **Save as section** beside its
+  name: it joins the Blocks tab's **Sections**, under a category of your choice, and is inserted
+  as a copy wherever you use it next. Rename or delete it from its card. A saved section is one
+  block (a container holds several); it leaves the library if its block type is switched off. One
+  saved from the header or footer belongs to that region and is offered only there. New
+  `saved_sections` table and `POST /v1/admin/saved-sections`,
+  `PATCH`/`DELETE /v1/admin/saved-sections/{id}`.
+- **Menus and landing page per role and per user.** Under **Users & Access**, a role's or a
+  user's new **Menus** tab hides the sidebar items they don't need and picks the page signing in
+  takes them to. A user's own choice beats their roles', and an item is hidden when any of their
+  roles hides it. Tidying only: a hidden page still opens for anyone whose permissions allow it.
+  New `admin_ui_settings` table, `GET`/`PUT /v1/admin/ui-settings/roles/{uuid}` (needs
+  `users.roles.manage`) and `/v1/admin/ui-settings/users/{uuid}` (needs `users.edit`), and a `ui`
+  object on `GET /v1/admin/account`.
+- **Header and footer sections and templates.** The header and footer editor now has a library of
+  its own: header sections (Logo, menu and button; Announcement bar; Centred logo and menu) and
+  footer ones (Link columns; Copyright and social links; Tagline and social links; Copyright line).
+  Its **Templates** view holds whole headers and footers; the Design view's **Pages** view is
+  renamed **Templates** too. A template replaces the region's blocks
+  after asking, and one undo puts them back. The Design view no longer offers these, and the header
+  and footer no longer offer a page body's sections. Every library entry in `GET /v1/admin/patterns`
+  now carries `scope` (`page` or `region`), `region`, `saved` and `id`.
+
 ## [1.0.0-beta.63] - 2026-09-25 — Developer Preview
 
 The user menu's Profile and Security open real pages: your name and photo, your password, and email

@@ -19,6 +19,7 @@ import {
 } from '@/queries/patterns'
 import type { Legality } from '@/editor/structure/legality'
 import { groupByCategory, orderTypes } from './order'
+import SavedSectionActions from './SavedSectionActions.vue'
 
 const props = defineProps<{
   types: BlockType[]
@@ -63,12 +64,21 @@ const reasonOf = (slug: string): string | undefined => {
 
 // ── The library ─────────────────────────────────────────────────────────────
 type View = 'blocks' | 'sections' | 'pages'
-const VIEWS: { value: View; label: string }[] = [
+const ALL_VIEWS: { value: View; label: string }[] = [
   { value: 'blocks', label: 'Blocks' },
   { value: 'sections', label: 'Sections' },
-  { value: 'pages', label: 'Pages' },
+  // Whole pages on the Design page, whole headers and footers on the Header & footer page.
+  { value: 'pages', label: 'Templates' },
 ]
+// Where no template can be inserted, the Templates view is not offered.
+const VIEWS = computed(() =>
+  props.pageClickable === undefined ? ALL_VIEWS.filter((v) => v.value !== 'pages') : ALL_VIEWS,
+)
 const view = ref<View>('blocks')
+/** The view's name as its button says it, lowercase — `templates` in the header and footer. */
+const viewLabel = computed(
+  () => VIEWS.value.find((v) => v.value === view.value)?.label.toLowerCase() ?? view.value,
+)
 const library = computed(() => props.patterns ?? [])
 const kind = computed(() => (view.value === 'pages' ? 'page' : 'section'))
 const matching = computed(() => {
@@ -166,7 +176,7 @@ function onTilePointerDown(slug: string, event: PointerEvent): void {
       ref="search"
       v-model="query"
       type="text"
-      :placeholder="`Filter ${view}…`"
+      :placeholder="`Filter ${viewLabel}…`"
       class="w-full rounded border border-default bg-transparent px-2 py-1 text-sm outline-none"
       data-test="palette-search"
       @keydown="onSearchKeydown"
@@ -192,7 +202,8 @@ function onTilePointerDown(slug: string, event: PointerEvent): void {
     </div>
     <div
       v-if="library.length > 0"
-      class="grid grid-cols-3 gap-0.5 rounded-md bg-elevated p-0.5"
+      class="grid gap-0.5 rounded-md bg-elevated p-0.5"
+      :class="VIEWS.length === 3 ? 'grid-cols-3' : 'grid-cols-2'"
       data-test="palette-views"
     >
       <button
@@ -224,49 +235,72 @@ function onTilePointerDown(slug: string, event: PointerEvent): void {
           {{ group.category }}
         </h4>
         <div class="grid gap-2" :class="view === 'pages' ? 'grid-cols-2' : 'grid-cols-1'">
-          <button
+          <div
             v-for="p in group.items"
             :key="p.slug"
-            type="button"
-            class="flex select-none flex-col overflow-hidden rounded-md border border-default bg-default text-left text-xs transition-colors hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary aria-disabled:opacity-50"
-            :class="p.kind === 'section' ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'"
-            :aria-disabled="patternReason(p) !== undefined ? 'true' : undefined"
-            :title="patternReason(p) ?? p.description"
-            :data-test="`pattern-card-${p.slug}`"
-            @click="(e: MouseEvent) => onPatternClick(p, e)"
-            @pointerdown="(e: PointerEvent) => onPatternPointerDown(p, e)"
+            class="overflow-hidden rounded-md"
+            :class="p.saved ? 'border border-default' : ''"
           >
-            <!-- A section is shown whole, up to a height; a page is its first screens. -->
-            <span
-              class="block w-full overflow-hidden border-b border-default bg-white"
-              :class="view === 'pages' ? 'aspect-[3/4]' : 'max-h-44'"
+            <button
+              type="button"
+              class="flex w-full select-none flex-col overflow-hidden bg-default text-left text-xs transition-colors hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary aria-disabled:opacity-50"
+              :class="[
+                p.saved ? '' : 'rounded-md border border-default',
+                p.kind === 'section' ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
+              ]"
+              :aria-disabled="patternReason(p) !== undefined ? 'true' : undefined"
+              :title="patternReason(p) ?? p.description"
+              :data-test="`pattern-card-${p.slug}`"
+              @click="(e: MouseEvent) => onPatternClick(p, e)"
+              @pointerdown="(e: PointerEvent) => onPatternPointerDown(p, e)"
             >
-              <img
-                v-if="!missingThumbs.has(p.slug)"
-                :src="patternThumbnail(p.slug)"
-                :width="patternThumbnailSize(p.slug)?.[0]"
-                :height="patternThumbnailSize(p.slug)?.[1]"
-                alt=""
-                loading="lazy"
-                decoding="async"
-                draggable="false"
-                class="pointer-events-none block h-auto w-full"
-                :class="view === 'pages' ? 'h-full object-cover object-top' : ''"
-                @error="missingThumbs.add(p.slug)"
-              />
+              <!-- A saved section has no picture: its name and description say what it is. -->
+              <template v-if="p.saved">
+                <span class="flex items-center gap-2 px-2 pt-2 font-medium">
+                  <UIcon name="i-lucide-bookmark" class="size-3.5 shrink-0 text-muted" />
+                  <span class="truncate">{{ p.label }}</span>
+                </span>
+                <span v-if="p.description" class="line-clamp-2 px-2 pb-2 pt-0.5 text-muted">
+                  {{ p.description }}
+                </span>
+                <span v-else class="pb-2" />
+              </template>
+              <!-- A section is shown whole, up to a height; a page is its first screens. -->
               <span
                 v-else
-                class="flex h-16 w-full items-center justify-center bg-elevated text-muted"
-                data-test="pattern-thumb-missing"
+                class="block w-full overflow-hidden border-b border-default bg-white"
+                :class="view === 'pages' ? 'aspect-[3/4]' : 'max-h-44'"
               >
-                <UIcon name="i-lucide-layout-template" class="size-5" />
+                <img
+                  v-if="!missingThumbs.has(p.slug)"
+                  :src="patternThumbnail(p.slug)"
+                  :width="patternThumbnailSize(p.slug)?.[0]"
+                  :height="patternThumbnailSize(p.slug)?.[1]"
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  draggable="false"
+                  class="pointer-events-none block h-auto w-full"
+                  :class="view === 'pages' ? 'h-full object-cover object-top' : ''"
+                  @error="missingThumbs.add(p.slug)"
+                />
+                <span
+                  v-else
+                  class="flex h-16 w-full items-center justify-center bg-elevated text-muted"
+                  data-test="pattern-thumb-missing"
+                >
+                  <UIcon name="i-lucide-layout-template" class="size-5" />
+                </span>
               </span>
-            </span>
-            <span class="truncate px-2 py-1.5 font-medium">{{ p.label }}</span>
-          </button>
+              <span v-if="!p.saved" class="truncate px-2 py-1.5 font-medium">{{ p.label }}</span>
+            </button>
+            <SavedSectionActions v-if="p.saved" :pattern="p" />
+          </div>
         </div>
       </section>
-      <p v-if="!matching.length" class="px-2 py-1.5 text-sm text-muted">No {{ view }} match.</p>
+      <p v-if="!matching.length" class="px-2 py-1.5 text-sm text-muted">
+        No {{ viewLabel }} match.
+      </p>
     </template>
     <section
       v-for="group in view === 'blocks' ? groups : []"

@@ -36148,7 +36148,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "The signed-in user's account and profile, and `two_factor_available`: whether email two-factor authentication is switched on for this install (`TWO_FACTOR_ENABLED`). While it is off, turning it on for an account would never ask for a code.",
+                "description": "The signed-in user's account and profile, and `two_factor_available`: whether email two-factor authentication is switched on for this install (`TWO_FACTOR_ENABLED`). While it is off, turning it on for an account would never ask for a code. `ui` is what the admin shows them: the sidebar item paths `hidden` for them (set per role and per user) and the `landing` page signing in takes them to, null for Home.",
                 "responses": {
                     "200": {
                         "description": "The account."
@@ -38698,581 +38698,6 @@
                     },
                     "404": {
                         "description": "No such key.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "\/v1\/admin\/billing\/cancel": {
-            "post": {
-                "operationId": "postV1AdminBillingCancel",
-                "summary": "Cancel a workspace subscription",
-                "tags": [
-                    "Thallo Subscriptions"
-                ],
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "401": {
-                        "description": "Unauthenticated.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Unexpected server error.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "\/v1\/admin\/billing\/checkout": {
-            "post": {
-                "operationId": "postV1AdminBillingCheckout",
-                "summary": "Start a workspace subscription checkout",
-                "tags": [
-                    "Thallo Subscriptions"
-                ],
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "401": {
-                        "description": "Unauthenticated.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Unexpected server error.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "\/v1\/admin\/billing\/checkout\/abandon": {
-            "post": {
-                "operationId": "postV1AdminBillingCheckoutAbandon",
-                "summary": "Abandon the workspace's stuck pending checkout",
-                "tags": [
-                    "Thallo Subscriptions"
-                ],
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "401": {
-                        "description": "Unauthenticated.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Unexpected server error.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "\/v1\/admin\/billing\/meta": {
-            "get": {
-                "operationId": "getV1AdminBillingMeta",
-                "summary": "Workspace billing status",
-                "tags": [
-                    "Thallo Subscriptions"
-                ],
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "401": {
-                        "description": "Unauthenticated.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Unexpected server error.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "\/v1\/admin\/billing\/plan": {
-            "post": {
-                "operationId": "postV1AdminBillingPlan",
-                "summary": "Change the workspace subscription's plan",
-                "tags": [
-                    "Thallo Subscriptions"
-                ],
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "401": {
-                        "description": "Unauthenticated.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Unexpected server error.",
                         "content": {
                             "application\/json": {
                                 "schema": {
@@ -81481,6 +80906,505 @@
                 }
             }
         },
+        "\/v1\/admin\/saved-sections": {
+            "post": {
+                "operationId": "postV1AdminSavedsections",
+                "summary": "Save a section",
+                "tags": [
+                    "Thallo Admin"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Saves one block \u2014 with everything inside it \u2014 to the Blocks tab's library. The block is validated as a page save would validate it and stored without ids. Body: `name` (required, up to 120 characters), `block`, and optionally `category` (default \"Saved\"), `description`, and where it belongs: `scope` `page` (the default) or `region` with `region` `header` or `footer`, whose palette must take the block. Requires `content.manage`.",
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "block": {
+                                        "type": "array",
+                                        "items": {}
+                                    },
+                                    "category": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "description": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "scope": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "region": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    }
+                                }
+                            },
+                            "example": {
+                                "name": "Jane",
+                                "block": "example",
+                                "category": "example",
+                                "description": "A short description.",
+                                "scope": "example",
+                                "region": "example"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "A missing name, a block a page save would refuse, or one its region does not take."
+                    },
+                    "201": {
+                        "description": "Saved; the library entry."
+                    }
+                }
+            }
+        },
+        "\/v1\/admin\/saved-sections\/{id}": {
+            "delete": {
+                "operationId": "deleteV1AdminSavedsectionsById",
+                "summary": "Delete a saved section",
+                "tags": [
+                    "Thallo Admin"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Removes a saved section from the library. Pages that inserted it keep their copies. Requires `content.manage`.",
+                "responses": {
+                    "200": {
+                        "description": "Deleted."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No such saved section."
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "patchV1AdminSavedsectionsById",
+                "summary": "Rename a saved section",
+                "tags": [
+                    "Thallo Admin"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Changes a saved section's `name`, `category` or `description`. Requires `content.manage`.",
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "category": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "description": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    }
+                                }
+                            },
+                            "example": {
+                                "name": "Jane",
+                                "category": "example",
+                                "description": "A short description."
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Renamed; the library entry."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "message",
+                                        "errors"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No such saved section."
+                    }
+                }
+            }
+        },
         "\/v1\/admin\/scheduled-tasks": {
             "get": {
                 "operationId": "getV1AdminScheduledtasks",
@@ -85306,21 +85230,33 @@
                 }
             }
         },
-        "\/v1\/admin\/subscriptions\/meta": {
+        "\/v1\/admin\/ui-settings\/roles\/{uuid}": {
             "get": {
-                "operationId": "getV1AdminSubscriptionsMeta",
-                "summary": "Subscriptions engine + tenancy status",
+                "operationId": "getV1AdminUisettingsRolesByUuid",
+                "summary": "A role's admin menus and landing page",
                 "tags": [
-                    "Thallo Subscriptions"
+                    "Thallo Admin"
+                ],
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
                 ],
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
+                "description": "`menus` maps a sidebar item's path to `hidden` (or, for a user, `shown`, which beats their roles); `landing` is where signing in takes them, null for Home. Roles need `users.roles.manage`, users `users.edit`.",
                 "responses": {
                     "200": {
-                        "description": "Successful response"
+                        "description": "The settings; empty when nothing is set."
                     },
                     "401": {
                         "description": "Unauthenticated.",
@@ -85417,620 +85353,64 @@
                                 }
                             }
                         }
-                    }
-                }
-            }
-        },
-        "\/v1\/admin\/subscriptions\/plans": {
-            "get": {
-                "operationId": "getV1AdminSubscriptionsPlans",
-                "summary": "List platform plans",
-                "tags": [
-                    "Thallo Subscriptions"
-                ],
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
                     },
-                    "401": {
-                        "description": "Unauthenticated.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Unexpected server error.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                    "404": {
+                        "description": "No such role or user."
                     }
                 }
             },
-            "post": {
-                "operationId": "postV1AdminSubscriptionsPlans",
-                "summary": "Create a platform plan",
-                "tags": [
-                    "Thallo Subscriptions"
-                ],
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "401": {
-                        "description": "Unauthenticated.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Unexpected server error.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "\/v1\/admin\/subscriptions\/plans\/import-config": {
-            "post": {
-                "operationId": "postV1AdminSubscriptionsPlansImportconfig",
-                "summary": "Import\/seed platform plans from config",
-                "tags": [
-                    "Thallo Subscriptions"
-                ],
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "401": {
-                        "description": "Unauthenticated.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Unexpected server error.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "\/v1\/admin\/subscriptions\/plans\/{key}": {
-            "patch": {
-                "operationId": "patchV1AdminSubscriptionsPlansByKey",
-                "summary": "Update a platform plan (plan_key is immutable)",
-                "tags": [
-                    "Thallo Subscriptions"
-                ],
-                "parameters": [
-                    {
-                        "name": "key",
-                        "in": "path",
-                        "required": true,
-                        "description": "",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "401": {
-                        "description": "Unauthenticated.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Unexpected server error.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "\/v1\/admin\/subscriptions\/plans\/{key}\/archive": {
-            "post": {
-                "operationId": "postV1AdminSubscriptionsPlansByKeyArchive",
-                "summary": "Archive a platform plan",
-                "tags": [
-                    "Thallo Subscriptions"
-                ],
-                "parameters": [
-                    {
-                        "name": "key",
-                        "in": "path",
-                        "required": true,
-                        "description": "",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "401": {
-                        "description": "Unauthenticated.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Unexpected server error.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "\/v1\/admin\/subscriptions\/self-serve": {
             "put": {
-                "operationId": "putV1AdminSubscriptionsSelfserve",
-                "summary": "Toggle the self-serve checkout operator switch",
+                "operationId": "putV1AdminUisettingsRolesByUuid",
+                "summary": "Set a role's admin menus and landing page",
                 "tags": [
-                    "Thallo Subscriptions"
+                    "Thallo Admin"
+                ],
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
                 ],
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
+                "description": "Replaces the settings. `menus`: sidebar item path (`\/\u2026`) => `hidden`, or for a user `shown`. `landing`: an admin path, or null for Home. Nothing set clears them. Hiding a menu takes no permission away. Roles need `users.roles.manage`, users `users.edit`.",
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "menus": {
+                                        "type": "array",
+                                        "items": {}
+                                    },
+                                    "landing": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    }
+                                }
+                            },
+                            "example": {
+                                "menus": "example",
+                                "landing": "example"
+                            }
+                        }
+                    }
+                },
                 "responses": {
                     "200": {
-                        "description": "Successful response"
+                        "description": "Saved; the settings."
                     },
                     "401": {
                         "description": "Unauthenticated.",
@@ -86127,131 +85507,22 @@
                                 }
                             }
                         }
+                    },
+                    "422": {
+                        "description": "A path that is not an admin path, or a state a role cannot have."
+                    },
+                    "404": {
+                        "description": "No such role or user."
                     }
                 }
             }
         },
-        "\/v1\/admin\/subscriptions\/workspaces": {
+        "\/v1\/admin\/ui-settings\/users\/{uuid}": {
             "get": {
-                "operationId": "getV1AdminSubscriptionsWorkspaces",
-                "summary": "List workspace billing status (paginated)",
+                "operationId": "getV1AdminUisettingsUsersByUuid",
+                "summary": "A user's admin menus and landing page",
                 "tags": [
-                    "Thallo Subscriptions"
-                ],
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "401": {
-                        "description": "Unauthenticated.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Unexpected server error.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "\/v1\/admin\/subscriptions\/workspaces\/{uuid}": {
-            "get": {
-                "operationId": "getV1AdminSubscriptionsWorkspacesByUuid",
-                "summary": "Workspace billing detail",
-                "tags": [
-                    "Thallo Subscriptions"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -86269,9 +85540,10 @@
                         "BearerAuth": []
                     }
                 ],
+                "description": "`menus` maps a sidebar item's path to `hidden` (or, for a user, `shown`, which beats their roles); `landing` is where signing in takes them, null for Home. Roles need `users.roles.manage`, users `users.edit`.",
                 "responses": {
                     "200": {
-                        "description": "Successful response"
+                        "description": "The settings; empty when nothing is set."
                     },
                     "401": {
                         "description": "Unauthenticated.",
@@ -86368,410 +85640,17 @@
                                 }
                             }
                         }
-                    }
-                }
-            }
-        },
-        "\/v1\/admin\/subscriptions\/workspaces\/{uuid}\/cancel": {
-            "post": {
-                "operationId": "postV1AdminSubscriptionsWorkspacesByUuidCancel",
-                "summary": "Cancel a workspace subscription",
-                "tags": [
-                    "Thallo Subscriptions"
-                ],
-                "parameters": [
-                    {
-                        "name": "uuid",
-                        "in": "path",
-                        "required": true,
-                        "description": "",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
                     },
-                    "401": {
-                        "description": "Unauthenticated.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Unexpected server error.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "\/v1\/admin\/subscriptions\/workspaces\/{uuid}\/overrides\/{entitlement}": {
-            "put": {
-                "operationId": "putV1AdminSubscriptionsWorkspacesByUuidOverridesByEntitlement",
-                "summary": "Set a workspace entitlement override",
-                "tags": [
-                    "Thallo Subscriptions"
-                ],
-                "parameters": [
-                    {
-                        "name": "uuid",
-                        "in": "path",
-                        "required": true,
-                        "description": "",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "entitlement",
-                        "in": "path",
-                        "required": true,
-                        "description": "",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "401": {
-                        "description": "Unauthenticated.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Unexpected server error.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                    "404": {
+                        "description": "No such role or user."
                     }
                 }
             },
-            "delete": {
-                "operationId": "deleteV1AdminSubscriptionsWorkspacesByUuidOverridesByEntitlement",
-                "summary": "Remove a workspace entitlement override",
-                "tags": [
-                    "Thallo Subscriptions"
-                ],
-                "parameters": [
-                    {
-                        "name": "uuid",
-                        "in": "path",
-                        "required": true,
-                        "description": "",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "entitlement",
-                        "in": "path",
-                        "required": true,
-                        "description": "",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Successful response"
-                    },
-                    "401": {
-                        "description": "Unauthenticated.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Unexpected server error.",
-                        "content": {
-                            "application\/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "error": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "integer"
-                                                },
-                                                "timestamp": {
-                                                    "type": "string"
-                                                },
-                                                "request_id": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "\/v1\/admin\/subscriptions\/workspaces\/{uuid}\/plan": {
             "put": {
-                "operationId": "putV1AdminSubscriptionsWorkspacesByUuidPlan",
-                "summary": "Start or change a workspace subscription plan",
+                "operationId": "putV1AdminUisettingsUsersByUuid",
+                "summary": "Set a user's admin menus and landing page",
                 "tags": [
-                    "Thallo Subscriptions"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -86789,9 +85668,36 @@
                         "BearerAuth": []
                     }
                 ],
+                "description": "Replaces the settings. `menus`: sidebar item path (`\/\u2026`) => `hidden`, or for a user `shown`. `landing`: an admin path, or null for Home. Nothing set clears them. Hiding a menu takes no permission away. Roles need `users.roles.manage`, users `users.edit`.",
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "menus": {
+                                        "type": "array",
+                                        "items": {}
+                                    },
+                                    "landing": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    }
+                                }
+                            },
+                            "example": {
+                                "menus": "example",
+                                "landing": "example"
+                            }
+                        }
+                    }
+                },
                 "responses": {
                     "200": {
-                        "description": "Successful response"
+                        "description": "Saved; the settings."
                     },
                     "401": {
                         "description": "Unauthenticated.",
@@ -86888,6 +85794,12 @@
                                 }
                             }
                         }
+                    },
+                    "422": {
+                        "description": "A path that is not an admin path, or a state a role cannot have."
+                    },
+                    "404": {
+                        "description": "No such role or user."
                     }
                 }
             }
@@ -96948,10 +95860,6 @@
         {
             "name": "Thallo Setup",
             "description": "Operations related to Thallo Setup"
-        },
-        {
-            "name": "Thallo Subscriptions",
-            "description": "Operations related to Thallo Subscriptions"
         },
         {
             "name": "Thallo Templates",

@@ -6,6 +6,7 @@ import { useSessionStore } from '@/stores/session'
 import { useNotify } from '@/composables/useNotify'
 import UserDetailsForm from './UserDetailsForm.vue'
 import UserPermissionsTab from './UserPermissionsTab.vue'
+import MenuSettings from '@/components/access/MenuSettings.vue'
 
 const props = defineProps<{ uuid: string }>()
 
@@ -16,10 +17,11 @@ const { success, error: notifyError } = useNotify()
 const { remove } = useUserAdminMutations()
 const { data: user, status } = useUser(() => props.uuid)
 
-const tab = ref<'details' | 'permissions'>('details')
+const tab = ref<'details' | 'permissions' | 'menus'>('details')
 const tabItems = [
   { label: 'Details', value: 'details' },
   { label: 'Permissions', value: 'permissions' },
+  { label: 'Menus', value: 'menus' },
 ]
 
 const pendingDelete = ref(false)
@@ -92,7 +94,12 @@ function fmtDate(v?: string | null): string {
 
       <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <UserDetailsForm v-if="tab === 'details'" :key="`details-${user.uuid}`" :user="user" />
-        <UserPermissionsTab v-else :key="`perms-${user.uuid}`" :user="user" />
+        <UserPermissionsTab
+          v-else-if="tab === 'permissions'"
+          :key="`perms-${user.uuid}`"
+          :user="user"
+        />
+        <MenuSettings v-else :key="`menus-${user.uuid}`" subject="users" :uuid="user.uuid" />
       </div>
 
       <UModal v-model:open="pendingDelete" title="Delete user">

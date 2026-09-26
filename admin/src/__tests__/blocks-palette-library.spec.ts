@@ -36,6 +36,8 @@ function mountPalette(extra: Record<string, unknown> = {}) {
       target: null,
       stale: false,
       clickable: () => ({ ok: true }),
+      // The Design page can insert a page; the Pages view is offered only where one can be.
+      pageClickable: () => ({ ok: true }),
       ...extra,
     },
   })

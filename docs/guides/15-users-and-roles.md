@@ -96,6 +96,34 @@ To give one person a permission their roles do not carry, open them under **User
 **Permissions** tab and move it across there. Permissions that come from a role are listed under
 **From roles** and cannot be removed on that tab.
 
+## Tidy someone's menus and pick where they land
+
+An account can hold a role that reaches far more than its owner uses day to day. You can hide the
+sidebar items they don't need, and choose the page signing in takes them to, for everyone with a
+role or for one person.
+
+1. For a role, open **Users & Access › Roles & Permissions**, select the role and switch to
+   **Menus**. For one person, open them under **Users** and switch to **Menus**.
+2. Every sidebar item is listed under its group, each content type among them. Press **Hide** on
+   the ones to take out of the sidebar. A group whose items are all hidden goes too.
+3. Under **After signing in, go to**, pick a page, or leave **Home (the default)**.
+4. Press **Save menus**.
+
+Hiding a menu tidies the sidebar and nothing else. The page is still there: its address opens it
+for anyone whose permissions allow it. To stop someone reaching a page, take the permission away,
+from the role or from the person, as above.
+
+For one person, each item also offers **As roles**, where every item starts: it follows whatever
+their roles say. **Show** brings back an item one of their roles hides, and **Hide** hides it for
+them alone. Their own choice beats their roles'. With several roles, an item is hidden when any of
+them hides it. Their landing page is their own if you set one, otherwise the one set by their
+highest-level role that sets one, otherwise **Home**. A sign-in that was sent from a page — a link
+that asked them to sign in first — goes back to that page instead.
+
+Changing a role's menus needs the `users.roles.manage` permission; changing one person's needs
+`users.edit`. The changes reach someone the next time their sidebar loads, and the landing page the
+next time they sign in.
+
 ## The superuser
 
 Superuser is the install's root authority, and the admin cannot grant it. Two commands can, and

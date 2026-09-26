@@ -8,6 +8,7 @@ use Glueful\Bootstrap\ApplicationContext;
 use Thallo\Core\Content\Blocks\BlockDepth;
 use Thallo\Core\Content\Blocks\BlockTypeRepository;
 use Thallo\Core\Content\Patterns\PatternLibrary;
+use Thallo\Core\Content\Regions\RegionValidator;
 use Thallo\Core\Content\Schema\ContentTypeSchema;
 use Thallo\Core\Content\Validation\FieldValidator;
 use Thallo\Core\Tests\Support\AppTestCase;
@@ -22,7 +23,8 @@ use Thallo\Render\TwigFactory;
  * new to the system — it is a tree of ordinary blocks with ordinary settings — so the library's
  * one promise is that what it hands out is a document the system accepts: every pattern passes
  * the validation a page save runs, fits the nesting cap with room to be placed inside a
- * container, and renders through the default theme.
+ * container, and renders through the default theme. The header and footer have sections and
+ * templates of their own, which their region accepts, and neither is offered to a page body.
  */
 final class PatternLibraryTest extends AppTestCase
 {
@@ -96,7 +98,43 @@ final class PatternLibraryTest extends AppTestCase
             self::assertCount(1, $section['blocks'], $section['slug']);
         }
         foreach ($pages as $page) {
-            self::assertGreaterThan(2, count($page['blocks']), $page['slug']);
+            // A region's template may be a single row; a starter page is several sections.
+            if ($page['scope'] === 'page') {
+                self::assertGreaterThan(2, count($page['blocks']), $page['slug']);
+            }
+        }
+    }
+
+    public function testTheHeaderAndFooterHaveSectionsAndTemplatesTheirRegionAccepts(): void
+    {
+        $patterns = $this->library()->all();
+        foreach ($patterns as $pattern) {
+            self::assertContains($pattern['scope'], ['page', 'region'], $pattern['slug']);
+            self::assertSame(
+                $pattern['scope'] === 'region',
+                in_array($pattern['region'], ['header', 'footer'], true),
+                $pattern['slug'] . ': a region pattern names its region, a page one none',
+            );
+        }
+        $validator = $this->container()->get(RegionValidator::class);
+        foreach (['header', 'footer'] as $region) {
+            $mine = array_filter(
+                $patterns,
+                static fn (array $p): bool => $p['scope'] === 'region' && $p['region'] === $region,
+            );
+            $kinds = array_count_values(array_column($mine, 'kind'));
+            self::assertGreaterThanOrEqual(3, $kinds['section'] ?? 0, "{$region} sections");
+            self::assertGreaterThanOrEqual(2, $kinds['page'] ?? 0, "{$region} templates");
+            foreach ($mine as $pattern) {
+                $n = 0;
+                $blocks = self::withIds($pattern['blocks'], $n);
+                try {
+                    $clean = $validator->validate($region, $blocks, []);
+                } catch (\Thallo\Core\Content\Validation\ValidationException $e) {
+                    self::fail($pattern['slug'] . ': ' . json_encode($e->errors()));
+                }
+                self::assertEquals($blocks, $clean['blocks'], $pattern['slug']);
+            }
         }
     }
 

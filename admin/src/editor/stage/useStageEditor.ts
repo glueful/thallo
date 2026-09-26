@@ -937,6 +937,20 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     const inserts = pageInserts(slug, at.position)
     return inserts.length ? checkInsertSequence(currentDoc(), inserts, legalityContext()) : NOWHERE
   }
+  /** A template's sections as the whole of one root list, judged against that list emptied. */
+  function replaceInserts(slug: string, field: string) {
+    return pageInserts(slug, { parent: null, slot: field, index: 0 })
+  }
+  function replaceClickable(slug: string, field: string): Legality {
+    const inserts = replaceInserts(slug, field)
+    if (!inserts.length) return NOWHERE
+    const doc = currentDoc()
+    return checkInsertSequence(
+      { ...doc, fields: { ...doc.fields, [field]: [] } },
+      inserts,
+      legalityContext(),
+    )
+  }
   function armInsertTarget(target: InsertTarget): void {
     insertTarget.value = target
     targetStale.value = false
@@ -1052,7 +1066,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     if (inserts.length === 0) return
     const verdict = checkInsertSequence(currentDoc(), inserts, legalityContext())
     if (!verdict.ok) {
-      warning('That page does not fit here', verdict.message)
+      warning('That template does not fit here', verdict.message)
       return
     }
     coordinator.cancel()
@@ -1069,6 +1083,45 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     extra?.after?.()
     insertTarget.value = null
     targetStale.value = false
+    const first = inserts[0]!.block
+    selectOne(first.id)
+    fieldEditorRef.value?.selectBlockById(first.id)
+    ringSelection()
+    revealAfterPaint = first.id
+  }
+  /**
+   * A template (the header's or footer's whole): every block in the root list removed and the
+   * template's sections inserted in their place, as ONE transaction — one undo puts the list back.
+   */
+  async function replaceWithPage(slug: string, field: string): Promise<void> {
+    if (!history) return
+    const verdict = replaceClickable(slug, field)
+    if (!verdict.ok) {
+      warning('That template does not fit here', verdict.message)
+      return
+    }
+    const inserts = replaceInserts(slug, field)
+    const existing = (history.document.fields[field] as BlockInstance[] | undefined) ?? []
+    coordinator.cancel()
+    clearInsertTarget()
+    clearSelection()
+    const drop: OperationBody[] = [
+      // Last to first, so every position is read as the transaction leaves the list.
+      ...existing
+        .map((block, index) => ({
+          type: 'RemoveBlock' as const,
+          position: { parent: null, slot: field, index },
+          block,
+        }))
+        .reverse(),
+      ...inserts.map(({ position, block }) => ({
+        type: 'InsertBlock' as const,
+        position,
+        block,
+      })),
+    ]
+    await applyDrop(drop)
+    for (const block of existing) bridge.mirrorRemove(block.id)
     const first = inserts[0]!.block
     selectOne(first.id)
     fieldEditorRef.value?.selectBlockById(first.id)
@@ -2103,6 +2156,8 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     paletteClickable,
     pageClickable,
     insertPage,
+    replaceClickable,
+    replaceWithPage,
     insertFromPalette,
     clearInsertTarget,
     paletteDrag,

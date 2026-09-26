@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRegions } from '@/queries/regions'
 import { useEntries } from '@/queries/entries'
+import { belongsIn, type SectionPlace } from '@/queries/patterns'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import type { DropZone } from '@/editor/structure/coordinator'
 import { activeBreakpoint, STAGE_FRAME_EDGE } from '@/editor/breakpoint'
@@ -105,6 +106,9 @@ const {
   paletteTypes,
   paletteTarget,
   targetStale,
+  patterns,
+  replaceClickable,
+  replaceWithPage,
   paletteClickable,
   insertFromPalette,
   clearInsertTarget,
@@ -113,6 +117,29 @@ const {
   toggleAuto,
 } = editor
 const schema = region.host.schema
+
+// ── The library (sections guide): the current region's own sections and templates, never a page
+// body's. A template is the whole region: over blocks already there, it asks first. ──
+const place = computed<SectionPlace>(() => ({ scope: 'region', region: currentRegion.value }))
+const regionPatterns = computed(() => patterns.value.filter((p) => belongsIn(p, place.value)))
+const templateClickable = (slug: string) => replaceClickable(slug, currentRegion.value)
+const pendingTemplate = ref<{ slug: string; label: string; region: RegionSlug } | null>(null)
+watch(currentRegion, () => (pendingTemplate.value = null))
+function onInsertTemplate(slug: string): void {
+  const target = currentRegion.value
+  const blocks = fields.value[target]
+  if (Array.isArray(blocks) && blocks.length > 0) {
+    const label = patterns.value.find((p) => p.slug === slug)?.label ?? 'this template'
+    pendingTemplate.value = { slug, label, region: target }
+    return
+  }
+  void replaceWithPage(slug, target)
+}
+function confirmTemplate(): void {
+  const pending = pendingTemplate.value
+  pendingTemplate.value = null
+  if (pending) void replaceWithPage(pending.slug, pending.region)
+}
 
 // ── The current region follows the selection (spec §3): a footer block selected is Footer. ──
 function holds(list: unknown, id: string): boolean {
@@ -297,6 +324,7 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
                 :class-names="classNames"
                 :class-options="classOptions"
                 :re-resolving="reResolving"
+                :section-place="place"
                 can-play-motion
                 @play-motion="playSelectedMotion"
                 @save-as-class="liftDialogOpen = true"
@@ -333,13 +361,45 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
               />
             </template>
             <template #blocks>
-              <div class="pt-2" data-test="regions-tab-blocks">
+              <div class="space-y-2 pt-2" data-test="regions-tab-blocks">
+                <div
+                  v-if="pendingTemplate"
+                  class="space-y-2 rounded-md border border-warning/40 bg-warning/10 p-2 text-xs"
+                  role="alertdialog"
+                  data-test="template-replace"
+                >
+                  <p>
+                    Replace the whole {{ pendingTemplate.region }} with
+                    <strong>{{ pendingTemplate.label }}</strong
+                    >? Undo brings it back.
+                  </p>
+                  <div class="flex justify-end gap-1">
+                    <UButton
+                      size="xs"
+                      variant="ghost"
+                      color="neutral"
+                      data-test="template-replace-keep"
+                      @click="pendingTemplate = null"
+                    >
+                      Keep
+                    </UButton>
+                    <UButton
+                      size="xs"
+                      data-test="template-replace-confirm"
+                      @click="confirmTemplate"
+                    >
+                      Replace
+                    </UButton>
+                  </div>
+                </div>
                 <BlocksPalette
                   :types="paletteTypes"
                   :target="paletteTarget"
                   :stale="targetStale"
-                  :patterns="[]"
+                  :patterns="regionPatterns"
                   :clickable="paletteClickable"
+                  :page-clickable="templateClickable"
+                  @insert-page="onInsertTemplate"
                   @insert="insertFromPalette"
                   @clear-target="clearInsertTarget"
                   @pointer-down="(slug: string, e: PointerEvent) => paletteDrag.begin(slug, e)"

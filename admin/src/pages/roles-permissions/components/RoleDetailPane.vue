@@ -1,8 +1,17 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import type { Role } from '@/queries/rbac'
 import RolePermissionsEditor from './RolePermissionsEditor.vue'
+import MenuSettings from '@/components/access/MenuSettings.vue'
 
 defineProps<{ role: Role }>()
+
+// What the role may do, and what its members see in the sidebar and land on after signing in.
+const tab = ref<'permissions' | 'menus'>('permissions')
+const tabItems = [
+  { label: 'Permissions', value: 'permissions' },
+  { label: 'Menus', value: 'menus' },
+]
 defineEmits<{ edit: []; delete: [] }>()
 </script>
 
@@ -47,8 +56,11 @@ defineEmits<{ edit: []; delete: [] }>()
       </div>
     </header>
 
+    <UTabs v-model="tab" variant="link" :items="tabItems" :content="false" class="mb-4" />
+
     <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
-      <RolePermissionsEditor :role="role" />
+      <RolePermissionsEditor v-if="tab === 'permissions'" :role="role" />
+      <MenuSettings v-else :key="`menus-${role.uuid}`" subject="roles" :uuid="role.uuid" />
     </div>
   </div>
 </template>

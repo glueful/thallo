@@ -12,7 +12,7 @@ import BlocksPalette from '@/editor/palette/BlocksPalette.vue'
 import BoxField from '@/editor/inspector/controls/BoxField.vue'
 import ResponsiveField from '@/editor/inspector/controls/ResponsiveField.vue'
 import { activeBreakpoint, BREAKPOINT_LABELS, STAGE_FRAME_EDGE } from '@/editor/breakpoint'
-import { holdsPageHeading } from '@/queries/patterns'
+import { belongsIn, holdsPageHeading } from '@/queries/patterns'
 import SaveAsStyleClassDialog from '@/editor/inspector/SaveAsStyleClassDialog.vue'
 import type { Breakpoint, StyleValue } from '@/style/types'
 import BlockInspector from '@/editor/inspector/BlockInspector.vue'
@@ -208,6 +208,8 @@ const {
   clearInsertTarget,
   paletteDrag,
 } = editor
+// The page body's library: the header's and footer's own sections and templates stay on theirs.
+const pagePatterns = computed(() => patterns.value.filter((p) => belongsIn(p, { scope: 'page' })))
 
 watch(
   draft,
@@ -799,7 +801,7 @@ async function openThemePreview(): Promise<void> {
                   :types="paletteTypes"
                   :target="paletteTarget"
                   :stale="targetStale"
-                  :patterns="patterns"
+                  :patterns="pagePatterns"
                   :clickable="paletteClickable"
                   :page-clickable="pageClickable"
                   @insert-page="insertPage"

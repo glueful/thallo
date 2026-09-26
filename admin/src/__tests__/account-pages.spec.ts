@@ -56,6 +56,7 @@ const account = (overrides: Partial<Me> = {}): Me => ({
   two_factor_enabled: false,
   two_factor_available: true,
   profile: { first_name: 'Ama', last_name: null, photo_url: null },
+  ui: { hidden: [], landing: null },
   ...overrides,
 })
 

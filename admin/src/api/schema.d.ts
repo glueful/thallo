@@ -8,7 +8,7 @@ export interface paths {
     }
     /**
      * Your own account
-     * @description The signed-in user's account and profile, and `two_factor_available`: whether email two-factor authentication is switched on for this install (`TWO_FACTOR_ENABLED`). While it is off, turning it on for an account would never ask for a code.
+     * @description The signed-in user's account and profile, and `two_factor_available`: whether email two-factor authentication is switched on for this install (`TWO_FACTOR_ENABLED`). While it is off, turning it on for an account would never ask for a code. `ui` is what the admin shows them: the sidebar item paths `hidden` for them (set per role and per user) and the `landing` page signing in takes them to, null for Home.
      */
     get: operations['getV1AdminAccount']
     put?: never
@@ -197,91 +197,6 @@ export interface paths {
      * @description Binds the key to one workspace, or unbinds it with a null tenant_uuid. Requires system.access and tenancy.manage.
      */
     patch: operations['patchV1AdminApikeysByUuidTenant']
-    trace?: never
-  }
-  '/billing/cancel': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /** Cancel a workspace subscription */
-    post: operations['postV1AdminBillingCancel']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/billing/checkout': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /** Start a workspace subscription checkout */
-    post: operations['postV1AdminBillingCheckout']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/billing/checkout/abandon': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /** Abandon the workspace's stuck pending checkout */
-    post: operations['postV1AdminBillingCheckoutAbandon']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/billing/meta': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /** Workspace billing status */
-    get: operations['getV1AdminBillingMeta']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/billing/plan': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /** Change the workspace subscription's plan */
-    post: operations['postV1AdminBillingPlan']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
     trace?: never
   }
   '/block-types': {
@@ -3526,6 +3441,50 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/saved-sections': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Save a section
+     * @description Saves one block — with everything inside it — to the Blocks tab's library. The block is validated as a page save would validate it and stored without ids. Body: `name` (required, up to 120 characters), `block`, and optionally `category` (default "Saved"), `description`, and where it belongs: `scope` `page` (the default) or `region` with `region` `header` or `footer`, whose palette must take the block. Requires `content.manage`.
+     */
+    post: operations['postV1AdminSavedsections']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/saved-sections/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /**
+     * Delete a saved section
+     * @description Removes a saved section from the library. Pages that inserted it keep their copies. Requires `content.manage`.
+     */
+    delete: operations['deleteV1AdminSavedsectionsById']
+    options?: never
+    head?: never
+    /**
+     * Rename a saved section
+     * @description Changes a saved section's `name`, `category` or `description`. Requires `content.manage`.
+     */
+    patch: operations['patchV1AdminSavedsectionsById']
+    trace?: never
+  }
   '/scheduled-tasks': {
     parameters: {
       query?: never
@@ -3759,16 +3718,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/subscriptions/meta': {
+  '/ui-settings/roles/{uuid}': {
     parameters: {
       query?: never
       header?: never
       path?: never
       cookie?: never
     }
-    /** Subscriptions engine + tenancy status */
-    get: operations['getV1AdminSubscriptionsMeta']
-    put?: never
+    /**
+     * A role's admin menus and landing page
+     * @description `menus` maps a sidebar item's path to `hidden` (or, for a user, `shown`, which beats their roles); `landing` is where signing in takes them, null for Home. Roles need `users.roles.manage`, users `users.edit`.
+     */
+    get: operations['getV1AdminUisettingsRolesByUuid']
+    /**
+     * Set a role's admin menus and landing page
+     * @description Replaces the settings. `menus`: sidebar item path (`/…`) => `hidden`, or for a user `shown`. `landing`: an admin path, or null for Home. Nothing set clears them. Hiding a menu takes no permission away. Roles need `users.roles.manage`, users `users.edit`.
+     */
+    put: operations['putV1AdminUisettingsRolesByUuid']
     post?: never
     delete?: never
     options?: never
@@ -3776,171 +3742,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/subscriptions/plans': {
+  '/ui-settings/users/{uuid}': {
     parameters: {
       query?: never
       header?: never
       path?: never
       cookie?: never
     }
-    /** List platform plans */
-    get: operations['getV1AdminSubscriptionsPlans']
-    put?: never
-    /** Create a platform plan */
-    post: operations['postV1AdminSubscriptionsPlans']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/subscriptions/plans/import-config': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /** Import/seed platform plans from config */
-    post: operations['postV1AdminSubscriptionsPlansImportconfig']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/subscriptions/plans/{key}': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    /** Update a platform plan (plan_key is immutable) */
-    patch: operations['patchV1AdminSubscriptionsPlansByKey']
-    trace?: never
-  }
-  '/subscriptions/plans/{key}/archive': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /** Archive a platform plan */
-    post: operations['postV1AdminSubscriptionsPlansByKeyArchive']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/subscriptions/self-serve': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    /** Toggle the self-serve checkout operator switch */
-    put: operations['putV1AdminSubscriptionsSelfserve']
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/subscriptions/workspaces': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /** List workspace billing status (paginated) */
-    get: operations['getV1AdminSubscriptionsWorkspaces']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/subscriptions/workspaces/{uuid}': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /** Workspace billing detail */
-    get: operations['getV1AdminSubscriptionsWorkspacesByUuid']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/subscriptions/workspaces/{uuid}/cancel': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /** Cancel a workspace subscription */
-    post: operations['postV1AdminSubscriptionsWorkspacesByUuidCancel']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/subscriptions/workspaces/{uuid}/overrides/{entitlement}': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    /** Set a workspace entitlement override */
-    put: operations['putV1AdminSubscriptionsWorkspacesByUuidOverridesByEntitlement']
-    post?: never
-    /** Remove a workspace entitlement override */
-    delete: operations['deleteV1AdminSubscriptionsWorkspacesByUuidOverridesByEntitlement']
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/subscriptions/workspaces/{uuid}/plan': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    /** Start or change a workspace subscription plan */
-    put: operations['putV1AdminSubscriptionsWorkspacesByUuidPlan']
+    /**
+     * A user's admin menus and landing page
+     * @description `menus` maps a sidebar item's path to `hidden` (or, for a user, `shown`, which beats their roles); `landing` is where signing in takes them, null for Home. Roles need `users.roles.manage`, users `users.edit`.
+     */
+    get: operations['getV1AdminUisettingsUsersByUuid']
+    /**
+     * Set a user's admin menus and landing page
+     * @description Replaces the settings. `menus`: sidebar item path (`/…`) => `hidden`, or for a user `shown`. `landing`: an admin path, or null for Home. Nothing set clears them. Hiding a menu takes no permission away. Roles need `users.roles.manage`, users `users.edit`.
+     */
+    put: operations['putV1AdminUisettingsUsersByUuid']
     post?: never
     delete?: never
     options?: never
@@ -5919,351 +5737,6 @@ export interface operations {
       }
       /** @description Workspace not found. */
       422: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-    }
-  }
-  postV1AdminBillingCancel: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Unauthenticated. */
-      401: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Forbidden. */
-      403: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-    }
-  }
-  postV1AdminBillingCheckout: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Unauthenticated. */
-      401: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Forbidden. */
-      403: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-    }
-  }
-  postV1AdminBillingCheckoutAbandon: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Unauthenticated. */
-      401: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Forbidden. */
-      403: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-    }
-  }
-  getV1AdminBillingMeta: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Unauthenticated. */
-      401: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Forbidden. */
-      403: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-    }
-  }
-  postV1AdminBillingPlan: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Unauthenticated. */
-      401: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Forbidden. */
-      403: {
         headers: {
           [name: string]: unknown
         }
@@ -29754,6 +29227,297 @@ export interface operations {
       }
     }
   }
+  postV1AdminSavedsections: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: {
+      content: {
+        /**
+         * @example {
+         *       "name": "Jane",
+         *       "block": "example",
+         *       "category": "example",
+         *       "description": "A short description.",
+         *       "scope": "example",
+         *       "region": "example"
+         *     }
+         */
+        'application/json': {
+          name?: string
+          block?: unknown[]
+          category?: string | null
+          description?: string | null
+          scope?: string | null
+          region?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Successful response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Saved; the library entry. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description A missing name, a block a page save would refuse, or one its region does not take. */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  deleteV1AdminSavedsectionsById: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Deleted. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description No such saved section. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  patchV1AdminSavedsectionsById: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: {
+      content: {
+        /**
+         * @example {
+         *       "name": "Jane",
+         *       "category": "example",
+         *       "description": "A short description."
+         *     }
+         */
+        'application/json': {
+          name?: string | null
+          category?: string | null
+          description?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Renamed; the library entry. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description No such saved section. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            /** @example false */
+            success: boolean
+            message: string
+            errors: {
+              [key: string]: string[]
+            }
+          }
+        }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
   getV1AdminScheduledtasks: {
     parameters: {
       query?: never
@@ -31649,563 +31413,7 @@ export interface operations {
       }
     }
   }
-  getV1AdminSubscriptionsMeta: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Unauthenticated. */
-      401: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Forbidden. */
-      403: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-    }
-  }
-  getV1AdminSubscriptionsPlans: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Unauthenticated. */
-      401: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Forbidden. */
-      403: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-    }
-  }
-  postV1AdminSubscriptionsPlans: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Unauthenticated. */
-      401: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Forbidden. */
-      403: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-    }
-  }
-  postV1AdminSubscriptionsPlansImportconfig: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Unauthenticated. */
-      401: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Forbidden. */
-      403: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-    }
-  }
-  patchV1AdminSubscriptionsPlansByKey: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        key: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Unauthenticated. */
-      401: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Forbidden. */
-      403: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-    }
-  }
-  postV1AdminSubscriptionsPlansByKeyArchive: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        key: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Unauthenticated. */
-      401: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Forbidden. */
-      403: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-    }
-  }
-  putV1AdminSubscriptionsSelfserve: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Unauthenticated. */
-      401: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Forbidden. */
-      403: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-    }
-  }
-  getV1AdminSubscriptionsWorkspaces: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Unauthenticated. */
-      401: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Forbidden. */
-      403: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-    }
-  }
-  getV1AdminSubscriptionsWorkspacesByUuid: {
+  getV1AdminUisettingsRolesByUuid: {
     parameters: {
       query?: never
       header?: never
@@ -32216,7 +31424,7 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Successful response */
+      /** @description The settings; empty when nothing is set. */
       200: {
         headers: {
           [name: string]: unknown
@@ -32256,6 +31464,13 @@ export interface operations {
             }
           }
         }
+      }
+      /** @description No such role or user. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
       }
       /** @description Unexpected server error. */
       500: {
@@ -32276,7 +31491,7 @@ export interface operations {
       }
     }
   }
-  postV1AdminSubscriptionsWorkspacesByUuidCancel: {
+  putV1AdminUisettingsRolesByUuid: {
     parameters: {
       query?: never
       header?: never
@@ -32285,9 +31500,22 @@ export interface operations {
       }
       cookie?: never
     }
-    requestBody?: never
+    requestBody?: {
+      content: {
+        /**
+         * @example {
+         *       "menus": "example",
+         *       "landing": "example"
+         *     }
+         */
+        'application/json': {
+          menus?: unknown[]
+          landing?: string | null
+        }
+      }
+    }
     responses: {
-      /** @description Successful response */
+      /** @description Saved; the settings. */
       200: {
         headers: {
           [name: string]: unknown
@@ -32327,6 +31555,20 @@ export interface operations {
             }
           }
         }
+      }
+      /** @description No such role or user. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description A path that is not an admin path, or a state a role cannot have. */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
       }
       /** @description Unexpected server error. */
       500: {
@@ -32347,19 +31589,18 @@ export interface operations {
       }
     }
   }
-  putV1AdminSubscriptionsWorkspacesByUuidOverridesByEntitlement: {
+  getV1AdminUisettingsUsersByUuid: {
     parameters: {
       query?: never
       header?: never
       path: {
         uuid: string
-        entitlement: string
       }
       cookie?: never
     }
     requestBody?: never
     responses: {
-      /** @description Successful response */
+      /** @description The settings; empty when nothing is set. */
       200: {
         headers: {
           [name: string]: unknown
@@ -32399,6 +31640,13 @@ export interface operations {
             }
           }
         }
+      }
+      /** @description No such role or user. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
       }
       /** @description Unexpected server error. */
       500: {
@@ -32419,19 +31667,31 @@ export interface operations {
       }
     }
   }
-  deleteV1AdminSubscriptionsWorkspacesByUuidOverridesByEntitlement: {
+  putV1AdminUisettingsUsersByUuid: {
     parameters: {
       query?: never
       header?: never
       path: {
         uuid: string
-        entitlement: string
       }
       cookie?: never
     }
-    requestBody?: never
+    requestBody?: {
+      content: {
+        /**
+         * @example {
+         *       "menus": "example",
+         *       "landing": "example"
+         *     }
+         */
+        'application/json': {
+          menus?: unknown[]
+          landing?: string | null
+        }
+      }
+    }
     responses: {
-      /** @description Successful response */
+      /** @description Saved; the settings. */
       200: {
         headers: {
           [name: string]: unknown
@@ -32472,76 +31732,19 @@ export interface operations {
           }
         }
       }
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-    }
-  }
-  putV1AdminSubscriptionsWorkspacesByUuidPlan: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        uuid: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful response */
-      200: {
+      /** @description No such role or user. */
+      404: {
         headers: {
           [name: string]: unknown
         }
         content?: never
       }
-      /** @description Unauthenticated. */
-      401: {
+      /** @description A path that is not an admin path, or a state a role cannot have. */
+      422: {
         headers: {
           [name: string]: unknown
         }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Forbidden. */
-      403: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
+        content?: never
       }
       /** @description Unexpected server error. */
       500: {

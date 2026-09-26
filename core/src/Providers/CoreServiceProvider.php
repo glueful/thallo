@@ -1681,6 +1681,16 @@ final class CoreServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            \Thallo\Core\Content\Http\Controllers\SavedSectionController::class => [
+                'class' => \Thallo\Core\Content\Http\Controllers\SavedSectionController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Patterns\SavedSectionRepository::class => [
+                'class' => \Thallo\Core\Content\Patterns\SavedSectionRepository::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             BlockTypeController::class => [
                 'class' => BlockTypeController::class,
                 'shared' => true,
@@ -1975,6 +1985,16 @@ final class CoreServiceProvider extends ServiceProvider
             ],
             \Thallo\Core\Http\Controllers\AccountAdminController::class => [
                 'class' => \Thallo\Core\Http\Controllers\AccountAdminController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Http\Controllers\AdminUiSettingsController::class => [
+                'class' => \Thallo\Core\Http\Controllers\AdminUiSettingsController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Settings\AdminUiSettings::class => [
+                'class' => \Thallo\Core\Settings\AdminUiSettings::class,
                 'shared' => true,
                 'autowire' => true,
             ],

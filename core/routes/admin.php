@@ -32,6 +32,7 @@ use Thallo\Core\Http\Controllers\RegionAdminController;
 use Thallo\Core\Http\Controllers\RegionPreviewController;
 use Thallo\Core\Http\Controllers\ScheduledTasksController;
 use Thallo\Core\Http\Controllers\TenancyAccessController;
+use Thallo\Core\Http\Controllers\AdminUiSettingsController;
 use Thallo\Core\Http\Controllers\UserAdminController;
 use Thallo\Core\Http\Controllers\TenantHostCooldownController;
 use Thallo\Core\Http\Controllers\TenantRolesController;
@@ -125,6 +126,14 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
         // content; inserting a pattern is an ordinary page edit.
         $router->get('/patterns', [PatternController::class, 'index'])
         ->middleware('content_permission:content.view');
+
+        // Saved sections: a block saved from the stage into that library, reused as a copy.
+        $router->post('/saved-sections', [\Thallo\Core\Content\Http\Controllers\SavedSectionController::class, 'store'])
+            ->middleware('content_permission:content.manage');
+        $router->patch('/saved-sections/{id}', [\Thallo\Core\Content\Http\Controllers\SavedSectionController::class, 'update'])
+            ->middleware('content_permission:content.manage');
+        $router->delete('/saved-sections/{id}', [\Thallo\Core\Content\Http\Controllers\SavedSectionController::class, 'destroy'])
+            ->middleware('content_permission:content.manage');
 
         // "Set up documentation" (Settings › Import / Export): makes a content type and changes a
         // site setting, so it asks for what both of those ask for.
@@ -337,6 +346,16 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
         $router->post('/account/password', [\Thallo\Core\Http\Controllers\AccountAdminController::class, 'password'])
             ->rateLimit(5, 1)
             ->middleware('rate_limit');
+
+        // The admin's menus and landing page per role and per user: tidying, not access.
+        $router->get('/ui-settings/roles/{uuid}', [AdminUiSettingsController::class, 'showRole'])
+            ->middleware('content_permission:users.roles.manage');
+        $router->put('/ui-settings/roles/{uuid}', [AdminUiSettingsController::class, 'updateRole'])
+            ->middleware('content_permission:users.roles.manage');
+        $router->get('/ui-settings/users/{uuid}', [AdminUiSettingsController::class, 'showUser'])
+            ->middleware('content_permission:users.edit');
+        $router->put('/ui-settings/users/{uuid}', [AdminUiSettingsController::class, 'updateUser'])
+            ->middleware('content_permission:users.edit');
 
         // Admin user management (app-owned policy over glueful/users' store primitives). The list/read
         // lives in glueful/users (`GET /v1/users`); creating and removing users is product policy.

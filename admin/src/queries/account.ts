@@ -14,6 +14,9 @@ export interface Me {
   /** Whether this install has email two-factor switched on (`TWO_FACTOR_ENABLED`). */
   two_factor_available: boolean
   profile: { first_name: string | null; last_name: string | null; photo_url: string | null }
+  /** What the admin shows you, set per role and per user: sidebar paths hidden, and where signing
+   *  in lands (null for Home). Tidying only — never what you may open. */
+  ui: { hidden: string[]; landing: string | null }
 }
 
 function record(value: unknown): Record<string, unknown> {
@@ -27,6 +30,7 @@ const text = (value: unknown): string | null =>
 function readMe(raw: unknown): Me {
   const d = record(raw)
   const p = record(d.profile)
+  const ui = record(d.ui)
   return {
     uuid: String(d.uuid ?? ''),
     email: String(d.email ?? ''),
@@ -39,6 +43,12 @@ function readMe(raw: unknown): Me {
       first_name: text(p.first_name),
       last_name: text(p.last_name),
       photo_url: text(p.photo_url),
+    },
+    ui: {
+      hidden: Array.isArray(ui.hidden)
+        ? ui.hidden.filter((h): h is string => typeof h === 'string')
+        : [],
+      landing: text(ui.landing),
     },
   }
 }
