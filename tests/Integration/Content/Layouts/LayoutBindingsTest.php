@@ -146,6 +146,45 @@ final class LayoutBindingsTest extends AppTestCase
         self::assertSame(409, $response->getStatusCode());
     }
 
+    public function testAnExcerptLeftUnchosenFollowsARenameAndRefusesADelete(): void
+    {
+        // Saved as the editor saves it — through the saver, whose validation binds the default.
+        $token = \Thallo\Core\Content\Preview\LayoutPreviewToken::mint(
+            'bindsession01',
+            'entry',
+            'post',
+            null,
+            'en',
+            time() + 600,
+            (new class () {
+                use \Thallo\Core\Content\Preview\ResolvesPreviewKey;
+
+                public function of(\Glueful\Bootstrap\ApplicationContext $c): string
+                {
+                    return $this->previewKey($c);
+                }
+            })->of($this->appContext()),
+        );
+        $claims = \Thallo\Core\Content\Preview\LayoutPreviewToken::verify($token, (new class () {
+            use \Thallo\Core\Content\Preview\ResolvesPreviewKey;
+
+            public function of(\Glueful\Bootstrap\ApplicationContext $c): string
+            {
+                return $this->previewKey($c);
+            }
+        })->of($this->appContext()), time());
+        $this->container()->get(\Thallo\Core\Content\Layouts\LayoutSaver::class)->save($claims, [
+            ['id' => 'laybody00001', 'type' => 'entry_content', 'data' => [], 'settings' => []],
+            ['id' => 'layexcer0001', 'type' => 'entry_excerpt', 'data' => [], 'settings' => []],
+        ], [], 0, null, null);
+        self::assertSame('excerpt', $this->layout()['blocks'][1]['data']['field']);
+
+        self::assertSame(422, $this->migrate([['op' => 'delete', 'name' => 'excerpt']])->getStatusCode());
+        $renamed = $this->migrate([['op' => 'rename', 'from' => 'excerpt', 'to' => 'summary']]);
+        self::assertSame(201, $renamed->getStatusCode());
+        self::assertSame('summary', $this->layout()['blocks'][1]['data']['field']);
+    }
+
     public function testDeletingABoundFieldIsRefusedNamingTheLayout(): void
     {
         $this->saveLayout();

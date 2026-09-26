@@ -189,6 +189,62 @@ final class LayoutValidatorTest extends AppTestCase
         self::assertSame([], $this->errors($good));
     }
 
+    /**
+     * A format a field cannot take would fail every page of the type when it renders (a date read
+     * from a word): the validator refuses it, so Save never sends it live.
+     */
+    public function testAnEntryFieldsFormatMustSuitItsField(): void
+    {
+        $this->seedShapes();
+        $this->type('event', 'Events', [
+            ['name' => 'title', 'type' => 'string', 'required' => true],
+            ['name' => 'body', 'type' => 'blocks'],
+            ['name' => 'starts', 'type' => 'datetime'],
+            ['name' => 'seats', 'type' => 'number'],
+            ['name' => 'venue', 'type' => 'string'],
+        ]);
+        $body = self::block('entry_content', ['field' => 'body']);
+        $field = static fn (string $name, string $format): array => self::block(
+            'entry_field',
+            ['field' => $name, 'format' => $format],
+        );
+        $refused = [['venue', 'date'], ['seats', 'date'], ['venue', 'number'], ['starts', 'number']];
+        foreach ($refused as [$name, $format]) {
+            $errors = $this->errors([$body, $field($name, $format)], [], 'event');
+            self::assertArrayHasKey('blocks.1.data.format', $errors, "{$name} as {$format}");
+        }
+        foreach ([['starts', 'date'], ['seats', 'number'], ['venue', 'text'], ['seats', 'text']] as [$name, $format]) {
+            self::assertSame([], $this->errors([$body, $field($name, $format)], [], 'event'), "{$name} as {$format}");
+        }
+    }
+
+    /**
+     * A Cover, Excerpt or Terms block left without a field shows the type's `cover`, `excerpt` or
+     * `categories`: that binding is written into the block, so a rename moves it and a delete is
+     * refused like any other (spec §5.7). Where the type has no such field, nothing is written.
+     */
+    public function testAFieldLeftUnchosenIsBoundToTheFieldItShows(): void
+    {
+        $this->seedShapes();
+        $clean = $this->validator()->validate('entry', 'post', self::withIds([
+            self::block('entry_content'),
+            self::block('entry_cover'),
+            self::block('entry_excerpt'),
+            self::block('container', ['content' => [self::block('entry_terms')]]),
+        ]), []);
+        self::assertSame('body', $clean['blocks'][0]['data']['field']);
+        self::assertSame('cover', $clean['blocks'][1]['data']['field']);
+        self::assertSame('excerpt', $clean['blocks'][2]['data']['field']);
+        self::assertSame('categories', $clean['blocks'][3]['data']['content'][0]['data']['field']);
+
+        // Pages has no cover: the block stays unbound (it shows nothing), and nothing refuses it.
+        $pages = $this->validator()->validate('entry', 'pages', self::withIds([
+            self::block('entry_content'),
+            self::block('entry_cover'),
+        ]), []);
+        self::assertArrayNotHasKey('field', $pages['blocks'][1]['data']);
+    }
+
     public function testGeneralBlocksAreWelcomeAndUnknownOnesAreNot(): void
     {
         $this->seedShapes();

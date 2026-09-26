@@ -166,6 +166,37 @@ final class LayoutSessionTest extends AppTestCase
         self::assertArrayHasKey('blocks', $invalid['body']['error']['details']);
     }
 
+    /**
+     * The style-class guard serialises a write against a class job, so it belongs to Save: an apply
+     * (every autosave) neither writes to the class row nor stalls the stage when a class it shows
+     * was archived meanwhile; the Save that would persist it is refused.
+     */
+    public function testAnArchivedClassDoesNotStallTheStageAndSaveRefusesIt(): void
+    {
+        $this->post();
+        $classes = $this->container()->get(\Thallo\Core\Content\Style\Classes\StyleClassRepository::class);
+        $old = $classes->create(['name' => 'Old', 'style' => []]);
+        $classes->archive($old['id']);
+        $guardOf = fn (): int => (int) $this->connection()->table('style_classes')
+            ->where('id', '=', $old['id'])->first()['reference_guard'];
+        $before = $guardOf();
+        $layout = self::layout();
+        $layout['blocks'][0]['settings'] = ['classes' => [$old['id']]];
+
+        $session = $this->session();
+        $applied = $this->apply(['token' => $session['token'], 'layout' => $layout]);
+        self::assertSame(200, $applied['status'], json_encode($applied['body']));
+        self::assertSame($before, $guardOf(), 'an apply writes nothing to the class row');
+
+        $dto = (new RequestDataHydrator())->hydrate(\Thallo\Core\Http\DTOs\SaveLayoutData::class, [
+            'token' => $session['token'], 'layout' => $layout, 'expected_lock_version' => 0,
+        ]);
+        $saved = $this->container()->get(\Thallo\Core\Http\Controllers\LayoutAdminController::class)
+            ->save($dto, Request::create('/x', 'PUT'), 'entry', 'post');
+        self::assertSame(422, $saved->getStatusCode(), (string) $saved->getContent());
+        self::assertNull($this->container()->get(LayoutRepository::class)->find('entry', 'post'));
+    }
+
     public function testTokensDoNotCross(): void
     {
         $postType = $this->post();
