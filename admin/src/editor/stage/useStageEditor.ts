@@ -1569,6 +1569,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
         return
       }
       accepted.value = { epoch: result.epoch, revision: result.revision }
+      host.onAccepted?.(result)
       styleGeneration.value = result.style_generation
       noteStyleGeneration(result.style_generation)
       lastApplied.value = appliedJson

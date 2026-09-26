@@ -24,6 +24,14 @@ as the next release, never a mutated tag.
   version, word for word, without the work in progress under [Unreleased]. Each release's cut
   refreshes it (`php scripts/sync-docs-changelog`), and a test fails while it is behind.
 
+### Changed
+- **The Design view shows a post inside its type's layout.** A strip above the stage names the
+  layout, with **Edit layout** beside it; the post's own blocks are edited as before, and the
+  layout's are edited on its own page. **Page › Design** chooses **Type layout** or **Theme
+  template** for this one page, and the view follows the choice as soon as the stage accepts it.
+  **Show page title** does not apply under a layout — the layout places the title — and the Page
+  tab says so instead.
+
 ### Fixed
 - **A form in the header or footer is one form across the site.** It used to count as a separate
   form on each page it appeared on, so the Submissions menu listed it once per page. Submissions

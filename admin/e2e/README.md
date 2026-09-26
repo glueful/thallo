@@ -41,6 +41,9 @@ What is proven, in Chromium:
   title selects and the post's own body does not; an Entry date dragged from the Blocks tab (the
   Fields lead) lands after the title; a save made after someone else's shows the conflict, and
   Reload opens theirs.
+- `design-under-layout` (type layouts §6.3) — a page whose type has a layout, on its Design view:
+  the strip names the layout; the layout's own heading renders around the body and selects
+  nothing; a body block selects as always; an accepted edit reloads the stage whole (no fragments).
 - `structure-picker` (container-layout §6) — a container inserted from the Blocks tab is offered
   its presets; a choice commits every operation as one transaction and undo and redo treat the
   preset as one thing; a preset too deep for its destination is offered disabled with its reason;

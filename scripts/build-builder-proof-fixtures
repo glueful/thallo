@@ -448,7 +448,7 @@ final class LayoutFixturesWritten extends RuntimeException
 }
 
 try {
-    $db->transaction(static function () use ($container, $contentTypes, $entries, $layoutScenarios, $layoutsOut, $out, $canonical): void {
+    $db->transaction(static function () use ($container, $contentTypes, $entries, $layoutScenarios, $layoutsOut, $out, $canonical, $pageUuid, $entryUuid): void {
         $context = TestApplication::instance()->getContext();
         $db = $container->get(Glueful\Database\Connection::class);
         $postType = $contentTypes->findBySlug('post')['uuid'] ?? $contentTypes->create([
@@ -570,6 +570,40 @@ try {
             $stages[$name] = ['layout' => $documents[$name], 'file' => "stage-{$name}.html"];
         }
         $write('stages.json', json_encode($stages, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+
+        // The Design view under a layout (type layouts plan L10): the composition entry's type gets
+        // a layout — a heading of its own around the entry's body — and the entry's canvas is
+        // rendered as the Design view shows it then, with the mint that names the layout.
+        $contentTypes->updateMeta($pageUuid, ['public_delivery' => true]);
+        $pageLayout = [
+            ['id' => 'e2elayouthd1', 'type' => 'heading', 'data' => ['text' => 'A heading the layout adds'], 'settings' => []],
+            ['id' => 'e2elayoutbd1', 'type' => 'entry_content', 'data' => ['field' => 'body'], 'settings' => []],
+        ];
+        $container->get(Thallo\Core\Content\Layouts\LayoutWriteLock::class)->within(
+            'entry',
+            'page',
+            fn (): int => $repo->saveExpected('entry', 'page', $pageLayout, [], $repo->version('entry', 'page'), null),
+        );
+        $container->get(Thallo\Core\Content\Layouts\LayoutResolver::class)->forget('entry', 'page');
+        $mint = $container->get(PreviewController::class)
+            ->mint(new MintPreviewData(), Request::create('/x', 'POST'), $entryUuid, 'en');
+        $mintBody = json_decode((string) $mint->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        if (($mintBody['data']['layout']['target'] ?? null) !== 'page') {
+            fwrite(STDERR, "the entry mint under a layout named no layout: {$mint->getContent()}\n");
+            exit(1);
+        }
+        $write('entry-mint.json', (string) $mint->getContent());
+        $entryToken = (string) $mintBody['data']['token'];
+        $canvas = $container->get(RenderController::class)->preview(
+            Request::create('/_preview/' . $entryToken . '?canvas=1', 'GET'),
+            $entryToken,
+        );
+        if ($canvas->getStatusCode() !== 200) {
+            fwrite(STDERR, "the entry canvas under a layout returned {$canvas->getStatusCode()}\n");
+            exit(1);
+        }
+        $write('canvas-under-layout.html', (string) $canvas->getContent());
+        $container->get(Thallo\Core\Content\Layouts\LayoutResolver::class)->forget('entry', 'page');
         foreach ($instances as $slug => $instance) {
             file_put_contents(
                 $out . "/api/instance-{$slug}.json",

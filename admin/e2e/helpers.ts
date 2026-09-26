@@ -24,6 +24,8 @@ export interface Recorded {
     epoch: string | null
   }[]
   saves: { fields: Record<string, unknown> }[]
+  /** How many times the stage document was requested: a whole refresh adds one. */
+  stageLoads: number
 }
 
 export interface Operation {
@@ -57,10 +59,15 @@ const text = (route: Route, body: string, contentType: string) =>
 export interface World {
   /** The site's style classes; the captured install has none. */
   styleClasses?: Record<string, unknown>[]
+  /**
+   * The entry's type has a layout (type layouts spec §6.3): the stage is the entry rendered inside
+   * it, and the mint and every apply name it.
+   */
+  underLayout?: boolean
 }
 
 export async function routeWorld(page: Page, world: World = {}): Promise<Recorded> {
-  const recorded: Recorded = { applies: [], saves: [] }
+  const recorded: Recorded = { applies: [], saves: [], stageLoads: 0 }
   let revision = 0
   const unknown: string[] = []
 
@@ -70,7 +77,14 @@ export async function routeWorld(page: Page, world: World = {}): Promise<Recorde
   await page.route('**/v1/auth/refresh-token', (route) => json(route, fixture('api/login.json')))
 
   // The stage: the rendered canvas and everything it links.
-  await page.route('**/_preview/**', (route) => text(route, fixture('canvas.html'), 'text/html'))
+  await page.route('**/_preview/**', (route) => {
+    recorded.stageLoads += 1
+    return text(
+      route,
+      fixture(world.underLayout ? 'layouts/canvas-under-layout.html' : 'canvas.html'),
+      'text/html',
+    )
+  })
   await page.route('**/_thallo/layers.css*', (route) =>
     text(route, fixture('layers.css'), 'text/css'),
   )
@@ -148,7 +162,7 @@ export async function routeWorld(page: Page, world: World = {}): Promise<Recorde
       )
     }
     if (method === 'POST' && path === `/entries/${entry.uuid}/preview/${entry.locale}`) {
-      return json(route, fixture('api/mint.json'))
+      return json(route, fixture(world.underLayout ? 'layouts/entry-mint.json' : 'api/mint.json'))
     }
     if (method === 'POST' && path === `/entries/${entry.uuid}/preview/${entry.locale}/apply`) {
       const body = request.postDataJSON() as Recorded['applies'][number]
@@ -165,6 +179,14 @@ export async function routeWorld(page: Page, world: World = {}): Promise<Recorde
             style_generation: 0,
             applied_at: new Date().toISOString(),
             fragments: null,
+            // Under a layout every accepted apply names it, as the mint did.
+            ...(world.underLayout
+              ? {
+                  layout: (
+                    JSON.parse(fixture('layouts/entry-mint.json')) as { data: { layout: unknown } }
+                  ).data.layout,
+                }
+              : {}),
           },
         }),
       )

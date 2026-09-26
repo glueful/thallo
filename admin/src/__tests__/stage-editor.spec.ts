@@ -191,6 +191,29 @@ describe('the stage editor and its host', () => {
     unmount()
   })
 
+  it('onAccepted fires only for accepted responses: an out-of-order older revision does not call it', async () => {
+    const host = { ...fakeHost(), onAccepted: vi.fn() }
+    const { editor, unmount } = mountEditor(host)
+    host.initial.value = structuredClone(TREE)
+    await flushPromises()
+    edit(editor, 'B')
+    await flushPromises()
+    await editor.applyWorking()
+    await flushPromises()
+    expect(host.onAccepted).toHaveBeenCalledTimes(1)
+    expect(host.onAccepted.mock.calls[0]![0]).toMatchObject({ epoch: 'e1', revision: 11 })
+
+    // A delayed answer carrying an older revision is dropped: the page hears nothing of it.
+    host.apply.mockResolvedValueOnce({ ...applied(), revision: 5 })
+    edit(editor, 'C')
+    await flushPromises()
+    await editor.applyWorking()
+    await flushPromises()
+    expect(host.onAccepted).toHaveBeenCalledTimes(1)
+    expect(editor.accepted.value).toEqual({ epoch: 'e1', revision: 11 })
+    unmount()
+  })
+
   it('a stale pair adopts the server’s current pair and retries once', async () => {
     const host = fakeHost()
     host.apply.mockRejectedValueOnce(

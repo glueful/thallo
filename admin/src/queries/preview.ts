@@ -32,6 +32,24 @@ export interface PreviewMintResult {
   themeUrl: string | null
   /** The pair already accepted for this entry+locale, so a second editor starts from it. */
   accepted: RevisionPair | null
+  /** The layout the entry renders through (type layouts spec §6.3), or null. */
+  layout: EntryLayout | null
+}
+
+/** The layout an entry renders through, as the mint and each accepted apply name it. */
+export interface EntryLayout {
+  surface: string
+  target: string
+  label: string
+}
+
+/** A `{surface, target, label}` answer, or null for anything else. */
+export function layoutOf(value: unknown): EntryLayout | null {
+  if (typeof value !== 'object' || value === null) return null
+  const v = value as Record<string, unknown>
+  return typeof v.surface === 'string' && typeof v.target === 'string'
+    ? { surface: v.surface, target: v.target, label: typeof v.label === 'string' ? v.label : '' }
+    : null
 }
 
 // Mints a preview token; theme_url is server-decided (null = rendered delivery off).
@@ -47,6 +65,7 @@ export async function mintPreviewData(uuid: string, locale: string): Promise<Pre
     themeUrl: data?.data?.theme_url ?? null,
     accepted:
       typeof epoch === 'string' && typeof revision === 'number' ? { epoch, revision } : null,
+    layout: layoutOf((data?.data as { layout?: unknown } | undefined)?.layout),
   }
 }
 
@@ -95,5 +114,6 @@ export async function applyPreview(
     style_generation: Number(d.style_generation ?? 0),
     applied_at: String(d.applied_at ?? ''),
     fragments: fragments !== null && Object.keys(fragments).length > 0 ? fragments : null,
+    layout: layoutOf((d as { layout?: unknown }).layout),
   }
 }

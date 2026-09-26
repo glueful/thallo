@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useContentTypes } from '@/queries/contentTypes'
 import { useDraft, useSaveDraft } from '@/queries/drafts'
-import { applyPreview, mintPreviewData } from '@/queries/preview'
+import { applyPreview, mintPreviewData, type EntryLayout } from '@/queries/preview'
 import { readPath, setPath, settingSegments } from '@/editor/ops/apply'
 import type { StylePropertyRow } from '@/queries/styleSchema'
 import type { DropZone } from '@/editor/structure/coordinator'
@@ -75,19 +75,33 @@ const initial = ref<Record<string, unknown> | null>(null)
 const iframeEl = ref<HTMLIFrameElement | null>(null)
 const fieldEditorRef = ref<FieldEditorExposed | null>(null)
 const stageEl = ref<HTMLElement | null>(null)
+/**
+ * The layout the stage renders this entry through (type layouts spec §6.3): named by the mint, then
+ * by every ACCEPTED apply — an opt-out, or back in, is followed as soon as the server accepts it;
+ * a pending apply keeps the last acknowledged state, and a dropped one changes nothing.
+ */
+const effectiveLayout = ref<EntryLayout | null>(null)
 const host: StageHost = {
   schema,
   initial,
-  mint: () => mintPreviewData(uuid.value, locale.value),
+  mint: async () => {
+    const minted = await mintPreviewData(uuid.value, locale.value)
+    effectiveLayout.value = minted.layout
+    return minted
+  },
   apply: (token, fields, options) => applyPreview(uuid.value, locale.value, token, fields, options),
+  onAccepted: (result) => {
+    if (result.layout !== undefined) effectiveLayout.value = result.layout
+  },
   // The working-copy stash outlives canvas sessions: keyed by entry+locale (not token), cleared
   // only by saveDraft, TTL-bounded. An abandoned session's stash overlays the DRAFT on the next
   // open, so one initial apply of the hydrated tree overwrites it with truth.
   reconcileOnOpen: true,
-  renew: async () => ({
-    ...(await mintPreviewData(uuid.value, locale.value)),
-    retryWithExistingPair: true,
-  }),
+  renew: async () => {
+    const minted = await mintPreviewData(uuid.value, locale.value)
+    effectiveLayout.value = minted.layout
+    return { ...minted, retryWithExistingPair: true }
+  },
   pageInsert: (blocks) => {
     // A starter page opens with its own h1; the theme's title above it would be a second one.
     if (!holdsPageHeading(blocks) || presentationOverride.value.show_title === false) return null
@@ -278,7 +292,7 @@ const presHeader = presChrome('header')
 const presFooter = presChrome('footer')
 
 function patchPresentation(
-  key: 'show_title' | 'layout' | 'header' | 'footer' | 'style',
+  key: 'show_title' | 'layout' | 'header' | 'footer' | 'style' | 'use_layout',
   value: unknown,
 ): void {
   const next = { ...presentationOverride.value }
@@ -357,6 +371,23 @@ function pageStyleDeclaredAt(bp: Breakpoint): boolean {
   return PAGE_STYLE_ROWS.some(
     (row) => readPath(pageStyle.value, settingSegments(row.path, bp).slice(1)).present,
   )
+}
+
+// ── The type's layout (type layouts spec §6.3, §6.5): the strip over the stage and the Page tab's
+// Type layout | Theme template control. The control shows while a layout applies or the page has
+// opted out — so it can opt back in; a page of a type without a layout never sees it. ──
+const layoutNouns = computed(() => {
+  const [items = '', single = ''] = (effectiveLayout.value?.label ?? '').split(' — ')
+  return { items, one: single.replace(/^single /, '') || 'page' }
+})
+const presUseLayout = computed(() =>
+  presentationOverride.value.use_layout === false ? 'theme' : 'layout',
+)
+const showUseLayout = computed(
+  () => effectiveLayout.value !== null || presentationOverride.value.use_layout === false,
+)
+function setPresUseLayout(v: string): void {
+  patchPresentation('use_layout', v === 'theme' ? false : undefined)
 }
 
 function setPresShowTitle(v: string): void {
@@ -870,6 +901,38 @@ async function openThemePreview(): Promise<void> {
             <template #page>
               <div class="space-y-5 pt-2" data-test="page-settings">
                 <UFormField
+                  v-if="showUseLayout"
+                  label="Design"
+                  help="Use the type's layout, or the theme's template as if the type had none."
+                  data-test="page-use-layout"
+                >
+                  <UFieldGroup>
+                    <UButton
+                      v-for="opt in [
+                        { label: 'Type layout', value: 'layout' },
+                        { label: 'Theme template', value: 'theme' },
+                      ]"
+                      :key="opt.value"
+                      size="xs"
+                      :variant="presUseLayout === opt.value ? 'solid' : 'outline'"
+                      color="neutral"
+                      :data-test="`page-use-layout-${opt.value}`"
+                      @click="setPresUseLayout(opt.value)"
+                    >
+                      {{ opt.label }}
+                    </UButton>
+                  </UFieldGroup>
+                </UFormField>
+                <p
+                  v-if="effectiveLayout"
+                  class="text-xs text-muted"
+                  data-test="pres-title-layout-note"
+                >
+                  Show page title does not apply while the {{ layoutNouns.items }} layout places the
+                  title.
+                </p>
+                <UFormField
+                  v-else
                   label="Show page title"
                   help="Hide it when a hero block owns the page heading."
                 >
@@ -1038,6 +1101,24 @@ async function openThemePreview(): Promise<void> {
           class="relative min-w-0 flex-1 overflow-auto rounded-lg border border-default bg-elevated/40 p-3"
           data-test="canvas-stage"
         >
+          <div
+            v-if="effectiveLayout"
+            class="mb-2 flex items-center gap-2 rounded border border-default bg-default px-3 py-2 text-xs"
+            data-test="design-layout-strip"
+          >
+            <UIcon name="i-lucide-layout-template" class="size-4 text-muted" />
+            <span class="text-muted">
+              This {{ layoutNouns.one }} uses the {{ layoutNouns.items }} layout — the layout's own
+              blocks are edited on its page.
+            </span>
+            <RouterLink
+              class="ms-auto font-medium text-primary hover:underline"
+              :to="`/layouts/${effectiveLayout.surface}/${effectiveLayout.target}`"
+              data-test="design-layout-edit"
+            >
+              Edit layout
+            </RouterLink>
+          </div>
           <div class="mx-auto h-full transition-[width]" :style="{ width: stageWidth }">
             <iframe
               v-if="iframeSrc"
