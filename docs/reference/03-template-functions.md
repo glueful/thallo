@@ -31,6 +31,9 @@ after a class list: `style_classes()`, `token_class()` and `region_style_classes
 | `entry_tree(type, options)` | Every published, routed entry of a type as navigation, up to 500: `groups` (each `key`, `label`, `items`) in the order of the group field's options, and `items`, the same pages flat in reading order. `options` takes `group` (default `section`) and `order` (default `order`). | `{% set tree = entry_tree(type) %}` |
 | `path(uuid)` | An entry's live public path, or `null` when it is not published and routed. | `{{ path(data.post.entry_uuid) }}` |
 | `facets(type, field, limit)` | The term counts for a filterable reference field: `uuid`, `slug` and `count` each. `limit` defaults to 100. | `{% for t in facets('post', 'category') %}` |
+| `layout_blocks(list)` | A layout's own blocks, rendered like `blocks()` and handed the layout's identity, so a form in a layout is one form across every page of its type. On the layout's stage the blocks are selectable, in a root slot named `blocks`; on an entry's Design view they are not. Only the layout frames call it. | `{{ layout_blocks(layout.blocks) }}` |
+| `entry_slot(field)` | The entry's own blocks field `field`, wrapped in `div.entry-blocks`: where an **Entry content** block places the entry's content. The nesting depth starts again inside it, so an entry that renders on its own renders whole inside any layout. Selectable on the entry's Design view only. Empty when the field is not a blocks list. | `{{ entry_slot('body') }}` |
+| `neighbours(type, uuid)` | The published entries of a type either side of one, by publish date: `previous` (older) and `next` (newer), each an entry with `href`, or `null`. | `{% set around = neighbours(type, entry.uuid) %}` |
 | `form_render(block)` | The render payload for a `form` block — `token`, `key`, `honeypot`, `fields`, `heading`, `intro`, `submit_label`, `submit_variant`, `submit_color`, `success_message` — or `null`, which is the template's cue to render its disabled notice. | `{% set f = form_render(block) %}` |
 
 An item of `entries()` carries `uuid`, `locale`, `version`, `published_at`, `fields` and `href`;
@@ -131,7 +134,7 @@ block type declares is [the block library](04-block-library.md).
 |---|---|---|
 | `is_canvas()` | `true` while rendering the Design view's stage. Use it to render a wrapper, or an empty-state hint, that the published page does not need. | `{% if is_canvas() %}` |
 | `is_preview()` | The same flag, under its older name. | `{% elseif is_preview() %}` |
-| `canvas_scope()` | Which stage is rendering: `entry` for the Design view, `regions` for the Header & footer page, or an empty string off the stage. Put it on the root element as `data-thallo-canvas`, as the default layout does: the stage scripts read it. | `<html{% if canvas_scope() %} data-thallo-canvas="{{ canvas_scope() }}"{% endif %}>` |
+| `canvas_scope()` | Which stage is rendering: `entry` for the Design view, `regions` for the Header & footer page, `layout` for a layout's editor, or an empty string off the stage. Put it on the root element as `data-thallo-canvas`, as the default layout does: the stage scripts read it. | `<html{% if canvas_scope() %} data-thallo-canvas="{{ canvas_scope() }}"{% endif %}>` |
 | `region_stage()` | `true` on the Header & footer page's stage, where only the regions are edited. Render the header and footer wrappers there even when a region is empty, so each has a place to drop into. | `{% if headerHtml or region_stage() %}` |
 | `region_slot_attrs(slug)` | On the Header & footer page's stage, ` data-thallo-slot="header"` (or `footer`) for the element that wraps `region_blocks(slug)`; nothing anywhere else. | `<div{{ region_slot_attrs('header') }}>{{ headerHtml }}</div>` |
 
@@ -183,14 +186,16 @@ adds `preview_revision`.
 | Template | Also receives |
 |---|---|
 | `index.twig` | `entry` and `seo`, when a homepage entry is configured. |
+| `layouts/entry.twig` | An entry of a type that has a layout: `layout` (its `blocks`, `settings`, `surface` and `target`), `entry`, `type`, `type_listing`, `seo` and `rich_fields`. On a layout's stage with no published sample, `layout_placeholder`, the notice to show. |
 | `entry.twig`, `entry/{type}.twig` | `entry`, `type` (the content type's slug), `seo` and `rich_fields`, the names of the type's rich-text fields: render those through `safe_html`, and print every other text field as it is, escaped. |
 | `listing.twig`, `listing/{type}.twig` | `items`, `pagination`, `type`, `type_name`. |
 | `archive.twig`, `archive/{type}.twig` | `items`, `pagination`, `type`, `type_name`, plus `term` (the term's own entry) and `field`. |
 | `terms.twig`, `terms/{type}.twig` | `terms` (`uuid`, `slug`, `count`, `href` each), `type`, `field`. |
 | `404.twig`, `error.twig` | Nothing beyond the shared variables. |
-| `blocks/{type}.twig` | `data`, the block's fields; `block`, with `id`, `type`, `data` and `settings`; `index`, its place in the list; `region_slug`, set when the block is in a region; and the caller's `entry`, `site` and `current_path`. |
+| `blocks/{type}.twig` | `data`, the block's fields; `block`, with `id`, `type`, `data` and `settings`; `index`, its place in the list; `region_slug`, set when the block is in a region; `layout_source`, set when it is one of a layout's own blocks; and the caller's `entry`, `site`, `current_path`, `type` and `type_listing`. |
 | `region-stage.twig` | Nothing beyond the shared variables. The Header & footer page's stage renders it when no published page can be shown; the public site never does. |
 | `region-session-expired.twig` | Nothing beyond the shared variables. The Header & footer page's stage renders it once its session has expired. |
+| `layout-session-ended.twig` | `retired`: `true` when the layout was removed, `false` when its editing session expired. A layout's stage renders it; the public site never does. |
 
 `entry` is `uuid`, `locale`, `version`, `published_at` and `fields`. An item of `items` is the
 same, plus `href`. `pagination` is `page`, `per_page`, `total`, `total_pages`, `prev_path` and

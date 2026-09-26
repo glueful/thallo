@@ -6,7 +6,7 @@ order: 4
 summary: "Every block that ships: what it is for, its fields, and its style settings."
 ---
 
-Thallo ships **45 block types**. Two [capabilities](../concepts/06-capabilities.md) add more:
+Thallo ships **54 block types**. Two [capabilities](../concepts/06-capabilities.md) add more:
 Accounts adds four, Commerce adds five. This page lists all of them, in the order the Blocks tab
 and **Settings › Block Types** show them.
 
@@ -31,7 +31,7 @@ Spacer and Animated text. [Style settings](05-style-settings.md) says what each 
 what it becomes in CSS.
 
 Categories lead with Layout, Content, Media and Items; any other category follows in alphabetical
-order, which is why Account, Advanced and Commerce come last. Within a category the admin puts the
+order, which is why Account, Advanced, Commerce and Fields come last. Within a category the admin puts the
 active blocks first and orders each part by label; that is the order used here.
 
 ## Layout
@@ -159,6 +159,30 @@ and **Visibility** only.
 | **Wishlist link** (`wishlist-link`) | A link to the wishlist page with a live saved-item count; a plain wishlist link without JavaScript. | `label` (string) | — | — |
 
 Turning Commerce on and connecting a shop is [sell something](../guides/18-commerce.md).
+
+## Fields
+
+Nine blocks for [layouts](../guides/20-layouts.md): each shows the current entry's own data, and
+holds settings, never the data. They are offered only in a layout's editor, and an entry, the
+header and footer and a saved section refuse them when saved. A field a block names is a field of
+the layout's content type; left empty, **Entry cover**, **Entry excerpt** and **Entry terms** show
+the field named `cover`, `excerpt` or `categories`, and **Entry content** the type's body.
+
+| Block | What it is for | Fields | Holds blocks | Style settings adds |
+|---|---|---|---|---|
+| **Entry content** (`entry_content`) | Where the entry's own content — its blocks field — goes. | `field` (string — a blocks field) | — | Width |
+| **Entry cover** (`entry_cover`) | An image field of the entry, such as its cover. | `field` (string — an asset field), `aspect` (enum: natural, 16:9, 4:3, 1:1), `link` (boolean) | — | Width, Placement, Corners, Shadow |
+| **Entry date** (`entry_date`) | When the entry was published. | `format` (enum: long, short, relative), `prefix` (string) | — | Width, Placement, Text alignment, Typography, Text colour |
+| **Entry excerpt** (`entry_excerpt`) | A short text field, shown as the lead. | `field` (string — a text field), `clamp` (number, 0 to 6 lines) | — | Width, Placement, Text alignment, Typography, Text colour |
+| **Entry field** (`entry_field`) | Any other field of the entry. | `field` (string), `format` (enum: text, rich, number, date) | — | Width, Placement, Text alignment, Typography, Text colour |
+| **Entry terms** (`entry_terms`) | A reference field's terms, such as its categories, linked to their archives where those pages exist. | `field` (string — a reference field), `style` (enum: text, badges), `link` (boolean) | — | Width, Placement, Text alignment, Typography, Text colour |
+| **Entry title** (`entry_title`) | The entry's title. | `level` (enum: h1, h2, h3, h4), `link` (boolean) | — | Width, Placement, Text alignment, Typography, Text colour |
+| **Previous and next** (`entry_neighbours`) | The published entries of the type either side of this one, by publish date. | `previous_label` (string), `next_label` (string) | — | Width |
+| **Related entries** (`entry_related`) | The newest other entries of the type. | `count` (number, 1 to 6), `style` (enum: list, cards) | — | Width |
+
+A layout's editor checks each field when the layout is applied and saved: **Entry cover** needs an
+asset field, **Entry terms** a reference field, **Entry excerpt** a text field, **Entry content**
+a blocks field, and **Entry field** any other scalar field.
 
 ## Checking what an install has
 
