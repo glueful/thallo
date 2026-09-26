@@ -68,8 +68,8 @@ Press the pencil on a row to edit it. **Details** holds the name and description
 the declarations, through the same **Style** and **Layout** tabs the inspector uses.
 
 Press **Save** and Thallo counts the usage before it writes: how many blocks carry the class,
-split into drafts, published entries, retained revisions, regions and saved sections, and for
-each property how many of those blocks it is active on and how many dormant. Confirm, and
+split into drafts, published entries, retained revisions, regions, saved sections and layouts, and
+for each property how many of those blocks it is active on and how many dormant. Confirm, and
 published pages pick the new declarations up on their next request.
 
 Two things stop a save, and neither loses your edits:
@@ -99,7 +99,7 @@ The class's own page has an **Everywhere** card with the same two actions, run a
 - **Detach everywhere** — every block keeps how it looks.
 - **Remove everywhere — changes how pages look** — the reference goes and nothing replaces it.
 
-Both walk every draft, published entry, retained revision, region and saved section, and both
+Both walk every draft, published entry, retained revision, region, saved section and layout, and both
 are queued jobs rather than something that finishes while you watch. The class is locked until the job ends: it
 cannot be saved, archived or applied to another block meanwhile. The card reports the pass it is
 on, how many documents are done, how many were refused, and why.

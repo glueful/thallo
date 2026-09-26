@@ -126,13 +126,14 @@ describe('style classes page', () => {
 
   it('the editor writes the active breakpoint and the save dialog shows usage before saving', async () => {
     usage.value = {
-      references: 4,
+      references: 5,
       by_source: {
         entry_drafts: 1,
         entry_published: 1,
         entry_versions: 0,
         regions: 1,
         saved_sections: 1,
+        layouts: 1,
       },
       active: 3,
       dormant: 0,
@@ -150,9 +151,10 @@ describe('style classes page', () => {
     await flushPromises()
     expect(mutate).not.toHaveBeenCalled()
     const dialog = document.body.querySelector('[data-test="style-class-usage-summary"]')
-    expect(dialog?.textContent).toContain('4')
-    // Saved sections are documents too: removing the class would reach them.
+    expect(dialog?.textContent).toContain('5')
+    // Saved sections and layouts are documents too: removing the class would reach them.
     expect(dialog?.textContent).toContain('1 in saved sections')
+    expect(dialog?.textContent).toContain('1 in layouts')
     ;(document.body.querySelector('[data-test="style-class-save-confirm"]') as HTMLElement).click()
     await flushPromises()
     expect(mutate).toHaveBeenCalledWith(
