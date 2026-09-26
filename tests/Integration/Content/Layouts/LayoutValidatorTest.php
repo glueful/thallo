@@ -1,0 +1,263 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Thallo\Core\Tests\Integration\Content\Layouts;
+
+use Thallo\Core\Content\Layouts\EntrySurface;
+use Thallo\Core\Content\Layouts\LayoutValidator;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Style\Classes\StyleClassArchived;
+use Thallo\Core\Content\Style\Classes\StyleClassRepository;
+use Thallo\Core\Content\Validation\ValidationException;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
+
+/**
+ * The layout validator (type layouts spec §5.6): a layout's blocks validate as a page save would,
+ * every block is one a layout may hold, the primary body is placed exactly once, each blocks field
+ * at most once, and every field a block names exists on the type with a type the block can show.
+ * Errors name the block and its field.
+ */
+final class LayoutValidatorTest extends AppTestCase
+{
+    use SyncsBlockStyleDeclarations;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->syncBlockStyleDeclarations();
+    }
+
+    private function validator(): LayoutValidator
+    {
+        return $this->container()->get(LayoutValidator::class);
+    }
+
+    /** @param list<array<string,mixed>> $schema */
+    private function type(string $slug, string $name, array $schema): void
+    {
+        $this->container()->get(ContentTypeRepository::class)->create([
+            'slug' => $slug, 'name' => $name, 'public_delivery' => true, 'schema' => $schema,
+        ]);
+    }
+
+    private function seedShapes(): void
+    {
+        $this->type('category', 'Categories', [
+            ['name' => 'title', 'type' => 'string', 'required' => true],
+            ['name' => 'slug', 'type' => 'string', 'required' => true],
+        ]);
+        $this->type('post', 'Posts', [
+            ['name' => 'title', 'type' => 'string', 'required' => true],
+            ['name' => 'excerpt', 'type' => 'text', 'format' => 'plain'],
+            ['name' => 'cover', 'type' => 'asset'],
+            ['name' => 'body', 'type' => 'blocks', 'required' => true],
+            ['name' => 'sidebar', 'type' => 'blocks'],
+            ['name' => 'reading_time', 'type' => 'number'],
+            ['name' => 'categories', 'type' => 'reference', 'multiple' => true, 'filterable' => true,
+                'reference_type' => 'category', 'reference_slug_field' => 'slug'],
+        ]);
+        $this->type('pages', 'Pages', [
+            ['name' => 'title', 'type' => 'string', 'required' => true],
+            ['name' => 'body', 'type' => 'blocks'],
+        ]);
+        $this->type('guide', 'Guides', [
+            ['name' => 'title', 'type' => 'string', 'required' => true],
+            ['name' => 'content', 'type' => 'blocks'],
+        ]);
+        $this->type('note', 'Notes', [
+            ['name' => 'title', 'type' => 'string', 'required' => true],
+            ['name' => 'body', 'type' => 'text', 'format' => 'rich'],
+        ]);
+        $this->type('quote', 'Quotes', [
+            ['name' => 'title', 'type' => 'string', 'required' => true],
+            ['name' => 'author', 'type' => 'string'],
+        ]);
+    }
+
+    /**
+     * A tree with an id on every block, as the editor sends it.
+     *
+     * @param list<array<string,mixed>> $tree
+     * @return list<array<string,mixed>>
+     */
+    private static function withIds(array $tree, string $prefix = 'lay'): array
+    {
+        $out = [];
+        foreach ($tree as $i => $block) {
+            $block['id'] ??= str_pad($prefix . $i, 12, '0');
+            $block['settings'] ??= [];
+            foreach ($block['data'] ?? [] as $field => $value) {
+                if (is_array($value) && array_is_list($value) && isset($value[0]['type'])) {
+                    $block['data'][$field] = self::withIds($value, substr($prefix, 0, 3) . $i . 'n');
+                }
+            }
+            $out[] = $block;
+        }
+        return $out;
+    }
+
+    /** @param array<string,mixed> $data */
+    private static function block(string $type, array $data = []): array
+    {
+        return ['type' => $type, 'data' => $data, 'settings' => []];
+    }
+
+    /**
+     * The errors a tree draws for the post type, keyed by path.
+     *
+     * @param list<array<string,mixed>> $tree
+     * @param array<string,mixed> $settings
+     * @return array<string,string>
+     */
+    private function errors(array $tree, array $settings = [], string $target = 'post'): array
+    {
+        try {
+            $this->validator()->validate('entry', $target, self::withIds($tree), $settings);
+        } catch (ValidationException $e) {
+            return $e->errors();
+        }
+        return [];
+    }
+
+    public function testEveryStarterShapeValidates(): void
+    {
+        $this->seedShapes();
+        $surface = $this->container()->get(EntrySurface::class);
+        foreach (['post', 'pages', 'guide', 'note', 'quote'] as $slug) {
+            $starter = $surface->starter($slug);
+            self::assertSame([], $this->errors($starter, [], $slug), $slug);
+        }
+        $clean = $this->validator()->validate('entry', 'post', self::withIds($surface->starter('post')), []);
+        self::assertSame(['blocks', 'settings'], array_keys($clean));
+        self::assertCount(count($surface->starter('post')), $clean['blocks']);
+    }
+
+    public function testThePrimaryBodyIsPlacedExactlyOnceAndOnlyAsABlocksField(): void
+    {
+        $this->seedShapes();
+        $title = self::block('entry_title', ['level' => 'h1']);
+        $body = self::block('entry_content', ['field' => 'body']);
+
+        self::assertArrayHasKey('blocks', $this->errors([$title]));
+        self::assertStringContainsString("'body'", $this->errors([$title])['blocks']);
+
+        self::assertArrayHasKey('blocks.2.data.field', $this->errors([$title, $body, $body]));
+
+        $errors = $this->errors([$title, $body, self::block('entry_content', ['field' => 'excerpt'])]);
+        self::assertArrayHasKey('blocks.2.data.field', $errors);
+
+        // An optional blocks field: once is fine, twice is not.
+        self::assertSame([], $this->errors([$title, $body, self::block('entry_content', ['field' => 'sidebar'])]));
+        $twice = [$title, $body, self::block('entry_content', ['field' => 'sidebar']),
+            self::block('entry_content', ['field' => 'sidebar'])];
+        self::assertArrayHasKey('blocks.3.data.field', $this->errors($twice));
+
+        // Placed inside a container still counts, and the path reaches it.
+        $nested = [$title, self::block('container', ['content' => [$body]])];
+        self::assertSame([], $this->errors($nested));
+        $nestedTwice = [$body, self::block('container', ['content' => [$body]])];
+        self::assertArrayHasKey('blocks.1.data.content.0.data.field', $this->errors($nestedTwice));
+    }
+
+    public function testAFieldBlockShowsOnlyAFieldItCanShow(): void
+    {
+        $this->seedShapes();
+        $body = self::block('entry_content', ['field' => 'body']);
+        foreach (
+            [
+                ['entry_cover', 'excerpt'],
+                ['entry_terms', 'excerpt'],
+                ['entry_field', 'body'],
+                ['entry_excerpt', 'cover'],
+                ['entry_cover', 'nope'],
+            ] as [$type, $field]
+        ) {
+            $errors = $this->errors([$body, self::block($type, ['field' => $field])]);
+            self::assertArrayHasKey('blocks.1.data.field', $errors, "{$type} → {$field}");
+        }
+        $good = [
+            $body,
+            self::block('entry_cover', ['field' => 'cover']),
+            self::block('entry_terms', ['field' => 'categories']),
+            self::block('entry_field', ['field' => 'reading_time', 'format' => 'number']),
+            self::block('entry_excerpt', ['field' => 'excerpt']),
+            // A field left unchosen shows the block's own default; nothing to refuse yet.
+            self::block('entry_cover'),
+        ];
+        self::assertSame([], $this->errors($good));
+    }
+
+    public function testGeneralBlocksAreWelcomeAndUnknownOnesAreNot(): void
+    {
+        $this->seedShapes();
+        $body = self::block('entry_content', ['field' => 'body']);
+        $tree = [
+            self::block('heading', ['text' => 'Read on']),
+            self::block('container', ['content' => [self::block('entry_title', ['level' => 'h2']), $body]]),
+        ];
+        self::assertSame([], $this->errors($tree));
+
+        $errors = $this->errors([$body, self::block('no_such_block')]);
+        self::assertArrayHasKey('blocks.1.type', $errors);
+        $errors = $this->errors([self::block('container', ['content' => [self::block('no_such_block')]]), $body]);
+        self::assertArrayHasKey('blocks.0.data.content.0.type', $errors);
+    }
+
+    public function testTheFrameSettingsAreAFixedVocabulary(): void
+    {
+        $this->seedShapes();
+        $body = [self::block('entry_content', ['field' => 'body'])];
+        $clean = $this->validator()->validate(
+            'entry',
+            'post',
+            self::withIds($body),
+            ['width' => 'full', 'header' => 'hidden', 'footer' => 'default'],
+        );
+        self::assertSame(['width' => 'full', 'header' => 'hidden', 'footer' => 'default'], $clean['settings']);
+        self::assertArrayHasKey('settings.width', $this->errors($body, ['width' => 'wide']));
+        self::assertArrayHasKey('settings.header', $this->errors($body, ['header' => 'gone']));
+        self::assertArrayHasKey('settings.sticky', $this->errors($body, ['sticky' => true]));
+    }
+
+    public function testAnUnknownSurfaceOrTargetIsRefused(): void
+    {
+        $this->seedShapes();
+        $body = [self::block('entry_content', ['field' => 'body'])];
+        self::assertArrayHasKey('surface', $this->errorsFor('listing', 'post', $body));
+        self::assertArrayHasKey('target', $this->errorsFor('entry', 'no_such_type', $body));
+    }
+
+    public function testANewlyAppliedArchivedStyleClassIsRefusedAndAStoredOneIsNot(): void
+    {
+        $this->seedShapes();
+        $classes = $this->container()->get(StyleClassRepository::class);
+        $old = $classes->create(['name' => 'Old', 'style' => []]);
+        $classes->archive($old['id']);
+        $styled = self::withIds([
+            self::block('entry_content', ['field' => 'body']),
+            ['type' => 'heading', 'data' => ['text' => 'Hi'], 'settings' => ['classes' => [$old['id']]]],
+        ]);
+
+        // Stored already: an edit elsewhere still validates.
+        $this->validator()->validate('entry', 'post', $styled, [], $styled);
+
+        $this->expectException(StyleClassArchived::class);
+        $this->validator()->validate('entry', 'post', $styled, []);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $tree
+     * @return array<string,string>
+     */
+    private function errorsFor(string $surface, string $target, array $tree): array
+    {
+        try {
+            $this->validator()->validate($surface, $target, self::withIds($tree), []);
+        } catch (ValidationException $e) {
+            return $e->errors();
+        }
+        return [];
+    }
+}
