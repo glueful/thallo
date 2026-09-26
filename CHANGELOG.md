@@ -7,6 +7,13 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.64] - 2026-09-26 — Developer Preview
+
+Your own sections, saved from the stage and reused as copies; a header and footer library of its
+own, with whole-header and whole-footer templates that replace a region after asking; the palette's
+Pages view renamed Templates; and, under Users & Access, menus and a landing page per role and per
+user. Two migrations: `034` (`saved_sections`) and `035` (`admin_ui_settings`).
+
 ### Added
 - **Save your own sections.** Select a block on the stage and press **Save as section** beside its
   name: it joins the Blocks tab's **Sections**, under a category of your choice, and is inserted
