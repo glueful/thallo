@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRegions } from '@/queries/regions'
 import { useEntries } from '@/queries/entries'
+import { useContentTypes } from '@/queries/contentTypes'
 import { belongsIn, type SectionPlace } from '@/queries/patterns'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import type { DropZone } from '@/editor/structure/coordinator'
@@ -194,9 +195,19 @@ const regionCapabilities = computed(
 /** The Outline shows the current region's tree. */
 const outlineSchema = computed(() => schema.value.filter((f) => f.name === currentRegion.value))
 
-// ── The page picker (spec §3): published pages, the homepage by default. ──
+// ── The page picker (spec §3): published pages, the homepage by default. The pages are the
+// entries of the type that lives at the site root (`/{slug}`) — `pages` on a new install, but a
+// site may name it anything; with no such type the homepage is the only choice. ──
 const HOME = '@home'
-const { data: pageRows } = useEntries('page', 1, 100, undefined)
+const { data: contentTypes } = useContentTypes()
+const pageType = computed(() => contentTypes.value?.find((t) => t.mount_at_root)?.slug ?? null)
+const { data: pageRows } = useEntries(
+  () => pageType.value ?? '',
+  1,
+  100,
+  undefined,
+  () => pageType.value !== null,
+)
 const pageOptions = computed(() => [
   { label: 'Homepage', value: HOME },
   ...(pageRows.value?.entries ?? [])

@@ -90,8 +90,10 @@ foreach ($container->get(PatternLibrary::class)->all() as $pattern) {
     $jobs[] = [
         'page' => $page,
         'out' => $out . '/' . $pattern['slug'] . '.jpg',
-        'width' => 1200,
-        'scale' => 0.5,
+        // A header or footer is short and wide: drawn narrower (still wide enough for the desktop
+        // menu and the footer's four columns), so the same 600px picture shows it larger.
+        'width' => ($pattern['region'] ?? null) === null ? 1200 : 1040,
+        'scale' => ($pattern['region'] ?? null) === null ? 0.5 : 600 / 1040,
         'quality' => 80,
         // The blocks themselves: the margins a theme puts around a band are the page's, not its.
         'trim' => true,
