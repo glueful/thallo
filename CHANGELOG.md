@@ -14,6 +14,9 @@ as the next release, never a mutated tag.
   ignored. **Load the map only when clicked** keeps Google (and its cookies) off the page until the
   visitor asks. On the stage a click selects the map instead of panning it. The footer takes it
   too. New template function `map_embed()` and block script `block-map.js`.
+- **A Links block link can open in a new tab**, as a menu item can: the **Open in a new tab**
+  button on its row. Such a link gets `target="_blank"` and `rel="noopener noreferrer"`; the
+  others open where they are.
 
 ## [1.0.0-beta.65] - 2026-09-26 — Developer Preview
 

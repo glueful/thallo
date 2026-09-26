@@ -1,7 +1,8 @@
 <script setup lang="ts">
-// A json field with the `link-list` format: a list of links — [{ label, url, icon?, active? }] —
-// edited as rows rather than as JSON text. A row shows a link's label and URL; anything else a link
-// carries (an icon, `active`) is kept as it is through an edit.
+// A json field with the `link-list` format: a list of links — [{ label, url, icon?, active?,
+// new_tab? }] — edited as rows rather than as JSON text. A row shows a link's label and URL and
+// whether it opens in a new tab (`new_tab`, as a menu item has); anything else a link carries (an
+// icon, `active`) is kept as it is through an edit.
 import { computed } from 'vue'
 import type { FieldDef } from '../types'
 
@@ -23,6 +24,16 @@ function write(next: Link[]): void {
 }
 function edit(index: number, key: 'label' | 'url', value: string): void {
   write(links.value.map((l, i) => (i === index ? { ...l, [key]: value } : l)))
+}
+/** On, the link opens in a new tab; off, it carries no flag at all (the default: same tab). */
+function toggleNewTab(index: number): void {
+  write(
+    links.value.map((l, i) => {
+      if (i !== index) return l
+      const { new_tab: on, ...rest } = l
+      return on === true ? rest : { ...rest, new_tab: true }
+    }),
+  )
 }
 function add(): void {
   write([...links.value, { label: '', url: '' }])
@@ -63,6 +74,17 @@ function move(index: number, by: -1 | 1): void {
           class="min-w-0 flex-[1.4]"
           :aria-label="`Link ${i + 1} URL`"
           @update:model-value="(v: string | number) => edit(i, 'url', String(v))"
+        />
+        <UButton
+          size="xs"
+          :variant="link.new_tab === true ? 'soft' : 'ghost'"
+          :color="link.new_tab === true ? 'primary' : 'neutral'"
+          icon="i-lucide-external-link"
+          :aria-pressed="link.new_tab === true ? 'true' : 'false'"
+          :aria-label="`Open link ${i + 1} in a new tab`"
+          :title="link.new_tab === true ? 'Opens in a new tab' : 'Opens in the same tab'"
+          data-test="link-new-tab"
+          @click="toggleNewTab(i)"
         />
         <UButton
           size="xs"
