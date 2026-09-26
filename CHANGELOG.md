@@ -13,6 +13,9 @@ as the next release, never a mutated tag.
   refreshes it (`php scripts/sync-docs-changelog`), and a test fails while it is behind.
 
 ### Fixed
+- **A form in the header or footer is one form across the site.** It used to count as a separate
+  form on each page it appeared on, so the Submissions menu listed it once per page. Submissions
+  sent before keep their grouping. A form in a page's content is still that page's form.
 - **Saved sections now follow block and style-class changes.** A block type's migration rewrites
   saved sections, as it does pages and the header and footer; a style class's usage counts them;
   and **Detach everywhere** and **Remove everywhere** reach them. Saving a section that applies an

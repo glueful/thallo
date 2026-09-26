@@ -54,6 +54,16 @@ final class FormSealerTest extends AppTestCase
         self::assertTrue($d->shouldStore());
     }
 
+    public function testALayoutsFormIsOneFormAcrossItsType(): void
+    {
+        $block = $this->block('lay1');
+        $sf = $this->sealer()->describe($block, ['uuid' => 'e-1'], '/post/a', null, 'entry:post');
+        self::assertSame(hash('sha256', 'layout:entry:post|lay1'), $sf->descriptor->formKey);
+        // A header form is one form across the site, whichever page it was on.
+        $sf = $this->sealer()->describe($block, ['uuid' => 'e-1'], '/post/a', 'header');
+        self::assertSame(hash('sha256', 'region:header|lay1'), $sf->descriptor->formKey);
+    }
+
     public function testEmailOnlyDeliverySealsAndOpens(): void
     {
         $block = $this->block('e1', ['recipient' => 'owner@site.test', 'delivery' => 'email_only']);
