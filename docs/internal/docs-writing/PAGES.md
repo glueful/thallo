@@ -575,6 +575,13 @@ Things you look up. Complete, in a predictable order.
 - **Sources** `LICENSE`, word for word (`tests/Unit/Docs/LicensePageTest.php` holds the two identical)
 - **Must cover** The licence text as it stands in `LICENSE`, its first line as the title. Nothing added.
 
+### changelog — Changelog
+- **File** `reference/08-changelog.md` · **Order** 8 · **Status** done
+- **Summary** "What changed in each release of Thallo, newest first."
+- **Sources** `CHANGELOG.md`, its released sections word for word, written by `php scripts/sync-docs-changelog` at
+  every cut (`tests/Unit/Docs/ChangelogPageTest.php` fails while the page is behind)
+- **Must cover** Every released version. Never edited by hand.
+
 ### limitations — Known limitations
 - **File** `limitations.md` (exists, stays at the top of `docs/`) · **Order** 90 · **Status** done
 

@@ -1,16 +1,14 @@
-# Changelog
-
+---
+title: "Changelog"
+slug: changelog
+section: reference
+order: 8
+summary: "What changed in each release of Thallo, newest first."
+---
 All notable changes to Thallo are documented here. Format:
 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/); versioning:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
-
-## [Unreleased]
-
-### Added
-- **The changelog is a page of the docs**, at `/docs/changelog` under Reference: every released
-  version, word for word, without the work in progress under [Unreleased]. Each release's cut
-  refreshes it (`php scripts/sync-docs-changelog`), and a test fails while it is behind.
 
 ## [1.0.0-beta.66] - 2026-09-26 — Developer Preview
 
@@ -1979,7 +1977,7 @@ carries beta.22. Framework 1.85.4 required.
   signup and domain-reverification sweeps. Earlier guides listed only `thallo:schedules:run`,
   which fires scheduled publishing alone, and called the sweeps automatic; they were not running
   on an install without this tick. Queue workers do not tick the scheduler. See
-  [production.md](docs/production.md), "Running the scheduler and the queue".
+  [production.md](../production.md), "Running the scheduler and the queue".
 - Installs on beta.21 upgrade as usual: `composer update && php glueful thallo:provision`.
 
 ## [1.0.0-beta.21] - 2026-09-12 — Developer Preview
@@ -2559,7 +2557,7 @@ locked, truthful, and recorded.
   to `1.0.0-beta.2` recorded pack migration receipts under pre-manifest ledger names
   (`thallo-*`, render's bare `migrations`); beta.3's ledger is canonical from provision and
   ships no migration path for those receipts. Re-provision, or rewrite the ledger `source`
-  values by hand before upgrading (see [docs/upgrading.md](docs/upgrading.md)).
+  values by hand before upgrading (see [docs/upgrading.md](../upgrading.md)).
 - **Fresh provision is ONE locked, failure-aware complete pass**: `thallo:provision` applies
   the app schema, every core pack descriptor (the eight schema-owning packs and the tenancy
   platform tier), and every shipped-enabled engine together under an all-source migration
