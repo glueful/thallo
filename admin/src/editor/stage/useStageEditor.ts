@@ -1,4 +1,5 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
+import { visibleTypes } from '@/editor/palette/order'
 import { MAX_BLOCK_DEPTH, useBlockTypes } from '@/queries/blockTypes'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import { proseRichFieldName } from '@/fields/components/blocks/proseDetection'
@@ -884,7 +885,9 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   const insertTarget = ref<InsertTarget | null>(null)
   const targetStale = ref(false)
   let insertAttempt = 0
-  const paletteTypes = computed(() => (allBlockTypes.value ?? []).filter((t) => t.active))
+  const paletteTypes = computed(() =>
+    visibleTypes(allBlockTypes.value ?? [], host.allowLayoutOnly === true),
+  )
   function effectiveTarget(): InsertTarget | null {
     if (insertTarget.value) return insertTarget.value
     if (selected.value !== null) return { kind: 'after', block: selected.value }

@@ -34,6 +34,8 @@ const props = defineProps<{
   clickable: (slug: string) => Legality
   /** Whether a page may be inserted whole at the effective target. */
   pageClickable?: (slug: string) => Legality
+  /** A category shown before the rest (a layout's Fields). */
+  leadCategory?: string
 }>()
 const emit = defineEmits<{
   /** A block type's slug, or a section's `pattern:` key. */
@@ -50,7 +52,7 @@ const verdicts = computed(
   () => new Map(ordered.value.map((t) => [t.slug, props.clickable(t.slug)])),
 )
 /** The matching tiles in their category sections (the block-types page's rule); empty ones hide. */
-const groups = computed(() => groupByCategory(ordered.value))
+const groups = computed(() => groupByCategory(ordered.value, props.leadCategory))
 const clickableSlugs = computed(() =>
   groups.value
     .flatMap((g) => g.items)

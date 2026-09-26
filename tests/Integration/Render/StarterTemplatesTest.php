@@ -17,6 +17,12 @@ final class StarterTemplatesTest extends AppTestCase
 {
     use SyncsBlockStyleDeclarations;
 
+    /**
+     * Fields blocks that list OTHER published entries: with none to show they render nothing on
+     * the site (FieldBlocksRenderTest proves them with real entries).
+     */
+    private const READS_OTHER_ENTRIES = ['entry_neighbours', 'entry_related'];
+
     private function env(): Environment
     {
         $base = $this->appContext()->getBasePath();
@@ -149,8 +155,39 @@ final class StarterTemplatesTest extends AppTestCase
             'gallery' => ['items' => [['id' => 'gsmoke1', 'type' => 'image',
                 'data' => ['image' => 'blob00000000', 'alt' => 'Pic']]],
                 'columns' => '3', 'aspect' => 'natural', 'lightbox' => true],
+            // Fields blocks (type layouts): each reads the sample entry sampleContext() supplies.
+            'entry_title' => ['level' => 'h1'],
+            'entry_date' => ['format' => 'long'],
+            'entry_cover' => ['field' => 'cover', 'aspect' => '16:9'],
+            'entry_excerpt' => ['field' => 'excerpt'],
+            'entry_terms' => ['field' => 'categories'],
+            'entry_field' => ['field' => 'reading_time', 'format' => 'number'],
+            'entry_content' => ['field' => 'body'],
             default => [],
         };
+    }
+
+    /**
+     * The entry a layout renders around: the Fields blocks read it; every other block ignores it.
+     *
+     * @return array<string,mixed>
+     */
+    private function sampleContext(): array
+    {
+        $this->seedBlob('startcover01', 'image/png');
+        return ['type' => 'post', 'entry' => [
+            'uuid' => 'startentry01',
+            'published_at' => '2026-06-02T09:30:00+00:00',
+            'fields' => [
+                'title' => 'Hello world',
+                'excerpt' => 'A short line.',
+                'cover' => 'startcover01',
+                'reading_time' => 4,
+                'categories' => [['entry_uuid' => 'startcat0001', 'fields' => ['title' => 'News', 'slug' => 'news']]],
+                'body' => [['id' => 'startbody01', 'type' => 'rich_text',
+                    'data' => ['body' => '<p>Words.</p>'], 'settings' => []]],
+            ],
+        ]];
     }
 
     /** Visual builder spec §2.5: every starter styles its root, so a padding setting reaches it. */
@@ -161,13 +198,14 @@ final class StarterTemplatesTest extends AppTestCase
         $settings = ['style' => ['spacing' => ['padding' => ['top' => [
             'base' => ['type' => 'token', 'value' => 'spacing.lg'],
         ]]]]];
+        $context = $this->sampleContext();
         foreach (StarterBlockTypes::definitions() as $definition) {
             $slug = $definition['slug'];
             self::assertContains('spacing', $definition['style_capabilities'], "{$slug} accepts spacing");
             $this->container()->get(RenderContextExtension::class)->resetPerRenderState();
             $out = $env->createTemplate("{{ blocks(list) }}")->render(['list' => [
                 ['id' => 'b1', 'type' => $slug, 'data' => $this->fixture($slug), 'settings' => $settings],
-            ]]);
+            ]] + $context);
             if (!str_contains($out, "thallo-block-{$slug}")) {
                 continue; // renders nothing for this fixture (a disabled feature): nothing to style
             }
@@ -180,11 +218,15 @@ final class StarterTemplatesTest extends AppTestCase
     public function testEveryStarterRendersWithRootAndModifierClasses(): void
     {
         $env = $this->env();
+        $context = $this->sampleContext();
         foreach (StarterBlockTypes::definitions() as $definition) {
             $slug = $definition['slug'];
             $out = $env->createTemplate("{{ blocks(list) }}")->render(['list' => [
                 ['id' => 'b1', 'type' => $slug, 'data' => $this->fixture($slug)],
-            ]]);
+            ]] + $context);
+            if (in_array($slug, self::READS_OTHER_ENTRIES, true)) {
+                continue;
+            }
             self::assertNotSame('', trim($out), "empty render for {$slug}");
             self::assertStringContainsString("thallo-block-{$slug}", $out, $slug);
         }

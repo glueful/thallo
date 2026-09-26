@@ -70,6 +70,8 @@ export interface StageHost {
    * (the Design page hides the theme's title above a page that opens with its own h1).
    */
   pageInsert?(blocks: BlockInstance[]): { ops: OperationBody[]; after?: () => void } | null
+  /** The palette offers the Fields blocks (`layout_only`): only a layout's editor sets it. */
+  allowLayoutOnly?: boolean
 }
 
 /** What the page's FieldEditor exposes to the stage editor: the tree's single authority. */

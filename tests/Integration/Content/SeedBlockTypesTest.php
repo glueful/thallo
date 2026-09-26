@@ -52,8 +52,10 @@ final class SeedBlockTypesTest extends AppTestCase
         // modern-blocks spec §2/§3: animated_text (Content) + gallery (Media) added.
         // code (website plan, phase 1): a snippet with a language label and a copy button.
         // map: a Google map of a place, with directions (no API key).
-        self::assertSame(45, count(StarterBlockTypes::definitions()));
-        self::assertGreaterThanOrEqual(45, $expected, 'contributions only ever add to the fixed library');
+        // 54 = the nine Fields blocks (type layouts): title, date, cover, excerpt, terms, field,
+        // content, neighbours and related — layout-only, refused in entries and regions.
+        self::assertSame(54, count(StarterBlockTypes::definitions()));
+        self::assertGreaterThanOrEqual(54, $expected, 'contributions only ever add to the fixed library');
         // Starter content (visual builder Phase B, B6.4): the eight everyday types insert with
         // something to look at; the factory hands it to the editor separately from the defaults.
         foreach (

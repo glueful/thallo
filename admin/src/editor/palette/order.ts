@@ -29,15 +29,19 @@ export const CATEGORY_ORDER = ['Layout', 'Content', 'Media', 'Items']
 /**
  * Group a list into category sections: known categories lead in the curated order, any others
  * follow alphabetically, and uncategorised types collect under "Other" at the end. Order within
- * a group is the input's.
+ * a group is the input's. A `lead` category (a layout's Fields) goes before all of them.
  */
-export function groupByCategory(types: BlockType[]): { category: string; items: BlockType[] }[] {
+export function groupByCategory(
+  types: BlockType[],
+  lead?: string,
+): { category: string; items: BlockType[] }[] {
   const groups = new Map<string, BlockType[]>()
   for (const t of types) {
     const key = t.category?.trim() || 'Other'
     ;(groups.get(key) ?? groups.set(key, []).get(key)!).push(t)
   }
   const rank = (c: string): number => {
+    if (lead !== undefined && c === lead) return -1
     if (c === 'Other') return CATEGORY_ORDER.length + 1
     const i = CATEGORY_ORDER.indexOf(c)
     return i === -1 ? CATEGORY_ORDER.length : i
@@ -45,4 +49,12 @@ export function groupByCategory(types: BlockType[]): { category: string; items: 
   return [...groups.keys()]
     .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
     .map((category) => ({ category, items: groups.get(category)! }))
+}
+
+/**
+ * The block types a picker offers: active ones, less the Fields blocks (`layout_only`) unless the
+ * page edits a layout — the server refuses them in an entry, a region or a saved section.
+ */
+export function visibleTypes(types: BlockType[], allowLayoutOnly: boolean): BlockType[] {
+  return types.filter((t) => t.active && (allowLayoutOnly || t.flags?.layout_only !== true))
 }
