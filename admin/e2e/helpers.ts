@@ -525,6 +525,22 @@ export async function openRegionsStage(
   options: { session?: 'baseline' | 'container' | 'empty' } = {},
 ): Promise<RegionsRecorded> {
   await routeWorld(page)
+  // The site's pages live at its root, as a new install's `pages` type does: the page picker lists
+  // that type's entries, whatever its slug (registered after routeWorld, so it answers first).
+  await page.route('**/v1/admin/content-types', (route) => {
+    const types = JSON.parse(fixture('api/content-types.json')) as {
+      data: { content_types: Record<string, unknown>[] }
+    }
+    types.data.content_types.push({
+      ...types.data.content_types[0],
+      uuid: 'pagestype001',
+      slug: 'pages',
+      name: 'Pages',
+      public_delivery: true,
+      mount_at_root: true,
+    })
+    return json(route, JSON.stringify(types))
+  })
   const recorded: RegionsRecorded = { sessions: [], applies: [], saves: [], unmatched: [] }
   const stages = JSON.parse(fixture('regions/stages.json')) as Record<string, StageFixture>
   const pages = JSON.parse(fixture('regions/pages.json')) as Record<'home' | 'pageb', string>
@@ -600,26 +616,28 @@ export async function openRegionsStage(
     return json(route, fixture('regions/regions.json'))
   })
   await page.route('**/v1/admin/entries?*', (route) =>
-    json(
-      route,
-      JSON.stringify({
-        success: true,
-        data: {
-          entries: [
-            {
-              uuid: pages.pageb,
-              display_title: 'Page B',
-              status: 'published',
-              locales: ['en'],
-              updated_at: null,
+    new URL(route.request().url()).searchParams.get('type') !== 'pages'
+      ? route.fulfill({ status: 404, body: '{"success":false}' })
+      : json(
+          route,
+          JSON.stringify({
+            success: true,
+            data: {
+              entries: [
+                {
+                  uuid: pages.pageb,
+                  display_title: 'Page B',
+                  status: 'published',
+                  locales: ['en'],
+                  updated_at: null,
+                },
+              ],
+              total: 1,
+              current_page: 1,
+              per_page: 100,
             },
-          ],
-          total: 1,
-          current_page: 1,
-          per_page: 100,
-        },
-      }),
-    ),
+          }),
+        ),
   )
   await page.route('**/v1/admin/block-types/*/instance', (route) => {
     const slug = /block-types\/([^/]+)\/instance/.exec(route.request().url())![1]!
