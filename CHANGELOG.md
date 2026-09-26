@@ -5,7 +5,30 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.66] - 2026-09-26 — Developer Preview
+
+A Map block — your address on a Google map, with directions and no API key, and an option to load
+it only when a visitor asks — a new-tab switch for each link in a Links block, and the licence as
+a page of the docs, with no "Edit this page" link on it or the changelog. No migrations.
+
+### Added
+- **A Map block.** Show your location on a Google map, with no API key: type an address or place,
+  set the zoom, map or satellite view and height, and optionally a **Get directions** link. For an
+  exact pin, paste Google's **Share › Embed a map** link; anything but Google's own embed link is
+  ignored. **Load the map only when clicked** keeps Google (and its cookies) off the page until the
+  visitor asks. On the stage a click selects the map instead of panning it. The footer takes it
+  too. New template function `map_embed()` and block script `block-map.js`.
+- **A Links block link can open in a new tab**, as a menu item can: the **Open in a new tab**
+  button on its row. Such a link gets `target="_blank"` and `rel="noopener noreferrer"`; the
+  others open where they are.
+- **The licence is a page of the docs**, at `/docs/license` under Reference: `LICENSE` word for
+  word, titled with its first line. A test holds the two identical, so they cannot drift apart.
+
+### Changed
+- **A changelog or licence page has no "Edit this page" link.** The Markdown import gives no edit
+  link to a page made from a file named `CHANGELOG`, `LICENSE` or `LICENCE`: the one is written
+  by releases, the other is held to the project's licence, and a changelog copied in from the
+  project root has no file at the edit address.
 
 ## [1.0.0-beta.65] - 2026-09-26 — Developer Preview
 

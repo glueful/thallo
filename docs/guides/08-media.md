@@ -139,6 +139,31 @@ run `php glueful thallo:media:rebuild-usage` once to fill the list in.
 A page that used a deleted file still renders. The theme resolves the image first and skips the
 element when it cannot, so the picture goes and everything around it stays.
 
+## Show your location on a map
+
+The **Map** block (Blocks tab, **Media**) shows a Google map. It needs no Google account or API
+key.
+
+1. Insert it where you want the map: a page, a post, a Contact section, or the footer under
+   **Site › Header & footer**.
+2. Type your **Address or place**, as you would search for it in Google Maps: `Accra Mall, Accra`.
+3. Set **Zoom** (1 shows the world, 21 a single building; 15 is a few streets), **View** (map or
+   satellite) and **Height**.
+4. Turn on **Show a Get directions link** to add a link that opens Google Maps with the route to
+   your address.
+
+For a pin on the exact spot, open your place in Google Maps, choose **Share › Embed a map**, and
+paste the link or the whole `<iframe>` code into **Google Maps embed link**. Thallo uses it only
+when it is Google's own embed link; anything else is ignored and the map comes from the address.
+
+On the stage a click selects the map rather than panning it. On the published page it pans and
+zooms as usual.
+
+A Google map sets Google's cookies as soon as it loads. If your site asks visitors for consent
+first, turn on **Load the map only when clicked**. The page then shows a placeholder saying the map
+comes from Google, with a **Show map** button and an **Open in Google Maps** link. Nothing of
+Google loads until the visitor presses the button.
+
 ## Check it worked
 
 - The file appears at the top of the library, with its size and today's date.

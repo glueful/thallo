@@ -31,6 +31,26 @@ describe('a link-list json field', () => {
     expect(last(w)).toEqual([{ label: 'Documentation', url: '/docs', icon: 'book', active: true }])
   })
 
+  it('a link can open in a new tab, as a menu item can', async () => {
+    const w = mountField([
+      { label: 'GitHub', url: 'https://github.com/glueful/thallo', icon: 'code' },
+    ])
+    const toggle = w.find('[data-test="link-new-tab"]')
+    expect(toggle.attributes('aria-pressed')).toBe('false')
+    await toggle.trigger('click')
+    expect(last(w)).toEqual([
+      { label: 'GitHub', url: 'https://github.com/glueful/thallo', icon: 'code', new_tab: true },
+    ])
+
+    // Switched off, the link carries no flag at all: it opens where it is, the default.
+    await w.setProps({ modelValue: last(w) })
+    expect(w.find('[data-test="link-new-tab"]').attributes('aria-pressed')).toBe('true')
+    await w.find('[data-test="link-new-tab"]').trigger('click')
+    expect(last(w)).toEqual([
+      { label: 'GitHub', url: 'https://github.com/glueful/thallo', icon: 'code' },
+    ])
+  })
+
   it('adds, moves and removes links', async () => {
     const w = mountField([{ label: 'A', url: '/a' }])
     await w.find('[data-test="link-add"]').trigger('click')

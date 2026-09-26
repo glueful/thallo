@@ -6,7 +6,7 @@ order: 4
 summary: "Every block that ships: what it is for, its fields, and its style settings."
 ---
 
-Thallo ships **44 block types**. Two [capabilities](../concepts/06-capabilities.md) add more:
+Thallo ships **45 block types**. Two [capabilities](../concepts/06-capabilities.md) add more:
 Accounts adds four, Commerce adds five. This page lists all of them, in the order the Blocks tab
 and **Settings › Block Types** show them.
 
@@ -68,7 +68,7 @@ is [menus and navigation](../guides/03-navigation.md).
 | **Form** (`form`) | A contact form: stores submissions and emails a recipient. | `form_name` (string), `recipient` (string), `delivery` (enum: store_and_email, email_only), `success_message` (text), `redirect_url` (string), `submit_label` (string), `submit_variant` (enum: solid, outline, soft, subtle, ghost, link), `submit_color` (enum: primary, neutral), `heading` (string), `intro` (text), `name_label` (string), `email_label` (string), `message_label` (string), `include_subject` (boolean), `subject_label` (string), `include_phone` (boolean), `phone_label` (string), `phone_required` (boolean), `include_consent` (boolean), `consent_text` (string) | — | Width, Corners, Background, Border, Shadow |
 | **Heading** (`heading`) | A single heading or label line. | `text` (string, required), `level` (enum: h1, h2, h3, h4, h5, h6) | — | Width, Placement, Text alignment, Typography, Text colour |
 | **Hero** (`hero`) | Big heading, supporting copy, buttons and media. | `headline` (string), `title` (string, required), `description` (text), `links` (blocks), `image` (asset), `aside` (blocks), `orientation` (enum: vertical, horizontal), `split` (enum: equal, copy, media), `reverse` (boolean), `background` (enum: gradient, none, muted, inverted), `gradient_color` (enum: `accent` or one of the accent colours), `gradient_strength` (enum: subtle, medium, strong), `heading_level` (enum: h1, h2, h3) | `links`: Button; `aside`: any | Width, Background, Text colour, Typography, Corners, Shadow, Aside; Ken Burns |
-| **Links** (`links`) | A vertical list of navigation links with an optional title. | `title` (string), `items` (json — an array of objects with `label`, `url`, and optionally `icon` and `active`) | — | Title: Typography, Text colour, Text alignment; each link (its **Link** section): Typography, Text colour, Padding |
+| **Links** (`links`) | A vertical list of navigation links with an optional title. | `title` (string), `items` (json — an array of objects with `label`, `url`, and optionally `icon`, `active` and `new_tab`) | — | Title: Typography, Text colour, Text alignment; each link (its **Link** section): Typography, Text colour, Padding |
 | **Pricing plan** (`pricing_plan`) | A single pricing plan card: price, features and a call to action. | `title` (string), `description` (text), `price` (string), `discount` (string), `billing_period` (string), `billing_cycle` (string), `badge` (string), `features` (text), `feature_icon` (string), `tagline` (string), `terms` (text), `button_label` (string), `button_url` (string), `plan_key` (string), `button_variant` (enum: solid, outline), `variant` (enum: outline, solid, soft, subtle), `highlight` (boolean), `orientation` (enum: vertical, horizontal) | — | Corners, Shadow, Colours, Border |
 | **Pricing plans** (`pricing_plans`) | A row or stack of pricing plans, with an optional featured plan. | `plans` (blocks), `orientation` (enum: horizontal, vertical), `compact` (boolean), `scale` (boolean) | `plans`: Pricing plan | Width |
 | **Pricing table** (`pricing_table`) | A feature-comparison table across pricing tiers. | `tiers` (blocks), `features` (blocks), `highlight` (boolean) | `tiers`: Pricing tier; `features`: Pricing feature | Width |
@@ -93,6 +93,7 @@ and the Motion settings every other block has, are
 | **Image** (`image`) | A single image with a caption. | `image` (asset, required), `alt` (string), `caption` (string), `width` (number, px), `height` (number, px), `fill` (boolean) | — | Width, Placement, Corners, Shadow |
 | **Logo** (`logo`) | The site logo from **Site › Appearance**; falls back to the site name. | `size` (enum: small, medium, large), `link_home` (boolean) | — | — |
 | **Logos** (`logos`) | A "trusted by" strip of brand logos. | `title` (string), `images` (asset, several), `grayscale` (boolean), `scroll` (boolean) | — | — |
+| **Map** (`map`) | A Google map of your address, with directions. No API key: Google's own embed. | `place` (string), `embed_url` (string), `zoom` (number, 1–21), `view` (enum: map, satellite), `height` (enum: small, medium, large), `directions` (boolean), `click_to_load` (boolean), `caption` (string) | — | Width, Corners, Border, Shadow |
 | **Video** (`video`) | An uploaded video or a YouTube or Vimeo embed. | `source` (enum: upload, embed), `video` (asset), `url` (string), `poster` (asset), `caption` (string), `width` (enum: normal, wide, full) | — | Width, Corners, Shadow |
 
 Uploading the files these blocks point at is [the media library](../guides/08-media.md).
