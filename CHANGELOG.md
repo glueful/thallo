@@ -5,7 +5,11 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.66] - 2026-09-26 — Developer Preview
+
+A Map block — your address on a Google map, with directions and no API key, and an option to load
+it only when a visitor asks — a new-tab switch for each link in a Links block, and the licence as
+a page of the docs, with no "Edit this page" link on it or the changelog. No migrations.
 
 ### Added
 - **A Map block.** Show your location on a Google map, with no API key: type an address or place,
