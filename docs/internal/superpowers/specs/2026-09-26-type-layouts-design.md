@@ -1,7 +1,11 @@
 # Type Layouts — Design
 
-**Status:** revised after review, 2026-09-26; awaiting approval. Delivered in four releases
+**Status:** revised after two reviews, 2026-09-26; awaiting approval. Delivered in four releases
 (§11), one beta cut each.
+**Revision 2 (review):** the homepage is excluded as a route, never its type (§1, §4.1); Save
+installs the committed baseline before it clears the working copy (§5.5); a removal retires its
+editing session (§5.5); a layout opens with a placeholder sample when there is none, and survives
+its sample disappearing (§5.2).
 **Revision 1 (review):** the save and remove lifecycle is session-bound and conditional, and a
 conflict offers Reload only (§5.5); site-wide layouts have a non-null target (§5.1); caching covers
 the first save and the resolver's "no layout" answer (§7.4); layouts join the block-document
@@ -35,8 +39,10 @@ and **slots** where each item's own designed content goes.
 | `shop_index` | site (commerce) | the shop's home | — |
 | `shop_category` | site (commerce) | a shop category | a category with products |
 
-**Out of scope:** the homepage — an entry-backed homepage keeps rendering `index.twig`, never a
-layout, as it never renders `entry.twig` today; per-entry layouts; search, cart, checkout, account
+**Out of scope:** the homepage **route** — the page at `/` keeps rendering `index.twig`, never a
+layout, as it never renders `entry.twig` today. The homepage entry's content type stays eligible:
+every other entry of that type renders through the type's layout, and the homepage entry does too
+at its own address if it has one; per-entry layouts; search, cart, checkout, account
 pages and 404; translatable static text inside a layout (a layout is locale-independent; field
 blocks show the localized item); layout versions and history; fragment patching on the layout
 stage and on the stage of an entry that uses a custom layout (both refresh whole, §5.4, §6.3).
@@ -121,8 +127,8 @@ What a type's own content is, and how many slots a layout gives it:
   `entry_field` (format rich text); it has no slot and nothing to edit on the stage.
 - **No body at all.** A type with neither can still have a layout built of field blocks; it has no
   required slot.
-- **Supported targets:** every publicly delivered type except the one serving the homepage entry
-  (§1). Types whose frame the theme overrides with `entry/{type}.twig` are supported; the layout
+- **Supported targets:** every publicly delivered type — including the homepage entry's own type
+  (only the `/` route bypasses layouts, §1). Types whose frame the theme overrides with `entry/{type}.twig` are supported; the layout
   wins while it exists (§7.2).
 - **Depth boundary.** Content in a slot is measured from the slot, not from the layout: the
   renderer resets the nesting depth to zero at an `entry_content` (and at `product_story`), and
@@ -155,6 +161,19 @@ lock_version}, samples, sample}`. `LayoutPreviewToken`: `{k: "layout", s, surfac
 exp}`. `PreviewSession` gains `KIND_LAYOUT`; entry and regions consumers refuse it. The session's
 **baseline** is the saved layout, or the starter when there is none, with the `lock_version` read
 at mint (0 for none, the tombstone's for a removed one).
+
+**Samples.** The sample is the published item the stage renders the layout against; it is only a
+preview input, never content the layout stores.
+
+- **No sample available** — a new type with nothing published, a listing with no members, a shop
+  with no products: the session opens with a **placeholder sample**, a context built in memory
+  from the type's schema (the title "Sample post", today's date, no cover, empty slots, an empty
+  loop with its one placeholder card). Nothing is written. The stage says "No published posts yet
+  — showing a placeholder"; the sample picker lists real samples as soon as they exist.
+- **The sample goes away while editing** — unpublished, deleted, or its product archived: the next
+  render falls back to the placeholder sample and the stage says so. The session, its working copy
+  and the unsaved layout are untouched; picking another sample re-mints through the Regions
+  sample-switch sequence (§5.5), carrying the unsaved layout over.
 
 ### 5.3 Working copy and apply
 
@@ -193,15 +212,26 @@ preview_revision}`:
    nothing and answers 409 `LAYOUT_VERSION_CONFLICT` with the current version. **Conditional
    creation:** expected 0 creates the row only if none exists; two concurrent first saves resolve
    to one creation and one 409.
-3. Write the layout with `lock_version + 1`.
-4. Clear the session's working copy **only if** its `(epoch, revision)` still equals
-   `preview_revision`; otherwise leave it (edits made after the save stay pending).
-5. Make the saved layout the session's baseline with the new version, and purge caches (§7.4).
-6. Answer `{layout, lock_version, preview_cleared}`.
+3. Write the layout with `lock_version + 1` (the commit).
+4. **Install the committed layout as the session's baseline**, with the new version.
+5. **Then** clear the session's working copy **only if** its `(epoch, revision)` still equals
+   `preview_revision`; otherwise leave it (edits made after the save stay pending). This is the
+   Regions controller's order — commit, install the committed baseline, clear the exact pair — so a
+   render at any point between the steps shows either the working copy or the committed layout,
+   never the old baseline.
+6. Purge caches (§7.4) and answer `{layout, lock_version, preview_cleared}`.
 
 `DELETE /v1/admin/layouts/{surface}/{target}` — `{token, expected_lock_version}`: the same token
-check, lock and comparison; on a match the row becomes a tombstone with the version bumped, the
-session's baseline becomes the starter at that version, and caches are purged.
+check, lock and comparison; on a match the row becomes a tombstone with the version bumped and
+caches are purged. **A removal retires its editing session:** in the same step the session's
+baseline record is replaced by a retired marker and its working copy is deleted. From then on the
+session answers every apply with 410 `LAYOUT_SESSION_RETIRED` (a delayed apply arriving after the
+removal is refused, never written, and cannot bring the working copy back — `accept` checks the
+marker under the same lock), and its stage renders "This layout was removed". The admin returns to
+the Layouts page, discarding the session's unsaved edits and history — Remove asks first, naming
+that consequence. Reopening the surface mints a fresh session on the starter at the tombstone's
+version. Other editors' sessions on the same surface are not retired; their next Save meets the
+bumped version and answers 409, and Reload opens the starter.
 
 **Admin side, as regions:** Save marks saved **only the history position it submitted**; later
 edits stay dirty. On 409 the page shows "Changed by someone else" with **Reload**, which discards
@@ -331,8 +361,17 @@ stylesheet and script, and the server-built `AddToCartViewModel` behind `product
 
 - **Lifecycle:** first save creates; concurrent first saves → one 201, one 409; save with a stale
   version → 409, nothing written; remove with a stale version → 409; remove then save continues
-  the version (no reset); working copy cleared only on the exact pair; Save marks only its submitted
-  position; sample switch and renewal keep unsaved edits and the saved version.
+  the version (no reset); working copy cleared only on the exact pair; a render between installing
+  the baseline and clearing the pair shows the committed layout, never the old baseline; Save marks
+  only its submitted position; sample switch and renewal keep unsaved edits and the saved version.
+- **Removal:** a successful remove retires the session (apply → 410, stage shows the removal);
+  an apply delayed past the removal is refused and does not recreate the working copy; reopening
+  mints a starter session at the tombstone's version; another editor's Save afterwards → 409.
+- **Samples:** a type with nothing published opens on a placeholder sample and writes no content;
+  the selected sample unpublished mid-edit falls back to the placeholder with the unsaved layout
+  intact.
+- **Homepage:** with the homepage entry and an ordinary page of the same type, `/` renders
+  `index.twig` and the ordinary page renders through the type's layout.
 - **Uniqueness:** two site-wide rows and two null-tenant rows refused.
 - **Caching:** theme page cached → first save → the next request renders the layout → edit → the
   change shows → remove → the theme page returns; the resolver's cached "none" is replaced on save.
@@ -346,7 +385,7 @@ stylesheet and script, and the server-built `AddToCartViewModel` behind `product
   deep renders whole; a type with two blocks fields, one with a rich-text body, one with none.
 - **Rendering:** each surface with and without a layout; `use_layout` off; `_presentation` over
   frame options; the product frame's canonical and JSON-LD unchanged under a redesigned layout;
-  `product_buy` works without JavaScript; the homepage entry never renders a layout.
+  `product_buy` works without JavaScript.
 - **Stage:** layout stage annotates layout blocks and the first loop card only, never slot content,
   and no id repeats; entry stage under a layout annotates slot content only and answers no fragments.
 - **Browser proofs:** a layout edited on its stage (select, move, drag a field block in, save,
