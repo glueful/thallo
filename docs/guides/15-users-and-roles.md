@@ -28,7 +28,7 @@ copies; without them the user list stays empty and says so.
 
 The account is created **active** with its email already marked verified, so the person can sign
 in at `/admin` straight away. Thallo sends them nothing: pass on the address and password
-yourself, and tell them to change it from **Forgot password?** on the sign-in screen.
+yourself, and tell them to change it under **Security** in their user menu once they are in.
 
 To create many accounts at once, press the upload button beside **+** and map a CSV's columns to
 `username`, `email`, `password`, `status`, `first_name`, `last_name` and `roles`. The job runs in
@@ -120,11 +120,24 @@ code, which the next two screens exchange for a new password, so outgoing email 
 `config/auth.php` also offers email two-factor authentication, off by default
 (`TWO_FACTOR_ENABLED`). Its tunables are `TWO_FACTOR_PIN_LENGTH` (6 digits), `TWO_FACTOR_PIN_TTL`
 and `TWO_FACTOR_CHALLENGE_TTL` (300 seconds each), `TWO_FACTOR_DISABLE_FRESHNESS` (300) and
-`TWO_FACTOR_TEMPLATE` (`two-factor-pin`). Two-factor is a property of an account, switched from
-the terminal — `php glueful 2fa:status`, `2fa:enable` and `2fa:disable`, each taking a user UUID —
-and the **Details** tab shows a **2FA on** or **2FA off** badge. Signing in to an account with
-two-factor on emails a code, and the admin's sign-in screen asks for it before letting you in; to
-get a new code, start the sign-in again.
+`TWO_FACTOR_TEMPLATE` (`two-factor-pin`). Two-factor is a property of an account. Each person
+turns their own on under **Security** in the user menu, with a code emailed to them; an operator
+can also switch it from the terminal — `php glueful 2fa:status`, `2fa:enable` and `2fa:disable`,
+each taking a user UUID — and the **Details** tab shows a **2FA on** or **2FA off** badge. Signing
+in to an account with two-factor on emails a code, and the admin's sign-in screen asks for it
+before letting you in; to get a new code, start the sign-in again. Turning it off from
+**Security** needs a sign-in with a code in the last `TWO_FACTOR_DISABLE_FRESHNESS` seconds, so a
+stolen session cannot switch it off; while the install has two-factor off, **Security** says so
+and offers nothing to turn on.
+
+## Your own account
+
+The user menu's **Profile** sets the name and photo you are shown with; your email and username
+are an administrator's to change, here under **Users**. **Security** changes your password —
+your current one first, then the new one, at least eight characters — and signs out every other
+session of your account, keeping the one you are in. The same actions are `GET` and `PATCH
+/v1/admin/account` and `POST /v1/admin/account/password`, which only ever act on the signed-in
+account.
 
 `SESSION_COOKIE_ENABLED` is not about the admin: it carries the sign-in for the site's own
 visitors. See [accounts](17-accounts.md).

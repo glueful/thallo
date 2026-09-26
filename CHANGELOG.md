@@ -7,6 +7,21 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.63] - 2026-09-25 — Developer Preview
+
+The user menu's Profile and Security open real pages: your name and photo, your password, and email
+two-factor authentication — for any signed-in user, over new self-service endpoints under
+`/v1/admin/account`. No migrations. Two-factor stays off for an install until `TWO_FACTOR_ENABLED`
+is set; the Security page says so meanwhile.
+
+### Added
+- **Profile and Security pages for your own account.** The user menu's **Profile** sets your name
+  and photo (shown as your avatar); **Security** changes your password — signing out your other
+  sessions — and turns email two-factor authentication on or off with a code. Any signed-in user
+  can use them, through `GET`/`PATCH /v1/admin/account` and `POST /v1/admin/account/password`,
+  which only ever act on the signed-in account; email and username stay an administrator's to
+  change.
+
 ## [1.0.0-beta.62] - 2026-09-25 — Developer Preview
 
 A Links block's links are styled on their own — size, weight, line height, colour and padding, in a

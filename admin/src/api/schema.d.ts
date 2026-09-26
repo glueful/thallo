@@ -1,4 +1,48 @@
 export interface paths {
+  '/account': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Your own account
+     * @description The signed-in user's account and profile, and `two_factor_available`: whether email two-factor authentication is switched on for this install (`TWO_FACTOR_ENABLED`). While it is off, turning it on for an account would never ask for a code.
+     */
+    get: operations['getV1AdminAccount']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /**
+     * Update your own profile
+     * @description Sets the signed-in user's first name, last name and photo. An absent field is left as it is; an empty string clears it. `photo_url` is a site path (`/v1/blobs/…`) or an http(s) address. Returns the account and profile.
+     */
+    patch: operations['patchV1AdminAccount']
+    trace?: never
+  }
+  '/account/password': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Change your own password
+     * @description Changes the signed-in user's password. `current_password` must be the password in use; `password` is at least eight characters. Every other session of the account is signed out; this one stays signed in.
+     */
+    post: operations['postV1AdminAccountPassword']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/analytics/breakdown': {
     parameters: {
       query?: never
@@ -4585,6 +4629,248 @@ export interface components {
 }
 export type $defs = Record<string, never>
 export interface operations {
+  getV1AdminAccount: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The account. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not signed in. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  patchV1AdminAccount: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: {
+      content: {
+        /**
+         * @example {
+         *       "first_name": "Jane",
+         *       "last_name": "Doe",
+         *       "photo_url": "example"
+         *     }
+         */
+        'application/json': {
+          first_name?: string | null
+          last_name?: string | null
+          photo_url?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Updated. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not signed in. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description A photo that is not a site path or a web address. */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  postV1AdminAccountPassword: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: {
+      content: {
+        /**
+         * @example {
+         *       "current_password": "example",
+         *       "password": "example"
+         *     }
+         */
+        'application/json': {
+          current_password?: string
+          password?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Changed; other sessions signed out. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not signed in. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description A wrong current password, or a new one too short. */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Too Many Requests. */
+      429: {
+        headers: {
+          /** @description Seconds to wait before retrying. */
+          'Retry-After'?: number
+          /** @description Request quota for the current window. */
+          'X-RateLimit-Limit'?: number
+          /** @description Requests remaining in the current window. */
+          'X-RateLimit-Remaining'?: number
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
   getV1AdminAnalyticsBreakdown: {
     parameters: {
       query?: never
