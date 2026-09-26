@@ -17,6 +17,8 @@ as the next release, never a mutated tag.
 - **A Links block link can open in a new tab**, as a menu item can: the **Open in a new tab**
   button on its row. Such a link gets `target="_blank"` and `rel="noopener noreferrer"`; the
   others open where they are.
+- **The licence is a page of the docs**, at `/docs/license` under Reference: `LICENSE` word for
+  word, titled with its first line. A test holds the two identical, so they cannot drift apart.
 
 ## [1.0.0-beta.65] - 2026-09-26 — Developer Preview
 

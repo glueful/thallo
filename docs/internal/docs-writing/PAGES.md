@@ -569,6 +569,12 @@ Things you look up. Complete, in a predictable order.
 - **Must cover** Every permission string with a line on what it opens, grouped. The roles a new
   install has and the permissions each is granted. Permissions that imply others.
 
+### license — MIT License
+- **File** `reference/07-license.md` · **Order** 7 · **Status** done
+- **Summary** "The terms Thallo is released under."
+- **Sources** `LICENSE`, word for word (`tests/Unit/Docs/LicensePageTest.php` holds the two identical)
+- **Must cover** The licence text as it stands in `LICENSE`, its first line as the title. Nothing added.
+
 ### limitations — Known limitations
 - **File** `limitations.md` (exists, stays at the top of `docs/`) · **Order** 90 · **Status** done
 
