@@ -7,6 +7,13 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.65] - 2026-09-26 — Developer Preview
+
+Posts get a page of their own in the default theme: categories, title, date and lead above the
+cover and the body, then the newest other posts and All posts, linking only to pages that exist.
+Also fixed: the Header & footer page's page picker on a standard install, and header and footer
+template pictures. No migrations.
+
 ### Added
 - **A post page in the default theme.** Posts render through a new `entry/post.twig`: their
   categories, title, date and excerpt as the lead above the cover and the body, then the three
