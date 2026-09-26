@@ -106,6 +106,9 @@ function patternReason(p: Pattern): string | undefined {
       : props.clickable(patternKey(p.slug))
   return verdict.ok ? undefined : verdict.message
 }
+/** A page template is shown as its first screens, in a tall card; a header or footer template is
+ *  short and wide, so it is shown whole and full width, as a section is. */
+const isTall = (p: Pattern): boolean => p.kind === 'page' && p.scope !== 'region'
 // A thumbnail that does not load gives way to a plain card, never a broken image.
 const missingThumbs = reactive(new Set<string>())
 
@@ -234,7 +237,7 @@ function onTilePointerDown(slug: string, event: PointerEvent): void {
         >
           {{ group.category }}
         </h4>
-        <div class="grid gap-2" :class="view === 'pages' ? 'grid-cols-2' : 'grid-cols-1'">
+        <div class="grid gap-2" :class="group.items.every(isTall) ? 'grid-cols-2' : 'grid-cols-1'">
           <div
             v-for="p in group.items"
             :key="p.slug"
@@ -269,7 +272,7 @@ function onTilePointerDown(slug: string, event: PointerEvent): void {
               <span
                 v-else
                 class="block w-full overflow-hidden border-b border-default bg-white"
-                :class="view === 'pages' ? 'aspect-[3/4]' : 'max-h-44'"
+                :class="isTall(p) ? 'aspect-[3/4]' : 'max-h-44'"
               >
                 <img
                   v-if="!missingThumbs.has(p.slug)"
@@ -281,7 +284,7 @@ function onTilePointerDown(slug: string, event: PointerEvent): void {
                   decoding="async"
                   draggable="false"
                   class="pointer-events-none block h-auto w-full"
-                  :class="view === 'pages' ? 'h-full object-cover object-top' : ''"
+                  :class="isTall(p) ? 'h-full object-cover object-top' : ''"
                   @error="missingThumbs.add(p.slug)"
                 />
                 <span

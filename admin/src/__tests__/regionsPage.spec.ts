@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { ref } from 'vue'
+import { ref, toValue, type MaybeRefOrGetter } from 'vue'
 import type { RegionData, RegionSession } from '@/queries/regions'
 import type { BlockType } from '@/queries/blockTypes'
 import { classEditorSchema } from './helpers/classEditorSchema'
@@ -18,9 +18,18 @@ vi.mock('@/queries/regions', () => ({
   applyRegions: q.apply,
   saveRegions: q.save,
 }))
+const entriesQuery = vi.hoisted(() => ({ calls: [] as unknown[][] }))
 vi.mock('@/queries/entries', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/queries/entries')>()),
-  useEntries: () => ({ data: ref({ entries: [], total: 0, current_page: 1, per_page: 100 }) }),
+  useEntries: (...args: unknown[]) => {
+    entriesQuery.calls.push(args)
+    return { data: ref({ entries: [], total: 0, current_page: 1, per_page: 100 }) }
+  },
+}))
+const contentTypes = ref<{ slug: string; name: string; mount_at_root: boolean }[]>([])
+vi.mock('@/queries/contentTypes', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/queries/contentTypes')>()),
+  useContentTypes: () => ({ data: contentTypes }),
 }))
 
 const bt = (slug: string, schema: unknown[] = []): BlockType =>
@@ -228,6 +237,11 @@ beforeEach(() => {
   }))
   q.save.mockReset()
   leaveGuard.fn = null
+  entriesQuery.calls = []
+  contentTypes.value = [
+    { slug: 'post', name: 'Posts', mount_at_root: false },
+    { slug: 'pages', name: 'Pages', mount_at_root: true },
+  ]
   localStorage.clear()
   localStorage.setItem('thallo.canvas.auto_apply', '0')
 })
@@ -288,6 +302,23 @@ describe('the Header & footer page on the stage', () => {
     await flushPromises()
     expect(sticky().attributes('aria-checked')).toBe('false')
     w.unmount()
+  })
+
+  it('the page picker lists the type whose entries live at the site root, whatever its slug', async () => {
+    const w = mountPage()
+    await flushPromises()
+    const [type, , , , enabled] = entriesQuery.calls[0]!
+    expect(toValue(type as MaybeRefOrGetter<string>)).toBe('pages')
+    expect(toValue(enabled as MaybeRefOrGetter<boolean>)).toBe(true)
+    w.unmount()
+
+    // No such type: nothing is asked for, and the picker offers the homepage alone.
+    contentTypes.value = [{ slug: 'post', name: 'Posts', mount_at_root: false }]
+    entriesQuery.calls = []
+    const bare = mountPage()
+    await flushPromises()
+    expect(toValue(entriesQuery.calls[0]![4] as MaybeRefOrGetter<boolean>)).toBe(false)
+    bare.unmount()
   })
 
   it('says so when the picked page hides a region', async () => {

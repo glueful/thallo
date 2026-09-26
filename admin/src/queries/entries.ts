@@ -52,8 +52,11 @@ export function useEntries(
   page: MaybeRefOrGetter<number>,
   perPage: MaybeRefOrGetter<number>,
   q: MaybeRefOrGetter<string | undefined>,
+  /** False holds the request back (there is no type to ask about yet). */
+  enabled: MaybeRefOrGetter<boolean> = true,
 ) {
   return useQuery({
+    enabled: () => toValue(enabled),
     // page, perPage and q all identify a page of results, so each is part of the key: a cached
     // page is only reused for the same slice, and changing any of them refetches.
     key: () => [...qk.entries(toValue(type)), toValue(page), toValue(perPage), toValue(q) ?? ''],

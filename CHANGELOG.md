@@ -7,6 +7,15 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Fixed
+- **The Header & footer page's page picker works on a standard install.** It asked for entries
+  of a content type called `page`, which a new install doesn't have (it seeds `pages`), so the
+  request failed and only the homepage was offered. It now lists the type whose entries live at the
+  site root, whatever its slug, and asks for nothing when there is none.
+- **Header and footer templates show as headers and footers.** Their pictures were cropped into
+  tall page-shaped cards, leaving a blur or a blank. They are now shown whole and full width, as
+  sections are, and drawn larger.
+
 ## [1.0.0-beta.64] - 2026-09-26 — Developer Preview
 
 Your own sections, saved from the stage and reused as copies; a header and footer library of its
