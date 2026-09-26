@@ -228,4 +228,28 @@ final class MarkdownFolderImportTest extends AppTestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->import()->run($this->dir, ['type' => 'nope']);
     }
+
+    public function testAChangelogOrLicencePageOffersNoEditLink(): void
+    {
+        // Written by the release process, or held word for word to the project's LICENSE: never
+        // pages to invite an edit of — and CHANGELOG.md's own file is not in the docs folder at all.
+        $this->write('guides/01-install.md', "# Installing\n\nRun it.\n");
+        $this->write('CHANGELOG.md', "# Changelog\n\n## [1.0.0] - 2026-01-01\n\n- First.\n");
+        mkdir($this->dir . '/reference');
+        $this->write('reference/07-license.md', "---\ntitle: MIT License\nslug: license\n---\nCopyright.\n");
+        $this->write('licence.md', "# Licence\n\nTerms.\n");
+        $this->import()->run($this->dir, [
+            'type' => 'docs', 'publish' => true,
+            'edit_base' => 'https://github.com/acme/site/edit/main/docs',
+        ]);
+
+        $up = $this->container()->get(ContentUpserter::class);
+        $type = (string) $this->container()->get(ContentTypeReader::class)->findUuidBySlug('docs');
+        $edit = fn (string $slug): ?string
+            => $up->current((string) $up->findBySlug($type, 'en', $slug), 'en')['fields']['edit_url'] ?? null;
+        self::assertSame('https://github.com/acme/site/edit/main/docs/guides/01-install.md', $edit('install'));
+        self::assertNull($edit('changelog'));
+        self::assertNull($edit('license'));
+        self::assertNull($edit('licence'));
+    }
 }

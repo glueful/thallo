@@ -20,6 +20,12 @@ as the next release, never a mutated tag.
 - **The licence is a page of the docs**, at `/docs/license` under Reference: `LICENSE` word for
   word, titled with its first line. A test holds the two identical, so they cannot drift apart.
 
+### Changed
+- **A changelog or licence page has no "Edit this page" link.** The Markdown import gives no edit
+  link to a page made from a file named `CHANGELOG`, `LICENSE` or `LICENCE`: the one is written
+  by releases, the other is held to the project's licence, and a changelog copied in from the
+  project root has no file at the edit address.
+
 ## [1.0.0-beta.65] - 2026-09-26 — Developer Preview
 
 Posts get a page of their own in the default theme: categories, title, date and lead above the

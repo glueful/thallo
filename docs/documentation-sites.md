@@ -77,7 +77,7 @@ types like any other.
 | `order` | The page's place within its section. |
 | `body` | The Markdown, **as written**. A plain text field: the theme renders it. |
 | `source_path` | The file the page came from. How a later import finds the page again. |
-| `edit_url` | Where a reader can propose a change. |
+| `edit_url` | Where a reader can propose a change. A page made from a file named `CHANGELOG`, `LICENSE` or `LICENCE` (an `NN-` prefix aside) gets none: a changelog is written by releases and a licence is not open to edits. |
 
 The type's **slug is the URL**. `--type=handbook` gives you `/handbook`. Choose your own
 sections with `--sections=start,guides,reference`. Running the command again changes nothing,
