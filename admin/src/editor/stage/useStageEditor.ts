@@ -1066,7 +1066,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     if (inserts.length === 0) return
     const verdict = checkInsertSequence(currentDoc(), inserts, legalityContext())
     if (!verdict.ok) {
-      warning('That page does not fit here', verdict.message)
+      warning('That template does not fit here', verdict.message)
       return
     }
     coordinator.cancel()

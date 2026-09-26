@@ -105,19 +105,19 @@ describe('saved sections in the Blocks tab', () => {
     expect(notify.success).toHaveBeenCalled()
   })
 
-  it('the Pages view can carry another name: the header and footer call it Templates', () => {
-    const w = palette({ pagesLabel: 'Templates' })
+  it('the view of whole pages and headers is called Templates', () => {
+    const w = palette()
     expect(w.find('[data-test="palette-view-pages"]').text()).toBe('Templates')
   })
 
   it('and its filter and its empty state say templates too', async () => {
-    const w = palette({ pagesLabel: 'Templates' })
+    const w = palette()
     await w.find('[data-test="palette-view-pages"]').trigger('click')
     expect(w.find('input').attributes('placeholder')).toBe('Filter templates…')
     expect(w.text()).toContain('No templates match.')
   })
 
-  it('where no page can be inserted (the header and footer), there is no Pages view', () => {
+  it('where no template can be inserted, there is no Templates view', () => {
     const w = palette({ pageClickable: undefined })
     expect(w.find('[data-test="palette-view-sections"]').exists()).toBe(true)
     expect(w.find('[data-test="palette-view-pages"]').exists()).toBe(false)

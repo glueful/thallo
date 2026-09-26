@@ -16,16 +16,16 @@ You need an entry with a `blocks` field open in [the Design view](../concepts/03
 ## Open the library
 
 Open the **Blocks** tab in the side panel. Above the tiles are three views: **Blocks**,
-**Sections** and **Pages**. **Blocks** offers one block type at a time. **Sections** and **Pages**
-are the library. The switch appears only when the library has something to offer.
+**Sections** and **Templates**. **Blocks** offers one block type at a time. **Sections** and
+**Templates** are the library; in the Design view, **Templates** holds whole starter pages. The switch appears only when the library has something to offer.
 
-The box at the top filters the view you are in — `Filter sections…`, `Filter pages…` — and matches
+The box at the top filters the view you are in — `Filter sections…`, `Filter templates…` — and matches
 a pattern's name, its category and its description.
 
 The library is part of the Design view, and of the header and footer editor (**Site › Header &
 footer**). Each offers only what belongs there: the Design view never shows the header's and
-footer's sections, and the header and footer editor never shows a page body's. In the header and
-footer editor the third view is **Templates** instead of **Pages**, and it shows only the region
+footer's sections, and the header and footer editor never shows a page body's. There,
+**Templates** holds whole headers and footers instead of pages, and both views show only the region
 you are editing — header sections and templates while **Header** is on, footer ones on **Footer**.
 See [headers and footers](#headers-and-footers).
 
@@ -55,7 +55,7 @@ Container. So a section moves, duplicates and deletes as one thing, and one undo
 
 ## Insert a whole page
 
-Open **Pages** and click a card. A page has no drag: clicking is the only way in.
+Open **Templates** and click a card. A page has no drag: clicking is the only way in.
 
 Its sections are inserted one after another at the same place, as one transaction. One undo takes
 the whole page back out.
@@ -66,7 +66,7 @@ entry's title above it as a second heading. Thallo says so when it does. Set it 
 if you want both.
 
 A page goes in whole or not at all. If the sequence would not fit — a slot that refuses
-containers, or the five-level nesting cap — Thallo inserts nothing and says `That page does not
+containers, or the five-level nesting cap — Thallo inserts nothing and says `That template does not
 fit here`.
 
 ## What ships

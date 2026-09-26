@@ -118,7 +118,7 @@ property and per breakpoint. **Save as style class** in the Style tab lifts a bl
 declarations into a new one.
 
 The Blocks tab has three views: **Blocks** lists the block types you can insert, **Sections**
-offers ready-made patterns, and **Pages** offers whole starter pages made of those sections. A
+offers ready-made patterns, and **Templates** offers whole starter pages made of those sections. A
 pattern is ordinary blocks with ordinary settings; once inserted there is nothing special about
 it. See [use the section and page library](../guides/04-sections-and-pages.md).
 

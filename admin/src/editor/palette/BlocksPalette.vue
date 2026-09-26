@@ -34,8 +34,6 @@ const props = defineProps<{
   clickable: (slug: string) => Legality
   /** Whether a page may be inserted whole at the effective target. */
   pageClickable?: (slug: string) => Legality
-  /** The Pages view's name: the header and footer call theirs Templates. */
-  pagesLabel?: string
 }>()
 const emit = defineEmits<{
   /** A block type's slug, or a section's `pattern:` key. */
@@ -69,15 +67,12 @@ type View = 'blocks' | 'sections' | 'pages'
 const ALL_VIEWS: { value: View; label: string }[] = [
   { value: 'blocks', label: 'Blocks' },
   { value: 'sections', label: 'Sections' },
-  { value: 'pages', label: 'Pages' },
+  // Whole pages on the Design page, whole headers and footers on the Header & footer page.
+  { value: 'pages', label: 'Templates' },
 ]
-// Where no page can be inserted (the header and footer), the Pages view is not offered.
+// Where no template can be inserted, the Templates view is not offered.
 const VIEWS = computed(() =>
-  props.pageClickable === undefined
-    ? ALL_VIEWS.filter((v) => v.value !== 'pages')
-    : ALL_VIEWS.map((v) =>
-        v.value === 'pages' && props.pagesLabel ? { ...v, label: props.pagesLabel } : v,
-      ),
+  props.pageClickable === undefined ? ALL_VIEWS.filter((v) => v.value !== 'pages') : ALL_VIEWS,
 )
 const view = ref<View>('blocks')
 /** The view's name as its button says it, lowercase — `templates` in the header and footer. */

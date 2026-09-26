@@ -18,7 +18,8 @@ as the next release, never a mutated tag.
 - **Header and footer sections and templates.** The header and footer editor now has a library of
   its own: header sections (Logo, menu and button; Announcement bar; Centred logo and menu) and
   footer ones (Link columns; Copyright and social links; Tagline and social links; Copyright line).
-  Its **Templates** view holds whole headers and footers. A template replaces the region's blocks
+  Its **Templates** view holds whole headers and footers; the Design view's **Pages** view is
+  renamed **Templates** too. A template replaces the region's blocks
   after asking, and one undo puts them back. The Design view no longer offers these, and the header
   and footer no longer offer a page body's sections. Every library entry in `GET /v1/admin/patterns`
   now carries `scope` (`page` or `region`), `region`, `saved` and `id`.

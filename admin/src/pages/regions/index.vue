@@ -399,7 +399,6 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
                   :patterns="regionPatterns"
                   :clickable="paletteClickable"
                   :page-clickable="templateClickable"
-                  pages-label="Templates"
                   @insert-page="onInsertTemplate"
                   @insert="insertFromPalette"
                   @clear-target="clearInsertTarget"

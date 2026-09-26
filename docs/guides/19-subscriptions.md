@@ -114,7 +114,7 @@ page, or in the provider's dashboard.
 
 Open the entry in the [Design view](../concepts/03-design-view.md). The fastest route is the Blocks
 tab's **Sections** view, where **Pricing plans** inserts a heading and three plan cards, and the
-**Pages** view's **Pricing** inserts a whole page around it. [Use the section and page
+**Templates** view's **Pricing** inserts a whole page around it. [Use the section and page
 library](04-sections-and-pages.md) covers both.
 
 To build one by hand, the **Content** group of the Blocks tab has **Pricing plans** — a row or
