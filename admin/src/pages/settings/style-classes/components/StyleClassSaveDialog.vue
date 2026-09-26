@@ -37,7 +37,8 @@ const properties = computed(() =>
             {{ usage.references === 1 ? 'block' : 'blocks' }} —
             {{ usage.by_source.entry_drafts }} in drafts,
             {{ usage.by_source.entry_published }} published, {{ usage.by_source.entry_versions }} in
-            retained revisions, {{ usage.by_source.regions }} in regions.
+            retained revisions, {{ usage.by_source.regions }} in regions,
+            {{ usage.by_source.saved_sections ?? 0 }} in saved sections.
           </p>
           <ul v-if="properties.length" class="space-y-1 text-xs text-muted">
             <li v-for="p in properties" :key="p.path" :data-test="`style-class-usage-${p.path}`">

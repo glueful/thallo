@@ -12,6 +12,13 @@ as the next release, never a mutated tag.
   version, word for word, without the work in progress under [Unreleased]. Each release's cut
   refreshes it (`php scripts/sync-docs-changelog`), and a test fails while it is behind.
 
+### Fixed
+- **Saved sections now follow block and style-class changes.** A block type's migration rewrites
+  saved sections, as it does pages and the header and footer; a style class's usage counts them;
+  and **Detach everywhere** and **Remove everywhere** reach them. Saving a section that applies an
+  archived class, or one a job is rewriting, is refused as a page save is. Migration `036` adds a
+  version to saved sections so these writes never overwrite a rename made meanwhile.
+
 ## [1.0.0-beta.66] - 2026-09-26 — Developer Preview
 
 A Map block — your address on a Google map, with directions and no API key, and an option to load
