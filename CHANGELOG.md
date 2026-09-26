@@ -7,6 +7,14 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **A post page in the default theme.** Posts render through a new `entry/post.twig`: their
+  categories, title, date and excerpt as the lead above the cover and the body, then the three
+  newest other posts and **All posts**. The category and **All posts** links appear only where
+  those pages exist (posts listed, the field archived). Entry templates receive a new
+  `type_listing` (the type's listing path and archive paths, or null when it is not listed), and
+  the Design view patches a post's stage in place as it does a page's.
+
 ### Fixed
 - **The Header & footer page's page picker works on a standard install.** It asked for entries
   of a content type called `page`, which a new install doesn't have (it seeds `pages`), so the

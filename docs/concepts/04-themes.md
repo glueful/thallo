@@ -55,6 +55,12 @@ type wins over the general one.** Add `entry/recipe.twig` and every recipe rende
 every other type keeps using `entry.twig`. Entry templates are also handed the content type's
 slug as `type`, so a template that needs to know its type does not have to be named after one.
 
+The default theme ships one of these: `entry/post.twig`. A post shows its categories, title,
+date and excerpt above the cover and the body, then the three newest other posts and a link to
+**All posts**. The category and **All posts** links appear only when posts are a listed type
+(**Settings › General**), so a post never links to a listing or archive page that doesn't exist.
+Every other type still uses `entry.twig`.
+
 `layout.twig` is the shell every page template extends: the `<head>`, the header and footer, and
 the `{% block content %}` the page template fills.
 

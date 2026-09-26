@@ -29,7 +29,8 @@ use Thallo\Render\TwigFactory;
  * Fragment verification (visual builder spec §3.5): every fixture page is rendered whole and
  * block-by-block, and every root the resolver allows as a fragment is byte-identical to the
  * whole page's markup for it — nested tabs, a pricing table and a page with several
- * image-bearing blocks included. The verification record carries the participating
+ * image-bearing blocks included — through `entry.twig` and again through the shipped
+ * `entry/post.twig`, so a post's stage patches as a page's does. The record carries the participating
  * templates' hashes; a change to any of them invalidates the record until this test
  * re-records it (`THALLO_RECORD_FRAGMENT_VERIFICATION=1`).
  */
@@ -38,6 +39,7 @@ final class FragmentVerificationTest extends AppTestCase
     use SyncsBlockStyleDeclarations;
 
     private string $type = '';
+    private string $postType = '';
 
     /** @var list<string> */
     private array $blobs = [];
@@ -49,6 +51,16 @@ final class FragmentVerificationTest extends AppTestCase
         $this->type = (new ContentTypeRepository($this->connection()))->create([
             'slug' => 'page',
             'name' => 'Page',
+            'public_delivery' => true,
+            'schema' => [
+                ['name' => 'title', 'type' => 'string', 'required' => true],
+                ['name' => 'body', 'type' => 'blocks'],
+            ],
+        ]);
+        // The default theme's own post template (entry/post.twig) wraps the same body.
+        $this->postType = (new ContentTypeRepository($this->connection()))->create([
+            'slug' => 'post',
+            'name' => 'Post',
             'public_delivery' => true,
             'schema' => [
                 ['name' => 'title', 'type' => 'string', 'required' => true],
@@ -146,14 +158,14 @@ final class FragmentVerificationTest extends AppTestCase
     }
 
     /** @param list<array<string,mixed>> $body @return array{entry: string, token: string} */
-    private function page(string $title, array $body): array
+    private function page(string $title, array $body, ?string $type = null): array
     {
         $entries = new EntryRepository(
             $this->connection(),
             $this->appContext(),
             new ContentTypeRepository($this->connection()),
         );
-        $entry = $entries->createEntry($this->type, 'en', 1, 'user00000001');
+        $entry = $entries->createEntry($type ?? $this->type, 'en', 1, 'user00000001');
         $entries->saveDraft($entry, 'en', ['title' => $title, 'body' => $body], 1, 0, 'user00000001');
         return ['entry' => $entry, 'token' => $this->container()->get(PreviewMinter::class)->mint($entry, 'en')];
     }
@@ -200,8 +212,13 @@ final class FragmentVerificationTest extends AppTestCase
         $routes = $this->container()->get(PublicRouteResolver::class);
         $verified = [];
         $escalated = [];
+        $runs = [];
         foreach ($this->fixtures() as $name => $body) {
-            $page = $this->page($name, $body);
+            $runs[] = [$name, $body, $this->type];
+            $runs[] = ["post/{$name}", $body, $this->postType];
+        }
+        foreach ($runs as [$name, $body, $type]) {
+            $page = $this->page($name, $body, $type);
             $whole = $this->canvas($page['token']);
             $result = $routes->resolvePreview($page['token']);
             self::assertSame('content', $result['kind']);
@@ -238,6 +255,10 @@ final class FragmentVerificationTest extends AppTestCase
         self::assertContains('images:image0000002', $escalated);
         self::assertContains('images:box000000001', $escalated, 'holds an image that would claim');
         self::assertGreaterThanOrEqual(12, count($verified));
+        // The same roots verify through the post template.
+        self::assertContains('post/nested tabs:tab000000001->tabs00000001', $verified);
+        self::assertContains('post/five deep:head00000001->head00000001', $verified);
+        self::assertContains('post/images:image0000001', $escalated);
     }
 
     public function testTheRecordCoversTheDefaultThemeAndAChangedTemplateInvalidatesIt(): void
@@ -251,7 +272,7 @@ final class FragmentVerificationTest extends AppTestCase
         }
         $templates = array_values(array_unique($templates));
         $verification = new FragmentVerification();
-        $current = $verification->build($dependencies, 'default', 'entry.twig', $templates);
+        $current = $verification->build($dependencies, 'default', ['entry.twig', 'entry/post.twig'], $templates);
         if (getenv('THALLO_RECORD_FRAGMENT_VERIFICATION') === '1') {
             $verification->write($current);
         }
@@ -263,6 +284,7 @@ final class FragmentVerificationTest extends AppTestCase
         self::assertTrue($verification->verified($dependencies, 'default', 'entry.twig', $templates));
         self::assertTrue($verification->verified($dependencies, 'default', 'entry.twig', ['blocks/rich_text.twig']));
         $text = ['blocks/rich_text.twig'];
+        self::assertTrue($verification->verified($dependencies, 'default', 'entry/post.twig', $text));
         self::assertFalse($verification->verified($dependencies, 'default', 'entry/page.twig', $text));
         self::assertFalse($verification->verified($dependencies, 'other', 'entry.twig', ['blocks/rich_text.twig']));
         self::assertFalse($verification->verified($dependencies, 'default', 'entry.twig', ['blocks/nope.twig']));
