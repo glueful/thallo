@@ -44,6 +44,7 @@ const FUNCTIONS = [
   'shop_index_url',
   'json_script',
   'block_script',
+  'map_embed',
   'entries',
   'entry_tree',
   'markdown',

@@ -7,6 +7,14 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **A Map block.** Show your location on a Google map, with no API key: type an address or place,
+  set the zoom, map or satellite view and height, and optionally a **Get directions** link. For an
+  exact pin, paste Google's **Share › Embed a map** link; anything but Google's own embed link is
+  ignored. **Load the map only when clicked** keeps Google (and its cookies) off the page until the
+  visitor asks. On the stage a click selects the map instead of panning it. The footer takes it
+  too. New template function `map_embed()` and block script `block-map.js`.
+
 ## [1.0.0-beta.65] - 2026-09-26 — Developer Preview
 
 Posts get a page of their own in the default theme: categories, title, date and lead above the

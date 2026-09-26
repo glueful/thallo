@@ -6,7 +6,7 @@ order: 4
 summary: "Every block that ships: what it is for, its fields, and its style settings."
 ---
 
-Thallo ships **44 block types**. Two [capabilities](../concepts/06-capabilities.md) add more:
+Thallo ships **45 block types**. Two [capabilities](../concepts/06-capabilities.md) add more:
 Accounts adds four, Commerce adds five. This page lists all of them, in the order the Blocks tab
 and **Settings › Block Types** show them.
 
@@ -93,6 +93,7 @@ and the Motion settings every other block has, are
 | **Image** (`image`) | A single image with a caption. | `image` (asset, required), `alt` (string), `caption` (string), `width` (number, px), `height` (number, px), `fill` (boolean) | — | Width, Placement, Corners, Shadow |
 | **Logo** (`logo`) | The site logo from **Site › Appearance**; falls back to the site name. | `size` (enum: small, medium, large), `link_home` (boolean) | — | — |
 | **Logos** (`logos`) | A "trusted by" strip of brand logos. | `title` (string), `images` (asset, several), `grayscale` (boolean), `scroll` (boolean) | — | — |
+| **Map** (`map`) | A Google map of your address, with directions. No API key: Google's own embed. | `place` (string), `embed_url` (string), `zoom` (number, 1–21), `view` (enum: map, satellite), `height` (enum: small, medium, large), `directions` (boolean), `click_to_load` (boolean), `caption` (string) | — | Width, Corners, Border, Shadow |
 | **Video** (`video`) | An uploaded video or a YouTube or Vimeo embed. | `source` (enum: upload, embed), `video` (asset), `url` (string), `poster` (asset), `caption` (string), `width` (enum: normal, wide, full) | — | Width, Corners, Shadow |
 
 Uploading the files these blocks point at is [the media library](../guides/08-media.md).

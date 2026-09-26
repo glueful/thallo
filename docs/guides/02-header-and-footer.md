@@ -51,7 +51,7 @@ The header takes **Logo**, **Navigation**, **Button**, **Color mode**, **Social 
 
 The footer takes **Logo**, **Navigation**, **Button**, **Social links**, **Container**,
 **Rich text**, **Separator**, **Spacer**, **Icon**, **Image**, **Shortcode**, **HTML**,
-**Footer** and **Links**.
+**Footer**, **Links** and **Map**.
 
 Both also take **Mini cart**, **Wishlist link** and **Account state**, each offered only while
 the [capability](../concepts/06-capabilities.md) that defines it is on.
