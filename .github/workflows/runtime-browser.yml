@@ -11,6 +11,9 @@ on:
       - 'scripts/build-parity-fixtures'
       - 'scripts/build-docs-proof-fixtures'
       - 'scripts/build-product-layout-proof-fixtures'
+      - 'scripts/build-listing-layout-proof-fixtures'
+      - 'tests/fixtures/render/**'
+      - 'tests/Support/ListingPageSeed.php'
       - 'tests/fixtures/commerce/**'
       - 'packages/thallo-commerce/templates/**'
       - 'packages/thallo-commerce/assets/shop.css'
@@ -30,6 +33,9 @@ on:
       - 'scripts/build-parity-fixtures'
       - 'scripts/build-docs-proof-fixtures'
       - 'scripts/build-product-layout-proof-fixtures'
+      - 'scripts/build-listing-layout-proof-fixtures'
+      - 'tests/fixtures/render/**'
+      - 'tests/Support/ListingPageSeed.php'
       - 'tests/fixtures/commerce/**'
       - 'packages/thallo-commerce/templates/**'
       - 'packages/thallo-commerce/assets/shop.css'
@@ -149,6 +155,13 @@ jobs:
       - name: Build the product layout fixtures
         working-directory: .
         run: php scripts/build-product-layout-proof-fixtures
+
+      # The content-type listing and archive pages as the application serves them
+      # (listing-layout.spec.js): three posts and a category seeded with fixed values, rendered
+      # through the public controller, then rolled back.
+      - name: Build the listing layout fixtures
+        working-directory: .
+        run: php scripts/build-listing-layout-proof-fixtures
 
       - uses: actions/setup-node@v6
         with:

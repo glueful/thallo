@@ -1,0 +1,87 @@
+{
+  "case": "listing-original",
+  "note": "Type layouts Release B, B0: today's listing and archive pages (listing.twig / archive.twig with _listing_rows.twig and _pagination.twig), frozen before any Release B template or stylesheet change. The archive reference uses the same definition (its heading is the term's title). B7 maps the layout page's selectors onto these names and relaxes only the differences the user accepts.",
+  "root": "#main",
+  "elements": {
+    "heading": {
+      "selector": "#main > h1",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography"
+      ]
+    },
+    "rows": {
+      "selector": ".listing-rows",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "row1": {
+      "selector": ".listing-rows > .listing-row:nth-child(1)",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "media1": {
+      "selector": ".listing-rows > .listing-row:nth-child(1) .listing-row__media",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "content1": {
+      "selector": ".listing-rows > .listing-row:nth-child(1) .listing-row__content",
+      "profiles": [
+        "geometry"
+      ]
+    },
+    "title1": {
+      "selector": ".listing-rows > .listing-row:nth-child(1) .listing-row__title",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography"
+      ]
+    },
+    "date1": {
+      "selector": ".listing-rows > .listing-row:nth-child(1) .listing-row__date",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography"
+      ]
+    },
+    "excerpt1": {
+      "selector": ".listing-rows > .listing-row:nth-child(1) .listing-row__excerpt",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography"
+      ]
+    },
+    "row2": {
+      "selector": ".listing-rows > .listing-row:nth-child(2)",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "title2": {
+      "selector": ".listing-rows > .listing-row:nth-child(2) .listing-row__title",
+      "profiles": [
+        "geometry"
+      ]
+    },
+    "pagination": {
+      "selector": "#main > nav.pagination",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography"
+      ]
+    }
+  }
+}
