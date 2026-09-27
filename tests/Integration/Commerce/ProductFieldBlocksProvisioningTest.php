@@ -30,6 +30,18 @@ final class ProductFieldBlocksProvisioningTest extends AppTestCase
             self::assertSame(['layout_only' => true], $definition->flags, $definition->slug);
             self::assertSame('thallo-commerce:' . $definition->slug, $definition->sourceId);
         }
+        // A block whose root is a flex row aligns nothing by text-align: it offers no text alignment.
+        $caps = array_column(array_map(
+            static fn ($d): array => ['slug' => $d->slug, 'caps' => $d->styleCapabilities],
+            $definitions,
+        ), 'caps', 'slug');
+        foreach (['product_breadcrumb', 'product_rating', 'product_price'] as $flexRoot) {
+            self::assertNotContains('alignment.text', $caps[$flexRoot], $flexRoot);
+        }
+        self::assertContains('alignment.text', $caps['product_name']);
+        // Every product page keeps its Add to cart: the required block cannot be hidden at any size.
+        self::assertNotContains('visibility', $caps['product_buy']);
+        self::assertContains('visibility', $caps['product_story']);
     }
 
     public function testProvisioningSeedsThemOnAnExistingSite(): void

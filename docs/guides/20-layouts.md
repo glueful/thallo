@@ -138,7 +138,8 @@ The **Blocks** tab leads with the product's fields:
 | **Product story** | the content of the product's [linked story](18-commerce.md#add-a-product) | — |
 
 Every product layout keeps exactly one **Add to cart**: deleting it is refused with the reason, and
-Save stays off without it. Move it instead. It works as the product page's always has — a product
+Save stays off without it. Move it instead. It has no **Visibility** setting, so no screen size can
+hide it. It works as the product page's always has — a product
 with options offers a list to choose from, a product that needs an add-on says it cannot be bought
 online, and the button adds to the cart even where JavaScript is off.
 

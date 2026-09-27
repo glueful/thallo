@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Commerce;
 
-use Glueful\Cache\CacheStore;
 use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;
 use Glueful\Extensions\Contracts\Tenancy\TenantContextRunner;
 use Glueful\Helpers\Utils;
@@ -217,9 +216,11 @@ final class ProductLayoutSaveTest extends AppTestCase
 
     /**
      * Review Focus 5, end to end with workspaces on (mode (c)): each workspace saves its own product
-     * layout at version 1, renders its own, and a change in one refreshes its cached product page and
-     * leaves the other's. The default suite has no enforcement provider and skips this; run it with
-     * THALLO_TENANCY_DEV_LINK=1.
+     * layout at version 1 and renders its own, and each change in A — first save, edit, removal —
+     * refreshes A's cached product page while B's stays cached. "Cached" is observed, not assumed:
+     * each product is renamed straight in the database (no event, so no purge), and a page still in
+     * the cache keeps the old name while a re-rendered one shows the new. The default suite has no
+     * enforcement provider and skips this; run it with THALLO_TENANCY_DEV_LINK=1.
      */
     public function testTwoWorkspacesKeepTheirOwnProductLayout(): void
     {
@@ -233,17 +234,41 @@ final class ProductLayoutSaveTest extends AppTestCase
         foreach (['a', 'b'] as $name) {
             $uuid = Utils::generateNanoID();
             $this->connection()->table('tenants')->insert([
-                'uuid' => $uuid, 'slug' => 'layouts-' . $name . '-' . substr($uuid, 0, 6), 'name' => 'Layouts ' . $name,
-                'status' => 'active',
+                'uuid' => $uuid, 'slug' => 'layouts-' . $name . '-' . substr($uuid, 0, 6),
+                'name' => 'Layouts ' . $name, 'status' => 'active',
             ]);
             $tenants[$name] = $uuid;
         }
         $flags->put('tenancy.enabled', '1');
         $flags->put('tenancy.enable_step', 'on');
         $runner = $this->container()->get(TenantContextRunner::class);
-        $cache = $this->container()->get(CacheStore::class);
-        $key = fn (string $tenant): string => 'tenant:' . $tenant . ':shop:' . $tenant . ':en:default:'
-            . $this->appearanceFingerprint() . ':1:' . rawurlencode('/shop/products/lamp');
+        $page = fn (string $tenant): string => (string) $runner->runAsTenant(
+            $tenant,
+            fn () => $this->handle(Request::create('/shop/products/lamp', 'GET'))->getContent(),
+        );
+        $rename = function (string $tenant, string $name): void {
+            // Straight to the table: no catalog event, so no shop cache purge.
+            $this->connection()->table('commerce_products')->where('tenant_uuid', '=', $tenant)
+                ->update(['name' => $name]);
+        };
+        $version = ['a' => 0, 'b' => 0];
+        $save = function (string $name, string $marker) use ($runner, $tenants, &$version): void {
+            $runner->runAsTenant($tenants[$name], function () use ($name, $marker, &$version): void {
+                $saved = $this->save($this->session()['token'], self::layout($marker), $version[$name]);
+                self::assertSame(200, $saved['status'], json_encode($saved['body']));
+                $version[$name] = $saved['body']['data']['layout']['lock_version'];
+            });
+        };
+        /** Both pages cached — proven: a rename does not show — then renamed once more for the change. */
+        $primeBoth = function (int $round) use ($tenants, $page, $rename): void {
+            foreach ($tenants as $name => $tenant) {
+                $page($tenant);
+                $rename($tenant, "Lamp {$name} cached-{$round}");
+                $served = $page($tenant);
+                self::assertStringNotContainsString("cached-{$round}", $served, "{$name} is served from the cache");
+                $rename($tenant, "Lamp {$name} fresh-{$round}");
+            }
+        };
         try {
             foreach ($tenants as $name => $tenant) {
                 $runner->runAsTenant($tenant, function () use ($name): void {
@@ -253,24 +278,45 @@ final class ProductLayoutSaveTest extends AppTestCase
                             'variants' => [['sku' => 'lamp-' . $name, 'price' => 1000, 'currency' => 'USD',
                                 'option_values' => []]],
                         ]);
-                    $saved = $this->save($this->session()['token'], self::layout('LAYOUT-' . strtoupper($name)), 0);
-                    self::assertSame(200, $saved['status'], json_encode($saved['body']));
-                    self::assertSame(1, $saved['body']['data']['layout']['lock_version'], "{$name} saves its own at 1");
                 });
             }
-            foreach ($tenants as $name => $tenant) {
-                $runner->runAsTenant($tenant, function () use ($name): void {
-                    $html = (string) $this->handle(Request::create('/shop/products/lamp', 'GET'))->getContent();
-                    self::assertStringContainsString('LAYOUT-' . strtoupper($name), $html, "{$name} renders its own");
-                });
-            }
-            // Both pages are cached now; an edit in A refreshes A's and keeps B's.
-            $bBefore = $cache->get($key($tenants['b']));
-            $runner->runAsTenant($tenants['a'], function (): void {
-                self::assertSame(200, $this->save($this->session()['token'], self::layout('LAYOUT-A2'), 1)['status']);
+
+            // First save in A: A re-renders through its layout; B is still the cached theme page.
+            $primeBoth(1);
+            $save('a', 'LAYOUT-A');
+            self::assertSame(1, $version['a'], 'A saves its own at 1');
+            $a = $page($tenants['a']);
+            self::assertStringContainsString('LAYOUT-A', $a);
+            self::assertStringContainsString('fresh-1', $a, "A's page was re-rendered");
+            self::assertStringNotContainsString('fresh-1', $page($tenants['b']), "B's page stayed in the cache");
+
+            // B saves its own, also at 1, and each renders its own.
+            $save('b', 'LAYOUT-B');
+            self::assertSame(1, $version['b'], 'B saves its own at 1, no conflict with A');
+            self::assertStringContainsString('LAYOUT-B', $page($tenants['b']));
+            self::assertStringNotContainsString('LAYOUT-A', $page($tenants['b']));
+            self::assertStringNotContainsString('LAYOUT-B', $page($tenants['a']));
+
+            // An edit in A.
+            $primeBoth(2);
+            $save('a', 'LAYOUT-A2');
+            $a = $page($tenants['a']);
+            self::assertStringContainsString('LAYOUT-A2', $a);
+            self::assertStringContainsString('fresh-2', $a);
+            self::assertStringNotContainsString('fresh-2', $page($tenants['b']), "B's page stayed in the cache");
+
+            // A removes its layout: A is the theme page again, B keeps its cached layout page.
+            $primeBoth(3);
+            $runner->runAsTenant($tenants['a'], function () use (&$version): void {
+                $removed = $this->remove($this->session()['token'], $version['a']);
+                self::assertSame(200, $removed['status'], json_encode($removed['body']));
             });
-            self::assertNull($cache->get($key($tenants['a'])), "A's product page left the cache");
-            self::assertSame($bBefore, $cache->get($key($tenants['b'])), "B's product page is still cached");
+            $a = $page($tenants['a']);
+            self::assertStringNotContainsString('LAYOUT-A2', $a);
+            self::assertStringContainsString('<article class="shop-product" data-shop-scope=', $a);
+            $b = $page($tenants['b']);
+            self::assertStringContainsString('LAYOUT-B', $b);
+            self::assertStringNotContainsString('fresh-3', $b, "B's page stayed in the cache");
             self::assertNotNull($this->container()->get(LayoutSurfaceRegistry::class)->get(ProductSurface::KEY));
         } finally {
             $flags->forget('tenancy.enabled');

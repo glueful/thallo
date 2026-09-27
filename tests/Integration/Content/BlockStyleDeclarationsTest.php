@@ -19,6 +19,12 @@ final class BlockStyleDeclarationsTest extends AppTestCase
 {
     private const RENDERS_CHILDREN_INLINE = ['accordion', 'tabs', 'stepper', 'gallery', 'pricing_table', 'carousel'];
 
+    /**
+     * The one block that cannot be hidden: the product page's Add to cart (type layouts plan C1),
+     * required in every product layout — hidden at any size, that size could not buy.
+     */
+    private const NEVER_HIDDEN = ['product_buy'];
+
     public function testEveryShippedBlockTypeDeclaresAConsistentStyleContract(): void
     {
         $definitions = $this->container()->get(BlockTypeKind::class)->definitions();
@@ -34,7 +40,11 @@ final class BlockStyleDeclarationsTest extends AppTestCase
             self::assertContains('root', $targets->names(), "{$slug} has a root target");
             self::assertFalse($targets->optional('root'), "{$slug}: the root is never optional");
             self::assertSame('root', $targets->targetFor('advanced.css_classes'), "{$slug}: classes on root");
-            self::assertTrue($caps->allows('visibility'), "{$slug} can be hidden per breakpoint");
+            self::assertSame(
+                !in_array($slug, self::NEVER_HIDDEN, true),
+                $caps->allows('visibility'),
+                "{$slug} can be hidden per breakpoint (all but the never-hidden)",
+            );
             $inline = (bool) ($payload['flags']['renders_children_inline'] ?? false);
             $expected = in_array($slug, self::RENDERS_CHILDREN_INLINE, true);
             self::assertSame($expected, $inline, "{$slug} renders_children_inline");

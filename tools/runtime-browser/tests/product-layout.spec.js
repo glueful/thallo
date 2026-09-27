@@ -64,9 +64,17 @@ const STARTER_MAP = {
   info: '.thallo-block-container__inner .thallo-block-container:has(.shop-product__name)',
 };
 
-// Relax only what the accepted geometry moves; each relaxed value is asserted below.
+// Relax only what the accepted geometry moves; each relaxed value is asserted below. One more row,
+// not geometry: in the frame the price's root carries the amount's size and weight — and so its own
+// line height (so a size set on the Product price block reaches it); the amounts and every box are
+// today's.
 function acceptedRows() {
   return [
+    {
+      element: 'price',
+      relax: ['font-size', 'font-weight', 'line-height'],
+      expect: { 'font-size': '20px', 'font-weight': '700', 'line-height': '30px' },
+    },
     ...[...INFO_PARTS, 'info', 'story'].map((element) => ({ element, relax: ['top'], widths: ONE_COLUMN })),
     ...COLUMN_PARTS.map((element) => ({ element, relax: ['left', 'width'], widths: TWO_COLUMNS })),
     ...['media', 'cover'].map((element) => ({ element, relax: ['height'], widths: TWO_COLUMNS })),
@@ -201,17 +209,26 @@ async function styles(page, file) {
     };
     const name = css('.shop-product__name');
     const price = css('.shop-product__price-current');
+    const compare = css('.shop-product__price-compare');
+    const rating = css('.shop-product__rating');
     const description = css('.shop-product__description');
     return {
       nameSize: name.fontSize,
       nameColor: name.color,
       priceColor: price.color,
+      priceSize: price.fontSize,
+      priceWeight: price.fontWeight,
+      compareSize: compare.fontSize,
+      ratingSize: rating.fontSize,
+      starWidth: document.querySelector('.shop-product__star').getBoundingClientRect().width,
       descriptionPadding: [description.paddingTop, description.paddingBottom],
       descriptionMargin: description.marginBottom,
       tokens: {
         size3xl: resolve('fontSize', 'var(--t-typography-size-3xl)', '.shop-product__name'),
         accent: resolve('color', 'var(--t-color-accent)', '.shop-product__name'),
         muted: resolve('color', 'var(--t-color-muted)', '.shop-product__price-current'),
+        size2xl: resolve('fontSize', 'var(--t-typography-size-2xl)', '.shop-product__price'),
+        sizeLg: resolve('fontSize', 'var(--t-typography-size-lg)', '.shop-product__rating'),
         lg: resolve('paddingTop', 'var(--t-spacing-lg)', '.shop-product__description'),
       },
     };
@@ -228,6 +245,13 @@ for (const surface of ['', '-stage']) {
     expect(authored.priceColor).toBe(authored.tokens.muted);
     expect(authored.descriptionPadding).toEqual([authored.tokens.lg, authored.tokens.lg]);
     expect(authored.descriptionMargin).toBe('0px');
+    // A size and weight set on the price reach the amount; the "was" price keeps its proportion.
+    expect(authored.priceSize).toBe(authored.tokens.size2xl);
+    expect(authored.priceWeight).toBe('400');
+    expect(parseFloat(authored.compareSize)).toBeCloseTo(parseFloat(authored.tokens.size2xl) * 0.8, 1);
+    // A size set on the rating scales its stars with its text.
+    expect(authored.ratingSize).toBe(authored.tokens.sizeLg);
+    expect(authored.starWidth).toBeCloseTo(parseFloat(authored.tokens.sizeLg), 0);
 
     // The starter shows the product defaults: 1.75rem name, the description's 1.5rem margin.
     const starter = await styles(page, `starter${surface}.html`);
@@ -236,6 +260,8 @@ for (const surface of ['', '-stage']) {
     expect(starter.nameColor).not.toBe(authored.nameColor);
     expect(starter.descriptionMargin).toBe('24px');
     expect(starter.descriptionPadding).toEqual(['0px', '0px']);
+    expect([starter.priceSize, starter.priceWeight, starter.compareSize]).toEqual(['20px', '700', '16px']);
+    expect([starter.ratingSize, starter.starWidth]).toEqual(['14px', 14]);
   });
 
   test(`removing an authored value returns the default ${where}`, async ({ page }) => {

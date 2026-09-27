@@ -202,7 +202,11 @@ try {
         $style = [
             'product_name' => ['typography' => ['size' => ['base' => $token('typography.size.3xl')]],
                 'colors' => ['text' => $token('color.accent')]],
-            'product_price' => ['colors' => ['text' => $token('color.muted')]],
+            'product_price' => ['colors' => ['text' => $token('color.muted')], 'typography' => [
+                'size' => ['base' => $token('typography.size.2xl')],
+                'weight' => ['base' => ['type' => 'choice', 'value' => 'regular']],
+            ]],
+            'product_rating' => ['typography' => ['size' => ['base' => $token('typography.size.lg')]]],
             'product_description' => ['spacing' => [
                 'padding' => ['top' => ['base' => $token('spacing.lg')], 'bottom' => ['base' => $token('spacing.lg')]],
                 'margin' => ['bottom' => ['base' => $token('spacing.none')]],

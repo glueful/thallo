@@ -97,7 +97,7 @@ final class ProductLayoutRenderTest extends AppTestCase
         return array_map('trim', explode(',', (string) $response->headers->get('Cache-Tag', '')));
     }
 
-    public function testNoLayoutRendersTheThemeTemplateAndTagsThePageForItsTenant(): void
+    public function testNoLayoutRendersTheThemeTemplateAndTagsThePageWithoutItsTenant(): void
     {
         $showcase = $this->seed->showcase();
         $mug = $this->seed->multiVariant();
@@ -107,14 +107,13 @@ final class ProductLayoutRenderTest extends AppTestCase
             (string) $lamp->getContent(),
         );
         self::assertStringNotContainsString('shop-product--layout', (string) $lamp->getContent());
-        self::assertSame(
-            ['thallo:shop:layout:product:' . ProductPageSeed::TENANT, 'thallo:entry:' . $showcase['entry']],
-            self::tags($lamp),
-        );
-        self::assertSame(
-            ['thallo:shop:layout:product:' . ProductPageSeed::TENANT],
-            self::tags($this->page('stoneware-mug')),
-        );
+        // The page's tag names no workspace: the header reaches every visitor (the shop cache adds
+        // the workspace's own tag server-side, see ProductLayoutCacheTest).
+        self::assertSame(['thallo:shop:layout:product', 'thallo:entry:' . $showcase['entry']], self::tags($lamp));
+        self::assertSame(['thallo:shop:layout:product'], self::tags($this->page('stoneware-mug')));
+        foreach ([$lamp, $this->page('stoneware-mug')] as $response) {
+            self::assertStringNotContainsString(ProductPageSeed::TENANT, (string) $response->headers->get('Cache-Tag'));
+        }
         unset($mug);
     }
 
@@ -226,7 +225,7 @@ final class ProductLayoutRenderTest extends AppTestCase
 
         $mug = $this->page('stoneware-mug');
         self::assertStringNotContainsString('shop-product__enrichment', (string) $mug->getContent());
-        self::assertSame(['thallo:shop:layout:product:' . ProductPageSeed::TENANT], self::tags($mug));
+        self::assertSame(['thallo:shop:layout:product'], self::tags($mug));
     }
 
     public function testTheFrameSettingsApply(): void
