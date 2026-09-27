@@ -5,7 +5,13 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.67] - 2026-09-27 — Developer Preview
+
+Layouts for content types — design every post of a type at once, with the post's title, date,
+cover, fields and content placed on the stage — the Design view showing a post inside its layout,
+the changelog as a page of the docs, and one form across the site for a form in the header or
+footer. Migrations `036` and `037`; run `thallo:provision` on an existing site for the Fields
+blocks.
 
 ### Added
 - **Layouts for content types.** Design every page of a kind at once: **Site › Layouts** lists each
