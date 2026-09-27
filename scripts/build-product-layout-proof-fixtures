@@ -8,7 +8,10 @@
  * and scripts are dropped, so a page measures the same wherever it is opened.
  *
  * Pages: `original.html` — today's product page (`shop/product.twig`), the page
- * `references/product-original.json` froze before any C1 template or stylesheet change.
+ * `references/product-original.json` froze before any C1 template or stylesheet change; then the
+ * product layout's starter saved (`starter.html`), the starter with values authored on three blocks
+ * (`authored.html`), and those values removed again (`reset.html`) — each also as its layout stage
+ * renders it (`*-stage.html`, annotated, with the stage's own stylesheet).
  *
  *   DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-product-layout-proof-fixtures
  */
@@ -17,8 +20,18 @@ declare(strict_types=1);
 
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
+use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Thallo\Contracts\Layouts\LayoutSurfaceRegistry;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
+use Thallo\Core\Content\Layouts\LayoutResolver;
+use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
+use Thallo\Core\Http\Controllers\LayoutAdminController;
+use Thallo\Core\Http\Controllers\LayoutPreviewController;
+use Thallo\Core\Http\DTOs\LayoutSessionData;
+use Thallo\Core\Http\DTOs\SaveLayoutData;
 use Thallo\Core\Tests\Support\ProductPageSeed;
 use Thallo\Core\Tests\Support\TestApplication;
 
@@ -126,10 +139,29 @@ final class ProductFixturesWritten extends RuntimeException
 {
 }
 
+    // The block types' style declarations, as the application syncs them: the layout's authored
+    // values validate against them.
+    $container->get(StarterBlockTypeSeeder::class)->seedMissing();
+    $blockTypes = $container->get(BlockTypeRepository::class);
+    foreach ($container->get(BlockTypeKind::class)->definitions() as $definition) {
+        $payload = $definition->payload;
+        $row = $blockTypes->findBySlug((string) $payload['slug']);
+        if ($row !== null) {
+            $blockTypes->updateStyle(
+                (string) $row['uuid'],
+                $payload['style_capabilities'] ?? null,
+                $payload['style_targets'] ?? null,
+                $payload['flags'] ?? null,
+                $row['starter_content'] ?? $payload['starter_content'] ?? null,
+            );
+        }
+    }
+
 $previous = $seed->useTenant();
 $written = [];
 try {
     $db->transaction(static function () use (
+        $container,
         $seed,
         $get,
         $selfContained,
@@ -152,12 +184,88 @@ try {
         file_put_contents($out . '/original.html', $selfContained($html));
         $written[] = 'original.html';
 
+        // The product layout, saved through a session and Save as the editor saves it, then the page
+        // and the stage of that session rendered for each state.
+        $withIds = static function (array $tree, string $prefix = 'p') use (&$withIds): array {
+            foreach ($tree as $i => $block) {
+                $tree[$i]['id'] = str_pad($prefix . $i, 12, '0');
+                foreach ($block['data'] as $key => $value) {
+                    if (is_array($value) && array_is_list($value) && isset($value[0]['type'])) {
+                        $tree[$i]['data'][$key] = $withIds($value, $prefix . $i . 'n');
+                    }
+                }
+            }
+            return $tree;
+        };
+        $starter = $withIds($container->get(LayoutSurfaceRegistry::class)->get('product')->starter('@site'));
+        $token = static fn (string $value): array => ['type' => 'token', 'value' => $value];
+        $style = [
+            'product_name' => ['typography' => ['size' => ['base' => $token('typography.size.3xl')]],
+                'colors' => ['text' => $token('color.accent')]],
+            'product_price' => ['colors' => ['text' => $token('color.muted')]],
+            'product_description' => ['spacing' => [
+                'padding' => ['top' => ['base' => $token('spacing.lg')], 'bottom' => ['base' => $token('spacing.lg')]],
+                'margin' => ['bottom' => ['base' => $token('spacing.none')]],
+            ]],
+        ];
+        $authored = static function (array $tree) use (&$authored, $style): array {
+            foreach ($tree as $i => $block) {
+                if (isset($style[$block['type']])) {
+                    $tree[$i]['settings'] = ['style' => $style[$block['type']]];
+                }
+                foreach ($block['data'] as $key => $value) {
+                    if (is_array($value) && array_is_list($value) && isset($value[0]['type'])) {
+                        $tree[$i]['data'][$key] = $authored($value);
+                    }
+                }
+            }
+            return $tree;
+        };
+        $hydrator = new RequestDataHydrator();
+        $version = 0;
+        foreach (['starter' => $starter, 'authored' => $authored($starter), 'reset' => $starter] as $name => $blocks) {
+            $session = json_decode((string) $container->get(LayoutPreviewController::class)->session(
+                $hydrator->hydrate(LayoutSessionData::class, ['surface' => 'product', 'target' => '@site']),
+            )->getContent(), true)['data'];
+            $saved = $container->get(LayoutAdminController::class)->save(
+                $hydrator->hydrate(SaveLayoutData::class, [
+                    'token' => $session['token'], 'layout' => ['blocks' => $blocks, 'settings' => []],
+                    'expected_lock_version' => $version,
+                ]),
+                Request::create('/x', 'PUT'),
+                'product',
+                '@site',
+            );
+            if ($saved->getStatusCode() !== 200) {
+                throw new RuntimeException("saving the {$name} layout answered {$saved->getStatusCode()}: {$saved->getContent()}");
+            }
+            $version++;
+            // Inside this rolled-back transaction Save's effects wait for a commit that never comes:
+            // forget the resolver's answer here, and render the stage from a session minted now,
+            // whose baseline is the layout just saved.
+            $container->get(LayoutResolver::class)->forget('product', '@site');
+            $stage = json_decode((string) $container->get(LayoutPreviewController::class)->session(
+                $hydrator->hydrate(LayoutSessionData::class, ['surface' => 'product', 'target' => '@site']),
+            )->getContent(), true)['data'];
+            $pages = ['' => '/shop/products/linen-lamp?proof=1', '-stage' => '/_preview/' . $stage['token'] . '?canvas=1'];
+            foreach ($pages as $suffix => $path) {
+                $rendered = $get($path);
+                if ($rendered->getStatusCode() !== 200 || !str_contains((string) $rendered->getContent(), 'shop-product--layout')) {
+                    throw new RuntimeException("the {$name}{$suffix} page is not the product frame ({$rendered->getStatusCode()})");
+                }
+                file_put_contents($out . "/{$name}{$suffix}.html", $selfContained((string) $rendered->getContent()));
+                $written[] = "{$name}{$suffix}.html";
+            }
+        }
+
         throw new ProductFixturesWritten();
     });
 } catch (ProductFixturesWritten) {
     // Written, and rolled back.
 } catch (Throwable $e) {
-    // Left to the framework's handler, a throw prints its JSON and exits 0.
+    // Left to the framework's handler, a throw prints its JSON and exits 0. (exit() skips the
+    // finally below, so the tenant flags are put back here first.)
+    $seed->restoreTenant($previous);
     fwrite(STDERR, 'the product fixtures failed: ' . $e::class . ': ' . $e->getMessage() . "\n");
     exit(1);
 } finally {

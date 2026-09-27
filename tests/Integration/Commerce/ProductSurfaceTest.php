@@ -166,6 +166,7 @@ final class ProductSurfaceTest extends AppTestCase
                     'md' => ['type' => 'choice', 'value' => '2'],
                 ],
                 'gap' => ['column' => $token('spacing.xl'), 'row' => $token('spacing.xl')],
+                'align_items' => ['base' => ['type' => 'choice', 'value' => 'start']],
             ]]]],
             $block('product_story'),
         ];
