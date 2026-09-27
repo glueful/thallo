@@ -1,0 +1,46 @@
+{
+  "_comment": "The layout stage's accepted states (type layouts plan L9). scripts/build-builder-proof-fixtures validates each (the validator's clean output must equal it), renders it through the real session, apply and preview path against a published post, and writes admin/e2e/fixtures/layouts/. A block written {id, $factory: slug} is that type's factory instance under the given id — what the palette tile inserts.",
+  "scenarios": [
+    {
+      "name": "baseline",
+      "layout": {
+        "blocks": [
+          {
+            "id": "e2elayout001",
+            "type": "entry_title",
+            "data": { "level": "h1" },
+            "settings": {}
+          },
+          {
+            "id": "e2elayout002",
+            "type": "entry_content",
+            "data": { "field": "body" },
+            "settings": {}
+          }
+        ],
+        "settings": {}
+      }
+    },
+    {
+      "name": "dated",
+      "layout": {
+        "blocks": [
+          {
+            "id": "e2elayout001",
+            "type": "entry_title",
+            "data": { "level": "h1" },
+            "settings": {}
+          },
+          { "id": "e2elayout003", "$factory": "entry_date" },
+          {
+            "id": "e2elayout002",
+            "type": "entry_content",
+            "data": { "field": "body" },
+            "settings": {}
+          }
+        ],
+        "settings": {}
+      }
+    }
+  ]
+}

@@ -885,6 +885,19 @@ final class CoreServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            \Thallo\Core\Content\Blocks\Sources\LayoutsSource::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeLayoutsSource'],
+            ],
+            \Thallo\Core\Content\Layouts\LayoutBindings::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeLayoutBindings'],
+            ],
+            \Thallo\Core\Content\Blocks\Sources\SavedSectionsSource::class => [
+                'class' => \Thallo\Core\Content\Blocks\Sources\SavedSectionsSource::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             \Thallo\Core\Content\Blocks\Sources\RegionsSource::class => [
                 'class' => \Thallo\Core\Content\Blocks\Sources\RegionsSource::class,
                 'shared' => true,
@@ -1422,6 +1435,7 @@ final class CoreServiceProvider extends ServiceProvider
                 ? $container->get(PreviewThemeValidator::class)
                 : null,
             $container->get(PreviewWorkingCopyStore::class),
+            $container->get(\Thallo\Core\Content\Layouts\EntryLayoutStatus::class),
         );
     }
 
@@ -1437,6 +1451,48 @@ final class CoreServiceProvider extends ServiceProvider
         );
     }
 
+    public static function makeLayoutReader(ContainerInterface $container): \Thallo\Contracts\Layouts\LayoutReader
+    {
+        return $container->get(\Thallo\Core\Content\Layouts\LayoutResolver::class);
+    }
+
+    public static function makeLayoutPreviewStore(
+        ContainerInterface $container,
+    ): \Thallo\Core\Content\Preview\LayoutPreviewStore {
+        return new \Thallo\Core\Content\Preview\LayoutPreviewStore(
+            $container->get(CacheStore::class),
+            $container->get(\Thallo\Tenancy\Cache\TenantCacheSegment::class),
+            $container->get(ApplicationContext::class),
+        );
+    }
+
+    public static function makeLayoutSaver(ContainerInterface $container): \Thallo\Core\Content\Layouts\LayoutSaver
+    {
+        return new \Thallo\Core\Content\Layouts\LayoutSaver(
+            $container->get(Connection::class),
+            $container->get(\Thallo\Core\Content\Layouts\LayoutWriteLock::class),
+            $container->get(\Thallo\Core\Content\Layouts\LayoutRepository::class),
+            $container->get(\Thallo\Core\Content\Layouts\LayoutValidator::class),
+            $container->get(\Thallo\Core\Content\Preview\LayoutPreviewStore::class),
+            $container->get(\Thallo\Core\Content\Layouts\LayoutResolver::class),
+            $container->has(\Thallo\Contracts\Delivery\RenderedPageCachePurge::class)
+                ? $container->get(\Thallo\Contracts\Delivery\RenderedPageCachePurge::class)
+                : null,
+        );
+    }
+
+    public static function makeLayoutStageSnapshots(
+        ContainerInterface $container,
+    ): \Thallo\Contracts\Layouts\LayoutStageSnapshots {
+        return $container->get(\Thallo\Core\Content\Preview\LayoutPreviewStore::class);
+    }
+
+    public static function makeLayoutSurfaceRegistry(
+        ContainerInterface $container,
+    ): \Thallo\Contracts\Layouts\LayoutSurfaceRegistry {
+        return $container->get(\Thallo\Core\Content\Layouts\LayoutSurfaces::class);
+    }
+
     public static function makeBlockDocumentSources(
         ContainerInterface $container,
     ): \Thallo\Core\Content\Blocks\Sources\BlockDocumentSources {
@@ -1445,6 +1501,36 @@ final class CoreServiceProvider extends ServiceProvider
             $container->get(\Thallo\Core\Content\Blocks\Sources\PublishedEntriesSource::class),
             $container->get(\Thallo\Core\Content\Blocks\Sources\EntryVersionsSource::class),
             $container->get(\Thallo\Core\Content\Blocks\Sources\RegionsSource::class),
+            $container->get(\Thallo\Core\Content\Blocks\Sources\SavedSectionsSource::class),
+            $container->get(\Thallo\Core\Content\Blocks\Sources\LayoutsSource::class),
+        );
+    }
+
+    public static function makeLayoutsSource(
+        ContainerInterface $container,
+    ): \Thallo\Core\Content\Blocks\Sources\LayoutsSource {
+        return new \Thallo\Core\Content\Blocks\Sources\LayoutsSource(
+            $container->get(Connection::class),
+            $container->get(\Thallo\Core\Content\Layouts\LayoutRepository::class),
+            $container->get(\Thallo\Core\Content\Layouts\LayoutResolver::class),
+            $container->has(\Thallo\Contracts\Delivery\RenderedPageCachePurge::class)
+                ? $container->get(\Thallo\Contracts\Delivery\RenderedPageCachePurge::class)
+                : null,
+        );
+    }
+
+    public static function makeLayoutBindings(
+        ContainerInterface $container,
+    ): \Thallo\Core\Content\Layouts\LayoutBindings {
+        return new \Thallo\Core\Content\Layouts\LayoutBindings(
+            $container->get(Connection::class),
+            $container->get(\Thallo\Core\Content\Layouts\LayoutRepository::class),
+            $container->get(\Thallo\Core\Content\Layouts\LayoutWriteLock::class),
+            $container->get(\Thallo\Contracts\Layouts\LayoutSurfaceRegistry::class),
+            $container->get(\Thallo\Core\Content\Layouts\LayoutResolver::class),
+            $container->has(\Thallo\Contracts\Delivery\RenderedPageCachePurge::class)
+                ? $container->get(\Thallo\Contracts\Delivery\RenderedPageCachePurge::class)
+                : null,
         );
     }
 
@@ -1683,6 +1769,71 @@ final class CoreServiceProvider extends ServiceProvider
             ],
             \Thallo\Core\Content\Http\Controllers\SavedSectionController::class => [
                 'class' => \Thallo\Core\Content\Http\Controllers\SavedSectionController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Layouts\LayoutWriteLock::class => [
+                'class' => \Thallo\Core\Content\Layouts\LayoutWriteLock::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Layouts\LayoutRepository::class => [
+                'class' => \Thallo\Core\Content\Layouts\LayoutRepository::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Layouts\LayoutResolver::class => [
+                'class' => \Thallo\Core\Content\Layouts\LayoutResolver::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Contracts\Layouts\LayoutReader::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeLayoutReader'],
+            ],
+            \Thallo\Core\Content\Layouts\EntrySurface::class => [
+                'class' => \Thallo\Core\Content\Layouts\EntrySurface::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Layouts\LayoutSurfaces::class => [
+                'class' => \Thallo\Core\Content\Layouts\LayoutSurfaces::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Contracts\Layouts\LayoutSurfaceRegistry::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeLayoutSurfaceRegistry'],
+            ],
+            \Thallo\Core\Content\Preview\LayoutPreviewStore::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeLayoutPreviewStore'],
+            ],
+            \Thallo\Contracts\Layouts\LayoutStageSnapshots::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeLayoutStageSnapshots'],
+            ],
+            \Thallo\Core\Content\Layouts\LayoutSaver::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeLayoutSaver'],
+            ],
+            \Thallo\Core\Http\Controllers\LayoutAdminController::class => [
+                'class' => \Thallo\Core\Http\Controllers\LayoutAdminController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Http\Controllers\LayoutPreviewController::class => [
+                'class' => \Thallo\Core\Http\Controllers\LayoutPreviewController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Layouts\EntryLayoutStatus::class => [
+                'class' => \Thallo\Core\Content\Layouts\EntryLayoutStatus::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Layouts\LayoutValidator::class => [
+                'class' => \Thallo\Core\Content\Layouts\LayoutValidator::class,
                 'shared' => true,
                 'autowire' => true,
             ],

@@ -61,6 +61,12 @@ date and excerpt above the cover and the body, then the three newest other posts
 (**Settings › General**), so a post never links to a listing or archive page that doesn't exist.
 Every other type still uses `entry.twig`.
 
+**A layout comes first.** When a content type has a [layout](../guides/20-layouts.md), its
+entries render through `layouts/entry.twig` — the frame around the layout's blocks — whatever
+`entry/{type}.twig` the theme ships, until the layout is removed. An entry can opt out on its
+**Page** tab; the homepage never uses a layout. The frame is a template like any other: a theme
+may ship its own, and one that does not gets the default theme's.
+
 `layout.twig` is the shell every page template extends: the `<head>`, the header and footer, and
 the `{% block content %}` the page template fills.
 

@@ -1,0 +1,128 @@
+---
+title: "Design a layout"
+slug: layouts
+section: guides
+order: 20
+summary: "Design every post of a content type at once: where the title, date, cover and content go, and what surrounds them."
+---
+
+A layout designs every page of one kind at once. Build it once for your posts — the categories
+above the title, the date and a lead under it, the cover, then the post's own content, then
+related posts — and every post, old and new, shows that way. Each post keeps its own content;
+the layout decides where that content sits and what surrounds it.
+
+You need the **Manage templates** permission (`templates.manage`) to edit a layout, and
+rendered delivery turned on: layouts are edited on your site's real theme output.
+
+## What a layout is
+
+A layout is a list of blocks, like a page's. Two kinds of block go in it:
+
+- **The blocks you already use** — headings, containers, buttons, images, forms — with their
+  settings and style classes. They are the same on every post.
+- **Fields blocks**, which show the current post's own data: its title, its date, its cover, a
+  field's value. They hold settings (which field, what format), never the data. On a post they
+  show that post's values.
+
+One **Entry content** block places the post's own content — the blocks of its body — and every
+layout has one where the type has a blocks body. The post's content is still edited on the post.
+
+Every content type the site publishes can have a layout for its single pages. A type without
+one shows its pages through the theme's template, as before.
+
+## Open a layout
+
+1. Open **Site › Layouts**. Each row is a page kind, such as **Posts — single post**, marked
+   **Theme template** or **Custom layout**.
+2. Choose **Edit** on the row.
+
+The editor opens on a stage: the layout, drawn around one of the type's published posts. A type
+with no layout yet opens on a starter built from its fields — for posts, the categories, the
+title, the date, the excerpt, the cover, the content and related posts; for a type with only a
+title and a body, those two.
+
+## Place the post's fields
+
+The **Blocks** tab lists the **Fields** first. Drag one onto the stage, or select a block and
+click a tile to add it after:
+
+| Block | Shows | Settings |
+|---|---|---|
+| **Entry title** | the title | **level** (h1 to h4), **Link to the entry** |
+| **Entry date** | when it was published | **format** (long, short, relative), **prefix** |
+| **Entry cover** | an image field, such as the cover | **Image field**, **aspect** (natural, 16:9, 4:3, 1:1), **Link to the entry** |
+| **Entry excerpt** | a short text field, as the lead | **Text field**, **Lines at most** |
+| **Entry terms** | a reference field's terms, such as categories | **Reference field**, **style** (text or badges), **Link to their archives** |
+| **Entry field** | any other field | **Field**, **format** (text, rich, number, date) |
+| **Entry content** | the post's own content | **Blocks field** (the body when left empty) |
+| **Previous and next** | the posts either side of this one, by date | **previous label**, **next label** |
+| **Related entries** | the newest other posts of the type | **count** (one to six), **style** (list or cards) |
+
+A field block names a field of the type. A field that is empty on a post shows nothing on the
+site; on the stage it says so, so an empty cover is still something you can select and move.
+Terms link to their archive pages only where the site lists the type; otherwise they show as
+text, so no link ever leads to a missing page.
+
+Select any block on the stage to open its **Block** tab — its settings, its style and its
+classes — as on any page. The post's own content inside **Entry content** is not part of the
+layout: it does not select, and it changes with the sample.
+
+## The page around the layout
+
+The **Frame** tab sets, for every post of the type, the page's **Width** (the theme default,
+contained or full width), **Show the header** and **Show the footer**. A post's own page settings win
+where it sets them: a post that hides its footer hides it under any layout.
+
+## Preview against another post
+
+The picker in the top bar lists the type's published posts, newest first; the stage shows the
+layout around the one you choose. Your unsaved changes come with you. With nothing published
+yet, the stage shows a placeholder post — "Sample post", today's date, no cover — and says so;
+nothing is written. If the post you are previewing is unpublished while you work, the stage
+falls back to the placeholder and your changes stay.
+
+## Save, and what it changes
+
+**Save** applies the layout to every post of the type at once, and says so beside the button
+("Applies to every post"). Pages are refreshed as soon as it is saved.
+
+A layout must keep its **Entry content** block for the body: deleting it is refused with the
+reason, and Save stays off while it is missing. Move it instead.
+
+If someone else saved the layout while you worked, Save shows **Changed by someone else** with
+**Reload**. Reload discards your unsaved changes and opens theirs; there is no overwrite.
+
+The menu beside Save has **Reset to starter**, which puts the starter back as one change Undo
+takes back.
+
+## Remove a layout
+
+**Remove layout**, in the same menu, returns every post of the type to the theme's template. It
+asks first: your unsaved changes are discarded. Afterwards the editor goes back to **Site ›
+Layouts**, and the row reads **Theme template**. Editing it again opens the starter.
+
+## Let one post use the theme's template
+
+A single post can opt out: on its **Design** view, open the **Page** tab and choose **Theme
+template** under **Design**. That post renders through the theme's template as if its type had
+no layout. **Type layout** puts it back. The site's front page, at `/`, never uses a layout; the
+same entry opened at its own address does.
+
+## What a post's Design view shows
+
+A post of a type with a layout is shown inside it on its own **Design** view. A strip above the
+stage names the layout, with **Edit layout** to open it. The post's blocks are edited as always;
+the layout's blocks are not selectable there. **Show page title** does not apply under a layout —
+the layout places the title — and the **Page** tab says so.
+
+## When the content type changes
+
+Renaming a field moves the layouts that show it. Deleting a field a layout shows is refused, and
+the refusal names the layout: change the layout first. Deleting the content type removes its
+layout.
+
+## Check it worked
+
+Open a published post of the type on the site. It shows the layout: the blocks you placed, with
+that post's title, date and content in them. Open **Site › Layouts**: the row reads **Custom
+layout**, with when it was saved.

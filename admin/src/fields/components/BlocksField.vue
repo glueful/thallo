@@ -11,6 +11,7 @@ import { useBlockFactory } from '@/queries/blockFactory'
 import { useNotify } from '@/composables/useNotify'
 import { MAX_BLOCK_DEPTH } from '@/queries/blockTypes'
 import type { BlockType } from '@/queries/blockTypes'
+import { visibleTypes } from '@/editor/palette/order'
 import { BlocksContextKey, type BlocksContext } from './blocks/context'
 import { createBlockListOps, newBlockId, type BlockInstance } from './blocks/useBlockListOps'
 import { defaultProseType } from './blocks/proseDetection'
@@ -28,6 +29,8 @@ const props = defineProps<{
   paletteInsert?: boolean
   /** The host shows a block's settings beside this list: every card offers Block settings. */
   blockSettings?: boolean
+  /** The pickers offer the Fields blocks (`layout_only`): only a layout's editor sets it. */
+  allowLayoutOnly?: boolean
 }>()
 const emit = defineEmits<{
   select: [id: string, modifiers: { shift: boolean; meta: boolean }]
@@ -122,8 +125,8 @@ function pickerTypesForList(parentId: string | null, region: string | null): Blo
     const regionField = parentType?.schema.find((f) => f.name === region)
     allowed = (regionField ? toFieldDef(regionField).blockTypes : undefined) ?? []
   }
-  return (allTypes.value ?? []).filter(
-    (t) => t.active && (allowed.length === 0 || allowed.includes(t.slug)),
+  return visibleTypes(allTypes.value ?? [], props.allowLayoutOnly === true).filter(
+    (t) => allowed.length === 0 || allowed.includes(t.slug),
   )
 }
 

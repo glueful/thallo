@@ -20,8 +20,15 @@ interface FormSealer
      *
      * @param array<string,mixed> $block  The block instance {id,type,data}.
      * @param array<string,mixed>|null $entry
+     * @param string|null $layoutSource `{surface}:{target}` for a layout's own form (type layouts spec §5.6)
      */
-    public function describe(array $block, ?array $entry, ?string $currentPath, ?string $regionSlug): ?object;
+    public function describe(
+        array $block,
+        ?array $entry,
+        ?string $currentPath,
+        ?string $regionSlug,
+        ?string $layoutSource = null,
+    ): ?object;
 
     /** Open a token at submit time. Null when tampered, malformed, or expired. Returns a FormDescriptor. */
     public function open(string $token): ?object;

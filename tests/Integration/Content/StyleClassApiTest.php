@@ -200,7 +200,8 @@ final class StyleClassApiTest extends AppTestCase
 
         $usage = $this->json($this->api()->usage($this->req(), $band['id']))['data']['usage'];
         self::assertSame(
-            ['entry_drafts' => 1, 'entry_published' => 1, 'entry_versions' => 1, 'regions' => 1],
+            ['entry_drafts' => 1, 'entry_published' => 1, 'entry_versions' => 1, 'regions' => 1, 'saved_sections' => 0,
+                'layouts' => 0],
             $usage['by_source'],
         );
         self::assertSame(4, $usage['references']);

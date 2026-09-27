@@ -107,7 +107,33 @@ final class RenderController
         private readonly ?ContentTypeReader $contentTypes = null,
         /** The header & footer stage's session snapshots (regions-stage spec §4.4); null = no stage. */
         private ?\Thallo\Contracts\Delivery\RegionStageSnapshots $regionStage = null,
+        /** Type layouts (spec §7.2); null = no layouts, every entry renders through the theme. */
+        private readonly ?\Thallo\Contracts\Layouts\LayoutReader $layouts = null,
+        /** The layout stage's session snapshots (type layouts spec §5.4); null = no stage. */
+        private readonly ?\Thallo\Contracts\Layouts\LayoutStageSnapshots $layoutSnapshots = null,
+        /** What each layout surface renders against (its frame, its placeholder sample). */
+        private readonly ?\Thallo\Contracts\Layouts\LayoutSurfaceRegistry $layoutSurfaces = null,
     ) {
+    }
+
+    /** The layout stage's session reader while it renders, else null: {@see layoutStage()}. */
+    private ?\Thallo\Contracts\Layouts\LayoutReader $layoutOverride = null;
+
+    /**
+     * The layout an entry renders through (type layouts spec §7.2): its type's, unless the page opts
+     * out (`_presentation.use_layout: false`). The homepage route never asks.
+     *
+     * @param array<string,mixed>|null $presentation the raw per-page _presentation
+     * @return array<string,mixed>|null the layout, with its surface and target
+     */
+    private function layoutFor(string $typeSlug, ?array $presentation): ?array
+    {
+        $reader = $this->layoutOverride ?? $this->layouts;
+        if ($reader === null || $typeSlug === '' || ($presentation['use_layout'] ?? true) === false) {
+            return null;
+        }
+        $layout = $reader->for('entry', $typeSlug);
+        return $layout === null ? null : $layout + ['surface' => 'entry', 'target' => $typeSlug];
     }
 
     /**
@@ -402,6 +428,9 @@ final class RenderController
         $session = $this->sessionVerifier?->verify($token);
         // The header & footer stage (regions-stage spec §4.4): a session of the other kind renders
         // a published page with the chrome from its snapshot — never the entry path below.
+        if ($session !== null && $session->kind === PreviewSession::KIND_LAYOUT) {
+            return $this->layoutStage($session, $canvas);
+        }
         if ($session !== null && !$session->isEntry()) {
             return $this->regionsStage($session, $canvas);
         }
@@ -429,7 +458,16 @@ final class RenderController
             $template = $candidate !== '' && ($env ?? $this->twig())->getLoader()->exists($candidate)
                 ? $candidate
                 : 'entry.twig';
+            // The Design view shows the entry inside its layout (type layouts spec §6.3): the
+            // layout inert around the body, which stays the entry's own root list.
+            $layout = $this->layoutFor($typeSlug, $result['presentation'] ?? null);
+            if ($layout !== null) {
+                $template = 'layouts/entry.twig';
+            }
             $response = $this->render($template, $locale, $entry, 200, [
+                'layout' => $layout,
+                'type' => $typeSlug,
+                'type_listing' => is_array($result['type_listing'] ?? null) ? $result['type_listing'] : null,
                 'preview' => true,
                 'preview_bar' => $session !== null
                     ? $this->previewBar($session->entry, $typeSlug, $locale)
@@ -437,6 +475,7 @@ final class RenderController
                 'presentation' => $this->presentationContext(
                     $typeSlug !== '' ? $typeSlug : null,
                     $result['presentation'] ?? null,
+                    $layout['settings'] ?? null,
                 ),
                 // The accepted working-copy pair (visual builder spec §3.5) on <main>, with the
                 // generation of the style class snapshot this request renders from (spec §4.3).
@@ -493,6 +532,82 @@ final class RenderController
      * picked page's PUBLISHED version as the body, untagged; the placeholder body when there is no
      * page; the expired page when the session's records are gone. Never the live rows.
      */
+    /**
+     * The layout stage (type layouts spec §5.4): the session's layout — its working copy, else its
+     * baseline — rendered in the surface's frame around a published sample, or around a placeholder
+     * built in memory when there is none (or the sample has gone). In `layout` scope the layout's
+     * own blocks are selectable and the sample's content is not.
+     */
+    private function layoutStage(PreviewSession $session, bool $canvas): Response
+    {
+        $this->annotationScope = $canvas ? 'layout' : 'none';
+        $this->appearanceSession = null;
+        $snapshot = $session->session !== null ? $this->layoutSnapshots?->snapshot($session->session) : null;
+        if ($snapshot === null || $snapshot['retired']) {
+            $response = $this->render('layout-session-ended.twig', $this->defaultLocale(), null, 200, [
+                'retired' => $snapshot['retired'] ?? false,
+            ]);
+        } else {
+            $this->layoutOverride = new \Thallo\Render\Layouts\LayoutSessionReader($snapshot, $this->layouts);
+            try {
+                $response = $this->layoutSample($snapshot, $canvas);
+            } finally {
+                $this->layoutOverride = null;
+            }
+        }
+        $response->headers->remove('Cache-Tag');
+        $response->headers->set('Cache-Control', 'no-store');
+        $response->headers->set('X-Robots-Tag', 'noindex');
+        return $this->withPreviewBridge($response);
+    }
+
+    /**
+     * One render of the layout stage: the sample when it is still published and of the target type,
+     * else the surface's placeholder (which writes nothing).
+     *
+     * @param array<string,mixed> $snapshot
+     */
+    private function layoutSample(array $snapshot, bool $canvas): Response
+    {
+        $target = (string) $snapshot['target'];
+        $surface = $this->layoutSurfaces?->get((string) $snapshot['surface']);
+        $layout = $snapshot['layout'] + [
+            'lock_version' => $snapshot['lock_version'],
+            'surface' => $snapshot['surface'],
+            'target' => $target,
+        ];
+        $revision = $snapshot['epoch'] === null ? null : [
+            'epoch' => $snapshot['epoch'],
+            'revision' => $snapshot['revision'],
+            'style_generation' => $this->extension->styleSnapshotGeneration(),
+        ];
+        $result = is_string($snapshot['sample']) ? $this->resolver->resolveEntry($snapshot['sample']) : [];
+        $published = ($result['kind'] ?? null) === 'content' && ($result['type'] ?? null) === $target;
+        $extra = [
+            'layout' => $layout,
+            'type' => $target,
+            'type_listing' => $published && is_array($result['type_listing'] ?? null) ? $result['type_listing'] : null,
+            'presentation' => $this->presentationContext(
+                $target,
+                $published ? ($result['presentation'] ?? null) : null,
+                $layout['settings'],
+            ),
+            'preview_revision' => $revision,
+        ];
+        if (!$published) {
+            // The label names the surface's items ("Posts — single post"): the notice says what is missing.
+            $items = mb_strtolower(explode(' — ', $surface?->label($target) ?? 'items')[0]);
+            $extra['layout_placeholder'] = $canvas ? "No published {$items} yet — showing a placeholder" : null;
+        }
+        return $this->render(
+            $surface?->frame() ?? 'layouts/entry.twig',
+            $published ? (string) $result['locale'] : $this->defaultLocale(),
+            $published ? $result['content'] : ($surface?->placeholder($target) ?? ['fields' => []]),
+            200,
+            $extra,
+        );
+    }
+
     private function regionsStage(PreviewSession $session, bool $canvas): Response
     {
         $this->annotationScope = $canvas ? 'regions' : 'none';
@@ -530,10 +645,20 @@ final class RenderController
                     $template = $candidate !== '' && $this->twig()->getLoader()->exists($candidate)
                         ? $candidate
                         : 'entry.twig';
+                    // The page as the site serves it: through its type's layout when it has one
+                    // (type layouts spec §7.2); on this stage the layout is as inert as the body.
+                    $layout = $this->layoutFor($typeSlug, $result['presentation'] ?? null);
+                    if ($layout !== null) {
+                        $template = 'layouts/entry.twig';
+                    }
                     $response = $this->render($template, (string) $result['locale'], $result['content'], 200, [
+                        'layout' => $layout,
+                        'type' => $typeSlug,
+                        'type_listing' => is_array($result['type_listing'] ?? null) ? $result['type_listing'] : null,
                         'presentation' => $this->presentationContext(
                             $typeSlug !== '' ? $typeSlug : null,
                             $result['presentation'] ?? null,
+                            $layout['settings'] ?? null,
                         ),
                         'preview_revision' => $revision,
                     ]);
@@ -859,9 +984,16 @@ final class RenderController
         $template = $candidate !== '' && ($env ?? $this->twig())->getLoader()->exists($candidate)
             ? $candidate
             : 'entry.twig';
+        // A layout wins over the hierarchy while it exists (type layouts spec §7.2).
+        $layout = $this->layoutFor($typeSlug, $result['presentation'] ?? null);
+        if ($layout !== null) {
+            $template = 'layouts/entry.twig';
+            $extra['layout'] = $layout;
+        }
         $extra['presentation'] = $this->presentationContext(
             $typeSlug !== '' ? $typeSlug : null,
             $result['presentation'] ?? null,
+            $layout['settings'] ?? null,
         );
         // The entry's type, as listing and archive templates already get it: a template that
         // navigates its type (a docs sidebar, entry_tree(type)) need not be named after one.
@@ -884,6 +1016,11 @@ final class RenderController
         $response = $this->render($template, $locale, $entry, 200, $extra, $env, $assetBase, $assetsDir);
         $this->tagResponse($response, $entry ?? [], $typeSlug);
         $this->mergeCacheTags($response, array_values(array_map('strval', (array) ($result['cache_tags'] ?? []))));
+        // Every entry page carries its type's layout tag, layout or not (spec §7.4): a first save
+        // purges pages cached through the theme's template, a removal those cached through the layout.
+        if ($typeSlug !== '') {
+            $this->mergeCacheTags($response, ["thallo:layout:entry:{$typeSlug}"]);
+        }
         return $response;
     }
 
@@ -1013,20 +1150,29 @@ final class RenderController
      *
      * `style_classes` is the page's own style frame (PageStyle) as utility classes for <main>.
      *
+     * A type layout's Frame sits between the page and the theme (type layouts spec §6.4): the page's
+     * own setting wins where it sets one; the layout's wins over the theme's.
+     *
      * @param array<string,mixed>|null $override the raw per-page _presentation
+     * @param array<string,mixed>|null $frame the layout's Frame settings (width, header, footer)
      * @return array{show_title: bool, layout: string, header: string, footer: string, style_classes: string}
      */
-    private function presentationContext(?string $typeSlug, ?array $override): array
+    private function presentationContext(?string $typeSlug, ?array $override, ?array $frame = null): array
     {
         $settings = $this->themes?->settings() ?? [];
         $type = $typeSlug !== null && is_array($settings['types'][$typeSlug] ?? null)
             ? $settings['types'][$typeSlug]
             : [];
-        $layout = $override['layout'] ?? $type['layout'] ?? $settings['layout'] ?? 'centered';
+        $width = match ($frame['width'] ?? null) {
+            'full' => 'full',
+            'contained' => 'centered',
+            default => null,
+        };
+        $layout = $override['layout'] ?? $width ?? $type['layout'] ?? $settings['layout'] ?? 'centered';
         // Chrome suppression (global-regions spec §7): anything but the exact
         // 'hidden' composes to 'default' — future variant values degrade safely.
-        $header = $override['header'] ?? $type['header'] ?? $settings['header'] ?? 'default';
-        $footer = $override['footer'] ?? $type['footer'] ?? $settings['footer'] ?? 'default';
+        $header = $override['header'] ?? $frame['header'] ?? $type['header'] ?? $settings['header'] ?? 'default';
+        $footer = $override['footer'] ?? $frame['footer'] ?? $type['footer'] ?? $settings['footer'] ?? 'default';
         return [
             'show_title' => (bool) ($override['show_title'] ?? $type['show_title'] ?? $settings['show_title'] ?? true),
             'layout' => $layout === 'full' ? 'full' : 'centered',

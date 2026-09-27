@@ -489,6 +489,15 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
             $container->has(\Thallo\Contracts\Delivery\RegionStageSnapshots::class)
                 ? $container->get(\Thallo\Contracts\Delivery\RegionStageSnapshots::class)
                 : null,
+            $container->has(\Thallo\Contracts\Layouts\LayoutReader::class)
+                ? $container->get(\Thallo\Contracts\Layouts\LayoutReader::class)
+                : null,
+            $container->has(\Thallo\Contracts\Layouts\LayoutStageSnapshots::class)
+                ? $container->get(\Thallo\Contracts\Layouts\LayoutStageSnapshots::class)
+                : null,
+            $container->has(\Thallo\Contracts\Layouts\LayoutSurfaceRegistry::class)
+                ? $container->get(\Thallo\Contracts\Layouts\LayoutSurfaceRegistry::class)
+                : null,
         );
     }
 
@@ -512,6 +521,9 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
             (bool) config($context, 'render.fragments.enabled', false),
             (bool) config($context, 'app.debug', false),
             $container->get(\Psr\Log\LoggerInterface::class),
+            $container->has(\Thallo\Contracts\Layouts\LayoutReader::class)
+                ? $container->get(\Thallo\Contracts\Layouts\LayoutReader::class)
+                : null,
         );
     }
 

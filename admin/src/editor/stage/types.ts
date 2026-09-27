@@ -25,6 +25,11 @@ export interface ApplyPreviewResult extends RevisionPair {
   applied_at: string
   /** Root block id => rendered wrapper (the fragment path, spec §3.5); null = refresh the page. */
   fragments: Record<string, string> | null
+  /**
+   * The layout the accepted document renders through (type layouts spec §6.3), or null; absent
+   * where the host has no layouts (the header & footer, a layout's own stage).
+   */
+  layout?: { surface: string; target: string; label: string } | null
 }
 
 /** A preview session the stage loads: its token, its iframe URL and the pair it has accepted. */
@@ -70,6 +75,13 @@ export interface StageHost {
    * (the Design page hides the theme's title above a page that opens with its own h1).
    */
   pageInsert?(blocks: BlockInstance[]): { ops: OperationBody[]; after?: () => void } | null
+  /** The palette offers the Fields blocks (`layout_only`): only a layout's editor sets it. */
+  allowLayoutOnly?: boolean
+  /**
+   * Told of every ACCEPTED apply — a response the editor kept after its epoch/revision check, never
+   * one it dropped as out of date — so the page can follow what the accepted document is.
+   */
+  onAccepted?(result: ApplyPreviewResult): void
 }
 
 /** What the page's FieldEditor exposes to the stage editor: the tree's single authority. */

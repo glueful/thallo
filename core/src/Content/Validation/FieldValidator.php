@@ -24,6 +24,12 @@ use Thallo\Core\Content\Style\SettingsValidator;
 
 final class FieldValidator
 {
+    /** True for the validator `forLayouts()` makes: field blocks are accepted. */
+    private bool $forLayouts = false;
+
+    /** @var list<string>|null field block slugs, read once per validate() call */
+    private ?array $layoutOnly = null;
+
     public function __construct(
         private readonly ?Connection $db = null,
         private readonly ?ApplicationContext $context = null,
@@ -57,6 +63,20 @@ final class FieldValidator
         return $this->sanitizer ??= new TipTapHtmlSanitizer();
     }
 
+    /** A validator for a layout's blocks: the one place field blocks are accepted (type layouts spec §5.6). */
+    public function forLayouts(): self
+    {
+        $copy = clone $this;
+        $copy->forLayouts = true;
+        return $copy;
+    }
+
+    /** @return list<string> the field block slugs; none known without a block-type repository */
+    private function layoutOnlySlugs(): array
+    {
+        return $this->layoutOnly ??= $this->blockTypes()?->layoutOnlySlugs() ?? [];
+    }
+
     /**
      * Validate a fields payload against a content type schema.
      * Returns the cleaned payload (known fields only, in schema order).
@@ -72,6 +92,7 @@ final class FieldValidator
      */
     public function validate(ContentTypeSchema $schema, array $payload, bool $strict = false): array
     {
+        $this->layoutOnly = null; // block types can change between two saves: read them per save
         // Reserved system key (modern-default-theme spec §5a): _presentation is
         // draft/version PRESENTATION state — validated against a fixed
         // vocabulary regardless of the content type's schema, re-attached to
@@ -142,7 +163,7 @@ final class FieldValidator
     }
 
     /**
-     * The fixed _presentation vocabulary: show_title (bool), layout
+     * The fixed _presentation vocabulary: show_title (bool), use_layout (bool — type layouts), layout
      * ('full'|'centered'), header/footer ('default'|'hidden' — global-regions
      * spec §7; 'variant:{slug}' is future vocabulary, rejected today), and style —
      * the page's own style frame (padding, margin, background), validated exactly
@@ -171,6 +192,12 @@ final class FieldValidator
                     throw new ValidationException(['_presentation.layout' => "must be 'full' or 'centered'"]);
                 }
                 $clean['layout'] = $subValue;
+            } elseif ($key === 'use_layout') {
+                // Type layouts spec §6.5: false renders the theme's template, as if the type had none.
+                if (!is_bool($subValue)) {
+                    throw new ValidationException(['_presentation.use_layout' => 'must be a boolean']);
+                }
+                $clean['use_layout'] = $subValue;
             } elseif ($key === 'header' || $key === 'footer') {
                 if (!in_array($subValue, ['default', 'hidden'], true)) {
                     throw new ValidationException(["_presentation.{$key}" => "must be 'default' or 'hidden'"]);
@@ -530,6 +557,12 @@ final class FieldValidator
             $type = $block['type'] ?? null;
             if (!is_string($type) || !isset($schemas[$type])) {
                 $errors[$path] = 'unknown block type' . (is_string($type) ? " '{$type}'" : '');
+                continue;
+            }
+            // Field blocks belong to layouts (type layouts spec §5.6): refused in entries, regions
+            // and saved sections — the server's rule, not only the palette's.
+            if (!$this->forLayouts && in_array($type, $this->layoutOnlySlugs(), true)) {
+                $errors[$path] = "'{$type}' belongs to layouts";
                 continue;
             }
             // Opt-in hard enforcement (default stays picker-only): reject a registered type

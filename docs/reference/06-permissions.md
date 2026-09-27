@@ -54,7 +54,7 @@ the capabilities a workspace role can hold.
 |---|---|
 | `navigation.manage` | Menus: listing, creating, reading, renaming, reordering and deleting one, and setting its items. |
 | `seo.manage` | Reading and writing an entry's SEO meta. |
-| `templates.manage` | The theme editor: listing templates, reading, writing and deleting one, its version history and restoring a version, and creating a theme. |
+| `templates.manage` | The theme editor: listing templates, reading, writing and deleting one, its version history and restoring a version, and creating a theme. **Site › Layouts**: opening a layout's editor, its samples, applying, saving and removing a layout. The list of layouts needs only `content.view`. |
 | `styles.manage` | Creating, changing and deleting a style class, and starting a detach-everywhere or remove-everywhere job on one. |
 
 ### Operations

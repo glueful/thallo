@@ -5,6 +5,51 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.67] - 2026-09-27 — Developer Preview
+
+Layouts for content types — design every post of a type at once, with the post's title, date,
+cover, fields and content placed on the stage — the Design view showing a post inside its layout,
+the changelog as a page of the docs, and one form across the site for a form in the header or
+footer. Migrations `036` and `037`; run `thallo:provision` on an existing site for the Fields
+blocks.
+
+### Added
+- **Layouts for content types.** Design every page of a kind at once: **Site › Layouts** lists each
+  content type's single post, and **Edit** opens it on the stage, around one of its published
+  posts (or a placeholder while there are none). Place the post's own **title**, **date**,
+  **cover**, **excerpt**, **categories** and any other field with the new **Fields** blocks, put
+  the post's content where it belongs with **Entry content**, add **Previous and next** and
+  **Related entries**, and style the lot with the blocks and classes you already use. The **Frame**
+  tab sets the width and whether the header and footer show. **Save** applies to every post of the
+  type at once — the reach says so beside the button; someone else's save shows **Changed by
+  someone else** with **Reload**. **Remove layout** returns every post to the theme's design.
+  Editing layouts needs the **Manage templates** permission. Renaming a field moves the layouts
+  that show it; deleting a field a layout shows is refused, naming the layout. Migration `037` adds
+  the `layouts` table; on an existing site, `thallo:provision` adds the nine Fields blocks — until
+  it runs, a layout cannot place them.
+- **The changelog is a page of the docs**, at `/docs/changelog` under Reference: every released
+  version, word for word, without the work in progress under [Unreleased]. Each release's cut
+  refreshes it (`php scripts/sync-docs-changelog`), and a test fails while it is behind.
+
+### Changed
+- **The Design view shows a post inside its type's layout.** A strip above the stage names the
+  layout, with **Edit layout** beside it; the post's own blocks are edited as before, and the
+  layout's are edited on its own page. **Page › Design** chooses **Type layout** or **Theme
+  template** for this one page, and the view follows the choice as soon as the stage accepts it.
+  **Show page title** does not apply under a layout — the layout places the title — and the Page
+  tab says so instead. The **Header & footer** page shows its sample page through its type's layout
+  too, as the site serves it.
+
+### Fixed
+- **A form in the header or footer is one form across the site.** It used to count as a separate
+  form on each page it appeared on, so the Submissions menu listed it once per page. Submissions
+  sent before keep their grouping. A form in a page's content is still that page's form.
+- **Saved sections now follow block and style-class changes.** A block type's migration rewrites
+  saved sections, as it does pages and the header and footer; a style class's usage counts them;
+  and **Detach everywhere** and **Remove everywhere** reach them. Saving a section that applies an
+  archived class, or one a job is rewriting, is refused as a page save is. Migration `036` adds a
+  version to saved sections so these writes never overwrite a rename made meanwhile.
+
 ## [1.0.0-beta.66] - 2026-09-26 — Developer Preview
 
 A Map block — your address on a Google map, with directions and no API key, and an option to load

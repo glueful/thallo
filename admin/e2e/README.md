@@ -37,6 +37,13 @@ What is proven, in Chromium:
 - `layout-mode-switch` (container-layout §5) — the Layout tab reads the mode a container is really
   in, a switch writes the settings the contract expects at the breakpoint being edited, and the
   tracks survive the switch while the tab discloses that they are unused.
+- `layout-stage` (type layouts §6.2) — the post layout on its stage around a published post: the
+  title selects and the post's own body does not; an Entry date dragged from the Blocks tab (the
+  Fields lead) lands after the title; a save made after someone else's shows the conflict, and
+  Reload opens theirs.
+- `design-under-layout` (type layouts §6.3) — a page whose type has a layout, on its Design view:
+  the strip names the layout; the layout's own heading renders around the body and selects
+  nothing; a body block selects as always; an accepted edit reloads the stage whole (no fragments).
 - `structure-picker` (container-layout §6) — a container inserted from the Blocks tab is offered
   its presets; a choice commits every operation as one transaction and undo and redo treat the
   preset as one thing; a preset too deep for its destination is offered disabled with its reason;

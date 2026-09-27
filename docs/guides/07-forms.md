@@ -105,6 +105,20 @@ any field the form did not declare is dropped.
 
 The screen and its API need the `content.manage` permission.
 
+### Which form a submission belongs to
+
+The form menu groups submissions by form, and where a form sits decides which form it is:
+
+- **A form in a page's content** is that page's form. The same block on two pages is two forms.
+- **A form in the header or footer** is one form across the whole site, whichever page a visitor
+  sent it from. **Submitted from** still names that page.
+- **A form in a content type's layout** is one form across every page of that type: a newsletter
+  form in the Posts layout collects every post's sign-ups together.
+
+Earlier releases counted a header or footer form as a separate form on each page it appeared on.
+Submissions sent then keep that grouping; new ones group under the site, once the page a visitor
+sends from has been rendered by this release.
+
 ## Export the submissions as CSV
 
 **Export CSV** downloads `form-submissions.csv` with the form and status filters you are looking

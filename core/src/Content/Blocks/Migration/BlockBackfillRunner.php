@@ -11,6 +11,8 @@ use Thallo\Core\Content\Blocks\Sources\DocumentRef;
 use Thallo\Core\Content\Blocks\Sources\EntryDraftsSource;
 use Thallo\Core\Content\Blocks\Sources\PublishedEntriesSource;
 use Thallo\Core\Content\Blocks\Sources\RegionsSource;
+use Thallo\Core\Content\Blocks\Sources\LayoutsSource;
+use Thallo\Core\Content\Blocks\Sources\SavedSectionsSource;
 use Thallo\Core\Content\Schema\Migration\MigrationOpSet;
 use Glueful\Cache\CacheStore;
 use Glueful\Database\Connection;
@@ -68,7 +70,8 @@ final class BlockBackfillRunner
 
         // Every block-bearing document a migration rewrites (visual builder plan A4.4): drafts,
         // the published version (append-and-repin — older versions keep their era for the restore
-        // projection) and the regions, each persisted only while it is still what was read.
+        // projection), the regions, the saved sections and the layouts, each persisted only while it
+        // is still what was read.
         $actor = $migration['created_by'] === null ? null : (string) $migration['created_by'];
         $touchedTypeSlugs = [];
         $this->migrationSources()->each(function (
@@ -104,7 +107,13 @@ final class BlockBackfillRunner
     /** The sources a migration rewrites; the registry may hold more (the converter's). */
     private function migrationSources(): BlockDocumentSources
     {
-        return $this->sources->only(EntryDraftsSource::ID, PublishedEntriesSource::ID, RegionsSource::ID);
+        return $this->sources->only(
+            EntryDraftsSource::ID,
+            PublishedEntriesSource::ID,
+            RegionsSource::ID,
+            SavedSectionsSource::ID,
+            LayoutsSource::ID,
+        );
     }
 
     private function process(

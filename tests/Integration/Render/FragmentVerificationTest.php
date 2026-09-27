@@ -342,4 +342,49 @@ final class FragmentVerificationTest extends AppTestCase
         self::assertNull($fragments(true)->render($page['token'], $title, $before, $after, ['body']));
         self::assertNull($fragments(true)->render($page['token'], $ops, null, $after, ['body']), 'no accepted-before');
     }
+
+    /** Type layouts spec §6.3: an entry under a layout refreshes whole — no fragments, as without one. */
+    public function testAnEntryUnderALayoutAnswersNoFragments(): void
+    {
+        $body = $this->fixtures()['nested tabs'];
+        $page = $this->page('under a layout', $body);
+        $store = $this->container()->get(PreviewWorkingCopyStore::class);
+        $before = ['title' => 'under a layout', 'body' => $body];
+        $after = $before;
+        $after['body'][0]['data']['items'][0]['data']['label'] = 'Renamed';
+        $ops = [['type' => 'SetField', 'block' => 'tab000000001', 'field' => 'label']];
+        self::assertTrue($store->accept($page['entry'], 'en', null, null, $before, [], 300)['accepted']);
+        $epoch = $store->current($page['entry'], 'en')['epoch'];
+        self::assertTrue($store->accept($page['entry'], 'en', $epoch, 1, $after, $ops, 300)['accepted']);
+
+        $fragments = fn (): PreviewFragments => new PreviewFragments(
+            $this->container()->get(PublicRouteResolver::class),
+            $this->container()->get(PreviewSessionVerifier::class),
+            $this->container()->get(BlockStyleRegistry::class),
+            $this->container()->get(TwigFactory::class),
+            $this->container()->get(FragmentRenderer::class),
+            new FragmentVerification(),
+            'default',
+            true,
+            layouts: $this->container()->get(\Thallo\Contracts\Layouts\LayoutReader::class),
+        );
+        self::assertNotNull($fragments()->render($page['token'], $ops, $before, $after, ['body']), 'no layout yet');
+
+        $repo = $this->container()->get(\Thallo\Core\Content\Layouts\LayoutRepository::class);
+        $layout = [
+            ['id' => 'laybody00001', 'type' => 'entry_content', 'data' => ['field' => 'body'], 'settings' => []],
+        ];
+        $this->container()->get(\Thallo\Core\Content\Layouts\LayoutWriteLock::class)->within(
+            'entry',
+            'page',
+            fn (): int => $repo->saveExpected('entry', 'page', $layout, [], 0, null),
+        );
+        $resolver = $this->container()->get(\Thallo\Core\Content\Layouts\LayoutResolver::class);
+        $resolver->forget('entry', 'page');
+        try {
+            self::assertNull($fragments()->render($page['token'], $ops, $before, $after, ['body']));
+        } finally {
+            $resolver->forget('entry', 'page');
+        }
+    }
 }

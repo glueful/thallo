@@ -18,4 +18,12 @@ interface EntryListReader
      * @return array{items: list<array<string,mixed>>, cache_tags: list<string>}
      */
     public function list(string $type, array $opts, string $locale): array;
+
+    /**
+     * The published entries of a type either side of one, by publish date (type layouts spec §4):
+     * `previous` the older, `next` the newer — list-shaped items (with `href`), null where none.
+     *
+     * @return array{previous: ?array<string,mixed>, next: ?array<string,mixed>, cache_tags: list<string>}
+     */
+    public function neighbours(string $type, string $uuid, string $locale): array;
 }

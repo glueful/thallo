@@ -36,6 +36,8 @@ export interface StyleClassUsage {
     entry_published: number
     entry_versions: number
     regions: number
+    saved_sections: number
+    layouts: number
   }
   active: number
   dormant: number

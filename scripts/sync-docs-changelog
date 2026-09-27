@@ -1,0 +1,37 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Refresh docs/reference/08-changelog.md — the changelog as a page of the docs, /docs/changelog —
+ * from CHANGELOG.md: every released section word for word, without [Unreleased] (work in progress)
+ * and without the `# Changelog` heading (the page's title is its front matter), its links into the
+ * docs made relative to the page. Run it in every
+ * release's changelog cut; tests/Unit/Docs/ChangelogPageTest.php fails while the page is behind.
+ *
+ *   php scripts/sync-docs-changelog
+ */
+
+declare(strict_types=1);
+
+$root = dirname(__DIR__);
+$changelog = (string) file_get_contents($root . '/CHANGELOG.md');
+$released = (string) preg_replace('~^## \[Unreleased\][^\n]*\n.*?(?=^## \[)~ms', '', $changelog);
+$released = trim((string) preg_replace('~\A\s*# [^\n]*\n~', '', $released));
+// CHANGELOG.md links into the docs from the project root (`docs/upgrading.md`); from the page's
+// place in docs/reference/ the same file is `../upgrading.md`, which the import makes a link.
+$released = str_replace('](docs/', '](../', $released);
+
+$page = <<<MD
+---
+title: "Changelog"
+slug: changelog
+section: reference
+order: 8
+summary: "What changed in each release of Thallo, newest first."
+---
+{$released}
+
+MD;
+$target = $root . '/docs/reference/08-changelog.md';
+$changed = !is_file($target) || file_get_contents($target) !== $page;
+file_put_contents($target, $page);
+fwrite(STDOUT, $changed ? "docs/reference/08-changelog.md refreshed.\n" : "docs/reference/08-changelog.md was up to date.\n");

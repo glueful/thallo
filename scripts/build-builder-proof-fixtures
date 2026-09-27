@@ -12,8 +12,8 @@
  *
  *   DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-builder-proof-fixtures
  *
- * Writes admin/e2e/fixtures/canvas.html, admin/e2e/fixtures/api/*.json and, for the regions stage,
- * admin/e2e/fixtures/regions/ (gitignored).
+ * Writes admin/e2e/fixtures/canvas.html, admin/e2e/fixtures/api/*.json and, for the regions stage and
+ * the layout stage, admin/e2e/fixtures/regions/ and admin/e2e/fixtures/layouts/ (gitignored).
  */
 
 declare(strict_types=1);
@@ -425,5 +425,202 @@ try {
     // Written, and rolled back.
 }
 
+// ── The layout stage (type layouts plan L9) ───────────────────────────────────────────────────
+// A publicly delivered `post` type with one published post, and its layout saved once, then every
+// accepted state the proofs reach — authored once in admin/e2e/layouts-scenarios.json — rendered
+// through the real session → apply → preview path around that post. Each state must come out of
+// the validator unchanged. The seeding runs in one transaction that is rolled back.
+$layoutsOut = $out . '/layouts';
+if (!is_dir($layoutsOut) && !mkdir($layoutsOut, 0755, true)) {
+    fwrite(STDERR, "cannot create {$layoutsOut}\n");
+    exit(1);
+}
+$layoutScenarios = json_decode(
+    (string) file_get_contents($root . '/admin/e2e/layouts-scenarios.json'),
+    true,
+    512,
+    JSON_THROW_ON_ERROR,
+)['scenarios'];
+
+/** Thrown to roll the layout seeding back once its fixtures are written. */
+final class LayoutFixturesWritten extends RuntimeException
+{
+}
+
+try {
+    $db->transaction(static function () use ($container, $contentTypes, $entries, $layoutScenarios, $layoutsOut, $out, $canonical, $pageUuid, $entryUuid): void {
+        $context = TestApplication::instance()->getContext();
+        $db = $container->get(Glueful\Database\Connection::class);
+        $postType = $contentTypes->findBySlug('post')['uuid'] ?? $contentTypes->create([
+            'slug' => 'post', 'name' => 'Posts', 'public_delivery' => true, 'schema' => [
+                ['name' => 'title', 'type' => 'string', 'required' => true],
+                ['name' => 'body', 'type' => 'blocks'],
+            ],
+        ]);
+        $contentTypes->updateMeta((string) $postType, ['public_delivery' => true]);
+        $post = $contentTypes->findByUuid((string) $postType);
+        $publisher = new Thallo\Core\Content\Services\PublishService(
+            $context,
+            $entries,
+            new Thallo\Core\Content\Repositories\VersionRepository($db),
+            $contentTypes,
+            new Thallo\Core\Content\Validation\FieldValidator($db, $context, new BlockTypeRepository($db)),
+            new Thallo\Core\Content\Repositories\ReferenceProjectionRepository($db),
+        );
+        $sample = $entries->createEntry((string) $postType, 'en', (int) $post['schema_version'], null);
+        $entries->saveDraft($sample, 'en', ['title' => 'A sample post', 'body' => [
+            ['id' => 'e2epostbody1', 'type' => 'rich_text', 'data' => [
+                'body' => '<p>The post’s own words, inside the layout.</p>',
+            ], 'settings' => []],
+        ]], (int) $post['schema_version'], 0, null);
+        $container->get(Thallo\Core\Content\Repositories\RouteRepository::class)
+            ->assign($sample, (string) $postType, 'en', 'e2e-sample-post');
+        $publisher->publish($sample, 'en', null);
+
+        $factory = $container->get(Thallo\Core\Content\Blocks\BlockFactory::class);
+        $instances = [];
+        $expand = static function (array $blocks) use ($factory, &$instances): array {
+            $made = [];
+            foreach ($blocks as $block) {
+                if (isset($block['$factory'])) {
+                    $slug = (string) $block['$factory'];
+                    $built = $factory->make($slug) ?? throw new RuntimeException("no block type '{$slug}'");
+                    $instances[$slug] = ['block' => $built['block'], 'starter' => $built['starter']];
+                    $block = [
+                        'id' => $block['id'],
+                        'type' => $built['block']['type'],
+                        'data' => array_merge($built['block']['data'], $built['starter']),
+                        'settings' => $built['block']['settings'],
+                    ];
+                }
+                $made[] = $block;
+            }
+            return $made;
+        };
+
+        $validator = $container->get(Thallo\Core\Content\Layouts\LayoutValidator::class);
+        $documents = [];
+        foreach ($layoutScenarios as $scenario) {
+            $layout = $scenario['layout'];
+            $layout['blocks'] = $expand($layout['blocks']);
+            try {
+                $clean = $validator->validate('entry', 'post', $layout['blocks'], $layout['settings']);
+            } catch (Thallo\Core\Content\Validation\ValidationException $e) {
+                fwrite(STDERR, "layout scenario '{$scenario['name']}' is invalid: " . json_encode($e->errors()) . "\n");
+                exit(1);
+            }
+            if (json_encode($canonical($clean)) !== json_encode($canonical($layout))) {
+                fwrite(STDERR, "layout scenario '{$scenario['name']}' does not survive validation unchanged:\n  authored "
+                    . json_encode($canonical($layout)) . "\n  clean    " . json_encode($canonical($clean)) . "\n");
+                exit(1);
+            }
+            $documents[$scenario['name']] = $layout;
+        }
+
+        // The baseline is the saved layout, at version 1: the editor opens on it.
+        $repo = $container->get(Thallo\Core\Content\Layouts\LayoutRepository::class);
+        $container->get(Thallo\Core\Content\Layouts\LayoutWriteLock::class)->within(
+            'entry',
+            'post',
+            fn (): int => $repo->saveExpected('entry', 'post', $documents['baseline']['blocks'], [], 0, null),
+        );
+        $container->get(Thallo\Core\Content\Layouts\LayoutResolver::class)->forget('entry', 'post');
+
+        $write = static fn (string $name, string $body) => file_put_contents($layoutsOut . '/' . $name, $body);
+        $sessionOf = static function () use ($container, $sample): array {
+            $dto = (new Glueful\Validation\RequestDataHydrator())->hydrate(
+                Thallo\Core\Http\DTOs\LayoutSessionData::class,
+                ['surface' => 'entry', 'target' => 'post', 'sample' => $sample],
+            );
+            $body = (string) $container->get(Thallo\Core\Http\Controllers\LayoutPreviewController::class)
+                ->session($dto)->getContent();
+            return [$body, json_decode($body, true, 512, JSON_THROW_ON_ERROR)['data']];
+        };
+        [$body] = $sessionOf();
+        $write('session.json', $body);
+        $admin = $container->get(Thallo\Core\Http\Controllers\LayoutAdminController::class);
+        $write('layouts.json', (string) $admin->index(Request::create('/v1/layouts', 'GET'))->getContent());
+        $write('samples.json', (string) $admin->samples(Request::create('/x'), 'entry', 'post')->getContent());
+
+        $stages = [];
+        foreach ($layoutScenarios as $scenario) {
+            $name = (string) $scenario['name'];
+            [, $session] = $sessionOf();
+            $dto = (new Glueful\Validation\RequestDataHydrator())->hydrate(Thallo\Core\Http\DTOs\ApplyLayoutData::class, [
+                'token' => $session['token'],
+                'layout' => $documents[$name],
+                'epoch' => null,
+                'base_revision' => null,
+            ]);
+            $applied = $container->get(Thallo\Core\Http\Controllers\LayoutPreviewController::class)->apply($dto);
+            if ($applied->getStatusCode() !== 200) {
+                fwrite(STDERR, "applying layout '{$name}' returned {$applied->getStatusCode()}: {$applied->getContent()}\n");
+                exit(1);
+            }
+            $token = (string) $session['token'];
+            $rendered = $container->get(RenderController::class)->preview(
+                Request::create('/_preview/' . $token . '?canvas=1', 'GET'),
+                $token,
+            );
+            if ($rendered->getStatusCode() !== 200) {
+                fwrite(STDERR, "the '{$name}' layout stage returned {$rendered->getStatusCode()}\n");
+                exit(1);
+            }
+            $write("stage-{$name}.html", (string) $rendered->getContent());
+            $stages[$name] = ['layout' => $documents[$name], 'file' => "stage-{$name}.html"];
+        }
+        $write('stages.json', json_encode($stages, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+
+        // The Design view under a layout (type layouts plan L10): the composition entry's type gets
+        // a layout — a heading of its own around the entry's body — and the entry's canvas is
+        // rendered as the Design view shows it then, with the mint that names the layout.
+        $contentTypes->updateMeta($pageUuid, ['public_delivery' => true]);
+        $pageLayout = [
+            ['id' => 'e2elayouthd1', 'type' => 'heading', 'data' => ['text' => 'A heading the layout adds'], 'settings' => []],
+            ['id' => 'e2elayoutbd1', 'type' => 'entry_content', 'data' => ['field' => 'body'], 'settings' => []],
+        ];
+        $container->get(Thallo\Core\Content\Layouts\LayoutWriteLock::class)->within(
+            'entry',
+            'page',
+            fn (): int => $repo->saveExpected('entry', 'page', $pageLayout, [], $repo->version('entry', 'page'), null),
+        );
+        $container->get(Thallo\Core\Content\Layouts\LayoutResolver::class)->forget('entry', 'page');
+        $mint = $container->get(PreviewController::class)
+            ->mint(new MintPreviewData(), Request::create('/x', 'POST'), $entryUuid, 'en');
+        $mintBody = json_decode((string) $mint->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        if (($mintBody['data']['layout']['target'] ?? null) !== 'page') {
+            fwrite(STDERR, "the entry mint under a layout named no layout: {$mint->getContent()}\n");
+            exit(1);
+        }
+        $write('entry-mint.json', (string) $mint->getContent());
+        $entryToken = (string) $mintBody['data']['token'];
+        $canvas = $container->get(RenderController::class)->preview(
+            Request::create('/_preview/' . $entryToken . '?canvas=1', 'GET'),
+            $entryToken,
+        );
+        if ($canvas->getStatusCode() !== 200) {
+            fwrite(STDERR, "the entry canvas under a layout returned {$canvas->getStatusCode()}\n");
+            exit(1);
+        }
+        $write('canvas-under-layout.html', (string) $canvas->getContent());
+        $container->get(Thallo\Core\Content\Layouts\LayoutResolver::class)->forget('entry', 'page');
+        foreach ($instances as $slug => $instance) {
+            file_put_contents(
+                $out . "/api/instance-{$slug}.json",
+                json_encode(['success' => true, 'data' => $instance], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR),
+            );
+        }
+        throw new LayoutFixturesWritten();
+    });
+} catch (LayoutFixturesWritten) {
+    // Written, and rolled back.
+} catch (Throwable $e) {
+    // Left to the framework's handler, a throw prints its JSON and exits 0: CI would run the proofs
+    // on the fixtures written before it.
+    fwrite(STDERR, 'the layout fixtures failed: ' . $e::class . ': ' . $e->getMessage() . "\n");
+    exit(1);
+}
+
 fwrite(STDOUT, "Wrote {$out}/canvas.html and " . count(glob($out . '/api/*.json') ?: []) . " API fixtures for entry {$entryUuid}.\n");
 fwrite(STDOUT, 'Wrote ' . count(glob($regionsOut . '/stage-*.html') ?: []) . " regions stages to {$regionsOut}.\n");
+fwrite(STDOUT, 'Wrote ' . count(glob($layoutsOut . '/stage-*.html') ?: []) . " layout stages to {$layoutsOut}.\n");

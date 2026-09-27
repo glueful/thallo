@@ -483,6 +483,20 @@ One job each, start to finish.
   blocks and how a plan's button reaches checkout. The billing page and the return from the
   payment provider. What it needs from the install (`BASE_URL`, the admin's address).
 
+### layouts — Design a layout
+- **File** `guides/20-layouts.md` · **Order** 20 · **Status** done
+- **Summary** "Design every post of a content type at once: where the title, date, cover and content go, and what surrounds them."
+- **Sources** `admin/src/pages/layouts/`, `admin/src/registry/layoutsModule.ts`, `admin/src/queries/layouts.ts`,
+  `core/src/Content/Layouts/` (the surface, the validator, the saver, the bindings), `core/src/Http/Controllers/LayoutAdminController.php`,
+  `core/src/Http/Controllers/LayoutPreviewController.php`, `core/src/Content/Blocks/StarterBlockTypes.php` (the Fields blocks),
+  `packages/thallo-render/themes/default/templates/layouts/entry.twig`, `packages/thallo-render/themes/default/templates/blocks/entry_*.twig`,
+  `admin/src/pages/content/[type]/[uuid]/design/[locale].vue` (the strip, the Page tab's Design control)
+- **Must cover** What a layout is (general blocks and the Fields blocks; the entry's content in its
+  Entry content slot). **Site › Layouts** and the editor: the Fields blocks and their settings, the
+  sample picker and the placeholder, the Frame tab. Save and its reach, the conflict and Reload,
+  Reset to starter, Remove. Opting one page out, and what the Design view shows under a layout.
+  What renaming or deleting a field does. The permission.
+
 ---
 
 ## Reference
@@ -574,6 +588,13 @@ Things you look up. Complete, in a predictable order.
 - **Summary** "The terms Thallo is released under."
 - **Sources** `LICENSE`, word for word (`tests/Unit/Docs/LicensePageTest.php` holds the two identical)
 - **Must cover** The licence text as it stands in `LICENSE`, its first line as the title. Nothing added.
+
+### changelog — Changelog
+- **File** `reference/08-changelog.md` · **Order** 8 · **Status** done
+- **Summary** "What changed in each release of Thallo, newest first."
+- **Sources** `CHANGELOG.md`, its released sections word for word, written by `php scripts/sync-docs-changelog` at
+  every cut (`tests/Unit/Docs/ChangelogPageTest.php` fails while the page is behind)
+- **Must cover** Every released version. Never edited by hand.
 
 ### limitations — Known limitations
 - **File** `limitations.md` (exists, stays at the top of `docs/`) · **Order** 90 · **Status** done
