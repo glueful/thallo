@@ -178,6 +178,26 @@ final class ProductLayoutSaveTest extends AppTestCase
         );
     }
 
+    /** No size loses the buy box: a container around it cannot be hidden either. */
+    public function testAContainerHoldingTheBuyBoxCannotBeHidden(): void
+    {
+        $session = $this->session();
+        $tucked = [[
+            'id' => 'savebox00001', 'type' => 'container',
+            'data' => ['content' => [
+                ['id' => 'savebuy00001', 'type' => 'product_buy', 'data' => [], 'settings' => []],
+            ]],
+            'settings' => ['style' => ['visibility' => ['md' => ['type' => 'choice', 'value' => 'hidden']]]],
+        ]];
+        foreach ([$this->save($session['token'], $tucked, 0), $this->apply($session['token'], $tucked)] as $answer) {
+            self::assertSame(422, $answer['status']);
+            self::assertSame(
+                'this block holds the Product buy box block, which every page shows: it cannot be hidden',
+                $answer['body']['error']['details']['blocks.0.settings.style.visibility'] ?? null,
+            );
+        }
+    }
+
     public function testEachSurfacesFieldBlocksAreRefusedOnTheOther(): void
     {
         $validator = $this->container()->get(LayoutValidator::class);

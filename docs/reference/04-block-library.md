@@ -170,8 +170,9 @@ only in a layout's editor — each in its own kind of layout — and an entry, t
 and a saved section refuse them when saved. A field an entry block names is a field of the
 layout's content type; left empty, **Entry cover**, **Entry excerpt** and **Entry terms** show the
 field named `cover`, `excerpt` or `categories`, and **Entry content** the type's body. Every
-product layout holds exactly one **Product buy box**, and it has no **Visibility** setting: no
-screen size can hide the product page's buy button.
+product layout holds exactly one **Product buy box**. It has no **Visibility** setting, and a
+layout that hides a block holding it, at any size, is refused: no screen size loses the product
+page's buy button.
 
 | Block | What it is for | Fields | Holds blocks | Style settings adds |
 |---|---|---|---|---|
