@@ -28,6 +28,13 @@ final class ProductPageGoldenTest extends AppTestCase
 
     private ProductPageSeed $seed;
 
+    /** Page => how many ids, blob URLs, versioned asset URLs and scope tokens it normalizes. */
+    private const SUBSTITUTIONS = [
+        'simple' => ['ids' => 2, 'blobs' => 6, 'assets' => 6, 'scope' => 1],
+        'multi' => ['ids' => 3, 'blobs' => 0, 'assets' => 6, 'scope' => 1],
+        'addon' => ['ids' => 1, 'blobs' => 0, 'assets' => 6, 'scope' => 1],
+    ];
+
     /** @var array<string,?string> */
     private array $previousTenant = [];
 
@@ -55,6 +62,12 @@ final class ProductPageGoldenTest extends AppTestCase
             }
             self::markTestIncomplete('recorded ' . implode(', ', array_keys($pages)));
         }
+        // Every normalization rule did its work, exactly as often as when the golden was recorded: a
+        // rule that silently stopped matching (or started matching more) cannot hide behind parity.
+        self::assertSame(
+            self::SUBSTITUTIONS,
+            array_map(static fn (array $page): array => $page['counts'], $pages),
+        );
         foreach ($pages as $name => $page) {
             $this->assertGolden($name, $page);
         }
@@ -78,7 +91,7 @@ final class ProductPageGoldenTest extends AppTestCase
     /**
      * Seed the three products and render their pages, normalized.
      *
-     * @return array<string, array{markup: string, assets: list<string>}>
+     * @return array<string, array{markup: string, assets: list<string>, counts: array<string,int>}>
      */
     private function pages(): array
     {
@@ -107,7 +120,7 @@ final class ProductPageGoldenTest extends AppTestCase
         return $pages;
     }
 
-    /** @param array{markup: string, assets: list<string>} $page */
+    /** @param array{markup: string, assets: list<string>, counts: array<string,int>} $page */
     private function assertGolden(string $name, array $page): void
     {
         $file = sprintf(self::GOLDEN, $name);
@@ -123,13 +136,23 @@ final class ProductPageGoldenTest extends AppTestCase
 
     /**
      * @param array<string,string> $ids generated id => placeholder
-     * @return array{markup: string, assets: list<string>}
+     * @return array{markup: string, assets: list<string>, counts: array<string,int>}
      */
     private static function normalize(string $html, array $ids): array
     {
+        $counts = ['ids' => 0, 'blobs' => 0, 'assets' => 0, 'scope' => 0];
+        foreach (array_keys($ids) as $id) {
+            $counts['ids'] += substr_count($html, (string) $id);
+        }
         $html = strtr($html, $ids);
         // Blob URLs, whatever the API prefix: the blob uuids are the seed's own fixed ones.
-        $html = (string) preg_replace('~[^"\s()]*/blobs/(proofblob\d+)[^"\s()]*~', '{blob:$1}', $html);
+        $html = (string) preg_replace(
+            '~[^"\s()]*/blobs/(proofblob\d+)[^"\s()]*~',
+            '{blob:$1}',
+            $html,
+            -1,
+            $counts['blobs'],
+        );
         // Fingerprinted and versioned assets: the path with its hash and version taken out.
         // (`?v=` and `&v=` carry a file's modification time, which differs between checkouts.)
         $html = (string) preg_replace_callback(
@@ -139,9 +162,17 @@ final class ProductPageGoldenTest extends AppTestCase
                 return '{asset:' . $path . '}';
             },
             $html,
+            -1,
+            $counts['assets'],
         );
-        $html = (string) preg_replace('~data-shop-scope="[^"]*"~', 'data-shop-scope="{scope}"', $html);
-        return ['markup' => $html, 'assets' => self::assetNames($html)];
+        $html = (string) preg_replace(
+            '~data-shop-scope="[^"]*"~',
+            'data-shop-scope="{scope}"',
+            $html,
+            -1,
+            $counts['scope'],
+        );
+        return ['markup' => $html, 'assets' => self::assetNames($html), 'counts' => $counts];
     }
 
     /** @return list<string> */

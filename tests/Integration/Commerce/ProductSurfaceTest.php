@@ -108,6 +108,18 @@ final class ProductSurfaceTest extends AppTestCase
                     $walked[] = $ref->sourceId;
                 });
             self::assertContains('product:@site', $walked, 'the walkers still reach it');
+            // And one of them writes it (a style class detach, a block type rename): the write lands
+            // and is announced with no product surface to name its pages — nothing errors.
+            $source = $off->getContainer()->get(\Thallo\Core\Content\Blocks\Sources\LayoutsSource::class);
+            $written = null;
+            $source->each(static function ($ref) use ($source, &$written): void {
+                if ($ref->sourceId === 'product:@site') {
+                    $written = $source->persist($ref, $ref->fields);
+                }
+            });
+            self::assertTrue($written);
+            self::assertSame(2, (int) $this->connection()->table('layouts')->where('surface', '=', 'product')
+                ->where('target', '=', '@site')->first()['lock_version'], 'the row took the write');
         } finally {
             self::resetSharedRepositoryConnection();
         }

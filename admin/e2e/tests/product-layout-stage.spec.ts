@@ -78,6 +78,7 @@ test('the stage shows the product; the Product buy box selects and cannot be del
   await host(page, buy).click({ position: { x: 4, y: 4 } })
   await expect(block(page, buy)).toHaveClass(/thallo-canvas-selected/)
   await expect(activeTab(page)).toHaveText('Block')
+  await expect(page.locator('[data-test="block-inspector-title"]')).toHaveText('Product buy box')
 
   await host(page, buy).press('Delete')
   await expect(page.locator('[data-test="layout-required-refusal"]')).toHaveText(
@@ -114,6 +115,7 @@ test('a Product rating dragged in after the name appears on the refreshed stage,
   await host(page, 'e2eratingnew').click({ position: { x: 4, y: 4 } })
   await expect(inserted).toHaveClass(/thallo-canvas-selected/)
   await expect(activeTab(page)).toHaveText('Block')
+  await expect(page.locator('[data-test="block-inspector-title"]')).toHaveText('Product rating')
   served(recorded)
 })
 

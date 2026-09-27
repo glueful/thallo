@@ -8,6 +8,7 @@ use Glueful\Application;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Thallo\Commerce\Http\Shop\CartCookie;
 use Thallo\Contracts\Delivery\CanonicalPublicOriginResolver;
 use Thallo\Contracts\Layouts\LayoutSurfaceRegistry;
 use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
@@ -210,6 +211,21 @@ final class ProductLayoutRenderTest extends AppTestCase
         ));
         self::assertSame(303, $posted->getStatusCode(), (string) $posted->getContent());
         self::assertSame('/shop/products/linen-lamp', $posted->headers->get('Location'));
+        // And the lamp is in the cart the POST minted.
+        $cookie = null;
+        foreach ($posted->headers->getCookies() as $candidate) {
+            if ($candidate->getName() === CartCookie::NAME) {
+                $cookie = $candidate;
+            }
+        }
+        self::assertNotNull($cookie, 'the POST minted a cart');
+        $cart = $this->handle(
+            Request::create('/_shop/cart', 'GET', [], [CartCookie::NAME => (string) $cookie->getValue()]),
+        );
+        self::assertSame(200, $cart->getStatusCode());
+        $body = json_decode((string) $cart->getContent(), true);
+        self::assertSame(1, $body['item_count']);
+        self::assertSame($showcase['variant'], $body['items'][0]['variant_uuid']);
     }
 
     public function testTheStoryKeepsItsEntryTag(): void
