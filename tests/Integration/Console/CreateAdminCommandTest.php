@@ -7,14 +7,18 @@ namespace Thallo\Core\Tests\Integration\Console;
 use Thallo\Core\Setup\Console\CreateAdminCommand;
 use Thallo\Core\Setup\SetupService;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\RestoresPermissionRows;
 use Symfony\Component\Console\Tester\CommandTester;
 use Thallo\Tenancy\System\SystemFlags;
 
 final class CreateAdminCommandTest extends AppTestCase
 {
+    use RestoresPermissionRows;
+
     protected function setUp(): void
     {
         parent::setUp();
+        $this->snapshotPermissionRows();
         // uuid-keyed users table => TRUNCATE ... CASCADE is the reliable wipe.
         $this->resetInstallState();
     }
@@ -22,6 +26,7 @@ final class CreateAdminCommandTest extends AppTestCase
     protected function tearDown(): void
     {
         $this->resetInstallState();
+        $this->restorePermissionRows();
         parent::tearDown();
     }
 

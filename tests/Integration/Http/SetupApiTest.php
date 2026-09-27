@@ -9,6 +9,7 @@ use Thallo\Core\Http\Controllers\SetupController;
 use Thallo\Core\Content\Http\DTOs\Requests\SetupData;
 use Thallo\Core\Setup\SetupService;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\RestoresPermissionRows;
 use Glueful\Extensions\Users\Repositories\UserRepository;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
@@ -27,9 +28,12 @@ use Thallo\Tenancy\System\SystemFlags;
  */
 final class SetupApiTest extends AppTestCase
 {
+    use RestoresPermissionRows;
+
     protected function setUp(): void
     {
         parent::setUp();
+        $this->snapshotPermissionRows();
 
         // Start from a clean slate on each test: wipe users, Aegis user_roles, and the
         // settings markers so install() is always re-runnable.
@@ -39,6 +43,7 @@ final class SetupApiTest extends AppTestCase
     protected function tearDown(): void
     {
         $this->resetInstallState();
+        $this->restorePermissionRows();
         parent::tearDown();
     }
 
