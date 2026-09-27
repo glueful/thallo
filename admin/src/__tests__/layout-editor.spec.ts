@@ -27,11 +27,11 @@ vi.mock('@/queries/layouts', () => ({
   fetchLayoutSamples: q.samples,
 }))
 
-const bt = (slug: string, category: string | null, layoutOnly = false): BlockType =>
+const bt = (slug: string, category: string | null, layoutOnly = false, label = slug): BlockType =>
   ({
     uuid: `bt-${slug}`,
     slug,
-    label: slug,
+    label,
     icon: null,
     category,
     description: null,
@@ -47,6 +47,8 @@ const blockTypes = ref<BlockType[]>([
   bt('container', 'Layout'),
   bt('entry_title', 'Fields', true),
   bt('entry_content', 'Fields', true),
+  bt('product_name', 'Fields', true, 'Product name'),
+  bt('product_buy', 'Fields', true, 'Add to cart'),
 ])
 vi.mock('@/queries/blockTypes', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/queries/blockTypes')>()),
@@ -198,6 +200,67 @@ describe('the layout editor', () => {
     await flushPromises()
     expect(w.find('[data-test="layout-required-refusal"]').exists()).toBe(false)
     expect(w.find('[data-test="canvas-delete-confirm-yes"]').exists()).toBe(true)
+    w.unmount()
+  })
+
+  // Type layouts plan C1: a required block without a field (the product page's Add to cart) is named
+  // by its label, in the refusal and in the reason Save is off.
+  it('names a required block without a field by its label: the product page keeps its Add to cart', async () => {
+    const product = [
+      { id: 'prodname0001', type: 'product_name', data: { level: 'h1' }, settings: {} },
+      { id: 'prodbuy00001', type: 'product_buy', data: {}, settings: {} },
+    ]
+    q.mint.mockImplementation(async () =>
+      session({
+        layout: { blocks: structuredClone(product), settings: {}, lock_version: 0 },
+        starterLayout: structuredClone(product),
+        required: [{ type: 'product_buy' }],
+        palette: ['product_name', 'product_buy'],
+        sample: { id: 'product00001', label: 'Linen table lamp' },
+        label: 'Products — product page',
+        reach: 'Applies to every product',
+      }),
+    )
+    const w = mountPage()
+    await flushPromises()
+    const groups = w.findAll('[data-test^="palette-group-"]').map((g) => g.attributes('data-test'))
+    expect(groups[0]).toBe('palette-group-Fields')
+    expect(w.find('[data-test="palette-card-product_buy"]').exists()).toBe(true)
+
+    bridge.callbacks.onBlockDeleteRequest!('prodbuy00001' as never, null as never)
+    await flushPromises()
+    expect(w.find('[data-test="layout-required-refusal"]').text()).toBe(
+      'Every one of the products shows its Add to cart here, so the layout keeps this block. Move it instead.',
+    )
+    await w.find('[data-test="canvas-delete-cancel"]').trigger('click')
+    expect(topBar(w).props('saveBlocked')).toBeNull()
+    w.unmount()
+
+    q.mint.mockImplementation(async () =>
+      session({
+        layout: { blocks: [structuredClone(product[0])], settings: {}, lock_version: 0 },
+        required: [{ type: 'product_buy' }],
+        palette: ['product_name', 'product_buy'],
+        label: 'Products — product page',
+      }),
+    )
+    const without = mountPage()
+    await flushPromises()
+    expect(topBar(without).props('saveBlocked')).toBe(
+      'The layout must show the Add to cart block — add it from the Blocks tab.',
+    )
+    without.unmount()
+  })
+
+  it('keeps the Entry content wording for a required field', async () => {
+    q.mint.mockImplementation(async () =>
+      session({ layout: { blocks: [structuredClone(BLOCKS[0])], settings: {}, lock_version: 2 } }),
+    )
+    const w = mountPage()
+    await flushPromises()
+    expect(topBar(w).props('saveBlocked')).toBe(
+      'The layout must show the body — add an Entry content block for it.',
+    )
     w.unmount()
   })
 

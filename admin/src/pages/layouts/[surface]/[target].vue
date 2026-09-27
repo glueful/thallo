@@ -117,8 +117,9 @@ const {
 } = editor
 const schema = layout.host.schema
 
-// ── Required blocks (spec §4.1): the primary body's Entry content block is placed exactly once, so
-// deleting it is refused with the reason; moving it is fine. ──
+// ── Required blocks (spec §3, §4.1): the primary body's Entry content block — or a surface's block
+// without a field, the product page's Add to cart — is placed exactly once, so deleting it is refused
+// with the reason; moving it is fine. ──
 function find(list: unknown, id: string): BlockInstance | null {
   if (!Array.isArray(list)) return null
   for (const block of list as BlockInstance[]) {
@@ -135,6 +136,10 @@ function placedField(block: BlockInstance): string | null {
   if (typeof field === 'string' && field !== '') return field
   return block.type === 'entry_content' ? 'body' : null
 }
+/** A block type's name as the palette shows it (a required block without a field is named so). */
+function typeLabel(slug: string): string {
+  return paletteTypes.value.find((t) => t.slug === slug)?.label ?? slug
+}
 /** Why a block cannot be deleted, or null when it can. */
 function requiredReason(id: string): string | null {
   const block = find(fields.value.blocks, id)
@@ -144,7 +149,7 @@ function requiredReason(id: string): string | null {
   )
   if (!rule) return null
   const noun = session.value?.label.split(' — ')[0]?.toLowerCase() ?? 'pages'
-  return `Every one of the ${noun} shows its ${rule.field ?? block.type} here, so the layout keeps this block. Move it instead.`
+  return `Every one of the ${noun} shows its ${rule.field ?? typeLabel(block.type)} here, so the layout keeps this block. Move it instead.`
 }
 const deleteRefusal = computed(() =>
   deleteRequest.value === null ? null : requiredReason(deleteRequest.value),
@@ -161,7 +166,9 @@ const saveBlocked = computed<string | null>(() => {
           Object.values(b.data ?? {}).some(holds),
       )
     if (!holds(fields.value.blocks)) {
-      return `The layout must show the ${rule.field ?? rule.type} — add an Entry content block for it.`
+      return rule.field !== undefined
+        ? `The layout must show the ${rule.field} — add an Entry content block for it.`
+        : `The layout must show the ${typeLabel(rule.type)} block — add it from the Blocks tab.`
     }
   }
   return null

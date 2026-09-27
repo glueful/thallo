@@ -809,6 +809,38 @@ interface LayoutStageFixture {
   file: string
 }
 
+/** The layout worlds the fixtures capture: the post type's layout, and the shop's product page. */
+type LayoutWorld = 'post' | 'product'
+const LAYOUT_WORLDS: Record<
+  LayoutWorld,
+  {
+    session: string
+    samples: string
+    stages: string
+    endpoint: string
+    path: string
+    ready: string
+  }
+> = {
+  post: {
+    session: 'layouts/session.json',
+    samples: 'layouts/samples.json',
+    stages: 'layouts/stages.json',
+    endpoint: '**/v1/admin/layouts/entry/post',
+    path: '/admin/layouts/entry/post',
+    ready: '.thallo-layout--entry',
+  },
+  product: {
+    session: 'layouts/product-session.json',
+    samples: 'layouts/product-samples.json',
+    stages: 'layouts/product-stages.json',
+    // `@site` travels percent-encoded; a glob segment matches it.
+    endpoint: '**/v1/admin/layouts/product/*',
+    path: '/admin/layouts/product/@site',
+    ready: '.shop-product--layout',
+  },
+}
+
 /**
  * Open the post layout's editor on the stage, in a world built from the layout fixtures. The
  * session, apply, samples and save endpoints are routed and recorded; each mocked session keeps its
@@ -819,12 +851,13 @@ interface LayoutStageFixture {
  */
 export async function openLayoutStage(
   page: Page,
-  options: { moved?: boolean } = {},
+  options: { moved?: boolean; world?: LayoutWorld } = {},
 ): Promise<LayoutRecorded> {
+  const world = LAYOUT_WORLDS[options.world ?? 'post']
   await routeWorld(page)
   const recorded: LayoutRecorded = { sessions: [], applies: [], saves: [], unmatched: [] }
-  const stages = JSON.parse(fixture('layouts/stages.json')) as Record<string, LayoutStageFixture>
-  const opening = JSON.parse(fixture('layouts/session.json')) as {
+  const stages = JSON.parse(fixture(world.stages)) as Record<string, LayoutStageFixture>
+  const opening = JSON.parse(fixture(world.session)) as {
     data: { layout: LayoutDocument & { lock_version: number } } & Record<string, unknown>
   }
   let stored = opening.data.layout.lock_version + (options.moved ? 1 : 0)
@@ -836,10 +869,8 @@ export async function openLayoutStage(
   }
   const sessions = new Map<string, MockSession>()
 
-  await page.route('**/v1/admin/layouts/entry/post/samples*', (route) =>
-    json(route, fixture('layouts/samples.json')),
-  )
-  await page.route('**/v1/admin/layouts/entry/post', (route) => {
+  await page.route(`${world.endpoint}/samples*`, (route) => json(route, fixture(world.samples)))
+  await page.route(world.endpoint, (route) => {
     const request = route.request()
     if (request.method() !== 'PUT') return route.fulfill({ status: 405, body: '{}' })
     const body = request.postDataJSON() as LayoutRecorded['saves'][number]
@@ -962,13 +993,8 @@ export async function openLayoutStage(
     return text(route, html, 'text/html')
   })
 
-  await signInAndOpen(
-    page,
-    '/admin/layouts/entry/post',
-    '[data-test="layout-stage"]',
-    'the layout editor',
-  )
-  await layoutStage(page).locator('.thallo-layout--entry').first().waitFor()
+  await signInAndOpen(page, world.path, '[data-test="layout-stage"]', 'the layout editor')
+  await layoutStage(page).locator(world.ready).first().waitFor()
   return recorded
 }
 
@@ -982,8 +1008,12 @@ export async function layoutAcceptedIs(
   page: Page,
   recorded: LayoutRecorded,
   name: string,
+  world: LayoutWorld = 'post',
 ): Promise<void> {
-  const stages = JSON.parse(fixture('layouts/stages.json')) as Record<string, LayoutStageFixture>
+  const stages = JSON.parse(fixture(LAYOUT_WORLDS[world].stages)) as Record<
+    string,
+    LayoutStageFixture
+  >
   const want = stages[name]!.layout
   const deadline = Date.now() + 10_000
   for (;;) {

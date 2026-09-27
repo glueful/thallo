@@ -156,7 +156,8 @@ final class ProductSurfaceTest extends AppTestCase
                     $block('product_description'),
                     $block('product_buy'),
                 ]], 'settings' => ['style' => ['layout' => [
-                    'display' => ['base' => ['type' => 'choice', 'value' => 'grid']],
+                    'display' => ['base' => ['type' => 'choice', 'value' => 'flex']],
+                    'direction' => ['base' => ['type' => 'choice', 'value' => 'column']],
                     'gap' => ['row' => $token('spacing.sm')],
                 ]]]],
             ]], 'settings' => ['style' => ['layout' => [
