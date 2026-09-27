@@ -30,7 +30,7 @@ const surface = String(route.params.surface)
 const target = String(route.params.target)
 
 const layout = useLayoutHost({ surface, target })
-const { session, saving, removing, conflict, retired, switching } = layout
+const { session, closed, saving, removing, conflict, retired, switching } = layout
 
 const iframeEl = ref<HTMLIFrameElement | null>(null)
 const fieldEditorRef = ref<FieldEditorExposed | null>(null)
@@ -310,6 +310,19 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
           Layouts are edited on your site's real theme output. Turn on Rendered delivery under
           Extensions › Capabilities to use them.
         </p>
+      </div>
+
+      <div
+        v-else-if="closed"
+        class="mx-auto max-w-md space-y-3 py-16 text-center"
+        data-test="layout-closed"
+      >
+        <UIcon name="i-lucide-lock" class="mx-auto size-8 text-muted" />
+        <p class="font-medium">This layout can't be opened yet</p>
+        <p class="text-sm text-muted">{{ closed }}</p>
+        <UButton to="/layouts" variant="outline" color="neutral" data-test="layout-closed-back">
+          Back to Layouts
+        </UButton>
       </div>
 
       <div v-else class="flex h-full min-h-0 gap-4">

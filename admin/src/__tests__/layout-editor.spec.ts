@@ -264,6 +264,31 @@ describe('the layout editor', () => {
     w.unmount()
   })
 
+  it('a layout that cannot be opened, reached by its address, says why and leads back', async () => {
+    const reason =
+      'Its blocks are not installed yet. Run php glueful thallo:provision on the server — then reload this page.'
+    q.mint
+      .mockReset()
+      .mockRejectedValue(
+        new ApiError(
+          'Validation failed',
+          422,
+          { target: reason },
+          { error: { details: { target: reason } } },
+        ),
+      )
+    const w = mountPage()
+    await flushPromises()
+    const closed = w.find('[data-test="layout-closed"]')
+    expect(closed.exists()).toBe(true)
+    expect(closed.text()).toContain(reason)
+    expect(
+      w.find('[data-test="layout-closed-back"]').element.closest('a')?.getAttribute('href'),
+    ).toBe('/layouts')
+    expect(w.find('[data-test="canvas-inspector"]').exists()).toBe(false)
+    w.unmount()
+  })
+
   it('Save shows its reach and posts the version loaded', async () => {
     const w = mountPage()
     await flushPromises()
