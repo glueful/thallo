@@ -12,11 +12,15 @@ use Glueful\Extensions\Commerce\Catalog\ProductMediaRepository;
 use Glueful\Extensions\Commerce\Catalog\ProductRepository;
 use Psr\Container\ContainerInterface;
 use Thallo\Commerce\Links\ProductLinkService;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
 use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
 use Thallo\Core\Content\Repositories\ContentTypeRepository;
 use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\ReferenceProjectionRepository;
 use Thallo\Core\Content\Repositories\RouteRepository;
+use Thallo\Core\Content\Repositories\VersionRepository;
 use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Content\Validation\FieldValidator;
 use Thallo\Tenancy\System\SystemFlags;
 
 /**
@@ -210,7 +214,17 @@ final class ProductPageSeed
             ],
         ], 1, 0, 'user00000001');
         $this->container->get(RouteRepository::class)->assign($entry, (string) $type, 'en', 'made-by-hand');
-        $this->container->get(PublishService::class)->publish($entry, 'en', 'user00000001');
+        // Published directly, as the render tests and the builder fixtures publish: no review workflow
+        // stands between a seeded story and its page (a fresh database grants no one its bypass).
+        $db = $this->container->get(Connection::class);
+        (new PublishService(
+            $this->context,
+            $entries,
+            new VersionRepository($db),
+            $types,
+            new FieldValidator($db, $this->context, new BlockTypeRepository($db)),
+            new ReferenceProjectionRepository($db),
+        ))->publish($entry, 'en', 'user00000001');
         return $entry;
     }
 }

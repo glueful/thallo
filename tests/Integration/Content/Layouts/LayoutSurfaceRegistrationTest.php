@@ -83,7 +83,8 @@ final class LayoutSurfaceRegistrationTest extends AppTestCase
         self::assertSame(200, $applied->getStatusCode(), (string) $applied->getContent());
 
         // Through the router, as the admin sends it: the `@` travels percent-encoded and arrives decoded.
-        $path = api_prefix($this->appContext()) . '/admin/layouts/fixture/%40site';
+        // Thallo mounts its admin API at /v1/admin whatever the framework's API prefix (routes/admin.php).
+        $path = '/v1/admin/layouts/fixture/%40site';
         $match = $this->router()->match(Request::create($path, 'PUT'));
         self::assertNotNull($match['route'] ?? null, "PUT {$path} matches no route");
         self::assertSame(['surface' => 'fixture', 'target' => '@site'], $match['params']);
