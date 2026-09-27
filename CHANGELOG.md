@@ -5,7 +5,13 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.68] - 2026-09-27 — Developer Preview
+
+Layouts for the shop's product page — design every product's page at once, on the stage, from the
+product's own blocks around one of your products — block updates that reach every workspace again,
+and header and footer saves that keep working once workspaces are on. No migrations; run
+`thallo:provision` on an existing site for the product blocks (with workspaces on, also
+`thallo:tenant:sync --all --kind=block_type`).
 
 ### Added
 - **Layouts for product pages.** With Commerce on, **Site › Layouts** has a **Products — product
