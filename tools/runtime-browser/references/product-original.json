@@ -1,0 +1,1429 @@
+{
+  "case": "product-original",
+  "widths": {
+    "375": {
+      "breadcrumb": {
+        "geometry": {
+          "top": 24,
+          "left": 16,
+          "width": 343,
+          "height": 19.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "16px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "13px",
+          "font-weight": "400",
+          "line-height": "19.5px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.55)"
+        }
+      },
+      "media": {
+        "geometry": {
+          "top": 59.5,
+          "left": 16,
+          "width": 343,
+          "height": 345.25
+        }
+      },
+      "cover": {
+        "geometry": {
+          "top": 59.5,
+          "left": 16,
+          "width": 343,
+          "height": 257.25
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "16px",
+          "padding-right": "16px",
+          "padding-bottom": "16px",
+          "padding-left": "16px"
+        }
+      },
+      "thumbs": {
+        "geometry": {
+          "top": 324.75,
+          "left": 16,
+          "width": 343,
+          "height": 60
+        },
+        "spacing": {
+          "margin-top": "8px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "info": {
+        "geometry": {
+          "top": 436.75,
+          "left": 16,
+          "width": 343,
+          "height": 468.19
+        }
+      },
+      "category": {
+        "geometry": {
+          "top": 436.75,
+          "left": 16,
+          "width": 343,
+          "height": 16.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "11px",
+          "font-weight": "700",
+          "line-height": "16.5px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.55)"
+        }
+      },
+      "name": {
+        "geometry": {
+          "top": 461.25,
+          "left": 16,
+          "width": 343,
+          "height": 32.19
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "4px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "28px",
+          "font-weight": "700",
+          "line-height": "32.2px",
+          "text-align": "start",
+          "color": "rgb(15, 23, 42)"
+        }
+      },
+      "rating": {
+        "geometry": {
+          "top": 505.44,
+          "left": 16,
+          "width": 343,
+          "height": 21
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "14px",
+          "font-weight": "400",
+          "line-height": "21px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.82)"
+        }
+      },
+      "price": {
+        "geometry": {
+          "top": 534.44,
+          "left": 16,
+          "width": 343,
+          "height": 30
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "16px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "17px",
+          "font-weight": "400",
+          "line-height": "25.5px",
+          "text-align": "start",
+          "color": "rgb(15, 23, 42)"
+        }
+      },
+      "priceCurrent": {
+        "geometry": {
+          "top": 534.44,
+          "left": 16,
+          "width": 65.83,
+          "height": 30
+        },
+        "typography": {
+          "font-size": "20px",
+          "font-weight": "700",
+          "line-height": "30px",
+          "text-align": "start",
+          "color": "rgb(15, 23, 42)"
+        }
+      },
+      "priceCompare": {
+        "geometry": {
+          "top": 539.44,
+          "left": 89.83,
+          "width": 55.13,
+          "height": 24
+        },
+        "typography": {
+          "font-size": "16px",
+          "font-weight": "400",
+          "line-height": "24px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.45)"
+        }
+      },
+      "description": {
+        "geometry": {
+          "top": 588.44,
+          "left": 16,
+          "width": 343,
+          "height": 114
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "24px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "17px",
+          "font-weight": "400",
+          "line-height": "25.5px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.8)"
+        }
+      },
+      "buy": {
+        "geometry": {
+          "top": 734.44,
+          "left": 16,
+          "width": 343,
+          "height": 107
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "24px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "form": {
+        "geometry": {
+          "top": 734.44,
+          "left": 16,
+          "width": 343,
+          "height": 107
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "stepper": {
+        "geometry": {
+          "top": 734.44,
+          "left": 16,
+          "width": 130,
+          "height": 47.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "submit": {
+        "geometry": {
+          "top": 791.94,
+          "left": 16,
+          "width": 343,
+          "height": 49.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "12px",
+          "padding-right": "20px",
+          "padding-bottom": "12px",
+          "padding-left": "20px"
+        },
+        "typography": {
+          "font-size": "17px",
+          "font-weight": "600",
+          "line-height": "25.5px",
+          "text-align": "center",
+          "color": "rgb(255, 255, 255)"
+        }
+      },
+      "availability": {
+        "geometry": {
+          "top": 885.44,
+          "left": 16,
+          "width": 343,
+          "height": 19.5
+        },
+        "spacing": {
+          "margin-top": "12px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "13px",
+          "font-weight": "400",
+          "line-height": "19.5px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.7)"
+        }
+      },
+      "story": {
+        "geometry": {
+          "top": 944.94,
+          "left": 16,
+          "width": 343,
+          "height": 118.59
+        },
+        "spacing": {
+          "margin-top": "32px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      }
+    },
+    "700": {
+      "breadcrumb": {
+        "geometry": {
+          "top": 24,
+          "left": 16,
+          "width": 668,
+          "height": 19.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "16px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "13px",
+          "font-weight": "400",
+          "line-height": "19.5px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.55)"
+        }
+      },
+      "media": {
+        "geometry": {
+          "top": 59.5,
+          "left": 16,
+          "width": 668,
+          "height": 589
+        }
+      },
+      "cover": {
+        "geometry": {
+          "top": 59.5,
+          "left": 16,
+          "width": 668,
+          "height": 501
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "16px",
+          "padding-right": "16px",
+          "padding-bottom": "16px",
+          "padding-left": "16px"
+        }
+      },
+      "thumbs": {
+        "geometry": {
+          "top": 568.5,
+          "left": 16,
+          "width": 668,
+          "height": 60
+        },
+        "spacing": {
+          "margin-top": "8px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "info": {
+        "geometry": {
+          "top": 680.5,
+          "left": 16,
+          "width": 668,
+          "height": 359.69
+        }
+      },
+      "category": {
+        "geometry": {
+          "top": 680.5,
+          "left": 16,
+          "width": 668,
+          "height": 16.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "11px",
+          "font-weight": "700",
+          "line-height": "16.5px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.55)"
+        }
+      },
+      "name": {
+        "geometry": {
+          "top": 705,
+          "left": 16,
+          "width": 668,
+          "height": 32.19
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "4px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "28px",
+          "font-weight": "700",
+          "line-height": "32.2px",
+          "text-align": "start",
+          "color": "rgb(15, 23, 42)"
+        }
+      },
+      "rating": {
+        "geometry": {
+          "top": 749.19,
+          "left": 16,
+          "width": 668,
+          "height": 21
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "14px",
+          "font-weight": "400",
+          "line-height": "21px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.82)"
+        }
+      },
+      "price": {
+        "geometry": {
+          "top": 778.19,
+          "left": 16,
+          "width": 668,
+          "height": 30
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "16px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "17px",
+          "font-weight": "400",
+          "line-height": "25.5px",
+          "text-align": "start",
+          "color": "rgb(15, 23, 42)"
+        }
+      },
+      "priceCurrent": {
+        "geometry": {
+          "top": 778.19,
+          "left": 16,
+          "width": 65.83,
+          "height": 30
+        },
+        "typography": {
+          "font-size": "20px",
+          "font-weight": "700",
+          "line-height": "30px",
+          "text-align": "start",
+          "color": "rgb(15, 23, 42)"
+        }
+      },
+      "priceCompare": {
+        "geometry": {
+          "top": 783.19,
+          "left": 89.83,
+          "width": 55.13,
+          "height": 24
+        },
+        "typography": {
+          "font-size": "16px",
+          "font-weight": "400",
+          "line-height": "24px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.45)"
+        }
+      },
+      "description": {
+        "geometry": {
+          "top": 832.19,
+          "left": 16,
+          "width": 668,
+          "height": 63
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "24px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "17px",
+          "font-weight": "400",
+          "line-height": "25.5px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.8)"
+        }
+      },
+      "buy": {
+        "geometry": {
+          "top": 927.19,
+          "left": 16,
+          "width": 668,
+          "height": 49.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "24px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "form": {
+        "geometry": {
+          "top": 927.19,
+          "left": 16,
+          "width": 668,
+          "height": 49.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "stepper": {
+        "geometry": {
+          "top": 927.19,
+          "left": 16,
+          "width": 130,
+          "height": 49.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "submit": {
+        "geometry": {
+          "top": 927.19,
+          "left": 156,
+          "width": 528,
+          "height": 49.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "12px",
+          "padding-right": "20px",
+          "padding-bottom": "12px",
+          "padding-left": "20px"
+        },
+        "typography": {
+          "font-size": "17px",
+          "font-weight": "600",
+          "line-height": "25.5px",
+          "text-align": "center",
+          "color": "rgb(255, 255, 255)"
+        }
+      },
+      "availability": {
+        "geometry": {
+          "top": 1020.69,
+          "left": 16,
+          "width": 668,
+          "height": 19.5
+        },
+        "spacing": {
+          "margin-top": "12px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "13px",
+          "font-weight": "400",
+          "line-height": "19.5px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.7)"
+        }
+      },
+      "story": {
+        "geometry": {
+          "top": 1080.19,
+          "left": 16,
+          "width": 668,
+          "height": 97.22
+        },
+        "spacing": {
+          "margin-top": "32px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      }
+    },
+    "800": {
+      "breadcrumb": {
+        "geometry": {
+          "top": 24,
+          "left": 16,
+          "width": 768,
+          "height": 19.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "16px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "13px",
+          "font-weight": "400",
+          "line-height": "19.5px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.55)"
+        }
+      },
+      "media": {
+        "geometry": {
+          "top": 59.5,
+          "left": 16,
+          "width": 376.97,
+          "height": 370.72
+        }
+      },
+      "cover": {
+        "geometry": {
+          "top": 59.5,
+          "left": 16,
+          "width": 376.97,
+          "height": 282.72
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "16px",
+          "padding-right": "16px",
+          "padding-bottom": "16px",
+          "padding-left": "16px"
+        }
+      },
+      "thumbs": {
+        "geometry": {
+          "top": 350.22,
+          "left": 16,
+          "width": 376.97,
+          "height": 60
+        },
+        "spacing": {
+          "margin-top": "8px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "info": {
+        "geometry": {
+          "top": 59.5,
+          "left": 424.97,
+          "width": 359.02,
+          "height": 410.69
+        }
+      },
+      "category": {
+        "geometry": {
+          "top": 59.5,
+          "left": 424.97,
+          "width": 359.02,
+          "height": 16.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "11px",
+          "font-weight": "700",
+          "line-height": "16.5px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.55)"
+        }
+      },
+      "name": {
+        "geometry": {
+          "top": 84,
+          "left": 424.97,
+          "width": 359.02,
+          "height": 32.19
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "4px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "28px",
+          "font-weight": "700",
+          "line-height": "32.2px",
+          "text-align": "start",
+          "color": "rgb(15, 23, 42)"
+        }
+      },
+      "rating": {
+        "geometry": {
+          "top": 128.19,
+          "left": 424.97,
+          "width": 359.02,
+          "height": 21
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "14px",
+          "font-weight": "400",
+          "line-height": "21px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.82)"
+        }
+      },
+      "price": {
+        "geometry": {
+          "top": 157.19,
+          "left": 424.97,
+          "width": 359.02,
+          "height": 30
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "16px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "17px",
+          "font-weight": "400",
+          "line-height": "25.5px",
+          "text-align": "start",
+          "color": "rgb(15, 23, 42)"
+        }
+      },
+      "priceCurrent": {
+        "geometry": {
+          "top": 157.19,
+          "left": 424.97,
+          "width": 65.83,
+          "height": 30
+        },
+        "typography": {
+          "font-size": "20px",
+          "font-weight": "700",
+          "line-height": "30px",
+          "text-align": "start",
+          "color": "rgb(15, 23, 42)"
+        }
+      },
+      "priceCompare": {
+        "geometry": {
+          "top": 162.19,
+          "left": 498.8,
+          "width": 55.13,
+          "height": 24
+        },
+        "typography": {
+          "font-size": "16px",
+          "font-weight": "400",
+          "line-height": "24px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.45)"
+        }
+      },
+      "description": {
+        "geometry": {
+          "top": 211.19,
+          "left": 424.97,
+          "width": 359.02,
+          "height": 114
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "24px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "17px",
+          "font-weight": "400",
+          "line-height": "25.5px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.8)"
+        }
+      },
+      "buy": {
+        "geometry": {
+          "top": 357.19,
+          "left": 424.97,
+          "width": 359.02,
+          "height": 49.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "24px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "form": {
+        "geometry": {
+          "top": 357.19,
+          "left": 424.97,
+          "width": 359.02,
+          "height": 49.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "stepper": {
+        "geometry": {
+          "top": 357.19,
+          "left": 424.97,
+          "width": 130,
+          "height": 49.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "submit": {
+        "geometry": {
+          "top": 357.19,
+          "left": 564.97,
+          "width": 219.02,
+          "height": 49.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "12px",
+          "padding-right": "20px",
+          "padding-bottom": "12px",
+          "padding-left": "20px"
+        },
+        "typography": {
+          "font-size": "17px",
+          "font-weight": "600",
+          "line-height": "25.5px",
+          "text-align": "center",
+          "color": "rgb(255, 255, 255)"
+        }
+      },
+      "availability": {
+        "geometry": {
+          "top": 450.69,
+          "left": 424.97,
+          "width": 359.02,
+          "height": 19.5
+        },
+        "spacing": {
+          "margin-top": "12px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "13px",
+          "font-weight": "400",
+          "line-height": "19.5px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.7)"
+        }
+      },
+      "story": {
+        "geometry": {
+          "top": 510.19,
+          "left": 16,
+          "width": 768,
+          "height": 98.61
+        },
+        "spacing": {
+          "margin-top": "32px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      }
+    },
+    "1280": {
+      "breadcrumb": {
+        "geometry": {
+          "top": 24,
+          "left": 16,
+          "width": 992,
+          "height": 19.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "16px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "13px",
+          "font-weight": "400",
+          "line-height": "19.5px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.55)"
+        }
+      },
+      "media": {
+        "geometry": {
+          "top": 59.5,
+          "left": 16,
+          "width": 491.7,
+          "height": 456.77
+        }
+      },
+      "cover": {
+        "geometry": {
+          "top": 59.5,
+          "left": 16,
+          "width": 491.7,
+          "height": 368.77
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "16px",
+          "padding-right": "16px",
+          "padding-bottom": "16px",
+          "padding-left": "16px"
+        }
+      },
+      "thumbs": {
+        "geometry": {
+          "top": 436.27,
+          "left": 16,
+          "width": 491.7,
+          "height": 60
+        },
+        "spacing": {
+          "margin-top": "8px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "info": {
+        "geometry": {
+          "top": 59.5,
+          "left": 539.7,
+          "width": 468.3,
+          "height": 359.69
+        }
+      },
+      "category": {
+        "geometry": {
+          "top": 59.5,
+          "left": 539.7,
+          "width": 468.3,
+          "height": 16.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "11px",
+          "font-weight": "700",
+          "line-height": "16.5px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.55)"
+        }
+      },
+      "name": {
+        "geometry": {
+          "top": 84,
+          "left": 539.7,
+          "width": 468.3,
+          "height": 32.19
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "4px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "28px",
+          "font-weight": "700",
+          "line-height": "32.2px",
+          "text-align": "start",
+          "color": "rgb(15, 23, 42)"
+        }
+      },
+      "rating": {
+        "geometry": {
+          "top": 128.19,
+          "left": 539.7,
+          "width": 468.3,
+          "height": 21
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "14px",
+          "font-weight": "400",
+          "line-height": "21px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.82)"
+        }
+      },
+      "price": {
+        "geometry": {
+          "top": 157.19,
+          "left": 539.7,
+          "width": 468.3,
+          "height": 30
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "16px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "17px",
+          "font-weight": "400",
+          "line-height": "25.5px",
+          "text-align": "start",
+          "color": "rgb(15, 23, 42)"
+        }
+      },
+      "priceCurrent": {
+        "geometry": {
+          "top": 157.19,
+          "left": 539.7,
+          "width": 65.83,
+          "height": 30
+        },
+        "typography": {
+          "font-size": "20px",
+          "font-weight": "700",
+          "line-height": "30px",
+          "text-align": "start",
+          "color": "rgb(15, 23, 42)"
+        }
+      },
+      "priceCompare": {
+        "geometry": {
+          "top": 162.19,
+          "left": 613.53,
+          "width": 55.13,
+          "height": 24
+        },
+        "typography": {
+          "font-size": "16px",
+          "font-weight": "400",
+          "line-height": "24px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.45)"
+        }
+      },
+      "description": {
+        "geometry": {
+          "top": 211.19,
+          "left": 539.7,
+          "width": 468.3,
+          "height": 63
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "24px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "17px",
+          "font-weight": "400",
+          "line-height": "25.5px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.8)"
+        }
+      },
+      "buy": {
+        "geometry": {
+          "top": 306.19,
+          "left": 539.7,
+          "width": 468.3,
+          "height": 49.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "24px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "form": {
+        "geometry": {
+          "top": 306.19,
+          "left": 539.7,
+          "width": 468.3,
+          "height": 49.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "stepper": {
+        "geometry": {
+          "top": 306.19,
+          "left": 539.7,
+          "width": 130,
+          "height": 49.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      },
+      "submit": {
+        "geometry": {
+          "top": 306.19,
+          "left": 679.7,
+          "width": 328.3,
+          "height": 49.5
+        },
+        "spacing": {
+          "margin-top": "0px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "12px",
+          "padding-right": "20px",
+          "padding-bottom": "12px",
+          "padding-left": "20px"
+        },
+        "typography": {
+          "font-size": "17px",
+          "font-weight": "600",
+          "line-height": "25.5px",
+          "text-align": "center",
+          "color": "rgb(255, 255, 255)"
+        }
+      },
+      "availability": {
+        "geometry": {
+          "top": 399.69,
+          "left": 539.7,
+          "width": 468.3,
+          "height": 19.5
+        },
+        "spacing": {
+          "margin-top": "12px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        },
+        "typography": {
+          "font-size": "13px",
+          "font-weight": "400",
+          "line-height": "19.5px",
+          "text-align": "start",
+          "color": "color(srgb 0.0588235 0.0901961 0.164706 / 0.7)"
+        }
+      },
+      "story": {
+        "geometry": {
+          "top": 556.27,
+          "left": 16,
+          "width": 992,
+          "height": 102.3
+        },
+        "spacing": {
+          "margin-top": "32px",
+          "margin-right": "0px",
+          "margin-bottom": "0px",
+          "margin-left": "0px",
+          "padding-top": "0px",
+          "padding-right": "0px",
+          "padding-bottom": "0px",
+          "padding-left": "0px"
+        }
+      }
+    }
+  }
+}

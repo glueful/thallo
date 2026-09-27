@@ -1,0 +1,139 @@
+{
+  "case": "product-original",
+  "note": "Type layouts C1, P2 Step 0: today's product page (shop/product.twig), frozen before any C1 template or stylesheet change. P6 maps the layout page's selectors onto these names and relaxes only the accepted geometry rows. The wishlist heart is hidden until the wishlist script runs (scripts are dropped), so it has no box to measure; its markup is pinned by the render tests.",
+  "root": ".shop-product",
+  "elements": {
+    "breadcrumb": {
+      "selector": ".shop-product__breadcrumb",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography"
+      ]
+    },
+    "media": {
+      "selector": ".shop-product__media",
+      "profiles": [
+        "geometry"
+      ]
+    },
+    "cover": {
+      "selector": ".shop-product__cover",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "thumbs": {
+      "selector": ".shop-product__thumbs",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "info": {
+      "selector": ".shop-product__info",
+      "profiles": [
+        "geometry"
+      ]
+    },
+    "category": {
+      "selector": ".shop-product__eyebrow",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography"
+      ]
+    },
+    "name": {
+      "selector": ".shop-product__name",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography"
+      ]
+    },
+    "rating": {
+      "selector": ".shop-product__rating",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography"
+      ]
+    },
+    "price": {
+      "selector": ".shop-product__price",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography"
+      ]
+    },
+    "priceCurrent": {
+      "selector": ".shop-product__price-current",
+      "profiles": [
+        "geometry",
+        "typography"
+      ]
+    },
+    "priceCompare": {
+      "selector": ".shop-product__price-compare",
+      "profiles": [
+        "geometry",
+        "typography"
+      ]
+    },
+    "description": {
+      "selector": ".shop-product__description",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography"
+      ]
+    },
+    "buy": {
+      "selector": ".shop-product__buy",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "form": {
+      "selector": ".shop-product__add-to-cart",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "stepper": {
+      "selector": ".shop-product__stepper",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "submit": {
+      "selector": ".shop-product__submit",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography"
+      ]
+    },
+    "availability": {
+      "selector": ".shop-product__availability",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography"
+      ]
+    },
+    "story": {
+      "selector": ".shop-product__enrichment",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    }
+  }
+}

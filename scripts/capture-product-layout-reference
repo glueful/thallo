@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Freeze today's product page in a real browser (type layouts plan C1, P2 Step 0): build
+# `original.html` with scripts/build-product-layout-proof-fixtures, then measure it with the one
+# measuring procedure (tools/runtime-browser/scripts/measure.js — twice, refusing to write when the
+# two differ) into tools/runtime-browser/references/product-original.json, which is committed.
+#
+# Only meaningful before the product page's templates or stylesheet change: afterwards the frozen
+# measurements are what every later rendering is compared with (tests/product-layout.spec.js).
+#
+#   DB_PGSQL_DATABASE=app_test APP_ENV=testing scripts/capture-product-layout-reference
+set -euo pipefail
+cd "$(dirname "$0")/.."
+php scripts/build-product-layout-proof-fixtures
+cd tools/runtime-browser
+node scripts/measure.js \
+  /tools/runtime-browser/fixtures/product-layout/original.html \
+  product-original \
+  ../../tests/fixtures/commerce/product-page-reference.json \
+  references/product-original.json

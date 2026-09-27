@@ -10,6 +10,10 @@ on:
       - 'scripts/build-layout-proof-fixtures'
       - 'scripts/build-parity-fixtures'
       - 'scripts/build-docs-proof-fixtures'
+      - 'scripts/build-product-layout-proof-fixtures'
+      - 'tests/fixtures/commerce/**'
+      - 'packages/thallo-commerce/templates/**'
+      - 'packages/thallo-commerce/assets/shop.css'
       - 'packages/thallo-importers/**'
       - 'core/src/Content/Docs/**'
       - 'admin/src/assets/print.css'
@@ -25,6 +29,10 @@ on:
       - 'scripts/build-layout-proof-fixtures'
       - 'scripts/build-parity-fixtures'
       - 'scripts/build-docs-proof-fixtures'
+      - 'scripts/build-product-layout-proof-fixtures'
+      - 'tests/fixtures/commerce/**'
+      - 'packages/thallo-commerce/templates/**'
+      - 'packages/thallo-commerce/assets/shop.css'
       - 'packages/thallo-importers/**'
       - 'core/src/Content/Docs/**'
       - 'admin/src/assets/print.css'
@@ -135,6 +143,12 @@ jobs:
       - name: Build the docs fixtures
         working-directory: .
         run: php scripts/build-docs-proof-fixtures
+
+      # The shop's product page as the application serves it (product-layout.spec.js): one product
+      # seeded with fixed values, rendered through the shop controller, then rolled back.
+      - name: Build the product layout fixtures
+        working-directory: .
+        run: php scripts/build-product-layout-proof-fixtures
 
       - uses: actions/setup-node@v6
         with:
