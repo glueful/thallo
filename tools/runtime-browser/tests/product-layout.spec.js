@@ -272,3 +272,66 @@ for (const surface of ['', '-stage']) {
     expect(resetValues).toEqual(starterValues);
   });
 }
+
+// ---------------------------------------------------------------------------------------------
+// Blocks placed beside the starter keep the theme's spacing: the frame resets only the product
+// blocks at its top level (and the starter's container sets its own margins to none).
+
+/** Each added block's margins, beside a clone of it outside the product page: the theme's own. */
+async function addedSpacing(page, file) {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`${URL_BASE}/${file}`);
+  await page.evaluate(() => document.fonts && document.fonts.ready);
+  return page.evaluate(() => {
+    const frame = document.querySelector('.shop-product--layout');
+    const margins = (el) => {
+      const css = getComputedStyle(el);
+      return [css.marginTop, css.marginBottom];
+    };
+    const out = {};
+    for (const type of ['heading', 'rich_text', 'image']) {
+      const el = frame.querySelector(`.thallo-block-${type}`);
+      const clone = el.cloneNode(true);
+      document.body.appendChild(clone);
+      out[type] = { inFrame: margins(el), theme: margins(clone) };
+      clone.remove();
+    }
+    return out;
+  });
+}
+
+/** Where the starter's breadcrumb and grid sit, and the grid's margins. */
+async function starterGeometry(page, file) {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`${URL_BASE}/${file}`);
+  await page.evaluate(() => document.fonts && document.fonts.ready);
+  return page.evaluate(() => {
+    const frame = document.querySelector('.shop-product--layout');
+    // The outer grid: the container holding the container that holds the name.
+    const grid = frame.querySelector('.thallo-block-container:has(.thallo-block-container .shop-product__name)');
+    const css = getComputedStyle(grid);
+    return {
+      breadcrumb: frame.querySelector('.shop-product__breadcrumb').getBoundingClientRect().top,
+      grid: grid.getBoundingClientRect().top,
+      gridMargins: [css.marginTop, css.marginBottom],
+    };
+  });
+}
+
+for (const surface of ['', '-stage']) {
+  const where = surface === '' ? 'on the page' : 'on the stage';
+
+  test(`a heading, text and an image added beside the starter keep their spacing ${where}`, async ({ page }) => {
+    const added = await addedSpacing(page, `added${surface}.html`);
+    for (const type of ['heading', 'rich_text', 'image']) {
+      expect(added[type].inFrame, `${type} keeps the theme's margins`).toEqual(added[type].theme);
+      expect(parseFloat(added[type].inFrame[0]), `${type} has a top margin to keep`).toBeGreaterThan(0);
+    }
+    // The starter above them is where it was, its grid flush.
+    const beside = await starterGeometry(page, `added${surface}.html`);
+    const alone = await starterGeometry(page, `starter${surface}.html`);
+    expect(beside.gridMargins).toEqual(['0px', '0px']);
+    expect(beside.breadcrumb).toBeCloseTo(alone.breadcrumb, 0);
+    expect(beside.grid).toBeCloseTo(alone.grid, 0);
+  });
+}

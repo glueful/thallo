@@ -149,7 +149,9 @@ its size, colour or spacing — wins over the shop's own styling; remove it and 
 
 The layout opens on a starter that follows today's product page: the breadcrumb, the gallery beside
 the product's details, then the story. Two things differ: the two columns are equal (today's gallery
-is a touch wider), and the space between them is 2.5rem (today's is 2rem).
+is a touch wider), and the space between them is 2.5rem (today's is 2rem). The container that holds
+the two columns has its top and bottom margins set to none, so it sits where today's grid does;
+anything you add beside it — a heading, text, an image — keeps the theme's spacing, as on any page.
 
 Turning Commerce off hides the row and every product page; the layout is kept, and is used again
 when Commerce comes back.

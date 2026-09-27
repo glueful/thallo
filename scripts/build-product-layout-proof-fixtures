@@ -225,9 +225,26 @@ try {
             }
             return $tree;
         };
+        // Blocks placed beside the starter, at the layout's top level between the grid and the story:
+        // they keep the theme's spacing, as on any page.
+        $added = $starter;
+        array_splice($added, 2, 0, $withIds([
+            ['type' => 'heading', 'data' => ['text' => 'Caring for linen', 'level' => 'h2'], 'settings' => []],
+            ['type' => 'rich_text', 'data' => ['body' => '<p>Dust with a dry cloth; the shade washes by hand.</p>'],
+                'settings' => []],
+            ['type' => 'image', 'data' => ['image' => 'proofblob001', 'alt' => 'The lamp lit', 'width' => 320,
+                'height' => 240], 'settings' => []],
+        ], 'a'));
         $hydrator = new RequestDataHydrator();
         $version = 0;
-        foreach (['starter' => $starter, 'authored' => $authored($starter), 'reset' => $starter] as $name => $blocks) {
+        $states = ['starter' => $starter, 'authored' => $authored($starter), 'reset' => $starter, 'added' => $added];
+        foreach ($states as $name => $blocks) {
+            if ($name === 'added') {
+                // An Image block names a file of the media library: put the seed's cover on its disk.
+                $container->get(Connection::class)->table('blobs')->where('uuid', '=', 'proofblob001')->update([
+                    'storage_type' => (string) config($container->get(ApplicationContext::class), 'thallo.media_disk', 'local'),
+                ]);
+            }
             $session = json_decode((string) $container->get(LayoutPreviewController::class)->session(
                 $hydrator->hydrate(LayoutSessionData::class, ['surface' => 'product', 'target' => '@site']),
             )->getContent(), true)['data'];

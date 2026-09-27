@@ -172,15 +172,19 @@ final class ProductSurfaceTest extends AppTestCase
                     'direction' => ['base' => ['type' => 'choice', 'value' => 'column']],
                     'gap' => ['row' => $token('spacing.sm')],
                 ]]]],
-            ]], 'settings' => ['style' => ['layout' => [
-                'display' => ['base' => ['type' => 'choice', 'value' => 'grid']],
-                'columns' => [
-                    'base' => ['type' => 'choice', 'value' => '1'],
-                    'md' => ['type' => 'choice', 'value' => '2'],
+            ]], 'settings' => ['style' => [
+                // Flush between the breadcrumb and the story, as the page's grid: set where it shows.
+                'spacing' => ['margin' => ['top' => $token('spacing.none'), 'bottom' => $token('spacing.none')]],
+                'layout' => [
+                    'display' => ['base' => ['type' => 'choice', 'value' => 'grid']],
+                    'columns' => [
+                        'base' => ['type' => 'choice', 'value' => '1'],
+                        'md' => ['type' => 'choice', 'value' => '2'],
+                    ],
+                    'gap' => ['column' => $token('spacing.xl'), 'row' => $token('spacing.xl')],
+                    'align_items' => ['base' => ['type' => 'choice', 'value' => 'start']],
                 ],
-                'gap' => ['column' => $token('spacing.xl'), 'row' => $token('spacing.xl')],
-                'align_items' => ['base' => ['type' => 'choice', 'value' => 'start']],
-            ]]]],
+            ]]],
             $block('product_story'),
         ];
         self::assertSame($expected, $this->surface()->starter('@site'));
