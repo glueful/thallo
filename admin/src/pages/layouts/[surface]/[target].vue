@@ -118,7 +118,7 @@ const {
 const schema = layout.host.schema
 
 // ── Required blocks (spec §3, §4.1): the primary body's Entry content block — or a surface's block
-// without a field, the product page's Add to cart — is placed exactly once, so deleting it is refused
+// without a field, the product page's Product buy box — is placed exactly once, so deleting it is refused
 // with the reason; moving it is fine. ──
 function find(list: unknown, id: string): BlockInstance | null {
   if (!Array.isArray(list)) return null

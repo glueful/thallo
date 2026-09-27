@@ -134,7 +134,7 @@ and insert from the **Commerce** group of the Blocks tab:
 Each renders a shell server-side and fetches its data afterwards, so a page carrying one stays
 cacheable.
 
-To design the product page itself — where the name, the price, the gallery and **Add to cart** go
+To design the product page itself — where the name, the price, the gallery and the **Product buy box** go
 on every product — open **Site › Layouts** and edit **Products — product page**:
 [design the product page](20-layouts.md#design-the-product-page).
 

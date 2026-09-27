@@ -170,12 +170,12 @@ only in a layout's editor — each in its own kind of layout — and an entry, t
 and a saved section refuse them when saved. A field an entry block names is a field of the
 layout's content type; left empty, **Entry cover**, **Entry excerpt** and **Entry terms** show the
 field named `cover`, `excerpt` or `categories`, and **Entry content** the type's body. Every
-product layout holds exactly one **Add to cart**, and it has no **Visibility** setting: no
+product layout holds exactly one **Product buy box**, and it has no **Visibility** setting: no
 screen size can hide the product page's buy button.
 
 | Block | What it is for | Fields | Holds blocks | Style settings adds |
 |---|---|---|---|---|
-| **Add to cart** (`product_buy`) | The product page's options, quantity and button, with the wishlist heart and "In stock"; it works without JavaScript. Every product layout holds one. | `hide_wishlist` (boolean), `hide_availability` (boolean) | — | Width (and no Visibility) |
+| **Product buy box** (`product_buy`) | The product page's options, quantity and **Add to cart** button, with the wishlist heart and "In stock"; it works without JavaScript. Every product layout holds one. | `hide_wishlist` (boolean), `hide_availability` (boolean) | — | Width (and no Visibility) |
 | **Entry content** (`entry_content`) | Where the entry's own content — its blocks field — goes. | `field` (string — a blocks field) | — | Width |
 | **Entry cover** (`entry_cover`) | An image field of the entry, such as its cover. | `field` (string — an asset field), `aspect` (enum: natural, 16:9, 4:3, 1:1), `link` (boolean) | — | Width, Placement, Corners, Shadow |
 | **Entry date** (`entry_date`) | When the entry was published. | `format` (enum: long, short, relative), `prefix` (string) | — | Width, Placement, Text alignment, Typography, Text colour |

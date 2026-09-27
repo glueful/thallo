@@ -10,7 +10,7 @@ import {
 } from '../helpers'
 
 // The shop's product page on the layout stage (type layouts plan C1), in a real browser against the
-// stages the real renderer made around a product: the stage shows the product, Add to cart selects
+// stages the real renderer made around a product: the stage shows the product, the Product buy box selects
 // and cannot be deleted, and a Product rating dragged in lands where it was dropped — the stage
 // serves the rated state only for exactly the document the renderer rendered, so the newly inserted
 // block (its id queued, `e2eratingnew`) must appear on the refreshed stage, distinct from the
@@ -67,7 +67,7 @@ async function openBlocksTab(page: Page): Promise<void> {
     .click()
 }
 
-test('the stage shows the product; Add to cart selects and cannot be deleted, saying why', async ({
+test('the stage shows the product; the Product buy box selects and cannot be deleted, saying why', async ({
   page,
 }) => {
   const recorded = await openLayoutStage(page, { world: 'product' })
@@ -81,7 +81,7 @@ test('the stage shows the product; Add to cart selects and cannot be deleted, sa
 
   await host(page, buy).press('Delete')
   await expect(page.locator('[data-test="layout-required-refusal"]')).toHaveText(
-    'Every one of the products shows its Add to cart here, so the layout keeps this block. Move it instead.',
+    'Every one of the products shows its Product buy box here, so the layout keeps this block. Move it instead.',
   )
   await expect(page.locator('[data-test="canvas-delete-confirm-yes"]')).toHaveCount(0)
   served(recorded)

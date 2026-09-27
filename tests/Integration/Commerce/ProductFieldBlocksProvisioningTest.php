@@ -39,7 +39,7 @@ final class ProductFieldBlocksProvisioningTest extends AppTestCase
             self::assertNotContains('alignment.text', $caps[$flexRoot], $flexRoot);
         }
         self::assertContains('alignment.text', $caps['product_name']);
-        // Every product page keeps its Add to cart: the required block cannot be hidden at any size.
+        // Every product page keeps its Product buy box: the required block cannot be hidden at any size.
         self::assertNotContains('visibility', $caps['product_buy']);
         self::assertContains('visibility', $caps['product_story']);
     }
@@ -62,7 +62,7 @@ final class ProductFieldBlocksProvisioningTest extends AppTestCase
                 self::assertSame('Fields', $row['category'], $slug);
                 self::assertTrue((bool) ($row['flags']['layout_only'] ?? false), $slug);
             }
-            self::assertSame('Add to cart', $blockTypes->findBySlug('product_buy')['label']);
+            self::assertSame('Product buy box', $blockTypes->findBySlug('product_buy')['label']);
         } finally {
             $before === null
                 ? $flags->forget(ContributedBlockTypeReconciler::FLAG)

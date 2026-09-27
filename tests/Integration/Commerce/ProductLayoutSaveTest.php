@@ -23,7 +23,7 @@ use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 
 /**
  * Save and Remove for the product layout (type layouts plan C1, P5): Release A's contract at the
- * site-wide target — versions, conflicts, tombstones, a retired session — with Add to cart required
+ * site-wide target — versions, conflicts, tombstones, a retired session — with the Product buy box required
  * exactly once, and each surface's field blocks refused on the other. (One product layout per
  * workspace, under real tenancy enforcement, is ProductLayoutTenancyTest's.)
  */
@@ -162,7 +162,7 @@ final class ProductLayoutSaveTest extends AppTestCase
         foreach ([$this->save($session['token'], $none, 0), $this->apply($session['token'], $none)] as $answer) {
             self::assertSame(422, $answer['status']);
             self::assertSame(
-                'the layout must show the Add to cart block',
+                'the layout must show the Product buy box block',
                 $answer['body']['error']['details']['blocks'] ?? null,
             );
         }

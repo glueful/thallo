@@ -304,7 +304,7 @@ final class LayoutValidatorTest extends AppTestCase
     }
 
     /**
-     * A surface's required block without a field — the product page's Add to cart — must be placed
+     * A surface's required block without a field — the product page's Product buy box — must be placed
      * exactly once, anywhere in the tree (type layouts spec §2.7, §3): missing, the error names the
      * block by its label; twice, the second is refused at its path.
      */

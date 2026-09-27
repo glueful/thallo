@@ -20,7 +20,7 @@ final class BlockStyleDeclarationsTest extends AppTestCase
     private const RENDERS_CHILDREN_INLINE = ['accordion', 'tabs', 'stepper', 'gallery', 'pricing_table', 'carousel'];
 
     /**
-     * The one block that cannot be hidden: the product page's Add to cart (type layouts plan C1),
+     * The one block that cannot be hidden: the product page's Product buy box (type layouts plan C1),
      * required in every product layout — hidden at any size, that size could not buy.
      */
     private const NEVER_HIDDEN = ['product_buy'];

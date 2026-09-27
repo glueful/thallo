@@ -134,10 +134,10 @@ The **Blocks** tab leads with the product's fields:
 | **Product rating** | the stars, the average and the review count | **Hide until it has reviews** |
 | **Product price** | the price, and the struck "was" price when there is one | **Hide the "was" price** |
 | **Product description** | the description | — |
-| **Add to cart** | the options, the quantity, the button, the wishlist heart and "In stock" | **Hide the wishlist heart**, **Hide "In stock"** |
+| **Product buy box** | the options, the quantity, the **Add to cart** button, the wishlist heart and "In stock" | **Hide the wishlist heart**, **Hide "In stock"** |
 | **Product story** | the content of the product's [linked story](18-commerce.md#add-a-product) | — |
 
-Every product layout keeps exactly one **Add to cart**: deleting it is refused with the reason, and
+Every product layout keeps exactly one **Product buy box**: deleting it is refused with the reason, and
 Save stays off without it. Move it instead. It has no **Visibility** setting, so no screen size can
 hide it. It works as the product page's always has — a product
 with options offers a list to choose from, a product that needs an add-on says it cannot be bought

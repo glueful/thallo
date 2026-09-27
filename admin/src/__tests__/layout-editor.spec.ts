@@ -48,7 +48,7 @@ const blockTypes = ref<BlockType[]>([
   bt('entry_title', 'Fields', true),
   bt('entry_content', 'Fields', true),
   bt('product_name', 'Fields', true, 'Product name'),
-  bt('product_buy', 'Fields', true, 'Add to cart'),
+  bt('product_buy', 'Fields', true, 'Product buy box'),
 ])
 vi.mock('@/queries/blockTypes', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/queries/blockTypes')>()),
@@ -203,9 +203,9 @@ describe('the layout editor', () => {
     w.unmount()
   })
 
-  // Type layouts plan C1: a required block without a field (the product page's Add to cart) is named
+  // Type layouts plan C1: a required block without a field (the product page's Product buy box) is named
   // by its label, in the refusal and in the reason Save is off.
-  it('names a required block without a field by its label: the product page keeps its Add to cart', async () => {
+  it('names a required block without a field by its label: the product page keeps its Product buy box', async () => {
     const product = [
       { id: 'prodname0001', type: 'product_name', data: { level: 'h1' }, settings: {} },
       { id: 'prodbuy00001', type: 'product_buy', data: {}, settings: {} },
@@ -230,7 +230,7 @@ describe('the layout editor', () => {
     bridge.callbacks.onBlockDeleteRequest!('prodbuy00001' as never, null as never)
     await flushPromises()
     expect(w.find('[data-test="layout-required-refusal"]').text()).toBe(
-      'Every one of the products shows its Add to cart here, so the layout keeps this block. Move it instead.',
+      'Every one of the products shows its Product buy box here, so the layout keeps this block. Move it instead.',
     )
     await w.find('[data-test="canvas-delete-cancel"]').trigger('click')
     expect(topBar(w).props('saveBlocked')).toBeNull()
@@ -247,7 +247,7 @@ describe('the layout editor', () => {
     const without = mountPage()
     await flushPromises()
     expect(topBar(without).props('saveBlocked')).toBe(
-      'The layout must show the Add to cart block — add it from the Blocks tab.',
+      'The layout must show the Product buy box block — add it from the Blocks tab.',
     )
     without.unmount()
   })
