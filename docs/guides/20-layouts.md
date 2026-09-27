@@ -28,7 +28,8 @@ One **Entry content** block places the post's own content — the blocks of its 
 layout has one where the type has a blocks body. The post's content is still edited on the post.
 
 Every content type the site publishes can have a layout for its single pages. A type without
-one shows its pages through the theme's template, as before.
+one shows its pages through the theme's template, as before. With Commerce on, the shop's product
+page can have one too: see [Design the product page](#design-the-product-page).
 
 ## Open a layout
 
@@ -114,6 +115,44 @@ A post of a type with a layout is shown inside it on its own **Design** view. A 
 stage names the layout, with **Edit layout** to open it. The post's blocks are edited as always;
 the layout's blocks are not selectable there. **Show page title** does not apply under a layout —
 the layout places the title — and the **Page** tab says so.
+
+## Design the product page
+
+With [Commerce](18-commerce.md) switched on, **Site › Layouts** has a **Products — product page**
+row. Its layout designs every product's page at once: **Edit** opens it on the stage around one of
+your active products (the picker lists them, newest first), or around a **Sample product** while the
+shop has none. **Save** says **Applies to every product**.
+
+The **Blocks** tab leads with the product's fields:
+
+| Block | Shows | Settings |
+|---|---|---|
+| **Product breadcrumb** | Shop, the product's category and its name | **Hide the category** |
+| **Product gallery** | the cover, with thumbnails that swap it when there are more images | **Hide the thumbnails**, **aspect** (4:3, 1:1, natural) |
+| **Product category** | the product's category, above its name | **Link to the category** |
+| **Product name** | the name | **level** (h1 to h4) |
+| **Product rating** | the stars, the average and the review count | **Hide until it has reviews** |
+| **Product price** | the price, and the struck "was" price when there is one | **Hide the "was" price** |
+| **Product description** | the description | — |
+| **Add to cart** | the options, the quantity, the button, the wishlist heart and "In stock" | **Hide the wishlist heart**, **Hide "In stock"** |
+| **Product story** | the content of the product's [linked story](18-commerce.md#add-a-product) | — |
+
+Every product layout keeps exactly one **Add to cart**: deleting it is refused with the reason, and
+Save stays off without it. Move it instead. It works as the product page's always has — a product
+with options offers a list to choose from, a product that needs an add-on says it cannot be bought
+online, and the button adds to the cart even where JavaScript is off.
+
+However you design it, the page keeps what it must have: its canonical address in the shop, the
+product's structured data for search engines, and the shop's script. A value you set on a block —
+its size, colour or spacing — wins over the shop's own styling; remove it and the default returns.
+
+The layout opens on a starter that follows today's product page: the breadcrumb, the gallery beside
+the product's details, then the story. Two things differ: the two columns are equal (today's gallery
+is a touch wider), and the space between them is 2.5rem (today's is 2rem).
+
+Turning Commerce off hides the row and every product page; the layout is kept, and is used again
+when Commerce comes back. On a site that had Commerce on before this release, run
+`php glueful thallo:provision` once to add the product blocks.
 
 ## When the content type changes
 

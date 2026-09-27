@@ -7,8 +7,8 @@ summary: "Every block that ships: what it is for, its fields, and its style sett
 ---
 
 Thallo ships **54 block types**. Two [capabilities](../concepts/06-capabilities.md) add more:
-Accounts adds four, Commerce adds five. This page lists all of them, in the order the Blocks tab
-and **Settings › Block Types** show them.
+Accounts adds four, Commerce adds fourteen — five shop blocks and nine fields for the product page.
+This page lists all of them, in the order the Blocks tab and **Settings › Block Types** show them.
 
 ## How to read the tables
 
@@ -162,14 +162,19 @@ Turning Commerce on and connecting a shop is [sell something](../guides/18-comme
 
 ## Fields
 
-Nine blocks for [layouts](../guides/20-layouts.md): each shows the current entry's own data, and
-holds settings, never the data. They are offered only in a layout's editor, and an entry, the
-header and footer and a saved section refuse them when saved. A field a block names is a field of
-the layout's content type; left empty, **Entry cover**, **Entry excerpt** and **Entry terms** show
-the field named `cover`, `excerpt` or `categories`, and **Entry content** the type's body.
+Blocks for [layouts](../guides/20-layouts.md), holding settings, never data. Nine show the current
+entry's own data. Nine more, which the **Commerce** capability contributes, show the current
+product on the [product page's layout](../guides/20-layouts.md#design-the-product-page) — seeded
+while Commerce is on and hidden while it is off, like the Commerce blocks above. They are offered
+only in a layout's editor — each in its own kind of layout — and an entry, the header and footer
+and a saved section refuse them when saved. A field an entry block names is a field of the
+layout's content type; left empty, **Entry cover**, **Entry excerpt** and **Entry terms** show the
+field named `cover`, `excerpt` or `categories`, and **Entry content** the type's body. Every
+product layout holds exactly one **Add to cart**.
 
 | Block | What it is for | Fields | Holds blocks | Style settings adds |
 |---|---|---|---|---|
+| **Add to cart** (`product_buy`) | The product page's options, quantity and button, with the wishlist heart and "In stock"; it works without JavaScript. Every product layout holds one. | `hide_wishlist` (boolean), `hide_availability` (boolean) | — | Width |
 | **Entry content** (`entry_content`) | Where the entry's own content — its blocks field — goes. | `field` (string — a blocks field) | — | Width |
 | **Entry cover** (`entry_cover`) | An image field of the entry, such as its cover. | `field` (string — an asset field), `aspect` (enum: natural, 16:9, 4:3, 1:1), `link` (boolean) | — | Width, Placement, Corners, Shadow |
 | **Entry date** (`entry_date`) | When the entry was published. | `format` (enum: long, short, relative), `prefix` (string) | — | Width, Placement, Text alignment, Typography, Text colour |
@@ -178,6 +183,14 @@ the field named `cover`, `excerpt` or `categories`, and **Entry content** the ty
 | **Entry terms** (`entry_terms`) | A reference field's terms, such as its categories, linked to their archives where those pages exist. | `field` (string — a reference field), `style` (enum: text, badges), `link` (boolean) | — | Width, Placement, Text alignment, Typography, Text colour |
 | **Entry title** (`entry_title`) | The entry's title. | `level` (enum: h1, h2, h3, h4), `link` (boolean) | — | Width, Placement, Text alignment, Typography, Text colour |
 | **Previous and next** (`entry_neighbours`) | The published entries of the type either side of this one, by publish date. | `previous_label` (string), `next_label` (string) | — | Width |
+| **Product breadcrumb** (`product_breadcrumb`) | Shop, the product's category and its name. | `hide_category` (boolean) | — | Width, Placement, Text alignment, Typography, Text colour |
+| **Product category** (`product_category`) | The product's category, above its name. | `link` (boolean) | — | Width, Placement, Text alignment, Typography, Text colour |
+| **Product description** (`product_description`) | The product's description. | — | — | Width, Placement, Text alignment, Typography, Text colour |
+| **Product gallery** (`product_gallery`) | The product's images: the cover, with thumbnails that swap it. | `hide_thumbnails` (boolean), `aspect` (enum: 4:3, 1:1, natural) | — | Width, Corners, Shadow |
+| **Product name** (`product_name`) | The product's name. | `level` (enum: h1, h2, h3, h4) | — | Width, Placement, Text alignment, Typography, Text colour |
+| **Product price** (`product_price`) | The price, with the struck "was" price when there is one. | `hide_compare_at` (boolean) | — | Width, Placement, Text alignment, Typography, Text colour |
+| **Product rating** (`product_rating`) | The product's stars, average and review count. | `hide_when_none` (boolean) | — | Width, Placement, Text alignment, Typography, Text colour |
+| **Product story** (`product_story`) | The content of the product's linked story. | — | — | Width |
 | **Related entries** (`entry_related`) | The newest other entries of the type. | `count` (number, 1 to 6), `style` (enum: list, cards) | — | Width |
 
 A layout's editor checks each field when the layout is applied and saved: **Entry cover** needs an
