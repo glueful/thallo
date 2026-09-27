@@ -539,7 +539,7 @@ try {
         [$body] = $sessionOf();
         $write('session.json', $body);
         $admin = $container->get(Thallo\Core\Http\Controllers\LayoutAdminController::class);
-        $write('layouts.json', (string) $admin->index()->getContent());
+        $write('layouts.json', (string) $admin->index(Request::create('/v1/layouts', 'GET'))->getContent());
         $write('samples.json', (string) $admin->samples(Request::create('/x'), 'entry', 'post')->getContent());
 
         $stages = [];
@@ -614,6 +614,11 @@ try {
     });
 } catch (LayoutFixturesWritten) {
     // Written, and rolled back.
+} catch (Throwable $e) {
+    // Left to the framework's handler, a throw prints its JSON and exits 0: CI would run the proofs
+    // on the fixtures written before it.
+    fwrite(STDERR, 'the layout fixtures failed: ' . $e::class . ': ' . $e->getMessage() . "\n");
+    exit(1);
 }
 
 fwrite(STDOUT, "Wrote {$out}/canvas.html and " . count(glob($out . '/api/*.json') ?: []) . " API fixtures for entry {$entryUuid}.\n");
