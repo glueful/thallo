@@ -85,6 +85,42 @@ final class ShopBlockTypeProvisioningTest extends RetrofittedTenantTestCase
         }
     }
 
+    /**
+     * A workspace that has not had the product blocks yet (type layouts plan C1): its product layout
+     * is closed with the reason, and the documented sync adds all nine and opens it.
+     */
+    public function testTenantSyncAllGivesAnExistingWorkspaceTheProductBlocksAndOpensItsLayout(): void
+    {
+        $surface = $this->container()->get(\Thallo\Contracts\Layouts\LayoutSurfaceRegistry::class)->get('product');
+        $target = fn (): ?array => $this->runAsTenant(self::$tenantBUuid, fn () => $this->container()
+            ->get(\Thallo\Core\Content\Layouts\LayoutTargets::class)->find($surface, '@site'));
+        // Provisioned before this release: neither the rows nor any record of having seeded them (a
+        // recorded block whose row is gone is one the site deleted, and a sync leaves it deleted).
+        $this->runAsTenant(self::$tenantBUuid, function (): void {
+            $slugs = \Thallo\Commerce\Starter\ProductFieldBlocksContributor::SLUGS;
+            $this->connection()->table('block_types')->whereIn('slug', $slugs)->delete();
+            $this->connection()->table('starter_provenance')->where('definition_kind', '=', 'block_type')
+                ->whereIn('source_id', array_map(static fn (string $s): string => 'thallo-commerce:' . $s, $slugs))
+                ->delete();
+        });
+
+        $closed = $target();
+        self::assertFalse($closed['enabled'] ?? null);
+        self::assertSame(\Thallo\Core\Content\Layouts\LayoutTargets::NOT_PROVISIONED, $closed['reason']);
+
+        $this->syncAllBlockTypeKind();
+        $fields = $this->runAsTenant(self::$tenantBUuid, fn () => array_column(
+            $this->connection()->table('block_types')
+                ->whereIn('slug', \Thallo\Commerce\Starter\ProductFieldBlocksContributor::SLUGS)->get(),
+            'slug',
+        ));
+        $want = \Thallo\Commerce\Starter\ProductFieldBlocksContributor::SLUGS;
+        sort($want);
+        sort($fields);
+        self::assertSame($want, $fields);
+        self::assertTrue($target()['enabled'] ?? null);
+    }
+
     /** @return array<string,array<string,string>> tenant_uuid => (source_id => action) */
     private function syncAllBlockTypeKind(): array
     {

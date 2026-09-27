@@ -9,6 +9,11 @@ use Thallo\Core\Content\Blocks\BlockTypeRepository;
 use Thallo\Core\Content\Blocks\ContributedBlockTypeReconciler;
 use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
 use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
+use Glueful\Validation\RequestDataHydrator;
+use Symfony\Component\HttpFoundation\Request;
+use Thallo\Core\Http\Controllers\LayoutAdminController;
+use Thallo\Core\Http\Controllers\LayoutPreviewController;
+use Thallo\Core\Http\DTOs\LayoutSessionData;
 use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Tenancy\System\SystemFlags;
 
@@ -68,6 +73,53 @@ final class ProductFieldBlocksProvisioningTest extends AppTestCase
                 ? $flags->forget(ContributedBlockTypeReconciler::FLAG)
                 : $flags->put(ContributedBlockTypeReconciler::FLAG, (string) $before);
         }
+    }
+
+    /**
+     * An existing site upgraded without provisioning: the product layout's row says why it cannot be
+     * opened and how to fix it, the editor's session is refused with the same reason, and once the
+     * seeding runs the row opens.
+     */
+    public function testTheProductLayoutWaitsForItsBlocksOnAnUpgradedSite(): void
+    {
+        $this->container()->get(StarterBlockTypeSeeder::class)->seedMissing();
+        $this->connection()->table('block_types')->whereIn('slug', ProductFieldBlocksContributor::SLUGS)->delete();
+        $row = function (): array {
+            $body = json_decode((string) $this->container()->get(LayoutAdminController::class)
+                ->index(Request::create('/v1/admin/layouts'))->getContent(), true);
+            foreach ($body['data']['layouts'] as $row) {
+                if ($row['surface'] === 'product') {
+                    return $row;
+                }
+            }
+            self::fail('the product layout is listed');
+        };
+        $session = fn () => $this->container()->get(LayoutPreviewController::class)->session(
+            (new RequestDataHydrator())->hydrate(
+                LayoutSessionData::class,
+                ['surface' => 'product', 'target' => '@site'],
+            ),
+        );
+
+        $waiting = $row();
+        self::assertFalse($waiting['enabled']);
+        self::assertStringContainsString('php glueful thallo:provision', (string) $waiting['reason']);
+        self::assertStringContainsString(
+            'php glueful thallo:tenant:sync --all --kind=block_type',
+            (string) $waiting['reason'],
+        );
+        $refused = $session();
+        self::assertSame(422, $refused->getStatusCode());
+        self::assertSame(
+            $waiting['reason'],
+            json_decode((string) $refused->getContent(), true)['error']['details']['target'] ?? null,
+        );
+
+        $this->container()->get(StarterBlockTypeSeeder::class)->seedMissing();
+        $ready = $row();
+        self::assertTrue($ready['enabled']);
+        self::assertNull($ready['reason']);
+        self::assertSame(200, $session()->getStatusCode());
     }
 
     public function testTheyAreHiddenWhileCommerceIsOff(): void

@@ -152,8 +152,18 @@ the product's details, then the story. Two things differ: the two columns are eq
 is a touch wider), and the space between them is 2.5rem (today's is 2rem).
 
 Turning Commerce off hides the row and every product page; the layout is kept, and is used again
-when Commerce comes back. On a site that had Commerce on before this release, run
-`php glueful thallo:provision` once to add the product blocks.
+when Commerce comes back.
+
+On a site that had Commerce on before this release, add the product blocks once:
+
+```bash
+php glueful thallo:provision
+# with workspaces on, also bring every existing workspace up to date:
+php glueful thallo:tenant:sync --all --kind=block_type
+```
+
+Until a site — or a workspace — has them, the **Products — product page** row has no **Edit** and
+says which commands to run.
 
 ## When the content type changes
 
