@@ -31,12 +31,12 @@ final class LayoutOnlyBlocksTest extends AppTestCase
     }
 
     /** @return array<string,mixed> a container holding a field block */
-    private static function nested(): array
+    private static function nested(string $type = 'entry_title'): array
     {
         return ['id' => 'contain00001', 'type' => 'container', 'settings' => [], 'data' => [
             'element' => 'div',
             'content' => [
-                ['id' => 'fieldblock01', 'type' => 'entry_title', 'data' => ['level' => 'h1'], 'settings' => []],
+                ['id' => 'fieldblock01', 'type' => $type, 'data' => [], 'settings' => []],
             ],
         ]];
     }
@@ -79,6 +79,36 @@ final class LayoutOnlyBlocksTest extends AppTestCase
         $resp = $this->container()->get(SavedSectionController::class)->store($dto, $request);
         self::assertSame(422, $resp->getStatusCode());
         self::assertStringContainsString('belongs to layouts', (string) $resp->getContent());
+    }
+
+    /**
+     * The product page's field blocks (type layouts plan C1) belong to layouts too: an entry, a
+     * region and a saved section refuse `product_name` at the block's path.
+     */
+    public function testProductFieldBlocksBelongToLayouts(): void
+    {
+        $schema = ContentTypeSchema::fromArray([['name' => 'body', 'type' => 'blocks']]);
+        try {
+            $this->validator()->validate($schema, ['body' => [self::nested('product_name')]], true);
+            self::fail('an entry must refuse a product field block');
+        } catch (ValidationException $e) {
+            self::assertSame("'product_name' belongs to layouts", $e->errors()['body.0.content.0'] ?? null);
+        }
+        try {
+            $this->container()->get(RegionValidator::class)->validate('footer', [self::nested('product_name')], []);
+            self::fail('a region must refuse a product field block');
+        } catch (ValidationException $e) {
+            self::assertStringContainsString("'product_name' belongs to layouts", json_encode($e->errors()));
+        }
+        $dto = (new RequestDataHydrator())->hydrate(
+            SaveSectionData::class,
+            ['name' => 'Sneaky product', 'block' => self::nested('product_name')],
+        );
+        $request = Request::create('https://admin.test/v1/admin/saved-sections', 'POST');
+        $request->attributes->set('user', ['uuid' => 'editor000001']);
+        $resp = $this->container()->get(SavedSectionController::class)->store($dto, $request);
+        self::assertSame(422, $resp->getStatusCode());
+        self::assertStringContainsString("'product_name' belongs to layouts", (string) $resp->getContent());
     }
 
     public function testAValidatorForLayoutsAcceptsIt(): void

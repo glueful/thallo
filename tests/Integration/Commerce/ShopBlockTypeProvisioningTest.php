@@ -48,6 +48,27 @@ final class ShopBlockTypeProvisioningTest extends RetrofittedTenantTestCase
         self::assertSame($expected, $slugs);
     }
 
+    /** The product page's field blocks (type layouts plan C1) come with them. */
+    public function testFreshTenantProvisioningCreatesTheProductFieldBlocks(): void
+    {
+        $this->container()->get(TenantSeedRepair::class)->repair(self::$tenantAUuid);
+
+        $slugs = $this->runAsTenant(
+            self::$tenantAUuid,
+            fn () => array_column(
+                $this->connection()->table('block_types')
+                    ->whereIn('slug', \Thallo\Commerce\Starter\ProductFieldBlocksContributor::SLUGS)
+                    ->get(),
+                'slug',
+            ),
+        );
+
+        $expected = \Thallo\Commerce\Starter\ProductFieldBlocksContributor::SLUGS;
+        sort($expected);
+        sort($slugs);
+        self::assertSame($expected, $slugs);
+    }
+
     public function testTenantSyncAllWithKindBlockTypeAdoptsTheFourShopBlockTypesIdempotently(): void
     {
         $first = $this->syncAllBlockTypeKind();

@@ -15,22 +15,12 @@
 
 declare(strict_types=1);
 
-use Glueful\Database\Connection;
-use Glueful\Extensions\Commerce\Catalog\CatalogService;
-use Glueful\Extensions\Commerce\Catalog\CategoryRepository;
-use Glueful\Extensions\Commerce\Catalog\ProductMediaRepository;
-use Glueful\Extensions\Commerce\Catalog\ProductRepository;
 use Glueful\Bootstrap\ApplicationContext;
+use Glueful\Database\Connection;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Thallo\Commerce\Links\ProductLinkService;
-use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
-use Thallo\Core\Content\Repositories\ContentTypeRepository;
-use Thallo\Core\Content\Repositories\EntryRepository;
-use Thallo\Core\Content\Repositories\RouteRepository;
-use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Tests\Support\ProductPageSeed;
 use Thallo\Core\Tests\Support\TestApplication;
-use Thallo\Tenancy\System\SystemFlags;
 
 require __DIR__ . '/../vendor/autoload.php';
 
@@ -63,14 +53,7 @@ $app = TestApplication::instance();
 $container = $app->getContainer();
 $context = $container->get(ApplicationContext::class);
 $db = $container->get(Connection::class);
-$flags = $container->get(SystemFlags::class);
-
-const PROOF_TENANT = 'prooftenant1';
-/** blob uuid => the committed image its URL is replaced with */
-const PROOF_IMAGES = [
-    'proofblob001' => 'tests/fixtures/commerce/product-cover.png',
-    'proofblob002' => 'tests/fixtures/commerce/product-alt.png',
-];
+$seed = new ProductPageSeed($container, $context);
 
 /** A GET through the application, following its redirects (the shop stylesheet alias 302s). */
 $get = static function (string $path) use ($app): Response {
@@ -127,7 +110,7 @@ $selfContained = static function (string $html) use ($get, $inlineUrls, $dataUri
         static fn (array $m): string => '<style' . $m[1] . '>' . $inlineUrls($m[2], '/') . '</style>',
         $html,
     );
-    foreach (PROOF_IMAGES as $blob => $file) {
+    foreach (ProductPageSeed::IMAGES as $blob => $file) {
         $html = (string) preg_replace(
             '~(src|data-src)="[^"]*/blobs/' . $blob . '[^"]*"~',
             '$1="' . $dataUri('image/png', (string) file_get_contents($root . '/' . $file)) . '"',
@@ -143,85 +126,17 @@ final class ProductFixturesWritten extends RuntimeException
 {
 }
 
-$previous = [
-    'tenancy.schema_state' => $flags->get('tenancy.schema_state'),
-    'tenancy.default_tenant_uuid' => $flags->get('tenancy.default_tenant_uuid'),
-];
-$flags->put('tenancy.schema_state', 'widened');
-$flags->put('tenancy.default_tenant_uuid', PROOF_TENANT);
+$previous = $seed->useTenant();
 $written = [];
 try {
     $db->transaction(static function () use (
-        $container,
-        $context,
-        $db,
+        $seed,
         $get,
         $selfContained,
         $out,
         &$written,
     ): void {
-        $container->get(StarterBlockTypeSeeder::class)->seedMissing();
-
-        $category = 'proofcat0001';
-        (new CategoryRepository())->insert($context, [
-            'uuid' => $category, 'tenant_uuid' => PROOF_TENANT, 'slug' => 'lighting', 'name' => 'Lighting',
-            'position' => 0,
-        ]);
-        $product = $container->get(CatalogService::class)->createProduct($context, [
-            'slug' => 'linen-lamp',
-            'name' => 'Linen table lamp',
-            'status' => 'active',
-            'type' => 'physical',
-            'description' => '<p>A hand-thrown ceramic base under a natural linen shade.</p>'
-                . '<p>Warm, dimmable light for a bedside or a reading corner.</p>',
-            'variants' => [[
-                'sku' => 'proof-lamp-1', 'price' => 8900, 'compare_at_price' => 11900, 'currency' => 'USD',
-                'option_values' => [],
-            ]],
-        ]);
-        $uuid = (string) $product['uuid'];
-        $container->get(ProductRepository::class)->update($context, PROOF_TENANT, $uuid, [
-            'rating_sum' => 9, 'rating_count' => 2,
-        ]);
-        (new CategoryRepository())->attachProduct($context, $uuid, $category);
-
-        $position = 0;
-        foreach (PROOF_IMAGES as $blob => $file) {
-            $db->table('blobs')->insert([
-                'uuid' => $blob, 'name' => basename($file), 'mime_type' => 'image/png', 'size' => 1,
-                'url' => 'uploads/' . basename($file), 'visibility' => 'public', 'status' => 'active',
-                'created_by' => 'user00000001', 'created_at' => '2026-09-27 00:00:00',
-            ]);
-            $container->get(ProductMediaRepository::class)->insert($context, [
-                'uuid' => 'proofmedia0' . ($position + 1), 'tenant_uuid' => PROOF_TENANT, 'product_uuid' => $uuid,
-                'blob_uuid' => $blob, 'role' => $position === 0 ? 'cover' : 'gallery', 'position' => $position,
-                'alt' => $position === 0 ? 'The lamp, lit' : 'The lamp from above',
-            ]);
-            $position++;
-        }
-
-        // The linked story: a published entry whose body the product page shows under the details.
-        $types = $container->get(ContentTypeRepository::class);
-        $storyType = (string) $types->create([
-            'slug' => 'proof_story', 'name' => 'Proof stories', 'public_delivery' => true, 'schema' => [
-                ['name' => 'title', 'type' => 'string', 'required' => true],
-                ['name' => 'body', 'type' => 'blocks'],
-            ],
-        ]);
-        $entries = $container->get(EntryRepository::class);
-        $entry = $entries->createEntry($storyType, 'en', 1, 'user00000001');
-        $entries->saveDraft($entry, 'en', [
-            'title' => 'Made by hand',
-            'body' => [
-                ['id' => 'proofstory01', 'type' => 'heading', 'data' => ['text' => 'Made by hand'], 'settings' => []],
-                ['id' => 'proofstory02', 'type' => 'rich_text', 'data' => [
-                    'body' => '<p>Each base is thrown on the wheel and glazed in small batches.</p>',
-                ], 'settings' => []],
-            ],
-        ], 1, 0, 'user00000001');
-        $container->get(RouteRepository::class)->assign($entry, $storyType, 'en', 'made-by-hand');
-        $container->get(PublishService::class)->publish($entry, 'en', 'user00000001');
-        $container->get(ProductLinkService::class)->link($context, $uuid, $entry);
+        $seed->showcase();
 
         // A foreign query parameter keeps the shop page cache out of the way (it bypasses it).
         $page = $get('/shop/products/linen-lamp?proof=1');
@@ -246,9 +161,7 @@ try {
     fwrite(STDERR, 'the product fixtures failed: ' . $e::class . ': ' . $e->getMessage() . "\n");
     exit(1);
 } finally {
-    foreach ($previous as $key => $value) {
-        $value === null ? $flags->forget($key) : $flags->put($key, (string) $value);
-    }
+    $seed->restoreTenant($previous);
 }
 
 fwrite(STDOUT, 'Wrote ' . implode(', ', $written) . " to tools/runtime-browser/fixtures/product-layout.\n");

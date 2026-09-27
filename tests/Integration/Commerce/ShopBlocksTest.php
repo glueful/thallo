@@ -256,7 +256,11 @@ final class ShopBlocksTest extends AppTestCase
         $provider->registerShopBlockTypeContributor($this->appContext(), $registry);
         $provider->registerShopBlockTypeContributor($this->appContext(), $registry);
 
-        self::assertCount(1, $registry->all());
+        // The shop blocks and the product page's field blocks (type layouts plan C1), once each.
+        self::assertSame(
+            [ShopBlockTypesContributor::class, \Thallo\Commerce\Starter\ProductFieldBlocksContributor::class],
+            array_map(static fn (object $c): string => $c::class, $registry->all()),
+        );
     }
 
     // ==================================================================
