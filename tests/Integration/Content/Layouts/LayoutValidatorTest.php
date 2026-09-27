@@ -304,6 +304,37 @@ final class LayoutValidatorTest extends AppTestCase
     }
 
     /**
+     * A surface's required block without a field — the product page's Add to cart — must be placed
+     * exactly once, anywhere in the tree (type layouts spec §2.7, §3): missing, the error names the
+     * block by its label; twice, the second is refused at its path.
+     */
+    public function testARequiredBlockWithoutAFieldIsNeededExactlyOnce(): void
+    {
+        $registry = $this->container()->get(\Thallo\Contracts\Layouts\LayoutSurfaceRegistry::class);
+        $registry->register(new \Thallo\Core\Tests\Support\FixtureLayoutSurface());
+        try {
+            $button = self::block('button', ['label' => 'Go', 'url' => '/go']);
+            $heading = self::block('heading', ['text' => 'Hi']);
+
+            $none = $this->errorsFor('fixture', '@site', [$heading]);
+            self::assertSame(['blocks' => 'the layout must show the Button block'], $none);
+
+            $twice = $this->errorsFor('fixture', '@site', [
+                $button,
+                self::block('container', ['content' => [$button]]),
+            ]);
+            self::assertSame(["blocks.1.data.content.0.type" => "'button' can appear only once in a layout"], $twice);
+
+            self::assertSame([], $this->errorsFor('fixture', '@site', [
+                $heading,
+                self::block('container', ['content' => [$button]]),
+            ]));
+        } finally {
+            \Thallo\Core\Tests\Support\FixtureLayoutSurface::unregister($registry);
+        }
+    }
+
+    /**
      * @param list<array<string,mixed>> $tree
      * @return array<string,string>
      */

@@ -15,6 +15,7 @@ use Thallo\Core\Content\Http\Controllers\ContentTypeController;
 use Thallo\Core\Content\Http\Controllers\MigrationController;
 use Thallo\Core\Content\Http\DTOs\MigrationData;
 use Thallo\Core\Content\Layouts\LayoutBindings;
+use Thallo\Core\Content\Layouts\LayoutChanges;
 use Thallo\Core\Content\Layouts\LayoutRepository;
 use Thallo\Core\Content\Layouts\LayoutResolver;
 use Thallo\Core\Content\Layouts\LayoutWriteLock;
@@ -28,6 +29,7 @@ use Thallo\Core\Http\Controllers\LayoutPreviewController;
 use Thallo\Core\Http\DTOs\LayoutSessionData;
 use Thallo\Core\Http\DTOs\SaveLayoutData;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\RecordsLayoutChanges;
 use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 use Thallo\Render\Http\Controllers\RenderController;
 
@@ -40,6 +42,7 @@ use Thallo\Render\Http\Controllers\RenderController;
  */
 final class LayoutBindingsTest extends AppTestCase
 {
+    use RecordsLayoutChanges;
     use SyncsBlockStyleDeclarations;
 
     private string $postType = '';
@@ -130,8 +133,10 @@ final class LayoutBindingsTest extends AppTestCase
         )['data'];
         self::assertSame(1, $session['layout']['lock_version']);
 
+        $this->recordLayoutChanges();
         $renamed = $this->migrate([['op' => 'rename', 'from' => 'excerpt', 'to' => 'summary']]);
         self::assertSame(201, $renamed->getStatusCode());
+        self::assertSame(['entry:post'], $this->recordedLayoutChanges(), 'the rewrite is announced');
         $layout = $this->layout();
         self::assertSame('summary', $layout['blocks'][1]['data']['field']);
         self::assertSame(2, $layout['lock_version']);
@@ -209,7 +214,7 @@ final class LayoutBindingsTest extends AppTestCase
             $stale,
             $lock,
             $this->container()->get(LayoutSurfaceRegistry::class),
-            $this->container()->get(LayoutResolver::class),
+            $this->container()->get(LayoutChanges::class),
         );
         $this->connection()->transaction(fn () => $bindings->renameField('post', 'excerpt', 'summary'));
         self::assertSame('summary', $this->layout()['blocks'][1]['data']['field']);
@@ -269,8 +274,11 @@ final class LayoutBindingsTest extends AppTestCase
                 $this->container()->get(LayoutRepository::class),
                 $lock,
                 $this->container()->get(LayoutSurfaceRegistry::class),
-                $this->container()->get(LayoutResolver::class),
-                $purge,
+                new LayoutChanges(
+                    $this->container()->get(LayoutResolver::class),
+                    $this->container()->get(LayoutSurfaceRegistry::class),
+                    $purge,
+                ),
             ),
         );
         // The rename rewrites the layout inside the flip's transaction; the transaction then rolls
@@ -324,9 +332,11 @@ final class LayoutBindingsTest extends AppTestCase
     public function testDeletingTheTypeTombstonesItsLayout(): void
     {
         $this->saveLayout();
+        $this->recordLayoutChanges();
         $response = $this->container()->get(ContentTypeController::class)
             ->destroy(Request::create('/x', 'DELETE'), 'post');
         self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+        self::assertSame(['entry:post'], $this->recordedLayoutChanges(), 'the tombstone is announced');
 
         $row = $this->layout();
         self::assertNull($row['blocks'], 'the row is kept, as a tombstone');
