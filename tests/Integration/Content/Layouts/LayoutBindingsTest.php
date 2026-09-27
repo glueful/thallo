@@ -185,6 +185,41 @@ final class LayoutBindingsTest extends AppTestCase
         self::assertSame('summary', $this->layout()['blocks'][1]['data']['field']);
     }
 
+    /**
+     * The rows a type's layouts are listed from can be a moment old — a save or a backfill write
+     * lands between the list and the write. Each layout is re-read under its own lock, so a rename
+     * and a type deletion still go through instead of failing on a version that moved.
+     */
+    public function testRenameAndTombstoneReReadEachLayoutUnderItsLock(): void
+    {
+        $this->saveLayout();
+        $lock = $this->container()->get(LayoutWriteLock::class);
+        $stale = new class ($this->connection(), $lock) extends LayoutRepository {
+            public function forType(string $typeSlug): array
+            {
+                // As listed before another write bumped each version.
+                return array_map(
+                    static fn (array $row): array => ['lock_version' => $row['lock_version'] - 1] + $row,
+                    parent::forType($typeSlug),
+                );
+            }
+        };
+        $bindings = new LayoutBindings(
+            $this->connection(),
+            $stale,
+            $lock,
+            $this->container()->get(LayoutSurfaceRegistry::class),
+            $this->container()->get(LayoutResolver::class),
+        );
+        $this->connection()->transaction(fn () => $bindings->renameField('post', 'excerpt', 'summary'));
+        self::assertSame('summary', $this->layout()['blocks'][1]['data']['field']);
+        self::assertSame(2, $this->layout()['lock_version']);
+
+        $this->connection()->transaction(fn () => $bindings->tombstoneType('post'));
+        self::assertNull($this->layout()['blocks']);
+        self::assertSame(3, $this->layout()['lock_version']);
+    }
+
     public function testDeletingABoundFieldIsRefusedNamingTheLayout(): void
     {
         $this->saveLayout();
@@ -296,7 +331,7 @@ final class LayoutBindingsTest extends AppTestCase
         $row = $this->layout();
         self::assertNull($row['blocks'], 'the row is kept, as a tombstone');
         self::assertSame(2, $row['lock_version']);
-        $index = $this->container()->get(LayoutAdminController::class)->index();
+        $index = $this->container()->get(LayoutAdminController::class)->index(Request::create('/x'));
         $list = json_decode((string) $index->getContent(), true);
         self::assertNotContains('post', array_column($list['data']['layouts'], 'target'));
     }

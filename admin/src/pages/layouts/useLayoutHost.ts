@@ -59,6 +59,11 @@ export function layoutSchema(): FieldDef[] {
   return [{ name: 'blocks', label: 'Layout', type: 'blocks', blockTypes: [] }] as FieldDef[]
 }
 
+/** A removed layout's session: 410 LAYOUT_SESSION_RETIRED. */
+function isRetired(e: unknown): boolean {
+  return e instanceof ApiError && e.status === 410 && apiErrorCode(e) === 'LAYOUT_SESSION_RETIRED'
+}
+
 export function useLayoutHost(options: { surface: string; target: string }) {
   const { success, error: notifyError } = useNotify()
 
@@ -72,6 +77,8 @@ export function useLayoutHost(options: { surface: string; target: string }) {
   const baseline = ref<number | null>(null)
   /** The layout as last saved (or loaded): what "dirty" is measured against. */
   const saved = ref('')
+  /** A saved layout exists — loaded as one, or saved from here — so there is one to remove. */
+  const live = ref(false)
   const saving = ref(false)
   const removing = ref(false)
   const conflict = ref(false)
@@ -85,6 +92,7 @@ export function useLayoutHost(options: { surface: string; target: string }) {
 
   function loaded(next: LayoutSession): void {
     baseline.value = next.layout.lock_version
+    live.value = !next.starter
     saved.value = JSON.stringify(toPayload(toDocument(next.layout)))
   }
 
@@ -109,7 +117,16 @@ export function useLayoutHost(options: { surface: string; target: string }) {
       }
       return asStage(minted)
     },
-    apply: (token, fields, applyOptions) => applyLayout(token, toPayload(fields), applyOptions),
+    apply: async (token, fields, applyOptions) => {
+      try {
+        return await applyLayout(token, toPayload(fields), applyOptions)
+      } catch (e) {
+        // Removed (here or in another tab): the stage editor will ask for a renewal, which
+        // `renew` declines, so nothing brings the removed layout's session back.
+        if (isRetired(e)) retired.value = true
+        throw e
+      }
+    },
     // A fresh session has no working copy to reconcile.
     reconcileOnOpen: false,
     /**
@@ -118,6 +135,7 @@ export function useLayoutHost(options: { surface: string; target: string }) {
      * sequence abandons this one: its responses are ignored.
      */
     async renew(fields): Promise<StageRenewal> {
+      if (retired.value) throw new StageRenewalAbandoned()
       const mine = ++generation
       const minted = await mintLayoutSession(options.surface, options.target, sample.value)
       if (mine !== generation) throw new StageRenewalAbandoned()
@@ -168,11 +186,7 @@ export function useLayoutHost(options: { surface: string; target: string }) {
       apiErrorCode(e) === 'LAYOUT_VERSION_CONFLICT'
     ) {
       conflict.value = true
-    } else if (
-      e instanceof ApiError &&
-      e.status === 410 &&
-      apiErrorCode(e) === 'LAYOUT_SESSION_RETIRED'
-    ) {
+    } else if (isRetired(e)) {
       retired.value = true
     } else {
       notifyError(e, what)
@@ -200,6 +214,7 @@ export function useLayoutHost(options: { surface: string; target: string }) {
       })
       baseline.value = result.layout.lock_version
       saved.value = JSON.stringify(layout)
+      live.value = true
       editor.markSaved(sequence)
       // Only the session the save came from was cleared; a newer one keeps its pair.
       if (result.previewCleared && editor.previewToken.value === token) {
@@ -228,6 +243,7 @@ export function useLayoutHost(options: { surface: string; target: string }) {
         token: editor.previewToken.value,
         expected_lock_version: baseline.value,
       })
+      live.value = false
       success('Layout removed', 'These pages use the theme’s design again.')
       return true
     } catch (e) {
@@ -262,6 +278,7 @@ export function useLayoutHost(options: { surface: string; target: string }) {
     sample,
     baseline,
     saved,
+    live,
     saving,
     removing,
     conflict,

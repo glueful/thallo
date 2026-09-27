@@ -220,9 +220,8 @@ function resetToStarter(): void {
 
 // ── Remove (spec §5.5): asks first, naming what is lost, then returns to the Layouts page. ──
 const removeOpen = ref(false)
-const canRemove = computed(
-  () => (layout.baseline.value ?? 0) > 0 && session.value?.starter !== true,
-)
+// A saved layout exists — loaded as one, or saved from this editor — so there is one to remove.
+const canRemove = computed(() => layout.live.value)
 async function confirmRemove(): Promise<void> {
   removeOpen.value = false
   if (await layout.remove()) {

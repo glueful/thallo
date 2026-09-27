@@ -135,4 +135,19 @@ final class LayoutRenderHelpersTest extends AppTestCase
         ]);
         self::assertSame('|', trim($html));
     }
+
+    /**
+     * A slot inside the entry's own content — reachable only through a raw import, since entries
+     * refuse field blocks — renders nothing: the slot resets the depth, so re-entering it would
+     * never end.
+     */
+    public function testASlotInsideTheEntrysContentDoesNotRecurse(): void
+    {
+        $body = [
+            self::heading('bodyhead0001', 'Inner words'),
+            ['id' => 'bodyslot0001', 'type' => 'entry_content', 'data' => ['field' => 'body'], 'settings' => []],
+        ];
+        $html = $this->render('none', $this->layout(), $body);
+        self::assertSame(1, substr_count($html, 'Inner words'));
+    }
 }

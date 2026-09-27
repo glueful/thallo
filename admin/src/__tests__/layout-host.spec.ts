@@ -236,6 +236,21 @@ describe('the save baseline, Save and Remove', () => {
     unmount()
   })
 
+  it('an apply answered LAYOUT_SESSION_RETIRED shows the layout as removed and mints nothing new', async () => {
+    const { host, editor, unmount } = mountHost()
+    await flushPromises()
+    editTitle(editor, 'h2')
+    await flushPromises()
+    q.apply.mockRejectedValueOnce(
+      new ApiError('gone', 410, {}, { error: { details: { code: 'LAYOUT_SESSION_RETIRED' } } }),
+    )
+    await editor.applyWorking()
+    await flushPromises()
+    expect(host.retired.value).toBe(true)
+    expect(q.mint).toHaveBeenCalledTimes(1) // no renewal resurrects a removed layout's session
+    unmount()
+  })
+
   it('Remove sends the session token and the version loaded', async () => {
     const { host, unmount } = mountHost()
     await flushPromises()
@@ -245,6 +260,37 @@ describe('the save baseline, Save and Remove', () => {
       token: 'tok1',
       expected_lock_version: 3,
     })
+    unmount()
+  })
+})
+
+describe('whether a saved layout exists', () => {
+  it('a starter session has none; its first save makes one; a remove ends it', async () => {
+    q.mint.mockImplementation(async () =>
+      session({
+        starter: true,
+        layout: { blocks: structuredClone(BLOCKS), settings: {}, lock_version: 0 },
+      }),
+    )
+    const { host, unmount } = mountHost()
+    await flushPromises()
+    expect(host.live.value).toBe(false)
+    q.save.mockResolvedValueOnce({
+      layout: { blocks: BLOCKS, settings: {}, lock_version: 1 },
+      previewCleared: false,
+    })
+    await host.save()
+    expect(host.live.value).toBe(true)
+    q.remove.mockResolvedValueOnce({ lockVersion: 2 })
+    await host.remove()
+    expect(host.live.value).toBe(false)
+    unmount()
+  })
+
+  it('a session on a saved layout has one', async () => {
+    const { host, unmount } = mountHost()
+    await flushPromises()
+    expect(host.live.value).toBe(true)
     unmount()
   })
 })

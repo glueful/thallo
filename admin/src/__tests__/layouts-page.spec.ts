@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import type { LayoutRow } from '@/queries/layouts'
 
@@ -8,8 +8,15 @@ import type { LayoutRow } from '@/queries/layouts'
 // disabled row's reason — and no Remove here: it lives in the editor, which holds the session.
 
 const rows = ref<LayoutRow[] | undefined>(undefined)
+const canEdit = ref(true)
 vi.mock('@/queries/layouts', () => ({
-  useLayouts: () => ({ data: rows, isLoading: ref(false), error: ref(null) }),
+  useLayouts: () => ({
+    data: computed(() =>
+      rows.value === undefined ? undefined : { rows: rows.value, canEdit: canEdit.value },
+    ),
+    isLoading: ref(false),
+    error: ref(null),
+  }),
 }))
 
 import LayoutsPage from '@/pages/layouts/index.vue'
@@ -24,6 +31,7 @@ const row = (overrides: Partial<LayoutRow>): LayoutRow => ({
   reason: null,
   lock_version: 0,
   updated_by: null,
+  updated_by_name: null,
   updated_at: null,
   ...overrides,
 })
@@ -46,8 +54,15 @@ function mountPage() {
 }
 
 beforeEach(() => {
+  canEdit.value = true
   rows.value = [
-    row({ state: 'custom', lock_version: 2, updated_at: '2026-09-26T10:00:00Z' }),
+    row({
+      state: 'custom',
+      lock_version: 2,
+      updated_at: '2026-09-26T10:00:00Z',
+      updated_by: 'editor000001',
+      updated_by_name: 'dana',
+    }),
     row({ target: 'pages', label: 'Pages — single page', reach: 'Applies to every page' }),
     row({
       target: 'quote',
@@ -67,6 +82,15 @@ describe('the Layouts page', () => {
     expect(w.find('[data-test="layouts-state-entry-pages"]').text()).toBe('Theme template')
     expect(w.find('[data-test="layouts-row-entry-post"]').text()).toContain('Posts — single post')
     expect(w.find('[data-test="layouts-row-entry-post"]').text()).toContain('Saved')
+    expect(w.find('[data-test="layouts-row-entry-post"]').text()).toContain('by dana')
+  })
+
+  it('without the permission to edit, the list offers no editor and says why', async () => {
+    canEdit.value = false
+    const w = mountPage()
+    await flushPromises()
+    expect(w.find('[data-test="layouts-edit-entry-post"]').exists()).toBe(false)
+    expect(w.find('[data-test="layouts-no-edit"]').text()).toContain('Manage templates')
   })
 
   it('Edit opens the editor for that page kind; there is no Remove on the list', async () => {

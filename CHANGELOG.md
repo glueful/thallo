@@ -19,7 +19,8 @@ as the next release, never a mutated tag.
   someone else** with **Reload**. **Remove layout** returns every post to the theme's design.
   Editing layouts needs the **Manage templates** permission. Renaming a field moves the layouts
   that show it; deleting a field a layout shows is refused, naming the layout. Migration `037` adds
-  the `layouts` table.
+  the `layouts` table; on an existing site, `thallo:provision` adds the nine Fields blocks — until
+  it runs, a layout cannot place them.
 - **The changelog is a page of the docs**, at `/docs/changelog` under Reference: every released
   version, word for word, without the work in progress under [Unreleased]. Each release's cut
   refreshes it (`php scripts/sync-docs-changelog`), and a test fails while it is behind.
@@ -30,7 +31,8 @@ as the next release, never a mutated tag.
   layout's are edited on its own page. **Page › Design** chooses **Type layout** or **Theme
   template** for this one page, and the view follows the choice as soon as the stage accepts it.
   **Show page title** does not apply under a layout — the layout places the title — and the Page
-  tab says so instead.
+  tab says so instead. The **Header & footer** page shows its sample page through its type's layout
+  too, as the site serves it.
 
 ### Fixed
 - **A form in the header or footer is one form across the site.** It used to count as a separate

@@ -401,6 +401,83 @@ final class LayoutEntryRenderTest extends AppTestCase
         self::assertStringContainsString('href="/fr/post/categories/actualites">Actualités</a>', $html);
     }
 
+    /**
+     * A post whose body holds a block type since removed (Review Focus 5): the layout renders around
+     * the missing-template fallback on the site and on the post's own Design view, and the rest of
+     * the body still shows.
+     */
+    public function testAMissingBlockTypeInTheBodyLeavesTheLayoutOnTheSiteAndTheDesignView(): void
+    {
+        $types = new ContentTypeRepository($this->connection());
+        $entries = new EntryRepository($this->connection(), $this->appContext(), $types);
+        $typeUuid = $this->type('post');
+        $uuid = $entries->createEntry($typeUuid, 'en', 1, 'user00000001');
+        $fields = ['title' => 'Broken', 'body' => [
+            ['id' => 'goneblock001', 'type' => 'gone_block', 'data' => [], 'settings' => []],
+            self::text('bodytext0011', 'STILL-HERE'),
+        ]];
+        $entries->saveDraft($uuid, 'en', $fields, 1, 0, 'user00000001');
+        // Published as rows: a save would refuse the removed type, which is the point.
+        $db = $this->connection();
+        $at = '2026-06-02 09:00:00';
+        $db->table('entry_versions')->insert(['uuid' => 'vbroken00001', 'entry_uuid' => $uuid, 'locale' => 'en',
+            'version' => 1, 'fields' => json_encode($fields), 'schema_version' => 1, 'created_at' => $at]);
+        $db->table('entry_publications')->insert(['entry_uuid' => $uuid, 'locale' => 'en',
+            'version_uuid' => 'vbroken00001', 'published_at' => $at]);
+        (new RouteRepository($db))->assign($uuid, $typeUuid, 'en', 'broken');
+        $this->saveLayout('post', self::postLayout());
+        $fallback = '~<!-- thallo: no template for block "gone_block" -->'
+            . '|Missing block template: blocks/gone_block\.twig~';
+
+        $site = $this->get('/post/broken');
+        self::assertSame(200, $site->getStatusCode());
+        $html = (string) $site->getContent();
+        self::assertStringContainsString('LAYOUT-MARKER', $html);
+        self::assertStringContainsString('STILL-HERE', $html);
+        self::assertMatchesRegularExpression($fallback, $html);
+
+        $token = $this->container()->get(\Thallo\Core\Content\Preview\PreviewMinter::class)->mint($uuid, 'en');
+        $stage = $this->container()->get(\Thallo\Render\Http\Controllers\RenderController::class)
+            ->preview(Request::create("/_preview/{$token}?canvas=1", 'GET'), $token);
+        self::assertSame(200, $stage->getStatusCode());
+        $canvas = (string) $stage->getContent();
+        self::assertStringContainsString('LAYOUT-MARKER', $canvas);
+        self::assertMatchesRegularExpression($fallback, $canvas);
+        // The body stays editable around the gap; the layout's own blocks are inert here.
+        self::assertStringContainsString('data-thallo-block="bodytext0011"', $canvas);
+        self::assertStringNotContainsString('data-thallo-block="layhead00001"', $canvas);
+    }
+
+    /**
+     * Review Focus 3 through a real request: a theme with its own `layout.twig` and no `layouts/`
+     * folder, previewed as the site's theme, serves the default frame inside its own shell.
+     */
+    public function testAThemeWithoutAFrameServesTheDefaultFrameOnARequest(): void
+    {
+        $base = $this->appContext()->getBasePath() . '/themes/noframe';
+        ThemeFixture::write($base, 'noframe');
+        file_put_contents(
+            $base . '/templates/layout.twig',
+            '<main class="NOFRAME-SHELL">{% block content %}{% endblock %}</main>',
+        );
+        $types = new ContentTypeRepository($this->connection());
+        $entries = new EntryRepository($this->connection(), $this->appContext(), $types);
+        $uuid = $entries->createEntry($this->type('post'), 'en', 1, 'user00000001');
+        $framed = ['title' => 'Framed', 'body' => [self::text('bodytext0012', 'FRAMED-WORDS')]];
+        $entries->saveDraft($uuid, 'en', $framed, 1, 0, 'user00000001');
+        $this->saveLayout('post', self::postLayout());
+
+        $token = $this->container()->get(\Thallo\Core\Content\Preview\PreviewMinter::class)
+            ->mint($uuid, 'en', null, 'noframe');
+        $response = $this->handle(Request::create("/_preview/{$token}", 'GET'));
+        self::assertSame(200, $response->getStatusCode());
+        $html = (string) $response->getContent();
+        self::assertStringContainsString('NOFRAME-SHELL', $html, 'the theme\'s own shell');
+        self::assertStringContainsString('thallo-layout--entry', $html, 'the default frame, by per-file fallback');
+        self::assertStringContainsString('LAYOUT-MARKER', $html);
+        self::assertStringContainsString('FRAMED-WORDS', $html);
+    }
+
     public function testAThemeWithoutAFrameFallsBackToTheDefaultFrame(): void
     {
         $base = $this->appContext()->getBasePath() . '/themes/noframe';

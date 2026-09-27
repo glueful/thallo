@@ -136,4 +136,21 @@ final class EntrySurfaceTest extends AppTestCase
         self::assertNotEmpty($placeholder['published_at']);
         self::assertSame($before, $this->connection()->table('entries')->count());
     }
+
+    /** A type's name read as its items: the plural's own singular, and a word that has none kept. */
+    public function testLabelsNameOneOfTheTypesItems(): void
+    {
+        $names = [
+            'Posts' => 'post', 'Categories' => 'category', 'News' => 'news', 'Series' => 'series',
+            'Addresses' => 'address', 'Boxes' => 'box', 'Churches' => 'church', 'Status' => 'status',
+            'Pages' => 'page', 'Press' => 'press', 'FAQ' => 'faq',
+        ];
+        $i = 0;
+        foreach ($names as $name => $one) {
+            $slug = 'shape' . $i++;
+            $this->type($slug, $name, [['name' => 'title', 'type' => 'string', 'required' => true]]);
+            self::assertSame("{$name} — single {$one}", $this->surface()->label($slug), $name);
+            self::assertSame("Applies to every {$one}", $this->surface()->reach($slug), $name);
+        }
+    }
 }

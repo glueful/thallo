@@ -22,7 +22,15 @@ export interface LayoutRow {
   reason: string | null
   lock_version: number
   updated_by: string | null
+  /** Who saved the custom layout (a username, else an email), when it is one. */
+  updated_by_name: string | null
   updated_at: string | null
+}
+
+/** The Layouts page: its rows, and whether the caller may open the editor (`templates.manage`). */
+export interface LayoutList {
+  rows: LayoutRow[]
+  canEdit: boolean
 }
 
 /** A layout as the editor edits it. */
@@ -81,11 +89,11 @@ function dataOf(data: unknown): Record<string, unknown> {
 
 const qk = () => ['layouts'] as const
 
-export async function fetchLayouts(): Promise<LayoutRow[]> {
+export async function fetchLayouts(): Promise<LayoutList> {
   const { data, error, response } = await client.GET('/layouts')
   if (error) throw toApiError(error, response)
-  const rows = dataOf(data).layouts
-  return (Array.isArray(rows) ? rows : []).map((raw) => {
+  const d = dataOf(data)
+  const rows = (Array.isArray(d.layouts) ? d.layouts : []).map((raw): LayoutRow => {
     const r = record(raw)
     return {
       surface: str(r.surface),
@@ -97,13 +105,15 @@ export async function fetchLayouts(): Promise<LayoutRow[]> {
       reason: strOrNull(r.reason),
       lock_version: typeof r.lock_version === 'number' ? r.lock_version : 0,
       updated_by: strOrNull(r.updated_by),
+      updated_by_name: strOrNull(r.updated_by_name),
       updated_at: strOrNull(r.updated_at),
     }
   })
+  return { rows, canEdit: d.can_edit === true }
 }
 
-export function useLayouts() {
-  return useQuery({ key: qk(), query: fetchLayouts })
+export function useLayouts(options: { enabled?: () => boolean } = {}) {
+  return useQuery({ key: qk(), query: fetchLayouts, enabled: options.enabled ?? (() => true) })
 }
 
 /** The published items a layout can be previewed against, newest first; `q` filters by name. */

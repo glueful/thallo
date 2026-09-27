@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useLayouts, type LayoutRow } from '@/queries/layouts'
 
 // Site › Layouts (type layouts spec §6.1): each page kind that can have a layout — for each content
@@ -6,7 +7,9 @@ import { useLayouts, type LayoutRow } from '@/queries/layouts'
 // Edit opens the layout editor. Remove lives there, where the editing session and version are.
 definePage({ meta: { requiresAuth: true } })
 
-const { data: rows, isLoading, error } = useLayouts()
+const { data, isLoading, error } = useLayouts()
+const rows = computed(() => data.value?.rows)
+const canEdit = computed(() => data.value?.canEdit === true)
 
 function stateLabel(row: LayoutRow): string {
   return row.state === 'custom' ? 'Custom layout' : 'Theme template'
@@ -16,7 +19,7 @@ function savedLine(row: LayoutRow): string | null {
   if (row.state !== 'custom' || row.updated_at === null) return null
   const when = new Date(row.updated_at)
   const date = Number.isNaN(when.getTime()) ? row.updated_at : when.toLocaleString()
-  return `Saved ${date}`
+  return row.updated_by_name ? `Saved ${date} by ${row.updated_by_name}` : `Saved ${date}`
 }
 </script>
 
@@ -85,7 +88,7 @@ function savedLine(row: LayoutRow): string | null {
               </p>
             </div>
             <UButton
-              v-if="row.enabled"
+              v-if="row.enabled && canEdit"
               size="sm"
               variant="outline"
               color="neutral"
@@ -96,6 +99,13 @@ function savedLine(row: LayoutRow): string | null {
             </UButton>
           </li>
         </ul>
+        <p
+          v-if="(rows ?? []).length > 0 && !canEdit"
+          class="text-xs text-muted"
+          data-test="layouts-no-edit"
+        >
+          Editing a layout needs the Manage templates permission.
+        </p>
       </div>
     </template>
   </UDashboardPanel>

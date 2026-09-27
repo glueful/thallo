@@ -195,4 +195,37 @@ final class FieldBlocksRenderTest extends AppTestCase
         self::assertMatchesRegularExpression('~rel="prev"[^>]*>.*Older~s', $neighbours);
         self::assertMatchesRegularExpression('~rel="next"[^>]*>.*Newer~s', $neighbours);
     }
+
+    /**
+     * Entries published in the same second are ordered by their uuid as well: walking previous and
+     * next visits each once — a chain, never a cycle.
+     */
+    public function testNeighboursPublishedInTheSameSecondFormAChain(): void
+    {
+        $type = (new ContentTypeRepository($this->connection()))->create([
+            'slug' => 'post', 'name' => 'Posts', 'public_delivery' => true,
+            'schema' => [['name' => 'title', 'type' => 'string', 'required' => true]],
+        ]);
+        $at = '2026-05-10 09:00:00';
+        foreach (['posttie00001' => 'A', 'posttie00002' => 'B', 'posttie00003' => 'C'] as $uuid => $title) {
+            $db = $this->connection();
+            $version = 'v' . substr($uuid, 1);
+            $db->table('entries')->insert(['uuid' => $uuid, 'content_type_uuid' => $type, 'status' => 'active',
+                'created_at' => $at, 'updated_at' => $at]);
+            $db->table('entry_versions')->insert(['uuid' => $version, 'entry_uuid' => $uuid, 'locale' => 'en',
+                'version' => 1, 'fields' => json_encode(['title' => $title]), 'schema_version' => 1,
+                'created_at' => $at]);
+            $db->table('entry_publications')->insert(['entry_uuid' => $uuid, 'locale' => 'en',
+                'version_uuid' => $version, 'published_at' => $at]);
+            (new RouteRepository($db))->assign($uuid, $type, 'en', strtolower($title));
+        }
+        $reader = $this->container()->get(\Thallo\Contracts\Delivery\EntryListReader::class);
+        $around = static fn (string $uuid): array => array_map(
+            static fn (?array $e): ?string => $e['uuid'] ?? null,
+            array_intersect_key($reader->neighbours('post', $uuid, 'en'), ['previous' => 1, 'next' => 1]),
+        );
+        self::assertSame(['previous' => null, 'next' => 'posttie00002'], $around('posttie00001'));
+        self::assertSame(['previous' => 'posttie00001', 'next' => 'posttie00003'], $around('posttie00002'));
+        self::assertSame(['previous' => 'posttie00002', 'next' => null], $around('posttie00003'));
+    }
 }

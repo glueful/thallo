@@ -105,7 +105,8 @@ Layouts**, and the row reads **Theme template**. Editing it again opens the star
 
 A single post can opt out: on its **Design** view, open the **Page** tab and choose **Theme
 template** under **Design**. That post renders through the theme's template as if its type had
-no layout. **Type layout** puts it back. The homepage never uses a layout, whatever its type.
+no layout. **Type layout** puts it back. The site's front page, at `/`, never uses a layout; the
+same entry opened at its own address does.
 
 ## What a post's Design view shows
 

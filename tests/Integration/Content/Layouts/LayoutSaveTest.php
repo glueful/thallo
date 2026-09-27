@@ -9,6 +9,7 @@ use Glueful\Cache\CacheStore;
 use Glueful\Database\Connection;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
+use Thallo\Contracts\Authorization\PermissionRequirementAuthority;
 use Thallo\Contracts\Delivery\RenderedPageCachePurge;
 use Thallo\Core\Content\Layouts\LayoutRepository;
 use Thallo\Core\Content\Layouts\LayoutResolver;
@@ -500,7 +501,7 @@ final class LayoutSaveTest extends AppTestCase
         self::assertSame('FROM-A', $reloaded['layout']['blocks'][0]['data']['text']);
     }
 
-    public function testIndexListsEveryTargetWithItsState(): void
+    public function testIndexListsEveryTargetWithItsStateWhoSavedItAndWhetherTheCallerMayEdit(): void
     {
         $this->container()->get(ContentTypeRepository::class)->create([
             'slug' => 'lpage', 'name' => 'Pages', 'public_delivery' => true, 'schema' => [
@@ -508,14 +509,53 @@ final class LayoutSaveTest extends AppTestCase
                 ['name' => 'body', 'type' => 'blocks'],
             ],
         ]);
-        self::assertSame(200, $this->save($this->session()['token'], 'SAVED', 0)['status']);
-        $rows = json_decode((string) $this->admin()->index()->getContent(), true)['data']['layouts'];
-        $byTarget = array_column($rows, null, 'target');
+        $this->connection()->getPDO()->exec(
+            'INSERT INTO users (uuid, username, email, status)'
+            . " VALUES ('editor000001', 'dana', 'dana@example.test', 'active')"
+            . ' ON CONFLICT (uuid) DO NOTHING'
+        );
+        $repo = $this->container()->get(LayoutRepository::class);
+        $blocks = self::layout('SAVED')['blocks'];
+        $this->container()->get(LayoutWriteLock::class)->within(
+            'entry',
+            'post',
+            fn (): int => $repo->saveExpected('entry', 'post', $blocks, [], 0, 'editor000001'),
+        );
+        $index = function (bool $mayEdit): array {
+            $authority = new class ($mayEdit) implements PermissionRequirementAuthority {
+                public function __construct(private readonly bool $mayEdit)
+                {
+                }
+
+                public function allows(\Symfony\Component\HttpFoundation\Request $request, array $requirements): bool
+                {
+                    return $this->mayEdit && $requirements === ['templates.manage'];
+                }
+            };
+            $controller = new LayoutAdminController(
+                $this->appContext(),
+                $this->container()->get(\Thallo\Contracts\Layouts\LayoutSurfaceRegistry::class),
+                $this->container()->get(LayoutRepository::class),
+                $this->container()->get(LayoutSaver::class),
+                $this->store(),
+                null,
+                $authority,
+            );
+            return json_decode((string) $controller->index(Request::create('/x'))->getContent(), true)['data'];
+        };
+
+        $data = $index(true);
+        self::assertTrue($data['can_edit']);
+        $byTarget = array_column($data['layouts'], null, 'target');
         self::assertSame('custom', $byTarget['post']['state']);
         self::assertSame(1, $byTarget['post']['lock_version']);
         self::assertSame('Posts — single post', $byTarget['post']['label']);
+        self::assertSame('dana', $byTarget['post']['updated_by_name']);
         self::assertSame('theme', $byTarget['lpage']['state']);
+        self::assertNull($byTarget['lpage']['updated_by_name']);
         self::assertTrue($byTarget['lpage']['enabled']);
+
+        self::assertFalse($index(false)['can_edit'], 'without templates.manage the list offers no editor');
     }
 
     public function testSamplesArePublishedOnly(): void

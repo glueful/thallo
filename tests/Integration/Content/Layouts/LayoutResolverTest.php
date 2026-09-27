@@ -62,4 +62,53 @@ final class LayoutResolverTest extends AppTestCase
         $this->resolver()->forget('entry', 'post');
         self::assertNull($this->resolver()->for('entry', 'post'));
     }
+
+    /**
+     * A render that read the old row before a save committed must not put it back in the cache
+     * after the save's `forget()`: the next render finds the new version, not after the TTL.
+     */
+    public function testARenderStraddlingASaveNeverCachesTheOldLayout(): void
+    {
+        $this->saveDirect(0, [['type' => 'heading', 'data' => ['text' => 'Old'], 'settings' => []]]);
+        $resolver = null;
+        $straddle = function (): void {
+            // Between the render's read and its cache write: another request saves and forgets.
+            $this->saveDirect(1, [['type' => 'heading', 'data' => ['text' => 'New'], 'settings' => []]]);
+            $this->resolver()->forget('entry', 'post');
+        };
+        $slow = new class (
+            $this->connection(),
+            $this->container()->get(LayoutWriteLock::class),
+            $straddle,
+        ) extends LayoutRepository {
+            private bool $once = true;
+
+            public function __construct(
+                \Glueful\Database\Connection $db,
+                LayoutWriteLock $lock,
+                private readonly \Closure $after,
+            ) {
+                parent::__construct($db, $lock);
+            }
+
+            public function find(string $surface, string $target): ?array
+            {
+                $row = parent::find($surface, $target);
+                if ($this->once) {
+                    $this->once = false;
+                    ($this->after)();
+                }
+                return $row;
+            }
+        };
+        $this->resolver()->forget('entry', 'post');
+        $render = new LayoutResolver(
+            $slow,
+            $this->container()->get(\Glueful\Cache\CacheStore::class),
+            $this->container()->get(\Thallo\Tenancy\Cache\TenantCacheSegment::class),
+            $this->appContext(),
+        );
+        self::assertSame('Old', $render->for('entry', 'post')['blocks'][0]['data']['text'], 'it read before the save');
+        self::assertSame('New', $this->resolver()->for('entry', 'post')['blocks'][0]['data']['text']);
+    }
 }

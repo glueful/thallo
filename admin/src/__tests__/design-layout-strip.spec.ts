@@ -5,13 +5,18 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import type { BlockType } from '@/queries/blockTypes'
 
 const blockTypes = ref<BlockType[]>([])
 vi.mock('@/queries/blockTypes', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/queries/blockTypes')>()),
   useBlockTypes: () => ({ data: blockTypes }),
+}))
+
+const layoutsCanEdit = ref(true)
+vi.mock('@/queries/layouts', () => ({
+  useLayouts: () => ({ data: computed(() => ({ rows: [], canEdit: layoutsCanEdit.value })) }),
 }))
 
 const { mintMock, applyMock } = vi.hoisted(() => ({ mintMock: vi.fn(), applyMock: vi.fn() }))
@@ -192,6 +197,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   setActivePinia(createPinia())
+  layoutsCanEdit.value = true
   revision = 0
   blockTypes.value = []
   draft.value = { fields: { title: 'Hello', body: [] }, lock_version: 3 }
@@ -233,6 +239,14 @@ describe('the Design view under a layout', () => {
     expect(titleControl(w).exists()).toBe(false)
     expect(w.find('[data-test="pres-title-layout-note"]').exists()).toBe(true)
     expect(w.find('[data-test="page-use-layout-layout"]').exists()).toBe(true)
+    w.unmount()
+  })
+
+  it('offers Edit layout only to someone who may edit layouts', async () => {
+    layoutsCanEdit.value = false
+    const w = await mountAndSettle()
+    expect(strip(w).exists()).toBe(true)
+    expect(w.find('[data-test="design-layout-edit"]').exists()).toBe(false)
     w.unmount()
   })
 

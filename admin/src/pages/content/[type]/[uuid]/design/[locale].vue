@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { useContentTypes } from '@/queries/contentTypes'
 import { useDraft, useSaveDraft } from '@/queries/drafts'
 import { applyPreview, mintPreviewData, type EntryLayout } from '@/queries/preview'
+import { useLayouts } from '@/queries/layouts'
 import { readPath, setPath, settingSegments } from '@/editor/ops/apply'
 import type { StylePropertyRow } from '@/queries/styleSchema'
 import type { DropZone } from '@/editor/structure/coordinator'
@@ -81,6 +82,9 @@ const stageEl = ref<HTMLElement | null>(null)
  * a pending apply keeps the last acknowledged state, and a dropped one changes nothing.
  */
 const effectiveLayout = ref<EntryLayout | null>(null)
+/** Whether the viewer may open the layout's editor: asked only once there is a layout to open. */
+const { data: layoutList } = useLayouts({ enabled: () => effectiveLayout.value !== null })
+const canEditLayout = computed(() => layoutList.value?.canEdit === true)
 const host: StageHost = {
   schema,
   initial,
@@ -1112,6 +1116,7 @@ async function openThemePreview(): Promise<void> {
               blocks are edited on its page.
             </span>
             <RouterLink
+              v-if="canEditLayout"
               class="ms-auto font-medium text-primary hover:underline"
               :to="`/layouts/${effectiveLayout.surface}/${effectiveLayout.target}`"
               data-test="design-layout-edit"

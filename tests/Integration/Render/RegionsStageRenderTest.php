@@ -394,4 +394,36 @@ final class RegionsStageRenderTest extends AppTestCase
         self::assertStringNotContainsString('Page body', $html);
         self::assertStringContainsString('data-thallo-slot="header"', $html);
     }
+
+    /**
+     * The page between the chrome is shown as the site serves it: through its type's layout when
+     * it has one (type layouts spec §7.2), the layout's blocks inert like the body.
+     */
+    public function testThePageIsShownThroughItsTypesLayout(): void
+    {
+        $this->seedBlockTypes();
+        $page = $this->seedPage($this->note('blockone0001', 'Published body'));
+        $this->saveRegions('Saved header', 'Saved footer');
+        $repo = $this->container()->get(\Thallo\Core\Content\Layouts\LayoutRepository::class);
+        $layout = [
+            ['id' => 'layhead00001', 'type' => 'heading', 'data' => ['text' => 'LAYOUT-MARKER'], 'settings' => []],
+            ['id' => 'laybody00001', 'type' => 'entry_content', 'data' => ['field' => 'body'], 'settings' => []],
+        ];
+        $this->container()->get(\Thallo\Core\Content\Layouts\LayoutWriteLock::class)->within(
+            'entry',
+            'page',
+            fn (): int => $repo->saveExpected('entry', 'page', $layout, [], 0, null),
+        );
+        $resolver = $this->container()->get(\Thallo\Core\Content\Layouts\LayoutResolver::class);
+        $resolver->forget('entry', 'page');
+        try {
+            $html = $this->stage($this->mint($page)['token']);
+            self::assertStringContainsString('LAYOUT-MARKER', $html);
+            self::assertStringContainsString('Published body', $html);
+            self::assertStringNotContainsString('data-thallo-block="layhead00001"', $html, 'the layout is inert here');
+            self::assertStringContainsString('data-thallo-block="hdr000000001"', $html);
+        } finally {
+            $resolver->forget('entry', 'page');
+        }
+    }
 }

@@ -256,6 +256,26 @@ describe('the layout editor', () => {
     w.unmount()
   })
 
+  it('Remove becomes available as soon as a first save makes the layout', async () => {
+    q.mint.mockImplementation(async () =>
+      session({
+        starter: true,
+        layout: { blocks: structuredClone(BLOCKS), settings: {}, lock_version: 0 },
+      }),
+    )
+    const w = mountPage()
+    await flushPromises()
+    expect(topBar(w).props('canRemove')).toBe(false)
+    q.save.mockResolvedValueOnce({
+      layout: { blocks: BLOCKS, settings: {}, lock_version: 1 },
+      previewCleared: false,
+    })
+    await w.find('[data-test="layout-save"]').trigger('click')
+    await flushPromises()
+    expect(topBar(w).props('canRemove')).toBe(true)
+    w.unmount()
+  })
+
   it('Remove asks first, naming the consequence, then removes with the session and returns to the list', async () => {
     const w = mountPage()
     await flushPromises()
