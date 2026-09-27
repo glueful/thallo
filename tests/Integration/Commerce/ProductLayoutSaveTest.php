@@ -8,8 +8,11 @@ use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
 use Thallo\Core\Content\Layouts\LayoutResolver;
+use Thallo\Core\Content\Http\Controllers\StyleClassController;
+use Thallo\Core\Content\Http\DTOs\UpdateStyleClassData;
 use Thallo\Core\Content\Layouts\LayoutValidator;
 use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Style\Classes\StyleClassRepository;
 use Thallo\Core\Content\Validation\ValidationException;
 use Thallo\Core\Http\Controllers\LayoutAdminController;
 use Thallo\Core\Http\Controllers\LayoutPreviewController;
@@ -196,6 +199,56 @@ final class ProductLayoutSaveTest extends AppTestCase
                 $answer['body']['error']['details']['blocks.0.settings.style.visibility'] ?? null,
             );
         }
+    }
+
+    /**
+     * The same holds afterwards: a style class on the container around the buy box cannot be edited to
+     * hide it, at any size — the edit is refused, naming the layout — while any other edit of it, and
+     * hiding with a class nothing around the buy box uses, save as before.
+     */
+    public function testAStyleClassOnTheBuyBoxsContainerCannotLaterHideIt(): void
+    {
+        $classes = $this->container()->get(StyleClassRepository::class);
+        $card = $classes->create(['name' => 'Card', 'style' => []]);
+        $aside = $classes->create(['name' => 'Aside', 'style' => []]);
+        $session = $this->session();
+        $saved = $this->save($session['token'], [
+            ['id' => 'saveaside001', 'type' => 'container', 'data' => ['content' => [
+                ['id' => 'savenote0001', 'type' => 'heading', 'data' => ['text' => 'Note'], 'settings' => []],
+            ]], 'settings' => ['classes' => [$aside['id']]]],
+            ['id' => 'savebox00001', 'type' => 'container', 'data' => ['content' => [
+                ['id' => 'savebuy00001', 'type' => 'product_buy', 'data' => [], 'settings' => []],
+            ]], 'settings' => ['classes' => [$card['id']]]],
+        ], 0);
+        self::assertSame(200, $saved['status'], json_encode($saved['body']));
+
+        $hidden = ['visibility' => ['md' => ['type' => 'choice', 'value' => 'hidden']]];
+        $edit = function (array $class, array $style): array {
+            $response = $this->container()->get(StyleClassController::class)->update(
+                (new RequestDataHydrator())->hydrate(UpdateStyleClassData::class, [
+                    'version' => $class['version'], 'style' => $style,
+                ]),
+                Request::create('/x', 'PATCH'),
+                $class['id'],
+            );
+            return [
+                'status' => $response->getStatusCode(),
+                'body' => json_decode((string) $response->getContent(), true) ?? [],
+            ];
+        };
+
+        $refused = $edit($card, $hidden);
+        self::assertSame(422, $refused['status'], json_encode($refused['body']));
+        self::assertSame(
+            'on the Products — product page layout this class is on a block holding the Product buy box, '
+                . 'which every page shows: it cannot hide it',
+            $refused['body']['error']['details']['style.visibility'] ?? null,
+        );
+        self::assertSame([], $classes->find($card['id'])['style'], 'nothing was written');
+
+        $radius = ['radius' => ['type' => 'token', 'value' => 'radius.md']];
+        self::assertSame(200, $edit($card, $radius)['status'], 'any other edit saves');
+        self::assertSame(200, $edit($aside, $hidden)['status'], 'a class around no buy box may hide');
     }
 
     public function testEachSurfacesFieldBlocksAreRefusedOnTheOther(): void

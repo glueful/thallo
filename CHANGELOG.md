@@ -14,13 +14,13 @@ as the next release, never a mutated tag.
   place the breadcrumb, the gallery, the category, the name, the rating, the price, the description,
   the linked product story and the **Product buy box** — the options, quantity and **Add to cart**
   button — which every product layout keeps exactly once, at every screen size (the editor says so
-  if you try to delete it, and a container holding it cannot be hidden). However it is designed, the
-  page keeps its canonical link, its structured data and an Add to cart that works without
-  JavaScript, and styles set on a block win over the shop's defaults. The starter follows today's
-  page, with equal columns and a slightly wider gap. Turning Commerce off hides the row and keeps
-  the layout. On an existing site, run `thallo:provision` to add the product blocks (with workspaces
-  on, also `thallo:tenant:sync --all --kind=block_type`); until then the row explains what to run
-  and does not open.
+  if you try to delete it, and a container holding it cannot be hidden, even by a later edit of its
+  style class). However it is designed, the page keeps its canonical link, its structured data and
+  an Add to cart that works without JavaScript, and styles set on a block win over the shop's
+  defaults. The starter follows today's page, with equal columns and a slightly wider gap. Turning
+  Commerce off hides the row and keeps the layout. On an existing site, run `thallo:provision` to
+  add the product blocks (with workspaces on, also `thallo:tenant:sync --all --kind=block_type`);
+  until then the row explains what to run and does not open.
 
 ### Fixed
 - **Turning on workspaces keeps header and footer saves working.** Enabling workspaces rebuilt the

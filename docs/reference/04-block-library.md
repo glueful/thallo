@@ -171,8 +171,8 @@ and a saved section refuse them when saved. A field an entry block names is a fi
 layout's content type; left empty, **Entry cover**, **Entry excerpt** and **Entry terms** show the
 field named `cover`, `excerpt` or `categories`, and **Entry content** the type's body. Every
 product layout holds exactly one **Product buy box**. It has no **Visibility** setting, and a
-layout that hides a block holding it, at any size, is refused: no screen size loses the product
-page's buy button.
+layout that hides a block holding it, at any size, is refused, as is an edit to a style class that
+would make such a block hide it: no screen size loses the product page's buy button.
 
 | Block | What it is for | Fields | Holds blocks | Style settings adds |
 |---|---|---|---|---|

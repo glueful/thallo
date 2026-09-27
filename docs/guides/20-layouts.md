@@ -137,11 +137,13 @@ The **Blocks** tab leads with the product's fields:
 | **Product buy box** | the options, the quantity, the **Add to cart** button, the wishlist heart and "In stock" | **Hide the wishlist heart**, **Hide "In stock"** |
 | **Product story** | the content of the product's [linked story](18-commerce.md#add-a-product) | — |
 
-Every product layout keeps exactly one **Product buy box**: deleting it is refused with the reason, and
-Save stays off without it. Move it instead. It has no **Visibility** setting, and a container holding
-it cannot be hidden either — by its own **Visibility** or by a style class — so no screen size loses
-it. It works as the product page's always has — a product with options offers a list to choose from, a product that needs an add-on says it cannot be bought
-online, and the button adds to the cart even where JavaScript is off.
+Every product layout keeps exactly one **Product buy box**: deleting it is refused with the reason,
+and Save stays off without it. Move it instead. It has no **Visibility** setting, and a container
+holding it cannot be hidden either — by its own **Visibility** or by a style class, including a
+later edit of that class, which is refused and names the layout — so no screen size loses it. It
+works as the product page's always has — a product with options offers a list to choose from, a
+product that needs an add-on says it cannot be bought online, and the button adds to the cart even
+where JavaScript is off.
 
 However you design it, the page keeps what it must have: its canonical address in the shop, the
 product's structured data for search engines, and the shop's script. A value you set on a block —
