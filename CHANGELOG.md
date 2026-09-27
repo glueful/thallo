@@ -19,6 +19,11 @@ as the next release, never a mutated tag.
   gap. Turning Commerce off hides the row and keeps the layout. On an existing site, run
   `thallo:provision` to add the product blocks.
 
+### Fixed
+- **Turning on workspaces keeps header and footer saves working.** Enabling workspaces rebuilt the
+  regions table without its save version, so saving the header or footer failed afterwards; the
+  rebuild now keeps it, and each region's version, intact.
+
 ## [1.0.0-beta.67] - 2026-09-27 — Developer Preview
 
 Layouts for content types — design every post of a type at once, with the post's title, date,
