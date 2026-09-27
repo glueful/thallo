@@ -66,6 +66,8 @@ final class ShopBlockTypeProvisioningTest extends RetrofittedTenantTestCase
 
     public function testTenantSyncAllWithKindBlockTypeAdoptsTheFourShopBlockTypesIdempotently(): void
     {
+        $this->workspaceBWithout(self::SLUGS);
+
         $first = $this->syncAllBlockTypeKind();
         foreach (self::SLUGS as $slug) {
             self::assertSame(
@@ -119,6 +121,65 @@ final class ShopBlockTypeProvisioningTest extends RetrofittedTenantTestCase
         sort($fields);
         self::assertSame($want, $fields);
         self::assertTrue($target()['enabled'] ?? null);
+    }
+
+    /**
+     * A workspace synced before 1.0.0-beta.68 recorded its block types in the fingerprint of the day,
+     * which left out the starter content a definition did not carry: every later sync read them as
+     * edited and never updated them. Untouched rows recorded that way rejoin — and a row still as an
+     * earlier definition left it takes the definition as it is now.
+     */
+    public function testBlockTypesRecordedBeforeBeta68RejoinAndTakeTheirDefinitionsUpdates(): void
+    {
+        $this->workspaceBWithout(self::SLUGS);
+        $this->syncAllBlockTypeKind();
+        $legacy = function (array $row): string {
+            $shape = [
+                'label' => (string) $row['label'], 'icon' => $row['icon'], 'category' => $row['category'],
+                'description' => $row['description'], 'schema' => (array) $row['schema'],
+                'active' => (bool) $row['active'], 'style_capabilities' => $row['style_capabilities'] ?? null,
+                'style_targets' => $row['style_targets'] ?? null, 'flags' => $row['flags'] ?? null,
+            ];
+            return \Thallo\Core\Content\Starter\Fingerprint::of($shape);
+        };
+        $this->runAsTenant(self::$tenantBUuid, function () use ($legacy): void {
+            $repo = $this->container()->get(\Thallo\Core\Content\Blocks\BlockTypeRepository::class);
+            // mini-cart untouched; product-grid as an earlier definition labelled it, untouched since.
+            $this->connection()->table('block_types')->where('slug', '=', 'product-grid')
+                ->update(['label' => 'Product list']);
+            foreach (['mini-cart', 'product-grid'] as $slug) {
+                $this->connection()->table('starter_provenance')
+                    ->where('source_id', '=', 'thallo-commerce:' . $slug)
+                    ->update(['fingerprint' => $legacy($repo->findBySlug($slug)), 'state' => 'customized']);
+            }
+        });
+
+        $healed = $this->syncAllBlockTypeKind()[self::$tenantBUuid];
+        self::assertSame('rejoined_applied', $healed['thallo-commerce:mini-cart'] ?? null);
+        self::assertSame('updated', $healed['thallo-commerce:product-grid'] ?? null);
+        self::assertSame('Product grid', $this->runAsTenant(self::$tenantBUuid, fn () => $this->container()
+            ->get(\Thallo\Core\Content\Blocks\BlockTypeRepository::class)->findBySlug('product-grid')['label']));
+        $again = $this->syncAllBlockTypeKind()[self::$tenantBUuid];
+        self::assertSame(['unchanged', 'unchanged'], [
+            $again['thallo-commerce:mini-cart'] ?? null, $again['thallo-commerce:product-grid'] ?? null,
+        ]);
+    }
+
+    /**
+     * Tenant B as a workspace from before these blocks: neither the rows nor any record of having
+     * seeded them. (The harness provisioned it with them, then empties block_types between tests —
+     * which, with the records kept, reads as blocks the site deleted, and a sync leaves those deleted.)
+     *
+     * @param list<string> $slugs
+     */
+    private function workspaceBWithout(array $slugs): void
+    {
+        $this->runAsTenant(self::$tenantBUuid, function () use ($slugs): void {
+            $this->connection()->table('block_types')->whereIn('slug', $slugs)->delete();
+            $this->connection()->table('starter_provenance')->where('definition_kind', '=', 'block_type')
+                ->whereIn('source_id', array_map(static fn (string $s): string => 'thallo-commerce:' . $s, $slugs))
+                ->delete();
+        });
     }
 
     /** @return array<string,array<string,string>> tenant_uuid => (source_id => action) */

@@ -23,6 +23,10 @@ as the next release, never a mutated tag.
   until then the row explains what to run and does not open.
 
 ### Fixed
+- **Block updates reach every workspace again.** A block sync read almost every block type as edited
+  on the site from its second run on — its definition and the row it seeded fingerprinted apart — so
+  `thallo:tenant:sync --kind=block_type` stopped bringing workspaces a block's newer definition.
+  They now agree, and the next sync picks up the block types an earlier release left behind.
 - **Turning on workspaces keeps header and footer saves working.** Enabling workspaces rebuilt the
   regions table without its save version, so saving the header or footer failed afterwards; the
   rebuild now keeps it, and each region's version, intact.
