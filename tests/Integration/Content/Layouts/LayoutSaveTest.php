@@ -7,10 +7,15 @@ namespace Thallo\Core\Tests\Integration\Content\Layouts;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Cache\CacheStore;
 use Glueful\Database\Connection;
+use Glueful\Events\EventService;
+use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Contracts\Authorization\PermissionRequirementAuthority;
 use Thallo\Contracts\Delivery\RenderedPageCachePurge;
+use Thallo\Contracts\Layouts\LayoutChanged;
+use Thallo\Contracts\Layouts\LayoutSurfaceRegistry;
+use Thallo\Core\Content\Layouts\LayoutChanges;
 use Thallo\Core\Content\Layouts\LayoutRepository;
 use Thallo\Core\Content\Layouts\LayoutResolver;
 use Thallo\Core\Content\Layouts\LayoutSaver;
@@ -29,9 +34,11 @@ use Thallo\Core\Http\DTOs\LayoutSessionData;
 use Thallo\Core\Http\DTOs\RemoveLayoutData;
 use Thallo\Core\Http\DTOs\SaveLayoutData;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\FixtureLayoutSurface;
 use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 use Thallo\Render\Http\Controllers\RenderController;
 use Thallo\Tenancy\Cache\TenantCacheSegment;
+use Thallo\Tenancy\System\SystemFlags;
 
 /**
  * Save and remove (type layouts spec §5.5): the Regions save contract on one document. The write
@@ -60,6 +67,7 @@ final class LayoutSaveTest extends AppTestCase
 
     protected function tearDown(): void
     {
+        self::$announced = null;
         $this->container()->get(CacheStore::class)->deletePattern('render:*');
         $this->container()->get(LayoutResolver::class)->forget('entry', 'post');
         parent::tearDown();
@@ -186,9 +194,47 @@ final class LayoutSaveTest extends AppTestCase
             $repository ?? $this->container()->get(LayoutRepository::class),
             $this->container()->get(LayoutValidator::class),
             $store ?? $this->store(),
-            $this->container()->get(LayoutResolver::class),
-            $purge,
+            $this->changes($purge),
         );
+    }
+
+    /** The change announcement with this purge, the rest from the container. */
+    private function changes(?RenderedPageCachePurge $purge = null): LayoutChanges
+    {
+        return new LayoutChanges(
+            $this->container()->get(LayoutResolver::class),
+            $this->container()->get(LayoutSurfaceRegistry::class),
+            $purge,
+            $this->container()->get(EventService::class),
+        );
+    }
+
+    /** @var list<array{surface: string, target: string, tenant: ?string, committed: ?int}>|null */
+    private static ?array $announced = null;
+
+    private static bool $listening = false;
+
+    /** Record every LayoutChanged from now until tearDown, with the version a second connection sees then. */
+    private function recordAnnouncements(): void
+    {
+        self::$announced = [];
+        if (!self::$listening) {
+            self::$listening = true;
+            $this->container()->get(EventService::class)->addListener(
+                LayoutChanged::class,
+                function (object $event): void {
+                    if (self::$announced === null || !$event instanceof LayoutChanged) {
+                        return;
+                    }
+                    self::$announced[] = [
+                        'surface' => $event->surface,
+                        'target' => $event->target,
+                        'tenant' => $event->tenantUuid,
+                        'committed' => self::committedVersion($this->secondConnection()),
+                    ];
+                },
+            );
+        }
     }
 
     /** @param list<string> $log */
@@ -444,6 +490,90 @@ final class LayoutSaveTest extends AppTestCase
         $again = $this->save($session['token'], 'TWO', 1, ['epoch' => $epoch, 'revision' => 2]);
         self::assertTrue($again['body']['data']['preview_cleared']);
         self::assertNull($this->store()->current($s));
+    }
+
+    /**
+     * A save tells packs the layout changed (type layouts spec §7.4) — once, after the commit, never
+     * for a save an outer transaction rolls back — naming the workspace only while tenancy is on.
+     */
+    public function testASaveAnnouncesTheChangeAfterItCommits(): void
+    {
+        $session = $this->session();
+        $this->recordAnnouncements();
+        $tm = $this->connection()->getTransactionManager();
+        $tm->begin();
+        $this->saver()->save($this->claims($session['token']), self::layout('ROLLED')['blocks'], [], 0, null, null);
+        $tm->rollback();
+        self::assertSame([], self::$announced, 'a rolled-back save announces nothing');
+
+        self::assertSame(200, $this->save($session['token'], 'SAVED', 0)['status']);
+        self::assertSame(
+            [['surface' => 'entry', 'target' => 'post', 'tenant' => null, 'committed' => 1]],
+            self::$announced,
+            'once, after the commit, without a tenant while tenancy is off',
+        );
+
+        $flags = $this->container()->get(SystemFlags::class);
+        $flags->put('tenancy.enabled', '1');
+        try {
+            self::$announced = [];
+            $tenants = new class () implements CurrentTenantResolver {
+                public function tenantUuid(ApplicationContext $context): string
+                {
+                    return 'tnta';
+                }
+            };
+            // The resolver's key is segmented by the same tenant the event names.
+            $segment = new TenantCacheSegment($flags, $tenants);
+            (new LayoutChanges(
+                new LayoutResolver(
+                    $this->container()->get(LayoutRepository::class),
+                    $this->container()->get(CacheStore::class),
+                    $segment,
+                    $this->appContext(),
+                ),
+                $this->container()->get(LayoutSurfaceRegistry::class),
+                null,
+                $this->container()->get(EventService::class),
+                $flags,
+                $tenants,
+                $this->appContext(),
+            ))->announce('entry', 'post');
+            self::assertSame('tnta', self::$announced[0]['tenant']);
+        } finally {
+            $flags->forget('tenancy.enabled');
+        }
+    }
+
+    /**
+     * Rendered pages are purged by the tags the surface declares (spec §7.4): the entry surface's
+     * `thallo:layout:entry:{type}`; a surface declaring none — the shop's product page, whose pages
+     * live in the shop's cache — issues no rendered-page purge at all, so a driver without tag
+     * invalidation never drops every rendered page for it. An unregistered surface purges nothing
+     * and is still announced.
+     */
+    public function testOnlyTheSurfacesDeclaredPageTagsArePurged(): void
+    {
+        $log = [];
+        $changes = $this->changes(self::recordingPurge($log));
+        $changes->announce('entry', 'post');
+        self::assertSame(['purge:thallo:layout:entry:post'], $log);
+
+        $registry = $this->container()->get(LayoutSurfaceRegistry::class);
+        $registry->register(new FixtureLayoutSurface());
+        try {
+            $log = [];
+            $changes->announce('fixture', '@site');
+            self::assertSame([], $log, 'no purge, not even purgeAll');
+        } finally {
+            FixtureLayoutSurface::unregister($registry);
+        }
+
+        $this->recordAnnouncements();
+        $log = [];
+        $changes->announce('fixture', '@site');
+        self::assertSame([], $log, 'an unregistered surface purges no rendered page');
+        self::assertSame('fixture', self::$announced[0]['surface'] ?? null, 'and is still announced');
     }
 
     public function testSavePurgesTheSurfaceTagAndForgetsTheResolver(): void

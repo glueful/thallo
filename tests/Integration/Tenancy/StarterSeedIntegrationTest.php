@@ -33,7 +33,8 @@ final class StarterSeedIntegrationTest extends RetrofittedTenantTestCase
             ];
         });
 
-        self::assertSame(['category', 'pages', 'post'], $seeded['types']);
+        // The core types and the Commerce pack's product story: the harness boots with the pack on.
+        self::assertSame(['category', 'pages', 'post', 'product-story'], $seeded['types']);
         self::assertNotNull($seeded['menu']);
         self::assertNotSame('', $seeded['homepage']);
         self::assertNotEmpty($seeded['provenance']);

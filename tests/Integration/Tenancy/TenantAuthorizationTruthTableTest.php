@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Thallo\Core\Tests\Integration\Tenancy;
 
 use Thallo\Core\Content\Authorization\OperatorBypass;
+use Thallo\Core\Content\Authorization\PermissionRequirementAuthority;
 use Thallo\Core\Content\Authorization\EffectiveRoleMatrix;
 use Thallo\Core\Content\Authorization\TenantMembershipRoleReader;
 use Thallo\Core\Content\Http\RequirePermission;
@@ -138,9 +139,12 @@ final class TenantAuthorizationTruthTableTest extends RetrofittedTenantTestCase
         };
         return new RequirePermission(
             $this->appContext(),
-            $this->container()->get(TenantMembershipRoleReader::class),
-            $this->container()->get(EffectiveRoleMatrix::class),
-            new OperatorBypass($this->appContext(), $permissions, $audit),
+            new PermissionRequirementAuthority(
+                $this->appContext(),
+                roleReader: $this->container()->get(TenantMembershipRoleReader::class),
+                matrix: $this->container()->get(EffectiveRoleMatrix::class),
+                bypass: new OperatorBypass($this->appContext(), $permissions, $audit),
+            ),
         );
     }
 

@@ -304,6 +304,101 @@ final class LayoutValidatorTest extends AppTestCase
     }
 
     /**
+     * A surface's required block without a field — the product page's Product buy box — must be placed
+     * exactly once, anywhere in the tree (type layouts spec §2.7, §3): missing, the error names the
+     * block by its label; twice, the second is refused at its path.
+     */
+    public function testARequiredBlockWithoutAFieldIsNeededExactlyOnce(): void
+    {
+        $registry = $this->container()->get(\Thallo\Contracts\Layouts\LayoutSurfaceRegistry::class);
+        $registry->register(new \Thallo\Core\Tests\Support\FixtureLayoutSurface());
+        try {
+            $button = self::block('button', ['label' => 'Go', 'url' => '/go']);
+            $heading = self::block('heading', ['text' => 'Hi']);
+
+            $none = $this->errorsFor('fixture', '@site', [$heading]);
+            self::assertSame(['blocks' => 'the layout must show the Button block'], $none);
+
+            $twice = $this->errorsFor('fixture', '@site', [
+                $button,
+                self::block('container', ['content' => [$button]]),
+            ]);
+            self::assertSame(["blocks.1.data.content.0.type" => "'button' can appear only once in a layout"], $twice);
+
+            self::assertSame([], $this->errorsFor('fixture', '@site', [
+                $heading,
+                self::block('container', ['content' => [$button]]),
+            ]));
+        } finally {
+            \Thallo\Core\Tests\Support\FixtureLayoutSurface::unregister($registry);
+        }
+    }
+
+    /**
+     * A required block without a field cannot disappear with the block that holds it (type layouts
+     * plan C1): a container around it hidden at any size — by its own Visibility or by a style class —
+     * is refused at that container, naming the block it holds. Visible, or hidden elsewhere, is fine.
+     */
+    public function testNoBlockHoldingARequiredBlockWithoutAFieldCanBeHidden(): void
+    {
+        $registry = $this->container()->get(\Thallo\Contracts\Layouts\LayoutSurfaceRegistry::class);
+        $registry->register(new \Thallo\Core\Tests\Support\FixtureLayoutSurface());
+        try {
+            $button = self::block('button', ['label' => 'Go', 'url' => '/go']);
+            $hidden = static fn (array $visibility, array $content): array => [
+                'type' => 'container', 'data' => ['content' => $content],
+                'settings' => ['style' => ['visibility' => $visibility]],
+            ];
+            $choice = static fn (string $value): array => ['type' => 'choice', 'value' => $value];
+            $holds = 'this block holds the Button block, which every page shows: it cannot be hidden';
+
+            self::assertSame(
+                ['blocks.0.settings.style.visibility' => $holds],
+                $this->errorsFor('fixture', '@site', [$hidden(['base' => $choice('hidden')], [$button])]),
+            );
+            // Hidden at one size only, two containers out.
+            self::assertSame(
+                ['blocks.0.settings.style.visibility' => $holds],
+                $this->errorsFor('fixture', '@site', [$hidden(
+                    ['md' => $choice('hidden'), 'lg' => $choice('visible')],
+                    [['id' => 'innerbox0001'] + self::block('container', [
+                        'content' => [['id' => 'innerbutton1'] + $button],
+                    ])],
+                )]),
+            );
+            // Visible everywhere, or a hidden sibling: nothing to refuse.
+            self::assertSame([], $this->errorsFor('fixture', '@site', [
+                $hidden(['base' => $choice('visible')], [$button]),
+                $hidden(['base' => $choice('hidden')], [self::block('heading', ['text' => 'Aside'])]),
+            ]));
+
+            $classes = $this->container()->get(StyleClassRepository::class);
+            $class = $classes->create(['name' => 'Tuck away', 'style' => [
+                'visibility' => ['lg' => $choice('hidden')],
+            ]]);
+            self::assertSame(
+                ['blocks.0.settings.classes' => $holds],
+                $this->errorsFor('fixture', '@site', [[
+                    'type' => 'container', 'data' => ['content' => [$button]],
+                    'settings' => ['classes' => [$class['id']]],
+                ]]),
+            );
+            // The block's own Visibility at that size overrides the class; at a smaller size it does not.
+            $own = static fn (array $visibility): array => [[
+                'type' => 'container', 'data' => ['content' => [$button]],
+                'settings' => ['classes' => [$class['id']], 'style' => ['visibility' => $visibility]],
+            ]];
+            self::assertSame([], $this->errorsFor('fixture', '@site', $own(['lg' => $choice('visible')])));
+            self::assertSame(
+                ['blocks.0.settings.classes' => $holds],
+                $this->errorsFor('fixture', '@site', $own(['base' => $choice('visible')])),
+            );
+        } finally {
+            \Thallo\Core\Tests\Support\FixtureLayoutSurface::unregister($registry);
+        }
+    }
+
+    /**
      * @param list<array<string,mixed>> $tree
      * @return array<string,string>
      */

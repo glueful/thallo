@@ -6,9 +6,13 @@ namespace Thallo\Core\Content\Layouts;
 
 use Thallo\Contracts\Layouts\LayoutSurface;
 use Thallo\Contracts\Layouts\LayoutSurfaceRegistry;
+use Thallo\Contracts\Style\CascadeResolver;
+use Thallo\Contracts\Style\StyleCapabilities;
+use Thallo\Contracts\Style\StyleSchema;
 use Thallo\Core\Content\Blocks\BlockTypeRepository;
 use Thallo\Core\Content\Schema\ContentTypeSchema;
 use Thallo\Core\Content\Style\Classes\StyleClassReferenceGuard;
+use Thallo\Core\Content\Style\Classes\StyleClassRepository;
 use Thallo\Core\Content\Validation\FieldValidator;
 use Thallo\Core\Content\Validation\ValidationException;
 
@@ -57,6 +61,8 @@ final class LayoutValidator
         private readonly BlockTypeRepository $blockTypes,
         /** Style classes a save introduces are checked at the write (visual builder spec §4.5); null = unchecked. */
         private readonly ?StyleClassReferenceGuard $guard = null,
+        /** The style classes a block holding a required block may carry; null = classes unread. */
+        private readonly ?StyleClassRepository $styleClasses = null,
     ) {
     }
 
@@ -82,8 +88,9 @@ final class LayoutValidator
         if ($kind === null) {
             throw new ValidationException(['surface' => "unknown layout surface '{$surface}'"]);
         }
-        if (!self::isTarget($kind, $target)) {
-            throw new ValidationException(['target' => "'{$target}' cannot have a layout"]);
+        $row = (new LayoutTargets($this->blockTypes))->find($kind, $target);
+        if ($row === null || !$row['enabled']) {
+            throw new ValidationException(['target' => $row['reason'] ?? "'{$target}' cannot have a layout"]);
         }
         $cleanSettings = self::settings($settings);
 
@@ -165,10 +172,176 @@ final class LayoutValidator
             if ($required['type'] === 'entry_content' && is_string($field) && !isset($placed[$field])) {
                 $errors['blocks'] ??= "the layout must show the '{$field}' field once, with an Entry content block";
             }
+            if ($field === null) {
+                $errors += $this->placedOnce($required['type'], $blocks);
+                $errors += $this->neverHidden($required['type'], $blocks);
+            }
         }
         if ($errors !== []) {
             throw new ValidationException($errors);
         }
+    }
+
+    /**
+     * A required block without a field (the product page's Product buy box) is placed exactly once,
+     * anywhere in the tree: missing, the error names it by its label; twice, the second is refused.
+     *
+     * @param list<array<string,mixed>> $blocks
+     * @return array<string,string>
+     */
+    private function placedOnce(string $type, array $blocks): array
+    {
+        $seen = false;
+        foreach (self::walk($blocks) as $path => $block) {
+            if (($block['type'] ?? null) !== $type) {
+                continue;
+            }
+            if ($seen) {
+                return ["{$path}.type" => "'{$type}' can appear only once in a layout"];
+            }
+            $seen = true;
+        }
+        if ($seen) {
+            return [];
+        }
+        $label = $type;
+        foreach ($this->blockTypes->all() as $row) {
+            if (($row['slug'] ?? null) === $type && is_string($row['label'] ?? null)) {
+                $label = $row['label'];
+            }
+        }
+        return ['blocks' => "the layout must show the {$label} block"];
+    }
+
+    /**
+     * A required block without a field is on every page at every size: no block holding it may be
+     * hidden at any breakpoint, by its own Visibility or by a style class it carries (the block itself
+     * has no Visibility). Checked where the block type offers Visibility — elsewhere neither applies.
+     *
+     * @param list<array<string,mixed>> $blocks
+     * @return array<string,string>
+     */
+    private function neverHidden(string $type, array $blocks): array
+    {
+        $errors = [];
+        foreach ($this->hiddenHolders($type, $blocks) as $path => $label) {
+            $errors[$path] = "this block holds the {$label} block, which every page shows: it cannot be hidden";
+        }
+        return $errors;
+    }
+
+    /**
+     * The layout's required blocks without a field that a block holding them would hide — as stored,
+     * or with some style classes' styles replaced by what an edit would save (a class edit's check).
+     * Keyed by the holder's offending setting (`….settings.style.visibility` or `….settings.classes`),
+     * each naming the required block by its label.
+     *
+     * @param list<array<string,mixed>> $blocks
+     * @param array<string, array<string,mixed>> $classStyles class id => the style to judge it by
+     * @return array<string,string>
+     */
+    public function hiddenRequired(string $surface, string $target, array $blocks, array $classStyles = []): array
+    {
+        $kind = $this->surfaces->get($surface);
+        $out = [];
+        foreach ($kind?->required($target) ?? [] as $required) {
+            if (($required['field'] ?? null) === null) {
+                $out += $this->hiddenHolders($required['type'], $blocks, $classStyles);
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $blocks
+     * @param array<string, array<string,mixed>> $classStyles
+     * @return array<string,string> offending setting path => the required block's label
+     */
+    private function hiddenHolders(string $type, array $blocks, array $classStyles = []): array
+    {
+        $holders = self::holdersOf($type, $blocks);
+        if ($holders === []) {
+            return [];
+        }
+        $rows = [];
+        $label = $type;
+        foreach ($this->blockTypes->all() as $row) {
+            $rows[(string) $row['slug']] = $row;
+            if (($row['slug'] ?? null) === $type && is_string($row['label'] ?? null)) {
+                $label = $row['label'];
+            }
+        }
+        $def = StyleSchema::property('visibility');
+        $errors = [];
+        foreach ($holders as $path => $block) {
+            $row = $rows[(string) ($block['type'] ?? '')] ?? null;
+            if ($def === null || $row === null) {
+                continue;
+            }
+            $caps = is_array($row['style_capabilities'] ?? null) ? $row['style_capabilities'] : null;
+            if (!StyleCapabilities::fromDeclaration($caps)->allows('visibility')) {
+                continue;
+            }
+            $settings = is_array($block['settings'] ?? null) ? $block['settings'] : [];
+            $instance = is_array($settings['style'] ?? null) ? $settings['style'] : [];
+            $hiddenBy = static fn (array $classes): bool => array_filter(
+                (new CascadeResolver())->resolve('visibility', $classes, $instance, $def),
+                static fn ($r): bool => $r->isManaged() && ($r->value['value'] ?? null) === 'hidden',
+            ) !== [];
+            if ($hiddenBy([])) {
+                $errors["{$path}.settings.style.visibility"] = $label;
+            } elseif ($hiddenBy($this->classDefinitions($settings['classes'] ?? null, $classStyles))) {
+                $errors["{$path}.settings.classes"] = $label;
+            }
+        }
+        return $errors;
+    }
+
+    /**
+     * The first placement of a type and every block holding it, outermost first, keyed by path.
+     *
+     * @param list<mixed> $blocks
+     * @return array<string, array<string,mixed>>
+     */
+    private static function holdersOf(string $type, array $blocks, string $prefix = 'blocks.'): array
+    {
+        foreach ($blocks as $i => $block) {
+            if (!is_array($block)) {
+                continue;
+            }
+            if (($block['type'] ?? null) === $type) {
+                return [$prefix . $i => $block];
+            }
+            foreach (is_array($block['data'] ?? null) ? $block['data'] : [] as $field => $value) {
+                if (is_array($value) && array_is_list($value) && isset($value[0]['type'])) {
+                    $inner = self::holdersOf($type, $value, "{$prefix}{$i}.data.{$field}.");
+                    if ($inner !== []) {
+                        return [$prefix . $i => $block] + $inner;
+                    }
+                }
+            }
+        }
+        return [];
+    }
+
+    /**
+     * @param array<string, array<string,mixed>> $overrides class id => the style to use instead
+     * @return list<array{id: string, style: array<string,mixed>}> the classes' styles, in order
+     */
+    private function classDefinitions(mixed $ids, array $overrides = []): array
+    {
+        $out = [];
+        foreach (is_array($ids) ? $ids : [] as $id) {
+            if (is_string($id) && isset($overrides[$id])) {
+                $out[] = ['id' => $id, 'style' => $overrides[$id]];
+                continue;
+            }
+            $class = is_string($id) ? $this->styleClasses?->find($id) : null;
+            if ($class !== null) {
+                $out[] = ['id' => $id, 'style' => is_array($class['style'] ?? null) ? $class['style'] : []];
+            }
+        }
+        return $out;
     }
 
     /**
@@ -218,16 +391,6 @@ final class LayoutValidator
             $allowed[$slug] = true;
         }
         return $allowed;
-    }
-
-    private static function isTarget(LayoutSurface $kind, string $target): bool
-    {
-        foreach ($kind->targets() as $row) {
-            if ($row['target'] === $target) {
-                return $row['enabled'];
-            }
-        }
-        return false;
     }
 
     /**

@@ -7,6 +7,7 @@ namespace Thallo\Core\Tests\Integration\Setup;
 use Thallo\Core\Setup\SetupService;
 use Thallo\Core\Support\RoleAuthority;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\RestoresPermissionRows;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Thallo\Contracts\Settings\SystemChannel;
 use Thallo\Tenancy\System\SystemFlags;
@@ -18,9 +19,12 @@ use Thallo\Tenancy\System\SystemFlags;
  */
 final class SetupServiceTest extends AppTestCase
 {
+    use RestoresPermissionRows;
+
     protected function setUp(): void
     {
         parent::setUp();
+        $this->snapshotPermissionRows();
 
         // Start each test from a clean slate. The users table is uuid-keyed (no `id`
         // column), so TRUNCATE ... CASCADE is the reliable wipe — it clears users, the
@@ -34,6 +38,7 @@ final class SetupServiceTest extends AppTestCase
         // stray superuser survives this class and pollutes global-count invariants elsewhere
         // (e.g. last-superuser continuity checks that assert against the whole users table).
         $this->resetInstallState();
+        $this->restorePermissionRows();
         parent::tearDown();
     }
 

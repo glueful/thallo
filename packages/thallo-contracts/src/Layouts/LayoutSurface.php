@@ -41,6 +41,14 @@ interface LayoutSurface
 
     public function frame(): string;
 
+    /**
+     * The rendered-page cache tags a change to this surface's layout purges; empty for a surface
+     * whose pages live in a cache of their own and are purged on {@see LayoutChanged}.
+     *
+     * @return list<string>
+     */
+    public function pageTags(string $target): array;
+
     /** @return list<array<string,mixed>> a block tree without ids */
     public function starter(string $target): array;
 }

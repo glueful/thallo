@@ -19,6 +19,7 @@ use Thallo\Core\Content\Style\Classes\StyleClassJobService;
 use Thallo\Core\Content\Style\Classes\StyleClassRepository;
 use Thallo\Core\Content\Style\Classes\StyleClassUsage;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\RecordsLayoutChanges;
 use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 
 /**
@@ -28,6 +29,7 @@ use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
  */
 final class LayoutDocumentsTest extends AppTestCase
 {
+    use RecordsLayoutChanges;
     use SyncsBlockStyleDeclarations;
 
     protected function setUp(): void
@@ -93,7 +95,9 @@ final class LayoutDocumentsTest extends AppTestCase
         $source = $this->container()->get(LayoutsSource::class);
         $changed = ['blocks' => [...$ref->fields['blocks'],
             ['id' => 'layhead00001', 'type' => 'heading', 'data' => ['text' => 'Added'], 'settings' => []]]];
+        $this->recordLayoutChanges();
         self::assertTrue($source->persist($ref, $changed));
+        self::assertSame(['entry:post'], $this->recordedLayoutChanges(), 'the persist is announced');
         self::assertSame('2', $this->documents()[0]->revision);
         self::assertCount(2, $resolver->for('entry', 'post')['blocks'], 'the resolver forgot the old answer');
         self::assertFalse($source->persist($ref, $changed), 'a stale read writes nothing');

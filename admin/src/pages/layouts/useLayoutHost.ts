@@ -2,7 +2,7 @@ import { computed, ref } from 'vue'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import type { FieldDef } from '@/fields/types'
 import { useNotify } from '@/composables/useNotify'
-import { ApiError, apiErrorCode } from '@/api/errors'
+import { ApiError, apiErrorCode, apiErrorDetails } from '@/api/errors'
 import {
   applyLayout,
   mintLayoutSession,
@@ -59,6 +59,14 @@ export function layoutSchema(): FieldDef[] {
   return [{ name: 'blocks', label: 'Layout', type: 'blocks', blockTypes: [] }] as FieldDef[]
 }
 
+/** Why the server will not open this layout (a 422 on `target`), else null. */
+function closedReason(e: unknown): string | null {
+  const target = apiErrorDetails(e)?.target
+  return (e as { status?: unknown } | null)?.status === 422 && typeof target === 'string'
+    ? target
+    : null
+}
+
 /** A removed layout's session: 410 LAYOUT_SESSION_RETIRED. */
 function isRetired(e: unknown): boolean {
   return e instanceof ApiError && e.status === 410 && apiErrorCode(e) === 'LAYOUT_SESSION_RETIRED'
@@ -71,6 +79,8 @@ export function useLayoutHost(options: { surface: string; target: string }) {
   const initial = ref<Record<string, unknown> | null>(null)
   /** The session as last minted: the required blocks, the palette, the sample, the labels. */
   const session = ref<LayoutSession | null>(null)
+  /** Why this layout cannot be opened — its blocks not installed yet, say — when a mint says so. */
+  const closed = ref<string | null>(null)
   /** The published item the stage shows; undefined = the newest (or a placeholder). */
   const sample = ref<string | undefined>(undefined)
   /** The version as first loaded; only a save advances it, only Reload replaces it. */
@@ -109,7 +119,14 @@ export function useLayoutHost(options: { surface: string; target: string }) {
     allowLayoutOnly: true,
     // The first session's baseline is the document; a mint never touches the save baseline again.
     async mint() {
-      const minted = await mintLayoutSession(options.surface, options.target, sample.value)
+      let minted: LayoutSession
+      try {
+        minted = await mintLayoutSession(options.surface, options.target, sample.value)
+      } catch (e) {
+        closed.value = closedReason(e)
+        throw e
+      }
+      closed.value = null
       session.value = minted
       if (baseline.value === null) {
         loaded(minted)
@@ -275,6 +292,7 @@ export function useLayoutHost(options: { surface: string; target: string }) {
     host,
     bind,
     session,
+    closed,
     sample,
     baseline,
     saved,

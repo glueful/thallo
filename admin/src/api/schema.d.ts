@@ -3760,7 +3760,7 @@ export interface paths {
     head?: never
     /**
      * Update a style class
-     * @description `version` is the version the client loaded; a stale one is 409 `STYLE_CLASS_VERSION_CONFLICT` carrying `current_version`. Only the keys present change. Saving changes published pages immediately.
+     * @description `version` is the version the client loaded; a stale one is 409 `STYLE_CLASS_VERSION_CONFLICT` carrying `current_version`. Only the keys present change. Saving changes published pages immediately. A style that would hide a layout's required block — the product page's Product buy box — through a block holding it is refused (422, `style.visibility`).
      */
     patch: operations['patchV1AdminStyleclassesById']
     trace?: never

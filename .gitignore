@@ -53,3 +53,5 @@ tools/runtime-browser/fixtures/layout/
 tools/runtime-browser/fixtures/parity/
 # scripts/build-docs-proof-fixtures serves a documentation section (docs-layout.spec.js).
 tools/runtime-browser/fixtures/docs/
+# scripts/build-product-layout-proof-fixtures renders the shop's product page (product-layout.spec.js).
+tools/runtime-browser/fixtures/product-layout/

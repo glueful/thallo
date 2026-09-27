@@ -70,7 +70,8 @@ final class TableRebuilderTest extends RetrofitHarnessTestCase
                 blocks jsonb,
                 settings jsonb,
                 updated_at timestamp,
-                updated_by varchar(12)
+                updated_by varchar(12),
+                lock_version integer NOT NULL DEFAULT 0
             )'
         );
         $pdo->exec(
@@ -128,11 +129,16 @@ final class TableRebuilderTest extends RetrofitHarnessTestCase
         $tenant = $this->defaultTenant()->ensure('t1', 'T1', 'user00000001');
         $pdo = $this->connection()->getPDO();
         $pdo->exec(
-            "INSERT INTO regions (slug, blocks, settings, updated_by)
-             VALUES ('header', '[]', '{}', 'user00000001'), ('footer', '[]', '{}', 'user00000001')"
+            "INSERT INTO regions (slug, blocks, settings, updated_by, lock_version)
+             VALUES ('header', '[]', '{}', 'user00000001', 7), ('footer', '[]', '{}', 'user00000001', 0)"
         );
 
         $this->rebuilder()->rebuild('regions');
+
+        // The conditional-write version (migration 026) survives, with each row's value: region saves
+        // compare it, so a rebuild that dropped it would break every header and footer save.
+        $versions = $pdo->query('SELECT slug, lock_version FROM regions ORDER BY slug')->fetchAll(PDO::FETCH_KEY_PAIR);
+        self::assertSame(['footer' => 0, 'header' => 7], array_map('intval', $versions));
 
         // Every row preserved and stamped with the default tenant.
         $rows = $pdo->query('SELECT slug, tenant_uuid FROM regions ORDER BY slug')->fetchAll(PDO::FETCH_ASSOC);

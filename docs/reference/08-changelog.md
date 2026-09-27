@@ -10,6 +10,38 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.68] - 2026-09-27 — Developer Preview
+
+Layouts for the shop's product page — design every product's page at once, on the stage, from the
+product's own blocks around one of your products — block updates that reach every workspace again,
+and header and footer saves that keep working once workspaces are on. No migrations; run
+`thallo:provision` on an existing site for the product blocks (with workspaces on, also
+`thallo:tenant:sync --all --kind=block_type`).
+
+### Added
+- **Layouts for product pages.** With Commerce on, **Site › Layouts** has a **Products — product
+  page** row: design the product page once, on the stage, around one of your products (or a sample
+  product while the shop has none), and **Save** applies it to every product. Nine product blocks
+  place the breadcrumb, the gallery, the category, the name, the rating, the price, the description,
+  the linked product story and the **Product buy box** — the options, quantity and **Add to cart**
+  button — which every product layout keeps exactly once, at every screen size (the editor says so
+  if you try to delete it, and a container holding it cannot be hidden, even by a later edit of its
+  style class). However it is designed, the page keeps its canonical link, its structured data and
+  an Add to cart that works without JavaScript, and styles set on a block win over the shop's
+  defaults. The starter follows today's page, with equal columns and a slightly wider gap. Turning
+  Commerce off hides the row and keeps the layout. On an existing site, run `thallo:provision` to
+  add the product blocks (with workspaces on, also `thallo:tenant:sync --all --kind=block_type`);
+  until then the row explains what to run and does not open.
+
+### Fixed
+- **Block updates reach every workspace again.** A block sync read almost every block type as edited
+  on the site from its second run on — its definition and the row it seeded fingerprinted apart — so
+  `thallo:tenant:sync --kind=block_type` stopped bringing workspaces a block's newer definition.
+  They now agree, and the next sync picks up the block types an earlier release left behind.
+- **Turning on workspaces keeps header and footer saves working.** Enabling workspaces rebuilt the
+  regions table without its save version, so saving the header or footer failed afterwards; the
+  rebuild now keeps it, and each region's version, intact.
+
 ## [1.0.0-beta.67] - 2026-09-27 — Developer Preview
 
 Layouts for content types — design every post of a type at once, with the post's title, date,

@@ -6,6 +6,7 @@ namespace Thallo\Core\Tests\Integration\Setup;
 
 use Thallo\Core\Setup\InstallRoleGrants;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\RestoresPermissionRows;
 use Glueful\Extensions\Aegis\Repositories\PermissionRepository;
 use Glueful\Extensions\Aegis\Repositories\RolePermissionRepository;
 use Glueful\Extensions\Aegis\Repositories\RoleRepository;
@@ -18,6 +19,20 @@ use Glueful\Extensions\Aegis\Repositories\RoleRepository;
  */
 final class InstallRoleGrantsTest extends AppTestCase
 {
+    use RestoresPermissionRows;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->snapshotPermissionRows();
+    }
+
+    protected function tearDown(): void
+    {
+        $this->restorePermissionRows();
+        parent::tearDown();
+    }
+
     private function grants(): InstallRoleGrants
     {
         return $this->container()->get(InstallRoleGrants::class);

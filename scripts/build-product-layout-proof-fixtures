@@ -1,0 +1,296 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Build the real-browser product page fixtures (type layouts plan C1, P2 Step 0 and P6): one
+ * product, seeded with fixed values inside a transaction that is rolled back, rendered through the
+ * real shop controller into `tools/runtime-browser/fixtures/product-layout/` (gitignored). Every
+ * stylesheet, font and image the page references is fetched through the application and inlined,
+ * and scripts are dropped, so a page measures the same wherever it is opened.
+ *
+ * Pages: `original.html` — today's product page (`shop/product.twig`), the page
+ * `references/product-original.json` froze before any C1 template or stylesheet change; then the
+ * product layout's starter saved (`starter.html`), the starter with values authored on three blocks
+ * (`authored.html`), and those values removed again (`reset.html`) — each also as its layout stage
+ * renders it (`*-stage.html`, annotated, with the stage's own stylesheet).
+ *
+ *   DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-product-layout-proof-fixtures
+ */
+
+declare(strict_types=1);
+
+use Glueful\Bootstrap\ApplicationContext;
+use Glueful\Database\Connection;
+use Glueful\Validation\RequestDataHydrator;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Thallo\Contracts\Layouts\LayoutSurfaceRegistry;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
+use Thallo\Core\Content\Layouts\LayoutResolver;
+use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
+use Thallo\Core\Http\Controllers\LayoutAdminController;
+use Thallo\Core\Http\Controllers\LayoutPreviewController;
+use Thallo\Core\Http\DTOs\LayoutSessionData;
+use Thallo\Core\Http\DTOs\SaveLayoutData;
+use Thallo\Core\Tests\Support\ProductPageSeed;
+use Thallo\Core\Tests\Support\TestApplication;
+
+require __DIR__ . '/../vendor/autoload.php';
+
+foreach (getenv() as $key => $value) {
+    $_ENV[$key] ??= $value;
+}
+$_ENV['DB_POOLING_ENABLED'] = 'false';
+$root = dirname(__DIR__);
+if (is_file($root . '/.env')) {
+    Dotenv\Dotenv::createImmutable($root)->safeLoad();
+}
+$env = static fn (string $key, ?string $default = null): ?string => $_ENV[$key] ?? (getenv($key) === false ? $default : getenv($key));
+if ($env('APP_ENV', 'development') !== 'testing') {
+    fwrite(STDERR, "Refusing to build outside APP_ENV=testing (it seeds the test database).\n");
+    exit(1);
+}
+$database = (string) $env('DB_PGSQL_DATABASE', '');
+if ($database !== 'app_test' && !str_ends_with($database, '_test')) {
+    fwrite(STDERR, "Refusing to seed non-test database '{$database}'.\n");
+    exit(1);
+}
+
+$out = $root . '/tools/runtime-browser/fixtures/product-layout';
+if (!is_dir($out) && !mkdir($out, 0755, true)) {
+    fwrite(STDERR, "cannot create {$out}\n");
+    exit(1);
+}
+
+$app = TestApplication::instance();
+$container = $app->getContainer();
+$context = $container->get(ApplicationContext::class);
+$db = $container->get(Connection::class);
+$seed = new ProductPageSeed($container, $context);
+
+/** A GET through the application, following its redirects (the shop stylesheet alias 302s). */
+$get = static function (string $path) use ($app): Response {
+    for ($hop = 0; $hop < 4; $hop++) {
+        $response = $app->handle(Request::create($path, 'GET'));
+        if (!$response->isRedirection()) {
+            return $response;
+        }
+        $path = (string) $response->headers->get('Location');
+    }
+    throw new RuntimeException("too many redirects for {$path}");
+};
+
+$dataUri = static fn (string $mime, string $bytes): string => 'data:' . $mime . ';base64,' . base64_encode($bytes);
+
+/** Inline every `url(...)` a stylesheet names, resolved against the stylesheet's own path. */
+$inlineUrls = static function (string $css, string $base) use ($get, $dataUri): string {
+    return (string) preg_replace_callback(
+        '~url\(\s*(["\']?)([^"\')]+)\1\s*\)~',
+        static function (array $m) use ($get, $dataUri, $base): string {
+            $url = $m[2];
+            if (str_starts_with($url, 'data:') || str_starts_with($url, '#')) {
+                return $m[0];
+            }
+            $path = str_starts_with($url, '/') ? $url : rtrim(dirname($base), '/') . '/' . $url;
+            $asset = $get($path);
+            if ($asset->getStatusCode() !== 200) {
+                throw new RuntimeException("cannot inline {$path}: {$asset->getStatusCode()}");
+            }
+            $mime = strtok((string) $asset->headers->get('Content-Type', 'application/octet-stream'), ';');
+            return 'url("' . $dataUri((string) $mime, (string) $asset->getContent()) . '")';
+        },
+        $css,
+    );
+};
+
+/** The page as a self-contained document: stylesheets, fonts and images inlined, scripts dropped. */
+$selfContained = static function (string $html) use ($get, $inlineUrls, $dataUri, $root): string {
+    $html = (string) preg_replace_callback(
+        '~<link rel="stylesheet" href="([^"]+)">~',
+        static function (array $m) use ($get, $inlineUrls): string {
+            $href = html_entity_decode($m[1]);
+            $sheet = $get($href);
+            if ($sheet->getStatusCode() !== 200) {
+                throw new RuntimeException("cannot inline stylesheet {$href}: {$sheet->getStatusCode()}");
+            }
+            return '<style data-inlined="' . htmlspecialchars($href) . '">'
+                . $inlineUrls((string) $sheet->getContent(), (string) parse_url($href, PHP_URL_PATH)) . '</style>';
+        },
+        $html,
+    );
+    $html = (string) preg_replace_callback(
+        '~<style([^>]*)>(.*?)</style>~s',
+        static fn (array $m): string => '<style' . $m[1] . '>' . $inlineUrls($m[2], '/') . '</style>',
+        $html,
+    );
+    foreach (ProductPageSeed::IMAGES as $blob => $file) {
+        $html = (string) preg_replace(
+            '~(src|data-src)="[^"]*/blobs/' . $blob . '[^"]*"~',
+            '$1="' . $dataUri('image/png', (string) file_get_contents($root . '/' . $file)) . '"',
+            $html,
+        );
+    }
+    $html = (string) preg_replace('~<script\b[^>]*>.*?</script>~s', '', $html);
+    return (string) preg_replace('~<link rel="(preload|modulepreload|icon)"[^>]*>~', '', $html);
+};
+
+/** Thrown to roll the seeding back once the pages are written. */
+final class ProductFixturesWritten extends RuntimeException
+{
+}
+
+    // The block types' style declarations, as the application syncs them: the layout's authored
+    // values validate against them.
+    $container->get(StarterBlockTypeSeeder::class)->seedMissing();
+    $blockTypes = $container->get(BlockTypeRepository::class);
+    foreach ($container->get(BlockTypeKind::class)->definitions() as $definition) {
+        $payload = $definition->payload;
+        $row = $blockTypes->findBySlug((string) $payload['slug']);
+        if ($row !== null) {
+            $blockTypes->updateStyle(
+                (string) $row['uuid'],
+                $payload['style_capabilities'] ?? null,
+                $payload['style_targets'] ?? null,
+                $payload['flags'] ?? null,
+                $row['starter_content'] ?? $payload['starter_content'] ?? null,
+            );
+        }
+    }
+
+$previous = $seed->useTenant();
+$written = [];
+try {
+    $db->transaction(static function () use (
+        $container,
+        $seed,
+        $get,
+        $selfContained,
+        $out,
+        &$written,
+    ): void {
+        $seed->showcase();
+
+        // A foreign query parameter keeps the shop page cache out of the way (it bypasses it).
+        $page = $get('/shop/products/linen-lamp?proof=1');
+        if ($page->getStatusCode() !== 200) {
+            throw new RuntimeException("the product page answered {$page->getStatusCode()}");
+        }
+        $html = (string) $page->getContent();
+        foreach (['shop-product__enrichment', 'shop-product__price-compare', 'shop-product__thumbs'] as $part) {
+            if (!str_contains($html, $part)) {
+                throw new RuntimeException("the product page has no {$part}: the seed is incomplete");
+            }
+        }
+        file_put_contents($out . '/original.html', $selfContained($html));
+        $written[] = 'original.html';
+
+        // The product layout, saved through a session and Save as the editor saves it, then the page
+        // and the stage of that session rendered for each state.
+        $withIds = static function (array $tree, string $prefix = 'p') use (&$withIds): array {
+            foreach ($tree as $i => $block) {
+                $tree[$i]['id'] = str_pad($prefix . $i, 12, '0');
+                foreach ($block['data'] as $key => $value) {
+                    if (is_array($value) && array_is_list($value) && isset($value[0]['type'])) {
+                        $tree[$i]['data'][$key] = $withIds($value, $prefix . $i . 'n');
+                    }
+                }
+            }
+            return $tree;
+        };
+        $starter = $withIds($container->get(LayoutSurfaceRegistry::class)->get('product')->starter('@site'));
+        $token = static fn (string $value): array => ['type' => 'token', 'value' => $value];
+        $style = [
+            'product_name' => ['typography' => ['size' => ['base' => $token('typography.size.3xl')]],
+                'colors' => ['text' => $token('color.accent')]],
+            'product_price' => ['colors' => ['text' => $token('color.muted')], 'typography' => [
+                'size' => ['base' => $token('typography.size.2xl')],
+                'weight' => ['base' => ['type' => 'choice', 'value' => 'regular']],
+            ]],
+            'product_rating' => ['typography' => ['size' => ['base' => $token('typography.size.lg')]]],
+            'product_description' => ['spacing' => [
+                'padding' => ['top' => ['base' => $token('spacing.lg')], 'bottom' => ['base' => $token('spacing.lg')]],
+                'margin' => ['bottom' => ['base' => $token('spacing.none')]],
+            ]],
+        ];
+        $authored = static function (array $tree) use (&$authored, $style): array {
+            foreach ($tree as $i => $block) {
+                if (isset($style[$block['type']])) {
+                    $tree[$i]['settings'] = ['style' => $style[$block['type']]];
+                }
+                foreach ($block['data'] as $key => $value) {
+                    if (is_array($value) && array_is_list($value) && isset($value[0]['type'])) {
+                        $tree[$i]['data'][$key] = $authored($value);
+                    }
+                }
+            }
+            return $tree;
+        };
+        // Blocks placed beside the starter, at the layout's top level between the grid and the story:
+        // they keep the theme's spacing, as on any page.
+        $added = $starter;
+        array_splice($added, 2, 0, $withIds([
+            ['type' => 'heading', 'data' => ['text' => 'Caring for linen', 'level' => 'h2'], 'settings' => []],
+            ['type' => 'rich_text', 'data' => ['body' => '<p>Dust with a dry cloth; the shade washes by hand.</p>'],
+                'settings' => []],
+            ['type' => 'image', 'data' => ['image' => 'proofblob001', 'alt' => 'The lamp lit', 'width' => 320,
+                'height' => 240], 'settings' => []],
+        ], 'a'));
+        $hydrator = new RequestDataHydrator();
+        $version = 0;
+        $states = ['starter' => $starter, 'authored' => $authored($starter), 'reset' => $starter, 'added' => $added];
+        foreach ($states as $name => $blocks) {
+            if ($name === 'added') {
+                // An Image block names a file of the media library: put the seed's cover on its disk.
+                $container->get(Connection::class)->table('blobs')->where('uuid', '=', 'proofblob001')->update([
+                    'storage_type' => (string) config($container->get(ApplicationContext::class), 'thallo.media_disk', 'local'),
+                ]);
+            }
+            $session = json_decode((string) $container->get(LayoutPreviewController::class)->session(
+                $hydrator->hydrate(LayoutSessionData::class, ['surface' => 'product', 'target' => '@site']),
+            )->getContent(), true)['data'];
+            $saved = $container->get(LayoutAdminController::class)->save(
+                $hydrator->hydrate(SaveLayoutData::class, [
+                    'token' => $session['token'], 'layout' => ['blocks' => $blocks, 'settings' => []],
+                    'expected_lock_version' => $version,
+                ]),
+                Request::create('/x', 'PUT'),
+                'product',
+                '@site',
+            );
+            if ($saved->getStatusCode() !== 200) {
+                throw new RuntimeException("saving the {$name} layout answered {$saved->getStatusCode()}: {$saved->getContent()}");
+            }
+            $version++;
+            // Inside this rolled-back transaction Save's effects wait for a commit that never comes:
+            // forget the resolver's answer here, and render the stage from a session minted now,
+            // whose baseline is the layout just saved.
+            $container->get(LayoutResolver::class)->forget('product', '@site');
+            $stage = json_decode((string) $container->get(LayoutPreviewController::class)->session(
+                $hydrator->hydrate(LayoutSessionData::class, ['surface' => 'product', 'target' => '@site']),
+            )->getContent(), true)['data'];
+            $pages = ['' => '/shop/products/linen-lamp?proof=1', '-stage' => '/_preview/' . $stage['token'] . '?canvas=1'];
+            foreach ($pages as $suffix => $path) {
+                $rendered = $get($path);
+                if ($rendered->getStatusCode() !== 200 || !str_contains((string) $rendered->getContent(), 'shop-product--layout')) {
+                    throw new RuntimeException("the {$name}{$suffix} page is not the product frame ({$rendered->getStatusCode()})");
+                }
+                file_put_contents($out . "/{$name}{$suffix}.html", $selfContained((string) $rendered->getContent()));
+                $written[] = "{$name}{$suffix}.html";
+            }
+        }
+
+        throw new ProductFixturesWritten();
+    });
+} catch (ProductFixturesWritten) {
+    // Written, and rolled back.
+} catch (Throwable $e) {
+    // Left to the framework's handler, a throw prints its JSON and exits 0. (exit() skips the
+    // finally below, so the tenant flags are put back here first.)
+    $seed->restoreTenant($previous);
+    fwrite(STDERR, 'the product fixtures failed: ' . $e::class . ': ' . $e->getMessage() . "\n");
+    exit(1);
+} finally {
+    $seed->restoreTenant($previous);
+}
+
+fwrite(STDOUT, 'Wrote ' . implode(', ', $written) . " to tools/runtime-browser/fixtures/product-layout.\n");

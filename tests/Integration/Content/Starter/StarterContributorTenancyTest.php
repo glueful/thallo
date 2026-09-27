@@ -53,7 +53,9 @@ final class StarterContributorTenancyTest extends RetrofittedTenantTestCase
             ),
         );
 
-        self::assertSame(['category', self::CONTRIBUTED_SLUG, 'pages', 'post'], $slugs);
+        // Beside the core types and the stub's, the Commerce pack's product story: the harness boots
+        // with the pack on, and it contributes its type the same way.
+        self::assertSame(['category', self::CONTRIBUTED_SLUG, 'pages', 'post', 'product-story'], $slugs);
     }
 
     public function testTenantSyncWithKindContentTypeAdoptsTheContributedTypeIdempotently(): void

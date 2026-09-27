@@ -96,15 +96,19 @@ final class DisableRoundTripAcceptanceTest extends RetrofittedTenantTestCase
         );
     }
 
+    /**
+     * The boot after disable deactivated the extension: without the tenancy provider, as production
+     * boots once `deactivate()` has taken it out of the enabled extensions (glueful/tenancy 2.0.0
+     * registers its tables whenever its provider boots, so compatibility mode is proven without it).
+     */
     private function freshBoot(): ApplicationContext
     {
         self::resetTenancyGlobals();
         self::resetSharedRepositoryConnection();
         /** @var array{enabled:list<string>} $base */
         $base = require dirname(__DIR__, 3) . '/config/serviceproviders.php';
-        $providers = [...$base['enabled'], 'Glueful\\Extensions\\Tenancy\\TenancyServiceProvider'];
 
-        self::$onApp = self::bootAppWithConfigOverride('serviceproviders', ['enabled' => $providers]);
+        self::$onApp = self::bootAppWithConfigOverride('serviceproviders', ['enabled' => $base['enabled']]);
         return self::$onApp;
     }
 }

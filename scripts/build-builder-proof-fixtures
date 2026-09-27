@@ -604,6 +604,85 @@ try {
         }
         $write('canvas-under-layout.html', (string) $canvas->getContent());
         $container->get(Thallo\Core\Content\Layouts\LayoutResolver::class)->forget('entry', 'page');
+
+        // The product layout's stage (type layouts plan C1, P7): one active product, a product layout
+        // session on the starter, and two rendered states — the starter, and the starter with a
+        // Product rating of id `e2eratingnew` directly after the name, as the proof drags it in. The
+        // proof is served the rated stage only for exactly that document.
+        $productSeed = new Thallo\Core\Tests\Support\ProductPageSeed($container, $context);
+        $previousTenant = $productSeed->useTenant();
+        try {
+            $container->get(Glueful\Extensions\Commerce\Catalog\CatalogService::class)->createProduct($context, [
+                'slug' => 'linen-lamp', 'name' => 'Linen table lamp', 'status' => 'active', 'type' => 'digital',
+                'variants' => [['sku' => 'proof-lamp-1', 'price' => 8900, 'currency' => 'USD', 'option_values' => []]],
+            ]);
+            $productSession = static function () use ($container): array {
+                $dto = (new Glueful\Validation\RequestDataHydrator())->hydrate(
+                    Thallo\Core\Http\DTOs\LayoutSessionData::class,
+                    ['surface' => 'product', 'target' => '@site'],
+                );
+                $body = (string) $container->get(Thallo\Core\Http\Controllers\LayoutPreviewController::class)
+                    ->session($dto)->getContent();
+                return [$body, json_decode($body, true, 512, JSON_THROW_ON_ERROR)['data']];
+            };
+            [$body, $opened] = $productSession();
+            $write('product-session.json', $body);
+            $write(
+                'product-samples.json',
+                (string) $admin->samples(Request::create('/x'), 'product', '@site')->getContent(),
+            );
+
+            $made = $factory->make('product_rating') ?? throw new RuntimeException("no block type 'product_rating'");
+            $instances['product_rating'] = ['block' => $made['block'], 'starter' => $made['starter']];
+            $rating = [
+                'id' => 'e2eratingnew',
+                'type' => 'product_rating',
+                'data' => array_merge($made['block']['data'], $made['starter']),
+                'settings' => $made['block']['settings'],
+            ];
+            $afterName = static function (array $blocks) use (&$afterName, $rating): array {
+                $out = [];
+                foreach ($blocks as $block) {
+                    foreach ($block['data'] as $key => $value) {
+                        if (is_array($value) && array_is_list($value) && isset($value[0]['type'])) {
+                            $block['data'][$key] = $afterName($value);
+                        }
+                    }
+                    $out[] = $block;
+                    if ($block['type'] === 'product_name') {
+                        $out[] = $rating;
+                    }
+                }
+                return $out;
+            };
+            $baseline = ['blocks' => $opened['layout']['blocks'], 'settings' => $opened['layout']['settings']];
+            $productStages = [];
+            foreach (['baseline' => $baseline, 'rated' => ['blocks' => $afterName($baseline['blocks'])] + $baseline] as $name => $document) {
+                // A starter's ids are made at each mint: every state, the baseline too, is applied, so
+                // the stage carries the ids of the session the proof opens.
+                [, $session] = $productSession();
+                $token = (string) $session['token'];
+                $dto = (new Glueful\Validation\RequestDataHydrator())->hydrate(Thallo\Core\Http\DTOs\ApplyLayoutData::class, [
+                    'token' => $token, 'layout' => $document, 'epoch' => null, 'base_revision' => null,
+                ]);
+                $applied = $container->get(Thallo\Core\Http\Controllers\LayoutPreviewController::class)->apply($dto);
+                if ($applied->getStatusCode() !== 200) {
+                    throw new RuntimeException("applying the product '{$name}' layout returned {$applied->getStatusCode()}: {$applied->getContent()}");
+                }
+                $rendered = $container->get(RenderController::class)->preview(
+                    Request::create('/_preview/' . $token . '?canvas=1', 'GET'),
+                    $token,
+                );
+                if ($rendered->getStatusCode() !== 200 || !str_contains((string) $rendered->getContent(), 'shop-product--layout')) {
+                    throw new RuntimeException("the product '{$name}' stage is not the product frame ({$rendered->getStatusCode()})");
+                }
+                $write("product-stage-{$name}.html", (string) $rendered->getContent());
+                $productStages[$name] = ['layout' => $document, 'file' => "product-stage-{$name}.html"];
+            }
+            $write('product-stages.json', json_encode($productStages, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+        } finally {
+            $productSeed->restoreTenant($previousTenant);
+        }
         foreach ($instances as $slug => $instance) {
             file_put_contents(
                 $out . "/api/instance-{$slug}.json",
