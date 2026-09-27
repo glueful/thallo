@@ -89,23 +89,23 @@ final class CacheSurfaceSegmentTest extends RetrofittedTenantTestCase
         $this->runAsTenant(
             self::$tenantAUuid,
             static function () use ($store): void {
-                $store->put('entry0000001', 'en', ['title' => 'A'], 60);
+                $store->accept('entry0000001', 'en', null, null, ['title' => 'A'], [], 60);
             },
         );
         $this->runAsTenant(
             self::$tenantBUuid,
             static function () use ($store): void {
-                $store->put('entry0000001', 'en', ['title' => 'B'], 60);
+                $store->accept('entry0000001', 'en', null, null, ['title' => 'B'], [], 60);
             },
         );
 
         self::assertSame(
             ['title' => 'A'],
-            $this->runAsTenant(self::$tenantAUuid, static fn (): ?array => $store->get('entry0000001', 'en')),
+            $this->runAsTenant(self::$tenantAUuid, static fn (): ?array => $store->fields('entry0000001', 'en')),
         );
         self::assertSame(
             ['title' => 'B'],
-            $this->runAsTenant(self::$tenantBUuid, static fn (): ?array => $store->get('entry0000001', 'en')),
+            $this->runAsTenant(self::$tenantBUuid, static fn (): ?array => $store->fields('entry0000001', 'en')),
         );
     }
 }
