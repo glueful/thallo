@@ -1,0 +1,265 @@
+{
+  "case": "shop-original",
+  "note": "Type layouts Release C2, S0: today's shop home and Mugs category pages (shop/index.twig, shop/category.twig with _product_card.twig and _pagination.twig), frozen before any C2 template or stylesheet change. The category reference uses the same definition (it has no pagination). Layout-determined only: a box its text sizes is measured by `geometry:top,height` (or height alone, where its top follows a baseline) and computed style, never by a width a font's advance widths set. S6 maps the layout page's selectors onto these names and relaxes only the differences the user accepts.",
+  "root": "#main",
+  "elements": {
+    "section": {
+      "selector": "#main > section",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "titlerow": {
+      "selector": "#main .shop-titlerow",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "heading": {
+      "selector": "#main .shop-titlerow h1",
+      "profiles": [
+        "geometry:top,height",
+        "spacing",
+        "typography"
+      ]
+    },
+    "count": {
+      "selector": "#main .shop-titlerow__count",
+      "profiles": [
+        "spacing",
+        "typography"
+      ]
+    },
+    "rail": {
+      "selector": "#main .shop-rail",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "chip1": {
+      "selector": "#main .shop-rail > .shop-rail__chip:nth-child(1)",
+      "profiles": [
+        "geometry:top,height",
+        "spacing",
+        "typography",
+        "surface"
+      ]
+    },
+    "grid": {
+      "selector": "#main .shop-grid",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "card1": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(1)",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "tile1": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(1) .shop-grid__tile",
+      "profiles": [
+        "geometry"
+      ]
+    },
+    "image1": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(1) .shop-grid__image",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "surface"
+      ]
+    },
+    "tag1": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(1) .shop-grid__tag",
+      "profiles": [
+        "geometry:top,height",
+        "spacing",
+        "typography",
+        "surface"
+      ]
+    },
+    "actions1": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(1) .shop-grid__actions",
+      "profiles": [
+        "geometry"
+      ]
+    },
+    "name1": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(1) .shop-grid__name",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography"
+      ]
+    },
+    "meta1": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(1) .shop-grid__meta",
+      "profiles": [
+        "geometry:top,height",
+        "spacing"
+      ]
+    },
+    "rating1": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(1) .shop-grid__rating",
+      "profiles": [
+        "geometry:height",
+        "spacing",
+        "typography"
+      ]
+    },
+    "price1": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(1) .shop-grid__price-current",
+      "profiles": [
+        "spacing",
+        "typography"
+      ]
+    },
+    "card2": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(2)",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "tile2": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(2) .shop-grid__tile",
+      "profiles": [
+        "geometry"
+      ]
+    },
+    "image2": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(2) .shop-grid__image",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "surface"
+      ]
+    },
+    "tag2": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(2) .shop-grid__tag",
+      "profiles": [
+        "geometry:top,height",
+        "spacing",
+        "typography",
+        "surface"
+      ]
+    },
+    "actions2": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(2) .shop-grid__actions",
+      "profiles": [
+        "geometry"
+      ]
+    },
+    "name2": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(2) .shop-grid__name",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography"
+      ]
+    },
+    "meta2": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(2) .shop-grid__meta",
+      "profiles": [
+        "geometry:top,height",
+        "spacing"
+      ]
+    },
+    "rating2": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(2) .shop-grid__rating",
+      "profiles": [
+        "geometry:height",
+        "spacing",
+        "typography"
+      ]
+    },
+    "price2": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(2) .shop-grid__price-current",
+      "profiles": [
+        "spacing",
+        "typography"
+      ]
+    },
+    "card5": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(5)",
+      "profiles": [
+        "geometry",
+        "spacing"
+      ]
+    },
+    "tile5": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(5) .shop-grid__tile",
+      "profiles": [
+        "geometry"
+      ]
+    },
+    "image5": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(5) .shop-grid__image",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "surface"
+      ]
+    },
+    "tag5": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(5) .shop-grid__tag",
+      "profiles": [
+        "geometry:top,height",
+        "spacing",
+        "typography",
+        "surface"
+      ]
+    },
+    "actions5": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(5) .shop-grid__actions",
+      "profiles": [
+        "geometry"
+      ]
+    },
+    "name5": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(5) .shop-grid__name",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography"
+      ]
+    },
+    "meta5": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(5) .shop-grid__meta",
+      "profiles": [
+        "geometry:top,height",
+        "spacing"
+      ]
+    },
+    "rating5": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(5) .shop-grid__rating",
+      "profiles": [
+        "geometry:height",
+        "spacing",
+        "typography"
+      ]
+    },
+    "price5": {
+      "selector": "#main .shop-grid > .shop-grid__item:nth-child(5) .shop-grid__price-current",
+      "profiles": [
+        "spacing",
+        "typography"
+      ]
+    },
+    "pagination": {
+      "selector": "#main .pagination",
+      "profiles": [
+        "geometry",
+        "spacing",
+        "typography"
+      ]
+    }
+  }
+}

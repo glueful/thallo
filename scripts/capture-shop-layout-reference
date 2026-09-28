@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Freeze today's shop home and category pages in a real browser (type layouts plan C2, S0): build
+# `shop-index-original.html` and `shop-category-original.html` with scripts/build-shop-layout-proof-fixtures,
+# then measure each with the one measuring procedure (tools/runtime-browser/scripts/measure.js — twice,
+# refusing to write when the two differ) into tools/runtime-browser/references/shop-{index,category}-original.json,
+# which are committed.
+#
+# Only meaningful before the shop templates or the shop stylesheet change: afterwards the frozen
+# measurements are what every later rendering is compared with (tests/shop-layout.spec.js).
+#
+#   CACHE_DRIVER=array DB_PGSQL_DATABASE=app_test APP_ENV=testing scripts/capture-shop-layout-reference
+set -euo pipefail
+cd "$(dirname "$0")/.."
+php scripts/build-shop-layout-proof-fixtures
+cd tools/runtime-browser
+for page in index category; do
+  node scripts/measure.js \
+    "/tools/runtime-browser/fixtures/shop-layout/shop-${page}-original.html" \
+    "shop-${page}-original" \
+    ../../tests/fixtures/commerce/shop-page-reference.json \
+    "references/shop-${page}-original.json"
+done

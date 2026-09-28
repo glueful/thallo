@@ -7,7 +7,8 @@
 // plan defines:
 //
 //   geometry    the bounding rect RELATIVE to the case root (absolute page coordinates would
-//               move with unrelated chrome), rounded to 0.01px;
+//               move with unrelated chrome), rounded to 0.01px; `geometry:top,height` (any keys of
+//               top, left, width, height) measures only those;
 //   spacing     the computed margin-* and padding-*;
 //   typography  font-size, font-weight, line-height, text-align, color;
 //   surface     background-color;
@@ -88,6 +89,21 @@ async function measurePage(page, url, elements, profiles, rootSelector) {
               width: round(rect.width),
               height: round(rect.height),
             };
+          }
+          // `geometry:<keys>` measures only those keys of the box — for a box its text sizes, whose
+          // width (and a left offset that follows it) would measure a font's advance widths, not the
+          // layout (type layouts plan C2: references hold on any platform's fonts).
+          const partial = (applies || []).find((profile) => profile.startsWith('geometry:'));
+          if (partial) {
+            const box = {
+              top: round(rect.top - rootRect.top),
+              left: round(rect.left - rootRect.left),
+              width: round(rect.width),
+              height: round(rect.height),
+            };
+            entry.geometry = Object.fromEntries(
+              partial.slice('geometry:'.length).split(',').map((key) => [key, box[key]]),
+            );
           }
           if (wanted('spacing')) {
             entry.spacing = {
