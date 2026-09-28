@@ -154,27 +154,30 @@ test('authored values win on the page and on the stage; the grid arranges the ca
   }
 });
 
-test('a flex row of cards: the cards sit in a row where they fit, the card unchanged', async ({ page }) => {
+test('a flex row of cards: the loop lays its cards out as a wrapping row, the card unchanged', async ({ page }) => {
+  // This page's entries are long: each card's content is wider than the list, so a flex row caps
+  // every card at the list's width and wraps one to a line — the grid proof above shows cards side
+  // by side. What the mode is, is read from the list itself; the card inside keeps its own design.
   const starter = await measure(page, 'starter');
   const flex = await measure(page, 'flex');
   agree(flex, ['heading', 'row1', 'row2', 'title1', 'content1'], 'flex');
+  for (const where of ['', '-stage']) {
+    await page.goto(`${URL_BASE}/listing-flex${where}.html`);
+    const arrangement = await page.evaluate(() => {
+      const style = getComputedStyle(document.querySelector('#main .thallo-block-entry_loop__cards'));
+      return { display: style.display, direction: style.flexDirection, wrap: style.flexWrap };
+    });
+    expect(arrangement, `${where || 'page'}: the loop's arrangement`).toEqual({
+      display: 'flex', direction: 'row', wrap: 'wrap',
+    });
+  }
   for (const width of WIDTHS) {
     for (const where of ['page', 'stage']) {
       const row1 = at(flex[where], width, 'row1').geometry;
       const row2 = at(flex[where], width, 'row2').geometry;
-      // A wrapping row: side by side where both fit (the widest page), else the second card starts
-      // the next line; a card sizes to its content, never stretched to the list (the phone's is
-      // the list's width only because its content needs it).
-      if (width === 1280) {
-        near(row2.top, row1.top, `${where} cards share a row @${width}`);
-        expect(row2.left, `${where} second card to the right @${width}`).toBeGreaterThan(row1.left + row1.width - NEAR);
-      } else {
-        near(row2.left, row1.left, `${where} second card starts the next line @${width}`);
-        expect(row2.top, `${where} second card below @${width}`).toBeGreaterThan(row1.top + row1.height - NEAR);
-      }
-      if (width > 375) {
-        expect(row1.width, `${where} card sized to its content @${width}`).toBeLessThan(width - NEAR);
-      }
+      near(row2.left, row1.left, `${where} the second card starts the next line @${width}`);
+      expect(row2.top, `${where} the second card below @${width}`).toBeGreaterThan(row1.top + row1.height - NEAR);
+      expect(row1.left + row1.width, `${where} a card within the list @${width}`).toBeLessThanOrEqual(width + NEAR);
       expect(at(flex[where], width, 'title1').typography, `${where} card title unchanged @${width}`)
         .toEqual(at(starter[where], width, 'title1').typography);
     }

@@ -38,23 +38,40 @@ final class ListingPageSeed
         'listblob0002' => 'tests/fixtures/commerce/product-alt.png',
     ];
 
-    /** slug => [title, excerpt, published at, cover blob], oldest first */
+    /**
+     * slug => [title, excerpt, published at, cover blob], oldest first. Each excerpt runs past the
+     * listing row's three-line clamp at every width: the row's text column is as wide as its text up to
+     * the space it has, and text measures a little differently on each platform (macOS and the Linux CI
+     * run), so an excerpt that fills the space makes the column's width the layout's, not the font's.
+     */
     private const POSTS = [
         'first-firing' => [
             'First firing',
-            'What the kiln taught us the first time we loaded it.',
+            'What the kiln taught us the first time we loaded it. We stacked the shelves too tight, '
+                . 'trusted a cone we had never tested and opened the door a day early; every pot that came out '
+                . 'whole was luck, and every cracked one taught us something we still do today. Since then we '
+                . 'fire slowly, keep a notebook by the door and test every new glaze on a tile first, because '
+                . 'the kiln is patient with people who are patient with it.',
             '2026-08-01 09:00:00',
             null,
         ],
         'glazing-by-hand' => [
             'Glazing by hand',
-            'Dipping, pouring and brushing: three ways to glaze a pot.',
+            'Dipping, pouring and brushing: three ways to glaze a pot. Each lays the glaze down '
+                . 'differently, and each changes how it breaks over an edge, pools in a hollow and runs in the '
+                . 'firing, so we choose the method before we choose the colour. Dipping gives the most even '
+                . 'coat, pouring lets two glazes overlap on purpose, and brushing is how we lay a band or a '
+                . 'line where it has to sit exactly, however the pot turns on the wheel.',
             '2026-08-15 09:00:00',
             'listblob0002',
         ],
         'the-kiln-at-dawn' => [
             'The kiln at dawn',
-            'Opening the kiln after a long firing is the best part of the week.',
+            'Opening the kiln after a long firing is the best part of the week. The door is still '
+                . 'warm, the shelves tick as they cool, and for a few minutes every piece is new again, before '
+                . 'we sort the keepers from the seconds and start the next load. We write down what worked, '
+                . 'photograph what surprised us, and put the best pieces on the window shelf, where the morning '
+                . 'light shows every run of glaze and every mark the flame left.',
             '2026-09-01 09:00:00',
             'listblob0001',
         ],
