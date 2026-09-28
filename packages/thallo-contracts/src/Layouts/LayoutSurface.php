@@ -23,7 +23,13 @@ interface LayoutSurface
      * The rows the Layouts page lists; `link` is an admin path a disabled row points to (where the
      * setting that closes it is changed), else null.
      *
-     * @return list<array{target: string, label: string, enabled: bool, reason: ?string, link: ?string}>
+     * `enabled: false` means the target's pages are off the site — the site answers them 404 — so a
+     * layout kept there can be removed from the Layouts page. A surface that closes a row whose pages
+     * still render must say so with `removable: false` on the row (the Layouts page reads it as given).
+     *
+     * @return list<array{
+     *     target: string, label: string, enabled: bool, reason: ?string, link: ?string, removable?: bool
+     * }>
      */
     public function targets(): array;
 

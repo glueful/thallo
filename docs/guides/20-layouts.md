@@ -128,8 +128,10 @@ page of a listing, or every term's archive of one field.
 
 A type that is not listed shows its rows turned off, with the reason — "Listing pages are off for
 Pages." — and **Turn on listing pages**, which opens **Settings › General**. Taking a type off the
-list keeps its layouts; listing it again serves them again. A turned-off row that keeps a custom
-layout has **Remove** instead of **Edit**, for a layout you no longer need.
+list keeps its layouts; listing it again serves them again. A row turned off because its pages are
+off the site, and that keeps a custom layout, has **Remove** instead of **Edit**, for a layout you no
+longer need. (A row turned off only because its blocks are not installed yet is still live: it has
+neither until they are.)
 
 **Edit** opens the stage on the listing's first page, or on one term's archive — the picker lists
 the terms that have published posts. The layout opens on a starter that follows today's page: the

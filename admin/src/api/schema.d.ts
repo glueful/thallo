@@ -3325,7 +3325,7 @@ export interface paths {
     }
     /**
      * List the layouts
-     * @description Every page kind that can have a layout — for each content type, its single entry, its listing pages and each archived field's archive pages — with whether it has one (`custom`) or renders through the theme (`theme`), who saved it, and when a target cannot have one, why (`reason`) and the admin page that puts it right (`link`). A row whose pages are off the site says so (`removable`) — a layout kept there can be removed; a row closed only because its blocks are not installed is still live and is not. A layout kept for pages no longer offered is listed too. `can_edit` says whether the caller may open the editor (`templates.manage`). Requires `content.view`.
+     * @description Every page kind that can have a layout — for each content type, its single entry, its listing pages and each archived field's archive pages — with whether it has one (`custom`) or renders through the theme (`theme`), who saved it, and when a target cannot have one, why (`reason`) and the admin page that puts it right (`link`). `removable` says a row's pages are off the site, whatever its `state` — a `custom` one can be removed there; a row closed only because its blocks are not installed is still live and is not. A layout kept for pages no longer offered is listed too. `can_edit` says whether the caller may open the editor (`templates.manage`). Requires `content.view`.
      */
     get: operations['getV1AdminLayouts']
     put?: never
@@ -28786,7 +28786,7 @@ export interface operations {
           }
         }
       }
-      /** @description An unknown surface, or a target that cannot have a layout and keeps none. */
+      /** @description An unknown surface, or a target that cannot be opened: closed while its pages are still on the site (its blocks not installed), or off the site with no layout kept. */
       422: {
         headers: {
           [name: string]: unknown

@@ -1693,6 +1693,11 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   let switchingNow = false
   // A stage showing its expired page renews through the host, as a dead token does (spec §6.5).
   bridge.onSessionExpired(() => void switchSession(host.renew))
+  /** The stage shows a layout's placeholder page (its sample gone): told by the stage on each load. */
+  const stagePlaceholder = ref(false)
+  bridge.onStageState((placeholder) => {
+    stagePlaceholder.value = placeholder
+  })
 
   /**
    * Start over from a fresh session and its tree (a Reload after a conflict): the document, its
@@ -2133,6 +2138,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     selectedParentType,
     selectedParentSlot,
     loops,
+    stagePlaceholder,
     onSetSetting,
     onSetAll,
     onSetAdvanced,

@@ -161,8 +161,23 @@ export function useLayoutHost(options: { surface: string; target: string }) {
     async renew(fields): Promise<StageRenewal> {
       if (retired.value) throw new StageRenewalAbandoned()
       const mine = ++generation
-      const minted = await mintLayoutSession(options.surface, options.target, sample.value)
+      let minted: LayoutSession
+      try {
+        minted = await mintLayoutSession(options.surface, options.target, sample.value)
+      } catch (e) {
+        // Closed since it opened (its blocks gone, or nothing kept there): the page says why.
+        const reason = closedReason(e)
+        if (reason === null) throw e
+        closed.value = reason
+        throw new StageRenewalAbandoned()
+      }
       if (mine !== generation) throw new StageRenewalAbandoned()
+      if (minted.closed !== null) {
+        // Its pages were taken off the site meanwhile: nothing can be applied; the page says why.
+        closed.value = minted.closed
+        session.value = minted
+        throw new StageRenewalAbandoned()
+      }
       const result = await applyLayout(minted.token, toPayload(fields), {
         epoch: null,
         base_revision: null,
@@ -289,9 +304,12 @@ export function useLayoutHost(options: { surface: string; target: string }) {
       loaded(minted)
       conflict.value = false
       retired.value = false
+      closed.value = minted.closed
       editor.restart(asStage(minted), toDocument(minted.layout))
     } catch (e) {
-      notifyError(e, 'Couldn’t reload the layout')
+      const reason = closedReason(e)
+      if (reason !== null) closed.value = reason
+      else notifyError(e, 'Couldn’t reload the layout')
     }
   }
 

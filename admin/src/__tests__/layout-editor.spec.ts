@@ -317,6 +317,23 @@ describe('the layout editor', () => {
     w.unmount()
   })
 
+  // Review of aa2801ec: the sample unpublished mid-session, the stage falls back to the placeholder
+  // and says so; the picker stops naming the sample and reads the list again.
+  it('the picker follows the stage when it falls back to the placeholder', async () => {
+    const w = mountPage()
+    await flushPromises()
+    expect(topBar(w).props('sample')).toBe('posta0000001')
+    const reads = q.samples.mock.calls.length
+    bridge.callbacks.onStageState!(true as never)
+    await flushPromises()
+    expect(topBar(w).props('sample')).toBeUndefined()
+    expect(q.samples.mock.calls.length).toBeGreaterThan(reads)
+    bridge.callbacks.onStageState!(false as never)
+    await flushPromises()
+    expect(topBar(w).props('sample')).toBe('posta0000001')
+    w.unmount()
+  })
+
   it('Save shows its reach and posts the version loaded', async () => {
     const w = mountPage()
     await flushPromises()

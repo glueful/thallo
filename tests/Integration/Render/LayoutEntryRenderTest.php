@@ -327,6 +327,13 @@ final class LayoutEntryRenderTest extends AppTestCase
             self::assertContains($key('region:footer', 'footerform01'), $keys, "footer form on {$slug}");
             self::assertContains($key("entry:{$uuid}", "bodyform{$slug}001"), $keys, "body form on {$slug}");
             self::assertCount(4, $keys, $slug);
+            // Four forms with the same fields: each field's id is its own form's, and each label
+            // points at its own field (review of 29cabb70 — the ids were the field key alone).
+            preg_match_all('~ id="(ff-[^"]+)"~', $html, $ids);
+            preg_match_all('~ for="(ff-[^"]+)"~', $html, $fors);
+            self::assertNotEmpty($ids[1]);
+            self::assertCount(count($ids[1]), array_unique($ids[1]), "every field id once on {$slug}");
+            self::assertSame([], array_diff($fors[1], $ids[1]), "every label points at a field on {$slug}");
         }
     }
 

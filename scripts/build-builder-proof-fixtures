@@ -866,6 +866,26 @@ try {
         $write('listing-stages.json', json_encode($stages, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
         $resolver->forget('listing', 'post');
 
+        // The Layouts page with a layout kept while its pages are off the site: the post type taken
+        // off the listing types, its listing layout saved — the row removable, and the closed session
+        // the page opens to remove it.
+        $container->get(Thallo\Core\Settings\GeneralSettings::class)->save(['listing_types' => []]);
+        $index = (string) $container->get(Thallo\Core\Http\Controllers\LayoutAdminController::class)
+            ->index(Request::create('/v1/layouts', 'GET'))->getContent();
+        $kept = array_values(array_filter(
+            json_decode($index, true, 512, JSON_THROW_ON_ERROR)['data']['layouts'],
+            static fn (array $row): bool => $row['surface'] === 'listing' && $row['target'] === 'post',
+        ))[0] ?? null;
+        if (($kept['removable'] ?? false) !== true || ($kept['state'] ?? null) !== 'custom') {
+            throw new RuntimeException('the unlisted post listing is not a removable kept layout: ' . json_encode($kept));
+        }
+        $write('layouts-kept.json', $index);
+        [$closedBody, $closed] = $session();
+        if (!is_string($closed['closed'] ?? null)) {
+            throw new RuntimeException('the unlisted post listing opened no closed session');
+        }
+        $write('listing-closed-session.json', $closedBody);
+
         // The proofs also drag an Entry title from the palette (refused at the page's root): its tile
         // asks for the type's instance like any other.
         foreach (['entry_title'] as $slug) {

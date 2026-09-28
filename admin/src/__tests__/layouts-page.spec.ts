@@ -165,7 +165,10 @@ describe('the Layouts page', () => {
       }),
       row({ target: 'quote', label: 'Quotes — single quote', enabled: false, reason: 'Off.' }),
     ]
-    q.mint.mockReset().mockResolvedValue({ token: 'closedtok' })
+    q.mint.mockReset().mockResolvedValue({
+      token: 'closedtok',
+      closed: 'These pages are not on the site now. The layout is kept until you remove it.',
+    })
     q.remove.mockReset().mockResolvedValue({ lockVersion: 5 })
     q.refetch.mockReset()
     const w = mountPage()
@@ -239,7 +242,9 @@ describe('the Layouts page', () => {
         lock_version: 2,
       }),
     ]
-    q.mint.mockReset().mockResolvedValue({ token: 'tok' })
+    q.mint
+      .mockReset()
+      .mockResolvedValue({ token: 'tok', closed: 'Listing pages are off for Posts.' })
     q.remove.mockReset().mockRejectedValue(new Error('changed'))
     q.refetch.mockReset()
     notify.error.mockReset()
@@ -250,6 +255,38 @@ describe('the Layouts page', () => {
     ;(document.body.querySelector('[data-test="layouts-remove-confirm"]') as HTMLElement).click()
     await flushPromises()
     expect(notify.error).toHaveBeenCalled()
+    expect(q.refetch).toHaveBeenCalled()
+    expect(document.body.querySelector('[data-test="layouts-remove-dialog"]')).toBeNull()
+    w.unmount()
+  })
+
+  // Review of 29cabb70: the list can be stale — the type listed again since it loaded. A session that
+  // opens normally means the pages are back on the site: nothing is removed, and the page says so.
+  it('a row whose pages came back since the list loaded is not removed', async () => {
+    rows.value = [
+      row({
+        surface: 'listing',
+        target: 'post',
+        label: 'Posts — listing pages',
+        state: 'custom',
+        enabled: false,
+        reason: 'Listing pages are off for Posts.',
+        removable: true,
+        lock_version: 2,
+      }),
+    ]
+    q.mint.mockReset().mockResolvedValue({ token: 'tok', closed: null })
+    q.remove.mockReset()
+    q.refetch.mockReset()
+    notify.warning.mockReset()
+    const w = mountPage()
+    await flushPromises()
+    await w.find('[data-test="layouts-remove-listing-post"]').trigger('click')
+    await flushPromises()
+    ;(document.body.querySelector('[data-test="layouts-remove-confirm"]') as HTMLElement).click()
+    await flushPromises()
+    expect(q.remove).not.toHaveBeenCalled()
+    expect(notify.warning).toHaveBeenCalled()
     expect(q.refetch).toHaveBeenCalled()
     expect(document.body.querySelector('[data-test="layouts-remove-dialog"]')).toBeNull()
     w.unmount()

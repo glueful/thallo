@@ -50,7 +50,7 @@ final class ClosedLayoutTest extends AppTestCase
 
     protected function tearDown(): void
     {
-        foreach ([['listing', 'post'], ['archive', 'post:categories']] as [$surface, $target]) {
+        foreach ([['listing', 'post'], ['archive', 'post:categories'], ['entry', 'post']] as [$surface, $target]) {
             $this->container()->get(LayoutResolver::class)->forget($surface, $target);
         }
         $this->container()->get(CacheStore::class)->deletePattern('render:*');

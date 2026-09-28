@@ -24,6 +24,9 @@ final class FixtureLayoutSurface implements LayoutSurface
     /** @var list<array{type: string, field?: string}>|null a test's required blocks; null: `button` */
     public static ?array $required = null;
 
+    /** @var list<array<string,mixed>>|null a test's target rows, as given; null: the one `@site` row */
+    public static ?array $targets = null;
+
     public function key(): string
     {
         return self::KEY;
@@ -41,6 +44,9 @@ final class FixtureLayoutSurface implements LayoutSurface
 
     public function targets(): array
     {
+        if (self::$targets !== null) {
+            return self::$targets;
+        }
         return [[
             'target' => self::TARGET, 'label' => 'Fixtures — site page', 'enabled' => true, 'reason' => null,
             'link' => null,

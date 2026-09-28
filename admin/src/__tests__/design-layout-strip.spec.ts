@@ -109,6 +109,7 @@ const bridge = vi.hoisted(() => {
       onBlockDeselect: noop,
       onBlockHover: noop,
       onBlocksIndex: noop,
+      onStageState: noop,
       onBlockMove: (cb: (id: string, d: 1 | -1) => void) => (callbacks.move = cb),
       onDragPropose: noop,
       onBlockDrop: noop,

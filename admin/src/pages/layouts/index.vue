@@ -10,7 +10,7 @@ import { useNotify } from '@/composables/useNotify'
 definePage({ meta: { requiresAuth: true } })
 
 const { data, isLoading, error, refetch } = useLayouts()
-const { success, error: notifyError } = useNotify()
+const { success, warning, error: notifyError } = useNotify()
 const rows = computed(() => data.value?.rows)
 const canEdit = computed(() => data.value?.canEdit === true)
 
@@ -34,6 +34,12 @@ async function confirmRemove(): Promise<void> {
   removeBusy.value = true
   try {
     const session = await mintLayoutSession(row.surface, row.target)
+    if (session.closed === null) {
+      // The list was stale: the pages are back on the site, so the layout is live — never removed
+      // from here. Its row opens in the editor again.
+      warning('Its pages are back on the site', `${row.label} is live again: edit it instead.`)
+      return
+    }
     await removeLayout(row.surface, row.target, {
       token: session.token,
       expected_lock_version: row.lock_version,

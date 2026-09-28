@@ -69,6 +69,7 @@ const {
   selectedParentType,
   selectedParentSlot,
   loops,
+  stagePlaceholder,
   onSetSetting,
   onSetAll,
   onSetAdvanced,
@@ -220,7 +221,14 @@ async function loadSamples(): Promise<void> {
 }
 void loadSamples()
 const sampleOptions = computed(() => samples.value.map((s) => ({ label: s.label, value: s.id })))
-const sampleValue = computed(() => layout.sample.value ?? session.value?.sample?.id)
+// While the stage shows the placeholder — its sample unpublished since — the picker names no sample,
+// and the list is read again.
+const sampleValue = computed(() =>
+  stagePlaceholder.value ? undefined : (layout.sample.value ?? session.value?.sample?.id),
+)
+watch(stagePlaceholder, (placeholder) => {
+  if (placeholder) void loadSamples()
+})
 function onSample(value: string): void {
   void layout.switchSample(value)
 }
