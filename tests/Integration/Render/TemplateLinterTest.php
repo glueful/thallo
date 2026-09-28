@@ -257,6 +257,31 @@ final class TemplateLinterTest extends AppTestCase
         self::assertStringContainsString('"panel" is styled first', $violations[0]['message']);
     }
 
+    /**
+     * A loop's card is its slot (type layouts plan B): `loop_cards()` puts the card's slot on the first
+     * card, so a template naming its card field through it names the slot; one that renders the card
+     * any other way still must.
+     */
+    public function testALoopNamesItsCardSlotThroughLoopCards(): void
+    {
+        $this->syncBlockStyleDeclarations();
+        $linter = $this->linter();
+        $root = '<div class="l{{ style_classes(\'root\') }}"{{ style_attrs(\'root\') }}>';
+        $cards = '<ul class="c{{ style_classes(\'cards\') }}"{{ style_attrs(\'cards\') }}>';
+        self::assertSame([], $linter->lint(
+            $root . $cards . "{{ loop_cards(data.card, layout_context.items, 'entry', 'card', 'row') }}</ul></div>",
+            'blocks/entry_loop.twig',
+        ));
+        $missing = $linter->lint($root . $cards . '{{ blocks(data.card) }}</ul></div>', 'blocks/entry_loop.twig');
+        self::assertCount(1, $missing);
+        self::assertStringContainsString('Slot "card" has no element', $missing[0]['message']);
+        $wrong = $linter->lint(
+            $root . $cards . "{{ loop_cards(data.card, layout_context.items, 'entry', 'cards') }}</ul></div>",
+            'blocks/entry_loop.twig',
+        );
+        self::assertContains('Slot "cards" is not a blocks field of the block type.', array_column($wrong, 'message'));
+    }
+
     public function testSlotRulesApplyToTypesWithBlocksFields(): void
     {
         $this->syncBlockStyleDeclarations();

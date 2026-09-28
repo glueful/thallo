@@ -175,7 +175,17 @@ final class StarterTemplatesTest extends AppTestCase
     private function sampleContext(): array
     {
         $this->seedBlob('startcover01', 'image/png');
-        return ['type' => 'post', 'entry' => [
+        // The page a listing or archive frame hands its blocks (type layouts plan B): an archive
+        // page of two, one item, a term with a description.
+        $page = ['type' => 'post', 'type_name' => 'Posts', 'field' => 'categories',
+            'term_description_format' => 'rich',
+            'term' => ['uuid' => 'startcat0001', 'fields' => ['title' => 'News', 'slug' => 'news',
+                'description' => '<p>The latest.</p>']],
+            'items' => [['uuid' => 'startentry02', 'href' => '/post/second',
+                'published_at' => '2026-06-01T09:30:00+00:00', 'fields' => ['title' => 'Second']]],
+            'pagination' => ['page' => 1, 'per_page' => 1, 'total' => 2, 'total_pages' => 2, 'prev_path' => null,
+                'next_path' => '/post/categories/news/page/2']];
+        return ['type' => 'post', 'layout_context' => $page, 'entry' => [
             'uuid' => 'startentry01',
             'published_at' => '2026-06-02T09:30:00+00:00',
             'fields' => [

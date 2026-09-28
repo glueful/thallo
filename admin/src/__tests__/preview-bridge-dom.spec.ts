@@ -3523,3 +3523,64 @@ describe('an expired regions session', () => {
     expect(lastPost('thallo:session-expired')).toBeDefined()
   })
 })
+
+describe('loop cards (type layouts plan B)', () => {
+  const realFromPoint = document.elementFromPoint
+  afterEach(() => {
+    document.elementFromPoint = realFromPoint
+  })
+
+  /** A layout root holding an Entry list: the first card is the loop's card slot, the second a copy. */
+  function loopStage(): { first: HTMLElement; copy: HTMLElement } {
+    const root = document.createElement('div')
+    root.setAttribute('data-thallo-slot', 'blocks')
+    const loop = wrapper('loopblock001', '')
+    loop.innerHTML =
+      '<div class="thallo-block thallo-block-entry_loop"><ul class="thallo-block-entry_loop__cards">' +
+      '<li class="thallo-loop-card" data-thallo-slot="card"></li>' +
+      '<li class="thallo-loop-card" data-thallo-card-copy><h2>Glazing by hand</h2></li>' +
+      '</ul></div>'
+    root.appendChild(loop)
+    document.body.appendChild(root)
+    const first = loop.querySelector('[data-thallo-slot="card"]') as HTMLElement
+    first.appendChild(wrapper('cardtitle001', '<h2>The kiln at dawn</h2>'))
+    const host = first.querySelector('[data-thallo-block] > h2') as HTMLElement
+    Object.defineProperty(host, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        top: 0,
+        bottom: 50,
+        left: 0,
+        right: 500,
+        height: 50,
+        width: 500,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    })
+    return { first, copy: loop.querySelector('[data-thallo-card-copy] h2') as HTMLElement }
+  }
+
+  function drop(target: HTMLElement): void {
+    document.elementFromPoint = () => target
+    sendToBridge({ type: 'thallo:drag-begin', session: 'loopdrag1', blocks: ['newdate00001'] })
+    sendToBridge({ type: 'thallo:drag-drop', session: 'loopdrag1', x: 10, y: 80 })
+  }
+
+  it("a drop in the first card lands in the loop's card, after the block above the point", () => {
+    const { first } = loopStage()
+    drop(first)
+    expect(lastPost('thallo:block-drop')).toMatchObject({
+      session: 'loopdrag1',
+      zone: { parent: 'loopblock001', slot: 'card', index: 1 },
+    })
+  })
+
+  it('a drop over a later card is no destination: the drag cancels, never falling to the root', () => {
+    const { copy } = loopStage()
+    drop(copy)
+    expect(lastPost('thallo:block-drop')).toBeUndefined()
+    expect(lastPost('thallo:drag-cancel')).toMatchObject({ session: 'loopdrag1' })
+  })
+})
