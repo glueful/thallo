@@ -37,6 +37,10 @@ final class ShopPageSeed
         'shopblob0001' => 'tests/fixtures/commerce/product-cover.png',
     ];
 
+    /** The long-name proofs' product and category (never in the parity pages). */
+    public const LONG_NAME = 'Hand-thrown stoneware serving bowl with ash glaze, speckled finish';
+    public const LONG_CATEGORY = 'Serving bowls, platters and large tableware';
+
     /** slug => [uuid, name], in rail order */
     public const CATEGORIES = [
         'mugs' => ['shopcat00001', 'Mugs'],
@@ -132,6 +136,40 @@ final class ShopPageSeed
             'categories' => array_map(static fn (array $c): string => $c[0], self::CATEGORIES),
             'products' => $products,
             'variants' => $variants,
+        ];
+    }
+
+    /**
+     * The long-name shop: one category with a long name holding a product with a long name (one
+     * variant, so its tile carries the quick add) and one short-named product. Seeded instead of
+     * {@see self::seed()}, for the overflow, ellipsis and accessible-name proofs only.
+     *
+     * @return array{category: string, product: string, slug: string, short: string}
+     */
+    public function longNames(): array
+    {
+        $this->container->get(StarterBlockTypeSeeder::class)->seedMissing();
+        $category = 'shopcatlong1';
+        (new CategoryRepository())->insert($this->context, [
+            'uuid' => $category, 'tenant_uuid' => self::TENANT, 'slug' => 'serving', 'name' => self::LONG_CATEGORY,
+            'position' => 0,
+        ]);
+        $made = [];
+        $specs = [['stoneware-serving-bowl', self::LONG_NAME, 'shop-long-1'], ['cup', 'Cup', 'shop-long-2']];
+        foreach ($specs as $i => $spec) {
+            $product = $this->container->get(CatalogService::class)->createProduct($this->context, [
+                'slug' => $spec[0], 'name' => $spec[1], 'status' => 'active', 'type' => 'physical',
+                'variants' => [['sku' => $spec[2], 'price' => 3000, 'currency' => 'USD', 'option_values' => []]],
+            ]);
+            $uuid = (string) $product['uuid'];
+            $this->container->get(Connection::class)->table('commerce_products')
+                ->where('uuid', '=', $uuid)
+                ->update(['created_at' => sprintf('2026-09-01 10:%02d:00', 59 - $i)]);
+            $made[] = $uuid;
+        }
+        (new CategoryRepository())->attachProduct($this->context, $made[0], $category);
+        return [
+            'category' => $category, 'product' => $made[0], 'slug' => 'stoneware-serving-bowl', 'short' => $made[1],
         ];
     }
 

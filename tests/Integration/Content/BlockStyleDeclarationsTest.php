@@ -23,7 +23,7 @@ final class BlockStyleDeclarationsTest extends AppTestCase
      * The one block that cannot be hidden: the product page's Product buy box (type layouts plan C1),
      * required in every product layout — hidden at any size, that size could not buy.
      */
-    private const NEVER_HIDDEN = ['product_buy', 'entry_loop'];
+    private const NEVER_HIDDEN = ['product_buy', 'entry_loop', 'product_loop'];
 
     public function testEveryShippedBlockTypeDeclaresAConsistentStyleContract(): void
     {
