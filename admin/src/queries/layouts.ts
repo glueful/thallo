@@ -22,6 +22,11 @@ export interface LayoutRow {
   reason: string | null
   /** Where the reason is put right — an admin path ("/settings/general") — when it can be. */
   link: string | null
+  /**
+   * The row's pages are off the site (a type not listed, a field no longer filing it), so a layout
+   * kept there can be removed from the list. Never for a row closed while its layout is still live.
+   */
+  removable: boolean
   lock_version: number
   updated_by: string | null
   /** Who saved the custom layout (a username, else an email), when it is one. */
@@ -113,6 +118,7 @@ export async function fetchLayouts(): Promise<LayoutList> {
       enabled: r.enabled !== false,
       reason: strOrNull(r.reason),
       link: strOrNull(r.link),
+      removable: r.removable === true,
       lock_version: typeof r.lock_version === 'number' ? r.lock_version : 0,
       updated_by: strOrNull(r.updated_by),
       updated_by_name: strOrNull(r.updated_by_name),

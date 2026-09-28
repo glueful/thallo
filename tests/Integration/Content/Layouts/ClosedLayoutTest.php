@@ -111,7 +111,10 @@ final class ClosedLayoutTest extends AppTestCase
     {
         $row = $this->row($surface, $target);
         self::assertNotNull($row, 'the kept layout is listed');
-        self::assertSame(['custom', false, $reason], [$row['state'], $row['enabled'], $row['reason']]);
+        self::assertSame(
+            ['custom', false, $reason, true],
+            [$row['state'], $row['enabled'], $row['reason'], $row['removable']],
+        );
 
         self::assertSame(422, $this->deleteField($field)->getStatusCode(), 'the layout still shows the field');
 
@@ -171,6 +174,34 @@ final class ClosedLayoutTest extends AppTestCase
         }
         $types->updateSchema($this->seeded['post_type'], $schema);
         $this->assertKeptAndRemovable('archive', 'post:categories', LayoutTargets::KEPT, 'categories');
+    }
+
+    /** A type taken off the site keeps its single-entry layout too: listed, and removable. */
+    public function testANoLongerPublicTypesEntryLayoutCanBeRemoved(): void
+    {
+        $this->saveStarter('entry', 'post');
+        $this->container()->get(ContentTypeRepository::class)
+            ->updateMeta($this->seeded['post_type'], ['public_delivery' => false]);
+        $this->assertKeptAndRemovable('entry', 'post', LayoutTargets::KEPT, 'excerpt');
+    }
+
+    /**
+     * Review of aa2801ec: a row closed only because its blocks are not installed yet is still live —
+     * the site renders its layout — so it is not removable, and it opens no session, as before.
+     */
+    public function testARowClosedForMissingBlocksIsLiveAndNotRemovable(): void
+    {
+        $this->saveStarter('listing', 'post');
+        $this->connection()->table('block_types')->where('slug', '=', 'pagination')->delete();
+        $row = $this->row('listing', 'post');
+        self::assertNotNull($row);
+        self::assertSame(
+            ['custom', false, LayoutTargets::NOT_PROVISIONED, false],
+            [$row['state'], $row['enabled'], $row['reason'], $row['removable']],
+        );
+        self::assertSame(422, $this->session('listing', 'post')->getStatusCode());
+        self::assertTrue($this->row('entry', 'post')['enabled'], 'another surface is open');
+        self::assertFalse($this->row('entry', 'post')['removable'], 'an open row is not removable');
     }
 
     public function testAClosedTargetWithNoLayoutStillOpensNothing(): void

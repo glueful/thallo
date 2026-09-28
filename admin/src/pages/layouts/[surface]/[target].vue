@@ -279,6 +279,7 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
         </template>
         <template #default>
           <LayoutTopBar
+            v-if="!closed"
             :viewport="viewport"
             :sample-options="sampleOptions"
             :sample="sampleValue"

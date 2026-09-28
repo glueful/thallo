@@ -19,11 +19,12 @@ function stateLabel(row: LayoutRow): string {
 }
 
 /**
- * A turned-off row that keeps a custom layout — its pages off the site: the editor cannot open it, so
- * it is removed from here, with a session opened only for that (the server refuses to save to it).
+ * A turned-off row that keeps a custom layout whose pages are off the site (the server says so: a row
+ * closed only because its blocks are not installed yet is still live, and never offered): the editor
+ * cannot open it, so it is removed from here, with a session opened only for that.
  */
 function removable(row: LayoutRow): boolean {
-  return !row.enabled && row.state === 'custom' && canEdit.value
+  return !row.enabled && row.removable && row.state === 'custom' && canEdit.value
 }
 const removing = ref<LayoutRow | null>(null)
 const removeBusy = ref(false)
@@ -38,12 +39,12 @@ async function confirmRemove(): Promise<void> {
       expected_lock_version: row.lock_version,
     })
     success('Layout removed', `${row.label} uses the theme’s design whenever its pages return.`)
+  } catch (e) {
+    // Changed or gone since the list loaded: say so, and show the list as it is now.
+    notifyError(e, 'Couldn’t remove the layout')
+  } finally {
     removing.value = null
     await refetch()
-  } catch (e) {
-    notifyError(e, 'Couldn’t remove the layout')
-    await refetch()
-  } finally {
     removeBusy.value = false
   }
 }

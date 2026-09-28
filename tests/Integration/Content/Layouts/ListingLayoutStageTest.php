@@ -226,6 +226,22 @@ final class ListingLayoutStageTest extends AppTestCase
         self::assertStringContainsString('WORKING-MARKER', $html, 'the working copy is intact');
     }
 
+    /** Review of aa2801ec: an archive whose posts are all unpublished mid-session falls back too. */
+    public function testAnArchiveEmptiedMidSessionRendersThePlaceholder(): void
+    {
+        $session = $this->session('archive', 'post:categories');
+        self::assertFalse($session['placeholder']);
+        $this->applyWorking('archive', 'post:categories', $session['token']);
+        $publisher = $this->container()->get(\Thallo\Core\Content\Services\PublishService::class);
+        foreach ($this->seeded['posts'] as $post) {
+            $publisher->unpublish($post, 'en');
+        }
+        $html = $this->stage($session['token']);
+        self::assertStringContainsString('No published posts yet — showing a placeholder', $html);
+        self::assertSame(1, substr_count($html, 'data-thallo-slot="card"'), 'one card to design');
+        self::assertStringContainsString('WORKING-MARKER', $html, 'the working copy is intact');
+    }
+
     /**
      * The stage presents the page as the site does: the theme's settings under the layout's Frame. A
      * theme that makes every page full width shows it full width on both; a Frame that hides the

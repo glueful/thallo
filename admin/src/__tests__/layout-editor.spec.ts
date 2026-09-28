@@ -312,6 +312,8 @@ describe('the layout editor', () => {
     expect(closed.text()).toContain('Listing pages are off for Posts.')
     expect(closed.text()).toContain('remove it on Site › Layouts')
     expect(w.find('[data-test="canvas-inspector"]').exists()).toBe(false)
+    // Nothing to edit, save or remove here: the top bar's actions are gone with the stage.
+    expect(topBar(w).exists()).toBe(false)
     w.unmount()
   })
 

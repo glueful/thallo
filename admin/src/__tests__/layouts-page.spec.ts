@@ -38,6 +38,7 @@ const row = (overrides: Partial<LayoutRow>): LayoutRow => ({
   enabled: true,
   reason: null,
   link: null,
+  removable: false,
   lock_version: 0,
   updated_by: null,
   updated_by_name: null,
@@ -159,6 +160,7 @@ describe('the Layouts page', () => {
         state: 'custom',
         enabled: false,
         reason: 'These pages are not on the site now. The layout is kept until you remove it.',
+        removable: true,
         lock_version: 4,
       }),
       row({ target: 'quote', label: 'Quotes — single quote', enabled: false, reason: 'Off.' }),
@@ -193,10 +195,63 @@ describe('the Layouts page', () => {
   it('without the permission to edit, a kept layout offers no Remove', async () => {
     canEdit.value = false
     rows.value = [
-      row({ surface: 'listing', target: 'post', state: 'custom', enabled: false, reason: 'Off.' }),
+      row({
+        surface: 'listing',
+        target: 'post',
+        state: 'custom',
+        enabled: false,
+        reason: 'Off.',
+        removable: true,
+      }),
     ]
     const w = mountPage()
     await flushPromises()
     expect(w.find('[data-test="layouts-remove-listing-post"]').exists()).toBe(false)
+  })
+
+  // Review of aa2801ec: a row closed only because its blocks are not installed yet is still live on
+  // the site — its layout renders — so it is never offered for removal.
+  it('a closed row whose layout is still live offers no Remove', async () => {
+    rows.value = [
+      row({
+        state: 'custom',
+        enabled: false,
+        reason: 'Its blocks are not installed yet.',
+        removable: false,
+      }),
+    ]
+    const w = mountPage()
+    await flushPromises()
+    expect(w.find('[data-test="layouts-remove-entry-post"]').exists()).toBe(false)
+    w.unmount()
+  })
+
+  it('a removal that fails closes the dialog, says why and refreshes the list', async () => {
+    rows.value = [
+      row({
+        surface: 'listing',
+        target: 'post',
+        label: 'Posts — listing pages',
+        state: 'custom',
+        enabled: false,
+        reason: 'Listing pages are off for Posts.',
+        removable: true,
+        lock_version: 2,
+      }),
+    ]
+    q.mint.mockReset().mockResolvedValue({ token: 'tok' })
+    q.remove.mockReset().mockRejectedValue(new Error('changed'))
+    q.refetch.mockReset()
+    notify.error.mockReset()
+    const w = mountPage()
+    await flushPromises()
+    await w.find('[data-test="layouts-remove-listing-post"]').trigger('click')
+    await flushPromises()
+    ;(document.body.querySelector('[data-test="layouts-remove-confirm"]') as HTMLElement).click()
+    await flushPromises()
+    expect(notify.error).toHaveBeenCalled()
+    expect(q.refetch).toHaveBeenCalled()
+    expect(document.body.querySelector('[data-test="layouts-remove-dialog"]')).toBeNull()
+    w.unmount()
   })
 })

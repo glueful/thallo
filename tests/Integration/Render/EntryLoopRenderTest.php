@@ -216,6 +216,52 @@ final class EntryLoopRenderTest extends AppTestCase
         }
     }
 
+    /**
+     * Review of aa2801ec: a card's tabs and accordion are the card's own. Their radios and exclusive
+     * details are grouped by name, so each card's group has its own name and ids — a tab chosen in one
+     * card never switches another — on the site and on the stage.
+     */
+    public function testEachCardsTabsAndAccordionAreItsOwn(): void
+    {
+        $card = [
+            ['id' => 'cardtabs0001', 'type' => 'tabs', 'data' => ['items' => [
+                ['id' => 'cardtab00001', 'type' => 'tab', 'data' => ['label' => 'One', 'content' => []],
+                    'settings' => []],
+                ['id' => 'cardtab00002', 'type' => 'tab', 'data' => ['label' => 'Two', 'content' => []],
+                    'settings' => []],
+            ]], 'settings' => []],
+            ['id' => 'cardacc00001', 'type' => 'accordion', 'data' => ['multiple' => false, 'items' => [
+                ['id' => 'cardaccit001', 'type' => 'accordion_item', 'data' => ['title' => 'Q', 'content' => []],
+                    'settings' => []],
+            ]], 'settings' => []],
+        ];
+        foreach (['none', 'layout'] as $scope) {
+            $html = $this->render([self::loop($card)], $scope);
+            preg_match_all(
+                '~<input class="thallo-block-tabs__radio" type="radio" name="([^"]+)" id="([^"]+)"~',
+                $html,
+                $radios,
+            );
+            self::assertCount(6, $radios[1], "{$scope}: two tabs in each of three cards");
+            self::assertCount(3, array_unique($radios[1]), "{$scope}: one radio group per card");
+            self::assertCount(6, array_unique($radios[2]), "{$scope}: every radio id once");
+            preg_match_all('~<details class="thallo-block-accordion__item" name="([^"]+)"~', $html, $groups);
+            self::assertCount(3, array_unique($groups[1]), "{$scope}: one accordion group per card");
+        }
+    }
+
+    /** Review of aa2801ec: a loop inside a card's copy is a copy too — the anchor stays single. */
+    public function testALoopNestedInACardCopiesKeepsOneAnchor(): void
+    {
+        $inner = ['id' => 'innerloop001', 'type' => 'entry_loop', 'data' => ['card' => [
+            ['id' => 'innerhead001', 'type' => 'heading', 'data' => ['text' => 'Deep'], 'settings' => [
+                'advanced' => ['anchor' => 'deep'],
+            ]],
+        ]], 'settings' => []];
+        $html = $this->render([self::loop([$inner])], 'none');
+        self::assertSame(1, substr_count($html, 'id="deep"'), 'one element named deep');
+    }
+
     public function testAnEmptyPageShowsItsTextAndTheStageOnePlaceholderCard(): void
     {
         $empty = ['layout_context' => ['items' => [], 'placeholder_item' => [
