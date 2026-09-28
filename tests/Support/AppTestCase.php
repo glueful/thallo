@@ -46,6 +46,49 @@ abstract class AppTestCase extends TestCase
         'form_submissions',
     ];
 
+    /**
+     * The per-test rows, deleted: every table a test writes, instance settings and chrome regions.
+     * Run before each test, and once more after each class — so a run leaves none behind for what
+     * comes next outside the suite (a fixture script seeding the same fixed rows).
+     */
+    private static function wipe(Connection $db): void
+    {
+        // QueryBuilder has no truncate(); delete-all via a tautological predicate
+        // (every Thallo table has an integer `id`). Deletes commit immediately.
+        // forceDelete, NOT delete: the framework's soft-delete handler turns plain
+        // delete() into "UPDATE deleted_at" on tables that carry the column (blobs),
+        // leaving soft-deleted rows whose uuids still occupy unique indexes.
+        foreach (self::TABLES as $t) {
+            $db->table($t)->where('id', '>', 0)->forceDelete();
+        }
+        // Instance settings (varchar `key` PK — no integer id): a prior test's
+        // install/save (e.g. listing_types) must never shadow another test's
+        // config/.env fallback.
+        $db->table('settings')->where('key', '!=', '')->forceDelete();
+        // Chrome regions (varchar `slug` PK — no integer id): a prior test's saved
+        // header/footer must never leak chrome into another test's render.
+        $db->table('regions')->where('slug', '!=', '')->forceDelete();
+    }
+
+    /**
+     * Whether this class ran the per-test wipe: a helper class that skips it on purpose — a
+     * concurrent writer another test launches as its own process, while that test owns the tables —
+     * must not wipe them on its way out either.
+     */
+    private static bool $wipedThisClass = false;
+
+    public static function tearDownAfterClass(): void
+    {
+        // The last test's rows go too (the shared boot's own connection: a harness class has
+        // restored it by now).
+        if (self::$wipedThisClass) {
+            $context = TestApplication::instance()->getContext();
+            self::wipe($context->getContainer()->get(Connection::class));
+            self::$wipedThisClass = false;
+        }
+        parent::tearDownAfterClass();
+    }
+
     public static function setUpBeforeClass(): void
     {
         // Reuse the single process-shared boot (see TestApplication). The framework's
@@ -165,21 +208,8 @@ abstract class AppTestCase extends TestCase
             $this->container()->get(\Thallo\Contracts\Style\StyleClassProvider::class)->refresh();
         }
 
-        // QueryBuilder has no truncate(); delete-all via a tautological predicate
-        // (every Thallo table has an integer `id`). Deletes commit immediately.
-        // forceDelete, NOT delete: the framework's soft-delete handler turns plain
-        // delete() into "UPDATE deleted_at" on tables that carry the column (blobs),
-        // leaving soft-deleted rows whose uuids still occupy unique indexes.
-        foreach (self::TABLES as $t) {
-            $this->connection()->table($t)->where('id', '>', 0)->forceDelete();
-        }
-        // Instance settings (varchar `key` PK — no integer id): a prior test's
-        // install/save (e.g. listing_types) must never shadow another test's
-        // config/.env fallback.
-        $this->connection()->table('settings')->where('key', '!=', '')->forceDelete();
-        // Chrome regions (varchar `slug` PK — no integer id): a prior test's saved
-        // header/footer must never leak chrome into another test's render.
-        $this->connection()->table('regions')->where('slug', '!=', '')->forceDelete();
+        self::wipe($this->connection());
+        self::$wipedThisClass = true;
 
         // The SettingsStore singleton memoises settings rows per process:
         // the truncation above just deleted rows its cache may still hold (or a
