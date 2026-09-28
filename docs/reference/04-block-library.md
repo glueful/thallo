@@ -163,7 +163,9 @@ Turning Commerce on and connecting a shop is [sell something](../guides/18-comme
 ## Fields
 
 Blocks for [layouts](../guides/20-layouts.md), holding settings, never data. Nine show the current
-entry's own data. Nine more, which the **Commerce** capability contributes, show the current
+entry's own data. Four more design a type's [listing and archive
+pages](../guides/20-layouts.md#design-listing-and-archive-pages): the **Entry list**, the **Listing
+title**, the **Term description** (archives only) and the **Page navigation**. Nine more, which the **Commerce** capability contributes, show the current
 product on the [product page's layout](../guides/20-layouts.md#design-the-product-page) — seeded
 while Commerce is on and hidden while it is off, like the Commerce blocks above. They are offered
 only in a layout's editor — each in its own kind of layout — and an entry, the header and footer
@@ -174,6 +176,13 @@ product layout holds exactly one **Product buy box**. It has no **Visibility** s
 layout that hides a block holding it, at any size, is refused, as is an edit to a style class that
 would make such a block hide it: no screen size loses the product page's buy button.
 
+Every listing and archive layout holds exactly one **Entry list**, under the same rules: no
+**Visibility**, and nothing around it may hide it. Its `card` is the one post's design the list
+repeats for every post on the page. **Entry title**, **Entry date**, **Entry cover**, **Entry
+excerpt**, **Entry terms** and **Entry field** go inside the card on these pages, and only there;
+the Entry list, the Listing title, the Term description and the Page navigation never go inside
+it. A layout that breaks either rule is refused, naming the block.
+
 | Block | What it is for | Fields | Holds blocks | Style settings adds |
 |---|---|---|---|---|
 | **Product buy box** (`product_buy`) | The product page's options, quantity and **Add to cart** button, with the wishlist heart and "In stock"; it works without JavaScript. Every product layout holds one. | `hide_wishlist` (boolean), `hide_availability` (boolean) | — | Width (and no Visibility) |
@@ -182,8 +191,11 @@ would make such a block hide it: no screen size loses the product page's buy but
 | **Entry date** (`entry_date`) | When the entry was published. | `format` (enum: long, short, relative), `prefix` (string) | — | Width, Placement, Text alignment, Typography, Text colour |
 | **Entry excerpt** (`entry_excerpt`) | A short text field, shown as the lead. | `field` (string — a text field), `clamp` (number, 0 to 6 lines) | — | Width, Placement, Text alignment, Typography, Text colour |
 | **Entry field** (`entry_field`) | Any other field of the entry. | `field` (string), `format` (enum: text, rich, number, date) | — | Width, Placement, Text alignment, Typography, Text colour |
+| **Entry list** (`entry_loop`) | Every entry on a listing or archive page, each shown as the card you design once. Every listing and archive layout holds one. | `card` (blocks), `empty_text` (string) | `card`: the entry's field blocks and any general block | Width; the Layout tab's arrangement of the cards (Layout, Direction, Wrap, Distribute, Align, Columns, Gap) (and no Visibility) |
 | **Entry terms** (`entry_terms`) | A reference field's terms, such as its categories, linked to their archives where those pages exist. | `field` (string — a reference field), `style` (enum: text, badges), `link` (boolean) | — | Width, Placement, Text alignment, Typography, Text colour |
 | **Entry title** (`entry_title`) | The entry's title. | `level` (enum: h1, h2, h3, h4), `link` (boolean) | — | Width, Placement, Text alignment, Typography, Text colour |
+| **Listing title** (`listing_title`) | The list's title: the content type's name, or on an archive the term's title. | `level` (enum: h1, h2, h3, h4) | — | Width, Placement, Text alignment, Typography, Text colour |
+| **Page navigation** (`pagination`) | The newer and older pages of the list, and "Page X of Y"; nothing on a single page. | `previous_label` (string), `next_label` (string), `count` (boolean) | — | Width, Placement, Text alignment, Typography, Text colour |
 | **Previous and next** (`entry_neighbours`) | The published entries of the type either side of this one, by publish date. | `previous_label` (string), `next_label` (string) | — | Width |
 | **Product breadcrumb** (`product_breadcrumb`) | Shop, the product's category and its name. | `hide_category` (boolean) | — | Width, Placement, Typography, Text colour |
 | **Product category** (`product_category`) | The product's category, above its name. | `link` (boolean) | — | Width, Placement, Text alignment, Typography, Text colour |
@@ -194,6 +206,7 @@ would make such a block hide it: no screen size loses the product page's buy but
 | **Product rating** (`product_rating`) | The product's stars, average and review count; the stars grow with its size. | `hide_when_none` (boolean) | — | Width, Placement, Typography, Text colour |
 | **Product story** (`product_story`) | The content of the product's linked story. | — | — | Width |
 | **Related entries** (`entry_related`) | The newest other entries of the type. | `count` (number, 1 to 6), `style` (enum: list, cards) | — | Width |
+| **Term description** (`term_description`) | An archive term's description. | — | — | Width, Placement, Text alignment, Typography, Text colour |
 
 A layout's editor checks each field when the layout is applied and saved: **Entry cover** needs an
 asset field, **Entry terms** a reference field, **Entry excerpt** a text field, **Entry content**
