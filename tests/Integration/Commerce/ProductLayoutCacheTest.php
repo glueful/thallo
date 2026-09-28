@@ -13,6 +13,7 @@ use Glueful\Validation\RequestDataHydrator;
 use Psr\Container\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Commerce\Layouts\ProductSurface;
+use Thallo\Commerce\Layouts\ShopLayoutTags;
 use Thallo\Commerce\Shop\Listeners\PurgeShopCacheOnLayoutChange;
 use Thallo\Contracts\Layouts\LayoutChanged;
 use Thallo\Contracts\Layouts\LayoutSurfaceRegistry;
@@ -195,7 +196,7 @@ final class ProductLayoutCacheTest extends AppTestCase
     {
         $cache = $this->createMock(CacheStore::class);
         $cache->expects(self::once())->method('invalidateTags')
-            ->with([ProductSurface::pageCacheTag(self::TENANT_A)])->willReturn(false);
+            ->with([ShopLayoutTags::tenantTag(ProductSurface::KEY, self::TENANT_A)])->willReturn(false);
         $deleted = [];
         $cache->method('deletePattern')->willReturnCallback(static function (string $pattern) use (&$deleted): bool {
             $deleted[] = $pattern;
