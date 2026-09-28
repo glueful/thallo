@@ -677,7 +677,8 @@ final class LayoutSaveTest extends AppTestCase
 
         $data = $index(true);
         self::assertTrue($data['can_edit']);
-        $byTarget = array_column($data['layouts'], null, 'target');
+        $entryRows = array_filter($data['layouts'], static fn (array $row): bool => $row['surface'] === 'entry');
+        $byTarget = array_column($entryRows, null, 'target');
         self::assertSame('custom', $byTarget['post']['state']);
         self::assertSame(1, $byTarget['post']['lock_version']);
         self::assertSame('Posts — single post', $byTarget['post']['label']);

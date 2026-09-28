@@ -40,6 +40,9 @@ abstract class AppTestCase extends TestCase
         'entry_schema_migrations', 'entry_references', 'published_entry_references',
         'entry_redirects', 'entry_routes', 'entry_publications',
         'entry_versions', 'entry_drafts', 'entries', 'content_types',
+        // "Used in" is an index over the entries above: truncated with them, so a later test never
+        // counts another's rows (MediaUsageRebuildTest).
+        'media_usage',
         'form_submissions',
     ];
 

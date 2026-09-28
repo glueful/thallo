@@ -281,7 +281,7 @@ final class LayoutValidatorTest extends AppTestCase
     {
         $this->seedShapes();
         $body = [self::block('entry_content', ['field' => 'body'])];
-        self::assertArrayHasKey('surface', $this->errorsFor('listing', 'post', $body));
+        self::assertArrayHasKey('surface', $this->errorsFor('nowhere', 'post', $body));
         self::assertArrayHasKey('target', $this->errorsFor('entry', 'no_such_type', $body));
     }
 

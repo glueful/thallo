@@ -519,7 +519,7 @@ final class LayoutBindingsTest extends AppTestCase
         $this->putRow('archive', 'post:topics', self::cardLayout(), 2);
         $refused = $this->migrate([['op' => 'rename', 'from' => 'categories', 'to' => 'topics']]);
         self::assertSame(422, $refused->getStatusCode(), (string) $refused->getContent());
-        self::assertStringContainsString('post:topics', (string) $refused->getContent());
+        self::assertStringContainsString('Posts — Topics archive', (string) $refused->getContent());
         self::assertSame(3, $this->row('archive', 'post:categories')['lock_version']);
         self::assertSame(2, $this->row('archive', 'post:topics')['lock_version']);
     }
@@ -539,9 +539,10 @@ final class LayoutBindingsTest extends AppTestCase
         $this->putRow('archive', 'post:categories', self::cardLayout(), 1);
         $blurb = $this->migrate([['op' => 'delete', 'name' => 'blurb']]);
         self::assertSame(422, $blurb->getStatusCode(), (string) $blurb->getContent());
-        // Named as the registry names them (the raw target until the listing and archive surfaces exist).
+        // Named as the Layouts page names them.
         self::assertStringContainsString("'blurb' is shown by", (string) $blurb->getContent());
-        self::assertStringContainsString('post:categories', (string) $blurb->getContent());
+        self::assertStringContainsString('Posts — listing pages', (string) $blurb->getContent());
+        self::assertStringContainsString('Posts — Categories archive', (string) $blurb->getContent());
         $categories = $this->migrate([['op' => 'delete', 'name' => 'categories']]);
         self::assertSame(422, $categories->getStatusCode(), (string) $categories->getContent());
         self::assertStringContainsString("'categories' is shown by", (string) $categories->getContent());
