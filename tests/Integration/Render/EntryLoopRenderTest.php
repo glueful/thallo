@@ -223,6 +223,39 @@ final class EntryLoopRenderTest extends AppTestCase
         self::assertStringNotContainsString('fetchpriority', $images[0][1]);
     }
 
+    /**
+     * A card's cover is today's row thumbnail (final review, Important 2): drawn 160px wide (96px on
+     * phones) by the theme, it asks for today's candidates and sizes, not the full-width set a page's
+     * cover asks for. Given a width of its own, it asks as a page's cover does.
+     */
+    public function testACardsCoverAsksForThumbnailSizes(): void
+    {
+        $cover = static fn (array $settings = []): array => [
+            'id' => 'cardcover001', 'type' => 'entry_cover', 'data' => ['field' => 'cover'], 'settings' => $settings,
+        ];
+        $img = function (string $html): string {
+            preg_match('~<img class="thallo-block-entry_cover__image[^>]*>~', $html, $m);
+            self::assertNotEmpty($m, 'a cover rendered');
+            return $m[0];
+        };
+
+        $thumb = $img($this->render([self::loop([$cover()])], 'none'));
+        self::assertStringContainsString('sizes="(max-width: 48rem) 96px, 160px"', $thumb);
+        self::assertStringContainsString(' 160w', $thumb);
+        self::assertStringContainsString(' 320w', $thumb);
+        self::assertStringNotContainsString(' 1920w', $thumb);
+
+        $wide = $img($this->render([self::loop([$cover(['style' => [
+            'width' => ['base' => ['type' => 'token', 'value' => 'width.full']],
+        ]])])], 'none'));
+        self::assertStringContainsString('sizes="(max-width: 72rem) 100vw, 72rem"', $wide, 'its own width');
+
+        $page = $img($this->render([$cover()], 'none', [
+            'entry' => $this->items[0],
+        ]));
+        self::assertStringContainsString('sizes="(max-width: 72rem) 100vw, 72rem"', $page, 'a page\'s cover');
+    }
+
     /** The card is the layout's own tree: its depth counts from the layout's root, and the cap holds. */
     public function testACardDeepInTheLayoutCountsFromTheRoot(): void
     {

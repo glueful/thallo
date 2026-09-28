@@ -8,6 +8,8 @@ use Glueful\Application;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
+use Thallo\Core\Content\Layouts\LayoutRepository;
+use Thallo\Core\Content\Layouts\LayoutWriteLock;
 use Thallo\Core\Content\Repositories\ContentTypeRepository;
 use Thallo\Core\Http\Controllers\LayoutAdminController;
 use Thallo\Core\Http\Controllers\LayoutPreviewController;
@@ -101,5 +103,38 @@ final class ListingLayoutTenancyTest extends RetrofittedTenantTestCase
         $b = $this->page('b');
         self::assertStringContainsString('LISTING-B', $b);
         self::assertStringNotContainsString('LISTING-A', $b, 'B renders its own');
+    }
+
+    /**
+     * Every layout of a type is the workspace's own (final review, Important 1): a workspace's archive
+     * layouts never reach another's — the type's field bindings, rename moves and tombstones read
+     * them, so another workspace's would refuse a field deletion there, naming a layout it has not.
+     */
+    public function testATypesLayoutsAreTheWorkspacesOwn(): void
+    {
+        $this->listPosts('a');
+        $this->listPosts('b');
+        $this->runAsTenant($this->tenant('b'), function (): void {
+            $repo = $this->container()->get(LayoutRepository::class);
+            $this->container()->get(LayoutWriteLock::class)->within(
+                'archive',
+                'post:categories',
+                fn (): int => $repo->saveExpected('archive', 'post:categories', [
+                    ['id' => 'tenantloopb1', 'type' => 'entry_loop', 'data' => ['card' => []], 'settings' => []],
+                ], [], 0, null),
+            );
+        });
+        self::assertSame(1, $this->save('a', 'LISTING-A'), 'A has its listing layout');
+
+        $a = $this->runAsTenant($this->tenant('a'), fn (): array => array_map(
+            static fn (array $row): string => $row['surface'] . ':' . $row['target'],
+            $this->container()->get(LayoutRepository::class)->forType('post'),
+        ));
+        self::assertSame(['listing:post'], $a, "A's layouts of post: its own listing, not B's archive");
+        $b = $this->runAsTenant($this->tenant('b'), fn (): array => array_map(
+            static fn (array $row): string => $row['surface'] . ':' . $row['target'],
+            $this->container()->get(LayoutRepository::class)->forType('post'),
+        ));
+        self::assertSame(['archive:post:categories'], $b);
     }
 }

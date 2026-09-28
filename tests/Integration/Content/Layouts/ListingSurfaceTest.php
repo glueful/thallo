@@ -155,8 +155,13 @@ final class ListingSurfaceTest extends AppTestCase
                     'direction' => ['base' => ['type' => 'choice', 'value' => 'row']],
                 ]]]],
             ]], 'settings' => []],
-            ['type' => 'pagination', 'data' => [], 'settings' => []],
+            ['type' => 'pagination', 'data' => ['count' => true], 'settings' => []],
         ], $starter);
+        // What the page shows is what the inspector's switch says (final review): "Page X of Y" is
+        // on in the starter and in a Page navigation block added from the palette.
+        $made = $this->container()->get(\Thallo\Core\Content\Blocks\BlockFactory::class)->make('pagination');
+        self::assertNotNull($made);
+        self::assertSame(['count' => true], $made['starter']);
         $withIds = self::withIds($starter);
         $clean = $this->container()->get(LayoutValidator::class)->validate('listing', 'post', $withIds, []);
         self::assertEquals($withIds, $clean['blocks'], 'it passes validation unchanged');
