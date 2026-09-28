@@ -69,6 +69,14 @@ C1's `product_name`, `product_price` and `product_rating` also go inside the car
   - `product_loop`: `<div class="thallo-block thallo-block-product_loop">` around `<ul class="thallo-block-product_loop__cards shop-grid">`, with each card a `<li class="thallo-loop-card shop-grid__item">`. With no products on the site, the `<ul class="shop-grid">` holds today's `<li class="empty">` with the empty text. On the stage it holds one placeholder card instead.
   - `shop_title`: `<div class="… shop-titlerow">`, holding `<h1>` ("Shop" on the home, the category's name on a category) and `<span class="shop-titlerow__count">`.
   - `category_rail`: today's `<nav class="shop-rail" aria-label="Categories">` and its chips. "All" is active on the home, the category's own chip on a category. With no categories it renders nothing, and on the stage the placeholder "Category chips — the shop has no categories".
+- **The Product list's theme defaults are declared, so the inspector tells the truth (user, 2026-09-28).** With nothing set, `.shop-grid` renders an adaptive grid: `grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr))`, gaps 1.75rem row and 1.5rem column. But `effectiveDisplay()` (`admin/src/editor/inspector/layoutContext.ts`) answers `flex` for any unset or reset display, so the Layout tab would show Flex and hide Columns on a grid. The fix is a contract, not a starter value (Remove and Reset must be truthful too):
+  - A style target declaration may carry `defaults`: the arrangement the theme gives that target when nothing is set. It is `{display: 'flex'|'grid', columns?: {label: string}, gap?: {row?: string, column?: string}}`: the mode, a label for tracks the vocabulary cannot name, and the gaps as the theme writes them (display text, not tokens).
+  - `product_loop`'s `cards` target declares `{display: 'grid', columns: {label: 'Adaptive — as many 15rem columns as fit'}, gap: {row: '1.75rem', column: '1.5rem'}}`.
+  - `entry_loop`'s `cards` target declares `{display: 'flex'}`. That is what the inspector assumes today, stated explicitly so every loop declares its truth; its behaviour is unchanged.
+  - `StyleTargets::fromDeclaration()` validates `defaults` (unknown keys and modes throw `InvalidArgumentException`, as a bad target kind does) and exposes `defaults(string $target): ?array`. The declaration already reaches the admin as `style_targets` on the block type (`admin/src/queries/blockTypes.ts`).
+  - `effectiveDisplay(block, breakpoint, classes, fallback = 'flex')`: nothing declared, a reset, or an unoffered stored value answers `fallback`. The Layout tab passes the edited target's declared `defaults.display`.
+  - The tab shows the declared defaults as the unset state. Columns reads the label as "Theme default: Adaptive — as many 15rem columns as fit", and the gaps show the theme's values as their placeholder. Choosing a track count or gap overrides it, and resetting returns to it.
+  - The CSS is already truthful and needs no change: an unset `display` or columns leaves `.shop-grid`'s theme-layer rules in force; a set value is `@layer settings` and wins; `display: flex` makes the theme's tracks inert.
 - **Palettes.** Both surfaces: `product_loop`, `shop_title`, `category_rail`, `pagination` (core's, from B), `product_tile`, `product_name`, `product_rating`, `product_price`. The palette names core's `pagination` by slug only (boundaries hold). The layout rows stay closed until every palette block is provisioned (`LayoutTargets::NOT_PROVISIONED`, C1's mechanism).
 - **The page's variables reach blocks through `layout_context`** (C1's threaded key):
 
@@ -97,7 +105,15 @@ C1's `product_name`, `product_price` and `product_rating` also go inside the car
   - `pageTag(string $surface): string` = `'thallo:shop:layout:' . $surface`;
   - `tenantTag(string $surface, string $tenant): string` = `pageTag($surface) . ':' . $tenant`.
 
-  It **replaces** `ProductSurface::PAGE_TAG` and `ProductSurface::pageCacheTag()` at every caller (`ShopCatalogController`, `ShopPageCache`, `PurgeShopCacheOnLayoutChange`, `ProductLayoutCacheTest`); the product tag's value is unchanged. Every home page carries `Cache-Tag: thallo:shop:layout:shop_index`, and every category page `thallo:shop:layout:shop_category`, with or without a layout. `ShopPageCache` stores each as the workspace's own. `PurgeShopCacheOnLayoutChange` handles any surface in `SURFACES`: it invalidates that surface's tenant tag, and on a tag-less driver falls back to that workspace's shop keys, as C1 does. A `shop_index` save therefore evicts that workspace's home pages only (tag-capable drivers), never its category or product pages. The surfaces' `pageTags()` answer `[]`: no rendered-page purge, and never the tag-less `render:*` fallback (C1's rule).
+  It **replaces** `ProductSurface::PAGE_TAG` and `ProductSurface::pageCacheTag()` at every caller (`ShopCatalogController`, `ShopPageCache`, `PurgeShopCacheOnLayoutChange`, `ProductLayoutCacheTest`); the product tag's value is unchanged.
+- **An in-flight render never repopulates the shop cache with an old layout (user, 2026-09-28).** `ShopPageCache::handle()` reads its key, renders, then stores. A layout save can commit and purge between the read and the store, and the old render would then write the old page back. It stays there until the TTL, on tag-capable and tag-less drivers alike. This gap already exists for C1's product pages. The fix is `LayoutResolver`'s own generation scheme, applied per workspace and per surface:
+  - `ShopLayoutTags::generationKey(string $surface, string $tenant): string` = `'shop:' . $tenant . ':layoutgen:' . $surface`.
+  - Each layout route passes its surface to the cache middleware as a parameter: `product`, `shop_index` or `shop_category`. The wishlist route passes none, and its key is unchanged. Step 3 of S3 checks that the router takes a parameter on a class-named middleware (`handle(..., ...$params)` already accepts one); if not, it registers a `shop_page_cache` alias and the routes use that.
+  - With a surface, the middleware reads the generation **before** `$next()` (so before the controller reads the layout) and builds the key with `:{surface}g{n}` inserted after the page number. The render stores under the generation it read.
+  - `PurgeShopCacheOnLayoutChange` first advances that generation (`CacheStore::increment`), then invalidates the tag or falls back to deleting keys, as before. `LayoutChanged` is dispatched after the outermost commit (C1), so a render that read the old layout necessarily read the old generation.
+  - The generation is stored without expiry. A missing counter (evicted, or never written) is seeded from the clock in microseconds rather than 0, so a lost counter can never return to a generation an older entry is stored under.
+  - This is correctness, not memory: the tag purge and the tag-less fallback stay, and free the old entries.
+  - Isolation holds by construction. A's `shop_index` generation changes only A's home keys: A's category and product keys and all of B's keys are untouched. Each is proven by test. Every home page carries `Cache-Tag: thallo:shop:layout:shop_index`, and every category page `thallo:shop:layout:shop_category`, with or without a layout. `ShopPageCache` stores each as the workspace's own. `PurgeShopCacheOnLayoutChange` handles any surface in `SURFACES`: it invalidates that surface's tenant tag, and on a tag-less driver falls back to that workspace's shop keys, as C1 does. A `shop_index` save therefore evicts that workspace's home pages only (tag-capable drivers), never its category or product pages. The surfaces' `pageTags()` answer `[]`: no rendered-page purge, and never the tag-less `render:*` fallback (C1's rule).
 - **Registration.** `registerLayoutSurface()` registers all three surfaces inside the capability-and-engine gate. Off, the rows and stages disappear; the stored rows stay and return on re-enable.
 - **Existing sites get the four blocks, and `product_name`'s `link` setting, from `thallo:provision`** (with workspaces on, also `thallo:tenant:sync --all --kind=block_type`), as C1 and B did.
 
@@ -115,7 +131,9 @@ C1's `product_name`, `product_price` and `product_rating` also go inside the car
 - **Commerce off ⇒ no shop surfaces, no shop blocks rendered, nothing errors;** `InertnessTest`, `StorefrontInertnessTest` and `composer test:distribution` hold.
 - **Pack boundaries:** commerce reaches layouts only through `Thallo\Contracts\Layouts\*` and the render pack; core and the render pack never name commerce; `composer boundaries` stays green.
 - **Layout-only blocks are refused in entries, regions and saved sections by the server,** the four new ones included (§5.6).
-- **Browser references are layout-determined.** No measurement depends on a glyph's advance width. Text-sized boxes (the title, count, chips, name, rating, price, navigation) are compared by height, top offset and computed style only. Widths and left offsets are compared only for boxes the layout sizes (the section, the grid tracks, cards, tiles, images). Seeded names are short enough that nothing ellipsizes or wraps at 375px, so CI's Linux fonts measure as macOS does. Never widen a tolerance.
+- **Browser references are layout-determined.** No measurement depends on a glyph's advance width. Text-sized boxes (the title, count, chips, name, rating, price, navigation) are compared by height, top offset and computed style only. Widths and left offsets are compared only for boxes the layout sizes (the section, the grid tracks, cards, tiles, images). Seeded names in the parity pages are short enough that nothing ellipsizes or wraps at 375px, so CI's Linux fonts measure as macOS does. Long names get their own pages and proofs (overflow, ellipsis, accessible names: S1, S6), asserted by containment and computed style, never by a text width. When CI disagrees with a local measurement, **diagnose first**: find which property differs and why. A real regression is fixed. A difference that is only font metrics is re-expressed as a layout-determined assertion of the same behaviour, not dropped: font dependence alone does not make a useful assertion disposable. Never widen a tolerance.
+- **The inspector tells the truth about the Product list's arrangement.** An untouched, switched or reset loop shows, on the Layout tab, the mode and tracks the page and the stage actually render (the declared theme defaults); a Removed layout's next session opens on the same truth.
+- **An in-flight render never repopulates the shop cache with an old layout:** the sequence read old layout → commit and purge → old render finishes → next request always shows the new layout, for first save, edit and removal, on all three commerce surfaces, with workspace and surface isolation.
 - **No compatibility shims:** a replaced API is replaced at every caller in the same task.
 - **Every task's gates pass at its own commit.** Each user-visible change carries its CHANGELOG bullet under `## [Unreleased]` in the same commit (re-add the heading: the beta.69 cut removed it).
 - **Gates**, run foreground and never concurrently:
@@ -136,7 +154,7 @@ The inputs the spec implies but no requirement names, most likely to bite first.
 1. **A quick add from a card with JavaScript off, under a layout.** A single-variant product's tile form posts and lands the line in the cart, exactly as today's grid form. A multi-variant product's tile links to its product page. Neither carries a token. (Tasks S1, S3.)
 2. **Commerce switched off with shop layouts saved, then on again.** Off: no shop rows, `GET /v1/admin/layouts` answers 200, and a block migration backfill walks the stored rows. On: both serve again, untouched. (Task S2.)
 3. **`?page=` under a layout.** Page 2 renders its two cards and "Newer" to `/shop`. `?page=0`, `?page=abc` and `?page=1001` 404 before the controller. `?page=9` (past the last) renders what today's template renders for it. (Task S3.)
-4. **Two workspaces, and the tag separation.** A `shop_index` save in A evicts A's cached home pages only: A's category and product pages and all of B's pages stay hits. On a tag-less driver, only A's shop keys go. Mode (c) proves each workspace renders its own layout. (Tasks S3, S4.)
+4. **Two workspaces, the tag separation, and a render that straddles a save.** A `shop_index` save in A evicts A's cached home pages only: A's category and product pages and all of B's pages stay hits. On a tag-less driver, only A's shop keys go. A render that read the old layout before the save committed never serves after it. Mode (c) proves each workspace renders its own layout. (Tasks S3, S4.)
 5. **A category deleted, or emptied, while it is the stage's sample.** The next stage render is the placeholder, with the working copy intact. The deleted category's public page 404s under a layout as without one. (Task S4.)
 
 ---
@@ -160,10 +178,10 @@ The inputs the spec implies but no requirement names, most likely to bite first.
 
   `buildGrid`, `categoryRail`, `indexPagePath` and `categoryPagePath` move here from the controller, verbatim.
 - `Thallo\Commerce\Layouts\ShopIndexSurface` and `ShopCategorySurface` (`implements LayoutSurface, LayoutSampleContext`): keys `shop_index` and `shop_category`, target `@site`. `targets()` = `[{target: '@site', label, enabled: true, reason: null, link: null}]`. `palette()`, `required()`, `loops()`, `bindable()` `[]`, `pageTags()` `[]`, `frame()` `layouts/shop_index.twig` / `layouts/shop_category.twig`, and `starter()`, all per the rulings. Both carry `public const KEY` and `TARGET = '@site'`.
-- `Thallo\Commerce\Layouts\ShopLayoutTags`: `SURFACES`, `pageTag()`, `tenantTag()` per the rulings; it replaces `ProductSurface::PAGE_TAG` and `pageCacheTag()`.
+- `Thallo\Commerce\Layouts\ShopLayoutTags`: `SURFACES`, `pageTag()`, `tenantTag()`, `generationKey()` per the rulings; it replaces `ProductSurface::PAGE_TAG` and `pageCacheTag()`.
 - `ShopCatalogController::index()` and `category()`: the selection, and `Cache-Tag: ShopLayoutTags::pageTag(...)`; they build through `ShopCatalogPage`.
-- `ShopPageCache::surrogateTags()`: every `pageTag(s)` for `s` in `SURFACES` is stored as `tenantTag(s, $tenant)`.
-- `PurgeShopCacheOnLayoutChange`: acts for any surface in `SURFACES`.
+- `ShopPageCache::surrogateTags()`: every `pageTag(s)` for `s` in `SURFACES` is stored as `tenantTag(s, $tenant)`. `ShopPageCache::handle(Request $request, callable $next, string ...$params)`: `$params[0]`, when present, is the route's surface, and its generation (read before `$next()`) joins the key as `:{surface}g{n}`.
+- `PurgeShopCacheOnLayoutChange`: acts for any surface in `SURFACES`; advances `generationKey(surface, tenant)` (seeding it from the clock when missing), then purges as before.
 - Frames `templates/layouts/shop_index.twig` and `templates/layouts/shop_category.twig` per the rulings.
 - `assets/shop.css`: the card-scoped heading rules (`.shop-grid__name:is(h1,h2,h3,h4)`, `.shop-grid__name a`), and the `thallo-field-empty` placeholder inside `.shop-index` and `.shop-category`. Nothing that matches today's no-layout markup changes.
 
@@ -178,12 +196,14 @@ The inputs the spec implies but no requirement names, most likely to bite first.
     4. one with a required add-on (options mode);
     5. one with no cover and no category.
   - "Vases" holds no product.
+  - `ShopPageSeed::longNames()` (used only by the long-name proofs, never by the parity pages): a separate seed with a product named "Hand-thrown stoneware serving bowl with ash glaze, speckled finish" and a category named "Serving bowls, platters and large tableware", holding it and one short-named product.
 
   It uses `useTenant()`/`restoreTenant()` as `ProductPageSeed` does.
 
 **Admin**
 
-- No source change is expected: the palette filter, card legality, reach-based copy and sample picker are B's and generic. A test that fails in S5 names the change, and it lands there.
+- `effectiveDisplay(block, breakpoint, classes, fallback: LayoutDisplay = 'flex')`, and the Layout tab reads the edited target's `style_targets.targets[target].defaults` (S5). Otherwise no source change is expected: the palette filter, card legality, reach-based copy and sample picker are B's and generic. A test that fails in S5 names the change, and it lands there.
+- Container blocks keep their children in the `content` field, so a block beside the card's nested name has parent = the body container, field `content`.
 - Test ids are reused. The rows are `layouts-row-shop_index-@site` and `layouts-row-shop_category-@site`.
 
 ---
@@ -219,14 +239,15 @@ Before any template, CSS or controller change; its own commit.
 
   Each property follows the layout-determined rule in Global Constraints. The browser test is `today's shop home and category pages match their frozen reference`.
 - [ ] **Step 4:** the golden, the browser test and the fixture script on a fresh database are green; full suite; phpcs.
-- [ ] **Step 5:** commit `test(commerce): freeze today's shop home and category pages` (changelog: none). If CI's Chromium still disagrees with the local capture, find the text-width dependence and remove it from the measured set. Never recapture around it, never widen a tolerance.
+- [ ] **Step 5:** commit `test(commerce): freeze today's shop home and category pages` (changelog: none). If CI's Chromium disagrees with the local capture, **diagnose first**: name the property and element that differ and why. A regression is fixed. A difference that is only font metrics is re-expressed as a layout-determined assertion of the same behaviour (containment, alignment, computed style), recorded in the spec's header comment. An assertion is never dropped just because it depends on fonts, never recaptured around, and a tolerance is never widened.
 
 ## Task S1: the shop layout blocks, and product blocks in a card
 
 **Files:**
 - Create: `packages/thallo-commerce/src/Starter/ShopLayoutBlocksContributor.php`, `packages/thallo-commerce/templates/blocks/{product_loop,shop_title,category_rail,product_tile}.twig`, `packages/thallo-commerce/templates/shop/_product_tile.twig`
 - Modify: `packages/thallo-commerce/templates/shop/_product_card.twig` (includes the tile; markup unchanged), `packages/thallo-commerce/templates/blocks/product_{name,price,rating}.twig` (the card branch; `name` gains `link`), `packages/thallo-commerce/src/Starter/ProductFieldBlocksContributor.php` (`link`), `packages/thallo-commerce/src/Shop/ViewModels/ProductCardViewModel.php` (`toCardItem`), `packages/thallo-commerce/src/CommerceIntegrationServiceProvider.php` (the contributor), `packages/thallo-commerce/assets/shop.css` (per Shared contracts)
-- Test: `tests/Integration/Commerce/ProductLoopRenderTest.php`, `tests/Integration/Commerce/ShopLayoutBlocksRenderTest.php`, `tests/Integration/Commerce/ShopLayoutBlocksProvisioningTest.php`, additions to `tests/Integration/Content/LayoutOnlyBlocksTest.php`, `tests/Integration/Content/BlockStyleDeclarationsTest.php` (`NEVER_HIDDEN` gains `product_loop`), `tests/Integration/Commerce/ProductFieldBlocksRenderTest.php` (the product page's markup unchanged; `link`)
+- Also modify: `packages/thallo-contracts/src/Style/StyleTargets.php` (`defaults` on a target: validated, exposed by `defaults()`), `core/src/Content/Blocks/StarterBlockTypes.php` (`entry_loop`'s `cards` declares `{display: 'flex'}`)
+- Test: `tests/Unit/Style/StyleTargetsDefaultsTest.php`, `tests/Integration/Commerce/ProductLoopRenderTest.php`, `tests/Integration/Commerce/ShopLayoutBlocksRenderTest.php`, `tests/Integration/Commerce/ShopLayoutBlocksProvisioningTest.php`, additions to `tests/Integration/Content/LayoutOnlyBlocksTest.php`, `tests/Integration/Content/BlockStyleDeclarationsTest.php` (`NEVER_HIDDEN` gains `product_loop`), `tests/Integration/Commerce/ProductFieldBlocksRenderTest.php` (the product page's markup unchanged; `link`)
 
 **Interfaces:** Consumes B's `loop_cards` and `item` forwarding, and C1's `layout_context`. Produces the four slugs, the card branch, `toCardItem`, and `_product_tile.twig`.
 
@@ -237,6 +258,8 @@ Before any template, CSS or controller change; its own commit.
     - **Empty products:** scope `none` prints `<li class="empty">No products yet.</li>` inside `ul.shop-grid`, and "No products in this category yet." when `layout_context.category` is set; a non-blank `empty_text` wins. Scope `layout` renders one annotated card for `placeholder_item` ("Sample product").
     - **Review Focus 1:** the tile of product 1 (direct mode) holds `<form class="shop-grid__cart-form" method="post" action="/_shop/cart/add">` with its variant's `variant_uuid` and `quantity` 1. Products 3 and 4 hold the options link to their product page. No card holds a CSRF or cart token. `tag: false` drops the chip; `actions: false` drops the form, link and heart.
     - `item` and `layout_context.product` reach a block two containers deep in the card.
+    - **Long names** (`ShopPageSeed::longNames()`): the card's `h2.shop-grid__name` holds one `<a>` whose text is the **full** name (no server-side truncation); the tile's form button reads `aria-label="Add {full name} to cart"` (or the options link `View options for {full name}`), and the wishlist heart `Save {full name} to wishlist`; the tag holds the full category name.
+  - `StyleTargetsDefaultsTest` (unit): `product_loop`'s declaration exposes `defaults('cards')` = the ruled grid defaults, and `entry_loop`'s `{display: 'flex'}`; a declaration with an unknown `defaults` key, or a `display` other than flex or grid, throws `InvalidArgumentException`; a target without `defaults` answers null; the block types API returns `style_targets.targets.cards.defaults` for both loops.
   - `ShopLayoutBlocksRenderTest`:
     - `shop_title` prints "Shop" with no category and the category's name with one, at its level, with "26 products" (and "1 product" for one); `count: false` drops the count.
     - `category_rail` marks "All" active (`aria-current="page"`) with no category, and the category's own chip otherwise. `all_label` renames "All". It prints nothing with no categories (scope `layout`: the named placeholder).
@@ -285,7 +308,7 @@ Before any template, CSS or controller change; its own commit.
 
 **Files:**
 - Create: `packages/thallo-commerce/templates/layouts/shop_index.twig`, `packages/thallo-commerce/templates/layouts/shop_category.twig`
-- Modify: `packages/thallo-commerce/src/Http/Shop/ShopCatalogController.php` (selection; the surface tag on every home and category page), `packages/thallo-commerce/src/Shop/ShopPageCache.php` (`surrogateTags` over `SURFACES`), `packages/thallo-commerce/src/Shop/Listeners/PurgeShopCacheOnLayoutChange.php` (any surface in `SURFACES`)
+- Modify: `packages/thallo-commerce/src/Http/Shop/ShopCatalogController.php` (selection; the surface tag on every home and category page), `packages/thallo-commerce/src/Shop/ShopPageCache.php` (`surrogateTags` over `SURFACES`; the per-surface generation in the key, read before `$next()`), `packages/thallo-commerce/src/Layouts/ShopLayoutTags.php` (`generationKey`), `packages/thallo-commerce/src/Shop/Listeners/PurgeShopCacheOnLayoutChange.php` (any surface in `SURFACES`; advances the generation before purging), `packages/thallo-commerce/routes/shop-routes.php` (each layout route passes its surface to the cache middleware)
 - Test: `tests/Integration/Commerce/ShopLayoutRenderTest.php`, `tests/Integration/Commerce/ShopLayoutCacheTest.php`
 
 **Interfaces:** Consumes S1 and S2. Produces live selection and the per-surface purge.
@@ -307,7 +330,9 @@ Before any template, CSS or controller change; its own commit.
   - `testEachChangeRefreshesOnlyItsSurfaceInTheSavingTenant`: for each of first save, edit and removal of A's `shop_index` layout, A's next `/shop` request is a miss that renders the new state. A's cached `/shop/categories/mugs` and product page, and all of B's pages, are still hits and byte-identical. The same holds for `shop_category`, where A's home and product pages survive.
   - `testATaglessDriverFallsBackToTheTenantsOwnShopKeys`: a `LayoutChanged` for `('shop_category', '@site')` in `tnta` deletes `shop:tnta:*` and `tenant:*:shop:tnta:*` only.
   - `testEntryAndListingChangesLeaveTheShopAlone`.
-- [ ] **Step 2:** run — fail (no selection, no tag).
+  - `testARenderStraddlingASaveNeverRepopulatesTheOldLayout` — for each surface (`product`, `shop_index`, `shop_category`) and each change (first save, edit, removal). The pinned sequence: a request enters `ShopPageCache` and its controller reads the old state (a `LayoutReader` double that, on its first read, runs the change through `LayoutSaver` before answering the **old** layout, so the save commits and `LayoutChanged` purges in between); the request finishes and stores its response. The next request must be a miss that renders the new state, and a third request is a hit of the new state. Run on the array driver (tag-capable) and on a tag-less double.
+  - `testTheGenerationIsPerWorkspaceAndPerSurface` — advancing A's `shop_index` generation leaves the cache keys of A's category and product pages, and of all B's pages, unchanged (still hits); a missing generation counter is seeded from the clock, so an entry stored under generation 0 or 1 before the counter was lost is never served again; the wishlist page's key carries no generation.
+- [ ] **Step 2:** run — fail (no selection, no tag, and the straddling render serves the old layout on the next request).
 - [ ] **Step 3:** implement per the rulings.
 - [ ] **Step 4:** green; `ShopCatalogTest`, `ShopCacheTest`, `ProductLayoutRenderTest`, `ProductLayoutCacheTest` and the wishlist tests green unchanged; full suite (and with `API_USE_PREFIX=true`); phpcs; boundaries.
 - [ ] **Step 5:** commit `feat(commerce): the shop home and category pages render through their layout` (changelog: none yet).
@@ -355,14 +380,15 @@ Before any template, CSS or controller change; its own commit.
 **Files:**
 - Modify: `scripts/build-builder-proof-fixtures`, `admin/e2e/helpers.ts`
 - Create: `admin/e2e/tests/shop-layout-stage.spec.ts`, `admin/e2e/shop-scenarios.json` (`{name, layout}`, as `listing-scenarios.json`)
-- Modify only if a test below fails on it: `admin/src/**` (the change is named in the ledger)
-- Test: `admin/src/__tests__/layout-editor.spec.ts` (additions)
+- Modify: `admin/src/editor/inspector/layoutContext.ts` (`effectiveDisplay`'s `fallback`), `admin/src/editor/inspector/LayoutTab.vue` (passes the edited target's declared `defaults.display`; shows the declared columns label and gaps as the theme default), `admin/src/queries/blockTypes.ts` (the `defaults` type on `style_targets`)
+- Modify only if another test below fails on it: `admin/src/**` (the change is named in the ledger)
+- Test: `admin/src/__tests__/layout-editor.spec.ts`, `admin/src/__tests__/layout-context.spec.ts`, `admin/src/__tests__/layout-tab.spec.ts` (additions)
 
 **Fixture section.** A shop section inside the rolled-back transaction:
 - seed with `ShopPageSeed`;
 - mint `shop_index` and `shop_category` sessions through `LayoutPreviewController::session`;
 - apply every scenario and render each canvas through `/_preview/{token}?canvas=1`;
-- write `shop-session.json`, `shop-samples.json`, `shop-stages.json` and `shop-stage-{baseline,rated,empty-card,placeholder,grid}.html`.
+- write `shop-session.json`, `shop-samples.json`, `shop-stages.json` and `shop-stage-{baseline,tile-rated,nested-rated,empty-card,placeholder,grid,flex,reset}.html`. `reset` is the `grid` scenario with the loop's display, columns and gaps removed again (a reset to the theme). After a Remove, a fresh session's canvas is `shop-stage-after-remove.html`.
 
 It runs green on a freshly migrated database. `LAYOUT_WORLDS` gains `shop` and `shop-placeholder`.
 
@@ -374,13 +400,21 @@ It runs green on a freshly migrated database. `LAYOUT_WORLDS` gains `shop` and `
     - the `product_name` tile is disabled with "Product name goes inside the Product list's card" while the root is the target;
     - deleting the Product list is refused with "Every page of the shop home shows its Product list here, so the layout keeps this block. Move it instead.";
     - a working copy without it disables Save.
+  - `layout-context.spec`: `effectiveDisplay(block, bp, [], 'grid')` answers `grid` for an unset display, after a reset, and for an unoffered stored value; a declared `flex` still answers `flex`; the existing default-`flex` cases stay green.
+  - `layout-tab.spec`, the Product list selected, its `cards` target declaring the grid defaults:
+    - untouched: the mode reads Grid, Columns shows "Theme default: Adaptive — as many 15rem columns as fit", and the gaps show 1.75rem and 1.5rem as their placeholders; no Flex-only row (direction, wrap);
+    - switched to Flex: the Flex rows show and Columns is dormant;
+    - reset: back to exactly the untouched state;
+    - `entry_loop` untouched still reads Flex (its declared default).
   - e2e `shop-layout-stage.spec.ts`, against the real renderer's fixtures:
     - the first card's name selects and opens the Block tab naming "Product name"; a copy card's name selects the Product list;
-    - `product_rating` dragged onto the lower part of the first card's name (aim 0.85, as the listing spec aims): the recorded apply puts the new block at **parent = the Product list's id, field `card`, index 2**, and the refreshed stage shows it in every card;
+    - **direct card insertion:** `product_rating` dragged onto the lower part of the first card's **tile** (aim 0.85, as the listing spec aims): the recorded apply puts the new block at **parent = the Product list's id, field `card`, index 1** (after the tile, before the body container), and the refreshed stage (`tile-rated`) shows it in every card;
+    - **nested insertion beside the name:** `product_rating` dragged onto the lower part of the first card's name: the recorded apply puts it at **parent = the body container's id, field `content`, index 1** (the name sits in that container, not directly in the card), and the refreshed stage (`nested-rated`) shows it in every card;
     - nothing drops over a copy card;
     - `product_price` dropped into an empty card, and into the placeholder world's card, lands at index 0;
     - `product_name` dragged to the root is refused with the reason; deleting the Product list is refused with the reach copy;
-    - with the Product list on a two-column Grid (the `grid` scenario), selecting a card's name shows no item controls, and the Product list's Layout tab reads "Arrange the cards".
+    - **the card boundary and inner controls:** selecting the tile (directly in the card) shows no item controls; selecting the name shows the **grid-item** controls of its immediate parent, the body container (span, align self). With the outer Product list on the `grid` scenario and then the `flex` scenario, the tile still has no item controls and the name's controls are unchanged, because the outer loop's mode does not reach them. The Product list's Layout tab reads "Arrange the cards";
+    - **the loop's truth on the stage:** on `baseline` (untouched), the Product list's Layout tab reads Grid with the adaptive theme default, and the stage's cards sit in the adaptive tracks (at the e2e viewport, as many 15rem columns as fit: the first row's card count equals `floor((listWidth + 1.5rem) / (15rem + 1.5rem))`, computed from the rendered list's width, not a font). On `flex` the tab reads Flex and the cards are a flex row. On `reset` the tab and the stage are back to `baseline`'s. After Remove and reopening (`after-remove`), the same untouched truth.
 - [ ] **Step 2:** run — the e2e fails (no fixtures). The vitest either passes on B's generic code, which proves it, or fails and names the change.
 - [ ] **Step 3:** implement the fixture section, the helpers and any admin change a test named.
 - [ ] **Step 4:** the fixture script on a fresh database exits 0 and writes every file; oxfmt on touched files; `pnpm type-check`; `pnpm lint`; `pnpm fmt:check`; vitest; the full e2e suite; the PHP suite (the fixture section is PHP).
@@ -399,6 +433,8 @@ It runs green on a freshly migrated database. `LAYOUT_WORLDS` gains `shop` and `
     - `product_price`: colour `muted`;
     - `product_loop`'s `cards`: display grid, columns base `1` and md `3`, gaps `spacing.lg`. The cards sit three to a row at 800 and 1280 and one at 375, and a card's content keeps its own flow.
   - **Removing the values returns the defaults.**
+  - **The loop's arrangement, page and stage (user, 2026-09-28):** an untouched Product list renders the adaptive grid on the page and the stage (1 column at 375, 2 at 700, 3 at 800, 4 at 1280, derived from the list width: `floor((w + 24) / (240 + 24))`); switched to Flex, the cards are a flex row on both; reset to the theme, both return to the untouched measurements exactly; after Remove, the theme page's grid equals the untouched layout's.
+  - **Long names** (a `long-names.html` page and stage from `ShopPageSeed::longNames()`, with and without a layout): the name box stays inside its card (its right edge ≤ the card's), computes `text-overflow: ellipsis`, `white-space: nowrap`, `overflow: hidden`, and its `scrollWidth` exceeds its `clientWidth` (it is truncated visually, not wrapped); no card overflows its grid track and the page has no horizontal scroll at any width; the name link's accessible name (`page.getByRole('link', {name: fullName})`) is the full name, and the heading's too; the long category chip's behaviour in the tile is recorded as today's: whatever the no-layout page does, the layout page does the same (both measured by containment, and any overflow found on both is listed for the user, not silently asserted).
   - **Hover and focus:** the tile's actions reveal on a card's hover and focus-within on the page, as today.
   - **The no-layout pages still match** (S0's test, unchanged).
 - [ ] **Step 2:** run, and **list every measured difference between the starter and today's pages** (page, element, property, widths). **Stop and bring the list to the user.** Each difference is either accepted, recorded as a relax-and-assert row as C1's accepted geometry is, or fixed in `shop.css` with S0's comparison staying green. The card name's `h2` is on the list, whatever it measures. No tolerance is widened.
@@ -457,3 +493,4 @@ It runs green on a freshly migrated database. `LAYOUT_WORLDS` gains `shop` and `
   - the labels "Products — shop home" and "Products — shop categories";
   - the four slugs.
 - **Review Focus:** five items, each with its named test (S1+S3, S2, S3, S3+S4, S4).
+- **Amended after review (user, 2026-09-28):** the Product list's theme defaults are a declared contract the inspector reads, proven untouched, switched, reset and after Remove on page and stage (ruling; S1, S5, S6); S5's drops distinguish the card's own slot from the nested body container's, and the name's grid-item controls belong to that container whatever the loop's mode (S5); the shop cache keys carry a per-workspace, per-surface layout generation read before the render, so a render straddling a save never repopulates the old layout, for all three surfaces (ruling; S3); long-name proofs for overflow, ellipsis and accessible names are separate from the parity pages (S1, S6); a CI measurement disagreement is diagnosed before anything is re-expressed, never simply dropped (Global Constraints, S0).
