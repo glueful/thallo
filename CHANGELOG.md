@@ -5,6 +5,16 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Added
+- **Layouts for listing and archive pages.** **Site › Layouts** has a row for each listed type's
+  listing pages and each archived field. Design the page once around the **Entry list**, whose
+  card you design once for every entry, and **Save** applies it to every page. With no layout the
+  pages are as today; an unlisted type's rows say how to turn listing pages on. On an existing
+  site run `thallo:provision` for the new blocks (with workspaces on, also
+  `thallo:tenant:sync --all --kind=block_type`).
+
 ## [1.0.0-beta.68] - 2026-09-27 — Developer Preview
 
 Layouts for the shop's product page — design every product's page at once, on the stage, from the
