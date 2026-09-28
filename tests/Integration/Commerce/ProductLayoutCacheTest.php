@@ -95,9 +95,12 @@ final class ProductLayoutCacheTest extends AppTestCase
         }
     }
 
+    /** The key the product page is cached under now: its workspace's current product layout token (plan C2). */
     private function key(string $tenant): string
     {
+        $token = $this->cache()->get(ShopLayoutTags::generationKey(ProductSurface::KEY, $tenant));
         return 'shop:' . $tenant . ':en:default:' . $this->appearanceFingerprint() . ':1:'
+            . ProductSurface::KEY . 'g' . (is_string($token) ? $token : 'none') . ':'
             . rawurlencode('/shop/products/lamp');
     }
 

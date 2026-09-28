@@ -9,6 +9,7 @@ use Thallo\Core\Content\Repositories\ContentTypeRepository;
 use Thallo\Core\Content\Repositories\EntryRepository;
 use Thallo\Core\Content\Services\PublishService;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\ShopCacheKey;
 use Glueful\Cache\CacheStore;
 use Glueful\Events\EventService;
 use Glueful\Extensions\Commerce\Catalog\CatalogService;
@@ -148,7 +149,7 @@ final class ShopCacheTest extends AppTestCase
         $first = $this->handle(Request::create('/shop', 'GET'));
         self::assertSame(200, $first->getStatusCode());
 
-        $key = 'shop:' . self::TENANT_A . ':en:default:' . $this->appearanceFingerprint() . ':1:%2Fshop';
+        $key = $this->shopIndexKey(self::TENANT_A);
         $entry = $this->cache()->get($key);
         self::assertIsArray($entry);
         $entry['body'] = 'SENTINEL-FROM-SHOP-CACHE';
@@ -168,14 +169,9 @@ final class ShopCacheTest extends AppTestCase
 
         $keys = $this->cache()->getKeys('shop:*');
         self::assertCount(2, $keys);
-        self::assertContains(
-            'shop:' . self::TENANT_A . ':en:default:' . $this->appearanceFingerprint() . ':1:%2Fshop',
-            $keys,
-        );
-        self::assertContains(
-            'shop:' . self::TENANT_A . ':en:default:' . $this->appearanceFingerprint() . ':2:%2Fshop',
-            $keys,
-        );
+        $fingerprint = $this->appearanceFingerprint();
+        self::assertContains(ShopCacheKey::for($this->cache(), self::TENANT_A, $fingerprint, '/shop'), $keys);
+        self::assertContains(ShopCacheKey::for($this->cache(), self::TENANT_A, $fingerprint, '/shop', 2), $keys);
     }
 
     /** @return iterable<string,array{0:string}> */
@@ -345,9 +341,10 @@ final class ShopCacheTest extends AppTestCase
         $entryUuid = $this->seedRouteLessEnrichmentEntry($typeUuid, 'en', 'INITIAL-CACHE-BLOCK');
         $this->container()->get(ProductLinkService::class)->link($this->appContext(), $productUuid, $entryUuid);
 
-        $key = $this->productDetailKey(self::TENANT_A, 'entry-publish-purge-prod');
         $first = $this->handle(Request::create('/shop/products/entry-publish-purge-prod', 'GET'));
         self::assertSame(200, $first->getStatusCode());
+        // Named after the first request: the key carries the product layout generation it created.
+        $key = $this->productDetailKey(self::TENANT_A, 'entry-publish-purge-prod');
         self::assertStringContainsString('INITIAL-CACHE-BLOCK', (string) $first->getContent());
         self::assertIsArray($this->cache()->get($key), 'precondition: the product-detail page is cached');
 
@@ -462,19 +459,21 @@ final class ShopCacheTest extends AppTestCase
 
     public function testShopPageCacheIsWiredOnlyOnTheThreeCatalogRoutes(): void
     {
+        // Each names its layout surface, so the cache keys its pages by that surface's generation
+        // (type layouts plan C2).
         foreach (
             [
-                ['GET', '/shop'],
-                ['GET', '/shop/products/{slug}'],
-                ['GET', '/shop/categories/{slug}'],
-            ] as [$method, $path]
+                ['GET', '/shop', 'shop_index'],
+                ['GET', '/shop/products/{slug}', 'product'],
+                ['GET', '/shop/categories/{slug}', 'shop_category'],
+            ] as [$method, $path, $surface]
         ) {
             $route = $this->findRoute($method, $path);
             self::assertNotNull($route, "{$method} {$path} must be registered");
             self::assertContains(
-                ShopPageCache::class,
+                ShopPageCache::class . ':' . $surface,
                 (array) ($route['middleware'] ?? []),
-                "{$method} {$path} must carry ShopPageCache",
+                "{$method} {$path} must carry ShopPageCache for {$surface}",
             );
         }
 
@@ -483,11 +482,11 @@ final class ShopCacheTest extends AppTestCase
             if (str_starts_with((string) $route['path'], '/shop')) {
                 continue;
             }
-            self::assertNotContains(
-                ShopPageCache::class,
+            $carried = array_filter(
                 (array) ($route['middleware'] ?? []),
-                "{$route['method']} {$route['path']} must never carry ShopPageCache",
+                static fn (mixed $m): bool => is_string($m) && str_starts_with($m, ShopPageCache::class),
             );
+            self::assertSame([], $carried, "{$route['method']} {$route['path']} must never carry ShopPageCache");
         }
     }
 
@@ -517,7 +516,7 @@ final class ShopCacheTest extends AppTestCase
 
     private function shopIndexKey(string $tenant): string
     {
-        return 'shop:' . $tenant . ':en:default:' . $this->appearanceFingerprint() . ':1:%2Fshop';
+        return ShopCacheKey::for($this->cache(), $tenant, $this->appearanceFingerprint(), '/shop');
     }
 
     private function primeBothTenantsShopIndexCache(): void
@@ -592,11 +591,10 @@ final class ShopCacheTest extends AppTestCase
         return $uuid;
     }
 
-    /** shop:{tenant}:en:default:blue-slate-round-sans-plain:1:%2Fshop%2Fproducts%2F{slug} — mirrors shopIndexKey(). */
+    /** The product page's key, with its workspace's product layout generation — mirrors shopIndexKey(). */
     private function productDetailKey(string $tenant, string $slug): string
     {
-        return 'shop:' . $tenant . ':en:default:' . $this->appearanceFingerprint() . ':1:'
-            . rawurlencode('/shop/products/' . $slug);
+        return ShopCacheKey::for($this->cache(), $tenant, $this->appearanceFingerprint(), '/shop/products/' . $slug);
     }
 
     /** Ad-hoc content type with a `body` blocks field — mirrors ShopCatalogTest's identical helper. */
