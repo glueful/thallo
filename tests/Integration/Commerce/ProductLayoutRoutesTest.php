@@ -164,9 +164,13 @@ final class ProductLayoutRoutesTest extends AppTestCase
         return $manager;
     }
 
+    /** This test's own user and keys, removed for good (a plain delete soft-deletes a user). */
     private function purgeAuthFixtures(): void
     {
-        $this->connection()->table('api_keys')->where('id', '>', 0)->delete();
-        $this->connection()->table('users')->where('id', '>', 0)->delete();
+        if ($this->userUuid === '') {
+            return;
+        }
+        $this->connection()->table('api_keys')->where('user_uuid', '=', $this->userUuid)->forceDelete();
+        $this->connection()->table('users')->where('uuid', '=', $this->userUuid)->forceDelete();
     }
 }

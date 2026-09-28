@@ -642,7 +642,8 @@ final class LayoutSaveTest extends AppTestCase
         $this->connection()->getPDO()->exec(
             'INSERT INTO users (uuid, username, email, status)'
             . " VALUES ('editor000001', 'dana', 'dana@example.test', 'active')"
-            . ' ON CONFLICT (uuid) DO NOTHING'
+            // Another suite's cleanup may have soft-deleted the row: bring it back as this test needs it.
+            . " ON CONFLICT (uuid) DO UPDATE SET username = 'dana', deleted_at = NULL"
         );
         $repo = $this->container()->get(LayoutRepository::class);
         $blocks = self::layout('SAVED')['blocks'];

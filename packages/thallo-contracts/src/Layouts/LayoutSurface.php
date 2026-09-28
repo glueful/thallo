@@ -19,7 +19,12 @@ interface LayoutSurface
     /** What a Save changes, beside the button ("Applies to every post"). */
     public function reach(string $target): string;
 
-    /** @return list<array{target: string, label: string, enabled: bool, reason: ?string}> */
+    /**
+     * The rows the Layouts page lists; `link` is an admin path a disabled row points to (where the
+     * setting that closes it is changed), else null.
+     *
+     * @return list<array{target: string, label: string, enabled: bool, reason: ?string, link: ?string}>
+     */
     public function targets(): array;
 
     /** @return list<array{id: string, label: string}> published items, up to 50 */
@@ -35,6 +40,15 @@ interface LayoutSurface
 
     /** @return list<array{type: string, field?: string}> blocks a layout must hold exactly once */
     public function required(string $target): array;
+
+    /**
+     * The loops a layout of this surface holds (type layouts spec §5.4, §5.6): each loop block type,
+     * the name of its blocks field that is the card repeated once per item, and the field blocks
+     * that belong only inside that card. Empty for a surface without loops.
+     *
+     * @return list<array{type: string, card: string, items: list<string>}>
+     */
+    public function loops(string $target): array;
 
     /** @return array<string,string> field name => field type (`text:rich` for a rich text field) */
     public function bindable(string $target): array;
