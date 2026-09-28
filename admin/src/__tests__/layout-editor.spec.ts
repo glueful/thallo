@@ -126,6 +126,7 @@ function session(overrides: Partial<LayoutSession> = {}): LayoutSession {
     required: [{ type: 'entry_content', field: 'body' }],
     palette: ['entry_title', 'entry_content'],
     loops: [],
+    closed: null,
     sample: { id: 'posta0000001', label: 'Post A' },
     placeholder: false,
     label: 'Posts — single post',
@@ -294,6 +295,22 @@ describe('the layout editor', () => {
     expect(
       w.find('[data-test="layout-closed-back"]').element.closest('a')?.getAttribute('href'),
     ).toBe('/layouts')
+    expect(w.find('[data-test="canvas-inspector"]').exists()).toBe(false)
+    w.unmount()
+  })
+
+  // Final review: a kept layout whose pages are off the site opens only to be removed — from Site ›
+  // Layouts, where its row is — so reached by its address it says why and leads back.
+  it('a kept layout whose pages are off the site says so and leads back to Layouts', async () => {
+    q.mint.mockImplementation(async () =>
+      session({ closed: 'Listing pages are off for Posts.', placeholder: true, sample: null }),
+    )
+    const w = mountPage()
+    await flushPromises()
+    const closed = w.find('[data-test="layout-closed"]')
+    expect(closed.exists()).toBe(true)
+    expect(closed.text()).toContain('Listing pages are off for Posts.')
+    expect(closed.text()).toContain('remove it on Site › Layouts')
     expect(w.find('[data-test="canvas-inspector"]').exists()).toBe(false)
     w.unmount()
   })

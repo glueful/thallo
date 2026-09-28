@@ -98,6 +98,26 @@ final class ArchiveSurfaceTest extends AppTestCase
         );
     }
 
+    /**
+     * Terms with posts are found however many newer terms have none (final review): the sample list
+     * is the terms with members, newest first — not the newest fifty terms, then filtered.
+     */
+    public function testTermsWithMembersAreFoundBehindManyEmptyNewerTerms(): void
+    {
+        $seed = new ListingPageSeed($this->container(), $this->appContext());
+        for ($i = 1; $i <= 55; $i++) {
+            $slug = sprintf('empty-%02d', $i);
+            $seed->publish($this->seeded['category_type'], $slug, [
+                'title' => 'Empty ' . $i, 'slug' => $slug, 'description' => '',
+            ], sprintf('2026-09-%02d 10:00:00', 1 + intdiv($i, 3)));
+        }
+        self::assertSame(
+            [['id' => $this->seeded['pottery'], 'label' => 'Pottery']],
+            $this->surface()->samples('post:categories', null),
+        );
+        self::assertSame($this->seeded['pottery'], $this->surface()->defaultSample('post:categories'));
+    }
+
     public function testThePlaceholderIsASampleTermsEmptyPage(): void
     {
         $page = $this->surface()->placeholder('post:categories')['layout_context'];

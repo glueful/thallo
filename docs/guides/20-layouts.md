@@ -128,7 +128,8 @@ page of a listing, or every term's archive of one field.
 
 A type that is not listed shows its rows turned off, with the reason — "Listing pages are off for
 Pages." — and **Turn on listing pages**, which opens **Settings › General**. Taking a type off the
-list keeps its layouts; listing it again serves them again.
+list keeps its layouts; listing it again serves them again. A turned-off row that keeps a custom
+layout has **Remove** instead of **Edit**, for a layout you no longer need.
 
 **Edit** opens the stage on the listing's first page, or on one term's archive — the picker lists
 the terms that have published posts. The layout opens on a starter that follows today's page: the
@@ -249,8 +250,10 @@ says which commands to run.
 
 Renaming a field moves the layouts that show it — an archive's layout included. Deleting a field a
 layout shows, or one an archive layout is for, is refused, and the refusal names the layout: change
-the layout first. A field that stops filing the type (no longer filterable) hides its archive row and
-keeps the layout. Deleting the content type removes its layouts.
+or remove the layout first. A field that stops filing the type (no longer filterable) takes its
+archive pages off the site and keeps their layout: the row stays on **Site › Layouts**, turned off,
+with **Remove** — as does a listing's row while its type is not listed. Deleting the content type
+removes its layouts.
 
 ## Check it worked
 

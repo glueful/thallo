@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useLayouts, type LayoutRow } from '@/queries/layouts'
+import { computed, ref } from 'vue'
+import { mintLayoutSession, removeLayout, useLayouts, type LayoutRow } from '@/queries/layouts'
+import { useNotify } from '@/composables/useNotify'
 
 // Site › Layouts (type layouts spec §6.1): each page kind that can have a layout — for each content
 // type, its single post, its listing pages and its archives — and whether it renders through the
@@ -8,12 +9,43 @@ import { useLayouts, type LayoutRow } from '@/queries/layouts'
 // editing session and version are. A row that cannot have a layout says why, and where to fix it.
 definePage({ meta: { requiresAuth: true } })
 
-const { data, isLoading, error } = useLayouts()
+const { data, isLoading, error, refetch } = useLayouts()
+const { success, error: notifyError } = useNotify()
 const rows = computed(() => data.value?.rows)
 const canEdit = computed(() => data.value?.canEdit === true)
 
 function stateLabel(row: LayoutRow): string {
   return row.state === 'custom' ? 'Custom layout' : 'Theme template'
+}
+
+/**
+ * A turned-off row that keeps a custom layout — its pages off the site: the editor cannot open it, so
+ * it is removed from here, with a session opened only for that (the server refuses to save to it).
+ */
+function removable(row: LayoutRow): boolean {
+  return !row.enabled && row.state === 'custom' && canEdit.value
+}
+const removing = ref<LayoutRow | null>(null)
+const removeBusy = ref(false)
+async function confirmRemove(): Promise<void> {
+  const row = removing.value
+  if (!row) return
+  removeBusy.value = true
+  try {
+    const session = await mintLayoutSession(row.surface, row.target)
+    await removeLayout(row.surface, row.target, {
+      token: session.token,
+      expected_lock_version: row.lock_version,
+    })
+    success('Layout removed', `${row.label} uses the theme’s design whenever its pages return.`)
+    removing.value = null
+    await refetch()
+  } catch (e) {
+    notifyError(e, 'Couldn’t remove the layout')
+    await refetch()
+  } finally {
+    removeBusy.value = false
+  }
 }
 
 function savedLine(row: LayoutRow): string | null {
@@ -103,6 +135,16 @@ function savedLine(row: LayoutRow): string | null {
             >
               Edit
             </UButton>
+            <UButton
+              v-else-if="removable(row)"
+              size="sm"
+              variant="outline"
+              color="error"
+              :data-test="`layouts-remove-${row.surface}-${row.target}`"
+              @click="removing = row"
+            >
+              Remove
+            </UButton>
           </li>
         </ul>
         <p
@@ -115,4 +157,30 @@ function savedLine(row: LayoutRow): string | null {
       </div>
     </template>
   </UDashboardPanel>
+
+  <UModal
+    :open="removing !== null"
+    title="Remove this layout?"
+    @update:open="(open: boolean) => !open && (removing = null)"
+  >
+    <template #body>
+      <p class="text-sm" data-test="layouts-remove-dialog">
+        {{ removing?.label }}: its pages are not on the site now. Removed, they use the theme’s
+        design whenever they return.
+      </p>
+    </template>
+    <template #footer>
+      <div class="flex w-full justify-end gap-2">
+        <UButton variant="ghost" color="neutral" @click="removing = null">Keep it</UButton>
+        <UButton
+          color="error"
+          :loading="removeBusy"
+          data-test="layouts-remove-confirm"
+          @click="confirmRemove()"
+        >
+          Remove layout
+        </UButton>
+      </div>
+    </template>
+  </UModal>
 </template>

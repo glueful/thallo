@@ -11,8 +11,9 @@ as the next release, never a mutated tag.
 - **Layouts for listing and archive pages.** **Site › Layouts** has a row for each listed type's
   listing pages and each archived field. Design the page once around the **Entry list**, whose
   card you design once for every entry, and **Save** applies it to every page. With no layout the
-  pages are as today; an unlisted type's rows say how to turn listing pages on. On an existing
-  site run `thallo:provision` for the new blocks (with workspaces on, also
+  pages are as today; an unlisted type's rows say how to turn listing pages on, and a layout kept
+  while its pages are off the site can be removed from its row. On an existing site run
+  `thallo:provision` for the new blocks (with workspaces on, also
   `thallo:tenant:sync --all --kind=block_type`).
 
 ## [1.0.0-beta.68] - 2026-09-27 — Developer Preview

@@ -327,8 +327,15 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
         data-test="layout-closed"
       >
         <UIcon name="i-lucide-lock" class="mx-auto size-8 text-muted" />
-        <p class="font-medium">This layout can't be opened yet</p>
+        <p class="font-medium">
+          {{
+            session?.closed ? 'These pages are not on the site' : "This layout can't be opened yet"
+          }}
+        </p>
         <p class="text-sm text-muted">{{ closed }}</p>
+        <p v-if="session?.closed" class="text-sm text-muted">
+          The layout is kept: remove it on Site › Layouts if you no longer need it.
+        </p>
         <UButton to="/layouts" variant="outline" color="neutral" data-test="layout-closed-back">
           Back to Layouts
         </UButton>

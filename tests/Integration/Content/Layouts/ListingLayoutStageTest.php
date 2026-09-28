@@ -42,8 +42,11 @@ final class ListingLayoutStageTest extends AppTestCase
     {
         parent::setUp();
         $this->syncBlockStyleDeclarations();
-        (new ListingPageSeed($this->container(), $this->appContext()))->seed();
+        $this->seeded = (new ListingPageSeed($this->container(), $this->appContext()))->seed();
     }
+
+    /** @var array{post_type: string, category_type: string, pottery: string, posts: array<string,string>} */
+    private array $seeded;
 
     protected function tearDown(): void
     {
@@ -198,6 +201,29 @@ final class ListingLayoutStageTest extends AppTestCase
         self::assertStringContainsString('Sample post', $html);
         self::assertStringContainsString('WORKING-MARKER', $html, 'the working copy is intact');
         self::assertStringNotContainsString('The kiln at dawn', $html);
+    }
+
+    /**
+     * Every post unpublished mid-session (final review): the listing still answers, with nothing on
+     * it, and the stage falls back to the placeholder — one sample card to design, named — rather than
+     * an Entry list with no card to edit. The working copy is intact.
+     */
+    public function testAListingEmptiedMidSessionRendersThePlaceholder(): void
+    {
+        $session = $this->session('listing', 'post');
+        $this->applyWorking('listing', 'post', $session['token']);
+        $publisher = $this->container()->get(\Thallo\Core\Content\Services\PublishService::class);
+        foreach ($this->seeded['posts'] as $post) {
+            $publisher->unpublish($post, 'en');
+        }
+        $page = $this->handle(Request::create('/post', 'GET'));
+        self::assertSame(200, $page->getStatusCode(), 'the page still answers');
+
+        $html = $this->stage($session['token']);
+        self::assertStringContainsString('No published posts yet — showing a placeholder', $html);
+        self::assertSame(1, substr_count($html, 'data-thallo-slot="card"'), 'one card to design');
+        self::assertStringContainsString('Sample post', $html);
+        self::assertStringContainsString('WORKING-MARKER', $html, 'the working copy is intact');
     }
 
     /**

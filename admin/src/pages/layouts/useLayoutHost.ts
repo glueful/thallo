@@ -132,7 +132,8 @@ export function useLayoutHost(options: { surface: string; target: string }) {
         closed.value = closedReason(e)
         throw e
       }
-      closed.value = null
+      // A kept layout whose pages are off the site: the page shows why instead of the stage.
+      closed.value = minted.closed
       session.value = minted
       if (baseline.value === null) {
         loaded(minted)

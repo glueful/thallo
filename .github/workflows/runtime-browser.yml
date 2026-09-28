@@ -14,6 +14,14 @@ on:
       - 'scripts/build-listing-layout-proof-fixtures'
       - 'tests/fixtures/render/**'
       - 'tests/Support/ListingPageSeed.php'
+      - 'tests/Support/ProductPageSeed.php'
+      # The layout starters and surfaces the listing and product proofs render, and the pages they
+      # render from.
+      - 'core/src/Content/Layouts/**'
+      - 'core/src/Content/Blocks/StarterBlockTypes.php'
+      - 'core/src/Content/Delivery/**'
+      - 'packages/thallo-contracts/src/Layouts/**'
+      - 'packages/thallo-commerce/src/Layouts/**'
       - 'tests/fixtures/commerce/**'
       - 'packages/thallo-commerce/templates/**'
       - 'packages/thallo-commerce/assets/shop.css'
@@ -36,6 +44,14 @@ on:
       - 'scripts/build-listing-layout-proof-fixtures'
       - 'tests/fixtures/render/**'
       - 'tests/Support/ListingPageSeed.php'
+      - 'tests/Support/ProductPageSeed.php'
+      # The layout starters and surfaces the listing and product proofs render, and the pages they
+      # render from.
+      - 'core/src/Content/Layouts/**'
+      - 'core/src/Content/Blocks/StarterBlockTypes.php'
+      - 'core/src/Content/Delivery/**'
+      - 'packages/thallo-contracts/src/Layouts/**'
+      - 'packages/thallo-commerce/src/Layouts/**'
       - 'tests/fixtures/commerce/**'
       - 'packages/thallo-commerce/templates/**'
       - 'packages/thallo-commerce/assets/shop.css'

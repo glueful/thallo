@@ -152,6 +152,70 @@ final class EntryLoopRenderTest extends AppTestCase
         self::assertSame(3, substr_count($html, 'Also inside'), 'every card renders the container');
     }
 
+    /**
+     * Review Focus 5 in full: a card holding a container with nested blocks, on a page of ten items.
+     * The stage annotates exactly the first card's blocks, the container and its children; every id
+     * appears once; and each of the other nine cards is the site's card, byte for byte — no
+     * annotation, no slot, nothing the stage adds.
+     */
+    public function testTenCardsOnTheStageAreTheFirstAnnotatedAndNineSiteCards(): void
+    {
+        $card = [
+            ['id' => 'tenbox000001', 'type' => 'container', 'data' => ['element' => 'div', 'content' => [
+                ['id' => 'tenhead00001', 'type' => 'heading', 'data' => ['text' => 'Inside'], 'settings' => []],
+                ['id' => 'tentitle0001', 'type' => 'entry_title', 'data' => ['level' => 'h3', 'link' => true],
+                    'settings' => []],
+                ['id' => 'tendate00001', 'type' => 'entry_date', 'data' => ['format' => 'long'], 'settings' => []],
+            ]], 'settings' => []],
+        ];
+        // Ten items that render alike, so every card's markup can be compared with one site card.
+        $this->items = array_fill(0, 10, $this->items[0]);
+        $cardsOf = static function (string $html): array {
+            preg_match_all('~<li class="thallo-loop-card listing-row"([^>]*)>(.*?)</li>~s', $html, $m);
+            return ['attrs' => $m[1], 'inner' => $m[2]];
+        };
+
+        $site = $cardsOf($this->render([self::loop($card)], 'none'));
+        self::assertCount(10, $site['inner']);
+        self::assertSame(array_fill(0, 10, ''), $site['attrs'], 'the site marks no card');
+        self::assertCount(1, array_unique($site['inner']), 'the site renders ten alike cards');
+
+        $html = $this->render([self::loop($card)], 'layout');
+        $stage = $cardsOf($html);
+        self::assertCount(10, $stage['inner']);
+        self::assertSame(' data-thallo-slot="card"', $stage['attrs'][0]);
+        foreach (['tenbox000001', 'tenhead00001', 'tentitle0001', 'tendate00001'] as $id) {
+            self::assertSame(1, substr_count($html, 'data-thallo-block="' . $id . '"'), "{$id} is selectable once");
+            $first = $stage['inner'][0];
+            self::assertStringContainsString('data-thallo-block="' . $id . '"', $first, 'in the first card');
+        }
+        preg_match_all('~data-thallo-block="([^"]+)"~', $html, $ids);
+        self::assertSame(count($ids[1]), count(array_unique($ids[1])), 'no id appears twice');
+        for ($i = 1; $i < 10; $i++) {
+            self::assertSame(' data-thallo-card-copy', $stage['attrs'][$i], "card {$i} is a copy");
+            self::assertSame($site['inner'][0], $stage['inner'][$i], "card {$i} is the site's card, unannotated");
+        }
+    }
+
+    /**
+     * An anchor set on a card's block names one element on the page (final review): the first card
+     * keeps it — a link to `#studio` lands there — and the other cards, which repeat the design for
+     * other entries, carry no id, on the site and on the stage alike. Its other attributes repeat.
+     */
+    public function testACardBlocksAnchorIsTheFirstCardsOnly(): void
+    {
+        $card = [['id' => 'anchorhead01', 'type' => 'heading', 'data' => ['text' => 'Card'], 'settings' => [
+            'advanced' => ['anchor' => 'studio', 'attributes' => ['data-track' => 'card']],
+        ]]];
+        foreach (['none', 'layout'] as $scope) {
+            $html = $this->render([self::loop($card)], $scope);
+            self::assertSame(1, substr_count($html, 'id="studio"'), "{$scope}: one element named studio");
+            preg_match('~<li class="thallo-loop-card[^>]*>(.*?)</li>~s', $html, $first);
+            self::assertStringContainsString('id="studio"', $first[1], "{$scope}: in the first card");
+            self::assertSame(3, substr_count($html, 'data-track="card"'), "{$scope}: other attributes repeat");
+        }
+    }
+
     public function testAnEmptyPageShowsItsTextAndTheStageOnePlaceholderCard(): void
     {
         $empty = ['layout_context' => ['items' => [], 'placeholder_item' => [

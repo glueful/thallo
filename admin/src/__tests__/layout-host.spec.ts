@@ -69,6 +69,7 @@ function session(overrides: Partial<LayoutSession> = {}): LayoutSession {
     required: [{ type: 'entry_content', field: 'body' }],
     palette: ['entry_title', 'entry_content'],
     loops: [],
+    closed: null,
     sample: { id: 'posta0000001', label: 'Post A' },
     placeholder: false,
     label: 'Posts — single post',

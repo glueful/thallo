@@ -122,8 +122,12 @@ final class ListingPageSeed
         return ['post_type' => $postType, 'category_type' => $categoryType, 'pottery' => $pottery, 'posts' => $posts];
     }
 
-    /** @param array<string,mixed> $fields */
-    private function publish(string $type, string $slug, array $fields, string $publishedAt): string
+    /**
+     * One entry of `$type`, published at `$publishedAt` under `$slug` — as the seed publishes its own.
+     *
+     * @param array<string,mixed> $fields
+     */
+    public function publish(string $type, string $slug, array $fields, string $publishedAt): string
     {
         $db = $this->container->get(Connection::class);
         $entries = $this->container->get(EntryRepository::class);

@@ -5,10 +5,13 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import type { LayoutRow } from '@/queries/layouts'
 
 // Site › Layouts (type layouts spec §6.1): every page kind with its state, Edit into the editor, a
-// disabled row's reason — and no Remove here: it lives in the editor, which holds the session.
+// disabled row's reason — and no Remove for an open row: it lives in the editor, which holds the
+// session. A turned-off row that keeps a custom layout — its pages off the site — cannot be opened,
+// so it is removed from here.
 
 const rows = ref<LayoutRow[] | undefined>(undefined)
 const canEdit = ref(true)
+const q = vi.hoisted(() => ({ refetch: vi.fn(), mint: vi.fn(), remove: vi.fn() }))
 vi.mock('@/queries/layouts', () => ({
   useLayouts: () => ({
     data: computed(() =>
@@ -16,8 +19,13 @@ vi.mock('@/queries/layouts', () => ({
     ),
     isLoading: ref(false),
     error: ref(null),
+    refetch: q.refetch,
   }),
+  mintLayoutSession: q.mint,
+  removeLayout: q.remove,
 }))
+const notify = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
+vi.mock('@/composables/useNotify', () => ({ useNotify: () => notify }))
 
 import LayoutsPage from '@/pages/layouts/index.vue'
 
@@ -43,6 +51,7 @@ function mountPage() {
     routes: [{ path: '/:any(.*)*', component: { template: '<div />' } }],
   })
   return mount(LayoutsPage, {
+    attachTo: document.body,
     global: {
       plugins: [router],
       stubs: {
@@ -139,5 +148,55 @@ describe('the Layouts page', () => {
     expect(link.text()).toBe('Turn on listing pages')
     expect(link.attributes('href')).toBe('/settings/general')
     expect(w.find('[data-test="layouts-edit-listing-page"]').exists()).toBe(false)
+  })
+
+  it('a turned-off row that keeps a custom layout is removed from the list', async () => {
+    rows.value = [
+      row({
+        surface: 'archive',
+        target: 'post:categories',
+        label: 'Posts — Categories archive',
+        state: 'custom',
+        enabled: false,
+        reason: 'These pages are not on the site now. The layout is kept until you remove it.',
+        lock_version: 4,
+      }),
+      row({ target: 'quote', label: 'Quotes — single quote', enabled: false, reason: 'Off.' }),
+    ]
+    q.mint.mockReset().mockResolvedValue({ token: 'closedtok' })
+    q.remove.mockReset().mockResolvedValue({ lockVersion: 5 })
+    q.refetch.mockReset()
+    const w = mountPage()
+    await flushPromises()
+    expect(w.find('[data-test="layouts-edit-archive-post:categories"]').exists()).toBe(false)
+    expect(w.find('[data-test="layouts-remove-entry-quote"]').exists()).toBe(false)
+
+    await w.find('[data-test="layouts-remove-archive-post:categories"]').trigger('click')
+    await flushPromises()
+    // The dialog is teleported to the document's body.
+    const dialog = () => document.body.querySelector('[data-test="layouts-remove-dialog"]')
+    expect(dialog()?.textContent).toContain('Posts — Categories archive')
+    ;(document.body.querySelector('[data-test="layouts-remove-confirm"]') as HTMLElement).click()
+    await flushPromises()
+    expect(q.mint).toHaveBeenCalledWith('archive', 'post:categories')
+    expect(q.remove).toHaveBeenCalledWith('archive', 'post:categories', {
+      token: 'closedtok',
+      expected_lock_version: 4,
+    })
+    expect(q.refetch).toHaveBeenCalled()
+    expect(notify.success).toHaveBeenCalled()
+    await flushPromises()
+    expect(dialog()).toBeNull()
+    w.unmount()
+  })
+
+  it('without the permission to edit, a kept layout offers no Remove', async () => {
+    canEdit.value = false
+    rows.value = [
+      row({ surface: 'listing', target: 'post', state: 'custom', enabled: false, reason: 'Off.' }),
+    ]
+    const w = mountPage()
+    await flushPromises()
+    expect(w.find('[data-test="layouts-remove-listing-post"]').exists()).toBe(false)
   })
 })

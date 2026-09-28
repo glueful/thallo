@@ -63,6 +63,11 @@ export interface LayoutSession {
   palette: string[]
   /** The surface's loops: each names its card (a blocks field) and the blocks only a card holds. */
   loops: { type: string; card: string; items: string[] }[]
+  /**
+   * Why the layout's pages are off the site, when they are: a kept layout opens only to be removed
+   * (from Site › Layouts); nothing can be applied or saved to it.
+   */
+  closed: string | null
   sample: LayoutSample | null
   /** No published item to preview against: the stage shows a placeholder. */
   placeholder: boolean
@@ -183,6 +188,7 @@ export async function mintLayoutSession(
         ),
       }
     }),
+    closed: strOrNull(d.closed),
     sample:
       typeof sampleRaw.id === 'string' ? { id: sampleRaw.id, label: str(sampleRaw.label) } : null,
     placeholder: d.placeholder === true,
