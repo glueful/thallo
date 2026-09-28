@@ -700,6 +700,195 @@ try {
     exit(1);
 }
 
+// ── The listing layout's stage (type layouts plan B, B6) ─────────────────────────────────────────
+// The post listing's layout, saved once as the baseline, and every accepted state the proofs reach
+// — authored once in admin/e2e/listing-scenarios.json — rendered through the real session → apply
+// → preview path around the listing's first page (ListingPageSeed, RENDER_LISTING_PER_PAGE's two
+// posts). The `placeholder` state is rendered in a world of its own: the post type listed with
+// nothing published, whose stage shows the placeholder page's one sample card. Each state must come
+// out of the validator unchanged. Each world is seeded in a transaction that is rolled back.
+$listingScenarios = json_decode(
+    (string) file_get_contents($root . '/admin/e2e/listing-scenarios.json'),
+    true,
+    512,
+    JSON_THROW_ON_ERROR,
+)['scenarios'];
+
+try {
+    $db->transaction(static function () use ($container, $contentTypes, $listingScenarios, $layoutsOut, $out, $canonical): void {
+        $context = TestApplication::instance()->getContext();
+        $write = static fn (string $name, string $body) => file_put_contents($layoutsOut . '/' . $name, $body);
+        $factory = $container->get(Thallo\Core\Content\Blocks\BlockFactory::class);
+        $preview = $container->get(Thallo\Core\Http\Controllers\LayoutPreviewController::class);
+        $repo = $container->get(Thallo\Core\Content\Layouts\LayoutRepository::class);
+        $resolver = $container->get(Thallo\Core\Content\Layouts\LayoutResolver::class);
+        $lock = $container->get(Thallo\Core\Content\Layouts\LayoutWriteLock::class);
+        $validator = $container->get(Thallo\Core\Content\Layouts\LayoutValidator::class);
+        $db = $container->get(Glueful\Database\Connection::class);
+
+        // A database that already holds these types (a local one, between runs) keeps them aside
+        // for the transaction: the seed makes its own.
+        foreach (['post', 'category'] as $slug) {
+            $db->table('content_types')->where('slug', '=', $slug)->update(['slug' => $slug . '-e2e-aside']);
+        }
+
+        $instances = [];
+        $expand = static function (array $blocks) use (&$expand, $factory, &$instances): array {
+            $made = [];
+            foreach ($blocks as $block) {
+                if (isset($block['$factory'])) {
+                    $slug = (string) $block['$factory'];
+                    $built = $factory->make($slug) ?? throw new RuntimeException("no block type '{$slug}'");
+                    $instances[$slug] = ['block' => $built['block'], 'starter' => $built['starter']];
+                    $block = [
+                        'id' => $block['id'],
+                        'type' => $built['block']['type'],
+                        'data' => array_merge($built['block']['data'], $built['starter']),
+                        'settings' => $built['block']['settings'],
+                    ];
+                }
+                foreach ($block['data'] as $key => $value) {
+                    if (is_array($value) && array_is_list($value) && ($value === [] || isset($value[0]['type']) || isset($value[0]['$factory']))) {
+                        $block['data'][$key] = $expand($value);
+                    }
+                }
+                $made[] = $block;
+            }
+            return $made;
+        };
+        $session = static function () use ($preview): array {
+            $dto = (new Glueful\Validation\RequestDataHydrator())->hydrate(
+                Thallo\Core\Http\DTOs\LayoutSessionData::class,
+                ['surface' => 'listing', 'target' => 'post'],
+            );
+            $body = (string) $preview->session($dto)->getContent();
+            return [$body, json_decode($body, true, 512, JSON_THROW_ON_ERROR)['data']];
+        };
+        $render = static function (array $document, string $name) use ($container, $preview, $session): string {
+            [, $opened] = $session();
+            $token = (string) $opened['token'];
+            $dto = (new Glueful\Validation\RequestDataHydrator())->hydrate(Thallo\Core\Http\DTOs\ApplyLayoutData::class, [
+                'token' => $token, 'layout' => $document, 'epoch' => null, 'base_revision' => null,
+            ]);
+            $applied = $preview->apply($dto);
+            if ($applied->getStatusCode() !== 200) {
+                throw new RuntimeException("applying the listing '{$name}' layout returned {$applied->getStatusCode()}: {$applied->getContent()}");
+            }
+            $rendered = $container->get(RenderController::class)->preview(
+                Request::create('/_preview/' . $token . '?canvas=1', 'GET'),
+                $token,
+            );
+            $html = (string) $rendered->getContent();
+            if ($rendered->getStatusCode() !== 200 || !str_contains($html, 'thallo-layout--listing')) {
+                throw new RuntimeException("the listing '{$name}' stage is not the listing frame ({$rendered->getStatusCode()})");
+            }
+            return $html;
+        };
+        $saveBaseline = static function (array $document) use ($repo, $resolver, $lock): void {
+            $lock->within(
+                'listing',
+                'post',
+                fn (): int => $repo->saveExpected('listing', 'post', $document['blocks'], $document['settings'], $repo->version('listing', 'post'), null),
+            );
+            $resolver->forget('listing', 'post');
+        };
+
+        // The placeholder world first: the post type listed, nothing published.
+        $contentTypes->create([
+            'slug' => 'post', 'name' => 'Posts', 'public_delivery' => true, 'schema' => [
+                ['name' => 'title', 'type' => 'string', 'required' => true],
+            ],
+        ]);
+        $container->get(Thallo\Core\Settings\GeneralSettings::class)->save(['listing_types' => ['post']]);
+        $documents = [];
+        foreach ($listingScenarios as $scenario) {
+            $documents[(string) $scenario['name']] = ['blocks' => $expand($scenario['layout']['blocks'])] + $scenario['layout'];
+        }
+        $placeholders = array_values(array_filter($listingScenarios, static fn (array $s): bool => ($s['placeholder'] ?? false) === true));
+        foreach ($placeholders as $scenario) {
+            $name = (string) $scenario['name'];
+            $saveBaseline($documents[$name]);
+            [$body, $opened] = $session();
+            if ($opened['placeholder'] !== true) {
+                throw new RuntimeException("the listing '{$name}' session is not a placeholder session");
+            }
+            $write('listing-placeholder-session.json', $body);
+            $write(
+                'listing-placeholder-samples.json',
+                (string) $container->get(Thallo\Core\Http\Controllers\LayoutAdminController::class)
+                    ->samples(Request::create('/x'), 'listing', 'post')->getContent(),
+            );
+            $html = $render($documents[$name], $name);
+            if (!str_contains($html, 'data-thallo-placeholder')) {
+                throw new RuntimeException("the listing '{$name}' stage shows no placeholder");
+            }
+            $write("listing-stage-{$name}.html", $html);
+            // The placeholder world's stages: its one state is the one it opens on.
+            $write('listing-placeholder-stages.json', json_encode(
+                ['baseline' => ['layout' => $documents[$name], 'file' => "listing-stage-{$name}.html"]],
+                JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR,
+            ));
+        }
+        $db->table('layouts')->where('surface', '=', 'listing')->delete();
+        $db->table('content_types')->where('slug', '=', 'post')->update(['slug' => 'post-e2e-empty']);
+
+        // The sampled world: three published posts in Pottery, two to a page.
+        (new Thallo\Core\Tests\Support\ListingPageSeed($container, $context))->seed();
+        foreach ($listingScenarios as $scenario) {
+            $name = (string) $scenario['name'];
+            try {
+                $clean = $validator->validate('listing', 'post', $documents[$name]['blocks'], $documents[$name]['settings']);
+            } catch (Thallo\Core\Content\Validation\ValidationException $e) {
+                throw new RuntimeException("listing scenario '{$name}' is invalid: " . json_encode($e->errors()));
+            }
+            if (json_encode($canonical($clean)) !== json_encode($canonical($documents[$name]))) {
+                throw new RuntimeException("listing scenario '{$name}' does not survive validation unchanged:\n  authored "
+                    . json_encode($canonical($documents[$name])) . "\n  clean    " . json_encode($canonical($clean)));
+            }
+        }
+        $saveBaseline($documents['baseline']);
+        [$body] = $session();
+        $write('listing-session.json', $body);
+        $write(
+            'listing-samples.json',
+            (string) $container->get(Thallo\Core\Http\Controllers\LayoutAdminController::class)
+                ->samples(Request::create('/x'), 'listing', 'post')->getContent(),
+        );
+        $stages = [];
+        foreach ($listingScenarios as $scenario) {
+            $name = (string) $scenario['name'];
+            if (($scenario['placeholder'] ?? false) === true) {
+                continue;
+            }
+            $write("listing-stage-{$name}.html", $render($documents[$name], $name));
+            $stages[$name] = ['layout' => $documents[$name], 'file' => "listing-stage-{$name}.html"];
+        }
+        $write('listing-stages.json', json_encode($stages, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+        $resolver->forget('listing', 'post');
+
+        // The proofs also drag an Entry title from the palette (refused at the page's root): its tile
+        // asks for the type's instance like any other.
+        foreach (['entry_title'] as $slug) {
+            $built = $factory->make($slug) ?? throw new RuntimeException("no block type '{$slug}'");
+            $instances[$slug] = ['block' => $built['block'], 'starter' => $built['starter']];
+        }
+
+        foreach ($instances as $slug => $instance) {
+            file_put_contents(
+                $out . "/api/instance-{$slug}.json",
+                json_encode(['success' => true, 'data' => $instance], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR),
+            );
+        }
+        throw new LayoutFixturesWritten();
+    });
+} catch (LayoutFixturesWritten) {
+    // Written, and rolled back.
+} catch (Throwable $e) {
+    fwrite(STDERR, 'the listing layout fixtures failed: ' . $e::class . ': ' . $e->getMessage() . "\n");
+    exit(1);
+}
+
 fwrite(STDOUT, "Wrote {$out}/canvas.html and " . count(glob($out . '/api/*.json') ?: []) . " API fixtures for entry {$entryUuid}.\n");
 fwrite(STDOUT, 'Wrote ' . count(glob($regionsOut . '/stage-*.html') ?: []) . " regions stages to {$regionsOut}.\n");
 fwrite(STDOUT, 'Wrote ' . count(glob($layoutsOut . '/stage-*.html') ?: []) . " layout stages to {$layoutsOut}.\n");
+fwrite(STDOUT, 'Wrote ' . count(glob($layoutsOut . '/listing-stage-*.html') ?: []) . " listing layout stages to {$layoutsOut}.\n");

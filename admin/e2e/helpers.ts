@@ -442,8 +442,10 @@ export async function dragTileTo(
   slug: string,
   target: ReturnType<ReturnType<typeof stage>['locator']>,
   release = true,
+  /** Where on the target to aim, as a fraction of its height: the middle by default. */
+  at = 0.5,
 ): Promise<void> {
-  return dragCardTo(page, `[data-test="palette-card-${slug}"]`, target, release)
+  return dragCardTo(page, `[data-test="palette-card-${slug}"]`, target, release, at)
 }
 
 /** The same gesture from any palette card: a block tile, or a section of the library. */
@@ -452,7 +454,13 @@ export async function dragCardTo(
   card: string,
   target: ReturnType<ReturnType<typeof stage>['locator']>,
   release = true,
+  at = 0.5,
 ): Promise<void> {
+  const aim = async () => {
+    const box = await target.boundingBox()
+    if (!box) throw new Error('element has no box')
+    return { x: box.x + box.width / 2, y: box.y + box.height * at }
+  }
   const tile = page.locator(card)
   await tile.scrollIntoViewIfNeeded()
   // The target must sit in the iframe's viewport, clear of the bridge's edge auto-scroll zones:
@@ -462,7 +470,7 @@ export async function dragCardTo(
   const from = await centerOf(tile)
   await page.mouse.move(from.x, from.y)
   await page.mouse.down()
-  const to = await centerOf(target)
+  const to = await aim()
   const steps = 12
   for (let i = 1; i <= steps; i++) {
     await page.mouse.move(
@@ -477,7 +485,7 @@ export async function dragCardTo(
   // two moves, because the zone is proposed on a move and answered a round-trip later.
   for (let i = 0; i < 4; i++) {
     await page.waitForTimeout(250)
-    const now = await centerOf(target)
+    const now = await aim()
     if (i > 0 && Math.abs(now.x - last.x) < 2 && Math.abs(now.y - last.y) < 2) break
     await page.mouse.move(now.x, now.y - 1)
     await page.mouse.move(now.x, now.y)
@@ -809,8 +817,12 @@ interface LayoutStageFixture {
   file: string
 }
 
-/** The layout worlds the fixtures capture: the post type's layout, and the shop's product page. */
-type LayoutWorld = 'post' | 'product'
+/**
+ * The layout worlds the fixtures capture: the post type's layout, the shop's product page, and the
+ * post listing's pages — around its first page, and around the placeholder page while nothing is
+ * published.
+ */
+type LayoutWorld = 'post' | 'product' | 'listing' | 'listing-placeholder'
 const LAYOUT_WORLDS: Record<
   LayoutWorld,
   {
@@ -838,6 +850,22 @@ const LAYOUT_WORLDS: Record<
     endpoint: '**/v1/admin/layouts/product/*',
     path: '/admin/layouts/product/@site',
     ready: '.shop-product--layout',
+  },
+  listing: {
+    session: 'layouts/listing-session.json',
+    samples: 'layouts/listing-samples.json',
+    stages: 'layouts/listing-stages.json',
+    endpoint: '**/v1/admin/layouts/listing/post',
+    path: '/admin/layouts/listing/post',
+    ready: '.thallo-block-entry_loop',
+  },
+  'listing-placeholder': {
+    session: 'layouts/listing-placeholder-session.json',
+    samples: 'layouts/listing-placeholder-samples.json',
+    stages: 'layouts/listing-placeholder-stages.json',
+    endpoint: '**/v1/admin/layouts/listing/post',
+    path: '/admin/layouts/listing/post',
+    ready: '.thallo-block-entry_loop',
   },
 }
 

@@ -115,8 +115,14 @@ export function useLayoutHost(options: { surface: string; target: string }) {
   const host: StageHost = {
     schema,
     initial,
-    // The field blocks belong in a layout: this is the one editor whose palette offers them.
+    // The field blocks belong in a layout: this is the one editor whose palette offers them —
+    // this surface's own, and only while a session has said which they are.
     allowLayoutOnly: true,
+    palette: () => session.value?.palette ?? [],
+    cards: () =>
+      session.value && session.value.loops.length > 0
+        ? { loops: session.value.loops, palette: session.value.palette }
+        : null,
     // The first session's baseline is the document; a mint never touches the save baseline again.
     async mint() {
       let minted: LayoutSession

@@ -24,6 +24,8 @@ export type LegalityReason =
   | 'depth'
   | 'type-not-allowed'
   | 'source-slot'
+  | 'item-outside-card'
+  | 'not-in-card'
 
 export type Legality = { ok: true } | { ok: false; reason: LegalityReason; message: string }
 
@@ -39,6 +41,17 @@ export interface SlotTypeSummary {
   slots: Record<string, SlotDefinition>
 }
 
+/**
+ * A layout surface's card rules (type layouts spec §5.6): its loops, each naming the field that is
+ * its card and the blocks that card holds, and the surface's own palette. A block a card holds goes
+ * inside that card only; inside a card, no page-level block of the surface — a loop, or a palette
+ * block no card holds — goes. General content blocks go anywhere.
+ */
+export interface CardRules {
+  loops: { type: string; card: string; items: string[] }[]
+  palette: string[]
+}
+
 export interface LegalityContext {
   regionsOf: RegionResolver
   /** Every block type the site knows, with its slots. */
@@ -46,6 +59,8 @@ export interface LegalityContext {
   /** The document's root blocks fields with their own allow-lists. */
   rootSlots: () => Record<string, SlotDefinition>
   maxDepth: number
+  /** The layout surface's card rules; absent everywhere else. */
+  cards?: CardRules
 }
 
 export interface MoveIntent {
@@ -180,6 +195,63 @@ export function candidateTree(
   return { fields }
 }
 
+/** The loop whose card holds a position — the nearest card above it — or null. */
+function cardAt(
+  position: Position,
+  located: Map<string, Located>,
+  rules: CardRules,
+): string | null {
+  let parent = position.parent
+  let slot = position.slot
+  while (parent !== null) {
+    const found = located.get(parent)
+    if (!found) return null
+    const loop = rules.loops.find((l) => l.type === found.block.type)
+    if (loop && loop.card === slot) return loop.type
+    parent = found.parent
+    slot = found.slot
+  }
+  return null
+}
+
+/** A subtree placed inside `card` (a loop type, or null outside every card), against the rules. */
+function checkCards(
+  block: BlockInstance,
+  card: string | null,
+  rules: CardRules,
+  ctx: LegalityContext,
+): Legality {
+  const cardOf = new Map<string, string>()
+  for (const loop of rules.loops) for (const item of loop.items) cardOf.set(item, loop.type)
+  const owner = cardOf.get(block.type)
+  if (owner !== undefined && owner !== card) {
+    return {
+      ok: false,
+      reason: 'item-outside-card',
+      message: `${typeLabel(block.type, ctx)} goes inside the ${typeLabel(owner, ctx)}'s card`,
+    }
+  }
+  const pageLevel =
+    rules.loops.some((l) => l.type === block.type) ||
+    (rules.palette.includes(block.type) && owner === undefined)
+  if (card !== null && pageLevel) {
+    return {
+      ok: false,
+      reason: 'not-in-card',
+      message: `${typeLabel(block.type, ctx)} can't go inside a card`,
+    }
+  }
+  const loop = rules.loops.find((l) => l.type === block.type)
+  for (const region of ctx.regionsOf(block.type)) {
+    const inner = loop && loop.card === region ? loop.type : card
+    for (const child of asList(block.data[region])) {
+      const verdict = checkCards(child, inner, rules, ctx)
+      if (!verdict.ok) return verdict
+    }
+  }
+  return { ok: true }
+}
+
 function check(
   doc: EditorDocument,
   placements: { block: BlockInstance; to: Position; moving: boolean }[],
@@ -211,6 +283,15 @@ function check(
           return { ok: false, reason: 'cycle', message: 'A block cannot hold itself' }
         }
       }
+    }
+    if (ctx.cards) {
+      const verdict = checkCards(
+        placement.block,
+        cardAt(placement.to, located, ctx.cards),
+        ctx.cards,
+        ctx,
+      )
+      if (!verdict.ok) return verdict
     }
     const parentDepth =
       placement.to.parent === null ? 0 : (located.get(placement.to.parent)?.depth ?? 0)

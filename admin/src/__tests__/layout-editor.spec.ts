@@ -27,6 +27,10 @@ vi.mock('@/queries/layouts', () => ({
   fetchLayoutSamples: q.samples,
 }))
 
+const SCHEMAS: Record<string, unknown[]> = {
+  entry_content: [{ name: 'field', type: 'string', required: false }],
+  entry_loop: [{ name: 'card', type: 'blocks', required: false }],
+}
 const bt = (slug: string, category: string | null, layoutOnly = false, label = slug): BlockType =>
   ({
     uuid: `bt-${slug}`,
@@ -36,7 +40,7 @@ const bt = (slug: string, category: string | null, layoutOnly = false, label = s
     category,
     description: null,
     active: true,
-    schema: slug === 'entry_content' ? [{ name: 'field', type: 'string', required: false }] : [],
+    schema: SCHEMAS[slug] ?? [],
     style_capabilities: ['spacing'],
     style_targets: null,
     flags: layoutOnly ? { layout_only: true } : null,
@@ -45,8 +49,10 @@ const bt = (slug: string, category: string | null, layoutOnly = false, label = s
 const blockTypes = ref<BlockType[]>([
   bt('heading', 'Content'),
   bt('container', 'Layout'),
-  bt('entry_title', 'Fields', true),
-  bt('entry_content', 'Fields', true),
+  bt('entry_title', 'Fields', true, 'Entry title'),
+  bt('entry_content', 'Fields', true, 'Entry content'),
+  bt('entry_loop', 'Fields', true, 'Entry list'),
+  bt('pagination', 'Fields', true, 'Page navigation'),
   bt('product_name', 'Fields', true, 'Product name'),
   bt('product_buy', 'Fields', true, 'Product buy box'),
 ])
@@ -119,6 +125,7 @@ function session(overrides: Partial<LayoutSession> = {}): LayoutSession {
     starterLayout: structuredClone(BLOCKS),
     required: [{ type: 'entry_content', field: 'body' }],
     palette: ['entry_title', 'entry_content'],
+    loops: [],
     sample: { id: 'posta0000001', label: 'Post A' },
     placeholder: false,
     label: 'Posts — single post',
@@ -192,7 +199,9 @@ describe('the layout editor', () => {
     await flushPromises()
     bridge.callbacks.onBlockDeleteRequest!('laybody00001' as never, null as never)
     await flushPromises()
-    expect(w.find('[data-test="layout-required-refusal"]').text()).toContain('body')
+    expect(w.find('[data-test="layout-required-refusal"]').text()).toBe(
+      'Every post shows its Entry content here, so the layout keeps this block. Move it instead.',
+    )
     expect(w.find('[data-test="canvas-delete-confirm-yes"]').exists()).toBe(false)
     await w.find('[data-test="canvas-delete-cancel"]').trigger('click')
 
@@ -230,7 +239,7 @@ describe('the layout editor', () => {
     bridge.callbacks.onBlockDeleteRequest!('prodbuy00001' as never, null as never)
     await flushPromises()
     expect(w.find('[data-test="layout-required-refusal"]').text()).toBe(
-      'Every one of the products shows its Product buy box here, so the layout keeps this block. Move it instead.',
+      'Every product shows its Product buy box here, so the layout keeps this block. Move it instead.',
     )
     await w.find('[data-test="canvas-delete-cancel"]').trigger('click')
     expect(topBar(w).props('saveBlocked')).toBeNull()
@@ -371,7 +380,7 @@ describe('the layout editor', () => {
     await flushPromises()
     // The dialog renders into the body (the modal teleports).
     expect(document.body.textContent).toContain(
-      'Every one of the posts goes back to the theme’s design; your unsaved edits are discarded.',
+      'Every post goes back to the theme’s design; your unsaved edits are discarded.',
     )
     q.remove.mockResolvedValueOnce({ lockVersion: 3 })
     ;(document.body.querySelector('[data-test="layout-remove-confirm"]') as HTMLElement).click()
@@ -405,6 +414,80 @@ describe('the layout editor', () => {
     topBar(w).vm.$emit('undo')
     await flushPromises()
     expect(topBar(w).props('dirty')).toBe(false)
+    w.unmount()
+  })
+})
+
+// Type layouts plan B: a listing's editor offers exactly its surface's blocks, keeps the card's
+// blocks in the card, and names the Entry list's reach when it refuses to delete it.
+describe('the listing layout editor', () => {
+  const LISTING = [
+    {
+      id: 'listloop0001',
+      type: 'entry_loop',
+      settings: {},
+      data: {
+        card: [{ id: 'listtitle001', type: 'entry_title', data: { level: 'h2' }, settings: {} }],
+      },
+    },
+    { id: 'listpages001', type: 'pagination', data: {}, settings: {} },
+  ]
+  function listingSession(): LayoutSession {
+    return session({
+      layout: { blocks: structuredClone(LISTING), settings: {}, lock_version: 0 },
+      starter: true,
+      starterLayout: structuredClone(LISTING),
+      required: [{ type: 'entry_loop' }],
+      palette: ['entry_loop', 'pagination', 'entry_title'],
+      loops: [{ type: 'entry_loop', card: 'card', items: ['entry_title'] }],
+      sample: { id: '1', label: 'Page 1' },
+      label: 'Posts — listing pages',
+      reach: 'Applies to every page of the post listing',
+    })
+  }
+
+  it("offers the general blocks and exactly the surface's own", async () => {
+    q.mint.mockImplementation(async () => listingSession())
+    const w = mountPage()
+    await flushPromises()
+    const offered = w
+      .findAll('[data-test^="palette-card-"]')
+      .map((c) => c.attributes('data-test')!.replace('palette-card-', ''))
+    expect(offered).toEqual(
+      expect.arrayContaining(['entry_loop', 'pagination', 'entry_title', 'heading', 'container']),
+    )
+    expect(offered).not.toContain('entry_content')
+    expect(offered).not.toContain('product_name')
+    expect(offered).not.toContain('product_buy')
+    w.unmount()
+  })
+
+  it('refuses to delete the Entry list, naming its reach', async () => {
+    q.mint.mockImplementation(async () => listingSession())
+    const w = mountPage()
+    await flushPromises()
+    bridge.callbacks.onBlockDeleteRequest!('listloop0001' as never, null as never)
+    await flushPromises()
+    expect(w.find('[data-test="layout-required-refusal"]').text()).toBe(
+      'Every page of the post listing shows its Entry list here, so the layout keeps this block. Move it instead.',
+    )
+    w.unmount()
+  })
+
+  it('the Entry title tile is off while the page is the target and on when the card is', async () => {
+    q.mint.mockImplementation(async () => listingSession())
+    const w = mountPage()
+    await flushPromises()
+    const tile = () => w.find('[data-test="palette-card-entry_title"]')
+    expect(tile().attributes('aria-disabled')).toBe('true')
+    expect(tile().attributes('title')).toBe("Entry title goes inside the Entry list's card")
+
+    bridge.callbacks.onSlotAdd!('listloop0001' as never, 'card' as never)
+    await flushPromises()
+    expect(tile().attributes('aria-disabled')).toBeUndefined()
+    expect(w.find('[data-test="palette-card-pagination"]').attributes('title')).toBe(
+      "Page navigation can't go inside a card",
+    )
     w.unmount()
   })
 })

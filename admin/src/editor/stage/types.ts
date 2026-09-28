@@ -3,6 +3,7 @@ import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import type { BlocksHost } from '@/fields/components/blocks/context'
 import type { FieldDef } from '@/fields/types'
 import type { OperationBody } from '@/editor/ops/types'
+import type { CardRules } from '@/editor/structure/legality'
 
 /** The accepted working-copy pair (visual builder spec §3.5). */
 export interface RevisionPair {
@@ -77,6 +78,13 @@ export interface StageHost {
   pageInsert?(blocks: BlockInstance[]): { ops: OperationBody[]; after?: () => void } | null
   /** The palette offers the Fields blocks (`layout_only`): only a layout's editor sets it. */
   allowLayoutOnly?: boolean
+  /**
+   * The Fields blocks this document may hold (a layout surface's palette); the palette offers these
+   * and no other. Absent: every Fields block `allowLayoutOnly` lets through.
+   */
+  palette?: () => string[] | null
+  /** The document's card rules (a layout surface's loops), which legality enforces. */
+  cards?: () => CardRules | null
   /**
    * Told of every ACCEPTED apply — a response the editor kept after its epoch/revision check, never
    * one it dropped as out of date — so the page can follow what the accepted document is.

@@ -20,6 +20,8 @@ export interface LayoutRow {
   enabled: boolean
   /** Why a target cannot have a layout, when it cannot. */
   reason: string | null
+  /** Where the reason is put right — an admin path ("/settings/general") — when it can be. */
+  link: string | null
   lock_version: number
   updated_by: string | null
   /** Who saved the custom layout (a username, else an email), when it is one. */
@@ -59,6 +61,8 @@ export interface LayoutSession {
   required: { type: string; field?: string }[]
   /** The field blocks this surface adds to the general blocks. */
   palette: string[]
+  /** The surface's loops: each names its card (a blocks field) and the blocks only a card holds. */
+  loops: { type: string; card: string; items: string[] }[]
   sample: LayoutSample | null
   /** No published item to preview against: the stage shows a placeholder. */
   placeholder: boolean
@@ -103,6 +107,7 @@ export async function fetchLayouts(): Promise<LayoutList> {
       state: r.state === 'custom' ? 'custom' : 'theme',
       enabled: r.enabled !== false,
       reason: strOrNull(r.reason),
+      link: strOrNull(r.link),
       lock_version: typeof r.lock_version === 'number' ? r.lock_version : 0,
       updated_by: strOrNull(r.updated_by),
       updated_by_name: strOrNull(r.updated_by_name),
@@ -168,6 +173,16 @@ export async function mintLayoutSession(
     palette: (Array.isArray(d.palette) ? d.palette : []).filter(
       (s): s is string => typeof s === 'string',
     ),
+    loops: (Array.isArray(d.loops) ? d.loops : []).map((raw) => {
+      const r = record(raw)
+      return {
+        type: str(r.type),
+        card: str(r.card),
+        items: (Array.isArray(r.items) ? r.items : []).filter(
+          (s): s is string => typeof s === 'string',
+        ),
+      }
+    }),
     sample:
       typeof sampleRaw.id === 'string' ? { id: sampleRaw.id, label: str(sampleRaw.label) } : null,
     placeholder: d.placeholder === true,

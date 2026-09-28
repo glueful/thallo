@@ -283,3 +283,101 @@ describe('legality messages', () => {
     expect(verdict).toEqual({ ok: false, reason: 'cycle', message: 'A block cannot hold itself' })
   })
 })
+
+// Type layouts plan B (spec §5.6): a surface's loops declare their card. A block a card holds goes
+// inside that card only; inside a card, no page-level block of the surface — a loop, a surface
+// block that is not the card's — goes. General content blocks go anywhere.
+describe('card rules', () => {
+  const block = (id: string, type: string, data: Record<string, unknown> = {}): BlockInstance => ({
+    id,
+    type,
+    data,
+    settings: {},
+  })
+  const loop = (id: string, ...card: BlockInstance[]) => block(id, 'entry_loop', { card })
+
+  function cardContext(withRules = true): LegalityContext {
+    const types: SlotTypeSummary[] = [
+      { slug: 'container', label: 'Container', slots: { content: { blockTypes: [] } } },
+      { slug: 'entry_loop', label: 'Entry list', slots: { card: { blockTypes: [] } } },
+      { slug: 'entry_title', label: 'Entry title', slots: {} },
+      { slug: 'pagination', label: 'Page navigation', slots: {} },
+      { slug: 'heading', label: 'Heading', slots: {} },
+    ]
+    return {
+      regionsOf: (slug) => Object.keys(types.find((t) => t.slug === slug)?.slots ?? {}),
+      blockTypes: () => types,
+      rootSlots: () => ({ blocks: { blockTypes: [] } }),
+      maxDepth: 5,
+      ...(withRules
+        ? {
+            cards: {
+              loops: [{ type: 'entry_loop', card: 'card', items: ['entry_title'] }],
+              palette: ['entry_loop', 'pagination', 'entry_title'],
+            },
+          }
+        : {}),
+    }
+  }
+  const doc = () => ({
+    fields: { blocks: [loop('loop1', block('box1', 'container', { content: [] }))] },
+  })
+  const root = { parent: null, slot: 'blocks', index: 0 }
+  const card = { parent: 'loop1', slot: 'card', index: 0 }
+  const inBox = { parent: 'box1', slot: 'content', index: 0 }
+
+  it('a card block goes inside its loop card only', () => {
+    const ctx = cardContext()
+    expect(checkInsertSubtree(doc(), root, block('t1', 'entry_title'), ctx)).toEqual({
+      ok: false,
+      reason: 'item-outside-card',
+      message: "Entry title goes inside the Entry list's card",
+    })
+    expect(checkInsertSubtree(doc(), card, block('t1', 'entry_title'), ctx)).toEqual({ ok: true })
+    expect(checkInsertSubtree(doc(), inBox, block('t1', 'entry_title'), ctx)).toEqual({
+      ok: true,
+    })
+  })
+
+  it('a page-level block never goes inside a card', () => {
+    const ctx = cardContext()
+    for (const [type, label] of [
+      ['pagination', 'Page navigation'],
+      ['entry_loop', 'Entry list'],
+    ]) {
+      for (const at of [card, inBox]) {
+        expect(checkInsertSubtree(doc(), at, block('p1', type!), ctx)).toEqual({
+          ok: false,
+          reason: 'not-in-card',
+          message: `${label} can't go inside a card`,
+        })
+      }
+    }
+    expect(checkInsertSubtree(doc(), card, block('h1', 'heading'), ctx)).toEqual({ ok: true })
+    expect(checkInsertSubtree(doc(), root, block('p1', 'pagination'), ctx)).toEqual({ ok: true })
+  })
+
+  it('a pasted container holding a card block is refused at the root', () => {
+    const ctx = cardContext()
+    const pasted = block('c9', 'container', { content: [block('t9', 'entry_title')] })
+    expect(checkInsert(doc(), root, block('c8', 'container', { content: [] }), ctx).ok).toBe(true)
+    const verdict = checkInsertSubtree(doc(), root, pasted, ctx)
+    expect(verdict.ok ? '' : verdict.reason).toBe('item-outside-card')
+    expect(checkInsertSubtree(doc(), card, pasted, ctx)).toEqual({ ok: true })
+  })
+
+  it('moving a card block out of its card is refused', () => {
+    const ctx = cardContext()
+    const withTitle = {
+      fields: { blocks: [loop('loop1', block('t1', 'entry_title'))] },
+    }
+    const verdict = checkMoves(withTitle, [{ block: 't1', to: root }], ctx)
+    expect(verdict.ok ? '' : verdict.reason).toBe('item-outside-card')
+  })
+
+  it('without card rules nothing changes', () => {
+    const ctx = cardContext(false)
+    expect(checkInsertSubtree(doc(), root, block('t1', 'entry_title'), ctx)).toEqual({ ok: true })
+    expect(checkInsertSubtree(doc(), card, block('p1', 'pagination'), ctx)).toEqual({ ok: true })
+  })
+})

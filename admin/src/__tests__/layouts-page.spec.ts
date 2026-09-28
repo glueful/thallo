@@ -29,6 +29,7 @@ const row = (overrides: Partial<LayoutRow>): LayoutRow => ({
   state: 'theme',
   enabled: true,
   reason: null,
+  link: null,
   lock_version: 0,
   updated_by: null,
   updated_by_name: null,
@@ -113,5 +114,30 @@ describe('the Layouts page', () => {
       'Quotes are not published on the site.',
     )
     expect(w.find('[data-test="layouts-edit-entry-quote"]').exists()).toBe(false)
+  })
+
+  // Type layouts plan B: an unlisted type's listing row says how to turn its listing pages on.
+  it('a disabled listing row links to the setting that turns listing pages on', async () => {
+    rows.value = [
+      row({
+        surface: 'listing',
+        target: 'page',
+        label: 'Pages — listing pages',
+        reach: 'Applies to every page of the page listing',
+        enabled: false,
+        reason: 'Listing pages are off for Pages.',
+        link: '/settings/general',
+      }),
+    ]
+    const w = mountPage()
+    await flushPromises()
+    const disabled = w.find('[data-test="layouts-row-listing-page"]')
+    expect(disabled.find('[data-test="layouts-reason"]').text()).toBe(
+      'Listing pages are off for Pages.',
+    )
+    const link = disabled.find('[data-test="layouts-link"]')
+    expect(link.text()).toBe('Turn on listing pages')
+    expect(link.attributes('href')).toBe('/settings/general')
+    expect(w.find('[data-test="layouts-edit-listing-page"]').exists()).toBe(false)
   })
 })

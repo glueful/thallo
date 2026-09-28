@@ -67,6 +67,8 @@ const {
   selectedBlockTypes,
   selectedParent,
   selectedParentType,
+  selectedParentSlot,
+  loops,
   onSetSetting,
   onSetAll,
   onSetAdvanced,
@@ -117,6 +119,15 @@ const {
 } = editor
 const schema = layout.host.schema
 
+/**
+ * What a layout reaches, as a sentence's subject: the session's reach without "Applies to" —
+ * "Every post", "Every product", "Every page of the post listing".
+ */
+const every = computed(() => {
+  const reach = (session.value?.reach ?? '').replace(/^Applies to /, '')
+  return reach === '' ? 'Every page' : reach.charAt(0).toUpperCase() + reach.slice(1)
+})
+
 // ── Required blocks (spec §3, §4.1): the primary body's Entry content block — or a surface's block
 // without a field, the product page's Product buy box — is placed exactly once, so deleting it is refused
 // with the reason; moving it is fine. ──
@@ -148,8 +159,7 @@ function requiredReason(id: string): string | null {
     (r) => r.type === block.type && (r.field === undefined || r.field === placedField(block)),
   )
   if (!rule) return null
-  const noun = session.value?.label.split(' — ')[0]?.toLowerCase() ?? 'pages'
-  return `Every one of the ${noun} shows its ${rule.field ?? typeLabel(block.type)} here, so the layout keeps this block. Move it instead.`
+  return `${every.value} shows its ${typeLabel(block.type)} here, so the layout keeps this block. Move it instead.`
 }
 const deleteRefusal = computed(() =>
   deleteRequest.value === null ? null : requiredReason(deleteRequest.value),
@@ -236,10 +246,9 @@ async function confirmRemove(): Promise<void> {
     await router.push('/layouts')
   }
 }
-const removeCopy = computed(() => {
-  const noun = session.value?.label.split(' — ')[0]?.toLowerCase() ?? 'page'
-  return `Every one of the ${noun} goes back to the theme’s design; your unsaved edits are discarded.`
-})
+const removeCopy = computed(
+  () => `${every.value} goes back to the theme’s design; your unsaved edits are discarded.`,
+)
 
 // ── Leaving with unsaved edits (spec §6.2): the app's own guard. ──
 let leaving = false
@@ -386,6 +395,8 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
                 :parent="selectedParent"
                 :parent-type="selectedParentType"
                 :parent-classes="classRefsFor(selectedParent)"
+                :parent-slot="selectedParentSlot"
+                :loops="loops"
                 :active-breakpoint="activeBreakpoint"
                 :fill="selectedFill"
                 :blocks-host="selectedBlocksHost"

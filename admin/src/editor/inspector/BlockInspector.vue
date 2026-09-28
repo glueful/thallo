@@ -43,6 +43,9 @@ const props = defineProps<{
   parent?: BlockInstance | null
   parentType?: BlockType | null
   parentClasses?: StyleClassRef[]
+  /** The parent's blocks field the block sits in, and the document's loops (a layout's cards). */
+  parentSlot?: string | null
+  loops?: { type: string; card: string }[]
   /**
    * The root blocks field that owns the block, and the block's place in it. With it the Content
    * tab is the form the main Content tab has — a blocks-typed field is its list of cards, a prose
@@ -305,6 +308,8 @@ const cardFields = computed<string[]>(() =>
           :parent="parent"
           :parent-type="parentType"
           :parent-classes="parentClasses"
+          :parent-slot="parentSlot"
+          :loops="loops"
           :fill="fill"
           @fill-cells="emit('fill-cells')"
           @set="(path, bp, value) => emit('set-setting', path, bp, value)"

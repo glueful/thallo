@@ -377,6 +377,21 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   const selectedParentType = computed(
     () => allBlockTypes.value?.find((t) => t.slug === selectedParent.value?.type) ?? null,
   )
+  /** The parent's blocks field that holds the selection — a loop's card is told apart by it. */
+  const selectedParentSlot = computed<string | null>(() => {
+    const parent = selectedParent.value
+    const id = selection.value.ids[0] ?? selected.value
+    if (!parent || !id) return null
+    return (
+      regionsOf(parent.type).find(
+        (region) =>
+          Array.isArray(parent.data[region]) &&
+          (parent.data[region] as BlockInstance[]).some((b) => b.id === id),
+      ) ?? null
+    )
+  })
+  /** The document's loops (a layout surface's), for the Layout tab's card boundary. */
+  const loops = computed(() => host.cards?.()?.loops ?? [])
   /** The ids a style edit writes to: the whole selection, in one transaction. */
   const styleTargets = (): string[] =>
     selection.value.ids.length > 0 ? selection.value.ids : selected.value ? [selected.value] : []
@@ -802,6 +817,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
             .map((f) => [f.name, { blockTypes: f.blockTypes ?? [] }]),
         ),
       maxDepth: MAX_BLOCK_DEPTH,
+      cards: host.cards?.() ?? undefined,
     }
   }
 
@@ -886,7 +902,11 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   const targetStale = ref(false)
   let insertAttempt = 0
   const paletteTypes = computed(() =>
-    visibleTypes(allBlockTypes.value ?? [], host.allowLayoutOnly === true),
+    visibleTypes(
+      allBlockTypes.value ?? [],
+      host.allowLayoutOnly === true,
+      host.palette?.() ?? null,
+    ),
   )
   function effectiveTarget(): InsertTarget | null {
     if (insertTarget.value) return insertTarget.value
@@ -2111,6 +2131,8 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     selectedBlockTypes,
     selectedParent,
     selectedParentType,
+    selectedParentSlot,
+    loops,
     onSetSetting,
     onSetAll,
     onSetAdvanced,

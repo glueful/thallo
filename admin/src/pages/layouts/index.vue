@@ -3,8 +3,9 @@ import { computed } from 'vue'
 import { useLayouts, type LayoutRow } from '@/queries/layouts'
 
 // Site › Layouts (type layouts spec §6.1): each page kind that can have a layout — for each content
-// type, its single post — and whether it renders through the theme's template or a custom layout.
-// Edit opens the layout editor. Remove lives there, where the editing session and version are.
+// type, its single post, its listing pages and its archives — and whether it renders through the
+// theme's template or a custom layout. Edit opens the layout editor. Remove lives there, where the
+// editing session and version are. A row that cannot have a layout says why, and where to fix it.
 definePage({ meta: { requiresAuth: true } })
 
 const { data, isLoading, error } = useLayouts()
@@ -79,12 +80,17 @@ function savedLine(row: LayoutRow): string | null {
                 </UBadge>
                 <span v-if="savedLine(row)" class="ms-2">{{ savedLine(row) }}</span>
               </p>
-              <p
-                v-if="!row.enabled && row.reason"
-                class="mt-1 text-xs text-muted"
-                data-test="layouts-reason"
-              >
-                {{ row.reason }}
+              <p v-if="!row.enabled && row.reason" class="mt-1 text-xs text-muted">
+                <span data-test="layouts-reason">{{ row.reason }}</span>
+                <!-- The one link a surface gives today: listing pages off in Settings › General. -->
+                <RouterLink
+                  v-if="row.link"
+                  :to="row.link"
+                  class="ms-1 font-medium text-primary hover:underline"
+                  data-test="layouts-link"
+                >
+                  Turn on listing pages
+                </RouterLink>
               </p>
             </div>
             <UButton
