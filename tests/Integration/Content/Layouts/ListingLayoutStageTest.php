@@ -72,6 +72,7 @@ final class ListingLayoutStageTest extends AppTestCase
      * The surface's starter with ids, a heading added, as the working copy.
      *
      * @param array<string,mixed> $settings
+     * @param list<array<string,mixed>> $extra blocks added after the marker
      * @return list<array<string,mixed>>
      */
     private function applyWorking(
@@ -80,8 +81,12 @@ final class ListingLayoutStageTest extends AppTestCase
         string $token,
         array $settings = [],
         ?ContainerInterface $container = null,
+        array $extra = [],
     ): array {
-        $blocks = self::withIds($this->container()->get(LayoutSurfaceRegistry::class)->get($surface)->starter($target));
+        $blocks = self::withIds([
+            ...$this->container()->get(LayoutSurfaceRegistry::class)->get($surface)->starter($target),
+            ...$extra,
+        ]);
         $blocks[] = [
             'id' => 'stagemarker1', 'type' => 'heading', 'data' => ['text' => 'WORKING-MARKER'], 'settings' => [],
         ];
@@ -147,7 +152,10 @@ final class ListingLayoutStageTest extends AppTestCase
         $session = $this->session('archive', 'post:categories');
         self::assertFalse($session['placeholder']);
         self::assertSame('Pottery', $session['sample']['label']);
-        $this->applyWorking('archive', 'post:categories', $session['token']);
+        // The starter is today's archive page; its Term description is added from the palette.
+        $this->applyWorking('archive', 'post:categories', $session['token'], extra: [
+            ['type' => 'term_description', 'data' => [], 'settings' => []],
+        ]);
 
         $html = $this->stage($session['token']);
         self::assertStringContainsString('thallo-layout--archive', $html);

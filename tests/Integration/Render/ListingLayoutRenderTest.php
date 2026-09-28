@@ -49,10 +49,15 @@ final class ListingLayoutRenderTest extends AppTestCase
         return $this->handle(Request::create($path, 'GET'));
     }
 
-    /** @param array<string,mixed> $settings */
-    private function saveStarter(string $surface, string $target, array $settings = []): void
+    /**
+     * @param array<string,mixed> $settings
+     * @param list<array<string,mixed>> $afterTitle blocks placed after the starter's title
+     */
+    private function saveStarter(string $surface, string $target, array $settings = [], array $afterTitle = []): void
     {
-        $blocks = self::withIds($this->container()->get(LayoutSurfaceRegistry::class)->get($surface)->starter($target));
+        $starter = $this->container()->get(LayoutSurfaceRegistry::class)->get($surface)->starter($target);
+        array_splice($starter, 1, 0, $afterTitle);
+        $blocks = self::withIds($starter);
         $repo = $this->container()->get(LayoutRepository::class);
         $this->container()->get(LayoutWriteLock::class)->within(
             $surface,
@@ -126,7 +131,10 @@ final class ListingLayoutRenderTest extends AppTestCase
 
     public function testTheArchiveRendersItsTermAndMembers(): void
     {
-        $this->saveStarter('archive', 'post:categories');
+        // The starter is today's archive page; its Term description is added from the palette.
+        $this->saveStarter('archive', 'post:categories', [], [
+            ['type' => 'term_description', 'data' => [], 'settings' => []],
+        ]);
         $response = $this->get('/post/categories/pottery');
         $html = (string) $response->getContent();
         self::assertStringContainsString('<article class="thallo-layout thallo-layout--archive">', $html);

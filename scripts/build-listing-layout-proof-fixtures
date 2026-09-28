@@ -10,7 +10,12 @@
  *
  * Pages: `listing-original.html` (`/post`) and `archive-original.html` (`/post/categories/pottery`)
  * — today's pages, the ones `references/{listing,archive}-original.json` froze before any Release B
- * template or stylesheet change.
+ * template or stylesheet change. Then each surface's starter saved (`{listing,archive}-starter.html`)
+ * and, for the listing, the starter with values authored on its blocks and the Entry list a
+ * two-column grid (`listing-authored.html`), the Entry list a wrapping row (`listing-flex.html`),
+ * those values removed again (`listing-reset.html`), and blocks added beside the starter
+ * (`listing-added.html`) — each also as its layout stage renders it (`*-stage.html`, annotated,
+ * with the stage's own stylesheet).
  *
  *   CACHE_DRIVER=array DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-listing-layout-proof-fixtures
  */
@@ -19,8 +24,18 @@ declare(strict_types=1);
 
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
+use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Thallo\Contracts\Layouts\LayoutSurfaceRegistry;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
+use Thallo\Core\Content\Layouts\LayoutResolver;
+use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
+use Thallo\Core\Http\Controllers\LayoutAdminController;
+use Thallo\Core\Http\Controllers\LayoutPreviewController;
+use Thallo\Core\Http\DTOs\LayoutSessionData;
+use Thallo\Core\Http\DTOs\SaveLayoutData;
 use Thallo\Core\Tests\Support\ListingPageSeed;
 use Thallo\Core\Tests\Support\TestApplication;
 
@@ -130,6 +145,24 @@ final class ListingFixturesWritten extends RuntimeException
 {
 }
 
+// The block types' style declarations, as the application syncs them: the layouts' authored values
+// validate against them.
+$container->get(StarterBlockTypeSeeder::class)->seedMissing();
+$blockTypes = $container->get(BlockTypeRepository::class);
+foreach ($container->get(BlockTypeKind::class)->definitions() as $definition) {
+    $payload = $definition->payload;
+    $row = $blockTypes->findBySlug((string) $payload['slug']);
+    if ($row !== null) {
+        $blockTypes->updateStyle(
+            (string) $row['uuid'],
+            $payload['style_capabilities'] ?? null,
+            $payload['style_targets'] ?? null,
+            $payload['flags'] ?? null,
+            $row['starter_content'] ?? $payload['starter_content'] ?? null,
+        );
+    }
+}
+
 $written = [];
 try {
     $db->transaction(static function () use ($container, $context, $get, $selfContained, $out, &$written): void {
@@ -148,6 +181,118 @@ try {
             }
             file_put_contents($out . "/{$name}.html", $selfContained($html));
             $written[] = "{$name}.html";
+        }
+
+        // Each layout, saved through a session and Save as the editor saves it, then the page and the
+        // stage of that session rendered for each state.
+        $withIds = static function (array $tree, string $prefix) use (&$withIds): array {
+            foreach ($tree as $i => $block) {
+                $tree[$i]['id'] = str_pad($prefix . $i, 12, '0');
+                foreach ($block['data'] as $key => $value) {
+                    if (is_array($value) && array_is_list($value) && isset($value[0]['type'])) {
+                        $tree[$i]['data'][$key] = $withIds($value, $prefix . $i . 'n');
+                    }
+                }
+            }
+            return $tree;
+        };
+        $surfaces = $container->get(LayoutSurfaceRegistry::class);
+        $token = static fn (string $value): array => ['type' => 'token', 'value' => $value];
+        $choice = static fn (string $value): array => ['type' => 'choice', 'value' => $value];
+        // Values authored on the starter's blocks. The Entry list is a two-column grid, set from the
+        // Layout tab; the card's title carries a span its card never uses (it is no item of the grid).
+        $authoredStyle = [
+            'listing_title' => ['typography' => ['size' => ['base' => $token('typography.size.3xl')]],
+                'colors' => ['text' => $token('color.accent')]],
+            'entry_title' => ['typography' => ['size' => ['base' => $token('typography.size.2xl')]],
+                'layout' => ['span' => ['base' => $choice('2')]]],
+            'entry_loop' => ['layout' => [
+                'display' => ['base' => $choice('grid')],
+                'columns' => ['base' => $choice('2')],
+            ]],
+        ];
+        $flexStyle = [
+            'entry_loop' => ['layout' => [
+                'display' => ['base' => $choice('flex')],
+                'direction' => ['base' => $choice('row')],
+                'wrap' => ['base' => $choice('wrap')],
+            ]],
+        ];
+        $styled = static function (array $tree, array $style) use (&$styled): array {
+            foreach ($tree as $i => $block) {
+                if (isset($style[$block['type']])) {
+                    $tree[$i]['settings'] = ['style' => $style[$block['type']]];
+                }
+                foreach ($block['data'] as $key => $value) {
+                    if (is_array($value) && array_is_list($value) && isset($value[0]['type'])) {
+                        $tree[$i]['data'][$key] = $styled($value, $style);
+                    }
+                }
+            }
+            return $tree;
+        };
+        $hydrator = new RequestDataHydrator();
+        $plan = [
+            'listing' => ['post', '/post', 'thallo-layout--listing'],
+            'archive' => ['post:categories', '/post/categories/pottery', 'thallo-layout--archive'],
+        ];
+        foreach ($plan as $surface => [$target, $path, $frame]) {
+            $starter = $withIds($surfaces->get($surface)->starter($target), substr($surface, 0, 1));
+            $states = ['starter' => $starter];
+            if ($surface === 'listing') {
+                // Blocks placed beside the starter, after the page title: they keep the theme's
+                // spacing, as on any page.
+                $added = $starter;
+                array_splice($added, 1, 0, $withIds([
+                    ['type' => 'heading', 'data' => ['text' => 'From the studio', 'level' => 'h2'], 'settings' => []],
+                    ['type' => 'rich_text', 'data' => ['body' => '<p>Notes on making, glazing and firing.</p>'],
+                        'settings' => []],
+                    ['type' => 'image', 'data' => ['image' => 'listblob0001', 'alt' => 'The kiln', 'width' => 320,
+                        'height' => 240], 'settings' => []],
+                ], 'a'));
+                $states += [
+                    'authored' => $styled($starter, $authoredStyle),
+                    'flex' => $styled($starter, $flexStyle),
+                    'reset' => $starter,
+                    'added' => $added,
+                ];
+            }
+            $version = 0;
+            foreach ($states as $name => $blocks) {
+                $session = json_decode((string) $container->get(LayoutPreviewController::class)->session(
+                    $hydrator->hydrate(LayoutSessionData::class, ['surface' => $surface, 'target' => $target]),
+                )->getContent(), true)['data'];
+                $saved = $container->get(LayoutAdminController::class)->save(
+                    $hydrator->hydrate(SaveLayoutData::class, [
+                        'token' => $session['token'], 'layout' => ['blocks' => $blocks, 'settings' => []],
+                        'expected_lock_version' => $version,
+                    ]),
+                    Request::create('/x', 'PUT'),
+                    $surface,
+                    $target,
+                );
+                if ($saved->getStatusCode() !== 200) {
+                    throw new RuntimeException("saving the {$surface} {$name} layout answered {$saved->getStatusCode()}: {$saved->getContent()}");
+                }
+                $version++;
+                // Inside this rolled-back transaction Save's effects wait for a commit that never
+                // comes: forget the resolver's answer and the cached pages here, and render the stage
+                // from a session minted now, whose baseline is the layout just saved.
+                $container->get(LayoutResolver::class)->forget($surface, $target);
+                $container->get(Glueful\Cache\CacheStore::class)->deletePattern('render:*');
+                $stage = json_decode((string) $container->get(LayoutPreviewController::class)->session(
+                    $hydrator->hydrate(LayoutSessionData::class, ['surface' => $surface, 'target' => $target]),
+                )->getContent(), true)['data'];
+                $pages = ['' => $path, '-stage' => '/_preview/' . $stage['token'] . '?canvas=1'];
+                foreach ($pages as $suffix => $url) {
+                    $rendered = $get($url);
+                    if ($rendered->getStatusCode() !== 200 || !str_contains((string) $rendered->getContent(), $frame)) {
+                        throw new RuntimeException("the {$surface}-{$name}{$suffix} page is not the {$surface} frame ({$rendered->getStatusCode()})");
+                    }
+                    file_put_contents($out . "/{$surface}-{$name}{$suffix}.html", $selfContained((string) $rendered->getContent()));
+                    $written[] = "{$surface}-{$name}{$suffix}.html";
+                }
+            }
         }
         throw new ListingFixturesWritten();
     });

@@ -116,11 +116,12 @@ final class ArchiveSurfaceTest extends AppTestCase
         self::assertSame('layouts/archive.twig', $surface->frame());
         self::assertSame('asset', $surface->bindable('post:categories')['cover']);
 
+        // Today's archive page (the user's B7 ruling): the title, the list and the navigation. The Term
+        // description is in the palette, for a layout that wants it.
         $starter = $surface->starter('post:categories');
-        self::assertSame(
-            ['listing_title', 'term_description', 'entry_loop', 'pagination'],
-            array_column($starter, 'type'),
-        );
+        self::assertSame(['listing_title', 'entry_loop', 'pagination'], array_column($starter, 'type'));
+        $listing = $this->container()->get(LayoutSurfaceRegistry::class)->get('listing');
+        self::assertSame($listing->starter('post'), $starter, 'the listing\'s starter');
         $withIds = self::withIds($starter);
         $clean = $this->container()->get(LayoutValidator::class)
             ->validate('archive', 'post:categories', $withIds, []);

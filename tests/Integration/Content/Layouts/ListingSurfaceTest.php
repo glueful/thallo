@@ -136,13 +136,24 @@ final class ListingSurfaceTest extends AppTestCase
     public function testTheStarterIsTodaysListingPage(): void
     {
         $starter = $this->surface()->starter('post');
+        // Today's row (type layouts plan B, the user's B7 ruling): a row container in the card, the
+        // cover beside a column container of the title, the date and the three-line excerpt.
+        $text = ['type' => 'container', 'data' => ['element' => 'div', 'content' => [
+            ['type' => 'entry_title', 'data' => ['level' => 'h2', 'link' => true], 'settings' => []],
+            ['type' => 'entry_date', 'data' => ['format' => 'long'], 'settings' => []],
+            ['type' => 'entry_excerpt', 'data' => ['field' => 'excerpt', 'clamp' => 3], 'settings' => []],
+        ]], 'settings' => ['style' => ['layout' => [
+            'gap' => ['row' => ['base' => ['type' => 'token', 'value' => 'spacing.xs']]],
+        ]]]];
         self::assertSame([
             ['type' => 'listing_title', 'data' => ['level' => 'h1'], 'settings' => []],
             ['type' => 'entry_loop', 'data' => ['card' => [
-                ['type' => 'entry_cover', 'data' => ['field' => 'cover', 'link' => true], 'settings' => []],
-                ['type' => 'entry_title', 'data' => ['level' => 'h2', 'link' => true], 'settings' => []],
-                ['type' => 'entry_date', 'data' => ['format' => 'long'], 'settings' => []],
-                ['type' => 'entry_excerpt', 'data' => ['field' => 'excerpt'], 'settings' => []],
+                ['type' => 'container', 'data' => ['element' => 'div', 'content' => [
+                    ['type' => 'entry_cover', 'data' => ['field' => 'cover', 'link' => true], 'settings' => []],
+                    $text,
+                ]], 'settings' => ['style' => ['layout' => [
+                    'direction' => ['base' => ['type' => 'choice', 'value' => 'row']],
+                ]]]],
             ]], 'settings' => []],
             ['type' => 'pagination', 'data' => [], 'settings' => []],
         ], $starter);
@@ -150,16 +161,19 @@ final class ListingSurfaceTest extends AppTestCase
         $clean = $this->container()->get(LayoutValidator::class)->validate('listing', 'post', $withIds, []);
         self::assertEquals($withIds, $clean['blocks'], 'it passes validation unchanged');
 
-        // A type with neither a cover nor an excerpt: the card holds the title and the date.
+        // A type with neither a cover nor an excerpt: the card's column holds the title and the date.
         $this->container()->get(ContentTypeRepository::class)->create([
             'slug' => 'note', 'name' => 'Notes', 'public_delivery' => true, 'schema' => [
                 ['name' => 'title', 'type' => 'string', 'required' => true],
             ],
         ]);
-        self::assertSame(
-            ['entry_title', 'entry_date'],
-            array_column($this->surface()->starter('note')[1]['data']['card'], 'type'),
-        );
+        $card = $this->surface()->starter('note')[1]['data']['card'];
+        self::assertSame(['container'], array_column($card, 'type'));
+        self::assertSame(['entry_title', 'entry_date'], array_column($card[0]['data']['content'], 'type'));
+        $noteBlocks = self::withIds($this->surface()->starter('note'));
+        $this->container()->get(GeneralSettings::class)->save(['listing_types' => ['post', 'note']]);
+        $cleanNote = $this->container()->get(LayoutValidator::class)->validate('listing', 'note', $noteBlocks, []);
+        self::assertEquals($noteBlocks, $cleanNote['blocks'], 'it passes validation unchanged');
     }
 
     /** Review Focus 2: unlisting keeps the layout and closes its row; relisting serves it again. */
