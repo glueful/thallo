@@ -55,11 +55,18 @@ final class LayoutPreviewController
         description: 'Mints a layout preview token for a surface and target, pins the saved layout (or '
             . 'the starter when there is none) and its version as the session baseline, and picks the '
             . 'sample the stage renders it against: the one asked for, the newest published item, or '
-            . 'a placeholder built in memory. Requires `templates.manage`.',
+            . 'a placeholder built in memory. The session names the surface\'s required blocks, its '
+            . 'palette and its loops (each loop\'s card field and the blocks only a card holds). A target '
+            . 'whose pages are off the site opens only while it keeps a saved layout, to remove it: '
+            . '`closed` says why, and Save and apply refuse it. Requires `templates.manage`.',
         tags: ['Thallo Layouts'],
     )]
     #[ApiResponse(200, description: 'Session opened.')]
-    #[ApiResponse(422, description: 'An unknown surface, or a target that cannot have a layout.')]
+    #[ApiResponse(
+        422,
+        description: 'An unknown surface, or a target that cannot be opened: closed while its pages are still on '
+            . 'the site (its blocks not installed), or off the site with no layout kept.',
+    )]
     public function session(LayoutSessionData $input): Response
     {
         $this->styleClasses?->refresh();
@@ -68,17 +75,24 @@ final class LayoutPreviewController
             return Response::validation(['surface' => "unknown layout surface '{$input->surface}'"]);
         }
         $target = $this->targets?->find($surface, $input->target) ?? self::target($surface, $input->target);
-        if ($target === null || !$target['enabled']) {
-            return Response::validation(['target' => $target['reason'] ?? "'{$input->target}' cannot have a layout"]);
-        }
         $row = $this->layouts->find($input->surface, $input->target);
+        // A closed target opens only while its pages are off the site and it keeps a saved layout — to
+        // remove it (Save and apply stay refused). A target closed for missing blocks is still live
+        // and opens nothing, as before; with no layout there is nothing to open.
+        $closed = null;
+        if ($target === null || !$target['enabled']) {
+            $closed = $target['reason'] ?? "'{$input->target}' cannot have a layout";
+            if (!($target['removable'] ?? false) || $row === null || $row['blocks'] === null) {
+                return Response::validation(['target' => $closed]);
+            }
+        }
         $starter = $row === null || $row['blocks'] === null;
         $layout = [
             'blocks' => $starter ? self::withIds($surface->starter($input->target)) : $row['blocks'],
             'settings' => $starter ? [] : $row['settings'],
         ];
         $lockVersion = $row['lock_version'] ?? 0;
-        $sample = $this->pickSample($surface, $input->target, $input->sample);
+        $sample = $closed === null ? $this->pickSample($surface, $input->target, $input->sample) : null;
 
         $ttl = $this->minter->ttlSeconds();
         $exp = time() + $ttl;
@@ -114,10 +128,13 @@ final class LayoutPreviewController
             'starter_layout' => $starter ? $layout['blocks'] : self::withIds($surface->starter($input->target)),
             'required' => $surface->required($input->target),
             'palette' => $surface->palette(),
+            'loops' => $surface->loops($input->target),
             'sample' => $sample,
             'placeholder' => $sample === null,
             'label' => $surface->label($input->target),
             'reach' => $surface->reach($input->target),
+            // Why this layout's pages are off the site, when they are: it can be removed, not edited.
+            'closed' => $closed,
             'style_generation' => $this->styleClasses?->snapshot()->generation ?? 0,
         ], 'Layout editing session opened.');
     }
@@ -215,7 +232,7 @@ final class LayoutPreviewController
         return $samples[0] ?? null;
     }
 
-    /** @return array{target: string, label: string, enabled: bool, reason: ?string}|null */
+    /** @return array{target: string, label: string, enabled: bool, reason: ?string, link: ?string}|null */
     private static function target(LayoutSurface $surface, string $target): ?array
     {
         foreach ($surface->targets() as $row) {

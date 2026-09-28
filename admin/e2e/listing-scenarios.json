@@ -1,0 +1,252 @@
+{
+  "_comment": "The listing layout stage's accepted states (type layouts plan B, B6). scripts/build-builder-proof-fixtures validates each (the validator's clean output must equal it), renders it through the real session, apply and preview path against the seeded post listing's first page, and writes admin/e2e/fixtures/layouts/listing-*. `placeholder` is rendered in a second world, on a post type with nothing published: the placeholder page's one sample card. A block written {id, $factory: slug} is that type's factory instance under the given id — what the palette tile inserts.",
+  "scenarios": [
+    {
+      "name": "baseline",
+      "layout": {
+        "blocks": [
+          {
+            "id": "e2elisttitle",
+            "type": "listing_title",
+            "data": {
+              "level": "h1"
+            },
+            "settings": {}
+          },
+          {
+            "id": "e2elistloop1",
+            "type": "entry_loop",
+            "data": {
+              "card": [
+                {
+                  "id": "e2ecardtitle",
+                  "type": "entry_title",
+                  "data": {
+                    "level": "h2",
+                    "link": true
+                  },
+                  "settings": {}
+                }
+              ]
+            },
+            "settings": {}
+          },
+          {
+            "id": "e2elistpages",
+            "type": "pagination",
+            "data": {},
+            "settings": {}
+          }
+        ],
+        "settings": {}
+      }
+    },
+    {
+      "name": "dated",
+      "layout": {
+        "blocks": [
+          {
+            "id": "e2elisttitle",
+            "type": "listing_title",
+            "data": {
+              "level": "h1"
+            },
+            "settings": {}
+          },
+          {
+            "id": "e2elistloop1",
+            "type": "entry_loop",
+            "data": {
+              "card": [
+                {
+                  "id": "e2ecardtitle",
+                  "type": "entry_title",
+                  "data": {
+                    "level": "h2",
+                    "link": true
+                  },
+                  "settings": {}
+                },
+                {
+                  "id": "e2edatenew01",
+                  "$factory": "entry_date"
+                }
+              ]
+            },
+            "settings": {}
+          },
+          {
+            "id": "e2elistpages",
+            "type": "pagination",
+            "data": {},
+            "settings": {}
+          }
+        ],
+        "settings": {}
+      }
+    },
+    {
+      "name": "empty-card",
+      "layout": {
+        "blocks": [
+          {
+            "id": "e2elisttitle",
+            "type": "listing_title",
+            "data": {
+              "level": "h1"
+            },
+            "settings": {}
+          },
+          {
+            "id": "e2elistloop1",
+            "type": "entry_loop",
+            "data": {
+              "card": []
+            },
+            "settings": {}
+          },
+          {
+            "id": "e2elistpages",
+            "type": "pagination",
+            "data": {},
+            "settings": {}
+          }
+        ],
+        "settings": {}
+      }
+    },
+    {
+      "name": "placeholder",
+      "layout": {
+        "blocks": [
+          {
+            "id": "e2elisttitle",
+            "type": "listing_title",
+            "data": {
+              "level": "h1"
+            },
+            "settings": {}
+          },
+          {
+            "id": "e2elistloop1",
+            "type": "entry_loop",
+            "data": {
+              "card": []
+            },
+            "settings": {}
+          },
+          {
+            "id": "e2elistpages",
+            "type": "pagination",
+            "data": {},
+            "settings": {}
+          }
+        ],
+        "settings": {}
+      },
+      "placeholder": true
+    },
+    {
+      "name": "grid",
+      "layout": {
+        "blocks": [
+          {
+            "id": "e2elisttitle",
+            "type": "listing_title",
+            "data": {
+              "level": "h1"
+            },
+            "settings": {}
+          },
+          {
+            "id": "e2elistloop1",
+            "type": "entry_loop",
+            "data": {
+              "card": [
+                {
+                  "id": "e2ecardtitle",
+                  "type": "entry_title",
+                  "data": {
+                    "level": "h2",
+                    "link": true
+                  },
+                  "settings": {}
+                }
+              ]
+            },
+            "settings": {
+              "style": {
+                "layout": {
+                  "display": {
+                    "lg": {
+                      "type": "choice",
+                      "value": "grid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "id": "e2elistpages",
+            "type": "pagination",
+            "data": {},
+            "settings": {}
+          }
+        ],
+        "settings": {}
+      }
+    },
+    {
+      "name": "flex",
+      "layout": {
+        "blocks": [
+          {
+            "id": "e2elisttitle",
+            "type": "listing_title",
+            "data": {
+              "level": "h1"
+            },
+            "settings": {}
+          },
+          {
+            "id": "e2elistloop1",
+            "type": "entry_loop",
+            "data": {
+              "card": [
+                {
+                  "id": "e2ecardtitle",
+                  "type": "entry_title",
+                  "data": {
+                    "level": "h2",
+                    "link": true
+                  },
+                  "settings": {}
+                }
+              ]
+            },
+            "settings": {
+              "style": {
+                "layout": {
+                  "display": {
+                    "lg": {
+                      "type": "choice",
+                      "value": "flex"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "id": "e2elistpages",
+            "type": "pagination",
+            "data": {},
+            "settings": {}
+          }
+        ],
+        "settings": {}
+      }
+    }
+  ]
+}

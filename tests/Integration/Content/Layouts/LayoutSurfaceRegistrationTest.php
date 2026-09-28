@@ -53,6 +53,35 @@ final class LayoutSurfaceRegistrationTest extends AppTestCase
         self::assertSame(1, count(array_keys($keys, 'fixture', true)));
     }
 
+    /** A surface's loops reach the editor with its session; a row carries its link. */
+    public function testTheSessionCarriesTheSurfacesLoopsAndTheRowItsLink(): void
+    {
+        FixtureLayoutSurface::$loops = [['type' => 'fixture_loop', 'card' => 'card', 'items' => ['button']]];
+        try {
+            $minted = $this->container()->get(LayoutPreviewController::class)->session(
+                (new RequestDataHydrator())->hydrate(
+                    LayoutSessionData::class,
+                    ['surface' => 'fixture', 'target' => '@site'],
+                ),
+            );
+            self::assertSame(200, $minted->getStatusCode(), (string) $minted->getContent());
+            self::assertSame(
+                [['type' => 'fixture_loop', 'card' => 'card', 'items' => ['button']]],
+                json_decode((string) $minted->getContent(), true)['data']['loops'],
+            );
+        } finally {
+            FixtureLayoutSurface::$loops = [];
+        }
+        $rows = json_decode(
+            (string) $this->container()->get(LayoutAdminController::class)->index(Request::create('/v1/layouts'))
+                ->getContent(),
+            true,
+        )['data']['layouts'];
+        $row = array_values(array_filter($rows, static fn (array $r): bool => $r['surface'] === 'fixture'))[0];
+        self::assertArrayHasKey('link', $row);
+        self::assertNull($row['link']);
+    }
+
     public function testTheSurfaceRunsTheWholeLifecycleAtASiteWideTarget(): void
     {
         $admin = $this->container()->get(LayoutAdminController::class);

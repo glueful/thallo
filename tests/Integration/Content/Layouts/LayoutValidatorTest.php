@@ -281,7 +281,7 @@ final class LayoutValidatorTest extends AppTestCase
     {
         $this->seedShapes();
         $body = [self::block('entry_content', ['field' => 'body'])];
-        self::assertArrayHasKey('surface', $this->errorsFor('listing', 'post', $body));
+        self::assertArrayHasKey('surface', $this->errorsFor('nowhere', 'post', $body));
         self::assertArrayHasKey('target', $this->errorsFor('entry', 'no_such_type', $body));
     }
 
@@ -394,6 +394,107 @@ final class LayoutValidatorTest extends AppTestCase
                 $this->errorsFor('fixture', '@site', $own(['base' => $choice('visible')])),
             );
         } finally {
+            \Thallo\Core\Tests\Support\FixtureLayoutSurface::unregister($registry);
+        }
+    }
+
+    /**
+     * A surface's loops (type layouts spec §5.6, plan B): the blocks a loop's card holds live inside
+     * that card only, and the surface's page-level blocks — the loop itself, its required blocks —
+     * never go inside one; general content blocks go anywhere.
+     */
+    public function testCardBlocksLiveInsideTheCardOnly(): void
+    {
+        $this->withFixtureLoop(function (): void {
+            $button = self::block('button', ['label' => 'Go', 'url' => '/go']);
+            $loop = static fn (array $card): array => ['type' => 'fixture_loop', 'data' => ['card' => $card],
+                'settings' => []];
+            // Every layout here holds the surface's required block, at the root.
+            $required = ['id' => 'fixrequire01'] + self::block('fixture_required');
+
+            self::assertSame(
+                ['blocks.1.type' => "'button' goes inside the Fixture loop's card"],
+                $this->errorsFor('fixture', '@site', [
+                    $required,
+                    $button,
+                    $loop([self::block('heading', ['text' => 'A'])]),
+                ]),
+            );
+            self::assertSame([], $this->errorsFor('fixture', '@site', [$required, $loop([$button])]));
+            self::assertSame([], $this->errorsFor('fixture', '@site', [
+                $required,
+                $loop([['id' => 'cardbox00001'] + self::block('container', [
+                    'content' => [['id' => 'cardbutton01'] + $button],
+                ])]),
+            ]));
+            self::assertSame([], $this->errorsFor('fixture', '@site', [
+                $required,
+                $loop([$button, self::block('heading', ['text' => 'In a card'])]),
+            ]));
+        });
+    }
+
+    public function testPageBlocksNeverGoInsideACard(): void
+    {
+        $this->withFixtureLoop(function (): void {
+            $button = self::block('button', ['label' => 'Go', 'url' => '/go']);
+            $loop = static fn (array $card): array => ['type' => 'fixture_loop', 'data' => ['card' => $card],
+                'settings' => []];
+            // Every layout here holds the surface's required block, at the root.
+            $required = ['id' => 'fixrequire01'] + self::block('fixture_required');
+
+            // The loop inside its own card.
+            self::assertSame(
+                ['blocks.1.data.card.1.type' => "'fixture_loop' cannot go inside a card"],
+                $this->errorsFor('fixture', '@site', [$required, $loop([
+                    $button,
+                    ['id' => 'innerloop001'] + $loop([['id' => 'innerbutton1'] + $button]),
+                ])]),
+            );
+            // The surface's required block inside the card: refused there, and still counted — so
+            // the layout is not also told it lacks one.
+            self::assertSame(
+                ['blocks.0.data.card.1.type' => "'fixture_required' cannot go inside a card"],
+                $this->errorsFor('fixture', '@site', [$loop([
+                    $button,
+                    self::block('fixture_required'),
+                ])]),
+            );
+        });
+    }
+
+    public function testCardRulesDoNotTouchSurfacesWithoutLoops(): void
+    {
+        $this->seedShapes();
+        self::assertSame([], $this->errorsFor('entry', 'post', [
+            self::block('entry_title', ['level' => 'h1']),
+            self::block('entry_content', ['field' => 'body']),
+        ]));
+    }
+
+    /**
+     * The fixture surface with a loop: `fixture_loop` (a blocks field `card`) whose card holds
+     * `button`, and a required block without a field, `fixture_required`.
+     */
+    private function withFixtureLoop(callable $test): void
+    {
+        $blockTypes = $this->container()->get(\Thallo\Core\Content\Blocks\BlockTypeRepository::class);
+        $blockTypes->create([
+            'slug' => 'fixture_loop', 'label' => 'Fixture loop', 'category' => 'Fields',
+            'schema' => [['name' => 'card', 'type' => 'blocks']],
+        ]);
+        $blockTypes->create(['slug' => 'fixture_required', 'label' => 'Fixture required', 'schema' => []]);
+        $registry = $this->container()->get(\Thallo\Contracts\Layouts\LayoutSurfaceRegistry::class);
+        \Thallo\Core\Tests\Support\FixtureLayoutSurface::$loops = [
+            ['type' => 'fixture_loop', 'card' => 'card', 'items' => ['button']],
+        ];
+        \Thallo\Core\Tests\Support\FixtureLayoutSurface::$required = [['type' => 'fixture_required']];
+        $registry->register(new \Thallo\Core\Tests\Support\FixtureLayoutSurface());
+        try {
+            $test();
+        } finally {
+            \Thallo\Core\Tests\Support\FixtureLayoutSurface::$loops = [];
+            \Thallo\Core\Tests\Support\FixtureLayoutSurface::$required = null;
             \Thallo\Core\Tests\Support\FixtureLayoutSurface::unregister($registry);
         }
     }

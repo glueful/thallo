@@ -111,6 +111,38 @@ final class LayoutOnlyBlocksTest extends AppTestCase
         self::assertStringContainsString("'product_name' belongs to layouts", (string) $resp->getContent());
     }
 
+    /**
+     * The listing page's blocks (type layouts plan B) belong to layouts too: an entry, a region and a
+     * saved section refuse `entry_loop` and `pagination` at the block's path.
+     */
+    public function testListingBlocksBelongToLayouts(): void
+    {
+        $schema = ContentTypeSchema::fromArray([['name' => 'body', 'type' => 'blocks']]);
+        foreach (['entry_loop', 'pagination'] as $type) {
+            try {
+                $this->validator()->validate($schema, ['body' => [self::nested($type)]], true);
+                self::fail("an entry must refuse {$type}");
+            } catch (ValidationException $e) {
+                self::assertSame("'{$type}' belongs to layouts", $e->errors()['body.0.content.0'] ?? null);
+            }
+            try {
+                $this->container()->get(RegionValidator::class)->validate('footer', [self::nested($type)], []);
+                self::fail("a region must refuse {$type}");
+            } catch (ValidationException $e) {
+                self::assertStringContainsString("'{$type}' belongs to layouts", json_encode($e->errors()));
+            }
+            $dto = (new RequestDataHydrator())->hydrate(
+                SaveSectionData::class,
+                ['name' => 'Sneaky ' . $type, 'block' => self::nested($type)],
+            );
+            $request = Request::create('https://admin.test/v1/admin/saved-sections', 'POST');
+            $request->attributes->set('user', ['uuid' => 'editor000001']);
+            $resp = $this->container()->get(SavedSectionController::class)->store($dto, $request);
+            self::assertSame(422, $resp->getStatusCode());
+            self::assertStringContainsString("'{$type}' belongs to layouts", (string) $resp->getContent());
+        }
+    }
+
     public function testAValidatorForLayoutsAcceptsIt(): void
     {
         $schema = ContentTypeSchema::fromArray([['name' => 'blocks', 'type' => 'blocks']]);

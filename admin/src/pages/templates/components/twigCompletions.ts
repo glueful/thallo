@@ -49,6 +49,7 @@ const FUNCTIONS = [
   'entry_tree',
   'layout_blocks',
   'entry_slot',
+  'loop_cards',
   'neighbours',
   'markdown',
   'markdown_toc',

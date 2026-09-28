@@ -82,7 +82,7 @@ test('the stage shows the product; the Product buy box selects and cannot be del
 
   await host(page, buy).press('Delete')
   await expect(page.locator('[data-test="layout-required-refusal"]')).toHaveText(
-    'Every one of the products shows its Product buy box here, so the layout keeps this block. Move it instead.',
+    'Every product shows its Product buy box here, so the layout keeps this block. Move it instead.',
   )
   await expect(page.locator('[data-test="canvas-delete-confirm-yes"]')).toHaveCount(0)
   served(recorded)
@@ -100,8 +100,9 @@ test('a Product rating dragged in after the name appears on the refreshed stage,
     'data-test',
     'palette-group-Fields',
   )
-  // A drop on a block's middle lands after it: onto the name.
-  await dragTileTo(page, 'product_rating', host(page, sessionBlock('product_name')))
+  // Onto the lower part of the name: the drop lands after it. (At the exact middle the side depends
+  // on where the drag came from — an indicator shown above the name first pushes it down.)
+  await dragTileTo(page, 'product_rating', host(page, sessionBlock('product_name')), true, 0.85)
 
   // The accepted document is exactly the one the renderer rendered: the rating, new id, after the name.
   await layoutAcceptedIs(page, recorded, 'rated', 'product')

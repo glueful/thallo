@@ -129,6 +129,7 @@ const bridge = vi.hoisted(() => {
       onBlockDeselect: (cb: (id: string) => void) => (callbacks.deselect = cb),
       onBlockHover: (cb: (id: string) => void) => (callbacks.hover = cb),
       onBlocksIndex: (cb: (ids: string[]) => void) => (callbacks.index = cb),
+      onStageState: () => {},
       onBlockMove: (cb: (id: string, d: 1 | -1) => void) => (callbacks.move = cb),
       onDragPropose: (cb: (session: string, blocks: string[], zone: StageZone | null) => void) =>
         (callbacks.dragPropose = cb),

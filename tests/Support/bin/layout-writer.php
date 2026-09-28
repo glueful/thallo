@@ -9,6 +9,8 @@
  *   save  {surface, target, expected}: LayoutRepository::saveExpected inside LayoutWriteLock::within.
  *   save-binding  {target, field}: a first save, through LayoutSaver, of a layout whose Entry excerpt
  *                 binds `field` — it waits on the type's lock, then validates against the schema.
+ *   save-at  {surface, target, expected}: a save through LayoutSaver at any surface and target, from
+ *            a session minted for it — it takes whatever locks the saver takes for that surface.
  */
 
 declare(strict_types=1);
@@ -78,6 +80,41 @@ switch ($path) {
         try {
             $saved = $container->get(LayoutSaver::class)
                 ->save(LayoutPreviewToken::verify($token, $key, time()), $blocks, [], 0, null, null);
+            fwrite(STDOUT, json_encode(['version' => $saved['layout']['lock_version']]) . "\n");
+        } catch (ValidationException $e) {
+            fwrite(STDOUT, json_encode(['invalid' => $e->errors()]) . "\n");
+        } catch (LayoutVersionConflict $e) {
+            fwrite(STDOUT, json_encode(['conflict' => true, 'current' => $e->current]) . "\n");
+        }
+        break;
+    case 'save-at':
+        $keys = new class () {
+            use ResolvesPreviewKey;
+
+            public function of(\Glueful\Bootstrap\ApplicationContext $context): string
+            {
+                return $this->previewKey($context);
+            }
+        };
+        $key = $keys->of($container->get(\Glueful\Bootstrap\ApplicationContext::class));
+        $token = LayoutPreviewToken::mint(
+            'childsession02',
+            (string) $input['surface'],
+            (string) $input['target'],
+            null,
+            'en',
+            time() + 600,
+            $key,
+        );
+        try {
+            $saved = $container->get(LayoutSaver::class)->save(
+                LayoutPreviewToken::verify($token, $key, time()),
+                [['id' => 'childhead001', 'type' => 'heading', 'data' => ['text' => 'child'], 'settings' => []]],
+                [],
+                (int) $input['expected'],
+                null,
+                null,
+            );
             fwrite(STDOUT, json_encode(['version' => $saved['layout']['lock_version']]) . "\n");
         } catch (ValidationException $e) {
             fwrite(STDOUT, json_encode(['invalid' => $e->errors()]) . "\n");

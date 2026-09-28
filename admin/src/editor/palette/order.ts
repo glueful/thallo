@@ -53,8 +53,18 @@ export function groupByCategory(
 
 /**
  * The block types a picker offers: active ones, less the Fields blocks (`layout_only`) unless the
- * page edits a layout — the server refuses them in an entry, a region or a saved section.
+ * page edits a layout — the server refuses them in an entry, a region or a saved section — and then
+ * only the layout surface's own (`palette`) when it names them.
  */
-export function visibleTypes(types: BlockType[], allowLayoutOnly: boolean): BlockType[] {
-  return types.filter((t) => t.active && (allowLayoutOnly || t.flags?.layout_only !== true))
+export function visibleTypes(
+  types: BlockType[],
+  allowLayoutOnly: boolean,
+  palette: string[] | null = null,
+): BlockType[] {
+  return types.filter(
+    (t) =>
+      t.active &&
+      (t.flags?.layout_only !== true ||
+        (allowLayoutOnly && (palette === null || palette.includes(t.slug)))),
+  )
 }

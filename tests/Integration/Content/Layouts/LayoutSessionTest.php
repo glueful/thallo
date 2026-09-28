@@ -143,6 +143,13 @@ final class LayoutSessionTest extends AppTestCase
         self::assertSame(2, $removed['layout']['lock_version'], 'a tombstone keeps its version');
     }
 
+    /** A surface without loops says so: the entry surface's session carries none. */
+    public function testAnEntrySessionCarriesNoLoops(): void
+    {
+        $this->post();
+        self::assertSame([], $this->session()['loops']);
+    }
+
     public function testApplyValidatesAndAcceptsCompareAndSet(): void
     {
         $this->post();

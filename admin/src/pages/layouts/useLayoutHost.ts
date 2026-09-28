@@ -115,8 +115,14 @@ export function useLayoutHost(options: { surface: string; target: string }) {
   const host: StageHost = {
     schema,
     initial,
-    // The field blocks belong in a layout: this is the one editor whose palette offers them.
+    // The field blocks belong in a layout: this is the one editor whose palette offers them —
+    // this surface's own, and only while a session has said which they are.
     allowLayoutOnly: true,
+    palette: () => session.value?.palette ?? [],
+    cards: () =>
+      session.value && session.value.loops.length > 0
+        ? { loops: session.value.loops, palette: session.value.palette }
+        : null,
     // The first session's baseline is the document; a mint never touches the save baseline again.
     async mint() {
       let minted: LayoutSession
@@ -126,7 +132,8 @@ export function useLayoutHost(options: { surface: string; target: string }) {
         closed.value = closedReason(e)
         throw e
       }
-      closed.value = null
+      // A kept layout whose pages are off the site: the page shows why instead of the stage.
+      closed.value = minted.closed
       session.value = minted
       if (baseline.value === null) {
         loaded(minted)
@@ -154,8 +161,23 @@ export function useLayoutHost(options: { surface: string; target: string }) {
     async renew(fields): Promise<StageRenewal> {
       if (retired.value) throw new StageRenewalAbandoned()
       const mine = ++generation
-      const minted = await mintLayoutSession(options.surface, options.target, sample.value)
+      let minted: LayoutSession
+      try {
+        minted = await mintLayoutSession(options.surface, options.target, sample.value)
+      } catch (e) {
+        // Closed since it opened (its blocks gone, or nothing kept there): the page says why.
+        const reason = closedReason(e)
+        if (reason === null) throw e
+        closed.value = reason
+        throw new StageRenewalAbandoned()
+      }
       if (mine !== generation) throw new StageRenewalAbandoned()
+      if (minted.closed !== null) {
+        // Its pages were taken off the site meanwhile: nothing can be applied; the page says why.
+        closed.value = minted.closed
+        session.value = minted
+        throw new StageRenewalAbandoned()
+      }
       const result = await applyLayout(minted.token, toPayload(fields), {
         epoch: null,
         base_revision: null,
@@ -282,9 +304,12 @@ export function useLayoutHost(options: { surface: string; target: string }) {
       loaded(minted)
       conflict.value = false
       retired.value = false
+      closed.value = minted.closed
       editor.restart(asStage(minted), toDocument(minted.layout))
     } catch (e) {
-      notifyError(e, 'Couldn’t reload the layout')
+      const reason = closedReason(e)
+      if (reason !== null) closed.value = reason
+      else notifyError(e, 'Couldn’t reload the layout')
     }
   }
 

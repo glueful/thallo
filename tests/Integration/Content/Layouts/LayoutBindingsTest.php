@@ -51,12 +51,21 @@ final class LayoutBindingsTest extends AppTestCase
     {
         parent::setUp();
         $this->syncBlockStyleDeclarations();
+        $this->types()->create([
+            'slug' => 'category', 'name' => 'Categories', 'public_delivery' => true, 'schema' => [
+                ['name' => 'title', 'type' => 'string', 'required' => true],
+                ['name' => 'slug', 'type' => 'string', 'required' => true],
+            ],
+        ]);
         $this->postType = $this->types()->create([
             'slug' => 'post', 'name' => 'Posts', 'public_delivery' => true, 'schema' => [
                 ['name' => 'title', 'type' => 'string', 'required' => true],
                 ['name' => 'excerpt', 'type' => 'text', 'format' => 'plain'],
                 ['name' => 'subtitle', 'type' => 'string'],
+                ['name' => 'blurb', 'type' => 'text', 'format' => 'plain'],
                 ['name' => 'body', 'type' => 'blocks'],
+                ['name' => 'categories', 'type' => 'reference', 'reference_type' => 'category',
+                    'reference_slug_field' => 'slug', 'multiple' => true, 'filterable' => true],
             ],
         ]);
     }
@@ -320,6 +329,27 @@ final class LayoutBindingsTest extends AppTestCase
         self::assertNull($this->container()->get(LayoutRepository::class)->find('entry', 'post'));
     }
 
+    /**
+     * A listing or archive save takes its type's lock, as an entry save does: a migration holding
+     * `post`'s lock is seen blocking both, and each proceeds only once it releases.
+     */
+    public function testListingAndArchiveSavesTakeTheTypeLock(): void
+    {
+        $lock = $this->container()->get(LayoutWriteLock::class);
+        foreach ([['listing', 'post'], ['archive', 'post:categories']] as [$surface, $target]) {
+            $child = null;
+            $lock->withinType('post', function () use ($lock, $surface, $target, &$child): void {
+                $child = $this->startWriter('save-at', ['surface' => $surface, 'target' => $target, 'expected' => 99]);
+                $ready = $this->readLine($child['stdout']);
+                self::assertTrue($ready['ready'] ?? false, 'the writer did not report ready');
+                $this->awaitLockWait((int) $ready['pid'], $lock->typeKey('post'));
+            });
+            $result = $this->readLine($child['stdout'], 15);
+            proc_close($child['proc']);
+            self::assertSame(['conflict' => true, 'current' => 0], $result, "{$surface}:{$target}");
+        }
+    }
+
     public function testTheSchemaSaveStillRefusesDroppingAField(): void
     {
         $this->expectException(SchemaParseException::class);
@@ -327,6 +357,211 @@ final class LayoutBindingsTest extends AppTestCase
             ['name' => 'title', 'type' => 'string', 'required' => true],
             ['name' => 'body', 'type' => 'blocks'],
         ]);
+    }
+
+    /** A card that binds `blurb`, as a listing or archive layout holds it. */
+    private static function cardLayout(): array
+    {
+        return [
+            ['id' => 'laylooptitl1', 'type' => 'heading', 'data' => ['text' => 'Latest'], 'settings' => []],
+            ['id' => 'layloop00001', 'type' => 'entry_loop', 'data' => ['card' => [
+                ['id' => 'laycardsum01', 'type' => 'entry_excerpt', 'data' => ['field' => 'blurb'], 'settings' => []],
+            ]], 'settings' => []],
+        ];
+    }
+
+    /** A stored layout row, as Save or Remove leaves one: blocks null is a tombstone. */
+    private function putRow(string $surface, string $target, ?array $blocks, int $version): void
+    {
+        $now = gmdate('Y-m-d H:i:s');
+        $this->connection()->table('layouts')->insert([
+            'id' => \Glueful\Helpers\Utils::generateNanoID(),
+            'surface' => $surface,
+            'target' => $target,
+            'blocks' => $blocks === null ? null : json_encode($blocks, JSON_THROW_ON_ERROR),
+            'settings' => '{}',
+            'lock_version' => $version,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+
+    /** @return array<string,mixed>|null */
+    private function row(string $surface, string $target): ?array
+    {
+        return $this->container()->get(LayoutRepository::class)->find($surface, $target);
+    }
+
+    /** A Save through the real saver, from a session minted for `surface:target`. */
+    private function saveAt(string $surface, string $target, int $expected): \Symfony\Component\HttpFoundation\Response
+    {
+        $keys = new class () {
+            use \Thallo\Core\Content\Preview\ResolvesPreviewKey;
+
+            public function of(\Glueful\Bootstrap\ApplicationContext $context): string
+            {
+                return $this->previewKey($context);
+            }
+        };
+        $key = $keys->of($this->appContext());
+        $session = 'stale' . substr(md5($surface . $target), 0, 7);
+        $token = \Thallo\Core\Content\Preview\LayoutPreviewToken::mint(
+            $session,
+            $surface,
+            $target,
+            null,
+            'en',
+            time() + 600,
+            $key,
+        );
+        $this->container()->get(\Thallo\Core\Content\Preview\LayoutPreviewStore::class)->putBaseline($session, [
+            'layout' => ['blocks' => [], 'settings' => []], 'lock_version' => $expected,
+            'surface' => $surface, 'target' => $target, 'sample' => null,
+        ], time() + 600);
+        $dto = (new RequestDataHydrator())->hydrate(SaveLayoutData::class, [
+            'token' => $token, 'layout' => ['blocks' => self::cardLayout(), 'settings' => []],
+            'expected_lock_version' => $expected,
+        ]);
+        return $this->container()->get(LayoutAdminController::class)
+            ->save($dto, Request::create('/x', 'PUT'), $surface, $target);
+    }
+
+    public function testAFieldRenameRebindsCards(): void
+    {
+        $this->putRow('listing', 'post', self::cardLayout(), 2);
+        $this->putRow('archive', 'post:categories', self::cardLayout(), 5);
+        $this->recordLayoutChanges();
+        self::assertSame(201, $this->migrate([['op' => 'rename', 'from' => 'blurb', 'to' => 'teaser']])
+            ->getStatusCode());
+        foreach ([['listing', 'post', 3], ['archive', 'post:categories', 6]] as [$surface, $target, $version]) {
+            $row = $this->row($surface, $target);
+            self::assertSame('teaser', $row['blocks'][1]['data']['card'][0]['data']['field'], "{$surface}:{$target}");
+            self::assertSame($version, $row['lock_version']);
+        }
+        $changes = $this->recordedLayoutChanges();
+        sort($changes);
+        self::assertSame(['archive:post:categories', 'listing:post'], $changes);
+    }
+
+    public function testRenamingAnArchivedFieldMovesItsLayout(): void
+    {
+        $this->putRow('archive', 'post:categories', self::cardLayout(), 3);
+        $this->recordLayoutChanges();
+        self::assertSame(201, $this->migrate([['op' => 'rename', 'from' => 'categories', 'to' => 'topics']])
+            ->getStatusCode());
+        $moved = $this->row('archive', 'post:topics');
+        self::assertEquals(self::cardLayout(), $moved['blocks']);
+        self::assertSame(4, $moved['lock_version']);
+        $left = $this->row('archive', 'post:categories');
+        self::assertNull($left['blocks'], 'the old name keeps a tombstone');
+        self::assertSame(4, $left['lock_version']);
+        $changes = $this->recordedLayoutChanges();
+        sort($changes);
+        self::assertSame(['archive:post:categories', 'archive:post:topics'], $changes);
+    }
+
+    public function testTheDestinationsTombstoneKeepsItsVersion(): void
+    {
+        $this->putRow('archive', 'post:categories', self::cardLayout(), 3);
+        $this->putRow('archive', 'post:topics', null, 7);
+        self::assertSame(201, $this->migrate([['op' => 'rename', 'from' => 'categories', 'to' => 'topics']])
+            ->getStatusCode());
+        self::assertSame(8, $this->row('archive', 'post:topics')['lock_version']);
+        self::assertEquals(self::cardLayout(), $this->row('archive', 'post:topics')['blocks']);
+        self::assertSame(4, $this->row('archive', 'post:categories')['lock_version']);
+        self::assertNull($this->row('archive', 'post:categories')['blocks']);
+    }
+
+    public function testRenamingBackAdvancesBothNames(): void
+    {
+        $this->putRow('archive', 'post:categories', self::cardLayout(), 3);
+        $this->migrate([['op' => 'rename', 'from' => 'categories', 'to' => 'topics']]);
+        $afterFirst = [
+            $this->row('archive', 'post:categories')['lock_version'],
+            $this->row('archive', 'post:topics')['lock_version'],
+        ];
+        // The first migration's entry rewrite is a queued job: settle it, as a worker would, so the
+        // type takes another migration (its layouts moved at the flip, not in the job).
+        $this->connection()->table('entry_schema_migrations')->where('content_type_uuid', '=', $this->postType)
+            ->update(['status' => 'completed']);
+        self::assertSame(201, $this->migrate([['op' => 'rename', 'from' => 'topics', 'to' => 'categories']])
+            ->getStatusCode());
+        $back = $this->row('archive', 'post:categories');
+        $away = $this->row('archive', 'post:topics');
+        self::assertEquals(self::cardLayout(), $back['blocks'], 'the layout is back at its first name');
+        self::assertNull($away['blocks']);
+        self::assertGreaterThan(max(3, $afterFirst[0]), $back['lock_version']);
+        self::assertGreaterThan($afterFirst[1], $away['lock_version']);
+    }
+
+    /**
+     * An editor who opened either name before the move is behind at both: each Save answers 409 —
+     * before the target is validated, so a name that has no archive any more still says "changed".
+     */
+    public function testStaleEditorsAtBothNamesMeet409(): void
+    {
+        $this->putRow('archive', 'post:categories', self::cardLayout(), 3);
+        $this->putRow('archive', 'post:topics', null, 7);
+        $this->migrate([['op' => 'rename', 'from' => 'categories', 'to' => 'topics']]);
+        foreach ([['post:categories', 3], ['post:topics', 7]] as [$target, $held]) {
+            $before = $this->row('archive', $target);
+            $answer = $this->saveAt('archive', $target, $held);
+            $body = json_decode((string) $answer->getContent(), true);
+            self::assertSame(409, $answer->getStatusCode(), "{$target}: " . $answer->getContent());
+            self::assertSame('LAYOUT_VERSION_CONFLICT', $body['error']['details']['code'] ?? null);
+            self::assertSame($before, $this->row('archive', $target), "{$target}: nothing written");
+        }
+    }
+
+    public function testALiveDestinationRefusesTheRename(): void
+    {
+        $this->putRow('archive', 'post:categories', self::cardLayout(), 3);
+        $this->putRow('archive', 'post:topics', self::cardLayout(), 2);
+        $refused = $this->migrate([['op' => 'rename', 'from' => 'categories', 'to' => 'topics']]);
+        self::assertSame(422, $refused->getStatusCode(), (string) $refused->getContent());
+        self::assertStringContainsString('Posts — Topics archive', (string) $refused->getContent());
+        self::assertSame(3, $this->row('archive', 'post:categories')['lock_version']);
+        self::assertSame(2, $this->row('archive', 'post:topics')['lock_version']);
+    }
+
+    public function testASourceTombstoneMovesNothing(): void
+    {
+        $this->putRow('archive', 'post:categories', null, 4);
+        self::assertSame(201, $this->migrate([['op' => 'rename', 'from' => 'categories', 'to' => 'topics']])
+            ->getStatusCode());
+        self::assertSame(4, $this->row('archive', 'post:categories')['lock_version']);
+        self::assertNull($this->row('archive', 'post:topics'));
+    }
+
+    public function testDeletingAFieldAnArchiveOrCardUsesIsRefused(): void
+    {
+        $this->putRow('listing', 'post', self::cardLayout(), 1);
+        $this->putRow('archive', 'post:categories', self::cardLayout(), 1);
+        $blurb = $this->migrate([['op' => 'delete', 'name' => 'blurb']]);
+        self::assertSame(422, $blurb->getStatusCode(), (string) $blurb->getContent());
+        // Named as the Layouts page names them.
+        self::assertStringContainsString("'blurb' is shown by", (string) $blurb->getContent());
+        self::assertStringContainsString('Posts — listing pages', (string) $blurb->getContent());
+        self::assertStringContainsString('Posts — Categories archive', (string) $blurb->getContent());
+        $categories = $this->migrate([['op' => 'delete', 'name' => 'categories']]);
+        self::assertSame(422, $categories->getStatusCode(), (string) $categories->getContent());
+        self::assertStringContainsString("'categories' is shown by", (string) $categories->getContent());
+    }
+
+    public function testDeletingATypeTombstonesItsListingAndArchiveLayouts(): void
+    {
+        $this->saveLayout();
+        $this->putRow('listing', 'post', self::cardLayout(), 2);
+        $this->putRow('archive', 'post:categories', self::cardLayout(), 5);
+        $response = $this->container()->get(ContentTypeController::class)
+            ->destroy(Request::create('/x', 'DELETE'), 'post');
+        self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+        $expected = [['entry', 'post', 2], ['listing', 'post', 3], ['archive', 'post:categories', 6]];
+        foreach ($expected as [$surface, $target, $version]) {
+            $row = $this->row($surface, $target);
+            self::assertNull($row['blocks'], "{$surface}:{$target} is a tombstone");
+            self::assertSame($version, $row['lock_version']);
+        }
     }
 
     public function testDeletingTheTypeTombstonesItsLayout(): void

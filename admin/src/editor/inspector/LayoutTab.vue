@@ -56,6 +56,13 @@ const props = defineProps<{
    */
   parent?: BlockInstance | null
   parentType?: BlockType | null
+  /** The parent's blocks field the block sits in, so a loop's card can be told apart. */
+  parentSlot?: string | null
+  /**
+   * A layout surface's loops (type layouts plan B): a loop arranges its cards, and what sits
+   * directly in a card is placed by the card's own flow — it is no item of the loop.
+   */
+  loops?: { type: string; card: string }[]
   /** The parent's own style classes, so its mode resolves through the same cascade. */
   parentClasses?: StyleClassRef[]
   /**
@@ -255,10 +262,21 @@ const ITEM_PATHS = [
   'layout.align_self',
 ]
 
+/** The block sits directly in a loop's card: the loop arranges cards, not what is inside them. */
+const inCard = computed(
+  () =>
+    !!props.parent &&
+    (props.loops ?? []).some(
+      (loop) => loop.type === props.parent!.type && loop.card === props.parentSlot,
+    ),
+)
+/** The block is a loop: what it arranges is its cards. */
+const isLoop = computed(() => (props.loops ?? []).some((loop) => loop.type === props.block.type))
+
 /** Whether the parent is something that arranges its children at all. */
 const parentArranges = computed(() => {
   const type = props.parentType
-  if (!props.parent || !type) return false
+  if (!props.parent || !type || inCard.value) return false
   const caps = type.style_capabilities ?? []
   return caps.includes('layout.display') || caps.includes('layout')
 })
@@ -316,7 +334,7 @@ const sections = computed(() =>
   [
     {
       key: 'container',
-      label: 'Container',
+      label: isLoop.value ? 'Arrange the cards' : 'Container',
       rows: [...containerRows.value, ...modeRows.value].filter(
         (row, index, all) => all.indexOf(row) === index,
       ),
@@ -376,6 +394,10 @@ const gutterDefault = computed(() => {
 
 <template>
   <div class="space-y-4" data-test="layout-tab">
+    <p v-if="inCard" class="text-xs text-muted" data-test="layout-in-card">
+      This block sits in a card, in the card's own flow: the list arranges the cards, not what is
+      inside them. Put it in a container to arrange it.
+    </p>
     <p v-if="sections.length === 0" class="text-xs text-muted" data-test="layout-none">
       This block declares no layout.
     </p>

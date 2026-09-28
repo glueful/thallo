@@ -5,10 +5,13 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import type { LayoutRow } from '@/queries/layouts'
 
 // Site › Layouts (type layouts spec §6.1): every page kind with its state, Edit into the editor, a
-// disabled row's reason — and no Remove here: it lives in the editor, which holds the session.
+// disabled row's reason — and no Remove for an open row: it lives in the editor, which holds the
+// session. A turned-off row that keeps a custom layout — its pages off the site — cannot be opened,
+// so it is removed from here.
 
 const rows = ref<LayoutRow[] | undefined>(undefined)
 const canEdit = ref(true)
+const q = vi.hoisted(() => ({ refetch: vi.fn(), mint: vi.fn(), remove: vi.fn() }))
 vi.mock('@/queries/layouts', () => ({
   useLayouts: () => ({
     data: computed(() =>
@@ -16,8 +19,13 @@ vi.mock('@/queries/layouts', () => ({
     ),
     isLoading: ref(false),
     error: ref(null),
+    refetch: q.refetch,
   }),
+  mintLayoutSession: q.mint,
+  removeLayout: q.remove,
 }))
+const notify = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
+vi.mock('@/composables/useNotify', () => ({ useNotify: () => notify }))
 
 import LayoutsPage from '@/pages/layouts/index.vue'
 
@@ -29,6 +37,8 @@ const row = (overrides: Partial<LayoutRow>): LayoutRow => ({
   state: 'theme',
   enabled: true,
   reason: null,
+  link: null,
+  removable: false,
   lock_version: 0,
   updated_by: null,
   updated_by_name: null,
@@ -42,6 +52,7 @@ function mountPage() {
     routes: [{ path: '/:any(.*)*', component: { template: '<div />' } }],
   })
   return mount(LayoutsPage, {
+    attachTo: document.body,
     global: {
       plugins: [router],
       stubs: {
@@ -113,5 +124,171 @@ describe('the Layouts page', () => {
       'Quotes are not published on the site.',
     )
     expect(w.find('[data-test="layouts-edit-entry-quote"]').exists()).toBe(false)
+  })
+
+  // Type layouts plan B: an unlisted type's listing row says how to turn its listing pages on.
+  it('a disabled listing row links to the setting that turns listing pages on', async () => {
+    rows.value = [
+      row({
+        surface: 'listing',
+        target: 'page',
+        label: 'Pages — listing pages',
+        reach: 'Applies to every page of the page listing',
+        enabled: false,
+        reason: 'Listing pages are off for Pages.',
+        link: '/settings/general',
+      }),
+    ]
+    const w = mountPage()
+    await flushPromises()
+    const disabled = w.find('[data-test="layouts-row-listing-page"]')
+    expect(disabled.find('[data-test="layouts-reason"]').text()).toBe(
+      'Listing pages are off for Pages.',
+    )
+    const link = disabled.find('[data-test="layouts-link"]')
+    expect(link.text()).toBe('Turn on listing pages')
+    expect(link.attributes('href')).toBe('/settings/general')
+    expect(w.find('[data-test="layouts-edit-listing-page"]').exists()).toBe(false)
+  })
+
+  it('a turned-off row that keeps a custom layout is removed from the list', async () => {
+    rows.value = [
+      row({
+        surface: 'archive',
+        target: 'post:categories',
+        label: 'Posts — Categories archive',
+        state: 'custom',
+        enabled: false,
+        reason: 'These pages are not on the site now. The layout is kept until you remove it.',
+        removable: true,
+        lock_version: 4,
+      }),
+      row({ target: 'quote', label: 'Quotes — single quote', enabled: false, reason: 'Off.' }),
+    ]
+    q.mint.mockReset().mockResolvedValue({
+      token: 'closedtok',
+      closed: 'These pages are not on the site now. The layout is kept until you remove it.',
+    })
+    q.remove.mockReset().mockResolvedValue({ lockVersion: 5 })
+    q.refetch.mockReset()
+    const w = mountPage()
+    await flushPromises()
+    expect(w.find('[data-test="layouts-edit-archive-post:categories"]').exists()).toBe(false)
+    expect(w.find('[data-test="layouts-remove-entry-quote"]').exists()).toBe(false)
+
+    await w.find('[data-test="layouts-remove-archive-post:categories"]').trigger('click')
+    await flushPromises()
+    // The dialog is teleported to the document's body.
+    const dialog = () => document.body.querySelector('[data-test="layouts-remove-dialog"]')
+    expect(dialog()?.textContent).toContain('Posts — Categories archive')
+    ;(document.body.querySelector('[data-test="layouts-remove-confirm"]') as HTMLElement).click()
+    await flushPromises()
+    expect(q.mint).toHaveBeenCalledWith('archive', 'post:categories')
+    expect(q.remove).toHaveBeenCalledWith('archive', 'post:categories', {
+      token: 'closedtok',
+      expected_lock_version: 4,
+    })
+    expect(q.refetch).toHaveBeenCalled()
+    expect(notify.success).toHaveBeenCalled()
+    await flushPromises()
+    expect(dialog()).toBeNull()
+    w.unmount()
+  })
+
+  it('without the permission to edit, a kept layout offers no Remove', async () => {
+    canEdit.value = false
+    rows.value = [
+      row({
+        surface: 'listing',
+        target: 'post',
+        state: 'custom',
+        enabled: false,
+        reason: 'Off.',
+        removable: true,
+      }),
+    ]
+    const w = mountPage()
+    await flushPromises()
+    expect(w.find('[data-test="layouts-remove-listing-post"]').exists()).toBe(false)
+  })
+
+  // Review of aa2801ec: a row closed only because its blocks are not installed yet is still live on
+  // the site — its layout renders — so it is never offered for removal.
+  it('a closed row whose layout is still live offers no Remove', async () => {
+    rows.value = [
+      row({
+        state: 'custom',
+        enabled: false,
+        reason: 'Its blocks are not installed yet.',
+        removable: false,
+      }),
+    ]
+    const w = mountPage()
+    await flushPromises()
+    expect(w.find('[data-test="layouts-remove-entry-post"]').exists()).toBe(false)
+    w.unmount()
+  })
+
+  it('a removal that fails closes the dialog, says why and refreshes the list', async () => {
+    rows.value = [
+      row({
+        surface: 'listing',
+        target: 'post',
+        label: 'Posts — listing pages',
+        state: 'custom',
+        enabled: false,
+        reason: 'Listing pages are off for Posts.',
+        removable: true,
+        lock_version: 2,
+      }),
+    ]
+    q.mint
+      .mockReset()
+      .mockResolvedValue({ token: 'tok', closed: 'Listing pages are off for Posts.' })
+    q.remove.mockReset().mockRejectedValue(new Error('changed'))
+    q.refetch.mockReset()
+    notify.error.mockReset()
+    const w = mountPage()
+    await flushPromises()
+    await w.find('[data-test="layouts-remove-listing-post"]').trigger('click')
+    await flushPromises()
+    ;(document.body.querySelector('[data-test="layouts-remove-confirm"]') as HTMLElement).click()
+    await flushPromises()
+    expect(notify.error).toHaveBeenCalled()
+    expect(q.refetch).toHaveBeenCalled()
+    expect(document.body.querySelector('[data-test="layouts-remove-dialog"]')).toBeNull()
+    w.unmount()
+  })
+
+  // Review of 29cabb70: the list can be stale — the type listed again since it loaded. A session that
+  // opens normally means the pages are back on the site: nothing is removed, and the page says so.
+  it('a row whose pages came back since the list loaded is not removed', async () => {
+    rows.value = [
+      row({
+        surface: 'listing',
+        target: 'post',
+        label: 'Posts — listing pages',
+        state: 'custom',
+        enabled: false,
+        reason: 'Listing pages are off for Posts.',
+        removable: true,
+        lock_version: 2,
+      }),
+    ]
+    q.mint.mockReset().mockResolvedValue({ token: 'tok', closed: null })
+    q.remove.mockReset()
+    q.refetch.mockReset()
+    notify.warning.mockReset()
+    const w = mountPage()
+    await flushPromises()
+    await w.find('[data-test="layouts-remove-listing-post"]').trigger('click')
+    await flushPromises()
+    ;(document.body.querySelector('[data-test="layouts-remove-confirm"]') as HTMLElement).click()
+    await flushPromises()
+    expect(q.remove).not.toHaveBeenCalled()
+    expect(notify.warning).toHaveBeenCalled()
+    expect(q.refetch).toHaveBeenCalled()
+    expect(document.body.querySelector('[data-test="layouts-remove-dialog"]')).toBeNull()
+    w.unmount()
   })
 })

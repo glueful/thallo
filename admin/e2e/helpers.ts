@@ -442,8 +442,10 @@ export async function dragTileTo(
   slug: string,
   target: ReturnType<ReturnType<typeof stage>['locator']>,
   release = true,
+  /** Where on the target to aim, as a fraction of its height: the middle by default. */
+  at = 0.5,
 ): Promise<void> {
-  return dragCardTo(page, `[data-test="palette-card-${slug}"]`, target, release)
+  return dragCardTo(page, `[data-test="palette-card-${slug}"]`, target, release, at)
 }
 
 /** The same gesture from any palette card: a block tile, or a section of the library. */
@@ -452,7 +454,13 @@ export async function dragCardTo(
   card: string,
   target: ReturnType<ReturnType<typeof stage>['locator']>,
   release = true,
+  at = 0.5,
 ): Promise<void> {
+  const aim = async () => {
+    const box = await target.boundingBox()
+    if (!box) throw new Error('element has no box')
+    return { x: box.x + box.width / 2, y: box.y + box.height * at }
+  }
   const tile = page.locator(card)
   await tile.scrollIntoViewIfNeeded()
   // The target must sit in the iframe's viewport, clear of the bridge's edge auto-scroll zones:
@@ -462,7 +470,7 @@ export async function dragCardTo(
   const from = await centerOf(tile)
   await page.mouse.move(from.x, from.y)
   await page.mouse.down()
-  const to = await centerOf(target)
+  const to = await aim()
   const steps = 12
   for (let i = 1; i <= steps; i++) {
     await page.mouse.move(
@@ -477,7 +485,7 @@ export async function dragCardTo(
   // two moves, because the zone is proposed on a move and answered a round-trip later.
   for (let i = 0; i < 4; i++) {
     await page.waitForTimeout(250)
-    const now = await centerOf(target)
+    const now = await aim()
     if (i > 0 && Math.abs(now.x - last.x) < 2 && Math.abs(now.y - last.y) < 2) break
     await page.mouse.move(now.x, now.y - 1)
     await page.mouse.move(now.x, now.y)
@@ -809,8 +817,12 @@ interface LayoutStageFixture {
   file: string
 }
 
-/** The layout worlds the fixtures capture: the post type's layout, and the shop's product page. */
-type LayoutWorld = 'post' | 'product'
+/**
+ * The layout worlds the fixtures capture: the post type's layout, the shop's product page, and the
+ * post listing's pages — around its first page, and around the placeholder page while nothing is
+ * published.
+ */
+type LayoutWorld = 'post' | 'product' | 'listing' | 'listing-placeholder'
 const LAYOUT_WORLDS: Record<
   LayoutWorld,
   {
@@ -838,6 +850,22 @@ const LAYOUT_WORLDS: Record<
     endpoint: '**/v1/admin/layouts/product/*',
     path: '/admin/layouts/product/@site',
     ready: '.shop-product--layout',
+  },
+  listing: {
+    session: 'layouts/listing-session.json',
+    samples: 'layouts/listing-samples.json',
+    stages: 'layouts/listing-stages.json',
+    endpoint: '**/v1/admin/layouts/listing/post',
+    path: '/admin/layouts/listing/post',
+    ready: '.thallo-block-entry_loop',
+  },
+  'listing-placeholder': {
+    session: 'layouts/listing-placeholder-session.json',
+    samples: 'layouts/listing-placeholder-samples.json',
+    stages: 'layouts/listing-placeholder-stages.json',
+    endpoint: '**/v1/admin/layouts/listing/post',
+    path: '/admin/layouts/listing/post',
+    ready: '.thallo-block-entry_loop',
   },
 }
 
@@ -995,6 +1023,51 @@ export async function openLayoutStage(
 
   await signInAndOpen(page, world.path, '[data-test="layout-stage"]', 'the layout editor')
   await layoutStage(page).locator(world.ready).first().waitFor()
+  return recorded
+}
+
+export interface LayoutsPageRecorded {
+  /** How many times the list was read: a removal reads it again. */
+  lists: number
+  sessions: { surface: string; target: string }[]
+  removes: { path: string; body: { token: string; expected_lock_version: number } }[]
+}
+
+/**
+ * Open Site › Layouts in a world where the post listing's layout is kept while its pages are off the
+ * site (the type taken off the listing types): the list, the closed session its Remove opens and the
+ * removal are routed from the fixtures the real controllers wrote, and recorded.
+ */
+export async function openLayoutsPage(page: Page): Promise<LayoutsPageRecorded> {
+  await routeWorld(page)
+  const recorded: LayoutsPageRecorded = { lists: 0, sessions: [], removes: [] }
+  await page.route('**/v1/admin/layouts', (route) => {
+    recorded.lists += 1
+    // The fixture script reads the list with no signed-in user; the proof's user may edit layouts
+    // (templates.manage), as the list answers such an editor.
+    const list = JSON.parse(fixture('layouts/layouts-kept.json')) as { data: { can_edit: boolean } }
+    list.data.can_edit = true
+    return json(route, JSON.stringify(list))
+  })
+  await page.route('**/v1/admin/layouts/preview/session', (route) => {
+    const body = (route.request().postDataJSON() ?? {}) as { surface: string; target: string }
+    recorded.sessions.push({ surface: body.surface, target: body.target })
+    return json(route, fixture('layouts/listing-closed-session.json'))
+  })
+  await page.route('**/v1/admin/layouts/listing/post', (route) => {
+    const request = route.request()
+    if (request.method() !== 'DELETE') return route.fulfill({ status: 405, body: '{}' })
+    const body = request.postDataJSON() as LayoutsPageRecorded['removes'][number]['body']
+    recorded.removes.push({ path: new URL(request.url()).pathname, body })
+    return json(
+      route,
+      JSON.stringify({
+        success: true,
+        data: { lock_version: body.expected_lock_version + 1 },
+      }),
+    )
+  })
+  await signInAndOpen(page, '/admin/layouts', '[data-test="layouts-list"]', 'the Layouts page')
   return recorded
 }
 

@@ -28,6 +28,16 @@ final class BlockLibraryRenderTest extends AppTestCase
 {
     use SyncsBlockStyleDeclarations;
 
+    /**
+     * Every test renders settings through the block types' style declarations: synced here, so no test
+     * depends on another having synced them first (the container layout test failed run alone).
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->syncBlockStyleDeclarations();
+    }
+
     private function env(string $theme = 'default'): Environment
     {
         $base = $this->appContext()->getBasePath();
@@ -543,11 +553,9 @@ final class BlockLibraryRenderTest extends AppTestCase
 
     public function testSeededBlockTypesStayRegisteredWithTheHtmlOptIn(): void
     {
-        // The registry honors seeded-inactive (spec §2): html exists but off.
-        $repo = new BlockTypeRepository($this->connection());
-        $repo->create(['slug' => 'html', 'label' => 'HTML', 'active' => false,
-            'schema' => [['name' => 'code', 'type' => 'text']]]);
-        $row = $repo->findBySlug('html');
+        // The registry honors seeded-inactive (spec §2): html exists but off — as the seed made it.
+        $row = (new BlockTypeRepository($this->connection()))->findBySlug('html');
+        self::assertNotNull($row, 'html is seeded');
         self::assertSame(0, (int) $row['active']);
     }
 

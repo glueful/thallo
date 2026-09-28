@@ -51,6 +51,7 @@ vi.mock('@/composables/useCanvasBridge', () => ({ useCanvasBridge: () => bridge 
 
 import { layoutSchema, toDocument, toPayload, useLayoutHost } from '@/pages/layouts/useLayoutHost'
 import { useStageEditor, type StageEditor } from '@/editor/stage/useStageEditor'
+import { StageRenewalAbandoned } from '@/editor/stage/types'
 
 const BLOCKS = [
   { id: 'laytitle0001', type: 'entry_title', data: { level: 'h1' }, settings: {} },
@@ -68,6 +69,8 @@ function session(overrides: Partial<LayoutSession> = {}): LayoutSession {
     starterLayout: structuredClone(BLOCKS),
     required: [{ type: 'entry_content', field: 'body' }],
     palette: ['entry_title', 'entry_content'],
+    loops: [],
+    closed: null,
     sample: { id: 'posta0000001', label: 'Post A' },
     placeholder: false,
     label: 'Posts — single post',
@@ -296,6 +299,63 @@ describe('whether a saved layout exists', () => {
 })
 
 describe('the restore sequence', () => {
+  // Review of aa2801ec: a target that closes while the editor is open — its pages taken off the site,
+  // or its blocks gone — shows the closed notice on the next renewal or Reload, and nothing is applied.
+  it('a target closed mid-session: renewal shows why, applies nothing, and is abandoned', async () => {
+    const { host, editor, unmount } = mountHost()
+    await flushPromises()
+    const applies = q.apply.mock.calls.length
+    q.mint.mockImplementationOnce(async () =>
+      session({ closed: 'Listing pages are off for Posts.' }),
+    )
+    await expect(host.host.renew(editor.snapshotFields())).rejects.toBeInstanceOf(
+      StageRenewalAbandoned,
+    )
+    expect(host.closed.value).toBe('Listing pages are off for Posts.')
+    expect(q.apply.mock.calls.length).toBe(applies)
+
+    const refused = 'Its blocks are not installed yet.'
+    q.mint.mockRejectedValueOnce(
+      new ApiError(
+        'Validation failed',
+        422,
+        { target: refused },
+        { error: { details: { target: refused } } },
+      ),
+    )
+    await expect(host.host.renew(editor.snapshotFields())).rejects.toBeInstanceOf(
+      StageRenewalAbandoned,
+    )
+    expect(host.closed.value).toBe(refused)
+    unmount()
+  })
+
+  it('Reload of a target closed meanwhile shows why', async () => {
+    const { host, unmount } = mountHost()
+    await flushPromises()
+    q.mint.mockImplementationOnce(async () =>
+      session({ closed: 'Listing pages are off for Posts.' }),
+    )
+    await host.reload()
+    await flushPromises()
+    expect(host.closed.value).toBe('Listing pages are off for Posts.')
+
+    const refused = 'Its blocks are not installed yet.'
+    q.mint.mockRejectedValueOnce(
+      new ApiError(
+        'Validation failed',
+        422,
+        { target: refused },
+        { error: { details: { target: refused } } },
+      ),
+    )
+    await host.reload()
+    await flushPromises()
+    expect(host.closed.value).toBe(refused)
+    expect(notify.error).not.toHaveBeenCalled()
+    unmount()
+  })
+
   it('renew mints, applies the whole document with a null pair, and keeps the saved version', async () => {
     const { host, editor, unmount } = mountHost()
     await flushPromises()

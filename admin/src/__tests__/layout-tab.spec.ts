@@ -801,3 +801,66 @@ describe('the inspector tabs', () => {
     expect(w.findAll('[role="tab"]').map((t) => t.text())).toEqual(['Layout', 'Style'])
   })
 })
+
+// Type layouts plan B: a loop arranges its cards, and a card is not a container — what sits directly
+// in the card is placed by the card's own flow, so it has no item controls, whatever the loop's mode.
+describe('a loop and its card', () => {
+  const loops = [{ type: 'entry_loop', card: 'card', items: ['entry_title'] }]
+  const entryLoop = type('entry_loop', [
+    'spacing',
+    'width',
+    'visibility',
+    'layout.display',
+    'layout.direction',
+    'layout.wrap',
+    'layout.columns',
+    'layout.gap.column',
+    'layout.gap.row',
+  ])
+  const loopAs = (display: string) =>
+    block('l1', 'entry_loop', { layout: { display: { base: choice(display) } } })
+
+  it('a heading directly in the card has no item controls and says it sits in a card', async () => {
+    const w = mountTab({
+      block: block('h1', 'heading'),
+      blockType: heading,
+      parent: loopAs('grid'),
+      parentType: entryLoop,
+      parentSlot: 'card',
+      loops,
+    })
+    expect(w.find('[data-test="layout-group-item"]').exists()).toBe(false)
+    expect(w.find('[data-test="style-field-layout.span"]').exists()).toBe(false)
+    expect(w.find('[data-test="style-field-layout.align_self"]').exists()).toBe(false)
+    expect(w.find('[data-test="layout-in-card"]').text()).toContain('sits in a card')
+
+    await w.setProps({ parent: loopAs('flex') })
+    expect(w.find('[data-test="layout-group-item"]').exists()).toBe(false)
+    expect(w.find('[data-test="style-field-layout.basis"]').exists()).toBe(false)
+  })
+
+  it('a heading inside a grid container in the card is that grid’s item', () => {
+    const w = mountTab({
+      block: block('h1', 'heading'),
+      blockType: heading,
+      parent: block('c1', 'container', { layout: { display: { base: choice('grid') } } }),
+      parentType: container,
+      parentSlot: 'content',
+      loops,
+    })
+    const fields = w
+      .findAll('[data-test="layout-group-item"] [data-test^="style-field-"]')
+      .map((el) => el.attributes('data-test'))
+    expect(fields).toEqual(['style-field-layout.span', 'style-field-layout.align_self'])
+    expect(w.find('[data-test="layout-in-card"]').exists()).toBe(false)
+  })
+
+  it('the loop itself arranges the cards: mode, columns and gap', () => {
+    const w = mountTab({ block: loopAs('grid'), blockType: entryLoop, loops })
+    const section = w.find('[data-test="layout-group-container"]')
+    expect(section.find('h4').text()).toContain('Arrange the cards')
+    expect(section.find('[data-test="style-field-layout.display"]').exists()).toBe(true)
+    expect(section.find('[data-test="layout-field-layout.columns"]').exists()).toBe(true)
+    expect(section.text()).toContain('Gap')
+  })
+})

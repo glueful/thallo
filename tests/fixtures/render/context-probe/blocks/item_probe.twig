@@ -1,0 +1,2 @@
+{# A test-only block (EntryLoopRenderTest): prints the item, the entry and the named item it was handed. #}
+<p class="thallo-block item-probe">[{{ item.uuid|default('none') }}|{{ entry.uuid|default('none') }}|{{ layout_context.product.uuid|default('none') }}]</p>

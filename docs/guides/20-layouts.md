@@ -27,9 +27,11 @@ A layout is a list of blocks, like a page's. Two kinds of block go in it:
 One **Entry content** block places the post's own content — the blocks of its body — and every
 layout has one where the type has a blocks body. The post's content is still edited on the post.
 
-Every content type the site publishes can have a layout for its single pages. A type without
-one shows its pages through the theme's template, as before. With Commerce on, the shop's product
-page can have one too: see [Design the product page](#design-the-product-page).
+Every content type the site publishes can have a layout for its single pages, and — where the site
+lists the type — for its listing pages and its archive pages: see [Design listing and archive
+pages](#design-listing-and-archive-pages). A page kind without a layout shows through the theme's
+template, as before. With Commerce on, the shop's product page can have one too: see [Design the
+product page](#design-the-product-page).
 
 ## Open a layout
 
@@ -116,6 +118,84 @@ stage names the layout, with **Edit layout** to open it. The post's blocks are e
 the layout's blocks are not selectable there. **Show page title** does not apply under a layout —
 the layout places the title — and the **Page** tab says so.
 
+## Design listing and archive pages
+
+A type the site lists — chosen under **Settings › General › Public listings**, in **Listing
+types** — has two more kinds of page: its listing (`/post`, then `/post/page/2` and on) and, for each reference field that files it,
+such as its categories, an archive per term (`/post/categories/pottery`). **Site › Layouts** has a
+row for each: **Posts — listing pages**, and **Posts — Categories archive**. One layout designs every
+page of a listing, or every term's archive of one field.
+
+A type that is not listed shows its rows turned off, with the reason — "Listing pages are off for
+Pages." — and **Turn on listing pages**, which opens **Settings › General**. Taking a type off the
+list keeps its layouts; listing it again serves them again. A row turned off because its pages are
+off the site, and that keeps a custom layout, has **Remove** instead of **Edit**, for a layout you no
+longer need. (A row turned off only because its blocks are not installed yet is still live: it has
+neither until they are.)
+
+**Edit** opens the stage on the listing's first page, or on one term's archive — the picker lists
+the terms that have published posts. The layout opens on a starter that follows today's page: the
+title, the list of posts — each card today's row, the cover beside the title, the date and the
+excerpt — and the page navigation. An archive's starter has no term description, as today's archive
+page has none; add the **Term description** block from the palette to show it.
+
+### The Entry list and its card
+
+The **Entry list** shows every post on the page. You design one post's **card** — once — and the
+list repeats it for each post, newest first. On the stage the first card is the one you edit: its
+blocks select, move and take settings, and whatever you drop into it shows in every card. The other
+cards show the same design for the page's other posts; nothing in them selects, and nothing drops
+there. With nothing published yet, the stage shows one sample card and says "No published posts yet —
+showing a placeholder"; nothing is written.
+
+A post's own fields go inside the card: **Entry title**, **Entry date**, **Entry cover**, **Entry
+excerpt**, **Entry terms** and **Entry field**, with the settings they have on a single post. They
+cannot be placed outside it — the editor says so, and so does the server. The page's own blocks
+cannot go inside a card:
+
+| Block | Shows | Settings |
+|---|---|---|
+| **Entry list** | every post on the page, each as its card | **When there are no entries** (the text an empty page shows) |
+| **Listing title** | the type's name; on an archive, the term's title | **level** (h1 to h4) |
+| **Term description** | on an archive, the term's description | — |
+| **Page navigation** | the newer and older links and "Page X of Y"; nothing on a single page | **Newer label**, **Older label**, **Show "Page X of Y"** |
+
+Your other blocks — headings, text, images, containers — go anywhere, the card included.
+
+Every listing and archive layout keeps exactly one **Entry list**: deleting it is refused with the
+reason ("Every page of the post listing shows its Entry list here…"), and Save stays off without it.
+It has no **Visibility** setting, a container holding it cannot be hidden, and neither the Entry
+list nor a block holding it takes **CSS classes** — use style classes to style them.
+
+Select the Entry list and open its **Layout** tab to **Arrange the cards**: a column of cards (the
+default), a wrapping row, or a grid of two, three or four columns, with the gap between them. The
+arrangement places whole cards; what is inside a card stays in the card's own flow, so a block
+directly in a card has no item controls. To arrange blocks inside the card — the cover beside the
+text, say — put them in a container in the card and give the container its layout.
+
+Inside a card the blocks sit as today's list shows them: the cover is a thumbnail, 160px wide
+(96px on phones), and the title, date and excerpt take the list's text sizes; the blocks carry no
+page spacing of their own. A value you set on a block wins — a card that shows its cover full width
+sets the cover's **Width**.
+
+### Save, and what the pages keep
+
+**Save** applies the layout to every page of the listing ("Applies to every page of the post
+listing"), or to every term's archive ("Applies to every category page of Posts"). While a layout
+exists it is used instead of the theme's listing template for that type, whichever the theme ships;
+**Remove layout** brings the theme's page back.
+
+A layout never changes which pages exist: a page past the last, an unknown term or a type that is not
+listed is still not found, and `/post/page/1` still leads to `/post`.
+
+On a site upgraded to this release, add the new blocks once:
+
+```bash
+php glueful thallo:provision
+# with workspaces on, also bring every existing workspace up to date:
+php glueful thallo:tenant:sync --all --kind=block_type
+```
+
 ## Design the product page
 
 With [Commerce](18-commerce.md) switched on, **Site › Layouts** has a **Products — product page**
@@ -140,7 +220,9 @@ The **Blocks** tab leads with the product's fields:
 Every product layout keeps exactly one **Product buy box**: deleting it is refused with the reason,
 and Save stays off without it. Move it instead. It has no **Visibility** setting, and a container
 holding it cannot be hidden either — by its own **Visibility** or by a style class, including a
-later edit of that class, which is refused and names the layout — so no screen size loses it. It
+later edit of that class, which is refused and names the layout — so no screen size loses it.
+Neither the buy box nor a block holding it takes **CSS classes** (the **Advanced** tab): a class
+name can be hidden by any stylesheet the site loads, so style them with style classes instead. It
 works as the product page's always has — a product with options offers a list to choose from, a
 product that needs an add-on says it cannot be bought online, and the button adds to the cart even
 where JavaScript is off.
@@ -171,9 +253,12 @@ says which commands to run.
 
 ## When the content type changes
 
-Renaming a field moves the layouts that show it. Deleting a field a layout shows is refused, and
-the refusal names the layout: change the layout first. Deleting the content type removes its
-layout.
+Renaming a field moves the layouts that show it — an archive's layout included. Deleting a field a
+layout shows, or one an archive layout is for, is refused, and the refusal names the layout: change
+or remove the layout first. A field that stops filing the type (no longer filterable) takes its
+archive pages off the site and keeps their layout: the row stays on **Site › Layouts**, turned off,
+with **Remove** — as does a listing's row while its type is not listed. Deleting the content type
+removes its layouts.
 
 ## Check it worked
 

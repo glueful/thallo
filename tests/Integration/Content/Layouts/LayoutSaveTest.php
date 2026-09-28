@@ -642,7 +642,8 @@ final class LayoutSaveTest extends AppTestCase
         $this->connection()->getPDO()->exec(
             'INSERT INTO users (uuid, username, email, status)'
             . " VALUES ('editor000001', 'dana', 'dana@example.test', 'active')"
-            . ' ON CONFLICT (uuid) DO NOTHING'
+            // Another suite's cleanup may have soft-deleted the row: bring it back as this test needs it.
+            . " ON CONFLICT (uuid) DO UPDATE SET username = 'dana', deleted_at = NULL"
         );
         $repo = $this->container()->get(LayoutRepository::class);
         $blocks = self::layout('SAVED')['blocks'];
@@ -676,7 +677,8 @@ final class LayoutSaveTest extends AppTestCase
 
         $data = $index(true);
         self::assertTrue($data['can_edit']);
-        $byTarget = array_column($data['layouts'], null, 'target');
+        $entryRows = array_filter($data['layouts'], static fn (array $row): bool => $row['surface'] === 'entry');
+        $byTarget = array_column($entryRows, null, 'target');
         self::assertSame('custom', $byTarget['post']['state']);
         self::assertSame(1, $byTarget['post']['lock_version']);
         self::assertSame('Posts — single post', $byTarget['post']['label']);

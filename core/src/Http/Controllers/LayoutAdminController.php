@@ -52,10 +52,14 @@ final class LayoutAdminController
     /** GET /v1/admin/layouts */
     #[ApiOperation(
         summary: 'List the layouts',
-        description: 'Every page kind that can have a layout — for each content type, its single entry — '
-            . 'with whether it has one (`custom`) or renders through the theme (`theme`), who saved it, '
-            . 'and when a target cannot have one, why; `can_edit` says whether the caller may open the '
-            . 'editor (`templates.manage`). Requires `content.view`.',
+        description: 'Every page kind that can have a layout — for each content type, its single entry, '
+            . 'its listing pages and each archived field\'s archive pages — with whether it has one '
+            . '(`custom`) or renders through the theme (`theme`), who saved it, and when a target cannot '
+            . 'have one, why (`reason`) and the admin page that puts it right (`link`). `removable` says a '
+            . 'row\'s pages are off the site, whatever its `state` — a `custom` one can be removed there; a '
+            . 'row closed only because its blocks are not installed is still live and is not. A layout '
+            . 'kept for pages no longer offered is listed too. `can_edit` says whether the caller may open '
+            . 'the editor (`templates.manage`). Requires `content.view`.',
         tags: ['Thallo Layouts'],
     )]
     #[ApiResponse(200, description: 'The layouts.')]
@@ -75,6 +79,9 @@ final class LayoutAdminController
                     'state' => $row !== null && $row['blocks'] !== null ? 'custom' : 'theme',
                     'enabled' => $target['enabled'],
                     'reason' => $target['reason'],
+                    'link' => $target['link'],
+                    // Without the target list (never in the kernel) nothing closed is offered.
+                    'removable' => $target['removable'] ?? false,
                     'lock_version' => $row['lock_version'] ?? 0,
                     'updated_by' => $row['updated_by'] ?? null,
                     'updated_at' => $row['updated_at'] ?? null,

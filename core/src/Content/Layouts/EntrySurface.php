@@ -58,12 +58,29 @@ final class EntrySurface implements LayoutSurface
                 continue;
             }
             $slug = (string) $type['slug'];
-            $out[] = ['target' => $slug, 'label' => $this->label($slug), 'enabled' => true, 'reason' => null];
+            $out[] = [
+                'target' => $slug, 'label' => $this->label($slug), 'enabled' => true, 'reason' => null,
+                'link' => null,
+            ];
         }
         return $out;
     }
 
     public function samples(string $target, ?string $query): array
+    {
+        return $this->samplesWhere($target, $query, null);
+    }
+
+    /**
+     * The type's published entries, newest first, at most fifty — only those `$where` admits, when
+     * given: one SQL condition on `entries` and its bindings (an archive's terms that have members,
+     * restricted in the query, so older terms with members are found behind any number of newer ones
+     * without, and no list of ids is bound).
+     *
+     * @param array{0: string, 1: list<mixed>}|null $where
+     * @return list<array{id: string, label: string}>
+     */
+    public function samplesWhere(string $target, ?string $query, ?array $where): array
     {
         $type = $this->types->findBySlug($target);
         if ($type === null) {
@@ -74,8 +91,12 @@ final class EntrySurface implements LayoutSurface
             ->join('entry_publications', 'entry_publications.entry_uuid', '=', 'entries.uuid')
             ->join('entry_versions', 'entry_versions.uuid', '=', 'entry_publications.version_uuid')
             ->where('entries.content_type_uuid', '=', (string) $type['uuid'])
-            ->where('entries.status', '=', 'active')
-            ->orderBy('entry_publications.published_at', 'DESC')
+            ->where('entries.status', '=', 'active');
+        if ($where !== null) {
+            // Wrapped whole: the builder joins raw conditions unparenthesised.
+            $rows = $rows->whereRaw('(' . $where[0] . ')', $where[1]);
+        }
+        $rows = $rows->orderBy('entry_publications.published_at', 'DESC')
             ->limit(200)
             ->get();
         $needle = $query === null ? '' : mb_strtolower(trim($query));
@@ -140,6 +161,11 @@ final class EntrySurface implements LayoutSurface
         return $body === null ? [] : [['type' => 'entry_content', 'field' => $body]];
     }
 
+    public function loops(string $target): array
+    {
+        return [];
+    }
+
     public function bindable(string $target): array
     {
         $out = [];
@@ -186,7 +212,7 @@ final class EntrySurface implements LayoutSurface
     private const KEPT = ['news', 'series', 'species', 'status', 'press', 'media', 'data', 'faq'];
 
     /** "Posts" → "post", "Categories" → "category", "Boxes" → "box"; "News" and "Series" stay. */
-    private static function singular(string $name): string
+    public static function singular(string $name): string
     {
         $lower = mb_strtolower(trim($name));
         if (in_array($lower, self::KEPT, true) || mb_strlen($lower) <= 3 || !str_ends_with($lower, 's')) {

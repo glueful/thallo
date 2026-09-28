@@ -5,6 +5,40 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.69] - 2026-09-28 — Developer Preview
+
+Layouts for listing and archive pages — design a type's listing once around the Entry list, whose
+card you design once for every entry — a product buy box no CSS class can hide, and forms and
+mini-carts that keep their own ids however often they appear. No migrations; run
+`thallo:provision` on an existing site for the new blocks (with workspaces on, also
+`thallo:tenant:sync --all --kind=block_type`).
+
+### Added
+- **Layouts for listing and archive pages.** **Site › Layouts** has a row for each listed type's
+  listing pages and each archived field. Design the page once around the **Entry list**, whose
+  card you design once for every entry, and **Save** applies it to every page. With no layout the
+  pages are as today; an unlisted type's rows say how to turn listing pages on, and a layout kept
+  while its pages are off the site can be removed from its row. On an existing site run
+  `thallo:provision` for the new blocks (with workspaces on, also
+  `thallo:tenant:sync --all --kind=block_type`).
+- **`block.dom_key` for block templates.** A theme template that names a group or builds an id
+  from the block — a radio group, an exclusive `<details name>`, a `for`/`id` pair — uses
+  `block.dom_key`: the block's id on a page, and one per card inside an Entry list, so each card's
+  tabs and accordion are its own. The default theme's `tabs`, `accordion`, `navigation` and `form`
+  do, and the shop's mini-cart; a theme that overrides them should too.
+
+### Changed
+- **The product page's buy box can't be hidden by a CSS class.** A product layout's **Product
+  buy box**, and any block holding it, no longer takes **CSS classes** on the **Advanced** tab: a
+  class name can be hidden by any stylesheet the site loads, so no screen size could be sure to
+  show the buy button. Style them with style classes, which are checked. A saved layout that
+  already has such a class keeps rendering; its next save asks for the class to be removed.
+
+### Fixed
+- **Two forms on one page, or a mini-cart that shows twice, no longer share ids.** Each form's
+  fields have their own ids, so every label names its own form's field; each mini-cart's button
+  names its own drawer. A form or mini-cart in every card of a listing layout gets its own too.
+
 ## [1.0.0-beta.68] - 2026-09-27 — Developer Preview
 
 Layouts for the shop's product page — design every product's page at once, on the stage, from the

@@ -3325,7 +3325,7 @@ export interface paths {
     }
     /**
      * List the layouts
-     * @description Every page kind that can have a layout — for each content type, its single entry — with whether it has one (`custom`) or renders through the theme (`theme`), who saved it, and when a target cannot have one, why; `can_edit` says whether the caller may open the editor (`templates.manage`). Requires `content.view`.
+     * @description Every page kind that can have a layout — for each content type, its single entry, its listing pages and each archived field's archive pages — with whether it has one (`custom`) or renders through the theme (`theme`), who saved it, and when a target cannot have one, why (`reason`) and the admin page that puts it right (`link`). `removable` says a row's pages are off the site, whatever its `state` — a `custom` one can be removed there; a row closed only because its blocks are not installed is still live and is not. A layout kept for pages no longer offered is listed too. `can_edit` says whether the caller may open the editor (`templates.manage`). Requires `content.view`.
      */
     get: operations['getV1AdminLayouts']
     put?: never
@@ -3367,7 +3367,7 @@ export interface paths {
     put?: never
     /**
      * Open a layout editing session
-     * @description Mints a layout preview token for a surface and target, pins the saved layout (or the starter when there is none) and its version as the session baseline, and picks the sample the stage renders it against: the one asked for, the newest published item, or a placeholder built in memory. Requires `templates.manage`.
+     * @description Mints a layout preview token for a surface and target, pins the saved layout (or the starter when there is none) and its version as the session baseline, and picks the sample the stage renders it against: the one asked for, the newest published item, or a placeholder built in memory. The session names the surface's required blocks, its palette and its loops (each loop's card field and the blocks only a card holds). A target whose pages are off the site opens only while it keeps a saved layout, to remove it: `closed` says why, and Save and apply refuse it. Requires `templates.manage`.
      */
     post: operations['postV1AdminLayoutsPreviewSession']
     delete?: never
@@ -28786,7 +28786,7 @@ export interface operations {
           }
         }
       }
-      /** @description An unknown surface, or a target that cannot have a layout. */
+      /** @description An unknown surface, or a target that cannot be opened: closed while its pages are still on the site (its blocks not installed), or off the site with no layout kept. */
       422: {
         headers: {
           [name: string]: unknown

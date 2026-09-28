@@ -108,6 +108,20 @@ final class RenderContextExtension extends AbstractExtension
     private bool $annotateBlocks = false;
 
     /**
+     * Rendering a loop's second or later card: the card repeats the first card's design for another
+     * item, so a block's anchor — an id, one element per page — stays on the first card's.
+     */
+    private bool $cardCopy = false;
+
+    /**
+     * Where a block renders among a loop's cards — '' outside every loop, else each enclosing card's
+     * position (`-c0`, `-c1-c0`, …). A block's `dom_key` is its id with it: what a template names a
+     * group or builds an id from (a tabs block's radios, an accordion's exclusive details), so every
+     * card's are its own.
+     */
+    private string $cardPath = '';
+
+    /**
      * Which subtree the stage annotates (regions-stage spec §4.4): `entry` (the Design view — the
      * entry's blocks; the chrome untagged), `regions` (the header & footer stage — the chrome's
      * blocks; the page body untagged) or `none`. `$annotateBlocks` is the effective flag for the
@@ -318,6 +332,10 @@ final class RenderContextExtension extends AbstractExtension
                 'needs_context' => true,
             ]),
             new TwigFunction('entry_slot', $this->entrySlot(...), [
+                'needs_environment' => true,
+                'needs_context' => true,
+            ]),
+            new TwigFunction('loop_cards', $this->loopCards(...), [
                 'needs_environment' => true,
                 'needs_context' => true,
             ]),
@@ -538,7 +556,10 @@ final class RenderContextExtension extends AbstractExtension
         return ' data-thallo-slot="' . htmlspecialchars($slot, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
     }
 
-    /** The attributes `$target` owns (anchor, `data-*`, accessibility label), escaped, leading space. */
+    /**
+     * The attributes `$target` owns (anchor, `data-*`, accessibility label), escaped, leading space. In
+     * a loop's later cards the anchor is left off: it names the first card's element.
+     */
     public function styleAttrs(string $target): string
     {
         [$frame, $targets] = $this->styleFrame($target);
@@ -547,6 +568,9 @@ final class RenderContextExtension extends AbstractExtension
         }
         $out = '';
         foreach ($this->styleEmitter->attrsFor($frame['settings'], $targets, $target) as $name => $value) {
+            if ($name === 'id' && $this->cardCopy) {
+                continue;
+            }
             $out .= ' ' . $name . '="' . htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
         }
         return $out;
@@ -877,7 +901,8 @@ final class RenderContextExtension extends AbstractExtension
             // Chrome is never part of a layout: a form in the header keeps the region's identity.
             $html = $this->blocks(
                 $env,
-                ['region_slug' => $slug, 'layout_source' => null, 'layout_context' => null] + $context,
+                ['region_slug' => $slug, 'layout_source' => null, 'layout_context' => null, 'item' => null]
+                    + $context,
                 $list,
             );
         } finally {
@@ -941,7 +966,11 @@ final class RenderContextExtension extends AbstractExtension
             $slot = $this->annotateBlocks
                 ? ' data-thallo-slot="' . htmlspecialchars($field, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"'
                 : '';
-            $body = $this->blocks($env, ['layout_source' => null, 'layout_context' => null] + $context, $list);
+            $body = $this->blocks(
+                $env,
+                ['layout_source' => null, 'layout_context' => null, 'item' => null] + $context,
+                $list,
+            );
             $html = '<div class="entry-blocks"' . $slot . '>' . $body . '</div>';
         } finally {
             $this->annotateBlocks = $savedAnnotate;
@@ -949,6 +978,63 @@ final class RenderContextExtension extends AbstractExtension
             $this->inSlot = false;
         }
         return new \Twig\Markup($html, 'UTF-8');
+    }
+
+    /**
+     * A loop's card, once for each item (type layouts spec §5.4, plan B): the card's blocks render
+     * with `item` — and `layout_context[$name]` — set to the item, and, for a loop of entries
+     * (`$name` 'entry'), `entry` too, so the entry field blocks read it as they read a page's entry.
+     * Each card is an `<li>`. On the layout's stage the first card is annotated and is the loop's
+     * card slot (`data-thallo-slot`, the drop destination); every later card renders the same blocks
+     * for its item without annotation and says it is a copy (`data-thallo-card-copy`), so no id
+     * appears twice and nothing drops there. With no items, the stage shows one annotated card for
+     * the frame's placeholder item; the site shows none.
+     *
+     * @param array<string,mixed> $context
+     */
+    public function loopCards(
+        Environment $env,
+        array $context,
+        mixed $card,
+        mixed $items,
+        string $name,
+        string $field = 'card',
+        string $class = '',
+    ): \Twig\Markup {
+        $card = is_array($card) && array_is_list($card) ? $card : [];
+        $items = is_array($items) && array_is_list($items) ? $items : [];
+        $layoutContext = is_array($context['layout_context'] ?? null) ? $context['layout_context'] : [];
+        if ($items === [] && $this->annotateBlocks && is_array($layoutContext['placeholder_item'] ?? null)) {
+            $items = [$layoutContext['placeholder_item']];
+        }
+        $classes = trim('thallo-loop-card ' . $class);
+        $saved = $this->annotateBlocks;
+        $savedCopy = $this->cardCopy;
+        $savedPath = $this->cardPath;
+        $html = [];
+        try {
+            foreach ($items as $i => $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+                $this->annotateBlocks = $saved && $i === 0;
+                // A copy stays a copy all the way down: a loop inside a later card has no first card.
+                $this->cardCopy = $savedCopy || $i > 0;
+                $this->cardPath = $savedPath . '-c' . $i;
+                $attributes = $saved ? ($i === 0 ? $this->slotAttrs($field) : ' data-thallo-card-copy') : '';
+                $cardContext = ['item' => $item, 'layout_context' => [$name => $item] + $layoutContext] + $context;
+                if ($name === 'entry') {
+                    $cardContext['entry'] = $item;
+                }
+                $html[] = '<li class="' . htmlspecialchars($classes, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"'
+                    . $attributes . '>' . $this->blocks($env, $cardContext, $card) . '</li>';
+            }
+        } finally {
+            $this->annotateBlocks = $saved;
+            $this->cardCopy = $savedCopy;
+            $this->cardPath = $savedPath;
+        }
+        return new \Twig\Markup(implode('', $html), 'UTF-8');
     }
 
     /**
@@ -1559,6 +1645,7 @@ final class RenderContextExtension extends AbstractExtension
                     $rendered = $env->render($template, [
                         'block' => [
                             'id' => $item['id'] ?? null,
+                            'dom_key' => ($item['id'] ?? '') . $this->cardPath,
                             'type' => $type,
                             'data' => $data,
                             'settings' => $settings,
@@ -1580,6 +1667,9 @@ final class RenderContextExtension extends AbstractExtension
                         // product): threaded like layout_source, cleared with it for the entry's
                         // blocks and the chrome.
                         'layout_context' => $context['layout_context'] ?? null,
+                        // A loop card's item (type layouts plan B): set by loop_cards(), cleared
+                        // with layout_context for the entry's blocks and the chrome.
+                        'item' => $context['item'] ?? null,
                         // The entry's type and where it is browsed (type layouts spec §4): field
                         // blocks link terms to archives and find related entries by them.
                         'type' => $context['type'] ?? null,
@@ -1644,6 +1734,8 @@ final class RenderContextExtension extends AbstractExtension
      */
     public function resetPerRenderState(): void
     {
+        $this->cardCopy = false;
+        $this->cardPath = '';
         $this->resetBlockDepth();
         $this->resetBlockFrames();
         $this->resetPriorityImageClaim();

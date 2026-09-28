@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Freeze today's listing and archive pages in a real browser (type layouts plan B, B0): build
+# `listing-original.html` and `archive-original.html` with scripts/build-listing-layout-proof-fixtures,
+# then measure each with the one measuring procedure (tools/runtime-browser/scripts/measure.js — twice,
+# refusing to write when the two differ) into tools/runtime-browser/references/{listing,archive}-original.json,
+# which are committed.
+#
+# Only meaningful before the listing templates or the default theme's stylesheets change: afterwards
+# the frozen measurements are what every later rendering is compared with (tests/listing-layout.spec.js).
+#
+#   CACHE_DRIVER=array DB_PGSQL_DATABASE=app_test APP_ENV=testing scripts/capture-listing-layout-reference
+set -euo pipefail
+cd "$(dirname "$0")/.."
+php scripts/build-listing-layout-proof-fixtures
+cd tools/runtime-browser
+for page in listing archive; do
+  node scripts/measure.js \
+    "/tools/runtime-browser/fixtures/listing-layout/${page}-original.html" \
+    "${page}-original" \
+    ../../tests/fixtures/render/listing-page-reference.json \
+    "references/${page}-original.json"
+done

@@ -55,3 +55,5 @@ tools/runtime-browser/fixtures/parity/
 tools/runtime-browser/fixtures/docs/
 # scripts/build-product-layout-proof-fixtures renders the shop's product page (product-layout.spec.js).
 tools/runtime-browser/fixtures/product-layout/
+# scripts/build-listing-layout-proof-fixtures renders the listing and archive pages (listing-layout.spec.js).
+tools/runtime-browser/fixtures/listing-layout/
