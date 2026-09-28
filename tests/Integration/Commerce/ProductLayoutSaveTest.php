@@ -202,6 +202,46 @@ final class ProductLayoutSaveTest extends AppTestCase
     }
 
     /**
+     * Nor by a CSS class typed on it (the Advanced tab): a class name can be hidden by any stylesheet
+     * the site loads, so neither the buy box nor a block holding it takes one — style classes, which
+     * are checked, stay the way to style them. A block beside the buy box may carry classes.
+     */
+    public function testNoCssClassOnTheBuyBoxOrABlockHoldingIt(): void
+    {
+        $session = $this->session();
+        $held = [[
+            'id' => 'savebox00001', 'type' => 'container',
+            'data' => ['content' => [
+                ['id' => 'savebuy00001', 'type' => 'product_buy', 'data' => [], 'settings' => []],
+            ]],
+            'settings' => ['advanced' => ['css_classes' => ['quiet-panel']]],
+        ]];
+        foreach ([$this->save($session['token'], $held, 0), $this->apply($session['token'], $held)] as $answer) {
+            self::assertSame(422, $answer['status'], json_encode($answer['body']));
+            self::assertSame(
+                'this block holds the Product buy box block, which every page shows: it cannot carry CSS classes',
+                $answer['body']['error']['details']['blocks.0.settings.advanced.css_classes'] ?? null,
+            );
+        }
+
+        $own = [
+            ['id' => 'savemarker01', 'type' => 'heading', 'data' => ['text' => 'Beside'], 'settings' => [
+                'advanced' => ['css_classes' => ['quiet-panel']],
+            ]],
+            ['id' => 'savebuy00001', 'type' => 'product_buy', 'data' => [], 'settings' => [
+                'advanced' => ['css_classes' => ['hidden']],
+            ]],
+        ];
+        $answer = $this->save($session['token'], $own, 0);
+        self::assertSame(422, $answer['status'], json_encode($answer['body']));
+        self::assertSame(
+            'the Product buy box block is on every page: it cannot carry CSS classes',
+            $answer['body']['error']['details']['blocks.1.settings.advanced.css_classes'] ?? null,
+        );
+        self::assertArrayNotHasKey('blocks.0.settings.advanced.css_classes', $answer['body']['error']['details']);
+    }
+
+    /**
      * The same holds afterwards: a style class on the container around the buy box cannot be edited to
      * hide it, at any size — the edit is refused, naming the layout — while any other edit of it, and
      * hiding with a class nothing around the buy box uses, save as before.

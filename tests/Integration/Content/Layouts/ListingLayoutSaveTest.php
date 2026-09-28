@@ -224,4 +224,33 @@ final class ListingLayoutSaveTest extends AppTestCase
             );
         }
     }
+
+    /** No CSS class typed on the Entry list or a block holding it: a class name can hide it anywhere. */
+    public function testNoCssClassOnTheEntryListOrABlockHoldingIt(): void
+    {
+        $session = $this->session('listing', 'post');
+        $held = [[
+            'id' => 'savebox00001', 'type' => 'container',
+            'data' => ['content' => [self::layout('Held')[1]]],
+            'settings' => ['advanced' => ['css_classes' => ['quiet-list']]],
+        ]];
+        $answer = $this->save('listing', 'post', $session['token'], $held, 0);
+        self::assertSame(422, $answer['status']);
+        self::assertSame(
+            'this block holds the Entry list block, which every page shows: it cannot carry CSS classes',
+            $answer['body']['error']['details']['blocks.0.settings.advanced.css_classes'] ?? null,
+        );
+        $own = self::layout('Own');
+        $own[1]['settings'] = ['advanced' => ['css_classes' => ['quiet-list']]];
+        $answer = $this->save('listing', 'post', $session['token'], $own, 0);
+        self::assertSame(422, $answer['status']);
+        self::assertSame(
+            'the Entry list block is on every page: it cannot carry CSS classes',
+            $answer['body']['error']['details']['blocks.1.settings.advanced.css_classes'] ?? null,
+        );
+        // A card block inside the list is not the list: it may carry classes.
+        $inCard = self::layout('Card');
+        $inCard[1]['data']['card'][0]['settings'] = ['advanced' => ['css_classes' => ['card-title']]];
+        self::assertSame(200, $this->save('listing', 'post', $session['token'], $inCard, 0)['status']);
+    }
 }

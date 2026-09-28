@@ -162,7 +162,8 @@ Your other blocks — headings, text, images, containers — go anywhere, the ca
 
 Every listing and archive layout keeps exactly one **Entry list**: deleting it is refused with the
 reason ("Every page of the post listing shows its Entry list here…"), and Save stays off without it.
-It has no **Visibility** setting, and a container holding it cannot be hidden.
+It has no **Visibility** setting, a container holding it cannot be hidden, and neither the Entry
+list nor a block holding it takes **CSS classes** — use style classes to style them.
 
 Select the Entry list and open its **Layout** tab to **Arrange the cards**: a column of cards (the
 default), a wrapping row, or a grid of two, three or four columns, with the gap between them. The
@@ -217,7 +218,9 @@ The **Blocks** tab leads with the product's fields:
 Every product layout keeps exactly one **Product buy box**: deleting it is refused with the reason,
 and Save stays off without it. Move it instead. It has no **Visibility** setting, and a container
 holding it cannot be hidden either — by its own **Visibility** or by a style class, including a
-later edit of that class, which is refused and names the layout — so no screen size loses it. It
+later edit of that class, which is refused and names the layout — so no screen size loses it.
+Neither the buy box nor a block holding it takes **CSS classes** (the **Advanced** tab): a class
+name can be hidden by any stylesheet the site loads, so style them with style classes instead. It
 works as the product page's always has — a product with options offers a list to choose from, a
 product that needs an add-on says it cannot be bought online, and the button adds to the cart even
 where JavaScript is off.

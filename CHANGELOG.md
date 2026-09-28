@@ -7,6 +7,13 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- **The product page's buy box can't be hidden by a CSS class.** A product layout's **Product
+  buy box**, and any block holding it, no longer takes **CSS classes** on the **Advanced** tab: a
+  class name can be hidden by any stylesheet the site loads, so no screen size could be sure to
+  show the buy button. Style them with style classes, which are checked. A saved layout that
+  already has such a class keeps rendering; its next save asks for the class to be removed.
+
 ### Added
 - **Layouts for listing and archive pages.** **Site › Layouts** has a row for each listed type's
   listing pages and each archived field. Design the page once around the **Entry list**, whose

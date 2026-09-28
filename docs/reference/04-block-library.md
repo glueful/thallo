@@ -174,10 +174,13 @@ layout's content type; left empty, **Entry cover**, **Entry excerpt** and **Entr
 field named `cover`, `excerpt` or `categories`, and **Entry content** the type's body. Every
 product layout holds exactly one **Product buy box**. It has no **Visibility** setting, and a
 layout that hides a block holding it, at any size, is refused, as is an edit to a style class that
-would make such a block hide it: no screen size loses the product page's buy button.
+would make such a block hide it: no screen size loses the product page's buy button. Neither the
+buy box nor a block holding it takes `css_classes`: a class name can be hidden by any stylesheet the
+site loads.
 
 Every listing and archive layout holds exactly one **Entry list**, under the same rules: no
-**Visibility**, and nothing around it may hide it. Its `card` is the one post's design the list
+**Visibility**, nothing around it may hide it, and neither it nor a block holding it takes
+`css_classes`. Its `card` is the one post's design the list
 repeats for every post on the page. **Entry title**, **Entry date**, **Entry cover**, **Entry
 excerpt**, **Entry terms** and **Entry field** go inside the card on these pages, and only there;
 the Entry list, the Listing title, the Term description and the Page navigation never go inside
