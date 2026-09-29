@@ -190,4 +190,28 @@ final class ProductFieldBlocksRenderTest extends AppTestCase
         self::assertSame('', trim($this->render('none', $hidden, $frame)['root']));
         self::assertStringContainsString('thallo-field-empty', $this->render('layout', $hidden, $frame)['root']);
     }
+
+    /**
+     * Product name's `link` (type layouts plan C2): off by default, so a product page is unchanged;
+     * on, the name links to the product. Outside a Product list card it stays the page's name.
+     */
+    public function testTheNameLinksToTheProductWhenAsked(): void
+    {
+        $frame = $this->frame(self::simple());
+        foreach (['none', 'layout'] as $scope) {
+            foreach ($this->render($scope, self::block('product_name'), $frame) as $where => $html) {
+                self::assertStringNotContainsString('<a href', $html, "{$scope} {$where}: no link by default");
+                self::assertStringContainsString('shop-product__name', $html, "{$scope} {$where}");
+                self::assertStringNotContainsString('shop-grid__name', $html, "{$scope} {$where}");
+            }
+            foreach ($this->render($scope, self::block('product_name', ['link' => true]), $frame) as $where => $html) {
+                self::assertMatchesRegularExpression(
+                    '~class="thallo-block thallo-block-product_name shop-product__name[^"]*">'
+                        . '<a href="/shop/products/linen-lamp">Linen table lamp</a>~',
+                    $html,
+                    "{$scope} {$where}",
+                );
+            }
+        }
+    }
 }

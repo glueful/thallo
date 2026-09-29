@@ -24,7 +24,8 @@ final class StyleCompiler
     // 9: motion — entrances, and the one shared rule that animates them.
     // 10: a hero's aside — aside.padding and aside.surface.
     // 11: the aside's padding is a side each.
-    public const VERSION = 11;
+    // 12: layout.columns `theme` — the theme's own tracks, for a target that declares them.
+    public const VERSION = 12;
 
     /** Where an entrance STARTS from; `none` starts nowhere. */
     private const ENTRANCES = [
@@ -231,12 +232,14 @@ final class StyleCompiler
      * parent's track state with the child's span state AT THE SAME BREAKPOINT, so each breakpoint
      * has exactly one matching rule of equal specificity and a later one always wins — clamped to
      * unclamped, unclamped to clamped, and reset alike. `auto` and `reset` are the default track
-     * state: the theme sets no `grid-template-columns`, so one track.
+     * state: the theme sets no `grid-template-columns`, so one track. `theme` (a target whose theme
+     * does set tracks) pairs the same way: its track count is unknown, so a span clamps.
      */
     private static function spanRules(string $bp): string
     {
         $out = '';
-        $tracks = self::TRACKS + ['auto' => 1, 'reset' => 1];
+        // `theme` tracks are the theme's own, their count unknown here: spans clamp as to one track.
+        $tracks = self::TRACKS + ['auto' => 1, 'theme' => 1, 'reset' => 1];
         $spans = array_merge(StyleSchema::property('layout.span')?->choices ?? [], ['reset']);
         foreach ($tracks as $cols => $count) {
             // PHP turns numeric array keys into ints; the class value is a string.
@@ -327,9 +330,10 @@ final class StyleCompiler
         if ($domain !== null) {
             return array_map(static fn (string $name): string => "{$domain}.{$name}", Vocabulary::names($domain));
         }
-        // `auto` is the default track state the emitter writes when a container declares none.
+        // `auto` is the default track state the emitter writes when a container declares none;
+        // `theme` the same for a target whose theme gives it tracks of its own.
         if ($path === 'layout.columns') {
-            return array_merge($choices ?? [], ['auto']);
+            return array_merge($choices ?? [], ['auto', 'theme']);
         }
         return $choices ?? [];
     }
@@ -357,6 +361,10 @@ final class StyleCompiler
         if ($path === 'layout.columns') {
             if ($value === 'auto') {
                 return 'grid-template-columns: none;';
+            }
+            // The theme's own tracks: nothing declared, so they stand (type layouts plan C2).
+            if ($value === 'theme') {
+                return '';
             }
             $parts = array_map(
                 static fn (string $part): string => 'minmax(0, ' . $part . 'fr)',

@@ -7,7 +7,9 @@ import type { AdminModule } from './adminModules'
 const site: NavigationMenuItem[] = [
   {
     label: 'Header & footer',
-    icon: 'i-lucide-layout-panel-top',
+    // A page between a top bar and a bottom bar: the site's header and footer, apart from the
+    // Layouts entry's template icon.
+    icon: 'i-lucide-panels-top-bottom',
     to: '/regions',
   },
 ]

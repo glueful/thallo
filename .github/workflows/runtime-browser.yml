@@ -12,9 +12,11 @@ on:
       - 'scripts/build-docs-proof-fixtures'
       - 'scripts/build-product-layout-proof-fixtures'
       - 'scripts/build-listing-layout-proof-fixtures'
+      - 'scripts/build-shop-layout-proof-fixtures'
       - 'tests/fixtures/render/**'
       - 'tests/Support/ListingPageSeed.php'
       - 'tests/Support/ProductPageSeed.php'
+      - 'tests/Support/ShopPageSeed.php'
       # The layout starters and surfaces the listing and product proofs render, and the pages they
       # render from.
       - 'core/src/Content/Layouts/**'
@@ -42,9 +44,11 @@ on:
       - 'scripts/build-docs-proof-fixtures'
       - 'scripts/build-product-layout-proof-fixtures'
       - 'scripts/build-listing-layout-proof-fixtures'
+      - 'scripts/build-shop-layout-proof-fixtures'
       - 'tests/fixtures/render/**'
       - 'tests/Support/ListingPageSeed.php'
       - 'tests/Support/ProductPageSeed.php'
+      - 'tests/Support/ShopPageSeed.php'
       # The layout starters and surfaces the listing and product proofs render, and the pages they
       # render from.
       - 'core/src/Content/Layouts/**'
@@ -178,6 +182,13 @@ jobs:
       - name: Build the listing layout fixtures
         working-directory: .
         run: php scripts/build-listing-layout-proof-fixtures
+
+      # The shop home and category pages the shop layout proofs measure (shop-layout.spec.js): the
+      # shop of ShopPageSeed seeded with fixed values, rendered through the shop controller, then
+      # rolled back.
+      - name: Build the shop layout fixtures
+        working-directory: .
+        run: php scripts/build-shop-layout-proof-fixtures
 
       - uses: actions/setup-node@v6
         with:

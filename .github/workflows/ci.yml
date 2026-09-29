@@ -31,6 +31,7 @@ env:
   # ~86s alone
   INTEGRATION_SHARD_B: >-
     tests/Integration/Commerce
+    tests/Integration/Payments
   # ~95s alone
   INTEGRATION_SHARD_C: >-
     tests/Integration/Content

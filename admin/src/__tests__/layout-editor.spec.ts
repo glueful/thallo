@@ -30,6 +30,7 @@ vi.mock('@/queries/layouts', () => ({
 const SCHEMAS: Record<string, unknown[]> = {
   entry_content: [{ name: 'field', type: 'string', required: false }],
   entry_loop: [{ name: 'card', type: 'blocks', required: false }],
+  product_loop: [{ name: 'card', type: 'blocks', required: false }],
 }
 const bt = (slug: string, category: string | null, layoutOnly = false, label = slug): BlockType =>
   ({
@@ -55,6 +56,12 @@ const blockTypes = ref<BlockType[]>([
   bt('pagination', 'Fields', true, 'Page navigation'),
   bt('product_name', 'Fields', true, 'Product name'),
   bt('product_buy', 'Fields', true, 'Product buy box'),
+  bt('product_loop', 'Fields', true, 'Product list'),
+  bt('product_tile', 'Fields', true, 'Product tile'),
+  bt('product_rating', 'Fields', true, 'Product rating'),
+  bt('product_price', 'Fields', true, 'Product price'),
+  bt('shop_title', 'Fields', true, 'Shop title'),
+  bt('category_rail', 'Fields', true, 'Category chips'),
 ])
 vi.mock('@/queries/blockTypes', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/queries/blockTypes')>()),
@@ -523,6 +530,106 @@ describe('the listing layout editor', () => {
     expect(tile().attributes('aria-disabled')).toBeUndefined()
     expect(w.find('[data-test="palette-card-pagination"]').attributes('title')).toBe(
       "Page navigation can't go inside a card",
+    )
+    w.unmount()
+  })
+})
+
+// Type layouts plan C2: the shop home's editor offers exactly its surface's blocks, keeps the card's
+// blocks in the Product list's card, and names the Product list's reach when it refuses to delete it.
+describe('the shop home layout editor', () => {
+  const SHOP = [
+    { id: 'shoptitle001', type: 'shop_title', data: { level: 'h1' }, settings: {} },
+    {
+      id: 'shoploop0001',
+      type: 'product_loop',
+      settings: {},
+      data: {
+        card: [{ id: 'shopname0001', type: 'product_name', data: { level: 'h2' }, settings: {} }],
+      },
+    },
+    { id: 'shoppages001', type: 'pagination', data: {}, settings: {} },
+  ]
+  const PALETTE = [
+    'product_loop',
+    'shop_title',
+    'category_rail',
+    'pagination',
+    'product_tile',
+    'product_name',
+    'product_rating',
+    'product_price',
+  ]
+  function shopSession(layout = SHOP): LayoutSession {
+    return session({
+      layout: { blocks: structuredClone(layout), settings: {}, lock_version: 0 },
+      starter: true,
+      starterLayout: structuredClone(SHOP),
+      required: [{ type: 'product_loop' }],
+      palette: PALETTE,
+      loops: [
+        {
+          type: 'product_loop',
+          card: 'card',
+          items: ['product_tile', 'product_name', 'product_rating', 'product_price'],
+        },
+      ],
+      sample: { id: '1', label: 'Page 1' },
+      label: 'Products — shop home',
+      reach: 'Applies to every page of the shop home',
+    })
+  }
+
+  it("offers the general blocks and exactly the surface's own", async () => {
+    q.mint.mockImplementation(async () => shopSession())
+    const w = mountPage()
+    await flushPromises()
+    const offered = w
+      .findAll('[data-test^="palette-card-"]')
+      .map((c) => c.attributes('data-test')!.replace('palette-card-', ''))
+    expect(offered).toEqual(expect.arrayContaining([...PALETTE, 'heading', 'container']))
+    expect(offered).not.toContain('product_buy')
+    expect(offered).not.toContain('entry_title')
+    expect(offered).not.toContain('entry_loop')
+    w.unmount()
+  })
+
+  it('refuses to delete the Product list, naming its reach', async () => {
+    q.mint.mockImplementation(async () => shopSession())
+    const w = mountPage()
+    await flushPromises()
+    bridge.callbacks.onBlockDeleteRequest!('shoploop0001' as never, null as never)
+    await flushPromises()
+    expect(w.find('[data-test="layout-required-refusal"]').text()).toBe(
+      'Every page of the shop home shows its Product list here, so the layout keeps this block. Move it instead.',
+    )
+    w.unmount()
+  })
+
+  it('the Product name tile is off while the page is the target and on when the card is', async () => {
+    q.mint.mockImplementation(async () => shopSession())
+    const w = mountPage()
+    await flushPromises()
+    const tile = () => w.find('[data-test="palette-card-product_name"]')
+    expect(tile().attributes('aria-disabled')).toBe('true')
+    expect(tile().attributes('title')).toBe("Product name goes inside the Product list's card")
+
+    bridge.callbacks.onSlotAdd!('shoploop0001' as never, 'card' as never)
+    await flushPromises()
+    expect(tile().attributes('aria-disabled')).toBeUndefined()
+    expect(w.find('[data-test="palette-card-shop_title"]').attributes('title')).toBe(
+      "Shop title can't go inside a card",
+    )
+    w.unmount()
+  })
+
+  it('a working copy without the Product list cannot be saved', async () => {
+    const without = SHOP.filter((b) => b.type !== 'product_loop')
+    q.mint.mockImplementation(async () => shopSession(without))
+    const w = mountPage()
+    await flushPromises()
+    expect(topBar(w).props('saveBlocked')).toBe(
+      'The layout must show the Product list block — add it from the Blocks tab.',
     )
     w.unmount()
   })

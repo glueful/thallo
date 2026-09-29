@@ -17,6 +17,7 @@ import { propertyDefinition, styleProperties } from '@/style/schema'
 import { BREAKPOINTS } from '@/style/types'
 import type { Breakpoint, Resolution, StyleClassRef } from '@/style/types'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
+import type { BlockType } from '@/queries/blockTypes'
 
 /**
  * The modes a container can arrange its children in (spec §11.1). The theme's own default is a
@@ -62,14 +63,51 @@ export function effectiveDisplay(
   block: BlockInstance,
   breakpoint: Breakpoint,
   classes: StyleClassRef[],
+  fallback: LayoutDisplay = 'flex',
 ): LayoutDisplay {
   const resolution = resolutionAt('layout.display', block, breakpoint, classes)
   const value = resolution?.value
   if (value && value.type === 'choice' && (value.value === 'flex' || value.value === 'grid')) {
     return value.value
   }
-  // Nothing declared, a reset, or a stored value the contract does not offer: the theme default.
-  return 'flex'
+  // Nothing declared, a reset, or a stored value the contract does not offer: the theme default —
+  // a flex column, unless the block's type declares its own (`displayDefaults`).
+  return fallback
+}
+
+/**
+ * The arrangement a block type's theme gives it when nothing is set (type layouts plan C2): the
+ * declared `defaults` of the style target that owns `layout.display` — the Product list's cards
+ * are the shop's adaptive grid. Null when the type declares none (a flex column, the default), or
+ * declares it malformed: then the tab says nothing rather than something wrong.
+ */
+export interface TargetDefaults {
+  display: LayoutDisplay
+  columns?: { label: string }
+  gap?: { row?: string; column?: string }
+}
+
+export function displayDefaults(type: BlockType | null | undefined): TargetDefaults | null {
+  const decl = type?.style_targets as
+    | { targets?: Record<string, { defaults?: unknown }>; map?: Record<string, unknown> }
+    | null
+    | undefined
+  const target = decl?.map?.['layout.display']
+  if (typeof target !== 'string') return null
+  const defaults = decl?.targets?.[target]?.defaults as Record<string, unknown> | undefined
+  if (!defaults || (defaults.display !== 'flex' && defaults.display !== 'grid')) return null
+  const out: TargetDefaults = { display: defaults.display }
+  const columns = defaults.columns as { label?: unknown } | undefined
+  if (columns && typeof columns.label === 'string' && columns.label !== '') {
+    out.columns = { label: columns.label }
+  }
+  const gap = defaults.gap as { row?: unknown; column?: unknown } | undefined
+  if (gap) {
+    out.gap = {}
+    if (typeof gap.row === 'string') out.gap.row = gap.row
+    if (typeof gap.column === 'string') out.gap.column = gap.column
+  }
+  return out
 }
 
 /**
@@ -82,8 +120,9 @@ export function dormantPaths(
   breakpoint: Breakpoint,
   classes: StyleClassRef[],
   role: LayoutRole,
+  fallback: LayoutDisplay = 'flex',
 ): string[] {
-  const mode = role === 'parent' ? effectiveDisplay(block, breakpoint, classes) : role
+  const mode = role === 'parent' ? effectiveDisplay(block, breakpoint, classes, fallback) : role
   const table = role === 'parent' ? PARENT_ONLY : ITEM_ONLY
   const dormant = table[mode === 'flex' ? 'grid' : 'flex']
 

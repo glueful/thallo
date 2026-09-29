@@ -24,7 +24,7 @@ final readonly class StyleTargets
     ];
 
     /**
-     * @param array<string, array{kind: TargetKind, optional: bool}> $targets
+     * @param array<string, array{kind: TargetKind, optional: bool, defaults: ?array<string,mixed>}> $targets
      * @param array<string, string> $styleMap exact style path → target
      * @param array<string, string> $advancedMap advanced path → target
      * @param array<string, array{label: string, capabilities: StyleCapabilities}> $parts
@@ -38,7 +38,10 @@ final readonly class StyleTargets
     }
 
     /**
-     * @param array{targets?: array<string, array{kind?: string, optional?: bool}>, map?: array<string, mixed>} $decl
+     * @param array{
+     *   targets?: array<string, array{kind?: string, optional?: bool, defaults?: mixed}>,
+     *   map?: array<string, mixed>,
+     * } $decl
      * @throws \InvalidArgumentException
      */
     public static function fromDeclaration(array $decl): self
@@ -53,7 +56,13 @@ final readonly class StyleTargets
                     (string) $name,
                 ));
             }
-            $targets[$name] = ['kind' => $kind, 'optional' => (bool) ($spec['optional'] ?? false)];
+            $targets[$name] = [
+                'kind' => $kind,
+                'optional' => (bool) ($spec['optional'] ?? false),
+                'defaults' => array_key_exists('defaults', (array) $spec)
+                    ? self::defaultsFrom($name, $spec['defaults'])
+                    : null,
+            ];
         }
 
         $styleMap = [];
@@ -158,6 +167,68 @@ final readonly class StyleTargets
     public function kind(string $target): TargetKind
     {
         return $this->targets[$target]['kind'] ?? throw new \InvalidArgumentException("unknown target \"{$target}\"");
+    }
+
+    /**
+     * The arrangement the theme gives a target when nothing is set (type layouts plan C2): its mode,
+     * a label for tracks the vocabulary cannot name, and its gaps as the theme writes them. The
+     * inspector shows them as the unset state; the emitter keeps the theme's own tracks where they
+     * are declared. Null when the target declares none (a flex column, the container default).
+     *
+     * @return array{
+     *   display: 'flex'|'grid', columns?: array{label: string}, gap?: array{row?: string, column?: string},
+     * }|null
+     */
+    public function defaults(string $target): ?array
+    {
+        if (!isset($this->targets[$target])) {
+            throw new \InvalidArgumentException("unknown target \"{$target}\"");
+        }
+        return $this->targets[$target]['defaults'];
+    }
+
+    /**
+     * @return array{display: 'flex'|'grid', columns?: array{label: string}, gap?: array{row?: string, column?: string}}
+     * @throws \InvalidArgumentException
+     */
+    private static function defaultsFrom(string $target, mixed $defaults): array
+    {
+        $refuse = static fn (string $why): \InvalidArgumentException
+            => new \InvalidArgumentException("target \"{$target}\" defaults: {$why}");
+        if (!is_array($defaults) || array_is_list($defaults)) {
+            throw $refuse('must be a map');
+        }
+        $unknown = array_diff(array_keys($defaults), ['display', 'columns', 'gap']);
+        if ($unknown !== []) {
+            throw $refuse('unknown key "' . implode('", "', $unknown) . '"');
+        }
+        if (!in_array($defaults['display'] ?? null, ['flex', 'grid'], true)) {
+            throw $refuse('display must be flex or grid');
+        }
+        $out = ['display' => $defaults['display']];
+        if (array_key_exists('columns', $defaults)) {
+            $columns = $defaults['columns'];
+            if (
+                !is_array($columns) || array_keys($columns) !== ['label']
+                || !is_string($columns['label']) || trim($columns['label']) === ''
+            ) {
+                throw $refuse('columns must be {label} with a label');
+            }
+            $out['columns'] = ['label' => $columns['label']];
+        }
+        if (array_key_exists('gap', $defaults)) {
+            $gap = $defaults['gap'];
+            if (!is_array($gap) || array_is_list($gap) || array_diff(array_keys($gap), ['row', 'column']) !== []) {
+                throw $refuse('gap must be {row?, column?}');
+            }
+            foreach ($gap as $value) {
+                if (!is_string($value) || trim($value) === '') {
+                    throw $refuse('a gap must be the theme\'s written value');
+                }
+            }
+            $out['gap'] = $gap;
+        }
+        return $out;
     }
 
     public function optional(string $target): bool

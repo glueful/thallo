@@ -109,6 +109,7 @@ use Thallo\Commerce\Shop\ShopUrlGenerator;
 use Thallo\Commerce\Shop\ShopWishlistSurface;
 use Thallo\Commerce\Shop\StorefrontPreviewUrlBuilder;
 use Thallo\Commerce\Starter\ProductFieldBlocksContributor;
+use Thallo\Commerce\Starter\ShopLayoutBlocksContributor;
 use Thallo\Commerce\Starter\ProductStoryContributor;
 use Thallo\Commerce\Starter\ShopBlockTypesContributor;
 use Thallo\Commerce\Tenancy\ThalloCommerceTenantResolution;
@@ -474,8 +475,25 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
                 'shared'   => true,
                 'autowire' => true,
             ],
+            // What the shop home and a category page render from — the catalog routes and the shop
+            // layouts' stage (type layouts plan C2).
+            \Thallo\Commerce\Shop\ShopCatalogPage::class => [
+                'class'    => \Thallo\Commerce\Shop\ShopCatalogPage::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
             \Thallo\Commerce\Layouts\ProductSurface::class => [
                 'class'    => \Thallo\Commerce\Layouts\ProductSurface::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            \Thallo\Commerce\Layouts\ShopIndexSurface::class => [
+                'class'    => \Thallo\Commerce\Layouts\ShopIndexSurface::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            \Thallo\Commerce\Layouts\ShopCategorySurface::class => [
+                'class'    => \Thallo\Commerce\Layouts\ShopCategorySurface::class,
                 'shared'   => true,
                 'autowire' => true,
             ],
@@ -1714,15 +1732,26 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
      * unit-testable without a full capability-enabled boot, mirroring
      * registerStarterContributor() above.
      */
-    /** Add the product page to core's layout surfaces (type layouts plan C1); idempotent by key. */
+    /**
+     * Add the product page (type layouts plan C1), the shop home and the category pages (plan C2) to
+     * core's layout surfaces; idempotent by key.
+     */
     private function registerLayoutSurface(ApplicationContext $context): void
     {
         $container = $context->getContainer();
         if (!$container->has(\Thallo\Contracts\Layouts\LayoutSurfaceRegistry::class)) {
             return;
         }
-        $container->get(\Thallo\Contracts\Layouts\LayoutSurfaceRegistry::class)
-            ->register($container->get(\Thallo\Commerce\Layouts\ProductSurface::class));
+        $registry = $container->get(\Thallo\Contracts\Layouts\LayoutSurfaceRegistry::class);
+        foreach (
+            [
+                \Thallo\Commerce\Layouts\ProductSurface::class,
+                \Thallo\Commerce\Layouts\ShopIndexSurface::class,
+                \Thallo\Commerce\Layouts\ShopCategorySurface::class,
+            ] as $surface
+        ) {
+            $registry->register($container->get($surface));
+        }
     }
 
     public function registerShopBlockTypeContributor(
@@ -1741,10 +1770,14 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
             $registry = $container->get(StarterBlockTypeRegistry::class);
         }
 
-        // The shop blocks, and the product page's field blocks the product layout places (type
-        // layouts plan C1) — each registered once.
+        // The shop blocks, the product page's field blocks the product layout places (type layouts
+        // plan C1), and the shop home and category pages' blocks their layouts place (plan C2) —
+        // each registered once.
         $registered = array_map(static fn (object $c): string => $c::class, $registry->all());
-        foreach ([ShopBlockTypesContributor::class, ProductFieldBlocksContributor::class] as $class) {
+        $contributors = [
+            ShopBlockTypesContributor::class, ProductFieldBlocksContributor::class, ShopLayoutBlocksContributor::class,
+        ];
+        foreach ($contributors as $class) {
             if (!in_array($class, $registered, true)) {
                 $registry->register(new $class());
             }

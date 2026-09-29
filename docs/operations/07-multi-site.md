@@ -89,6 +89,14 @@ next stage.
    that holds content, the content model or settings and widens their unique constraints; and
    records the schema as `widened`. It ends at `reloading`, with the barrier still up.
 
+   Recording `widened` is one transaction with moving the store's orders and payments into the
+   new workspace, so nothing ever sees the workspace before its rows are in it. A payment already
+   under way when this stage starts finishes first; one that starts while the rows move is refused
+   and can be retried a moment later. If payment work is still running after 10 seconds, the stage
+   fails without changing anything: a `queue:work` worker that has handled a payment keeps holding
+   it, so stop the workers, then run it with `--retry`. From here on the database refuses a payment
+   row with no workspace.
+
 4. Restart the app: PHP-FPM, and every `queue:work` worker.
 
 5. Finish. It verifies enforcement, then lowers the barrier and sets the step to `on` in one
@@ -106,6 +114,58 @@ If a stage fails, the step becomes `failed` and `failure` carries the reason, an
 prints it. Fix the cause, then run it with `--retry`, which picks up at the stage that failed — or
 use **Retry** in **Settings › Workspaces**. A failure before the confirm stage can be abandoned
 instead with `--cancel`, which returns the step to `off`.
+
+### Payments on a site that turned workspaces on earlier
+
+In earlier releases, turning workspaces on moved orders into the first workspace but left their
+payments behind: that workspace could not see them, refunds and payment webhooks could not find
+them, and paying an order again could open a second payment for it. On such a site, repair them:
+
+1. See what there is. This changes nothing.
+
+   ```bash
+   $ php glueful thallo:tenancy:payments:repair
+   ```
+
+   It prints, for each payments table, how many rows have no workspace, how many belong to the
+   default workspace and how many to others. Then it lists anything that would stop the move: a
+   row whose key (a plan name, an invoice number, a payment attempt) the default workspace already
+   holds, or a row that belongs with another workspace's order or plan. Last come the orders with
+   more than one payment attempt.
+
+2. Resolve what it lists. Two open payment attempts for one order is the usual case, and it
+   stops the move until one is gone. Check with your payment provider which attempt the customer
+   paid, then supersede the other by its uuid from the report:
+
+   ```bash
+   $ php glueful thallo:tenancy:payments:repair --retire-intent=<uuid>
+   $ php glueful thallo:tenancy:payments:repair --retire-intent=<uuid> --apply
+   ```
+
+   The first run shows the attempt — its workspace, order, status, provider and reference — and
+   changes nothing; `--apply` supersedes it. It reaches only attempts with no workspace or in the
+   default workspace, and never supersedes one that has meanwhile been paid. **Superseding only
+   marks the attempt abandoned in Thallo: it does not cancel or refund anything at the payment
+   provider.** If the customer paid both attempts, refund one with the provider as well. A
+   payment that still arrives for a superseded attempt is recorded, so you can refund it.
+
+3. Move the rows into the default workspace.
+
+   ```bash
+   $ php glueful thallo:tenancy:payments:repair --apply
+   ```
+
+   Only rows with no workspace move, keeping their ids and links; rows of other workspaces are not
+   touched. If anything from step 1 is still there it changes nothing and says why. Payment work
+   that started before it finishes first; if some is still running after 10 seconds — often a
+   `queue:work` worker that has handled a payment — it changes nothing and asks you to try again,
+   so stop the workers and rerun it. A payment webhook that arrives while it moves rows is refused
+   and retried by the payment queue afterwards, so no update is lost. Run it again and it reports
+   `Nothing to repair`. `--json` prints the same report as JSON.
+
+   Run step 3 once even when step 1 finds nothing to move: it is also what makes the database
+   refuse payment rows with no workspace from then on. Until it has run, every request that
+   touches payments takes the repair's lock for as long as it runs.
 
 ## Turn on domain routing
 

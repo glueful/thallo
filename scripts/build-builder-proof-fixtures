@@ -224,7 +224,12 @@ $vocabulary = $theme->vocabulary();
 $themeDir = $theme->themeDir();
 $files = array_map(static fn (string $rel): string => $themeDir . '/' . $rel, $vocabulary->stylesheets());
 file_put_contents($out . '/layers.css', file_get_contents($root . '/packages/thallo-render/assets/style/layers.css'));
-file_put_contents($out . '/theme.css', ThemeStylesheetArtifact::build($files)->css);
+// With the packs' contributed stylesheets, as the app builds it (ThemeStylesheetArtifacts): the shop's
+// stylesheet reaches a shop layout's stage through this artifact alone (type layouts plan C2).
+file_put_contents($out . '/theme.css', ThemeStylesheetArtifact::build(
+    $files,
+    $container->get(Thallo\Render\Contribution\RenderContributionRegistry::class)->frozenStylesheets(),
+)->css);
 file_put_contents($out . '/settings.css', StyleCompiler::compile($vocabulary));
 file_put_contents($out . '/entry.json', json_encode(['uuid' => $entryUuid, 'locale' => 'en', 'type' => 'page'], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
 
@@ -908,7 +913,220 @@ try {
     exit(1);
 }
 
+// ── The shop home layout's stage (type layouts plan C2, S5) ──────────────────────────────────────
+// The shop home's layout, saved once as the baseline, and every accepted state the proofs reach —
+// authored once in admin/e2e/shop-scenarios.json — rendered through the real session → apply →
+// preview path around the shop's first page (ShopPageSeed: 26 products, 24 to a page). The
+// `placeholder` state is rendered in a world of its own, a shop with no products, whose stage shows
+// the placeholder page's one sample card. `after-remove` is the stage a fresh session opens on once a
+// saved layout is removed: the starter, untouched. Each state must come out of the validator
+// unchanged. Each world is seeded in a transaction that is rolled back.
+$shopScenarios = json_decode(
+    (string) file_get_contents($root . '/admin/e2e/shop-scenarios.json'),
+    true,
+    512,
+    JSON_THROW_ON_ERROR,
+)['scenarios'];
+
+$shopSeed = new Thallo\Core\Tests\Support\ShopPageSeed($container, TestApplication::instance()->getContext());
+$shopTenant = $shopSeed->useTenant();
+try {
+    $db->transaction(static function () use ($container, $shopScenarios, $shopSeed, $layoutsOut, $out, $canonical): void {
+        $write = static fn (string $name, string $body) => file_put_contents($layoutsOut . '/' . $name, $body);
+        $factory = $container->get(Thallo\Core\Content\Blocks\BlockFactory::class);
+        $preview = $container->get(Thallo\Core\Http\Controllers\LayoutPreviewController::class);
+        $admin = $container->get(Thallo\Core\Http\Controllers\LayoutAdminController::class);
+        $repo = $container->get(Thallo\Core\Content\Layouts\LayoutRepository::class);
+        $resolver = $container->get(Thallo\Core\Content\Layouts\LayoutResolver::class);
+        $lock = $container->get(Thallo\Core\Content\Layouts\LayoutWriteLock::class);
+        $validator = $container->get(Thallo\Core\Content\Layouts\LayoutValidator::class);
+        $hydrator = new Glueful\Validation\RequestDataHydrator();
+
+        $instances = [];
+        $expand = static function (array $blocks) use (&$expand, $factory, &$instances): array {
+            $made = [];
+            foreach ($blocks as $block) {
+                if (isset($block['$factory'])) {
+                    $slug = (string) $block['$factory'];
+                    $built = $factory->make($slug) ?? throw new RuntimeException("no block type '{$slug}'");
+                    $instances[$slug] = ['block' => $built['block'], 'starter' => $built['starter']];
+                    $block = [
+                        'id' => $block['id'],
+                        'type' => $built['block']['type'],
+                        'data' => array_merge($built['block']['data'], $built['starter']),
+                        'settings' => $built['block']['settings'],
+                    ];
+                }
+                foreach ($block['data'] as $key => $value) {
+                    if (is_array($value) && array_is_list($value) && ($value === [] || isset($value[0]['type']) || isset($value[0]['$factory']))) {
+                        $block['data'][$key] = $expand($value);
+                    }
+                }
+                $made[] = $block;
+            }
+            return $made;
+        };
+        $session = static function () use ($preview, $hydrator): array {
+            $dto = $hydrator->hydrate(
+                Thallo\Core\Http\DTOs\LayoutSessionData::class,
+                ['surface' => 'shop_index', 'target' => '@site'],
+            );
+            $body = (string) $preview->session($dto)->getContent();
+            return [$body, json_decode($body, true, 512, JSON_THROW_ON_ERROR)['data']];
+        };
+        $stage = static function (string $token, string $name) use ($container): string {
+            $rendered = $container->get(RenderController::class)->preview(
+                Request::create('/_preview/' . $token . '?canvas=1', 'GET'),
+                $token,
+            );
+            $html = (string) $rendered->getContent();
+            if ($rendered->getStatusCode() !== 200 || !str_contains($html, 'shop-index--layout')) {
+                throw new RuntimeException("the shop '{$name}' stage is not the shop home frame ({$rendered->getStatusCode()})");
+            }
+            return $html;
+        };
+        $render = static function (array $document, string $name) use ($preview, $hydrator, $session, $stage): string {
+            [, $opened] = $session();
+            $token = (string) $opened['token'];
+            $applied = $preview->apply($hydrator->hydrate(Thallo\Core\Http\DTOs\ApplyLayoutData::class, [
+                'token' => $token, 'layout' => $document, 'epoch' => null, 'base_revision' => null,
+            ]));
+            if ($applied->getStatusCode() !== 200) {
+                throw new RuntimeException("applying the shop '{$name}' layout returned {$applied->getStatusCode()}: {$applied->getContent()}");
+            }
+            return $stage($token, $name);
+        };
+        $saveBaseline = static function (array $document) use ($repo, $resolver, $lock): void {
+            $lock->within(
+                'shop_index',
+                '@site',
+                fn (): int => $repo->saveExpected('shop_index', '@site', $document['blocks'], $document['settings'], $repo->version('shop_index', '@site'), null),
+            );
+            $resolver->forget('shop_index', '@site');
+        };
+        $documents = [];
+        foreach ($shopScenarios as $scenario) {
+            $documents[(string) $scenario['name']] = ['blocks' => $expand($scenario['layout']['blocks'])] + $scenario['layout'];
+        }
+
+        // The placeholder world first: a shop with no products.
+        $shopSeed->clear();
+        foreach ($shopScenarios as $scenario) {
+            $name = (string) $scenario['name'];
+            if (($scenario['placeholder'] ?? false) !== true) {
+                continue;
+            }
+            $saveBaseline($documents[$name]);
+            [$body, $opened] = $session();
+            if ($opened['placeholder'] !== true) {
+                throw new RuntimeException("the shop '{$name}' session is not a placeholder session");
+            }
+            $write('shop-placeholder-session.json', $body);
+            $write(
+                'shop-placeholder-samples.json',
+                (string) $admin->samples(Request::create('/x'), 'shop_index', '@site')->getContent(),
+            );
+            $html = $render($documents[$name], $name);
+            if (!str_contains($html, 'data-thallo-placeholder')) {
+                throw new RuntimeException("the shop '{$name}' stage shows no placeholder");
+            }
+            $write("shop-stage-{$name}.html", $html);
+            $write('shop-placeholder-stages.json', json_encode(
+                ['baseline' => ['layout' => $documents[$name], 'file' => "shop-stage-{$name}.html"]],
+                JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR,
+            ));
+        }
+        $container->get(Glueful\Database\Connection::class)->table('layouts')->where('surface', '=', 'shop_index')->delete();
+        $resolver->forget('shop_index', '@site');
+
+        // The sampled world: the seeded shop.
+        $shopSeed->seed();
+        foreach ($shopScenarios as $scenario) {
+            $name = (string) $scenario['name'];
+            try {
+                $clean = $validator->validate('shop_index', '@site', $documents[$name]['blocks'], $documents[$name]['settings']);
+            } catch (Thallo\Core\Content\Validation\ValidationException $e) {
+                throw new RuntimeException("shop scenario '{$name}' is invalid: " . json_encode($e->errors()));
+            }
+            if (json_encode($canonical($clean)) !== json_encode($canonical($documents[$name]))) {
+                throw new RuntimeException("shop scenario '{$name}' does not survive validation unchanged:\n  authored "
+                    . json_encode($canonical($documents[$name])) . "\n  clean    " . json_encode($canonical($clean)));
+            }
+        }
+        $saveBaseline($documents['baseline']);
+        [$body] = $session();
+        $write('shop-session.json', $body);
+        $write(
+            'shop-samples.json',
+            (string) $admin->samples(Request::create('/x'), 'shop_index', '@site')->getContent(),
+        );
+        $stages = [];
+        foreach ($shopScenarios as $scenario) {
+            $name = (string) $scenario['name'];
+            if (($scenario['placeholder'] ?? false) === true) {
+                continue;
+            }
+            $write("shop-stage-{$name}.html", $render($documents[$name], $name));
+            $stages[$name] = ['layout' => $documents[$name], 'file' => "shop-stage-{$name}.html"];
+        }
+        $write('shop-stages.json', json_encode($stages, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+
+        // After a Remove: the grid layout saved, removed through the admin's Remove, and the session a
+        // fresh mint opens — the starter, untouched — with its stage.
+        $saveBaseline($documents['grid']);
+        [, $removing] = $session();
+        $removed = $admin->destroy(
+            $hydrator->hydrate(Thallo\Core\Http\DTOs\RemoveLayoutData::class, [
+                'token' => $removing['token'], 'expected_lock_version' => $removing['layout']['lock_version'],
+            ]),
+            Request::create('/x', 'DELETE'),
+            'shop_index',
+            '@site',
+        );
+        if ($removed->getStatusCode() !== 200) {
+            throw new RuntimeException("removing the shop layout returned {$removed->getStatusCode()}: {$removed->getContent()}");
+        }
+        $resolver->forget('shop_index', '@site');
+        [$afterBody, $after] = $session();
+        if (($after['starter'] ?? false) !== true) {
+            throw new RuntimeException('the session after the removal is not on the starter');
+        }
+        $write('shop-after-remove-session.json', $afterBody);
+        $write("shop-stage-after-remove.html", $stage((string) $after['token'], 'after-remove'));
+        $write('shop-after-remove-stages.json', json_encode(
+            ['baseline' => [
+                'layout' => ['blocks' => $after['layout']['blocks'], 'settings' => $after['layout']['settings']],
+                'file' => 'shop-stage-after-remove.html',
+            ]],
+            JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR,
+        ));
+
+        // The palette tiles the proofs drag (a card block, and one refused at the root) ask for their
+        // type's instance like any other.
+        foreach (['product_rating', 'product_price', 'product_name'] as $slug) {
+            $built = $factory->make($slug) ?? throw new RuntimeException("no block type '{$slug}'");
+            $instances[$slug] = ['block' => $built['block'], 'starter' => $built['starter']];
+        }
+        foreach ($instances as $slug => $instance) {
+            file_put_contents(
+                $out . "/api/instance-{$slug}.json",
+                json_encode(['success' => true, 'data' => $instance], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR),
+            );
+        }
+        throw new LayoutFixturesWritten();
+    });
+} catch (LayoutFixturesWritten) {
+    // Written, and rolled back.
+} catch (Throwable $e) {
+    $shopSeed->restoreTenant($shopTenant);
+    fwrite(STDERR, 'the shop layout fixtures failed: ' . $e::class . ': ' . $e->getMessage() . "\n");
+    exit(1);
+} finally {
+    $shopSeed->restoreTenant($shopTenant);
+}
+
 fwrite(STDOUT, "Wrote {$out}/canvas.html and " . count(glob($out . '/api/*.json') ?: []) . " API fixtures for entry {$entryUuid}.\n");
 fwrite(STDOUT, 'Wrote ' . count(glob($regionsOut . '/stage-*.html') ?: []) . " regions stages to {$regionsOut}.\n");
 fwrite(STDOUT, 'Wrote ' . count(glob($layoutsOut . '/stage-*.html') ?: []) . " layout stages to {$layoutsOut}.\n");
 fwrite(STDOUT, 'Wrote ' . count(glob($layoutsOut . '/listing-stage-*.html') ?: []) . " listing layout stages to {$layoutsOut}.\n");
+fwrite(STDOUT, 'Wrote ' . count(glob($layoutsOut . '/shop-stage-*.html') ?: []) . " shop layout stages to {$layoutsOut}.\n");

@@ -13,6 +13,7 @@ use Glueful\Validation\RequestDataHydrator;
 use Psr\Container\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Commerce\Layouts\ProductSurface;
+use Thallo\Commerce\Layouts\ShopLayoutTags;
 use Thallo\Commerce\Shop\Listeners\PurgeShopCacheOnLayoutChange;
 use Thallo\Contracts\Layouts\LayoutChanged;
 use Thallo\Contracts\Layouts\LayoutSurfaceRegistry;
@@ -94,9 +95,12 @@ final class ProductLayoutCacheTest extends AppTestCase
         }
     }
 
+    /** The key the product page is cached under now: its workspace's current product layout token (plan C2). */
     private function key(string $tenant): string
     {
+        $token = $this->cache()->get(ShopLayoutTags::generationKey(ProductSurface::KEY, $tenant));
         return 'shop:' . $tenant . ':en:default:' . $this->appearanceFingerprint() . ':1:'
+            . ProductSurface::KEY . 'g' . (is_string($token) ? $token : 'none') . ':'
             . rawurlencode('/shop/products/lamp');
     }
 
@@ -195,7 +199,7 @@ final class ProductLayoutCacheTest extends AppTestCase
     {
         $cache = $this->createMock(CacheStore::class);
         $cache->expects(self::once())->method('invalidateTags')
-            ->with([ProductSurface::pageCacheTag(self::TENANT_A)])->willReturn(false);
+            ->with([ShopLayoutTags::tenantTag(ProductSurface::KEY, self::TENANT_A)])->willReturn(false);
         $deleted = [];
         $cache->method('deletePattern')->willReturnCallback(static function (string $pattern) use (&$deleted): bool {
             $deleted[] = $pattern;

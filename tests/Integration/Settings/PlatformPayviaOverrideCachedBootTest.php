@@ -92,6 +92,11 @@ final class PlatformPayviaOverrideCachedBootTest extends AppTestCase
                 $container->get(PayviaSettingsOverride::class),
                 'a cached-provider boot must resolve the APP-owned override — no register()-only wiring',
             );
+            self::assertInstanceOf(
+                \Thallo\Core\Payments\Tenancy\ThalloPayviaTenantResolver::class,
+                $container->get(\Glueful\Extensions\Payvia\Tenancy\PayviaTenantResolver::class),
+                'a cached-provider boot must resolve payments\' workspace from the app, not payvia',
+            );
 
             // The gateway map must be READABLE on this boot: payvia's own register()-time
             // mergeConfig() supplies it, with no app-published copy of its config.

@@ -112,6 +112,38 @@ final class LayoutOnlyBlocksTest extends AppTestCase
     }
 
     /**
+     * The shop pages' blocks (type layouts plan C2) belong to layouts too: an entry, a region and a
+     * saved section refuse all four of them at the block's path.
+     */
+    public function testShopLayoutBlocksBelongToLayouts(): void
+    {
+        $schema = ContentTypeSchema::fromArray([['name' => 'body', 'type' => 'blocks']]);
+        foreach (['product_loop', 'product_tile', 'shop_title', 'category_rail'] as $slug) {
+            try {
+                $this->validator()->validate($schema, ['body' => [self::nested($slug)]], true);
+                self::fail("an entry must refuse {$slug}");
+            } catch (ValidationException $e) {
+                self::assertSame("'{$slug}' belongs to layouts", $e->errors()['body.0.content.0'] ?? null);
+            }
+            try {
+                $this->container()->get(RegionValidator::class)->validate('footer', [self::nested($slug)], []);
+                self::fail("a region must refuse {$slug}");
+            } catch (ValidationException $e) {
+                self::assertStringContainsString("'{$slug}' belongs to layouts", json_encode($e->errors()));
+            }
+            $dto = (new RequestDataHydrator())->hydrate(
+                SaveSectionData::class,
+                ['name' => 'Sneaky ' . $slug, 'block' => self::nested($slug)],
+            );
+            $request = Request::create('https://admin.test/v1/admin/saved-sections', 'POST');
+            $request->attributes->set('user', ['uuid' => 'editor000001']);
+            $resp = $this->container()->get(SavedSectionController::class)->store($dto, $request);
+            self::assertSame(422, $resp->getStatusCode(), $slug);
+            self::assertStringContainsString("'{$slug}' belongs to layouts", (string) $resp->getContent());
+        }
+    }
+
+    /**
      * The listing page's blocks (type layouts plan B) belong to layouts too: an entry, a region and a
      * saved section refuse `entry_loop` and `pagination` at the block's path.
      */

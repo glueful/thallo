@@ -68,6 +68,12 @@ abstract class AppTestCase extends TestCase
         // Chrome regions (varchar `slug` PK — no integer id): a prior test's saved
         // header/footer must never leak chrome into another test's render.
         $db->table('regions')->where('slug', '!=', '')->forceDelete();
+        // Tenancy flags too, on the way out as well as in: the NEXT process's boot freezes its
+        // compatibility write scope from whatever flags it finds, so a class whose last test left
+        // a widened schema behind would stamp tenant_uuid into every later write of that process.
+        if ($db->getSchemaBuilder()->hasTable('thallo_system_flags')) {
+            $db->table('thallo_system_flags')->where('key', 'LIKE', 'tenancy.%')->forceDelete();
+        }
     }
 
     /**
@@ -115,6 +121,10 @@ abstract class AppTestCase extends TestCase
         // reverse order passed, and the full suite only survived because an unrelated
         // secondary-boot test happened to re-register the provider first.
         self::restoreSharedPermissionProviderIfCleared();
+
+        // An adoption leaves payments' tables refusing tenant '' rows; a class that died before its
+        // own cleanup must not turn every later single-store payment into a constraint violation.
+        PaymentTenantConstraints::drop(self::$app->getContainer()->get(Connection::class));
     }
 
     /**
@@ -224,6 +234,11 @@ abstract class AppTestCase extends TestCase
             $this->connection()->table('thallo_system_flags')->where('key', '!=', '')->forceDelete();
         }
         $this->container()->get(\Thallo\Tenancy\System\SystemFlags::class)->clearCache();
+
+        // A test is a unit of work: a prior test's single-store payment work held the adoption
+        // gate for the rest of ITS unit — release it, as a request's end would, so an adoption
+        // flip in this test is not refused by a unit that already finished.
+        \Thallo\Tenancy\Adoption\AdoptionGate::endUnitOfWork();
 
         // The CONTAINER BlockTypeRepository memoises schemasBySlug() per instance:
         // a prior test that warmed it through container-resolved services (render

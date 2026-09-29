@@ -12,6 +12,7 @@ use Thallo\Core\Content\Repositories\VersionRepository;
 use Thallo\Core\Content\Services\PublishService;
 use Thallo\Core\Content\Validation\FieldValidator;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\ShopCacheKey;
 use Glueful\Cache\CacheStore;
 use Glueful\Extensions\Commerce\Catalog\AddonService;
 use Glueful\Extensions\Commerce\Catalog\CatalogService;
@@ -266,8 +267,7 @@ final class StorefrontWalkTest extends AppTestCase
 
         // The poisoned tenant's cache must never have been touched by any of the above.
         self::assertIsArray(
-            $this->cache()->get('shop:' . self::TENANT_A_POISON . ':en:default:' . $this->appearanceFingerprint()
-                . ':1:%2Fshop'),
+            $this->cache()->get($this->cacheKey(self::TENANT_A_POISON, '/shop')),
             'a wholly separate tenant\'s cache must be untouched by this walk',
         );
     }
@@ -474,7 +474,7 @@ final class StorefrontWalkTest extends AppTestCase
 
     private function cacheKey(string $tenant, string $path): string
     {
-        return 'shop:' . $tenant . ':en:default:' . $this->appearanceFingerprint() . ':1:' . rawurlencode($path);
+        return ShopCacheKey::for($this->cache(), $tenant, $this->appearanceFingerprint(), $path);
     }
 
     /** @return array{uuid: string, variantUuid: string} */

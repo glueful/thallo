@@ -864,3 +864,120 @@ describe('a loop and its card', () => {
     expect(section.text()).toContain('Gap')
   })
 })
+
+// Type layouts plan C2: the Product list's cards are the shop's adaptive grid until someone arranges
+// them. Its block type declares that on its `cards` target, and the tab shows it as the unset state:
+// untouched, switched, deleted back and reset over a class, the tab reads what the page renders.
+describe('a loop whose theme gives its cards an adaptive grid', () => {
+  const loops = [{ type: 'product_loop', card: 'card', items: ['product_name'] }]
+  const productLoop = {
+    ...type('product_loop', [
+      'spacing',
+      'width',
+      'layout.display',
+      'layout.direction',
+      'layout.wrap',
+      'layout.columns',
+      'layout.gap.column',
+      'layout.gap.row',
+    ]),
+    style_targets: {
+      targets: {
+        root: { kind: 'box' },
+        cards: {
+          kind: 'stack',
+          defaults: {
+            display: 'grid',
+            columns: { label: 'Adaptive — as many 15rem columns as fit' },
+            gap: { row: '1.75rem', column: '1.5rem' },
+          },
+        },
+      },
+      map: {
+        spacing: 'root',
+        width: 'root',
+        'layout.display': 'cards',
+        'layout.direction': 'cards',
+        'layout.wrap': 'cards',
+        'layout.columns': 'cards',
+        'layout.gap.column': 'cards',
+        'layout.gap.row': 'cards',
+      },
+    },
+  } as BlockType
+  const loop = (style: Record<string, unknown> = {}) => block('l1', 'product_loop', style)
+  const mountLoop = (style: Record<string, unknown> = {}, classes: unknown[] = []) =>
+    mountTab({ block: loop(style), blockType: productLoop, loops, classes })
+
+  function expectUntouched(w: ReturnType<typeof mountTab>): void {
+    expect(w.find('[data-test="layout-display-theme-default"]').text()).toBe('Theme default: Grid')
+    expect(w.find('[data-test="layout-field-layout.columns"]').exists()).toBe(true)
+    expect(w.find('[data-test="layout-columns-theme-default"]').text()).toBe(
+      'Theme default: Adaptive — as many 15rem columns as fit',
+    )
+    expect(w.find('[data-test="track-1"]').attributes('data-default')).toBeUndefined()
+    expect(w.find('[data-test="choice-row-reverse"]').exists()).toBe(false)
+    expect(w.find('[data-test="layout-gap-default"]').text()).toContain('1.5rem')
+    expect(w.find('[data-test="layout-gap-default"]').text()).toContain('1.75rem')
+  }
+
+  it('untouched, it reads Grid with the adaptive tracks and the theme gaps', () => {
+    expectUntouched(mountLoop())
+  })
+
+  it('switched to Flex, the flex rows show and the tracks are not offered', () => {
+    const w = mountLoop({ layout: { display: { base: choice('flex') } } })
+    expect(w.find('[data-test="layout-field-layout.columns"]').exists()).toBe(false)
+    expect(w.find('[data-test="choice-row-reverse"]').exists()).toBe(true)
+    expect(w.find('[data-test="layout-columns-theme-default"]').exists()).toBe(false)
+    expect(w.find('[data-test="layout-display-theme-default"]').exists()).toBe(false)
+  })
+
+  it('deleted back, it is exactly the untouched state', () => {
+    expectUntouched(mountLoop({ layout: {} }))
+  })
+
+  it('a chosen track count is pressed, and the theme default is no longer named', () => {
+    const w = mountLoop({ layout: { columns: { base: choice('3') } } })
+    expect(w.find('[data-test="track-3"]').attributes('aria-pressed')).toBe('true')
+    expect(w.find('[data-test="layout-columns-theme-default"]').exists()).toBe(false)
+  })
+
+  it('an explicit reset over a class of three columns reads the theme default, not the class', () => {
+    const threeCols = [{ id: 'cls1', style: { layout: { columns: { base: choice('3') } } } }]
+    const classOnly = mountLoop({}, threeCols)
+    expect(classOnly.find('[data-test="layout-columns-theme-default"]').exists()).toBe(false)
+    const reset = mountLoop(
+      {
+        layout: {
+          columns: { base: { type: 'reset' }, md: { type: 'reset' }, lg: { type: 'reset' } },
+        },
+      },
+      threeCols,
+    )
+    expect(reset.find('[data-test="layout-columns-theme-default"]').text()).toContain('Adaptive')
+    expect(reset.find('[data-test="track-3"]').attributes('aria-pressed')).toBe('false')
+  })
+
+  it('a plain container declares nothing, so it names no theme default', () => {
+    const w = mountTab({ block: block('c1', 'container'), blockType: container })
+    expect(w.find('[data-test="layout-display-theme-default"]').exists()).toBe(false)
+  })
+
+  it('the Entry list, declaring a flex column, still reads Flex untouched', () => {
+    const entryLoop = {
+      ...type('entry_loop', ['layout.display', 'layout.direction', 'layout.columns']),
+      style_targets: {
+        targets: { root: { kind: 'box' }, cards: { kind: 'stack', defaults: { display: 'flex' } } },
+        map: { 'layout.display': 'cards', 'layout.direction': 'cards', 'layout.columns': 'cards' },
+      },
+    } as BlockType
+    const w = mountTab({
+      block: block('l2', 'entry_loop'),
+      blockType: entryLoop,
+      loops: [{ type: 'entry_loop', card: 'card', items: [] }],
+    })
+    expect(w.find('[data-test="layout-display-theme-default"]').text()).toBe('Theme default: Flex')
+    expect(w.find('[data-test="layout-field-layout.columns"]').exists()).toBe(false)
+  })
+})

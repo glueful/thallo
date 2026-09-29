@@ -64,6 +64,11 @@ cd e2e && pnpm install --ignore-workspace && pnpm run install-browsers
 pnpm test
 ```
 
+`pnpm test` starts its own dev server on port 4793 (`BUILDER_PROOFS_PORT`) and refuses to run if
+something already answers there: a server left over from an earlier run would otherwise be driven
+instead of this build. Stop it, or — for a server you started yourself with the proofs'
+environment — set `BUILDER_PROOFS_REUSE_SERVER=1`.
+
 The fixture build seeds the test database (the same boot the integration suite uses) with the
 page content type, the composition entry and the shipped block types, renders the entry in
 canvas mode through the real render pack, and captures the block types, content types, draft,

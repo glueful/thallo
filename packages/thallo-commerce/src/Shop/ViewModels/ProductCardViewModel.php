@@ -61,6 +61,35 @@ final class ProductCardViewModel
         );
     }
 
+    /**
+     * The card as a layout's Product list repeats it (type layouts plan C2): `loop_cards()` takes
+     * arrays, and this one keeps the view model's own property names, so a template reads
+     * `product.coverUrl` alike from this array and from the object. Not the wishlist JSON — that is
+     * {@see self::toArray()}.
+     *
+     * @return array{
+     *   uuid: string, name: string, url: string, coverUrl: ?string, rating: ?array<string,mixed>,
+     *   priceFormatted: ?string, compareAtFormatted: ?string, categoryName: ?string, cartMode: string,
+     *   directVariantUuid: ?string,
+     * }
+     */
+    public function toCardItem(): array
+    {
+        // Named one by one, as toArray() is: a property added later joins the card only on purpose.
+        return [
+            'uuid' => $this->uuid,
+            'name' => $this->name,
+            'url' => $this->url,
+            'coverUrl' => $this->coverUrl,
+            'rating' => $this->rating,
+            'priceFormatted' => $this->priceFormatted,
+            'compareAtFormatted' => $this->compareAtFormatted,
+            'categoryName' => $this->categoryName,
+            'cartMode' => $this->cartMode,
+            'directVariantUuid' => $this->directVariantUuid,
+        ];
+    }
+
     /** @return array<string,mixed> EXACTLY the pinned card allowlist — key order included */
     public function toArray(): array
     {

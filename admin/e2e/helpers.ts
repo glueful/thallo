@@ -822,7 +822,14 @@ interface LayoutStageFixture {
  * post listing's pages — around its first page, and around the placeholder page while nothing is
  * published.
  */
-type LayoutWorld = 'post' | 'product' | 'listing' | 'listing-placeholder'
+type LayoutWorld =
+  | 'post'
+  | 'product'
+  | 'listing'
+  | 'listing-placeholder'
+  | 'shop'
+  | 'shop-placeholder'
+  | 'shop-after-remove'
 const LAYOUT_WORLDS: Record<
   LayoutWorld,
   {
@@ -867,6 +874,32 @@ const LAYOUT_WORLDS: Record<
     path: '/admin/layouts/listing/post',
     ready: '.thallo-block-entry_loop',
   },
+  // The shop home (type layouts plan C2): the seeded shop's first page, a shop with no products,
+  // and the starter a fresh session opens on once a saved layout is removed.
+  shop: {
+    session: 'layouts/shop-session.json',
+    samples: 'layouts/shop-samples.json',
+    stages: 'layouts/shop-stages.json',
+    endpoint: '**/v1/admin/layouts/shop_index/*',
+    path: '/admin/layouts/shop_index/@site',
+    ready: '.thallo-block-product_loop',
+  },
+  'shop-placeholder': {
+    session: 'layouts/shop-placeholder-session.json',
+    samples: 'layouts/shop-placeholder-samples.json',
+    stages: 'layouts/shop-placeholder-stages.json',
+    endpoint: '**/v1/admin/layouts/shop_index/*',
+    path: '/admin/layouts/shop_index/@site',
+    ready: '.thallo-block-product_loop',
+  },
+  'shop-after-remove': {
+    session: 'layouts/shop-after-remove-session.json',
+    samples: 'layouts/shop-samples.json',
+    stages: 'layouts/shop-after-remove-stages.json',
+    endpoint: '**/v1/admin/layouts/shop_index/*',
+    path: '/admin/layouts/shop_index/@site',
+    ready: '.thallo-block-product_loop',
+  },
 }
 
 /**
@@ -879,7 +912,7 @@ const LAYOUT_WORLDS: Record<
  */
 export async function openLayoutStage(
   page: Page,
-  options: { moved?: boolean; world?: LayoutWorld } = {},
+  options: { moved?: boolean; world?: LayoutWorld; opening?: string } = {},
 ): Promise<LayoutRecorded> {
   const world = LAYOUT_WORLDS[options.world ?? 'post']
   await routeWorld(page)
@@ -889,6 +922,9 @@ export async function openLayoutStage(
     data: { layout: LayoutDocument & { lock_version: number } } & Record<string, unknown>
   }
   let stored = opening.data.layout.lock_version + (options.moved ? 1 : 0)
+  // The state the session opens on: the world's baseline, or another of its rendered states (a
+  // saved layout the page opens with, as the server would hand it).
+  const openingStage = stages[options.opening ?? 'baseline']!
   interface MockSession {
     baseline: LayoutDocument
     epoch: string
@@ -941,7 +977,7 @@ export async function openLayoutStage(
     const n = recorded.sessions.length
     const token = `proof-layout-${n}`
     sessions.set(token, {
-      baseline: stages.baseline!.layout,
+      baseline: openingStage.layout,
       epoch: `proof-epoch-${n}`,
       revision: 0,
       accepted: null,
@@ -950,6 +986,8 @@ export async function openLayoutStage(
     // stored one, as a fresh mint would after another editor's save.
     const layout = {
       ...opening.data.layout,
+      blocks: openingStage.layout.blocks,
+      settings: openingStage.layout.settings,
       lock_version: n === 1 ? opening.data.layout.lock_version : stored,
     }
     return json(
