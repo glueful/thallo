@@ -225,6 +225,13 @@ abstract class AppTestCase extends TestCase
         }
         $this->container()->get(\Thallo\Tenancy\System\SystemFlags::class)->clearCache();
 
+        // A test is a unit of work: a prior test's single-store payment work held the adoption
+        // gate for the rest of ITS unit — release it, as a request's end would, so an adoption
+        // flip in this test is not refused by a unit that already finished.
+        if ($this->container()->has(\Thallo\Tenancy\Adoption\AdoptionGate::class)) {
+            $this->container()->get(\Thallo\Tenancy\Adoption\AdoptionGate::class)->release();
+        }
+
         // The CONTAINER BlockTypeRepository memoises schemasBySlug() per instance:
         // a prior test that warmed it through container-resolved services (render
         // resolver, validator, …) would poison this test's registry when fixtures

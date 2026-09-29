@@ -30,6 +30,12 @@ as the next release, never a mutated tag.
   the shop cache with the old layout and stay there until the cache expired. The shop cache now
   keys those pages by the layout's current version, so the next visit always shows the saved
   layout.
+- **Checkout starts payments again while workspaces are being set up.** Once the workspace
+  extension was installed, every payment failed to start — the order was placed but its
+  confirmation page showed a payment failure — until enforcement was fully on. Payments now
+  resolve their workspace exactly as orders do: the single store before workspaces, the default
+  workspace while they are being set up, and the request's workspace once they are on, still
+  refusing a payment that arrives with no workspace.
 
 ## [1.0.0-beta.69] - 2026-09-28 — Developer Preview
 
