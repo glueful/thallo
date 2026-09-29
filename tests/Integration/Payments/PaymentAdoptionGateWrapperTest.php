@@ -8,6 +8,7 @@ use Thallo\Core\Payments\Tenancy\PaymentAdoptionGateWrapper;
 use Thallo\Core\Payments\Tenancy\PaymentTables;
 use Thallo\Core\Payments\Tenancy\PaymentTenancyAdoption;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Tenancy\Adoption\AdoptionContributorRegistry;
 use Thallo\Tenancy\Adoption\AdoptionGate;
 use Thallo\Tenancy\Retrofit\RetrofitInProgressException;
 use Thallo\Tenancy\System\SystemFlags;
@@ -100,6 +101,23 @@ final class PaymentAdoptionGateWrapperTest extends AppTestCase
                 self::assertTrue(PaymentAdoptionGateWrapper::matchesTable(sprintf($shapes[0], $name)), $name);
             }
         }
+        $wrapper = $this->container()->get(PaymentAdoptionGateWrapper::class);
+        $adopted = [];
+        foreach ($this->container()->get(AdoptionContributorRegistry::class)->all() as $contributor) {
+            array_push($adopted, ...$contributor->tables());
+        }
+        self::assertContains('commerce_orders', $adopted, 'sanity: commerce\'s tables are covered');
+        foreach ($adopted as $table) {
+            foreach ([$table, strtoupper($table)] as $name) {
+                foreach ($shapes as $shape) {
+                    $sql = sprintf($shape, $name);
+                    if ($wrapper->matchesAdopted($sql) || PaymentAdoptionGateWrapper::matchesTable($sql)) {
+                        self::assertTrue($wrapper->mayMatchAny($sql), $sql);
+                    }
+                }
+            }
+        }
+        self::assertFalse($wrapper->mayMatchAny('SELECT * FROM entries WHERE id = ?'));
         self::assertFalse(PaymentAdoptionGateWrapper::mayMatchTable('SELECT * FROM entries WHERE id = ?'));
         self::assertFalse(PaymentAdoptionGateWrapper::mayMatchTable('UPDATE thallo_system_flags SET value = ?'));
     }

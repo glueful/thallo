@@ -53,7 +53,9 @@ as the next release, never a mutated tag.
   payment. Payments — and marketplace payouts still in progress, which could otherwise be paid out
   twice — now move into the default workspace at the same moment as the switch — a
   payment already under way finishes first, and one that starts during the switch is refused so
-  it can be retried — and afterwards the database refuses a payment with no workspace.
+  it can be retried — and afterwards the database refuses a payment with no workspace. The shop's
+  orders and products are kept apart from the switch the same way, so no page ever reads them
+  mid-move.
 
 ## [1.0.0-beta.69] - 2026-09-28 — Developer Preview
 

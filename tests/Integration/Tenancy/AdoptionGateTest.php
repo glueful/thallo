@@ -60,4 +60,22 @@ final class AdoptionGateTest extends AppTestCase
         self::assertTrue($gate->holdShared(), 'the next unit holds afresh');
         $gate->release();
     }
+
+    /** A worker between jobs: ending the unit releases its holds, so a flip can close the gate. */
+    public function testEndingTheUnitOfWorkReleasesItsHolds(): void
+    {
+        $unit = new AdoptionGate($this->connection());
+        $unit->holdShared();
+
+        AdoptionGate::endUnitOfWork();
+
+        self::assertFalse($unit->isHeld());
+        $flip = new AdoptionGate($this->connection());
+        $flip->acquireExclusive(200);
+        self::assertTrue($flip->holdsExclusive());
+        self::assertTrue($flip->holdShared(), 'the process moving the rows passes its own statements');
+        $flip->releaseExclusive();
+        self::assertTrue($unit->holdShared(), 'the next unit holds afresh, not as a lost hold');
+        $unit->release();
+    }
 }
