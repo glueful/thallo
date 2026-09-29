@@ -68,6 +68,12 @@ abstract class AppTestCase extends TestCase
         // Chrome regions (varchar `slug` PK — no integer id): a prior test's saved
         // header/footer must never leak chrome into another test's render.
         $db->table('regions')->where('slug', '!=', '')->forceDelete();
+        // Tenancy flags too, on the way out as well as in: the NEXT process's boot freezes its
+        // compatibility write scope from whatever flags it finds, so a class whose last test left
+        // a widened schema behind would stamp tenant_uuid into every later write of that process.
+        if ($db->getSchemaBuilder()->hasTable('thallo_system_flags')) {
+            $db->table('thallo_system_flags')->where('key', 'LIKE', 'tenancy.%')->forceDelete();
+        }
     }
 
     /**
