@@ -8,8 +8,16 @@
  * and scripts are dropped, so a page measures the same wherever it is opened.
  *
  * Pages: `shop-index-original.html` and `shop-category-original.html` — today's shop home and the
- * Mugs category (`shop/index.twig`, `shop/category.twig`), the pages `references/shop-original.json`
- * froze before any C2 template or stylesheet change.
+ * Mugs category (`shop/index.twig`, `shop/category.twig`), the pages `references/shop-*-original.json`
+ * froze before any C2 template or stylesheet change. Then, for the shop home and the category pages
+ * alike (`shop-{index,category}-{state}.html`, each also as its layout stage, `*-stage.html`):
+ * `starter` — the layouts' starter saved; `authored` — values set on the title's heading, the card's
+ * name and price and the Product list's cards; `reset` — those values removed again; `flex` — the
+ * cards on a flex row; `class-three` — a style class giving the cards three columns;
+ * `class-reset` — that class with an explicit reset of the columns on the block; and
+ * `after-remove` — the `class-three` layout removed (the public page is the theme's again; the
+ * stage is the fresh session's starter). Last, the long-name shop (`ShopPageSeed::longNames()`):
+ * `long-names-original.html`, `long-names.html` and `long-names-stage.html`.
  *
  *   CACHE_DRIVER=array DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-shop-layout-proof-fixtures
  */
@@ -20,7 +28,16 @@ use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Glueful\Validation\RequestDataHydrator;
+use Thallo\Contracts\Layouts\LayoutSurfaceRegistry;
 use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Layouts\LayoutResolver;
+use Thallo\Core\Content\Style\Classes\StyleClassRepository;
+use Thallo\Core\Http\Controllers\LayoutAdminController;
+use Thallo\Core\Http\Controllers\LayoutPreviewController;
+use Thallo\Core\Http\DTOs\LayoutSessionData;
+use Thallo\Core\Http\DTOs\RemoveLayoutData;
+use Thallo\Core\Http\DTOs\SaveLayoutData;
 use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
 use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
 use Thallo\Core\Tests\Support\ShopPageSeed;
@@ -150,7 +167,7 @@ foreach ($container->get(BlockTypeKind::class)->definitions() as $definition) {
 $previous = $seed->useTenant();
 $written = [];
 try {
-    $db->transaction(static function () use ($seed, $get, $selfContained, $out, &$written): void {
+    $db->transaction(static function () use ($container, $seed, $get, $selfContained, $out, &$written): void {
         // Rows a test left behind would change the listing; they come back with the rollback.
         $seed->clear();
         $seed->seed();
@@ -174,6 +191,160 @@ try {
             file_put_contents($out . "/{$name}.html", $selfContained($html));
             $written[] = "{$name}.html";
         }
+
+        // The shop layouts, saved through a session and Save as the editor saves them, then the page
+        // and the stage of that session rendered for each state.
+        $hydrator = new RequestDataHydrator();
+        $withIds = static function (array $tree, string $prefix) use (&$withIds): array {
+            foreach ($tree as $i => $block) {
+                $tree[$i]['id'] = str_pad($prefix . $i, 12, '0');
+                foreach ($block['data'] as $key => $value) {
+                    if (is_array($value) && array_is_list($value) && isset($value[0]['type'])) {
+                        $tree[$i]['data'][$key] = $withIds($value, $prefix . $i . 'n');
+                    }
+                }
+            }
+            return $tree;
+        };
+        $token = static fn (string $value): array => ['base' => ['type' => 'token', 'value' => $value]];
+        $choice = static fn (string $value): array => ['base' => ['type' => 'choice', 'value' => $value]];
+        /** Set `$settings` on every block of `$type` in the tree. */
+        $styled = static function (array $tree, array $by) use (&$styled): array {
+            foreach ($tree as $i => $block) {
+                if (isset($by[$block['type']])) {
+                    $tree[$i]['settings'] = $by[$block['type']];
+                }
+                foreach ($block['data'] as $key => $value) {
+                    if (is_array($value) && array_is_list($value) && isset($value[0]['type'])) {
+                        $tree[$i]['data'][$key] = $styled($value, $by);
+                    }
+                }
+            }
+            return $tree;
+        };
+        $threeCols = $container->get(StyleClassRepository::class)->create([
+            'name' => 'Three columns',
+            'style' => [
+                'layout' => ['display' => $choice('grid'), 'columns' => $choice('3')],
+                'spacing' => ['margin' => ['top' => $token('spacing.lg')]],
+            ],
+        ]);
+        $session = static function (string $surface) use ($container, $hydrator): array {
+            return json_decode((string) $container->get(LayoutPreviewController::class)->session(
+                $hydrator->hydrate(LayoutSessionData::class, ['surface' => $surface, 'target' => '@site']),
+            )->getContent(), true)['data'];
+        };
+        $surfaces = ['index' => ['shop_index', '/shop?proof=1'], 'category' => ['shop_category', '/shop/categories/mugs?proof=1']];
+        foreach ($surfaces as $page => [$surface, $path]) {
+            $starter = $withIds($container->get(LayoutSurfaceRegistry::class)->get($surface)->starter('@site'), 's');
+            $loopReset = ['base' => ['type' => 'reset'], 'md' => ['type' => 'reset'], 'lg' => ['type' => 'reset']];
+            $states = [
+                'starter' => $starter,
+                'authored' => $styled($starter, [
+                    'shop_title' => ['style' => [
+                        'spacing' => ['margin' => ['top' => $token('spacing.lg')]],
+                        'typography' => ['size' => $token('typography.size.3xl')],
+                        'colors' => ['text' => ['type' => 'token', 'value' => 'color.accent']],
+                    ]],
+                    'product_name' => ['style' => ['typography' => ['size' => $token('typography.size.lg')]]],
+                    'product_price' => ['style' => ['colors' => ['text' => ['type' => 'token', 'value' => 'color.muted']]]],
+                    'product_loop' => ['style' => ['spacing' => ['margin' => ['bottom' => $token('spacing.xl')]], 'layout' => [
+                        'display' => $choice('grid'),
+                        'columns' => ['base' => ['type' => 'choice', 'value' => '1'], 'md' => ['type' => 'choice', 'value' => '3']],
+                        'gap' => ['column' => $token('spacing.lg'), 'row' => $token('spacing.lg')],
+                    ]]],
+                ]),
+                'reset' => $starter,
+                'flex' => $styled($starter, ['product_loop' => ['style' => ['layout' => [
+                    'display' => $choice('flex'), 'direction' => $choice('row'), 'wrap' => $choice('wrap'),
+                ]]]]),
+                'class-three' => $styled($starter, ['product_loop' => ['classes' => [$threeCols['id']]]]),
+                'class-reset' => $styled($starter, ['product_loop' => [
+                    'classes' => [$threeCols['id']],
+                    'style' => ['layout' => ['columns' => $loopReset]],
+                ]]),
+            ];
+            $version = 0;
+            foreach ($states as $name => $blocks) {
+                $saved = $container->get(LayoutAdminController::class)->save(
+                    $hydrator->hydrate(SaveLayoutData::class, [
+                        'token' => $session($surface)['token'], 'layout' => ['blocks' => $blocks, 'settings' => []],
+                        'expected_lock_version' => $version,
+                    ]),
+                    Request::create('/x', 'PUT'),
+                    $surface,
+                    '@site',
+                );
+                if ($saved->getStatusCode() !== 200) {
+                    throw new RuntimeException("saving the {$page} {$name} layout answered {$saved->getStatusCode()}: {$saved->getContent()}");
+                }
+                $version++;
+                // Inside this rolled-back transaction Save's effects wait for a commit that never
+                // comes: forget the resolver's answer here, and render the stage from a session
+                // minted now, whose baseline is the layout just saved.
+                $container->get(LayoutResolver::class)->forget($surface, '@site');
+                $stage = $session($surface);
+                foreach (['' => $path, '-stage' => '/_preview/' . $stage['token'] . '?canvas=1'] as $suffix => $url) {
+                    $rendered = $get($url);
+                    if ($rendered->getStatusCode() !== 200 || !str_contains((string) $rendered->getContent(), "shop-{$page}--layout")) {
+                        throw new RuntimeException("the {$page} {$name}{$suffix} page is not the shop frame ({$rendered->getStatusCode()})");
+                    }
+                    file_put_contents($out . "/shop-{$page}-{$name}{$suffix}.html", $selfContained((string) $rendered->getContent()));
+                    $written[] = "shop-{$page}-{$name}{$suffix}.html";
+                }
+            }
+            // Removed: the public page is the theme's again, and a fresh session opens on the starter.
+            $removing = $session($surface);
+            $removed = $container->get(LayoutAdminController::class)->destroy(
+                $hydrator->hydrate(RemoveLayoutData::class, [
+                    'token' => $removing['token'], 'expected_lock_version' => $version,
+                ]),
+                Request::create('/x', 'DELETE'),
+                $surface,
+                '@site',
+            );
+            if ($removed->getStatusCode() !== 200) {
+                throw new RuntimeException("removing the {$page} layout answered {$removed->getStatusCode()}: {$removed->getContent()}");
+            }
+            $container->get(LayoutResolver::class)->forget($surface, '@site');
+            $theme = (string) $get($path)->getContent();
+            if (str_contains($theme, "shop-{$page}--layout")) {
+                throw new RuntimeException("the {$page} page still renders a layout after the removal");
+            }
+            file_put_contents($out . "/shop-{$page}-after-remove.html", $selfContained($theme));
+            $fresh = $session($surface);
+            $stageHtml = (string) $get('/_preview/' . $fresh['token'] . '?canvas=1')->getContent();
+            file_put_contents($out . "/shop-{$page}-after-remove-stage.html", $selfContained($stageHtml));
+            $written[] = "shop-{$page}-after-remove.html";
+            $written[] = "shop-{$page}-after-remove-stage.html";
+        }
+
+        // The long-name shop: today's page, and the starter on the page and the stage.
+        $seed->clear();
+        $seed->longNames();
+        file_put_contents($out . '/long-names-original.html', $selfContained((string) $get('/shop?proof=1')->getContent()));
+        $starter = $withIds($container->get(LayoutSurfaceRegistry::class)->get('shop_index')->starter('@site'), 'l');
+        $saved = $container->get(LayoutAdminController::class)->save(
+            $hydrator->hydrate(SaveLayoutData::class, [
+                'token' => $session('shop_index')['token'], 'layout' => ['blocks' => $starter, 'settings' => []],
+                'expected_lock_version' => $container->get(Thallo\Core\Content\Layouts\LayoutRepository::class)
+                    ->version('shop_index', '@site'),
+            ]),
+            Request::create('/x', 'PUT'),
+            'shop_index',
+            '@site',
+        );
+        if ($saved->getStatusCode() !== 200) {
+            throw new RuntimeException("saving the long-name layout answered {$saved->getStatusCode()}: {$saved->getContent()}");
+        }
+        $container->get(LayoutResolver::class)->forget('shop_index', '@site');
+        file_put_contents($out . '/long-names.html', $selfContained((string) $get('/shop?proof=1')->getContent()));
+        $stage = $session('shop_index');
+        file_put_contents(
+            $out . '/long-names-stage.html',
+            $selfContained((string) $get('/_preview/' . $stage['token'] . '?canvas=1')->getContent()),
+        );
+        array_push($written, 'long-names-original.html', 'long-names.html', 'long-names-stage.html');
 
         throw new ShopFixturesWritten();
     });
