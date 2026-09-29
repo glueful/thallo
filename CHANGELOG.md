@@ -5,6 +5,28 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Added
+- **Layouts for the shop home and category pages.** With Commerce on, **Site › Layouts** has
+  **Products — shop home** and **Products — shop categories**. Design the page once around the
+  **Product list**, whose card you design once for every product from the **Product tile** (the
+  picture, the category and the quick Add to cart and wishlist buttons), the product's name,
+  rating and price, and **Save** applies it to every page — every page of the shop home, or every
+  category. The **Shop title** and **Category chips** blocks show the page's heading and the
+  category chips; **Page navigation** moves between pages. The Product list's cards are the shop's
+  own adaptive grid until you arrange them, and the Layout tab shows that grid as the theme's
+  default. With no layout the pages are as today; with Commerce off the rows are hidden and the
+  layouts kept. On an existing site run `thallo:provision` for the new blocks (with workspaces on,
+  also `thallo:tenant:sync --all --kind=block_type`).
+
+### Fixed
+- **A shop page no longer keeps an old layout after a save.** A product page, the shop home or a
+  category page that was being rendered while its layout was saved or removed could go back into
+  the shop cache with the old layout and stay there until the cache expired. The shop cache now
+  keys those pages by the layout's current version, so the next visit always shows the saved
+  layout.
+
 ## [1.0.0-beta.69] - 2026-09-28 — Developer Preview
 
 Layouts for listing and archive pages — design a type's listing once around the Entry list, whose
