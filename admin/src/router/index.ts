@@ -2,6 +2,7 @@ import { setupLayouts } from 'virtual:generated-layouts'
 import { createRouter, createWebHistory } from 'vue-router'
 import { routes, handleHotUpdate } from 'vue-router/auto-routes'
 import { installAndAuthGuard } from './guard'
+import { recoverFromModuleLoadFailure } from './moduleRecovery'
 
 const router = createRouter({
   // Match Vite's `base` (/admin/) so routes resolve under /admin/ in both dev and production (the
@@ -12,6 +13,11 @@ const router = createRouter({
 })
 
 router.beforeEach(installAndAuthGuard)
+
+// A page whose module failed to load is reloaded once rather than left blank (see moduleRecovery).
+router.onError((error, to) => {
+  recoverFromModuleLoadFailure(error, router.resolve(to).href)
+})
 
 export default router
 

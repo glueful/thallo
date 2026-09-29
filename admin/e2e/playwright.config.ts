@@ -27,7 +27,10 @@ export default defineConfig({
   webServer: {
     command: 'pnpm --dir .. dev',
     url: `${BASE_URL}/admin/`,
-    reuseExistingServer: !process.env.CI,
+    // Never reuse a server by default: one left from an earlier run — another checkout, or a dev
+    // server without VITE_E2E — would answer on the port and be driven instead of this build, so
+    // the run fails at start while the port is taken. Opt in only for a server you started for it.
+    reuseExistingServer: process.env.BUILDER_PROOFS_REUSE_SERVER === '1',
     timeout: 120_000,
     env: {
       VITE_E2E: '1',

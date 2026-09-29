@@ -41,6 +41,9 @@ as the next release, never a mutated tag.
   the shop cache with the old layout and stay there until the cache expired. The shop cache now
   keys those pages by the layout's current version, so the next visit always shows the saved
   layout.
+- **An admin page whose code fails to load reloads instead of staying blank.** If a page's code
+  could not be fetched — the server was busy, or an update replaced it while the tab was open —
+  the admin showed neither the page nor the sign-in screen. It now reloads that page once.
 - **Checkout starts payments again while workspaces are being set up.** Once the workspace
   extension was installed, every payment failed to start — the order was placed but its
   confirmation page showed a payment failure — until enforcement was fully on. Payments now

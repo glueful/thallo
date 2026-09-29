@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
 
   // Vite does NOT populate process.env from .env files — load them explicitly. '' = no prefix
   // filter, so VITE_SSL_KEY_PATH etc. are included alongside VITE_HOST/VITE_PORT.
-  const { VITE_HOST, VITE_PORT, VITE_SSL_KEY_PATH, VITE_SSL_CERT_PATH } = loadEnv(
+  const { VITE_HOST, VITE_PORT, VITE_SSL_KEY_PATH, VITE_SSL_CERT_PATH, VITE_E2E } = loadEnv(
     mode,
     process.cwd(),
     '',
@@ -39,6 +39,15 @@ export default defineConfig(({ mode }) => {
           // a hostname like thallo.dev would bind IPv6 ::1 only (per /etc/hosts) and be unreachable.
           host: true,
           port: VITE_PORT ? parseInt(VITE_PORT, 10) : undefined,
+          // The browser proofs' server must own its port: moving to the next free one would leave
+          // Playwright checking — and driving — whatever already answers there.
+          strictPort: VITE_E2E === '1',
+          // The proofs open pages from eight browsers at once; transforming every page up front
+          // keeps their first loads from all waiting on cold, on-demand transforms together.
+          warmup:
+            VITE_E2E === '1'
+              ? { clientFiles: ['./src/main.ts', './src/pages/**/*.vue'] }
+              : undefined,
           // The Apache proxy forwards Host: VITE_HOST (ProxyPreserveHost), so Vite 8 must allow it
           // or it rejects the proxied request as a disallowed host.
           allowedHosts: VITE_HOST ? [VITE_HOST] : undefined,
