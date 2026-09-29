@@ -181,4 +181,34 @@ final class RetireIntentCommandTest extends AppTestCase
         self::assertSame(1, $status);
         self::assertStringContainsString('No payment intent intmissing01', $display);
     }
+
+    /**
+     * The settlement lands while the retirement runs: another session settles the intent and holds
+     * the row, the command reads it open and tries to supersede it, the settlement commits — and
+     * Payvia's conditional retirement matches nothing, so the paid intent is never superseded.
+     */
+    public function testASettlementThatCommitsMidRetirementWins(): void
+    {
+        $this->intent('intretire006', self::DEFAULT, 'open');
+        $child = proc_open(
+            [PHP_BINARY, dirname(__DIR__, 2) . '/fixtures/settle_intent_race_child.php', 'intretire006', '1500'],
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+        );
+        self::assertIsResource($child);
+        // Read only the child's first line here: reading its stderr would wait for it to exit.
+        self::assertSame('locked', trim((string) fgets($pipes[1])), 'the settlement holds the row');
+
+        [$status, $display] = $this->retire('intretire006', true);
+
+        $rest = stream_get_contents($pipes[1]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        proc_close($child);
+        self::assertStringContainsString('committed', (string) $rest);
+        self::assertSame(1, $status, $display);
+        self::assertStringContainsString('Status:     open', $display, 'the command read it open');
+        self::assertStringContainsString('is closed', $display);
+        self::assertSame('closed', $this->row('intretire006')['status'], 'the paid intent is not superseded');
+    }
 }
