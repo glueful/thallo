@@ -9,10 +9,10 @@ use Glueful\Extensions\Contracts\Tenancy\TenantProvisioner;
 use Glueful\Extensions\Payvia\Contracts\PaymentRepositoryInterface;
 use Glueful\Extensions\Payvia\Repositories\PaymentIntentRepository;
 use Glueful\Extensions\Payvia\Repositories\ProviderCorrelationRepository;
-use Glueful\Extensions\Payvia\Support\DiagnosticsReport;
 use Glueful\Extensions\Payvia\Tenancy\PayviaTenantResolver;
 use Glueful\Helpers\Utils;
 use Thallo\Commerce\Payments\OrderPaymentSummaryRepository;
+use Thallo\Core\Payments\Tenancy\PaymentTables;
 use Thallo\Core\Payments\Tenancy\PaymentTenancyAdoption;
 use Thallo\Core\Tests\Support\RetrofitHarnessTestCase;
 use Thallo\Core\Tests\Support\WalksPaymentTenancy;
@@ -49,13 +49,13 @@ final class PaymentAdoptionWalkTest extends RetrofitHarnessTestCase
         self::assertSame('', $this->tenantOf($boot1, 'payment_intents', $seed['intent']));
         self::assertTrue($container1->get(AdoptionGate::class)->isHeld(), 'single-store work holds the gate');
         $ids = [];
-        foreach (DiagnosticsReport::tenantTables() as $table) {
+        foreach (PaymentTables::workspaceOwned() as $table) {
             $ids[$table] = $this->countWhere($boot1, "SELECT coalesce(sum(id), 0) FROM {$table}");
         }
 
         // 2. The flip: the contributors this app registers, payments' among them.
         $default = $this->confirmWith($boot1, $container1->get(AdoptionContributorRegistry::class));
-        foreach (DiagnosticsReport::tenantTables() as $table) {
+        foreach (PaymentTables::workspaceOwned() as $table) {
             self::assertSame(0, $this->unassigned($boot1, $table), $table);
             self::assertSame(
                 $ids[$table],
@@ -69,9 +69,14 @@ final class PaymentAdoptionWalkTest extends RetrofitHarnessTestCase
             $this->tenantOf($boot1, 'gateway_subscriptions', $this->subscriptionUuid($boot1, $seed)),
         );
         self::assertSame(
-            DiagnosticsReport::tenantTables(),
+            PaymentTables::workspaceOwned(),
             $container1->get(PaymentTenancyAdoption::class)->diagnose($default)->constrained,
             'every payments table refuses an unassigned row',
+        );
+        self::assertSame(
+            '1',
+            $container1->get(\Thallo\Tenancy\System\SystemFlags::class)->get(PaymentTenancyAdoption::GUARDED_FLAG),
+            'the flip certifies the guard',
         );
 
         // 3. While workspaces are being set up: the default workspace, the same intent, no second one.

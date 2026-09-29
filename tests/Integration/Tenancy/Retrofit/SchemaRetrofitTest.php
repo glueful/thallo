@@ -185,11 +185,13 @@ final class SchemaRetrofitTest extends RetrofitHarnessTestCase
     {
         $seen = [];
         $this->schemaRetrofit()->run('t1', 'T1', 'user00000001', function (string $tenant) use (&$seen): void {
-            $seen = [$tenant, $this->schemaStateSeenElsewhere()];
+            $seen = [$tenant, $this->schemaStateSeenElsewhere(), $this->gateOpenElsewhere()];
         });
         self::assertNotSame('', $seen[0], 'adopters get the default tenant');
         self::assertNull($seen[1], 'no other session sees the widened state while adopters run');
+        self::assertFalse($seen[2], 'the gate is closed while adopters run');
         self::assertSame('widened', $this->schemaStateSeenElsewhere());
+        self::assertTrue($this->gateOpenElsewhere(), 'the gate opens after the commit');
 
         $this->flags()->forget('tenancy.schema_state');
         try {
@@ -202,6 +204,19 @@ final class SchemaRetrofitTest extends RetrofitHarnessTestCase
         }
         $this->flags()->clearCache();
         self::assertNotSame('widened', $this->flags()->schemaState(), 'the widened state rolled back with it');
+        self::assertTrue($this->gateOpenElsewhere(), 'the gate opens after the rollback');
+    }
+
+    /** Whether another session can take the adoption gate shared right now (released at once). */
+    private function gateOpenElsewhere(): bool
+    {
+        $pdo = $this->connection()->newPdo();
+        $open = $pdo->query('SELECT pg_try_advisory_lock_shared(4823712)')->fetchColumn() === true;
+        if ($open) {
+            $pdo->query('SELECT pg_advisory_unlock_shared(4823712)');
+        }
+
+        return $open;
     }
 
     /** Single-store work still running in another session fails the flip, resumably, unwidened. */

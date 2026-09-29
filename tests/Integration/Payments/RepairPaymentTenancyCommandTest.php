@@ -51,6 +51,8 @@ final class RepairPaymentTenancyCommandTest extends AppTestCase
     /** @return array{int, string} */
     private function repair(array $options = []): array
     {
+        // The repair runs as its own process: this test's seeding was a unit of work that has ended.
+        $this->container()->get(\Thallo\Tenancy\Adoption\AdoptionGate::class)->release();
         $tester = new CommandTester(new RepairPaymentTenancyCommand($this->container(), $this->appContext()));
         $status = $tester->execute($options, ['interactive' => false]);
 

@@ -25,7 +25,9 @@ as the next release, never a mutated tag.
   row another workspace owns, and every order that got a second payment intent; `--apply` moves
   them into the default workspace, keeping their ids and links, or changes nothing if anything
   above is in the way. Duplicate intents are listed for you to reconcile with your payment
-  provider — moving rows does not undo a double charge. Running it again is safe.
+  provider — moving rows does not undo a double charge. Running it again is safe. Payment work
+  already under way when it starts finishes first, and a payment webhook that arrives while it
+  moves rows is refused and retried by the payment queue afterwards, so no update is lost.
 
 ### Changed
 - **Header & footer has its own icon in the side panel** — a page between a top and a bottom bar —

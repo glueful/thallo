@@ -230,4 +230,57 @@ final class PaymentTenancyAdoptionTest extends AppTestCase
         self::assertSame(2, $this->connection()->table('payment_intents')->where('payable_id', '=', $order)->count());
         self::assertCount(1, $this->adoption()->diagnose(self::DEFAULT)->duplicates, 'still reported after the move');
     }
+
+    public function testTheGuardFlagCertifiesEveryTableIncludingTransfers(): void
+    {
+        $flags = $this->container()->get(\Thallo\Tenancy\System\SystemFlags::class);
+        $this->payment('');
+
+        $report = $this->adoption()->apply(self::DEFAULT);
+
+        self::assertSame($this->adoption()->tables(), $report->constrained);
+        self::assertContains('payvia_transfers', $report->constrained);
+        $flags->clearCache();
+        self::assertSame('1', $flags->get(PaymentTenancyAdoption::GUARDED_FLAG));
+    }
+
+    public function testARefusedMoveLeavesTheGuardFlagUnset(): void
+    {
+        $this->plan(self::DEFAULT, 'Monthly');
+        $this->plan('', 'Monthly');
+
+        try {
+            $this->adoption()->apply(self::DEFAULT);
+            self::fail('a collision must refuse the move');
+        } catch (PaymentAdoptionRefusedException) {
+        }
+        $flags = $this->container()->get(\Thallo\Tenancy\System\SystemFlags::class);
+        self::assertNull($flags->get(PaymentTenancyAdoption::GUARDED_FLAG), 'not in the reused cache');
+        $flags->clearCache();
+        self::assertNull($flags->get(PaymentTenancyAdoption::GUARDED_FLAG), 'not in the database');
+    }
+
+    /** The flip rolls back when a later contributor fails: the flag goes with it, cache included. */
+    public function testAnOuterRollbackLeavesTheGuardFlagUnset(): void
+    {
+        $this->payment('');
+        $flags = $this->container()->get(\Thallo\Tenancy\System\SystemFlags::class);
+
+        try {
+            $this->connection()->transaction(function () use ($flags): void {
+                $this->adoption()->apply(self::DEFAULT);
+                self::assertSame('1', $flags->get(PaymentTenancyAdoption::GUARDED_FLAG), 'read inside: memo loaded');
+                throw new \RuntimeException('a later contributor refused');
+            });
+            self::fail('the outer transaction must roll back');
+        } catch (\RuntimeException $e) {
+            self::assertSame('a later contributor refused', $e->getMessage());
+        }
+
+        self::assertNull($flags->get(PaymentTenancyAdoption::GUARDED_FLAG), 'not in the reused cache');
+        $flags->clearCache();
+        self::assertNull($flags->get(PaymentTenancyAdoption::GUARDED_FLAG), 'not in the database');
+        self::assertSame([], $this->adoption()->diagnose(self::DEFAULT)->constrained, 'no table guarded');
+        self::assertSame(1, $this->connection()->table('payments')->where('tenant_uuid', '=', '')->count());
+    }
 }

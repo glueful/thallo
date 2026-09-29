@@ -9,12 +9,12 @@ use Glueful\Extensions\Contracts\Tenancy\TenantProvisioner;
 use Glueful\Extensions\Payvia\Contracts\PaymentRepositoryInterface;
 use Glueful\Extensions\Payvia\Repositories\PaymentIntentRepository;
 use Glueful\Extensions\Payvia\Repositories\ProviderCorrelationRepository;
-use Glueful\Extensions\Payvia\Support\DiagnosticsReport;
 use Glueful\Helpers\Utils;
 use Symfony\Component\Console\Tester\CommandTester;
 use Thallo\Commerce\Adoption\CommerceAdoptionContributor;
 use Thallo\Core\Payments\Console\RepairPaymentTenancyCommand;
 use Thallo\Core\Payments\Tenancy\PaymentAdoptionContributor;
+use Thallo\Core\Payments\Tenancy\PaymentTables;
 use Thallo\Core\Tests\Support\RetrofitHarnessTestCase;
 use Thallo\Core\Tests\Support\WalksPaymentTenancy;
 use Thallo\Tenancy\Adoption\AdoptionContributorRegistry;
@@ -42,6 +42,8 @@ final class PaymentRepairWalkTest extends RetrofitHarnessTestCase
     /** @return array{int, string} */
     private function repair(\Glueful\Bootstrap\ApplicationContext $app, array $options = []): array
     {
+        // The repair runs as its own process: the payment work before it was a unit that has ended.
+        $app->getContainer()->get(\Thallo\Tenancy\Adoption\AdoptionGate::class)->release();
         $tester = new CommandTester(new RepairPaymentTenancyCommand($app->getContainer(), $app));
         $status = $tester->execute($options, ['interactive' => false]);
 
@@ -121,7 +123,7 @@ final class PaymentRepairWalkTest extends RetrofitHarnessTestCase
         [$status, $display] = $this->repair($boot2, ['--apply' => true]);
         self::assertSame(0, $status, $display);
         self::assertStringContainsString("into workspace {$default}", $display);
-        foreach (DiagnosticsReport::tenantTables() as $table) {
+        foreach (PaymentTables::workspaceOwned() as $table) {
             self::assertSame(0, $this->unassigned($boot2, $table), $table);
         }
         self::assertSame($default, $this->tenantOf($boot2, 'payment_intents', $seed['intent']));
