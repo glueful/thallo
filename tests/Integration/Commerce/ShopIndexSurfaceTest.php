@@ -14,6 +14,7 @@ use Thallo\Core\Content\Layouts\LayoutValidator;
 use Thallo\Core\Content\Layouts\LayoutWriteLock;
 use Thallo\Core\Http\Controllers\LayoutAdminController;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\CountingPdoStatement;
 use Thallo\Core\Tests\Support\ShopPageSeed;
 use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 
@@ -45,6 +46,7 @@ final class ShopIndexSurfaceTest extends AppTestCase
 
     protected function tearDown(): void
     {
+        $this->connection()->getPDO()->setAttribute(\PDO::ATTR_STATEMENT_CLASS, [\PDOStatement::class]);
         $this->seed->clear();
         $this->seed->restoreTenant($this->previousTenant);
         foreach (['shop_index', 'shop_category'] as $surface) {
@@ -104,6 +106,24 @@ final class ShopIndexSurfaceTest extends AppTestCase
         self::assertSame('1', $this->surface()->defaultSample('@site'));
     }
 
+    /** Whether the shop lists anything is one small question, not a whole page of cards. */
+    public function testTheSampleCheckAsksOnlyWhetherTheShopListsAProduct(): void
+    {
+        $this->seed->seed();
+        $this->connection()->getPDO()->setAttribute(\PDO::ATTR_STATEMENT_CLASS, [CountingPdoStatement::class]);
+        $this->surface()->samples('@site', null); // warm: flags, settings and tenant memos
+        foreach (['samples', 'defaultSample'] as $method) {
+            $before = CountingPdoStatement::$count;
+            $answer = $method === 'samples'
+                ? $this->surface()->samples('@site', null)
+                : $this->surface()->defaultSample('@site');
+            self::assertSame($method === 'samples' ? [['id' => '1', 'label' => 'Page 1']] : '1', $answer);
+            // A statement or two, never the page's cards, media, categories and variants (building
+            // the page took 18).
+            self::assertLessThanOrEqual(2, CountingPdoStatement::$count - $before, $method);
+        }
+    }
+
     public function testTheSampleContextIsThePagesOwnVariables(): void
     {
         self::assertNull($this->surface()->sampleContext('@site', '1'), 'no products, no sample');
@@ -115,6 +135,12 @@ final class ShopIndexSurfaceTest extends AppTestCase
         self::assertCount(24, $context['products']);
         self::assertSame('Tall mug', $context['products'][0]['name']);
         self::assertSame('Mugs', $context['products'][0]['categoryName']);
+        // The card's closed allowlist, key for key.
+        self::assertSame(
+            ['uuid', 'name', 'url', 'coverUrl', 'rating', 'priceFormatted', 'compareAtFormatted', 'categoryName',
+                'cartMode', 'directVariantUuid'],
+            array_keys($context['products'][0]),
+        );
         self::assertSame('direct', $context['products'][0]['cartMode']);
         self::assertSame(26, $context['total']);
         self::assertSame(

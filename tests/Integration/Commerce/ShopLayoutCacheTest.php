@@ -351,6 +351,29 @@ final class ShopLayoutCacheTest extends AppTestCase
         self::assertSame(['deletePattern', 'tenant:*:shop:' . self::TENANT_A . ':*'], $calls[3]);
     }
 
+    /**
+     * A token that cannot be replaced is deleted instead: the next request mints a fresh one, so a
+     * render that straddled the change still never serves after it.
+     */
+    public function testAFailedTokenWriteDeletesTheToken(): void
+    {
+        $calls = [];
+        $cache = $this->createMock(CacheStore::class);
+        $cache->method('set')->willReturnCallback(static function (string $key) use (&$calls): bool {
+            $calls[] = ['set', $key];
+            return false;
+        });
+        $cache->method('delete')->willReturnCallback(static function (string $key) use (&$calls): bool {
+            $calls[] = ['delete', $key];
+            return true;
+        });
+        $cache->method('invalidateTags')->willReturn(true);
+        (new PurgeShopCacheOnLayoutChange($this->withCache($cache)))
+            ->onLayoutChanged(new LayoutChanged('shop_index', '@site', self::TENANT_A));
+        $gen = ShopLayoutTags::generationKey('shop_index', self::TENANT_A);
+        self::assertSame([['set', $gen], ['delete', $gen]], $calls);
+    }
+
     /** The token lives outside both fallback patterns: a tag-less purge never deletes one. */
     public function testTheFallbackPurgeNeverDeletesAGenerationToken(): void
     {

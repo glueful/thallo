@@ -113,12 +113,12 @@ final class LayoutOnlyBlocksTest extends AppTestCase
 
     /**
      * The shop pages' blocks (type layouts plan C2) belong to layouts too: an entry, a region and a
-     * saved section refuse `product_loop` and `product_tile` at the block's path.
+     * saved section refuse all four of them at the block's path.
      */
     public function testShopLayoutBlocksBelongToLayouts(): void
     {
         $schema = ContentTypeSchema::fromArray([['name' => 'body', 'type' => 'blocks']]);
-        foreach (['product_loop', 'product_tile'] as $slug) {
+        foreach (['product_loop', 'product_tile', 'shop_title', 'category_rail'] as $slug) {
             try {
                 $this->validator()->validate($schema, ['body' => [self::nested($slug)]], true);
                 self::fail("an entry must refuse {$slug}");

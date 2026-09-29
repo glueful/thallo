@@ -9,6 +9,7 @@ use Thallo\Commerce\Http\Shop\ShopProductCardAssembler;
 use Thallo\Commerce\Shop\ViewModels\ProductCardViewModel;
 use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Core\Tests\Support\ShopPageSeed;
+use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 use Thallo\Render\RenderContextExtension;
 use Thallo\Render\TwigFactory;
 
@@ -23,6 +24,8 @@ use Thallo\Render\TwigFactory;
  */
 final class ProductLoopRenderTest extends AppTestCase
 {
+    use SyncsBlockStyleDeclarations;
+
     private ShopPageSeed $seed;
 
     /** @var array<string,?string> */
@@ -298,5 +301,22 @@ final class ProductLoopRenderTest extends AppTestCase
         self::assertStringContainsString('aria-label="Save ' . $name . ' to wishlist"', $html);
         $tag = '<span class="shop-grid__tag">' . ShopPageSeed::LONG_CATEGORY . '</span>';
         self::assertStringContainsString($tag, $html);
+    }
+
+    /**
+     * The tile's root attributes reach the page as attributes, not as escaped text: an anchor set on
+     * the tile (its root owns `advanced.anchor`, as every block root does) prints `id="…"`, never
+     * `id=&quot;…&quot;`.
+     */
+    public function testTheTilesRootAttributesAreNotEscaped(): void
+    {
+        $this->syncBlockStyleDeclarations();
+        $card = [['id' => 'tileanchor01', 'type' => 'product_tile', 'data' => [],
+            'settings' => ['advanced' => ['anchor' => 'first-tile']]]];
+        $html = $this->render('none', self::block('loop', 'product_loop', ['card' => $card]), [
+            'products' => array_slice($this->products(), 0, 1),
+        ]);
+        self::assertStringContainsString('id="first-tile"', $html);
+        self::assertStringNotContainsString('&quot;first-tile&quot;', $html);
     }
 }
