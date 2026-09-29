@@ -19,6 +19,13 @@ as the next release, never a mutated tag.
   default. With no layout the pages are as today; with Commerce off the rows are hidden and the
   layouts kept. On an existing site run `thallo:provision` for the new blocks (with workspaces on,
   also `thallo:tenant:sync --all --kind=block_type`).
+- **`thallo:tenancy:payments:repair` finds payments a site left without a workspace.** On a site
+  that turned workspaces on before this release, payments taken earlier have no workspace. The
+  command lists them table by table, with every key the default workspace already holds, every
+  row another workspace owns, and every order that got a second payment intent; `--apply` moves
+  them into the default workspace, keeping their ids and links, or changes nothing if anything
+  above is in the way. Duplicate intents are listed for you to reconcile with your payment
+  provider — moving rows does not undo a double charge. Running it again is safe.
 
 ### Changed
 - **Header & footer has its own icon in the side panel** — a page between a top and a bottom bar —
