@@ -115,6 +115,10 @@ abstract class AppTestCase extends TestCase
         // reverse order passed, and the full suite only survived because an unrelated
         // secondary-boot test happened to re-register the provider first.
         self::restoreSharedPermissionProviderIfCleared();
+
+        // An adoption leaves payments' tables refusing tenant '' rows; a class that died before its
+        // own cleanup must not turn every later single-store payment into a constraint violation.
+        PaymentTenantConstraints::drop(self::$app->getContainer()->get(Connection::class));
     }
 
     /**

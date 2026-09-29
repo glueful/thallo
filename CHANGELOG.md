@@ -36,6 +36,12 @@ as the next release, never a mutated tag.
   resolve their workspace exactly as orders do: the single store before workspaces, the default
   workspace while they are being set up, and the request's workspace once they are on, still
   refusing a payment that arrives with no workspace.
+- **Payments taken before workspaces were turned on stay visible after.** Enabling workspaces moved
+  orders into the default workspace but left their payments behind, so an order's payments,
+  refunds and webhooks could no longer find them, and paying an order again could open a second
+  payment. Payments now move into the default workspace at the same moment as the switch — a
+  payment already under way finishes first, and one that starts during the switch is refused so
+  it can be retried — and afterwards the database refuses a payment with no workspace.
 
 ## [1.0.0-beta.69] - 2026-09-28 — Developer Preview
 

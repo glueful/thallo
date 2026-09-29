@@ -209,7 +209,12 @@ final class AdoptionContributorTest extends RetrofitHarnessTestCase
         self::assertSame($flags->defaultTenantUuid(), $captured[0]['tenantUuid']);
         self::assertSame($captured[0]['tenantUuid'], $captured[0]['defaultTenantUuid']);
         self::assertTrue($captured[0]['tenantExists'], 'default tenant row must exist when adopt() runs');
-        self::assertSame('widened', $captured[0]['schemaState']);
+        self::assertSame(
+            'none',
+            $captured[0]['schemaState'],
+            'adopt() runs inside the flip: the widened state lands after it, in the same transaction',
+        );
+        self::assertSame('widened', $flags->schemaState());
         self::assertSame(
             EnablementStep::RETROFITTING,
             $captured[0]['step'],

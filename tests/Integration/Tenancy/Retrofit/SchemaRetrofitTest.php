@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Thallo\Core\Tests\Integration\Tenancy\Retrofit;
 
 use Thallo\Core\Tests\Support\RetrofitHarnessTestCase;
+use Thallo\Tenancy\Adoption\AdoptionGateBusyException;
 use Thallo\Tenancy\Retrofit\RetrofitMaintenanceGuard;
 use Thallo\Tenancy\Retrofit\RetrofitProgress;
 use Thallo\Tenancy\Retrofit\SchemaIntrospector;
@@ -164,5 +165,61 @@ final class SchemaRetrofitTest extends RetrofitHarnessTestCase
         self::assertTrue($this->introspector()->uniqueExists('content_types', ['tenant_uuid', 'slug']));
         self::assertSame('widened', $this->flags()->schemaState());
         self::assertContains('content_types', $report->widenedTables());
+    }
+
+    /** The persisted schema state another session sees right now. */
+    private function schemaStateSeenElsewhere(): ?string
+    {
+        $value = $this->connection()->newPdo()
+            ->query("SELECT value FROM thallo_system_flags WHERE key = 'tenancy.schema_state'")
+            ->fetchColumn();
+
+        return $value === false ? null : (string) $value;
+    }
+
+    /**
+     * The flip adopts and records the widened state in ONE transaction: while the adopters run no
+     * other session sees the schema as widened, and an adopter that throws leaves it unwidened.
+     */
+    public function testTheFlipAdoptsInTheSameTransactionAsTheWidenedState(): void
+    {
+        $seen = [];
+        $this->schemaRetrofit()->run('t1', 'T1', 'user00000001', function (string $tenant) use (&$seen): void {
+            $seen = [$tenant, $this->schemaStateSeenElsewhere()];
+        });
+        self::assertNotSame('', $seen[0], 'adopters get the default tenant');
+        self::assertNull($seen[1], 'no other session sees the widened state while adopters run');
+        self::assertSame('widened', $this->schemaStateSeenElsewhere());
+
+        $this->flags()->forget('tenancy.schema_state');
+        try {
+            $this->schemaRetrofit()->run('t1', 'T1', 'user00000001', static function (): void {
+                throw new \RuntimeException('adopter refused');
+            });
+            self::fail('a refusing adopter must fail the flip');
+        } catch (\RuntimeException $e) {
+            self::assertSame('adopter refused', $e->getMessage());
+        }
+        $this->flags()->clearCache();
+        self::assertNotSame('widened', $this->flags()->schemaState(), 'the widened state rolled back with it');
+    }
+
+    /** Single-store work still running in another session fails the flip, resumably, unwidened. */
+    public function testSingleStoreWorkStillRunningElsewhereFailsTheFlip(): void
+    {
+        $unit = $this->connection()->newPdo();
+        $unit->query('SELECT pg_advisory_lock_shared(4823712)')->fetchColumn();
+        try {
+            $this->schemaRetrofit()->run('t1', 'T1', 'user00000001', null, 200);
+            self::fail('the flip must wait for the unit of work, then give up');
+        } catch (AdoptionGateBusyException) {
+        } finally {
+            $unit->query('SELECT pg_advisory_unlock_shared(4823712)')->fetchColumn();
+        }
+        $this->flags()->clearCache();
+        self::assertNotSame('widened', $this->flags()->schemaState());
+
+        $this->schemaRetrofit()->run('t1', 'T1', 'user00000001', null, 200);
+        self::assertSame('widened', $this->flags()->schemaState(), 'the retry succeeds once the unit ended');
     }
 }
