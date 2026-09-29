@@ -28,7 +28,13 @@ import { readPath, settingSegments } from '@/editor/ops/apply'
 import { BREAKPOINTS } from '@/style/types'
 import { BREAKPOINT_LABELS } from '@/editor/breakpoint'
 import { isFolded, toggleFold } from './styleGroupFolds'
-import { REPLACEMENT, dormantPaths, effectiveDisplay, invalidChoiceAt } from './layoutContext'
+import {
+  REPLACEMENT,
+  displayDefaults,
+  dormantPaths,
+  effectiveDisplay,
+  invalidChoiceAt,
+} from './layoutContext'
 import { pathsForTab } from './tabMap'
 import { DIRECTION_ICONS, LAYOUT_LABELS as LABELS, WRAP_ICONS, WRAP_LABELS } from './layoutLabels'
 import ResponsiveField from './controls/ResponsiveField.vue'
@@ -170,8 +176,22 @@ function defaultOf(row: StylePropertyRow): string | null {
   const value = THEME_DEFAULT[row.path]
   return value && 'value' in value && unset(row) ? value.value : null
 }
-/** The gap sides still on the theme's default, and what that default is called. */
+/**
+ * The gap sides still on the theme's default, and what that default is called: the block type's
+ * declared gaps where it has them (type layouts plan C2), else the theme's spacing token.
+ */
 const gapDefault = computed(() => {
+  const declared = themeDefaults.value?.gap
+  if (declared) {
+    const sides = gapSides.value.filter(
+      (side) => unset(side.def) && declared[side.key as 'row' | 'column'] !== undefined,
+    )
+    if (sides.length === 0) return null
+    return {
+      sides: sides.map((side) => side.key),
+      name: sides.map((side) => declared[side.key as 'row' | 'column']).join(' and '),
+    }
+  }
   const sides = gapSides.value.filter((side) => defaultOf(side.def) !== null)
   if (sides.length === 0) return null
   const token = defaultOf(sides[0]!.def)!
@@ -194,8 +214,34 @@ const CONTAINER_PATHS = ['layout.display', 'layout.content_width', 'layout.gutte
 const containerRows = computed(() => rowsFor(CONTAINER_PATHS))
 
 const displayRow = computed(() => rowFor('layout.display'))
+/**
+ * What the block's theme arranges it as while nothing is set, where its type declares it (type
+ * layouts plan C2: the Product list's cards are an adaptive grid); null for the flex-column default.
+ */
+const themeDefaults = computed(() => displayDefaults(props.blockType))
 /** The mode the children are arranged in at the active breakpoint. */
-const display = computed(() => effectiveDisplay(props.block, props.activeBreakpoint, props.classes))
+const display = computed(() =>
+  effectiveDisplay(
+    props.block,
+    props.activeBreakpoint,
+    props.classes,
+    themeDefaults.value?.display ?? 'flex',
+  ),
+)
+/** The declared mode, named while nothing else is in force. */
+const displayThemeDefault = computed(() =>
+  themeDefaults.value && displayRow.value && unset(displayRow.value)
+    ? themeDefaults.value.display === 'grid'
+      ? 'Grid'
+      : 'Flex'
+    : null,
+)
+/** The declared tracks, named while no track count is in force. */
+const columnsThemeDefault = computed(() =>
+  themeDefaults.value?.columns && columnsRow.value && unset(columnsRow.value)
+    ? themeDefaults.value.columns.label
+    : null,
+)
 /**
  * A stored mode the contract no longer offers (spec §11.1). The controls below still follow the
  * theme default — that is what renders — but the mode's own control says what is stored instead.
@@ -284,7 +330,12 @@ const parentArranges = computed(() => {
 /** The mode the parent has in force at the active breakpoint, or null with no parent to ask. */
 const parentDisplay = computed(() =>
   props.parent && parentArranges.value
-    ? effectiveDisplay(props.parent, props.activeBreakpoint, props.parentClasses ?? [])
+    ? effectiveDisplay(
+        props.parent,
+        props.activeBreakpoint,
+        props.parentClasses ?? [],
+        displayDefaults(props.parentType)?.display ?? 'flex',
+      )
     : null,
 )
 
@@ -302,7 +353,15 @@ const isItem = computed(() => parentDisplay.value !== null && rowsFor(ITEM_PATHS
 
 /** The settings each role is keeping and ignoring at this breakpoint (spec §5). */
 const dormantParent = computed(() =>
-  arranges.value ? dormantPaths(props.block, props.activeBreakpoint, props.classes, 'parent') : [],
+  arranges.value
+    ? dormantPaths(
+        props.block,
+        props.activeBreakpoint,
+        props.classes,
+        'parent',
+        themeDefaults.value?.display ?? 'flex',
+      )
+    : [],
 )
 const dormantItem = computed(() =>
   parentDisplay.value === null
@@ -505,6 +564,13 @@ const gutterDefault = computed(() => {
                 @update:active-breakpoint="(bp) => emit('update:activeBreakpoint', bp)"
               />
               <p
+                v-if="row.path === 'layout.display' && displayThemeDefault"
+                class="-mt-2 text-[11px] text-muted"
+                data-test="layout-display-theme-default"
+              >
+                Theme default: {{ displayThemeDefault }}
+              </p>
+              <p
                 v-if="row.path === 'layout.overflow'"
                 class="-mt-2 text-[11px] text-muted"
                 data-test="layout-overflow-note"
@@ -532,10 +598,17 @@ const gutterDefault = computed(() => {
                   <TrackSwatchControl
                     :choices="columnsRow.choices ?? []"
                     :model-value="valueOf(columnsRow)"
-                    :default-value="defaultOf(columnsRow)"
+                    :default-value="columnsThemeDefault ? null : defaultOf(columnsRow)"
                     name="Columns"
                     @update:model-value="(v: string) => write(columnsRow!, v)"
                   />
+                  <p
+                    v-if="columnsThemeDefault"
+                    class="text-[11px] text-muted"
+                    data-test="layout-columns-theme-default"
+                  >
+                    Theme default: {{ columnsThemeDefault }}
+                  </p>
                 </div>
                 <div
                   v-if="display === 'grid' && !multi && fill?.visible"

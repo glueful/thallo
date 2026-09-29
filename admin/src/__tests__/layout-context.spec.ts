@@ -1,7 +1,7 @@
 // The Layout tab's two questions (container-layout spec §5): what mode is in force at the active
 // breakpoint, and which settings that mode leaves dormant.
 import { describe, expect, it } from 'vitest'
-import { dormantPaths, effectiveDisplay } from '@/editor/inspector/layoutContext'
+import { displayDefaults, dormantPaths, effectiveDisplay } from '@/editor/inspector/layoutContext'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import type { StyleClassRef } from '@/style/types'
 
@@ -123,5 +123,73 @@ describe('dormantPaths', () => {
     expect(
       dormantPaths(block({ layout: { display: { base: choice('flex') } } }), 'base', [], 'parent'),
     ).toEqual([])
+  })
+})
+
+// Type layouts plan C2: a target may declare the arrangement its theme gives it — the Product list's
+// cards are the shop's adaptive grid before anyone touches them — and both questions answer with it.
+describe('a declared theme default', () => {
+  it('is the mode in force while nothing is declared, and after a reset', () => {
+    expect(effectiveDisplay(block({}), 'base', [], 'grid')).toBe('grid')
+    expect(effectiveDisplay(block({}), 'lg', [], 'grid')).toBe('grid')
+    const reset = block({ layout: { display: { base: { type: 'reset' } } } })
+    expect(effectiveDisplay(reset, 'md', [], 'grid')).toBe('grid')
+    const unoffered = block({ layout: { display: { base: choice('block') } } })
+    expect(effectiveDisplay(unoffered, 'base', [], 'grid')).toBe('grid')
+  })
+
+  it('never overrides a mode that is declared', () => {
+    const flex = block({ layout: { display: { base: choice('flex') } } })
+    expect(effectiveDisplay(flex, 'base', [], 'grid')).toBe('flex')
+  })
+
+  it('judges dormancy against the declared default', () => {
+    const untouched = block({ layout: { direction: { base: choice('row') } } })
+    expect(dormantPaths(untouched, 'base', [], 'parent', 'grid')).toEqual(['layout.direction'])
+    const tracks = block({ layout: { columns: { base: choice('3') } } })
+    expect(dormantPaths(tracks, 'base', [], 'parent', 'grid')).toEqual([])
+    // Without one, today's answers stand: an untouched block is a flex column.
+    expect(dormantPaths(untouched, 'base', [], 'parent')).toEqual([])
+    expect(dormantPaths(tracks, 'base', [], 'parent')).toEqual(['layout.columns'])
+  })
+})
+
+describe('displayDefaults', () => {
+  const typed = (styleTargets: Record<string, unknown> | null) =>
+    ({ slug: 'product_loop', style_targets: styleTargets }) as never
+
+  it('reads the defaults of the target that owns the display', () => {
+    const defaults = {
+      display: 'grid',
+      columns: { label: 'Adaptive — as many 15rem columns as fit' },
+      gap: { row: '1.75rem', column: '1.5rem' },
+    }
+    const decl = {
+      targets: { root: { kind: 'box' }, cards: { kind: 'stack', defaults } },
+      map: { spacing: 'root', 'layout.display': 'cards', 'layout.columns': 'cards' },
+    }
+    expect(displayDefaults(typed(decl))).toEqual(defaults)
+  })
+
+  it('is null without a declaration, a display, or defaults', () => {
+    expect(displayDefaults(null)).toBeNull()
+    expect(displayDefaults(typed(null))).toBeNull()
+    expect(
+      displayDefaults(typed({ targets: { root: { kind: 'box' } }, map: { spacing: 'root' } })),
+    ).toBeNull()
+    expect(
+      displayDefaults(
+        typed({ targets: { cards: { kind: 'stack' } }, map: { 'layout.display': 'cards' } }),
+      ),
+    ).toBeNull()
+    // A malformed declaration says nothing rather than something wrong.
+    expect(
+      displayDefaults(
+        typed({
+          targets: { cards: { kind: 'stack', defaults: { display: 'block' } } },
+          map: { 'layout.display': 'cards' },
+        }),
+      ),
+    ).toBeNull()
   })
 })
