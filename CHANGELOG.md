@@ -5,7 +5,13 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.70] - 2026-09-29 — Developer Preview
+
+Layouts for the shop home and category pages — design every page of the shop home, or every
+category, once around the Product list — and payments that follow their orders when workspaces are
+turned on: none left behind, none paid twice, none read mid-switch. No migrations; run
+`thallo:provision` on an existing site for the new blocks (with workspaces on, also
+`thallo:tenant:sync --all --kind=block_type`).
 
 ### Added
 - **Layouts for the shop home and category pages.** With Commerce on, **Site › Layouts** has
@@ -27,9 +33,10 @@ as the next release, never a mutated tag.
   above is in the way. Duplicate intents are listed for you to reconcile with your payment
   provider — moving rows does not undo a double charge — and `--retire-intent=<uuid> --apply`
   supersedes the one the customer did not pay, in Thallo only: it cancels nothing at the
-  provider, and never supersedes an attempt that has meanwhile been paid. Running it again is safe. Payment work
-  already under way when it starts finishes first, and a payment webhook that arrives while it
-  moves rows is refused and retried by the payment queue afterwards, so no update is lost.
+  provider, and never supersedes an attempt that has meanwhile been paid. Running it again is
+  safe. Payment work already under way when it starts finishes first, and a payment webhook that
+  arrives while it moves rows is refused and retried by the payment queue afterwards, so no update
+  is lost.
 
 ### Changed
 - **Header & footer has its own icon in the side panel** — a page between a top and a bottom bar —
@@ -54,9 +61,9 @@ as the next release, never a mutated tag.
   orders into the default workspace but left their payments behind, so an order's payments,
   refunds and webhooks could no longer find them, and paying an order again could open a second
   payment. Payments — and marketplace payouts still in progress, which could otherwise be paid out
-  twice — now move into the default workspace at the same moment as the switch — a
-  payment already under way finishes first, and one that starts during the switch is refused so
-  it can be retried — and afterwards the database refuses a payment with no workspace. The shop's
+  twice — now move into the default workspace at the same moment as the switch. A payment already
+  under way finishes first, one that starts during the switch is refused so it can be retried,
+  and afterwards the database refuses a payment with no workspace. The shop's
   orders and products are kept apart from the switch the same way, so no page ever reads them
   mid-move.
 
