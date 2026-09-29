@@ -25,6 +25,27 @@ final class StyleCompilerTest extends TestCase
         return ThemeVocabulary::fromThemeJson($json, self::DEFAULT_THEME);
     }
 
+    /**
+     * The compiled artifact's hash names the vocabulary and the compiler's VERSION, never its bytes
+     * (a served `settings-{hash}.css` is written once and kept): so any change to what the compiler
+     * writes must bump VERSION, or an upgraded site keeps serving the old file under the new
+     * output's name. The default theme's artifact is pinned to the version that produced it — a
+     * change here without a bump fails; with one, re-pin (version and sha256) in the fixture.
+     */
+    public function testTheArtifactsBytesAreTiedToTheCompilerVersion(): void
+    {
+        $pin = json_decode(
+            (string) file_get_contents(__DIR__ . '/../../fixtures/style/compiled-default-artifact.json'),
+            true,
+        );
+        $sha = hash('sha256', StyleCompiler::compile($this->vocabulary()));
+        self::assertSame(
+            ['version' => $pin['version'], 'sha256' => $pin['sha256']],
+            ['version' => StyleCompiler::VERSION, 'sha256' => $sha],
+            'the compiled output changed: bump StyleCompiler::VERSION and re-pin the fixture',
+        );
+    }
+
     public function testClassNamesAreTheOnePlaceASettingBecomesAClass(): void
     {
         self::assertSame('t-pt-lg', ClassNames::for('spacing.padding.top', 'spacing.lg'));
