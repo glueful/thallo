@@ -165,7 +165,7 @@ them, and paying an order again could open a second payment for it. On such a si
 
    Run step 3 once even when step 1 finds nothing to move: it is also what makes the database
    refuse payment rows with no workspace from then on. Until it has run, every request that
-   touches payments takes the repair's lock and holds a second database connection while it runs.
+   touches payments takes the repair's lock for as long as it runs.
 
 ## Turn on domain routing
 
