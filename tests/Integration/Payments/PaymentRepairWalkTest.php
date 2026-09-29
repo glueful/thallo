@@ -115,9 +115,15 @@ final class PaymentRepairWalkTest extends RetrofitHarnessTestCase
         self::assertStringContainsString('Refused: nothing was changed', $display);
         self::assertSame('', $this->tenantOf($boot2, 'payments', $this->paymentUuid($boot2, $seed['reference'])));
 
-        // The operator reconciles: the second intent was never paid, so it is superseded.
-        $this->asTenant($boot2, $default, fn (): bool => $container2->get(PaymentIntentRepository::class)
-            ->supersede($boot2, $duplicate));
+        // The operator reconciles: the provider shows the second intent was never paid, so they
+        // supersede it with the command — dry run first, then --apply.
+        [$status, $display] = $this->repair($boot2, ['--retire-intent' => $duplicate]);
+        self::assertSame(0, $status, $display);
+        self::assertStringContainsString("the default workspace ({$default})", $display);
+        self::assertStringContainsString('does not cancel or refund anything', $display);
+        [$status, $display] = $this->repair($boot2, ['--retire-intent' => $duplicate, '--apply' => true]);
+        self::assertSame(0, $status, $display);
+        self::assertStringContainsString("Superseded {$duplicate}", $display);
 
         // 6. --apply moves exactly the unassigned rows.
         [$status, $display] = $this->repair($boot2, ['--apply' => true]);

@@ -508,12 +508,15 @@ Move payments that an earlier release's enablement left without a workspace into
 workspace. **Reads only** unless `--apply` is given, which **writes**. The report counts each
 payments table, lists every key the default workspace already holds and every row that belongs to
 another workspace — either stops `--apply`, which then changes nothing — and every order with more
-than one payment attempt, for you to reconcile with your payment provider. Running it again after a
-repair reports nothing to do. See [Payments on a site that turned workspaces on
+than one payment attempt, for you to reconcile with your payment provider. `--retire-intent=<uuid>`
+shows one payment attempt and, with `--apply`, supersedes it in Thallo — never at the provider, which
+it does not contact. Running it again after a repair reports nothing to do. See [Payments on a site
+that turned workspaces on
 earlier](../operations/07-multi-site.md#payments-on-a-site-that-turned-workspaces-on-earlier).
 
 ```bash
 $ php glueful thallo:tenancy:payments:repair [--apply] [--json]
+$ php glueful thallo:tenancy:payments:repair --retire-intent=<uuid> [--apply]
 ```
 
 ### thallo:tenancy:diagnose

@@ -133,10 +133,21 @@ them, and paying an order again could open a second payment for it. On such a si
    holds, or a row that belongs with another workspace's order or plan. Last come the orders with
    more than one payment attempt.
 
-2. Resolve what it lists. Two open attempts for one order is the usual case: check with your
-   payment provider which one the customer paid, and cancel the other. If both were paid, refund
-   one with the provider. The command only reports these; moving rows does not undo a double
-   charge.
+2. Resolve what it lists. Two open payment attempts for one order is the usual case, and it
+   stops the move until one is gone. Check with your payment provider which attempt the customer
+   paid, then supersede the other by its uuid from the report:
+
+   ```bash
+   $ php glueful thallo:tenancy:payments:repair --retire-intent=<uuid>
+   $ php glueful thallo:tenancy:payments:repair --retire-intent=<uuid> --apply
+   ```
+
+   The first run shows the attempt — its workspace, order, status, provider and reference — and
+   changes nothing; `--apply` supersedes it. It reaches only attempts with no workspace or in the
+   default workspace, and never supersedes one that has meanwhile been paid. **Superseding only
+   marks the attempt abandoned in Thallo: it does not cancel or refund anything at the payment
+   provider.** If the customer paid both attempts, refund one with the provider as well. A
+   payment that still arrives for a superseded attempt is recorded, so you can refund it.
 
 3. Move the rows into the default workspace.
 
@@ -145,8 +156,16 @@ them, and paying an order again could open a second payment for it. On such a si
    ```
 
    Only rows with no workspace move, keeping their ids and links; rows of other workspaces are not
-   touched. If anything from step 1 is still there it changes nothing and says why. Run it again
-   and it reports `Nothing to repair`. `--json` prints the same report as JSON.
+   touched. If anything from step 1 is still there it changes nothing and says why. Payment work
+   that started before it finishes first; if some is still running after 10 seconds — often a
+   `queue:work` worker that has handled a payment — it changes nothing and asks you to try again,
+   so stop the workers and rerun it. A payment webhook that arrives while it moves rows is refused
+   and retried by the payment queue afterwards, so no update is lost. Run it again and it reports
+   `Nothing to repair`. `--json` prints the same report as JSON.
+
+   Run step 3 once even when step 1 finds nothing to move: it is also what makes the database
+   refuse payment rows with no workspace from then on. Until it has run, every request that
+   touches payments takes the repair's lock and holds a second database connection while it runs.
 
 ## Turn on domain routing
 
