@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Thallo\Core\Tests\Support;
 
 use Glueful\Database\Connection;
-use Glueful\Extensions\Payvia\Support\DiagnosticsReport;
+use Thallo\Core\Payments\Tenancy\PaymentTables;
 use Thallo\Core\Payments\Tenancy\PaymentTenancyAdoption;
 
 /**
@@ -17,7 +17,7 @@ final class PaymentTenantConstraints
     public static function drop(Connection $connection): void
     {
         $pdo = $connection->getPDO();
-        foreach (DiagnosticsReport::tenantTables() as $table) {
+        foreach (PaymentTables::workspaceOwned() as $table) {
             if ($pdo->query("SELECT to_regclass('{$table}') IS NOT NULL")->fetchColumn() === true) {
                 $pdo->exec("ALTER TABLE {$table} DROP CONSTRAINT IF EXISTS " . PaymentTenancyAdoption::CONSTRAINT);
             }

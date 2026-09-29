@@ -46,7 +46,8 @@ as the next release, never a mutated tag.
 - **Payments taken before workspaces were turned on stay visible after.** Enabling workspaces moved
   orders into the default workspace but left their payments behind, so an order's payments,
   refunds and webhooks could no longer find them, and paying an order again could open a second
-  payment. Payments now move into the default workspace at the same moment as the switch — a
+  payment. Payments — and marketplace payouts still in progress, which could otherwise be paid out
+  twice — now move into the default workspace at the same moment as the switch — a
   payment already under way finishes first, and one that starts during the switch is refused so
   it can be retried — and afterwards the database refuses a payment with no workspace.
 
