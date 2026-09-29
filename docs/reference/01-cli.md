@@ -502,6 +502,20 @@ nothing is lost and enabling again is quick.
 $ php glueful thallo:tenancy:disable
 ```
 
+### thallo:tenancy:payments:repair
+
+Move payments that an earlier release's enablement left without a workspace into the default
+workspace. **Reads only** unless `--apply` is given, which **writes**. The report counts each
+payments table, lists every key the default workspace already holds and every row that belongs to
+another workspace — either stops `--apply`, which then changes nothing — and every order with more
+than one payment attempt, for you to reconcile with your payment provider. Running it again after a
+repair reports nothing to do. See [Payments on a site that turned workspaces on
+earlier](../operations/07-multi-site.md#payments-on-a-site-that-turned-workspaces-on-earlier).
+
+```bash
+$ php glueful thallo:tenancy:payments:repair [--apply] [--json]
+```
+
 ### thallo:tenancy:diagnose
 
 Run read-only tenancy coherence checks — registered tables, schema drift, membership integrity.
