@@ -20,6 +20,10 @@ as the next release, never a mutated tag.
   layouts kept. On an existing site run `thallo:provision` for the new blocks (with workspaces on,
   also `thallo:tenant:sync --all --kind=block_type`).
 
+### Changed
+- **Header & footer has its own icon in the side panel** — a page between a top and a bottom bar —
+  so it no longer looks like **Layouts** under **Site**.
+
 ### Fixed
 - **A shop page no longer keeps an old layout after a save.** A product page, the shop home or a
   category page that was being rendered while its layout was saved or removed could go back into
