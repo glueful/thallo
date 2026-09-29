@@ -210,7 +210,7 @@ The **Blocks** tab leads with the product's fields:
 | **Product breadcrumb** | Shop, the product's category and its name | **Hide the category** |
 | **Product gallery** | the cover, with thumbnails that swap it when there are more images | **Hide the thumbnails**, **aspect** (4:3, 1:1, natural) |
 | **Product category** | the product's category, above its name | **Link to the category** |
-| **Product name** | the name | **level** (h1 to h4) |
+| **Product name** | the name | **level** (h1 to h4), **Link to the product** |
 | **Product rating** | the stars, the average and the review count | **Hide until it has reviews** |
 | **Product price** | the price, and the struck "was" price when there is one | **Hide the "was" price** |
 | **Product description** | the description | — |
@@ -250,6 +250,84 @@ php glueful thallo:tenant:sync --all --kind=block_type
 
 Until a site — or a workspace — has them, the **Products — product page** row has no **Edit** and
 says which commands to run.
+
+## Design the shop home and category pages
+
+With [Commerce](18-commerce.md) switched on, **Site › Layouts** also has **Products — shop home**
+and **Products — shop categories**. One layout designs every page of the shop home (`/shop`, then
+`/shop?page=2` and on); the other designs every category's page (`/shop/categories/mugs`) at once.
+**Edit** opens the shop home on its first page, and the categories on one category — the picker lists
+the categories that have products. While the shop has no products, the stage shows one sample card
+and says "No published products yet — showing a placeholder"; nothing is written. **Save** says
+**Applies to every page of the shop home**, or **Applies to every shop category**.
+
+The layout opens on a starter that is today's page: the heading and the product count, the category
+chips, the products — each card today's card, the picture with its category and quick buttons above
+the name, and the rating beside the price — and the page navigation. The one visible change is the
+product's name in each card: it is now a heading holding the link, so the cards are the page's
+sections; it looks as it did.
+
+### The Product list and its card
+
+The **Product list** shows every product on the page. You design one product's **card** — once — and
+the list repeats it for each product, newest first. On the stage the first card is the one you edit:
+its blocks select, move and take settings, and whatever you drop into it shows in every card. The
+other cards show the same design for the page's other products; nothing in them selects, and nothing
+drops there.
+
+These go inside the card, and only there — the editor says so, and so does the server:
+
+| Block | Shows in a card | Settings |
+|---|---|---|
+| **Product tile** | the product's picture, its category, and the quick **Add to cart** and wishlist buttons | **Hide the category**, **Hide the quick buttons** |
+| **Product name** | the name, as a heading | **level** (h1 to h4), **Link to the product** |
+| **Product rating** | one star, the average and the review count | **Hide until it has reviews** |
+| **Product price** | the price, and the struck "was" price when there is one | **Hide the "was" price** |
+
+The quick **Add to cart** works as the shop's grid always has: a product with one variant and no
+required add-on is added straight away, even where JavaScript is off; any other product links to its
+page to choose. The page's own blocks go outside the card:
+
+| Block | Shows | Settings |
+|---|---|---|
+| **Product list** | every product on the page, each as its card | **When there are no products** (the text an empty page shows; by default "No products yet.", or "No products in this category yet.") |
+| **Shop title** | "Shop", or the category's name, with the number of products beside it | **level** (h1 to h4), **Hide the product count** |
+| **Category chips** | "All" and a chip for every category, the page's own marked | **"All" label** |
+| **Page navigation** | the newer and older links and "Page X of Y"; nothing on a single page | **Newer label**, **Older label**, **Show "Page X of Y"** |
+
+Your other blocks — headings, text, images, containers — go anywhere, the card included. The card's
+starter puts the name and the rating and price in two containers, as today's card has them: to place
+something between the name and that row, select the name and click the block in the **Blocks** tab.
+
+Every shop layout keeps exactly one **Product list**: deleting it is refused with the reason ("Every
+page of the shop home shows its Product list here…"), and Save stays off without it. It has no
+**Visibility** setting, a container holding it cannot be hidden, and neither the Product list nor a
+block holding it takes **CSS classes** — use style classes to style them.
+
+Select the Product list and open its **Layout** tab to **Arrange the cards**. Until you do, the cards
+are the shop's own grid — as many columns as fit, each at least 15rem wide — and the tab says so:
+**Theme default: Grid**, and **Theme default: Adaptive — as many 15rem columns as fit**. Choose a
+number of columns, a wrapping row, or other gaps, and the cards follow; reset them and the shop's
+grid returns, even over a style class that set columns. What is inside a card stays in the card's own
+flow: a block directly in a card has no item controls, and a block in a container in the card is
+that container's item, however the cards are arranged.
+
+However you design them, the pages keep their canonical address in the shop, and the wishlist
+buttons still find the visitor's saved products. A value you set on a block — its size, colour or
+spacing — wins over the shop's own styling; remove it and the default returns.
+
+A layout never changes which pages exist: an unknown category is still not found, and a page number
+the shop does not have still answers as it does today.
+
+Turning Commerce off hides both rows and the shop's pages; the layouts are kept, and are used again
+when Commerce comes back. On a site that had Commerce on before this release, add the new blocks
+once:
+
+```bash
+php glueful thallo:provision
+# with workspaces on, also bring every existing workspace up to date:
+php glueful thallo:tenant:sync --all --kind=block_type
+```
 
 ## When the content type changes
 

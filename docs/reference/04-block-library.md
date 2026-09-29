@@ -7,7 +7,8 @@ summary: "Every block that ships: what it is for, its fields, and its style sett
 ---
 
 Thallo ships **54 block types**. Two [capabilities](../concepts/06-capabilities.md) add more:
-Accounts adds four, Commerce adds fourteen — five shop blocks and nine fields for the product page.
+Accounts adds four, Commerce adds eighteen — five shop blocks, nine fields for the product page and
+four blocks for the shop home and category pages.
 This page lists all of them, in the order the Blocks tab and **Settings › Block Types** show them.
 
 ## How to read the tables
@@ -167,7 +168,10 @@ entry's own data. Four more design a type's [listing and archive
 pages](../guides/20-layouts.md#design-listing-and-archive-pages): the **Entry list**, the **Listing
 title**, the **Term description** (archives only) and the **Page navigation**. Nine more, which the **Commerce** capability contributes, show the current
 product on the [product page's layout](../guides/20-layouts.md#design-the-product-page) — seeded
-while Commerce is on and hidden while it is off, like the Commerce blocks above. They are offered
+while Commerce is on and hidden while it is off, like the Commerce blocks above. Four more, also
+Commerce's, design the [shop home and category
+pages](../guides/20-layouts.md#design-the-shop-home-and-category-pages): the **Product list**, the
+**Product tile**, the **Shop title** and the **Category chips**. They are offered
 only in a layout's editor — each in its own kind of layout — and an entry, the header and footer
 and a saved section refuse them when saved. A field an entry block names is a field of the
 layout's content type; left empty, **Entry cover**, **Entry excerpt** and **Entry terms** show the
@@ -186,9 +190,17 @@ excerpt**, **Entry terms** and **Entry field** go inside the card on these pages
 the Entry list, the Listing title, the Term description and the Page navigation never go inside
 it. A layout that breaks either rule is refused, naming the block.
 
+Every shop home and category layout holds exactly one **Product list**, under the same rules. Its
+`card` is the one product's design the list repeats for every product on the page. **Product tile**,
+**Product name**, **Product rating** and **Product price** go inside the card on these pages, and
+only there; inside a card the name, rating and price show as the shop's grid card shows them. The
+Product list's cards are the shop's own grid — as many 15rem columns as fit — until its Layout tab
+arranges them; the block type declares that grid, so the tab shows it as the theme's default.
+
 | Block | What it is for | Fields | Holds blocks | Style settings adds |
 |---|---|---|---|---|
 | **Product buy box** (`product_buy`) | The product page's options, quantity and **Add to cart** button, with the wishlist heart and "In stock"; it works without JavaScript. Every product layout holds one. | `hide_wishlist` (boolean), `hide_availability` (boolean) | — | Width (and no Visibility) |
+| **Category chips** (`category_rail`) | "All" and a chip for every category, the page's own marked; nothing when the shop has no categories. | `all_label` (string) | — | Width |
 | **Entry content** (`entry_content`) | Where the entry's own content — its blocks field — goes. | `field` (string — a blocks field) | — | Width |
 | **Entry cover** (`entry_cover`) | An image field of the entry, such as its cover. | `field` (string — an asset field), `aspect` (enum: natural, 16:9, 4:3, 1:1), `link` (boolean) | — | Width, Placement, Corners, Shadow |
 | **Entry date** (`entry_date`) | When the entry was published. | `format` (enum: long, short, relative), `prefix` (string) | — | Width, Placement, Text alignment, Typography, Text colour |
@@ -204,11 +216,14 @@ it. A layout that breaks either rule is refused, naming the block.
 | **Product category** (`product_category`) | The product's category, above its name. | `link` (boolean) | — | Width, Placement, Text alignment, Typography, Text colour |
 | **Product description** (`product_description`) | The product's description. | — | — | Width, Placement, Text alignment, Typography, Text colour |
 | **Product gallery** (`product_gallery`) | The product's images: the cover, with thumbnails that swap it. | `hide_thumbnails` (boolean), `aspect` (enum: 4:3, 1:1, natural) | — | Width, Corners, Shadow |
-| **Product name** (`product_name`) | The product's name. | `level` (enum: h1, h2, h3, h4) | — | Width, Placement, Text alignment, Typography, Text colour |
+| **Product list** (`product_loop`) | Every product on a shop home or category page, each shown as the card you design once. Every shop layout holds one. | `card` (blocks), `empty_text` (string) | `card`: the product's card blocks and any general block | Width, on the list's own box, as its Spacing and Sizing in a parent layout; the Layout tab's arrangement of the cards (Layout, Direction, Wrap, Distribute, Align, Columns, Gap), the shop's adaptive grid by default (and no Visibility) |
+| **Product name** (`product_name`) | The product's name; in a Product list card, the card's name. | `level` (enum: h1, h2, h3, h4), `link` (boolean) | — | Width, Placement, Text alignment, Typography, Text colour |
 | **Product price** (`product_price`) | The price, with the struck "was" price when there is one. Its size sets the amount's; the "was" price keeps to four fifths of it. | `hide_compare_at` (boolean) | — | Width, Placement, Typography, Text colour |
 | **Product rating** (`product_rating`) | The product's stars, average and review count; the stars grow with its size. | `hide_when_none` (boolean) | — | Width, Placement, Typography, Text colour |
 | **Product story** (`product_story`) | The content of the product's linked story. | — | — | Width |
+| **Product tile** (`product_tile`) | A Product list card's picture, its category, and the quick **Add to cart** and wishlist buttons; the quick add works without JavaScript for a product with one variant. | `hide_tag` (boolean), `hide_actions` (boolean) | — | Width |
 | **Related entries** (`entry_related`) | The newest other entries of the type. | `count` (number, 1 to 6), `style` (enum: list, cards) | — | Width |
+| **Shop title** (`shop_title`) | "Shop", or the category's name, with the number of products beside it. | `level` (enum: h1, h2, h3, h4), `hide_count` (boolean) | — | Width; Typography, Text colour and Text alignment on the heading |
 | **Term description** (`term_description`) | An archive term's description. | — | — | Width, Placement, Text alignment, Typography, Text colour |
 
 A layout's editor checks each field when the layout is applied and saved: **Entry cover** needs an

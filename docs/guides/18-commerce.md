@@ -136,7 +136,10 @@ cacheable.
 
 To design the product page itself — where the name, the price, the gallery and the **Product buy box** go
 on every product — open **Site › Layouts** and edit **Products — product page**:
-[design the product page](20-layouts.md#design-the-product-page).
+[design the product page](20-layouts.md#design-the-product-page). The shop home and the category
+pages have layouts of their own — the heading, the category chips and the product cards, each card
+designed once — under **Products — shop home** and **Products — shop categories**:
+[design the shop home and category pages](20-layouts.md#design-the-shop-home-and-category-pages).
 
 ## Cart and checkout
 
