@@ -18,6 +18,7 @@ use Thallo\Core\Content\Patterns\PatternLibrary;
 
 require __DIR__ . '/../vendor/autoload.php';
 require __DIR__ . '/lib/showcase.php';
+require __DIR__ . '/lib/shop-thumbnails.php';
 
 $root = dirname(__DIR__);
 $container = showcase_boot($root);
