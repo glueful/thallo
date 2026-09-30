@@ -869,8 +869,8 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     // A section from the library lands only if the whole document with it is one the host accepts
     // (a layout's required blocks once, its field bindings); refused, nothing is recorded.
     for (const op of ops) {
-      if (op.type !== 'InsertBlock' || !patternIds.has(op.block.id)) continue
-      patternIds.delete(op.block.id)
+      if (op.type !== 'InsertBlock' || op.block.id !== sectionInFlight) continue
+      sectionInFlight = null
       const verdict = checkPattern(op.position, op.block)
       if (!verdict.ok) {
         warning('That section does not fit here', verdict.message)
@@ -899,15 +899,22 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   const { data: patternData } = usePatterns()
   const patterns = computed(() => host.patterns?.() ?? patternData.value ?? [])
   const patternBySlug = (slug: string) => patterns.value.find((p) => p.slug === slug) ?? null
-  /** The ids a section minted, so its drop is checked against the whole document (host.candidateCheck). */
-  const patternIds = new Set<string>()
+  /**
+   * The id of the library section the palette last minted, so its drop is checked against the whole
+   * document (host.candidateCheck). One at a time: every mint replaces it — a pressed card readies a
+   * drag instance and a click mints another — so nothing accumulates over a session.
+   */
+  let sectionInFlight: string | null = null
   const paletteFactory = {
     async instance(key: string): Promise<BlockInstance> {
-      if (!isPatternKey(key)) return blockFactory.instance(key)
+      if (!isPatternKey(key)) {
+        sectionInFlight = null
+        return blockFactory.instance(key)
+      }
       const block = patternBySlug(patternSlug(key))
       const made = block ? instantiate(block)[0] : undefined
       if (!made) throw new Error('That section is no longer in the library.')
-      patternIds.add(made.id)
+      sectionInFlight = made.id
       return made
     },
   }
