@@ -20,6 +20,8 @@ export interface Pattern {
   label: string
   category: string
   description: string
+  /** A shop pattern whose product block needs a product chosen after inserting it. */
+  requires?: 'product' | null
   blocks: PatternBlock[]
   /** Where it belongs: a page body, or the header or footer (a region's sections and templates). */
   scope?: PatternScope

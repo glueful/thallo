@@ -5,8 +5,15 @@ declare(strict_types=1);
 namespace Thallo\Core\Tests\Integration\Content;
 
 use Glueful\Bootstrap\ApplicationContext;
+use Thallo\Contracts\Patterns\PatternBlocks;
+use Thallo\Contracts\Patterns\PatternContributor;
+use Thallo\Contracts\Patterns\PatternContributorRegistry;
+use Thallo\Contracts\Patterns\PatternSection;
+use Thallo\Contracts\Patterns\PatternTemplate;
 use Thallo\Core\Content\Blocks\BlockDepth;
+use Thallo\Core\Content\Blocks\BlockFactory;
 use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Patterns\DefaultPatternContributorRegistry;
 use Thallo\Core\Content\Patterns\PatternLibrary;
 use Thallo\Core\Content\Regions\RegionValidator;
 use Thallo\Core\Content\Schema\ContentTypeSchema;
@@ -247,5 +254,106 @@ final class PatternLibraryTest extends AppTestCase
         self::assertNotContains('page-pricing', $slugs, 'nor a page that is made of it');
         self::assertContains('features-grid', $slugs);
         self::assertContains('pricing-plans', array_column($this->library()->all(), 'slug'), 'and back again');
+    }
+
+    /** A library over a registry holding one test contributor (sections and templates design §3). */
+    private function libraryWithContributor(): PatternLibrary
+    {
+        $registry = new DefaultPatternContributorRegistry();
+        $registry->register(new class implements PatternContributor {
+            public function id(): string
+            {
+                return 'test.pack';
+            }
+
+            public function sections(): array
+            {
+                return [
+                    new PatternSection('x-banner', 'Banner', 'Test', 'A banner.', PatternBlocks::band([
+                        PatternBlocks::heading('A banner', 'h2', 'center'),
+                    ])),
+                    new PatternSection('x-spot', 'Spot', 'Test', 'A spotlight.', PatternBlocks::band([
+                        PatternBlocks::block('featured-product', ['product_slug' => '']),
+                    ]), 'product'),
+                ];
+            }
+
+            public function templates(): array
+            {
+                return [
+                    new PatternTemplate('x-page', 'Page', 'A page.', ['x-banner', 'faq']),
+                    new PatternTemplate('x-shop', 'Shop', 'A shop page.', ['x-banner', 'x-spot']),
+                ];
+            }
+        });
+
+        return new PatternLibrary($this->container()->get(BlockFactory::class), null, $registry);
+    }
+
+    /** @return array<string,array<string,mixed>> */
+    private static function bySlug(array $patterns): array
+    {
+        return array_column($patterns, null, 'slug');
+    }
+
+    public function testTheContainerHoldsTheContributorRegistry(): void
+    {
+        self::assertInstanceOf(
+            DefaultPatternContributorRegistry::class,
+            $this->container()->get(PatternContributorRegistry::class),
+        );
+    }
+
+    public function testContributedPatternsAreOfferedWithTheirPlace(): void
+    {
+        $patterns = self::bySlug($this->libraryWithContributor()->all());
+
+        self::assertSame(['section', 'page', null, null], [
+            $patterns['x-banner']['kind'], $patterns['x-banner']['scope'],
+            $patterns['x-banner']['region'], $patterns['x-banner']['requires'],
+        ]);
+        self::assertSame('page', $patterns['x-page']['kind']);
+        self::assertCount(2, $patterns['x-page']['blocks']);
+        $slugs = array_keys($patterns);
+        self::assertLessThan(
+            array_search('header-announcement', $slugs, true),
+            array_search('x-banner', $slugs, true),
+            'contributed sections come after the page sections and before the header and footer ones',
+        );
+    }
+
+    public function testATemplateRequiresAProductWhenASectionDoes(): void
+    {
+        $patterns = self::bySlug($this->libraryWithContributor()->all());
+
+        self::assertSame('product', $patterns['x-spot']['requires']);
+        self::assertSame('product', $patterns['x-shop']['requires']);
+        self::assertNull($patterns['x-page']['requires']);
+    }
+
+    public function testATemplateGoesWhenACoreSectionItNamesGoes(): void
+    {
+        $repo = new BlockTypeRepository($this->connection());
+        $row = $repo->findBySlug('accordion');
+        self::assertNotNull($row);
+        $repo->setActive((string) $row['uuid'], false);
+        try {
+            $slugs = array_column($this->libraryWithContributor()->all(), 'slug');
+        } finally {
+            $repo->setActive((string) $row['uuid'], true);
+        }
+        self::assertNotContains('faq', $slugs);
+        self::assertNotContains('x-page', $slugs, 'a contributed template goes whole with the core section it names');
+        self::assertContains('x-banner', $slugs);
+    }
+
+    public function testCorePatternsAreUnchanged(): void
+    {
+        $factory = $this->container()->get(BlockFactory::class);
+        $without = (new PatternLibrary($factory))->all();
+        $withEmpty = (new PatternLibrary($factory, null, new DefaultPatternContributorRegistry()))->all();
+
+        self::assertSame($without, $withEmpty);
+        self::assertSame([null], array_values(array_unique(array_column($without, 'requires'))));
     }
 }
