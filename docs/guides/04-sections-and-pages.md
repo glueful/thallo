@@ -164,6 +164,37 @@ Two sections carry more than copy.
 
 No pattern names an image, so nothing arrives broken on a site with an empty media library.
 
+## Sections and templates in layouts
+
+The layout editor (**Site › Layouts**) has the same **Blocks**, **Sections** and **Templates**
+switch in its **Blocks** tab. **Sections** lists, in order, the sections made for that kind of page,
+then the shipped page sections, then the sections saved from layouts of the same kind. Saved page
+sections and header and footer sections are not offered there. **Templates** lists three whole
+layouts for that kind of page. See [start from a template](20-layouts.md#start-from-a-template).
+
+| Layout | Templates | Sections |
+|---|---|---|
+| Single post | Classic article · Magazine (a full-width cover under the title) · Minimal | Article header · Cover band · Related posts · Previous / next |
+| Listing | Card grid · Horizontal list · Compact | Listing header · Page navigation bar |
+| Archive | Term header with grid · Horizontal list · Compact | Term header |
+| Product page | Gallery left · Gallery on top · Story-led | Product hero · Details band · Story band |
+| Shop home | Adaptive grid · Banner and grid · Category-led | Shop banner · Category chips band |
+| Shop categories | Adaptive grid · Banner and grid · Chips on top | Category banner |
+
+The product and shop layouts need [Commerce](18-commerce.md) on. **Classic article**, **Horizontal
+list**, **Gallery left** and **Adaptive grid** are the layouts those pages start with.
+
+Each section and template is built for the layout's own content type. It shows that type's own body
+field, whatever it is called, and it is left out where the type cannot show it. For example, the
+**Cover band** is offered only to a type with a cover field, and a type with no body gets templates
+without one. No section holds the block a layout must keep exactly once. The **Product hero** is
+the gallery beside the name, rating and price, and the layout keeps its own buy box.
+
+A section is checked against the whole layout before it goes in. One that would add a second copy
+of a block the layout keeps once, or that shows a field this type does not have, is dimmed. Its
+tooltip says why: `This section shows “Subtitle”, which Pages doesn’t have`. Clicking or dragging
+it changes nothing.
+
 ## Save your own sections
 
 Any block you have built — a card, a pricing box, a container holding a whole band of blocks — can
@@ -189,6 +220,14 @@ offered there again, under that region's **Sections**, and never in the Design v
 saved in the Design view is never offered in the header or footer. Only a block the region takes
 at its top level can be saved from there. A container always qualifies. A heading does not, since
 neither region takes a bare heading.
+
+A section saved in the layout editor belongs to that kind of layout. It keeps its field blocks,
+bound to the fields they show there, and it is offered in every layout of the same kind, for
+example every single-post layout, whatever its content type. In a layout of a type that lacks one of
+those fields, it is dimmed with the field named, and nothing is rebound. A block inside an Entry
+list's or a Product list's card cannot be saved, since it is part of the card's design. Saving,
+renaming and deleting a layout's section needs the **Manage templates** permission, the layouts'
+own. When Commerce is off, the sections saved from product and shop layouts are hidden and kept.
 
 ## Why a section or page is missing
 

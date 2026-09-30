@@ -44,6 +44,20 @@ with no layout yet opens on a starter built from its fields — for posts, the c
 title, the date, the excerpt, the cover, the content and related posts; for a type with only a
 title and a body, those two.
 
+## Start from a template
+
+The **Blocks** tab's **Templates** view offers three whole layouts for the page you are designing.
+The **Sections** view offers the parts that go with them. Both are built for this layout's content
+type. See [sections and templates in layouts](04-sections-and-pages.md#sections-and-templates-in-layouts)
+for what each kind of page offers.
+
+A template replaces the whole layout. It brings its blocks and its **Frame** settings: the width,
+and whether the site's header and footer show. A setting the template does not name goes back to
+its default. When the layout has changes you have not saved, Thallo asks first: `Replace this
+layout with Magazine? Your unsaved changes will be lost.` Choose **Replace** to go ahead or **Keep**
+to leave the layout as it is. One undo brings the old layout back, its blocks and its Frame
+together. Nothing changes on the site until you press **Save**.
+
 ## Place the post's fields
 
 The **Blocks** tab lists the **Fields** first. Drag one onto the stage, or select a block and
