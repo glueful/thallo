@@ -3,7 +3,8 @@ import { historyLength, idsIn, openBlocksTab, openDesignPage } from '../helpers'
 
 // The shop's page templates, against the REAL library (the fixture is the server's own answer, built
 // with Commerce on): offered in the Templates view, a template that needs a product saying so on its
-// card, and one inserting its sections whole, in order, as one transaction.
+// card, and one inserting its sections whole, in order, as one transaction; with Commerce off (the
+// server's answer from a boot with the capability off), none of them.
 const BODY = [
   'sect00000001',
   'sect00000002',
@@ -51,6 +52,18 @@ test('the shop templates are offered with their note', async ({ page }) => {
   await expect(
     page.locator('[data-test="pattern-card-shop-sale"] [data-test="pattern-requires"]'),
   ).toHaveCount(0)
+})
+
+test('with Commerce off no shop section or template is offered', async ({ page }) => {
+  await openDesignPage(page, { commerceOff: true })
+  await openTemplates(page)
+  // The core templates are still there; the shop's are not.
+  await expect(page.locator('[data-test="pattern-card-page-pricing"]')).toBeVisible()
+  await expect(page.locator('[data-test^="pattern-card-shop-"]')).toHaveCount(0)
+  await page.locator('[data-test="palette-view-sections"]').click()
+  await expect(page.locator('[data-test="pattern-card-faq"]')).toBeVisible()
+  await expect(page.locator('[data-test="pattern-group-Shop"]')).toHaveCount(0)
+  await expect(page.locator('[data-test^="pattern-card-shop-"]')).toHaveCount(0)
 })
 
 test('a shop template inserts its sections', async ({ page }) => {

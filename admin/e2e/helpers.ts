@@ -64,6 +64,11 @@ export interface World {
    * it, and the mint and every apply name it.
    */
   underLayout?: boolean
+  /**
+   * Commerce is off: the library is the server's answer from a boot with the capability off
+   * (api/patterns-commerce-off.json), so no shop section or template is in it.
+   */
+  commerceOff?: boolean
 }
 
 export async function routeWorld(page: Page, world: World = {}): Promise<Recorded> {
@@ -124,7 +129,11 @@ export async function routeWorld(page: Page, world: World = {}): Promise<Recorde
       return json(route, fixture('api/content-types.json'))
     if (method === 'GET' && path === '/block-types')
       return json(route, fixture('api/block-types.json'))
-    if (method === 'GET' && path === '/patterns') return json(route, fixture('api/patterns.json'))
+    if (method === 'GET' && path === '/patterns')
+      return json(
+        route,
+        fixture(world.commerceOff ? 'api/patterns-commerce-off.json' : 'api/patterns.json'),
+      )
     if (method === 'GET' && path === '/render/style-schema')
       return json(route, fixture('api/style-schema.json'))
     if (method === 'GET' && path === '/style-classes') {
