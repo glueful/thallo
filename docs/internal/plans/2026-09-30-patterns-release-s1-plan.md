@@ -1,5 +1,7 @@
 # Sections and Templates — Release S1 (shop pages) Implementation Plan
 
+> Amended 2026-09-30 after plan review: P3 regenerates the API artifacts; P4 keeps authored styling on the stage placeholder, distinguishes the three public cases and resolves linked products by uuid; the thumbnail pipeline (P5) is built and proven before the contributor, and the contributor lands with its thumbnails in one commit (P6), since `PatternLibraryTest::testEveryPatternHasItsThumbnailAndNoThumbnailIsAnOrphan` fails for any pattern without one.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** With Commerce on, the page Design view's Sections and Templates offer eight shop sections and four shop page templates — **Shop landing**, **Product launch**, **Sale / collection**, **New arrivals** — built from the existing commerce page blocks, each with a thumbnail. With Commerce off, none of them exists. A Featured product or Add to cart block that has no product is honest about it: a notice on the stage, nothing broken on the site.
@@ -22,17 +24,34 @@
 - **The honest state for Featured product and Add to cart.**
   - Today, with no product, `featured-product.twig` shows "Loading…" forever: its empty paragraph's text is "Loading…" and `renderFeaturedProduct` only un-hides it. Add to cart ends on "This product is not available.".
   - Shop behaviour never runs on the canvas stage (`shop.js`: "All ten are canvas-skip"), so on the stage both show "Loading…" whatever their settings.
-  - The fix has three parts:
-    - **Stage** (server, `is_canvas()`): a named placeholder `thallo-field-empty`, the class `category_rail.twig` already uses. It reads "Featured product — {name}" or "Add to cart — {name}" when a product resolves, and "Featured product — choose a product" or "Add to cart — choose a product" when none does. The name comes from a new soft-bound contract, `Thallo\Contracts\Delivery\StorefrontBlockPreview::productLabel(?string $slug, ?string $entryUuid): ?string`. Commerce implements it with an explicit slug first, else the entry's linked product (`ProductLinkService::resolveByEntry`), buyer-available and active only. The render pack exposes it as `shop_block_product_label(slug, entry_uuid)`, allowlisted in `TemplatePolicy`. The stage is never cached, so a live lookup is safe there.
-    - **Public, no product possible** (blank `product_slug` and no entry): the block renders **nothing** — no shell, no script tag, no noscript text.
-    - **Public, product unresolved at run time** (a slug for a product that is gone or inactive, or an entry with no linked product): the endpoints add `"unconfigured": true` when no slug could be resolved at all. `shop.js` then sets `el.hidden = true` on the block root for Featured product whenever `product` is null (no endless "Loading…"), and for Add to cart when `unconfigured` is true. A configured but unavailable product keeps "This product is not available.", which is honest.
-  - Public pages stay cache-safe: no product lookup on the public path.
+  - **Stage** (server, `is_canvas()`): a named placeholder, `thallo-field-empty` like `category_rail.twig`, that **keeps the block's authored styling**. Its root carries `style_classes('root')` and `style_attrs('root')` exactly as the shell does, so width, spacing, placement and style classes still show, and the block stays selectable.
+    - It reads "Featured product — {name}" or "Add to cart — {name}" when a product resolves, and "… — choose a product" when none does.
+    - The name comes from a new soft-bound contract, `Thallo\Contracts\Delivery\StorefrontBlockPreview::productLabel(?string $slug, ?string $entryUuid): ?string`. Commerce implements it exactly as `ShopBlockDataController::resolveSlug` resolves a block's product: an explicit slug first, else `ProductLinkService::resolveByEntry()`. That returns a link row with **`product_uuid`**, resolved with `findBuyerAvailableByUuid`. The product counts only when `status === 'active'`, then `findBuyerAvailableBySlug` for an explicit slug.
+    - The render pack exposes it as `shop_block_product_label(slug, entry_uuid)`, allowlisted in `TemplatePolicy`. The stage is never cached, so a live lookup is safe there.
+  - **Public**, cache-safe (no product lookup on the public path), in three cases:
+    1. **No slug and no entry context** (a block rendered outside an entry, such as a header or footer): the server renders **no shell**, no script tag and no noscript text. An ordinary page always has an entry, so this case is narrow by design.
+    2. **Entry context without a linked product** (an ordinary unlinked page, blank slug): the shell renders. The endpoint answers `"unconfigured": true`, and `shop.js` sets `el.hidden = true` on the block root, for both blocks.
+    3. **An explicit slug whose product is gone or inactive**: Featured product hides (`product` null), and Add to cart keeps "This product is not available.", which is honest.
+  - **Without JavaScript** (documented in the block reference): case 1 shows nothing. Case 2 shows the shell's existing noscript line, "Enable JavaScript to view the featured product." or "…to add this product to your cart.". Case 3 with a slug shows the existing noscript link to the product page. No dead link and no "Loading…" appears without JavaScript, because the "Loading…" paragraph is only revealed by script.
   - Cost if wrong: two templates, two endpoints, two JS branches.
-- **Thumbnails of commerce patterns** show fixture products, never shipped values.
-  - `scripts/build-pattern-thumbnails` already rolls back a transaction around fixture data (the header menu). Inside it, it seeds three fixture products with `CatalogService` and substitutes their slug into Featured product and Add to cart blocks in the **picture only**, as `$configured` does for a form's recipient.
-  - It calls `ShopBlockDataController::productGrid`, `featuredProduct` and `addToCart` with synthetic `Request`s to get the exact JSON the site would serve.
-  - It injects, into each commerce page, an inline script defining a `window.fetch` stub for `/_shop/blocks/*` that answers with that JSON, plus a `<script>` loading `packages/thallo-commerce/assets/shop.js` by absolute `file://` path. It removes the page's `/_thallo/shop/shop.js` tag, which cannot resolve under `file://`.
-  - `capture-page.js` gains a job option `expect: string[]` and waits (10 s) for each text before capturing, failing the build otherwise. So a thumbnail can never picture "Loading…".
+- **Thumbnails of commerce patterns** show fixture products, never shipped values, and a picture is taken only once every commerce block in it is ready.
+  - **Data.** Inside the build's rolled-back transaction (which already holds the header menu), `ShopPageSeed` seeds its products: active variants and committed cover images (`tests/fixtures/commerce/product-cover.png`, `product-alt.png`) stored as blobs. The seed's map from image record to committed file resolves every cover URL to its committed file.
+  - **Picture-only configuration.** A Featured product or Add to cart block with a blank `product_slug` gets the first seeded product's slug in the picture only, as `$configured` does for a form's recipient.
+  - **Responses match configuration.** After rendering a commerce pattern, the build reads every `[data-shop-block]` element's `data-*` attributes (DOMDocument). It builds the exact query `shop.js` builds, in the same parameter order:
+    - `product-grid`: `source`, `category_slug`, `tag_slug`, `products`, `page_size`;
+    - `featured-product` and `add-to-cart`: `product_slug`, `entry_uuid`.
+    It calls `ShopBlockDataController` with that request, rewrites cover URLs in the JSON to the committed files' `file://` paths, and records `responses['<path>?<query>'] = json`.
+  - **The stub** answers `window.fetch` by exact path and query. An unmatched URL answers 500 with `console.error`, so a mismatch fails the capture instead of picturing the wrong products.
+  - **Stylesheets and scripts.** `showcase_renderer()` gains an optional `$withContributions` flag. When set, it builds the theme artifact with the packs' contributed stylesheets (`RenderContributionRegistry::frozenStylesheets()`, as `build-builder-proof-fixtures` does). The shop's styles then arrive inlined through the proper theme layer. The flag is set only for commerce patterns, so core thumbnails are untouched.
+  - **Injection point.** The renderer's page ends with `</main>` and has no `</body>`. The build removes the templates' root-relative `/_thallo/shop/shop.css` link and `/_thallo/shop/shop.js` script tags, which cannot resolve under `file://`. Then it **appends to the end of the document, after `</main>`**, the stub `<script>` followed by `<script src="file://<repo>/packages/thallo-commerce/assets/shop.js">`.
+  - **Readiness, per block.** A new module, `tools/style-proofs/shop-readiness.js`, exports `waitForShopReady(page, timeoutMs)`. It resolves only when every `[data-shop-block]` is ready:
+    - a grid has painted at least one item and its items list is visible;
+    - a featured product's body is visible;
+    - an add to cart shows its form or its link.
+    It also requires that no element showing "Loading…" or an error state is visible, and that every `<img>` in the page is `complete` with a `naturalWidth` above 0. Otherwise it rejects, naming the first block that is not ready.
+  - `capture-page.js` calls it for a job with `ready: 'shop'`.
+  - A Playwright test proves the negative: one block's stub fails while another succeeds, and readiness rejects.
+- **The thumbnail gate** is `PatternLibraryTest::testEveryPatternHasItsThumbnailAndNoThumbnailIsAnOrphan` (there is no `PatternThumbnailsTest`). It fails for any offered pattern without a picture, so the contributor registers **in the same commit** as its thumbnails (Task P6), after the pipeline is built and proven on its own (Task P5).
 - **Rename and delete by the saved row's scope** (a plan-level item in the spec) **moves to S2.** In S1 every saved section is `page` or `region` and keeps `content.manage`, so moving the gate adds no behaviour and would ship an untested branch. S2 introduces the `layout` scope and moves the gate together with its `templates.manage` tests. Cost if wrong: none in S1.
 - **Commerce off, proven by a second boot.** `bootAppWithConfigOverride('thallo', ['capabilities' => ['thallo.commerce' => false]])` is the pattern `InertnessTest` uses. The commerce-off assertions go through it, and the admin's browser proof covers commerce on. The admin does no capability filtering of its own: the pattern list comes from the server.
 
@@ -48,9 +67,9 @@
 ## Review Focus
 
 1. **A contributed template naming a core section whose block type is off**, e.g. a shop landing that reuses `faq` after the accordion type is disabled. The whole template disappears, as core templates do. Pinned in Task P3.
-2. **A commerce section inserted on a shop with no products at all.** The grids show their empty state, Featured product and Add to cart show the stage notice, and the public page shows no broken card. Pinned in Task P4 (templates and endpoints) and Task P5 (the library resolves the patterns on an empty shop).
+2. **A commerce section inserted on a shop with no products at all.** The grids show their empty state, Featured product and Add to cart show the stage notice, and the public page shows no broken card. Pinned in Task P4 (templates and endpoints) and Task P6 (the library resolves the patterns on an empty shop).
 3. **A Featured product whose configured slug later points at a deleted product.** On the stage it reads "choose a product". In public, `shop.js` hides it instead of "Loading…" forever. Pinned in Task P4's browser proof.
-4. **Commerce toggled off after shop sections were inserted into pages.** The patterns disappear from the palette. Pages keep their blocks, which render through the missing-template fallback, as today with no shop HTML. Pinned in Task P5's second-boot test.
+4. **Commerce toggled off after shop sections were inserted into pages.** The patterns disappear from the palette. Pages keep their blocks, which render through the missing-template fallback, as today with no shop HTML. Pinned in Task P6's second-boot test.
 5. **Two packs claiming one slug, or a pack reusing a core slug** (a future pack writing `faq`). Refused at boot with both owners named. Pinned in Task P2.
 
 ## Shared contracts (named once, used by every task)
@@ -237,6 +256,7 @@ interface StorefrontBlockPreview
 
 **Files:**
 - Modify: `core/src/Content/Patterns/PatternLibrary.php`, `core/src/Content/Http/DTOs/Responses/Patterns/PatternData.php`, and the `PatternLibrary` binding in `CoreServiceProvider` (pass the registry)
+- Regenerate: `docs/openapi.json`, `admin/src/api/schema.d.ts` (the pattern schema's hunks only)
 - Modify: `admin/src/queries/patterns.ts` (`requires?: 'product' | null`)
 - Test: `tests/Integration/Content/PatternLibraryTest.php` (new cases)
 
@@ -256,82 +276,147 @@ interface StorefrontBlockPreview
   - Add `public readonly ?string $requires = null` to `PatternData`, mapped from the array.
 - [ ] **Step 4: Pass the registry** into the `PatternLibrary` binding. Autowiring resolves `PatternContributorRegistry` once it is bound. Keep the `SavedSectionRepository` argument.
 - [ ] **Step 5: Admin type.** Add `requires?: 'product' | null` to `Pattern` in `admin/src/queries/patterns.ts`, with a comment: "A shop pattern whose product block needs a product chosen after inserting it."
-- [ ] **Step 6: Run** `vendor/bin/phpunit tests/Integration/Content` and `cd admin && pnpm type-check`. Expected: PASS.
-- [ ] **Step 7: Commit** as `feat(patterns): the library offers contributed sections and templates, whole or not at all`.
+- [ ] **Step 6: Regenerate the API artifacts.** Run `composer docs:openapi` and `cd admin && pnpm gen:api`. Keep only the hunks that add `requires` to the pattern schema in `docs/openapi.json` and `admin/src/api/schema.d.ts`. `docs/internal/OUTSTANDING.md` notes that a regeneration also refreshes unrelated stale paths; those stay out of this commit. `git diff --stat` must show only those two files' pattern hunks.
+- [ ] **Step 7: Run** `vendor/bin/phpunit tests/Integration/Content tests/Integration/Commerce/AdminOpenApiGateTest.php` and `cd admin && pnpm type-check`. Expected: PASS.
+- [ ] **Step 8: Commit** as `feat(patterns): the library offers contributed sections and templates, whole or not at all`, including `docs/openapi.json` and `admin/src/api/schema.d.ts`.
 
 ## Task P4: Featured product and Add to cart are honest without a product
 
 **Files:**
-- Create: `packages/thallo-contracts/src/Delivery/StorefrontBlockPreview.php`
-- Create: `packages/thallo-commerce/src/Shop/ShopBlockPreview.php` (implements it)
+- Create: `packages/thallo-contracts/src/Delivery/StorefrontBlockPreview.php`, `packages/thallo-commerce/src/Shop/ShopBlockPreview.php`
 - Modify:
-  - `packages/thallo-commerce/src/CommerceIntegrationServiceProvider.php` (bind `StorefrontBlockPreview::class`, beside `StorefrontLinkResolver`)
+  - `packages/thallo-commerce/src/CommerceIntegrationServiceProvider.php` (bind `StorefrontBlockPreview::class` beside `StorefrontLinkResolver`)
   - `packages/thallo-render/src/RenderContextExtension.php` (constructor `?StorefrontBlockPreview $blockPreview = null`; `TwigFunction('shop_block_product_label', …)`)
   - `packages/thallo-render/src/RenderServiceProvider.php` (soft-bind it, as `storefrontLinks` is)
   - `packages/thallo-render/src/Templates/TemplatePolicy.php` (allowlist the function)
   - `packages/thallo-commerce/templates/blocks/featured-product.twig`, `packages/thallo-commerce/templates/blocks/add-to-cart.twig`
   - `packages/thallo-commerce/src/Http/Shop/ShopBlockDataController.php` (`unconfigured`)
-  - `packages/thallo-commerce/assets/shop.js` (`renderFeaturedProduct`, the add-to-cart unavailable branch)
+  - `packages/thallo-commerce/assets/shop.js`
 - Test:
   - `tests/Integration/Commerce/ShopBlockSelectionTest.php`
   - `tools/runtime-browser/tests/shop-block-selection.spec.js` with its fixture page `tools/runtime-browser/fixtures/shop-block-selection/index.html`
 
-**Interfaces:** Consumes `ProductLinkService::resolveByEntry`, `findBuyerAvailableBySlug`. Produces the Twig function `shop_block_product_label(?string slug, ?string entry_uuid): ?string` and endpoint JSON `unconfigured: true`.
+**Interfaces:** Consumes `ProductLinkService::resolveByEntry()` (link row with `product_uuid`), `ProductRepository::findBuyerAvailableByUuid()` and `findBuyerAvailableBySlug()`. Produces the Twig function `shop_block_product_label(?string slug, ?string entry_uuid): ?string` and endpoint JSON `unconfigured: true`.
 
-- [ ] **Step 1: Write the failing PHP tests** in `ShopBlockSelectionTest`, modelled on `ShopLayoutRenderTest` with `ShopPageSeed`. Render a page entry whose body holds the block through `RenderController`, in canvas mode (`?canvas=1` through a preview session) and in public mode.
-  - `testWithNoProductTheStageSaysChooseAProduct`: canvas render of `featured-product` with blank `product_slug` contains `thallo-field-empty` and `Featured product — choose a product`, and no `data-shop-block`. The same holds for `add-to-cart` with `Add to cart — choose a product`.
-  - `testWithAProductTheStageNamesIt`: seed an active product "Stoneware bowl"; `product_slug: 'stoneware-bowl'` renders `Featured product — Stoneware bowl` on the stage.
-  - `testWithNoProductPossibleThePublicPageRendersNothing`: a public render with a blank slug and no linked entry contains no `thallo-block-featured-product`, no `shop.js` script tag and no "Loading…". The same holds for add-to-cart.
-  - `testAConfiguredBlockRendersItsShell`: a public render with a slug contains `data-shop-block="featured-product"` and `data-product-slug="stoneware-bowl"`.
-  - `testTheEndpointsSayWhenNothingIsConfigured`: `GET /_shop/blocks/featured-product` with no slug and no entry answers `{"product": null, "unconfigured": true}`. `GET /_shop/blocks/add-to-cart` the same answers `mode: unavailable` and `unconfigured: true`. With a slug for a missing product both answer without `unconfigured`.
-  - `testAnEmptyShopKeepsTheNotice`: with no products at all, the stage shows the "choose a product" notice and the public page shows nothing for blank blocks.
-- [ ] **Step 2: Run it.** `vendor/bin/phpunit tests/Integration/Commerce/ShopBlockSelectionTest.php` — Expected: FAIL, notice text absent and `unconfigured` missing.
-- [ ] **Step 3: The contract and implementation.** Create `StorefrontBlockPreview` (Shared contracts). `ShopBlockPreview::productLabel()`:
-  1. Resolve the tenant (`CommerceTenantResolution`).
-  2. Take the slug when it is non-empty; otherwise take the entry's linked product via `ProductLinkService::resolveByEntry($context, $entryUuid)` when `$entryUuid` is non-empty.
-  3. Look it up with `findBuyerAvailableBySlug`.
-  4. Return its `name` when `status === 'active'`, else null.
+- [ ] **Step 1: Write the failing PHP tests** in `ShopBlockSelectionTest`, modelled on `ShopLayoutRenderTest` and `ProductFieldBlocksRenderTest` with `ShopPageSeed`. Assert on the markup these produce:
+  - a page entry rendered through `RenderController`, both public and on the stage (a preview session with `?canvas=1`);
+  - where a test needs "no entry context", a render of `{{ blocks(l) }}` through the render pack's Twig with no `entry` in context, as `scripts/lib/showcase.php` renders.
+
+  Cases:
+  - `testTheStageSaysChooseAProductAndKeepsTheBlocksStyling`: a page with `featured-product` (blank slug), carrying an instance style (margin top `spacing.xl`) and a style class. The stage render has one element with `data-thallo-block="<id>"` (selectable), classes `thallo-field-empty`, the instance style's class and the style class, and the text `Featured product — choose a product`, and no `data-shop-block`. The same holds for `add-to-cart` with `Add to cart — choose a product`.
+  - `testTheStageNamesALinkedOrChosenProduct`: seed the active product "Stoneware bowl". `product_slug: 'stoneware-bowl'` renders `Featured product — Stoneware bowl` on the stage. Blank slug on an entry linked to that product (`ProductLinkService::link`) renders the same.
+  - `testWithNoEntryContextNothingIsRendered`: a render without an entry, blank slug, contains no `thallo-block-featured-product`, no `shop.js` script tag, no noscript text and no "Loading…". The same holds for add-to-cart.
+  - `testAnUnlinkedPageRendersTheShell`: a public render of an ordinary page (it has an entry uuid) with a blank slug contains `data-shop-block="featured-product"` and `data-entry-uuid="<uuid>"`. Script hides it once hydrated (Step 8).
+  - `testAConfiguredBlockRendersItsShell`: a public render with `product_slug: 'stoneware-bowl'` contains `data-product-slug="stoneware-bowl"`.
+  - `testTheEndpointsSayWhenNothingIsConfigured`: with no slug and no entry, `GET /_shop/blocks/featured-product` answers `{"product": null, "unconfigured": true}` and `add-to-cart` answers `mode: unavailable, unconfigured: true`. With the entry uuid of an unlinked page, both answer `unconfigured: true`. With a slug for a missing product, both answer without `unconfigured`.
+  - `testAnEmptyShopKeepsTheNotice`: with no products at all, the stage shows "choose a product" and an unlinked page's endpoints answer `unconfigured: true`.
+- [ ] **Step 2: Run it.** `vendor/bin/phpunit tests/Integration/Commerce/ShopBlockSelectionTest.php` — Expected: FAIL (notice absent, `unconfigured` missing, shell rendered without an entry).
+- [ ] **Step 3: The contract and implementation.** Create `StorefrontBlockPreview` (Shared contracts). `ShopBlockPreview::productLabel()` mirrors `ShopBlockDataController::resolveSlug` and then names the product:
+  ```php
+  public function productLabel(?string $slug, ?string $entryUuid): ?string
+  {
+      $tenant = $this->tenants->tenantUuid($this->context);
+      if ($slug !== null && $slug !== '') {
+          $product = $this->products->findBuyerAvailableBySlug($this->context, $tenant, $slug);
+      } elseif ($entryUuid !== null && $entryUuid !== '') {
+          $link = $this->links->resolveByEntry($this->context, $entryUuid);
+          $product = $link === null ? null
+              : $this->products->findBuyerAvailableByUuid($this->context, $tenant, (string) $link['product_uuid']);
+      } else {
+          return null;
+      }
+
+      return $product !== null && ($product['status'] ?? null) === 'active' ? (string) $product['name'] : null;
+  }
+  ```
   Bind it in the commerce provider's `services()` beside `StorefrontLinkResolver`, gated identically.
-- [ ] **Step 4: The Twig function.** In `RenderContextExtension`, add the constructor parameter and:
+- [ ] **Step 4: The Twig function.** In `RenderContextExtension`:
   ```php
   new TwigFunction('shop_block_product_label', fn (?string $slug, ?string $entryUuid): ?string =>
       $this->blockPreview?->productLabel($slug !== '' ? $slug : null, $entryUuid !== '' ? $entryUuid : null)),
   ```
   Soft-bind it in `RenderServiceProvider` exactly like `storefrontLinks` (`$container->has(StorefrontBlockPreview::class) ? … : null`), and add `'shop_block_product_label'` to `TemplatePolicy`'s function allowlist.
-- [ ] **Step 5: The templates.** Wrap both templates. `featured-product.twig`:
+- [ ] **Step 5: The templates.** `featured-product.twig` becomes:
   ```twig
   {% set slug = data.product_slug|default('') %}
   {% set entry_uuid = entry.uuid|default('') %}
   {% if is_canvas() %}
+    {# Shop behaviour never runs on the stage, so it shows a named placeholder that keeps the
+       block's authored styling (width, spacing, placement, style classes) and stays selectable. #}
     {% set label = shop_block_product_label(slug, entry_uuid) %}
-    <div class="thallo-block thallo-block-featured-product thallo-field-empty">Featured product — {{ label ?: 'choose a product' }}</div>
+    <div class="thallo-block thallo-block-featured-product thallo-field-empty{{ style_classes('root') }}"{{ style_attrs('root') }}>Featured product — {{ label ?: 'choose a product' }}</div>
   {% elseif slug != '' or entry_uuid != '' %}
-    {# …today's shell, unchanged, with its link and script tags… #}
+    {# …today's shell, unchanged: its root keeps style_classes('root') and style_attrs('root'),
+       its noscript line, its stylesheet link and its script tag… #}
   {% endif %}
   ```
-  `add-to-cart.twig` is the same, reading "Add to cart — …". Keep the existing comments, and add one saying why the stage shows a named placeholder: shop behaviour never runs on the canvas.
-- [ ] **Step 6: The endpoints.** In `featuredProduct()` and `addToCart()`, when `$slug === null` (neither an explicit slug nor a linked product), return `['product' => null, 'unconfigured' => true]` and `AddToCartViewModel::unavailable()->toArray() + ['unconfigured' => true]` respectively.
+  `add-to-cart.twig` is the same, reading "Add to cart — …". Keep every existing comment.
+- [ ] **Step 6: The endpoints.** In `featuredProduct()` and `addToCart()`, when `$slug === null` (neither an explicit slug nor an active linked product), return `['product' => null, 'unconfigured' => true]` and `AddToCartViewModel::unavailable()->toArray() + ['unconfigured' => true]` respectively.
 - [ ] **Step 7: Run the PHP tests.** Expected: PASS.
-- [ ] **Step 8: Write the failing browser proof** `shop-block-selection.spec.js`. The fixture page holds a `featured-product` shell and an `add-to-cart` shell (copied markup with `data-shop-block`) and loads `/packages/thallo-commerce/assets/shop.js`.
-  - `featured product with no product hides itself`: `page.route('**/_shop/blocks/featured-product*', r => r.fulfill({json: {product: null}}))`, then expect the block to be hidden and the text "Loading…" not visible.
-  - `add to cart with nothing configured hides itself`: fulfil `{mode: 'unavailable', unconfigured: true}`, then expect the block hidden.
-  - `add to cart for a gone product says so`: fulfil `{mode: 'unavailable'}`, then expect "This product is not available." to be visible.
-  Run `cd tools/runtime-browser && npx playwright test tests/shop-block-selection.spec.js`. Expected: FAIL on the first two.
+- [ ] **Step 8: Write the failing browser proof** `shop-block-selection.spec.js`. The fixture page holds a `featured-product` shell and an `add-to-cart` shell (the templates' shell markup with `data-shop-block`, `data-entry-uuid="e1"`) and loads `/packages/thallo-commerce/assets/shop.js`.
+  - `an unlinked page's featured product hides itself`: route `**/_shop/blocks/featured-product*` to `{product: null, unconfigured: true}`. Expect the block root hidden and "Loading…" not visible.
+  - `a gone product's featured product hides itself`: route to `{product: null}`. Expect it hidden.
+  - `an unlinked page's add to cart hides itself`: route `**/_shop/blocks/add-to-cart*` to `{mode: 'unavailable', unconfigured: true}`. Expect it hidden.
+  - `a gone product's add to cart says so`: route to `{mode: 'unavailable'}`. Expect "This product is not available." visible.
+  Run `cd tools/runtime-browser && npx playwright test tests/shop-block-selection.spec.js`. Expected: FAIL on the first three.
 - [ ] **Step 9: `shop.js`.**
-  - In `renderFeaturedProduct`, when `!product`, set `el.hidden = true` and return. Do not un-hide the "Loading…" paragraph.
-  - In the add-to-cart render, when `data.unconfigured === true`, set `el.hidden = true` and return, before today's unavailable branch.
-  - Comment both lines: an empty block is not shown to shoppers; the editor sees a named placeholder on the stage.
+  - In `renderFeaturedProduct`, when `!product`, set `el.hidden = true` and return, without un-hiding the "Loading…" paragraph.
+  - In the add-to-cart render, when `data.unconfigured === true`, set `el.hidden = true` and return, before the unavailable branch.
+  - Comment both: an empty block is not shown to shoppers; the editor sees a named placeholder on the stage.
 - [ ] **Step 10: Run the browser proof and the PHP tests.** Expected: PASS.
-- [ ] **Step 11: Commit** with this changelog bullet under `### Fixed`: "**A Featured product or Add to cart block with no product no longer shows "Loading…" forever.** On the stage it says to choose a product, or names the product it shows; on the site it shows nothing until a product is chosen." Message: `fix(commerce): Featured product and Add to cart are honest without a product`.
+- [ ] **Step 11: Commit** with this changelog bullet under `### Fixed`: "**A Featured product or Add to cart block with no product no longer shows "Loading…" forever.** On the stage it says to choose a product, or names the product it shows, keeping its styling; on the site it shows nothing until a product is chosen, and an Add to cart whose product is gone says the product is not available." Message: `fix(commerce): Featured product and Add to cart are honest without a product`.
 
-## Task P5: the commerce pattern contributor
+## Task P5: a thumbnail pipeline for shop patterns, proven on its own
+
+**Files:**
+- Create: `tools/style-proofs/shop-readiness.js`, `tools/style-proofs/tests/shop-readiness.spec.js`, `tools/style-proofs/pages/shop-readiness/index.html` (the test page)
+- Modify:
+  - `tools/style-proofs/capture-page.js` (`ready: 'shop'`)
+  - `scripts/lib/showcase.php` (`showcase_renderer(..., bool $withContributions = false)`)
+  - `scripts/build-pattern-thumbnails` (seeding, picture-only configuration, matched responses, injection); used for real in P6
+- Test: the readiness spec; `PatternLibraryTest` stays green (no pattern added yet)
+
+**Interfaces:** Produces `waitForShopReady(page, timeoutMs = 10000): Promise<void>`, which rejects with `shop block "<data-shop-block>" not ready: <reason>`. Also produces `showcase_renderer`'s `$withContributions` flag, and in `build-pattern-thumbnails` a function `shop_block_responses(string $html, ContainerInterface $c, array $imageFiles): array<string,string>` returning path-and-query to JSON.
+
+- [ ] **Step 1: Write the failing readiness test.** Serve the test page from the style-proofs static server, as the existing tests do. It holds a product-grid shell, a featured-product shell and an add-to-cart shell, and loads `packages/thallo-commerce/assets/shop.js`.
+  - `ready when every block has painted`: route all three endpoints to valid fixture JSON (a grid of one item with a committed image, a featured product, `mode: direct`). `waitForShopReady` resolves.
+  - `not ready when one block fails`: the grid succeeds and the featured endpoint answers 500. It rejects naming `featured-product`.
+  - `not ready while an image is missing`: the grid item's image URL returns 404. It rejects naming `product-grid`.
+  - `not ready while loading shows`: the add-to-cart route never answers (hangs). It rejects after the timeout (use 1500 ms in the test) naming `add-to-cart`.
+  Run `cd tools/style-proofs && npx playwright test tests/shop-readiness.spec.js`. Expected: FAIL, module not found.
+- [ ] **Step 2: Implement `shop-readiness.js`.**
+  - Use `page.waitForFunction` with a predicate. Every `[data-shop-block]` must be ready:
+    - `product-grid`: `[data-shop-grid-items]` is visible with at least one child;
+    - `featured-product`: `[data-shop-featured-body]` is visible;
+    - `add-to-cart`: `[data-shop-add-to-cart-form]` or `[data-shop-add-to-cart-link]` is visible.
+  - No visible element's text may be "Loading…", no block may show a visible error or empty state (`[data-shop-featured-empty]` or an error class), and every `img` must have `complete && naturalWidth > 0`.
+  - On timeout, evaluate the page again to name the first unready block and its reason, and throw that.
+- [ ] **Step 3: Run it.** Expected: PASS (4 tests).
+- [ ] **Step 4: Wire it into `capture-page.js`.** For a job with `ready: 'shop'`, `await waitForShopReady(page, job.readyTimeout || 10000)` after `document.fonts.ready`; a rejection fails the whole build with the job's `out` in the message. Document `ready` in the header comment.
+- [ ] **Step 5: The renderer's contributed stylesheets.** In `showcase_renderer`, add `bool $withContributions = false`. When true, build the artifact with `ThemeStylesheetArtifact::build($sheets, $container->get(RenderContributionRegistry::class)->frozenStylesheets())`, exactly as `build-builder-proof-fixtures` does on its line 229. The default leaves every existing caller unchanged.
+- [ ] **Step 6: The build's commerce helpers** (unused until P6):
+  - `shop_block_responses($html, $container, $imageFiles)`:
+    - parse `$html` with `DOMDocument`;
+    - for each `[data-shop-block]` build the query in `shop.js`'s order. For `product-grid` that is `source` (default `newest`), `category_slug`, `tag_slug`, `products`, `page_size` (default `24`). For `featured-product` and `add-to-cart` it is `product_slug`, `entry_uuid`;
+    - call `ShopBlockDataController::{productGrid,featuredProduct,addToCart}(Request::create($path, 'GET', $params))`;
+    - replace every cover URL in the JSON that contains a blob uuid from `$imageFiles` (blob uuid to repo-relative file, e.g. `ShopPageSeed::IMAGES`) with `file://<repo>/<file>`;
+    - key the result by `"{$path}?{$query}"`.
+  - `shop_inject($html, $responses, $root)`:
+    - remove `<link rel="stylesheet" href="/_thallo/shop/shop.css">` and `<script src="/_thallo/shop/shop.js" defer></script>`;
+    - append after `</main>` a `<script>` defining `window.fetch` over `const R = <json of $responses>`. It answers `new Response(R[key], {headers: {'Content-Type': 'application/json'}})` for `key = url.pathname + url.search`, or `console.error` and a 500 for an unmatched shop URL, and delegates everything else;
+    - then append `<script src="file://{$root}/packages/thallo-commerce/assets/shop.js"></script>`.
+- [ ] **Step 7: Run** `vendor/bin/phpunit --filter testEveryPatternHasItsThumbnailAndNoThumbnailIsAnOrphan` (still green: no new pattern) and `php -l scripts/build-pattern-thumbnails`.
+- [ ] **Step 8: Commit** as `feat(patterns): a thumbnail pipeline that waits for every shop block to be ready`.
+
+## Task P6: the commerce pattern contributor, with its thumbnails
 
 **Files:**
 - Create: `packages/thallo-commerce/src/Patterns/ShopPatternsContributor.php`
-- Modify: `packages/thallo-commerce/src/CommerceIntegrationServiceProvider.php` (`registerPatternContributor()`, called beside `registerStarterContributor()` inside the capability gate)
-- Test: `tests/Integration/Commerce/ShopPatternsTest.php`
+- Modify: `packages/thallo-commerce/src/CommerceIntegrationServiceProvider.php` (`registerPatternContributor()`, called beside `registerStarterContributor()` inside the capability gate), `scripts/build-pattern-thumbnails` (use the P5 helpers for commerce patterns)
+- Regenerate: `admin/public/pattern-thumbs/shop-*.jpg`, `admin/src/editor/palette/patternThumbSizes.json`
+- Test: `tests/Integration/Commerce/ShopPatternsTest.php`; `PatternLibraryTest::testEveryPatternHasItsThumbnailAndNoThumbnailIsAnOrphan`
 
-**Interfaces:** Consumes `PatternBlocks`, `PatternContributorRegistry`, and `ShopBlockTypesContributor::SLUG_PRODUCT_GRID` (`product-grid`), `SLUG_FEATURED_PRODUCT` (`featured-product`) and `SLUG_ADD_TO_CART` (`add-to-cart`). Produces contributor id `thallo.commerce` and these slugs:
+**Interfaces:** Consumes `PatternBlocks`, `PatternContributorRegistry`, `ShopBlockTypesContributor::SLUG_PRODUCT_GRID` (`product-grid`), `SLUG_FEATURED_PRODUCT` (`featured-product`) and `SLUG_ADD_TO_CART` (`add-to-cart`), and P5's helpers and `ready: 'shop'`. Produces contributor id `thallo.commerce` and these slugs:
 
 | Section slug | Label | Category | Built from | requires |
 |---|---|---|---|---|
@@ -339,10 +424,10 @@ interface StorefrontBlockPreview
 | `shop-collection-grid` | Collection grid | Shop | band: `header('Collection', 'Shop the collection', null)` + `product-grid` `{source: newest, page_size: large}` | — |
 | `shop-featured-spotlight` | Featured product | Shop | band with `splitAtLg()`: stack(heading "Our pick this month", text, button "Shop now") + `featured-product` `{product_slug: ''}` | product |
 | `shop-add-to-cart-cta` | Add-to-cart call to action | Shop | band, surface `color.surface-muted`: stack(heading "Ready when you are", text) + `add-to-cart` `{product_slug: ''}` | product |
-| `shop-sale-banner` | Sale banner | Shop | `hero` `{headline: 'Limited time', title: 'The seasonal sale is on', description: '…', heading_level: 'h1'}` buttons ['Shop the sale'] | — |
-| `shop-reasons` | Reasons to buy | Shop | band: `header('Why shop with us', 'Made to last, shipped with care', null)` + `grid('3', [feature('truck','Free delivery','…'), feature('rotate-ccw','Easy returns','…'), feature('shield-check','Secure checkout','…')])` | — |
-| `shop-product-faq` | Product FAQ | Shop | band: `header('Questions', 'Before you buy', null)` + accordion of four `question()`s (delivery, returns, care, payment) | — |
-| `shop-cta-band` | Shop call to action | Shop | `cta('Find something you'll love', '…', 'soft', 'horizontal', ['Browse the shop'])` | — |
+| `shop-sale-banner` | Sale banner | Shop | `hero` `{headline: 'Limited time', title: 'The seasonal sale is on', description, heading_level: 'h1'}`, buttons ['Shop the sale'] | — |
+| `shop-reasons` | Reasons to buy | Shop | band: `header('Why shop with us', 'Made to last, shipped with care', null)` + `grid('3', [three feature()s: delivery, returns, secure checkout])` | — |
+| `shop-product-faq` | Product FAQ | Shop | band: `header('Questions', 'Before you buy', null)` + an accordion of four `question()`s (delivery, returns, care, payment), shaped exactly like core's `faq` section (`StarterPatterns`, line 263) | — |
+| `shop-cta-band` | Shop call to action | Shop | `cta('Find something you'll love', description, 'soft', 'horizontal', ['Browse the shop'])` | — |
 
 | Template slug | Label | Sections, in order |
 |---|---|---|
@@ -351,69 +436,52 @@ interface StorefrontBlockPreview
 | `shop-sale` | Sale / collection | `shop-sale-banner`, `shop-collection-grid`, `shop-reasons`, `shop-cta-band` |
 | `shop-new-arrivals-page` | New arrivals | `page-header`, `shop-new-arrivals`, `shop-featured-spotlight`, `shop-cta-band` |
 
-Every button's `url` is `#`, and every copy line is final text; write the "…" descriptions in full in the implementation, one or two short sentences each. The accordion wraps the questions exactly as core's `faq` section builds it (`StarterPatterns` `faq`, line 263). Read it and repeat its container shape. Icons must exist in the admin's lucide set: check `truck`, `rotate-ccw` and `shield-check` in the block library's icon picker data, and pick the closest existing name when one is missing.
+- Every button's `url` is `#`, and every description is final text of one or two short sentences, written in full in the implementation.
+- The three feature icons must exist in the admin's icon set. Check `truck`, `rotate-ccw` and `shield-check` against the icon picker's data, and use the closest existing name when one is missing.
+- The collection grid's description says to pick a category for the grid.
 
 - [ ] **Step 1: Write the failing tests** in `ShopPatternsTest`:
-  - `testTheShopPatternsAreOfferedWithCommerceOn`: from the container's `PatternLibrary::all()`, the eight section slugs and four template slugs above are present. Every template has as many blocks as its section list. `shop-landing`, `shop-product-launch` and `shop-new-arrivals-page` have `requires: 'product'`; `shop-sale` has `requires: null`.
-  - `testEveryShopPatternSavesAsAPage`: each template's blocks, given fresh ids, pass `FieldValidator` for a one-field `blocks` schema, as a page save would.
+  - `testTheShopPatternsAreOfferedWithCommerceOn`: from the container's `PatternLibrary::all()`, the eight section and four template slugs above are present, each template with as many blocks as its section list. `shop-landing`, `shop-product-launch` and `shop-new-arrivals-page` have `requires: 'product'`; `shop-sale` has `requires: null`.
+  - `testEveryShopPatternSavesAsAPage`: each template's blocks, with fresh ids, pass `FieldValidator` for a one-field `blocks` schema, as a page save would.
   - `testNoShopPatternShipsASiteSpecificValue`: walk every shop pattern. Every `product_slug` is `''`, every `category_slug` and `tag_slug` is absent or `''`, every `url` is `#`, and every product-grid `source` is `newest`.
-  - `testTheShopPatternsResolveOnAnEmptyShop`: with `commerce_products` emptied, the same slugs are still offered. Patterns don't depend on data.
-  - `testWithCommerceOffNoShopPatternExists`: a second boot via `bootAppWithConfigOverride('thallo', ['capabilities' => ['thallo.commerce' => false]])`, in a `try/finally` that restores the shared connection and permission provider like `InertnessTest`. Its `PatternLibrary::all()` has no slug starting `shop-`, and its `PatternContributorRegistry::all()` has no `thallo.commerce`.
+  - `testTheShopPatternsResolveOnAnEmptyShop`: with `commerce_products` emptied, the same slugs are offered.
+  - `testWithCommerceOffNoShopPatternExists`: a second boot via `bootAppWithConfigOverride('thallo', ['capabilities' => ['thallo.commerce' => false]])`, in a `try/finally` restoring the shared connection and permission provider like `InertnessTest`. Its `PatternLibrary::all()` has no `shop-` slug, and its `PatternContributorRegistry::all()` has no `thallo.commerce`.
   - `testRegistrationIsIdempotent`: calling `registerPatternContributor()` twice leaves one contributor.
 - [ ] **Step 2: Run them.** `vendor/bin/phpunit tests/Integration/Commerce/ShopPatternsTest.php` — Expected: FAIL, no `shop-` patterns.
-- [ ] **Step 3: Implement `ShopPatternsContributor`** with the tables above, using `PatternBlocks::*` for every block and the three commerce slugs through `ShopBlockTypesContributor`'s constants. Its docblock cites spec §6: portable settings, `requires`, and newest grids.
-- [ ] **Step 4: Register it.** Add `registerPatternContributor(ApplicationContext $context, ?PatternContributorRegistry $registry = null): bool` in the exact shape of `registerStarterContributor()` (guard `interface_exists`, container lookup, idempotent by id), and call it right after `registerStarterContributor($context)` inside the `thallo.commerce` gate, with a comment: user-facing batteries-included content, only while the capability is on.
-- [ ] **Step 5: Run** `ShopPatternsTest` and `tests/Integration/Content/PatternLibraryTest.php`. Expected: PASS.
-- [ ] **Step 6: Commit** with this changelog bullet under `### Added`: "**Shop sections and page templates.** With Commerce on, **Sections** and **Templates** in the Design view offer shop parts — new arrivals, a collection grid, a featured product, an add-to-cart call to action, a sale banner, reasons to buy, a product FAQ and a shop call to action — and four page templates built from them: **Shop landing**, **Product launch**, **Sale / collection** and **New arrivals**. A part with a featured product or add-to-cart block says so on its card: choose the product after inserting it. With Commerce off they are hidden." Message: `feat(commerce): shop sections and page templates for the page library`.
+- [ ] **Step 3: Implement `ShopPatternsContributor`** per the tables, every block through `PatternBlocks::*`, and the commerce slugs through `ShopBlockTypesContributor`'s constants. Its docblock cites spec §6: portable settings, `requires`, and newest grids.
+- [ ] **Step 4: Register it.** Add `registerPatternContributor(ApplicationContext $context, ?PatternContributorRegistry $registry = null): bool` in the shape of `registerStarterContributor()` (guard, container lookup, idempotent by id). Call it right after `registerStarterContributor($context)` inside the `thallo.commerce` gate, with a comment: user-facing batteries-included content, only while the capability is on.
+- [ ] **Step 5: Run** `ShopPatternsTest`. Expected: PASS. Then run `vendor/bin/phpunit --filter testEveryPatternHasItsThumbnailAndNoThumbnailIsAnOrphan`. Expected: FAIL, listing the twelve `shop-*` patterns without pictures. The next steps fix that inside this same commit.
+- [ ] **Step 6: Use the pipeline for commerce patterns.** In `build-pattern-thumbnails`:
+  - Seed inside the rolled-back transaction: `$seed = new ShopPageSeed($container, $context); $seed->useTenant(); $seed->seed();`. `useTenant()` writes the widened-schema flags the seed works under, and the rollback removes them with everything else. Take `ShopPageSeed::IMAGES` (blob uuid to repo-relative committed file) as `$imageFiles`: `shop_block_responses()` rewrites any cover URL containing one of those blob uuids to `file://<repo>/<file>`.
+  - Extend `$configured` so a blank-slug `featured-product` or `add-to-cart` gets the first seeded product's slug, in the picture only.
+  - For a pattern whose rendered HTML contains `data-shop-block`, render with `$withContributions = true`, compute `shop_block_responses()`, apply `shop_inject()`, and give the job `ready: 'shop'`.
+- [ ] **Step 7: Build and look.** Run `DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-pattern-thumbnails`. Expected: "Wrote N thumbnails", with twelve new `shop-*.jpg` and no readiness failure.
+  - Open `shop-new-arrivals.jpg`, `shop-featured-spotlight.jpg`, `shop-add-to-cart-cta.jpg` and `shop-landing.jpg` with the Read tool. Confirm they show the seeded products with their cover images, prices, the add-to-cart control and shop styling, and no "Loading…".
+  - `git status` must show no changed core thumbnail. A changed one means the refactor or the renderer default changed output; investigate before committing.
+- [ ] **Step 8: Run** `ShopPatternsTest`, `PatternLibraryTest` (the thumbnail gate included) and `cd admin && pnpm fmt:check`. Expected: PASS.
+- [ ] **Step 9: Commit everything in this task together**: the contributor, its registration, the build changes and the regenerated thumbnails and sizes. Add this changelog bullet under `### Added`: "**Shop sections and page templates.** With Commerce on, **Sections** and **Templates** in the Design view offer shop parts — new arrivals, a collection grid, a featured product, an add-to-cart call to action, a sale banner, reasons to buy, a product FAQ and a shop call to action — and four page templates built from them: **Shop landing**, **Product launch**, **Sale / collection** and **New arrivals**. A part with a featured product or add-to-cart block says so on its card: choose the product after inserting it. With Commerce off they are hidden." Message: `feat(commerce): shop sections and page templates for the page library, with their thumbnails`.
 
-## Task P6: the admin shows what a pattern needs, proven in a browser
+## Task P7: the admin shows what a pattern needs, proven in a browser
 
 **Files:**
 - Modify: `admin/src/editor/palette/BlocksPalette.vue` (a line on the card when `pattern.requires === 'product'`)
 - Test:
   - `admin/src/__tests__/pattern-requires.spec.ts`
   - `admin/e2e/tests/shop-patterns.spec.ts`
-  - fixtures from `scripts/build-builder-proof-fixtures`, whose `patterns.json` already comes from the live `PatternController::index()`, so rebuilding picks up the shop patterns
+  - fixtures from `scripts/build-builder-proof-fixtures`, whose `patterns.json` comes from the live `PatternController::index()`
 
-**Interfaces:** Consumes `Pattern.requires` from Task P3.
+**Interfaces:** Consumes `Pattern.requires` (P3) and the shop patterns (P6).
 
-- [ ] **Step 1: Write the failing vitest.** Mount `BlocksPalette` with two patterns in the Sections view, one with `requires: 'product'` and one without, following the existing palette tests' mounting (see `admin/src/__tests__/saved-sections.spec.ts`). The first card shows "Choose a product after inserting it"; the second doesn't. The same holds in the Templates view.
+- [ ] **Step 1: Write the failing vitest.** Mount `BlocksPalette` with two patterns in the Sections view, one with `requires: 'product'` and one without, following `admin/src/__tests__/saved-sections.spec.ts`. The first card shows "Choose a product after inserting it"; the second doesn't. The same holds in the Templates view.
 - [ ] **Step 2: Run it.** `cd admin && pnpm exec vitest run src/__tests__/pattern-requires.spec.ts` — Expected: FAIL.
-- [ ] **Step 3: Implement.** Under the card's description in `BlocksPalette.vue`, add `<p v-if="pattern.requires === 'product'" class="…muted text-xs…" data-test="pattern-requires">Choose a product after inserting it</p>`, reusing the card's existing muted-text classes.
+- [ ] **Step 3: Implement.** Under the card's description, add `<p v-if="pattern.requires === 'product'" data-test="pattern-requires" class="…">Choose a product after inserting it</p>`, reusing the card's existing muted-text classes.
 - [ ] **Step 4: Run it.** Expected: PASS.
 - [ ] **Step 5: Rebuild the proofs' fixtures:** `DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-builder-proof-fixtures`. Check that `admin/e2e/fixtures/api/patterns.json` contains `shop-landing`.
-- [ ] **Step 6: Write the browser proof** `shop-patterns.spec.ts`, using the existing Design-view helpers (`openDesign` or equivalent in `helpers.ts`):
-  - `the shop templates are offered with their note`: switch the palette to Templates. **Shop landing**, **Product launch**, **Sale / collection** and **New arrivals** are listed, and Shop landing's card shows "Choose a product after inserting it".
-  - `a shop template inserts its sections`: click **Sale / collection**, then assert that the recorded apply/draft request holds four new top-level blocks in order: `hero`, a container holding `product-grid`, a container of features, `cta`.
+- [ ] **Step 6: Write the browser proof** `shop-patterns.spec.ts` with the existing Design-view helpers in `helpers.ts`:
+  - `the shop templates are offered with their note`: switch the palette to Templates. The four shop templates are listed, and Shop landing's card shows "Choose a product after inserting it".
+  - `a shop template inserts its sections`: click **Sale / collection**, then assert the recorded apply holds four new top-level blocks in order: `hero`, a container holding `product-grid`, a container of features, `cta`.
   Run `cd admin/e2e && pnpm exec playwright test tests/shop-patterns.spec.ts --workers=8`. Expected: PASS.
 - [ ] **Step 7: Commit** (type-check, lint, fmt on touched files) as `feat(admin): a pattern that needs a product says so on its card`.
-
-## Task P7: thumbnails of the shop patterns, never of "Loading…"
-
-**Files:**
-- Modify: `scripts/build-pattern-thumbnails`, `tools/style-proofs/capture-page.js`
-- Regenerate: `admin/public/pattern-thumbs/shop-*.jpg`, `admin/src/editor/palette/patternThumbSizes.json`
-- Test: the existing `PatternThumbnailsTest` (a thumbnail for every pattern, no stale ones)
-
-**Interfaces:** Consumes `ShopBlockDataController::{productGrid, featuredProduct, addToCart}`, `CatalogService::createProduct`, and `ShopPatternsContributor` slugs.
-
-- [ ] **Step 1: See it fail.** Run `vendor/bin/phpunit --filter PatternThumbnailsTest`. Expected: FAIL, listing the twelve `shop-*` patterns without thumbnails.
-- [ ] **Step 2: `capture-page.js` waits for proof.** After `document.fonts.ready`, for each `job.expect` string run `await page.getByText(text, { exact: false }).first().waitFor({ timeout: 10000 })`; a miss rejects with `thumbnail ${job.out}: never showed "${text}"`. Document the option in the header comment.
-- [ ] **Step 3: Seed fixture products inside the rolled-back transaction.** In `build-pattern-thumbnails`, after the menu seeding and only when `ShopPatternsContributor` patterns are present, create three active products via `CatalogService::createProduct`:
-  - "Stoneware bowl", 3 200;
-  - "Linen apron", 4 500;
-  - "Oak serving board", 5 800.
-  Record the first slug.
-- [ ] **Step 4: Capture the block data the site would serve.** Call `ShopBlockDataController::productGrid(Request::create('/_shop/blocks/product-grid', 'GET', ['source' => 'newest', 'page_size' => 'medium']))` and the same for `featuredProduct` and `addToCart` with `['product_slug' => $slug]`. Keep each response's JSON string.
-- [ ] **Step 5: Picture-only configuration.** Extend `$configured`: a `featured-product` or `add-to-cart` block with a blank `product_slug` gets the fixture slug, in the picture only, as the form's recipient is.
-- [ ] **Step 6: Make commerce pages hydrate under `file://`.** For a pattern whose blocks contain a `data-shop-block`, post-process the rendered HTML:
-  - remove `<script src="/_thallo/shop/shop.js" defer></script>`;
-  - insert before `</body>` an inline `<script>` stubbing `window.fetch` for URLs containing `/_shop/blocks/product-grid`, `/featured-product` and `/add-to-cart`, answering `new Response(<captured JSON>, {headers: {'Content-Type': 'application/json'}})` and delegating anything else to the original fetch;
-  - then insert `<script src="file://<repo>/packages/thallo-commerce/assets/shop.js"></script>`.
-  Set the job's `expect` to the fixture product names the pattern should show: grids expect "Stoneware bowl"; spotlight and templates with it expect "Stoneware bowl"; add-to-cart expects "Add to cart".
-- [ ] **Step 7: Build and look.** Run `DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-pattern-thumbnails`. Expected: "Wrote N thumbnails", with twelve new `shop-*.jpg`. Open three of them (a grid, the spotlight, `shop-landing`) with the Read tool and confirm they show the fixture products and no "Loading…". Confirm with `git status` that no core thumbnail changed. A changed core thumbnail means the refactor or the capture changed output; investigate before committing.
-- [ ] **Step 8: Run** `vendor/bin/phpunit --filter PatternThumbnailsTest` and `cd admin && pnpm fmt:check`. Expected: PASS.
-- [ ] **Step 9: Commit** as `feat(patterns): thumbnails of the shop sections and templates, from fixture products`.
 
 ## Task P8: docs
 
@@ -437,13 +505,14 @@ Every button's `url` is `#`, and every copy line is final text; write the "…" 
   - Contributor registry: P2.
   - Identity and references (§3.1): P2.
   - Whole-template hiding: P3.
-  - Commerce contributor gated on the capability: P5.
-  - Eight sections and four templates: P5.
-  - Portable settings: P5.
-  - Product-selection state (notice, safe public output): P4.
-  - Fixture-only thumbnails: P7.
+  - Commerce contributor gated on the capability: P6.
+  - Eight sections and four templates: P6.
+  - Portable settings: P6.
+  - Product-selection state (notice, styling kept, the three public cases): P4.
+  - Thumbnails: pipeline and readiness in P5; fixture-only thumbnails in P6, landing with the contributor.
+  - API artifacts for `PatternData`: P3.
   - Docs (§8): P8.
-  - §7 S1 tests: P2–P7.
+  - §7 S1 tests: P2–P7 (the thumbnail gate `testEveryPatternHasItsThumbnailAndNoThumbnailIsAnOrphan` passes at every commit).
   - Deferred to S2 with a ruling: rename and delete by row scope.
   - S2's parts are out of this plan by design.
 - **Types:** `PatternSection`, `PatternTemplate`, `PatternContributor`, `PatternContributorRegistry`, `StorefrontBlockPreview` and `requires` are named once in Shared contracts and used consistently in P2–P7.
