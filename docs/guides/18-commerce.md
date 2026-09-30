@@ -157,6 +157,11 @@ on every product — open **Site › Layouts** and edit **Products — product p
 pages have layouts of their own — the heading, the category chips and the product cards, each card
 designed once — under **Products — shop home** and **Products — shop categories**:
 [design the shop home and category pages](20-layouts.md#design-the-shop-home-and-category-pages).
+Each of these layouts offers three templates in its **Blocks** tab. The product page has **Gallery
+left**, **Gallery on top** and **Story-led**; the shop home has **Adaptive grid**, **Banner and grid**
+and **Category-led**; the category pages have **Adaptive grid**, **Banner and grid** and **Chips on
+top**. Each also offers a few sections. See
+[sections and templates in layouts](04-sections-and-pages.md#sections-and-templates-in-layouts).
 
 ## Cart and checkout
 

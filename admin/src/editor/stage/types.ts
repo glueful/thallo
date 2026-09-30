@@ -2,8 +2,9 @@ import type { Ref } from 'vue'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import type { BlocksHost } from '@/fields/components/blocks/context'
 import type { FieldDef } from '@/fields/types'
-import type { OperationBody } from '@/editor/ops/types'
-import type { CardRules } from '@/editor/structure/legality'
+import type { EditorDocument, OperationBody } from '@/editor/ops/types'
+import type { CardRules, Legality } from '@/editor/structure/legality'
+import type { Pattern } from '@/queries/patterns'
 
 /** The accepted working-copy pair (visual builder spec §3.5). */
 export interface RevisionPair {
@@ -85,6 +86,22 @@ export interface StageHost {
   palette?: () => string[] | null
   /** The document's card rules (a layout surface's loops), which legality enforces. */
   cards?: () => CardRules | null
+  /**
+   * The library this page inserts from (a layout's editor: its surface's sections and templates for
+   * its target, the shipped page sections, its saved sections). Absent: the shared page library.
+   */
+  patterns?: () => Pattern[]
+  /**
+   * The whole document with a library section inserted, judged before it lands (sections and
+   * templates design §4): a layout refuses a second required block or a field its target lacks.
+   * A refusal records nothing. Absent: the section's own legality is all.
+   */
+  candidateCheck?(doc: EditorDocument): Legality
+  /**
+   * Extra operations a template brings when it replaces the document (a layout template's Frame
+   * settings), riding the same transaction as its blocks: one undo, one redo.
+   */
+  pageReplace?(pattern: Pattern): { ops: OperationBody[] } | null
   /**
    * Told of every ACCEPTED apply — a response the editor kept after its epoch/revision check, never
    * one it dropped as out of date — so the page can follow what the accepted document is.

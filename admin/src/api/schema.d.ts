@@ -3201,7 +3201,7 @@ export interface paths {
     }
     /**
      * List the section and page library
-     * @description Ready-made sections and starter pages, as block trees without ids. A pattern that uses a block type this site has switched off is not listed.
+     * @description Ready-made sections and starter pages, as block trees without ids. A pattern that uses a block type this site has switched off is not listed. With the query `surface` and `target`, the layout editor's library for that layout instead: the surface's sections and templates built and validated for the target (a template with its Frame `settings`), then the sections saved for the surface; nothing for a target that cannot have a layout.
      */
     get: operations['getV1AdminPatterns']
     put?: never
@@ -3367,7 +3367,7 @@ export interface paths {
     put?: never
     /**
      * Open a layout editing session
-     * @description Mints a layout preview token for a surface and target, pins the saved layout (or the starter when there is none) and its version as the session baseline, and picks the sample the stage renders it against: the one asked for, the newest published item, or a placeholder built in memory. The session names the surface's required blocks, its palette and its loops (each loop's card field and the blocks only a card holds). A target whose pages are off the site opens only while it keeps a saved layout, to remove it: `closed` says why, and Save and apply refuse it. Requires `templates.manage`.
+     * @description Mints a layout preview token for a surface and target, pins the saved layout (or the starter when there is none) and its version as the session baseline, and picks the sample the stage renders it against: the one asked for, the newest published item, or a placeholder built in memory. The session names the surface's required blocks, its palette and its loops (each loop's card field and the blocks only a card holds), and the target's binding rules — its fields and their labels, what each field block can show and binds by default, and the content type's name — so the editor checks a section before it lands. A target whose pages are off the site opens only while it keeps a saved layout, to remove it: `closed` says why, and Save and apply refuse it. Requires `templates.manage`.
      */
     post: operations['postV1AdminLayoutsPreviewSession']
     delete?: never
@@ -3556,7 +3556,7 @@ export interface paths {
     put?: never
     /**
      * Save a section
-     * @description Saves one block — with everything inside it — to the Blocks tab's library. The block is validated as a page save would validate it and stored without ids. Body: `name` (required, up to 120 characters), `block`, and optionally `category` (default "Saved"), `description`, and where it belongs: `scope` `page` (the default) or `region` with `region` `header` or `footer`, whose palette must take the block. Requires `content.manage`.
+     * @description Saves one block — with everything inside it — to the Blocks tab's library. The block is validated as a page save would validate it and stored without ids. Body: `name` (required, up to 120 characters), `block`, and optionally `category` (default "Saved"), `description`, and where it belongs: `scope` `page` (the default), `region` with `region` `header` or `footer`, whose palette must take the block, or `layout` with its `surface` and the `target` of the layout it is saved from — checked against that layout's rules, its field blocks kept with the bindings they have there. Requires `templates.manage` for a layout's section, `content.manage` for any other.
      */
     post: operations['postV1AdminSavedsections']
     delete?: never
@@ -3577,14 +3577,14 @@ export interface paths {
     post?: never
     /**
      * Delete a saved section
-     * @description Removes a saved section from the library. Pages that inserted it keep their copies. Requires `content.manage`.
+     * @description Removes a saved section from the library. Pages and layouts that inserted it keep their copies. Requires `templates.manage` for a layout's section, `content.manage` for any other.
      */
     delete: operations['deleteV1AdminSavedsectionsById']
     options?: never
     head?: never
     /**
      * Rename a saved section
-     * @description Changes a saved section's `name`, `category` or `description`. Requires `content.manage`.
+     * @description Changes a saved section's `name`, `category` or `description`. Requires `templates.manage` for a layout's section, `content.manage` for any other.
      */
     patch: operations['patchV1AdminSavedsectionsById']
     trace?: never
@@ -27954,6 +27954,13 @@ export interface operations {
           }
         }
       }
+      /** @description A `surface` this site has no layout for. */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
       /** @description Unexpected server error. */
       500: {
         headers: {
@@ -29898,7 +29905,9 @@ export interface operations {
          *       "category": "example",
          *       "description": "A short description.",
          *       "scope": "example",
-         *       "region": "example"
+         *       "region": "example",
+         *       "surface": "example",
+         *       "target": "example"
          *     }
          */
         'application/json': {
@@ -29908,6 +29917,8 @@ export interface operations {
           description?: string | null
           scope?: string | null
           region?: string | null
+          surface?: string | null
+          target?: string | null
         }
       }
     }
@@ -29943,7 +29954,7 @@ export interface operations {
           }
         }
       }
-      /** @description Forbidden. */
+      /** @description The caller may not change sections of that scope. */
       403: {
         headers: {
           [name: string]: unknown
@@ -29960,7 +29971,7 @@ export interface operations {
           }
         }
       }
-      /** @description A missing name, a block a page save would refuse, or one its region does not take. */
+      /** @description A missing name, a block a page save would refuse, one its region does not take, or one its layout does not. */
       422: {
         headers: {
           [name: string]: unknown
@@ -30021,7 +30032,7 @@ export interface operations {
           }
         }
       }
-      /** @description Forbidden. */
+      /** @description The caller may not change sections of its scope. */
       403: {
         headers: {
           [name: string]: unknown
@@ -30114,7 +30125,7 @@ export interface operations {
           }
         }
       }
-      /** @description Forbidden. */
+      /** @description The caller may not change sections of its scope. */
       403: {
         headers: {
           [name: string]: unknown

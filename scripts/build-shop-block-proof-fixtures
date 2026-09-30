@@ -27,6 +27,7 @@ use Thallo\Core\Tests\Support\TestApplication;
 
 
 require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/lib/layout-thumbnails.php';
 
 foreach (getenv() as $key => $value) {
     $_ENV[$key] ??= $value;
@@ -71,59 +72,13 @@ $get = static function (string $path) use ($app): Response {
     throw new RuntimeException("too many redirects for {$path}");
 };
 
-$dataUri = static fn (string $mime, string $bytes): string => 'data:' . $mime . ';base64,' . base64_encode($bytes);
-
-/** Inline every `url(...)` a stylesheet names, resolved against the stylesheet's own path. */
-$inlineUrls = static function (string $css, string $base) use ($get, $dataUri): string {
-    return (string) preg_replace_callback(
-        '~url\(\s*(["\']?)([^"\')]+)\1\s*\)~',
-        static function (array $m) use ($get, $dataUri, $base): string {
-            $url = $m[2];
-            if (str_starts_with($url, 'data:') || str_starts_with($url, '#')) {
-                return $m[0];
-            }
-            $path = str_starts_with($url, '/') ? $url : rtrim(dirname($base), '/') . '/' . $url;
-            $asset = $get($path);
-            if ($asset->getStatusCode() !== 200) {
-                throw new RuntimeException("cannot inline {$path}: {$asset->getStatusCode()}");
-            }
-            $mime = strtok((string) $asset->headers->get('Content-Type', 'application/octet-stream'), ';');
-            return 'url("' . $dataUri((string) $mime, (string) $asset->getContent()) . '")';
-        },
-        $css,
-    );
-};
-
 /** The page as a self-contained document: stylesheets, fonts and images inlined, scripts dropped. */
-$selfContained = static function (string $html) use ($get, $inlineUrls, $dataUri, $root): string {
-    $html = (string) preg_replace_callback(
-        '~<link rel="stylesheet" href="([^"]+)">~',
-        static function (array $m) use ($get, $inlineUrls): string {
-            $href = html_entity_decode($m[1]);
-            $sheet = $get($href);
-            if ($sheet->getStatusCode() !== 200) {
-                throw new RuntimeException("cannot inline stylesheet {$href}: {$sheet->getStatusCode()}");
-            }
-            return '<style data-inlined="' . htmlspecialchars($href) . '">'
-                . $inlineUrls((string) $sheet->getContent(), (string) parse_url($href, PHP_URL_PATH)) . '</style>';
-        },
-        $html,
-    );
-    $html = (string) preg_replace_callback(
-        '~<style([^>]*)>(.*?)</style>~s',
-        static fn (array $m): string => '<style' . $m[1] . '>' . $inlineUrls($m[2], '/') . '</style>',
-        $html,
-    );
-    foreach (ShopPageSeed::IMAGES as $blob => $file) {
-        $html = (string) preg_replace(
-            '~(src|data-src)="[^"]*/blobs/' . $blob . '[^"]*"~',
-            '$1="' . $dataUri('image/png', (string) file_get_contents($root . '/' . $file)) . '"',
-            $html,
-        );
-    }
-    $html = (string) preg_replace('~<script\b[^>]*>.*?</script>~s', '', $html);
-    return (string) preg_replace('~<link rel="(preload|modulepreload|icon)"[^>]*>~', '', $html);
-};
+$selfContained = static fn (string $html): string => layout_self_contained(
+    $html,
+    static fn (Request $request): Response => $app->handle($request),
+    ShopPageSeed::IMAGES,
+    $root,
+);
 
 /** Thrown to roll the seeding back once the pages are written. */
 final class ShopBlockFixturesWritten extends RuntimeException

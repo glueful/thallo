@@ -1,0 +1,173 @@
+{
+  "types": {
+    "lf_cat": {
+      "name": "LF categories",
+      "schema": [
+        { "name": "title", "type": "string", "required": true },
+        { "name": "slug", "type": "string", "required": true }
+      ]
+    },
+    "lf_post": {
+      "name": "LF posts",
+      "schema": [
+        { "name": "title", "type": "string", "required": true, "label": "Headline" },
+        { "name": "body", "type": "blocks" },
+        { "name": "sidebar", "type": "blocks" },
+        { "name": "cover", "type": "asset" },
+        { "name": "categories", "type": "reference", "reference_type": "lf_cat", "reference_slug_field": "slug", "multiple": true }
+      ]
+    },
+    "lf_content": {
+      "name": "LF content",
+      "schema": [
+        { "name": "title", "type": "string", "required": true },
+        { "name": "content", "type": "blocks" }
+      ]
+    },
+    "lf_richbody": {
+      "name": "LF rich",
+      "schema": [
+        { "name": "title", "type": "string", "required": true },
+        { "name": "body", "type": "text", "format": "rich" }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "name": "fits",
+      "surface": "entry", "target": "lf_post",
+      "blocks": [
+        { "id": "cand00000001", "type": "entry_title", "data": { "level": "h1" }, "settings": {} },
+        { "id": "cand00000002", "type": "entry_content", "data": { "field": "body" }, "settings": {} }
+      ],
+      "expect": "ok"
+    },
+    {
+      "name": "second buy box",
+      "surface": "product", "target": "@site",
+      "blocks": [
+        { "id": "cand00000011", "type": "product_buy", "data": {}, "settings": {} },
+        { "id": "cand00000012", "type": "container", "data": { "element": "div", "content": [
+          { "id": "cand00000013", "type": "product_buy", "data": {}, "settings": {} }
+        ] }, "settings": {} }
+      ],
+      "expect": "1"
+    },
+    {
+      "name": "field in a non-binding block",
+      "surface": "entry", "target": "lf_post",
+      "blocks": [
+        { "id": "cand00000021", "type": "entry_content", "data": { "field": "body" }, "settings": {} },
+        { "id": "cand00000022", "type": "rich_text", "data": { "body": "<p>Hi</p>", "field": "subtitle" }, "settings": {} }
+      ],
+      "expect": "ok"
+    },
+    {
+      "name": "unbound cover binds its default",
+      "surface": "entry", "target": "lf_post",
+      "blocks": [
+        { "id": "cand00000031", "type": "entry_content", "data": { "field": "body" }, "settings": {} },
+        { "id": "cand00000032", "type": "entry_cover", "data": {}, "settings": {} }
+      ],
+      "expect": "ok"
+    },
+    {
+      "name": "unbound excerpt with no excerpt field",
+      "surface": "entry", "target": "lf_post",
+      "blocks": [
+        { "id": "cand00000041", "type": "entry_content", "data": { "field": "body" }, "settings": {} },
+        { "id": "cand00000042", "type": "entry_excerpt", "data": {}, "settings": {} }
+      ],
+      "expect": "ok"
+    },
+    {
+      "name": "missing field",
+      "surface": "entry", "target": "lf_post",
+      "blocks": [
+        { "id": "cand00000051", "type": "entry_content", "data": { "field": "body" }, "settings": {} },
+        { "id": "cand00000052", "type": "entry_field", "data": { "field": "subtitle", "format": "text" }, "settings": {} }
+      ],
+      "expect": "4"
+    },
+    {
+      "name": "incompatible field",
+      "surface": "entry", "target": "lf_post",
+      "blocks": [
+        { "id": "cand00000061", "type": "entry_content", "data": { "field": "body" }, "settings": {} },
+        { "id": "cand00000062", "type": "entry_cover", "data": { "field": "title" }, "settings": {} }
+      ],
+      "expect": "5"
+    },
+    {
+      "name": "date format on a string",
+      "surface": "entry", "target": "lf_post",
+      "blocks": [
+        { "id": "cand00000071", "type": "entry_content", "data": { "field": "body" }, "settings": {} },
+        { "id": "cand00000072", "type": "entry_field", "data": { "field": "title", "format": "date" }, "settings": {} }
+      ],
+      "expect": "6"
+    },
+    {
+      "name": "body shown twice",
+      "surface": "entry", "target": "lf_post",
+      "blocks": [
+        { "id": "cand00000081", "type": "entry_content", "data": { "field": "body" }, "settings": {} },
+        { "id": "cand00000082", "type": "entry_content", "data": { "field": "body" }, "settings": {} }
+      ],
+      "expect": "7"
+    },
+    {
+      "name": "body shown twice by default",
+      "surface": "entry", "target": "lf_post",
+      "blocks": [
+        { "id": "cand00000091", "type": "entry_content", "data": { "field": "body" }, "settings": {} },
+        { "id": "cand00000092", "type": "entry_content", "data": {}, "settings": {} }
+      ],
+      "expect": "7"
+    },
+    {
+      "name": "secondary blocks field shown twice",
+      "surface": "entry", "target": "lf_post",
+      "blocks": [
+        { "id": "cand00000101", "type": "entry_content", "data": { "field": "body" }, "settings": {} },
+        { "id": "cand00000102", "type": "entry_content", "data": { "field": "sidebar" }, "settings": {} },
+        { "id": "cand00000103", "type": "entry_content", "data": { "field": "sidebar" }, "settings": {} }
+      ],
+      "expect": "7"
+    },
+    {
+      "name": "unbound Entry content on a content-named body",
+      "surface": "entry", "target": "lf_content",
+      "blocks": [
+        { "id": "cand00000111", "type": "entry_title", "data": { "level": "h1" }, "settings": {} },
+        { "id": "cand00000112", "type": "entry_content", "data": {}, "settings": {} }
+      ],
+      "expect": "4"
+    },
+    {
+      "name": "bound Entry content on a content-named body",
+      "surface": "entry", "target": "lf_content",
+      "blocks": [
+        { "id": "cand00000121", "type": "entry_title", "data": { "level": "h1" }, "settings": {} },
+        { "id": "cand00000122", "type": "entry_content", "data": { "field": "content" }, "settings": {} }
+      ],
+      "expect": "ok"
+    },
+    {
+      "name": "unbound Entry content on a rich-text body",
+      "surface": "entry", "target": "lf_richbody",
+      "blocks": [
+        { "id": "cand00000131", "type": "entry_content", "data": {}, "settings": {} }
+      ],
+      "expect": "5"
+    },
+    {
+      "name": "rich body shown as a field",
+      "surface": "entry", "target": "lf_richbody",
+      "blocks": [
+        { "id": "cand00000141", "type": "entry_field", "data": { "field": "body", "format": "rich" }, "settings": {} }
+      ],
+      "expect": "ok"
+    }
+  ]
+}

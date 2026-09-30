@@ -12,6 +12,7 @@ use Thallo\Core\Content\Http\DTOs\SaveSectionData;
 use Thallo\Core\Content\Http\DTOs\UpdateSavedSectionData;
 use Thallo\Core\Content\Patterns\PatternLibrary;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\SavedSectionRights;
 use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 
 /**
@@ -32,7 +33,7 @@ final class SavedSectionApiTest extends AppTestCase
 
     private function api(): SavedSectionController
     {
-        return $this->container()->get(SavedSectionController::class);
+        return SavedSectionRights::editor($this->container());
     }
 
     private function request(): Request
@@ -118,14 +119,14 @@ final class SavedSectionApiTest extends AppTestCase
             'name' => 'Spring promo',
             'category' => 'Promotions',
         ]);
-        $renamed = $this->api()->update($dto, $id);
+        $renamed = $this->api()->update($dto, $id, $this->request());
         self::assertSame(200, $renamed->getStatusCode());
         self::assertSame(['Spring promo', 'Promotions'], [$this->saved()[0]['label'], $this->saved()[0]['category']]);
 
-        self::assertSame(200, $this->api()->destroy($id)->getStatusCode());
+        self::assertSame(200, $this->api()->destroy($id, $this->request())->getStatusCode());
         self::assertSame([], $this->saved());
-        self::assertSame(404, $this->api()->destroy($id)->getStatusCode());
-        self::assertSame(404, $this->api()->update($dto, 'nosuchsectn1')->getStatusCode());
+        self::assertSame(404, $this->api()->destroy($id, $this->request())->getStatusCode());
+        self::assertSame(404, $this->api()->update($dto, 'nosuchsectn1', $this->request())->getStatusCode());
     }
 
     public function testASectionWhoseBlockTypeIsSwitchedOffLeavesTheLibraryUntilItIsBack(): void
@@ -179,19 +180,5 @@ final class SavedSectionApiTest extends AppTestCase
             self::assertSame(422, $result['status'], json_encode($place));
         }
         self::assertCount(2, $this->saved());
-    }
-
-    public function testSavingAndChangingNeedContentManage(): void
-    {
-        $routes = [
-            ['POST', '/v1/admin/saved-sections'],
-            ['PATCH', '/v1/admin/saved-sections/{id}'],
-            ['DELETE', '/v1/admin/saved-sections/{id}'],
-        ];
-        foreach ($routes as [$method, $path]) {
-            $route = $this->findRoute($method, $path);
-            self::assertNotNull($route, "{$method} {$path}");
-            self::assertContains('content_permission:content.manage', $route['middleware']);
-        }
     }
 }

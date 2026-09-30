@@ -16,4 +16,15 @@ interface PatternContributorRegistry
 
     /** @return list<PatternContributor> */
     public function all(): array;
+
+    /**
+     * A pack's layout patterns; refused whole on a taken id, a slug any pattern already holds, or a
+     * surface no layout has.
+     *
+     * @throws \LogicException
+     */
+    public function registerLayout(LayoutPatternContributor $contributor): void;
+
+    /** @return list<LayoutPatternContributor> */
+    public function layoutContributors(): array;
 }

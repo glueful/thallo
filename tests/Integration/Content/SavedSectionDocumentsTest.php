@@ -12,7 +12,6 @@ use Thallo\Core\Content\Blocks\Migration\BlockMigrationService;
 use Thallo\Core\Content\Blocks\Sources\BlockDocumentSources;
 use Thallo\Core\Content\Blocks\Sources\DocumentRef;
 use Thallo\Core\Content\Blocks\Sources\SavedSectionsSource;
-use Thallo\Core\Content\Http\Controllers\SavedSectionController;
 use Thallo\Core\Content\Http\DTOs\SaveSectionData;
 use Thallo\Core\Content\Patterns\SavedSectionRepository;
 use Thallo\Core\Content\Style\Classes\StyleClassJobRunner;
@@ -20,6 +19,7 @@ use Thallo\Core\Content\Style\Classes\StyleClassJobService;
 use Thallo\Core\Content\Style\Classes\StyleClassRepository;
 use Thallo\Core\Content\Style\Classes\StyleClassUsage;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\SavedSectionRights;
 use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 
 /**
@@ -129,7 +129,7 @@ final class SavedSectionDocumentsTest extends AppTestCase
         $dto = (new RequestDataHydrator())->hydrate(SaveSectionData::class, ['name' => 'Banded', 'block' => $block]);
         $request = Request::create('https://admin.test/v1/admin/saved-sections', 'POST');
         $request->attributes->set('user', ['uuid' => 'editor000001']);
-        $resp = $this->container()->get(SavedSectionController::class)->store($dto, $request);
+        $resp = SavedSectionRights::editor($this->container())->store($dto, $request);
 
         self::assertSame(422, $resp->getStatusCode(), (string) $resp->getContent());
         self::assertSame([], $this->repo()->all());

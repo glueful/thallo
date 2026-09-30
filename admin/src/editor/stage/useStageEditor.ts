@@ -31,10 +31,11 @@ import { createPaletteDrag } from '@/editor/palette/usePaletteDrag'
 import {
   checkInsertSequence,
   checkInsertSubtree,
+  insertCandidate,
   type Legality,
   type LegalityContext,
 } from '@/editor/structure/legality'
-import { instantiate, isPatternKey, patternSlug, usePatterns } from '@/queries/patterns'
+import { instantiate, isPatternKey, patternSlug, previewIds, usePatterns } from '@/queries/patterns'
 import {
   EMPTY_SELECTION,
   extend,
@@ -865,6 +866,17 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
       )
       return false
     }
+    // A section from the library lands only if the whole document with it is one the host accepts
+    // (a layout's required blocks once, its field bindings); refused, nothing is recorded.
+    for (const op of ops) {
+      if (op.type !== 'InsertBlock' || op.block.id !== sectionInFlight) continue
+      sectionInFlight = null
+      const verdict = checkPattern(op.position, op.block)
+      if (!verdict.ok) {
+        warning('That section does not fit here', verdict.message)
+        return false
+      }
+    }
     await applyDrop(ops)
     return true
   }
@@ -882,17 +894,40 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   // The section and page library rides the same palette. A section is ONE block, so under its
   // `pattern:` key it takes the palette's whole path — click, Enter, drag — with the library
   // standing in for the block factory; only what makes the block differs.
+  // A host with a library of its own (a layout's editor: its surface's patterns for its target)
+  // hands it over; every other page inserts from the shared page library.
   const { data: patternData } = usePatterns()
-  const patterns = computed(() => patternData.value ?? [])
+  const patterns = computed(() => host.patterns?.() ?? patternData.value ?? [])
   const patternBySlug = (slug: string) => patterns.value.find((p) => p.slug === slug) ?? null
+  /**
+   * The id of the library section the palette last minted, so its drop is checked against the whole
+   * document (host.candidateCheck). One at a time: every mint replaces it — a pressed card readies a
+   * drag instance and a click mints another — so nothing accumulates over a session.
+   */
+  let sectionInFlight: string | null = null
   const paletteFactory = {
     async instance(key: string): Promise<BlockInstance> {
-      if (!isPatternKey(key)) return blockFactory.instance(key)
+      if (!isPatternKey(key)) {
+        sectionInFlight = null
+        return blockFactory.instance(key)
+      }
       const block = patternBySlug(patternSlug(key))
       const made = block ? instantiate(block)[0] : undefined
       if (!made) throw new Error('That section is no longer in the library.')
+      sectionInFlight = made.id
       return made
     },
+  }
+  /**
+   * A section's placement judged as the tree it is, then — when the host judges whole documents
+   * (a layout: its required blocks once, its field bindings) — the document with it inserted.
+   */
+  function checkPattern(position: Position, block: BlockInstance): Legality {
+    const verdict = checkInsertSubtree(currentDoc(), position, block, legalityContext())
+    if (!verdict.ok || !host.candidateCheck) return verdict
+    const candidate =
+      insertCandidate(currentDoc(), position, block, legalityContext()) ?? currentDoc()
+    return host.candidateCheck(candidate)
   }
   const paletteLabel = (key: string): string =>
     isPatternKey(key)
@@ -943,13 +978,13 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
       return tilePreflight(slug, at.position, currentDoc(), legalityContext())
     // A section is judged as the tree it is — its depth counts from where it would land.
     const pattern = patternBySlug(patternSlug(slug))
-    const block = pattern ? instantiate(pattern)[0] : undefined
-    return block ? checkInsertSubtree(currentDoc(), at.position, block, legalityContext()) : NOWHERE
+    const block = pattern ? instantiate(pattern, previewIds())[0] : undefined
+    return block ? checkPattern(at.position, block) : NOWHERE
   }
-  /** A page's sections, one after another from the target. */
-  function pageInserts(slug: string, position: Position) {
+  /** A page's sections, one after another from the target (`mint`: throwaway ids, when only judging). */
+  function pageInserts(slug: string, position: Position, mint?: () => string) {
     const pattern = patternBySlug(slug)
-    return (pattern ? instantiate(pattern) : []).map((block, k) => ({
+    return (pattern ? instantiate(pattern, mint) : []).map((block, k) => ({
       position: { ...position, index: position.index + k },
       block,
     }))
@@ -957,15 +992,15 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   function pageClickable(slug: string): Legality {
     const at = resolvedTarget.value
     if (!at) return NOWHERE
-    const inserts = pageInserts(slug, at.position)
+    const inserts = pageInserts(slug, at.position, previewIds())
     return inserts.length ? checkInsertSequence(currentDoc(), inserts, legalityContext()) : NOWHERE
   }
   /** A template's sections as the whole of one root list, judged against that list emptied. */
-  function replaceInserts(slug: string, field: string) {
-    return pageInserts(slug, { parent: null, slot: field, index: 0 })
+  function replaceInserts(slug: string, field: string, mint?: () => string) {
+    return pageInserts(slug, { parent: null, slot: field, index: 0 }, mint)
   }
   function replaceClickable(slug: string, field: string): Legality {
-    const inserts = replaceInserts(slug, field)
+    const inserts = replaceInserts(slug, field, previewIds())
     if (!inserts.length) return NOWHERE
     const doc = currentDoc()
     return checkInsertSequence(
@@ -1143,6 +1178,11 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
         block,
       })),
     ]
+    // What the host brings along (a layout template's Frame settings) rides the same transaction:
+    // one undo puts the blocks and the settings back.
+    const pattern = patternBySlug(slug)
+    const extra = pattern ? (host.pageReplace?.(pattern) ?? null) : null
+    if (extra) drop.push(...extra.ops)
     await applyDrop(drop)
     for (const block of existing) bridge.mirrorRemove(block.id)
     const first = inserts[0]!.block

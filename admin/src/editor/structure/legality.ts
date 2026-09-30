@@ -499,3 +499,35 @@ export function locateBlock(
   }
   return null
 }
+
+/**
+ * Whether a block sits inside a loop's card — anywhere below a card field, however deep. A card is
+ * a design repeated for each item, so what is in it cannot be saved as a section of its own
+ * (sections and templates design §4). False without card rules.
+ */
+export function isInsideCard(doc: EditorDocument, id: string, cards: CardRules | null): boolean {
+  if (cards === null) return false
+  const isBlockList = (value: unknown): value is BlockInstance[] =>
+    Array.isArray(value) &&
+    value.every(
+      (v) => typeof v === 'object' && v !== null && typeof (v as BlockInstance).type === 'string',
+    )
+  const walk = (blocks: BlockInstance[], inCard: boolean): boolean | null => {
+    for (const block of blocks) {
+      if (block.id === id) return inCard
+      const loop = cards.loops.find((l) => l.type === block.type)
+      for (const [key, value] of Object.entries(block.data ?? {})) {
+        if (!isBlockList(value)) continue
+        const found = walk(value, inCard || (loop !== undefined && loop.card === key))
+        if (found !== null) return found
+      }
+    }
+    return null
+  }
+  for (const value of Object.values(doc.fields)) {
+    if (!isBlockList(value)) continue
+    const found = walk(value, false)
+    if (found !== null) return found
+  }
+  return false
+}

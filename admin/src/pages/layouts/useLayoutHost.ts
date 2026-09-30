@@ -18,6 +18,9 @@ import {
   type StageSession,
 } from '@/editor/stage/types'
 import type { StageEditor } from '@/editor/stage/useStageEditor'
+import type { Pattern } from '@/queries/patterns'
+import { checkLayoutCandidate } from '@/editor/structure/layoutCandidate'
+import { present } from '@/editor/ops/types'
 
 // The layout host (type layouts spec §6.2): the layout editor's side of the stage editor. The editor
 // edits ONE document — the layout's blocks as a root blocks field named `blocks`, its Frame options
@@ -97,6 +100,13 @@ export function useLayoutHost(options: { surface: string; target: string }) {
   const switching = ref(false)
 
   let editor: StageEditor | null = null
+  /**
+   * The library the editor inserts from (sections and templates design §4), set by the page: this
+   * surface's sections and templates for this target, the shipped page sections, its saved sections.
+   */
+  const library = ref<Pattern[]>([])
+  /** A block type's label, set by the page (the palette's names), for the reasons a section is refused. */
+  let labelOf: (type: string) => string = (type) => type
   /** Every restore sequence takes a number; a newer one abandons any still in flight. */
   let generation = 0
 
@@ -122,6 +132,43 @@ export function useLayoutHost(options: { surface: string; target: string }) {
     cards: () =>
       session.value && session.value.loops.length > 0
         ? { loops: session.value.loops, palette: session.value.palette }
+        : null,
+    patterns: () => library.value,
+    // A section lands only if the whole layout with it is one the server accepts: its required
+    // blocks at most once, every field it binds on this type, with the server's own rules.
+    candidateCheck: (doc) =>
+      session.value
+        ? checkLayoutCandidate(doc, {
+            field: 'blocks',
+            required: session.value.required,
+            bindable: session.value.bindable,
+            // A saved section's own labels name a field this type lacks; this type's names its own.
+            fieldLabels: Object.assign(
+              {},
+              ...library.value.map((p) => p.field_labels ?? {}),
+              session.value.fieldLabels,
+            ) as Record<string, string>,
+            bindings: session.value.bindings,
+            defaultFields: session.value.defaultFields,
+            formatNeeds: session.value.formatNeeds,
+            typeName: session.value.typeName,
+            label: labelOf,
+          })
+        : { ok: true },
+    // A layout template brings its Frame settings: they replace the working copy's in the same
+    // transaction as the blocks (an omitted setting returns to its default).
+    pageReplace: (pattern) =>
+      pattern.scope === 'layout' && pattern.kind === 'page'
+        ? {
+            ops: [
+              {
+                type: 'SetPageSettings',
+                field: SETTINGS_KEY,
+                from: present<unknown>(record(editor?.fields.value[SETTINGS_KEY])),
+                to: present<unknown>({ ...(pattern.settings ?? {}) }),
+              },
+            ],
+          }
         : null,
     // The first session's baseline is the document; a mint never touches the save baseline again.
     async mint() {
@@ -197,6 +244,12 @@ export function useLayoutHost(options: { surface: string; target: string }) {
   /** The editor this host serves; set once, right after the editor is made. */
   function bind(stageEditor: StageEditor): void {
     editor = stageEditor
+  }
+
+  /** The library this layout inserts from, and the block labels its refusals name. */
+  function setLibrary(patterns: Pattern[], labels: (type: string) => string): void {
+    library.value = patterns
+    labelOf = labels
   }
 
   /** Preview against another sample: the restore sequence, carrying the unsaved layout over. */
@@ -316,6 +369,7 @@ export function useLayoutHost(options: { surface: string; target: string }) {
   return {
     host,
     bind,
+    setLibrary,
     session,
     closed,
     sample,

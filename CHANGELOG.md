@@ -5,6 +5,31 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.72] - 2026-09-30 — Developer Preview
+
+Sections and templates in the layout editor: a single post, a listing, an archive, and with Commerce
+on the product page and the shop's pages each offer sections and three templates built for their own
+content type, and a section saved from a layout keeps its field blocks. Site › Layouts lists only
+what can be designed. Two migrations, `038` and `039` (`saved_sections` gains a layout surface and
+the labels of the fields a layout section shows): run `thallo:provision` on an existing site.
+
+### Added
+- **Sections and templates in the layout editor.** **Site › Layouts** has the Design view's
+  **Sections** and **Templates**. Each kind of page — a single post, a listing, an archive, and with
+  Commerce on the product page, the shop home and the shop categories — offers sections and three
+  templates built for the layout's own content type. A template replaces the whole layout, its Frame
+  settings included, and asks first when there are unsaved changes; one undo brings the old layout
+  back. **Save as section** in a layout keeps its field blocks, and the section is offered in every
+  layout of the same kind; one that shows a field the layout's type doesn't have says which. Saving,
+  renaming and deleting a layout's section needs **Manage templates**.
+
+### Changed
+- **Site › Layouts lists only what can be designed.** A content type without listing pages has no
+  listing or archive rows; they appear once its listing pages are on in **Settings › General**. A
+  listing or archive layout a type keeps while its listing pages are off is still listed, to be
+  removed. A type without listing pages has one row, named as the type (**Pages**); **— single
+  post** is kept only beside **Posts — listing pages**.
+
 ## [1.0.0-beta.71] - 2026-09-30 — Developer Preview
 
 Shop sections and page templates: with Commerce on, the Design view's library offers eight shop

@@ -66,18 +66,27 @@ export function nextInstanceId(): string {
   return newBlockId()
 }
 
-/** Fresh ids for a block and every nested starter block inside its data, the block first. */
-export function allocateIds(block: FactoryBlock): BlockInstance {
-  const id = nextInstanceId()
+/**
+ * Fresh ids for a block and every nested starter block inside its data, the block first. `mint`
+ * makes each id (the editor's own by default; a preview passes throwaway ones).
+ */
+export function allocateIds(
+  block: FactoryBlock,
+  mint: () => string = nextInstanceId,
+): BlockInstance {
+  const id = mint()
   const data: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(block.data)) {
     data[key] = isBlockList(value)
       ? value.map((item) =>
-          allocateIds({
-            type: item.type as string,
-            data: record(item.data),
-            settings: record(item.settings),
-          }),
+          allocateIds(
+            {
+              type: item.type as string,
+              data: record(item.data),
+              settings: record(item.settings),
+            },
+            mint,
+          ),
         )
       : value
   }

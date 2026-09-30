@@ -68,6 +68,18 @@ export interface LayoutSession {
   palette: string[]
   /** The surface's loops: each names its card (a blocks field) and the blocks only a card holds. */
   loops: { type: string; card: string; items: string[] }[]
+  /** The target's fields a block can bind: name => type (`text:rich` for a rich text field). */
+  bindable: Record<string, string>
+  /** Each bindable field's label: the schema's, else its name made readable. */
+  fieldLabels: Record<string, string>
+  /** Each binding block => the field types it can show. */
+  bindings: Record<string, string[]>
+  /** Each binding block => the field it binds when none is chosen (where the type has it). */
+  defaultFields: Record<string, string>
+  /** An Entry field format => the field types it needs. */
+  formatNeeds: Record<string, string[]>
+  /** The target content type's name; null off a content type (the product and shop pages). */
+  typeName: string | null
   /**
    * Why the layout's pages are off the site, when they are: a kept layout opens only to be removed
    * (from Site › Layouts); nothing can be applied or saved to it.
@@ -88,6 +100,24 @@ function record(value: unknown): Record<string, unknown> {
 
 const str = (value: unknown): string => (typeof value === 'string' ? value : '')
 const strOrNull = (value: unknown): string | null => (typeof value === 'string' ? value : null)
+
+/** A record of strings, anything else dropped. */
+function strings(raw: unknown): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(record(raw))) {
+    if (typeof value === 'string') out[key] = value
+  }
+  return out
+}
+
+/** A record of string lists, anything else dropped. */
+function lists(raw: unknown): Record<string, string[]> {
+  const out: Record<string, string[]> = {}
+  for (const [key, value] of Object.entries(record(raw))) {
+    if (Array.isArray(value)) out[key] = value.filter((s): s is string => typeof s === 'string')
+  }
+  return out
+}
 
 function content(raw: unknown): LayoutContent {
   const r = record(raw)
@@ -194,6 +224,12 @@ export async function mintLayoutSession(
         ),
       }
     }),
+    bindable: strings(d.bindable),
+    fieldLabels: strings(d.field_labels),
+    bindings: lists(d.bindings),
+    defaultFields: strings(d.default_fields),
+    formatNeeds: lists(d.format_needs),
+    typeName: strOrNull(d.type_name),
     closed: strOrNull(d.closed),
     sample:
       typeof sampleRaw.id === 'string' ? { id: sampleRaw.id, label: str(sampleRaw.label) } : null,

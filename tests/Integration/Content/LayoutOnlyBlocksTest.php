@@ -6,13 +6,13 @@ namespace Thallo\Core\Tests\Integration\Content;
 
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
-use Thallo\Core\Content\Http\Controllers\SavedSectionController;
 use Thallo\Core\Content\Http\DTOs\SaveSectionData;
 use Thallo\Core\Content\Regions\RegionValidator;
 use Thallo\Core\Content\Schema\ContentTypeSchema;
 use Thallo\Core\Content\Validation\FieldValidator;
 use Thallo\Core\Content\Validation\ValidationException;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\SavedSectionRights;
 use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 
 /**
@@ -76,7 +76,7 @@ final class LayoutOnlyBlocksTest extends AppTestCase
         );
         $request = Request::create('https://admin.test/v1/admin/saved-sections', 'POST');
         $request->attributes->set('user', ['uuid' => 'editor000001']);
-        $resp = $this->container()->get(SavedSectionController::class)->store($dto, $request);
+        $resp = SavedSectionRights::editor($this->container())->store($dto, $request);
         self::assertSame(422, $resp->getStatusCode());
         self::assertStringContainsString('belongs to layouts', (string) $resp->getContent());
     }
@@ -106,7 +106,7 @@ final class LayoutOnlyBlocksTest extends AppTestCase
         );
         $request = Request::create('https://admin.test/v1/admin/saved-sections', 'POST');
         $request->attributes->set('user', ['uuid' => 'editor000001']);
-        $resp = $this->container()->get(SavedSectionController::class)->store($dto, $request);
+        $resp = SavedSectionRights::editor($this->container())->store($dto, $request);
         self::assertSame(422, $resp->getStatusCode());
         self::assertStringContainsString("'product_name' belongs to layouts", (string) $resp->getContent());
     }
@@ -137,7 +137,7 @@ final class LayoutOnlyBlocksTest extends AppTestCase
             );
             $request = Request::create('https://admin.test/v1/admin/saved-sections', 'POST');
             $request->attributes->set('user', ['uuid' => 'editor000001']);
-            $resp = $this->container()->get(SavedSectionController::class)->store($dto, $request);
+            $resp = SavedSectionRights::editor($this->container())->store($dto, $request);
             self::assertSame(422, $resp->getStatusCode(), $slug);
             self::assertStringContainsString("'{$slug}' belongs to layouts", (string) $resp->getContent());
         }
@@ -169,7 +169,7 @@ final class LayoutOnlyBlocksTest extends AppTestCase
             );
             $request = Request::create('https://admin.test/v1/admin/saved-sections', 'POST');
             $request->attributes->set('user', ['uuid' => 'editor000001']);
-            $resp = $this->container()->get(SavedSectionController::class)->store($dto, $request);
+            $resp = SavedSectionRights::editor($this->container())->store($dto, $request);
             self::assertSame(422, $resp->getStatusCode());
             self::assertStringContainsString("'{$type}' belongs to layouts", (string) $resp->getContent());
         }

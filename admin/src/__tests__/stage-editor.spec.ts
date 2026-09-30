@@ -32,7 +32,8 @@ vi.mock('@/queries/styleClasses', () => ({
     deleteUnreferenced: { mutateAsync: vi.fn(), isLoading: ref(false) },
   }),
 }))
-vi.mock('@/queries/blockFactory', () => ({
+vi.mock('@/queries/blockFactory', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/queries/blockFactory')>()),
   useBlockFactory: () => ({ make: vi.fn(), instance: vi.fn() }),
 }))
 const notify = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
@@ -57,6 +58,8 @@ const bridge = vi.hoisted(() => {
 vi.mock('@/composables/useCanvasBridge', () => ({ useCanvasBridge: () => bridge }))
 
 import { useStageEditor, type StageEditor } from '@/editor/stage/useStageEditor'
+import { patternKey, type Pattern } from '@/queries/patterns'
+import { present } from '@/editor/ops/types'
 
 const SCHEMA: FieldDef[] = [{ name: 'body', type: 'blocks', label: 'Body' } as FieldDef]
 const TREE = { body: [{ id: 'blockaaa0001', type: 'card', data: { title: 'A' }, settings: {} }] }
@@ -416,6 +419,127 @@ describe('the stage editor and its host', () => {
     expect(token).toBe('t2')
     expect((fields.body as { data: { title: string } }[])[0]!.data.title).toBe('C')
     expect(options.epoch).toBe('e2')
+    unmount()
+  })
+})
+
+describe('the layout hooks (sections and templates design §4)', () => {
+  const CARD = {
+    uuid: 'card',
+    slug: 'card',
+    label: 'Card',
+    icon: null,
+    category: 'Content',
+    active: true,
+    schema: [{ name: 'title', type: 'string' }],
+    style_capabilities: [],
+    style_targets: null,
+  } as unknown as BlockType
+  const section = (slug: string): Pattern => ({
+    slug,
+    kind: 'section',
+    label: slug,
+    category: 'Article',
+    description: '',
+    blocks: [{ type: 'card', data: { title: slug }, settings: {} }],
+    scope: 'layout',
+    surface: 'entry',
+  })
+  const template: Pattern = {
+    slug: 'tpl',
+    kind: 'page',
+    label: 'Magazine',
+    category: 'Layouts',
+    description: '',
+    blocks: [
+      { type: 'card', data: { title: 'one' }, settings: {} },
+      { type: 'card', data: { title: 'two' }, settings: {} },
+    ],
+    scope: 'layout',
+    surface: 'entry',
+    settings: { width: 'full' },
+  }
+
+  async function ready(host: StageHost) {
+    blockTypes.value = [CARD]
+    const mounted = mountEditor(host)
+    host.initial.value = structuredClone(TREE)
+    await flushPromises()
+    edit(mounted.editor, 'A') // the first edit builds the history
+    await flushPromises()
+    return mounted
+  }
+
+  it('a section the host refuses is dimmed, and inserting it changes nothing', async () => {
+    notify.warning.mockReset()
+    const refusal = {
+      ok: false as const,
+      reason: 'type-not-allowed' as const,
+      message: 'The Product buy box can appear only once',
+    }
+    const candidateCheck = vi.fn((_doc: unknown) => refusal)
+    const host = { ...fakeHost(), patterns: () => [section('entry-part')], candidateCheck }
+    const { editor, unmount } = await ready(host)
+    expect(editor.paletteClickable(patternKey('entry-part'))).toEqual(refusal)
+    const before = JSON.stringify(editor.fields.value)
+    const sequence = editor.currentSequence()
+    await editor.insertFromPalette(patternKey('entry-part'))
+    await flushPromises()
+    expect(JSON.stringify(editor.fields.value)).toBe(before)
+    expect(editor.currentSequence()).toBe(sequence)
+    expect(notify.warning).toHaveBeenCalledWith(expect.any(String), refusal.message)
+    // The candidate the host judged is the whole document with the section in it.
+    const calls = candidateCheck.mock.calls
+    const judged = calls[calls.length - 1]![0] as { fields: { body: { type: string }[] } }
+    expect(judged.fields.body).toHaveLength(2)
+    unmount()
+  })
+
+  it('the host’s library is the one the editor inserts from', async () => {
+    const host = { ...fakeHost(), patterns: () => [section('only-here')] }
+    const { editor, unmount } = await ready(host)
+    await editor.insertFromPalette(patternKey('only-here'))
+    await flushPromises()
+    const body = editor.fields.value.body as { data: { title: string } }[]
+    expect(body.map((b) => b.data.title)).toContain('only-here')
+    unmount()
+  })
+
+  it('a replacement carries the host’s operations in the same undo step, and redo keeps the ids', async () => {
+    const host = {
+      ...fakeHost(),
+      patterns: () => [template],
+      pageReplace: (p: Pattern) => ({
+        ops: [
+          {
+            type: 'SetPageSettings' as const,
+            field: '_layout_settings',
+            from: present<unknown>({}),
+            to: present<unknown>({ ...(p.settings ?? {}) }),
+          },
+        ],
+      }),
+    }
+    const { editor, unmount } = await ready(host)
+    editor.fields.value = { ...editor.fields.value, _layout_settings: {} }
+    await flushPromises()
+    await editor.replaceWithPage('tpl', 'body')
+    await flushPromises()
+    const titles = () =>
+      (editor.fields.value.body as { data: { title: string } }[]).map((b) => b.data.title)
+    expect(titles()).toEqual(['one', 'two'])
+    expect(editor.fields.value._layout_settings).toEqual({ width: 'full' })
+    const minted = (editor.fields.value.body as { id: string }[]).map((b) => b.id)
+
+    await editor.undo()
+    await flushPromises()
+    expect(titles()).toEqual(['A'])
+    expect(editor.fields.value._layout_settings).toEqual({})
+
+    await editor.redo()
+    await flushPromises()
+    expect((editor.fields.value.body as { id: string }[]).map((b) => b.id)).toEqual(minted)
+    expect(editor.fields.value._layout_settings).toEqual({ width: 'full' })
     unmount()
   })
 })
