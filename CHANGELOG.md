@@ -5,7 +5,12 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.74] - 2026-09-30 — Developer Preview
+
+Layouts for pages and docs: a single page or doc gets its own templates (Standard page, Page header
+band, Full width) and a Page header band section, and the article layouts go only to types that read
+like articles. The Templates view shows its cards two to a row, and pattern pictures are never stale
+after an update. No migrations and nothing to provision.
 
 ### Added
 - **Pages and docs get layouts of their own.** A single page or doc now offers Standard page,
