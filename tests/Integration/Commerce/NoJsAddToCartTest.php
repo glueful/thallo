@@ -321,10 +321,12 @@ final class NoJsAddToCartTest extends AppTestCase
     }
 
     // ------------------------------------------------------------------
-    // 7. the add-to-cart BLOCK's no-JS output is a product-page link, never an inert shell
+    // 7. the add-to-cart BLOCK's no-JS output is a working link to the shop, never an inert shell
+    //    and never a product link that may be dead (sections and templates design §6: the
+    //    template looks nothing up, and a product URL built from a slug whose product is gone 404s)
     // ------------------------------------------------------------------
 
-    public function testAddToCartBlockNoscriptFallbackIsAProductPageLinkNotAnInertShell(): void
+    public function testAddToCartBlockNoscriptFallbackIsAShopLinkNotAnInertShell(): void
     {
         $html = $this->renderBlock('add-to-cart', ['product_slug' => 'block-nojs-target']);
 
@@ -333,19 +335,23 @@ final class NoJsAddToCartTest extends AppTestCase
         $noscriptInner = $m[1];
 
         self::assertStringContainsString(
-            '<a href="' . $this->urls()->product('block-nojs-target') . '">',
+            '<a href="' . $this->urls()->shopIndex() . '">',
             $noscriptInner,
-            'the no-JS fallback must be a working link to the canonical product page',
+            'the no-JS fallback must be a working link to the shop',
+        );
+        self::assertStringNotContainsString(
+            $this->urls()->product('block-nojs-target'),
+            $noscriptInner,
+            'never a product link the template cannot vouch for',
         );
     }
 
-    public function testAddToCartBlockNoscriptDegradesToPlainTextWithoutAResolvableSlug(): void
+    public function testAddToCartBlockWithNothingToResolveRendersNothing(): void
     {
         $html = $this->renderBlock('add-to-cart', []);
 
-        preg_match('#<noscript>(.*?)</noscript>#s', $html, $m);
-        self::assertStringNotContainsString('<a ', $m[1], 'no slug to resolve -> no dead link either');
-        self::assertStringContainsString('Enable JavaScript', $m[1]);
+        self::assertStringNotContainsString('<noscript>', $html, 'no slug and no entry: no shell at all');
+        self::assertStringNotContainsString('data-shop-block', $html);
     }
 
     // ------------------------------------------------------------------

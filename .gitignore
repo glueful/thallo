@@ -59,3 +59,5 @@ tools/runtime-browser/fixtures/product-layout/
 tools/runtime-browser/fixtures/listing-layout/
 # scripts/build-shop-layout-proof-fixtures renders the shop home and category pages (shop-layout.spec.js).
 tools/runtime-browser/fixtures/shop-layout/
+# scripts/build-shop-block-proof-fixtures renders pages holding Featured product and Add to cart (shop-block-selection.spec.js).
+tools/runtime-browser/fixtures/shop-block-selection/

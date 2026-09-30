@@ -697,8 +697,9 @@ final class ShopBlocksTest extends AppTestCase
 
     public function testAddToCartTemplateNeverExposesASubmittableFormBeforeHydration(): void
     {
-        foreach ([[], ['product_slug' => 'widget']] as $data) {
-            $html = $this->renderBlock('add-to-cart', $data);
+        // A blank slug renders its shell only with an entry to resolve a linked product from.
+        foreach ([[[], ['uuid' => 'entryuuid001']], [['product_slug' => 'widget'], null]] as [$data, $entry]) {
+            $html = $this->renderBlock('add-to-cart', $data, $entry);
             self::assertMatchesRegularExpression(
                 '/<form[^>]*data-shop-add-to-cart-form[^>]*\bhidden\b/',
                 $html,

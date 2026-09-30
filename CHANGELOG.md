@@ -5,6 +5,15 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Fixed
+- **A Featured product or Add to cart block with no product no longer shows "Loading…" forever.**
+  On the stage it says to choose a product, or names the product it shows, keeping its styling;
+  on the site it shows nothing until a product is chosen, and an Add to cart whose product is gone
+  says the product is not available. Without JavaScript both show a link to the shop instead of a
+  product link that might be gone.
+
 ## [1.0.0-beta.70] - 2026-09-29 — Developer Preview
 
 Layouts for the shop home and category pages — design every page of the shop home, or every
