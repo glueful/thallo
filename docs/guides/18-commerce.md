@@ -134,6 +134,19 @@ and insert from the **Commerce** group of the Blocks tab:
 Each renders a shell server-side and fetches its data afterwards, so a page carrying one stays
 cacheable.
 
+A **Featured product** or **Add to cart** block with no product to show says so on the stage:
+`Featured product — choose a product`, keeping the block's styling so it stays in place and
+selectable. On the published site it renders nothing, and it also hides when the product it
+names is gone, apart from an Add to cart, which says the product is not available. A reader
+without JavaScript gets a link to the shop instead.
+
+## Shop pages from templates
+
+With Commerce on, the Design view's library offers eight shop sections and four shop pages:
+**Shop landing**, **Product launch**, **Sale / collection** and **New arrivals**. Insert one into
+any page entry, then choose a product for any Featured product or Add to cart block it holds.
+See [shop sections and templates](04-sections-and-pages.md#shop-sections-and-templates).
+
 To design the product page itself — where the name, the price, the gallery and the **Product buy box** go
 on every product — open **Site › Layouts** and edit **Products — product page**:
 [design the product page](20-layouts.md#design-the-product-page). The shop home and the category

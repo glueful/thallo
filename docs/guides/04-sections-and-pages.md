@@ -90,6 +90,35 @@ fit here`.
 | Contact | Page header · Contact form · FAQ |
 | Services | Hero with highlights · Six features · How it works · Call to action, split |
 
+### Shop sections and templates
+
+With [Commerce](18-commerce.md) on, the library also offers a **Shop** category and four shop
+pages. Switch Commerce off and all of them are hidden. Pages already built from them keep their
+blocks.
+
+| Category | Sections |
+|---|---|
+| Shop | New arrivals · Collection grid · Featured product · Add-to-cart call to action · Sale banner · Reasons to buy · Product FAQ · Shop call to action |
+
+| Page | Sections |
+|---|---|
+| Shop landing | Sale banner · New arrivals · Featured product · Reasons to buy · Shop call to action |
+| Product launch | Featured product · Feature grid · Product FAQ · Add-to-cart call to action |
+| Sale / collection | Sale banner · Collection grid · Reasons to buy · Shop call to action |
+| New arrivals | Page header · New arrivals · Featured product · Shop call to action |
+
+A card marked `Choose a product after inserting it` holds a **Featured product** or **Add to
+cart** block with no product set. Select that block and enter a **product slug**. On a page linked
+to a product, either block can instead stay blank and use the linked product. Until the
+block has a product, the stage shows `Featured product — choose a product` or `Add to cart —
+choose a product` in its place. The published site shows nothing there.
+
+The product grids in these sections start on the newest products, so they work as inserted on any
+shop. To show one category instead, select the grid and set its **source** and **category slug**.
+
+**Product launch** opens with the featured product rather than a page heading, so it leaves
+**Show page title** as it is. The other three shop pages hide it, like every starter page.
+
 ## Headers and footers
 
 The header and footer have a library of their own. Their sections are one block each, built to
@@ -165,7 +194,8 @@ neither region takes a bare heading.
 A pattern is offered only if this site can use every block type in it. Switch a block type off
 under **Settings › Block Types** and every pattern built on it goes: switching off Pricing plans
 removes the **Pricing plans** section and also the **Pricing** page, which is made of it. Switch
-the type back on and both return. See
+the type back on and both return. The shop sections and templates need
+[Commerce](18-commerce.md) on as well. See
 [switching a block type off](../concepts/02-blocks.md#switching-a-block-type-off).
 
 A card that is present but dimmed is one the armed place refuses. Its tooltip says why —
