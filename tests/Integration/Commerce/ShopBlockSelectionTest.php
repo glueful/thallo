@@ -207,6 +207,40 @@ final class ShopBlockSelectionTest extends AppTestCase
         }
     }
 
+    public function testOnTheStageAProductGridIsANamedPlaceholder(): void
+    {
+        // shop.js never runs on the stage, so a hidden loading line would leave an empty, unselectable
+        // box: the stage names what the grid shows instead, keeping the block's styling.
+        $margin = ['top' => ['base' => ['type' => 'token', 'value' => 'spacing.xl']]];
+        $settings = ['style' => ['spacing' => ['margin' => $margin]]];
+        foreach (
+            [
+                'Product grid — the newest products' => ['source' => 'newest'],
+                'Product grid — category mugs' => ['source' => 'category', 'category_slug' => 'mugs'],
+                'Product grid — tag sale' => ['source' => 'tag', 'tag_slug' => 'sale'],
+                'Product grid — chosen products' => ['source' => 'manual', 'products' => "a\nb"],
+            ] as $label => $data
+        ) {
+            $stage = $this->render('product-grid', $data, true, $this->entry(), $settings);
+            self::assertStringContainsString('data-thallo-block="selblock0001"', $stage, $label);
+            self::assertStringContainsString($label, $stage);
+            self::assertStringNotContainsString('data-shop-block', $stage, "{$label}: no shop shell on the stage");
+            self::assertStringNotContainsString('Loading products', $stage, $label);
+            $classes = self::classesOf($stage, 'thallo-field-empty');
+            self::assertStringContainsString('thallo-block-product-grid', $classes);
+            self::assertStringContainsString('t-mt-xl', $classes, "{$label}: the instance style shows");
+        }
+    }
+
+    public function testAProductGridShipsItsLoadingLineHidden(): void
+    {
+        $site = $this->render('product-grid', ['source' => 'newest'], false, $this->entry());
+        $loading = '~<p[^>]*data-shop-grid-empty[^>]*hidden[^>]*>Loading products…</p>~';
+        self::assertMatchesRegularExpression($loading, $site);
+        self::assertSame(1, preg_match('~<noscript>(.*?)</noscript>~s', $site, $m));
+        self::assertStringContainsString('href="' . $this->extension()->shopIndexUrl() . '"', $m[1]);
+    }
+
     public function testTheEndpointsSayWhenNothingIsConfigured(): void
     {
         $unlinked = $this->entry();

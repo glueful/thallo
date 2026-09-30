@@ -132,7 +132,9 @@ and insert from the **Commerce** group of the Blocks tab:
 | **Wishlist link** | A link to the wishlist with a saved count | **label** |
 
 Each renders a shell server-side and fetches its data afterwards, so a page carrying one stays
-cacheable.
+cacheable. The shop's data never loads on the Design view's stage, so a **Product grid** there
+names what it will show, such as `Product grid — the newest products`. If the data cannot be
+loaded on the site, the grid says `Products could not be loaded.`
 
 A **Featured product** or **Add to cart** block with no product to show says so on the stage:
 `Featured product — choose a product`, keeping the block's styling so it stays in place and

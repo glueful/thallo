@@ -23,6 +23,10 @@ as the next release, never a mutated tag.
   available. If the shop cannot be reached, Featured product hides and Add to cart says the
   product could not be loaded. Without JavaScript both show a link to the shop instead of a
   product link that might be gone.
+- **A Product grid no longer shows "Loading products…" forever.** On the stage it names what it
+  will show, such as `Product grid — the newest products`, keeping its styling. If the shop cannot
+  be reached, it says the products could not be loaded. Without JavaScript it shows only its link
+  to the shop.
 
 ## [1.0.0-beta.70] - 2026-09-29 — Developer Preview
 

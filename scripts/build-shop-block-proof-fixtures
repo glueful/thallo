@@ -147,6 +147,7 @@ try {
         $blocks = static fn (string $slug): array => [
             ['id' => 'nojsfeatured', 'type' => 'featured-product', 'data' => ['product_slug' => $slug], 'settings' => []],
             ['id' => 'nojsaddtocrt', 'type' => 'add-to-cart', 'data' => ['product_slug' => $slug], 'settings' => []],
+            ['id' => 'nojsprodgrid', 'type' => 'product-grid', 'data' => ['source' => 'newest'], 'settings' => []],
         ];
 
         $pages->publish($type, 'unlinked', ['title' => 'Unlinked', 'body' => $blocks('')], '2026-07-01 09:00:00');
