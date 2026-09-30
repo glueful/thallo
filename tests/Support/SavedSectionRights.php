@@ -44,6 +44,7 @@ final class SavedSectionRights
             $authority,
             $container->get(LayoutSurfaceRegistry::class),
             $container->get(LayoutValidator::class),
+            $container->get(\Thallo\Core\Content\Layouts\LayoutFieldLabels::class),
         );
     }
 

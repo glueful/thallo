@@ -142,7 +142,12 @@ export function useLayoutHost(options: { surface: string; target: string }) {
             field: 'blocks',
             required: session.value.required,
             bindable: session.value.bindable,
-            fieldLabels: session.value.fieldLabels,
+            // A saved section's own labels name a field this type lacks; this type's names its own.
+            fieldLabels: Object.assign(
+              {},
+              ...library.value.map((p) => p.field_labels ?? {}),
+              session.value.fieldLabels,
+            ) as Record<string, string>,
             bindings: session.value.bindings,
             defaultFields: session.value.defaultFields,
             formatNeeds: session.value.formatNeeds,

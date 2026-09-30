@@ -12,6 +12,7 @@ use Thallo\Core\Content\Http\DTOs\SaveSectionData;
 use Thallo\Core\Content\Http\DTOs\UpdateSavedSectionData;
 use Thallo\Core\Content\Patterns\PatternLibrary;
 use Thallo\Core\Content\Patterns\SavedSectionRepository;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
 use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Core\Tests\Support\LayoutTypeShapes;
 use Thallo\Core\Tests\Support\SavedSectionRights;
@@ -119,6 +120,38 @@ final class SavedLayoutSectionsTest extends AppTestCase
         $cover = ['id' => 'cov000000002', 'type' => 'entry_cover', 'data' => ['aspect' => '16:9'], 'settings' => []];
         $id = self::section($this->layoutSave($cover))['id'];
         self::assertSame('cover', $this->repo()->find($id)['block']['data']['field'] ?? null);
+    }
+
+    public function testALayoutSectionKeepsTheLabelsOfTheFieldsItShows(): void
+    {
+        // Offered in a layout whose type lacks one of its fields, the section names that field by
+        // the label it had where it was saved — the other type has no label for a field it lacks.
+        $this->container()->get(ContentTypeRepository::class)->create([
+            'slug' => 'lp_dek', 'name' => 'Dek pages', 'public_delivery' => true, 'schema' => [
+                ['name' => 'title', 'type' => 'string', 'required' => true],
+                ['name' => 'dek', 'type' => 'string', 'label' => 'Subtitle'],
+                ['name' => 'body', 'type' => 'blocks'],
+            ],
+        ]);
+        $dek = [
+            'id' => 'dek000000001', 'type' => 'entry_field', 'data' => ['field' => 'dek', 'format' => 'text'],
+            'settings' => [],
+        ];
+        $res = $this->controller(['templates.manage'])->store(
+            new SaveSectionData(name: 'Dek', block: $dek, scope: 'layout', surface: 'entry', target: 'lp_dek'),
+            $this->request(),
+        );
+        self::assertSame(201, $res->getStatusCode(), (string) $res->getContent());
+        $section = self::section($res);
+        self::assertSame(['dek' => 'Subtitle'], $section['field_labels']);
+        self::assertSame(['dek' => 'Subtitle'], $this->repo()->find($section['id'])['field_labels'] ?? null);
+        $offered = array_column($this->library()->forLayout('entry', 'lp_body'), null, 'slug')[$section['slug']];
+        self::assertSame(['dek' => 'Subtitle'], $offered['field_labels']);
+        foreach ($this->library()->forLayout('entry', 'lp_body') as $entry) {
+            if (!$entry['saved']) {
+                self::assertNull($entry['field_labels'], "{$entry['slug']}: shipped, it binds this type's own fields");
+            }
+        }
     }
 
     public function testRenameAnswersWithTheWholeSection(): void

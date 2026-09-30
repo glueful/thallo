@@ -31,6 +31,8 @@ export interface Pattern {
   surface?: string | null
   /** A layout template's Frame settings (width, header, footer); null for every other pattern. */
   settings?: Record<string, string> | null
+  /** A section saved from a layout: its fields' labels, as the type it was saved from names them. */
+  field_labels?: Record<string, string> | null
   /** A section this site saved from the stage (renamed and deleted by `id`), not a shipped one. */
   saved?: boolean
   id?: string | null

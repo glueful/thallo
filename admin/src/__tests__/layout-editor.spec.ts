@@ -765,6 +765,25 @@ describe('sections and templates in the layout editor', () => {
     w.unmount()
   })
 
+  it('a missing field is named by the label it had where the section was saved', async () => {
+    lib.layout.push(
+      section('saved-dek', {
+        saved: true,
+        id: 'dek',
+        category: 'Saved',
+        blocks: [{ type: 'entry_content', data: { field: 'dek' }, settings: {} }],
+        field_labels: { dek: 'Subtitle' },
+      }),
+    )
+    const w = mountPage()
+    await flushPromises()
+    await w.find('[data-test="palette-view-sections"]').trigger('click')
+    expect(card(w, 'saved-dek').attributes('title')).toBe(
+      'This section shows “Subtitle”, which LF posts doesn’t have',
+    )
+    w.unmount()
+  })
+
   it('a template on a clean layout replaces blocks and Frame settings; one undo, and redo keeps the ids', async () => {
     const w = mountPage()
     await flushPromises()
