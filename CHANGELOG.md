@@ -7,6 +7,14 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **Shop sections and page templates.** With Commerce on, **Sections** and **Templates** in the
+  Design view offer shop parts — new arrivals, a collection grid, a featured product, an
+  add-to-cart call to action, a sale banner, reasons to buy, a product FAQ and a shop call to
+  action — and four page templates built from them: **Shop landing**, **Product launch**,
+  **Sale / collection** and **New arrivals**. A part with a featured product or add-to-cart block
+  says so on its card: choose the product after inserting it. With Commerce off they are hidden.
+
 ### Fixed
 - **A Featured product or Add to cart block with no product no longer shows "Loading…" forever.**
   On the stage it says to choose a product, or names the product it shows, keeping its styling;

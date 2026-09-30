@@ -75,7 +75,11 @@ function showcase_renderer(
     string $themeName,
     bool $withContributions = false,
 ): callable {
-    $theme = new ThemeLocator($themeName, $root . '/themes');
+    // With contributions, the application's own locator: it carries the packs' template paths (a
+    // shop block's template lives in the commerce pack), which a bare locator does not.
+    $theme = $withContributions
+        ? $container->get(ThemeLocator::class)
+        : new ThemeLocator($themeName, $root . '/themes');
     if ($theme->activePaths()['name'] !== $themeName) {
         fwrite(STDERR, "No loadable theme '{$themeName}'.\n");
         exit(1);

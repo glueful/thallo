@@ -53,3 +53,9 @@ test('not ready while loading shows', async ({ page }) => {
   await open(page, { 'product-grid': json(grid(IMAGE)), 'featured-product': json(featured), 'add-to-cart': () => {} });
   await expect(waitForShopReady(page, 1500)).rejects.toThrow(/add-to-cart/);
 });
+
+test('not ready when a shop block is missing from the page', async ({ page }) => {
+  await open(page, { 'product-grid': json(grid(IMAGE)), 'featured-product': json(featured), 'add-to-cart': json(cart) });
+  await expect(waitForShopReady(page, 1500, 4)).rejects.toThrow(/expected 4 shop blocks, found 3/);
+  await waitForShopReady(page, 1500, 3);
+});

@@ -7,7 +7,9 @@
 // block painted and another did not is not ready.
 
 /** Runs in the page: null when ready, else a reason naming the first block that is not. */
-function unready() {
+function unready(expected) {
+  const found = document.querySelectorAll('[data-shop-block]').length;
+  if (found < expected) return `expected ${expected} shop blocks, found ${found}`;
   const visible = (el) => !!el && !el.hidden && el.getClientRects().length > 0;
   for (const block of document.querySelectorAll('[data-shop-block]')) {
     const kind = block.getAttribute('data-shop-block');
@@ -43,14 +45,16 @@ function unready() {
 }
 
 /**
- * Resolve once every shop block on the page is ready; reject naming the first one that is not by
- * `timeoutMs`.
+ * Resolve once the page holds `expectedBlocks` shop blocks and every one of them is ready; reject
+ * naming the first one that is not by `timeoutMs`. The count guards against a block that did not
+ * render at all (a missing template), which would otherwise leave nothing to wait for.
  */
-async function waitForShopReady(page, timeoutMs = 10000) {
+async function waitForShopReady(page, timeoutMs = 10000, expectedBlocks = 1) {
+  const check = `(${unready.toString()})(${Number(expectedBlocks)})`;
   try {
-    await page.waitForFunction(`(${unready.toString()})() === null`, null, { timeout: timeoutMs, polling: 100 });
+    await page.waitForFunction(`${check} === null`, null, { timeout: timeoutMs, polling: 100 });
   } catch (error) {
-    const reason = await page.evaluate(`(${unready.toString()})()`).catch(() => null);
+    const reason = await page.evaluate(check).catch(() => null);
     throw new Error(reason || `shop blocks not ready: ${error.message}`);
   }
 }

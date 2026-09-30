@@ -172,11 +172,11 @@ final class PatternLibraryTest extends AppTestCase
     {
         $base = $this->container()->get(ApplicationContext::class)->getBasePath();
         $extension = $this->container()->get(RenderContextExtension::class);
-        $env = (new TwigFactory(
-            new ThemeLocator('default', $base . '/themes'),
-            $extension,
-            $base . '/storage/cache/twig',
-        ))->environment();
+        // The application's locator: it carries the packs' template paths, which a contributed
+        // pattern's blocks (the shop's Product grid) render from.
+        $theme = $this->container()->get(ThemeLocator::class);
+        self::assertSame('default', $theme->activePaths()['name']);
+        $env = (new TwigFactory($theme, $extension, $base . '/storage/cache/twig'))->environment();
         foreach ($this->library()->all() as $pattern) {
             $n = 0;
             $extension->resetPerRenderState();
