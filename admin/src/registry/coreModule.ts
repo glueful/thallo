@@ -81,7 +81,7 @@ const main: (NavigationMenuItem | SettingsAnchor)[] = [
       {
         label: 'Documentation',
         icon: 'i-lucide-library',
-        to: 'https://thallo.dev/',
+        to: 'https://thallo.dev/docs',
         target: '_blank',
       },
     ],

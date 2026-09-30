@@ -36,3 +36,13 @@ describe('core module: Developers › API Reference', () => {
     expect(link!.target).toBe('_blank')
   })
 })
+
+describe('core module: Developers › Documentation', () => {
+  it('opens the documentation on thallo.dev, not its home page', () => {
+    const developers = (coreModule.nav?.main ?? []).find((i) => i.label === 'Developers')
+    const link = (developers?.children ?? []).find((c) => c.label === 'Documentation')
+
+    expect(link?.to).toBe('https://thallo.dev/docs')
+    expect(link?.target).toBe('_blank')
+  })
+})

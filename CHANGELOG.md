@@ -11,6 +11,8 @@ as the next release, never a mutated tag.
 - **The Thallo version sits at the foot of the sidebar.** It moved out of the account menu to a
   line just above your account button, with an arrow linking to Home when a newer release is
   published. A collapsed sidebar keeps just the arrow.
+- **Developers › Documentation opens the docs.** It links to thallo.dev/docs instead of the
+  site's home page.
 
 ### Fixed
 - **The scheduler no longer fails every hour on a site without Commerce.** The cart cleanup job
