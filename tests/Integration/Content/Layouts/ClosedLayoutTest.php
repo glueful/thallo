@@ -154,6 +154,19 @@ final class ClosedLayoutTest extends AppTestCase
         self::assertSame(201, $this->deleteField($field)->getStatusCode(), 'removed: the field can be deleted');
     }
 
+    public function testATypeWithoutListingPagesListsNoListingOrArchiveRow(): void
+    {
+        // Listing pages on: the type's listing and archive layouts are listed.
+        self::assertNotNull($this->row('listing', 'post'));
+        self::assertNotNull($this->row('archive', 'post:categories'));
+        // Off, with nothing saved there: neither is listed — Settings › General turns them on.
+        $this->container()->get(GeneralSettings::class)->save(['listing_types' => []]);
+        self::assertNull($this->row('listing', 'post'));
+        self::assertNull($this->row('archive', 'post:categories'));
+        // Its single entry layout still is, named by the type alone.
+        self::assertSame('Posts', $this->row('entry', 'post')['label'] ?? null);
+    }
+
     public function testAnUnlistedTypesListingLayoutCanBeRemoved(): void
     {
         $this->saveStarter('listing', 'post');

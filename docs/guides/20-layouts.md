@@ -35,8 +35,9 @@ product page](#design-the-product-page).
 
 ## Open a layout
 
-1. Open **Site › Layouts**. Each row is a page kind, such as **Posts — single post**, marked
-   **Theme template** or **Custom layout**.
+1. Open **Site › Layouts**. Each row is a page kind, marked **Theme template** or **Custom
+   layout**. A type with listing pages has **Posts — single post** beside **Posts — listing pages**;
+   a type without them has one row, named as the type: **Pages**.
 2. Choose **Edit** on the row.
 
 The editor opens on a stage: the layout, drawn around one of the type's published posts. A type
@@ -140,10 +141,10 @@ such as its categories, an archive per term (`/post/categories/pottery`). **Site
 row for each: **Posts — listing pages**, and **Posts — Categories archive**. One layout designs every
 page of a listing, or every term's archive of one field.
 
-A type that is not listed shows its rows turned off, with the reason — "Listing pages are off for
-Pages." — and **Turn on listing pages**, which opens **Settings › General**. Taking a type off the
-list keeps its layouts; listing it again serves them again. A row turned off because its pages are
-off the site, and that keeps a custom layout, has **Remove** instead of **Edit**, for a layout you no
+A type that is not listed has no listing or archive rows: turn its listing pages on in **Settings ›
+General** and they appear. Taking a type off the list keeps its layouts; listing it again serves them
+again. While it is off, a listing or archive layout it keeps stays on the page, turned off with the
+reason — "Listing pages are off for Pages." — and **Remove** instead of **Edit**, for a layout you no
 longer need. (A row turned off only because its blocks are not installed yet is still live: it has
 neither until they are.)
 

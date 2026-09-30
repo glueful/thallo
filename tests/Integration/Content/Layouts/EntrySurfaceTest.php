@@ -7,6 +7,7 @@ namespace Thallo\Core\Tests\Integration\Content\Layouts;
 use Thallo\Contracts\Layouts\LayoutSurfaceRegistry;
 use Thallo\Core\Content\Layouts\EntrySurface;
 use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Settings\GeneralSettings;
 use Thallo\Core\Tests\Support\AppTestCase;
 
 /**
@@ -82,8 +83,15 @@ final class EntrySurfaceTest extends AppTestCase
         self::assertContains('post', $targets);
         self::assertNotContains('secret', $targets);
         self::assertNotContains('gone', $targets);
-        self::assertSame('Posts — single post', $this->surface()->label('post'));
+        $this->container()->get(GeneralSettings::class)->save(['listing_types' => []]);
+        self::assertSame('Posts', $this->surface()->label('post'), 'no listing pages: the type alone');
         self::assertSame('Applies to every post', $this->surface()->reach('post'));
+        $this->container()->get(GeneralSettings::class)->save(['listing_types' => ['post']]);
+        self::assertSame(
+            'Posts — single post',
+            $this->surface()->label('post'),
+            'with listing pages, told apart from "Posts — listing pages"',
+        );
     }
 
     public function testThePrimaryBodyIsRequiredOnce(): void
@@ -146,6 +154,9 @@ final class EntrySurfaceTest extends AppTestCase
             'Pages' => 'page', 'Press' => 'press', 'FAQ' => 'faq',
         ];
         $i = 0;
+        $this->container()->get(GeneralSettings::class)->save([
+            'listing_types' => array_map(static fn (int $n): string => 'shape' . $n, array_keys(array_values($names))),
+        ]);
         foreach ($names as $name => $one) {
             $slug = 'shape' . $i++;
             $this->type($slug, $name, [['name' => 'title', 'type' => 'string', 'required' => true]]);

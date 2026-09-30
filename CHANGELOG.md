@@ -17,6 +17,13 @@ as the next release, never a mutated tag.
   layout of the same kind; one that shows a field the layout's type doesn't have says which. Saving,
   renaming and deleting a layout's section needs **Manage templates**.
 
+### Changed
+- **Site › Layouts lists only what can be designed.** A content type without listing pages has no
+  listing or archive rows; they appear once its listing pages are on in **Settings › General**. A
+  listing or archive layout a type keeps while its listing pages are off is still listed, to be
+  removed. A type without listing pages has one row, named as the type (**Pages**); **— single
+  post** is kept only beside **Posts — listing pages**.
+
 ## [1.0.0-beta.71] - 2026-09-30 — Developer Preview
 
 Shop sections and page templates: with Commerce on, the Design view's library offers eight shop
