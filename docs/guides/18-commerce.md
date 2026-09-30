@@ -136,9 +136,11 @@ cacheable.
 
 A **Featured product** or **Add to cart** block with no product to show says so on the stage:
 `Featured product — choose a product`, keeping the block's styling so it stays in place and
-selectable. On the published site it renders nothing, and it also hides when the product it
-names is gone, apart from an Add to cart, which says the product is not available. A reader
-without JavaScript gets a link to the shop instead.
+selectable. On the published site it hides, and it also hides when its product is gone, with one
+exception: an Add to cart whose product was chosen by slug says `This product is not available.`
+A blank block whose linked product is gone hides. If the shop's data cannot be loaded, Featured
+product hides and Add to cart says `This product could not be loaded.` A reader without
+JavaScript gets a link to the shop instead of either block.
 
 ## Shop pages from templates
 

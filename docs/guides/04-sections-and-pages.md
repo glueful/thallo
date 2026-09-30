@@ -111,7 +111,8 @@ A card marked `Choose a product after inserting it` holds a **Featured product**
 cart** block with no product set. Select that block and enter a **product slug**. On a page linked
 to a product, either block can instead stay blank and use the linked product. Until the
 block has a product, the stage shows `Featured product — choose a product` or `Add to cart —
-choose a product` in its place. The published site shows nothing there.
+choose a product` in its place. On the published site the block hides. A reader without
+JavaScript sees a `Browse the shop` link there instead.
 
 The product grids in these sections start on the newest products, so they work as inserted on any
 shop. To show one category instead, select the grid and set its **source** and **category slug**.

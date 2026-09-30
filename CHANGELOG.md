@@ -17,9 +17,11 @@ as the next release, never a mutated tag.
 
 ### Fixed
 - **A Featured product or Add to cart block with no product no longer shows "Loading…" forever.**
-  On the stage it says to choose a product, or names the product it shows, keeping its styling;
-  on the site it shows nothing until a product is chosen, and an Add to cart whose product is gone
-  says the product is not available. Without JavaScript both show a link to the shop instead of a
+  On the stage it says to choose a product, or names the product it shows, keeping its styling.
+  On the site it hides when it has no product, whether none was chosen or the product is gone.
+  The exception is an Add to cart whose chosen product is gone, which says the product is not
+  available. If the shop cannot be reached, Featured product hides and Add to cart says the
+  product could not be loaded. Without JavaScript both show a link to the shop instead of a
   product link that might be gone.
 
 ## [1.0.0-beta.70] - 2026-09-29 — Developer Preview

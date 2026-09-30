@@ -39,6 +39,25 @@ test("a gone product's add to cart says so", async ({ page }) => {
   await expect(cart(page).getByText('This product is not available.')).toBeVisible();
 });
 
+// A request that fails — a server error with an HTML body, or no answer at all — never leaves the
+// "Loading…" that hydration revealed: the featured product hides, and the add to cart says it could
+// not be loaded.
+for (const [how, fail] of [
+  ['a server error', (route) => route.fulfill({ status: 500, contentType: 'text/html', body: '<h1>Oops</h1>' })],
+  ['no answer', (route) => route.abort('failed')],
+]) {
+  test(`${how} leaves no loading line`, async ({ page }) => {
+    await page.route('**/_shop/blocks/featured-product*', fail);
+    await page.route('**/_shop/blocks/add-to-cart*', fail);
+    await page.goto(FIXTURE);
+    await expect(featured(page)).toBeHidden();
+    await expect(cart(page).getByText('This product could not be loaded.')).toBeVisible();
+    await expect(cart(page).locator('[data-shop-add-to-cart-form]')).toBeHidden();
+    await expect(page.getByText('Loading…').first()).toBeHidden();
+    await expect(page.getByText('Loading…').last()).toBeHidden();
+  });
+}
+
 // Without JavaScript, on real pages (scripts/build-shop-block-proof-fixtures, gitignored): an
 // unlinked page and a page naming a deleted product. Neither shows "Loading…" — nothing would ever
 // finish it — and each block offers a link to the shop, never a product link that may be gone.
@@ -54,9 +73,11 @@ test.describe('without JavaScript', () => {
     test(`the ${name} page shows a link to the shop and no loading line`, async ({ page }) => {
       await page.goto(`/tools/runtime-browser/fixtures/shop-block-selection/${name}.html`);
       await expect(page.getByText('Loading…').first()).toBeHidden();
+      // A blank block (the unlinked page) may have no product at all, so its line promises none.
+      const cartLine = name === 'gone' ? 'Browse the shop to add this product to your cart' : 'Browse the shop';
       for (const [block, text] of [
         ['featured-product', 'Browse the shop'],
-        ['add-to-cart', 'Browse the shop to add this product to your cart'],
+        ['add-to-cart', cartLine],
       ]) {
         const root = page.locator(`[data-shop-block="${block}"]`);
         const link = root.getByRole('link', { name: text, exact: true });

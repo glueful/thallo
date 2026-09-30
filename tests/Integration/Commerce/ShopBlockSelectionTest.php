@@ -135,6 +135,36 @@ final class ShopBlockSelectionTest extends AppTestCase
         self::assertStringContainsString('Add to cart — ' . $product['name'], $linked);
     }
 
+    public function testTheProductLabelIsForTheStageOnly(): void
+    {
+        $product = $this->firstProduct();
+        $twig = $this->container()->get(TwigFactory::class)->environment();
+        $call = '[{{ shop_block_product_label(slug, "") }}]';
+
+        $this->extension()->setAnnotationScope('none');
+        self::assertNull($this->extension()->shopBlockProductLabel((string) $product['slug'], null));
+        $site = $twig->createTemplate($call)->render(['slug' => $product['slug']]);
+        self::assertSame('[]', $site, 'no lookup on the site');
+
+        $this->extension()->setAnnotationScope('entry');
+        self::assertSame($product['name'], $this->extension()->shopBlockProductLabel((string) $product['slug'], null));
+    }
+
+    public function testWithoutJavaScriptABlankBlockPromisesNoProduct(): void
+    {
+        $shop = $this->extension()->shopIndexUrl();
+        foreach (['featured-product', 'add-to-cart'] as $type) {
+            $site = $this->render($type, ['product_slug' => ''], false, $this->entry());
+            self::assertSame(1, preg_match('~<noscript>(.*?)</noscript>~s', $site, $m), $type);
+            self::assertStringContainsString('href="' . $shop . '"', $m[1], $type);
+            $line = trim(strip_tags($m[1]));
+            self::assertSame('Browse the shop', $line, "{$type}: nothing about a product it may not have");
+        }
+        // A chosen product keeps the line that names it.
+        $chosen = $this->render('add-to-cart', ['product_slug' => 'stoneware-bowl'], false, $this->entry());
+        self::assertStringContainsString('Browse the shop to add this product to your cart', $chosen);
+    }
+
     public function testWithNoEntryContextNothingIsRendered(): void
     {
         foreach (['featured-product', 'add-to-cart'] as $type) {
