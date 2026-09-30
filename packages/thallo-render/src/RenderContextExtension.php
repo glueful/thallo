@@ -261,6 +261,11 @@ final class RenderContextExtension extends AbstractExtension
         private readonly ?CapabilityRegistry $capabilities = null,
         /** Soft-bound: null → media_text() answers empty strings. */
         private readonly ?\Thallo\Contracts\Delivery\MediaTextResolver $mediaTexts = null,
+        /**
+         * Soft-bound (sections and templates design §6): null → shop_block_product_label() answers
+         * null, so a shop block's stage placeholder says "choose a product".
+         */
+        private readonly ?\Thallo\Contracts\Delivery\StorefrontBlockPreview $blockPreview = null,
     ) {
         $this->locale = $defaultLocale;
     }
@@ -367,6 +372,9 @@ final class RenderContextExtension extends AbstractExtension
             // Commerce-Slice-2 Fix A: soft-bound storefront link helpers for a block's no-JS
             // `<noscript>` fallback (see the $storefrontLinks constructor doc). All null-safe.
             new TwigFunction('shop_product_url', $this->shopProductUrl(...)),
+            // Stage only: the named placeholder of a Featured product or Add to cart. Off the stage
+            // it answers null without a lookup, so the public path stays cache-safe.
+            new TwigFunction('shop_block_product_label', $this->shopBlockProductLabel(...)),
             new TwigFunction('shop_category_url', $this->shopCategoryUrl(...)),
             new TwigFunction('shop_index_url', $this->shopIndexUrl(...)),
             new TwigFunction('json_script', $this->jsonScript(...)),
@@ -618,6 +626,21 @@ final class RenderContextExtension extends AbstractExtension
             ));
         }
         return [$frame, $targets];
+    }
+
+    /**
+     * The name of the product a shop block would show, for its stage placeholder; null when none,
+     * and always null off the stage — a public render never pays for the lookup.
+     */
+    public function shopBlockProductLabel(?string $slug, ?string $entryUuid): ?string
+    {
+        if (!$this->annotateBlocks) {
+            return null;
+        }
+        return $this->blockPreview?->productLabel(
+            $slug !== null && $slug !== '' ? $slug : null,
+            $entryUuid !== null && $entryUuid !== '' ? $entryUuid : null,
+        );
     }
 
     public function shopProductUrl(?string $slug): ?string

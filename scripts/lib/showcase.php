@@ -62,13 +62,24 @@ function showcase_boot(string $root): \Psr\Container\ContainerInterface
 }
 
 /**
- * A renderer for one theme: blocks in, a complete page out.
+ * A renderer for one theme: blocks in, a complete page out. `$withContributions` builds the theme
+ * artifact with the packs' contributed stylesheets too, as the application does — the shop's styles
+ * reach a page through that artifact alone — for pictures of pack blocks; off, the theme's own
+ * stylesheets only, as every other picture has always been drawn.
  *
  * @return callable(list<array<string,mixed>>, string): string
  */
-function showcase_renderer(\Psr\Container\ContainerInterface $container, string $root, string $themeName): callable
-{
-    $theme = new ThemeLocator($themeName, $root . '/themes');
+function showcase_renderer(
+    \Psr\Container\ContainerInterface $container,
+    string $root,
+    string $themeName,
+    bool $withContributions = false,
+): callable {
+    // With contributions, the application's own locator: it carries the packs' template paths (a
+    // shop block's template lives in the commerce pack), which a bare locator does not.
+    $theme = $withContributions
+        ? $container->get(ThemeLocator::class)
+        : new ThemeLocator($themeName, $root . '/themes');
     if ($theme->activePaths()['name'] !== $themeName) {
         fwrite(STDERR, "No loadable theme '{$themeName}'.\n");
         exit(1);
@@ -78,7 +89,12 @@ function showcase_renderer(\Psr\Container\ContainerInterface $container, string 
     $sheets = array_map(static fn (string $rel): string => $themeDir . '/' . $rel, $vocabulary->stylesheets());
     $css = implode("\n", [
         (string) file_get_contents($root . '/packages/thallo-render/assets/style/layers.css'),
-        ThemeStylesheetArtifact::build($sheets)->css,
+        ($withContributions
+            ? ThemeStylesheetArtifact::build(
+                $sheets,
+                $container->get(\Thallo\Render\Contribution\RenderContributionRegistry::class)->frozenStylesheets(),
+            )
+            : ThemeStylesheetArtifact::build($sheets))->css,
         StyleCompiler::compile($vocabulary),
     ]);
     // The theme's own faces, when it ships them where the default does: a picture in a fallback

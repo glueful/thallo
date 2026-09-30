@@ -132,7 +132,24 @@ and insert from the **Commerce** group of the Blocks tab:
 | **Wishlist link** | A link to the wishlist with a saved count | **label** |
 
 Each renders a shell server-side and fetches its data afterwards, so a page carrying one stays
-cacheable.
+cacheable. The shop's data never loads on the Design view's stage, so a **Product grid** there
+names what it will show, such as `Product grid — the newest products`. If the data cannot be
+loaded on the site, the grid says `Products could not be loaded.`
+
+A **Featured product** or **Add to cart** block with no product to show says so on the stage:
+`Featured product — choose a product`, keeping the block's styling so it stays in place and
+selectable. On the published site it hides, and it also hides when its product is gone, with one
+exception: an Add to cart whose product was chosen by slug says `This product is not available.`
+A blank block whose linked product is gone hides. If the shop's data cannot be loaded, Featured
+product hides and Add to cart says `This product could not be loaded.` A reader without
+JavaScript gets a link to the shop instead of either block.
+
+## Shop pages from templates
+
+With Commerce on, the Design view's library offers eight shop sections and four shop pages:
+**Shop landing**, **Product launch**, **Sale / collection** and **New arrivals**. Insert one into
+any page entry, then choose a product for any Featured product or Add to cart block it holds.
+See [shop sections and templates](04-sections-and-pages.md#shop-sections-and-templates).
 
 To design the product page itself — where the name, the price, the gallery and the **Product buy box** go
 on every product — open **Site › Layouts** and edit **Products — product page**:

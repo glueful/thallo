@@ -37,6 +37,7 @@ use Glueful\Extensions\ServiceProvider;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use Thallo\Commerce\Adoption\CommerceAdoptionContributor;
+use Thallo\Commerce\Patterns\ShopPatternsContributor;
 use Thallo\Commerce\Diagnostics\CommerceIntegrationDiagnostics;
 use Thallo\Commerce\Email\CommerceEmailTemplates;
 use Thallo\Commerce\Email\PaymentRequestMailer;
@@ -128,6 +129,7 @@ use Thallo\Render\Contribution\RenderContributionRegistry;
 use Thallo\Render\ThemeAppearanceSource;
 use Thallo\Render\ThemeLocator;
 use Thallo\Tenancy\Adoption\AdoptionContributorRegistry;
+use Thallo\Contracts\Patterns\PatternContributorRegistry;
 use Thallo\Tenancy\System\SystemFlags;
 
 use function config;
@@ -443,6 +445,14 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
             StorefrontLinkResolver::class => [
                 'factory' => [self::class, 'makeStorefrontLinkResolver'],
                 'shared'  => true,
+            ],
+            // Sections and templates design §6: names a Featured product's or Add to cart's product
+            // on the stage (`shop_block_product_label()`), soft-bound by the render pack like the
+            // link resolver above; it resolves the engine's services only when called.
+            \Thallo\Contracts\Delivery\StorefrontBlockPreview::class => [
+                'class' => \Thallo\Commerce\Shop\ShopBlockPreview::class,
+                'shared'  => true,
+                'autowire' => true,
             ],
             // Storefront-v1 Task 4 (spec §5): the wishlist seam thallo-render's
             // RenderContextExtension consumes (`shop_wishlist_scope()`/`shop_wishlist_url()`).
@@ -1235,6 +1245,11 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
             // documented in this pack's README, run once after enabling the capability.
             $this->registerStarterContributor($context);
 
+            // Sections and templates design §6: the shop's sections and page templates join the page
+            // library — user-facing batteries-included content, so ONLY while the capability is on.
+            // Off, the palette offers none; pages keep the shop blocks they already hold.
+            $this->registerPatternContributor($context);
+
             // Type layouts plan C1: the product page is a layout surface only while the capability
             // is on and the engine is bound — off, the Layouts page has no product row and no
             // product page renders; a saved product layout stays and returns on re-enable.
@@ -1711,6 +1726,35 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
         }
 
         $registry->register(new ProductStoryContributor());
+
+        return true;
+    }
+
+    /**
+     * Push {@see ShopPatternsContributor} into the shared {@see PatternContributorRegistry} (sections
+     * and templates design §6) — the {@see self::registerStarterContributor()} shape: idempotent by
+     * id, and the registry injectable so it can be exercised without a boot.
+     */
+    public function registerPatternContributor(
+        ApplicationContext $context,
+        ?PatternContributorRegistry $registry = null,
+    ): bool {
+        if ($registry === null) {
+            $container = $context->getContainer();
+            if (!$container->has(PatternContributorRegistry::class)) {
+                return false;
+            }
+            /** @var PatternContributorRegistry $registry */
+            $registry = $container->get(PatternContributorRegistry::class);
+        }
+
+        foreach ($registry->all() as $existing) {
+            if ($existing->id() === ShopPatternsContributor::ID) {
+                return true; // already registered — idempotent no-op.
+            }
+        }
+
+        $registry->register(new ShopPatternsContributor());
 
         return true;
     }

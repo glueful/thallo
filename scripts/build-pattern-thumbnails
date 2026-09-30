@@ -9,19 +9,24 @@
  * Run it again when a pattern or the default theme's look changes; PatternThumbnailsTest fails
  * while a pattern has no thumbnail, or a thumbnail no pattern.
  *
- *   DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-pattern-thumbnails
+ *   CACHE_DRIVER=array DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-pattern-thumbnails
  */
 
 declare(strict_types=1);
 
+use Glueful\Bootstrap\ApplicationContext;
 use Thallo\Core\Content\Patterns\PatternLibrary;
+use Thallo\Core\Tests\Support\ShopPageSeed;
 
 require __DIR__ . '/../vendor/autoload.php';
 require __DIR__ . '/lib/showcase.php';
+require __DIR__ . '/lib/shop-thumbnails.php';
 
 $root = dirname(__DIR__);
 $container = showcase_boot($root);
 $render = showcase_renderer($container, $root, 'default');
+// Pictures of the shop's blocks: the shop's own stylesheet arrives with the packs' contributions.
+$renderShop = showcase_renderer($container, $root, 'default', true);
 
 $work = $root . '/tools/style-proofs/fixtures/patterns';
 $out = $root . '/admin/public/pattern-thumbs';
@@ -40,10 +45,19 @@ foreach (glob($out . '/*.jpg') ?: [] as $stale) {
  * A form ships with no recipient — the author has to say where messages go, and until then the
  * block says so in place of its fields. The PICTURE shows the form as it will look once set up.
  */
-$configured = static function (array $blocks) use (&$configured): array {
-    return array_map(static function (array $block) use (&$configured): array {
+$fixtureProduct = '';
+$configured = static function (array $blocks) use (&$configured, &$fixtureProduct): array {
+    return array_map(static function (array $block) use (&$configured, &$fixtureProduct): array {
         if ($block['type'] === 'form' && ($block['data']['recipient'] ?? '') === '') {
             $block['data']['recipient'] = 'hello@example.com';
+        }
+        // A shop pattern ships no product (sections and templates design §6); its PICTURE shows one
+        // of the fixture shop's, seeded below and rolled back.
+        if (
+            in_array($block['type'], ['featured-product', 'add-to-cart'], true)
+            && ($block['data']['product_slug'] ?? '') === ''
+        ) {
+            $block['data']['product_slug'] = $fixtureProduct;
         }
         foreach ($block['data'] as $key => $value) {
             if (is_array($value) && $value !== [] && is_array($value[0] ?? null) && isset($value[0]['type'])) {
@@ -61,7 +75,7 @@ $configured = static function (array $blocks) use (&$configured): array {
  */
 $site = ['name' => 'Acme'];
 $db = $container->get(Glueful\Database\Connection::class);
-$db->getPDO()->beginTransaction();
+$db->getTransactionManager()->begin();
 if ($db->table('navigation_menus')->where('slug', '=', 'main')->first() === null) {
     $now = gmdate('Y-m-d H:i:s');
     $db->table('navigation_menus')->insert([
@@ -78,16 +92,44 @@ if ($db->table('navigation_menus')->where('slug', '=', 'main')->first() === null
     }
 }
 
+/**
+ * The shop the shop patterns' pictures show: ShopPageSeed's products — active variants, committed
+ * cover images — seeded in the same rolled-back transaction, under the widened-schema flags the
+ * seed works in (rolled back with everything else).
+ */
+$shopSeed = new ShopPageSeed($container, $container->get(ApplicationContext::class));
+$outsideShop = $shopSeed->useTenant();
+$shopSeed->clear();
+$fixtureProduct = (string) $db->table('commerce_products')
+    ->where('uuid', '=', $shopSeed->seed()['products'][0])->first()['slug'];
+// Only the shop pictures render in the seed's workspace: every other picture keeps the single site
+// (a header's menu, seeded above, belongs to no workspace).
+$shopSeed->restoreTenant($outsideShop);
+/** How many of the shop's script-painted blocks a pattern holds: its picture waits for all of them. */
+$shopBlocks = static fn (array $pattern): int => (int) preg_match_all(
+    '~"type":"(product-grid|featured-product|add-to-cart)"~',
+    (string) json_encode($pattern['blocks']),
+);
+
 $jobs = [];
 foreach ($container->get(PatternLibrary::class)->all() as $pattern) {
     $page = $work . '/' . $pattern['slug'] . '.html';
-    file_put_contents($page, $render(
+    $shop = $shopBlocks($pattern) > 0;
+    $outside = $shop ? $shopSeed->useTenant() : [];
+    $html = ($shop ? $renderShop : $render)(
         showcase_with_ids($configured($pattern['blocks'])),
         $pattern['slug'],
         $pattern['region'] ?? null,
         $site,
-    ));
-    $jobs[] = [
+    );
+    if ($shop) {
+        // The shop's blocks paint with script: each answered with the controller's own response to
+        // its exact request, and the picture taken only once every one of them has painted.
+        $html = shop_inject($html, shop_block_responses($html, $container, ShopPageSeed::IMAGES, $root), $root);
+        $shopSeed->restoreTenant($outside);
+    }
+    file_put_contents($page, $html);
+    $jobs[] = ($shop ? ['ready' => 'shop', 'shopBlocks' => $shopBlocks($pattern)] : []) + [
         'page' => $page,
         'out' => $out . '/' . $pattern['slug'] . '.jpg',
         // A header or footer is short and wide: drawn narrower (still wide enough for the desktop
@@ -101,7 +143,7 @@ foreach ($container->get(PatternLibrary::class)->all() as $pattern) {
         'maxHeight' => $pattern['kind'] === 'page' ? 2400 : 1600,
     ];
 }
-$db->getPDO()->rollBack();
+$db->getTransactionManager()->rollback();
 $jobsFile = $work . '/jobs.json';
 file_put_contents($jobsFile, json_encode($jobs));
 passthru('node ' . escapeshellarg($root . '/tools/style-proofs/capture-page.js') . ' ' . escapeshellarg($jobsFile), $status);

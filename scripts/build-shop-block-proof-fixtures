@@ -1,0 +1,182 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Build the no-JavaScript fixtures of Featured product and Add to cart (sections and templates design
+ * §6): real pages rendered through the application into `tools/runtime-browser/fixtures/
+ * shop-block-selection/` (gitignored), stylesheets and images inlined and scripts dropped — what a
+ * reader without JavaScript receives. Seeded inside a transaction that is rolled back.
+ *
+ * Pages: `unlinked.html` — an ordinary page, not linked to a product, holding both blocks with no
+ * product chosen; `gone.html` — a page holding both blocks set to a product that is then deleted.
+ *
+ *   CACHE_DRIVER=array DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-shop-block-proof-fixtures
+ */
+
+declare(strict_types=1);
+
+use Glueful\Bootstrap\ApplicationContext;
+use Glueful\Database\Connection;
+use Glueful\Extensions\Commerce\Catalog\CatalogService;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Tests\Support\ListingPageSeed;
+use Thallo\Core\Tests\Support\ShopPageSeed;
+use Thallo\Core\Tests\Support\TestApplication;
+
+
+require __DIR__ . '/../vendor/autoload.php';
+
+foreach (getenv() as $key => $value) {
+    $_ENV[$key] ??= $value;
+}
+$_ENV['DB_POOLING_ENABLED'] = 'false';
+$root = dirname(__DIR__);
+if (is_file($root . '/.env')) {
+    Dotenv\Dotenv::createImmutable($root)->safeLoad();
+}
+$env = static fn (string $key, ?string $default = null): ?string => $_ENV[$key] ?? (getenv($key) === false ? $default : getenv($key));
+if ($env('APP_ENV', 'development') !== 'testing') {
+    fwrite(STDERR, "Refusing to build outside APP_ENV=testing (it seeds the test database).\n");
+    exit(1);
+}
+$database = (string) $env('DB_PGSQL_DATABASE', '');
+if ($database !== 'app_test' && !str_ends_with($database, '_test')) {
+    fwrite(STDERR, "Refusing to seed non-test database '{$database}'.\n");
+    exit(1);
+}
+
+$out = $root . '/tools/runtime-browser/fixtures/shop-block-selection';
+if (!is_dir($out) && !mkdir($out, 0755, true)) {
+    fwrite(STDERR, "cannot create {$out}\n");
+    exit(1);
+}
+
+$app = TestApplication::instance();
+$container = $app->getContainer();
+$context = $container->get(ApplicationContext::class);
+$db = $container->get(Connection::class);
+$seed = new ShopPageSeed($container, $context);
+
+/** A GET through the application, following its redirects (the shop stylesheet alias 302s). */
+$get = static function (string $path) use ($app): Response {
+    for ($hop = 0; $hop < 4; $hop++) {
+        $response = $app->handle(Request::create($path, 'GET'));
+        if (!$response->isRedirection()) {
+            return $response;
+        }
+        $path = (string) $response->headers->get('Location');
+    }
+    throw new RuntimeException("too many redirects for {$path}");
+};
+
+$dataUri = static fn (string $mime, string $bytes): string => 'data:' . $mime . ';base64,' . base64_encode($bytes);
+
+/** Inline every `url(...)` a stylesheet names, resolved against the stylesheet's own path. */
+$inlineUrls = static function (string $css, string $base) use ($get, $dataUri): string {
+    return (string) preg_replace_callback(
+        '~url\(\s*(["\']?)([^"\')]+)\1\s*\)~',
+        static function (array $m) use ($get, $dataUri, $base): string {
+            $url = $m[2];
+            if (str_starts_with($url, 'data:') || str_starts_with($url, '#')) {
+                return $m[0];
+            }
+            $path = str_starts_with($url, '/') ? $url : rtrim(dirname($base), '/') . '/' . $url;
+            $asset = $get($path);
+            if ($asset->getStatusCode() !== 200) {
+                throw new RuntimeException("cannot inline {$path}: {$asset->getStatusCode()}");
+            }
+            $mime = strtok((string) $asset->headers->get('Content-Type', 'application/octet-stream'), ';');
+            return 'url("' . $dataUri((string) $mime, (string) $asset->getContent()) . '")';
+        },
+        $css,
+    );
+};
+
+/** The page as a self-contained document: stylesheets, fonts and images inlined, scripts dropped. */
+$selfContained = static function (string $html) use ($get, $inlineUrls, $dataUri, $root): string {
+    $html = (string) preg_replace_callback(
+        '~<link rel="stylesheet" href="([^"]+)">~',
+        static function (array $m) use ($get, $inlineUrls): string {
+            $href = html_entity_decode($m[1]);
+            $sheet = $get($href);
+            if ($sheet->getStatusCode() !== 200) {
+                throw new RuntimeException("cannot inline stylesheet {$href}: {$sheet->getStatusCode()}");
+            }
+            return '<style data-inlined="' . htmlspecialchars($href) . '">'
+                . $inlineUrls((string) $sheet->getContent(), (string) parse_url($href, PHP_URL_PATH)) . '</style>';
+        },
+        $html,
+    );
+    $html = (string) preg_replace_callback(
+        '~<style([^>]*)>(.*?)</style>~s',
+        static fn (array $m): string => '<style' . $m[1] . '>' . $inlineUrls($m[2], '/') . '</style>',
+        $html,
+    );
+    foreach (ShopPageSeed::IMAGES as $blob => $file) {
+        $html = (string) preg_replace(
+            '~(src|data-src)="[^"]*/blobs/' . $blob . '[^"]*"~',
+            '$1="' . $dataUri('image/png', (string) file_get_contents($root . '/' . $file)) . '"',
+            $html,
+        );
+    }
+    $html = (string) preg_replace('~<script\b[^>]*>.*?</script>~s', '', $html);
+    return (string) preg_replace('~<link rel="(preload|modulepreload|icon)"[^>]*>~', '', $html);
+};
+
+/** Thrown to roll the seeding back once the pages are written. */
+final class ShopBlockFixturesWritten extends RuntimeException
+{
+}
+
+$container->get(StarterBlockTypeSeeder::class)->seedMissing();
+
+$previous = $seed->useTenant();
+try {
+    $db->transaction(static function () use ($container, $context, $seed, $get, $selfContained, $out): void {
+        $seed->clear();
+        $products = $seed->seed()['products'];
+        $pages = new ListingPageSeed($container, $context);
+        $type = (string) $container->get(ContentTypeRepository::class)->create([
+            'slug' => 'landing', 'name' => 'Landing pages', 'public_delivery' => true, 'schema' => [
+                ['name' => 'title', 'type' => 'string', 'required' => true],
+                ['name' => 'body', 'type' => 'blocks'],
+            ],
+        ]);
+        $blocks = static fn (string $slug): array => [
+            ['id' => 'nojsfeatured', 'type' => 'featured-product', 'data' => ['product_slug' => $slug], 'settings' => []],
+            ['id' => 'nojsaddtocrt', 'type' => 'add-to-cart', 'data' => ['product_slug' => $slug], 'settings' => []],
+            ['id' => 'nojsprodgrid', 'type' => 'product-grid', 'data' => ['source' => 'newest'], 'settings' => []],
+        ];
+
+        $pages->publish($type, 'unlinked', ['title' => 'Unlinked', 'body' => $blocks('')], '2026-07-01 09:00:00');
+
+        $gone = (array) $container->get(Connection::class)->table('commerce_products')
+            ->where('uuid', '=', $products[0])->first();
+        $pages->publish($type, 'gone', ['title' => 'Gone', 'body' => $blocks((string) $gone['slug'])], '2026-07-01 09:00:00');
+        $container->get(CatalogService::class)->deleteProduct($context, (string) $gone['uuid']);
+
+        foreach (['unlinked', 'gone'] as $slug) {
+            $response = $get('/landing/' . $slug . '?proof=1');
+            if ($response->getStatusCode() !== 200) {
+                throw new RuntimeException("/landing/{$slug} answered {$response->getStatusCode()}");
+            }
+            file_put_contents($out . "/{$slug}.html", $selfContained((string) $response->getContent()));
+        }
+        // The shop index a no-JavaScript link must lead to, for the spec to compare against.
+        file_put_contents($out . '/shop-url.txt', (string) $container->get(\Thallo\Commerce\Shop\ShopUrlGenerator::class)->shopIndex());
+
+        throw new ShopBlockFixturesWritten();
+    });
+} catch (ShopBlockFixturesWritten) {
+    // Written, and rolled back.
+} catch (Throwable $e) {
+    $seed->restoreTenant($previous);
+    fwrite(STDERR, 'the shop block fixtures failed: ' . $e::class . ': ' . $e->getMessage() . "\n");
+    exit(1);
+} finally {
+    $seed->restoreTenant($previous);
+}
+
+fwrite(STDOUT, "Wrote unlinked.html, gone.html to tools/runtime-browser/fixtures/shop-block-selection.\n");

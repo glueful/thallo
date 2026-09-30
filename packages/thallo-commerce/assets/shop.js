@@ -608,6 +608,11 @@
     if (typeof window.fetch !== 'function') {
       return;
     }
+    // The loading line ships hidden (no "Loading products…" without JavaScript); hydration shows it.
+    var loading = qs(el, '[data-shop-grid-empty]');
+    if (loading) {
+      loading.hidden = false;
+    }
     var query =
       'source=' + encodeURIComponent(el.getAttribute('data-source') || 'newest') +
       '&category_slug=' + encodeURIComponent(el.getAttribute('data-category-slug') || '') +
@@ -620,14 +625,16 @@
         headers: { Accept: 'application/json' },
         credentials: 'same-origin',
       })
-      .then(function (res) {
-        return res.json();
-      })
+      .then(blockJson)
       .then(function (data) {
         renderProductGrid(el, data);
       })
       .catch(function () {
-        // Leave the loading shell as-is.
+        // A failed request: say so where "Loading products…" was, never leave it there.
+        if (loading) {
+          loading.hidden = false;
+          loading.textContent = 'Products could not be loaded.';
+        }
       });
   }
 
@@ -887,6 +894,15 @@
     }
   }
 
+  // A block endpoint's answer, or a rejection for anything but a successful JSON one (a server
+  // error with an HTML body included), so each block's failure path runs instead of its render.
+  function blockJson(res) {
+    if (!res.ok) {
+      throw new Error('shop block request failed: ' + res.status);
+    }
+    return res.json();
+  }
+
   // ---- block hydration: featured-product ------------------------------------------------
 
   function hydrateFeaturedProducts() {
@@ -900,6 +916,11 @@
     if (typeof window.fetch !== 'function') {
       return;
     }
+    // The loading line ships hidden (no "Loading…" without JavaScript); hydration shows it.
+    var loading = qs(el, '[data-shop-featured-empty]');
+    if (loading) {
+      loading.hidden = false;
+    }
     var query = blockContextQuery(el);
 
     window
@@ -907,14 +928,14 @@
         headers: { Accept: 'application/json' },
         credentials: 'same-origin',
       })
-      .then(function (res) {
-        return res.json();
-      })
+      .then(blockJson)
       .then(function (data) {
         renderFeaturedProduct(el, data);
       })
       .catch(function () {
-        // Leave the loading shell as-is.
+        // A failed request has nothing to show: the block goes, as for a product that is gone,
+        // never the "Loading…" that hydration just revealed.
+        el.hidden = true;
       });
   }
 
@@ -924,13 +945,9 @@
     var product = data && data.product;
 
     if (!product) {
-      if (empty) {
-        empty.hidden = false;
-      }
-      if (body) {
-        body.hidden = true;
-        clear(body);
-      }
+      // Nothing to show — nothing configured, or a product that is gone: the block is not shown
+      // to shoppers (never an endless "Loading…"); the editor sees a named placeholder on the stage.
+      el.hidden = true;
       return;
     }
 
@@ -970,6 +987,11 @@
     if (typeof window.fetch !== 'function') {
       return;
     }
+    // The status line ships hidden (no "Loading…" without JavaScript); hydration shows it.
+    var loading = qs(el, '[data-shop-add-to-cart-status]');
+    if (loading) {
+      loading.hidden = false;
+    }
     var query = blockContextQuery(el);
 
     window
@@ -977,14 +999,17 @@
         headers: { Accept: 'application/json' },
         credentials: 'same-origin',
       })
-      .then(function (res) {
-        return res.json();
-      })
+      .then(blockJson)
       .then(function (data) {
         renderAddToCart(el, data);
       })
       .catch(function () {
-        // Leave the loading shell as-is.
+        // A failed request: say so where "Loading…" was; the form and link stay hidden, so nothing
+        // half-hydrated can submit.
+        if (loading) {
+          loading.hidden = false;
+          loading.textContent = 'This product could not be loaded.';
+        }
       });
   }
 
@@ -993,6 +1018,13 @@
     var form = qs(el, '[data-shop-add-to-cart-form]');
     var link = qs(el, '[data-shop-add-to-cart-link]');
     var slot = qs(el, '[data-shop-add-to-cart-variant-slot]');
+
+    if (data && data.unconfigured === true) {
+      // No product chosen and none linked: the block is not shown to shoppers; the editor sees a
+      // named placeholder on the stage.
+      el.hidden = true;
+      return;
+    }
 
     if (!data || !data.available) {
       if (status) {

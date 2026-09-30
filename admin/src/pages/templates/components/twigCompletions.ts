@@ -40,6 +40,7 @@ const FUNCTIONS = [
   'region_stage',
   'region_slot_attrs',
   'shop_product_url',
+  'shop_block_product_label',
   'shop_category_url',
   'shop_index_url',
   'json_script',

@@ -298,6 +298,14 @@ function onTilePointerDown(slug: string, event: PointerEvent): void {
                 </span>
               </span>
               <span v-if="!p.saved" class="truncate px-2 py-1.5 font-medium">{{ p.label }}</span>
+              <!-- A shop part's product is chosen after inserting it: the card says so up front. -->
+              <span
+                v-if="p.requires === 'product'"
+                class="-mt-1 px-2 pb-1.5 text-muted"
+                data-test="pattern-requires"
+              >
+                Choose a product after inserting it
+              </span>
             </button>
             <SavedSectionActions v-if="p.saved" :pattern="p" />
           </div>

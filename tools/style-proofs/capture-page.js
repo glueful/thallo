@@ -9,10 +9,14 @@
 // page's full height, up to `maxHeight` (a section's or a starter page's thumbnail). `scale` is
 // the device scale factor: 0.5 turns a 1200px-wide render into a 600px-wide picture. `trim` cuts
 // the picture to the blocks themselves, leaving out the outer margins a theme puts around them.
+// `ready: 'shop'` waits (`readyTimeout`, 10 s) until the page holds `shopBlocks` JavaScript-painted
+// shop blocks and every one has painted and its images loaded (shop-readiness.js), and fails the
+// build otherwise — a thumbnail never pictures "Loading…", a missing template or half a page.
 // One browser for the whole list. Called by scripts/build-theme-screenshot and
 // scripts/build-pattern-thumbnails, which render the pages.
 const { chromium } = require('@playwright/test');
 const fs = require('node:fs');
+const { waitForShopReady } = require('./shop-readiness.js');
 const path = require('node:path');
 
 const [jobsFile] = process.argv.slice(2);
@@ -36,6 +40,13 @@ const jobs = JSON.parse(fs.readFileSync(jobsFile, 'utf8'));
       const page = await context.newPage();
       await page.goto('file://' + path.resolve(job.page));
       await page.evaluate(() => document.fonts.ready);
+      if (job.ready === 'shop') {
+        try {
+          await waitForShopReady(page, job.readyTimeout || 10000, job.shopBlocks || 1);
+        } catch (error) {
+          throw new Error(`thumbnail ${job.out}: ${error.message}`);
+        }
+      }
       // The content's own height: the document's is never less than the viewport's, which would
       // pad a short section with empty space.
       const box = await page.evaluate(() => {

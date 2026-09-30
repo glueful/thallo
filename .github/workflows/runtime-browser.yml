@@ -13,6 +13,8 @@ on:
       - 'scripts/build-product-layout-proof-fixtures'
       - 'scripts/build-listing-layout-proof-fixtures'
       - 'scripts/build-shop-layout-proof-fixtures'
+      - 'scripts/build-shop-block-proof-fixtures'
+      - 'packages/thallo-commerce/assets/shop.js'
       - 'tests/fixtures/render/**'
       - 'tests/Support/ListingPageSeed.php'
       - 'tests/Support/ProductPageSeed.php'
@@ -45,6 +47,8 @@ on:
       - 'scripts/build-product-layout-proof-fixtures'
       - 'scripts/build-listing-layout-proof-fixtures'
       - 'scripts/build-shop-layout-proof-fixtures'
+      - 'scripts/build-shop-block-proof-fixtures'
+      - 'packages/thallo-commerce/assets/shop.js'
       - 'tests/fixtures/render/**'
       - 'tests/Support/ListingPageSeed.php'
       - 'tests/Support/ProductPageSeed.php'
@@ -189,6 +193,12 @@ jobs:
       - name: Build the shop layout fixtures
         working-directory: .
         run: php scripts/build-shop-layout-proof-fixtures
+
+      # Featured product and Add to cart without JavaScript (shop-block-selection.spec.js): an
+      # unlinked page and a page naming a deleted product, rendered publicly, then rolled back.
+      - name: Build the shop block fixtures
+        working-directory: .
+        run: php scripts/build-shop-block-proof-fixtures
 
       - uses: actions/setup-node@v6
         with:

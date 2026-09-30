@@ -1,0 +1,23 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Shop block selection</title>
+<!-- Featured product and Add to cart as their templates render them on an unlinked page (a blank
+     product slug, an entry uuid): the loading line hidden until shop.js hydrates. The spec answers
+     their data endpoints with page.route (sections and templates design §6). -->
+<main>
+  <div class="thallo-block thallo-block-featured-product" data-shop-block="featured-product"
+       data-product-slug="" data-entry-uuid="e1">
+    <div class="thallo-block-featured-product__body" data-shop-featured-body hidden></div>
+    <p class="thallo-block-featured-product__empty" data-shop-featured-empty hidden>Loading…</p>
+  </div>
+  <div class="thallo-block thallo-block-add-to-cart" data-shop-block="add-to-cart"
+       data-product-slug="" data-entry-uuid="e1">
+    <p class="thallo-block-add-to-cart__status" data-shop-add-to-cart-status hidden>Loading…</p>
+    <form class="thallo-block-add-to-cart__form" method="post" action="/_shop/cart/add" data-shop-add-to-cart-form hidden>
+      <div class="thallo-block-add-to-cart__variant" data-shop-add-to-cart-variant-slot></div>
+      <button type="submit">Add to cart</button>
+    </form>
+    <a class="thallo-block-add-to-cart__link" data-shop-add-to-cart-link hidden href="#">View product</a>
+  </div>
+</main>
+<script src="/packages/thallo-commerce/assets/shop.js" defer></script>

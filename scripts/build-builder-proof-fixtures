@@ -1125,6 +1125,33 @@ try {
     $shopSeed->restoreTenant($shopTenant);
 }
 
+// The library with Commerce off (shop-patterns.spec.ts): the server's own answer from a second boot
+// under a capability override — the same boot the integration tests use for it — restored after.
+$overrideDir = $root . '/config/testing';
+$overrideFile = $overrideDir . '/thallo.php';
+$previousOverride = is_file($overrideFile) ? (string) file_get_contents($overrideFile) : null;
+file_put_contents($overrideFile, "<?php\nreturn " . var_export(['capabilities' => ['thallo.commerce' => false]], true) . ";\n");
+\Glueful\Routing\RouteManifest::reset();
+\Glueful\Extensions\ServiceProvider::resetLoadedRoutes();
+try {
+    $withoutCommerce = \Glueful\Framework::create($root)
+        ->withConfigDir($root . '/config')
+        ->withEnvironment('testing')
+        ->boot()
+        ->getContext()
+        ->getContainer();
+    $json('patterns-commerce-off', (string) $withoutCommerce
+        ->get(\Thallo\Core\Content\Http\Controllers\PatternController::class)->index()->getContent());
+} finally {
+    if ($previousOverride !== null) {
+        file_put_contents($overrideFile, $previousOverride);
+    } else {
+        @unlink($overrideFile);
+    }
+    \Glueful\Routing\RouteManifest::reset();
+    \Glueful\Extensions\ServiceProvider::resetLoadedRoutes();
+}
+
 fwrite(STDOUT, "Wrote {$out}/canvas.html and " . count(glob($out . '/api/*.json') ?: []) . " API fixtures for entry {$entryUuid}.\n");
 fwrite(STDOUT, 'Wrote ' . count(glob($regionsOut . '/stage-*.html') ?: []) . " regions stages to {$regionsOut}.\n");
 fwrite(STDOUT, 'Wrote ' . count(glob($layoutsOut . '/stage-*.html') ?: []) . " layout stages to {$layoutsOut}.\n");

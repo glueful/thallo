@@ -5,6 +5,34 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.71] - 2026-09-30 — Developer Preview
+
+Shop sections and page templates: with Commerce on, the Design view's library offers eight shop
+sections and four shop pages. The shop's Featured product, Add to cart and Product grid blocks no
+longer show "Loading…" forever. No migrations and nothing to provision: update and the library
+has them.
+
+### Added
+- **Shop sections and page templates.** With Commerce on, **Sections** and **Templates** in the
+  Design view offer shop parts — new arrivals, a collection grid, a featured product, an
+  add-to-cart call to action, a sale banner, reasons to buy, a product FAQ and a shop call to
+  action — and four page templates built from them: **Shop landing**, **Product launch**,
+  **Sale / collection** and **New arrivals**. A part with a featured product or add-to-cart block
+  says so on its card: choose the product after inserting it. With Commerce off they are hidden.
+
+### Fixed
+- **A Featured product or Add to cart block with no product no longer shows "Loading…" forever.**
+  On the stage it says to choose a product, or names the product it shows, keeping its styling.
+  On the site it hides when it has no product, whether none was chosen or the product is gone.
+  The exception is an Add to cart whose chosen product is gone, which says the product is not
+  available. If the shop cannot be reached, Featured product hides and Add to cart says the
+  product could not be loaded. Without JavaScript both show a link to the shop instead of a
+  product link that might be gone.
+- **A Product grid no longer shows "Loading products…" forever.** On the stage it names what it
+  will show, such as `Product grid — the newest products`, keeping its styling. If the shop cannot
+  be reached, it says the products could not be loaded. Without JavaScript it shows only its link
+  to the shop.
+
 ## [1.0.0-beta.70] - 2026-09-29 — Developer Preview
 
 Layouts for the shop home and category pages — design every page of the shop home, or every
