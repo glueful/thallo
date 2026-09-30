@@ -33,8 +33,15 @@ const props = defineProps<{
   classNames?: Record<string, string>
   classOptions?: { id: string; name: string; archived: boolean; locked: boolean }[]
   reResolving?: boolean
-  /** Where a section saved from here belongs: a page body (the default), or a region. */
+  /** Where a section saved from here belongs: a page body (the default), a region, or a layout. */
   sectionPlace?: SectionPlace
+  /** The layout a layout's section is saved from (its target): checked against, never stored. */
+  sectionTarget?: string
+  /**
+   * Why this block may not be saved as a section, when it may not (inside a loop's card); null or
+   * absent, it may. A reason rather than a boolean: an absent boolean prop reads as false.
+   */
+  saveSectionRefused?: string | null
   activeBreakpoint: Breakpoint
   /** A sibling multi-selection (spec §5.5): `block` is its anchor; only Style applies to all. */
   blocks?: BlockInstance[]
@@ -204,7 +211,7 @@ const cardFields = computed<string[]>(() =>
       <UIcon :name="blockType?.icon || 'i-lucide-box'" class="shrink-0" />
       <span class="text-sm font-medium" data-test="block-inspector-title">{{ title }}</span>
       <UButton
-        v-if="!multi"
+        v-if="!multi && !saveSectionRefused"
         class="ms-auto"
         size="xs"
         variant="ghost"
@@ -217,9 +224,10 @@ const cardFields = computed<string[]>(() =>
       />
     </div>
     <SaveSectionForm
-      v-if="savingSection && !multi"
+      v-if="savingSection && !multi && !saveSectionRefused"
       :block="block"
       :place="sectionPlace"
+      :target="sectionTarget"
       @close="savingSection = false"
     />
     <UTabs

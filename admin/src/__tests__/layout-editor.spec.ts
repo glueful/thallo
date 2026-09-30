@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { ref } from 'vue'
+import { ref, toValue } from 'vue'
 import { ApiError } from '@/api/errors'
 import type { LayoutSession } from '@/queries/layouts'
 import type { BlockType } from '@/queries/blockTypes'
@@ -82,10 +82,25 @@ vi.mock('@/queries/blockFactory', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/queries/blockFactory')>()),
   useBlockFactory: () => ({ make: vi.fn(), instance: vi.fn() }),
 }))
-vi.mock('@/queries/patterns', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/queries/patterns')>()),
-  usePatterns: () => ({ data: ref([]) }),
+const lib = vi.hoisted(() => ({
+  page: [] as unknown[],
+  layout: [] as unknown[],
+  layoutArgs: [] as unknown[][],
+  save: null as unknown as ReturnType<typeof import('vitest').vi.fn>,
 }))
+vi.mock('@/queries/patterns', async (importOriginal) => {
+  const { vi: v } = await import('vitest')
+  lib.save = v.fn(async () => ({}))
+  return {
+    ...(await importOriginal<typeof import('@/queries/patterns')>()),
+    usePatterns: () => ({ data: ref(lib.page) }),
+    useLayoutPatterns: (...args: unknown[]) => {
+      lib.layoutArgs.push(args)
+      return { data: ref(lib.layout) }
+    },
+    useSavedSections: () => ({ save: lib.save, rename: v.fn(), remove: v.fn() }),
+  }
+})
 const notify = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
 vi.mock('@/composables/useNotify', () => ({ useNotify: () => notify }))
 
@@ -138,7 +153,7 @@ function session(overrides: Partial<LayoutSession> = {}): LayoutSession {
     bindings: { entry_content: ['blocks'] },
     defaultFields: { entry_content: 'body' },
     formatNeeds: {},
-    typeName: 'Posts',
+    typeName: 'LF posts',
     closed: null,
     sample: { id: 'posta0000001', label: 'Post A' },
     placeholder: false,
@@ -638,5 +653,222 @@ describe('the shop home layout editor', () => {
       'The layout must show the Product list block — add it from the Blocks tab.',
     )
     w.unmount()
+  })
+})
+
+// Sections and templates design §4: the layout editor's own library — its surface's sections and
+// templates for its target, the shipped page sections, its saved sections — a section checked
+// against the whole layout, a template replacing blocks and Frame settings in one undo step.
+describe('sections and templates in the layout editor', () => {
+  const section = (slug: string, extra: Record<string, unknown> = {}) => ({
+    slug,
+    kind: 'section',
+    label: slug,
+    category: 'Article',
+    description: `${slug} described`,
+    blocks: [{ type: 'heading', data: { text: slug }, settings: {} }],
+    scope: 'layout',
+    surface: 'entry',
+    settings: null,
+    ...extra,
+  })
+  const MAGAZINE = {
+    ...section('entry-magazine'),
+    kind: 'page',
+    label: 'Magazine',
+    category: 'Layouts',
+    blocks: [
+      { type: 'entry_title', data: { level: 'h1' }, settings: {} },
+      { type: 'entry_content', data: { field: 'body' }, settings: {} },
+    ],
+    settings: { width: 'full' },
+  }
+  const SAVED_SUBTITLE = section('saved-sub', {
+    saved: true,
+    id: 'sub',
+    category: 'Saved',
+    blocks: [{ type: 'entry_content', data: { field: 'subtitle' }, settings: {} }],
+  })
+  const card = (w: Page, slug: string) => w.find(`[data-test="pattern-card-${slug}"]`)
+  const lastApplied = () => {
+    const calls = q.apply.mock.calls
+    return calls[calls.length - 1]![1] as {
+      blocks: { id: string; type: string }[]
+      settings: object
+    }
+  }
+
+  beforeEach(() => {
+    // Each accepted apply answers the next revision, as the server would.
+    let revision = 0
+    q.apply.mockImplementation(async () => ({
+      epoch: 'e1',
+      revision: ++revision,
+      baseline: revision - 1,
+      style_generation: 0,
+      applied_at: 'now',
+      fragments: null,
+    }))
+    lib.layoutArgs.length = 0
+    lib.save.mockClear()
+    lib.layout.splice(
+      0,
+      lib.layout.length,
+      section('entry-cover-band'),
+      MAGAZINE,
+      SAVED_SUBTITLE,
+      section('saved-other', { saved: true, id: 'other', surface: 'listing' }),
+    )
+    lib.page.splice(
+      0,
+      lib.page.length,
+      section('faq', { scope: 'page', surface: null, category: 'FAQ' }),
+      section('saved-page', { scope: 'page', surface: null, saved: true, id: 'page' }),
+      section('header-x', { scope: 'region', region: 'header', surface: null }),
+      { ...section('page-landing', { scope: 'page', surface: null }), kind: 'page' },
+    )
+  })
+
+  it('offers Blocks, Sections and Templates: its surface’s, the shipped page sections, its saved ones', async () => {
+    const w = mountPage()
+    await flushPromises()
+    expect(
+      lib.layoutArgs.some(
+        ([s, t]) => toValue(s as string) === 'entry' && toValue(t as string) === 'post',
+      ),
+    ).toBe(true)
+    await w.find('[data-test="palette-view-sections"]').trigger('click')
+    const sections = w
+      .findAll('[data-test^="pattern-card-"]')
+      .map((c) => c.attributes('data-test')!.slice(13))
+    expect(sections).toEqual(['entry-cover-band', 'faq', 'saved-sub'])
+    await w.find('[data-test="palette-view-pages"]').trigger('click')
+    const templates = w
+      .findAll('[data-test^="pattern-card-"]')
+      .map((c) => c.attributes('data-test')!.slice(13))
+    expect(templates).toEqual(['entry-magazine'])
+    w.unmount()
+  })
+
+  it('a saved section showing a field this type lacks is refused, saying which, and changes nothing', async () => {
+    const w = mountPage()
+    await flushPromises()
+    await w.find('[data-test="palette-view-sections"]').trigger('click')
+    expect(card(w, 'saved-sub').attributes('title')).toBe(
+      'This section shows “Subtitle”, which LF posts doesn’t have',
+    )
+    const applies = q.apply.mock.calls.length
+    await card(w, 'saved-sub').trigger('click')
+    await flushPromises()
+    expect(q.apply.mock.calls.length).toBe(applies)
+    expect(topBar(w).props('canUndo')).toBe(false)
+    w.unmount()
+  })
+
+  it('a template on a clean layout replaces blocks and Frame settings; one undo, and redo keeps the ids', async () => {
+    const w = mountPage()
+    await flushPromises()
+    await w.find('[data-test="palette-view-pages"]').trigger('click')
+    await card(w, 'entry-magazine').trigger('click')
+    await flushPromises()
+    expect(w.find('[data-test="layout-template-replace"]').exists()).toBe(false)
+    await vi.waitFor(() => expect(lastApplied().settings).toEqual({ width: 'full' }), {
+      timeout: 3000,
+    })
+    expect(lastApplied().blocks.map((b) => b.type)).toEqual(['entry_title', 'entry_content'])
+    const minted = lastApplied().blocks.map((b) => b.id)
+
+    topBar(w).vm.$emit('undo')
+    await flushPromises()
+    await vi.waitFor(() => expect(lastApplied().settings).toEqual({}), { timeout: 3000 })
+    expect(lastApplied().blocks.map((b) => b.id)).toEqual(['laytitle0001', 'laybody00001'])
+
+    topBar(w).vm.$emit('redo')
+    await flushPromises()
+    await vi.waitFor(() => expect(lastApplied().settings).toEqual({ width: 'full' }), {
+      timeout: 3000,
+    })
+    expect(lastApplied().blocks.map((b) => b.id)).toEqual(minted)
+    w.unmount()
+  })
+
+  it('a template on a changed layout asks first; Keep leaves it, Replace replaces it', async () => {
+    const extra = { id: 'layhead00001', type: 'heading', data: { text: 'Mine' }, settings: {} }
+    q.mint.mockImplementation(async () =>
+      session({
+        layout: { blocks: [...structuredClone(BLOCKS), extra], settings: {}, lock_version: 2 },
+      }),
+    )
+    const w = mountPage()
+    await flushPromises()
+    topBar(w).vm.$emit('resetStarter') // an edit: the layout now differs from what is saved
+    await flushPromises()
+    await w.find('[data-test="palette-view-pages"]').trigger('click')
+    await card(w, 'entry-magazine').trigger('click')
+    await flushPromises()
+    const ask = w.find('[data-test="layout-template-replace"]')
+    expect(ask.text().replace(/\s+/g, ' ')).toContain(
+      'Replace this layout with Magazine? Your unsaved changes will be lost.',
+    )
+    await w.find('[data-test="layout-template-keep"]').trigger('click')
+    await flushPromises()
+    expect(w.find('[data-test="layout-template-replace"]').exists()).toBe(false)
+
+    await card(w, 'entry-magazine').trigger('click')
+    await flushPromises()
+    await w.find('[data-test="layout-template-confirm"]').trigger('click')
+    await flushPromises()
+    await vi.waitFor(() => expect(lastApplied().settings).toEqual({ width: 'full' }), {
+      timeout: 3000,
+    })
+    w.unmount()
+  })
+
+  it('Save as section keeps the layout’s place; a block inside a card offers none', async () => {
+    const w = mountPage()
+    await flushPromises()
+    bridge.callbacks.onBlockSelect!('laytitle0001' as never)
+    await flushPromises()
+    await w.find('[data-test="save-as-section"]').trigger('click')
+    await w.find('[data-test="save-section-name"]').setValue('Title')
+    await w.find('[data-test="save-section-form"]').trigger('submit')
+    await flushPromises()
+    expect(lib.save).toHaveBeenCalledTimes(1)
+    expect(lib.save.mock.calls[0]![1]).toMatchObject({
+      name: 'Title',
+      scope: 'layout',
+      surface: 'entry',
+      target: 'post',
+    })
+    w.unmount()
+
+    const LISTING = [
+      {
+        id: 'listloop0001',
+        type: 'entry_loop',
+        data: {
+          card: [{ id: 'cardtitle001', type: 'entry_title', data: { level: 'h2' }, settings: {} }],
+        },
+        settings: {},
+      },
+    ]
+    q.mint.mockImplementation(async () =>
+      session({
+        layout: { blocks: structuredClone(LISTING), settings: {}, lock_version: 0 },
+        starterLayout: structuredClone(LISTING),
+        required: [{ type: 'entry_loop' }],
+        palette: ['entry_loop', 'entry_title'],
+        loops: [{ type: 'entry_loop', card: 'card', items: ['entry_title'] }],
+      }),
+    )
+    const listing = mountPage()
+    await flushPromises()
+    bridge.callbacks.onBlockSelect!('cardtitle001' as never)
+    await flushPromises()
+    expect(listing.find('[data-test="save-as-section"]').exists()).toBe(false)
+    bridge.callbacks.onBlockSelect!('listloop0001' as never)
+    await flushPromises()
+    expect(listing.find('[data-test="save-as-section"]').exists()).toBe(true)
+    listing.unmount()
   })
 })

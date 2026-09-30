@@ -136,7 +136,10 @@ export interface SavedSectionLabels {
   category?: string
   description?: string
 }
-export type SavedSectionInput = SavedSectionLabels & { name: string } & SectionPlace
+export type SavedSectionInput = SavedSectionLabels & {
+  name: string
+  target?: string
+} & SectionPlace
 
 export function useSavedSections() {
   const cache = useQueryCache()

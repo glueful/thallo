@@ -7,8 +7,9 @@ import { useSavedSections, type SectionPlace } from '@/queries/patterns'
 import { useNotify } from '@/composables/useNotify'
 import { ApiError } from '@/api/errors'
 
-// A section saved from the header or footer is offered there again, and only there.
-const props = defineProps<{ block: BlockInstance; place?: SectionPlace }>()
+// A section saved from the header or footer is offered there again, and only there; one saved from a
+// layout, in the layouts of its kind — checked against the layout it is saved from (`target`).
+const props = defineProps<{ block: BlockInstance; place?: SectionPlace; target?: string }>()
 const emit = defineEmits<{ close: [] }>()
 
 const { save } = useSavedSections()
@@ -41,6 +42,9 @@ async function onSave(): Promise<void> {
       category: category.value.trim(),
       description: description.value.trim(),
       ...(props.place ?? { scope: 'page' }),
+      ...(props.place?.scope === 'layout' && props.target !== undefined
+        ? { target: props.target }
+        : {}),
     })
     success('Saved to Sections', 'Find it in the Blocks tab under Sections.')
     emit('close')

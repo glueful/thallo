@@ -18,6 +18,8 @@ import { createDirtyRegistry, useUnsavedGuard } from '@/composables/useSectionSt
 import LayoutTopBar from '../components/LayoutTopBar.vue'
 import LayoutFrameTab from '../components/LayoutFrameTab.vue'
 import { SETTINGS_KEY, useLayoutHost } from '../useLayoutHost'
+import { belongsIn, useLayoutPatterns, usePatterns, type Pattern } from '@/queries/patterns'
+import { isInsideCard } from '@/editor/structure/legality'
 
 // A layout, edited on the stage (type layouts spec §6.2): the surface's frame around a published
 // sample — or a placeholder — with the Design view's stage editing over the layout's own blocks and
@@ -115,10 +117,56 @@ const {
   insertFromPalette,
   clearInsertTarget,
   paletteDrag,
+  replaceClickable,
+  replaceWithPage,
   autoSuspended,
   toggleAuto,
 } = editor
 const schema = layout.host.schema
+
+// ── Sections and templates (sections and templates design §4): this surface's, built for this
+// target; then the shipped page sections; then the sections saved for this surface. Saved page
+// sections belong to the page library, header and footer sections to their regions. ──
+const { data: layoutLibrary } = useLayoutPatterns(surface, target)
+const { data: pageLibrary } = usePatterns()
+const place = { scope: 'layout' as const, surface }
+const library = computed<Pattern[]>(() => {
+  const own = (layoutLibrary.value ?? []).filter((p) => belongsIn(p, place))
+  const shippedPage = (pageLibrary.value ?? []).filter(
+    (p) => p.kind === 'section' && !p.saved && belongsIn(p, { scope: 'page' }),
+  )
+  return [
+    ...own.filter((p) => p.kind === 'section' && !p.saved),
+    ...shippedPage,
+    ...own.filter((p) => p.kind === 'section' && p.saved),
+    ...own.filter((p) => p.kind === 'page'),
+  ]
+})
+watch(library, (list) => layout.setLibrary(list, typeLabel), { immediate: true })
+
+/** A template asked for while the layout differs from what is saved: it replaces only once confirmed. */
+const pendingTemplate = ref<Pattern | null>(null)
+function onInsertTemplate(slug: string): void {
+  const pattern = library.value.find((p) => p.slug === slug) ?? null
+  if (!pattern) return
+  if (dirty.value) {
+    pendingTemplate.value = pattern
+    return
+  }
+  void replaceWithPage(slug, 'blocks')
+}
+function confirmTemplate(): void {
+  const pattern = pendingTemplate.value
+  pendingTemplate.value = null
+  if (pattern) void replaceWithPage(pattern.slug, 'blocks')
+}
+/** A block inside a loop's card is part of a repeated design: it is not saved as a section. */
+const saveSectionRefused = computed(() =>
+  selected.value !== null &&
+  isInsideCard({ fields: fields.value }, selected.value, layout.host.cards?.() ?? null)
+    ? 'A card’s blocks are its design, repeated for each item: they are not saved as a section.'
+    : null,
+)
 
 /**
  * What a layout reaches, as a sentence's subject: the session's reach without "Applies to" —
@@ -417,6 +465,9 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
                 :fill="selectedFill"
                 :blocks-host="selectedBlocksHost"
                 :prose-locked="stageEditingId !== null && stageEditingId === selected"
+                :section-place="place"
+                :section-target="target"
+                :save-section-refused="saveSectionRefused"
                 @fill-cells="fillCells(selected)"
                 @patch-data="onPatchData"
                 @insert-into="onInsertInto"
@@ -439,13 +490,41 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
             </template>
             <template #blocks>
               <div class="pt-2" data-test="layout-tab-blocks">
+                <div
+                  v-if="pendingTemplate"
+                  role="alertdialog"
+                  class="mb-2 space-y-2 rounded-md border border-default bg-elevated p-3 text-sm"
+                  data-test="layout-template-replace"
+                >
+                  <p>
+                    Replace this layout with <strong>{{ pendingTemplate.label }}</strong
+                    >? Your unsaved changes will be lost.
+                  </p>
+                  <div class="flex justify-end gap-2">
+                    <UButton
+                      size="xs"
+                      variant="ghost"
+                      color="neutral"
+                      data-test="layout-template-keep"
+                      @click="pendingTemplate = null"
+                    >
+                      Keep
+                    </UButton>
+                    <UButton size="xs" data-test="layout-template-confirm" @click="confirmTemplate">
+                      Replace
+                    </UButton>
+                  </div>
+                </div>
                 <BlocksPalette
                   :types="paletteTypes"
                   :target="paletteTarget"
                   :stale="targetStale"
+                  :patterns="library"
                   :clickable="paletteClickable"
+                  :page-clickable="(slug: string) => replaceClickable(slug, 'blocks')"
                   lead-category="Fields"
                   @insert="insertFromPalette"
+                  @insert-page="onInsertTemplate"
                   @clear-target="clearInsertTarget"
                   @pointer-down="(slug: string, e: PointerEvent) => paletteDrag.begin(slug, e)"
                 />

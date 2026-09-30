@@ -5,6 +5,18 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Added
+- **Sections and templates in the layout editor.** **Site › Layouts** has the Design view's
+  **Sections** and **Templates**. Each kind of page — a single post, a listing, an archive, and with
+  Commerce on the product page, the shop home and the shop categories — offers sections and three
+  templates built for the layout's own content type. A template replaces the whole layout, its Frame
+  settings included, and asks first when there are unsaved changes; one undo brings the old layout
+  back. **Save as section** in a layout keeps its field blocks, and the section is offered in every
+  layout of the same kind; one that shows a field the layout's type doesn't have says which. Saving,
+  renaming and deleting a layout's section needs **Manage templates**.
+
 ## [1.0.0-beta.71] - 2026-09-30 — Developer Preview
 
 Shop sections and page templates: with Commerce on, the Design view's library offers eight shop
