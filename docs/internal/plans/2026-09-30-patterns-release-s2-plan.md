@@ -943,7 +943,7 @@ These two tests run inside the test's own transaction (as every `AppTestCase` te
 6. An `entry_field` with a `format` that `formatNeeds` lists must show a field of one of those types — "“{label}” can’t be shown as a {format}".
 7. No blocks field is shown by two `entry_content` blocks (after rule 3's defaults) — "“{label}” is already shown by another block".
 
-- [ ] **Step 1: The shared cases.** `tests/fixtures/layouts/candidate-cases.json` is `{ "types": { … }, "cases": [ … ] }`. `types` defines the content types both sides use, by slug, as schema arrays (the PHP test creates them; the vitest spec derives each type's `bindable` from them — `text` with `format: 'rich'` → `text:rich` — and its labels, humanised when absent):
+- [ ] **Step 1: The shared cases.** `tests/fixtures/layouts/candidate-cases.json` is `{ "types": { … }, "cases": [ … ] }`. `types` defines the content types both sides use, by slug, each as `{ "name", "schema" }` — names "LF posts", "LF content", "LF rich", "LF categories" (the PHP test creates them; the vitest spec's `typeName` is the name; the vitest spec derives each type's `bindable` from them — `text` with `format: 'rich'` → `text:rich` — and its labels, humanised when absent):
   - `lf_post`: `title` string (label "Headline"), `body` blocks, `sidebar` blocks, `cover` asset, `categories` reference (filterable, to `lf_cat`);
   - `lf_content`: `title` string, `content` blocks (no `body`);
   - `lf_richbody`: `title` string, `body` text with `format: 'rich'`;
