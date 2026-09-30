@@ -1,6 +1,8 @@
 # Sections and Templates for Layouts and Shop Pages — Design
 
-> Status: approved in conversation 2026-09-29 (all five sections). Builds on
+> Status: approved in conversation 2026-09-29 (all five sections); amended 2026-09-30 after spec
+> review (§3.1 identity, §3.2 targets, §4 insert validation and settings, §5 bindings, §6 product
+> selection). Builds on
 > `2026-09-26-type-layouts-design.md` (type layouts, Releases A–C2, shipped by beta.70) and the
 > pattern library (`core/src/Content/Patterns/`).
 
@@ -74,36 +76,80 @@ The client's `belongsIn` and `SectionPlace` gain `{ scope: 'layout', surface }`.
   `shop_index` and `shop_category` layout patterns and the shop page sections and templates.
 
 **Filtering (server, `PatternLibrary`).** In addition to today's rule (a pattern using a type the
-site cannot use is hidden):
+site cannot use is hidden; a template is hidden whole when any section it names is unavailable):
 
 - a layout pattern whose surface is not registered is hidden;
-- a **layout template** is offered only if it passes its surface's real `LayoutValidator` rules —
-  palette, card legality, its required block exactly once, bindings valid for the surface's
-  defaults — so a template that stops fitting after a block change disappears rather than failing
-  when chosen;
-- a **layout section** is offered only if its blocks are in its surface's palette (or general) and
-  its card blocks sit inside their loop's card.
+- a **layout template** is offered for a *target* only if its resolved document passes that
+  target's real `LayoutValidator` (§3.2);
+- a **layout section** is offered for a target only if it passes the target's palette and card
+  rules and every field it binds exists on the target with a compatible type (§3.2).
 
-`GET /patterns` returns each pattern with its place (`scope`, `region`, `surface`).
+`GET /patterns` keeps serving page and header/footer patterns as today. Layout patterns are served
+per target — `GET /patterns?surface={surface}&target={target}` — because what fits depends on the
+target's schema; the client's query key includes surface and target.
+
+### 3.1 Pattern identity and references
+
+Patterns are indexed by slug and templates reference section slugs, so several contributors could
+overwrite one another silently. The registry therefore enforces:
+
+- **Unique, stable identities.** Every pattern slug is unique across core and all contributors
+  (convention: a contributor prefixes its own, e.g. `shop-…`, `product-…`). A second pattern with
+  a taken slug is **rejected at registration** (a `LogicException` naming both owners), never
+  last-wins.
+- **Checked references.** A template's section slugs must name registered sections of a compatible
+  place (a page template names page sections; a layout template names sections of its surface or
+  general page sections). A missing or incompatible reference is rejected at registration.
+- **Whole-template hiding.** A template whose section is registered but unavailable at request time
+  (a disabled block type, a surface gone) is hidden whole, as today.
+
+### 3.2 Targets and schema-aware layout patterns
+
+`LayoutValidator` validates a layout against a **surface and a target** (for `entry`, `listing` and
+`archive` the target is a content type — or a type and archived field — whose schema decides which
+fields exist). Types differ: one names its primary field `content` instead of `body`, one's body is
+rich text rather than blocks, one has no body or no cover. A binding to "the cover" or "the primary
+content" does not fit every type.
+
+- **Shipped layout templates are schema-aware, like today's starters.** A template is defined as a
+  function of the target (the surface's schema resolution, e.g. its primary-content field and
+  whether a cover exists), not a fixed tree: `entry_content` binds the target's primary body field,
+  `entry_cover` appears only when the type has a cover field, and so on. What the library serves
+  for a target is the template resolved for that target, then validated.
+- **Saved sections keep explicit bindings.** A saved layout section stores its field blocks with
+  the bindings they had. Offered for a target, a section whose bound field is missing or of an
+  incompatible type is refused with the field named ("This section shows *Subtitle*, which Pages
+  don't have"); nothing is silently rebound.
+- **Tested across type shapes:** a type with `body` blocks, one with `content`, one with a rich-text
+  body, one with no body, one with no cover.
 
 ## 4. The layout editor's Sections and Templates
 
 The layout editor passes the library to `BlocksPalette` filtered to its surface, so it gets the same
 Blocks / Sections / Templates switch as the Design view.
 
-- **Sections** lists, in this order: the shipped sections of this surface, general page sections
-  (hero, FAQ, CTA, newsletter…), and saved sections of this surface. Other surfaces' and
-  header/footer sections never appear.
+- **Sections** lists, in this order: the shipped sections of this surface, the **shipped** general
+  page sections (hero, FAQ, CTA, newsletter…), and **saved sections of this surface**. Saved
+  *page* sections are not offered in layouts (they belong to the page library), nor are other
+  surfaces' or header/footer sections.
 - **Inserting a section** works as in the Design view — click, drag, or Enter at the insert point,
-  fresh ids (`instantiate`) — and is preflighted with `checkInsertSubtree` under the layout's
-  `legalityContext()`: a section holding the Product list cannot go into a layout that already has
-  one; card-only blocks only where legal. A section that fails says "That section does not fit
-  here". `LayoutValidator` re-checks on apply and save as today.
-- **Templates** lists this surface's shipped templates. Choosing one **replaces the whole working
-  copy** — blocks and frame options (`_presentation`: width, page title). When the working copy
-  differs from what is saved (or from the starter when nothing is saved) it asks first: "Replace
-  this layout with *Magazine post*? Your unsaved changes will be lost." It is one undoable step;
-  nothing goes live until Save.
+  fresh ids (`instantiate`). `checkInsertSubtree` checks structure and card placement only; its
+  context holds neither required-block counts nor field bindings. So before the insertion is
+  committed, the **complete candidate document** (the working copy with the section inserted) is
+  checked with layout-aware rules: structure and cards, the surface's required blocks at most once
+  (a second Product list is refused), and every field binding present and compatible on this target.
+  A refusal leaves the document **and the undo history** unchanged and shows the specific reason
+  ("The Product list can appear only once", "This section shows *Subtitle*, which Pages don't
+  have"). `LayoutValidator` re-checks on apply and save as today.
+- **Templates** lists this surface's shipped templates, resolved for this target. Each template
+  carries an explicit **settings payload** — the layout settings the editor holds as
+  `_layout_settings` and the server stores as the layout's settings: `width` (`contained` | `full`),
+  `header` and `footer` (`default` | `hidden`). A setting the template omits returns to its
+  default. Choosing a template **replaces the whole working copy — blocks and settings together**.
+  When the working copy differs from what is saved (or from the starter when nothing is saved) it
+  asks first: "Replace this layout with *Magazine post*? Your unsaved changes will be lost."
+  Replacement is one undo step covering blocks and settings; redo restores the same fresh block ids
+  the replacement minted. Nothing goes live until Save.
 - **"Save as section"** in a layout saves with the place `{ scope: 'layout', surface }` (§5). A
   block inside a loop's card does not offer it (card designs are out of scope).
 - **The page Design view** is unchanged, except that its Sections and Templates now include the
@@ -118,13 +164,16 @@ Blocks / Sections / Templates switch as the Design view.
   and card blocks only inside their loop's card. It may hold the surface's required block; the
   insert-time check keeps it from being placed twice.
 - **Where it is offered.** In every layout of its surface. For `entry`, `listing` and `archive`
-  (one layout per content type) a section saved from one type may be inserted into another type's
-  layout. A field block bound to a field the target type lacks refuses the insert and names the
-  field ("This section shows *Subtitle*, which Pages don't have"); blocks on built-in fields
-  (title, date, cover, the primary content) fit every type. The server re-checks bindings on apply.
+  (one layout per content type) a section saved from one type may be offered in another type's
+  layout. It keeps its explicit bindings (§3.2): a field block bound to a field the target lacks,
+  or to one of an incompatible type, refuses the insert and names the field — including the cover
+  and the primary content, which not every type has. The server re-checks bindings on apply.
 - **Permissions.** Saving, renaming and deleting a `layout` section need `templates.manage` (the
-  layout permission); page and header/footer sections keep `content.manage`. Listing stays under
-  `content.view`.
+  layout permission); page and header/footer sections keep `content.manage`. Rename and delete
+  authorize by the **saved row's** scope, not the request: today both routes require
+  `content.manage` for everything, so the route gate moves into the controller. Listing stays under
+  `content.view`. Tested with a user holding only `templates.manage` and one holding only
+  `content.manage`.
 - **Lifecycle.** Layout sections live in the same `SavedSectionsSource`, so block migrations and
   style-class jobs reach them. When a surface disappears (Commerce off) its saved sections are
   hidden and kept, returning with the surface — as the shop layouts themselves are kept.
@@ -148,8 +197,17 @@ General page sections are offered in every layout on top of these.
 **Shop page patterns** (Commerce on only; `scope: page`). Templates: **Shop landing**, **Product
 launch**, **Sale / collection**, **New arrivals**. Built from eight commerce sections: New
 arrivals grid, Category collection grid, Featured product spotlight, Add-to-cart CTA, Sale banner,
-Reasons to buy, Product FAQ, Shop CTA band. Product-specific settings (a product slug, a category)
-ship empty or on the "newest" source so the pattern renders on any shop; the editor fills them in.
+Reasons to buy, Product FAQ, Shop CTA band.
+
+**Portable settings and an honest configuration state.** Shipped patterns carry no site-specific
+values. A Product grid ships on the `newest` source and works as inserted. **Featured product**
+and **Add to cart** have no such default: they need a product (a product slug, or a page linked to
+a product), and a blank value selects nothing. The sections using them — Featured product
+spotlight, Add-to-cart CTA, and the templates that include them — are described in the library as
+**requiring a product selection**. Inserted unconfigured, such a block shows the editor a clear
+notice on the stage ("Choose a product for this block") and renders **nothing broken publicly**
+(no empty card, no dead button). Thumbnails render these sections against fixture products only;
+no fixture value ever ships in a pattern.
 
 **Thumbnails.** `scripts/build-pattern-thumbnails` renders layout patterns against their surface's
 placeholder sample (the page the stage shows when nothing is published), and commerce patterns with
@@ -167,9 +225,21 @@ the sample product, so every shipped card has a picture. Saved sections keep the
 - **Saved layout sections.** Each surface's save rules; `templates.manage`; the migration leaves
   existing rows unchanged; a missing-field insert is refused with the field named; a vanished
   surface's sections are hidden and kept.
-- **Admin (vitest).** The layout palette's three views filtered by surface; insert legality
-  including "does not fit here" for a second required block; a template replacing the working
-  copy with the confirm and undo; Save as section keeping the layout place and absent inside a card.
+- **Identity.** A duplicate slug across contributors is rejected naming both owners; a template
+  naming a missing or incompatible section is rejected; a template whose section becomes
+  unavailable is hidden whole.
+- **Schema-aware patterns.** Templates resolved and validated for each type shape of §3.2; saved
+  sections keeping bindings and refused with the field named on missing or incompatible fields.
+- **Product selection (S1).** Featured product and Add to cart sections inserted on an unlinked page
+  and on an empty shop show the editor notice and render nothing broken publicly; configured with
+  a real product they render it.
+- **Admin (vitest).** The layout palette's three views filtered by surface and target (the query key
+  includes both); candidate-document validation refusing a second required block and a missing
+  field with the document and history unchanged; a template replacing blocks and settings together
+  with the confirm, one undo step, and redo reusing the minted ids; Save as section keeping the
+  layout place and absent inside a card; saved page sections absent from layout palettes.
+- **Permissions.** Rename and delete by the saved row's scope, with a `templates.manage`-only user
+  and a `content.manage`-only user.
 - **Browser proofs (e2e).** In the layout editor: insert a section and apply a template on the
   stage and assert the working copy. In the page Design view: shop templates present with Commerce
   on, absent with it off.
