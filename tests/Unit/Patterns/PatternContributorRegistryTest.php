@@ -127,6 +127,19 @@ final class PatternContributorRegistryTest extends TestCase
         self::assertSame('a', $registry->ownerOf('x-page'));
     }
 
+    public function testATemplateWithNoSectionsIsRefused(): void
+    {
+        $registry = new DefaultPatternContributorRegistry();
+        try {
+            $registry->register(self::contributor('a', [self::section('x-hero')], [self::template('x-empty', [])]));
+            self::fail('a template that inserts nothing must be refused');
+        } catch (\LogicException $e) {
+            self::assertSame("Template 'x-empty' of 'a' names no sections.", $e->getMessage());
+        }
+        self::assertSame([], $registry->all());
+        self::assertNull($registry->ownerOf('x-hero'));
+    }
+
     public function testRegistrationIsAllOrNothing(): void
     {
         $registry = new DefaultPatternContributorRegistry();
