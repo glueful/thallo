@@ -7,9 +7,9 @@
  * section is captured whole at half scale (600px wide); a page is its first screens.
  *
  * A layout's sections and templates are pictured as the layout stage shows them (sections and
- * templates design §6): opened in a real layout session on an isolated target — so the placeholder
- * sample shows, whatever the database holds — and cropped to the surface's frame (a template) or
- * to the section's own blocks.
+ * templates design §6): opened in a real layout session on fixture content of their own — a post type
+ * with written, illustrated posts, and the fixture shop — whatever else the database holds, and
+ * cropped to the surface's frame (a template) or to the section's own blocks.
  *
  * Run it again when a pattern or the default theme's look changes; PatternThumbnailsTest fails
  * while a pattern has no thumbnail, or a thumbnail no pattern.
@@ -108,6 +108,9 @@ $outsideShop = $shopSeed->useTenant();
 $shopSeed->clear();
 $fixtureProduct = (string) $db->table('commerce_products')
     ->where('uuid', '=', $shopSeed->seed()['products'][0])->first()['slug'];
+// Every product named and pictured, as the layout pictures' shop is (scripts/lib/layout-thumbnails.php).
+layout_thumbnail_shop_pictures($container, $container->get(ApplicationContext::class), $db);
+$shopImages = ShopPageSeed::IMAGES + LAYOUT_THUMBNAIL_SHOP_IMAGES;
 // Only the shop pictures render in the seed's workspace: every other picture keeps the single site
 // (a header's menu, seeded above, belongs to no workspace).
 $shopSeed->restoreTenant($outsideShop);
@@ -131,7 +134,7 @@ foreach ($container->get(PatternLibrary::class)->all() as $pattern) {
     if ($shop) {
         // The shop's blocks paint with script: each answered with the controller's own response to
         // its exact request, and the picture taken only once every one of them has painted.
-        $html = shop_inject($html, shop_block_responses($html, $container, ShopPageSeed::IMAGES, $root), $root);
+        $html = shop_inject($html, shop_block_responses($html, $container, $shopImages, $root), $root);
         $shopSeed->restoreTenant($outside);
     }
     file_put_contents($page, $html);
@@ -167,7 +170,8 @@ $library = $container->get(PatternLibrary::class);
 $pictured = [];
 $db->getTransactionManager()->begin();
 try {
-    foreach (layout_thumbnail_targets($container) as $surface => $target) {
+    $fixtures = layout_thumbnail_fixtures($container);
+    foreach ($fixtures['targets'] as $surface => $target) {
         foreach ($library->forLayout($surface, $target) as $pattern) {
             if ($pattern['saved']) {
                 continue;
@@ -184,7 +188,16 @@ try {
                 $selector = '[data-thallo-block="thumbsection1"]';
             }
             $page = $work . '/' . $pattern['slug'] . '.html';
-            file_put_contents($page, layout_stage_html($container, $handle, $surface, $target, $blocks, $settings));
+            file_put_contents($page, layout_thumbnail_in_place($fixtures, $surface, static fn (): string => layout_stage_html(
+                $container,
+                $handle,
+                $surface,
+                $target,
+                $blocks,
+                $settings,
+                $fixtures['samples'][$surface],
+                $fixtures['images'],
+            )));
             $pictured[] = $pattern['slug'];
             $jobs[] = [
                 'page' => $page,
