@@ -12,11 +12,15 @@
 // `ready: 'shop'` waits (`readyTimeout`, 10 s) until the page holds `shopBlocks` JavaScript-painted
 // shop blocks and every one has painted and its images loaded (shop-readiness.js), and fails the
 // build otherwise — a thumbnail never pictures "Loading…", a missing template or half a page.
+// `selector` crops the picture to one element's rendered area (crop-box.js) — a layout template's
+// frame, or a section on the layout stage, whose `display: contents` wrapper has no box of its own —
+// and fails the build when it matches nothing rendered.
 // One browser for the whole list. Called by scripts/build-theme-screenshot and
 // scripts/build-pattern-thumbnails, which render the pages.
 const { chromium } = require('@playwright/test');
 const fs = require('node:fs');
 const { waitForShopReady } = require('./shop-readiness.js');
+const { renderedBox } = require('./crop-box.js');
 const path = require('node:path');
 
 const [jobsFile] = process.argv.slice(2);
@@ -46,6 +50,23 @@ const jobs = JSON.parse(fs.readFileSync(jobsFile, 'utf8'));
         } catch (error) {
           throw new Error(`thumbnail ${job.out}: ${error.message}`);
         }
+      }
+      if (job.selector) {
+        let crop;
+        try {
+          crop = await renderedBox(page, job.selector);
+        } catch (error) {
+          throw new Error(`thumbnail ${job.out}: ${error.message}`);
+        }
+        await page.screenshot({
+          path: job.out,
+          type: 'jpeg',
+          quality: job.quality || 82,
+          fullPage: true,
+          clip: { ...crop, height: Math.min(crop.height, job.maxHeight || crop.height) },
+        });
+        await context.close();
+        continue;
       }
       // The content's own height: the document's is never less than the viewport's, which would
       // pad a short section with empty space.

@@ -223,7 +223,8 @@ final class PatternLibraryTest extends AppTestCase
         // scripts/build-pattern-thumbnails from the default theme's real render.
         $dir = \dirname(__DIR__, 3) . '/admin/public/pattern-thumbs';
         $have = array_map(static fn (string $f): string => basename($f, '.jpg'), glob($dir . '/*.jpg') ?: []);
-        $want = array_column($this->library()->all(), 'slug');
+        // Every page and region pattern, and every shipped layout pattern of the surfaces this site has.
+        $want = [...array_column($this->library()->all(), 'slug'), ...$this->library()->layoutSlugs()];
         sort($have);
         sort($want);
         self::assertSame($want, $have, 'run scripts/build-pattern-thumbnails');

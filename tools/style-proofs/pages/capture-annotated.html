@@ -1,0 +1,17 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Capture: an annotated section</title>
+<!-- The layout stage's own markup for a section: each block wrapped in the annotation element the
+     real preview stylesheet sets to `display: contents`, so the wrapper has no box of its own. -->
+<link rel="stylesheet" href="/packages/thallo-render/assets/preview/preview.css">
+<style>body { margin: 0; } .before { height: 400px; } .section { padding: 40px; background: #dec; }</style>
+<main>
+  <div class="thallo-preview-block" data-thallo-block="before000001"><div class="before">Before</div></div>
+  <div class="thallo-preview-block" data-thallo-block="thumbsection1">
+    <section class="thallo-block thallo-block-container section" id="inner">
+      <h2>Keep reading</h2>
+      <p>Three related entries.</p>
+    </section>
+  </div>
+  <div class="thallo-preview-block" data-thallo-block="emptywrapper"></div>
+</main>

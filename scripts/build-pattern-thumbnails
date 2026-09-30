@@ -6,6 +6,11 @@
  * in Chromium by tools/style-proofs — so a thumbnail is the section, not a drawing of it. A
  * section is captured whole at half scale (600px wide); a page is its first screens.
  *
+ * A layout's sections and templates are pictured as the layout stage shows them (sections and
+ * templates design §6): opened in a real layout session on an isolated target — so the placeholder
+ * sample shows, whatever the database holds — and cropped to the surface's frame (a template) or
+ * to the section's own blocks.
+ *
  * Run it again when a pattern or the default theme's look changes; PatternThumbnailsTest fails
  * while a pattern has no thumbnail, or a thumbnail no pattern.
  *
@@ -21,6 +26,7 @@ use Thallo\Core\Tests\Support\ShopPageSeed;
 require __DIR__ . '/../vendor/autoload.php';
 require __DIR__ . '/lib/showcase.php';
 require __DIR__ . '/lib/shop-thumbnails.php';
+require __DIR__ . '/lib/layout-thumbnails.php';
 
 $root = dirname(__DIR__);
 $container = showcase_boot($root);
@@ -144,6 +150,62 @@ foreach ($container->get(PatternLibrary::class)->all() as $pattern) {
     ];
 }
 $db->getTransactionManager()->rollback();
+
+// The layouts' patterns, in a transaction of their own: isolated targets with no sample to pick.
+$frames = [
+    'entry' => '.thallo-layout--entry',
+    'listing' => '.thallo-layout--listing',
+    'archive' => '.thallo-layout--archive',
+    'product' => '.shop-product--layout',
+    'shop_index' => '.shop-index--layout',
+    'shop_category' => '.shop-category--layout',
+];
+$handle = static fn (Symfony\Component\HttpFoundation\Request $request): Symfony\Component\HttpFoundation\Response
+    => Thallo\Core\Tests\Support\TestApplication::instance()->handle($request);
+$surfaces = $container->get(Thallo\Contracts\Layouts\LayoutSurfaceRegistry::class);
+$library = $container->get(PatternLibrary::class);
+$pictured = [];
+$db->getTransactionManager()->begin();
+try {
+    foreach (layout_thumbnail_targets($container) as $surface => $target) {
+        foreach ($library->forLayout($surface, $target) as $pattern) {
+            if ($pattern['saved']) {
+                continue;
+            }
+            if ($pattern['kind'] === 'page') {
+                $blocks = PatternLibrary::withIds($pattern['blocks']);
+                $settings = (array) $pattern['settings'];
+                $selector = $frames[$surface];
+            } else {
+                // A section on the surface's starter, which holds the required block no section does.
+                $section = $pattern['blocks'][0];
+                $blocks = [...PatternLibrary::withIds($surfaces->get($surface)->starter($target)), ['id' => 'thumbsection1'] + $section];
+                $settings = [];
+                $selector = '[data-thallo-block="thumbsection1"]';
+            }
+            $page = $work . '/' . $pattern['slug'] . '.html';
+            file_put_contents($page, layout_stage_html($container, $handle, $surface, $target, $blocks, $settings));
+            $pictured[] = $pattern['slug'];
+            $jobs[] = [
+                'page' => $page,
+                'out' => $out . '/' . $pattern['slug'] . '.jpg',
+                'width' => 1200,
+                'scale' => 0.5,
+                'quality' => 80,
+                'selector' => $selector,
+                'maxHeight' => $pattern['kind'] === 'page' ? 2400 : 1600,
+            ];
+        }
+    }
+} finally {
+    $db->getTransactionManager()->rollback();
+}
+$missing = array_diff($library->layoutSlugs(), $pictured);
+if ($missing !== []) {
+    fwrite(STDERR, 'No picture for the layout patterns: ' . implode(', ', $missing) . "\n");
+    exit(1);
+}
+
 $jobsFile = $work . '/jobs.json';
 file_put_contents($jobsFile, json_encode($jobs));
 passthru('node ' . escapeshellarg($root . '/tools/style-proofs/capture-page.js') . ' ' . escapeshellarg($jobsFile), $status);
