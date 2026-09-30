@@ -32,7 +32,10 @@
     1. **No slug and no entry context** (a block rendered outside an entry, such as a header or footer): the server renders **no shell**, no script tag and no noscript text. An ordinary page always has an entry, so this case is narrow by design.
     2. **Entry context without a linked product** (an ordinary unlinked page, blank slug): the shell renders. The endpoint answers `"unconfigured": true`, and `shop.js` sets `el.hidden = true` on the block root, for both blocks.
     3. **An explicit slug whose product is gone or inactive**: Featured product hides (`product` null), and Add to cart keeps "This product is not available.", which is honest.
-  - **Without JavaScript** (documented in the block reference): case 1 shows nothing. Case 2 shows the shell's existing noscript line, "Enable JavaScript to view the featured product." or "…to add this product to your cart.". Case 3 with a slug shows the existing noscript link to the product page. No dead link and no "Loading…" appears without JavaScript, because the "Loading…" paragraph is only revealed by script.
+  - **Without JavaScript** (documented in the block reference):
+    - Today the "Loading…" paragraph is visible from the start (no `hidden`), so it would sit beside the noscript message. It now ships `hidden`, and `shop.js` reveals it when hydration begins.
+    - `shop_product_url()` builds a URL without checking that the product exists, so a slug for a deleted product would give a dead link. The noscript fallback therefore links to the **shop** instead (`shop_index_url()`, always a live page): "Browse the shop" for Featured product, "Browse the shop to add this product to your cart" for Add to cart. No product lookup is needed.
+    - Result: case 1 shows nothing; cases 2 and 3 show only that line and link. There is no "Loading…" and no dead link.
   - Cost if wrong: two templates, two endpoints, two JS branches.
 - **Thumbnails of commerce patterns** show fixture products, never shipped values, and a picture is taken only once every commerce block in it is ready.
   - **Data.** Inside the build's rolled-back transaction (which already holds the header menu), `ShopPageSeed` seeds its products: active variants and committed cover images (`tests/fixtures/commerce/product-cover.png`, `product-alt.png`) stored as blobs. The seed's map from image record to committed file resolves every cover URL to its committed file.
@@ -346,11 +349,14 @@ interface StorefrontBlockPreview
     {% set label = shop_block_product_label(slug, entry_uuid) %}
     <div class="thallo-block thallo-block-featured-product thallo-field-empty{{ style_classes('root') }}"{{ style_attrs('root') }}>Featured product — {{ label ?: 'choose a product' }}</div>
   {% elseif slug != '' or entry_uuid != '' %}
-    {# …today's shell, unchanged: its root keeps style_classes('root') and style_attrs('root'),
-       its noscript line, its stylesheet link and its script tag… #}
+    {# …today's shell: its root keeps style_classes('root') and style_attrs('root'), its stylesheet
+       link and its script tag, with two changes. The "Loading…" paragraph gains `hidden` (shop.js
+       reveals it when hydration begins). The noscript fallback links to the shop, a page that
+       always exists, instead of a product URL built without checking the product: #}
+    <noscript><p class="thallo-block-featured-product__noscript"><a href="{{ shop_index_url() }}">Browse the shop</a></p></noscript>
   {% endif %}
   ```
-  `add-to-cart.twig` is the same, reading "Add to cart — …". Keep every existing comment.
+  `add-to-cart.twig` is the same, reading "Add to cart — …", with its status paragraph `hidden` initially and the noscript line "Browse the shop to add this product to your cart". Keep every existing comment, amending the Fix A comments that promised a product link.
 - [ ] **Step 6: The endpoints.** In `featuredProduct()` and `addToCart()`, when `$slug === null` (neither an explicit slug nor an active linked product), return `['product' => null, 'unconfigured' => true]` and `AddToCartViewModel::unavailable()->toArray() + ['unconfigured' => true]` respectively.
 - [ ] **Step 7: Run the PHP tests.** Expected: PASS.
 - [ ] **Step 8: Write the failing browser proof** `shop-block-selection.spec.js`. The fixture page holds a `featured-product` shell and an `add-to-cart` shell (the templates' shell markup with `data-shop-block`, `data-entry-uuid="e1"`) and loads `/packages/thallo-commerce/assets/shop.js`.
@@ -360,11 +366,20 @@ interface StorefrontBlockPreview
   - `a gone product's add to cart says so`: route to `{mode: 'unavailable'}`. Expect "This product is not available." visible.
   Run `cd tools/runtime-browser && npx playwright test tests/shop-block-selection.spec.js`. Expected: FAIL on the first three.
 - [ ] **Step 9: `shop.js`.**
+  - In `hydrateFeaturedProduct` and `hydrateAddToCart`, un-hide the loading paragraph (`[data-shop-featured-empty]` and `[data-shop-add-to-cart-status]`) when hydration begins, before the fetch.
   - In `renderFeaturedProduct`, when `!product`, set `el.hidden = true` and return, without un-hiding the "Loading…" paragraph.
   - In the add-to-cart render, when `data.unconfigured === true`, set `el.hidden = true` and return, before the unavailable branch.
   - Comment both: an empty block is not shown to shoppers; the editor sees a named placeholder on the stage.
 - [ ] **Step 10: Run the browser proof and the PHP tests.** Expected: PASS.
-- [ ] **Step 11: Commit** with this changelog bullet under `### Fixed`: "**A Featured product or Add to cart block with no product no longer shows "Loading…" forever.** On the stage it says to choose a product, or names the product it shows, keeping its styling; on the site it shows nothing until a product is chosen, and an Add to cart whose product is gone says the product is not available." Message: `fix(commerce): Featured product and Add to cart are honest without a product`.
+- [ ] **Step 10b: A no-JavaScript proof from real markup.**
+  - Add `scripts/build-shop-block-proof-fixtures` (gitignored output under `tools/runtime-browser/fixtures/shop-block-selection/`, modelled on `scripts/build-shop-layout-proof-fixtures`). With `ShopPageSeed`, it renders through the real public render pipeline:
+    - an ordinary unlinked page holding a blank Featured product and a blank Add to cart;
+    - a page holding both with `product_slug` set to a product the script then deletes.
+    It inlines the theme stylesheets and drops nothing else.
+  - Add to `shop-block-selection.spec.js` a `test.describe` with `test.use({ javaScriptEnabled: false })`. For both pages, "Loading…" is not visible, the noscript line is visible, and its link's `href` equals the shop index URL. No `a[href]` inside either block points at a product URL.
+  - First run it against the unchanged templates (stash Step 5's edits, rebuild the fixtures) and watch it fail on "Loading…". Then restore Step 5 and watch it pass.
+  - In the PHP tests, `testAConfiguredBlockRendersItsShell` also asserts the loading paragraph carries `hidden` and the noscript link is the shop index URL.
+- [ ] **Step 11: Commit** with this changelog bullet under `### Fixed`: "**A Featured product or Add to cart block with no product no longer shows "Loading…" forever.** On the stage it says to choose a product, or names the product it shows, keeping its styling; on the site it shows nothing until a product is chosen, and an Add to cart whose product is gone says the product is not available. Without JavaScript both show a link to the shop instead of a product link that might be gone." Message: `fix(commerce): Featured product and Add to cart are honest without a product`.
 
 ## Task P5: a thumbnail pipeline for shop patterns, proven on its own
 
