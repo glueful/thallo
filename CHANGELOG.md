@@ -10,7 +10,8 @@ as the next release, never a mutated tag.
 ### Fixed
 - **Layout templates and sections have real pictures.** Their cards showed a near-empty page,
   zoomed and cropped until little was left. The pictures now show each layout filled with sample
-  posts, covers and a written body, and with the sample shop's named, pictured products. A card is
+  posts, covers and a written body, a listing with its page navigation, a product with its story,
+  and the sample shop's named, pictured products. A card is
   tall only when its picture is tall. The shop page templates' pictures show named, pictured products
   too.
 

@@ -139,6 +139,8 @@ final class LayoutThumbnailSourceTest extends AppTestCase
         self::assertStringContainsString('shop-product shop-product--layout', $html);
         self::assertStringNotContainsString('data-thallo-placeholder', $html);
         self::assertStringNotContainsString('this product has none', $html, 'the fixture product is described');
+        self::assertStringNotContainsString('no linked story', $html, 'the fixture product has its story');
+        self::assertStringContainsString('Made by hand', $html);
         $raw = $this->picture($fixtures, 'product', $blocks, $top['settings'], true);
         self::assertSame(self::main($raw), self::main($html));
 
@@ -147,6 +149,18 @@ final class LayoutThumbnailSourceTest extends AppTestCase
         $shop = $this->picture($fixtures, 'shop_index', $bannerBlocks, $banner['settings']);
         self::assertStringContainsString('shop-index shop-index--layout', $shop);
         self::assertStringContainsString('Tall mug', $shop, 'the fixture shop\'s products');
+    }
+
+    public function testAListingPictureShowsRealPageNavigation(): void
+    {
+        $fixtures = layout_thumbnail_fixtures($this->container());
+        $grid = $this->pattern('listing', $fixtures['targets']['listing'], 'listing-card-grid');
+        $html = $this->picture($fixtures, 'listing', PatternLibrary::withIds($grid['blocks']), []);
+        self::assertStringNotContainsString('Page navigation — one page', $html, 'more than one page of posts');
+        // Real navigation: an Older link and the page count (how many pages depends on the listing's
+        // page size — phpunit.xml sets 2; the build's default is 10, twelve posts making two pages).
+        self::assertStringContainsString('rel="next"', $html);
+        self::assertMatchesRegularExpression('~Page 1 of [2-9]~', $html);
     }
 
     public function testEveryPictureShowsItsOwnFixturesWhateverElseTheDatabaseHolds(): void

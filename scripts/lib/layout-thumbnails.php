@@ -227,7 +227,14 @@ function layout_thumbnail_fixtures(ContainerInterface $container): array
         'slug' => 'studio-notes',
         'description' => '<p>What we are making, what went wrong, and what we learned from it.</p>',
     ], '2026-07-01 09:00:00');
+    // Twelve: more than a listing page holds (render.listing_per_page, 10), so page navigation shows.
     $posts = [
+        ['kiln-log', 'Keeping a kiln log', 'Every firing written down: the cones, the weather and what cracked.'],
+        ['wedging', 'Wedging, twice', 'Ten minutes on the bench saves an hour of air bubbles later.'],
+        ['handles', 'Pulling handles', 'Wet hands, a loose grip and a handle that will not crack as it dries.'],
+        ['celadon', 'A week of celadon', 'Seven tiles, three thicknesses and the green we were after.'],
+        ['reclaim', 'Reclaiming clay', 'Nothing is wasted: the slop bucket becomes next month\'s mugs.'],
+        ['shelf-life', 'Kiln shelves', 'Why we wash our shelves and what happens when we forget.'],
         ['open-studio', 'Open studio this autumn', 'Three weekends, the kiln room open, and tea on the wheel bench.'],
         ['trimming-feet', 'Trimming feet on a wet day', 'Why leather-hard is a moving target when the air is damp.'],
         ['fire-slowly', 'Why we fire slowly', 'A slow climb through the first six hundred degrees saves more pots.'],
@@ -248,7 +255,7 @@ function layout_thumbnail_fixtures(ContainerInterface $container): array
                     . 'next one usually asks the same.</p><p>The glaze goes on thin, the kiln climbs slowly, and '
                     . 'the door stays shut until the pots are cool enough to hold.</p>'], 'settings' => []],
             ],
-        ], sprintf('2026-08-%02d 09:00:00', 1 + $i));
+        ], sprintf('2026-07-%02d 09:00:00', 10 + $i));
         $container->get(\Thallo\Core\Content\Repositories\PublishedReferenceRepository::class)
             ->projectFromPublished($newest, $postType, 'en');
     }
@@ -286,6 +293,14 @@ function layout_thumbnail_fixtures(ContainerInterface $container): array
                     $out['samples'][$surface] = (string) ($kind->samples('@site', null)[0]['id'] ?? '');
                 }
             }
+            // The product page's sample tells its story, as a product with a linked entry does.
+            if (($out['samples']['product'] ?? '') !== '') {
+                $container->get(\Thallo\Commerce\Links\ProductLinkService::class)->link(
+                    $context,
+                    $out['samples']['product'],
+                    layout_thumbnail_story($container, $seed),
+                );
+            }
         } finally {
             $shop->restoreTenant($outside);
         }
@@ -298,6 +313,29 @@ function layout_thumbnail_fixtures(ContainerInterface $container): array
         }
     }
     return $out;
+}
+
+/** A published story for the sample product: a heading and two paragraphs, in a type of its own. */
+function layout_thumbnail_story(ContainerInterface $container, \Thallo\Core\Tests\Support\ListingPageSeed $seed): string
+{
+    $types = $container->get(ContentTypeRepository::class);
+    $type = (string) $types->create([
+        'slug' => 'thumb_story', 'name' => 'Stories', 'public_delivery' => true, 'schema' => [
+            ['name' => 'title', 'type' => 'string', 'required' => true],
+            ['name' => 'body', 'type' => 'blocks'],
+        ],
+    ]);
+    return $seed->publish($type, 'made-by-hand', [
+        'title' => 'Made by hand',
+        'body' => [
+            ['id' => 'thumbstory01', 'type' => 'heading', 'data' => ['text' => 'Made by hand', 'level' => 'h2'],
+                'settings' => []],
+            ['id' => 'thumbstory02', 'type' => 'rich_text', 'data' => ['body' => '<p>Each piece starts as a pound '
+                . 'of stoneware on the wheel. We trim it leather-hard, fire it slowly, and dip it in a glaze we mix '
+                . 'ourselves.</p><p>No two come out of the kiln quite alike: the glaze pools where it wants to, and '
+                . 'we like it that way.</p>'], 'settings' => []],
+        ],
+    ], '2026-07-01 09:00:00');
 }
 
 /** The fixture shop's second picture, for the products the seed leaves without one. */
