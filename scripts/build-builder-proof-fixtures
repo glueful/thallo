@@ -522,6 +522,64 @@ try {
             $documents[$scenario['name']] = $layout;
         }
 
+        // The layout editor's library for this post type (sections and templates design §4), and two
+        // accepted states it reaches: the Previous / next section inserted after the baseline, and the
+        // Magazine template in its place — built from what the library serves, with the ids the proof
+        // queues in the order the admin mints them (the block first, then each nested list), so the
+        // stage for each is the real render of exactly that document (layout-patterns.spec.ts).
+        $library = (string) $container->get(\Thallo\Core\Content\Http\Controllers\PatternController::class)
+            ->index(Request::create('/x', 'GET', ['surface' => 'entry', 'target' => 'post']))->getContent();
+        file_put_contents($out . '/api/patterns-layout-entry-post.json', $library);
+        $served = array_column(json_decode($library, true, 512, JSON_THROW_ON_ERROR)['data']['patterns'], null, 'slug');
+        $mint = static function (array $blocks, string $prefix, int &$n, array &$ids) use (&$mint): array {
+            $out = [];
+            foreach ($blocks as $block) {
+                $id = $prefix . str_pad((string) ++$n, 12 - strlen($prefix), '0', STR_PAD_LEFT);
+                $ids[] = $id;
+                $data = [];
+                foreach ($block['data'] as $key => $value) {
+                    $data[$key] = is_array($value) && array_is_list($value) && $value !== [] && isset($value[0]['type'])
+                        ? $mint($value, $prefix, $n, $ids)
+                        : $value;
+                }
+                $out[] = ['id' => $id, 'type' => $block['type'], 'data' => $data, 'settings' => $block['settings']];
+            }
+            return $out;
+        };
+        $queued = [];
+        foreach (['entry-neighbours' => 'neighbours', 'entry-magazine' => 'magazine'] as $slug => $prefix) {
+            if (!isset($served[$slug])) {
+                fwrite(STDERR, "the layout library for posts does not serve '{$slug}'\n");
+                exit(1);
+            }
+            $n = 0;
+            $ids = [];
+            $minted = $mint($served[$slug]['blocks'], $prefix, $n, $ids);
+            $queued[$slug] = $ids;
+            $generated = $slug === 'entry-neighbours'
+                ? ['name' => 'with-neighbours', 'layout' => [
+                    'blocks' => [...$documents['baseline']['blocks'], ...$minted],
+                    'settings' => [],
+                ]]
+                : ['name' => 'magazine', 'layout' => [
+                    'blocks' => $minted,
+                    'settings' => (array) $served[$slug]['settings'],
+                ]];
+            try {
+                $clean = $validator->validate('entry', 'post', $generated['layout']['blocks'], $generated['layout']['settings']);
+            } catch (Thallo\Core\Content\Validation\ValidationException $e) {
+                fwrite(STDERR, "generated layout '{$generated['name']}' is invalid: " . json_encode($e->errors()) . "\n");
+                exit(1);
+            }
+            if (json_encode($canonical($clean)) !== json_encode($canonical($generated['layout']))) {
+                fwrite(STDERR, "generated layout '{$generated['name']}' does not survive validation unchanged\n");
+                exit(1);
+            }
+            $documents[$generated['name']] = $generated['layout'];
+            $layoutScenarios[] = $generated;
+        }
+        file_put_contents($out . '/api/layout-template-ids.json', json_encode($queued, JSON_PRETTY_PRINT));
+
         // The baseline is the saved layout, at version 1: the editor opens on it.
         $repo = $container->get(Thallo\Core\Content\Layouts\LayoutRepository::class);
         $container->get(Thallo\Core\Content\Layouts\LayoutWriteLock::class)->within(

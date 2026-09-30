@@ -5,6 +5,7 @@ import {
   isPatternKey,
   patternKey,
   patternSlug,
+  previewIds,
   type Pattern,
 } from './patterns'
 import { qk } from './keys'
@@ -93,5 +94,15 @@ describe('the layout place (sections and templates design §3)', () => {
   it('a layout’s library is keyed by its surface and target, under the library’s key', () => {
     expect(qk.layoutPatterns('entry', 'post')).toEqual(['patterns', 'layout', 'entry', 'post'])
     expect(qk.layoutPatterns('entry', 'post').slice(0, 1)).toEqual([...qk.patterns()])
+  })
+})
+
+describe('judging where a pattern fits (sections and templates design §4)', () => {
+  it('previews with throwaway ids, never the editor’s own', () => {
+    const blocks = instantiate(SECTION, previewIds())
+    const ids = JSON.stringify(blocks).match(/"id":"[^"]+"/g) ?? []
+    expect(ids.length).toBeGreaterThan(1)
+    for (const id of ids) expect(id).toMatch(/"id":"preview\d{5}"/)
+    expect(new Set(ids).size).toBe(ids.length)
   })
 })

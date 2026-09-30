@@ -35,7 +35,7 @@ import {
   type Legality,
   type LegalityContext,
 } from '@/editor/structure/legality'
-import { instantiate, isPatternKey, patternSlug, usePatterns } from '@/queries/patterns'
+import { instantiate, isPatternKey, patternSlug, previewIds, usePatterns } from '@/queries/patterns'
 import {
   EMPTY_SELECTION,
   extend,
@@ -971,13 +971,13 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
       return tilePreflight(slug, at.position, currentDoc(), legalityContext())
     // A section is judged as the tree it is — its depth counts from where it would land.
     const pattern = patternBySlug(patternSlug(slug))
-    const block = pattern ? instantiate(pattern)[0] : undefined
+    const block = pattern ? instantiate(pattern, previewIds())[0] : undefined
     return block ? checkPattern(at.position, block) : NOWHERE
   }
-  /** A page's sections, one after another from the target. */
-  function pageInserts(slug: string, position: Position) {
+  /** A page's sections, one after another from the target (`mint`: throwaway ids, when only judging). */
+  function pageInserts(slug: string, position: Position, mint?: () => string) {
     const pattern = patternBySlug(slug)
-    return (pattern ? instantiate(pattern) : []).map((block, k) => ({
+    return (pattern ? instantiate(pattern, mint) : []).map((block, k) => ({
       position: { ...position, index: position.index + k },
       block,
     }))
@@ -985,15 +985,15 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   function pageClickable(slug: string): Legality {
     const at = resolvedTarget.value
     if (!at) return NOWHERE
-    const inserts = pageInserts(slug, at.position)
+    const inserts = pageInserts(slug, at.position, previewIds())
     return inserts.length ? checkInsertSequence(currentDoc(), inserts, legalityContext()) : NOWHERE
   }
   /** A template's sections as the whole of one root list, judged against that list emptied. */
-  function replaceInserts(slug: string, field: string) {
-    return pageInserts(slug, { parent: null, slot: field, index: 0 })
+  function replaceInserts(slug: string, field: string, mint?: () => string) {
+    return pageInserts(slug, { parent: null, slot: field, index: 0 }, mint)
   }
   function replaceClickable(slug: string, field: string): Legality {
-    const inserts = replaceInserts(slug, field)
+    const inserts = replaceInserts(slug, field, previewIds())
     if (!inserts.length) return NOWHERE
     const doc = currentDoc()
     return checkInsertSequence(

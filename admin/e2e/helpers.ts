@@ -9,7 +9,7 @@ import type { Page, Route } from '@playwright/test'
 const ROOT = resolve(__dirname, '../..')
 const FIXTURES = resolve(__dirname, 'fixtures')
 
-function fixture(name: string): string {
+export function fixture(name: string): string {
   return readFileSync(resolve(FIXTURES, name), 'utf8')
 }
 function repoFile(rel: string): string {
@@ -129,11 +129,15 @@ export async function routeWorld(page: Page, world: World = {}): Promise<Recorde
       return json(route, fixture('api/content-types.json'))
     if (method === 'GET' && path === '/block-types')
       return json(route, fixture('api/block-types.json'))
-    if (method === 'GET' && path === '/patterns')
+    if (method === 'GET' && path === '/patterns') {
+      // A layout's library (sections and templates design §4): the server's answer for the post layout.
+      if (url.searchParams.get('surface') === 'entry' && url.searchParams.get('target') === 'post')
+        return json(route, fixture('api/patterns-layout-entry-post.json'))
       return json(
         route,
         fixture(world.commerceOff ? 'api/patterns-commerce-off.json' : 'api/patterns.json'),
       )
+    }
     if (method === 'GET' && path === '/render/style-schema')
       return json(route, fixture('api/style-schema.json'))
     if (method === 'GET' && path === '/style-classes') {

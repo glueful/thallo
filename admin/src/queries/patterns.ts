@@ -85,8 +85,17 @@ export function useLayoutPatterns(
 }
 
 /** The pattern's blocks as the editor's own: a fresh id on each, and on every block inside. */
-export function instantiate(pattern: Pattern): BlockInstance[] {
-  return pattern.blocks.map((block) => allocateIds(block))
+export function instantiate(pattern: Pattern, mint?: () => string): BlockInstance[] {
+  return pattern.blocks.map((block) => allocateIds(block, mint))
+}
+
+/**
+ * Throwaway ids for judging where a pattern would fit — never the editor's own, so judging every
+ * card the palette draws spends none of the ids the insert itself will mint.
+ */
+export function previewIds(): () => string {
+  let n = 0
+  return () => 'preview' + String(++n).padStart(5, '0')
 }
 
 /**
