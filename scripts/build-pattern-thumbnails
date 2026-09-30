@@ -171,9 +171,16 @@ $pictured = [];
 $db->getTransactionManager()->begin();
 try {
     $fixtures = layout_thumbnail_fixtures($container);
+    // Each surface on its fixture target, then the single entry on a page, whose own layouts
+    // (page header, full width) an article type is never served.
+    $passes = [];
     foreach ($fixtures['targets'] as $surface => $target) {
+        $passes[] = [$surface, $target, $fixtures['samples'][$surface]];
+    }
+    $passes[] = ['entry', $fixtures['page']['target'], $fixtures['page']['sample']];
+    foreach ($passes as [$surface, $target, $sample]) {
         foreach ($library->forLayout($surface, $target) as $pattern) {
-            if ($pattern['saved']) {
+            if ($pattern['saved'] || in_array($pattern['slug'], $pictured, true)) {
                 continue;
             }
             if ($pattern['kind'] === 'page') {
@@ -195,7 +202,7 @@ try {
                 $target,
                 $blocks,
                 $settings,
-                $fixtures['samples'][$surface],
+                $sample,
                 $fixtures['images'],
             )));
             $pictured[] = $pattern['slug'];

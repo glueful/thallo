@@ -175,14 +175,20 @@ layouts for that kind of page. See [start from a template](20-layouts.md#start-f
 | Layout | Templates | Sections |
 |---|---|---|
 | Single post | Classic article · Magazine (a full-width cover under the title) · Minimal | Article header · Cover band · Related posts · Previous / next |
+| Single page or doc | Standard page · Page header band (the title and a lead line in a tinted band) · Full width (the body edge to edge, no title block) | Page header band · Cover band · Previous / next |
 | Listing | Card grid · Horizontal list · Compact | Listing header · Page navigation bar |
 | Archive | Term header with grid · Horizontal list · Compact | Term header |
 | Product page | Gallery left · Gallery on top · Story-led | Product hero · Details band · Story band |
 | Shop home | Adaptive grid · Banner and grid · Category-led | Shop banner · Category chips band |
 | Shop categories | Adaptive grid · Banner and grid · Chips on top | Category banner |
 
-The product and shop layouts need [Commerce](18-commerce.md) on. **Classic article**, **Horizontal
-list**, **Gallery left** and **Adaptive grid** are the layouts those pages start with.
+An entry is laid out as a post when its type reads like articles: it has an excerpt or summary
+field, or it is filed under a category or tag. Any other type, such as Pages or Docs, gets the page
+set instead.
+
+The product and shop layouts need [Commerce](18-commerce.md) on. **Classic article**, **Standard
+page**, **Horizontal list**, **Gallery left** and **Adaptive grid** are the layouts those pages
+start with.
 
 Each section and template is built for the layout's own content type. It shows that type's own body
 field, whatever it is called, and it is left out where the type cannot show it. For example, the

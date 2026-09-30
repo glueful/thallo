@@ -142,12 +142,36 @@ describe('saved sections in the Blocks tab', () => {
       ],
     })
     await w.find('[data-test="palette-view-pages"]').trigger('click')
-    const frame = (slug: string) => w.find(`[data-test="pattern-card-${slug}"] > span`)
-    expect(frame('page-landing').classes()).toContain('aspect-[3/4]')
-    expect(frame('hero-centered').classes()).not.toContain('aspect-[3/4]')
+    expect(w.find('[data-test="pattern-card-page-landing"] img').classes()).toContain(
+      'object-cover',
+    )
     expect(w.find('[data-test="pattern-card-hero-centered"] img').classes()).not.toContain(
       'object-cover',
     )
+  })
+
+  it('templates sit two to a row, a short picture at the top of a card as tall as its neighbour', async () => {
+    const w = palette({
+      patterns: [
+        pattern('page-landing', { kind: 'page', scope: 'page' }),
+        pattern('hero-centered', { kind: 'page', scope: 'layout', surface: 'entry' }),
+      ],
+    })
+    await w.find('[data-test="palette-view-pages"]').trigger('click')
+    const card = (slug: string) => w.find(`[data-test="pattern-card-${slug}"]`)
+    expect(card('hero-centered').element.closest('.grid')!.classList).toContain('grid-cols-2')
+    for (const slug of ['page-landing', 'hero-centered']) {
+      expect(card(slug).find(':scope > span').classes()).toContain('aspect-[3/4]')
+    }
+  })
+
+  it('header and footer templates keep a row each: their pictures are wide strips', async () => {
+    const w = palette({
+      patterns: [pattern('header-simple', { kind: 'page', scope: 'region' })],
+    })
+    await w.find('[data-test="palette-view-pages"]').trigger('click')
+    const card = w.find('[data-test="pattern-card-header-simple"]')
+    expect(card.element.closest('.grid')!.classList).toContain('grid-cols-1')
   })
 
   it('where no template can be inserted, there is no Templates view', () => {

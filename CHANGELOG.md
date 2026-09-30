@@ -7,6 +7,18 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **Pages and docs get layouts of their own.** A single page or doc now offers Standard page,
+  Page header band (the title and a lead line in a tinted band) and Full width (the body edge to
+  edge), plus a Page header band section. The article layouts and sections (Classic article,
+  Magazine, Minimal, Article header, Related posts) are offered only to types that read like
+  articles: they have an excerpt or summary, or are filed under a category or tag.
+
+### Changed
+- **Templates sit two to a row.** In the Blocks tab's Templates view, page and layout templates
+  are shown as cards two to a row, as on the Design page. A short layout's picture is shown whole
+  at the top of its card. Header and footer templates keep a row each.
+
 ### Fixed
 - **Pattern pictures are never stale after an update.** Each card's picture is addressed by its
   content, so a browser that cached an earlier picture loads the new one. Before, an updated admin

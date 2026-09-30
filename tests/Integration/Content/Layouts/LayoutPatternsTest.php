@@ -93,10 +93,11 @@ final class LayoutPatternsTest extends AppTestCase
         self::assertNotNull(($cover->build)($this->layoutTarget('entry', 'lp_body')));
         self::assertNull(($cover->build)($this->layoutTarget('entry', 'lp_rich')), 'no cover field, no cover band');
 
-        $classic = $this->template('entry-classic');
-        $content = self::findBlock(($classic->build)($this->layoutTarget('entry', 'lp_content')), 'entry_content');
+        // lp_content and lp_rich are pages (nothing files or summarises them): the standard page.
+        $standard = $this->template('entry-page-standard');
+        $content = self::findBlock(($standard->build)($this->layoutTarget('entry', 'lp_content')), 'entry_content');
         self::assertSame('content', $content['data']['field'] ?? null, 'the primary body is the type’s own');
-        $rich = ($classic->build)($this->layoutTarget('entry', 'lp_rich'));
+        $rich = ($standard->build)($this->layoutTarget('entry', 'lp_rich'));
         self::assertNull(self::findBlock($rich, 'entry_content'));
         self::assertSame('text', self::findBlock($rich, 'entry_field')['data']['field'] ?? null);
 
@@ -105,15 +106,55 @@ final class LayoutPatternsTest extends AppTestCase
         ), 'no title field, no article header');
     }
 
+    public function testAnArticleTypeGetsArticleLayoutsAndAPageTypeGetsPageLayouts(): void
+    {
+        $built = function (string $target): array {
+            $slugs = [];
+            foreach ([...LayoutPatterns::templates(), ...LayoutPatterns::sections()] as $pattern) {
+                $made = ($pattern->build)($this->layoutTarget('entry', $target));
+                if ($pattern->surface === 'entry' && $made !== null) {
+                    $slugs[] = $pattern->slug;
+                }
+            }
+            sort($slugs);
+            return $slugs;
+        };
+        // Posts (filed by categories, with an excerpt): articles, dated, with related posts.
+        self::assertSame(
+            ['entry-article-header', 'entry-classic', 'entry-cover-band', 'entry-magazine', 'entry-minimal',
+                'entry-neighbours', 'entry-related'],
+            $built('lp_body'),
+        );
+        // A page (a title and a body, nothing that files or summarises it): pages — no date, no related.
+        self::assertSame(
+            [
+                'entry-neighbours', 'entry-page-full', 'entry-page-header', 'entry-page-header-band',
+                'entry-page-standard',
+            ],
+            $built('lp_nocover'),
+        );
+        $standard = ($this->template('entry-page-standard')->build)($this->layoutTarget('entry', 'lp_nocover'));
+        $types = array_column($standard, 'type');
+        self::assertSame(['entry_title', 'entry_content'], $types, 'the page starter: its title, then its body');
+        self::assertSame(['width' => 'full'], $this->template('entry-page-full')->settings);
+        self::assertNull(
+            self::findBlock(
+                ($this->template('entry-page-full')->build)($this->layoutTarget('entry', 'lp_nocover')),
+                'entry_title',
+            ),
+            'full width: the body’s own sections carry the heading',
+        );
+    }
+
     public function testTheClassicTemplatesAreTodaysStarters(): void
     {
         $surfaces = $this->container()->get(LayoutSurfaceRegistry::class);
         foreach ($this->shapeTargets('entry') as $target) {
-            self::assertSame(
-                $surfaces->get('entry')->starter($target),
-                ($this->template('entry-classic')->build)($this->layoutTarget('entry', $target)),
-                $target,
-            );
+            // Today's starter is the article's classic layout, or — for a page — the standard page.
+            $classic = ($this->template('entry-classic')->build)($this->layoutTarget('entry', $target));
+            $standard = ($this->template('entry-page-standard')->build)($this->layoutTarget('entry', $target));
+            self::assertSame($surfaces->get('entry')->starter($target), $classic ?? $standard, $target);
+            self::assertTrue(($classic === null) !== ($standard === null), "{$target}: one or the other");
             self::assertSame(
                 $surfaces->get('listing')->starter($target),
                 ($this->template('listing-horizontal')->build)($this->layoutTarget('listing', $target)),
@@ -134,7 +175,7 @@ final class LayoutPatternsTest extends AppTestCase
             $expected[$pattern->slug] = $pattern->surface;
         }
         self::assertSame($expected, LayoutPatterns::slugs());
-        self::assertCount(16, $expected);
+        self::assertCount(20, $expected);
         foreach ($expected as $slug => $surface) {
             self::assertStringStartsWith($surface . '-', $slug);
         }
