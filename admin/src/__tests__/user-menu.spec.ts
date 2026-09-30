@@ -9,9 +9,16 @@ import type { Me } from '@/queries/account'
 
 const me = ref<Me | undefined>(undefined)
 vi.mock('@/queries/account', () => ({ useMe: () => ({ data: me }) }))
-vi.mock('@/composables/useUpdateNotice', () => ({
-  useUpdateNotice: () => ({ status: ref(null), visible: ref(false) }),
-  versionLabel: () => '',
+vi.mock('@/queries/updates', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/queries/updates')>()),
+  useUpdateStatus: () => ({
+    data: ref({
+      current: '1.0.0-beta.74',
+      latest: '1.0.0-beta.75',
+      available: true,
+      development: false,
+    }),
+  }),
 }))
 vi.mock('vue-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-router')>()),
@@ -38,6 +45,14 @@ describe('the user menu', () => {
     ).flat()
     expect(items.find((i) => i.label === 'Profile')?.to).toBe('/account/profile')
     expect(items.find((i) => i.label === 'Security')?.to).toBe('/account/security')
+  })
+
+  it('carries no version: that sits at the foot of the sidebar', () => {
+    const w = mount(UserMenu, { global: { stubs } })
+    const items = (
+      w.findComponent({ name: 'DropdownMenu' }).props('items') as { label?: string }[][]
+    ).flat()
+    expect(items.some((i) => i.label?.startsWith('Thallo'))).toBe(false)
   })
 
   it('the avatar is your photo once you have set one', async () => {

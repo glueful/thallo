@@ -7,6 +7,11 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- **The Thallo version sits at the foot of the sidebar.** It moved out of the account menu to a
+  line just above your account button, with an arrow linking to Home when a newer release is
+  published. A collapsed sidebar keeps just the arrow.
+
 ### Fixed
 - **The scheduler no longer fails every hour on a site without Commerce.** The cart cleanup job
   ran at 20 past each hour even where Commerce is installed but not enabled, and failed with
