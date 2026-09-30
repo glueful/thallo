@@ -59,98 +59,139 @@ final class LayoutThumbnailSourceTest extends AppTestCase
         self::assertSame(1, preg_match('~<body\b[^>]*>(.*)</body>~s', $html, $m), 'the stage renders a body');
         // Each session has its own token and epoch: the rest is the page.
         return (string) preg_replace(
-            ['~/_preview/[A-Za-z0-9._-]+~', '~data-thallo-epoch="[^"]*"~'],
-            ['/_preview/TOKEN', 'data-thallo-epoch="EPOCH"'],
+            // …and its pictures are inlined: where an image comes from is not what the stage shows.
+            ['~/_preview/[A-Za-z0-9._-]+~', '~data-thallo-epoch="[^"]*"~', '~\\ssrcset="[^"]*"~', '~\\bsrc="[^"]*"~'],
+            ['/_preview/TOKEN', 'data-thallo-epoch="EPOCH"', '', 'src="IMAGE"'],
             $m[0],
         );
     }
 
-    public function testAPictureIsTheStageTheEditorShows(): void
+    /**
+     * A layout's picture for one pattern, on its fixture sample.
+     *
+     * @param array<string,mixed> $fixtures {@see layout_thumbnail_fixtures()}
+     * @param list<array<string,mixed>> $blocks
+     * @param array<string,mixed> $settings
+     */
+    private function picture(
+        array $fixtures,
+        string $surface,
+        array $blocks,
+        array $settings,
+        bool $raw = false,
+    ): string {
+        return layout_thumbnail_in_place($fixtures, $surface, fn (): string => $raw
+            ? layout_stage_raw(
+                $this->container(),
+                $surface,
+                $fixtures['targets'][$surface],
+                $blocks,
+                $settings,
+                $fixtures['samples'][$surface],
+            )
+            : layout_stage_html(
+                $this->container(),
+                $this->handler(),
+                $surface,
+                $fixtures['targets'][$surface],
+                $blocks,
+                $settings,
+                $fixtures['samples'][$surface],
+                $fixtures['images'],
+            ));
+    }
+
+    public function testAPictureIsTheStageTheEditorShowsOnTheFixtureSample(): void
     {
-        $targets = layout_thumbnail_targets($this->container());
-        $magazine = $this->pattern('entry', $targets['entry'], 'entry-magazine');
+        $fixtures = layout_thumbnail_fixtures($this->container());
+        $magazine = $this->pattern('entry', $fixtures['targets']['entry'], 'entry-magazine');
         $blocks = PatternLibrary::withIds($magazine['blocks']);
-        $html = layout_stage_html(
-            $this->container(),
-            $this->handler(),
-            'entry',
-            $targets['entry'],
-            $blocks,
-            $magazine['settings'],
-        );
-        $raw = layout_stage_raw($this->container(), 'entry', $targets['entry'], $blocks, $magazine['settings']);
+        $html = $this->picture($fixtures, 'entry', $blocks, $magazine['settings']);
+        $raw = $this->picture($fixtures, 'entry', $blocks, $magazine['settings'], true);
         self::assertSame(self::main($raw), self::main($html), 'made self-contained, the stage is unchanged');
         self::assertStringContainsString('thallo-layout--entry', $html);
-        self::assertStringContainsString('data-thallo-placeholder', $html, 'the placeholder sample, named');
+        self::assertStringContainsString('A lidded jar, start to finish', $html, 'the fixture post');
+        self::assertStringContainsString('data:image/png;base64,', $html, 'its cover, inlined');
+        self::assertStringNotContainsString('/blobs/', $html, 'no image left that a file:// page cannot load');
+        self::assertStringNotContainsString('data-thallo-placeholder', $html, 'never the empty placeholder');
         self::assertStringNotContainsString('<script', $html);
     }
 
     public function testAFullWidthTemplateGetsTheFullWidthFrame(): void
     {
-        $targets = layout_thumbnail_targets($this->container());
-        $magazine = $this->pattern('entry', $targets['entry'], 'entry-magazine');
+        $fixtures = layout_thumbnail_fixtures($this->container());
+        $magazine = $this->pattern('entry', $fixtures['targets']['entry'], 'entry-magazine');
         self::assertSame(['width' => 'full'], $magazine['settings']);
         $blocks = PatternLibrary::withIds($magazine['blocks']);
-        $contained = layout_stage_raw($this->container(), 'entry', $targets['entry'], $blocks, []);
-        $full = layout_stage_raw($this->container(), 'entry', $targets['entry'], $blocks, $magazine['settings']);
-        self::assertNotSame(
-            self::main($contained),
-            self::main($full),
-            'the Frame setting reaches the page through the presentation path',
-        );
-        self::assertSame(
-            self::main($full),
-            self::main(layout_stage_raw($this->container(), 'entry', $targets['entry'], $blocks, ['width' => 'full'])),
-        );
+        $contained = $this->picture($fixtures, 'entry', $blocks, [], true);
+        $full = $this->picture($fixtures, 'entry', $blocks, $magazine['settings'], true);
+        self::assertNotSame(self::main($contained), self::main($full), 'the Frame setting reaches the page');
+        $again = $this->picture($fixtures, 'entry', $blocks, ['width' => 'full'], true);
+        self::assertSame(self::main($full), self::main($again));
     }
 
-    public function testACommerceTemplateGetsItsOwnFrame(): void
+    public function testACommerceTemplateGetsItsOwnFrameAndTheFixtureShop(): void
     {
-        $targets = layout_thumbnail_targets($this->container());
-        $top = $this->pattern('product', $targets['product'], 'product-gallery-top');
+        $fixtures = layout_thumbnail_fixtures($this->container());
+        $top = $this->pattern('product', '@site', 'product-gallery-top');
         $blocks = PatternLibrary::withIds($top['blocks']);
-        $html = layout_stage_html($this->container(), $this->handler(), 'product', '@site', $blocks, $top['settings']);
+        $html = $this->picture($fixtures, 'product', $blocks, $top['settings']);
         self::assertStringContainsString('shop-product shop-product--layout', $html);
-        $raw = layout_stage_raw($this->container(), 'product', '@site', $blocks, $top['settings']);
+        self::assertStringNotContainsString('data-thallo-placeholder', $html);
+        self::assertStringNotContainsString('this product has none', $html, 'the fixture product is described');
+        self::assertStringNotContainsString('no linked story', $html, 'the fixture product has its story');
+        self::assertStringContainsString('Made by hand', $html);
+        $raw = $this->picture($fixtures, 'product', $blocks, $top['settings'], true);
         self::assertSame(self::main($raw), self::main($html));
 
         $banner = $this->pattern('shop_index', '@site', 'shop-index-banner');
-        $shop = layout_stage_html(
-            $this->container(),
-            $this->handler(),
-            'shop_index',
-            '@site',
-            PatternLibrary::withIds($banner['blocks']),
-            $banner['settings'],
-        );
+        $bannerBlocks = PatternLibrary::withIds($banner['blocks']);
+        $shop = $this->picture($fixtures, 'shop_index', $bannerBlocks, $banner['settings']);
         self::assertStringContainsString('shop-index shop-index--layout', $shop);
+        self::assertStringContainsString('Tall mug', $shop, 'the fixture shop\'s products');
     }
 
-    public function testThumbnailTargetsShowThePlaceholderEvenWithPublishedContent(): void
+    public function testAListingPictureShowsRealPageNavigation(): void
     {
-        // A database with content every surface could sample: published posts, and products.
-        $listing = new ListingPageSeed($this->container(), $this->appContext());
-        $listing->seed();
-        (new ShopPageSeed($this->container(), $this->appContext()))->seed();
+        $fixtures = layout_thumbnail_fixtures($this->container());
+        $grid = $this->pattern('listing', $fixtures['targets']['listing'], 'listing-card-grid');
+        $html = $this->picture($fixtures, 'listing', PatternLibrary::withIds($grid['blocks']), []);
+        self::assertStringNotContainsString('Page navigation — one page', $html, 'more than one page of posts');
+        // Real navigation: an Older link and the page count (how many pages depends on the listing's
+        // page size — phpunit.xml sets 2; the build's default is 10, twelve posts making two pages).
+        self::assertStringContainsString('rel="next"', $html);
+        self::assertMatchesRegularExpression('~Page 1 of [2-9]~', $html);
+    }
 
-        $targets = layout_thumbnail_targets($this->container());
+    public function testEveryPictureShowsItsOwnFixturesWhateverElseTheDatabaseHolds(): void
+    {
+        // Other content every surface could sample: someone else's posts.
+        (new ListingPageSeed($this->container(), $this->appContext()))->seed();
+        $fixtures = layout_thumbnail_fixtures($this->container());
         $surfaces = $this->container()->get(LayoutSurfaceRegistry::class);
-        foreach ($targets as $surface => $target) {
-            self::assertSame([], $surfaces->get($surface)?->samples($target, null), "{$surface}: no sample to pick");
+        foreach ($fixtures['targets'] as $surface => $target) {
             $starter = PatternLibrary::withIds($surfaces->get($surface)->starter($target));
-            $html = layout_stage_html($this->container(), $this->handler(), $surface, $target, $starter, []);
-            self::assertStringContainsString('data-thallo-placeholder', $html, "{$surface}: the placeholder sample");
+            $html = $this->picture($fixtures, $surface, $starter, []);
+            self::assertStringNotContainsString('data-thallo-placeholder', $html, "{$surface}: a real sample");
+            self::assertStringNotContainsString('First firing', $html, "{$surface}: never another type's post");
         }
     }
 
-    public function testAStageThatWouldShowASampleIsRefused(): void
+    public function testAStageOnAnotherSampleIsRefused(): void
     {
-        $seeded = (new ListingPageSeed($this->container(), $this->appContext()))->seed();
-        self::assertNotSame([], $seeded);
+        $fixtures = layout_thumbnail_fixtures($this->container());
         $starter = PatternLibrary::withIds(
-            $this->container()->get(LayoutSurfaceRegistry::class)->get('entry')->starter('post'),
+            $this->container()->get(LayoutSurfaceRegistry::class)->get('entry')->starter($fixtures['targets']['entry']),
         );
-        $this->expectExceptionMessageMatches('~would replace the placeholder~');
-        layout_stage_html($this->container(), $this->handler(), 'entry', 'post', $starter, []);
+        $this->expectExceptionMessageMatches("~not the fixture 'nosuchsample'~");
+        layout_stage_html(
+            $this->container(),
+            $this->handler(),
+            'entry',
+            $fixtures['targets']['entry'],
+            $starter,
+            [],
+            'nosuchsample',
+        );
     }
 }

@@ -133,6 +133,23 @@ describe('saved sections in the Blocks tab', () => {
     )
   })
 
+  it('a template whose picture is wider than tall is shown whole, not zoomed to fill a tall card', async () => {
+    // hero-centered's picture is landscape; page-landing's is portrait (patternThumbSizes.json).
+    const w = palette({
+      patterns: [
+        pattern('page-landing', { kind: 'page', scope: 'page' }),
+        pattern('hero-centered', { kind: 'page', scope: 'layout', surface: 'entry' }),
+      ],
+    })
+    await w.find('[data-test="palette-view-pages"]').trigger('click')
+    const frame = (slug: string) => w.find(`[data-test="pattern-card-${slug}"] > span`)
+    expect(frame('page-landing').classes()).toContain('aspect-[3/4]')
+    expect(frame('hero-centered').classes()).not.toContain('aspect-[3/4]')
+    expect(w.find('[data-test="pattern-card-hero-centered"] img').classes()).not.toContain(
+      'object-cover',
+    )
+  })
+
   it('where no template can be inserted, there is no Templates view', () => {
     const w = palette({ pageClickable: undefined })
     expect(w.find('[data-test="palette-view-sections"]').exists()).toBe(true)

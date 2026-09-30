@@ -10,6 +10,21 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.73] - 2026-09-30 — Developer Preview
+
+Real pictures for the layout editor's templates and sections, and for the shop page templates: each
+shows its layout filled with sample posts, covers and a written body, a listing with its page
+navigation, a product with its story, and a shop of named, pictured products. No migrations and
+nothing to provision.
+
+### Fixed
+- **Layout templates and sections have real pictures.** Their cards showed a near-empty page,
+  zoomed and cropped until little was left. The pictures now show each layout filled with sample
+  posts, covers and a written body, a listing with its page navigation, a product with its story,
+  and the sample shop's named, pictured products. A card is
+  tall only when its picture is tall. The shop page templates' pictures show named, pictured products
+  too.
+
 ## [1.0.0-beta.72] - 2026-09-30 — Developer Preview
 
 Sections and templates in the layout editor: a single post, a listing, an archive, and with Commerce

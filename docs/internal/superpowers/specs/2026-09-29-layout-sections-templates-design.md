@@ -219,9 +219,13 @@ notice on the stage ("Choose a product for this block") and renders **nothing br
 (no empty card, no dead button). Thumbnails render these sections against fixture products only;
 no fixture value ever ships in a pattern.
 
-**Thumbnails.** `scripts/build-pattern-thumbnails` renders layout patterns against their surface's
-placeholder sample (the page the stage shows when nothing is published), and commerce patterns with
-the sample product, so every shipped card has a picture. Saved sections keep the plain card.
+**Thumbnails.** `scripts/build-pattern-thumbnails` renders layout patterns on the layout stage
+against fixture content of their own — a post type with written, illustrated posts and a category,
+and the fixture shop with every product named and pictured — so a picture shows the layout as a real
+page shows it (amended after beta.72: the empty placeholder sample made near-blank pictures). The
+fixtures live in types of their own and a cleared shop, so nothing else in the database appears.
+A template's card is tall only when its picture is; a wider picture is shown whole. Saved sections
+keep the plain card.
 
 ## 7. Testing
 

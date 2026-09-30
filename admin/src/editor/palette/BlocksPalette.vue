@@ -110,7 +110,13 @@ function patternReason(p: Pattern): string | undefined {
 }
 /** A page template is shown as its first screens, in a tall card; a header or footer template is
  *  short and wide, so it is shown whole and full width, as a section is. */
-const isTall = (p: Pattern): boolean => p.kind === 'page' && p.scope !== 'region'
+// A page is shown as a tall card of its first screens — only when its picture is that tall: a
+// picture wider than it is tall (a short layout, a header) is shown whole, never zoomed and cropped.
+const isTall = (p: Pattern): boolean => {
+  if (p.kind !== 'page' || p.scope === 'region') return false
+  const size = patternThumbnailSize(p.slug)
+  return size === undefined || size[1] >= size[0]
+}
 // A thumbnail that does not load gives way to a plain card, never a broken image.
 const missingThumbs = reactive(new Set<string>())
 
