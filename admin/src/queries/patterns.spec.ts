@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { instantiate, isPatternKey, patternKey, patternSlug, type Pattern } from './patterns'
+import {
+  belongsIn,
+  instantiate,
+  isPatternKey,
+  patternKey,
+  patternSlug,
+  type Pattern,
+} from './patterns'
+import { qk } from './keys'
 
 // A pattern is a tree of ordinary blocks that arrives with no ids: the editor mints them, for the
 // block and everything inside it, every time — two inserts of one section are two sets of blocks.
@@ -54,5 +62,36 @@ describe('patterns', () => {
     expect(isPatternKey('pattern:faq')).toBe(true)
     expect(isPatternKey('faq')).toBe(false)
     expect(patternSlug('pattern:faq')).toBe('faq')
+  })
+})
+
+describe('the layout place (sections and templates design §3)', () => {
+  const layoutPattern = (surface: string, extra: Partial<Pattern> = {}): Pattern => ({
+    slug: `${surface}-part`,
+    kind: 'section',
+    label: 'Part',
+    category: 'Article',
+    description: '',
+    blocks: [],
+    scope: 'layout',
+    surface,
+    ...extra,
+  })
+
+  it('a layout pattern belongs in its own surface only', () => {
+    expect(belongsIn(layoutPattern('entry'), { scope: 'layout', surface: 'entry' })).toBe(true)
+    expect(belongsIn(layoutPattern('entry'), { scope: 'layout', surface: 'listing' })).toBe(false)
+    expect(belongsIn(layoutPattern('entry'), { scope: 'page' })).toBe(false)
+    expect(belongsIn(layoutPattern('entry'), { scope: 'region', region: 'header' })).toBe(false)
+  })
+
+  it('a page pattern is not in a layout place', () => {
+    const page: Pattern = { ...layoutPattern('entry'), scope: 'page', surface: null }
+    expect(belongsIn(page, { scope: 'layout', surface: 'entry' })).toBe(false)
+  })
+
+  it('a layout’s library is keyed by its surface and target, under the library’s key', () => {
+    expect(qk.layoutPatterns('entry', 'post')).toEqual(['patterns', 'layout', 'entry', 'post'])
+    expect(qk.layoutPatterns('entry', 'post').slice(0, 1)).toEqual([...qk.patterns()])
   })
 })

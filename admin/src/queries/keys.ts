@@ -19,6 +19,9 @@ export const qk = {
   contentType: (slug: string) => ['content-type', slug] as const,
   blockTypes: () => ['block-types'] as const,
   patterns: () => ['patterns'] as const,
+  /** One layout's library — under `patterns`, so refreshing the library refreshes it too. */
+  layoutPatterns: (surface: string, target: string) =>
+    ['patterns', 'layout', surface, target] as const,
   styleSchema: () => ['style-schema'] as const,
   styleClasses: () => ['style-classes'] as const,
   styleClassUsage: (id: string) => ['style-class-usage', id] as const,

@@ -203,7 +203,8 @@ final class PatternLibraryTest extends AppTestCase
         self::assertNotNull($route);
         self::assertContains('content_permission:content.view', (array) ($route['middleware'] ?? []));
 
-        $res = $this->container()->get(\Thallo\Core\Content\Http\Controllers\PatternController::class)->index();
+        $res = $this->container()->get(\Thallo\Core\Content\Http\Controllers\PatternController::class)
+            ->index(\Symfony\Component\HttpFoundation\Request::create('/x'));
         $data = ((array) json_decode((string) $res->getContent(), true))['data'];
         self::assertSame(array_column($this->library()->all(), 'slug'), array_column($data['patterns'], 'slug'));
         self::assertDataMatchesDtoShape(

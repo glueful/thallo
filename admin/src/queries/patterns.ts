@@ -1,4 +1,5 @@
 import { useQuery, useQueryCache } from '@pinia/colada'
+import { toValue, type MaybeRefOrGetter } from 'vue'
 import { authFetch } from '@/api/authFetch'
 import { client } from '@/api/client'
 import { toApiError } from '@/api/errors'
@@ -23,22 +24,30 @@ export interface Pattern {
   /** A shop pattern whose product block needs a product chosen after inserting it. */
   requires?: 'product' | null
   blocks: PatternBlock[]
-  /** Where it belongs: a page body, or the header or footer (a region's sections and templates). */
+  /** Where it belongs: a page body, the header or footer, or one kind of layout. */
   scope?: PatternScope
   region?: 'header' | 'footer' | null
+  /** A layout pattern's surface (`entry`, `listing`, `product`…). */
+  surface?: string | null
+  /** A layout template's Frame settings (width, header, footer); null for every other pattern. */
+  settings?: Record<string, string> | null
   /** A section this site saved from the stage (renamed and deleted by `id`), not a shipped one. */
   saved?: boolean
   id?: string | null
 }
 
-export type PatternScope = 'page' | 'region'
+export type PatternScope = 'page' | 'region' | 'layout'
 
-/** Where a section is saved from: a page body, or one region. */
-export type SectionPlace = { scope: 'page' } | { scope: 'region'; region: 'header' | 'footer' }
+/** Where a section is saved from: a page body, one region, or one kind of layout. */
+export type SectionPlace =
+  | { scope: 'page' }
+  | { scope: 'region'; region: 'header' | 'footer' }
+  | { scope: 'layout'; surface: string }
 
-/** Whether a pattern belongs where it is offered — a page body, or one region. */
+/** Whether a pattern belongs where it is offered — a page body, one region, or one layout surface. */
 export function belongsIn(p: Pattern, place: SectionPlace): boolean {
   if (place.scope === 'page') return (p.scope ?? 'page') === 'page'
+  if (place.scope === 'layout') return p.scope === 'layout' && p.surface === place.surface
   return p.scope === 'region' && p.region === place.region
 }
 
@@ -55,6 +64,24 @@ export async function fetchPatterns(): Promise<Pattern[]> {
 
 export function usePatterns() {
   return useQuery({ key: qk.patterns, query: fetchPatterns })
+}
+
+/** One layout's library: its surface's sections and templates for its target, and its saved sections. */
+export async function fetchLayoutPatterns(surface: string, target: string): Promise<Pattern[]> {
+  const query = new URLSearchParams({ surface, target }).toString()
+  const json = await authFetch(`${runtimeConfig.apiBase}/patterns?${query}`)
+  const patterns: unknown = ((json.data ?? json) as { patterns?: unknown }).patterns
+  return Array.isArray(patterns) ? (patterns as Pattern[]) : []
+}
+
+export function useLayoutPatterns(
+  surface: MaybeRefOrGetter<string>,
+  target: MaybeRefOrGetter<string>,
+) {
+  return useQuery({
+    key: () => qk.layoutPatterns(toValue(surface), toValue(target)),
+    query: () => fetchLayoutPatterns(toValue(surface), toValue(target)),
+  })
 }
 
 /** The pattern's blocks as the editor's own: a fresh id on each, and on every block inside. */
