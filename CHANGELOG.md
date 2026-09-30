@@ -5,7 +5,12 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.71] - 2026-09-30 — Developer Preview
+
+Shop sections and page templates: with Commerce on, the Design view's library offers eight shop
+sections and four shop pages. The shop's Featured product, Add to cart and Product grid blocks no
+longer show "Loading…" forever. No migrations and nothing to provision: update and the library
+has them.
 
 ### Added
 - **Shop sections and page templates.** With Commerce on, **Sections** and **Templates** in the
