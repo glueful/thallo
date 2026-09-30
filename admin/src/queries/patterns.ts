@@ -131,12 +131,21 @@ export const patternSlug = (key: string): string => key.slice(KEY.length)
  * A thumbnail's own size, recorded when it was built, so its place is reserved before it loads.
  * Undefined for a pattern with no thumbnail: the card then shows the plain fallback's height.
  */
-export const patternThumbnailSize = (slug: string): [number, number] | undefined =>
-  (thumbSizes as unknown as Record<string, [number, number]>)[slug]
+const thumbs = thumbSizes as unknown as Record<string, [number, number, string?]>
 
-/** The thumbnail the admin ships for a pattern (built by scripts/build-pattern-thumbnails). */
-export const patternThumbnail = (slug: string): string =>
-  `${import.meta.env.BASE_URL}pattern-thumbs/${slug}.jpg`
+export const patternThumbnailSize = (slug: string): [number, number] | undefined => {
+  const entry = thumbs[slug]
+  return entry === undefined ? undefined : [entry[0], entry[1]]
+}
+
+/**
+ * The thumbnail the admin ships for a pattern (built by scripts/build-pattern-thumbnails), addressed
+ * by its content's version: a rebuilt picture has a new URL, so no browser shows a cached old one.
+ */
+export const patternThumbnail = (slug: string): string => {
+  const version = thumbs[slug]?.[2]
+  return `${import.meta.env.BASE_URL}pattern-thumbs/${slug}.jpg${version ? `?v=${version}` : ''}`
+}
 
 // ── Saved sections ──────────────────────────────────────────────────────────
 // A block saved from the stage joins the library as a section of its own: inserted as a copy like

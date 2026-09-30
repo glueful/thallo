@@ -5,6 +5,13 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Fixed
+- **Pattern pictures are never stale after an update.** Each card's picture is addressed by its
+  content, so a browser that cached an earlier picture loads the new one. Before, an updated admin
+  could show last release's layout pictures in this release's card shapes: blank or cropped cards.
+
 ## [1.0.0-beta.73] - 2026-09-30 — Developer Preview
 
 Real pictures for the layout editor's templates and sections, and for the shop page templates: each

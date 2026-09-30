@@ -235,7 +235,14 @@ final class PatternLibraryTest extends AppTestCase
         foreach ($have as $slug) {
             self::assertLessThan(80_000, filesize("{$dir}/{$slug}.jpg"), "{$slug}: a thumbnail, not a poster");
             [$width, $height] = (array) getimagesize("{$dir}/{$slug}.jpg");
-            self::assertSame([$width, $height], $sizes[$slug] ?? null, "{$slug}: run scripts/build-pattern-thumbnails");
+            // Its size, and its content's version: the admin addresses a picture by it, so a rebuilt
+            // picture is never served from a cache of the old one.
+            $version = substr((string) md5_file("{$dir}/{$slug}.jpg"), 0, 8);
+            self::assertSame(
+                [$width, $height, $version],
+                $sizes[$slug] ?? null,
+                "{$slug}: run scripts/build-pattern-thumbnails",
+            );
         }
         self::assertSame($want, array_keys($sizes));
     }
