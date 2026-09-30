@@ -5,6 +5,8 @@ import {
   isPatternKey,
   patternKey,
   patternSlug,
+  patternThumbnail,
+  patternThumbnailSize,
   previewIds,
   type Pattern,
 } from './patterns'
@@ -104,5 +106,16 @@ describe('judging where a pattern fits (sections and templates design §4)', () 
     expect(ids.length).toBeGreaterThan(1)
     for (const id of ids) expect(id).toMatch(/"id":"preview\d{5}"/)
     expect(new Set(ids).size).toBe(ids.length)
+  })
+})
+
+describe('a pattern’s picture (sections and templates design §6)', () => {
+  it('is addressed by its content, so a rebuilt picture is never served from an old cache', async () => {
+    const sizes = (await import('@/editor/palette/patternThumbSizes.json'))
+      .default as unknown as Record<string, [number, number, string]>
+    const [width, height, version] = sizes['faq']!
+    expect(version).toMatch(/^[0-9a-f]{8}$/)
+    expect(patternThumbnail('faq')).toMatch(new RegExp(`pattern-thumbs/faq\\.jpg\\?v=${version}$`))
+    expect(patternThumbnailSize('faq')).toEqual([width, height])
   })
 })

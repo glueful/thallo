@@ -8,7 +8,7 @@ import {
 } from '../helpers'
 
 // The layout editor's Sections and Templates (sections and templates design §4), in a real browser
-// against stages the real renderer made: the Previous / next section inserted, and the Magazine
+// against stages the real renderer made: the Previous / next section inserted, and the Full width
 // template replacing the layout and its Frame. The admin mints the ids queued here — the ones the
 // fixture build gave those documents (api/layout-template-ids.json) — so every accepted document has
 // its own rendered stage, and a document without one fails the proof instead of showing a stale stage.
@@ -63,17 +63,17 @@ test('a template replaces the layout and its frame; undo brings the baseline bac
   page,
 }) => {
   const recorded = await openLayoutStage(page)
-  const magazine = ids['entry-magazine']!
+  const fullWidth = ids['entry-page-full']!
   await openView(page, 'pages')
-  const card = page.locator('[data-test="pattern-card-entry-magazine"]')
+  const card = page.locator('[data-test="pattern-card-entry-page-full"]')
   await expect(card).toBeVisible()
-  await queueIds(page, magazine)
+  await queueIds(page, fullWidth)
   // A clean layout: no question asked.
   await card.click()
   await expect(page.locator('[data-test="layout-template-replace"]')).toHaveCount(0)
-  await layoutAcceptedIs(page, recorded, 'magazine')
+  await layoutAcceptedIs(page, recorded, 'full-width')
   expect(recorded.applies.at(-1)!.layout.settings).toEqual({ width: 'full' })
-  for (const id of magazine) await expect(block(page, id)).toHaveCount(1)
+  for (const id of fullWidth) await expect(block(page, id)).toHaveCount(1)
 
   await page.locator('[data-test="layout-undo"]').click()
   await layoutAcceptedIs(page, recorded, 'baseline')
@@ -81,7 +81,7 @@ test('a template replaces the layout and its frame; undo brings the baseline bac
   await expect(block(page, 'e2elayout001')).toHaveCount(1)
 
   await page.locator('[data-test="layout-redo"]').click()
-  await layoutAcceptedIs(page, recorded, 'magazine')
-  for (const id of magazine) await expect(block(page, id)).toHaveCount(1)
+  await layoutAcceptedIs(page, recorded, 'full-width')
+  for (const id of fullWidth) await expect(block(page, id)).toHaveCount(1)
   served(recorded)
 })

@@ -524,7 +524,7 @@ try {
 
         // The layout editor's library for this post type (sections and templates design §4), and two
         // accepted states it reaches: the Previous / next section inserted after the baseline, and the
-        // Magazine template in its place — built from what the library serves, with the ids the proof
+        // Full width template in its place — built from what the library serves, with the ids the proof
         // queues in the order the admin mints them (the block first, then each nested list), so the
         // stage for each is the real render of exactly that document (layout-patterns.spec.ts).
         $library = (string) $container->get(\Thallo\Core\Content\Http\Controllers\PatternController::class)
@@ -547,7 +547,7 @@ try {
             return $out;
         };
         $queued = [];
-        foreach (['entry-neighbours' => 'neighbours', 'entry-magazine' => 'magazine'] as $slug => $prefix) {
+        foreach (['entry-neighbours' => 'neighbours', 'entry-page-full' => 'fullwidth'] as $slug => $prefix) {
             if (!isset($served[$slug])) {
                 fwrite(STDERR, "the layout library for posts does not serve '{$slug}'\n");
                 exit(1);
@@ -561,7 +561,7 @@ try {
                     'blocks' => [...$documents['baseline']['blocks'], ...$minted],
                     'settings' => [],
                 ]]
-                : ['name' => 'magazine', 'layout' => [
+                : ['name' => 'full-width', 'layout' => [
                     'blocks' => $minted,
                     'settings' => (array) $served[$slug]['settings'],
                 ]];

@@ -171,9 +171,16 @@ $pictured = [];
 $db->getTransactionManager()->begin();
 try {
     $fixtures = layout_thumbnail_fixtures($container);
+    // Each surface on its fixture target, then the single entry on a page, whose own layouts
+    // (page header, full width) an article type is never served.
+    $passes = [];
     foreach ($fixtures['targets'] as $surface => $target) {
+        $passes[] = [$surface, $target, $fixtures['samples'][$surface]];
+    }
+    $passes[] = ['entry', $fixtures['page']['target'], $fixtures['page']['sample']];
+    foreach ($passes as [$surface, $target, $sample]) {
         foreach ($library->forLayout($surface, $target) as $pattern) {
-            if ($pattern['saved']) {
+            if ($pattern['saved'] || in_array($pattern['slug'], $pictured, true)) {
                 continue;
             }
             if ($pattern['kind'] === 'page') {
@@ -195,7 +202,7 @@ try {
                 $target,
                 $blocks,
                 $settings,
-                $fixtures['samples'][$surface],
+                $sample,
                 $fixtures['images'],
             )));
             $pictured[] = $pattern['slug'];
@@ -228,16 +235,18 @@ if ($status !== 0) {
 }
 // Each picture's size, for the admin to reserve its place before it loads: a card that grows
 // when its image arrives moves every card below it, under the author's pointer.
+// With each picture's content version: the admin addresses a picture by it (`?v=`), so a rebuilt
+// picture is never served from a browser's cache of the old one at the same URL.
 $sizes = [];
 foreach (glob($out . '/*.jpg') ?: [] as $file) {
     [$width, $height] = (array) getimagesize($file);
-    $sizes[basename($file, '.jpg')] = [(int) $width, (int) $height];
+    $sizes[basename($file, '.jpg')] = [(int) $width, (int) $height, substr((string) md5_file($file), 0, 8)];
 }
 ksort($sizes);
 // Laid out as the admin's formatter lays JSON out, so a rebuild never fails its format check.
 $rows = [];
-foreach ($sizes as $slug => [$width, $height]) {
-    $rows[] = '  ' . json_encode($slug, JSON_THROW_ON_ERROR) . ": [{$width}, {$height}]";
+foreach ($sizes as $slug => [$width, $height, $version]) {
+    $rows[] = '  ' . json_encode($slug, JSON_THROW_ON_ERROR) . ": [{$width}, {$height}, \"{$version}\"]";
 }
 file_put_contents(
     $root . '/admin/src/editor/palette/patternThumbSizes.json',

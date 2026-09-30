@@ -108,12 +108,13 @@ function patternReason(p: Pattern): string | undefined {
       : props.clickable(patternKey(p.slug))
   return verdict.ok ? undefined : verdict.message
 }
-/** A page template is shown as its first screens, in a tall card; a header or footer template is
- *  short and wide, so it is shown whole and full width, as a section is. */
-// A page is shown as a tall card of its first screens — only when its picture is that tall: a
-// picture wider than it is tall (a short layout, a header) is shown whole, never zoomed and cropped.
+// A page or layout template sits in a tall card, two to a row. A header or footer template is
+// short and wide, so it is shown whole and full width, as a section is.
+const isCard = (p: Pattern): boolean => p.kind === 'page' && p.scope !== 'region'
+// The card shows a picture's first screens only when the picture is that tall: one wider than it is
+// tall (a short layout) sits whole at the card's top, never zoomed and cropped.
 const isTall = (p: Pattern): boolean => {
-  if (p.kind !== 'page' || p.scope === 'region') return false
+  if (!isCard(p)) return false
   const size = patternThumbnailSize(p.slug)
   return size === undefined || size[1] >= size[0]
 }
@@ -245,7 +246,7 @@ function onTilePointerDown(slug: string, event: PointerEvent): void {
         >
           {{ group.category }}
         </h4>
-        <div class="grid gap-2" :class="group.items.every(isTall) ? 'grid-cols-2' : 'grid-cols-1'">
+        <div class="grid gap-2" :class="group.items.every(isCard) ? 'grid-cols-2' : 'grid-cols-1'">
           <div
             v-for="p in group.items"
             :key="p.slug"
@@ -276,11 +277,11 @@ function onTilePointerDown(slug: string, event: PointerEvent): void {
                 </span>
                 <span v-else class="pb-2" />
               </template>
-              <!-- A section is shown whole, up to a height; a page is its first screens. -->
+              <!-- A section is shown whole, up to a height; a template is a card of its first screens. -->
               <span
                 v-else
                 class="block w-full overflow-hidden border-b border-default bg-white"
-                :class="isTall(p) ? 'aspect-[3/4]' : 'max-h-44'"
+                :class="isCard(p) ? 'aspect-[3/4]' : 'max-h-44'"
               >
                 <img
                   v-if="!missingThumbs.has(p.slug)"

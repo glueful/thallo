@@ -183,7 +183,8 @@ const LAYOUT_THUMBNAIL_IMAGES = [
  * Writes only inside the caller's transaction.
  *
  * @return array{targets: array<string,string>, samples: array<string,string>, images: array<string,string>,
- *     shop: ?ShopPageSeed} per surface this site has: the target, and the sample each picture shows
+ *     shop: ?ShopPageSeed, page: array{target: string, sample: string}} per surface this site has: the
+ *     target, and the sample each picture shows; and a page type's single-entry layout, for page layouts
  */
 function layout_thumbnail_fixtures(ContainerInterface $container): array
 {
@@ -260,8 +261,40 @@ function layout_thumbnail_fixtures(ContainerInterface $container): array
             ->projectFromPublished($newest, $postType, 'en');
     }
 
+    // A page type too — a title and a body, nothing that files or summarises it — for the layouts a
+    // page gets (Standard page, Page header band, Full width), with one published page.
+    $pageType = (string) $types->create([
+        'slug' => 'thumb_page', 'name' => 'Pages', 'public_delivery' => true, 'schema' => [
+            $title,
+            ['name' => 'body', 'type' => 'blocks'],
+        ],
+    ]);
+    $page = $seed->publish($pageType, 'about-the-studio', [
+        'title' => 'About the studio',
+        // A page's worth of body — words, a picture, a second heading in the text — so its layouts are pictured
+        // as the page they make, not as a title over two lines.
+        'body' => [
+            ['id' => 'thumbpage001', 'type' => 'rich_text', 'data' => ['body' => '<p>We are two potters in a '
+                . 'converted dairy, making tableware to be used every day. Everything is thrown, trimmed and '
+                . 'glazed here, and fired in the kiln you can see from the lane.</p><p>We started with one '
+                . 'wheel and a borrowed kiln. Ten years on, the dairy holds four wheels, a glaze kitchen and '
+                . 'the shelves where every pot waits its turn.</p>'], 'settings' => []],
+            ['id' => 'thumbpage002', 'type' => 'image', 'data' => [
+                'image' => 'thumbblob001', 'alt' => 'Bowls drying on the studio shelves',
+            ], 'settings' => []],
+            ['id' => 'thumbpage003', 'type' => 'rich_text', 'data' => ['body' => '<h2>Visit us</h2>'
+                . '<p>The studio is open on '
+                . 'Saturdays from ten until four. Come and watch, ask questions, or leave with a mug still warm '
+                . 'from the kiln.</p><p>Classes run on Tuesday evenings in term time, six people at a time, '
+                . 'with clay, tools and firing included.</p>'], 'settings' => []],
+        ],
+    ], '2026-07-02 09:00:00');
+
     $surfaces = $container->get(LayoutSurfaceRegistry::class);
-    $out = ['targets' => [], 'samples' => [], 'images' => LAYOUT_THUMBNAIL_IMAGES, 'shop' => null];
+    $out = [
+        'targets' => [], 'samples' => [], 'images' => LAYOUT_THUMBNAIL_IMAGES, 'shop' => null,
+        'page' => ['target' => 'thumb_page', 'sample' => $page],
+    ];
     $contentTargets = ['entry' => 'thumb_post', 'listing' => 'thumb_post', 'archive' => 'thumb_post:categories'];
     foreach ($contentTargets as $surface => $target) {
         $kind = $surfaces->get($surface);

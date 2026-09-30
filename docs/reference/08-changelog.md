@@ -10,6 +10,30 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.74] - 2026-09-30 — Developer Preview
+
+Layouts for pages and docs: a single page or doc gets its own templates (Standard page, Page header
+band, Full width) and a Page header band section, and the article layouts go only to types that read
+like articles. The Templates view shows its cards two to a row, and pattern pictures are never stale
+after an update. No migrations and nothing to provision.
+
+### Added
+- **Pages and docs get layouts of their own.** A single page or doc now offers Standard page,
+  Page header band (the title and a lead line in a tinted band) and Full width (the body edge to
+  edge), plus a Page header band section. The article layouts and sections (Classic article,
+  Magazine, Minimal, Article header, Related posts) are offered only to types that read like
+  articles: they have an excerpt or summary, or are filed under a category or tag.
+
+### Changed
+- **Templates sit two to a row.** In the Blocks tab's Templates view, page and layout templates
+  are shown as cards two to a row, as on the Design page. A short layout's picture is shown whole
+  at the top of its card. Header and footer templates keep a row each.
+
+### Fixed
+- **Pattern pictures are never stale after an update.** Each card's picture is addressed by its
+  content, so a browser that cached an earlier picture loads the new one. Before, an updated admin
+  could show last release's layout pictures in this release's card shapes: blank or cropped cards.
+
 ## [1.0.0-beta.73] - 2026-09-30 — Developer Preview
 
 Real pictures for the layout editor's templates and sections, and for the shop page templates: each

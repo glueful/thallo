@@ -151,6 +151,25 @@ final class LayoutThumbnailSourceTest extends AppTestCase
         self::assertStringContainsString('Tall mug', $shop, 'the fixture shop\'s products');
     }
 
+    public function testAPageTemplateIsPicturedOnAPage(): void
+    {
+        $fixtures = layout_thumbnail_fixtures($this->container());
+        self::assertSame('thumb_page', $fixtures['page']['target']);
+        $band = $this->pattern('entry', 'thumb_page', 'entry-page-header');
+        $html = layout_stage_html(
+            $this->container(),
+            $this->handler(),
+            'entry',
+            'thumb_page',
+            PatternLibrary::withIds($band['blocks']),
+            $band['settings'],
+            $fixtures['page']['sample'],
+            $fixtures['images'],
+        );
+        self::assertStringContainsString('About the studio', $html, 'the fixture page');
+        self::assertStringNotContainsString('data-thallo-placeholder', $html);
+    }
+
     public function testAListingPictureShowsRealPageNavigation(): void
     {
         $fixtures = layout_thumbnail_fixtures($this->container());
