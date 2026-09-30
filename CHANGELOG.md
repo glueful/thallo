@@ -5,6 +5,15 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Fixed
+- **The scheduler no longer fails every hour on a site without Commerce.** The cart cleanup job
+  ran at 20 past each hour even where Commerce is installed but not enabled, and failed with
+  `Service 'Glueful\Extensions\Commerce\Cart\CartPruner' not found`. A scheduled command of an
+  extension now runs only while that extension is enabled. Nothing to change in your
+  `config/schedule.php`.
+
 ## [1.0.0-beta.74] - 2026-09-30 — Developer Preview
 
 Layouts for pages and docs: a single page or doc gets its own templates (Standard page, Page header
