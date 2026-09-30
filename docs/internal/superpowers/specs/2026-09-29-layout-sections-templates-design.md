@@ -2,7 +2,8 @@
 
 > Status: approved in conversation 2026-09-29 (all five sections); amended 2026-09-30 after spec
 > review (§3.1 identity, §3.2 targets, §4 insert validation and settings, §5 bindings, §6 product
-> selection). Builds on
+> selection); amended again 2026-09-30 after S2 plan review (§3.1 layout templates are whole
+> layouts, §3.2 saved sections listed and normalised, §6 Product hero without the buy box). Builds on
 > `2026-09-26-type-layouts-design.md` (type layouts, Releases A–C2, shipped by beta.70) and the
 > pattern library (`core/src/Content/Patterns/`).
 
@@ -97,9 +98,13 @@ overwrite one another silently. The registry therefore enforces:
   (convention: a contributor prefixes its own, e.g. `shop-…`, `product-…`). A second pattern with
   a taken slug is **rejected at registration** (a `LogicException` naming both owners), never
   last-wins.
-- **Checked references.** A template's section slugs must name registered sections of a compatible
-  place (a page template names page sections; a layout template names sections of its surface or
-  general page sections). A missing or incompatible reference is rejected at registration.
+- **Checked references.** A page template's section slugs must name registered page sections. A
+  missing or incompatible reference is rejected at registration.
+- **Layout templates are whole layouts.** A layout template is not a list of section slugs: it is
+  built for its target as one complete layout (§3.2) together with its settings payload, because
+  every layout must hold its surface's required block (the primary body's Entry content block, the
+  Entry list, the Product buy box, the Product list) and no section holds one. It names no sections,
+  so it has no references to check; parts shared between templates and sections are shared in code.
 - **Whole-template hiding.** A template whose section is registered but unavailable at request time
   (a disabled block type, a surface gone) is hidden whole, as today.
 
@@ -117,9 +122,12 @@ content" does not fit every type.
   `entry_cover` appears only when the type has a cover field, and so on. What the library serves
   for a target is the template resolved for that target, then validated.
 - **Saved sections keep explicit bindings.** A saved layout section stores its field blocks with
-  the bindings they had. Offered for a target, a section whose bound field is missing or of an
-  incompatible type is refused with the field named ("This section shows *Subtitle*, which Pages
-  don't have"); nothing is silently rebound.
+  the bindings they had, normalised against the layout it was saved from: a field block left
+  unbound is stored bound to the field the server would have chosen there, so reusing it elsewhere
+  never picks a different one. Every saved section of a surface is **listed** in every layout of
+  that surface — not hidden when it does not fit — and a section whose bound field is missing or of
+  an incompatible type is refused at insert with the field named, by its label ("This section shows
+  *Subtitle*, which Pages doesn't have"), so the editor learns why; nothing is silently rebound.
 - **Tested across type shapes:** a type with `body` blocks, one with `content`, one with a rich-text
   body, one with no body, one with no cover.
 
@@ -188,11 +196,13 @@ sections, built only from existing blocks.
 | `entry` | Classic article · Magazine (full-width cover under the title) · Minimal | Article header (title, date, terms) · Cover band · Related posts · Previous / next |
 | `listing` | Card grid · Horizontal list · Compact | Listing header (title and an intro line) · Page navigation bar |
 | `archive` | Term header with grid · Horizontal list · Compact | Term header (title and the term's description) |
-| `product` | Gallery left · Gallery on top · Story-led (buy box, then the story at full width) | Product hero (gallery, name, rating, price, buy box) · Details band · Story band |
+| `product` | Gallery left · Gallery on top · Story-led (buy box, then the story at full width) | Product hero (gallery, name, rating, price — the layout's own buy box stays where it is) · Details band · Story band |
 | `shop_index` | Adaptive grid · Banner and grid · Category-led | Shop banner (Shop title in a hero) · Category chips band |
 | `shop_category` | Adaptive grid · Banner and grid · Chips on top | Category banner |
 
-General page sections are offered in every layout on top of these.
+General page sections are offered in every layout on top of these. No layout section holds its
+surface's required block: the layout already holds exactly one and the editor refuses to delete it,
+so such a section could never be inserted (hence the Product hero has no buy box).
 
 **Shop page patterns** (Commerce on only; `scope: page`). Templates: **Shop landing**, **Product
 launch**, **Sale / collection**, **New arrivals**. Built from eight commerce sections: New
