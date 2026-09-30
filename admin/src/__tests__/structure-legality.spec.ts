@@ -6,12 +6,14 @@ import {
   checkInsert,
   checkInsertSequence,
   checkInsertSubtree,
+  isInsideCard,
   checkMoves,
   insertCandidate,
   type LegalityContext,
   type SlotTypeSummary,
 } from '@/editor/structure/legality'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
+import type { EditorDocument } from '@/editor/ops/types'
 
 // Visual builder spec §5.2: one legality module, its rules shared with the server validator
 // through `tests/fixtures/structure/legality` — each case names the builder's expectation
@@ -373,6 +375,20 @@ describe('card rules', () => {
     }
     const verdict = checkMoves(withTitle, [{ block: 't1', to: root }], ctx)
     expect(verdict.ok ? '' : verdict.reason).toBe('item-outside-card')
+  })
+
+  it('knows whether a block sits inside a card, however deep', () => {
+    const rules = cardContext().cards!
+    const inner = block('t1', 'entry_title')
+    const nested = block('c2', 'container', { content: [block('t2', 'entry_title')] })
+    const tree: EditorDocument = {
+      fields: { blocks: [loop('l1', inner, nested), block('h1', 'heading')] },
+    }
+    expect(isInsideCard(tree, 't1', rules)).toBe(true)
+    expect(isInsideCard(tree, 't2', rules)).toBe(true)
+    expect(isInsideCard(tree, 'l1', rules)).toBe(false)
+    expect(isInsideCard(tree, 'h1', rules)).toBe(false)
+    expect(isInsideCard(tree, 't1', null)).toBe(false)
   })
 
   it('without card rules nothing changes', () => {
