@@ -180,12 +180,15 @@ const utilityItems = computed(() =>
           class="mt-auto"
           :ui="{ link: 'my-1.5' }"
         />
-
-        <SidebarVersion :collapsed="collapsed" />
       </template>
 
+      <!-- The version rides in the footer with the account button, so it stays put while the
+           nav above scrolls. -->
       <template #footer="{ collapsed }">
-        <UserMenu :collapsed="collapsed" />
+        <div class="flex w-full min-w-0 flex-col gap-1">
+          <SidebarVersion :collapsed="collapsed" />
+          <UserMenu :collapsed="collapsed" />
+        </div>
       </template>
     </UDashboardSidebar>
     <div

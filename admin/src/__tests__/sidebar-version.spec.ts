@@ -65,3 +65,18 @@ describe('the version at the foot of the sidebar', () => {
     expect(w.find('[data-test="sidebar-version-update"]').exists()).toBe(true)
   })
 })
+
+describe('where the version sits', () => {
+  it('is in the sidebar footer with the account button, so it stays put while the nav scrolls', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const layout = readFileSync(join(__dirname, '..', 'layouts', 'default.vue'), 'utf8')
+    const footer = layout.slice(
+      layout.indexOf('<template #footer'),
+      layout.indexOf('</UDashboardSidebar>'),
+    )
+    expect(footer).toContain('<SidebarVersion')
+    expect(footer.indexOf('<SidebarVersion')).toBeLessThan(footer.indexOf('<UserMenu'))
+    expect(layout.split('<SidebarVersion').length - 1).toBe(1)
+  })
+})
