@@ -65,3 +65,32 @@ describe('the version at the foot of the sidebar', () => {
     expect(w.find('[data-test="sidebar-version-update"]').exists()).toBe(true)
   })
 })
+
+describe('where the version sits', () => {
+  it('is in the sidebar footer with the account button, so it stays put while the nav scrolls', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const layout = readFileSync(join(__dirname, '..', 'layouts', 'default.vue'), 'utf8')
+    const footer = layout.slice(
+      layout.indexOf('<template #footer'),
+      layout.indexOf('</UDashboardSidebar>'),
+    )
+    expect(footer).toContain('<SidebarVersion')
+    expect(footer.indexOf('<SidebarVersion')).toBeLessThan(footer.indexOf('<UserMenu'))
+    expect(layout.split('<SidebarVersion').length - 1).toBe(1)
+  })
+
+  it('sits above the footer divider, which runs between it and the account button', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const layout = readFileSync(join(__dirname, '..', 'layouts', 'default.vue'), 'utf8')
+    // The footer itself carries no border, or the line would run above the version.
+    expect(layout).not.toMatch(/footer:\s*'[^']*border-t/)
+    const footer = layout.slice(
+      layout.indexOf('<template #footer'),
+      layout.indexOf('</UDashboardSidebar>'),
+    )
+    const divider = footer.slice(footer.indexOf('<SidebarVersion'), footer.indexOf('<UserMenu'))
+    expect(divider).toMatch(/class="[^"]*border-t[^"]*"/)
+  })
+})

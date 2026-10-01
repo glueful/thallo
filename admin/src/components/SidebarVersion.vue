@@ -16,7 +16,7 @@ const update = computed(() =>
 <template>
   <div
     v-if="version && (!collapsed || update)"
-    class="flex items-center gap-1.5 px-2.5 pb-1 text-xs text-muted"
+    class="flex items-center gap-1.5 px-2.5 text-xs text-muted"
     :class="collapsed ? 'justify-center' : ''"
     data-test="sidebar-version"
   >

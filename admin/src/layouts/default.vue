@@ -144,7 +144,6 @@ const utilityItems = computed(() =>
       data-print-chrome
       class="bg-elevated/25 border-r-0"
       :ui="{
-        footer: 'lg:border-t lg:border-default',
         header: 'h-auto min-h-(--ui-header-height) flex-col items-stretch gap-3 py-3',
       }"
     >
@@ -180,12 +179,17 @@ const utilityItems = computed(() =>
           class="mt-auto"
           :ui="{ link: 'my-1.5' }"
         />
-
-        <SidebarVersion :collapsed="collapsed" />
       </template>
 
+      <!-- The version rides in the footer, so it stays put while the nav above scrolls; the
+           divider runs between it and the account button, edge to edge. -->
       <template #footer="{ collapsed }">
-        <UserMenu :collapsed="collapsed" />
+        <div class="flex w-full min-w-0 flex-col gap-2">
+          <SidebarVersion :collapsed="collapsed" />
+          <div class="lg:-mx-4 lg:border-t lg:border-default lg:px-4 lg:pt-2">
+            <UserMenu :collapsed="collapsed" />
+          </div>
+        </div>
       </template>
     </UDashboardSidebar>
     <div
