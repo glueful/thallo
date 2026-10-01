@@ -5,7 +5,10 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.76] - 2026-10-01 — Developer Preview
+
+The Thallo version stays put in the sidebar's footer, above the line that sets off your account
+button, however long the nav. No migrations and nothing to provision.
 
 ### Fixed
 - **The version stays put at the foot of the sidebar.** It sat at the end of the nav, so a long
