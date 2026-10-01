@@ -5,7 +5,12 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.75] - 2026-10-01 — Developer Preview
+
+Fixes for a new site's first hour: the scheduler no longer fails every hour where Commerce is off,
+and English is a real default language in Settings › Languages. Collections and Subscriptions start
+off on a new install, the version moves to the foot of the sidebar, and warnings read on white. No
+migrations; run `php glueful thallo:provision` after updating, as usual.
 
 ### Changed
 - **Collections and Subscriptions start off on a new install.** Most sites need neither a data
