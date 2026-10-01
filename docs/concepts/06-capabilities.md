@@ -27,19 +27,22 @@ capability on.
 |---|---|---|
 | **Accounts** (`thallo.accounts`) | Registration, sign-in and account pages for visitors of the site. | On |
 | **Analytics** (`thallo.analytics`) | Product-analytics fact store fed by lifecycle events. | On |
-| **Data collections** (`thallo.collections`) | Developer-defined data collections with a public CRUD/query API. | On |
+| **Collections** (`thallo.collections`) | Your own backend: define tables in the admin and each gets an instant REST API, with filters, relations and per-operation access rules. | Off on a new install |
 | **Commerce** (`thallo.commerce`) | Adopts `glueful/commerce` and links Commerce products to Thallo entries. | Off |
 | **Content importers** (`thallo.importers`) | CSV, Markdown and WordPress content/user import adapters. | On |
 | **Navigation** (`thallo.navigation`) | Menu trees served headless and to themes. | On |
 | **Rendered delivery** (`thallo.render`) | Server-rendered pages from published content via filesystem Twig themes. | On |
 | **Search** (`thallo.search`) | Public, delivery-parity content search, over PostgreSQL or Meilisearch. | Off |
 | **SEO** (`thallo.seo`) | Sitemaps, per-entry SEO meta, and robots.txt. | On |
-| **Subscriptions** (`thallo.subscriptions`) | Workspace SaaS billing: platform plans and per-workspace subscriptions. | On |
+| **Subscriptions** (`thallo.subscriptions`) | Workspace SaaS billing: platform plans and per-workspace subscriptions. | Off on a new install |
 | **Multi-tenancy** (`thallo.tenancy`) | Tenant-owned content model + data, scoping, seed/sync and enablement. | Off |
 | **Approval workflow** (`thallo.workflow`) | Single-stage editorial review over draft/publish. | On |
 
 Search is off by a deliberate default in Thallo's own configuration. Commerce and Multi-tenancy
 are off because each depends on a framework extension that a fresh install leaves disabled.
+Collections and Subscriptions are switched off by the first-run setup: most sites need neither a
+data API of their own nor workspace billing. A site installed before 1.0.0-beta.75 keeps the state
+it had.
 
 ## Off means inactive, not uninstalled
 

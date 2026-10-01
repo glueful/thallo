@@ -30,6 +30,15 @@ final class CapabilityRegistryWiringTest extends AppTestCase
         self::assertTrue($again->isEnabled('test.fake'));
     }
 
+    public function testCollectionsIsNamedAsTheBackendItIs(): void
+    {
+        $all = $this->container()->get(CapabilityRegistry::class)->all();
+        $collections = array_values(array_filter($all, fn (Capability $c) => $c->id === 'thallo.collections'))[0];
+
+        self::assertSame('Collections', $collections->label);
+        self::assertStringContainsString('REST API', (string) $collections->description);
+    }
+
     public function testFactoryReadsTheWholeCapabilitiesMapNotDottedKeys(): void
     {
         // Seed a disabled override for a DOTTED id via the public config-defaults seam.

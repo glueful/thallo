@@ -8,6 +8,13 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Changed
+- **Collections and Subscriptions start off on a new install.** Most sites need neither a data
+  API of their own nor workspace billing; switch them on in Settings › Capabilities. A site
+  installed before keeps the state it had.
+- **Data collections is now Collections**, described as what it is: your own backend, with tables
+  defined in the admin and an instant REST API for each.
+- **Warning text is easier to read.** Warnings are amber, and in light mode a darker shade that
+  reads on white (about 5:1, where the old yellow was about 2:1).
 - **The Thallo version sits at the foot of the sidebar.** It moved out of the account menu to a
   line just above your account button, with an arrow linking to Home when a newer release is
   published. A collapsed sidebar keeps just the arrow.

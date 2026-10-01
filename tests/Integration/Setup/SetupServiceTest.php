@@ -48,7 +48,8 @@ final class SetupServiceTest extends AppTestCase
             'TRUNCATE TABLE tenant_memberships, tenants, users, user_roles, settings CASCADE',
         );
         $this->connection()->getPDO()->exec(
-            "DELETE FROM thallo_system_flags WHERE key LIKE 'tenancy.%' OR key = 'installed'",
+            "DELETE FROM thallo_system_flags WHERE key LIKE 'tenancy.%' OR key = 'installed'"
+            . " OR key IN ('capability.thallo.collections.enabled', 'capability.thallo.subscriptions.enabled')",
         );
         $this->container()->get(SystemFlags::class)->clearCache();
     }
@@ -94,6 +95,17 @@ final class SetupServiceTest extends AppTestCase
         foreach (['content.manage', 'audit.view', 'analytics.read', 'system.config'] as $slug) {
             self::assertTrue($authority->can($uuid, $slug, '*', []), "first admin can {$slug}");
         }
+    }
+
+    public function testAFreshInstallStartsWithCollectionsAndSubscriptionsOff(): void
+    {
+        $this->service()->install('Acme', 'switches@example.com', 'Sup3r-secret-pass!', 'en');
+
+        $store = $this->container()->get(\Thallo\Core\Capabilities\CapabilityStateStore::class);
+        self::assertFalse($store->explicit('thallo.collections'));
+        self::assertFalse($store->explicit('thallo.subscriptions'));
+        // The rest keep their defaults: nothing stored, so each follows its engine.
+        self::assertNull($store->explicit('thallo.navigation'));
     }
 
     public function testIsInstalledReturnsFalseOnFreshInstall(): void
