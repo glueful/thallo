@@ -32,6 +32,30 @@ final class RunConsoleCommandJobTest extends AppTestCase
         $this->addToAssertionCount(1);
     }
 
+    public function testACommandOfAnExtensionThatIsNotEnabledIsSkipped(): void
+    {
+        // Installed but not enabled, as Commerce is on most sites: the class loads, its services are
+        // not bound, and running it would fail the scheduler every time it is due.
+        require_once dirname(__DIR__, 2) . '/Support/Fixtures/AbsentExtensionCommand.php';
+        $absent = \Glueful\Extensions\Absent\Console\AbsentExtensionCommand::class;
+        (new RunConsoleCommandJob(['command' => $absent], $this->appContext()))->handle();
+
+        $this->addToAssertionCount(1);
+    }
+
+    public function testACommandOfAnEnabledExtensionRuns(): void
+    {
+        self::assertTrue(
+            $this->container()->get(\Glueful\Extensions\ExtensionManager::class)
+                ->hasProvider('Glueful\\Extensions\\ImportExport\\ImportExportServiceProvider'),
+            'Import/export is enabled in the test application',
+        );
+        $cleanup = 'Glueful\\Extensions\\ImportExport\\Console\\ImportExportCleanupCommand';
+        (new RunConsoleCommandJob(['command' => $cleanup], $this->appContext()))->handle();
+
+        $this->addToAssertionCount(1);
+    }
+
     public function testEveryScheduledCommandIsACommand(): void
     {
         $jobs = (require dirname(__DIR__, 3) . '/config/schedule.php')['jobs'];

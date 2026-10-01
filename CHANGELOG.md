@@ -5,6 +5,40 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.75] - 2026-10-01 — Developer Preview
+
+Fixes for a new site's first hour: the scheduler no longer fails every hour where Commerce is off,
+and English is a real default language in Settings › Languages. Collections and Subscriptions start
+off on a new install, the version moves to the foot of the sidebar, and warnings read on white. No
+migrations; run `php glueful thallo:provision` after updating, as usual.
+
+### Changed
+- **Collections and Subscriptions start off on a new install.** Most sites need neither a data
+  API of their own nor workspace billing; switch them on in Settings › Capabilities. A site
+  installed before keeps the state it had.
+- **Data collections is now Collections**, described as what it is: your own backend, with tables
+  defined in the admin and an instant REST API for each.
+- **Warning text is easier to read.** Warnings are amber, and in light mode a darker shade that
+  reads on white (about 5:1, where the old yellow was about 2:1).
+- **The Thallo version sits at the foot of the sidebar.** It moved out of the account menu to a
+  line just above your account button, with an arrow linking to Home when a newer release is
+  published. A collapsed sidebar keeps just the arrow.
+- **Developers › Documentation opens the docs.** It links to thallo.dev/docs instead of the
+  site's home page.
+
+### Fixed
+- **English is listed in Settings › Languages.** It was the default language only as a fallback,
+  so the page listed no languages. Adding a first language made that one the default, and English
+  could not be chosen again without adding it by hand. Provision now adds the configured default
+  (`en`) as a real, enabled, default language wherever no language is the default. Run
+  `php glueful thallo:provision` after updating, as usual. A site that already chose its default
+  is left as it is.
+- **The scheduler no longer fails every hour on a site without Commerce.** The cart cleanup job
+  ran at 20 past each hour even where Commerce is installed but not enabled, and failed with
+  `Service 'Glueful\Extensions\Commerce\Cart\CartPruner' not found`. A scheduled command of an
+  extension now runs only while that extension is enabled. Nothing to change in your
+  `config/schedule.php`.
+
 ## [1.0.0-beta.74] - 2026-09-30 — Developer Preview
 
 Layouts for pages and docs: a single page or doc gets its own templates (Standard page, Page header

@@ -14,9 +14,10 @@ You need an entry already published in one language, and an account that can ope
 
 ## Add a language
 
-**Settings › Languages** lists every language the site knows, enabled or not. A new install has
-none — the page reads **No languages** — and until you add one Thallo uses `default_locale` from
-`config/i18n.php`, which is `en` out of the box.
+**Settings › Languages** lists every language the site knows, enabled or not. A new install
+starts with one: English (`en`), enabled and the default. `php glueful thallo:provision` adds it,
+from `default_locale` in `config/i18n.php`, whenever no language is the default. It does the same
+on an upgrade from an earlier release, where English was the default without being listed.
 
 1. Press **Add language**.
 2. Enter a **Code**: two or three lower-case letters, optionally a hyphen and a region, as in
@@ -28,9 +29,6 @@ none — the page reads **No languages** — and until you add one Thallo uses `
 5. Leave **Enabled** on. Turn on **Set as default** only if this language should become the
    site's default.
 6. Press **Add language**.
-
-The first language you add is stored enabled and default whatever those two switches say: a site
-must have one of each.
 
 From a terminal, `php glueful i18n:locales` prints **Code**, **Name**, **Enabled** and **Default**
 for every stored language, disabled ones included.

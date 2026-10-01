@@ -180,6 +180,8 @@ const utilityItems = computed(() =>
           class="mt-auto"
           :ui="{ link: 'my-1.5' }"
         />
+
+        <SidebarVersion :collapsed="collapsed" />
       </template>
 
       <template #footer="{ collapsed }">

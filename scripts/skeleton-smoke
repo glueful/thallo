@@ -57,19 +57,30 @@ echo "+ reset the test database"
 
 [[ "$DRY" -eq 1 ]] || env_summary "$SCRATCH/.env"
 run_in "$SCRATCH" $PHP glueful thallo:doctor
-echo "+ (cd $SCRATCH && $PHP glueful thallo:provision --no-interaction)   # a skipped role grant fails the smoke"
+echo "+ (cd $SCRATCH && $PHP glueful thallo:provision --no-interaction)   # a skipped role grant or default language fails the smoke"
 if [[ "$DRY" -eq 0 ]]; then
   (cd "$SCRATCH" && $PHP glueful thallo:provision --no-interaction) | tee "$SCRATCH/provision.log"
   if grep -q "grants skipped" "$SCRATCH/provision.log"; then
     echo "FAIL: provision skipped the install role grants (see above)" >&2; exit 1
+  fi
+  # A fresh install's default language is a real row in Settings › Languages, not a fallback.
+  if ! grep -q "Default language: en." "$SCRATCH/provision.log"; then
+    echo "FAIL: provision did not make en the default language (see above)" >&2; exit 1
   fi
 fi
 [[ "$DRY" -eq 1 ]] || env_summary "$SCRATCH/.env"
 run_in "$SCRATCH" $PHP glueful migrate:status
 # The update notice's command wiring in the template (a path-installed core reports a development checkout).
 run_in "$SCRATCH" $PHP glueful thallo:update:check
-# One scheduler tick: the config/schedule.php jobs load and the due ones execute in the template.
-run_in "$SCRATCH" $PHP glueful queue:scheduler run
+# Every scheduled job, due or not: a job that fails on a fresh install fails here on every run, not
+# only in the minute it happens to be due (commerce_carts_prune failed at :20 with Commerce off).
+# A forced run logs a failed job and still exits 0, so its output is the verdict.
+echo "+ (cd $SCRATCH && $PHP glueful queue:scheduler run --force)"
+if [[ "$DRY" -eq 0 ]]; then
+  ticked="$(cd "$SCRATCH" && $PHP glueful queue:scheduler run --force 2>&1)" || { echo "$ticked"; exit 1; }
+  echo "$ticked"
+  if grep -q "Error in job" <<<"$ticked"; then echo "FAIL: a scheduled job failed on a fresh install" >&2; exit 1; fi
+fi
 
 echo "+ assert: public/admin/index.html published, docs/openapi.json generated, no operator code, nothing pending"
 if [[ "$DRY" -eq 0 ]]; then

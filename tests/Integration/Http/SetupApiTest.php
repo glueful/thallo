@@ -53,7 +53,8 @@ final class SetupApiTest extends AppTestCase
             'TRUNCATE TABLE tenant_memberships, tenants, users, user_roles, settings CASCADE',
         );
         $this->connection()->getPDO()->exec(
-            "DELETE FROM thallo_system_flags WHERE key LIKE 'tenancy.%' OR key = 'installed'",
+            "DELETE FROM thallo_system_flags WHERE key LIKE 'tenancy.%' OR key = 'installed'"
+            . " OR key IN ('capability.thallo.collections.enabled', 'capability.thallo.subscriptions.enabled')",
         );
         $this->container()->get(SystemFlags::class)->clearCache();
     }
