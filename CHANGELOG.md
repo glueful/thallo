@@ -9,7 +9,8 @@ as the next release, never a mutated tag.
 
 ### Fixed
 - **The version stays put at the foot of the sidebar.** It sat at the end of the nav, so a long
-  nav scrolled it out of sight. It is now in the sidebar's footer with your account button.
+  nav scrolled it out of sight. It is now in the sidebar's footer, above the line that sets off
+  your account button.
 
 ## [1.0.0-beta.75] - 2026-10-01 — Developer Preview
 
