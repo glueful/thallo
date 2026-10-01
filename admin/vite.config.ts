@@ -102,6 +102,9 @@ export default defineConfig(({ mode }) => {
             primary: 'mirage',
             // Success = the design mock's emerald green (Nuxt UI's default success is a limier green).
             success: 'emerald',
+            // Warning = amber, not Nuxt UI's yellow: yellow text on white is about 2:1 and hard to
+            // read. main.css sets the light-mode shade.
+            warning: 'amber',
             neutral: 'slate',
           },
           // Every page's panel sits inside the layout's rounded shell (a flex column with `m-3`

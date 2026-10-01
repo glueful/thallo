@@ -39,3 +39,10 @@
   font-weight: 500;
   box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
 }
+
+/* Warning text must read at a glance: amber-700 on white is about 5:1 (Nuxt UI's yellow-500 is about
+   2:1). Nuxt UI injects `:root, .light { --ui-warning: …-500 }` at runtime, after this sheet, so a
+   plain `:root` rule would lose; `:root:not(.dark)` is more specific. Dark mode keeps the 400. */
+:root:not(.dark) {
+  --ui-warning: var(--ui-color-warning-700);
+}
