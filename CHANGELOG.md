@@ -15,6 +15,12 @@ as the next release, never a mutated tag.
   site's home page.
 
 ### Fixed
+- **English is listed in Settings › Languages.** It was the default language only as a fallback,
+  so the page listed no languages. Adding a first language made that one the default, and English
+  could not be chosen again without adding it by hand. Provision now adds the configured default
+  (`en`) as a real, enabled, default language wherever no language is the default. Run
+  `php glueful thallo:provision` after updating, as usual. A site that already chose its default
+  is left as it is.
 - **The scheduler no longer fails every hour on a site without Commerce.** The cart cleanup job
   ran at 20 past each hour even where Commerce is installed but not enabled, and failed with
   `Service 'Glueful\Extensions\Commerce\Cart\CartPruner' not found`. A scheduled command of an

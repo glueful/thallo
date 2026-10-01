@@ -57,11 +57,15 @@ echo "+ reset the test database"
 
 [[ "$DRY" -eq 1 ]] || env_summary "$SCRATCH/.env"
 run_in "$SCRATCH" $PHP glueful thallo:doctor
-echo "+ (cd $SCRATCH && $PHP glueful thallo:provision --no-interaction)   # a skipped role grant fails the smoke"
+echo "+ (cd $SCRATCH && $PHP glueful thallo:provision --no-interaction)   # a skipped role grant or default language fails the smoke"
 if [[ "$DRY" -eq 0 ]]; then
   (cd "$SCRATCH" && $PHP glueful thallo:provision --no-interaction) | tee "$SCRATCH/provision.log"
   if grep -q "grants skipped" "$SCRATCH/provision.log"; then
     echo "FAIL: provision skipped the install role grants (see above)" >&2; exit 1
+  fi
+  # A fresh install's default language is a real row in Settings › Languages, not a fallback.
+  if ! grep -q "Default language: en." "$SCRATCH/provision.log"; then
+    echo "FAIL: provision did not make en the default language (see above)" >&2; exit 1
   fi
 fi
 [[ "$DRY" -eq 1 ]] || env_summary "$SCRATCH/.env"
