@@ -5,6 +5,12 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Fixed
+- **Overlapping provisions keep every role grant**, and a permission you revoke stays revoked. Role
+  grants and their record of what was offered are now decided in one serialized transaction.
+
 ## [1.0.0-beta.77] - 2026-10-02 — Developer Preview
 
 Fixes from a first production install. The superuser and administrator roles get every

@@ -6,6 +6,7 @@ namespace Thallo\Core\Tests\Integration\Setup;
 
 use Thallo\Core\Setup\InstallRoleGrants;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\ChildProcesses;
 use Thallo\Core\Tests\Support\RestoresPermissionRows;
 use Glueful\Extensions\Aegis\Repositories\PermissionRepository;
 use Glueful\Extensions\Aegis\Repositories\RolePermissionRepository;
@@ -19,6 +20,7 @@ use Glueful\Extensions\Aegis\Repositories\RoleRepository;
  */
 final class InstallRoleGrantsTest extends AppTestCase
 {
+    use ChildProcesses;
     use RestoresPermissionRows;
 
     protected function setUp(): void
@@ -106,6 +108,68 @@ final class InstallRoleGrantsTest extends AppTestCase
         self::assertNotNull($roleUuid);
         self::assertNotNull($permUuid, "{$slug} is seeded");
         (new RolePermissionRepository(null, $this->appContext()))->assignPermissionToRole($roleUuid, $permUuid);
+    }
+
+    public function testARevocationMadeWhileAnotherRunHoldsTheLockIsNotUndone(): void
+    {
+        // A run takes the lock, reads the ledger and pauses; the operator revokes; the run resumes.
+        $this->freshInstall();
+        $this->grants()->apply();
+        $child = $this->startChild('install_role_grants_child.php', ['--pause-after-ledger-read']);
+        $child->waitFor('ledger-read');
+        $this->revoke('administrator', 'commerce.view');
+        $child->signal('resume');
+        $child->finish();
+        self::assertNotContains('commerce.view', $this->roleSlugs('administrator'));
+    }
+
+    public function testASecondRunWaitsForTheFirstAndBothLedgerEntriesSurvive(): void
+    {
+        // Run A adds race.alpha, takes the lock, reads the ledger and pauses; run B adds race.beta
+        // and must wait on the grants lock (it can't act on the ledger A has read); A resumes, then
+        // B proceeds, and the ledger offers both.
+        $this->freshInstall();
+        $this->dropPermission('race.alpha');
+        $this->dropPermission('race.beta');
+        $this->channel()->put('installed', '1');
+        try {
+            $a = $this->startChild(
+                'install_role_grants_child.php',
+                ['--add-permission=race.alpha', '--pause-after-ledger-read'],
+            );
+            $a->waitFor('ledger-read');
+            $b = $this->startChild('install_role_grants_child.php', ['--add-permission=race.beta']);
+            self::assertTrue($this->anAdvisoryLockWaiterAppears(), 'run B waits on the grants lock');
+            self::assertFalse($b->isFinished(), 'run B does not finish while run A holds the lock');
+            $a->signal('resume');
+            $a->finish();
+            $b->finish();
+            if ($this->channel() instanceof \Thallo\Tenancy\System\SystemFlags) {
+                $this->channel()->clearCache();
+            }
+            $ledger = json_decode((string) $this->channel()->get(InstallRoleGrants::LEDGER_KEY), true);
+        } finally {
+            $this->channel()->forget('installed');
+            $this->dropPermission('race.alpha');
+            $this->dropPermission('race.beta');
+        }
+        self::assertContains('race.alpha', $ledger['superuser']);
+        self::assertContains('race.beta', $ledger['superuser']);
+    }
+
+    private function anAdvisoryLockWaiterAppears(int $timeoutSeconds = 10): bool
+    {
+        $deadline = microtime(true) + $timeoutSeconds;
+        while (microtime(true) < $deadline) {
+            $waiting = (int) $this->connection()->getPDO()
+                ->query("SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND NOT granted")
+                ->fetchColumn();
+            if ($waiting > 0) {
+                return true;
+            }
+            usleep(50_000);
+        }
+        return false;
     }
 
     public function testARevokedPermissionStaysRevokedOnTheNextProvision(): void
