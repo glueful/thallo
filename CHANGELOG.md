@@ -7,6 +7,11 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **`thallo:features:enable`, `resume` and `status`.** Turn a feature on from the terminal, prepare
+  it at deploy time with `--prepare` and finish on the running site, and see where every feature
+  stands.
+
 ### Changed
 - **Thallo's own engines can't be switched off by accident.** Packages Thallo needs, and engines a
   feature manages (Commerce, Subscriptions), refuse the generic extension switch and

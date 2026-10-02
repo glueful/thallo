@@ -16,11 +16,11 @@ use Thallo\Core\Capabilities\Activation\ActivationStore;
 use Thallo\Core\Capabilities\Activation\EngineActivation;
 use Thallo\Core\Capabilities\CapabilityStateStore;
 use Thallo\Core\Capabilities\CapabilityStateVersion;
-use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
 use Thallo\Core\Setup\InstallRoleGrants;
 use Thallo\Core\Tests\Support\ActivationRunners;
 use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Core\Tests\Support\ChildProcesses;
+use Thallo\Core\Tests\Support\ResetsCommerceActivation;
 use Thallo\Core\Tests\Support\RestoresPermissionRows;
 use Thallo\Tenancy\System\SystemFlags;
 
@@ -37,6 +37,7 @@ final class ActivationRunnerTest extends AppTestCase
 {
     use ActivationRunners;
     use ChildProcesses;
+    use ResetsCommerceActivation;
     use RestoresPermissionRows;
 
     private const COMMERCE = self::COMMERCE_PROVIDER;
@@ -48,31 +49,16 @@ final class ActivationRunnerTest extends AppTestCase
     {
         parent::setUp();
         $this->snapshotPermissionRows();
-        $this->resetCommerce();
+        $this->resetCommerceActivation();
     }
 
     protected function tearDown(): void
     {
         ActivationRunner::$crashProbe = null;
-        $this->resetCommerce();
+        $this->resetCommerceActivation();
         $this->restorePermissionRows();
         $this->removeActivationTempFiles();
         parent::tearDown();
-    }
-
-    /** No Commerce blocks, an idle activation and no stored switch: each test starts from there. */
-    private function resetCommerce(): void
-    {
-        $pdo = $this->connection()->getPDO();
-        $this->dropCommerceBlocks();
-        $pdo->exec("DELETE FROM capability_activation_events WHERE capability = 'thallo.commerce'");
-        $pdo->exec(
-            "UPDATE capability_activations SET generation = 0, status = 'idle', steps_done = '[]',
-               failed_step = NULL, error = NULL, remedy = NULL, owner_token = NULL,
-               lease_expires_at = NULL, workspaces = '{}', result = '{}'
-             WHERE capability = 'thallo.commerce'"
-        );
-        $pdo->exec("DELETE FROM thallo_system_flags WHERE key = 'capability.thallo.commerce.enabled'");
     }
 
     // ── helpers ─────────────────────────────────────────────────────────────────
@@ -214,19 +200,6 @@ final class ActivationRunnerTest extends AppTestCase
             usleep(50_000);
         }
         return false;
-    }
-
-    private function dropCommerceBlocks(): void
-    {
-        $slugs = array_map(
-            static fn ($d): string => $d->definitionKey,
-            $this->container()->get(BlockTypeKind::class)->contributionsFor('thallo.commerce'),
-        );
-        if ($slugs === []) {
-            return;
-        }
-        $in = implode(',', array_fill(0, count($slugs), '?'));
-        $this->connection()->getPDO()->prepare("DELETE FROM block_types WHERE slug IN ({$in})")->execute($slugs);
     }
 
     // ── the boot boundary ──────────────────────────────────────────────────────────

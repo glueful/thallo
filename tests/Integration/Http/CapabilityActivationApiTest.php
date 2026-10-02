@@ -15,12 +15,12 @@ use Thallo\Core\Capabilities\Activation\ActivationStore;
 use Thallo\Core\Capabilities\Activation\EngineActivation;
 use Thallo\Core\Capabilities\CapabilityStateStore;
 use Thallo\Core\Capabilities\CapabilityStateVersion;
-use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
 use Thallo\Core\Http\Controllers\CapabilityActivationController;
 use Thallo\Core\Http\DTOs\ActivationGenerationData;
 use Thallo\Core\Http\DTOs\UpdateCapabilityStateData;
 use Thallo\Core\Tests\Support\ActivationRunners;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\ResetsCommerceActivation;
 use Thallo\Core\Tests\Support\RestoresPermissionRows;
 use Thallo\Core\Tests\Support\TestableCapabilityAdminController;
 
@@ -33,6 +33,7 @@ use Thallo\Core\Tests\Support\TestableCapabilityAdminController;
 final class CapabilityActivationApiTest extends AppTestCase
 {
     use ActivationRunners;
+    use ResetsCommerceActivation;
     use RestoresPermissionRows;
 
     private const ID = 'thallo.commerce';
@@ -44,36 +45,15 @@ final class CapabilityActivationApiTest extends AppTestCase
     {
         parent::setUp();
         $this->snapshotPermissionRows();
-        $this->resetCommerce();
+        $this->resetCommerceActivation();
     }
 
     protected function tearDown(): void
     {
-        $this->resetCommerce();
+        $this->resetCommerceActivation();
         $this->restorePermissionRows();
         $this->removeActivationTempFiles();
         parent::tearDown();
-    }
-
-    private function resetCommerce(): void
-    {
-        $pdo = $this->connection()->getPDO();
-        $slugs = array_map(
-            static fn ($d): string => $d->definitionKey,
-            $this->container()->get(BlockTypeKind::class)->contributionsFor(self::ID),
-        );
-        if ($slugs !== []) {
-            $in = implode(',', array_fill(0, count($slugs), '?'));
-            $pdo->prepare("DELETE FROM block_types WHERE slug IN ({$in})")->execute($slugs);
-        }
-        $pdo->exec("DELETE FROM capability_activation_events WHERE capability = 'thallo.commerce'");
-        $pdo->exec(
-            "UPDATE capability_activations SET generation = 0, status = 'idle', steps_done = '[]',
-               failed_step = NULL, error = NULL, remedy = NULL, owner_token = NULL,
-               lease_expires_at = NULL, workspaces = '{}', result = '{}'
-             WHERE capability = 'thallo.commerce'"
-        );
-        $pdo->exec("DELETE FROM thallo_system_flags WHERE key = 'capability.thallo.commerce.enabled'");
     }
 
     // ── helpers ─────────────────────────────────────────────────────────────────
