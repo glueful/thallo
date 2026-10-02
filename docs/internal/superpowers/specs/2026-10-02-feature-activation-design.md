@@ -516,10 +516,18 @@ Payments (§7.7):
 - it **initializes only an absent state**, atomically, through the state-version contract (the write
   and the version advance in one transaction, under the activation row lock);
 - it **never overwrites** a stored state (on or off) or an activation in progress;
-- it adopts only when the engine is **enabled and schema-ready** at that moment; the capability is
-  then stored on and its activation row recorded as succeeded ("adopted"), so Features shows it on
-  with no summary of additions. An engine that is enabled but not schema-ready is **not** adopted:
-  the capability starts off, and turning it on runs a normal activation, which migrates the engine;
+- **Commerce and Subscriptions are adopted only when they were effective under the old rules**:
+  requested (no stored state, so the `thallo.capabilities` configuration map decides, and an
+  explicit `false` there means not requested) **and** available (engine enabled and schema-ready).
+  An engine that is ready doesn't by itself adopt a capability the configuration switched off: that
+  capability stays off. **Payments** has its own rule (§7.7);
+- an adopted capability is stored on and its activation row recorded as succeeded ("adopted"), so
+  the Capabilities view shows it on with no summary of additions. A capability whose engine is
+  enabled but not schema-ready is **not** adopted: it starts off, and turning it on runs a normal
+  activation, which migrates the engine;
+- after the upgrade, configuration never makes an `activation` capability effective: a
+  `thallo.capabilities` entry of `true` doesn't bypass its activation (an entry of `false` still
+  reads as off while no state is stored);
 - because it initializes only absent state, running provision or the row sync again changes nothing:
   an operator who turned the capability off after the upgrade keeps it off.
 
@@ -620,6 +628,7 @@ every place that starts an online payment must ask one question: *may a new onli
   already enabled and ready reads off, with no blocks or grants, until its activation finalizes; a
   `simple` capability with no stored state still follows its engine.
 - **Adoption:** Commerce effective before the upgrade (no stored state, engine ready) is on after it;
+  no stored state with `thallo.capabilities` set to `false` and the engine ready → off after it;
   an existing stored off is untouched; an activation in progress is untouched; upgrade → turn
   Payments off → run provision and the row sync again → still off; Payvia enabled but not
   schema-ready → Payments off and not adopted.
