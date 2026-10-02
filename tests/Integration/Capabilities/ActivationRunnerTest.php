@@ -4,24 +4,21 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Capabilities;
 
-use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Aegis\Repositories\PermissionRepository;
 use Glueful\Extensions\Aegis\Repositories\RolePermissionRepository;
 use Glueful\Extensions\Aegis\Repositories\RoleRepository;
 use Psr\Container\ContainerInterface;
-use Thallo\Contracts\Extensions\ExtensionStateCoordinator;
 use Thallo\Contracts\Settings\SystemChannel;
 use Thallo\Core\Capabilities\Activation\ActivationRunner;
 use Thallo\Core\Capabilities\Activation\ActivationStatus;
 use Thallo\Core\Capabilities\Activation\ActivationStep;
 use Thallo\Core\Capabilities\Activation\ActivationStore;
-use Thallo\Core\Capabilities\Activation\CapabilityBlockSeeder;
 use Thallo\Core\Capabilities\Activation\EngineActivation;
 use Thallo\Core\Capabilities\CapabilityStateStore;
 use Thallo\Core\Capabilities\CapabilityStateVersion;
-use Thallo\Core\Capabilities\FeatureManagementPolicy;
 use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
 use Thallo\Core\Setup\InstallRoleGrants;
+use Thallo\Core\Tests\Support\ActivationRunners;
 use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Core\Tests\Support\ChildProcesses;
 use Thallo\Core\Tests\Support\RestoresPermissionRows;
@@ -38,16 +35,14 @@ use Thallo\Tenancy\System\SystemFlags;
  */
 final class ActivationRunnerTest extends AppTestCase
 {
+    use ActivationRunners;
     use ChildProcesses;
     use RestoresPermissionRows;
 
-    private const COMMERCE = 'Glueful\\Extensions\\Commerce\\CommerceServiceProvider';
+    private const COMMERCE = self::COMMERCE_PROVIDER;
     private const SUBSCRIPTIONS = 'Glueful\\Extensions\\Subscriptions\\SubscriptionsServiceProvider';
 
     private static ?ContainerInterface $withoutCommerce = null;
-
-    /** @var list<string> */
-    private array $tempFiles = [];
 
     protected function setUp(): void
     {
@@ -61,9 +56,7 @@ final class ActivationRunnerTest extends AppTestCase
         ActivationRunner::$crashProbe = null;
         $this->resetCommerce();
         $this->restorePermissionRows();
-        foreach ($this->tempFiles as $file) {
-            @unlink($file);
-        }
+        $this->removeActivationTempFiles();
         parent::tearDown();
     }
 
@@ -97,55 +90,6 @@ final class ActivationRunnerTest extends AppTestCase
     private function version(): CapabilityStateVersion
     {
         return $this->container()->get(CapabilityStateVersion::class);
-    }
-
-    private function tempExtensionsConfig(array $enabled = []): string
-    {
-        $path = sys_get_temp_dir() . '/thallo-activation-extensions-' . bin2hex(random_bytes(6)) . '.php';
-        $items = implode('', array_map(
-            static fn (string $p): string => "        '" . str_replace('\\', '\\\\', $p) . "',\n",
-            $enabled,
-        ));
-        file_put_contents($path, "<?php\nreturn [\n    'enabled' => [\n{$items}    ],\n];\n");
-        $this->tempFiles[] = $path;
-        return $path;
-    }
-
-    /**
-     * An engine whose enabled list is a temp file (Commerce listed by default: already prepared)
-     * and whose cache rebuild never touches the application's cache.
-     *
-     * @param list<string> $enabled
-     */
-    private function engine(
-        array $enabled = [self::COMMERCE],
-        bool $writable = true,
-        ?\Closure $writeCache = null,
-        ?ContainerInterface $container = null,
-    ): EngineActivation {
-        $container ??= $this->container();
-        return new EngineActivation(
-            $container->get(ApplicationContext::class),
-            $container->get(ExtensionStateCoordinator::class),
-            $this->tempExtensionsConfig($enabled),
-            static fn (): bool => $writable,
-            $writeCache ?? static function (): void {
-            },
-        );
-    }
-
-    private function runner(?EngineActivation $engine = null, ?ContainerInterface $container = null): ActivationRunner
-    {
-        $container ??= $this->container();
-        return new ActivationRunner(
-            $container->get(ActivationStore::class),
-            $container->get(CapabilityStateStore::class),
-            new FeatureManagementPolicy(),
-            $container->get(CapabilityBlockSeeder::class),
-            $container->get(InstallRoleGrants::class),
-            $engine ?? $this->engine(container: $container),
-            $container,
-        );
     }
 
     /** A runner in this process's container: booted with Commerce loaded and ready. */
