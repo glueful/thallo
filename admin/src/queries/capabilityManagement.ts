@@ -9,6 +9,11 @@ import { useCapabilitiesStore } from '@/stores/capabilities'
 // registry memoizes per boot), so mutations converge the capabilities store instead of assuming
 // the response is instantly authoritative for the whole app.
 
+import type { ActivationRecord } from '@/queries/capabilityActivation'
+
+/** How the Features page switches a capability. */
+export type CapabilityManagementKind = 'activation' | 'workspaces' | 'simple'
+
 export interface ManagedCapability {
   id: string
   label?: string | null
@@ -20,6 +25,13 @@ export interface ManagedCapability {
   reason: string | null
   remedy: string | null
   effective: boolean
+  management: CapabilityManagementKind
+  /** The open or last activation (activation features only); null before the first. */
+  activation: ActivationRecord | null
+  /** Whether the engine step could write application files here (activation features only). */
+  application_files_writable: boolean | null
+  /** Whether the engine's provider is loaded in this boot (activation features only). */
+  engine_enabled: boolean | null
 }
 
 const base = () => `${runtimeConfig.apiBase}/capabilities`

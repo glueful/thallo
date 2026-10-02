@@ -728,8 +728,8 @@ async function openThemePreview(): Promise<void> {
         <UIcon name="i-lucide-monitor-off" class="mx-auto size-8 text-muted" />
         <p class="font-medium">Rendered delivery is disabled</p>
         <p class="text-sm text-muted">
-          The visual canvas previews your site's real theme output. Turn on Rendered delivery under
-          Extensions › Capabilities to use it — the form editor covers everything else.
+          The visual canvas previews your site's real theme output. Turn on Rendered delivery in
+          Features to use it — the form editor covers everything else.
         </p>
         <UButton variant="subtle" color="neutral" :to="`/content/${type}/${uuid}?locale=${locale}`">
           Open the form editor

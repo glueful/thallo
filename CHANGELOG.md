@@ -13,6 +13,9 @@ as the next release, never a mutated tag.
   stands.
 
 ### Changed
+- **Extensions is now Features.** Turn features on and off in one place. Commerce and Subscriptions
+  turn on with one action that prepares everything, shows what was added, and can be retried if a
+  step fails. Installed packages shows who manages each package.
 - **Thallo's own engines can't be switched off by accident.** Packages Thallo needs, and engines a
   feature manages (Commerce, Subscriptions), refuse the generic extension switch and
   `extensions:enable` / `extensions:disable`, and name the right place instead.

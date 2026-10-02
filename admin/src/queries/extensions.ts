@@ -24,6 +24,15 @@ export interface InstalledExtension {
   schema_reasons: string[]
   /** The CLI equivalent an operator can run for this row's state. */
   cli_command: string | null
+  /** Who switches this package: Thallo needs it, a feature manages it, or it is independent. */
+  management: PackageManagement
+}
+
+export interface PackageManagement {
+  class: 'required' | 'managed' | 'independent'
+  capability: string | null
+  reason: string | null
+  link: string | null
 }
 
 /** Chip color for a schema state (ready is calm, divergent demands attention). */

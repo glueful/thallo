@@ -21,21 +21,39 @@ const selectedName = ref<string>()
 const selected = computed(() => extensions.value.find((e) => e.name === selectedName.value))
 const busy = computed(() => enable.isLoading.value || disable.isLoading.value)
 const blocked = computed(() => (selected.value ? toggleBlockedReason(selected.value) : null))
+
+/** Required and feature-managed packages have no switch here: their owner switches them. */
+const switchable = (ext: InstalledExtension) => ext.management.class === 'independent'
+
+function managementBadge(ext: InstalledExtension): string | null {
+  if (ext.management.class === 'required') return 'Required'
+  if (ext.management.class === 'managed') return 'Managed'
+  return null
+}
+
+function managementLine(ext: InstalledExtension): string {
+  if (ext.management.class === 'required') {
+    return ext.enabled
+      ? 'Required by Thallo.'
+      : 'Required by Thallo, disabled. Run php glueful thallo:provision.'
+  }
+  return ext.management.reason ?? ''
+}
 const { data: readme, status: readmeStatus } = useExtensionReadme(() => selectedName.value)
 
 async function toggle(ext: InstalledExtension) {
   try {
     if (ext.enabled) {
       await disable.mutateAsync(ext.name)
-      success('Extension disabled', extensionShortName(ext.name))
+      success('Package disabled', extensionShortName(ext.name))
     } else {
       await enable.mutateAsync(ext.name)
-      success('Extension enabled', extensionShortName(ext.name))
+      success('Package enabled', extensionShortName(ext.name))
     }
   } catch (e) {
     // A failed migration is the actionable part of a 409 — put its name in the title.
     const failed = failedMigrationOf(e)
-    notifyError(e, failed ? `Migration failed: ${failed}` : 'Could not update extension')
+    notifyError(e, failed ? `Migration failed: ${failed}` : 'Could not update package')
   }
 }
 </script>
@@ -53,7 +71,7 @@ async function toggle(ext: InstalledExtension) {
       <UEmpty
         v-else-if="!extensions.length"
         icon="i-lucide-package"
-        title="No extensions installed"
+        title="No packages installed"
         description="Install a glueful-extension package with Composer to see it here."
       />
       <div v-else class="flex flex-col gap-0.5">
@@ -61,6 +79,7 @@ async function toggle(ext: InstalledExtension) {
           v-for="ext in extensions"
           :key="ext.name"
           type="button"
+          :data-test="`package-${ext.name}`"
           class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors"
           :class="ext.name === selectedName ? 'bg-elevated' : 'hover:bg-elevated/50'"
           @click="
@@ -81,6 +100,14 @@ async function toggle(ext: InstalledExtension) {
             :label="ext.schema_state"
             :color="schemaChipColor(ext.schema_state)"
             variant="subtle"
+            size="xs"
+            class="shrink-0"
+          />
+          <UBadge
+            v-if="managementBadge(ext)"
+            :label="managementBadge(ext) ?? ''"
+            color="neutral"
+            variant="outline"
             size="xs"
             class="shrink-0"
           />
@@ -106,7 +133,7 @@ async function toggle(ext: InstalledExtension) {
       >
         <div>
           <UIcon name="i-lucide-mouse-pointer-click" class="mx-auto mb-2 size-6" />
-          Select an extension to manage it
+          Select a package to see it
         </div>
       </div>
       <div v-else class="flex flex-col gap-5">
@@ -133,8 +160,9 @@ async function toggle(ext: InstalledExtension) {
               <p class="truncate text-sm text-muted">{{ selected.name }}</p>
             </div>
           </div>
-          <UTooltip :text="blocked ?? undefined" :disabled="!blocked">
+          <UTooltip v-if="switchable(selected)" :text="blocked ?? undefined" :disabled="!blocked">
             <UButton
+              data-test="package-toggle"
               :label="selected.enabled ? 'Disable' : 'Enable'"
               :color="selected.enabled ? 'neutral' : 'primary'"
               :variant="selected.enabled ? 'outline' : 'solid'"
@@ -145,6 +173,21 @@ async function toggle(ext: InstalledExtension) {
             />
           </UTooltip>
         </header>
+
+        <p
+          v-if="!switchable(selected)"
+          class="rounded-md bg-elevated px-3 py-2 text-sm text-default"
+          data-test="package-management"
+        >
+          {{ managementLine(selected) }}
+          <ULink
+            v-if="selected.management.link"
+            :to="selected.management.link"
+            class="ms-1 text-primary"
+          >
+            Open
+          </ULink>
+        </p>
 
         <p v-if="selected.description" class="text-sm text-default">{{ selected.description }}</p>
 
@@ -206,7 +249,7 @@ async function toggle(ext: InstalledExtension) {
             class="readme-prose text-sm text-default"
             v-html="readme.html"
           />
-          <p v-else class="text-sm text-muted">This extension doesn’t ship a README.</p>
+          <p v-else class="text-sm text-muted">This package doesn’t ship a README.</p>
         </section>
       </div>
     </div>

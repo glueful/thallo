@@ -203,7 +203,7 @@ beforeEach(() => {
 // ── Plans page ───────────────────────────────────────────────────────────────
 
 describe('subscriptions/plans page', () => {
-  it('shows the engine_disabled notice with a link to /extensions, never fetching the plans list', async () => {
+  it('shows the engine_disabled notice with a link to /features, never fetching the plans list', async () => {
     metaData.value = meta({ engine: 'engine_disabled' })
     const wrapper = mountPage(PlansIndex)
     await flushPromises()
@@ -212,7 +212,7 @@ describe('subscriptions/plans page', () => {
     expect(notice.exists()).toBe(true)
     expect(notice.props('state')).toBe('engine_disabled')
     // UButton renders `to` as an `href` on the resolved anchor, not a passthrough `to` attribute.
-    expect(wrapper.find('[data-test="engine-state-action"]').attributes('href')).toBe('/extensions')
+    expect(wrapper.find('[data-test="engine-state-action"]').attributes('href')).toBe('/features')
     expect(wrapper.find('[data-test="plans-table"]').exists()).toBe(false)
     expect(usePlansEnabledSeen.value.every((v) => v === false)).toBe(true)
   })

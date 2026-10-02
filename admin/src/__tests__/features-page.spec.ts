@@ -1,0 +1,291 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { mount, flushPromises } from '@vue/test-utils'
+import { createPinia } from 'pinia'
+import { PiniaColada } from '@pinia/colada'
+import { createRouter, createMemoryHistory } from 'vue-router'
+import { ApiError } from '@/api/errors'
+
+const authFetch = vi.hoisted(() => vi.fn())
+const refreshUntilChanged = vi.hoisted(() => vi.fn())
+vi.mock('@/api/authFetch', () => ({ authFetch: (...a: unknown[]) => authFetch(...a) }))
+vi.mock('@/runtime/config', () => ({ runtimeConfig: { apiBase: '/v1/admin' } }))
+vi.mock('@/stores/capabilities', () => ({
+  useCapabilitiesStore: () => ({ refreshUntilChanged }),
+}))
+vi.mock('@/composables/useNotify', () => ({
+  useNotify: () => ({ success: vi.fn(), error: vi.fn() }),
+}))
+
+type Json = Record<string, unknown>
+
+function commerce(over: Json = {}): Json {
+  return {
+    id: 'thallo.commerce',
+    label: 'Commerce',
+    description: 'A shop.',
+    requires: [],
+    owning_package: 'glueful/commerce',
+    requested: false,
+    available: true,
+    reason: null,
+    remedy: null,
+    effective: false,
+    management: 'activation',
+    activation: null,
+    application_files_writable: true,
+    engine_enabled: true,
+    ...over,
+  }
+}
+
+function record(over: Json = {}): Json {
+  return {
+    capability: 'thallo.commerce',
+    generation: 1,
+    status: 'preparing',
+    steps_done: ['mark_preparing'],
+    next_step: 'enable_engine',
+    failed_step: null,
+    error: null,
+    remedy: null,
+    workspaces: {},
+    result: {},
+    actor: 'user00000001',
+    updated_at: '2026-10-02 12:00:00',
+    ...over,
+  }
+}
+
+function conflict(reason: string): ApiError {
+  return new ApiError('Conflict', 409, {}, { error: { details: { reason } } })
+}
+
+/** Routes authFetch by method and path; records every call. */
+function serve(handlers: Record<string, (body: Json) => unknown>) {
+  const calls: { key: string; body: Json }[] = []
+  authFetch.mockImplementation(async (url: string, init: RequestInit = {}) => {
+    const key = `${init.method ?? 'GET'} ${url}`
+    const body = typeof init.body === 'string' ? (JSON.parse(init.body) as Json) : {}
+    calls.push({ key, body })
+    const handler = handlers[key]
+    if (!handler) return { data: {} }
+    return handler(body)
+  })
+  return calls
+}
+
+const manage =
+  (...caps: Json[]) =>
+  () => ({ data: { capabilities: caps } })
+
+function router() {
+  return createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/:p(.*)*', component: { template: '<div />' } }],
+  })
+}
+
+async function mountFeatures() {
+  const { default: FeaturesPage } = await import('@/pages/features/index.vue')
+  const w = mount(FeaturesPage, {
+    global: { plugins: [createPinia(), PiniaColada, router()] },
+    attachTo: document.body,
+  })
+  await flushPromises()
+  return w
+}
+
+const card = () =>
+  document.body.querySelector('[data-test="feature-thallo.commerce"]') as HTMLElement
+const inCard = (selector: string) => card().querySelector(selector) as HTMLElement | null
+const click = async (el: Element | null) => {
+  expect(el).not.toBeNull()
+  ;(el as HTMLElement).click()
+  await flushPromises()
+}
+
+const START = 'POST /v1/admin/capabilities/thallo.commerce/activation'
+const CONTINUE = 'POST /v1/admin/capabilities/thallo.commerce/activation/continue'
+const MANAGE = 'GET /v1/admin/capabilities/manage'
+
+describe('the Features page', () => {
+  beforeEach(() => {
+    authFetch.mockReset()
+    refreshUntilChanged.mockReset()
+  })
+
+  it('confirm then turn on calls start then continue until continue is false', async () => {
+    let continues = 0
+    const calls = serve({
+      [MANAGE]: manage(commerce()),
+      [START]: () => ({ data: { activation: record(), continue: true } }),
+      [CONTINUE]: () => {
+        continues++
+        return continues === 1
+          ? { data: { activation: record({ next_step: 'verify_boot' }), continue: true } }
+          : {
+              data: {
+                activation: record({ status: 'succeeded', result: { blocks_created: 18 } }),
+                continue: false,
+              },
+            }
+      },
+    })
+    await mountFeatures()
+
+    await click(inCard('[role="switch"]'))
+    expect(document.body.querySelector('[data-test="feature-confirm"]')).not.toBeNull()
+    const dialog = document.body.querySelector('[role="dialog"]')
+    expect(dialog?.textContent).toContain('Turn on Commerce?')
+    expect(dialog?.textContent).toContain('Your existing content is kept.')
+    await click(document.body.querySelector('[data-test="feature-confirm-turn-on"]'))
+
+    const keys = calls.map((c) => c.key).filter((k) => k !== MANAGE)
+    expect(keys).toEqual([START, CONTINUE, CONTINUE])
+    expect(calls.filter((c) => c.key === CONTINUE).map((c) => c.body.generation)).toEqual([1, 1])
+    expect(card().textContent).toContain('Commerce is on.')
+    expect(refreshUntilChanged).toHaveBeenCalled()
+  })
+
+  it('a failed step shows its message and Retry continues the same generation', async () => {
+    const calls = serve({
+      [MANAGE]: manage(commerce()),
+      [START]: () => ({
+        data: {
+          activation: record({
+            status: 'failed',
+            generation: 4,
+            failed_step: 'seed_blocks',
+            error: "The blocks couldn't be added in these workspaces: a.",
+          }),
+          continue: false,
+        },
+      }),
+      [CONTINUE]: () => ({
+        data: { activation: record({ generation: 4, status: 'succeeded' }), continue: false },
+      }),
+    })
+    await mountFeatures()
+    await click(inCard('[role="switch"]'))
+    await click(document.body.querySelector('[data-test="feature-confirm-turn-on"]'))
+
+    expect(card().textContent).toContain("The blocks couldn't be added")
+    await click(inCard('[data-test="feature-retry"]'))
+    expect(calls.find((c) => c.key === CONTINUE)?.body.generation).toBe(4)
+    expect(card().textContent).toContain('Commerce is on.')
+  })
+
+  it('superseded continue shows off', async () => {
+    serve({
+      [MANAGE]: manage(commerce({ activation: record({ generation: 2 }) })),
+      [CONTINUE]: () => {
+        throw conflict('superseded')
+      },
+    })
+    await mountFeatures()
+    await click(inCard('[data-test="feature-continue"]'))
+
+    expect(card().textContent).toContain('A newer decision')
+    expect(inCard('[role="switch"]')).not.toBeNull()
+    expect(inCard('[data-test="feature-continue"]')).toBeNull()
+  })
+
+  it('read-only host offers the prepare command, no button', async () => {
+    serve({
+      [MANAGE]: manage(commerce({ application_files_writable: false, engine_enabled: false })),
+    })
+    await mountFeatures()
+    expect(card().textContent).toContain(
+      'php glueful thallo:features:enable thallo.commerce --prepare',
+    )
+    expect(inCard('[role="switch"]')).toBeNull()
+    expect(card().querySelector('button')).toBeNull()
+  })
+
+  it('an open operation on load offers Continue', async () => {
+    serve({ [MANAGE]: manage(commerce({ activation: record({ next_step: 'verify_boot' }) })) })
+    await mountFeatures()
+    expect(inCard('[data-test="feature-continue"]')).not.toBeNull()
+    expect(inCard('[data-test="feature-cancel"]')).not.toBeNull()
+  })
+
+  it('the summary reads the result count', async () => {
+    serve({
+      [MANAGE]: manage(
+        commerce({
+          effective: true,
+          requested: true,
+          activation: record({
+            status: 'succeeded',
+            result: { blocks_created: 7, grants: { superuser: 2, administrator: 1 } },
+          }),
+        }),
+      ),
+    })
+    await mountFeatures()
+    expect(card().textContent).toContain('Added 7 blocks')
+    expect(card().textContent).toContain('3 new permissions')
+  })
+
+  it('a workspaces capability links to Settings › Workspaces', async () => {
+    serve({
+      [MANAGE]: manage({
+        ...commerce({ id: 'thallo.tenancy', label: 'Multi-tenancy', management: 'workspaces' }),
+      }),
+    })
+    await mountFeatures()
+    const tenancy = document.body.querySelector(
+      '[data-test="feature-thallo.tenancy"]',
+    ) as HTMLElement
+    expect(tenancy.querySelector('a[href="/settings/workspaces"]')).not.toBeNull()
+    expect(tenancy.querySelector('[role="switch"]')).toBeNull()
+  })
+
+  it('required package shows Required by Thallo and no switch', async () => {
+    serve({
+      'GET /v1/admin/extensions': () => ({
+        data: {
+          extensions: [
+            {
+              name: 'glueful/aegis',
+              provider: 'Glueful\\Extensions\\Aegis\\Services\\AegisServiceProvider',
+              version: '1.0.0',
+              requires_extensions: [],
+              enabled: true,
+              schema_state: 'ready',
+              schema_reasons: [],
+              cli_command: null,
+              management: {
+                class: 'required',
+                capability: null,
+                reason: 'Required by Thallo.',
+                link: null,
+              },
+            },
+          ],
+        },
+      }),
+    })
+    const { default: InstalledPackages } =
+      await import('@/pages/features/components/InstalledPackages.vue')
+    const w = mount(InstalledPackages, {
+      global: { plugins: [createPinia(), PiniaColada, router()] },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    await w.find('[data-test="package-glueful/aegis"]').trigger('click')
+    await flushPromises()
+
+    expect(w.text()).toContain('Required by Thallo')
+    expect(w.find('[data-test="package-toggle"]').exists()).toBe(false)
+  })
+
+  it('/extensions redirects to /features', async () => {
+    const r = router()
+    const replace = vi.spyOn(r, 'replace')
+    const { default: ExtensionsRedirect } = await import('@/pages/extensions/index.vue')
+    mount(ExtensionsRedirect, { global: { plugins: [r] } })
+    await flushPromises()
+    expect(replace).toHaveBeenCalledWith('/features')
+  })
+})

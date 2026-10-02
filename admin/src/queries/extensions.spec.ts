@@ -33,6 +33,7 @@ describe('schema state helpers', () => {
     schema_state: 'ready' as const,
     schema_reasons: [],
     cli_command: 'php glueful extensions:enable glueful/media',
+    management: { class: 'independent' as const, capability: null, reason: null, link: null },
     ...over,
   })
 

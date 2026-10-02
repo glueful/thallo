@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
+import { PiniaColada } from '@pinia/colada'
+import { createRouter, createMemoryHistory } from 'vue-router'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ref } from 'vue'
 import type { ManagedCapability } from '@/queries/capabilityManagement'
@@ -16,11 +18,14 @@ vi.mock('@/queries/capabilityManagement', async (importOriginal) => ({
     setState: { mutateAsync: setStateMock, isLoading: ref(false) },
   }),
 }))
+vi.mock('@/stores/capabilities', () => ({
+  useCapabilitiesStore: () => ({ refreshUntilChanged: vi.fn() }),
+}))
 vi.mock('@/composables/useNotify', () => ({
   useNotify: () => ({ success: notify.success, error: notify.error }),
 }))
 
-import CapabilityManagement from '@/pages/extensions/components/CapabilityManagement.vue'
+import FeaturesPage from '@/pages/features/index.vue'
 
 const cap = (over: Partial<ManagedCapability> = {}): ManagedCapability => ({
   id: 'thallo.render',
@@ -33,32 +38,29 @@ const cap = (over: Partial<ManagedCapability> = {}): ManagedCapability => ({
   reason: null,
   remedy: null,
   effective: true,
+  management: 'simple',
+  activation: null,
+  application_files_writable: null,
+  engine_enabled: null,
   ...over,
 })
 
 function mountPage() {
-  return mount(CapabilityManagement, {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/:p(.*)*', component: { template: '<div />' } }],
+  })
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  return mount(FeaturesPage, {
     global: {
-      stubs: {
-        UIcon: true,
-        UEmpty: { template: '<div data-test="empty"><slot /></div>' },
-        UBadge: {
-          props: ['label', 'color'],
-          template: '<span data-test="badge" :data-color="color">{{ label }}</span>',
-        },
-        USwitch: {
-          props: ['modelValue', 'disabled'],
-          emits: ['update:modelValue'],
-          template:
-            '<button type="button" data-test="switch" :disabled="disabled" ' +
-            '@click="$emit(\'update:modelValue\', !modelValue)" />',
-        },
-      },
+      plugins: [pinia, PiniaColada, router],
     },
   })
 }
 
-describe('CapabilityManagement', () => {
+// A capability without an activation flow keeps a plain switch on the Features page.
+describe('Features page: plain-switch capabilities', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     rows.value = undefined
@@ -86,17 +88,17 @@ describe('CapabilityManagement', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    const on = wrapper.find('[data-test="capability-thallo.render"]')
+    const on = wrapper.find('[data-test="feature-thallo.render"]')
     expect(on.find('[data-test="state-badge"]').text()).toBe('On')
 
-    const degraded = wrapper.find('[data-test="capability-thallo.search"]')
+    const degraded = wrapper.find('[data-test="feature-thallo.search"]')
     expect(degraded.find('[data-test="state-badge"]').text()).toContain('engine unavailable')
     expect(degraded.find('[data-test="unavailable-reason"]').text()).toContain('not enabled')
     expect(degraded.find('[data-test="unavailable-reason"]').text()).toContain(
       'php glueful extensions:enable glueful/meilisearch',
     )
 
-    const off = wrapper.find('[data-test="capability-thallo.workflow"]')
+    const off = wrapper.find('[data-test="feature-thallo.workflow"]')
     expect(off.find('[data-test="state-badge"]').text()).toBe('Off')
   })
 
@@ -115,7 +117,7 @@ describe('CapabilityManagement', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    await wrapper.find('[data-test="toggle-thallo.search"]').trigger('click')
+    await wrapper.find('[data-test="feature-thallo.search"] [role="switch"]').trigger('click')
     await flushPromises()
 
     expect(setStateMock).not.toHaveBeenCalled()
@@ -138,7 +140,7 @@ describe('CapabilityManagement', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    await wrapper.find('[data-test="toggle-thallo.search"]').trigger('click')
+    await wrapper.find('[data-test="feature-thallo.search"] [role="switch"]').trigger('click')
     await flushPromises()
 
     expect(setStateMock).toHaveBeenCalledWith({ id: 'thallo.search', enabled: false })
@@ -152,6 +154,6 @@ describe('CapabilityManagement', () => {
 
     expect(wrapper.text()).toContain('Operator access required')
     expect(wrapper.text()).toContain('system.access')
-    expect(wrapper.findAll('[data-test="switch"]')).toHaveLength(0)
+    expect(wrapper.findAll('[role="switch"]')).toHaveLength(0)
   })
 })
