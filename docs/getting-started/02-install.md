@@ -99,7 +99,9 @@ Doctor prints one row per check — `php`, `ext:pdo_pgsql`, `env-target`, `stora
 `theme-vocabulary`, `style-artifact`, `environment`, and, once `.env` holds database settings,
 `database` — each marked OK, WARN or FAIL, with the detail that explains it. Any FAIL fails the
 command; `--strict` fails it on a warning too. When `BASE_URL` names a public host, doctor also
-probes that host for two web-server misconfigurations, `asset-routing` and `api-routing`.
+probes that host for three web-server misconfigurations: `document-root` (the web server is not
+serving the project's `public/` folder), `asset-routing` and `api-routing`. Provision runs the same
+probes once `.env` is written and prints any warning under the setup link.
 
 ## Switch to development mode
 

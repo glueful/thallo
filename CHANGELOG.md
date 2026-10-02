@@ -5,6 +5,20 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Added
+- **Provision and doctor say when the web server is not serving `public/`.** A new
+  `document-root` check fetches `/admin/` on a public `BASE_URL`. A 403 or 404 there means the
+  document root (nginx `root`) is the project folder or a panel's empty default, so no request
+  reaches PHP. The warning names the folder to point at. Before, the setup link opened on nginx's
+  bare 404 page.
+
+### Fixed
+- **Provision shows the web-server warnings.** It ran its checks before `.env` held the
+  `BASE_URL`, so on a fresh install the web probes never ran, and it kept only failures. It now runs
+  them again at the end and prints any warning under the setup link.
+
 ## [1.0.0-beta.76] - 2026-10-01 — Developer Preview
 
 The Thallo version stays put in the sidebar's footer, above the line that sets off your account

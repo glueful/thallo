@@ -30,15 +30,16 @@ looks healthy, or some checks failed. The command's exit status follows: a FAIL 
 | `env-target` | `.env` is writable, or can be created from `.env.example` | FAIL when `.env` is read-only, or absent with no readable `.env.example` or no writable project root |
 | `storage` | `storage/` exists and is writable | FAIL when it is missing or read-only |
 | `keys` | `APP_KEY`, `TOKEN_SALT` and `JWT_KEY` all have a value | WARN, naming the ones that are empty |
-| `asset-routing` | Fetches `/theme-assets/site.css?t=default` on your public `BASE_URL` | WARN on 404: the web server is serving PHP-generated paths from disk |
+| `document-root` | Fetches `/admin/` on your public `BASE_URL` | WARN on 403 or 404: the web server's document root is not the project's `public/` folder, so no request reaches PHP. Names the folder to point at. Skipped with `ADMIN_ENABLED=false` |
+| `asset-routing` | Fetches `/theme-assets/site.css?t=default` on your public `BASE_URL` | WARN on 404: the web server is serving PHP-generated paths from disk | Not run when `document-root` warns |
 | `theme-vocabulary` | The live theme (the one chosen on the Appearance page, else `RENDER_THEME`) has a `theme.json` that maps the platform vocabulary and lists its stylesheets | FAIL, with the reason the manifest was rejected |
 | `style-artifact` | The compiled stylesheet for that theme is published under `storage/cache/style/` | WARN, naming the file — run `php glueful thallo:provision` |
-| `api-routing` | Fetches `/v1/admin/render/templates/custom.css?theme=default` on your public `BASE_URL` | WARN on 404 or 405: the same web-server fault, for file-shaped API paths |
+| `api-routing` | Fetches `/v1/admin/render/templates/custom.css?theme=default` on your public `BASE_URL` | WARN on 404 or 405: the same web-server fault, for file-shaped API paths. Not run when `document-root` warns |
 | `environment` | `APP_ENV` against the host in `BASE_URL` | WARN when a public host runs in anything but production mode |
 | `database` | Connects with the credentials in `.env` | FAIL, with the connection error |
 
-Three of those rows are conditional. `environment`, `asset-routing` and `api-routing` need a
-`.env` to read. The two routing probes run only when `BASE_URL` names a public host — `localhost`,
+Four of those rows are conditional. `environment`, `document-root`, `asset-routing` and
+`api-routing` need a `.env` to read. The three web probes run only when `BASE_URL` names a public host — `localhost`,
 `127.0.0.1`, `::1`, `0.0.0.0` and any host ending in `.localhost`, `.local` or `.test` are treated
 as local and skipped — and they give no verdict at all when the host cannot be reached from the
 machine you run the command on. The `database` row appears only once the database is configured
@@ -129,6 +130,7 @@ restart, so restarting PHP is not a way to clear it.
 
 | Symptom | Usual cause | What to do |
 |---|---|---|
+| `/` answers 403 and `/admin/setup` 404 (nginx's own error page) | The web server's document root is the project folder, or a panel's empty default, not `public/`, so nginx never reaches PHP | Point the root (nginx `root`; CloudPanel: **Settings › Root Directory**) at the project's `public/` folder and reload the web server. `thallo:provision` and `thallo:doctor` report this as `document-root` |
 | The rendered site, or the Design view, loads unstyled | A web-server rule serves every `.css`, `.js` and `.woff2` URL from the document root, so `/theme-assets/*` and `/_thallo/*` answer 404 instead of reaching PHP | Add the location rule above the static-file rule: [running in production](../production.md#php-served-asset-paths-web-server). `thallo:doctor` reports this as `asset-routing` |
 | Saving the site's custom CSS fails | The same rule, eating the file-shaped API path `/v1/admin/render/templates/custom.css` | The same fix; the rule covers `/v1/` and `/api-docs/` too. `thallo:doctor` reports it as `api-routing` |
 | `/admin` loads a blank page and its assets 404 | The admin bundle was never published into `public/admin`, so the web server has no files to serve | `php glueful thallo:provision` |

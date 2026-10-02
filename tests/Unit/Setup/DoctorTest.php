@@ -165,7 +165,7 @@ final class DoctorTest extends TestCase
         $probed = [];
         $doctor = new Doctor($dir, '8.3.0', ['pdo_pgsql'], static function (string $url) use (&$probed): ?int {
             $probed[] = $url;
-            return 404;
+            return str_ends_with($url, '/admin/') ? 200 : 404;
         });
 
         $check = $this->byName($doctor->preflight())['asset-routing'];
@@ -175,6 +175,7 @@ final class DoctorTest extends TestCase
         self::assertStringContainsString('docs/production.md', $check->message);
         self::assertSame(
             [
+                'https://thallo.dev/admin/',
                 'https://thallo.dev/theme-assets/site.css?t=default',
                 'https://thallo.dev/v1/admin/render/templates/custom.css?theme=default',
             ],
@@ -189,7 +190,7 @@ final class DoctorTest extends TestCase
         // API (the probe is anonymous), which is the healthy answer.
         $dir = $this->tempProjectWithEnv("APP_ENV=production\nBASE_URL=https://thallo.dev\n");
         $doctor = new Doctor($dir, '8.3.0', ['pdo_pgsql'], static fn (string $url): ?int =>
-            str_contains($url, '/theme-assets/') ? 200 : 404);
+            str_contains($url, '/theme-assets/') || str_ends_with($url, '/admin/') ? 200 : 404);
 
         $checks = $this->byName($doctor->preflight());
 
@@ -199,8 +200,58 @@ final class DoctorTest extends TestCase
         self::assertStringContainsString('docs/production.md', $checks['api-routing']->message);
 
         $healthy = new Doctor($dir, '8.3.0', ['pdo_pgsql'], static fn (string $url): ?int =>
-            str_contains($url, '/theme-assets/') ? 200 : 401);
+            str_contains($url, '/theme-assets/') || str_ends_with($url, '/admin/') ? 200 : 401);
         self::assertSame(Check::OK, $this->byName($healthy->preflight())['api-routing']->status);
+    }
+
+    // ── document root probe ────────────────────────────────────────────────────
+
+    public function testAWebServerThatIsNotServingPublicWarnsWithTheFolderToPointAt(): void
+    {
+        // The document root is the project folder (or an empty one): `/` answers 403 (a folder
+        // with no index.php), `/admin/` 404 (no admin bundle there), and nginx never reaches PHP.
+        $dir = $this->tempProjectWithEnv("APP_ENV=production\nBASE_URL=https://scent.example\n");
+        foreach ([403, 404] as $status) {
+            $doctor = new Doctor($dir, '8.3.0', ['pdo_pgsql'], static fn (string $url): ?int => $status);
+
+            $checks = $this->byName($doctor->preflight());
+
+            self::assertSame(Check::WARN, $checks['document-root']->status, (string) $status);
+            self::assertStringContainsString(
+                "https://scent.example/admin/ answers {$status}",
+                $checks['document-root']->message,
+            );
+            self::assertStringContainsString($dir . '/public', $checks['document-root']->message);
+            // Every other path fails for the same reason: one cause, said once.
+            self::assertArrayNotHasKey('asset-routing', $checks);
+            self::assertArrayNotHasKey('api-routing', $checks);
+        }
+    }
+
+    public function testTheDocumentRootIsOkWhenTheAdminIsServed(): void
+    {
+        $dir = $this->tempProjectWithEnv("APP_ENV=production\nBASE_URL=https://thallo.dev\n");
+        $doctor = new Doctor($dir, '8.3.0', ['pdo_pgsql'], static fn (string $url): ?int => 200);
+
+        self::assertSame(Check::OK, $this->byName($doctor->preflight())['document-root']->status);
+    }
+
+    public function testTheDocumentRootIsNotJudgedWithoutTheAdminOrAPublicHost(): void
+    {
+        // ADMIN_ENABLED=false: /admin/ is a 404 by choice, so it says nothing about the root.
+        $noAdmin = $this->tempProjectWithEnv(
+            "APP_ENV=production\nBASE_URL=https://thallo.dev\nADMIN_ENABLED=false\n",
+        );
+        $doctor = new Doctor($noAdmin, '8.3.0', ['pdo_pgsql'], static fn (string $url): ?int => 404);
+        self::assertArrayNotHasKey('document-root', $this->byName($doctor->preflight()));
+
+        $local = $this->tempProjectWithEnv("APP_ENV=development\nBASE_URL=http://localhost:8000\n");
+        $doctor = new Doctor($local, '8.3.0', ['pdo_pgsql'], static fn (string $url): ?int => 404);
+        self::assertArrayNotHasKey('document-root', $this->byName($doctor->preflight()));
+
+        $unreachable = $this->tempProjectWithEnv("APP_ENV=production\nBASE_URL=https://thallo.dev\n");
+        $doctor = new Doctor($unreachable, '8.3.0', ['pdo_pgsql'], static fn (string $url): ?int => null);
+        self::assertArrayNotHasKey('document-root', $this->byName($doctor->preflight()));
     }
 
     public function testAssetRoutingIsOkWhenThePhpServedAssetIsReachable(): void

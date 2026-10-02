@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Thallo\Core\Tests\Unit\Setup;
 
 use Thallo\Core\Setup\Console\ProvisionCommand;
+use Thallo\Core\Setup\Doctor\Check;
+use Thallo\Core\Setup\Doctor\Doctor;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -33,5 +35,29 @@ final class ProvisionNextStepsTest extends TestCase
         $lines = ProvisionCommand::nextSteps(null);
 
         self::assertStringContainsString('http://localhost:8000/admin/setup', $lines[0]);
+    }
+
+    public function testTheChecksThatNeedTheSiteRunAgainAtTheEndAndTheirWarningsAreShown(): void
+    {
+        // On a fresh install the preflight runs before .env has a BASE_URL, so nothing probes the
+        // site. The closing checks run once it is written, and a web server not serving public/
+        // is said under the setup link — where the operator is about to open it.
+        $dir = sys_get_temp_dir() . '/provision_' . uniqid('', true);
+        mkdir($dir . '/storage', 0755, true);
+        file_put_contents($dir . '/.env', "APP_ENV=production\nBASE_URL=https://scent.example\n");
+        $doctor = new Doctor($dir, '8.3.0', ['pdo_pgsql'], static fn (string $url): ?int => 403);
+
+        $warnings = ProvisionCommand::closingWarnings($doctor);
+
+        self::assertNotSame([], $warnings);
+        self::assertStringContainsString($dir . '/public', implode("\n", $warnings));
+    }
+
+    public function testAHealthySiteClosesWithoutWarnings(): void
+    {
+        $checks = [Check::ok('document-root', 'ok'), Check::ok('asset-routing', 'ok')];
+
+        self::assertSame([], ProvisionCommand::warningsIn($checks));
+        self::assertSame(['web: broken'], ProvisionCommand::warningsIn([Check::warn('web', 'broken')]));
     }
 }
