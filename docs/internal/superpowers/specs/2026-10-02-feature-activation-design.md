@@ -514,12 +514,17 @@ upgrade step), adopts the activation capabilities that existed before this relea
 Subscriptions) and Payments (§7.7). It runs once per install:
 
 - **eligibility is captured before provision changes the schema**: on the first provision on
-  upgraded code, before its migrations, the step records which capabilities are eligible under the
-  rules below; after the migrations it adopts exactly those. An interrupted provision keeps the
-  captured list, and the retry applies it instead of capturing again. A schema that becomes ready
-  during that provision doesn't make a capability eligible. (A schema the operator made ready
-  themselves, with `migrate:run` before that provision, counts as ready.) A fresh install captures
-  nothing;
+  upgraded code, after connecting to the database it is about to install against and before its
+  migrations, the step records which capabilities are eligible under the rules below; after the
+  migrations it adopts exactly those. The record is durable (written before any migration runs, a
+  fresh install's empty list included) and atomic (the first committed capture is authoritative; a
+  later or overlapping provision reuses it and never replaces it, and completion is recorded with a
+  compare-and-set). An interrupted provision keeps the captured list, and the retry applies it
+  instead of capturing again; a retry after a fresh install's tables were created adopts nothing.
+  A schema that becomes ready during that provision doesn't make a capability eligible. (A schema
+  the operator made ready themselves, with `migrate:run` before that provision, counts as ready.);
+- **unknown is not empty**: if provision can't connect to, or inspect, an existing database, it stops
+  before migrating and records nothing;
 - **between the code update and that provision**, an activation capability with no stored state
   reads off; the upgrade notes say to run provision after updating, as every release already does;
 
@@ -646,7 +651,9 @@ every place that starts an online payment must ask one question: *may a new onli
   an existing stored off is untouched; an activation in progress is untouched; upgrade → turn
   Payments off → run provision and the row sync again → still off; Payvia enabled but not
   schema-ready → Payments off and not adopted, including when that provision's own migrations make
-  it ready, and on a retry after an interrupted provision.
+  it ready, and on a retry after an interrupted provision; a fresh install that crashes after its
+  migrations adopts nothing on the retry; an unreachable database stops provision before it
+  migrates; two overlapping provisions keep the first committed capture.
 - **Turning off with no row:** a first turn-on that begins while a turn-off of a capability with no
   activation row is in flight waits for it, so no runner predates the off decision (two processes).
 - **Declarations:** a real boot declares exactly the first-party capability list, all before any
