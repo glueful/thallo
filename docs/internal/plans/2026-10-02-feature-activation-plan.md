@@ -392,7 +392,9 @@ final class RouteSignatureInputsTest extends TestCase
   - **On PostgreSQL:** a session-level `pg_advisory_lock(hashtext('glueful:extension-state'))`, waiting up to `extensions.state_lock_wait` seconds (default 30), with `pg_advisory_unlock` in `finally`.
   - **Otherwise:** `flock(LOCK_EX)` on `storage/framework/locks/extension-state.lock`.
   - **The key is public API.**
-- **The test seam:** `/** @internal test seam */ public static ?\Closure $afterAcquire = null;`, called with the context right after the lock is acquired and before `$fn`. `ExtensionStateWriter` is final, with private helpers, and the executor constructs it directly, so the seam sits in the mutex, not the writer. Production never sets it.
+- **The test seams:**
+  - `ExtensionStateMutex`: `/** @internal test seam */ public static ?\Closure $afterAcquire = null;`, called with the context right after the lock is acquired and before `$fn`;
+  - `ExtensionSchemaExecutor`: `/** @internal test seam */ public static ?\Closure $afterMigrationLocks = null;`, called in `enable()` right after `$this->lock->acquireAll(...)` (:80) returns and before the mutex is taken. Task 11's order test uses it. `ExtensionStateWriter` is final, with private helpers, and the executor constructs it directly, so the seam sits in the mutex, not the writer. Production never sets it.
 
 - [ ] **Step 1: Write the failing tests.** The child fixture boots a temp app whose `config/extensions.php` is shared by both children. Given `--pause`, it sets `ExtensionStateMutex::$afterAcquire` to print `holding` and block until it reads `resume` on stdin. It then runs its action (`enable <package>` through the executor, or `cache` through `CacheCommand`) and prints `done`.
 
@@ -1284,13 +1286,13 @@ Plus four more, written in the same shape:
   - `testTurningOffRemovesAccessOnTheNextContext`;
   - `testAContextThatBootedBeforeTheSwitchCannotMakeItsRebuiltTableUsable`: context A boots under N with no cache file (cold); the switch advances to N+1; A saves; context B under N+1 rejects A's table;
   - `testAFailureMidFinalizationKeepsTheOldRoutesAndItStaysOff`: the crash probe fires `before_commit`;
-  - `testAnAdminEnableAndACliEnableOfOnePackageWithMigrationsBothFinish` (`tests/Integration/Console`, with framework 1.88): the package is `glueful/payvia`, which declares migrations and backs no capability; if the Task 5 audit classified it as required, use the first independent package with migrations from the audit's table.
-    1. A child runs the admin route `POST /v1/admin/extensions/enable {name}` in-process and pauses at `ExtensionStateMutex::$afterAcquire`.
-    2. Another child runs `php glueful extensions:enable <package>`.
-    3. The parent observes the second child waiting (on the migration locks or the mutex, through `pg_locks`), then resumes the first.
-    4. Assert that both children finish within 30 s, with no lock timeout, and that the package is enabled once in `config/extensions.php` (a temp copy).
+  - `testAnAdminEnableAndACliEnableInTheConflictingOrderBothFinish` (`tests/Integration/Console`, with framework 1.88): the package is `glueful/payvia`, which declares migrations and backs no capability; if the Task 5 audit classified it as required, use the first independent package with migrations from the audit's table. The test forces the conflicting order with two pause points:
+    1. **The CLI child** runs `extensions:enable <package>` with `ExtensionSchemaExecutor::$afterMigrationLocks` set to print `migration-locks-held` and block on stdin. It now holds the migration locks and not the mutex.
+    2. **The admin child** runs `POST /v1/admin/extensions/enable {name}` in-process. A test-only hook in `ExtensionAdminController::toggle()`, `THALLO_TEST_PAUSE_BEFORE_EXECUTOR` (read only when `APP_ENV=testing`), sits immediately before the executor call and **after** any outer wrapper has taken its mutex. It prints `before-executor` and blocks. It now holds the mutex, if a wrapper exists, and not the migration locks.
+    3. **The parent** waits for both markers, then resumes both.
+    4. **Assert:** both children finish successfully within 30 s, the admin with a 200 and not a 409 `LockContentionException`, and the package is enabled once in `config/extensions.php` (a temp copy).
 
-    With the interim wrapper still in place, this deadlocks until the lock-wait timeout. That's the failing run before the handover;
+    With Task 5's interim wrapper still present, each child waits on the other, and the admin's migration-lock wait times out with a 409. That's the failing run. With the wrapper removed (the handover), the CLI takes the mutex, finishes, and the admin follows;
   - `testACommerceActivationAndAnIndependentPackageCliKeepBothProviders` (`tests/Integration/Console`, with framework 1.88): a child runs Commerce's `EngineActivation::prepare()` and pauses inside the lock; another child runs `php glueful extensions:enable glueful/meilisearch` (independent), which waits on the same mutex; the first resumes. Assert that both providers are in `config/extensions.php` (a temp copy).
 - [ ] **Step 2: Run them.** Expected: FAIL.
 - [ ] **Step 3: Implement** the one call.
