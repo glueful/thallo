@@ -220,7 +220,10 @@ final class ExtensionAdminControllerTest extends AppTestCase
                 (string) $row['name']
             );
             self::assertIsArray($row['schema_reasons']);
-            self::assertIsString($row['cli_command']);
+            // A required package has no switch to offer, and Workspaces is a settings flow.
+            if ($row['management']['class'] === 'independent') {
+                self::assertIsString($row['cli_command'], (string) $row['name']);
+            }
         }
         // Spot anchors against the real installed set: explicit-none and an applied engine.
         self::assertSame('none', $byName['glueful/media']['schema_state'] ?? null);

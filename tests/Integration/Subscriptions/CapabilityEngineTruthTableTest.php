@@ -264,7 +264,11 @@ final class CapabilityEngineTruthTableTest extends AppTestCase
             $availability = $registry->availability('thallo.subscriptions');
             self::assertFalse($availability->available);
             self::assertStringContainsString('glueful/subscriptions', (string) $availability->reason);
-            self::assertSame('php glueful extensions:enable glueful/subscriptions', $availability->remedy);
+            // The engine is feature-managed: extensions:enable refuses it, so the remedy names the feature.
+            self::assertStringContainsString(
+                'php glueful thallo:features:enable thallo.subscriptions',
+                (string) $availability->remedy,
+            );
 
             // ...and EFFECTIVE state is requested AND available => off, everywhere at once.
             self::assertFalse(
