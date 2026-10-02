@@ -1601,6 +1601,6 @@ public const WORKSPACE_SEED_LOCK = 'thallo:workspace-seed';
 ## Amendment self-review
 
 - **Spec §7 coverage:** 7.2 → A1. 7.3 → A2 (modes, both sources, provider from the manifest), A3 (rejection). 7.3a → A5. 7.4 → A2, A8. 7.5 → A6. 7.6 → A4. 7.7 → A5 (adoption), A7. 7.8 → unchanged code (asserted by the existing suites). 7.9 → A3, A5, A6, A7, A8. 7.10 → A1, A9.
-- **Order:** A1 (names) first, independent. A2 before A3 (rejection needs the set). A4 before A3's "required engine" ambiguity is final (A3 reads `RequiredPackages`; if A4 hasn't landed, A3 uses the existing constant and A4 swaps the source — ledger it). A5 needs A2's modes. A6 and A7 need A2. A8 needs A2, A5, A6. A9 last.
+- **Execution order:** A1, A2, **A4, A3**, A5, A6, A7, A8, A9. A1 (names) is independent. A2 comes before A3 (rejection needs the set), and A4 before A3 (A3's "an activation engine that is required" check reads `RequiredPackages`). A5 needs A2's modes. A6 and A7 need A2. A8 needs A2, A5 and A6. A9 is last.
 - **Upgrade safety:** A5 lands the off-until-finalized rule and the adoption migration in one commit, so no commit leaves an upgraded Commerce off.
 - **Types:** `ManagementMode` (A2, A3, A5, A7, A8); `DeclarationSet::engineOf` (A2, A6, A8); `ActivationStore::ensureRow` (A6, A8); `OnlinePaymentInitiation` (A7); `RequiredPackages::all` (A3, A4).
