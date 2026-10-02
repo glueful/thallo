@@ -25,7 +25,7 @@ a separate act, described in [drafts, preview and publishing](05-publishing.md).
 You work on the stage directly. Selecting a block raises a toolbar over it — reorder,
 duplicate, delete, add a block after — and double-clicking text puts the caret in it.
 
-The stage needs the **Rendered delivery** capability (**Extensions › Capabilities**). With it
+The stage needs the **Rendered delivery** capability (**Features**). With it
 off, the Design view says so and sends you to the form editor.
 
 ## Every edit is an operation

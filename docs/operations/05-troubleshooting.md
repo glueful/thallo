@@ -143,6 +143,30 @@ restart, so restarting PHP is not a way to clear it.
 | URLs in the admin and the media library carry an internal host instead of your domain | TLS or the host name is terminated at a proxy whose forwarded headers are not trusted | Set `TRUSTED_PROXIES` in `.env` to the proxy's addresses |
 | Canonical and Open Graph URLs are missing from the rendered site | `BASE_URL` is unset or still the bare `http://localhost` default, so Thallo omits absolute URLs rather than publishing localhost | Set `BASE_URL` to the canonical public origin; see [titles, descriptions, sitemaps and redirects](../guides/10-seo.md) |
 
+## A feature did not finish turning on
+
+Commerce and Subscriptions turn on through an activation of several steps
+([capabilities and packs](../concepts/06-capabilities.md#turning-on-commerce-or-subscriptions)).
+When one fails, the feature stays off, the card in **Features** names the step and the error, and
+**Retry** resumes from that step. From a shell, `php glueful thallo:features:status` shows the same,
+and `php glueful thallo:features:resume` retries. Nothing is rolled back: steps already done stay
+done, and a retry skips them.
+
+| Failed step | Usual cause | What to do |
+|---|---|---|
+| Enable the engine, with "Application files can't be written on this host" | `config/extensions.php` or `bootstrap/cache/` is read-only at runtime, as on an immutable deploy | Run `php glueful thallo:features:enable thallo.commerce --prepare` where they are writable (at deploy time), then finish in **Features** or with `thallo:features:resume` |
+| Enable the engine, with a migration error | One of the engine's migrations failed | Read the error and `storage/logs/`, fix the cause (`php glueful migrate:verify` lists divergent migrations), then **Retry** |
+| Check the engine in a fresh request | The engine's provider isn't loaded: the extension cache was not rebuilt (the engine step reports "cache stale"), or a long-running PHP process still serves the old one | `php glueful extensions:cache`, restart PHP-FPM or the workers if they cache code, then **Retry** |
+| Add its blocks | Seeding failed in one or more workspaces, which the error names | Fix the cause and **Retry**: it covers only those workspaces, and drops one that was deleted since |
+| Grant its permissions, or switch it on | A database error, usually a lost connection | **Retry** |
+
+Two answers are not failures. "Another request is turning this on" means a second tab or operator
+is running the same activation: wait, and the card updates when it finishes. "A newer decision was
+made" means someone turned the feature off, or started again, while this one ran; the card shows
+where it stands now.
+
+`php glueful thallo:provision` also resumes an unfinished activation, in a fresh process.
+
 ## Confirm the site is healthy
 
 - `php glueful thallo:doctor --strict` exits without failing.

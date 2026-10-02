@@ -11,7 +11,7 @@ rendered page's head, `/sitemap.xml` and `/robots.txt` answer, and an old URL fo
 one instead of going dead.
 
 You need the **SEO** capability on. It is on by default; the switch is at
-**Extensions › Capabilities**, and [capabilities and packs](../concepts/06-capabilities.md)
+**Features**, and [capabilities and packs](../concepts/06-capabilities.md)
 explains what turning it off takes away. You also need `BASE_URL` in `.env` set to the site's
 public origin: while it is unset, or left at the bare `http://localhost` default, Thallo leaves
 the canonical and Open Graph URLs out of the head rather than tell a crawler the site lives on

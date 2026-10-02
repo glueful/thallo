@@ -64,17 +64,23 @@ dropped, and switching back needs no rebuild. What goes away is the surface:
 
 ## Where the switches are
 
-Go to **Extensions › Capabilities**. Each row shows the capability's name, its id, its
-description, the engine it depends on if it has one, and a badge: **On**, **Off**, or
-**Requested · engine unavailable**, which means you asked for it but its engine cannot back it.
+Go to **Features**. It lists every capability, and each one is switched the way it is managed:
 
-Reading and changing this list needs the `system.access` permission; without it the tab shows
-"Operator access required". A flip saves immediately and takes effect on the next request, so
-reload the admin after switching something.
+- **Most capabilities** have a plain switch and a badge: **On**, **Off**, or
+  **Requested · engine unavailable**, which means you asked for it but its engine cannot back it.
+  A flip saves immediately and takes effect on the next request, so reload the admin after
+  switching something.
+- **Commerce and Subscriptions** turn on with one action that prepares everything they need. See
+  [turning on Commerce or Subscriptions](#turning-on-commerce-or-subscriptions).
+- **Multi-tenancy** links to **Settings › Workspaces**, which has its own staged flow.
+
+Reading and changing this list needs the `system.access` permission; without it the page shows
+"Operator access required".
 
 From a shell, `php glueful thallo:capabilities` prints the same list, and `--enable=ID` or
-`--disable=ID` flips one under the same rules. Long-running workers keep the old state until they
-restart. See the [command reference](../reference/01-cli.md#thallocapabilities).
+`--disable=ID` flips one under the same rules. It refuses to turn Commerce or Subscriptions on:
+use `php glueful thallo:features:enable` for those. Long-running workers keep the old state until
+they restart. See the [command reference](../reference/01-cli.md#thallocapabilities).
 
 **Content search** also appears in **Settings › General**. It is not a second switch: both write
 the same `thallo.search` state.
@@ -86,19 +92,63 @@ needs `glueful/users`, Content importers `glueful/import-export`, Commerce `glue
 Subscriptions `glueful/subscriptions` and Multi-tenancy `glueful/tenancy`.
 
 Such a capability is on only when it is both requested and backed: the engine must be installed,
-enabled, and have its schema migrated. If any of that is missing, the row says so, names the
-command that fixes it, and refuses to turn on until you have run it.
+enabled, and have its schema migrated. If any of that is missing, the row says so and names what
+fixes it.
 
-A capability nobody has ever touched follows its engine. That is why Commerce reads plainly
-**Off** on a fresh install rather than "on, engine unavailable": enabling the engine is the
-opt-in.
+For Commerce and Subscriptions you never enable the engine yourself: turning the feature on does
+it. If the engine is disabled behind Thallo's back while the feature is on, Features shows the
+feature as unavailable, and turning it on again runs a normal activation.
+
+## Turning on Commerce or Subscriptions
+
+Switch the feature on in **Features** and confirm. The card shows one "Turning on Commerce…"
+state while Thallo works through these steps, each safe to run again:
+
+1. **Prepare.** The feature is marked as preparing, which keeps it off until the end.
+2. **Enable the engine.** Its tables are migrated, then it is added to `config/extensions.php` and
+   the extension cache. Skipped when the engine is already enabled and ready.
+3. **Check the engine in a fresh request.** Its provider must be loaded and its schema ready. The
+   admin sends that request itself; you don't reload anything.
+4. **Add its blocks**, in every workspace when workspaces are on.
+5. **Grant its permissions** to the superuser and administrator roles. A permission you revoked
+   stays revoked.
+6. **Switch it on.**
+
+When it finishes, the card says what was added, for example "Commerce is on. Added 18 blocks and
+granted 7 new permissions.", and the sidebar shows the new section.
+
+If a step fails, the card names the step and the error, and **Retry** resumes from that step. The
+feature stays off until a retry succeeds. Closing the browser doesn't lose anything: the next
+visit to Features offers **Continue** and **Cancel**. Turning the feature off while it is being
+turned on cancels the activation.
+
+Turning a feature off keeps its data: Commerce's products and orders, and your content, are kept,
+and turning it on again skips the steps that are already done.
+
+**Hosts whose application files are read-only.** Only step 2 writes application files
+(`config/extensions.php` and `bootstrap/cache/`). On a host where those are read-only at runtime,
+Features shows the command to run at deploy time instead of a switch:
+
+```bash
+$ php glueful thallo:features:enable thallo.commerce --prepare
+```
+
+It stops after the engine step. Finish on the running site in Features, or with
+`php glueful thallo:features:resume thallo.commerce`. A feature whose engine is already enabled
+turns on without writing any application file.
+
+From a shell, `php glueful thallo:features:enable thallo.commerce` runs the whole activation,
+continuing in a fresh process for the engine check, and `php glueful thallo:features:status` shows
+where each feature stands. `php glueful thallo:provision` resumes any activation left unfinished.
+See the [command reference](../reference/01-cli.md#thallofeaturesenable) and
+[troubleshooting](../operations/05-troubleshooting.md#a-feature-did-not-finish-turning-on).
 
 ## What switching one on can ask for
 
 - **A migration.** An engine's tables have to exist before the capability it backs can be on.
-  `php glueful extensions:enable <package>` migrates the extension's schema first; if a schema is
-  pending or divergent the capability row tells you and names `php glueful migrate:run` or
-  `php glueful migrate:verify`.
+  Turning on Commerce or Subscriptions migrates its engine; for another extension,
+  `php glueful extensions:enable <package>` migrates its schema first. If a schema is pending or
+  divergent the row tells you and names `php glueful migrate:run` or `php glueful migrate:verify`.
 - **A config value.** Search picks its engine from `SEARCH_ENGINE` — `auto`, `postgres` or
   `meilisearch`. `auto` uses Meilisearch when `MEILISEARCH_HOST` is set and the site's own
   PostgreSQL otherwise, so search needs nothing else installed.
@@ -118,22 +168,30 @@ An install ships with eight enabled: `aegis`, `audit`, `email-notification`, `i1
 `import-export`, `media`, `subscriptions` and `users`. Three ship installed and disabled:
 `commerce`, `payvia` (payments) and `meilisearch`.
 
-**Extensions › Installed** lists what Composer found, with each one's version, provider, schema
-state and an **Enable** or **Disable** button. To add an extension, `composer require` it. From a
-shell:
+**Features › Installed packages** lists what Composer found, with each one's version, provider,
+schema state, and who manages it:
+
+- **Required by Thallo:** `glueful/aegis` and `glueful/users`. They have no switch, and
+  `php glueful thallo:provision` puts one back if it was removed from the enabled list.
+- **Managed by a feature:** `glueful/commerce` and `glueful/subscriptions` turn on and off with
+  their feature, and `glueful/tenancy` with **Settings › Workspaces**.
+- **Everything else** has an **Enable** or **Disable** button.
+
+Every generic enable and disable (the admin, the API and `extensions:enable` / `extensions:disable`)
+refuses a required or managed package and names the right place instead. To add an extension,
+`composer require` it. From a shell:
 
 ```bash
 $ php glueful extensions:list
-$ php glueful extensions:enable glueful/commerce
+$ php glueful extensions:enable glueful/meilisearch
 ```
 
 Enabling migrates the extension's schema first. `php glueful extensions:disable` reverses it, and
-preserves the schema and the data.
+preserves the schema and the data. See [workspaces](08-workspaces.md) and
+[turn on workspaces](../operations/07-multi-site.md) for Multi-tenancy's own flow.
 
-One extension is not yours to toggle. `glueful/tenancy` is marked protected, and every generic
-enable and disable — CLI, API and admin — refuses it: workspaces are turned on by their own
-staged flow. See [workspaces](08-workspaces.md) and
-[turn on workspaces](../operations/07-multi-site.md).
+An operator can protect another package, or change the reason shown, with an entry under
+`protected` in `config/extensions.php`; an entry there wins over Thallo's.
 
 ## Setting a default in configuration
 
@@ -153,7 +211,7 @@ return [
 ```
 
 Keys are full capability ids, with their dots. Once someone flips the same capability in
-**Extensions › Capabilities**, the stored state answers and this file no longer decides.
+**Features**, the stored state answers and this file no longer decides.
 
 ## Where to go next
 

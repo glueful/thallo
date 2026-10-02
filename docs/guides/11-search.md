@@ -22,7 +22,7 @@ Search ships off.
 2. In **Feature toggles**, turn on **Content search**.
 3. Press **Save**.
 
-The same switch is the **Search** row in **Extensions › Capabilities**; both write the capability
+The same switch is the **Search** row in **Features**; both write the capability
 `thallo.search`. See [capabilities and packs](../concepts/06-capabilities.md) for the deploy-time
 default in `config/thallo.php`.
 

@@ -55,8 +55,9 @@ the audit log and import/export.
 Three things ship installed but not switched on:
 
 - **Content search** is off. Turn it on under **Settings › General**, then build the index.
-- **Commerce** and **Payvia** (payments) are installed and disabled. Enable them from
-  **Extensions**, then run the migrations they bring.
+- **Commerce** and **Subscriptions** are off. Turn either on in **Features**: one action
+  prepares everything it needs. **Payvia** (payments) is installed and disabled; enable it under
+  **Features › Installed packages** to take payments.
 - **Meilisearch** is installed and disabled. Content search does not need it: it runs on the
   PostgreSQL database the site already has.
 
@@ -65,7 +66,7 @@ own flow under **Settings › Workspaces**, and the generic extension switch ref
 provider by design.
 
 Switching a capability off does not uninstall it. The code and its tables stay; its routes,
-menus and blocks go. **Extensions › Capabilities** is where the switches are, and
+menus and blocks go. **Features** is where the switches are, and
 [capabilities and packs](../concepts/06-capabilities.md) explains what switching one on asks of
 you: a migration, a setting, a command or a cron line.
 

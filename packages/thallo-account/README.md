@@ -37,8 +37,7 @@ permissions, so it never grants access to the admin.
 The pack ships with Thallo: `glueful/thallo-core` requires it at the same version and the project's
 `config/serviceproviders.php` loads its provider. It registers the `thallo.accounts` capability,
 whose owning package is `glueful/users`. A new project enables that extension, so the capability
-is **on by default**. An operator turns it off or on in the admin under **Extensions ›
-Capabilities** (stored system-wide; it overrides the deploy-time `thallo.capabilities` config map).
+is **on by default**. An operator turns it off or on in the admin under **Features** (stored system-wide; it overrides the deploy-time `thallo.capabilities` config map).
 While it is off, every `/account` URL is a 404 and the account blocks leave the pickers.
 
 Registration and password recovery send a one-time code by email, so the site needs a working

@@ -154,7 +154,7 @@ seeded with three content types: **Pages**, **Posts** and **Categories**.
 
 Go to `http://localhost:8000/admin` and sign in with the email and password you set. You land on
 **Home**, headed "Welcome" and your email, with the sidebar down the left: **Content** holding
-Pages, Posts and Categories, then **Media**, **Extensions**, **Settings** and **Utilities**,
+Pages, Posts and Categories, then **Media**, **Features**, **Settings** and **Utilities**,
 among others. That is a working install.
 
 ## Why BASE_URL matters
