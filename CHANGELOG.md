@@ -17,6 +17,10 @@ as the next release, never a mutated tag.
   feature manages (Commerce, Subscriptions), refuse the generic extension switch and
   `extensions:enable` / `extensions:disable`, and name the right place instead.
 
+### Removed
+- **The Extensions page's Browse tab and the in-admin installer.** It listed framework packages,
+  not Thallo features, and offered switches without the checks the rest of the page uses.
+
 ### Fixed
 - **Overlapping provisions keep every role grant**, and a permission you revoke stays revoked. Role
   grants and their record of what was offered are now decided in one serialized transaction.

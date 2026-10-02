@@ -119,8 +119,8 @@ An install ships with eight enabled: `aegis`, `audit`, `email-notification`, `i1
 `commerce`, `payvia` (payments) and `meilisearch`.
 
 **Extensions › Installed** lists what Composer found, with each one's version, provider, schema
-state and an **Enable** or **Disable** button; **Extensions › Browse** searches the Glueful
-catalogue. From a shell:
+state and an **Enable** or **Disable** button. To add an extension, `composer require` it. From a
+shell:
 
 ```bash
 $ php glueful extensions:list

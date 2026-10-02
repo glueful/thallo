@@ -304,7 +304,7 @@ than in `.env`. See [sell products](../guides/18-commerce.md).
 | `VERSION_KEEP`, `VERSION_MAX_AGE_DAYS` | unset | Version pruning. Unset means no pruning. |
 | `FORMS_DEFAULT_RECIPIENT` | empty | The address a form submission goes to when its block names none. Empty makes such a form un-routable. |
 | `FORMS_RATE_MAX`, `FORMS_RATE_WINDOW` | `5`, `60` | Submissions allowed per form and IP, and the window in seconds. |
-| `EXTENSIONS_INSTALL_PHP_BINARY`, `COMPOSER_BINARY` | empty | Absolute paths for the in-admin extension installer. Leave them blank unless the installer says it cannot find a CLI PHP or Composer. |
+| `EXTENSIONS_INSTALL_PHP_BINARY`, `COMPOSER_BINARY` | empty | Absolute paths for the framework's extension installer, which Settings › Workspaces uses to install `glueful/tenancy`. Leave them blank unless it says it cannot find a CLI PHP or Composer. |
 
 Everything else in the shipped `.env.example` and in `config/` is framework configuration. Read
 the file that names the key: it carries the comment that explains it.

@@ -70,6 +70,15 @@ final class ExtensionAdminControllerTest extends AppTestCase
         self::assertSame([], $controller->executor->calls, 'no executor call for an unknown package');
     }
 
+    public function testTheCatalogAndTheWebInstallerAreGone(): void
+    {
+        // Browse listed framework packages, not Thallo features, and the installer offered a
+        // switch without the page's checks: neither route exists any more.
+        self::assertNull($this->findRoute('GET', '/v1/admin/extensions/registry'));
+        self::assertNull($this->findRoute('POST', '/v1/admin/extensions/install'));
+        self::assertNotNull($this->findRoute('GET', '/v1/admin/extensions'), 'the installed list stays');
+    }
+
     // ── preconditions ─────────────────────────────────────────────────────────────
 
     public function testToggleRefusesTheProtectedTenancyProviderBeforeTheExecutor(): void
