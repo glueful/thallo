@@ -1423,6 +1423,9 @@ public function __construct(string $id, array $requires = [], ?string $label = n
     ?ExternalFlowDestination $destination = null, ?ActivationCopy $copy = null);
 // activation requires owningPackage; external_flow requires destination (constructor throws otherwise)
 
+// packages/thallo-contracts/src/Capability/DeclaresCapabilities.php — an always-loaded pack's provider implements it
+interface DeclaresCapabilities { /** @return list<Capability> */ public function capabilities(): array; } // pure: no container, no DB
+
 // packages/thallo-contracts/src/Payments/OnlinePaymentInitiation.php
 interface OnlinePaymentInitiation { public function allowed(): bool; public function refusal(): ?string; }
 
@@ -1441,20 +1444,31 @@ final class DeclarationSet {
 // core/src/Capabilities/Declarations/PackageCapabilityDeclarations.php — reads extra.thallo.capabilities from the manifest, enabled or not
 final class PackageCapabilityDeclarations { /** @return list<CapabilityDeclaration> */ public function all(): array; }
 
-// core/src/Capabilities/RequiredPackages.php
+// core/src/Capabilities/RequiredPackages.php — created in A2 (core minimum); A4 adds the configured additions
 final class RequiredPackages {
     public const CORE = ['glueful/aegis', 'glueful/users']; // beside the code that needs them (InstallRoleGrants, SetupService)
-    /** @return array<string, class-string> core ∪ config('thallo.required_packages'); config can only add */ public function all(): array;
+    /** @return array<string, class-string> package => provider (from the manifest); core ∪ config('thallo.required_packages') after A4 */ public function all(): array;
 }
 
 // core/src/Capabilities/FeatureManagementPolicy.php — becomes a thin reader over DeclarationSet + RequiredPackages
 //   activationCapabilities(), engineOf(), managementOf(), capabilityManagement(), labelOf(), copyOf(), destinationOf(), protectedProviders()
 //   (no ENGINES / REQUIRED_PACKAGES / TENANCY constants)
 
-// core/src/Capabilities/Activation/ActivationStore.php — additions
-public function ensureRow(string $capability): void;   // own transaction; exclusive workspace-seed advisory lock; INSERT idle ON CONFLICT DO NOTHING
+// core/src/Capabilities/Activation/ActivationStore.php — changes (A6)
 public const WORKSPACE_SEED_LOCK = 'thallo:workspace-seed';
+/** The ONE row initializer. Throws \LogicException when called inside an open transaction (the row must
+ *  commit on its own, before anything uses it); otherwise its own transaction: exclusive workspace-seed
+ *  advisory lock, then INSERT idle ON CONFLICT DO NOTHING. */
+public function initializeRow(string $capability): void;
+// lockRow() no longer inserts: a missing row throws ActivationRowMissing (every caller initializes first).
+// supersede() on a capability with no row publishes it off and returns 0 (no runner can exist without a row).
 // shareAll() is unchanged; CapabilityBlockSeeder::withinWorkspaceSeed() takes pg_advisory_xact_lock_shared(hashtext(WORKSPACE_SEED_LOCK)) first
+
+// core/src/Capabilities/Activation/ActivationRowMissing.php
+final class ActivationRowMissing extends \RuntimeException {}
+
+// core/src/Setup/CapabilityAdoption.php — the one-time upgrade adoption (A5), run by provision
+final class CapabilityAdoption { /** @return list<string> adopted ids */ public function run(): array; }
 ```
 
 ---
@@ -1475,15 +1489,22 @@ public const WORKSPACE_SEED_LOCK = 'thallo:workspace-seed';
 
 **Files:**
 - Create the contract types above in `packages/thallo-contracts/src/Capability/`; extend `Capability`.
-- Create `core/src/Capabilities/Declarations/{CapabilityDeclaration,DeclarationSet,PackageCapabilityDeclarations,DeclarationCollector}.php`. `DefaultCapabilityRegistry::register()` keeps **every** registration per id (a list), not the last; `DeclarationCollector` builds the `DeclarationSet` lazily, on first query after boot, from the registry's registrations plus `PackageCapabilityDeclarations` (manifest `extra.thallo.capabilities`, read from `vendor/composer/installed.json` through `PackageManifest`, for installed packages whether enabled or not). A package-metadata declaration is registered into the registry at register() time so it appears in `all()` even while its package is disabled.
+- Create `core/src/Capabilities/Declarations/{CapabilityDeclaration,DeclarationSet,PackageCapabilityDeclarations,DeclarationCollector}.php` and the `DeclaresCapabilities` contract.
+- **The collection-and-validation boundary is before any provider's `boot()`.** The framework runs every provider's `register()` before any `boot()` (`ExtensionManager::registerProviders()` then `boot()`), and packs consult capabilities in `boot()` (Commerce: `isEnabled('thallo.commerce')` for routes and listeners). So:
+  - packs **declare** in the provider, not in `boot()`: every pack that today calls `$registry->register(new Capability(…))` in `boot()` implements `DeclaresCapabilities` instead (Account, Analytics, Collections, Commerce, Navigation, Render, Search, SEO, Subscriptions, Tenancy, and core for Payments in A7);
+  - `DeclarationCollector` builds the `DeclarationSet` once, from `ExtensionManager::getProviders()` (`DeclaresCapabilities` implementers, in provider order) plus `PackageCapabilityDeclarations` (manifest `extra.thallo.capabilities`, read through `PackageManifest` for installed packages whether enabled or not), validated as a whole. It is built by the `CapabilityRegistry` factory, i.e. at the first capability decision, which is always inside some provider's `boot()` — after every `register()`;
+  - the set is then **sealed**: `CapabilityRegistry::register()` after that accepts an identical re-declaration as a no-op, and refuses anything else (`\LogicException` outside production; logged and ignored in production, never applied), so no declaration can arrive after capability-dependent work has started;
+  - **protection is derived at the same boundary**: when the set is built, the engines of its `activation` and `external_flow` declarations (and the packages of misconfigured ones, A3) are merged into `extensions.protected` defaults, before any refusal path can read them.
 - Move the first-party declarations into their packs: Commerce and Subscriptions register `ManagementMode::Activation` with their copy (from `featureCopy.ts`); tenancy registers `ManagementMode::ExternalFlow` → `new ExternalFlowDestination('/settings/workspaces', 'Settings › Workspaces')`.
-- Rewrite `FeatureManagementPolicy` over `DeclarationSet` + `RequiredPackages` (no constants). `protectedProviders()` is computed from the set; `CoreServiceProvider::register()` merges the **package-metadata** part, and `DefaultCapabilityRegistry::register()` merges each registry declaration's engine into `extensions.protected` as it registers (`mergeConfigDefaults` is legal after boot); a second non-simple claim on an already-protected package rewrites its reason to the misconfigured one, so the final config is the same in either order.
+- Create `RequiredPackages` with the core minimum (A4 adds configured additions), and rewrite `FeatureManagementPolicy` over `DeclarationSet` + `RequiredPackages` (no constants). `protectedProviders()` is computed from the sealed set (above); `CoreServiceProvider::register()` no longer merges a fixed list.
 - `CapabilityAdminController::manage()` reports `management`, `destination`, `copy` from the set; the admin card reads them (delete `featureCopy.ts`).
 - Test: `tests/Integration/Capabilities/CapabilityDeclarationsTest.php`, `admin/src/__tests__/extensions-page.spec.ts` (copy from the capability).
 
 **Tests:**
 - `testFirstPartyModesComeFromTheirPacks` (Commerce/Subscriptions activation with their engine package and manifest-resolved provider; tenancy external_flow with its destination; Search simple).
 - `testAPackageMetadataDeclarationAppearsWhileItsPackageIsDisabled` (a manifest entry in a temp manifest seam).
+- `testDeclarationsAreCompleteBeforeAnyProviderBoots` (two fixture providers in `tests/Support/Capabilities/`: `EarlyConsumerProvider` declares `test.early` and, in `boot()`, records `isEnabled('test.early')` and registers a route only when on; `LateDeclarerProvider` declares `test.late`; boot an app with both in each order via `bootAppWithConfigOverride('serviceproviders', …)`: the early provider's recorded decision sees both declarations in both orders).
+- `testARegistrationAfterTheSetIsSealedIsRefused` (`register()` of a new id after the first decision throws outside production; an identical re-declaration is a no-op).
 - `testAProviderIsResolvedFromTheManifestNotFromThallo` (the policy file has no `ServiceProvider` class strings: assert with a source scan).
 - `testTheContractRejectsAnActivationWithoutAnOwnerAndAnExternalFlowWithoutADestination`.
 - vitest: `the confirmation copy comes from the capability`, `an external flow links to its destination`.
@@ -1498,6 +1519,7 @@ public const WORKSPACE_SEED_LOCK = 'thallo:workspace-seed';
 **Tests:**
 - `testEachAmbiguityIsRejected`: one package owned by two non-simple capabilities; one id declared twice with different owners or modes; an activation engine that is required; an activation engine that isn't installed.
 - `testAConflictMakesACapabilityStoredOnIneffectiveInEitherRegistrationOrder` (store on; register A then B, and B then A, in two fresh registries; `isEnabled` false both times).
+- `testAConflictRefusesTheCapabilityAndItsRoutesInEitherBootOrder` (real boots: `EarlyConsumerProvider` declares and consumes `test.contested` owned by `acme/one`; `ConflictingProvider` declares `test.contested` owned by `acme/two`; the state stored on; boot both orders via `bootAppWithConfigOverride('serviceproviders', …)`: in both, `isEnabled('test.contested')` is false, the early provider's gated route is **not** registered (`findRoute` null), and the capability reports misconfigured).
 - `testEveryManagementPathRefusesAMisconfiguredCapability` (start, continue, `PUT /capabilities/{id}`, `thallo:capabilities --enable/--disable`, `thallo:capabilities:enable`).
 - `testTheConflictingPackagesAreRefusedByTheGenericSwitches` (`extensions:enable/disable` in a real process with `--dry-run`, and the admin toggle: 409 with the misconfigured reason; never "independent").
 - `testAnAlreadyEnabledEngineStaysLoaded` (hasProvider still true).
@@ -1507,7 +1529,7 @@ public const WORKSPACE_SEED_LOCK = 'thallo:workspace-seed';
 
 ## Task A4: required packages have a mandatory minimum
 
-**Files:** `core/src/Capabilities/RequiredPackages.php`; `core/config/thallo.php` gains `'required_packages' => []` (additions only); the policy and `FeatureProvisioning::repairRequiredProviders()` read it.
+**Files:** `RequiredPackages` (created in A2 with the core minimum) gains the configured additions: `core/config/thallo.php` gets `'required_packages' => []` (additions only); the policy and `FeatureProvisioning::repairRequiredProviders()` read `all()`.
 **Test:** `tests/Integration/Capabilities/RequiredPackagesTest.php`: `testConfigurationAddsARequiredPackage`, `testConfigurationCannotRemoveAegisOrUsers` (config set to `[]` and to a list without them), `testARequiredPackageIsRepairedByProvision` (existing, now over the union).
 
 - [ ] Steps → commit `feat(extensions): required packages have a mandatory minimum`.
@@ -1516,9 +1538,10 @@ public const WORKSPACE_SEED_LOCK = 'thallo:workspace-seed';
 
 **Files:**
 - `DefaultCapabilityRegistry::resolveRequested()`: for `ManagementMode::Activation`, requested = the **stored** row only (`CapabilityStateStore::storedFrom($rows, $id)`, the snapshot rows without the config fallback); no stored state → off; a config `false` still reads off while nothing is stored; config `true` never makes it requested. Simple capabilities unchanged.
-- `core/database/migrations/041_AdoptActivationCapabilities.php`: in one transaction per capability, under its activation row lock (`ActivationStore::lockRow` semantics via SQL): skip when a state row exists or the activation is open; for `thallo.commerce` / `thallo.subscriptions` adopt when **old-rule effective** — requested by the config map (`thallo.capabilities.<id>`, default true; explicit false → not requested) and the engine enabled (`EnabledProviders`) and schema-ready (`SchemaReadiness::forPackage`); for `thallo.payments` adopt when `glueful/payvia` is enabled and schema-ready. Adopting writes the state on, advances `capability.state_version`, and records the row `succeeded` with `result = {"adopted": true}`. The migration ledger makes it one-time; the absent-only rule makes a rerun harmless anyway.
+- `core/src/Setup/CapabilityAdoption.php`, run by provision right after its migrations and before the role grants, **not** a migration: it needs `ActivationStore::initializeRow()` (A6), which must commit on its own and so can't run inside a migration's transaction. Per capability, in this order: `initializeRow()` (committed); then one transaction holding the row lock (`lockRow`): skip when a state row exists or the activation is open; for `thallo.commerce` / `thallo.subscriptions` adopt when **old-rule effective** — requested by the config map (`thallo.capabilities.<id>`, default true; explicit false → not requested) and the engine enabled (`EnabledProviders`) and schema-ready (`SchemaReadiness::forPackage`); for `thallo.payments` adopt when `glueful/payvia` is enabled and schema-ready. Adopting writes the state on (advancing `capability.state_version` in the same transaction) and records the row `succeeded` with `result = {"adopted": true}`. **One-time:** after its first complete run it stores `capability.adoption.v1 = done` in the same channel; later runs return at once. The absent-only rule makes a rerun harmless anyway. The ids it adopts are the one hard-coded list the Amendment Global Constraints allow (historical data).
+- Until provision has run on upgraded code, an activation capability with no stored state reads off (the documented upgrade step is provision; a production boot already needs it for the extension cache). The upgrade notes say so.
 - The admin summary for `result.adopted` is "<label> is on." (A1's no-record rule already covers it; pin it).
-- Test: `tests/Integration/Capabilities/ActivationAdoptionTest.php` (runs the migration's `up()` against a prepared state), plus a case in `ActivationRunnerTest`.
+- Test: `tests/Integration/Capabilities/ActivationAdoptionTest.php` (runs `CapabilityAdoption::run()` against a prepared state, with the marker cleared per test), plus a case in `ActivationRunnerTest`.
 
 **Tests:**
 - `testANewActivationDeclarationOverAnEnabledEngineReadsOffUntilFinalized` (Commerce's row and state cleared, engine enabled and ready: `isEnabled` false, no `product-grid`, no grants; after an activation: on).
@@ -1527,14 +1550,21 @@ public const WORKSPACE_SEED_LOCK = 'thallo:workspace-seed';
 - `testAConfigurationOffIsNotAdopted` (no state, `thallo.capabilities.thallo.commerce = false`, engine ready → off, no row change).
 - `testAStoredOffAndAnOpenActivationAreUntouched`.
 - `testPaymentsIsAdoptedWhenPayviaIsEnabledAndReady`, `testPaymentsIsNotAdoptedWhenPayviaSchemaIsPending`.
-- `testUpgradeThenOffThenProvisionStaysOff` (run `up()`, store off, run `up()` again and `FeatureProvisioning` + row sync → off).
+- `testUpgradeThenOffThenProvisionStaysOff` (run adoption, store off, clear the marker and run adoption again, then `FeatureProvisioning::syncRows()` → off).
+- `testAdoptionRunsOnceAndCreatesItsRowsThroughTheInitializer` (Payments has no row before: after, its row exists via `initializeRow`; a second run with the marker set touches nothing).
 - `testAdoptionAdvancesTheStateVersionOnce`.
 
-- [ ] Steps → commit, with a CHANGELOG Changed bullet: "**Commerce and Subscriptions stay as they were on upgrade.** A site where they were on keeps them on; from now on they turn on through Extensions, which prepares everything first." `feat(capabilities): activation capabilities are off until they finalize, with a one-time upgrade adoption`.
+- [ ] Steps → commit, with a CHANGELOG Changed bullet (and an upgrade line: run `php glueful thallo:provision` after updating, as usual): "**Commerce and Subscriptions stay as they were on upgrade.** A site where they were on keeps them on; from now on they turn on through Extensions, which prepares everything first." `feat(capabilities): activation capabilities are off until they finalize, with a one-time upgrade adoption`.
 
 ## Task A6: rows are initialized by the turn-on itself, after workspace seeds in flight
 
-**Files:** `ActivationStore::ensureRow()` + `WORKSPACE_SEED_LOCK`; `CapabilityBlockSeeder::withinWorkspaceSeed()` takes the shared lock before `shareAll()`; `CapabilityActivationController::start`, `CapabilitiesEnableCommand`, `FeatureProvisioning::resumeOpenActivations` call `ensureRow()` (committed) before `startOrJoin()`; `FeatureProvisioning` gains `syncRows()` run by provision for every valid activation capability; reads (`manage`, `status`) never write rows (`find()` null → off, no activation); `RawPdoScopingLint` classification for the lock.
+**Files:**
+- `ActivationStore`: `initializeRow()` is the **only** code that inserts a row (the interface above); `lockRow()` stops inserting and throws `ActivationRowMissing`; `startOrJoin()`, `acquire()`, `supersede()` and `release()` go through `lockRow()` (supersede with no row publishes off and returns 0). `initializeRow()` throws `\LogicException` when `Connection::withinTransaction()` is true, so a caller can't fold the row into its own transaction; the separate commit is enforced, not assumed.
+- `CapabilityBlockSeeder::withinWorkspaceSeed()` takes the shared workspace-seed lock before `shareAll()`.
+- Every creation path calls `initializeRow()` first, outside any transaction: `CapabilityActivationController::start`, `CapabilitiesEnableCommand`, `FeatureProvisioning::resumeOpenActivations` (for each id it resumes), `FeatureProvisioning::syncRows()` (provision, every valid activation capability). Adoption (A5) uses it too.
+- Migration 040's two seeded rows stay (harmless: `initializeRow` is idempotent).
+- Reads (`manage`, `thallo:capabilities:status`) never write rows (`find()` null → off, no activation). `RawPdoScopingLint` classifies the lock.
+- Tests that set up an activation call `initializeRow()` first (the shared `ResetsCommerceActivation`/`ActivationRunners` helpers do it; `ActivationStoreTest`'s `test.*` capabilities call it in their setup).
 **Test:** `tests/Integration/Capabilities/ActivationRowInitializationTest.php` (`use ChildProcesses`), fixture `tests/fixtures/row_init_child.php`.
 
 **Tests:**
@@ -1542,6 +1572,9 @@ public const WORKSPACE_SEED_LOCK = 'thallo:workspace-seed';
 - `testASeedStartedAfterTheRowExistsSeedsAPreparingCapability`.
 - `testTheFirstTurnOnCommitsItsRowThenStarts` (no row → start → row exists, generation 1).
 - `testReadsWriteNoRow` (manage + status on a declared capability without a row: still no row).
+- `testLockingAMissingRowThrowsInsteadOfInserting` (`startOrJoin` on a capability with no row → `ActivationRowMissing`; no row inserted).
+- `testInitializeRowRefusesAnOpenTransaction` (inside `Connection::transaction()` → `\LogicException`, nothing inserted).
+- `testSupersedingACapabilityWithNoRowPublishesOff`.
 - `testProvisionSyncsRowsForEveryDeclaredActivationCapability`.
 
 - [ ] Steps → commit `feat(capabilities): activation rows are created by the turn-on, after workspace seeds in flight`.
@@ -1555,7 +1588,8 @@ public const WORKSPACE_SEED_LOCK = 'thallo:workspace-seed';
   - `packages/thallo-commerce/src/Http/AdminPaymentLinkSendController.php` (send);
   - `packages/thallo-commerce/src/Http/Shop/ShopPaymentLinkController::initiate()` (→ `CHECKOUT_MANUAL`);
   - Commerce's online checkout entry (`grep -rn "PaymentLink\|checkout_url\|createIntent" packages/thallo-commerce/src` in Step 0 lists every one; each gets the check);
-  - `packages/thallo-subscriptions/src/Checkout/PayviaCheckoutGateway::unavailableReason()` (a new `REASON_PAYMENTS_OFF`) and `PlanCheckoutUrlResolver`.
+  - `packages/thallo-subscriptions/src/Http/SelfBillingController::checkout()` (starting a new self-serve checkout) and `AdminBillingPlanCheckoutUrlResolver::resolve()` (minting a plan checkout URL).
+- **Engine availability stays separate from permission to initiate.** `PayviaCheckoutGateway::isAvailable()/unavailableReason()` are **not** changed: `originations()`, `guards()`, `reconciliation()` and `subscriptions:checkout:resolve` depend on them and must keep working while Payments is off. The initiation gate is consulted only at the boundaries listed above. `SelfBillingController::meta()` reports `payments_enabled` so the billing page hides **Subscribe** while off; `cancel()`, `changePlan()` on an existing provider subscription (the provider bills it, like a renewal) and `abandon()` stay allowed. A plan change that would need a **new** checkout (from no provider subscription) goes through `checkout()` and is refused.
 - Untouched by the gate (asserted by tests, not edited): `WebhookOrderSettlementListener`, Payvia's webhook handling, `thallo:commerce:links:reconcile`, refunds (`AdminOrderPaymentsController`), payment records, `PlatformPaymentsSettingsController` reads and saves.
 - `PlatformPaymentsSettingsController::state()` adds `payments_enabled`; `admin/src/pages/settings/payments.vue` shows "Payments is off" with a link to Extensions › Capabilities when false (instead of "install a gateway extension").
 - Payvia is no longer independent: its Installed row reads "Managed by Payments" (derived).
@@ -1567,6 +1601,10 @@ public const WORKSPACE_SEED_LOCK = 'thallo:workspace-seed';
 - `testARefundStillWorksWhileOff`.
 - `testARenewalWebhookStillSettlesWhileOff` (subscriptions renewal fixture).
 - `testSavedGatewaySettingsAreKeptAndReadableWhileOff`.
+- `testSubscriptionCheckoutReconciliationStillRunsWhileOff` (an origination created while on; Payments off; `subscriptions:checkout:resolve` / `reconciliation()` resolves it).
+- `testExistingOriginationsStayVisibleWhileOff` (`meta()` still reports the pending origination).
+- `testAPendingCheckoutCanBeAbandonedWhileOff` (`abandon()` succeeds).
+- `testTheGatewayAvailabilityCheckIsUnchanged` (`PayviaCheckoutGateway::isAvailable()` true while Payments is off and the engine is ready).
 - `testPaymentsTurnsOnThroughTheActivationFlow` (engine prepared from the test overlay; finalize → initiation allowed).
 - vitest: `settings payments says Payments is off and links to Extensions`.
 
@@ -1601,6 +1639,6 @@ public const WORKSPACE_SEED_LOCK = 'thallo:workspace-seed';
 ## Amendment self-review
 
 - **Spec §7 coverage:** 7.2 → A1. 7.3 → A2 (modes, both sources, provider from the manifest), A3 (rejection). 7.3a → A5. 7.4 → A2, A8. 7.5 → A6. 7.6 → A4. 7.7 → A5 (adoption), A7. 7.8 → unchanged code (asserted by the existing suites). 7.9 → A3, A5, A6, A7, A8. 7.10 → A1, A9.
-- **Execution order:** A1, A2, **A4, A3**, A5, A6, A7, A8, A9. A1 (names) is independent. A2 comes before A3 (rejection needs the set), and A4 before A3 (A3's "an activation engine that is required" check reads `RequiredPackages`). A5 needs A2's modes. A6 and A7 need A2. A8 needs A2, A5 and A6. A9 is last.
+- **Execution order:** A1, A2, A4, A3, **A6, A5**, A7, A8, A9. A1 (names) is independent. A2 creates the declaration boundary and `RequiredPackages` (core minimum); A4 adds the configured additions; A3 (rejection) needs both. A6 establishes the single row initializer and the workspace coordination **before** A5, whose adoption creates Payments' row through it and whose tests use `syncRows()`. A7 needs A2 and A5 (Payments adoption). A8 needs A2, A5 and A6. A9 is last.
 - **Upgrade safety:** A5 lands the off-until-finalized rule and the adoption migration in one commit, so no commit leaves an upgraded Commerce off.
-- **Types:** `ManagementMode` (A2, A3, A5, A7, A8); `DeclarationSet::engineOf` (A2, A6, A8); `ActivationStore::ensureRow` (A6, A8); `OnlinePaymentInitiation` (A7); `RequiredPackages::all` (A3, A4).
+- **Types:** `ManagementMode` (A2, A3, A5, A7, A8); `DeclaresCapabilities` (A2, A7, A8); `DeclarationSet::engineOf` (A2, A6, A8); `ActivationStore::initializeRow` / `ActivationRowMissing` (A6, A5, A8); `CapabilityAdoption` (A5, A7); `OnlinePaymentInitiation` (A7); `RequiredPackages::all` (A2, A4, A3).
