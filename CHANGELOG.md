@@ -5,7 +5,13 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.77] - 2026-10-02 — Developer Preview
+
+Fixes from a first production install. The superuser and administrator roles get every
+permission on a new install, and a migration repairs sites that missed them. A pack's blocks
+appear when its capability turns on. Provision says when the web server is not serving
+`public/`. One migration (a role-grant repair); run `php glueful thallo:provision` after
+updating, as usual.
 
 ### Added
 - **Provision and doctor say when the web server is not serving `public/`.** A new
