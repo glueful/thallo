@@ -119,6 +119,24 @@ final class CapabilityBlockSeedingTenancyTest extends RetrofittedTenantTestCase
         self::assertTrue($this->hasBlock($tenant, 'product-grid'));
     }
 
+    public function testRetryDropsAWorkspaceSuspendedSinceItFailed(): void
+    {
+        // A suspended workspace isn't one the seed reaches (only active ones are): Retry drops it
+        // instead of failing on it until someone reactivates it.
+        $gen = $this->store()->startOrJoin('thallo.commerce', 'test')->generation;
+        $lease = $this->store()->acquire('thallo.commerce', $gen);
+        self::assertNotNull($lease);
+        $this->store()->markWorkspace($lease, self::$tenantBUuid, 'failed');
+        $pdo = $this->connection()->getPDO();
+        $pdo->prepare("UPDATE tenants SET status = 'suspended' WHERE uuid = ?")->execute([self::$tenantBUuid]);
+        try {
+            self::assertSame([], $this->seeder()->seedAll('thallo.commerce', $lease, [self::$tenantBUuid]));
+        } finally {
+            $pdo->prepare("UPDATE tenants SET status = 'active' WHERE uuid = ?")->execute([self::$tenantBUuid]);
+        }
+        self::assertArrayNotHasKey(self::$tenantBUuid, $this->store()->find('thallo.commerce')->workspaces);
+    }
+
     public function testRetryDropsAWorkspaceDeletedSinceItFailed(): void
     {
         $gen = $this->store()->startOrJoin('thallo.commerce', 'test')->generation;

@@ -227,6 +227,38 @@ describe('the Features page', () => {
     expect(card().textContent).toContain('3 new permissions')
   })
 
+  it('an engine disabled outside Thallo shows unavailable with the remedy, and turning on activates', async () => {
+    const calls = serve({
+      [MANAGE]: manage(
+        commerce({
+          requested: true,
+          available: false,
+          effective: false,
+          engine_enabled: false,
+          reason: 'glueful/commerce is installed but not enabled.',
+          remedy: 'Managed by Commerce: turn it on in Features.',
+          activation: record({ status: 'succeeded', result: { blocks_created: 18 } }),
+        }),
+      ),
+      [START]: () => ({ data: { activation: record({ generation: 2 }), continue: false } }),
+    })
+    await mountFeatures()
+
+    expect(card().textContent).toContain('glueful/commerce is installed but not enabled.')
+    expect(card().textContent).toContain('Managed by Commerce: turn it on in Features.')
+    expect(card().textContent).not.toContain('Commerce is on.')
+    expect(inCard('[role="switch"]')?.getAttribute('aria-checked')).toBe('false')
+    await click(inCard('[role="switch"]'))
+    await click(document.body.querySelector('[data-test="feature-confirm-turn-on"]'))
+    expect(calls.some((c) => c.key === START)).toBe(true)
+  })
+
+  it('a feature already on without an activation record says only that it is on', async () => {
+    serve({ [MANAGE]: manage(commerce({ requested: true, effective: true, activation: null })) })
+    await mountFeatures()
+    expect(inCard('[data-test="feature-summary"]')?.textContent?.trim()).toBe('Commerce is on.')
+  })
+
   it('a workspaces capability links to Settings › Workspaces', async () => {
     serve({
       [MANAGE]: manage({

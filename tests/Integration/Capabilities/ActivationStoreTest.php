@@ -117,6 +117,19 @@ final class ActivationStoreTest extends AppTestCase
         $this->store()->completeStep($a, ActivationStep::ENABLE_ENGINE);
     }
 
+    public function testASlowStepWhoseLeaseLapsedWithoutATakeoverStillRecords(): void
+    {
+        // A step that outlives its lease (a long migration) is not superseded: nobody took the
+        // operation over, so its owner token still holds and its record lands.
+        $gen = $this->store()->startOrJoin('test.shop', 'op')->generation;
+        $lease = $this->store()->acquire('test.shop', $gen);
+        self::assertNotNull($lease);
+        $this->expireLease('test.shop');
+        $record = $this->store()->completeStep($lease, ActivationStep::ENABLE_ENGINE);
+        self::assertContains(ActivationStep::ENABLE_ENGINE, $record->stepsDone);
+        self::assertNull($this->store()->acquire('test.shop', $gen), 'the write renewed the lease');
+    }
+
     public function testAFailedStepIsRecordedAndTheOperationStaysOpen(): void
     {
         $gen = $this->store()->startOrJoin('test.shop', 'op')->generation;

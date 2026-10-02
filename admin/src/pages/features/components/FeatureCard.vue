@@ -52,9 +52,22 @@ const state = computed<CardState>(() => {
   const status = activation.value?.status
   if (status === 'failed') return 'failed'
   if (status === 'preparing') return 'open'
-  if (status === 'succeeded' || (cap.effective && !flow.superseded.value)) return 'on'
+  // On means effective now: a succeeded activation whose engine was since disabled outside
+  // Thallo is off and unavailable, and turning it on runs a normal activation.
+  if (!flow.superseded.value && (cap.effective || (status === 'succeeded' && cap.available)))
+    return 'on'
   if (!cap.application_files_writable && !cap.engine_enabled) return 'read-only'
   return 'off'
+})
+
+/**
+ * Why it can't be on, when that is news: always for a plain switch, and for an activation
+ * feature once someone asked for it (a fresh install's untouched Commerce is simply off).
+ */
+const showUnavailable = computed(() => {
+  const cap = props.capability
+  if (cap.available || state.value === 'read-only' || state.value === 'on') return false
+  return cap.management !== 'activation' || cap.requested
 })
 
 /** A plain switch's badge: on, asked for but its engine can't back it, or off. */
@@ -131,15 +144,9 @@ async function toggleSimple(): Promise<void> {
         <p v-if="capability.description" class="mt-0.5 text-xs text-muted">
           {{ capability.description }}
         </p>
-        <p
-          v-if="!capability.available && state !== 'read-only'"
-          class="mt-1 text-xs text-warning"
-          data-test="unavailable-reason"
-        >
+        <p v-if="showUnavailable" class="mt-1 text-xs text-warning" data-test="unavailable-reason">
           {{ capability.reason }}
-          <code v-if="capability.remedy && capability.management !== 'activation'" class="ms-1">{{
-            capability.remedy
-          }}</code>
+          <code v-if="capability.remedy" class="ms-1">{{ capability.remedy }}</code>
         </p>
       </div>
 

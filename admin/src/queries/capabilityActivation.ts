@@ -74,6 +74,9 @@ export function conflictReason(e: unknown): string | null {
 /** A feature's summary once it is on, built from what the activation recorded. */
 export function activationSummary(label: string, activation: ActivationRecord | null): string {
   const result = activation?.result ?? {}
+  // Turned on before activations existed (an upgraded site), or by another path: nothing recorded.
+  if (activation?.status !== 'succeeded' || result.blocks_created === undefined)
+    return `${label} is on.`
   const blocks = Number(result.blocks_created ?? 0)
   const grants = (result.grants ?? {}) as Record<string, unknown>
   const granted = Object.values(grants).reduce<number>((sum, n) => sum + Number(n ?? 0), 0)

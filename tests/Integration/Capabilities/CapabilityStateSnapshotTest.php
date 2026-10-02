@@ -87,6 +87,28 @@ final class CapabilityStateSnapshotTest extends AppTestCase
         self::assertSame([], $snapshot->rows);
     }
 
+    /** A connection that can't be opened, as PDO reports it (SQLSTATE 08006, driver code 7). */
+    private static function unreachable(): \Closure
+    {
+        return static function (): never {
+            new \PDO('pgsql:host=127.0.0.1;port=1;dbname=nowhere;connect_timeout=2', 'x', 'y');
+            throw new \LogicException('port 1 accepted a connection');
+        };
+    }
+
+    public function testAnUnreachableDatabaseOnAConsoleBootFallsBack(): void
+    {
+        $snapshot = CapabilityStateSnapshot::resolve(self::unreachable(), console: true);
+        self::assertFalse($snapshot->available);
+        self::assertSame(CapabilityStateSnapshot::UNAVAILABLE, $snapshot->version);
+    }
+
+    public function testAnUnreachableDatabaseOnAnHttpBootStillThrows(): void
+    {
+        $this->expectException(\PDOException::class);
+        CapabilityStateSnapshot::resolve(self::unreachable(), console: false);
+    }
+
     public function testAnyOtherDatabaseErrorIsNotMasked(): void
     {
         // Another session holds the table exclusively and this one gives up quickly: a lock timeout
