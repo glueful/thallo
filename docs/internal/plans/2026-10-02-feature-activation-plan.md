@@ -426,7 +426,7 @@ public function testExtensionsCacheResolvesProvidersOnlyAfterTakingTheMutex(): v
 }
 ```
 
-`waitUntilAWaiterOnTheExtensionStateLock()` polls, for up to 10 s, `SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND NOT granted AND objid = (hashtext('glueful:extension-state')::bigint & 4294967295)::oid` (with `classid` matching the high bits, as PostgreSQL splits the 64-bit key) until it's at least 1. That's the same handshake the framework's migration-lock tests use. `fixture/alpha` and `fixture/beta` are two minimal packages under `tests/fixtures/packages/` with `extra.glueful.provider`, `migrations: none` and a path-repository manifest the test app reads.
+`waitUntilAWaiterOnTheExtensionStateLock()` polls, for up to 10 s, `SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND NOT granted AND objid = (hashtext('glueful:extension-state')::bigint & 4294967295)::oid` (with `classid` matching the high bits, as PostgreSQL splits the 64-bit key) until it's at least 1. That's the same handshake the framework's migration-lock tests use. The framework has no `ChildProcesses` trait (that's Thallo's, Task 2), so the test carries its own small `proc_open` helper with the same `startChild` / `waitFor` / `signal` / `finish` / `isFinished` shape. `fixture/alpha` and `fixture/beta` are two minimal packages under `tests/fixtures/packages/` with `extra.glueful.provider`, `migrations: none` and a path-repository manifest the test app reads.
 
 - [ ] **Step 2: Run them.** Expected: FAIL. The first loses a provider or B finishes early; the second leaves a cache without alpha, because `CacheCommand` resolved before waiting.
 - [ ] **Step 3: Implement** the mutex, the executor wrapping, and `CacheCommand`'s lock-then-clear-then-resolve order.
