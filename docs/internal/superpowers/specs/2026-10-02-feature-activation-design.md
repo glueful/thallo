@@ -509,9 +509,19 @@ Every capability has one **management mode**, declared by the package that contr
   availability.
 
 **Upgrade adoption.** A capability that was effective under the old rule (following its engine)
-must not turn off because the rule changed. One upgrade step runs once (a migration), for the
-activation capabilities that existed before this release (Commerce and Subscriptions) and for
-Payments (§7.7):
+must not stay off because the rule changed. One upgrade step, run by provision (the documented
+upgrade step), adopts the activation capabilities that existed before this release (Commerce and
+Subscriptions) and Payments (§7.7). It runs once per install:
+
+- **eligibility is captured before provision changes the schema**: on the first provision on
+  upgraded code, before its migrations, the step records which capabilities are eligible under the
+  rules below; after the migrations it adopts exactly those. An interrupted provision keeps the
+  captured list, and the retry applies it instead of capturing again. A schema that becomes ready
+  during that provision doesn't make a capability eligible. (A schema the operator made ready
+  themselves, with `migrate:run` before that provision, counts as ready.) A fresh install captures
+  nothing;
+- **between the code update and that provision**, an activation capability with no stored state
+  reads off; the upgrade notes say to run provision after updating, as every release already does;
 
 - it **initializes only an absent state**, atomically, through the state-version contract (the write
   and the version advance in one transaction, under the activation row lock);
@@ -555,6 +565,9 @@ The workspace guarantee (§3.4) relies on every activation row existing before w
 takes its share locks. Rows can't be a fixed list written by a migration any more.
 
 - **A capability may enter `preparing` only once its activation row exists and is committed.**
+- **Turning off a capability with no row** holds the same workspace-seed lock (shared) from its check
+  that the row is absent through its off write, so no row is initialized and no runner started in
+  between; with a row, it supersedes under the row lock as before.
 - **Rows are created by one idempotent sync** for every valid `activation` capability, in its own
   committed transaction. Two paths run it:
   - **provision**, for every declared capability;
@@ -601,7 +614,8 @@ every place that starts an online payment must ask one question: *may a new onli
   Renewals that the provider charges keep settling through their webhooks; Thallo starts no new
   provider subscription. The turn-off confirmation says so in plain words.
 - **Existing installs keep working** through the upgrade adoption (§7.3a): where Payvia is enabled
-  and schema-ready when the upgrade runs and Payments has no stored state, Payments is stored **on**,
+  and schema-ready when eligibility is captured (before the first provision's migrations on
+  upgraded code) and Payments has no stored state, Payments is stored **on**,
   so its payments behave exactly as before. Where Payvia is enabled but not schema-ready, Payments
   starts off, as online payments didn't work there before either. Every other install starts with
   Payments off. A later provision never turns it back on after an operator turned it off.
@@ -631,7 +645,12 @@ every place that starts an online payment must ask one question: *may a new onli
   no stored state with `thallo.capabilities` set to `false` and the engine ready → off after it;
   an existing stored off is untouched; an activation in progress is untouched; upgrade → turn
   Payments off → run provision and the row sync again → still off; Payvia enabled but not
-  schema-ready → Payments off and not adopted.
+  schema-ready → Payments off and not adopted, including when that provision's own migrations make
+  it ready, and on a retry after an interrupted provision.
+- **Turning off with no row:** a first turn-on that begins while a turn-off of a capability with no
+  activation row is in flight waits for it, so no runner predates the off decision (two processes).
+- **Declarations:** a real boot declares exactly the first-party capability list, all before any
+  provider boots.
 - **Declarations:** each ambiguity in §7.3 is rejected and reported; `external_flow` renders its
   destination; a provider is resolved from the manifest, not from Thallo.
 - **Misconfiguration blocks everything:** conflicting declarations against a capability already
