@@ -4,7 +4,8 @@
 **Release:** one beta, cut when asked
 
 > **§7 supersedes** the page's name (§3.1: "Features"), the hard-coded management policy (§3.7), the
-> CLI names (§3.10: `thallo:features:*`) and the pre-seeded activation rows (§3.3/§3.4). Where §7 and
+> CLI names (§3.10: `thallo:features:*`), the pre-seeded activation rows (§3.3/§3.4), and the rule
+> that an untouched capability follows its engine, for activation capabilities (§3.2). Where §7 and
 > an earlier section disagree, §7 wins.
 
 ## 1. Why
@@ -480,8 +481,49 @@ Every capability has one **management mode**, declared by the package that contr
   - one capability id declared with different owners or modes by two sources;
   - an `activation` engine that is also required by Thallo (§7.6), or that isn't installed.
 
-  A rejected capability is shown as **misconfigured** with the reason, can't be started, and
-  `thallo:doctor` reports it. Nothing silently picks a winner.
+  Nothing silently picks a winner, and the verdict doesn't depend on registration order: the
+  declarations are validated together, once all sources are read.
+
+- **A misconfigured capability is blocked everywhere**, not merely flagged:
+  - its runtime verdict is unavailable ("misconfigured: <reason>"), so it is **ineffective even if
+    its state is stored on**, and every gate that consumes effective state sees it off;
+  - start, continue, the CLI, `thallo:capabilities --enable/--disable`, and the switchboard's
+    `PUT /capabilities/{id}` all refuse it with the reason;
+  - the packages named by the conflicting declarations are **protected as misconfigured**, never
+    reclassified as independent: the admin toggle, the API and `extensions:enable`/`disable` refuse
+    them with the same reason;
+  - the Capabilities view shows it as misconfigured, and `thallo:doctor` reports it.
+
+  Blocking doesn't unload an engine that is already enabled, and work that deliberately runs outside
+  the capability (settling payments already started, webhooks, records) carries on.
+
+### 7.3a Activation capabilities are off until their activation finalizes
+
+- **An `activation` capability is effective only when its state is stored on and it is available.**
+  It never follows its engine: with no stored state it is off, even when its engine is already
+  enabled and ready. This closes the window in which a newly discovered capability over an enabled
+  engine would be effective before its blocks, grants and workspace readiness exist.
+- **Only two writes store it on:** the activation's finalization (§3.2 step 6), and the one-time
+  upgrade adoption below. Every other path stores it off (start, cancel, turning off).
+- **`simple` capabilities keep today's default:** with no stored state, they follow their engine's
+  availability.
+
+**Upgrade adoption.** A capability that was effective under the old rule (following its engine)
+must not turn off because the rule changed. One upgrade step runs once (a migration), for the
+activation capabilities that existed before this release (Commerce and Subscriptions) and for
+Payments (§7.7):
+
+- it **initializes only an absent state**, atomically, through the state-version contract (the write
+  and the version advance in one transaction, under the activation row lock);
+- it **never overwrites** a stored state (on or off) or an activation in progress;
+- it adopts only when the engine is **enabled and schema-ready** at that moment; the capability is
+  then stored on and its activation row recorded as succeeded ("adopted"), so Features shows it on
+  with no summary of additions. An engine that is enabled but not schema-ready is **not** adopted:
+  the capability starts off, and turning it on runs a normal activation, which migrates the engine;
+- because it initializes only absent state, running provision or the row sync again changes nothing:
+  an operator who turned the capability off after the upgrade keeps it off.
+
+A third-party capability discovered after the upgrade is never adopted: it starts off.
 
 ### 7.4 Declarations are discoverable before the engine is enabled
 
@@ -504,10 +546,16 @@ needed only from the blocks step onward, after the fresh-boot gate has proven th
 The workspace guarantee (§3.4) relies on every activation row existing before workspace creation
 takes its share locks. Rows can't be a fixed list written by a migration any more.
 
-- **A capability is actionable** (offered a switch, accepted by start, the CLI or provision) only once
-  its activation row exists and is committed.
-- **Rows are created by one idempotent sync** for every valid `activation` capability: run by
-  provision, and by start/the CLI when a row is missing (in its own transaction, before the start).
+- **A capability may enter `preparing` only once its activation row exists and is committed.**
+- **Rows are created by one idempotent sync** for every valid `activation` capability, in its own
+  committed transaction. Two paths run it:
+  - **provision**, for every declared capability;
+  - **the turn-on action itself:** start (the admin's switch, `thallo:capabilities:enable`, and
+    provision's resume) first runs the sync for that capability and commits it, then starts the
+    activation in a **second** transaction. So the switch is offered for every valid declaration,
+    and the first turn-on initializes its own row before anything is prepared.
+- Reads (the Capabilities view, `thallo:capabilities:status`) never write rows; a capability with no
+  row yet reads as off with no activation.
 - **Creating a row waits for workspace seeds in flight.** Every workspace seed takes a shared
   workspace-seed lock before its activation share locks; row creation takes that lock exclusively.
   So a seed that began before the row existed finishes first, and every seed that begins after it
@@ -544,9 +592,11 @@ every place that starts an online payment must ask one question: *may a new onli
 - **Recurring subscriptions:** turning Payments off doesn't cancel provider-side subscriptions.
   Renewals that the provider charges keep settling through their webhooks; Thallo starts no new
   provider subscription. The turn-off confirmation says so in plain words.
-- **Existing installs keep working:** when this ships, an install where Payvia is enabled and
-  schema-ready gets Payments stored **on**, so its payments behave exactly as before. Every other
-  install starts with Payments off.
+- **Existing installs keep working** through the upgrade adoption (§7.3a): where Payvia is enabled
+  and schema-ready when the upgrade runs and Payments has no stored state, Payments is stored **on**,
+  so its payments behave exactly as before. Where Payvia is enabled but not schema-ready, Payments
+  starts off, as online payments didn't work there before either. Every other install starts with
+  Payments off. A later provision never turns it back on after an operator turned it off.
 - Settings › Payments with Payments off says so and links to turning it on, instead of "install a
   gateway extension".
 
@@ -566,10 +616,22 @@ every place that starts an online payment must ask one question: *may a new onli
   every workspace), grants the permissions it declares, and turns it on; turning it off supersedes
   the activation and hides it, leaving the engine enabled and its data kept. Not merely that its
   declaration is accepted.
+- **Off until finalized:** a newly discovered `activation` declaration over an engine that is
+  already enabled and ready reads off, with no blocks or grants, until its activation finalizes; a
+  `simple` capability with no stored state still follows its engine.
+- **Adoption:** Commerce effective before the upgrade (no stored state, engine ready) is on after it;
+  an existing stored off is untouched; an activation in progress is untouched; upgrade → turn
+  Payments off → run provision and the row sync again → still off; Payvia enabled but not
+  schema-ready → Payments off and not adopted.
 - **Declarations:** each ambiguity in §7.3 is rejected and reported; `external_flow` renders its
   destination; a provider is resolved from the manifest, not from Thallo.
+- **Misconfiguration blocks everything:** conflicting declarations against a capability already
+  stored on make it ineffective, in both registration orders; start, continue, the CLI, the
+  switchboard flip and `PUT /capabilities/{id}` refuse it; `extensions:enable`/`disable` and the
+  admin toggle refuse the packages involved; an already-enabled engine stays loaded.
 - **Rows:** a workspace seed in flight while a new row is created finishes first, and a seed started
-  after the row exists seeds a capability that is preparing (two processes, attempts counted).
+  after the row exists seeds a capability that is preparing (two processes, attempts counted); the
+  first turn-on of a capability with no row commits the row, then starts; reads write no row.
 - **Required minimum:** configuration can add a required package and can't remove Aegis or Users.
 - **Payments off:** each initiation point refuses with manual collection while off; a webhook for a
   payment started before the switch still settles; a refund still works; a renewal webhook still
