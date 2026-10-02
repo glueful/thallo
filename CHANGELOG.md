@@ -15,6 +15,15 @@ as the next release, never a mutated tag.
   bare 404 page.
 
 ### Fixed
+- **The superuser and administrator roles get every permission on a new install.** Aegis creates
+  both roles holding its own permissions, and the first provision took that for an existing site.
+  It recorded every permission the packs seed (`commerce.view`, `commerce.manage`,
+  `templates.manage` and, on superuser, `content.manage` among others) as offered and granted none,
+  and every later provision skipped them. A site that is not installed yet is now offered
+  everything. A new migration repairs a site that went through the old first run: superuser gets
+  every permission it lacks, administrator gets `commerce.view`, `commerce.manage` and
+  `templates.manage`. Run `php glueful thallo:provision` after updating, as usual. It runs once, so
+  a grant you revoke afterwards stays revoked.
 - **Commerce's blocks appear when Commerce is switched on, without running provision.** On a
   production install the blocks a pack brings were seeded only by `thallo:provision`. The seed was
   meant to run on the first request after the switch, but a production container has no request
