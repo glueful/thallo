@@ -9,6 +9,12 @@
 > - **Block inserts:** use savepoints.
 > - **Engine enabling:** an invocation that enables an engine always stops at the boot boundary.
 > - **Order:** the management policy moves before the runner; Browse's import goes with its file.
+>
+> Amended again after the second review:
+> - **One extension-state lock, framework included:** every enabled-list mutation, the framework CLI's too, takes one lock (new framework Task F2).
+> - **`thallo:capabilities`:** refuses turning an activation capability on, and turns it off through supersession.
+> - **Workspace seeding:** takes the activation share locks at the start of the starter transaction, before any block write, for new workspaces and repairs alike.
+> - **Cancel:** carries an expected generation, checked inside the row lock.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -59,7 +65,7 @@
   - **Ownership** is held for the whole grant transaction, because the row lock is.
 - **The owning flow and the enabled list** (`EngineActivation`, tenancy's pattern):
   1. `ExtensionSchemaExecutor::migrateProtected($package, $actor)`, which works only for protected providers. Task 5 protects managed engines **before** the runner (Task 6) uses it. It releases its lock on return.
-  2. Under `ExtensionStateLock::within()`, a session-level `pg_advisory_lock(hashtext('thallo:extension-state'))` with unlock in `finally`: `ExtensionStateWriter->enable(config_path('extensions.php'), $provider)`, then `clearConfigCache()`, then `ExtensionManager::writeCacheNow()`.
+  2. Under `ExtensionStateLock::within()`, a session-level `pg_advisory_lock(hashtext('glueful:extension-state'))` with unlock in `finally`: `ExtensionStateWriter->enable(config_path('extensions.php'), $provider)`, then `clearConfigCache()`, then `ExtensionManager::writeCacheNow()`. The writer reads the list inside the lock. The key is the framework's (Task F2), not Thallo's, so Thallo's writers and the framework's own commands share one lock.
 
   Every Thallo writer of the enabled list takes `ExtensionStateLock`:
   - `EngineActivation`;
@@ -67,7 +73,9 @@
   - `ExtensionAdminController::toggle()` around its executor call;
   - tenancy's `ExtensionActivation::activate()` and `deactivate()`, through a contract (Task 5).
 
-  The framework's own `extensions:enable` / `extensions:disable` for **independent** packages can't take a Thallo lock, so that remains a known limitation. Managed and required engines are refused there by the policy, so the engines this feature writes are never written by that path. Writability: `HostCapability::forToggle()`.
+  **The framework's writers take the same lock (framework Task F2).** `ExtensionStateWriter` rewrites the **whole** enabled list. So an independent package's `extensions:enable` that read the list before Commerce was added, then wrote after, would remove Commerce without targeting it. F2 adds `Glueful\Extensions\ExtensionStateMutex::within(ApplicationContext, callable)`: `pg_advisory_lock(hashtext('glueful:extension-state'))`, with a flock fallback on non-PostgreSQL drivers at `storage/framework/locks/extension-state.lock`. The executor's `enable()` and `disable()` wrap their writer call and cache rebuild in it, and `extensions:cache` does too.
+
+  Thallo's `ExtensionStateLock` uses the same key from Task 5 on, so Thallo's writers coordinate among themselves before 1.88. The mixed proof (a Commerce activation alongside an independent package's CLI) runs in Task 11, once 1.88 is required. Writability: `HostCapability::forToggle()`.
 - **Block inserts during activation and workspace creation are savepointed.** `CapabilityBlockSeeder` inserts through `BlockInsert::ifAbsent(Connection $db, callable $insert)`:
   1. `SAVEPOINT thallo_block_seed`;
   2. `BlockTypeRepository::create`;
@@ -212,7 +220,10 @@ final class ActivationStore
     public function markWorkspace(ActivationLease $lease, string $tenantUuid, ?string $state): void; // null drops it
     /** Locks the row; generation+1, status superseded, lease cleared, and the capability published
      *  false — one transaction. Returns the new generation. */
-    public function supersede(string $capability, string $actor): int;
+    public function supersede(string $capability, string $actor, ?int $expectedGeneration = null): int;
+    // $expectedGeneration (cancel): checked inside the row lock; when the row's generation differs or
+    // its status is not open, throws ActivationSuperseded and changes nothing. null (turn off the
+    // current feature): supersedes whatever generation is current.
     public function release(ActivationLease $lease): void;
     /** Workspace creation: FOR SHARE on every activation row, ascending, inside the caller's
      *  transaction. Returns capability => fresh state. */
@@ -241,9 +252,12 @@ final class CapabilityBlockSeeder
     /** Every active workspace (tenancy on) or the current store; tenant => created slugs.
      *  @param list<string> $only Retry: only these tenants (a deleted one is dropped) */
     public function seedAll(string $capability, ?ActivationLease $lease = null, array $only = []): array;
-    /** Workspace creation, inside TenantSeeder's transaction: shareAll(), then seeds every
-     *  capability that is on or preparing. Writes no activation row. */
-    public function seedNewWorkspace(string $tenantUuid): void;
+    /** First statement of TenantSeeder's starter transaction (new workspace or repair), before any
+     *  kind writes: shareAll(), held to commit. Returns capability => fresh state. */
+    public function beginWorkspaceSeed(): array;
+    /** After the kinds, same transaction: seeds every capability on or preparing in $states.
+     *  Writes no activation row. */
+    public function seedNewWorkspace(string $tenantUuid, array $states): void;
 }
 
 // core/src/Capabilities/Activation/EngineActivation.php
@@ -357,6 +371,32 @@ final class RouteSignatureInputsTest extends TestCase
 - [ ] **Step 3: Implement.** In `ApplicationContext`: `private array $routeSignatureInputs = [];`. The setter assigns, and the getter returns a sorted copy (`ksort`). In `computeSignature()`, after the file parts: `foreach ($this->context->routeSignatureInputs() as $name => $value) { $parts[] = 'input:' . $name . '=' . $value; }`. Nothing is appended when it's empty.
 - [ ] **Step 4: Run it**, plus the framework's full suite and phpcs. Expected: PASS.
 - [ ] **Step 5: Changelog and commit.** Added: "**Route-table signature inputs.** `ApplicationContext::setRouteSignatureInput($name, $value)` adds application state to the compiled route table's signature. A table compiled under one state is rejected by a context booted under another, including a table first built on a cold cache." Commit: `feat(routing): context-scoped route-table signature inputs`. **Stop.** The user releases 1.88.0. Task 11 waits for it.
+
+---
+
+## Task F2 (framework repo): one lock for every enabled-list mutation
+
+**Repo:** the framework, after F1 and in the same release (1.88.0).
+
+**Files:**
+- Create: `src/Extensions/ExtensionStateMutex.php`
+- Modify:
+  - `src/Extensions/Schema/ExtensionSchemaExecutor.php`: `enable()` around `writer->enable` (:90) through `finishWithCacheRecompile`, and `disable()` around its writer call and recompile;
+  - `src/Console/Commands/Extensions/CacheCommand.php` (:73-87): around the delete and `writeCacheNow`.
+- Test: `tests/Integration/Extensions/ExtensionStateMutexTest.php`
+- Modify: `CHANGELOG.md`
+
+**Interfaces:**
+- Produces: `ExtensionStateMutex::within(ApplicationContext $context, callable $fn): mixed`.
+  - **On PostgreSQL:** a session-level `pg_advisory_lock(hashtext('glueful:extension-state'))`, waiting up to `extensions.state_lock_wait` seconds (default 30), and `pg_advisory_unlock` in `finally`.
+  - **Otherwise:** `flock(LOCK_EX)` on `storage/framework/locks/extension-state.lock`.
+  - **The key is public API:** applications that write the enabled list take the same lock.
+
+- [ ] **Step 1: Write the failing test.** Two child processes each run the executor's `enable()` for a different fixture package against one shared `config/extensions.php`. Child A pauses inside the writer, between its read and its write (a test-only env hook in the test's own writer subclass). Child B completes. A resumes. Assert that both providers are in the final list; without the mutex, B's provider is lost.
+- [ ] **Step 2: Run it.** Expected: FAIL (one provider missing).
+- [ ] **Step 3: Implement.** The writer's read happens inside the mutex.
+- [ ] **Step 4: Run it**, plus the full framework suite. Expected: PASS.
+- [ ] **Step 5: Changelog and commit.** Added: "**One lock for every enabled-list change.** `extensions:enable`, `extensions:disable`, `extensions:cache` and the schema executor take `ExtensionStateMutex`, so two changes can't overwrite each other's edits to `config/extensions.php`. Applications that write the list take the same lock." Commit: `feat(extensions): serialize enabled-list mutations`. **Stop.** F1 and F2 ship together as 1.88.0, released by the user.
 
 ---
 
@@ -685,7 +725,12 @@ Activation versus provision is covered in Task 6 (`testActivationGrantsAndAConcu
 **Files:**
 - Create: `core/src/Capabilities/Activation/BlockInsert.php`, `CapabilityBlockSeeder.php`
 - Create: `core/src/Capabilities/FeatureManagementPolicy.php` with `activationCapabilities()` and `engineOf()` only. Task 5 completes it.
-- Modify: `core/src/Content/Starter/TenantSeeder.php` (`seed()` :55): call `CapabilityBlockSeeder::seedNewWorkspace($tenantUuid)` inside the starter transaction, after the kinds
+- Modify: `core/src/Content/Starter/TenantSeeder.php` (`seed()` :55, used by `seedAndActivate` and `repair`). Inside the starter transaction:
+  1. **first statement, before any kind writes:** `$states = CapabilityBlockSeeder::beginWorkspaceSeed()`, which takes the share locks;
+  2. then the kinds;
+  3. then `seedNewWorkspace($tenantUuid, $states)`.
+
+  The locks are held to commit. This keeps the lock order (activation rows, then block writes) for new workspaces and repairs of active ones alike.
 - Modify: the RawPdo lint (savepoint statements)
 - Test: `tests/Integration/Tenancy/CapabilityBlockSeedingTest.php` (`extends RetrofittedTenantTestCase`, `use ChildProcesses`), `tests/fixtures/workspace_create_child.php`, `tests/fixtures/activation_finalize_child.php`
 
@@ -751,7 +796,7 @@ final class CapabilityBlockSeedingTest extends RetrofittedTenantTestCase
         // FOR UPDATE waits on child 1's FOR SHARE; child 1 resumes and commits; child 2 completes
         $this->startPreparingThroughSeedAndGrants('thallo.commerce');
         $creator = $this->startChild('workspace_create_child.php', ['paused-ws']);
-        $creator->waitFor('seeded-holding-share');
+        $creator->waitFor('kinds-written');                 // paused AFTER its starter kinds wrote block rows
         $finalizer = $this->startChild('activation_finalize_child.php', ['thallo.commerce']);
         $finalizer->waitFor('waiting-for-row');
         $creator->signal('resume');
@@ -759,6 +804,23 @@ final class CapabilityBlockSeedingTest extends RetrofittedTenantTestCase
         self::assertStringContainsString('succeeded', $finalizer->finish(timeoutSeconds: 20));   // no deadlock
         self::assertSame(1, $this->countSlug($tenant, 'product-grid'));
         self::assertTrue($this->states()->fresh('thallo.commerce'));
+    }
+
+    public function testAnActiveWorkspaceRepairRacingFinalizationDoesNotDeadlock(): void
+    {
+        // TenantSeedRepair::repair on active tenant A pauses after its kinds wrote block rows
+        // (THALLO_TEST_PAUSE_IN_WORKSPACE_SEED=after-kinds); finalization runs in another child; the
+        // repair resumes; both finish, and A has Commerce's blocks exactly once
+        $this->startPreparingThroughSeedAndGrants('thallo.commerce');
+        $this->deleteBlockRow(self::$tenantAUuid, 'hero');            // something for the repair to write
+        $repair = $this->startChild('workspace_repair_child.php', [self::$tenantAUuid]);
+        $repair->waitFor('kinds-written');
+        $finalizer = $this->startChild('activation_finalize_child.php', ['thallo.commerce']);
+        $finalizer->waitFor('waiting-for-row');
+        $repair->signal('resume');
+        $repair->finish();
+        self::assertStringContainsString('succeeded', $finalizer->finish(timeoutSeconds: 20));
+        self::assertSame(1, $this->countSlug(self::$tenantAUuid, 'product-grid'));
     }
 
     public function testRetryDropsAWorkspaceDeletedSinceItFailed(): void
@@ -789,8 +851,9 @@ final class CapabilityBlockSeedingTest extends RetrofittedTenantTestCase
     - **Tenancy on:** `TenantContextRunner::forEachTenant`, or `runAsTenant` for each of `$only` (a missing tenant → `markWorkspace($lease, $t, null)` and skip).
     - **Tenancy off:** the current store, keyed by `SingleStoreTenant::defaultUuidOrNull() ?? 'single'`.
     - Each workspace runs `seedCurrent` in its own transaction, then a fenced `markWorkspace($lease, $t, 'ready' | 'failed')` when `$lease` is given.
-  - **`seedNewWorkspace`:** `foreach ($store->shareAll() as $cap => $s) if ($s['on'] || $s['preparing']) $this->seedCurrent($cap);`. It writes no activation row.
-  - **The test pause hook** `THALLO_TEST_PAUSE_IN_WORKSPACE_SEED` is read only when `APP_ENV=testing`.
+  - **`beginWorkspaceSeed`:** `return $store->shareAll();`. It requires the enclosing transaction.
+  - **`seedNewWorkspace`:** `foreach ($states as $cap => $s) if ($s['on'] || $s['preparing']) $this->seedCurrent($cap);`. It writes no activation row.
+  - **The test pause hook** `THALLO_TEST_PAUSE_IN_WORKSPACE_SEED=after-kinds` pauses after the kinds have written (printing `kinds-written`). It's read only when `APP_ENV=testing`. Add `tests/fixtures/workspace_repair_child.php`, which calls `TenantSeedRepair::repair($uuid)`.
 - [ ] **Step 4: Run it.** `tests/Integration/Tenancy tests/Integration/Blocks tests/Integration/Content/SeedBlockTypesTest.php`. Expected: PASS.
 - [ ] **Step 5: Commit.** `feat(capabilities): capability blocks reach every workspace, coordinated with workspace creation`.
 
@@ -803,7 +866,7 @@ final class CapabilityBlockSeedingTest extends RetrofittedTenantTestCase
 **Files:**
 - Modify: `core/src/Capabilities/FeatureManagementPolicy.php` (complete)
 - Modify: `core/src/Providers/CoreServiceProvider.php`: in `register()`, `$this->mergeConfig('extensions', ['protected' => $policy->protectedProviders()])`, next to :2697-2710; bind `ExtensionStateCoordinator` to `ExtensionStateLock`
-- Create: `core/src/Capabilities/Activation/ExtensionStateLock.php`, `packages/thallo-contracts/src/Extensions/ExtensionStateCoordinator.php`
+- Create: `core/src/Capabilities/Activation/ExtensionStateLock.php` (key `hashtext('glueful:extension-state')`, the framework's, from F2; until 1.88 it serializes Thallo's writers, and after it the framework's too), `packages/thallo-contracts/src/Extensions/ExtensionStateCoordinator.php`
 - Modify:
   - `core/src/Http/Controllers/ExtensionAdminController.php`: `installed()` :371 adds `management`; `toggle()` :273 refuses non-independent packages from the policy first, then wraps the executor call in `ExtensionStateLock::within`;
   - `packages/thallo-tenancy/src/Enablement/ExtensionActivation.php`: `activate()` and `deactivate()` run their writer-plus-cache sequence inside `ExtensionStateCoordinator::within` when the container has it (soft-resolved; otherwise unlocked).
@@ -1032,12 +1095,13 @@ Plus four more, written in the same shape:
   - `testContinueFinishesInAFreshRequest`, where the continue goes through `bootAppWithConfigOverride`;
   - `testContinueAfterARetriedEngineStepAsksForAnotherContinue`;
   - `testAContinueForASupersededGenerationIsRefused`;
+  - `testADelayedCancelOfAnOldGenerationLeavesTheCurrentOneOn`: generation 1 is cancelled-to-be; it's superseded, generation 3 completes on, then the delayed `DELETE …/activation {generation: 1}` arrives → 409, and the feature is still on with generation 3;
   - `testTwoStartsReturnTheSameGeneration`;
   - `testTheUpdateEndpointCannotTurnAnActivationCapabilityOnDirectly`;
   - `testTurningOffPublishesOffAtomicallyAndAdvancesTheVersion`;
   - `testAnEngineDisabledOutsideThalloShowsUnavailable`.
 - [ ] **Step 2: Run it.** Expected: FAIL.
-- [ ] **Step 3: Implement.** `start` calls `startOrJoin`, then `run(freshBoot: false)`. `continue` calls `run(freshBoot: true)`; the runner itself enforces the boundary. `ActivationSuperseded` → 409 `superseded`; a null `acquire` → 409 `in_progress`.
+- [ ] **Step 3: Implement.** `start` calls `startOrJoin`, then `run(freshBoot: false)`. `continue` calls `run(freshBoot: true)`; the runner itself enforces the boundary. `cancel` calls `supersede($id, $actor, expectedGeneration: $body['generation'])`, and a stale generation → 409 `superseded`, changing nothing. Turning off the current feature (`PUT /capabilities/{id}` with `enabled: false`) calls `supersede($id, $actor)` with no expected generation. `ActivationSuperseded` → 409 `superseded`; a null `acquire` → 409 `in_progress`.
 - [ ] **Step 4: Run it**, plus the OpenAPI regeneration and `pnpm type-check`. Expected: PASS.
 - [ ] **Step 5: Commit.** `feat(capabilities): the activation API`.
 
@@ -1047,6 +1111,11 @@ Plus four more, written in the same shape:
 
 **Files:**
 - Create: `core/src/Capabilities/Console/{FeaturesEnableCommand,FeaturesResumeCommand,FeaturesStatusCommand}.php`, following `CapabilitiesCommand`'s conventions (`#[AsCommand]`, `BaseCommand`, `getService`, `Table`)
+- Modify: `core/src/Capabilities/Console/CapabilitiesCommand.php` (`flip()` :84). For an activation capability (`FeatureManagementPolicy::activationCapabilities()`):
+  - **enable is refused** with exit 1 and "Turn Commerce on with `php glueful thallo:features:enable thallo.commerce`: it prepares the store first.";
+  - **disable goes through `ActivationStore::supersede($id, 'cli')`**, which publishes off and fences any outstanding runner.
+
+  Other capabilities keep `CapabilityStateStore::put()`.
 - Modify:
   - `CoreServiceProvider`: DI definitions and the `commands([...])` list at :2956;
   - `core/src/Setup/Console/ProvisionCommand.php`:
@@ -1066,7 +1135,9 @@ Plus four more, written in the same shape:
   - `testResumeFinishesWithApplicationFilesReadOnly`;
   - `testExtensionsEnableOnAManagedEngineNamesThisCommand`;
   - `testProvisionResumesAnOpenActivationInAChildProcess`;
-  - `testProvisionReEnablesADisabledRequiredProvider`.
+  - `testProvisionReEnablesADisabledRequiredProvider`;
+  - `testCapabilitiesCommandCannotEnableAnActivationCapabilityWithoutPreparation`: `thallo:capabilities --enable=thallo.commerce` exits 1, and the capability is still off with no activation started;
+  - `testCapabilitiesCommandDisableFencesAnOutstandingRunner`: a runner holds a lease mid-activation; `--disable=thallo.commerce`; the runner's next fenced write throws `ActivationSuperseded`, and the capability stays off.
 
   For read-only application files, pass `THALLO_TEST_APP_FILES_READONLY=1`, which `EngineActivation` reads only when `APP_ENV=testing`.
 - [ ] **Step 2: Run it.** Expected: FAIL.
@@ -1157,7 +1228,8 @@ Plus four more, written in the same shape:
   - `testTurningCommerceOnServesItsRoutesOnTheNextContext`: compile with Commerce off; activate through the runner; a fresh boot (`ROUTE_CACHE` on) matches the commerce admin route;
   - `testTurningOffRemovesAccessOnTheNextContext`;
   - `testAContextThatBootedBeforeTheSwitchCannotMakeItsRebuiltTableUsable`: context A boots under N with no cache file (cold); the switch advances to N+1; A saves; context B under N+1 rejects A's table;
-  - `testAFailureMidFinalizationKeepsTheOldRoutesAndItStaysOff`: the crash probe fires `before_commit`.
+  - `testAFailureMidFinalizationKeepsTheOldRoutesAndItStaysOff`: the crash probe fires `before_commit`;
+  - `testACommerceActivationAndAnIndependentPackageCliKeepBothProviders` (`tests/Integration/Console`, with framework 1.88): a child runs Commerce's `EngineActivation::prepare()` and pauses inside the lock; another child runs `php glueful extensions:enable glueful/meilisearch` (independent), which waits on the same mutex; the first resumes. Assert that both providers are in `config/extensions.php` (a temp copy).
 - [ ] **Step 2: Run them.** Expected: FAIL.
 - [ ] **Step 3: Implement** the one call.
 - [ ] **Step 4: Run them**, plus the full PHP gate set. Expected: PASS.
@@ -1222,4 +1294,9 @@ Plus four more, written in the same shape:
   - `FeatureManagementPolicy::activationCapabilities()`, sorted (Tasks 4 and 5).
   - `ExtensionStateCoordinator` (Task 5) is implemented by `ExtensionStateLock`.
   - `ChildProcesses` (Task 2) is used by Tasks 3, 4 and 6.
-- **Known limitation, stated:** the framework's own `extensions:enable` / `extensions:disable` for **independent** packages doesn't take `ExtensionStateLock`. It can't write managed or required engines (the policy refuses them), so Commerce and Subscriptions activations are never overwritten by it.
+- **Second review:**
+  - every enabled-list mutation, the framework's included, takes one lock (F2, plus Task 5's key and Task 11's mixed proof);
+  - `thallo:capabilities` routes or refuses activation capabilities (Task 8);
+  - workspace seeding takes its share locks before any block write, with a repair-versus-finalization race test (Task 4);
+  - cancel checks its generation inside the row lock, with a delayed-cancel test (Tasks 2 and 7).
+- **Release gate:** F1 and F2 ship together as glueful/framework 1.88.0. Task 11 requires it.
