@@ -96,12 +96,27 @@ inferred.
    happens while the capability is still effectively off, so the ordinary `definitions()`, which
    filters a gated contribution out while its capability is off, must not be used here.
 5. **Grant new permissions** through the install-role ledger (3.5).
-6. **Final readiness check, then mark the capability on**, under the operation's exclusive ownership
-   (3.3). The check covers workspaces created during preparation (3.4).
-7. **Invalidate the compiled route cache.** Routes are registered according to capability state, so
-   a cache compiled while the capability was off keeps serving the old route table
-   (`CapabilityAdminController.php:139` clears it for the same reason). Then the operation closes.
-   Success means the next request reaches the newly enabled routes.
+6. **Finalize: the final readiness check, then the switch, as one finalization** under the
+   operation's exclusive ownership (3.3). The check covers workspaces created during preparation
+   (3.4). Then the operation closes.
+
+**The finalization contract.** Routes are registered according to capability state, so a route table
+compiled while the capability was off keeps serving the old routes
+(`CapabilityAdminController.php:139` clears it for the same reason). **The capability becomes effective
+only when no request can use the previous route table.** Two consequences:
+- **No gap.** There's no moment, and no crash point, where the capability is on but requests are
+  served from the old table. "Switch on, then invalidate" can't satisfy this, because a failure or a
+  dead process between the two leaves the capability on with stale routes. Neither can "invalidate,
+  then switch on" alone: a request that booted before the switch can rebuild the old table after the
+  deletion.
+- **Stale tables are unusable, not merely deleted.** A route table built under an earlier capability
+  state, including one rebuilt by an in-flight request that booted before the switch, must be
+  rejected by any request that sees the new state. For example, the table is keyed by, or validated
+  against, a capability-state version that the switch advances in the same write that makes the
+  capability effective. The plan chooses the mechanism; the contract is fixed.
+
+Success means the next request reaches the newly enabled routes. Turning off follows the same
+contract (3.6).
 
 **What the user sees:**
 1. **Confirmation:**
@@ -140,8 +155,9 @@ final switch.
     - engine enabling runs under the executor's lock;
     - block seeding creates a row only if its slug is missing, enforced by the table's uniqueness, so
       a second runner adds nothing;
-    - grants are unique per role and permission, and go through the ledger;
-    - route-cache invalidation is idempotent.
+    - grants are **serialized with the ledger** (3.5), not merely unique: a stale runner can't
+      re-grant a permission an operator revoked after a newer runner granted it;
+    - finalization follows its own contract (3.2), so an old runner can't make stale routes usable.
 
   Overlapping continuations: the second waits or returns "in progress"; it never runs a step twice in
   parallel. A step's completion is recorded before the response is sent, so a lost response is
@@ -217,7 +233,22 @@ The single-store reconciler stays as it is.
 ### 3.5 Permissions
 
 New permissions go through the existing "offered once" ledger (`InstallRoleGrants`), never "grant every
-missing permission". A permission an operator deliberately removed stays removed. (Migration 016 in
+missing permission". A permission an operator deliberately removed stays removed.
+
+**The ledger check, the grant writes and the ledger update form one serialized transaction.** Today
+`InstallRoleGrants` grants from grant and ledger state it read earlier (`InstallRoleGrants.php:195`).
+A unique constraint isn't enough to protect a revocation. Take this sequence: runner A reads the
+ledger and pauses; runner B takes over, grants the permission and records it as offered; an operator
+revokes it; A resumes. The revoked row is gone, so the constraint lets A insert the grant again. So:
+- **Inside one transaction,** serialized on the ledger (for example a lock on its row), the runner
+  reads the ledger authoritatively, grants only what it hasn't offered, and writes the ledger back.
+- **Operation ownership is checked inside that same transaction** (3.3). A runner whose lease was
+  taken over grants nothing.
+- **This also serializes concurrent activations.** Commerce and Subscriptions share the one ledger, so
+  two activations, or an activation and a `thallo:provision`, can't overwrite each other's ledger
+  update.
+
+The change applies to `InstallRoleGrants` itself, so provision and setup get the same guarantee. (Migration 016 in
 beta.77 was a one-time repair for an install bug, not a model for routine activation.) After
 activation, the current user's permissions refresh.
 
@@ -233,8 +264,9 @@ Confirmation:
 > Commerce's pages, blocks and menu are hidden. Products, orders and your content are kept, and you
 > can turn it on again.
 
-Turning off never disables a shared engine. It invalidates the compiled route cache, as activation
-does (3.2, step 7), so the next request can no longer reach the capability's routes. After completion,
+Turning off never disables a shared engine. It follows the finalization contract (3.2): the capability
+is off only when no request can use a route table built while it was on, so the next request can no
+longer reach the capability's routes. After completion,
 capability discovery, the navigation and the current user's permissions refresh.
 
 ### 3.7 Installed packages, and one management policy enforced on the server
@@ -344,7 +376,14 @@ permitting) and says so in its output.
   activation finishes, then creates the workspace still gets Commerce's blocks: it reads fresh state
   inside the coordination point.
 - **Route cache:** with a compiled route table already in place, activation's success means the next
-  request reaches the capability's routes, and turning off means the next request can't. Completion
+  request reaches the capability's routes, and turning off means the next request can't. A failure
+  (or killed process) between the readiness check and the end of finalization leaves the capability
+  off and the old routes in force. A request that booted before the switch and rebuilds its route
+  table afterwards can't make that stale table usable: the next request rejects it.
+- **Grants:** takeover, revoke, resume: runner A reads the ledger and pauses; B takes over, grants the
+  permission and records it; an operator revokes it; A resumes. The permission stays revoked.
+  Concurrent Commerce and Subscriptions activations, and an activation racing a provision, both keep
+  every ledger entry. Completion
   works with application files read-only and `storage/` writable.
 - **Seeding while off:** preparation seeds the explicit contributions even though `definitions()`
   filters them out while the capability is off.
