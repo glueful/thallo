@@ -574,6 +574,22 @@ final class ActivationStoreTest extends AppTestCase
         $this->store()->withinFenced($lease, fn () => $this->states()->put('test.shop', true));
     }
 
+    public function testACancelForAStaleGenerationChangesNothing(): void
+    {
+        $gen1 = $this->store()->startOrJoin('test.shop', 'op')->generation;
+        $this->store()->supersede('test.shop', 'off');
+        $gen3 = $this->store()->startOrJoin('test.shop', 'op')->generation;
+        $lease = $this->store()->acquire('test.shop', $gen3);
+        $this->store()->withinFenced($lease, fn () => $this->states()->put('test.shop', true));
+        try {
+            $this->store()->supersede('test.shop', 'late-cancel', expectedGeneration: $gen1);
+            self::fail('a stale cancel superseded the current generation');
+        } catch (ActivationSuperseded) {
+        }
+        self::assertSame($gen3, $this->store()->find('test.shop')->generation);
+        self::assertTrue($this->states()->fresh('test.shop'));
+    }
+
     public function testAPausedOldRunnerCannotDisableANewerSuccessfulActivation(): void
     {
         // generation 1's runner pauses; it is superseded; generation 3 finishes on; runner 1 resumes
@@ -651,7 +667,7 @@ final class ActivationStoreTest extends AppTestCase
     3. Run `$fn`.
     4. Extend the lease.
   - **Every fenced write** (`completeStep`, `failStep`, `markWorkspace`, `release`) is a `withinFenced` call.
-  - **`supersede`:** generation+1, status `superseded`, lease cleared, `put($capability, false)` in the same transaction. Event `superseded`.
+  - **`supersede`:** when `$expectedGeneration` is given and differs from the locked row's generation, or the row isn't open, throw `ActivationSuperseded` before any write. Otherwise: generation+1, status `superseded`, lease cleared, `put($capability, false)` in the same transaction. Event `superseded`.
   - **`shareAll`:** `SELECT capability, status FROM capability_activations ORDER BY capability FOR SHARE`. It requires an enclosing transaction (`withinTransaction()`, or throw `LogicException`). For each row: `on` is `CapabilityStateStore::fresh() === true`, and `preparing` is the status being open.
 - [ ] **Step 4: Run it.** Expected: PASS.
 - [ ] **Step 5: Commit.** `feat(capabilities): an activation store whose state transitions are atomic and fenced`.
