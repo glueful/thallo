@@ -1,6 +1,11 @@
 # One place to turn each feature on — design
 
-**Status:** draft for review · **Date:** 2026-10-02 · **Release:** one beta, cut when asked
+**Status:** approved a3c90f8d; **amended by §7** (draft for review) · **Date:** 2026-10-02 ·
+**Release:** one beta, cut when asked
+
+> **§7 supersedes** the page's name (§3.1: "Features"), the hard-coded management policy (§3.7), the
+> CLI names (§3.10: `thallo:features:*`) and the pre-seeded activation rows (§3.3/§3.4). Where §7 and
+> an earlier section disagree, §7 wins.
 
 ## 1. Why
 
@@ -427,3 +432,152 @@ permitting) and says so in its output.
    whether they join the activation flow or stay simple switches over required engines.
 5. **The ownership mechanism:** a database advisory lock, a row lock on the operation record, or a
    lease column. The contract in 3.3 is fixed; the mechanism is the plan's.
+
+
+## 7. Amendment: Extensions, declared management, and Payments
+
+### 7.1 Why
+
+The page exists so that Thallo's own features **and third-party packages** have one home. The first
+cut named it Features and hard-coded who manages what (`FeatureManagementPolicy`: two activation
+engines, two required packages, one external flow, their provider classes and their copy). Every new
+integration, first- or third-party, would need a core edit. This amendment moves those declarations
+to the packages that own them, keeps the guarantees the hard-coding happened to provide, and adds
+Payments, which is a Thallo feature backed by an engine (`glueful/payvia`) like Commerce.
+
+### 7.2 The page and the CLI
+
+- **Extensions**, at `/extensions`, with two views: **Capabilities** (default) and **Installed**.
+  `/features` never shipped in a release, so it gets no redirect.
+- The CLI is `thallo:capabilities:enable|resume|status` (with `--prepare`), beside the existing
+  `thallo:capabilities` list-and-flip command, which keeps refusing to turn an activation capability on.
+- The unfiltered Browse tab stays removed. A Thallo-aware catalog is designed separately (§3.9).
+
+### 7.3 Management is declared, as a typed mode
+
+Every capability has one **management mode**, declared by the package that contributes it:
+
+| Mode | Meaning | What the Capabilities view shows |
+|---|---|---|
+| `simple` | A plain switch over state | A switch (today's behaviour) |
+| `activation` | Turning on prepares an engine through the activation flow (§3.2–§3.6) | One action, progress, Retry, Continue/Cancel |
+| `external_flow` | Another flow owns it | A link to its **destination** (an admin path and a label) |
+
+- **The default is `simple`.** Nothing in core names a capability to give it a mode.
+- **`activation`** requires the capability's `owningPackage`: that package is the **engine**. The
+  engine's provider is resolved from the package manifest (`extra.glueful.provider`), never written
+  in Thallo. Optional copy (turn-on and turn-off confirmations, links shown once it is on) is
+  declared with it; without it the page uses a generic sentence. Summaries stay built from the
+  activation's result.
+- **`external_flow`** names a destination. Workspaces declares `external_flow` → Settings ›
+  Workspaces from the tenancy pack, replacing its special case in core.
+- **Managed packages are derived:** a package is managed when it is the engine of an `activation`
+  capability or the owning package of an `external_flow` capability. Its Installed row says
+  "Managed by <capability label>" with a link, and every generic switch refuses it (§3.7's
+  enforcement, through `extensions.protected`, unchanged).
+- **Ambiguous declarations are rejected, not resolved by precedence:**
+  - one package owned by more than one non-`simple` capability;
+  - one capability id declared with different owners or modes by two sources;
+  - an `activation` engine that is also required by Thallo (§7.6), or that isn't installed.
+
+  A rejected capability is shown as **misconfigured** with the reason, can't be started, and
+  `thallo:doctor` reports it. Nothing silently picks a winner.
+
+### 7.4 Declarations are discoverable before the engine is enabled
+
+A disabled extension's provider never loads, so a declaration made only in that provider can't put
+the capability on the page. Two sources are supported, and both are read without enabling the engine:
+
+1. **An always-loaded integration pack** registers the capability through `CapabilityRegistry`, with
+   its mode, as Thallo's packs do today (Commerce, Subscriptions, Payments from core, tenancy).
+2. **Package metadata:** an installed package declares its capabilities in `composer.json`
+   (`extra.thallo.capabilities`: id, label, description, mode, copy, destination). Thallo reads it
+   from the package manifest whether or not the package is enabled. The declaring package is the
+   owning package. This is the third-party path.
+
+What the engine contributes once it runs (blocks, permissions, routes gated by the capability) is
+needed only from the blocks step onward, after the fresh-boot gate has proven the engine is loaded
+(§3.2 steps 3–5). The engine's own code is never needed to show the capability or start it.
+
+### 7.5 Activation rows exist before a capability is actionable
+
+The workspace guarantee (§3.4) relies on every activation row existing before workspace creation
+takes its share locks. Rows can't be a fixed list written by a migration any more.
+
+- **A capability is actionable** (offered a switch, accepted by start, the CLI or provision) only once
+  its activation row exists and is committed.
+- **Rows are created by one idempotent sync** for every valid `activation` capability: run by
+  provision, and by start/the CLI when a row is missing (in its own transaction, before the start).
+- **Creating a row waits for workspace seeds in flight.** Every workspace seed takes a shared
+  workspace-seed lock before its activation share locks; row creation takes that lock exclusively.
+  So a seed that began before the row existed finishes first, and every seed that begins after it
+  sees the row. The one lock order becomes: workspace-seed lock → activation rows → block inserts →
+  grants lock → extension-state lock.
+- Rows for capabilities that are no longer declared stay, inert, as history.
+
+### 7.6 Required packages have a mandatory minimum
+
+- Thallo core declares the packages it can't run without (today `glueful/aegis` and `glueful/users`)
+  in its own code or package metadata, beside the code that depends on them. They change only with
+  that code.
+- An operator may **add** required packages in configuration. The effective set is the union: no
+  configuration can remove a package core requires.
+- A required package can't be an `activation` engine or a managed package (§7.3), and provision puts
+  a missing one back (§3.10).
+
+### 7.7 Payments
+
+**Payments** (`thallo.payments`) is a capability registered by core, owned by `glueful/payvia`, with
+mode `activation`. Turning it on prepares Payvia like any engine; Settings › Payments then configures
+gateways. Commerce and Subscriptions don't require it: both work with manual collection.
+
+**Payments off is a contract, not a notice.** Turning a capability off leaves its engine loaded, so
+every place that starts an online payment must ask one question: *may a new online payment start?*
+(a contract in `thallo-contracts`), answered yes only while Payments is effective. While it is off:
+
+- **Stopped:** every new online payment initiation — Commerce payment links (sending and initiating),
+  online checkout, Subscriptions self-serve checkout and plan checkout URLs. Each reports manual
+  collection, as it does today with no gateway configured.
+- **Continues:** settlement of payments already started, their webhooks, reconciliation, refunds of
+  captured payments, and access to payment records and to the saved gateway settings (kept, not
+  deleted).
+- **Recurring subscriptions:** turning Payments off doesn't cancel provider-side subscriptions.
+  Renewals that the provider charges keep settling through their webhooks; Thallo starts no new
+  provider subscription. The turn-off confirmation says so in plain words.
+- **Existing installs keep working:** when this ships, an install where Payvia is enabled and
+  schema-ready gets Payments stored **on**, so its payments behave exactly as before. Every other
+  install starts with Payments off.
+- Settings › Payments with Payments off says so and links to turning it on, instead of "install a
+  gateway extension".
+
+### 7.8 What stays as it was
+
+- Meilisearch stays an independent extension: Search picks it up when configured and works without it.
+- Commerce and Subscriptions keep the activation flow, now declared by their packs.
+- Everything in §3.2–§3.6 (the flow, fencing, crash points, workspaces, grants, turning off) applies
+  unchanged to any `activation` capability, first- or third-party.
+
+### 7.9 Testing (additions to §4)
+
+- **The third-party proof** uses a fixture package installed like a real third-party extension,
+  declaring an `activation` capability in its metadata, with its engine **disabled at the start**. It
+  proves, end to end: the capability appears and is actionable while the engine is disabled; its row
+  is synced; activation enables the engine, seeds the blocks the engine contributes (single store and
+  every workspace), grants the permissions it declares, and turns it on; turning it off supersedes
+  the activation and hides it, leaving the engine enabled and its data kept. Not merely that its
+  declaration is accepted.
+- **Declarations:** each ambiguity in §7.3 is rejected and reported; `external_flow` renders its
+  destination; a provider is resolved from the manifest, not from Thallo.
+- **Rows:** a workspace seed in flight while a new row is created finishes first, and a seed started
+  after the row exists seeds a capability that is preparing (two processes, attempts counted).
+- **Required minimum:** configuration can add a required package and can't remove Aegis or Users.
+- **Payments off:** each initiation point refuses with manual collection while off; a webhook for a
+  payment started before the switch still settles; a refund still works; a renewal webhook still
+  settles; an install with Payvia enabled comes out of the upgrade with Payments on.
+
+### 7.10 Docs and changelog
+
+The page is **Extensions › Capabilities / Installed** everywhere, the CLI is `thallo:capabilities:*`,
+and the unreleased changelog bullets that said "Features" are corrected in place. Payments gets a
+section in the capabilities concept page and in the payments guide, including what off stops and what
+it keeps. The developer docs describe both declaration sources and the three modes.
