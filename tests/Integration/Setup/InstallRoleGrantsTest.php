@@ -77,6 +77,37 @@ final class InstallRoleGrantsTest extends AppTestCase
         self::assertSame(count($all), $report->granted['superuser']);
     }
 
+    public function testAFreshInstallIsOfferedEverythingThoughAegisSeededTheRolesWithItsOwn(): void
+    {
+        // The real first provision: Aegis's migration has created both roles holding its own
+        // permissions, and the site is not installed yet. Holding grants used to read as an
+        // existing site upgrading, so every migration-seeded permission (commerce.*,
+        // templates.manage, content.manage on superuser …) was recorded as offered, never granted.
+        $this->freshInstall();
+        $this->grantOne('superuser', 'audit.view');
+        $this->grantOne('administrator', 'audit.view');
+        self::assertNull($this->channel()->get('installed'));
+
+        $this->grants()->apply();
+
+        $all = $this->allSlugs();
+        foreach (['commerce.view', 'commerce.manage', 'templates.manage'] as $slug) {
+            self::assertContains($slug, $all);
+        }
+        self::assertSame($all, $this->roleSlugs('superuser'));
+        $withheld = ['system.config', 'tenancy.access_any', 'tenancy.manage'];
+        self::assertSame(array_values(array_diff($all, $withheld)), $this->roleSlugs('administrator'));
+    }
+
+    private function grantOne(string $role, string $slug): void
+    {
+        $roleUuid = (new RoleRepository(null, $this->appContext()))->findRoleBySlug($role)?->getUuid();
+        $permUuid = (new PermissionRepository(null, $this->appContext()))->findPermissionBySlug($slug)?->getUuid();
+        self::assertNotNull($roleUuid);
+        self::assertNotNull($permUuid, "{$slug} is seeded");
+        (new RolePermissionRepository(null, $this->appContext()))->assignPermissionToRole($roleUuid, $permUuid);
+    }
+
     public function testARevokedPermissionStaysRevokedOnTheNextProvision(): void
     {
         // Provision used to grant whatever a role lacked, so an operator's revocation came back on
@@ -128,8 +159,13 @@ final class InstallRoleGrantsTest extends AppTestCase
         $this->grants()->apply();
         $this->revoke('administrator', 'content.manage');
         $this->channel()->forget(InstallRoleGrants::LEDGER_KEY);
+        $this->channel()->put('installed', '1');
 
-        $this->grants()->apply();
+        try {
+            $this->grants()->apply();
+        } finally {
+            $this->channel()->forget('installed');
+        }
 
         self::assertNotContains('content.manage', $this->roleSlugs('administrator'));
     }

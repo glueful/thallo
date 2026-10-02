@@ -10,6 +10,43 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.77] - 2026-10-02 — Developer Preview
+
+Fixes from a first production install. The superuser and administrator roles get every
+permission on a new install, and a migration repairs sites that missed them. A pack's blocks
+appear when its capability turns on. Provision says when the web server is not serving
+`public/`. One migration (a role-grant repair); run `php glueful thallo:provision` after
+updating, as usual.
+
+### Added
+- **Provision and doctor say when the web server is not serving `public/`.** A new
+  `document-root` check fetches `/admin/` on a public `BASE_URL`. A 403 or 404 there means the
+  document root (nginx `root`) is the project folder or a panel's empty default, so no request
+  reaches PHP. The warning names the folder to point at. Before, the setup link opened on nginx's
+  bare 404 page.
+
+### Fixed
+- **The superuser and administrator roles get every permission on a new install.** Aegis creates
+  both roles holding its own permissions, and the first provision took that for an existing site.
+  It recorded every permission the packs seed (`commerce.view`, `commerce.manage`,
+  `templates.manage` and, on superuser, `content.manage` among others) as offered and granted none,
+  and every later provision skipped them. A site that is not installed yet is now offered
+  everything. A new migration repairs a site that went through the old first run: superuser gets
+  every permission it lacks, administrator gets `commerce.view`, `commerce.manage` and
+  `templates.manage`. Run `php glueful thallo:provision` after updating, as usual. It runs once, so
+  a grant you revoke afterwards stays revoked.
+- **Commerce's blocks appear when Commerce is switched on, without running provision.** On a
+  production install the blocks a pack brings were seeded only by `thallo:provision`. The seed was
+  meant to run on the first request after the switch, but a production container has no request
+  hook, so it never ran. The block library (the editor's palette and Settings › Block types) now
+  seeds what is missing when it loads.
+- **Provision drops the compiled container on upgrade.** Production builds its container once and
+  reuses it while the list of services stays the same. A release that only changed what a service
+  is built with kept the old build. It is rebuilt from the new code on the next request.
+- **Provision shows the web-server warnings.** It ran its checks before `.env` held the
+  `BASE_URL`, so on a fresh install the web probes never ran, and it kept only failures. It now runs
+  them again at the end and prints any warning under the setup link.
+
 ## [1.0.0-beta.76] - 2026-10-01 — Developer Preview
 
 The Thallo version stays put in the sidebar's footer, above the line that sets off your account

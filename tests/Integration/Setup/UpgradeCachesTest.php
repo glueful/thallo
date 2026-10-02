@@ -55,4 +55,28 @@ final class UpgradeCachesTest extends AppTestCase
         self::assertSame(['route table', 'rendered pages', 'compiled templates'], $cleared);
         @rmdir($dir);
     }
+
+    public function testTheCompiledContainerIsDroppedToo(): void
+    {
+        // Production boots a compiled container named by its service DEFINITIONS, not by the
+        // constructors behind them: a release that adds a constructor argument (and no service)
+        // keeps the old name, so the old wiring kept building the new class — a dependency
+        // never injected (1.0.0-beta.77: the block library's reconciler). It recompiles from
+        // the new code on the next boot.
+        $dir = sys_get_temp_dir() . '/thallo-container-' . bin2hex(random_bytes(4));
+        mkdir($dir, 0755, true);
+        file_put_contents($dir . '/CompiledContainer_0123abcd.php', '<?php // compiled before the upgrade');
+
+        $cleared = (new UpgradeCaches(
+            $this->container()->get(RouteCache::class),
+            $this->container()->get(CacheStore::class),
+            null,
+            $dir,
+        ))->clear();
+
+        self::assertFileDoesNotExist($dir . '/CompiledContainer_0123abcd.php');
+        self::assertDirectoryExists($dir);
+        self::assertSame(['route table', 'rendered pages', 'compiled container'], $cleared);
+        @rmdir($dir);
+    }
 }
