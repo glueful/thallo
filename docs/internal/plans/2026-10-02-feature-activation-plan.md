@@ -919,7 +919,7 @@ final class CapabilityBlockSeedingTest extends RetrofittedTenantTestCase
 - Modify: `core/src/Providers/CoreServiceProvider.php`: in `register()`, `$this->mergeConfig('extensions', ['protected' => $policy->protectedProviders()])`, next to :2697-2710; bind `ExtensionStateCoordinator` to `ExtensionStateLock`
 - Create: `core/src/Capabilities/Activation/ExtensionStateLock.php` (key `hashtext('glueful:extension-state')`, the framework's, from F2; until 1.88 it serializes Thallo's writers, and after it the framework's too), `packages/thallo-contracts/src/Extensions/ExtensionStateCoordinator.php`
 - Modify:
-  - `core/src/Http/Controllers/ExtensionAdminController.php`: `installed()` :371 adds `management`; `toggle()` :273 refuses non-independent packages from the policy first, then wraps the executor call in `ExtensionStateLock::within`;
+  - `core/src/Http/Controllers/ExtensionAdminController.php`: `installed()` :371 adds `management`. `toggle()` :273 refuses non-independent packages from the policy first, then, **as an interim measure until Task 11**, wraps the executor call in `ExtensionStateLock::within`. Before 1.88 the executor takes no extension-state mutex, so the wrapper is the only coordination and creates no inversion. On 1.88 the executor takes its migration locks and then the mutex itself, so Task 11 removes this wrapper. A docblock on the wrapper says so;
   - `packages/thallo-tenancy/src/Enablement/ExtensionActivation.php`: `activate()` and `deactivate()` run their writer-plus-cache sequence inside `ExtensionStateCoordinator::within` when the container has it (soft-resolved; otherwise unlocked).
 - Test: `tests/Integration/Capabilities/FeatureManagementPolicyTest.php`, `tests/Integration/Console/ManagedEngineCliTest.php`
 
@@ -1273,6 +1273,10 @@ Plus four more, written in the same shape:
 **Files:**
 - Modify: `composer.json` and `core/composer.json` (`"glueful/framework": "^1.88"`), then `composer update glueful/framework`
 - Modify: `core/src/Providers/CoreServiceProvider.php` (`register()`, right after taking the snapshot): `$context->setRouteSignatureInput('thallo.capability_state', $snapshot->version);`
+- Modify: `core/src/Http/Controllers/ExtensionAdminController.php` (`toggle()`): **the lock handover.** Remove Task 5's interim `ExtensionStateLock` wrapper around the executor call; on 1.88 the executor owns its locking (migration locks, then the extension-state mutex). `ExtensionStateLock` stays around Thallo's **direct** writer-and-cache sequences, which take no migration locks while holding it:
+  - `EngineActivation`, where `migrateProtected` runs and releases its locks before the mutex;
+  - provision's required-provider repair;
+  - tenancy's `ExtensionActivation::activate()` and `deactivate()`.
 - Test: `tests/Integration/Routing/CapabilityRouteTableTest.php`
 
 - [ ] **Step 1: Write the failing tests:**
@@ -1280,6 +1284,13 @@ Plus four more, written in the same shape:
   - `testTurningOffRemovesAccessOnTheNextContext`;
   - `testAContextThatBootedBeforeTheSwitchCannotMakeItsRebuiltTableUsable`: context A boots under N with no cache file (cold); the switch advances to N+1; A saves; context B under N+1 rejects A's table;
   - `testAFailureMidFinalizationKeepsTheOldRoutesAndItStaysOff`: the crash probe fires `before_commit`;
+  - `testAnAdminEnableAndACliEnableOfOnePackageWithMigrationsBothFinish` (`tests/Integration/Console`, with framework 1.88): the package is `glueful/payvia`, which declares migrations and backs no capability; if the Task 5 audit classified it as required, use the first independent package with migrations from the audit's table.
+    1. A child runs the admin route `POST /v1/admin/extensions/enable {name}` in-process and pauses at `ExtensionStateMutex::$afterAcquire`.
+    2. Another child runs `php glueful extensions:enable <package>`.
+    3. The parent observes the second child waiting (on the migration locks or the mutex, through `pg_locks`), then resumes the first.
+    4. Assert that both children finish within 30 s, with no lock timeout, and that the package is enabled once in `config/extensions.php` (a temp copy).
+
+    With the interim wrapper still in place, this deadlocks until the lock-wait timeout. That's the failing run before the handover;
   - `testACommerceActivationAndAnIndependentPackageCliKeepBothProviders` (`tests/Integration/Console`, with framework 1.88): a child runs Commerce's `EngineActivation::prepare()` and pauses inside the lock; another child runs `php glueful extensions:enable glueful/meilisearch` (independent), which waits on the same mutex; the first resumes. Assert that both providers are in `config/extensions.php` (a temp copy).
 - [ ] **Step 2: Run them.** Expected: FAIL.
 - [ ] **Step 3: Implement** the one call.
