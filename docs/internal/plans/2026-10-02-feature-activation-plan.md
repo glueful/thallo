@@ -233,7 +233,8 @@ final class ActivationStore
 // core/src/Capabilities/Activation/ExtensionStateLock.php (implements the contract below)
 final class ExtensionStateLock implements \Thallo\Contracts\Extensions\ExtensionStateCoordinator
 {
-    /** pg_advisory_lock(hashtext('thallo:extension-state')) for $fn, unlocked in finally. */
+    /** pg_advisory_lock(hashtext('glueful:extension-state')) for $fn, unlocked in finally — the framework's
+     *  ExtensionStateMutex key (F2), so Thallo's writers and the framework's commands share one lock. */
     public function within(callable $fn): mixed;
 }
 
@@ -374,29 +375,63 @@ final class RouteSignatureInputsTest extends TestCase
 
 ---
 
-## Task F2 (framework repo): one lock for every enabled-list mutation
+## Task F2 (framework repo): one lock for every enabled-list mutation, from resolution to cache
 
 **Repo:** the framework, after F1 and in the same release (1.88.0).
 
 **Files:**
 - Create: `src/Extensions/ExtensionStateMutex.php`
 - Modify:
-  - `src/Extensions/Schema/ExtensionSchemaExecutor.php`: `enable()` around `writer->enable` (:90) through `finishWithCacheRecompile`, and `disable()` around its writer call and recompile;
-  - `src/Console/Commands/Extensions/CacheCommand.php` (:73-87): around the delete and `writeCacheNow`.
-- Test: `tests/Integration/Extensions/ExtensionStateMutexTest.php`
+  - `src/Extensions/Schema/ExtensionSchemaExecutor.php`: in `enable()` and `disable()`, the mutex is held from just before the `ExtensionStateWriter` call (:90 in `enable`) through `finishWithCacheRecompile()` / `writeCacheNow()`. The writer reads the list inside the mutex, and `writeCacheNow(null)` re-resolves providers inside it.
+  - `src/Console/Commands/Extensions/CacheCommand.php` (:73-87): take the mutex **before resolving `$classes`**, then `$context->clearConfigCache()` inside it, then resolve, delete the file and `writeCacheNow($classes)`, all inside. Today it resolves first and writes later, so a list resolved before a concurrent enable could overwrite the newer cache.
+- Test: `tests/Integration/Extensions/ExtensionStateMutexTest.php`, `tests/fixtures/extension_state_child.php`
 - Modify: `CHANGELOG.md`
 
 **Interfaces:**
 - Produces: `ExtensionStateMutex::within(ApplicationContext $context, callable $fn): mixed`.
-  - **On PostgreSQL:** a session-level `pg_advisory_lock(hashtext('glueful:extension-state'))`, waiting up to `extensions.state_lock_wait` seconds (default 30), and `pg_advisory_unlock` in `finally`.
+  - **On PostgreSQL:** a session-level `pg_advisory_lock(hashtext('glueful:extension-state'))`, waiting up to `extensions.state_lock_wait` seconds (default 30), with `pg_advisory_unlock` in `finally`.
   - **Otherwise:** `flock(LOCK_EX)` on `storage/framework/locks/extension-state.lock`.
-  - **The key is public API:** applications that write the enabled list take the same lock.
+  - **The key is public API.**
+- **The test seam:** `/** @internal test seam */ public static ?\Closure $afterAcquire = null;`, called with the context right after the lock is acquired and before `$fn`. `ExtensionStateWriter` is final, with private helpers, and the executor constructs it directly, so the seam sits in the mutex, not the writer. Production never sets it.
 
-- [ ] **Step 1: Write the failing test.** Two child processes each run the executor's `enable()` for a different fixture package against one shared `config/extensions.php`. Child A pauses inside the writer, between its read and its write (a test-only env hook in the test's own writer subclass). Child B completes. A resumes. Assert that both providers are in the final list; without the mutex, B's provider is lost.
-- [ ] **Step 2: Run it.** Expected: FAIL (one provider missing).
-- [ ] **Step 3: Implement.** The writer's read happens inside the mutex.
-- [ ] **Step 4: Run it**, plus the full framework suite. Expected: PASS.
-- [ ] **Step 5: Changelog and commit.** Added: "**One lock for every enabled-list change.** `extensions:enable`, `extensions:disable`, `extensions:cache` and the schema executor take `ExtensionStateMutex`, so two changes can't overwrite each other's edits to `config/extensions.php`. Applications that write the list take the same lock." Commit: `feat(extensions): serialize enabled-list mutations`. **Stop.** F1 and F2 ship together as 1.88.0, released by the user.
+- [ ] **Step 1: Write the failing tests.** The child fixture boots a temp app whose `config/extensions.php` is shared by both children. Given `--pause`, it sets `ExtensionStateMutex::$afterAcquire` to print `holding` and block until it reads `resume` on stdin. It then runs its action (`enable <package>` through the executor, or `cache` through `CacheCommand`) and prints `done`.
+
+```php
+public function testASecondEnableWaitsOnTheMutexAndBothProvidersSurvive(): void
+{
+    $a = $this->startChild('extension_state_child.php', ['enable', 'fixture/alpha', '--pause']);
+    $a->waitFor('holding');                                   // A holds the mutex
+    $b = $this->startChild('extension_state_child.php', ['enable', 'fixture/beta']);
+    $this->waitUntilAWaiterOnTheExtensionStateLock();         // B is blocked on THIS mutex (pg_locks)
+    self::assertFalse($b->isFinished(), 'B must not complete while A holds the lock');
+    $a->signal('resume');
+    $a->finish(); $b->finish();
+    $enabled = (require $this->configPath())['enabled'];
+    self::assertContains('Fixture\\Alpha\\Provider', $enabled);
+    self::assertContains('Fixture\\Beta\\Provider', $enabled);
+    self::assertEqualsCanonicalizing($enabled, $this->providersInExtensionCache());
+}
+
+public function testExtensionsCacheResolvesProvidersOnlyAfterTakingTheMutex(): void
+{
+    // A (enable fixture/alpha) holds the mutex before writing; B (extensions:cache) starts and must wait
+    // BEFORE resolving; A resumes and writes alpha; B then resolves and rebuilds a cache that has alpha
+    $a = $this->startChild('extension_state_child.php', ['enable', 'fixture/alpha', '--pause']);
+    $a->waitFor('holding');
+    $b = $this->startChild('extension_state_child.php', ['cache']);
+    $this->waitUntilAWaiterOnTheExtensionStateLock();
+    $a->signal('resume');
+    $a->finish(); $b->finish();
+    self::assertContains('Fixture\\Alpha\\Provider', $this->providersInExtensionCache());
+}
+```
+
+`waitUntilAWaiterOnTheExtensionStateLock()` polls, for up to 10 s, `SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND NOT granted AND objid = (hashtext('glueful:extension-state')::bigint & 4294967295)::oid` (with `classid` matching the high bits, as PostgreSQL splits the 64-bit key) until it's at least 1. That's the same handshake the framework's migration-lock tests use. `fixture/alpha` and `fixture/beta` are two minimal packages under `tests/fixtures/packages/` with `extra.glueful.provider`, `migrations: none` and a path-repository manifest the test app reads.
+
+- [ ] **Step 2: Run them.** Expected: FAIL. The first loses a provider or B finishes early; the second leaves a cache without alpha, because `CacheCommand` resolved before waiting.
+- [ ] **Step 3: Implement** the mutex, the executor wrapping, and `CacheCommand`'s lock-then-clear-then-resolve order.
+- [ ] **Step 4: Run them**, plus the full framework suite. Expected: PASS.
+- [ ] **Step 5: Changelog and commit.** Added: "**One lock for every enabled-list change.** `extensions:enable`, `extensions:disable`, `extensions:cache` and the schema executor take `ExtensionStateMutex`, from resolving providers through rebuilding the cache, so two changes can't overwrite each other's edits to `config/extensions.php` or the extension cache. Applications that write the list take the same lock." Commit: `feat(extensions): serialize enabled-list mutations from resolution to cache`. **Stop.** F1 and F2 ship together as 1.88.0, released by the user.
 
 ---
 
