@@ -15,6 +15,14 @@ as the next release, never a mutated tag.
   bare 404 page.
 
 ### Fixed
+- **Commerce's blocks appear when Commerce is switched on, without running provision.** On a
+  production install the blocks a pack brings were seeded only by `thallo:provision`. The seed was
+  meant to run on the first request after the switch, but a production container has no request
+  hook, so it never ran. The block library (the editor's palette and Settings › Block types) now
+  seeds what is missing when it loads.
+- **Provision drops the compiled container on upgrade.** Production builds its container once and
+  reuses it while the list of services stays the same. A release that only changed what a service
+  is built with kept the old build. It is rebuilt from the new code on the next request.
 - **Provision shows the web-server warnings.** It ran its checks before `.env` held the
   `BASE_URL`, so on a fresh install the web probes never ran, and it kept only failures. It now runs
   them again at the end and prints any warning under the setup link.

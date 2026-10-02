@@ -73,9 +73,11 @@ website runs, and every release is exercised there by the exact upgrade every op
   into `public/admin` (the release's copy replaces the previous one; stale files are removed). `migrate:verify` confirms
   every declared migration source is Ready; a non-zero exit stops the sequence.
 - **Cache clears that outlive a release** — done by `thallo:provision`: the compiled route
-  table (a stale one keeps serving the previous release's routes) and the rendered pages. A
-  deploy that skips provision runs `route:cache:clear` and `render:cache:clear` itself. The
-  compiled container is signed by its definitions and recompiles itself.
+  table (a stale one keeps serving the previous release's routes), the rendered pages, the
+  compiled templates and the compiled container. The container is named by its list of services,
+  so a release that only changes what a service is built with would otherwise keep the old build.
+  A deploy that skips provision runs `route:cache:clear` and `render:cache:clear` itself and
+  empties `storage/cache/container`.
 - **A PHP-FPM reload only when OPcache has timestamp validation off**
   (`opcache.validate_timestamps=0`, a common production tuning): OPcache then never re-reads
   changed files and keeps serving the previous release's classes. With PHP's default

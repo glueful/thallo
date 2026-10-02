@@ -61,6 +61,25 @@ final class ContributedBlockTypeReconcilerTest extends AppTestCase
         self::assertContains('thallo.commerce', $this->seededCapabilities($this->flags()));
     }
 
+    public function testLoadingTheBlockLibrarySeedsAnEnabledPackWithoutARequestHook(): void
+    {
+        // A production install runs a compiled container with no request lifecycle, so the
+        // begin-request hook never fires there: the block library (the palette and Settings ›
+        // Block types both load it) reconciles on its own, and lists what it seeded.
+        $this->flags()->put('installed', '1');
+        self::assertNull($this->repo()->findBySlug(ShopBlockTypesContributor::SLUG_PRODUCT_GRID));
+
+        $listed = json_decode((string) $this->container()
+            ->get(\Thallo\Core\Content\Http\Controllers\BlockTypeController::class)
+            ->index(\Symfony\Component\HttpFoundation\Request::create('/block-types'))->getContent(), true);
+
+        self::assertNotNull($this->repo()->findBySlug(ShopBlockTypesContributor::SLUG_PRODUCT_GRID));
+        self::assertContains(
+            ShopBlockTypesContributor::SLUG_PRODUCT_GRID,
+            array_column($listed['data']['block_types'], 'slug'),
+        );
+    }
+
     public function testASeededCapabilityIsNotSeededAgainUntilItIsSwitchedOffAndOn(): void
     {
         $this->flags()->put('installed', '1');
