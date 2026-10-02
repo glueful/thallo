@@ -97,7 +97,11 @@ inferred.
    filters a gated contribution out while its capability is off, must not be used here.
 5. **Grant new permissions** through the install-role ledger (3.5).
 6. **Final readiness check, then mark the capability on**, under the operation's exclusive ownership
-   (3.3). The check covers workspaces created during preparation (3.4). Then the operation closes.
+   (3.3). The check covers workspaces created during preparation (3.4).
+7. **Invalidate the compiled route cache.** Routes are registered according to capability state, so
+   a cache compiled while the capability was off keeps serving the old route table
+   (`CapabilityAdminController.php:139` clears it for the same reason). Then the operation closes.
+   Success means the next request reaches the newly enabled routes.
 
 **What the user sees:**
 1. **Confirmation:**
@@ -125,11 +129,23 @@ final switch.
 - **Every operation has an id and a generation.** Every continuation names the operation it belongs
   to. A continuation for an operation that is no longer current does nothing and reports that a newer
   decision exists. An old request can never turn a feature back on after a newer decision.
-- **Steps are owned exclusively.** A step runs only while its runner holds the operation's ownership,
-  a lease that expires, so a crashed runner doesn't block forever. Overlapping continuations: the
-  second waits or returns "in progress"; it never runs a step twice in parallel. A step's completion
-  is recorded before the response is sent, so a lost response is harmless: the next continuation sees
-  the step done and moves on.
+- **Steps are owned exclusively, and ownership is fenced.** A step runs only while its runner holds
+  the operation's lease: an owner token and an expiry, so a crashed runner doesn't block forever. An
+  expired lease doesn't stop its PHP process, which can resume after another runner has taken over.
+  So ownership is checked again **at every write**, not only before starting:
+  - recording a step done, advancing the operation and the final activation are each one conditional
+    write that succeeds only for the current operation, generation **and** owner token. A runner
+    whose lease was taken over finds its writes refused and stops;
+  - **every step's side effects are safe when an old and a new runner overlap:**
+    - engine enabling runs under the executor's lock;
+    - block seeding creates a row only if its slug is missing, enforced by the table's uniqueness, so
+      a second runner adds nothing;
+    - grants are unique per role and permission, and go through the ledger;
+    - route-cache invalidation is idempotent.
+
+  Overlapping continuations: the second waits or returns "in progress"; it never runs a step twice in
+  parallel. A step's completion is recorded before the response is sent, so a lost response is
+  harmless: the next continuation sees the step done and moves on.
 
 **Interruptions:**
 - **Browser closed or request timed out after its work:** the operation stays recorded. Reopening
@@ -152,13 +168,22 @@ final switch.
 - **The operation record** holds the steps done, the step that failed, the error, the generation, the
   lease and timestamps, plus per-workspace readiness (3.4). Where it lives is a plan decision.
 
+**The deployment contract.** Application files, `config/` and `bootstrap/cache/` may be immutable.
+`storage/` must be writable, as it already has to be (`thallo:doctor` fails an install whose `storage/`
+isn't). So:
+- **Preparation writes application files:** step 2 writes `config/extensions.php` (the enabled list)
+  and `bootstrap/cache/extensions.php` (the extension cache).
+- **Completion writes only the database and `storage/`:** the route cache lives in `storage/cache`.
+  The rest of this section calls those "application-file writes" and "runtime writes".
+
 **Filesystem writes:**
-- **Writability is checked only when a pending step writes the filesystem.** That means step 2:
-  `config/extensions.php` and the extension cache. If the host can't be written (the existing
+- **Writability of application files is checked only when a pending step writes them.** That means
+  step 2: `config/extensions.php` and the extension cache. If the host can't be written (the existing
   `hostToggleRefusal`), the card says so before the user starts and gives the deploy-time steps (3.10).
   It offers no button that can't work.
 - **Turning on an already-prepared feature** (engine enabled and ready, for example after an earlier
-  turn-off) needs no filesystem write. It works on a read-only host.
+  turn-off) needs no application-file write, only runtime writes. It works on a host whose
+  application files are read-only.
 - **Cache-stale outcome:** see the step 3 gate. It is never reported as a clean success.
 
 ### 3.4 Workspaces
@@ -177,7 +202,14 @@ step coordinate:
 - **The final readiness check (3.2, step 6) runs under the operation's exclusive ownership.** It lists
   the workspaces again and seeds any not yet ready, then switches the capability on in the same
   critical section. Workspace creation takes the same coordination point, briefly, so it lands either
-  before the check (and is seeded) or after the switch (and its starter sees the capability on).
+  before the check (and is seeded) or after the switch.
+- **Workspace creation reads fresh state inside the coordination point.** Its request may have booted
+  before the switch, and the capability registry keeps each capability's state for the whole request
+  (`DefaultCapabilityRegistry.php:85`). Acquiring the coordination point doesn't refresh that. So,
+  inside the coordination point, creation reads the capability's state and any open operation
+  authoritatively, from the state store and the operation record, not from the request's registry.
+  It then seeds that capability's explicit contributions from that decision, not from the request's
+  cached `definitions()`.
 - **After completion,** a new workspace gets the capability's blocks from its starter, as today.
 
 The single-store reconciler stays as it is.
@@ -201,8 +233,9 @@ Confirmation:
 > Commerce's pages, blocks and menu are hidden. Products, orders and your content are kept, and you
 > can turn it on again.
 
-Turning off never disables a shared engine. After completion, capability discovery, the navigation
-and the current user's permissions refresh.
+Turning off never disables a shared engine. It invalidates the compiled route cache, as activation
+does (3.2, step 7), so the next request can no longer reach the capability's routes. After completion,
+capability discovery, the navigation and the current user's permissions refresh.
 
 ### 3.7 Installed packages, and one management policy enforced on the server
 
@@ -268,11 +301,11 @@ can't be written by the CLI either, so:
   <capability> --prepare` migrates, writes the enabled list and builds the extension cache, then stops
   with the capability `preparing`.
 - **Completion runs at runtime,** from the Features page or `thallo:features:resume`. It needs only
-  the database: the fresh-boot gate, seeding, grants and the switch. It works on the read-only host
-  because no pending step writes the filesystem.
+  runtime writes (the database and `storage/`): the fresh-boot gate, seeding, grants, the switch and
+  route-cache invalidation. It works on a host whose application files are read-only.
 
-**`thallo:provision`** resumes any open operation: its database steps always, and its filesystem
-steps when the host is writable. It reports the result. It is not a general activation
+**`thallo:provision`** resumes any open operation: its runtime steps always, and its application-file
+steps when those files are writable. It reports the result. It is not a general activation
 command, and it doesn't turn on a capability nobody asked for.
 
 **Required providers that are already disabled.** `extensions.protected` refuses both enable and
@@ -296,7 +329,9 @@ permitting) and says so in its output.
   - read-only host → refused up front, with the CLI steps;
   - cache-stale → reported as such.
 - **Concurrency:** two simultaneous starts make one operation; overlapping continuations never run a
-  step twice; a lost response (work done, response dropped) is resumed without repeating the step; a
+  step twice; **fencing:** runner A pauses mid-step, its lease expires, runner B takes over and
+  finishes, then A resumes: A's writes are refused, it neither advances the operation nor activates
+  the feature, and the overlapping step's side effects aren't duplicated; a lost response (work done, response dropped) is resumed without repeating the step; a
   delayed continuation after turning off is refused and leaves the capability off; the capability
   update endpoint can't write `on` past a preparing operation.
 - **Fresh-boot gate:** a continue request whose boot doesn't load the provider, or whose schema
@@ -305,7 +340,12 @@ permitting) and says so in its output.
 - **Workspaces:** blocks reach every existing workspace; a failure in one workspace names it, and
   Retry covers it only. A workspace created while seeding is paused gets the blocks. A workspace
   created immediately before completion is caught by the final check; one created immediately after
-  gets them from its starter.
+  gets them from its starter. A workspace request that boots while Commerce is preparing, waits until
+  activation finishes, then creates the workspace still gets Commerce's blocks: it reads fresh state
+  inside the coordination point.
+- **Route cache:** with a compiled route table already in place, activation's success means the next
+  request reaches the capability's routes, and turning off means the next request can't. Completion
+  works with application files read-only and `storage/` writable.
 - **Seeding while off:** preparation seeds the explicit contributions even though `definitions()`
   filters them out while the capability is off.
 - **CLI:** `thallo:features:enable`, `resume` and `status` follow the same contract;
