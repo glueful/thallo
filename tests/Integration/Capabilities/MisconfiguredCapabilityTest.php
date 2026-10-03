@@ -132,7 +132,7 @@ final class MisconfiguredCapabilityTest extends AppTestCase
         ]]]));
         try {
             $packages = new PackageCapabilityDeclarations($this->appContext(), $installed);
-            $set = new DeclarationSet($packages->all(), ['acme/x' => 'Acme\\X'], $packages->errors());
+            $set = new DeclarationSet($packages->all(), ['acme/x' => 'Acme\\X'], $packages->errorsById());
         } finally {
             @unlink($installed);
         }
@@ -142,6 +142,55 @@ final class MisconfiguredCapabilityTest extends AppTestCase
         }
         self::assertSame('misconfigured', $set->packageManagement()['acme/x']['class']);
         self::assertStringStartsWith('an invalid declaration in acme/x: ', $set->misconfigured()['acme.y']['reason']);
+    }
+
+    public function testAnInvalidEntryUnderAValidIdKeepsTheEngineProtectedInAnyOrder(): void
+    {
+        $valid = self::decl(
+            new Capability('acme.bookings', owningPackage: 'acme/bookings', management: ManagementMode::Activation),
+            'package:acme/bookings',
+        );
+        $providers = ['acme/bookings' => 'Acme\\Bookings', 'other/one' => 'O\\One', 'other/two' => 'O\\Two'];
+        $errors = [
+            ['acme.bookings' => [
+                ['reason' => 'an invalid declaration in other/one: unknown mode', 'package' => 'other/one'],
+                ['reason' => 'an invalid declaration in other/two: unknown mode', 'package' => 'other/two'],
+            ]],
+            ['acme.bookings' => [
+                ['reason' => 'an invalid declaration in other/two: unknown mode', 'package' => 'other/two'],
+                ['reason' => 'an invalid declaration in other/one: unknown mode', 'package' => 'other/one'],
+            ]],
+        ];
+        foreach ($errors as $orderedErrors) {
+            $set = new DeclarationSet([$valid], $providers, $orderedErrors);
+            self::assertArrayHasKey('acme.bookings', $set->misconfigured());
+            self::assertSame(
+                ['acme/bookings', 'other/one', 'other/two'],
+                $set->misconfigured()['acme.bookings']['packages'],
+                'the engine and both invalid declarers are protected, whatever the order',
+            );
+            self::assertSame('misconfigured', $set->packageManagement()['acme/bookings']['class'], 'never independent');
+        }
+    }
+
+    public function testTwoInvalidEntriesUnderOneIdAreBothKept(): void
+    {
+        $installed = tempnam(sys_get_temp_dir(), 'thallo-installed-') ?: '';
+        $broken = static fn (string $name): array => [
+            'name' => $name,
+            'type' => 'glueful-extension',
+            'extra' => ['thallo' => ['capabilities' => [['id' => 'acme.shared', 'mode' => 'bogus']]]],
+        ];
+        $manifest = ['packages' => [$broken('other/one'), $broken('other/two')]];
+        file_put_contents($installed, (string) json_encode($manifest));
+        try {
+            $packages = new PackageCapabilityDeclarations($this->appContext(), $installed);
+            $packages->all();
+            $errors = $packages->errorsById();
+        } finally {
+            @unlink($installed);
+        }
+        self::assertSame(['other/one', 'other/two'], array_column($errors['acme.shared'], 'package'));
     }
 
     public function testADeclarationThatConflictsOverAnotherActivationsEngineBlocksBoth(): void

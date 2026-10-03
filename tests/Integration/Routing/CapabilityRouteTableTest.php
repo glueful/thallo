@@ -138,6 +138,31 @@ final class CapabilityRouteTableTest extends AppTestCase
         );
     }
 
+    public function testATableKeyedWithoutASnapshotIsNeverReused(): void
+    {
+        // A context whose snapshot can't be taken (its container can't give one) keys its table so
+        // that no other context, unavailable or not, ever matches it.
+        $failing = new class () implements \Psr\Container\ContainerInterface {
+            public function get(string $id): mixed
+            {
+                throw new \RuntimeException('database unreachable');
+            }
+
+            public function has(string $id): bool
+            {
+                return true;
+            }
+        };
+        $keys = [];
+        foreach ([1, 2] as $attempt) {
+            $context = new ApplicationContext(dirname(__DIR__, 3), 'testing');
+            \Thallo\Core\Providers\CoreServiceProvider::keyRouteTableByCapabilityState($context, $failing);
+            $keys[] = $context->routeSignatureInputs()['thallo.capability_state'] ?? null;
+        }
+        self::assertStringStartsWith('unavailable', (string) $keys[0]);
+        self::assertNotSame($keys[0], $keys[1], 'two unavailable contexts never share a table');
+    }
+
     public function testAFailureMidFinalizationKeepsTheOldRoutesAndItStaysOff(): void
     {
         self::assertFalse(self::serves(self::request(), self::COMMERCE_ROUTE));
