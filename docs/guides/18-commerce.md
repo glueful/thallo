@@ -16,7 +16,7 @@ storefront is served by Thallo's own templates through your theme's `layout.twig
 
 ## Turn on Commerce and Payvia
 
-Open **Features**, switch **Commerce** on and confirm. One "Turning on Commerce…" state covers
+Open **Extensions › Capabilities**, switch **Commerce** on and confirm. One "Turning on Commerce…" state covers
 everything: Thallo enables `glueful/commerce` (which owns products, stock, carts and orders) and
 migrates it, checks it in a fresh request, adds the shop blocks, grants `commerce.view` and
 `commerce.manage` to the `superuser` and `administrator` roles, and switches Commerce on. The card
@@ -26,16 +26,16 @@ then says what was added, and the sidebar has a **Commerce** section: **Overview
 From a shell, the same activation is one command:
 
 ```bash
-$ php glueful thallo:features:enable thallo.commerce
+$ php glueful thallo:capabilities:enable thallo.commerce
 ```
 
 If a step fails, the card (or the command) names it; fix the cause and **Retry**, or run
-`php glueful thallo:features:resume thallo.commerce`. On a host whose application files are
-read-only, run `php glueful thallo:features:enable thallo.commerce --prepare` at deploy time and
-finish in Features. See [turning on Commerce or Subscriptions](../concepts/06-capabilities.md#turning-on-commerce-or-subscriptions).
+`php glueful thallo:capabilities:resume thallo.commerce`. On a host whose application files are
+read-only, run `php glueful thallo:capabilities:enable thallo.commerce --prepare` at deploy time and
+finish in Extensions. See [turning on Commerce or Subscriptions](../concepts/06-capabilities.md#turning-on-commerce-or-subscriptions).
 
 To take payments you also need `glueful/payvia`, which talks to the payment gateways. Enable it
-under **Features › Installed packages**, or:
+under **Extensions › Installed**, or:
 
 ```bash
 $ php glueful extensions:enable glueful/payvia

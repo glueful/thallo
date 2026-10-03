@@ -25,7 +25,7 @@ vi.mock('@/composables/useNotify', () => ({
   useNotify: () => ({ success: notify.success, error: notify.error }),
 }))
 
-import FeaturesPage from '@/pages/features/index.vue'
+import ExtensionsPage from '@/pages/extensions/index.vue'
 
 const cap = (over: Partial<ManagedCapability> = {}): ManagedCapability => ({
   id: 'thallo.render',
@@ -52,15 +52,15 @@ function mountPage() {
   })
   const pinia = createPinia()
   setActivePinia(pinia)
-  return mount(FeaturesPage, {
+  return mount(ExtensionsPage, {
     global: {
       plugins: [pinia, PiniaColada, router],
     },
   })
 }
 
-// A capability without an activation flow keeps a plain switch on the Features page.
-describe('Features page: plain-switch capabilities', () => {
+// A capability without an activation flow keeps a plain switch on the Extensions page.
+describe('Extensions page: plain-switch capabilities', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     rows.value = undefined
@@ -88,17 +88,17 @@ describe('Features page: plain-switch capabilities', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    const on = wrapper.find('[data-test="feature-thallo.render"]')
+    const on = wrapper.find('[data-test="capability-thallo.render"]')
     expect(on.find('[data-test="state-badge"]').text()).toBe('On')
 
-    const degraded = wrapper.find('[data-test="feature-thallo.search"]')
+    const degraded = wrapper.find('[data-test="capability-thallo.search"]')
     expect(degraded.find('[data-test="state-badge"]').text()).toContain('engine unavailable')
     expect(degraded.find('[data-test="unavailable-reason"]').text()).toContain('not enabled')
     expect(degraded.find('[data-test="unavailable-reason"]').text()).toContain(
       'php glueful extensions:enable glueful/meilisearch',
     )
 
-    const off = wrapper.find('[data-test="feature-thallo.workflow"]')
+    const off = wrapper.find('[data-test="capability-thallo.workflow"]')
     expect(off.find('[data-test="state-badge"]').text()).toBe('Off')
   })
 
@@ -117,7 +117,7 @@ describe('Features page: plain-switch capabilities', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    await wrapper.find('[data-test="feature-thallo.search"] [role="switch"]').trigger('click')
+    await wrapper.find('[data-test="capability-thallo.search"] [role="switch"]').trigger('click')
     await flushPromises()
 
     expect(setStateMock).not.toHaveBeenCalled()
@@ -140,7 +140,7 @@ describe('Features page: plain-switch capabilities', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    await wrapper.find('[data-test="feature-thallo.search"] [role="switch"]').trigger('click')
+    await wrapper.find('[data-test="capability-thallo.search"] [role="switch"]').trigger('click')
     await flushPromises()
 
     expect(setStateMock).toHaveBeenCalledWith({ id: 'thallo.search', enabled: false })

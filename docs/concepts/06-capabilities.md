@@ -64,7 +64,7 @@ dropped, and switching back needs no rebuild. What goes away is the surface:
 
 ## Where the switches are
 
-Go to **Features**. It lists every capability, and each one is switched the way it is managed:
+Go to **Extensions › Capabilities**. It lists every capability, and each one is switched the way it is managed:
 
 - **Most capabilities** have a plain switch and a badge: **On**, **Off**, or
   **Requested · engine unavailable**, which means you asked for it but its engine cannot back it.
@@ -79,7 +79,7 @@ Reading and changing this list needs the `system.access` permission; without it 
 
 From a shell, `php glueful thallo:capabilities` prints the same list, and `--enable=ID` or
 `--disable=ID` flips one under the same rules. It refuses to turn Commerce or Subscriptions on:
-use `php glueful thallo:features:enable` for those. Long-running workers keep the old state until
+use `php glueful thallo:capabilities:enable` for those. Long-running workers keep the old state until
 they restart. See the [command reference](../reference/01-cli.md#thallocapabilities).
 
 **Content search** also appears in **Settings › General**. It is not a second switch: both write
@@ -96,12 +96,12 @@ enabled, and have its schema migrated. If any of that is missing, the row says s
 fixes it.
 
 For Commerce and Subscriptions you never enable the engine yourself: turning the feature on does
-it. If the engine is disabled behind Thallo's back while the feature is on, Features shows the
+it. If the engine is disabled behind Thallo's back while the feature is on, Extensions shows the
 feature as unavailable, and turning it on again runs a normal activation.
 
 ## Turning on Commerce or Subscriptions
 
-Switch the feature on in **Features** and confirm. The card shows one "Turning on Commerce…"
+Switch the feature on in **Extensions › Capabilities** and confirm. The card shows one "Turning on Commerce…"
 state while Thallo works through these steps, each safe to run again:
 
 1. **Prepare.** The feature is marked as preparing, which keeps it off until the end.
@@ -119,7 +119,7 @@ granted 7 new permissions.", and the sidebar shows the new section.
 
 If a step fails, the card names the step and the error, and **Retry** resumes from that step. The
 feature stays off until a retry succeeds. Closing the browser doesn't lose anything: the next
-visit to Features offers **Continue** and **Cancel**. Turning the feature off while it is being
+visit to Extensions offers **Continue** and **Cancel**. Turning the feature off while it is being
 turned on cancels the activation.
 
 Turning a feature off keeps its data: Commerce's products and orders, and your content, are kept,
@@ -127,20 +127,20 @@ and turning it on again skips the steps that are already done.
 
 **Hosts whose application files are read-only.** Only step 2 writes application files
 (`config/extensions.php` and `bootstrap/cache/`). On a host where those are read-only at runtime,
-Features shows the command to run at deploy time instead of a switch:
+Extensions shows the command to run at deploy time instead of a switch:
 
 ```bash
-$ php glueful thallo:features:enable thallo.commerce --prepare
+$ php glueful thallo:capabilities:enable thallo.commerce --prepare
 ```
 
-It stops after the engine step. Finish on the running site in Features, or with
-`php glueful thallo:features:resume thallo.commerce`. A feature whose engine is already enabled
+It stops after the engine step. Finish on the running site in Extensions, or with
+`php glueful thallo:capabilities:resume thallo.commerce`. A feature whose engine is already enabled
 turns on without writing any application file.
 
-From a shell, `php glueful thallo:features:enable thallo.commerce` runs the whole activation,
-continuing in a fresh process for the engine check, and `php glueful thallo:features:status` shows
+From a shell, `php glueful thallo:capabilities:enable thallo.commerce` runs the whole activation,
+continuing in a fresh process for the engine check, and `php glueful thallo:capabilities:status` shows
 where each feature stands. `php glueful thallo:provision` resumes any activation left unfinished.
-See the [command reference](../reference/01-cli.md#thallofeaturesenable) and
+See the [command reference](../reference/01-cli.md#thallocapabilitiesenable) and
 [troubleshooting](../operations/05-troubleshooting.md#a-feature-did-not-finish-turning-on).
 
 ## What switching one on can ask for
@@ -168,7 +168,7 @@ An install ships with eight enabled: `aegis`, `audit`, `email-notification`, `i1
 `import-export`, `media`, `subscriptions` and `users`. Three ship installed and disabled:
 `commerce`, `payvia` (payments) and `meilisearch`.
 
-**Features › Installed packages** lists what Composer found, with each one's version, provider,
+**Extensions › Installed** lists what Composer found, with each one's version, provider,
 schema state, and who manages it:
 
 - **Required by Thallo:** `glueful/aegis` and `glueful/users`. They have no switch, and
@@ -211,7 +211,7 @@ return [
 ```
 
 Keys are full capability ids, with their dots. Once someone flips the same capability in
-**Features**, the stored state answers and this file no longer decides.
+**Extensions › Capabilities**, the stored state answers and this file no longer decides.
 
 ## Where to go next
 

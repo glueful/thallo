@@ -271,7 +271,7 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
         <p class="font-medium">Rendered delivery is disabled</p>
         <p class="text-sm text-muted">
           The header and footer are edited on your site's real theme output. Turn on Rendered
-          delivery in Features to use it.
+          delivery in Extensions to use it.
         </p>
       </div>
 

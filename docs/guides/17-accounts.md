@@ -19,7 +19,7 @@ account pages load their stylesheet from there — see
 ## Check that Accounts is on
 
 The pages come from the **Accounts** capability (`thallo.accounts`), which is on by default.
-Open **Features** and find the **Accounts** row; its badge should read **On**.
+Open **Extensions › Capabilities** and find the **Accounts** row; its badge should read **On**.
 The capability is backed by the `glueful/users` extension, which a fresh install enables, so the
 row turns on without anything else. [Capabilities and packs](../concepts/06-capabilities.md)
 explains the switchboard.

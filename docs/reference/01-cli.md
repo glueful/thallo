@@ -20,7 +20,7 @@ $ php glueful list
 ```
 
 That list is not a fixed set: a command that belongs to a capability appears only while that
-capability is on (**Features**), and the same is true of the Glueful extensions
+capability is on (**Extensions › Capabilities**), and the same is true of the Glueful extensions
 beside them. See [capabilities and packs](../concepts/06-capabilities.md).
 
 Any command prints its own arguments and options:
@@ -51,7 +51,7 @@ The option tables below leave those out and list only what the command adds. A c
 Configure the database and the security keys and run the migrations. This is the first of the two
 setup layers: it creates no people. **Writes** `.env`, applies pending migrations, publishes the
 admin bundle, and rebuilds the extension, route and render caches. It also finishes any feature left
-turning on (in a fresh process, through `thallo:features:resume`) and puts back a package Thallo
+turning on (in a fresh process, through `thallo:capabilities:resume`) and puts back a package Thallo
 requires (`glueful/aegis`, `glueful/users`) that was removed from the enabled list.
 
 | Option | What it does |
@@ -756,13 +756,13 @@ $ php glueful thallo:commerce:checkout:purge-attempts --days=30
 
 [Sell something](../guides/18-commerce.md) covers the storefront these serve.
 
-## Features
+## Capability activation
 
 Commerce and Subscriptions turn on through an activation that prepares their engine, blocks and
 permissions; [capabilities and packs](../concepts/06-capabilities.md#turning-on-commerce-or-subscriptions)
-describes the steps. These commands are the Features page from a shell.
+describes the steps. These commands are Extensions › Capabilities from a shell.
 
-### thallo:features:enable
+### thallo:capabilities:enable
 
 Turn a feature on. **Writes** `config/extensions.php` and the extension cache when the engine isn't
 enabled yet, then the database. It runs the engine step, then continues in a fresh process (the
@@ -772,17 +772,17 @@ and prints what was added.
 | Argument / option | What it does |
 |---|---|
 | `capability` | `thallo.commerce` or `thallo.subscriptions` |
-| `--prepare` | Stop after the engine step: for deploy time on a host whose application files are read-only at runtime. Finish in Features or with `thallo:features:resume` |
+| `--prepare` | Stop after the engine step: for deploy time on a host whose application files are read-only at runtime. Finish in Extensions or with `thallo:capabilities:resume` |
 
 A second run while one is in progress joins it. A failed step exits 1 with the step, the error and
-the fix; run `thallo:features:resume` after fixing it.
+the fix; run `thallo:capabilities:resume` after fixing it.
 
 ```bash
-$ php glueful thallo:features:enable thallo.commerce
-$ php glueful thallo:features:enable thallo.commerce --prepare
+$ php glueful thallo:capabilities:enable thallo.commerce
+$ php glueful thallo:capabilities:enable thallo.commerce --prepare
 ```
 
-### thallo:features:resume
+### thallo:capabilities:resume
 
 Finish turning on a feature, or every feature being turned on, from its next step. **Writes** the
 database; it writes application files only when it retries the engine step. Use it after
@@ -794,16 +794,16 @@ for you.
 | `capability` | The feature; every open one when omitted |
 
 ```bash
-$ php glueful thallo:features:resume
+$ php glueful thallo:capabilities:resume
 ```
 
-### thallo:features:status
+### thallo:capabilities:status
 
 Show where each feature with an activation stands: on, off, preparing or failed, with the next or
 failed step, the error and the fix. **Reads only.**
 
 ```bash
-$ php glueful thallo:features:status
+$ php glueful thallo:capabilities:status
 ```
 
 ## Rendering, themes and housekeeping
@@ -851,12 +851,12 @@ $ php glueful thallo:forms:prune --days=180
 ### thallo:capabilities
 
 List every capability with what was requested, whether its engine can back it, and whether it is
-on — the list **Features** shows. **Reads only**, unless you flip one. **Writes**
+on — the list **Extensions › Capabilities** shows. **Reads only**, unless you flip one. **Writes**
 with `--enable` or `--disable`.
 
 | Option | What it does |
 |---|---|
-| `--enable=ENABLE` | Turn this capability on; refused while its engine cannot back it, and for Commerce and Subscriptions, which turn on with `thallo:features:enable` |
+| `--enable=ENABLE` | Turn this capability on; refused while its engine cannot back it, and for Commerce and Subscriptions, which turn on with `thallo:capabilities:enable` |
 | `--disable=DISABLE` | Turn this capability off (for Commerce and Subscriptions, this also cancels an activation in progress) |
 | `--json` | Print the list as JSON, for scripts |
 

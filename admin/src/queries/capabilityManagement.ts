@@ -11,7 +11,7 @@ import { useCapabilitiesStore } from '@/stores/capabilities'
 
 import type { ActivationRecord } from '@/queries/capabilityActivation'
 
-/** How the Features page switches a capability. */
+/** How Extensions › Capabilities switches a capability. */
 export type CapabilityManagementKind = 'activation' | 'workspaces' | 'simple'
 
 export interface ManagedCapability {

@@ -41,7 +41,7 @@ The provider registers a single capability in `boot()`:
 new Capability('thallo.analytics', label: 'Analytics', description: '…');
 ```
 
-- **Enabled by default.** An operator turns it off or on in the admin under **Features**. The switch is stored system-wide and overrides the deploy-time
+- **Enabled by default.** An operator turns it off or on in the admin under **Extensions › Capabilities**. The switch is stored system-wide and overrides the deploy-time
   `thallo.capabilities` config map.
 - **Gated.** When disabled, the read API routes are never registered (`404`) and the pack's auth
   listeners do not subscribe. The core bridge for content and collection events is always wired and
@@ -73,7 +73,7 @@ Its tables are created by `php glueful migrate:run` with the rest of the schema.
 
 Optionally set `ANALYTICS_HASH_KEY` (falls back to `APP_KEY`) and `ANALYTICS_RETENTION_DAYS`.
 
-Turning the capability off (Features) removes the read API and the auth
+Turning the capability off (Extensions › Capabilities) removes the read API and the auth
 listeners. The analytics tables stay on disk.
 
 ## Admin

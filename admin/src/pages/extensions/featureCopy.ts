@@ -1,4 +1,4 @@
-// What the Features page says about each feature with an activation flow. The summaries after a
+// What Extensions › Capabilities says about each capability with an activation flow. The summaries after a
 // turn-on are built from the activation's result (activationSummary), never written here.
 
 export interface FeatureCopy {

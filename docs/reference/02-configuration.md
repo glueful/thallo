@@ -91,7 +91,7 @@ Other screens hold configuration the same way, in the database rather than in `.
 
 - **Site › Appearance** — the live theme (default `RENDER_THEME`), its accent and neutral
   colours, corner radius, typefaces, page background, the logos and the site icon.
-- **Features** — every capability switch. **Content search** is the same state
+- **Extensions › Capabilities** — every capability switch. **Content search** is the same state
   as the one in Settings › General, not a second switch.
 - **Settings › Email** — the mail transport. Each value resolves per send: the saved row first,
   the `services.mail` config and its `MAIL_*` variables second.

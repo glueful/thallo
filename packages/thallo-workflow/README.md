@@ -59,7 +59,7 @@ emergency publishes never vanish from governance history.
 ## The capability
 
 `thallo.workflow`, **enabled by default**. An operator turns it off or on in the admin under
-**Features** (stored system-wide; it overrides the deploy-time
+**Extensions › Capabilities** (stored system-wide; it overrides the deploy-time
 `thallo.capabilities` config map). Off: routes 404, the lifecycle listener is not wired, and the
 gate short-circuits — publish behaves exactly as current core. There is deliberately no `enabled` config key in the pack.
 

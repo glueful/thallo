@@ -13,14 +13,14 @@ use Thallo\Core\Capabilities\Activation\EngineActivation;
 use Thallo\Core\Capabilities\CapabilityStateStore;
 use Thallo\Core\Capabilities\Console\CapabilitiesCommand;
 use Thallo\Core\Capabilities\FeatureManagementPolicy;
-use Thallo\Core\Setup\FeatureProvisioning;
+use Thallo\Core\Setup\CapabilityProvisioning;
 use Thallo\Core\Tests\Support\ActivationRunners;
 use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Core\Tests\Support\ResetsCommerceActivation;
 use Thallo\Core\Tests\Support\RestoresPermissionRows;
 
 /**
- * The feature-owned CLI (feature activation spec §3.9): `thallo:features:enable` runs an
+ * The feature-owned CLI (feature activation spec §3.9): `thallo:capabilities:enable` runs an
  * activation to the end, verifying in a fresh process it starts itself; `--prepare` stops before
  * the runtime steps (deploy time); `resume` finishes, also on a host whose application files are
  * read-only; provision resumes open activations in a child process and puts back required
@@ -30,7 +30,7 @@ use Thallo\Core\Tests\Support\RestoresPermissionRows;
  * enabled list is a temp file (THALLO_TEST_EXTENSIONS_CONFIG) and the extension cache is never
  * rebuilt (THALLO_TEST_SKIP_CACHE_REBUILD), so no run writes the application's own files.
  */
-final class FeaturesCommandsTest extends AppTestCase
+final class CapabilitiesCommandsTest extends AppTestCase
 {
     use ActivationRunners;
     use ResetsCommerceActivation;
@@ -110,12 +110,12 @@ final class FeaturesCommandsTest extends AppTestCase
         return (array) (require $config)['enabled'];
     }
 
-    // ── features:enable / resume ─────────────────────────────────────────────────────
+    // ── capabilities:enable / resume ───────────────────────────────────────────────────
 
     public function testEnableRunsToTheEndThroughAFreshProcess(): void
     {
         $config = $this->tempExtensionsConfig([self::COMMERCE_PROVIDER]);
-        [$code, $out] = $this->glueful(['thallo:features:enable', self::ID], $config);
+        [$code, $out] = $this->glueful(['thallo:capabilities:enable', self::ID], $config);
         self::assertSame(0, $code, $out);
         self::assertStringContainsString('Continuing in a fresh process', $out);
         self::assertStringContainsString('Commerce is on.', $out);
@@ -126,12 +126,12 @@ final class FeaturesCommandsTest extends AppTestCase
     public function testResumeAfterAnEngineFailureRetriesInOneProcessAndVerifiesInAnother(): void
     {
         $config = $this->tempExtensionsConfig([]);
-        [$code, $out] = $this->glueful(['thallo:features:enable', self::ID], $config, self::READ_ONLY);
+        [$code, $out] = $this->glueful(['thallo:capabilities:enable', self::ID], $config, self::READ_ONLY);
         self::assertSame(1, $code, $out);
         self::assertStringContainsString('--prepare', $out);
         self::assertSame(ActivationStep::ENABLE_ENGINE, $this->store()->find(self::ID)->failedStep);
 
-        [$code, $out] = $this->glueful(['thallo:features:resume', self::ID], $config);
+        [$code, $out] = $this->glueful(['thallo:capabilities:resume', self::ID], $config);
         self::assertSame(0, $code, $out);
         self::assertSame(1, substr_count($out, 'Continuing in a fresh process'), 'the retry, then one fresh child');
         self::assertContains(self::COMMERCE_PROVIDER, $this->listed($config));
@@ -142,7 +142,7 @@ final class FeaturesCommandsTest extends AppTestCase
     public function testPrepareStopsBeforeTheRuntimeSteps(): void
     {
         $config = $this->tempExtensionsConfig([]);
-        [$code, $out] = $this->glueful(['thallo:features:enable', self::ID, '--prepare'], $config);
+        [$code, $out] = $this->glueful(['thallo:capabilities:enable', self::ID, '--prepare'], $config);
         self::assertSame(0, $code, $out);
         self::assertStringContainsString('Prepared. Finish on the running site', $out);
         self::assertStringNotContainsString('Continuing in a fresh process', $out);
@@ -154,16 +154,16 @@ final class FeaturesCommandsTest extends AppTestCase
     public function testResumeFinishesWithApplicationFilesReadOnly(): void
     {
         $config = $this->tempExtensionsConfig([]);
-        $this->glueful(['thallo:features:enable', self::ID, '--prepare'], $config);
-        [$code, $out] = $this->glueful(['thallo:features:resume'], $config, self::READ_ONLY);
+        $this->glueful(['thallo:capabilities:enable', self::ID, '--prepare'], $config);
+        [$code, $out] = $this->glueful(['thallo:capabilities:resume'], $config, self::READ_ONLY);
         self::assertSame(0, $code, $out);
         self::assertSame(ActivationStatus::SUCCEEDED, $this->store()->find(self::ID)->status);
     }
 
     public function testStatusListsEveryActivationFeature(): void
     {
-        $this->glueful(['thallo:features:enable', self::ID, '--prepare'], $this->tempExtensionsConfig([]));
-        [$code, $out] = $this->glueful(['thallo:features:status'], $this->tempExtensionsConfig([]));
+        $this->glueful(['thallo:capabilities:enable', self::ID, '--prepare'], $this->tempExtensionsConfig([]));
+        [$code, $out] = $this->glueful(['thallo:capabilities:status'], $this->tempExtensionsConfig([]));
         self::assertSame(0, $code, $out);
         self::assertMatchesRegularExpression('/thallo\.commerce\s*\|\s*preparing\s*\|\s*verify_boot/', $out);
         self::assertStringContainsString('thallo.subscriptions', $out);
@@ -174,14 +174,14 @@ final class FeaturesCommandsTest extends AppTestCase
         $args = ['extensions:enable', 'glueful/commerce', '--dry-run'];
         [$code, $out] = $this->glueful($args, $this->tempExtensionsConfig());
         self::assertNotSame(0, $code, $out);
-        self::assertStringContainsString('php glueful thallo:features:enable thallo.commerce', $out);
+        self::assertStringContainsString('php glueful thallo:capabilities:enable thallo.commerce', $out);
     }
 
     // ── provision's part ─────────────────────────────────────────────────────────
 
-    private function provisioning(?EngineActivation $engine = null): FeatureProvisioning
+    private function provisioning(?EngineActivation $engine = null): CapabilityProvisioning
     {
-        return new FeatureProvisioning(
+        return new CapabilityProvisioning(
             $this->appContext(),
             $this->store(),
             new FeatureManagementPolicy(),
@@ -256,7 +256,7 @@ final class FeaturesCommandsTest extends AppTestCase
         $exit = $tester->execute(['--enable' => self::ID]);
         self::assertSame(1, $exit);
         $display = (string) preg_replace('/\s+/', ' ', $tester->getDisplay());   // the error block wraps
-        self::assertStringContainsString('php glueful thallo:features:enable thallo.commerce', $display);
+        self::assertStringContainsString('php glueful thallo:capabilities:enable thallo.commerce', $display);
         self::assertNull($this->states()->fresh(self::ID), 'still off: nothing stored');
         self::assertSame(0, $this->store()->find(self::ID)->generation, 'no activation started');
     }

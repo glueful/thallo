@@ -85,9 +85,9 @@ function router() {
   })
 }
 
-async function mountFeatures() {
-  const { default: FeaturesPage } = await import('@/pages/features/index.vue')
-  const w = mount(FeaturesPage, {
+async function mountExtensions() {
+  const { default: ExtensionsPage } = await import('@/pages/extensions/index.vue')
+  const w = mount(ExtensionsPage, {
     global: { plugins: [createPinia(), PiniaColada, router()] },
     attachTo: document.body,
   })
@@ -96,7 +96,7 @@ async function mountFeatures() {
 }
 
 const card = () =>
-  document.body.querySelector('[data-test="feature-thallo.commerce"]') as HTMLElement
+  document.body.querySelector('[data-test="capability-thallo.commerce"]') as HTMLElement
 const inCard = (selector: string) => card().querySelector(selector) as HTMLElement | null
 const click = async (el: Element | null) => {
   expect(el).not.toBeNull()
@@ -108,7 +108,7 @@ const START = 'POST /v1/admin/capabilities/thallo.commerce/activation'
 const CONTINUE = 'POST /v1/admin/capabilities/thallo.commerce/activation/continue'
 const MANAGE = 'GET /v1/admin/capabilities/manage'
 
-describe('the Features page', () => {
+describe('the Extensions page', () => {
   beforeEach(() => {
     authFetch.mockReset()
     refreshUntilChanged.mockReset()
@@ -131,14 +131,14 @@ describe('the Features page', () => {
             }
       },
     })
-    await mountFeatures()
+    await mountExtensions()
 
     await click(inCard('[role="switch"]'))
-    expect(document.body.querySelector('[data-test="feature-confirm"]')).not.toBeNull()
+    expect(document.body.querySelector('[data-test="capability-confirm"]')).not.toBeNull()
     const dialog = document.body.querySelector('[role="dialog"]')
     expect(dialog?.textContent).toContain('Turn on Commerce?')
     expect(dialog?.textContent).toContain('Your existing content is kept.')
-    await click(document.body.querySelector('[data-test="feature-confirm-turn-on"]'))
+    await click(document.body.querySelector('[data-test="capability-confirm-turn-on"]'))
 
     const keys = calls.map((c) => c.key).filter((k) => k !== MANAGE)
     expect(keys).toEqual([START, CONTINUE, CONTINUE])
@@ -165,12 +165,12 @@ describe('the Features page', () => {
         data: { activation: record({ generation: 4, status: 'succeeded' }), continue: false },
       }),
     })
-    await mountFeatures()
+    await mountExtensions()
     await click(inCard('[role="switch"]'))
-    await click(document.body.querySelector('[data-test="feature-confirm-turn-on"]'))
+    await click(document.body.querySelector('[data-test="capability-confirm-turn-on"]'))
 
     expect(card().textContent).toContain("The blocks couldn't be added")
-    await click(inCard('[data-test="feature-retry"]'))
+    await click(inCard('[data-test="capability-retry"]'))
     expect(calls.find((c) => c.key === CONTINUE)?.body.generation).toBe(4)
     expect(card().textContent).toContain('Commerce is on.')
   })
@@ -182,21 +182,21 @@ describe('the Features page', () => {
         throw conflict('superseded')
       },
     })
-    await mountFeatures()
-    await click(inCard('[data-test="feature-continue"]'))
+    await mountExtensions()
+    await click(inCard('[data-test="capability-continue"]'))
 
     expect(card().textContent).toContain('A newer decision')
     expect(inCard('[role="switch"]')).not.toBeNull()
-    expect(inCard('[data-test="feature-continue"]')).toBeNull()
+    expect(inCard('[data-test="capability-continue"]')).toBeNull()
   })
 
   it('read-only host offers the prepare command, no button', async () => {
     serve({
       [MANAGE]: manage(commerce({ application_files_writable: false, engine_enabled: false })),
     })
-    await mountFeatures()
+    await mountExtensions()
     expect(card().textContent).toContain(
-      'php glueful thallo:features:enable thallo.commerce --prepare',
+      'php glueful thallo:capabilities:enable thallo.commerce --prepare',
     )
     expect(inCard('[role="switch"]')).toBeNull()
     expect(card().querySelector('button')).toBeNull()
@@ -204,9 +204,9 @@ describe('the Features page', () => {
 
   it('an open operation on load offers Continue', async () => {
     serve({ [MANAGE]: manage(commerce({ activation: record({ next_step: 'verify_boot' }) })) })
-    await mountFeatures()
-    expect(inCard('[data-test="feature-continue"]')).not.toBeNull()
-    expect(inCard('[data-test="feature-cancel"]')).not.toBeNull()
+    await mountExtensions()
+    expect(inCard('[data-test="capability-continue"]')).not.toBeNull()
+    expect(inCard('[data-test="capability-cancel"]')).not.toBeNull()
   })
 
   it('the summary reads the result count', async () => {
@@ -222,7 +222,7 @@ describe('the Features page', () => {
         }),
       ),
     })
-    await mountFeatures()
+    await mountExtensions()
     expect(card().textContent).toContain('Added 7 blocks')
     expect(card().textContent).toContain('3 new permissions')
   })
@@ -236,27 +236,27 @@ describe('the Features page', () => {
           effective: false,
           engine_enabled: false,
           reason: 'glueful/commerce is installed but not enabled.',
-          remedy: 'Managed by Commerce: turn it on in Features.',
+          remedy: 'Managed by Commerce: turn it on in Extensions.',
           activation: record({ status: 'succeeded', result: { blocks_created: 18 } }),
         }),
       ),
       [START]: () => ({ data: { activation: record({ generation: 2 }), continue: false } }),
     })
-    await mountFeatures()
+    await mountExtensions()
 
     expect(card().textContent).toContain('glueful/commerce is installed but not enabled.')
-    expect(card().textContent).toContain('Managed by Commerce: turn it on in Features.')
+    expect(card().textContent).toContain('Managed by Commerce: turn it on in Extensions.')
     expect(card().textContent).not.toContain('Commerce is on.')
     expect(inCard('[role="switch"]')?.getAttribute('aria-checked')).toBe('false')
     await click(inCard('[role="switch"]'))
-    await click(document.body.querySelector('[data-test="feature-confirm-turn-on"]'))
+    await click(document.body.querySelector('[data-test="capability-confirm-turn-on"]'))
     expect(calls.some((c) => c.key === START)).toBe(true)
   })
 
   it('a feature already on without an activation record says only that it is on', async () => {
     serve({ [MANAGE]: manage(commerce({ requested: true, effective: true, activation: null })) })
-    await mountFeatures()
-    expect(inCard('[data-test="feature-summary"]')?.textContent?.trim()).toBe('Commerce is on.')
+    await mountExtensions()
+    expect(inCard('[data-test="capability-summary"]')?.textContent?.trim()).toBe('Commerce is on.')
   })
 
   it('a workspaces capability links to Settings › Workspaces', async () => {
@@ -265,9 +265,9 @@ describe('the Features page', () => {
         ...commerce({ id: 'thallo.tenancy', label: 'Multi-tenancy', management: 'workspaces' }),
       }),
     })
-    await mountFeatures()
+    await mountExtensions()
     const tenancy = document.body.querySelector(
-      '[data-test="feature-thallo.tenancy"]',
+      '[data-test="capability-thallo.tenancy"]',
     ) as HTMLElement
     expect(tenancy.querySelector('a[href="/settings/workspaces"]')).not.toBeNull()
     expect(tenancy.querySelector('[role="switch"]')).toBeNull()
@@ -299,7 +299,7 @@ describe('the Features page', () => {
       }),
     })
     const { default: InstalledPackages } =
-      await import('@/pages/features/components/InstalledPackages.vue')
+      await import('@/pages/extensions/components/InstalledPackages.vue')
     const w = mount(InstalledPackages, {
       global: { plugins: [createPinia(), PiniaColada, router()] },
       attachTo: document.body,
@@ -312,12 +312,11 @@ describe('the Features page', () => {
     expect(w.find('[data-test="package-toggle"]').exists()).toBe(false)
   })
 
-  it('/extensions redirects to /features', async () => {
-    const r = router()
-    const replace = vi.spyOn(r, 'replace')
-    const { default: ExtensionsRedirect } = await import('@/pages/extensions/index.vue')
-    mount(ExtensionsRedirect, { global: { plugins: [r] } })
-    await flushPromises()
-    expect(replace).toHaveBeenCalledWith('/features')
+  it('the Extensions page opens on Capabilities', async () => {
+    serve({ [MANAGE]: manage(commerce()) })
+    await mountExtensions()
+    expect(document.body.querySelector('h1')?.textContent).toBe('Extensions')
+    expect(card()).not.toBeNull()
+    expect(document.body.textContent).toContain('Installed')
   })
 })

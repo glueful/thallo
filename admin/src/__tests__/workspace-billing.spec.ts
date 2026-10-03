@@ -131,10 +131,10 @@ describe('billing/index page: meta-first states', () => {
     expect(wrapper.findComponent(EngineStateNotice).props('state')).toBe('engine_disabled')
   })
 
-  // Minor code review fix: "Go to Features" is a PLATFORM surface -- a workspace billing.manage
+  // Minor code review fix: "Go to Extensions" is a PLATFORM surface -- a workspace billing.manage
   // delegate with no platform authority must not be offered it here (unlike the platform
   // Plans/Billing pages, which keep the default showAction=true).
-  it('hides the "Go to Features" CTA on the workspace billing page (platform-only surface)', async () => {
+  it('hides the "Go to Extensions" CTA on the workspace billing page (platform-only surface)', async () => {
     metaData.value = meta({ engine: 'engine_disabled' })
     const wrapper = await mountPage(BillingIndex)
     await flushPromises()

@@ -45,6 +45,6 @@ final class ManagedEngineCliTest extends TestCase
     {
         [$code, $out] = $this->glueful('extensions:enable', 'glueful/commerce');
         self::assertNotSame(0, $code, $out);
-        self::assertStringContainsString('thallo:features:enable thallo.commerce', $out);
+        self::assertStringContainsString('thallo:capabilities:enable thallo.commerce', $out);
     }
 }

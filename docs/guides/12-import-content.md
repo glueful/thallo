@@ -12,7 +12,7 @@ nothing, and once for real. This page covers each format, what it maps, and what
 
 ## Before you start
 
-- The **Content importers** capability on (**Features**). With it off, the format
+- The **Content importers** capability on (**Extensions › Capabilities**). With it off, the format
   adapters are missing from the **Adapter** list and the API refuses them; see
   [capabilities and packs](../concepts/06-capabilities.md).
 - The content type that will hold the entries, with the fields you mean to map to. See

@@ -15,7 +15,7 @@ import { useNotify } from '@/composables/useNotify'
 import ActivationProgress from './ActivationProgress.vue'
 import { featureCopy } from '../featureCopy'
 
-// One feature on the Features page. A feature with an activation flow turns on with one action
+// One capability on Extensions › Capabilities. A feature with an activation flow turns on with one action
 // (confirm → start → continue while the server asks) and shows where its activation stands; a
 // workspaces feature links to its own settings; any other capability keeps a plain switch.
 const props = defineProps<{ capability: ManagedCapability }>()
@@ -80,7 +80,7 @@ const simpleState = computed<{ label: string; color: 'success' | 'warning' | 'ne
 })
 
 const prepareCommand = computed(
-  () => `php glueful thallo:features:enable ${props.capability.id} --prepare`,
+  () => `php glueful thallo:capabilities:enable ${props.capability.id} --prepare`,
 )
 
 function askTurnOn(): void {
@@ -127,7 +127,7 @@ async function toggleSimple(): Promise<void> {
 </script>
 
 <template>
-  <li class="flex flex-col gap-3 py-4" :data-test="`feature-${capability.id}`">
+  <li class="flex flex-col gap-3 py-4" :data-test="`capability-${capability.id}`">
     <div class="flex items-start justify-between gap-4">
       <div class="min-w-0">
         <div class="flex items-center gap-2">
@@ -183,7 +183,7 @@ async function toggleSimple(): Promise<void> {
         <UButton
           label="Retry"
           size="sm"
-          data-test="feature-retry"
+          data-test="capability-retry"
           @click="flow.resume(activation!.generation)"
         />
         <UButton
@@ -191,7 +191,7 @@ async function toggleSimple(): Promise<void> {
           size="sm"
           color="neutral"
           variant="outline"
-          data-test="feature-cancel"
+          data-test="capability-cancel"
           @click="flow.cancel(activation!.generation)"
         />
       </div>
@@ -203,7 +203,7 @@ async function toggleSimple(): Promise<void> {
         <UButton
           label="Continue"
           size="sm"
-          data-test="feature-continue"
+          data-test="capability-continue"
           @click="flow.resume(activation!.generation)"
         />
         <UButton
@@ -211,14 +211,14 @@ async function toggleSimple(): Promise<void> {
           size="sm"
           color="neutral"
           variant="outline"
-          data-test="feature-cancel"
+          data-test="capability-cancel"
           @click="flow.cancel(activation!.generation)"
         />
       </div>
     </div>
 
     <div v-else-if="state === 'on'" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-      <span class="text-default" data-test="feature-summary">{{
+      <span class="text-default" data-test="capability-summary">{{
         activationSummary(label, activation)
       }}</span>
       <ULink v-for="link in copy.links" :key="link.to" :to="link.to" class="text-primary">
@@ -249,7 +249,7 @@ async function toggleSimple(): Promise<void> {
       "
     >
       <template #body>
-        <div data-test="feature-confirm" class="flex flex-col gap-4">
+        <div data-test="capability-confirm" class="flex flex-col gap-4">
           <p class="text-sm text-default">
             {{ confirming === 'off' ? copy.turnOff : copy.turnOn }}
           </p>
@@ -258,14 +258,14 @@ async function toggleSimple(): Promise<void> {
             <UButton
               v-if="confirming === 'on'"
               label="Turn on"
-              data-test="feature-confirm-turn-on"
+              data-test="capability-confirm-turn-on"
               @click="turnOn"
             />
             <UButton
               v-else
               label="Turn off"
               color="error"
-              data-test="feature-confirm-turn-off"
+              data-test="capability-confirm-turn-off"
               @click="turnOff"
             />
           </div>

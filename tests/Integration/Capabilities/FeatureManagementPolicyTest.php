@@ -46,7 +46,7 @@ final class FeatureManagementPolicyTest extends AppTestCase
         self::assertArrayHasKey('Glueful\\Extensions\\Users\\UsersServiceProvider', $protected);
         self::assertArrayHasKey('Glueful\\Extensions\\Tenancy\\TenancyServiceProvider', $protected);
         self::assertStringContainsString(
-            'thallo:features:enable thallo.commerce',
+            'thallo:capabilities:enable thallo.commerce',
             $protected[self::COMMERCE]['reason'],
         );
         self::assertSame('Required by Thallo.', $protected[self::AEGIS]['reason']);
@@ -80,7 +80,7 @@ final class FeatureManagementPolicyTest extends AppTestCase
         self::assertSame('managed', $byName['glueful/commerce']['management']['class']);
         self::assertSame('thallo.commerce', $byName['glueful/commerce']['management']['capability']);
         self::assertSame(
-            'php glueful thallo:features:enable thallo.commerce',
+            'php glueful thallo:capabilities:enable thallo.commerce',
             $byName['glueful/commerce']['cli_command'],
         );
         self::assertSame('required', $byName['glueful/aegis']['management']['class']);

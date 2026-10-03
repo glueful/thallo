@@ -26,7 +26,7 @@ php glueful thallo:import:markdown docs --type=docs --exclude=internal --publish
 ```
 
 Your pages are at `/docs/{page}` and `/docs` is their index. The importers capability has to be
-on (**Features**).
+on (**Extensions › Capabilities**).
 
 Step 1 makes five sections, in this sidebar order: `getting-started`, `concepts`, `guides`,
 `reference`, `operations`. **Your folders are matched against these names**, so a folder called

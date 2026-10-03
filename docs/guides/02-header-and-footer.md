@@ -109,7 +109,7 @@ one you choose is also the breakpoint a responsive style setting is written at.
 
 Pick another page to see the bars around it; your unsaved edits come with you. If the page you
 pick hides the header or footer in its own settings, the inspector says so. The stage needs the
-**Rendered delivery** capability (**Features**); without it the page says so.
+**Rendered delivery** capability (**Extensions › Capabilities**); without it the page says so.
 
 ## Save, and hide a region where you do not want it
 

@@ -14,7 +14,7 @@ const STEP_LABELS: Record<string, string> = {
 </script>
 
 <template>
-  <div class="flex items-center gap-2 text-sm text-default" data-test="feature-preparing">
+  <div class="flex items-center gap-2 text-sm text-default" data-test="capability-preparing">
     <UIcon name="i-lucide-loader-circle" class="size-4 animate-spin text-muted" />
     <span>Turning on {{ label }}…</span>
     <span v-if="step && STEP_LABELS[step]" class="text-xs text-muted">{{ STEP_LABELS[step] }}</span>

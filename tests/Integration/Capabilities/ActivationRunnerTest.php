@@ -276,7 +276,7 @@ final class ActivationRunnerTest extends AppTestCase
         $record = $this->store()->find('thallo.commerce');
         self::assertSame(ActivationStatus::FAILED, $record->status);
         self::assertSame(ActivationStep::ENABLE_ENGINE, $record->failedStep);
-        self::assertSame('php glueful thallo:features:enable thallo.commerce --prepare', $record->remedy);
+        self::assertSame('php glueful thallo:capabilities:enable thallo.commerce --prepare', $record->remedy);
     }
 
     public function testAPreparedEngineActivatesOnAReadOnlyHost(): void

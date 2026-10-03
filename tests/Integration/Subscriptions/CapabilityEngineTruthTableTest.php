@@ -266,7 +266,7 @@ final class CapabilityEngineTruthTableTest extends AppTestCase
             self::assertStringContainsString('glueful/subscriptions', (string) $availability->reason);
             // The engine is feature-managed: extensions:enable refuses it, so the remedy names the feature.
             self::assertStringContainsString(
-                'php glueful thallo:features:enable thallo.subscriptions',
+                'php glueful thallo:capabilities:enable thallo.subscriptions',
                 (string) $availability->remedy,
             );
 

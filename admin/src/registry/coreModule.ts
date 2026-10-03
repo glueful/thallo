@@ -26,9 +26,9 @@ const main: (NavigationMenuItem | SettingsAnchor)[] = [
     to: '/media',
   },
   {
-    label: 'Features',
-    icon: 'i-lucide-toggle-right',
-    to: '/features',
+    label: 'Extensions',
+    icon: 'i-lucide-blocks',
+    to: '/extensions',
   },
   {
     label: 'Users & Access',

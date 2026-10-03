@@ -4,7 +4,7 @@
 // two "engine unavailable" messages never independently drift (mirrors `EngineGateway`'s own
 // two-state vocabulary, `'engine_disabled' | 'schema_not_ready'`; `'ready'` never reaches here).
 //
-// `showAction` (Task 19, code review fix): the "Go to Features" CTA navigates to a PLATFORM
+// `showAction` (Task 19, code review fix): the "Go to Extensions" CTA navigates to a PLATFORM
 // surface (`tenancy.manage`-gated) -- correct for the two platform Plans/Billing pages this
 // component was originally built for, but wrong on the workspace-scoped `/billing` page, whose
 // audience is a `billing.manage` delegate who may hold no platform authority at all and would
@@ -37,15 +37,15 @@ withDefaults(
     <p class="max-w-md text-sm text-muted" data-test="engine-state-description">
       {{
         state === 'engine_disabled'
-          ? 'Turn on Subscriptions in Features to manage plans and workspace billing.'
+          ? 'Turn on Subscriptions in Extensions to manage plans and workspace billing.'
           : 'Run the pending database migrations before subscriptions can be managed here.'
       }}
     </p>
     <UButton
       v-if="state === 'engine_disabled' && showAction"
-      to="/features"
+      to="/extensions"
       icon="i-lucide-toggle-right"
-      label="Go to Features"
+      label="Go to Extensions"
       data-test="engine-state-action"
     />
   </div>
