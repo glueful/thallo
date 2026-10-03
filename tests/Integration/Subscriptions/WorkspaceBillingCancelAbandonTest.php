@@ -333,6 +333,25 @@ final class WorkspaceBillingCancelAbandonTest extends AppTestCase
             ->where('tenant_uuid', '=', $workspace)->first()['plan_key'], 'the webhook moves the plan, not this call');
     }
 
+    public function testWhilePaymentsIsOffAPlanChangeIsRefused(): void
+    {
+        // Run by PaymentsCapabilityTest's continuity run, in a process where Payments is off: a
+        // provider-side plan change may bill a prorated amount online, so it is refused.
+        if (!in_array('thallo.payments', \Thallo\Core\Tests\Support\CapabilityBaseline::off(), true)) {
+            self::markTestSkipped('only in the Payments-off continuity run');
+        }
+        $double = $this->planChangeDouble();
+        [$workspace, $actor] = $this->seedWorkspaceAndVerifiedActor();
+        $this->seedProviderManagedSubscription($workspace, $this->defaultGatewayName(), 'sub_st_off');
+        $this->seedPurchasablePlan('team', 'price_team');
+
+        $response = $this->controller()->changePlan($this->planRequest($actor, ['plan_key' => 'team']));
+
+        self::assertSame(409, $response->getStatusCode());
+        self::assertSame('payments_off', $this->errorCode($response));
+        self::assertSame([], $double->changeCalls, 'the provider was never asked');
+    }
+
     public function testChangePlanToAPlanThatCannotBeBoughtIsRefused(): void
     {
         $double = $this->planChangeDouble();

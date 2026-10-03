@@ -228,6 +228,11 @@ final class SchemaProgramAcceptanceTest extends AppTestCase
 
         $adoption = $this->container()->get(AdoptionService::class);
         foreach ($adoption->classify() as $source => $verdict) {
+            if ($source === 'acme/bookings') {
+                // The third-party fixture's engine is disabled until its activation migrates it.
+                self::assertSame(\Glueful\Extensions\Schema\AdoptionState::Pending, $verdict['state']);
+                continue;
+            }
             self::assertSame(
                 \Glueful\Extensions\Schema\AdoptionState::Ready,
                 $verdict['state'],

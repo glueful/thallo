@@ -9,6 +9,24 @@ import { useCapabilitiesStore } from '@/stores/capabilities'
 // registry memoizes per boot), so mutations converge the capabilities store instead of assuming
 // the response is instantly authoritative for the whole app.
 
+import type { ActivationRecord } from '@/queries/capabilityActivation'
+
+/** How Extensions › Capabilities switches a capability (its declared management mode). */
+export type CapabilityManagementKind = 'activation' | 'external_flow' | 'simple'
+
+/** Where an externally managed capability is switched. */
+export interface ExternalFlowDestination {
+  path: string
+  label: string
+}
+
+/** What the page says about an activation capability, as its package declares it. */
+export interface ActivationCopy {
+  turn_on: string | null
+  turn_off: string | null
+  links: { label: string; to: string }[]
+}
+
 export interface ManagedCapability {
   id: string
   label?: string | null
@@ -20,6 +38,19 @@ export interface ManagedCapability {
   reason: string | null
   remedy: string | null
   effective: boolean
+  management: CapabilityManagementKind
+  /** The open or last activation (activation features only); null before the first. */
+  activation: ActivationRecord | null
+  /** Whether the engine step could write application files here (activation features only). */
+  application_files_writable: boolean | null
+  /** Whether the engine's provider is loaded in this boot (activation features only). */
+  engine_enabled: boolean | null
+  /** An external flow's destination. */
+  destination: ExternalFlowDestination | null
+  /** Declared copy for an activation capability. */
+  copy: ActivationCopy | null
+  /** Why its declarations conflict; a misconfigured capability can't be switched. */
+  misconfigured: string | null
 }
 
 const base = () => `${runtimeConfig.apiBase}/capabilities`

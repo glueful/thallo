@@ -70,6 +70,15 @@ final class ExtensionAdminControllerTest extends AppTestCase
         self::assertSame([], $controller->executor->calls, 'no executor call for an unknown package');
     }
 
+    public function testTheCatalogAndTheWebInstallerAreGone(): void
+    {
+        // Browse listed framework packages, not Thallo features, and the installer offered a
+        // switch without the page's checks: neither route exists any more.
+        self::assertNull($this->findRoute('GET', '/v1/admin/extensions/registry'));
+        self::assertNull($this->findRoute('POST', '/v1/admin/extensions/install'));
+        self::assertNotNull($this->findRoute('GET', '/v1/admin/extensions'), 'the installed list stays');
+    }
+
     // ── preconditions ─────────────────────────────────────────────────────────────
 
     public function testToggleRefusesTheProtectedTenancyProviderBeforeTheExecutor(): void
@@ -192,6 +201,21 @@ final class ExtensionAdminControllerTest extends AppTestCase
         }
     }
 
+    public function testAnExtensionListChangeStillRunningIs409(): void
+    {
+        // The framework's extension-state lock timed out (glueful/framework 1.88.1 throws lock
+        // contention): another change, an activation or a CLI enable, is still writing the list.
+        $controller = $this->spied();
+        $controller->executor->throws = new LockContentionException(
+            'Another change to the extension list is still running (waited 30s).'
+        );
+
+        $resp = $controller->enable($this->jsonPost(['name' => 'glueful/media']));
+
+        self::assertSame(409, $resp->getStatusCode());
+        self::assertStringContainsString('still running', (string) $resp->getContent());
+    }
+
     public function testOtherRuntimeRefusalsAre422(): void
     {
         $controller = $this->spied();
@@ -220,7 +244,10 @@ final class ExtensionAdminControllerTest extends AppTestCase
                 (string) $row['name']
             );
             self::assertIsArray($row['schema_reasons']);
-            self::assertIsString($row['cli_command']);
+            // A required package has no switch to offer, and Workspaces is a settings flow.
+            if ($row['management']['class'] === 'independent') {
+                self::assertIsString($row['cli_command'], (string) $row['name']);
+            }
         }
         // Spot anchors against the real installed set: explicit-none and an applied engine.
         self::assertSame('none', $byName['glueful/media']['schema_state'] ?? null);

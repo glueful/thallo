@@ -457,6 +457,50 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/capabilities/{id}/activation': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Turn on a feature
+     * @description Starts the feature's activation (or joins the open one) and runs it up to the point that needs a freshly booted request. `continue: true` means send a continue. Requires the `system.access` permission.
+     */
+    post: operations['postV1AdminCapabilitiesByIdActivation']
+    /**
+     * Cancel turning on a feature
+     * @description Supersedes the named activation generation and stores the feature off. Requires the `system.access` permission.
+     */
+    delete: operations['deleteV1AdminCapabilitiesByIdActivation']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/capabilities/{id}/activation/continue': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Continue turning on a feature
+     * @description Resumes the named activation generation from its next step. Requires the `system.access` permission.
+     */
+    post: operations['postV1AdminCapabilitiesByIdActivationContinue']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/collections': {
     parameters: {
       query?: never
@@ -2703,46 +2747,6 @@ export interface paths {
      * @description Migrates the extension schema first, then enables it — the shared schema executor serializes the whole operation and records its truthful outcome. Requires the `system.access` permission.
      */
     post: operations['postV1AdminExtensionsEnable']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/extensions/install': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Install a glueful extension
-     * @description Runs `composer require` for a catalog extension SYNCHRONOUSLY (the request blocks until composer finishes). On success the extension is installed but DISABLED — enable it with the toggle. Dev only (composer cannot write on immutable production hosts). Requires the `system.access` permission.
-     */
-    post: operations['postV1AdminExtensionsInstall']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/extensions/registry': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /**
-     * Browse the extension catalog
-     * @description Searches Packagist for `type=glueful-extension` packages (optional `q` filter) and flags those already installed. Requires the `system.access` permission.
-     */
-    get: operations['getV1AdminExtensionsRegistry']
-    put?: never
-    post?: never
     delete?: never
     options?: never
     head?: never
@@ -7896,6 +7900,311 @@ export interface operations {
         content?: never
       }
       /** @description Enable refused: the owning engine cannot back it. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            /** @example false */
+            success: boolean
+            message: string
+            errors: {
+              [key: string]: string[]
+            }
+          }
+        }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  postV1AdminCapabilitiesByIdActivation: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The activation record, and whether to continue. */
+      202: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Not a feature that turns on through activation. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Another request is running this activation (`in_progress`). */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  deleteV1AdminCapabilitiesByIdActivation: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The superseded activation record. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Not a feature that turns on through activation. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description That generation is no longer current (`superseded`); nothing changed. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            /** @example false */
+            success: boolean
+            message: string
+            errors: {
+              [key: string]: string[]
+            }
+          }
+        }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  postV1AdminCapabilitiesByIdActivationContinue: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        /**
+         * @example {
+         *       "generation": 50
+         *     }
+         */
+        'application/json': {
+          generation: number
+        }
+      }
+    }
+    responses: {
+      /** @description The activation record, and whether to continue again. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Not a feature that turns on through activation. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description A newer decision exists (`superseded`), or it is running (`in_progress`). */
       409: {
         headers: {
           [name: string]: unknown
@@ -25550,148 +25859,6 @@ export interface operations {
           [name: string]: unknown
         }
         content?: never
-      }
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-    }
-  }
-  postV1AdminExtensionsInstall: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Installed — enable it to activate. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Unauthenticated. */
-      401: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Installer disabled (production/kill-switch). */
-      403: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Host filesystem is not writable (immutable deploy). */
-      409: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Not an installable glueful extension, or composer failed. */
-      422: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Unexpected server error. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-    }
-  }
-  getV1AdminExtensionsRegistry: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Catalog results, each with an `installed` flag. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
-      }
-      /** @description Unauthenticated. */
-      401: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
-      }
-      /** @description Forbidden. */
-      403: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            success?: boolean
-            message?: string
-            error?: {
-              code?: number
-              timestamp?: string
-              request_id?: string
-            }
-          }
-        }
       }
       /** @description Unexpected server error. */
       500: {

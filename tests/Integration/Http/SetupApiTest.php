@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Http;
 
+use Thallo\Core\Tests\Support\CapabilityBaseline;
 use Thallo\Core\Http\Controllers\AdminConfigController;
 use Thallo\Core\Http\Controllers\SetupController;
 use Thallo\Core\Content\Http\DTOs\Requests\SetupData;
@@ -44,6 +45,7 @@ final class SetupApiTest extends AppTestCase
     {
         $this->resetInstallState();
         $this->restorePermissionRows();
+        CapabilityBaseline::restore($this->connection()->getPDO());
         parent::tearDown();
     }
 

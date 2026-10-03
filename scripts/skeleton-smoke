@@ -82,6 +82,18 @@ if [[ "$DRY" -eq 0 ]]; then
   if grep -q "Error in job" <<<"$ticked"; then echo "FAIL: a scheduled job failed on a fresh install" >&2; exit 1; fi
 fi
 
+# Turning a feature on end to end on the fresh install: the engine step writes the skeleton's own
+# enabled list and extension cache, a fresh child process verifies and finishes, and status reads on.
+echo "+ (cd $SCRATCH && $PHP glueful thallo:capabilities:enable thallo.commerce)"
+if [[ "$DRY" -eq 0 ]]; then
+  (cd "$SCRATCH" && $PHP glueful thallo:capabilities:enable thallo.commerce) \
+    || { echo "FAIL: thallo:capabilities:enable thallo.commerce did not finish" >&2; exit 1; }
+  featured="$(cd "$SCRATCH" && $PHP glueful thallo:capabilities:status 2>&1)" || { echo "$featured"; exit 1; }
+  echo "$featured"
+  grep -qE 'thallo\.commerce[[:space:]]*\|[[:space:]]*on[[:space:]]' <<<"$featured" \
+    || { echo "FAIL: thallo:capabilities:status does not show thallo.commerce on" >&2; exit 1; }
+fi
+
 echo "+ assert: public/admin/index.html published, docs/openapi.json generated, no operator code, nothing pending"
 if [[ "$DRY" -eq 0 ]]; then
   test -f "$SCRATCH/public/admin/index.html" || { echo "FAIL: admin bundle was not published" >&2; exit 1; }

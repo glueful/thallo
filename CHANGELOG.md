@@ -5,6 +5,60 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.78] - 2026-10-03 — Developer Preview
+
+Features turn on in one place. **Extensions › Capabilities** lists every capability, and
+Commerce, Subscriptions and now Payments turn on with one action that prepares everything first.
+Extensions can add capabilities of their own, and turning a feature off removes its pages at once.
+Requires glueful/framework 1.88.1, which `composer update` brings in. Two migrations (capability
+activations, and the record that keeps an upgraded site's features as they were); run
+`php glueful thallo:provision` after updating, as usual: until it runs, Commerce, Subscriptions
+and Payments read off.
+
+### Added
+- **`thallo:capabilities:enable`, `resume` and `status`.** Turn a capability on from the terminal,
+  prepare it at deploy time with `--prepare` and finish on the running site, and see where every
+  capability with an activation stands.
+- **Payments is a capability.** Turn it on in Extensions to take online payments; turning it off
+  stops new online payments and plan changes, but keeps settling the ones in flight, refunds and
+  renewals already billed by your provider. A site where Payvia was enabled with its schema ready
+  keeps Payments on once `php glueful thallo:provision` runs after the update.
+- **Extensions can add their own capabilities.** A package declares one in its `composer.json`
+  (`extra.thallo.capabilities`): it appears in Extensions while the package is still disabled, and
+  an activation capability turns on with one action that enables the package, adds its blocks and
+  grants its permissions (never before it). Conflicting or invalid declarations are blocked, with
+  their packages, and reported by `php glueful thallo:doctor`. `thallo.required_packages` adds
+  packages no switch may disable.
+
+### Changed
+- **Packs declare capabilities instead of registering them.** A package declares its capabilities
+  from its provider (`DeclaresCapabilities`) or in `composer.json` (`extra.thallo.capabilities`).
+  Calling `CapabilityRegistry::register()` from a pack's boot no longer works: it throws outside
+  production and is ignored, with a log entry, in production.
+- **Commerce and Subscriptions stay as they were on upgrade.** A site where they were on keeps them
+  on; from now on they turn on through Extensions, which prepares everything first. Run
+  `php glueful thallo:provision` after updating, as usual: until it runs, they read off.
+- **Extensions turns features on in one place.** **Extensions › Capabilities** lists every
+  capability. Commerce and Subscriptions turn on with one action that prepares everything, shows what
+  was added, and can be retried if a step fails. **Extensions › Installed** shows who manages each
+  package.
+- **Thallo's own engines can't be switched off by accident.** Packages Thallo needs, and engines a
+  feature manages (Commerce, Subscriptions, Payments), refuse the generic extension switch and
+  `extensions:enable` / `extensions:disable`, and name the right place instead.
+
+### Removed
+- **The Extensions page's Browse tab and the in-admin installer.** It listed framework packages,
+  not Thallo features, and offered switches without the checks the rest of the page uses.
+
+### Fixed
+- **Turning a feature off removes its pages at once.** A compiled route table built before the
+  switch is never served after it.
+- **An admin enable and an `extensions:enable` at the same time no longer deadlock.** Each used to
+  hold the lock the other needed until the admin gave up with "Another schema operation holds the
+  migration lock". Two changes to the same package still run one after the other.
+- **Overlapping provisions keep every role grant**, and a permission you revoke stays revoked. Role
+  grants and their record of what was offered are now decided in one serialized transaction.
+
 ## [1.0.0-beta.77] - 2026-10-02 — Developer Preview
 
 Fixes from a first production install. The superuser and administrator roles get every

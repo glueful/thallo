@@ -143,6 +143,53 @@ restart, so restarting PHP is not a way to clear it.
 | URLs in the admin and the media library carry an internal host instead of your domain | TLS or the host name is terminated at a proxy whose forwarded headers are not trusted | Set `TRUSTED_PROXIES` in `.env` to the proxy's addresses |
 | Canonical and Open Graph URLs are missing from the rendered site | `BASE_URL` is unset or still the bare `http://localhost` default, so Thallo omits absolute URLs rather than publishing localhost | Set `BASE_URL` to the canonical public origin; see [titles, descriptions, sitemaps and redirects](../guides/10-seo.md) |
 
+## A feature did not finish turning on
+
+Commerce, Subscriptions, Payments and any extension's activation capability turn on through an
+activation of several steps
+([capabilities and packs](../concepts/06-capabilities.md#turning-on-a-capability-with-an-activation)).
+When one fails, the feature stays off, the card in **Extensions › Capabilities** names the step and the error, and
+**Retry** resumes from that step. From a shell, `php glueful thallo:capabilities:status` shows the same,
+and `php glueful thallo:capabilities:resume` retries. Nothing is rolled back: steps already done stay
+done, and a retry skips them.
+
+| Failed step | Usual cause | What to do |
+|---|---|---|
+| Enable the engine, with "Application files can't be written on this host" | `config/extensions.php` or `bootstrap/cache/` is read-only at runtime, as on an immutable deploy | Run `php glueful thallo:capabilities:enable thallo.commerce --prepare` where they are writable (at deploy time), then finish in **Extensions › Capabilities** or with `thallo:capabilities:resume` |
+| Enable the engine, with a migration error | One of the engine's migrations failed | Read the error and `storage/logs/`, fix the cause (`php glueful migrate:verify` lists divergent migrations), then **Retry** |
+| Check the engine in a fresh request | The engine's provider isn't loaded: the extension cache was not rebuilt (the engine step reports "cache stale"), or a long-running PHP process still serves the old one | `php glueful extensions:cache`, restart PHP-FPM or the workers if they cache code, then **Retry** |
+| Add its blocks | Seeding failed in one or more workspaces, which the error names | Fix the cause and **Retry**: it covers only those workspaces, and drops one that was deleted since |
+| Grant its permissions, or switch it on | A database error, usually a lost connection | **Retry** |
+
+Two answers are not failures. "Another request is turning this on" means a second tab or operator
+is running the same activation: wait, and the card updates when it finishes. "A newer decision was
+made" means someone turned the feature off, or started again, while this one ran; the card shows
+where it stands now.
+
+`php glueful thallo:provision` also resumes an unfinished activation, in a fresh process.
+
+## A capability is misconfigured
+
+A card in **Extensions › Capabilities** reads "Misconfigured: … Fix the declarations; until then it
+can't be switched." A capability's declarations conflict, or a package's declaration is invalid, so
+Thallo blocks it everywhere: it has no switch, the API and `thallo:capabilities` refuse it, and the
+packages it claims show **Misconfigured** in **Extensions › Installed** and refuse the generic enable
+and disable. `php glueful thallo:doctor` fails its `capability-declarations` check with the same
+reason.
+
+| The reason says | What it means | What to do |
+|---|---|---|
+| "declared differently by …" | Two sources — two packages, or a package and Thallo's own code — declare the same id with different settings; the reason names them | Remove one of the packages, or ask its author to rename the capability |
+| "an invalid declaration in …" | A package's `extra.thallo.capabilities` entry can't be read: a missing id, an unknown mode, a malformed field, or a value that isn't a list. The reason says which | Update or remove the package; ask its author to fix the entry |
+| "a capability over …, which has an invalid capability entry" | The capability is fine, but another entry in the same package can't be read, so the package is blocked with it | Fix the invalid entry; the capability is listed again on the next request |
+| "one of several capabilities that claim …" | Two capabilities that are not plain switches name the same package, or a misconfigured one names a package another activation owns | Remove the package whose capability you don't want |
+| "an activation over …, which is required by Thallo" | An activation names a package Thallo can't run without | Remove the package that declares it |
+| "an activation over …, which is not installed" | The package the activation enables isn't installed | `composer require` the package, or remove the one that declares the capability |
+
+The fix is in Composer, not in Thallo: once the conflicting package is updated or removed, the
+capability is listed normally on the next request. See
+[package a feature as an extension](../guides/22-make-an-extension.md#when-thallo-refuses-a-declaration).
+
 ## Confirm the site is healthy
 
 - `php glueful thallo:doctor --strict` exits without failing.

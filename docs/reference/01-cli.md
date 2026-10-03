@@ -50,7 +50,9 @@ The option tables below leave those out and list only what the command adds. A c
 
 Configure the database and the security keys and run the migrations. This is the first of the two
 setup layers: it creates no people. **Writes** `.env`, applies pending migrations, publishes the
-admin bundle, and rebuilds the extension, route and render caches.
+admin bundle, and rebuilds the extension, route and render caches. It also finishes any feature left
+turning on (in a fresh process, through `thallo:capabilities:resume`) and puts back a package Thallo
+requires (`glueful/aegis`, `glueful/users`) that was removed from the enabled list.
 
 | Option | What it does |
 |---|---|
@@ -754,6 +756,56 @@ $ php glueful thallo:commerce:checkout:purge-attempts --days=30
 
 [Sell something](../guides/18-commerce.md) covers the storefront these serve.
 
+## Capability activation
+
+Commerce, Subscriptions, Payments and an extension's activation capabilities turn on through an
+activation that prepares their engine, blocks and permissions; [capabilities and packs](../concepts/06-capabilities.md#turning-on-a-capability-with-an-activation)
+describes the steps. These commands are Extensions › Capabilities from a shell.
+
+### thallo:capabilities:enable
+
+Turn a feature on. **Writes** `config/extensions.php` and the extension cache when the engine isn't
+enabled yet, then the database. It runs the engine step, then continues in a fresh process (the
+engine's provider only loads there) through the check, the blocks, the permissions and the switch,
+and prints what was added.
+
+| Argument / option | What it does |
+|---|---|
+| `capability` | An activation capability: `thallo.commerce`, `thallo.subscriptions`, `thallo.payments`, or one an extension declares |
+| `--prepare` | Stop after the engine step: for deploy time on a host whose application files are read-only at runtime. Finish in Extensions or with `thallo:capabilities:resume` |
+
+A second run while one is in progress joins it. A failed step exits 1 with the step, the error and
+the fix; run `thallo:capabilities:resume` after fixing it.
+
+```bash
+$ php glueful thallo:capabilities:enable thallo.commerce
+$ php glueful thallo:capabilities:enable thallo.commerce --prepare
+```
+
+### thallo:capabilities:resume
+
+Finish turning on a feature, or every feature being turned on, from its next step. **Writes** the
+database; it writes application files only when it retries the engine step. Use it after
+`--prepare`, after fixing a failed step, or after an interrupted turn-on. `thallo:provision` runs it
+for you.
+
+| Argument | What it does |
+|---|---|
+| `capability` | The feature; every open one when omitted |
+
+```bash
+$ php glueful thallo:capabilities:resume
+```
+
+### thallo:capabilities:status
+
+Show where each feature with an activation stands: on, off, preparing or failed, with the next or
+failed step, the error and the fix. **Reads only.**
+
+```bash
+$ php glueful thallo:capabilities:status
+```
+
 ## Rendering, themes and housekeeping
 
 ### render:cache:clear
@@ -804,8 +856,8 @@ with `--enable` or `--disable`.
 
 | Option | What it does |
 |---|---|
-| `--enable=ENABLE` | Turn this capability on; refused while its engine cannot back it |
-| `--disable=DISABLE` | Turn this capability off |
+| `--enable=ENABLE` | Turn this capability on; refused while its engine cannot back it, for a misconfigured capability, and for an activation capability (Commerce, Subscriptions, Payments, or one an extension declares), which turns on with `thallo:capabilities:enable` |
+| `--disable=DISABLE` | Turn this capability off (for an activation capability, this also cancels an activation in progress); refused for a misconfigured capability |
 | `--json` | Print the list as JSON, for scripts |
 
 A flip takes effect on the next request and clears the compiled route cache. Queue workers and

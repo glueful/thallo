@@ -321,7 +321,7 @@ use Psr\Log\LoggerInterface;
  * Config: core/config/*.php are merged as defaults in register(); the root config/ is the
  * operator's overrides (environment overlays under config/{env}/ still win key by key).
  */
-final class CoreServiceProvider extends ServiceProvider
+final class CoreServiceProvider extends ServiceProvider implements \Thallo\Contracts\Capability\DeclaresCapabilities
 {
     /**
      * Guards registerEventListeners() against a double-run. EventService::addListener
@@ -438,6 +438,26 @@ final class CoreServiceProvider extends ServiceProvider
             }
         }
         $registry->register($container->get(PaymentAdoptionContributor::class));
+    }
+
+    public static function makePaymentCollector(
+        ContainerInterface $container,
+    ): \Glueful\Extensions\Contracts\Payments\PaymentCollector {
+        $gateway = null;
+        if (
+            class_exists(\Glueful\Extensions\Payvia\Services\PayviaPaymentCollector::class)
+            && $container->has(\Glueful\Extensions\Payvia\GatewayManager::class)
+            && $container->has(\Glueful\Extensions\Payvia\Repositories\PaymentIntentRepository::class)
+        ) {
+            $gateway = new \Glueful\Extensions\Payvia\Services\PayviaPaymentCollector(
+                $container->get(\Glueful\Extensions\Payvia\GatewayManager::class),
+                $container->get(\Glueful\Extensions\Payvia\Repositories\PaymentIntentRepository::class),
+            );
+        }
+        return new \Thallo\Core\Payments\PaymentsGatedCollector(
+            $gateway,
+            $container->get(\Thallo\Contracts\Payments\OnlinePaymentInitiation::class),
+        );
     }
 
     public static function makePayviaTenantResolver(ContainerInterface $container): ThalloPayviaTenantResolver
@@ -2364,6 +2384,66 @@ final class CoreServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            \Thallo\Core\Capabilities\Activation\CapabilityBlockSeeder::class => [
+                'class' => \Thallo\Core\Capabilities\Activation\CapabilityBlockSeeder::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Capabilities\FeatureManagementPolicy::class => [
+                'class' => \Thallo\Core\Capabilities\FeatureManagementPolicy::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Capabilities\Declarations\DeclarationSet::class => [
+                'factory' => [self::class, 'makeDeclarationSet'],
+                'shared' => true,
+            ],
+            \Thallo\Core\Setup\CapabilityAdoption::class => [
+                'class' => \Thallo\Core\Setup\CapabilityAdoption::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Capabilities\RequiredPackages::class => [
+                'class' => \Thallo\Core\Capabilities\RequiredPackages::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Capabilities\Activation\ActivationStore::class => [
+                'class' => \Thallo\Core\Capabilities\Activation\ActivationStore::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Capabilities\Activation\EngineActivation::class => [
+                'factory' => [self::class, 'makeEngineActivation'],
+                'shared' => true,
+            ],
+            \Thallo\Core\Capabilities\Activation\ActivationRunner::class => [
+                'factory' => [self::class, 'makeActivationRunner'],
+                'shared' => true,
+            ],
+            \Thallo\Contracts\Extensions\ExtensionStateCoordinator::class => [
+                'class' => \Thallo\Core\Capabilities\Activation\ExtensionStateLock::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Capabilities\CapabilityStateVersion::class => [
+                'class' => \Thallo\Core\Capabilities\CapabilityStateVersion::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            // One snapshot of the switches and the state version per container (context): the
+            // registry decides from it, and the route-signature input is its version.
+            \Thallo\Core\Capabilities\CapabilityStateSnapshot::class => [
+                'factory' => [self::class, 'makeCapabilityStateSnapshot'],
+                'shared' => true,
+            ],
+            // The router loads the compiled route table when it is built, which happens at the first
+            // provider that registers a route — before this provider boots. Building it here keys
+            // the table by the capability state first, whichever provider asks for it.
+            \Glueful\Routing\Router::class => [
+                'factory' => [self::class, 'makeRouter'],
+                'shared' => true,
+            ],
             // The update notice (decision 11): Packagist's public metadata behind the ReleaseFeed
             // seam, the checker wired from config and Composer's installed-version registry.
             ReleaseFeed::class => [
@@ -2436,6 +2516,18 @@ final class CoreServiceProvider extends ServiceProvider
             // override above; PaymentTenantResolverTest pins that this binding wins over payvia's.
             \Glueful\Extensions\Payvia\Tenancy\PayviaTenantResolver::class => [
                 'factory' => [self::class, 'makePayviaTenantResolver'],
+                'shared' => true,
+            ],
+            // Payments off is a contract (spec §7.7): the one initiation question, and the payment
+            // collector Commerce's checkout resolves, gated on it (wins over payvia's binding, like
+            // the resolver above).
+            \Thallo\Contracts\Payments\OnlinePaymentInitiation::class => [
+                'class' => \Thallo\Core\Payments\CapabilityOnlinePaymentInitiation::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Glueful\Extensions\Contracts\Payments\PaymentCollector::class => [
+                'factory' => [self::class, 'makePaymentCollector'],
                 'shared' => true,
             ],
             \Thallo\Core\Payments\Tenancy\PaymentTenancyAdoption::class => [
@@ -2526,6 +2618,11 @@ final class CoreServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            \Thallo\Core\Http\Controllers\CapabilityActivationController::class => [
+                'class' => \Thallo\Core\Http\Controllers\CapabilityActivationController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             ScheduledTasksController::class => [
                 'class' => ScheduledTasksController::class,
                 'shared' => true,
@@ -2584,6 +2681,31 @@ final class CoreServiceProvider extends ServiceProvider
             ],
             \Thallo\Core\Capabilities\Console\CapabilitiesCommand::class => [
                 'class' => \Thallo\Core\Capabilities\Console\CapabilitiesCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Capabilities\Console\CapabilitiesEnableCommand::class => [
+                'class' => \Thallo\Core\Capabilities\Console\CapabilitiesEnableCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Capabilities\Console\CapabilitiesResumeCommand::class => [
+                'class' => \Thallo\Core\Capabilities\Console\CapabilitiesResumeCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Capabilities\Console\CapabilitiesStatusCommand::class => [
+                'class' => \Thallo\Core\Capabilities\Console\CapabilitiesStatusCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Capabilities\Console\FreshProcess::class => [
+                'class' => \Thallo\Core\Capabilities\Console\FreshProcess::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Setup\CapabilityProvisioning::class => [
+                'class' => \Thallo\Core\Setup\CapabilityProvisioning::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -2694,6 +2816,33 @@ final class CoreServiceProvider extends ServiceProvider
         return $defaults;
     }
 
+    /**
+     * Payments (feature activation spec §7.7): online payments through glueful/payvia, prepared by
+     * the activation flow. While it is off, every place that starts an online payment answers as
+     * manual collection; payments already started still settle.
+     */
+    public function capabilities(): array
+    {
+        return [
+            new \Thallo\Contracts\Capability\Capability(
+                'thallo.payments',
+                label: 'Payments',
+                description: 'Online payments for orders and plans, through the gateways in Settings › Payments.',
+                owningPackage: 'glueful/payvia',
+                management: \Thallo\Contracts\Capability\ManagementMode::Activation,
+                copy: new \Thallo\Contracts\Capability\ActivationCopy(
+                    turnOn: 'This prepares online payments: Payvia and its gateways, configured in '
+                        . 'Settings › Payments. Your orders and plans are kept.',
+                    turnOff: 'New online payments stop, and customers pay by manual collection. Payments '
+                        . 'already started still settle, refunds still work, and subscriptions already '
+                        . "billed by your payment provider keep renewing; turning Payments off doesn't "
+                        . 'cancel them.',
+                    links: [['label' => 'Settings › Payments', 'to' => '/settings/payments']],
+                ),
+            ),
+        ];
+    }
+
     public function register(ApplicationContext $context): void
     {
         // Thallo's configuration ships as DEFAULTS from core/config: the operator's config/
@@ -2746,11 +2895,130 @@ final class CoreServiceProvider extends ServiceProvider
         // pre-provision boots, so this factory stays safe during CLI boots before the system
         // table exists.
         $switchboard = $container->get(CapabilityStateStore::class);
+        $snapshot = $container->get(\Thallo\Core\Capabilities\CapabilityStateSnapshot::class);
 
-        return new DefaultCapabilityRegistry(
+        $declarations = $container->get(\Thallo\Core\Capabilities\Declarations\DeclarationSet::class);
+        $policy = $container->get(\Thallo\Core\Capabilities\FeatureManagementPolicy::class);
+        $misconfigured = [];
+        foreach (array_keys($declarations->misconfigured()) as $id) {
+            $misconfigured[$id] = (string) $policy->misconfiguration($id);
+        }
+        $registry = new DefaultCapabilityRegistry(
             [],
             new ExtensionCapabilityAvailabilityResolver($context),
-            static fn (string $id): ?bool => $switchboard->explicit($id),
+            static fn (string $id): ?bool => $switchboard->explicitFrom($snapshot->rows, $id),
+            $misconfigured,
+            static fn (string $id): ?bool => $switchboard->storedFrom($snapshot->rows, $id),
+        );
+        // Every declaration, collected before any provider booted (the first capability decision
+        // happens inside some provider's boot(), after every register()), then sealed.
+        foreach ($declarations->capabilities() as $capability) {
+            $registry->register($capability);
+        }
+        $registry->seal($context->getEnvironment() === 'production'
+            ? static function (\Thallo\Contracts\Capability\Capability $late) use ($container): void {
+                if ($container->has(LoggerInterface::class)) {
+                    $container->get(LoggerInterface::class)->warning(
+                        "Capability {$late->id} registered after the capability set was sealed; ignored.",
+                    );
+                }
+            }
+            : null);
+        return $registry;
+    }
+
+    /**
+     * The declaration set, collected once per container. Building it also makes the required,
+     * managed and misconfigured providers `extensions.protected` defaults (under the operator's own
+     * entries, which win), before any refusal path reads them.
+     */
+    public static function makeDeclarationSet(
+        ContainerInterface $container,
+    ): \Thallo\Core\Capabilities\Declarations\DeclarationSet {
+        $context = $container->get(ApplicationContext::class);
+        $required = $container->get(\Thallo\Core\Capabilities\RequiredPackages::class);
+        $set = (new \Thallo\Core\Capabilities\Declarations\DeclarationCollector(
+            $context,
+            new \Thallo\Core\Capabilities\Declarations\PackageCapabilityDeclarations($context),
+            $required->packages(),
+        ))->collect();
+        $policy = new \Thallo\Core\Capabilities\FeatureManagementPolicy($set, $required);
+        $context->mergeConfigDefaults('extensions', ['protected' => $policy->protectedProviders()]);
+        return $set;
+    }
+
+    public static function makeEngineActivation(
+        ContainerInterface $container,
+    ): \Thallo\Core\Capabilities\Activation\EngineActivation {
+        $context = $container->get(ApplicationContext::class);
+        $config = $writable = $writeCache = null;
+        // Test seams for the CLI tests' `php glueful` processes, honoured only under APP_ENV=testing:
+        // a temp enabled list, read-only application files, and no extension cache rebuild.
+        if ($context->getEnvironment() === 'testing') {
+            $config = getenv('THALLO_TEST_EXTENSIONS_CONFIG') ?: null;
+            if (getenv('THALLO_TEST_APP_FILES_READONLY') === '1') {
+                $writable = static fn (): bool => false;
+            }
+            if (getenv('THALLO_TEST_SKIP_CACHE_REBUILD') === '1') {
+                $writeCache = static function (): void {
+                };
+            }
+        }
+        return new \Thallo\Core\Capabilities\Activation\EngineActivation(
+            $context,
+            $container->get(\Thallo\Contracts\Extensions\ExtensionStateCoordinator::class),
+            $config,
+            $writable,
+            $writeCache,
+        );
+    }
+
+    public static function makeActivationRunner(
+        ContainerInterface $container,
+    ): \Thallo\Core\Capabilities\Activation\ActivationRunner {
+        return new \Thallo\Core\Capabilities\Activation\ActivationRunner(
+            $container->get(\Thallo\Core\Capabilities\Activation\ActivationStore::class),
+            $container->get(CapabilityStateStore::class),
+            $container->get(\Thallo\Core\Capabilities\FeatureManagementPolicy::class),
+            $container->get(\Thallo\Core\Capabilities\Activation\CapabilityBlockSeeder::class),
+            $container->get(\Thallo\Core\Setup\InstallRoleGrants::class),
+            $container->get(\Thallo\Core\Capabilities\Activation\EngineActivation::class),
+            $container,
+        );
+    }
+
+    /**
+     * The compiled route table is keyed by the capability-state snapshot the registry decides from
+     * (feature activation spec §3.2, §3.6): a table compiled under one capability state is rejected by
+     * a context booted under another, so turning a capability off removes its routes on the next
+     * request. A snapshot that can't be taken keys it with a value no other context will ever have:
+     * its routes may still be registered from a state read later, so no context may reuse that table.
+     */
+    public static function keyRouteTableByCapabilityState(
+        ApplicationContext $context,
+        ?ContainerInterface $container = null,
+    ): void {
+        try {
+            $version = ($container ?? $context->getContainer())
+                ->get(\Thallo\Core\Capabilities\CapabilityStateSnapshot::class)->version;
+        } catch (\Throwable) {
+            $version = \Thallo\Core\Capabilities\CapabilityStateSnapshot::UNAVAILABLE . ':' . bin2hex(random_bytes(8));
+        }
+        $context->setRouteSignatureInput('thallo.capability_state', $version);
+    }
+
+    public static function makeRouter(ContainerInterface $container): \Glueful\Routing\Router
+    {
+        self::keyRouteTableByCapabilityState($container->get(ApplicationContext::class), $container);
+        return new \Glueful\Routing\Router($container);
+    }
+
+    public static function makeCapabilityStateSnapshot(
+        ContainerInterface $container,
+    ): \Thallo\Core\Capabilities\CapabilityStateSnapshot {
+        return \Thallo\Core\Capabilities\CapabilityStateSnapshot::resolve(
+            static fn (): \Glueful\Database\Connection => $container->get(\Glueful\Database\Connection::class),
+            PHP_SAPI === 'cli',
         );
     }
 
@@ -2877,6 +3145,10 @@ final class CoreServiceProvider extends ServiceProvider
 
     public function boot(ApplicationContext $context): void
     {
+        // The capability declaration set, and with it the extensions.protected defaults, exists
+        // from here on even if no provider has made a capability decision yet.
+        $context->getContainer()->get(\Thallo\Core\Capabilities\Declarations\DeclarationSet::class);
+
         try {
             $stored = self::storedDefaultLocale($context->getContainer());
             if ($stored !== null && $stored !== config($context, 'i18n.default_locale')) {
@@ -2960,6 +3232,9 @@ final class CoreServiceProvider extends ServiceProvider
             \Thallo\Core\Content\Console\ListBlockTypesCommand::class,
             \Thallo\Core\Content\Console\PruneFormSubmissionsCommand::class,
             \Thallo\Core\Capabilities\Console\CapabilitiesCommand::class,
+            \Thallo\Core\Capabilities\Console\CapabilitiesEnableCommand::class,
+            \Thallo\Core\Capabilities\Console\CapabilitiesResumeCommand::class,
+            \Thallo\Core\Capabilities\Console\CapabilitiesStatusCommand::class,
             \Thallo\Core\Content\Console\DocsSetupCommand::class,
             PolicyManifestCommand::class,
             SeedBlockTypesCommand::class,

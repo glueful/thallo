@@ -265,6 +265,7 @@ final class WorkspaceBillingSelfServeTest extends AppTestCase
 
         self::assertSame(EngineGateway::READY, $body['engine']);
         self::assertTrue($body['self_serve_checkout_enabled']);
+        self::assertTrue($body['payments_enabled']);
         self::assertNotSame('', $body['workspace_uuid']);
         self::assertNull($body['subscription']);
         self::assertNull($body['origination']);
@@ -280,6 +281,29 @@ final class WorkspaceBillingSelfServeTest extends AppTestCase
             ['plan_key', 'name', 'price_amount', 'price_currency', 'billing_interval'],
             array_keys($body['purchasable_plans'][0]),
         );
+    }
+
+    public function testWhilePaymentsIsOffTheStatusSaysSoAndCheckoutIsRefused(): void
+    {
+        // Run by PaymentsCapabilityTest's continuity run, in a process where Payments is off.
+        if (!in_array('thallo.payments', \Thallo\Core\Tests\Support\CapabilityBaseline::off(), true)) {
+            self::markTestSkipped('only in the Payments-off continuity run');
+        }
+        [, $actor] = $this->seedWorkspaceAndVerifiedActor();
+        $this->enableSelfServe();
+        $recording = new RecordingSubscriptionCheckoutGateway();
+        $gateway = $this->registerRecordingGateway($recording);
+        $this->seedPurchasablePlan($gateway, 'starter');
+
+        $meta = $this->controller()->meta(Request::create('/', 'GET'));
+        self::assertSame(200, $meta->getStatusCode(), 'the status keeps answering');
+        self::assertFalse($this->data($meta)['payments_enabled']);
+
+        $request = $this->checkoutRequest($actor, ['plan_key' => 'starter'], 'payments-off-key-0001');
+        $checkout = $this->controller()->checkout($request);
+        self::assertSame(409, $checkout->getStatusCode());
+        self::assertStringContainsString('payments_off', (string) $checkout->getContent());
+        self::assertSame(0, $recording->calls, 'no checkout reached the gateway');
     }
 
     public function testMetaIsTwoHundredEvenWhenSelfServeDisabled(): void

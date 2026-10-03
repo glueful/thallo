@@ -18,11 +18,12 @@ use Thallo\Analytics\Console\PruneAnalyticsCommand;
 use Thallo\Analytics\Listeners\AuthAnalyticsListener;
 use Thallo\Analytics\Query\AnalyticsQuery;
 use Thallo\Contracts\Capability\Capability;
+use Thallo\Contracts\Capability\DeclaresCapabilities;
 use Thallo\Contracts\Capability\CapabilityRegistry;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 
-final class AnalyticsServiceProvider extends ServiceProvider implements DeclaresLoadOrder
+final class AnalyticsServiceProvider extends ServiceProvider implements DeclaresLoadOrder, DeclaresCapabilities
 {
     public static function loadAfter(): array
     {
@@ -99,15 +100,20 @@ final class AnalyticsServiceProvider extends ServiceProvider implements Declares
         $this->mergeConfig('analytics', require __DIR__ . '/../config/analytics.php');
     }
 
+    public function capabilities(): array
+    {
+        return [
+            new Capability(
+                'thallo.analytics',
+                label: 'Analytics',
+                description: 'Product-analytics fact store fed by lifecycle events.',
+            ),
+        ];
+    }
+
     public function boot(ApplicationContext $context): void
     {
         $registry = app($context, CapabilityRegistry::class);
-
-        $registry->register(new Capability(
-            'thallo.analytics',
-            label: 'Analytics',
-            description: 'Product-analytics fact store fed by lifecycle events.',
-        ));
 
         // Migrations are declared by the composer manifest (extra.glueful.migrations).
 

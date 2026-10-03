@@ -41,8 +41,7 @@ The provider registers a single capability in `boot()`:
 new Capability('thallo.analytics', label: 'Analytics', description: '…');
 ```
 
-- **Enabled by default.** An operator turns it off or on in the admin under **Extensions ›
-  Capabilities**. The switch is stored system-wide and overrides the deploy-time
+- **Enabled by default.** An operator turns it off or on in the admin under **Extensions › Capabilities**. The switch is stored system-wide and overrides the deploy-time
   `thallo.capabilities` config map.
 - **Gated.** When disabled, the read API routes are never registered (`404`) and the pack's auth
   listeners do not subscribe. The core bridge for content and collection events is always wired and

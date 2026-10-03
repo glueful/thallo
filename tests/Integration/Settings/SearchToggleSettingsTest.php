@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Settings;
 
+use Thallo\Core\Capabilities\CapabilityStateSnapshot;
+use Thallo\Core\Capabilities\CapabilityStateStore;
+use Thallo\Core\Capabilities\DefaultCapabilityRegistry;
+use Thallo\Core\Capabilities\ExtensionCapabilityAvailabilityResolver;
 use Thallo\Core\Http\Controllers\GeneralSettingsController;
 use Thallo\Core\Http\DTOs\UpdateGeneralSettingsData;
 use Thallo\Core\Providers\CoreServiceProvider;
@@ -66,8 +70,16 @@ final class SearchToggleSettingsTest extends AppTestCase
 
     public function testRegistryOverlayReflectsTheStoredRow(): void
     {
+        // Each call is a new context: it decides from a snapshot taken now (a context decides from
+        // one snapshot for its whole life, so the write shows on the next context, as a request).
         $register = function (): bool {
-            $registry = CoreServiceProvider::makeCapabilityRegistry($this->container());
+            $snapshot = CapabilityStateSnapshot::take($this->connection(), console: false);
+            $store = $this->container()->get(CapabilityStateStore::class);
+            $registry = new DefaultCapabilityRegistry(
+                [],
+                new ExtensionCapabilityAvailabilityResolver($this->appContext()),
+                static fn (string $id): ?bool => $store->explicitFrom($snapshot->rows, $id),
+            );
             $registry->register(new Capability('thallo.search', label: 'Search', description: 'test'));
 
             return $registry->isEnabled('thallo.search');

@@ -4,16 +4,13 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Http\Controllers;
 
+use Thallo\Core\Capabilities\FeatureManagementPolicy;
 use Thallo\Core\Support\ReadmeRenderer;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Exceptions\LockContentionException;
 use Glueful\Extensions\EnabledProviders;
 use Glueful\Extensions\ExtensionManager;
-use Glueful\Extensions\Install\ExtensionInstaller;
 use Glueful\Extensions\Install\HostCapability;
-use Glueful\Extensions\Install\HostNotWritableException;
-use Glueful\Extensions\Install\InstallDisabledException;
-use Glueful\Extensions\Install\PackageNotAllowedException;
 use Glueful\Extensions\PackageManifest;
 use Glueful\Extensions\ProtectedProviders;
 use Glueful\Extensions\Schema\DescriptorInventory;
@@ -28,7 +25,6 @@ use Glueful\Http\Response;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -37,8 +33,6 @@ use Symfony\Component\HttpFoundation\Request;
  *  - Installed: the locally-discovered `glueful-extension` packages (PackageManifest) plus the
  *    enabled allow-list (config/extensions.php) and each package's schema readiness. All local —
  *    no network.
- *  - Browse: proxies Packagist filtered to `type=glueful-extension` server-side, so the SPA
- *    avoids CORS / rate limits and we can mark which results are already installed.
  *  - Enable/disable: drives the shared ExtensionSchemaExecutor (schema policy spec B5) —
  *    migrate-first, lock-serialized, truthful persisted operation record. Works in production;
  *    the host-writability precondition (immutable deploys) refuses with 409 instead.
@@ -47,8 +41,6 @@ use Symfony\Component\HttpFoundation\Request;
  */
 class ExtensionAdminController
 {
-    private const PACKAGIST_SEARCH = 'https://packagist.org/search.json';
-
     /** Render at most the first 512 KiB of a README — a hard ceiling on unbounded files. */
     private const README_MAX_BYTES = 512 * 1024;
 
@@ -72,59 +64,6 @@ class ExtensionAdminController
     public function index(): Response
     {
         return Response::success(['extensions' => $this->installed()], 'Installed extensions.');
-    }
-
-    /** GET /v1/admin/extensions/registry — browse the Packagist glueful-extension catalog. */
-    #[ApiOperation(
-        summary: 'Browse the extension catalog',
-        description: 'Searches Packagist for `type=glueful-extension` packages (optional `q` filter) '
-            . 'and flags those already installed. Requires the `system.access` permission.',
-        tags: ['Extensions'],
-    )]
-    #[ApiResponse(200, description: 'Catalog results, each with an `installed` flag.')]
-    public function registry(Request $request): Response
-    {
-        $query = trim((string) $request->query->get('q', ''));
-        // name => enabled, so a Browse card for an installed package can show a live
-        // Enable/Disable toggle instead of a dead "Installed" badge.
-        $enabledByName = [];
-        foreach ($this->installed() as $e) {
-            $enabledByName[(string) $e['name']] = (bool) ($e['enabled'] ?? false);
-        }
-
-        $params = ['type' => 'glueful-extension', 'per_page' => 30];
-        if ($query !== '') {
-            $params['q'] = $query;
-        }
-        $url = self::PACKAGIST_SEARCH . '?' . http_build_query($params);
-
-        try {
-            $body = HttpClient::create(['timeout' => 8])->request('GET', $url)->toArray(false);
-        } catch (\Throwable) {
-            return Response::success(
-                ['results' => [], 'available' => false],
-                'The extension catalog is currently unavailable.',
-            );
-        }
-
-        $results = [];
-        foreach ((is_array($body['results'] ?? null) ? $body['results'] : []) as $pkg) {
-            if (!is_array($pkg) || !is_string($pkg['name'] ?? null)) {
-                continue;
-            }
-            $results[] = [
-                'name' => $pkg['name'],
-                'description' => is_string($pkg['description'] ?? null) ? $pkg['description'] : null,
-                'url' => is_string($pkg['url'] ?? null) ? $pkg['url'] : null,
-                'repository' => is_string($pkg['repository'] ?? null) ? $pkg['repository'] : null,
-                'downloads' => (int) ($pkg['downloads'] ?? 0),
-                'favers' => (int) ($pkg['favers'] ?? 0),
-                'installed' => array_key_exists($pkg['name'], $enabledByName),
-                'enabled' => $enabledByName[$pkg['name']] ?? false,
-            ];
-        }
-
-        return Response::success(['results' => $results, 'available' => true], 'Catalog retrieved.');
     }
 
     /** POST /v1/admin/extensions/enable — activate an installed extension through the executor. */
@@ -154,45 +93,6 @@ class ExtensionAdminController
     public function disable(Request $request): Response
     {
         return $this->toggle($request, false);
-    }
-
-    /** POST /v1/admin/extensions/install — composer require a new glueful extension (dev only). */
-    #[ApiOperation(
-        summary: 'Install a glueful extension',
-        description: 'Runs `composer require` for a catalog extension SYNCHRONOUSLY (the request '
-            . 'blocks until composer finishes). On success the extension is installed but DISABLED '
-            . '— enable it with the toggle. Dev only (composer cannot write on immutable production '
-            . 'hosts). Requires the `system.access` permission.',
-        tags: ['Extensions'],
-    )]
-    #[ApiResponse(200, description: 'Installed — enable it to activate.')]
-    #[ApiResponse(403, description: 'Installer disabled (production/kill-switch).')]
-    #[ApiResponse(409, description: 'Host filesystem is not writable (immutable deploy).')]
-    #[ApiResponse(422, description: 'Not an installable glueful extension, or composer failed.')]
-    public function install(Request $request): Response
-    {
-        $raw = RequestHelper::getRequestData($request)['name'] ?? null;
-        $name = is_string($raw) ? trim($raw) : '';
-
-        try {
-            $result = app($this->context, ExtensionInstaller::class)->install($name);
-        } catch (InstallDisabledException $e) {
-            return Response::forbidden($e->getMessage());
-        } catch (HostNotWritableException $e) {
-            return Response::error($e->getMessage(), 409, ['reason' => $e->reason]);
-        } catch (PackageNotAllowedException $e) {
-            return Response::error($e->getMessage(), 422);
-        }
-
-        if (($result['status'] ?? null) !== 'installed') {
-            return Response::error(
-                is_string($result['error'] ?? null) ? $result['error'] : 'Install failed.',
-                422,
-                ['output' => is_string($result['output'] ?? null) ? $result['output'] : ''],
-            );
-        }
-
-        return Response::success($result, 'Extension installed — enable it to activate.');
     }
 
     /** GET /v1/admin/extensions/{vendor}/{name}/readme — rendered README for an installed extension. */
@@ -298,6 +198,9 @@ class ExtensionAdminController
         // surface keeps only HTTP concerns: authority, protected refusal, host writability.
         try {
             $executor = $this->schemaExecutor();
+            // The executor owns its locking (glueful/framework 1.88): its migration locks, then the
+            // extension-state lock. Holding that lock here first would invert the order.
+            $this->beforeExecutor();
             $operation = $enable
                 ? $executor->enable($name, 'admin-api')
                 : $executor->disable($name, 'admin-api');
@@ -331,6 +234,11 @@ class ExtensionAdminController
                 . "re-run 'php glueful extensions:cache'.")
             : ($enable ? 'Extension enabled.' : 'Extension disabled.');
         return Response::success($payload, $message);
+    }
+
+    /** Overridable seam: runs right before the executor call (tests pause here). */
+    protected function beforeExecutor(): void
+    {
     }
 
     /** Overridable seam: the executor comes from the app container in production. */
@@ -374,6 +282,7 @@ class ExtensionAdminController
         $enabled = array_fill_keys(EnabledProviders::from($this->context), true);
         $meta = app($this->context, ExtensionManager::class)->listMeta();
         $info = $this->composerInfo();
+        $policy = app($this->context, FeatureManagementPolicy::class);
 
         $out = [];
         foreach ($candidates as $name => $candidate) {
@@ -385,6 +294,7 @@ class ExtensionAdminController
                 ?? (is_string($m['description'] ?? null) ? $m['description'] : null);
             $isEnabled = isset($enabled[$candidate->provider]);
             [$schemaState, $schemaReasons] = $this->schemaState((string) $name);
+            $management = $policy->managementOf((string) $name);
             $out[] = [
                 'name' => (string) $name,
                 'provider' => $candidate->provider,
@@ -395,7 +305,8 @@ class ExtensionAdminController
                 'enabled' => $isEnabled,
                 'schema_state' => $schemaState,
                 'schema_reasons' => $schemaReasons,
-                'cli_command' => $this->cliCommand($schemaState, (string) $name, $isEnabled),
+                'cli_command' => $this->cliCommand($schemaState, (string) $name, $isEnabled, $management),
+                'management' => $management,
             ];
         }
 
@@ -463,11 +374,27 @@ class ExtensionAdminController
         return ['ready', []];
     }
 
-    /** The CLI equivalent an operator can run for this row's state. */
-    private function cliCommand(string $schemaState, string $package, bool $enabled): string
+    /**
+     * The CLI equivalent an operator can run for this row's state: a managed engine turns on
+     * through its feature, and a required or misconfigured package has none.
+     *
+     * @param array{class: string, capability: ?string, reason: ?string, link: ?string} $management
+     */
+    private function cliCommand(string $schemaState, string $package, bool $enabled, array $management): ?string
     {
         if ($schemaState === 'divergent') {
             return 'php glueful migrate:verify';
+        }
+        if (
+            $management['class'] === FeatureManagementPolicy::REQUIRED
+            || $management['class'] === FeatureManagementPolicy::MISCONFIGURED
+        ) {
+            return null;
+        }
+        if ($management['class'] === FeatureManagementPolicy::MANAGED) {
+            return $management['capability'] === null
+                ? null
+                : "php glueful thallo:capabilities:enable {$management['capability']}";
         }
         return $enabled
             ? "php glueful extensions:disable {$package}"

@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
-import { reactive, toValue, type MaybeRefOrGetter } from 'vue'
+import { toValue, type MaybeRefOrGetter } from 'vue'
 import { authFetch } from '@/api/authFetch'
 import { runtimeConfig } from '@/runtime/config'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 
 // Extensions admin API (Thallo\Core\Http\Controllers\ExtensionAdminController, under /v1/admin/extensions).
-// Installed data is local (PackageManifest + the enabled allow-list); Browse proxies Packagist
-// filtered to type=glueful-extension. Enable/disable rewrites config/extensions.php (dev only).
+// Installed data is local (PackageManifest + the enabled allow-list). Enable/disable rewrites
+// config/extensions.php (dev only).
 
 export type SchemaState = 'ready' | 'pending' | 'divergent' | 'none' | 'undeclared'
 
@@ -24,6 +24,18 @@ export interface InstalledExtension {
   schema_reasons: string[]
   /** The CLI equivalent an operator can run for this row's state. */
   cli_command: string | null
+  /**
+   * Who switches this package: Thallo needs it, a feature manages it, conflicting capability
+   * declarations claim it (no switch until they are fixed), or it is independent.
+   */
+  management: PackageManagement
+}
+
+export interface PackageManagement {
+  class: 'required' | 'managed' | 'misconfigured' | 'independent'
+  capability: string | null
+  reason: string | null
+  link: string | null
 }
 
 /** Chip color for a schema state (ready is calm, divergent demands attention). */
@@ -58,17 +70,6 @@ export function failedMigrationOf(e: unknown): string | null {
   return typeof failed === 'string' && failed !== '' ? failed : null
 }
 
-export interface CatalogExtension {
-  name: string
-  description?: string | null
-  url?: string | null
-  repository?: string | null
-  downloads: number
-  favers: number
-  installed: boolean
-  enabled: boolean
-}
-
 const base = () => `${runtimeConfig.apiBase}/extensions`
 
 export async function fetchInstalledExtensions(): Promise<InstalledExtension[]> {
@@ -81,25 +82,6 @@ export function useInstalledExtensions() {
   return useQuery({
     key: () => ['extensions', 'installed'],
     query: fetchInstalledExtensions,
-  })
-}
-
-export async function fetchExtensionCatalog(
-  q?: string,
-): Promise<{ results: CatalogExtension[]; available: boolean }> {
-  const qs = q ? `?q=${encodeURIComponent(q)}` : ''
-  const json = await authFetch(`${base()}/registry${qs}`)
-  const data = (json.data ?? json) as Record<string, unknown>
-  return {
-    results: Array.isArray(data.results) ? (data.results as CatalogExtension[]) : [],
-    available: data.available !== false,
-  }
-}
-
-export function useExtensionCatalog(q: MaybeRefOrGetter<string | undefined>) {
-  return useQuery({
-    key: () => ['extensions', 'catalog', toValue(q) ?? ''],
-    query: () => fetchExtensionCatalog(toValue(q)),
   })
 }
 
@@ -157,67 +139,6 @@ export function useExtensionMutations() {
   })
 
   return { enable, disable }
-}
-
-// ── Install (composer require, synchronous) ───────────────────────────────────
-// POST /install runs `composer require` inline and returns when it finishes — no
-// job, no polling. On success the extension is INSTALLED but disabled; the operator
-// enables it with the existing toggle (WordPress-style install → activate).
-
-export type InstallStatus = 'installed' | 'failed'
-
-export interface InstallResult {
-  status: InstallStatus
-  package: string
-  error?: string | null
-  output?: string
-}
-
-export async function installExtension(name: string): Promise<InstallResult> {
-  const json = await authFetch(`${base()}/install`, {
-    method: 'POST',
-    body: JSON.stringify({ name }),
-  })
-  const d = (json.data ?? json) as Record<string, unknown>
-  return {
-    status: d.status === 'installed' ? 'installed' : 'failed',
-    package: typeof d.package === 'string' ? d.package : name,
-    error: typeof d.error === 'string' ? d.error : null,
-    output: typeof d.output === 'string' ? d.output : '',
-  }
-}
-
-/**
- * Per-package install: a single blocking call (composer runs on the server for the
- * duration of the request). `installing(name)` is true while it's in flight. A
- * successful install invalidates the catalog so the card flips to "Installed".
- */
-export function useExtensionInstall() {
-  const cache = useQueryCache()
-  const inflight = reactive<Record<string, boolean>>({})
-
-  async function install(name: string): Promise<InstallResult> {
-    inflight[name] = true
-    try {
-      const result = await installExtension(name)
-      if (result.status === 'installed') {
-        cache.invalidateQueries({ key: ['extensions'] }) // refresh the installed flag
-      }
-      return result
-    } catch (e) {
-      return {
-        status: 'failed',
-        package: name,
-        error: e instanceof Error ? e.message : 'Install failed',
-      }
-    } finally {
-      inflight[name] = false
-    }
-  }
-
-  const installing = (name: string): boolean => inflight[name] === true
-
-  return { install, installing }
 }
 
 /** Short display name: `glueful/audit` → `audit`. */

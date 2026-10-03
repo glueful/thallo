@@ -17,7 +17,12 @@ use Thallo\Core\Content\Console\ConvertSettingsCommand;
 use Thallo\Core\Content\Style\Conversion\DecisionsFile;
 use Thallo\Core\Content\Style\Conversion\SettingsConversion;
 use Thallo\Contracts\Style\StyleCompileFailed;
+use Thallo\Core\Setup\CapabilityAdoption;
+use Thallo\Core\Setup\CapabilityAdoptionCaptureFailed;
 use Thallo\Core\Setup\DefaultLanguage;
+use Thallo\Core\Setup\FrameworkProvisionInstaller;
+use Thallo\Core\Setup\ProvisionInstaller;
+use Thallo\Core\Setup\CapabilityProvisioning;
 use Thallo\Core\Setup\InstallRoleGrants;
 use Thallo\Core\Setup\SetupService;
 use Thallo\Core\Setup\Doctor\Check;
@@ -28,8 +33,8 @@ use Glueful\Console\BaseCommand;
 use Glueful\Extensions\ExtensionManager;
 use Glueful\Installer\DatabaseConfig;
 use Glueful\Installer\EnvWriter;
-use Glueful\Installer\Installer;
 use Glueful\Installer\InstallOptions;
+use Glueful\Installer\InstallResult;
 use Glueful\Installer\InstallStep;
 use Glueful\Security\RandomStringGenerator;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -48,12 +53,53 @@ use function base_path;
 final class ProvisionCommand extends BaseCommand
 {
     /** @param string|null $envPath Override the .env location (tests); null = <base>/.env. */
+    private readonly ProvisionInstaller $installer;
+
+    /** Why adopting failed after the migrations ran, for the operator; null when it didn't. */
+    private ?string $adoptionFailure = null;
+
     public function __construct(
         ?ContainerInterface $container = null,
         ?ApplicationContext $context = null,
         private readonly ?string $envPath = null,
+        ?ProvisionInstaller $installer = null,
     ) {
         parent::__construct($container, $context);
+        $this->installer = $installer ?? new FrameworkProvisionInstaller();
+    }
+
+    /**
+     * The schema-changing part of provision (feature activation spec §7.3a): capture upgrade-adoption
+     * eligibility on the database being installed against, before anything migrates it; run the
+     * installer (connection test, .env, keys, migrations); then adopt exactly what was captured.
+     * An interrupted run keeps its capture, so the retry applies it. Adopting that fails after the
+     * migrations ran is reported (adoptionFailure()) rather than thrown: the migrations stand, the
+     * capture is kept for the retry, and the rest of provision still runs.
+     *
+     * @throws CapabilityAdoptionCaptureFailed when an existing database can't be inspected
+     */
+    public function installWithAdoption(string $basePath, InstallOptions $options): InstallResult
+    {
+        $this->adoptionFailure = null;
+        $adoption = $this->getContainer()->get(CapabilityAdoption::class);
+        $adoption->capture($options->database);
+        $result = $this->installer->run($basePath, $this->getContext(), $options);
+        if ($result->ok) {
+            try {
+                $adoption->run();
+            } catch (\Throwable $e) {
+                $this->adoptionFailure = 'Provision migrated the database, but keeping your capabilities as they '
+                    . "were failed ({$e->getMessage()}). Nothing was lost: run php glueful thallo:provision again "
+                    . 'to finish.';
+            }
+        }
+        return $result;
+    }
+
+    /** Why adopting failed in the last installWithAdoption(), or null. */
+    public function adoptionFailure(): ?string
+    {
+        return $this->adoptionFailure;
     }
 
     protected function configure(): void
@@ -116,11 +162,17 @@ final class ProvisionCommand extends BaseCommand
             return self::FAILURE;
         }
 
-        // 4. Hand to the framework Installer (single connection test → .env → keys → migrate).
-        $result = (new Installer($basePath, $this->getContext()))->run(new InstallOptions(
-            database: $database,
-            force: (bool) $input->getOption('force'),
-        ));
+        // 4. Capture adoption eligibility, hand to the framework Installer (single connection test →
+        //    .env → keys → migrate), then adopt what was captured.
+        try {
+            $result = $this->installWithAdoption($basePath, new InstallOptions(
+                database: $database,
+                force: (bool) $input->getOption('force'),
+            ));
+        } catch (CapabilityAdoptionCaptureFailed $e) {
+            $this->error($e->getMessage());
+            return self::FAILURE;
+        }
 
         $this->table(['Step', 'Status', 'Detail'], array_map(
             static fn ($s) => [$s->name, $s->status, $s->message],
@@ -135,6 +187,10 @@ final class ProvisionCommand extends BaseCommand
                 }
             }
             return self::FAILURE;
+        }
+
+        if ($this->adoptionFailure !== null) {
+            $this->error($this->adoptionFailure);
         }
 
         // SETUP_TOKEN gates the unauthenticated first-run POST /admin/setup in production
@@ -154,6 +210,19 @@ final class ProvisionCommand extends BaseCommand
             ));
         } catch (\Throwable $e) {
             $this->warning('Install role grants skipped (' . $e->getMessage() . ').');
+        }
+
+        // A feature left preparing (a deploy-time `--prepare`, an interrupted turn-on) finishes in
+        // a child process: this process booted before any engine step, so it never verifies one.
+        try {
+            $this->getContainer()->get(CapabilityProvisioning::class)->syncRows();
+            $exit = $this->getContainer()->get(CapabilityProvisioning::class)
+                ->resumeOpenActivations(fn (string $line) => $this->line($line));
+            if ($exit !== null && $exit !== 0) {
+                $this->warning('A feature did not finish turning on — see `php glueful thallo:capabilities:status`.');
+            }
+        } catch (\Throwable $e) {
+            $this->warning('Capabilities not resumed (' . $e->getMessage() . ').');
         }
 
         // The default language: a real row in Settings › Languages where none is the default yet
@@ -204,6 +273,14 @@ final class ProvisionCommand extends BaseCommand
             $this->warning(
                 'Extension cache not rebuilt (' . $e->getMessage() . ') — run `php glueful extensions:cache`.',
             );
+        }
+
+        // A package Thallo requires that is missing from the enabled list is put back.
+        try {
+            $this->getContainer()->get(CapabilityProvisioning::class)
+                ->repairRequiredProviders(fn (string $line) => $this->line($line));
+        } catch (\Throwable $e) {
+            $this->warning('Required packages not checked (' . $e->getMessage() . ').');
         }
 
         // The admin bundle ships in core/resources/admin and is served from there by PHP; a copy
@@ -339,6 +416,10 @@ final class ProvisionCommand extends BaseCommand
             $this->warning($warning);
         }
         $this->line('');
+        if ($this->adoptionFailure !== null) {
+            $this->error($this->adoptionFailure);
+            return self::FAILURE;
+        }
         return self::SUCCESS;
     }
 

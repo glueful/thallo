@@ -52,13 +52,15 @@ local development; **payment links specifically require a canonical HTTPS origin
 ## What's on by default
 
 Most features are capabilities, switched at **Extensions › Capabilities**. A fresh install has
-these on: Accounts, Analytics, Data collections, Content importers, Navigation, Rendered delivery,
-SEO, Subscriptions and the Approval workflow. Three are off:
+these on: Accounts, Analytics, Content importers, Navigation, Rendered delivery, SEO and the
+Approval workflow. These are off:
 
 - **Search** is off by default. It runs on your PostgreSQL database and needs nothing installed;
   switch it on, then run `php glueful search:reindex`.
-- **Commerce** is off until its engine is enabled: `php glueful extensions:enable glueful/commerce`
-  (and `glueful/payvia` for payments), then switch the capability on.
+- **Collections** is off by default; switch it on in Extensions.
+- **Commerce**, **Subscriptions** and **Payments** turn on with one action in Extensions, which
+  prepares their engines, blocks and permissions (`php glueful thallo:capabilities:enable
+  thallo.commerce` from a shell). Turn Payments on to take online payments.
 - **Multi-tenancy** (workspaces) is turned on through its own staged flow in
   **Settings › Workspaces**, never by `extensions:enable`.
 

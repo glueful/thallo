@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Console;
 
+use Thallo\Core\Tests\Support\CapabilityBaseline;
 use Thallo\Core\Setup\Console\CreateAdminCommand;
 use Thallo\Core\Setup\SetupService;
 use Thallo\Core\Tests\Support\AppTestCase;
@@ -27,6 +28,7 @@ final class CreateAdminCommandTest extends AppTestCase
     {
         $this->resetInstallState();
         $this->restorePermissionRows();
+        CapabilityBaseline::restore($this->connection()->getPDO());
         parent::tearDown();
     }
 

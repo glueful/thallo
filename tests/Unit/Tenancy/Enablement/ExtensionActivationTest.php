@@ -7,6 +7,7 @@ namespace Thallo\Core\Tests\Unit\Tenancy\Enablement;
 use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Bootstrap\ConfigurationLoader;
+use Thallo\Core\Tests\Support\RecordingStateCoordinator;
 use Thallo\Core\Tests\Support\SpySchemaExecutor;
 use Thallo\Core\Tests\Support\TestableExtensionActivation;
 use Glueful\Container\Container;
@@ -14,6 +15,7 @@ use Glueful\Extensions\EnabledProviders;
 use Glueful\Extensions\ExtensionManager;
 use Glueful\Extensions\Schema\ExtensionOperation;
 use Thallo\Tenancy\Enablement\ExtensionActivation;
+use Thallo\Contracts\Extensions\ExtensionStateCoordinator;
 
 final class ExtensionActivationTest extends AppTestCase
 {
@@ -68,6 +70,29 @@ final class ExtensionActivationTest extends AppTestCase
         self::assertNotContains(ExtensionActivation::PROVIDER, ExtensionManager::readCacheFile($cache)['providers']);
     }
 
+    public function testActivateAndDeactivateWriteTheListAndCacheInsideTheExtensionStateLock(): void
+    {
+        // The fake coordinator snapshots the list and the cache around the sequence it runs: both
+        // change inside it, so another writer holding the lock can't interleave.
+        [$activation, $cache, $container] = $this->isolatedActivation([], [], withCoordinator: true);
+        $coordinator = $container->get(ExtensionStateCoordinator::class);
+        $root = dirname($cache, 3);
+        $coordinator->observe = static fn (): array => [
+            str_contains((string) file_get_contents($root . '/config/extensions.php'), 'TenancyServiceProvider'),
+            is_file($cache) && in_array(
+                ExtensionActivation::PROVIDER,
+                ExtensionManager::readCacheFile($cache)['providers'],
+                true,
+            ),
+        ];
+
+        $activation->activate();
+        self::assertSame([[[false, false], [true, true]]], $coordinator->runs);
+
+        $activation->deactivate();
+        self::assertSame([[true, true], [false, false]], $coordinator->runs[1]);
+    }
+
     public function testActivateCacheCarriesAppModulesAlongsideTheExtension(): void
     {
         // Modules-not-extensions regression guard: the cache write must be the NO-ARG
@@ -109,9 +134,9 @@ final class ExtensionActivationTest extends AppTestCase
 
     /** @param list<string> $enabled
      * @param list<string> $modules App-module providers for the isolated config/serviceproviders.php
-     * @return array{ExtensionActivation,string}
+     * @return array{ExtensionActivation, string, Container}
      */
-    private function isolatedActivation(array $enabled, array $modules = []): array
+    private function isolatedActivation(array $enabled, array $modules = [], bool $withCoordinator = false): array
     {
         $root = sys_get_temp_dir() . '/thallo-extension-activation-' . bin2hex(random_bytes(6));
         $this->temporaryRoots[] = $root;
@@ -132,9 +157,12 @@ final class ExtensionActivationTest extends AppTestCase
         $context->setConfigLoader(new ConfigurationLoader($root, 'testing', $root . '/config'));
         $container = new Container([ApplicationContext::class => $context]);
         $container->load([ExtensionManager::class => new ExtensionManager($container)]);
+        if ($withCoordinator) {
+            $container->load([ExtensionStateCoordinator::class => new RecordingStateCoordinator()]);
+        }
         $context->setContainer($container);
 
-        return [new ExtensionActivation($context), $root . '/bootstrap/cache/extensions.php'];
+        return [new ExtensionActivation($context), $root . '/bootstrap/cache/extensions.php', $container];
     }
 
     /** @param list<string> $providers */

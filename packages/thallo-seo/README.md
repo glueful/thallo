@@ -50,8 +50,7 @@ The provider registers one capability in `boot()`:
 new Capability('thallo.seo', label: 'SEO', description: 'Sitemaps, per-entry SEO meta, and robots.txt.');
 ```
 
-- **Enabled by default.** An operator turns it off or on in the admin under **Extensions ›
-  Capabilities**. The switch is stored system-wide and overrides the deploy-time
+- **Enabled by default.** An operator turns it off or on in the admin under **Extensions › Capabilities**. The switch is stored system-wide and overrides the deploy-time
   `thallo.capabilities` config map.
 - **Gated end-to-end.** When disabled, the meta, sitemap, robots, and admin routes are never
   registered (`404`) and the cache-invalidation listener is not wired. Migrations run on install (not

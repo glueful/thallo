@@ -36,6 +36,7 @@ function paymentsSettings(
   overrides: Partial<PlatformPaymentsSettings> = {},
 ): PlatformPaymentsSettings {
   return {
+    payments_enabled: overrides.payments_enabled ?? true,
     mode: overrides.mode ?? 'gateway',
     default_gateway: overrides.default_gateway ?? {
       value: 'paystack',
@@ -64,7 +65,11 @@ function paymentsSettings(
 }
 
 function mountPage() {
-  return mount(PaymentsPage)
+  return mount(PaymentsPage, {
+    global: {
+      stubs: { RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } },
+    },
+  })
 }
 
 describe('Settings → Payments page', () => {
@@ -108,6 +113,33 @@ describe('Settings → Payments page', () => {
 
     expect(wrapper.find('[data-test="payments-manual"]').text()).toContain('Manual collection')
     expect(wrapper.findAll('[data-test="payments-gateway-card"]')).toHaveLength(0)
+  })
+
+  it('settings payments says Payments is off and links to Extensions', async () => {
+    paymentsData.value = paymentsSettings({ payments_enabled: false, mode: 'manual', gateways: [] })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    const off = wrapper.find('[data-test="payments-off"]')
+    expect(off.text()).toContain('Payments is off')
+    expect(off.find('a').attributes('href')).toBe('/extensions')
+    expect(wrapper.text()).not.toContain('glueful/payvia')
+  })
+
+  it('keeps saved gateway settings visible while Payments is off', async () => {
+    paymentsData.value = paymentsSettings({ payments_enabled: false })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="payments-off"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-test="payments-gateway-card"]')).toHaveLength(2)
+  })
+
+  it('shows no off notice while Payments is on', async () => {
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="payments-off"]').exists()).toBe(false)
   })
 
   it('renders the loaded gateway panel with a card per gateway', async () => {

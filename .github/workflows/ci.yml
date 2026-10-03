@@ -45,6 +45,8 @@ env:
     tests/Integration/Settings
     tests/Integration/Setup
     tests/Integration/Seo
+  # Split from D when D outgrew the 15-minute watchdog (~6 min locally, ~2.5x that on CI).
+  INTEGRATION_SHARD_E: >-
     tests/Integration/Workflow
     tests/Integration/Pipeline
     tests/Integration/ImportExport
@@ -77,7 +79,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [lint-unit, integration-a, integration-b, integration-c, integration-d]
+        shard: [lint-unit, integration-a, integration-b, integration-c, integration-d, integration-e]
 
     services:
       postgres:
@@ -177,7 +179,7 @@ jobs:
       # silently stops running new directories. Fails loudly with the unassigned names.
       - name: Shard coverage guard
         run: |
-          covered=$(printf '%s %s %s %s' "$INTEGRATION_SHARD_A" "$INTEGRATION_SHARD_B" "$INTEGRATION_SHARD_C" "$INTEGRATION_SHARD_D" | tr ' ' '\n' | sed '/^$/d; s#^tests/Integration/##' | sort)
+          covered=$(printf '%s %s %s %s %s' "$INTEGRATION_SHARD_A" "$INTEGRATION_SHARD_B" "$INTEGRATION_SHARD_C" "$INTEGRATION_SHARD_D" "$INTEGRATION_SHARD_E" | tr ' ' '\n' | sed '/^$/d; s#^tests/Integration/##' | sort)
           actual=$(ls tests/Integration | sort)
           twice=$(echo "$covered" | uniq -d)
           if [ -n "$twice" ]; then
@@ -245,6 +247,9 @@ jobs:
               ;;
             integration-d)
               timeout --signal=KILL 900 vendor/bin/phpunit $INTEGRATION_SHARD_D
+              ;;
+            integration-e)
+              timeout --signal=KILL 900 vendor/bin/phpunit $INTEGRATION_SHARD_E
               ;;
           esac
 

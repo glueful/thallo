@@ -77,6 +77,7 @@ function meta(overrides: Partial<WorkspaceBillingMeta> = {}): WorkspaceBillingMe
     operator_contact_reason: null,
     purchasable_plans: [{ plan_key: 'pro', name: 'Pro' }],
     plan_change_supported: false,
+    payments_enabled: true,
     ...overrides,
   }
 }
@@ -157,6 +158,14 @@ describe('billing/index page: meta-first states', () => {
     expect(wrapper.find('[data-test="plan-picker-select"]').exists()).toBe(false)
   })
 
+  it('payments off with no subscription: says so and offers no Subscribe', async () => {
+    metaData.value = meta({ payments_enabled: false, subscription: null })
+    const wrapper = await mountPage(BillingIndex)
+    await flushPromises()
+    expect(wrapper.find('[data-test="payments-off"]').text()).toContain('Online payments are off')
+    expect(wrapper.find('[data-test="plan-picker-select"]').exists()).toBe(false)
+  })
+
   it('plan picker: renders purchasable plans when switch is on and there is no subscription', async () => {
     metaData.value = meta({
       purchasable_plans: [
@@ -216,6 +225,22 @@ describe('billing/index page: meta-first states', () => {
     const changePlan = wrapper.find('[data-test="billing-change-plan"]')
       .element as HTMLButtonElement
     expect(changePlan.disabled).toBe(false)
+  })
+
+  it('active subscription while payments is off: cancel stays, change plan is not offered', async () => {
+    metaData.value = meta({
+      payments_enabled: false,
+      subscription: {
+        status: 'active',
+        plan_key: 'pro',
+        current_period_end: '2099-01-01',
+        provider_managed: true,
+      },
+    })
+    const wrapper = await mountPage(BillingIndex)
+    await flushPromises()
+    expect(wrapper.find('[data-test="billing-cancel"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="billing-change-plan"]').exists()).toBe(false)
   })
 
   it('non_renewing: shows the access-until date, no cancel control', async () => {

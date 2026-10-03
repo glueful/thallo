@@ -66,14 +66,22 @@
           "glueful/thallo-workflow": "1.0.0"
         }
       }
+    },
+    {
+      "type": "path",
+      "url": "tests/fixtures/packages/acme-bookings",
+      "options": {
+        "symlink": true
+      }
     }
   ],
   "require": {
     "php": "^8.3",
-    "glueful/framework": "^1.87",
+    "glueful/framework": "^1.88.1",
     "glueful/thallo-core": "*"
   },
   "require-dev": {
+    "acme/bookings": "1.0.0",
     "phpunit/phpunit": "^10.5",
     "squizlabs/php_codesniffer": "^3.6"
   },

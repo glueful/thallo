@@ -9,6 +9,7 @@ use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Events\EventService;
 use Glueful\Extensions\ServiceProvider;
 use Thallo\Contracts\Capability\Capability;
+use Thallo\Contracts\Capability\DeclaresCapabilities;
 use Thallo\Contracts\Capability\CapabilityRegistry;
 use Thallo\Contracts\Authoring\DraftSummaryReader;
 use Thallo\Contracts\Events\ContentLifecycleEvent;
@@ -16,7 +17,7 @@ use Thallo\Workflow\Http\Controllers\WorkflowController;
 use Glueful\Permissions\PermissionManager;
 use Psr\Container\ContainerInterface;
 
-final class WorkflowServiceProvider extends ServiceProvider implements DeclaresLoadOrder
+final class WorkflowServiceProvider extends ServiceProvider implements DeclaresLoadOrder, DeclaresCapabilities
 {
     public static function loadAfter(): array
     {
@@ -106,15 +107,20 @@ final class WorkflowServiceProvider extends ServiceProvider implements DeclaresL
         $this->mergeConfig('workflow', require __DIR__ . '/../config/workflow.php');
     }
 
+    public function capabilities(): array
+    {
+        return [
+            new Capability(
+                'thallo.workflow',
+                label: 'Approval workflow',
+                description: 'Single-stage editorial review over draft/publish.',
+            ),
+        ];
+    }
+
     public function boot(ApplicationContext $context): void
     {
         $registry = app($context, CapabilityRegistry::class);
-
-        $registry->register(new Capability(
-            'thallo.workflow',
-            label: 'Approval workflow',
-            description: 'Single-stage editorial review over draft/publish.',
-        ));
 
         // Migrations are declared by the composer manifest (extra.glueful.migrations).
 

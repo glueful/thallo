@@ -4,7 +4,13 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Http\Controllers;
 
+use Thallo\Core\Capabilities\Activation\ActivationStore;
+use Thallo\Core\Capabilities\Activation\EngineActivation;
 use Thallo\Core\Capabilities\CapabilityStateStore;
+use Thallo\Core\Capabilities\FeatureManagementPolicy;
+use Thallo\Core\Support\ActorHelper;
+use Glueful\Extensions\ExtensionManager;
+use Symfony\Component\HttpFoundation\Request;
 use Thallo\Core\Http\DTOs\Responses\CapabilityListData;
 use Thallo\Core\Http\DTOs\UpdateCapabilityStateData;
 use Glueful\Bootstrap\ApplicationContext;
@@ -85,6 +91,7 @@ class CapabilityAdminController
                 'reason' => $availability->reason,
                 'remedy' => $availability->remedy,
                 'effective' => $this->capabilities->isEnabled($capability->id),
+                ...$this->activationFields($capability),
             ];
         }
         usort($items, static fn (array $a, array $b): int => strcmp((string) $a['id'], (string) $b['id']));
@@ -103,7 +110,7 @@ class CapabilityAdminController
     #[ApiResponse(200, description: 'Requested state persisted (read back before reporting).')]
     #[ApiResponse(404, description: 'No such registered capability.')]
     #[ApiResponse(409, description: 'Enable refused: the owning engine cannot back it.')]
-    public function update(string $id, UpdateCapabilityStateData $input): Response
+    public function update(string $id, UpdateCapabilityStateData $input, ?Request $request = null): Response
     {
         // The id must EXACTLY match a registered capability: request text never becomes an
         // arbitrary system key.
@@ -116,6 +123,24 @@ class CapabilityAdminController
         }
         if (!$registered) {
             return Response::notFound("No registered capability named “{$id}”.");
+        }
+        $misconfigured = $this->policy()->misconfiguration($id);
+        if ($misconfigured !== null) {
+            return Response::error($misconfigured, 409, ['reason' => 'misconfigured']);
+        }
+
+        // A feature with an activation flow is never written on directly (it would skip the
+        // engine, its blocks and its grants), and turning it off supersedes any open activation
+        // and stores it off in one write.
+        if ($this->policy()->capabilityManagement($id) === 'activation') {
+            if ($input->enabled) {
+                return Response::error(
+                    "{$id} turns on through its activation: POST /v1/admin/capabilities/{$id}/activation.",
+                    409,
+                    ['reason' => 'use_activation'],
+                );
+            }
+            return $this->turnOffActivationCapability($id, $request);
         }
 
         $availability = $this->capabilities->availability($id);
@@ -150,6 +175,80 @@ class CapabilityAdminController
             'available' => $availability->available,
             'effective' => $effectiveAfter,
         ], $input->enabled ? 'Capability enabled.' : 'Capability disabled.');
+    }
+
+    private function turnOffActivationCapability(string $id, ?Request $request): Response
+    {
+        $effectiveBefore = $this->capabilities->isEnabled($id);
+        $actor = ($request !== null ? ActorHelper::uuidFromRequest($request) : null) ?? 'admin-api';
+        try {
+            $this->container()->get(ActivationStore::class)->supersede($id, $actor);
+        } catch (\Throwable $e) {
+            return Response::error('Capability state write failed: ' . $e->getMessage(), 500);
+        }
+        if ($effectiveBefore) {
+            $this->clearCompiledRouteState();
+        }
+        return Response::success([
+            'id' => $id,
+            'requested' => false,
+            'available' => $this->capabilities->availability($id)->available,
+            'effective' => false,
+        ], 'Capability disabled.');
+    }
+
+    /**
+     * How Extensions › Capabilities switches this capability (its declared mode, with an external
+     * flow's destination and an activation's copy), and for an activation capability its open or
+     * last activation, whether application files can be written, and whether its engine is loaded.
+     *
+     * @return array{management: string, misconfigured: ?string, destination: ?array{path: string, label: string},
+     *     copy: ?array{turn_on: ?string, turn_off: ?string, links: list<array{label: string, to: string}>},
+     *     activation: ?array<string, mixed>, application_files_writable: ?bool, engine_enabled: ?bool}
+     */
+    private function activationFields(Capability $capability): array
+    {
+        $id = $capability->id;
+        $policy = $this->policy();
+        $declared = [
+            'management' => $policy->capabilityManagement($id),
+            'misconfigured' => $policy->misconfiguration($id),
+            'destination' => $capability->destination === null
+                ? null
+                : ['path' => $capability->destination->path, 'label' => $capability->destination->label],
+            'copy' => $capability->copy === null
+                ? null
+                : [
+                    'turn_on' => $capability->copy->turnOn,
+                    'turn_off' => $capability->copy->turnOff,
+                    'links' => $capability->copy->links,
+                ],
+        ];
+        $engine = $policy->engineOf($id);
+        if ($declared['management'] !== 'activation' || $engine === null) {
+            return $declared + [
+                'activation' => null,
+                'application_files_writable' => null,
+                'engine_enabled' => null,
+            ];
+        }
+        $record = $this->container()->get(ActivationStore::class)->find($id);
+        return $declared + [
+            'activation' => $record !== null && $record->generation > 0 ? $record->toArray() : null,
+            'application_files_writable' => $this->container()->get(EngineActivation::class)
+                ->applicationFilesWritable(),
+            'engine_enabled' => $this->container()->get(ExtensionManager::class)->hasProvider($engine['provider']),
+        ];
+    }
+
+    private function policy(): FeatureManagementPolicy
+    {
+        return $this->container()->get(FeatureManagementPolicy::class);
+    }
+
+    private function container(): \Psr\Container\ContainerInterface
+    {
+        return $this->context->getContainer();
     }
 
     /** Overridable seam so tests can observe the purge without touching real compiled state. */

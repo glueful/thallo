@@ -272,3 +272,13 @@ if ($missing !== []) {
 }
 
 fwrite(STDOUT, "Test database schema verified.\n");
+
+// The test install has activated its engine-backed capabilities (Commerce, Subscriptions): their
+// switches are stored on, since an activation capability never follows its engine. The
+// distribution smoke models a fresh install instead (THALLO_TEST_FRESH_INSTALL=1): nothing stored.
+if (getenv('THALLO_TEST_FRESH_INSTALL') === '1') {
+    fwrite(STDOUT, "Fresh install: no capability baseline stored.\n");
+} else {
+    Thallo\Core\Tests\Support\CapabilityBaseline::restore($pdo);
+    fwrite(STDOUT, "Capability baseline stored.\n");
+}

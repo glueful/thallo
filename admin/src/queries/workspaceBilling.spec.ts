@@ -50,6 +50,7 @@ describe('workspace billing query layer', () => {
             operator_contact_required: false,
             operator_contact_reason: null,
             purchasable_plans: [{ plan_key: 'pro', name: 'Pro' }],
+            payments_enabled: true,
           },
         }),
       )
@@ -79,6 +80,7 @@ describe('workspace billing query layer', () => {
           },
         ],
         plan_change_supported: false,
+        payments_enabled: true,
       })
     })
 

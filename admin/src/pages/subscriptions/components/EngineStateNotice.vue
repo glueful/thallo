@@ -37,14 +37,14 @@ withDefaults(
     <p class="max-w-md text-sm text-muted" data-test="engine-state-description">
       {{
         state === 'engine_disabled'
-          ? 'Enable the subscriptions extension to manage plans and workspace billing.'
+          ? 'Turn on Subscriptions in Extensions to manage plans and workspace billing.'
           : 'Run the pending database migrations before subscriptions can be managed here.'
       }}
     </p>
     <UButton
       v-if="state === 'engine_disabled' && showAction"
       to="/extensions"
-      icon="i-lucide-puzzle"
+      icon="i-lucide-toggle-right"
       label="Go to Extensions"
       data-test="engine-state-action"
     />

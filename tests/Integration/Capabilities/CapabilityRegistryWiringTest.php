@@ -18,16 +18,14 @@ final class CapabilityRegistryWiringTest extends AppTestCase
         self::assertInstanceOf(DefaultCapabilityRegistry::class, $reg);
     }
 
-    public function testRegistryIsSharedSoRegistrationsPersist(): void
+    public function testRegistryIsSharedAndHoldsTheDeclaredCapabilities(): void
     {
+        // One instance per container: every gate decides from the same declarations and the same
+        // per-boot memo (declarations are collected before boot and sealed; see
+        // CapabilityDeclarationsTest for a late registration being refused).
         $reg = $this->container()->get(CapabilityRegistry::class);
-        $reg->register(new Capability('test.fake', label: 'Fake'));
-
-        // A second resolve must be the SAME instance (shared) and see the registration.
-        $again = $this->container()->get(CapabilityRegistry::class);
-        self::assertContains('test.fake', array_map(fn (Capability $c) => $c->id, $again->all()));
-        // Default config has no override for test.fake => enabled.
-        self::assertTrue($again->isEnabled('test.fake'));
+        self::assertSame($reg, $this->container()->get(CapabilityRegistry::class));
+        self::assertContains('thallo.workflow', array_map(fn (Capability $c) => $c->id, $reg->all()));
     }
 
     public function testCollectionsIsNamedAsTheBackendItIs(): void
@@ -48,15 +46,18 @@ final class CapabilityRegistryWiringTest extends AppTestCase
         // (config('thallo.capabilities.test.fake')) would walk capabilities['test']['fake'],
         // never find the literal-key 'test.fake', fall back to the default, and wrongly
         // ENABLE it — failing this test.
-        $this->appContext()->mergeConfigDefaults('thallo', ['capabilities' => ['test.fake' => false]]);
+        // A declared capability whose id is dotted, with no stored switch, so the config map decides.
+        $snapshot = $this->container()->get(\Thallo\Core\Capabilities\CapabilityStateSnapshot::class);
+        $key = 'capability.thallo.workflow.enabled';
+        self::assertArrayNotHasKey($key, $snapshot->rows, 'precondition: no stored switch');
+        $this->appContext()->mergeConfigDefaults('thallo', ['capabilities' => ['thallo.workflow' => false]]);
 
         // Call the factory directly to build a FRESH registry from the (now-seeded) config,
         // bypassing the shared singleton.
         $reg = CoreServiceProvider::makeCapabilityRegistry($this->container());
-        $reg->register(new Capability('test.fake'));
 
         self::assertFalse(
-            $reg->isEnabled('test.fake'),
+            $reg->isEnabled('thallo.workflow'),
             'factory must read the whole thallo.capabilities map (full id key), not via dotted access',
         );
     }

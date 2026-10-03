@@ -24,6 +24,21 @@ final class RawPdoWriteAudit implements StaticWriteAudit
     ];
 
     private const SYSTEM_READERS = [
+        // thallo_system_flags is unscoped system state, never tenant data: the capability switches
+        // and their version (read by the snapshot, advanced by the version).
+        'core/src/Capabilities/CapabilityStateSnapshot.php',
+        'core/src/Capabilities/CapabilityStateVersion.php',
+        // capability_activations and its events: system tables, never tenant data.
+        'core/src/Capabilities/Activation/ActivationStore.php',
+        // Savepoints around a block insert (no data read or written by the raw statements).
+        'core/src/Capabilities/Activation/BlockInsert.php',
+        // The install-role grants lock (pg_advisory_xact_lock); the grants go through Aegis.
+        'core/src/Setup/InstallRoleGrants.php',
+        // The extension-state lock (a session advisory lock; no data read or written).
+        'core/src/Capabilities/Activation/ExtensionStateLock.php',
+        // The upgrade adoption: system tables only (flags, activation rows, its own record), on the
+        // database provision is installing against.
+        'core/src/Setup/CapabilityAdoption.php',
         'packages/thallo-analytics/src/Query/AnalyticsQuery.php',
         'core/src/Content/Repositories/VersionRepository.php',
         'packages/thallo-render/src/Templates/TemplateRepository.php',

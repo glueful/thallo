@@ -24,6 +24,17 @@ final class TestableExtensionAdminController extends ExtensionAdminController
         return $this->executor ?? parent::schemaExecutor();
     }
 
+    /** THALLO_TEST_PAUSE_BEFORE_EXECUTOR=1: print `before-executor` and wait for a line on stdin. */
+    protected function beforeExecutor(): void
+    {
+        if (getenv('THALLO_TEST_PAUSE_BEFORE_EXECUTOR') !== '1') {
+            return;
+        }
+        fwrite(STDOUT, "before-executor\n");
+        fflush(STDOUT);
+        fgets(STDIN);
+    }
+
     protected function hostToggleRefusal(): ?array
     {
         return $this->hostRefusal;

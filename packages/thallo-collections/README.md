@@ -42,8 +42,7 @@ The provider registers a single capability in `boot()`:
 new Capability('thallo.collections', label: 'Collections', description: '…');
 ```
 
-- **Enabled by default.** An operator turns it off or on in the admin under **Extensions ›
-  Capabilities**. The switch is stored system-wide and overrides the deploy-time
+- **Enabled by default.** An operator turns it off or on in the admin under **Extensions › Capabilities**. The switch is stored system-wide and overrides the deploy-time
   `thallo.capabilities` config map.
 - **Gated, not just UI.** When disabled, the public + admin routes are never registered (requests
   `404`, not a live-but-disabled handler). Migrations run on **install**, not enable, so disabling
