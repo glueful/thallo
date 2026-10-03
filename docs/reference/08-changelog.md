@@ -10,6 +10,19 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.80] - 2026-10-03 — Developer Preview
+
+Turning a feature on from the admin no longer stops at "the extension cache is out of date" on a
+server running PHP-FPM with OPcache. Requires glueful/framework 1.88.3, which `composer update`
+brings in. No migrations and nothing to provision.
+
+### Fixed
+- **Turning Commerce or Subscriptions on no longer stops at "the extension cache is out of date".**
+  Under PHP-FPM with OPcache, the step that enables the engine could rebuild the extension cache
+  from an out-of-date copy of the enabled list, and the check that follows found the engine
+  missing; **Retry** only repeated the check. Retry now rebuilds the cache and checks again, and
+  with glueful/framework 1.88.3 the rebuild reads the list it just wrote.
+
 ## [1.0.0-beta.79] - 2026-10-03 — Developer Preview
 
 A new project installs cleanly again: `composer create-project` no longer stops at its
