@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Capabilities;
 
+use Thallo\Core\Tests\Support\CapabilityBaseline;
 use Symfony\Component\Console\Tester\CommandTester;
 use Thallo\Core\Capabilities\Activation\ActivationRowMissing;
 use Thallo\Core\Capabilities\Activation\ActivationStore;
@@ -47,6 +48,7 @@ final class ActivationRowInitializationTest extends AppTestCase
         }
         $this->resetCommerceActivation();
         $this->removeActivationTempFiles();
+        CapabilityBaseline::restore($this->connection()->getPDO());
         parent::tearDown();
     }
 

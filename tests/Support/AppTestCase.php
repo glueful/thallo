@@ -232,6 +232,8 @@ abstract class AppTestCase extends TestCase
         // migration, so it is absent on a pre-migration DB. Then drop the shared memo.
         if ($this->connection()->getSchemaBuilder()->hasTable('thallo_system_flags')) {
             $this->connection()->table('thallo_system_flags')->where('key', '!=', '')->forceDelete();
+            // The clean slate is still a site that activated its engine-backed capabilities.
+            CapabilityBaseline::restore($this->connection()->getPDO());
         }
         $this->container()->get(\Thallo\Tenancy\System\SystemFlags::class)->clearCache();
 
@@ -339,6 +341,29 @@ abstract class AppTestCase extends TestCase
             @unlink($f);
         }
 
+        // An override that switches an activation capability off asks for a context booted with it
+        // off. Its stored baseline switch would win over configuration, so it is cleared for the
+        // boot (the context decides from the snapshot it takes then) and put back, as it was, after.
+        $offAtBoot = [];
+        if ($file === 'thallo' && is_array($config['capabilities'] ?? null)) {
+            foreach ($config['capabilities'] as $id => $enabled) {
+                if ($enabled === false && in_array($id, CapabilityBaseline::ON, true)) {
+                    $offAtBoot[] = (string) $id;
+                }
+            }
+        }
+        $flags = $offAtBoot === [] ? null : self::baselinePdo();
+        $removed = [];
+        foreach ($offAtBoot as $id) {
+            $key = "capability.{$id}.enabled";
+            $stmt = $flags?->prepare('DELETE FROM thallo_system_flags WHERE key = ? RETURNING value');
+            $stmt?->execute([$key]);
+            $value = $stmt?->fetchColumn();
+            if (is_string($value)) {
+                $removed[$key] = $value;
+            }
+        }
+
         try {
             return Framework::create($root)
                 ->withConfigDir($root . '/config')
@@ -346,6 +371,11 @@ abstract class AppTestCase extends TestCase
                 ->boot()
                 ->getContext();
         } finally {
+            foreach ($removed as $key => $value) {
+                $flags?->prepare(
+                    'INSERT INTO thallo_system_flags (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING'
+                )->execute([$key, $value]);
+            }
             if ($previous !== null) {
                 file_put_contents($overrideFile, $previous);
             } else {
@@ -357,6 +387,22 @@ abstract class AppTestCase extends TestCase
             RouteManifest::reset();
             \Glueful\Extensions\ServiceProvider::resetLoadedRoutes();
         }
+    }
+
+    /** A connection of its own to the test database, for the boot-time baseline switches. */
+    private static function baselinePdo(): \PDO
+    {
+        return new \PDO(
+            sprintf(
+                'pgsql:host=%s;port=%s;dbname=%s',
+                env('DB_PGSQL_HOST', '127.0.0.1'),
+                env('DB_PGSQL_PORT', '5432'),
+                env('DB_PGSQL_DATABASE', 'app_test'),
+            ),
+            (string) env('DB_PGSQL_USERNAME', 'postgres'),
+            (string) env('DB_PGSQL_PASSWORD', ''),
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION],
+        );
     }
 
     protected function connection(): Connection

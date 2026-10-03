@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Capabilities;
 
+use Thallo\Core\Tests\Support\CapabilityBaseline;
 use Glueful\Extensions\Aegis\Repositories\PermissionRepository;
 use Glueful\Extensions\Aegis\Repositories\RolePermissionRepository;
 use Glueful\Extensions\Aegis\Repositories\RoleRepository;
@@ -58,6 +59,7 @@ final class ActivationRunnerTest extends AppTestCase
         $this->resetCommerceActivation();
         $this->restorePermissionRows();
         $this->removeActivationTempFiles();
+        CapabilityBaseline::restore($this->connection()->getPDO());
         parent::tearDown();
     }
 

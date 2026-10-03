@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Console;
 
+use Thallo\Core\Tests\Support\CapabilityBaseline;
 use Symfony\Component\Console\Tester\CommandTester;
 use Thallo\Core\Capabilities\Activation\ActivationStatus;
 use Thallo\Core\Capabilities\Activation\ActivationStep;
@@ -62,6 +63,7 @@ final class CapabilitiesCommandsTest extends AppTestCase
         $this->resetCommerceActivation();
         $this->restorePermissionRows();
         $this->removeActivationTempFiles();
+        CapabilityBaseline::restore($this->connection()->getPDO());
         parent::tearDown();
     }
 

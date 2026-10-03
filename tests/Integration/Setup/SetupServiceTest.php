@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Setup;
 
+use Thallo\Core\Tests\Support\CapabilityBaseline;
 use Thallo\Core\Setup\SetupService;
 use Thallo\Core\Support\RoleAuthority;
 use Thallo\Core\Tests\Support\AppTestCase;
@@ -39,6 +40,7 @@ final class SetupServiceTest extends AppTestCase
         // (e.g. last-superuser continuity checks that assert against the whole users table).
         $this->resetInstallState();
         $this->restorePermissionRows();
+        CapabilityBaseline::restore($this->connection()->getPDO());
         parent::tearDown();
     }
 

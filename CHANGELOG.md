@@ -13,6 +13,9 @@ as the next release, never a mutated tag.
   capability with an activation stands.
 
 ### Changed
+- **Commerce and Subscriptions stay as they were on upgrade.** A site where they were on keeps them
+  on; from now on they turn on through Extensions, which prepares everything first. Run
+  `php glueful thallo:provision` after updating, as usual: until it runs, they read off.
 - **Extensions turns features on in one place.** **Extensions › Capabilities** lists every
   capability. Commerce and Subscriptions turn on with one action that prepares everything, shows what
   was added, and can be retried if a step fails. **Extensions › Installed** shows who manages each

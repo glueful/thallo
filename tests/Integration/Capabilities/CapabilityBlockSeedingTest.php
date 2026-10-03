@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Capabilities;
 
+use Thallo\Core\Tests\Support\CapabilityBaseline;
 use Thallo\Core\Capabilities\Activation\ActivationStore;
 use Thallo\Core\Capabilities\Activation\BlockInsert;
 use Thallo\Core\Capabilities\Activation\CapabilityBlockSeeder;
@@ -40,6 +41,7 @@ final class CapabilityBlockSeedingTest extends AppTestCase
              WHERE capability = 'thallo.commerce'"
         );
         $pdo->exec("DELETE FROM thallo_system_flags WHERE key = 'capability.thallo.commerce.enabled'");
+        CapabilityBaseline::restore($this->connection()->getPDO());
         parent::tearDown();
     }
 

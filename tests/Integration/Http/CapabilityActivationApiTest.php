@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Http;
 
+use Thallo\Core\Tests\Support\CapabilityBaseline;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Http\Response;
 use Psr\Container\ContainerInterface;
@@ -53,6 +54,7 @@ final class CapabilityActivationApiTest extends AppTestCase
         $this->resetCommerceActivation();
         $this->restorePermissionRows();
         $this->removeActivationTempFiles();
+        CapabilityBaseline::restore($this->connection()->getPDO());
         parent::tearDown();
     }
 

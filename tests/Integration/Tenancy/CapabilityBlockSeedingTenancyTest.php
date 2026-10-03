@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Tenancy;
 
+use Thallo\Core\Tests\Support\CapabilityBaseline;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Helpers\Utils;
 use Psr\Container\ContainerInterface;
@@ -34,6 +35,7 @@ final class CapabilityBlockSeedingTenancyTest extends RetrofittedTenantTestCase
              WHERE capability = 'thallo.commerce'"
         );
         $pdo->exec("DELETE FROM thallo_system_flags WHERE key = 'capability.thallo.commerce.enabled'");
+        CapabilityBaseline::restore($this->connection()->getPDO());
         parent::tearDown();
     }
 

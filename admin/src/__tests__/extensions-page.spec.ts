@@ -261,6 +261,20 @@ describe('the Extensions page', () => {
     expect(calls.some((c) => c.key === START)).toBe(true)
   })
 
+  it('an adopted capability says only that it is on', async () => {
+    serve({
+      [MANAGE]: manage(
+        commerce({
+          requested: true,
+          effective: true,
+          activation: record({ status: 'succeeded', result: { adopted: true } }),
+        }),
+      ),
+    })
+    await mountExtensions()
+    expect(inCard('[data-test="capability-summary"]')?.textContent?.trim()).toBe('Commerce is on.')
+  })
+
   it('a feature already on without an activation record says only that it is on', async () => {
     serve({ [MANAGE]: manage(commerce({ requested: true, effective: true, activation: null })) })
     await mountExtensions()
