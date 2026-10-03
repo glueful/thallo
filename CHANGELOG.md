@@ -42,6 +42,10 @@ as the next release, never a mutated tag.
   not Thallo features, and offered switches without the checks the rest of the page uses.
 
 ### Fixed
+- **Turning a feature off removes its pages at once.** A compiled route table built before the
+  switch is never served after it.
+- **An admin enable and an `extensions:enable` at the same time both finish.** They no longer wait on
+  each other until one gives up with "Another schema operation holds the migration lock".
 - **Overlapping provisions keep every role grant**, and a permission you revoke stays revoked. Role
   grants and their record of what was offered are now decided in one serialized transaction.
 

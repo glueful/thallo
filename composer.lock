@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "7bc2ff4c34db95a1a885988f22ba0675",
+    "content-hash": "6a8df6e452fbaeb4b6c4627b90b49eb9",
     "packages": [
         {
             "name": "composer/semver",
@@ -848,16 +848,16 @@
         },
         {
             "name": "glueful/framework",
-            "version": "v1.87.0",
+            "version": "v1.88.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/framework.git",
-                "reference": "27f9227917d596db0a38be02a3df8be971a5f961"
+                "reference": "d130b3e340fa356c8ba33b7445760d849304a2ff"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/framework/zipball/27f9227917d596db0a38be02a3df8be971a5f961",
-                "reference": "27f9227917d596db0a38be02a3df8be971a5f961",
+                "url": "https://api.github.com/repos/glueful/framework/zipball/d130b3e340fa356c8ba33b7445760d849304a2ff",
+                "reference": "d130b3e340fa356c8ba33b7445760d849304a2ff",
                 "shasum": ""
             },
             "require": {
@@ -891,7 +891,7 @@
                 "elasticsearch/elasticsearch": "^8.0",
                 "league/flysystem-memory": "^3.29",
                 "meilisearch/meilisearch-php": "^1.0",
-                "phpstan/phpstan": "^2.0",
+                "phpstan/phpstan": "^2.2.16",
                 "phpstan/phpstan-deprecation-rules": "^2.0",
                 "phpstan/phpstan-phpunit": "^2.0",
                 "phpstan/phpstan-strict-rules": "^2.0",
@@ -954,7 +954,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-09-22T16:42:26+00:00"
+            "time": "2026-10-03T08:37:32+00:00"
         },
         {
             "name": "glueful/i18n",
@@ -1793,7 +1793,7 @@
                 "glueful/audit": "^1.4",
                 "glueful/commerce": "^1.13",
                 "glueful/email-notification": "^1.14",
-                "glueful/framework": "^1.87.0",
+                "glueful/framework": "^1.88.0",
                 "glueful/i18n": "^1.2",
                 "glueful/import-export": "^1.2.1",
                 "glueful/media": "^1.2",
