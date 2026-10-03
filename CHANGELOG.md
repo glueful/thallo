@@ -5,7 +5,15 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.78] - 2026-10-03 — Developer Preview
+
+Features turn on in one place. **Extensions › Capabilities** lists every capability, and
+Commerce, Subscriptions and now Payments turn on with one action that prepares everything first.
+Extensions can add capabilities of their own, and turning a feature off removes its pages at once.
+Requires glueful/framework 1.88.1, which `composer update` brings in. Two migrations (capability
+activations, and the record that keeps an upgraded site's features as they were); run
+`php glueful thallo:provision` after updating, as usual: until it runs, Commerce, Subscriptions
+and Payments read off.
 
 ### Added
 - **`thallo:capabilities:enable`, `resume` and `status`.** Turn a capability on from the terminal,
@@ -13,13 +21,14 @@ as the next release, never a mutated tag.
   capability with an activation stands.
 - **Payments is a capability.** Turn it on in Extensions to take online payments; turning it off
   stops new online payments and plan changes, but keeps settling the ones in flight, refunds and
-  renewals already billed by your provider. A site where Payvia was enabled with its schema ready keeps Payments on
-  once `php glueful thallo:provision` runs after the update.
+  renewals already billed by your provider. A site where Payvia was enabled with its schema ready
+  keeps Payments on once `php glueful thallo:provision` runs after the update.
 - **Extensions can add their own capabilities.** A package declares one in its `composer.json`
   (`extra.thallo.capabilities`): it appears in Extensions while the package is still disabled, and
   an activation capability turns on with one action that enables the package, adds its blocks and
   grants its permissions (never before it). Conflicting or invalid declarations are blocked, with
-  their packages, and reported by `php glueful thallo:doctor`. `thallo.required_packages` adds packages no switch may disable.
+  their packages, and reported by `php glueful thallo:doctor`. `thallo.required_packages` adds
+  packages no switch may disable.
 
 ### Changed
 - **Packs declare capabilities instead of registering them.** A package declares its capabilities
