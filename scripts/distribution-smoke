@@ -32,7 +32,8 @@ mv "$OVERLAY" "$ASIDE"
 
 echo "== distribution smoke: fresh-install migration chain (trimmed posture) =="
 (cd "$ROOT" && DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/reset-test-db.php)
-(cd "$ROOT" && DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/run-test-migrations.php)
+# A fresh install: no capability switch stored (the suite's own baseline stores them on).
+(cd "$ROOT" && THALLO_TEST_FRESH_INSTALL=1 DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/run-test-migrations.php)
 
 echo "== distribution smoke: posture assertions =="
 (cd "$ROOT" && vendor/bin/phpunit tests/Distribution)

@@ -87,7 +87,11 @@ final class DistributionPostureTest extends TestCase
             self::assertFalse($registry->isEnabled($id));
         }
 
-        self::assertTrue($registry->isEnabled('thallo.subscriptions'), 'the bundled billing engine is on');
+        // The bundled billing engine is enabled, but Subscriptions is an activation capability: it
+        // reads off in a fresh install until it is turned on in Extensions (spec §7.3a).
+        self::assertTrue($registry->availability('thallo.subscriptions')->available, 'the billing engine backs it');
+        self::assertFalse($registry->isEnabled('thallo.subscriptions'), 'off until its activation');
+        self::assertFalse($registry->isEnabled('thallo.payments'), 'Payments too');
     }
 
     public function testCommerceSurfacesAreAbsentNotBroken(): void
