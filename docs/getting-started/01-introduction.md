@@ -55,9 +55,9 @@ the audit log and import/export.
 Three things ship installed but not switched on:
 
 - **Content search** is off. Turn it on under **Settings › General**, then build the index.
-- **Commerce** and **Subscriptions** are off. Turn either on in **Extensions › Capabilities**: one action
-  prepares everything it needs. **Payvia** (payments) is installed and disabled; enable it under
-  **Extensions › Installed** to take payments.
+- **Commerce**, **Subscriptions** and **Payments** are off. Turn each on in
+  **Extensions › Capabilities**: one action prepares everything it needs. Turn Payments on to take
+  online payments.
 - **Meilisearch** is installed and disabled. Content search does not need it: it runs on the
   PostgreSQL database the site already has.
 

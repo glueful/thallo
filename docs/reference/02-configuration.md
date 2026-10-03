@@ -65,7 +65,22 @@ return [
 ```
 
 Search is the one capability that ships off; every other id is on unless listed here as `false`.
-See [capabilities](../concepts/06-capabilities.md).
+An activation capability (Commerce, Subscriptions, Payments, or one an extension declares) is the
+exception: it is on only once its activation finishes, so `true` here never turns it on. `false`
+for Commerce or Subscriptions keeps an upgraded site from adopting it. See [capabilities](../concepts/06-capabilities.md).
+
+`required_packages` in the same file lists more packages that no switch may disable. Thallo always
+requires `glueful/aegis` and `glueful/users`; this list adds to them and never removes one:
+
+```php
+<?php
+
+return [
+    'required_packages' => ['glueful/media'],
+];
+```
+
+`php glueful thallo:provision` puts a required package back in the enabled list if it was removed.
 
 ## What the admin stores instead
 
@@ -292,7 +307,8 @@ to override them. The storefront rendering and blocks are a Thallo pack, configu
 | `PAYVIA_DEFAULT_GATEWAY` | `paystack` | The default payment gateway. |
 
 Gateway credentials belong in **Settings › Payments**, where they are stored encrypted, rather
-than in `.env`. See [sell products](../guides/18-commerce.md).
+than in `.env`. Online payments need the **Payments** capability on. See
+[take online payments](../guides/21-payments.md).
 
 ## Other keys worth knowing
 

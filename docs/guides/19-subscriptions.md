@@ -30,19 +30,23 @@ named in the `rate_tiers` key of the `subscriptions` config, puts the workspace 
 **Subscriptions** is off on a new install. Turn it on in **Extensions › Capabilities**: one action enables
 `glueful/subscriptions` (the engine behind it), adds its blocks and permissions, and switches it on.
 From a shell, run `php glueful thallo:capabilities:enable thallo.subscriptions`. See
-[turning on Commerce or Subscriptions](../concepts/06-capabilities.md#turning-on-commerce-or-subscriptions).
+[turning on a capability with an activation](../concepts/06-capabilities.md#turning-on-a-capability-with-an-activation).
 The admin's Subscriptions pages tell you plainly when the engine is disabled or its migrations have
 not run.
 
 ## Enable payments
 
 A plan can be assigned by an operator with no payment provider at all. For a workspace to buy one
-itself, the install needs `glueful/payvia` enabled and a gateway that supports subscription
-checkout:
+itself, the install needs the **Payments** capability on and a gateway that supports subscription
+checkout. Switch Payments on in **Extensions › Capabilities**, or:
 
 ```bash
-$ php glueful extensions:enable glueful/payvia
+$ php glueful thallo:capabilities:enable thallo.payments
 ```
+
+While Payments is off, **Billing** says online payments are off and offers no **Subscribe**;
+subscriptions your provider already bills keep renewing. See
+[take online payments](21-payments.md).
 
 Then enter the gateway's keys in **Settings › Payments**, exactly as
 [sell products](18-commerce.md#enter-your-gateway-keys) describes, and paste the **Webhook URL** it

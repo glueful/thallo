@@ -497,6 +497,29 @@ One job each, start to finish.
   Reset to starter, Remove. Opting one page out, and what the Design view shows under a layout.
   What renaming or deleting a field does. The permission.
 
+### payments — Take online payments
+- **File** `guides/21-payments.md` · **Order** 21 · **Status** done
+- **Summary** "Turn Payments on, enter your gateway keys, and know what turning it off stops and keeps."
+- **Sources** `core/src/Providers/CoreServiceProvider.php` (the Payments declaration and `makePaymentCollector`),
+  `core/src/Payments/`, `packages/thallo-contracts/src/Payments/OnlinePaymentInitiation.php`,
+  `packages/thallo-commerce/src/Http/AdminPaymentLinkSendController.php`, `packages/thallo-commerce/src/Http/Shop/ShopPaymentLinkController.php`,
+  `packages/thallo-commerce/templates/shop/payment-link.twig`, `packages/thallo-subscriptions/src/Http/SelfBillingController.php`,
+  `packages/thallo-subscriptions/src/Bridge/AdminBillingPlanCheckoutUrlResolver.php`, `admin/src/pages/settings/payments.vue`,
+  `admin/src/pages/billing/index.vue`, `core/src/Setup/CapabilityAdoption.php`
+- **Must cover** Turning Payments on (an activation over Payvia). Gateway keys. What off stops
+  (every new online payment) and what it keeps (settlement, webhooks, refunds, renewals, records,
+  saved settings). The upgrade: a site with Payvia enabled keeps Payments on after provision.
+
+### make-an-extension — Package a feature as an extension
+- **File** `guides/22-make-an-extension.md` · **Order** 22 · **Status** done
+- **Summary** "Ship a Composer package that appears in Extensions, turns on with one action, and adds its own blocks and permissions."
+- **Sources** `tests/fixtures/packages/acme-bookings/` (the proven example), `core/src/Capabilities/Declarations/`,
+  `packages/thallo-contracts/src/Capability/`, `packages/thallo-contracts/src/Starter/`, `core/src/Setup/InstallRoleGrants.php`,
+  `core/src/Capabilities/Activation/`, `core/src/Setup/Console/DoctorCommand.php`
+- **Must cover** The three modes. `extra.thallo.capabilities` and its keys; the provider alternative.
+  A gated block type, a permission, checking the capability. Installing and turning it on. The
+  four declaration conflicts and where they show.
+
 ---
 
 ## Reference

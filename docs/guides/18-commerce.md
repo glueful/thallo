@@ -14,7 +14,7 @@ You need a shell on the install, an admin account, and a theme rendering the pub
 storefront is served by Thallo's own templates through your theme's `layout.twig`, so
 [rendered delivery](../concepts/06-capabilities.md) has to be on.
 
-## Turn on Commerce and Payvia
+## Turn on Commerce and Payments
 
 Open **Extensions › Capabilities**, switch **Commerce** on and confirm. One "Turning on Commerce…" state covers
 everything: Thallo enables `glueful/commerce` (which owns products, stock, carts and orders) and
@@ -32,16 +32,12 @@ $ php glueful thallo:capabilities:enable thallo.commerce
 If a step fails, the card (or the command) names it; fix the cause and **Retry**, or run
 `php glueful thallo:capabilities:resume thallo.commerce`. On a host whose application files are
 read-only, run `php glueful thallo:capabilities:enable thallo.commerce --prepare` at deploy time and
-finish in Extensions. See [turning on Commerce or Subscriptions](../concepts/06-capabilities.md#turning-on-commerce-or-subscriptions).
+finish in Extensions. See [turning on a capability with an activation](../concepts/06-capabilities.md#turning-on-a-capability-with-an-activation).
 
-To take payments you also need `glueful/payvia`, which talks to the payment gateways. Enable it
-under **Extensions › Installed**, or:
-
-```bash
-$ php glueful extensions:enable glueful/payvia
-```
-
-Payvia adds no menu of its own.
+To take online payments, switch **Payments** on in the same list. It enables `glueful/payvia`,
+which talks to the payment gateways, the same way. Payvia adds no menu of its own. Without
+Payments, orders wait for manual collection: see
+[take online payments](21-payments.md).
 
 To check the integration from a shell:
 
@@ -70,8 +66,8 @@ The **Store pages** card above it lists the four public paths — **Shop**, **Wi
 
 ## Enter your gateway keys
 
-Open **Settings › Payments**. With no gateway extension enabled the page reads **Manual
-collection** and nothing else; with Payvia it shows **Default gateway** and a card per gateway
+Open **Settings › Payments**. While Payments is off the page says "Payments is off" with a link to
+Extensions; with Payments on it shows **Default gateway** and a card per gateway
 (`paystack`, `stripe`) holding a switch, **Secret key**, the **Webhook URL** to paste into the
 provider's dashboard, and **Webhook secret**. Keys are stored encrypted and write-only: a stored
 key shows as `•••••••• (stored)` and can be replaced or cleared, never read back.

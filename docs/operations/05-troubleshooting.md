@@ -145,8 +145,9 @@ restart, so restarting PHP is not a way to clear it.
 
 ## A feature did not finish turning on
 
-Commerce and Subscriptions turn on through an activation of several steps
-([capabilities and packs](../concepts/06-capabilities.md#turning-on-commerce-or-subscriptions)).
+Commerce, Subscriptions, Payments and any extension's activation capability turn on through an
+activation of several steps
+([capabilities and packs](../concepts/06-capabilities.md#turning-on-a-capability-with-an-activation)).
 When one fails, the feature stays off, the card in **Extensions › Capabilities** names the step and the error, and
 **Retry** resumes from that step. From a shell, `php glueful thallo:capabilities:status` shows the same,
 and `php glueful thallo:capabilities:resume` retries. Nothing is rolled back: steps already done stay
@@ -166,6 +167,25 @@ made" means someone turned the feature off, or started again, while this one ran
 where it stands now.
 
 `php glueful thallo:provision` also resumes an unfinished activation, in a fresh process.
+
+## A capability is misconfigured
+
+A card in **Extensions › Capabilities** reads "Misconfigured: … Fix the declarations; until then it
+can't be switched." Two packages, or a package and Thallo, declare a capability in ways that
+conflict, so Thallo blocks it everywhere: it has no switch, the API and
+`thallo:capabilities:enable` refuse it, and the packages it claims refuse the generic enable and
+disable. `php glueful thallo:doctor` fails its `capability-declarations` check with the same reason.
+
+| The reason says | What it means | What to do |
+|---|---|---|
+| "declared differently by …" | Two packages declare the same id with different settings | Remove one of the packages, or ask its author to rename the capability |
+| "one of several capabilities that claim …" | Two capabilities that are not plain switches name the same package | Remove the package whose capability you don't want |
+| "an activation over …, which is required by Thallo" | An activation names a package Thallo can't run without | Remove the package that declares it |
+| "an activation over …, which is not installed" | The package the activation enables isn't installed | `composer require` the package, or remove the one that declares the capability |
+
+The fix is in Composer, not in Thallo: once the conflicting package is updated or removed, the
+capability is listed normally on the next request. See
+[package a feature as an extension](../guides/22-make-an-extension.md#when-thallo-refuses-a-declaration).
 
 ## Confirm the site is healthy
 

@@ -58,9 +58,9 @@ Approval workflow. These are off:
 - **Search** is off by default. It runs on your PostgreSQL database and needs nothing installed;
   switch it on, then run `php glueful search:reindex`.
 - **Collections** is off by default; switch it on in Extensions.
-- **Commerce** and **Subscriptions** turn on with one action in Extensions, which prepares their
-  engines, blocks and permissions (`php glueful thallo:capabilities:enable thallo.commerce` from a
-  shell). Enable `glueful/payvia` as well to take payments.
+- **Commerce**, **Subscriptions** and **Payments** turn on with one action in Extensions, which
+  prepares their engines, blocks and permissions (`php glueful thallo:capabilities:enable
+  thallo.commerce` from a shell). Turn Payments on to take online payments.
 - **Multi-tenancy** (workspaces) is turned on through its own staged flow in
   **Settings › Workspaces**, never by `extensions:enable`.
 

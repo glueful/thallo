@@ -199,7 +199,7 @@ curl -sI https://example.com/_thallo/preview.css | head -1                # HTTP
 | Orders expiry sweep | **Required** | Cron `php glueful commerce:orders:expire` (e.g. every 15 minutes). Cancels stale storefront orders and stale drafts, and **hard-deletes canceled draft artifacts** older than `commerce.orders.draft_purge_days` (default 30, clamp 1–365 — no disable value; raise the window if you have retention requirements). |
 | Stock / catalog reindex jobs | Automatic | Ride the queue when workers run. |
 
-## Payments (after `extensions:enable Payvia`)
+## Payments (once the Payments capability is on)
 
 | Obligation | Required? | Detail |
 |---|---|---|

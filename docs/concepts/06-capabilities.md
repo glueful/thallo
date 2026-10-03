@@ -31,6 +31,7 @@ capability on.
 | **Commerce** (`thallo.commerce`) | Adopts `glueful/commerce` and links Commerce products to Thallo entries. | Off |
 | **Content importers** (`thallo.importers`) | CSV, Markdown and WordPress content/user import adapters. | On |
 | **Navigation** (`thallo.navigation`) | Menu trees served headless and to themes. | On |
+| **Payments** (`thallo.payments`) | Online payments for orders and plans, through the gateways in **Settings › Payments**. | Off |
 | **Rendered delivery** (`thallo.render`) | Server-rendered pages from published content via filesystem Twig themes. | On |
 | **Search** (`thallo.search`) | Public, delivery-parity content search, over PostgreSQL or Meilisearch. | Off |
 | **SEO** (`thallo.seo`) | Sitemaps, per-entry SEO meta, and robots.txt. | On |
@@ -38,11 +39,14 @@ capability on.
 | **Multi-tenancy** (`thallo.tenancy`) | Tenant-owned content model + data, scoping, seed/sync and enablement. | Off |
 | **Approval workflow** (`thallo.workflow`) | Single-stage editorial review over draft/publish. | On |
 
-Search is off by a deliberate default in Thallo's own configuration. Commerce and Multi-tenancy
-are off because each depends on a framework extension that a fresh install leaves disabled.
-Collections and Subscriptions are switched off by the first-run setup: most sites need neither a
-data API of their own nor workspace billing. A site installed before 1.0.0-beta.75 keeps the state
-it had.
+Search is off by a deliberate default in Thallo's own configuration. Commerce, Subscriptions and
+Payments are off until you turn them on: each one prepares its engine first (see
+[off until its activation finishes](#off-until-its-activation-finishes)). Multi-tenancy is off
+because its engine is a framework extension a fresh install leaves disabled. Collections is
+switched off by the first-run setup: most sites need no data API of their own.
+
+An installed extension can add capabilities of its own to this list; see
+[who declares a capability](#who-declares-a-capability).
 
 ## Off means inactive, not uninstalled
 
@@ -64,22 +68,28 @@ dropped, and switching back needs no rebuild. What goes away is the surface:
 
 ## Where the switches are
 
-Go to **Extensions › Capabilities**. It lists every capability, and each one is switched the way it is managed:
+Go to **Extensions › Capabilities**. It lists every capability, and each one is switched the way
+its declaration says it is managed:
 
-- **Most capabilities** have a plain switch and a badge: **On**, **Off**, or
+- **A plain switch** (most capabilities) with a badge: **On**, **Off**, or
   **Requested · engine unavailable**, which means you asked for it but its engine cannot back it.
   A flip saves immediately and takes effect on the next request, so reload the admin after
   switching something.
-- **Commerce and Subscriptions** turn on with one action that prepares everything they need. See
-  [turning on Commerce or Subscriptions](#turning-on-commerce-or-subscriptions).
-- **Multi-tenancy** links to **Settings › Workspaces**, which has its own staged flow.
+- **An activation** (Commerce, Subscriptions, Payments, and any an extension declares): one action
+  that prepares everything the capability needs, then switches it on. See
+  [turning on a capability with an activation](#turning-on-a-capability-with-an-activation).
+- **A flow of its own**: the card links to the page that runs it. Multi-tenancy links to
+  **Settings › Workspaces**, which has its own staged flow.
+
+A card that reads **Misconfigured** has no switch: two declarations of it conflict. See
+[troubleshooting](../operations/05-troubleshooting.md#a-capability-is-misconfigured).
 
 Reading and changing this list needs the `system.access` permission; without it the page shows
 "Operator access required".
 
 From a shell, `php glueful thallo:capabilities` prints the same list, and `--enable=ID` or
-`--disable=ID` flips one under the same rules. It refuses to turn Commerce or Subscriptions on:
-use `php glueful thallo:capabilities:enable` for those. Long-running workers keep the old state until
+`--disable=ID` flips one under the same rules. It refuses to turn an activation capability on:
+use `php glueful thallo:capabilities:enable` for an activation capability. Long-running workers keep the old state until
 they restart. See the [command reference](../reference/01-cli.md#thallocapabilities).
 
 **Content search** also appears in **Settings › General**. It is not a second switch: both write
@@ -87,19 +97,42 @@ the same `thallo.search` state.
 
 ## When a capability depends on an engine
 
-Five capabilities name an owning engine — the framework extension that does the work. Accounts
+Six capabilities name an owning engine — the framework extension that does the work. Accounts
 needs `glueful/users`, Content importers `glueful/import-export`, Commerce `glueful/commerce`,
-Subscriptions `glueful/subscriptions` and Multi-tenancy `glueful/tenancy`.
+Subscriptions `glueful/subscriptions`, Payments `glueful/payvia` and Multi-tenancy
+`glueful/tenancy`.
 
 Such a capability is on only when it is both requested and backed: the engine must be installed,
 enabled, and have its schema migrated. If any of that is missing, the row says so and names what
 fixes it.
 
-For Commerce and Subscriptions you never enable the engine yourself: turning the feature on does
+For an activation capability you never enable the engine yourself: turning the feature on does
 it. If the engine is disabled behind Thallo's back while the feature is on, Extensions shows the
 feature as unavailable, and turning it on again runs a normal activation.
 
-## Turning on Commerce or Subscriptions
+## Who declares a capability
+
+Every capability is declared by the package that contributes it, together with how it is managed:
+a plain switch, an activation, or a flow of its own. Thallo's packs declare theirs in their service
+providers; Payments is declared by Thallo's core. An extension declares its own in its
+`composer.json`, under `extra.thallo.capabilities`, which Thallo reads while the extension is still
+disabled — so it appears here before anything is enabled. An activation's engine is the package
+that declares it, and that package is managed by the capability from then on.
+[Package a feature as an extension](../guides/22-make-an-extension.md) shows a whole one.
+
+## Off until its activation finishes
+
+A capability with an activation is on only when its activation has finished. Enabling its engine
+some other way doesn't turn it on, and neither does `true` in `config/thallo.php`: the capability
+reads off, and its blocks stay hidden, until it is turned on in Extensions or with
+`thallo:capabilities:enable`.
+
+An upgraded site keeps what it had. `php glueful thallo:provision`, run after an update, keeps
+Commerce and Subscriptions on where they were on (unless `config/thallo.php` switched them off),
+and keeps Payments on where Payvia was enabled and ready. It decides once, from the database as it
+was before that provision's migrations ran. Until provision runs, they read off.
+
+## Turning on a capability with an activation
 
 Switch the feature on in **Extensions › Capabilities** and confirm. The card shows one "Turning on Commerce…"
 state while Thallo works through these steps, each safe to run again:
@@ -125,6 +158,9 @@ turned on cancels the activation.
 Turning a feature off keeps its data: Commerce's products and orders, and your content, are kept,
 and turning it on again skips the steps that are already done.
 
+Payments has no blocks or permissions of its own, so its activation enables Payvia and switches it
+on. [Take online payments](../guides/21-payments.md) says what turning it off stops and keeps.
+
 **Hosts whose application files are read-only.** Only step 2 writes application files
 (`config/extensions.php` and `bootstrap/cache/`). On a host where those are read-only at runtime,
 Extensions shows the command to run at deploy time instead of a switch:
@@ -146,7 +182,7 @@ See the [command reference](../reference/01-cli.md#thallocapabilitiesenable) and
 ## What switching one on can ask for
 
 - **A migration.** An engine's tables have to exist before the capability it backs can be on.
-  Turning on Commerce or Subscriptions migrates its engine; for another extension,
+  Turning on an activation capability migrates its engine; for another extension,
   `php glueful extensions:enable <package>` migrates its schema first. If a schema is pending or
   divergent the row tells you and names `php glueful migrate:run` or `php glueful migrate:verify`.
 - **A config value.** Search picks its engine from `SEARCH_ENGINE` — `auto`, `postgres` or
@@ -166,15 +202,17 @@ Composer discovers and that does nothing until its provider is listed in `config
 
 An install ships with eight enabled: `aegis`, `audit`, `email-notification`, `i18n`,
 `import-export`, `media`, `subscriptions` and `users`. Three ship installed and disabled:
-`commerce`, `payvia` (payments) and `meilisearch`.
+`commerce`, `payvia` (enabled by turning on Payments) and `meilisearch`.
 
 **Extensions › Installed** lists what Composer found, with each one's version, provider,
 schema state, and who manages it:
 
-- **Required by Thallo:** `glueful/aegis` and `glueful/users`. They have no switch, and
+- **Required by Thallo:** `glueful/aegis` and `glueful/users`, plus any listed in
+  `required_packages` in `config/thallo.php`. They have no switch, and
   `php glueful thallo:provision` puts one back if it was removed from the enabled list.
-- **Managed by a feature:** `glueful/commerce` and `glueful/subscriptions` turn on and off with
-  their feature, and `glueful/tenancy` with **Settings › Workspaces**.
+- **Managed by a feature:** `glueful/commerce`, `glueful/subscriptions` and `glueful/payvia` turn
+  on and off with their feature, `glueful/tenancy` with **Settings › Workspaces**, and an
+  extension's own package with the capability it declares.
 - **Everything else** has an **Enable** or **Disable** button.
 
 Every generic enable and disable (the admin, the API and `extensions:enable` / `extensions:disable`)
@@ -211,10 +249,12 @@ return [
 ```
 
 Keys are full capability ids, with their dots. Once someone flips the same capability in
-**Extensions › Capabilities**, the stored state answers and this file no longer decides.
+**Extensions › Capabilities**, the stored state answers and this file no longer decides. A
+capability with an activation never turns on from this file.
 
 ## Where to go next
 
 The guides switch individual capabilities on and use them:
 [add search to the site](../guides/11-search.md), [sell products](../guides/18-commerce.md),
-[let visitors sign up and sign in](../guides/17-accounts.md).
+[let visitors sign up and sign in](../guides/17-accounts.md),
+[take online payments](../guides/21-payments.md).

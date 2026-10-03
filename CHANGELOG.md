@@ -14,6 +14,11 @@ as the next release, never a mutated tag.
 - **Payments is a capability.** Turn it on in Extensions to take online payments; turning it off
   stops new online payments but keeps settling the ones in flight, refunds and renewals already
   billed by your provider. Sites with Payvia enabled keep Payments on.
+- **Extensions can add their own capabilities.** A package declares one in its `composer.json`
+  (`extra.thallo.capabilities`): it appears in Extensions while the package is still disabled, and
+  an activation capability turns on with one action that enables the package, adds its blocks and
+  grants its permissions. Conflicting declarations are blocked and reported by
+  `php glueful thallo:doctor`. `thallo.required_packages` adds packages no switch may disable.
 
 ### Changed
 - **Commerce and Subscriptions stay as they were on upgrade.** A site where they were on keeps them
@@ -24,7 +29,7 @@ as the next release, never a mutated tag.
   was added, and can be retried if a step fails. **Extensions › Installed** shows who manages each
   package.
 - **Thallo's own engines can't be switched off by accident.** Packages Thallo needs, and engines a
-  feature manages (Commerce, Subscriptions), refuse the generic extension switch and
+  feature manages (Commerce, Subscriptions, Payments), refuse the generic extension switch and
   `extensions:enable` / `extensions:disable`, and name the right place instead.
 
 ### Removed

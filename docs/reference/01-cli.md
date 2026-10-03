@@ -758,8 +758,8 @@ $ php glueful thallo:commerce:checkout:purge-attempts --days=30
 
 ## Capability activation
 
-Commerce and Subscriptions turn on through an activation that prepares their engine, blocks and
-permissions; [capabilities and packs](../concepts/06-capabilities.md#turning-on-commerce-or-subscriptions)
+Commerce, Subscriptions, Payments and an extension's activation capabilities turn on through an
+activation that prepares their engine, blocks and permissions; [capabilities and packs](../concepts/06-capabilities.md#turning-on-a-capability-with-an-activation)
 describes the steps. These commands are Extensions › Capabilities from a shell.
 
 ### thallo:capabilities:enable
@@ -771,7 +771,7 @@ and prints what was added.
 
 | Argument / option | What it does |
 |---|---|
-| `capability` | `thallo.commerce` or `thallo.subscriptions` |
+| `capability` | An activation capability: `thallo.commerce`, `thallo.subscriptions`, `thallo.payments`, or one an extension declares |
 | `--prepare` | Stop after the engine step: for deploy time on a host whose application files are read-only at runtime. Finish in Extensions or with `thallo:capabilities:resume` |
 
 A second run while one is in progress joins it. A failed step exits 1 with the step, the error and
@@ -856,8 +856,8 @@ with `--enable` or `--disable`.
 
 | Option | What it does |
 |---|---|
-| `--enable=ENABLE` | Turn this capability on; refused while its engine cannot back it, and for Commerce and Subscriptions, which turn on with `thallo:capabilities:enable` |
-| `--disable=DISABLE` | Turn this capability off (for Commerce and Subscriptions, this also cancels an activation in progress) |
+| `--enable=ENABLE` | Turn this capability on; refused while its engine cannot back it, for a misconfigured capability, and for an activation capability (Commerce, Subscriptions, Payments, or one an extension declares), which turns on with `thallo:capabilities:enable` |
+| `--disable=DISABLE` | Turn this capability off (for an activation capability, this also cancels an activation in progress) |
 | `--json` | Print the list as JSON, for scripts |
 
 A flip takes effect on the next request and clears the compiled route cache. Queue workers and
