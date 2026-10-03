@@ -16,8 +16,9 @@ $container = require __DIR__ . '/thallo_child_boot.php';
 $pause = in_array('--pause-in-lock', $argv, true);
 
 $provider = null;
-foreach ((new FeatureManagementPolicy())->activationCapabilities() as $capability) {
-    $engine = (new FeatureManagementPolicy())->engineOf($capability);
+$policy = $container->get(FeatureManagementPolicy::class);
+foreach ($policy->activationCapabilities() as $capability) {
+    $engine = $policy->engineOf($capability);
     if ($engine !== null && $engine['package'] === $package) {
         $provider = $engine['provider'];
     }

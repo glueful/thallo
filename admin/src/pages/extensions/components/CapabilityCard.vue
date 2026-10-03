@@ -13,11 +13,10 @@ import {
 } from '@/queries/capabilityManagement'
 import { useNotify } from '@/composables/useNotify'
 import ActivationProgress from './ActivationProgress.vue'
-import { featureCopy } from '../featureCopy'
 
 // One capability on Extensions › Capabilities. A feature with an activation flow turns on with one action
 // (confirm → start → continue while the server asks) and shows where its activation stands; a
-// workspaces feature links to its own settings; any other capability keeps a plain switch.
+// capability another flow owns links to that flow; any other capability keeps a plain switch.
 const props = defineProps<{ capability: ManagedCapability }>()
 
 const { success, error: notifyError } = useNotify()
@@ -25,7 +24,19 @@ const flow = useActivationFlow(() => props.capability.id)
 const { setState } = useCapabilityStateMutations()
 
 const label = computed(() => props.capability.label ?? props.capability.id)
-const copy = computed(() => featureCopy(props.capability.id, label.value))
+/** The declared copy, with generic wording for anything a package leaves out. */
+const copy = computed(() => {
+  const declared = props.capability.copy
+  return {
+    turnOn:
+      declared?.turn_on ??
+      `This prepares ${label.value} and adds what it needs. Your existing content is kept.`,
+    turnOff:
+      declared?.turn_off ??
+      `${label.value}'s pages, blocks and menu are hidden. Your content is kept, and you can turn it on again.`,
+    links: declared?.links ?? [],
+  }
+})
 const confirming = ref<'on' | 'off' | null>(null)
 const turningOff = ref(false)
 
@@ -36,7 +47,7 @@ const activation = computed<ActivationRecord | null>(() =>
 
 type CardState =
   | 'simple'
-  | 'workspaces'
+  | 'external'
   | 'preparing'
   | 'failed'
   | 'open'
@@ -46,7 +57,7 @@ type CardState =
 
 const state = computed<CardState>(() => {
   const cap = props.capability
-  if (cap.management === 'workspaces') return 'workspaces'
+  if (cap.management === 'external_flow') return 'external'
   if (cap.management !== 'activation') return 'simple'
   if (flow.running.value) return 'preparing'
   const status = activation.value?.status
@@ -165,11 +176,11 @@ async function toggleSimple(): Promise<void> {
           @update:model-value="() => (confirming = 'off')"
         />
         <ULink
-          v-else-if="state === 'workspaces'"
-          to="/settings/workspaces"
+          v-else-if="state === 'external' && capability.destination"
+          :to="capability.destination.path"
           class="text-sm text-primary"
         >
-          Settings › Workspaces
+          {{ capability.destination.label }}
         </ULink>
       </div>
     </div>

@@ -11,8 +11,21 @@ import { useCapabilitiesStore } from '@/stores/capabilities'
 
 import type { ActivationRecord } from '@/queries/capabilityActivation'
 
-/** How Extensions › Capabilities switches a capability. */
-export type CapabilityManagementKind = 'activation' | 'workspaces' | 'simple'
+/** How Extensions › Capabilities switches a capability (its declared management mode). */
+export type CapabilityManagementKind = 'activation' | 'external_flow' | 'simple'
+
+/** Where an externally managed capability is switched. */
+export interface ExternalFlowDestination {
+  path: string
+  label: string
+}
+
+/** What the page says about an activation capability, as its package declares it. */
+export interface ActivationCopy {
+  turn_on: string | null
+  turn_off: string | null
+  links: { label: string; to: string }[]
+}
 
 export interface ManagedCapability {
   id: string
@@ -32,6 +45,10 @@ export interface ManagedCapability {
   application_files_writable: boolean | null
   /** Whether the engine's provider is loaded in this boot (activation features only). */
   engine_enabled: boolean | null
+  /** An external flow's destination. */
+  destination: ExternalFlowDestination | null
+  /** Declared copy for an activation capability. */
+  copy: ActivationCopy | null
 }
 
 const base = () => `${runtimeConfig.apiBase}/capabilities`

@@ -10,6 +10,7 @@ use Glueful\Extensions\DeclaresLoadOrder;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\ServiceProvider;
 use Thallo\Contracts\Capability\Capability;
+use Thallo\Contracts\Capability\DeclaresCapabilities;
 use Thallo\Contracts\Capability\CapabilityRegistry;
 use Glueful\Cache\CacheStore;
 use Glueful\Events\EventService;
@@ -29,7 +30,7 @@ use Thallo\Seo\Sitemap\SitemapBuilder;
 use Psr\Container\ContainerInterface;
 use Thallo\Tenancy\Cache\TenantCacheSegment;
 
-final class SeoServiceProvider extends ServiceProvider implements DeclaresLoadOrder
+final class SeoServiceProvider extends ServiceProvider implements DeclaresLoadOrder, DeclaresCapabilities
 {
     public static function loadAfter(): array
     {
@@ -188,15 +189,20 @@ final class SeoServiceProvider extends ServiceProvider implements DeclaresLoadOr
         $this->mergeConfig('seo', require __DIR__ . '/../config/seo.php');
     }
 
+    public function capabilities(): array
+    {
+        return [
+            new Capability(
+                'thallo.seo',
+                label: 'SEO',
+                description: 'Sitemaps, per-entry SEO meta, and robots.txt.',
+            ),
+        ];
+    }
+
     public function boot(ApplicationContext $context): void
     {
         $registry = app($context, CapabilityRegistry::class);
-
-        $registry->register(new Capability(
-            'thallo.seo',
-            label: 'SEO',
-            description: 'Sitemaps, per-entry SEO meta, and robots.txt.',
-        ));
 
         // Migrations are declared by the composer manifest (extra.glueful.migrations).
 

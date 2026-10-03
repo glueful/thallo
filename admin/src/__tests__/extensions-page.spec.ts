@@ -34,6 +34,13 @@ function commerce(over: Json = {}): Json {
     activation: null,
     application_files_writable: true,
     engine_enabled: true,
+    destination: null,
+    copy: {
+      turn_on:
+        'This prepares your store and adds products, orders, shop blocks and templates. Your existing content is kept.',
+      turn_off: "Commerce's pages, blocks and menu are hidden.",
+      links: [{ label: 'Products', to: '/commerce/products' }],
+    },
     ...over,
   }
 }
@@ -259,10 +266,28 @@ describe('the Extensions page', () => {
     expect(inCard('[data-test="capability-summary"]')?.textContent?.trim()).toBe('Commerce is on.')
   })
 
-  it('a workspaces capability links to Settings › Workspaces', async () => {
+  it('the confirmation copy comes from the capability', async () => {
+    serve({
+      [MANAGE]: manage(
+        commerce({ copy: { turn_on: 'Bespoke words from the pack.', turn_off: null, links: [] } }),
+      ),
+    })
+    await mountExtensions()
+    await click(inCard('[role="switch"]'))
+    const dialog = document.body.querySelector('[role="dialog"]')
+    expect(dialog?.textContent).toContain('Bespoke words from the pack.')
+  })
+
+  it('an external flow links to its destination', async () => {
     serve({
       [MANAGE]: manage({
-        ...commerce({ id: 'thallo.tenancy', label: 'Multi-tenancy', management: 'workspaces' }),
+        ...commerce({
+          id: 'thallo.tenancy',
+          label: 'Multi-tenancy',
+          management: 'external_flow',
+          destination: { path: '/settings/workspaces', label: 'Settings › Workspaces' },
+          copy: null,
+        }),
       }),
     })
     await mountExtensions()

@@ -25,6 +25,7 @@ use Thallo\Account\Http\AccountSessionController;
 use Thallo\Account\Http\AccountSettingsController;
 use Thallo\Account\Http\Middleware\AccountSameOriginMiddleware;
 use Thallo\Contracts\Capability\Capability;
+use Thallo\Contracts\Capability\DeclaresCapabilities;
 use Thallo\Contracts\Capability\CapabilityRegistry;
 use Thallo\Contracts\Starter\StarterBlockTypeRegistry;
 use Thallo\Render\Contribution\RenderContributionRegistry;
@@ -38,7 +39,7 @@ use function app;
  * real). The `thallo.accounts` capability gates only this product surface: the framework's
  * `/auth/*` identity endpoints and the session-cookie transport are never gated by it.
  */
-final class AccountServiceProvider extends ServiceProvider
+final class AccountServiceProvider extends ServiceProvider implements DeclaresCapabilities
 {
     /**
      * @return array<class-string, array<string, mixed>>
@@ -119,15 +120,21 @@ final class AccountServiceProvider extends ServiceProvider
         // No package config to merge; all wiring is in services() and boot().
     }
 
+    public function capabilities(): array
+    {
+        return [
+            new Capability(
+                'thallo.accounts',
+                label: 'Accounts',
+                description: 'Registration, sign-in and account pages for visitors of the site.',
+                owningPackage: 'glueful/users',
+            ),
+        ];
+    }
+
     public function boot(ApplicationContext $context): void
     {
         $registry = app($context, CapabilityRegistry::class);
-        $registry->register(new Capability(
-            'thallo.accounts',
-            label: 'Accounts',
-            description: 'Registration, sign-in and account pages for visitors of the site.',
-            owningPackage: 'glueful/users',
-        ));
 
         // A capability flip between boots must purge cached pages that still hold the account chrome
         // whose routes now 404. There is no flip event — the capability is deploy-time config — so

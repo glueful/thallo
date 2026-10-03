@@ -184,7 +184,7 @@ final class CapabilitiesCommandsTest extends AppTestCase
         return new CapabilityProvisioning(
             $this->appContext(),
             $this->store(),
-            new FeatureManagementPolicy(),
+            $this->container()->get(FeatureManagementPolicy::class),
             $engine ?? $this->engine(),
         );
     }

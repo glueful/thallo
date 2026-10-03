@@ -91,7 +91,7 @@ final class FeatureManagementPolicyTest extends AppTestCase
 
     public function testThePolicyClassifiesEveryAuditedPackage(): void
     {
-        $policy = new FeatureManagementPolicy();
+        $policy = $this->container()->get(FeatureManagementPolicy::class);
         foreach (['glueful/aegis', 'glueful/users'] as $package) {
             self::assertSame('required', $policy->managementOf($package)['class'], $package);
         }
@@ -103,7 +103,9 @@ final class FeatureManagementPolicyTest extends AppTestCase
         foreach ($independent as $package) {
             self::assertSame('independent', $policy->managementOf($package)['class'], $package);
         }
-        self::assertNull($policy->managementOf('glueful/tenancy')['capability'], 'Workspaces is a settings flow');
+        $tenancy = $policy->managementOf('glueful/tenancy');
+        self::assertSame('thallo.tenancy', $tenancy['capability'], 'Workspaces is its own flow');
+        self::assertSame('/settings/workspaces', $policy->managementOf('glueful/tenancy')['link']);
     }
 
     public function testMigrateProtectedAcceptsAManagedEngine(): void

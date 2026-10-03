@@ -144,13 +144,18 @@ final class CapabilityStateSnapshotTest extends AppTestCase
     {
         // A fresh context takes its snapshot while booting; a switch written afterwards does not
         // change that context's decision.
+        $forget = "DELETE FROM thallo_system_flags WHERE key = 'capability.thallo.workflow.enabled'";
+        $this->connection()->getPDO()->exec($forget);
         $context = self::bootAppWithConfigOverride('thallo', ['capabilities' => ['thallo.search' => false]]);
         $registry = $context->getContainer()->get(CapabilityRegistry::class);
-        $this->store()->put('test.flip', false);
-        $registry->register(new Capability('test.flip'));
-        self::assertTrue(
-            $registry->isEnabled('test.flip'),
-            'decided from the snapshot: no switch → follows availability',
-        );
+        try {
+            $this->store()->put('thallo.workflow', false);
+            self::assertTrue(
+                $registry->isEnabled('thallo.workflow'),
+                'decided from the snapshot: no switch at boot → follows availability',
+            );
+        } finally {
+            $this->connection()->getPDO()->exec($forget);
+        }
     }
 }

@@ -64,7 +64,7 @@ trait ActivationRunners
         return new ActivationRunner(
             $container->get(ActivationStore::class),
             $container->get(CapabilityStateStore::class),
-            new FeatureManagementPolicy(),
+            $container->get(FeatureManagementPolicy::class),
             $container->get(CapabilityBlockSeeder::class),
             $container->get(InstallRoleGrants::class),
             $engine ?? $this->engine(container: $container),
