@@ -106,6 +106,11 @@ abstract class AppTestCase extends TestCase
         // Framework::boot() returns a Glueful\Application; we keep its ApplicationContext
         // (both expose getContainer()).
         if (self::$app === null) {
+            // A run that leaves capabilities off (THALLO_TEST_CAPABILITIES_OFF) clears them before
+            // the shared boot takes its capability snapshot.
+            if (CapabilityBaseline::off() !== []) {
+                CapabilityBaseline::restore(self::baselinePdo());
+            }
             self::$app = TestApplication::instance()->getContext();
         }
 

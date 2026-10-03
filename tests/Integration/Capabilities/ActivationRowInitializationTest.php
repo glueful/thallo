@@ -46,6 +46,7 @@ final class ActivationRowInitializationTest extends AppTestCase
         foreach (['thallo.commerce', 'thallo.subscriptions'] as $id) {
             $this->store()->initializeRow($id);
         }
+        $this->dropRow('thallo.payments');                       // a fresh test database has no Payments row
         $this->resetCommerceActivation();
         $this->removeActivationTempFiles();
         CapabilityBaseline::restore($this->connection()->getPDO());
@@ -144,9 +145,10 @@ final class ActivationRowInitializationTest extends AppTestCase
     public function testProvisionSyncsRowsForEveryDeclaredActivationCapability(): void
     {
         $this->dropRow('thallo.commerce');
+        $this->dropRow('thallo.payments');
         $this->dropRow('thallo.subscriptions');
         $synced = $this->container()->get(CapabilityProvisioning::class)->syncRows();
-        self::assertSame(['thallo.commerce', 'thallo.subscriptions'], $synced);
+        self::assertSame(['thallo.commerce', 'thallo.payments', 'thallo.subscriptions'], $synced);
         self::assertTrue($this->rowExists('thallo.commerce'));
         self::assertTrue($this->rowExists('thallo.subscriptions'));
     }

@@ -11,6 +11,9 @@ as the next release, never a mutated tag.
 - **`thallo:capabilities:enable`, `resume` and `status`.** Turn a capability on from the terminal,
   prepare it at deploy time with `--prepare` and finish on the running site, and see where every
   capability with an activation stands.
+- **Payments is a capability.** Turn it on in Extensions to take online payments; turning it off
+  stops new online payments but keeps settling the ones in flight, refunds and renewals already
+  billed by your provider. Sites with Payvia enabled keep Payments on.
 
 ### Changed
 - **Commerce and Subscriptions stay as they were on upgrade.** A site where they were on keeps them

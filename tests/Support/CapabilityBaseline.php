@@ -13,7 +13,19 @@ namespace Thallo\Core\Tests\Support;
  */
 final class CapabilityBaseline
 {
-    public const ON = ['thallo.commerce', 'thallo.subscriptions'];
+    public const ON = ['thallo.commerce', 'thallo.payments', 'thallo.subscriptions'];
+
+    /**
+     * Capabilities a whole run leaves off: THALLO_TEST_CAPABILITIES_OFF (comma-separated ids), used
+     * by the Payments-off continuity run.
+     *
+     * @return list<string>
+     */
+    public static function off(): array
+    {
+        $raw = getenv('THALLO_TEST_CAPABILITIES_OFF');
+        return $raw === false ? [] : array_values(array_filter(array_map('trim', explode(',', $raw))));
+    }
 
     public static function restore(\PDO $pdo): void
     {
@@ -21,8 +33,13 @@ final class CapabilityBaseline
             "INSERT INTO thallo_system_flags (key, value, updated_at) VALUES (?, 'true', ?)
              ON CONFLICT (key) DO UPDATE SET value = 'true', updated_at = EXCLUDED.updated_at"
         );
-        foreach (self::ON as $id) {
+        $off = self::off();
+        foreach (array_diff(self::ON, $off) as $id) {
             $put->execute(["capability.{$id}.enabled", gmdate('Y-m-d H:i:s')]);
+        }
+        $forget = $pdo->prepare('DELETE FROM thallo_system_flags WHERE key = ?');
+        foreach ($off as $id) {
+            $forget->execute(["capability.{$id}.enabled"]);
         }
     }
 }

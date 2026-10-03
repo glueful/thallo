@@ -40,6 +40,8 @@ export interface PlatformPaymentsGatewayRow {
 }
 
 export interface PlatformPaymentsSettings {
+  /** False while the Payments capability is off: customers pay by manual collection. */
+  payments_enabled: boolean
   /** `manual` = no gateway extension configures gateways (operator mark-paid is the flow). */
   mode: 'gateway' | 'manual'
   default_gateway: { value: string | null; default: string; overridden: boolean }
@@ -65,6 +67,7 @@ function normalizeSecretState(raw: unknown): SecretFieldState {
 
 function normalizePlatformPaymentsSettings(raw: unknown): PlatformPaymentsSettings {
   const data = (raw ?? {}) as {
+    payments_enabled?: unknown
     mode?: unknown
     default_gateway?: unknown
     gateways?: unknown
@@ -76,6 +79,7 @@ function normalizePlatformPaymentsSettings(raw: unknown): PlatformPaymentsSettin
   }
   const gateways = Array.isArray(data.gateways) ? data.gateways : []
   return {
+    payments_enabled: data.payments_enabled === true,
     mode: data.mode === 'gateway' ? 'gateway' : 'manual',
     default_gateway: {
       value: typeof dg.value === 'string' ? dg.value : null,

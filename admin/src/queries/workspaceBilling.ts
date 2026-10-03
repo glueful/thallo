@@ -59,6 +59,8 @@ export interface WorkspaceBillingMeta {
   purchasable_plans: WorkspacePurchasablePlan[]
   /** Whether Change plan can switch the live subscription at its provider. */
   plan_change_supported: boolean
+  /** False while Payments is off: no new online checkout can start. */
+  payments_enabled: boolean
 }
 
 function normalizeSubscription(raw: unknown): WorkspaceBillingSubscription | null {
@@ -114,6 +116,7 @@ export async function fetchWorkspaceBillingMeta(): Promise<WorkspaceBillingMeta>
       typeof raw.operator_contact_reason === 'string' ? raw.operator_contact_reason : null,
     purchasable_plans: normalizePurchasablePlans(raw.purchasable_plans),
     plan_change_supported: raw.plan_change_supported === true,
+    payments_enabled: raw.payments_enabled === true,
   }
 }
 

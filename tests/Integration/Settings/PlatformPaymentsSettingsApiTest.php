@@ -161,7 +161,8 @@ final class PlatformPaymentsSettingsApiTest extends AppTestCase
         self::assertSame(200, $response->getStatusCode());
 
         $data = $this->data($response);
-        self::assertSame(['mode', 'default_gateway', 'gateways'], array_keys($data));
+        self::assertSame(['payments_enabled', 'mode', 'default_gateway', 'gateways'], array_keys($data));
+        self::assertTrue($data['payments_enabled']);
         self::assertSame('gateway', $data['mode']);
         self::assertSame(
             ['value', 'default', 'overridden'],

@@ -77,6 +77,7 @@ function meta(overrides: Partial<WorkspaceBillingMeta> = {}): WorkspaceBillingMe
     operator_contact_reason: null,
     purchasable_plans: [{ plan_key: 'pro', name: 'Pro' }],
     plan_change_supported: false,
+    payments_enabled: true,
     ...overrides,
   }
 }
@@ -154,6 +155,14 @@ describe('billing/index page: meta-first states', () => {
     const wrapper = await mountPage(BillingIndex)
     await flushPromises()
     expect(wrapper.find('[data-test="self-serve-off"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="plan-picker-select"]').exists()).toBe(false)
+  })
+
+  it('payments off with no subscription: says so and offers no Subscribe', async () => {
+    metaData.value = meta({ payments_enabled: false, subscription: null })
+    const wrapper = await mountPage(BillingIndex)
+    await flushPromises()
+    expect(wrapper.find('[data-test="payments-off"]').text()).toContain('Online payments are off')
     expect(wrapper.find('[data-test="plan-picker-select"]').exists()).toBe(false)
   })
 

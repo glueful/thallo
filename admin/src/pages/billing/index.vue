@@ -61,6 +61,7 @@ type BillingView =
   | 'initializing'
   | 'pending'
   | 'switch_off'
+  | 'payments_off'
   | 'plan_picker'
   | 'non_renewing'
   | 'provider_managed_elsewhere'
@@ -93,7 +94,8 @@ const view = computed<BillingView | null>(() => {
 
   const s = subscription.value
   if (s === null || !isEntitling(s)) {
-    return selfServeEnabled.value ? 'plan_picker' : 'switch_off'
+    if (!selfServeEnabled.value) return 'switch_off'
+    return m.payments_enabled ? 'plan_picker' : 'payments_off'
   }
   if (s.status === 'non_renewing') return 'non_renewing'
   if (!s.provider_managed) return 'provider_managed_elsewhere'
@@ -256,7 +258,9 @@ const activePlanLabel = computed(() =>
           :checkout-url="origination?.checkout_url ?? null"
         />
 
-        <template v-else-if="view === 'switch_off' || view === 'plan_picker'">
+        <template
+          v-else-if="view === 'switch_off' || view === 'payments_off' || view === 'plan_picker'"
+        >
           <UAlert
             v-if="showCanceledBanner"
             color="neutral"
@@ -273,6 +277,15 @@ const activePlanLabel = computed(() =>
             title="Self-serve billing is not enabled on this platform"
             description="Contact your platform operator to start a subscription."
             data-test="self-serve-off"
+          />
+          <UAlert
+            v-else-if="view === 'payments_off'"
+            color="neutral"
+            variant="subtle"
+            icon="i-lucide-info"
+            title="Online payments are off on this platform"
+            description="Contact your platform operator to start a subscription."
+            data-test="payments-off"
           />
           <PlanPicker
             v-else

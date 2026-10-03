@@ -23,6 +23,19 @@ const commerce = (over: Record<string, unknown> = {}) => ({
   activation: null,
   application_files_writable: true,
   engine_enabled: true,
+  // Commerce declares its own copy (CommerceIntegrationServiceProvider::capabilities()).
+  copy: {
+    turn_on:
+      'This prepares your store and adds products, orders, shop blocks and templates. ' +
+      'Your existing content is kept.',
+    turn_off:
+      "Commerce's pages, blocks and menu are hidden. Products, orders and your content " +
+      'are kept, and you can turn it on again.',
+    links: [
+      { label: 'Products', to: '/commerce/products' },
+      { label: 'Block types', to: '/settings/block-types' },
+    ],
+  },
   ...over,
 })
 

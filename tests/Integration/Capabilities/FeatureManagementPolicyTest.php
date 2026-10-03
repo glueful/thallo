@@ -95,11 +95,11 @@ final class FeatureManagementPolicyTest extends AppTestCase
         foreach (['glueful/aegis', 'glueful/users'] as $package) {
             self::assertSame('required', $policy->managementOf($package)['class'], $package);
         }
-        foreach (['glueful/commerce', 'glueful/subscriptions', 'glueful/tenancy'] as $package) {
+        foreach (['glueful/commerce', 'glueful/subscriptions', 'glueful/payvia', 'glueful/tenancy'] as $package) {
             self::assertSame('managed', $policy->managementOf($package)['class'], $package);
         }
         $independent = ['glueful/i18n', 'glueful/audit', 'glueful/media', 'glueful/email-notification',
-            'glueful/import-export', 'glueful/payvia', 'glueful/meilisearch', 'acme/unknown'];
+            'glueful/import-export', 'glueful/meilisearch', 'acme/unknown'];
         foreach ($independent as $package) {
             self::assertSame('independent', $policy->managementOf($package)['class'], $package);
         }

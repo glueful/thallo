@@ -193,6 +193,18 @@ async function submit(): Promise<void> {
         />
 
         <div
+          v-if="status === 'success' && payments?.payments_enabled === false"
+          class="max-w-2xl rounded-md border border-default px-4 py-3 text-sm text-muted"
+          data-test="payments-off"
+        >
+          <span class="font-medium text-default">Payments is off</span> — customers pay by manual
+          collection; operators mark orders paid from the order page. Saved gateway settings are
+          kept. Turn Payments on in
+          <RouterLink to="/extensions" class="text-primary">Extensions</RouterLink> to take online
+          payments.
+        </div>
+
+        <div
           v-if="status === 'pending'"
           class="flex justify-center py-10"
           data-test="payments-loading"
@@ -209,15 +221,16 @@ async function submit(): Promise<void> {
           data-test="payments-error"
         />
 
-        <div
-          v-else-if="payments?.mode === 'manual'"
-          class="max-w-2xl rounded-md border border-default px-4 py-3 text-sm text-muted"
-          data-test="payments-manual"
-        >
-          <span class="font-medium text-default">Manual collection</span> — no payment gateway
-          extension is installed; operators mark orders paid from the order page. Install a gateway
-          extension (e.g. glueful/payvia) to configure online payments here.
-        </div>
+        <template v-else-if="payments?.mode === 'manual'">
+          <div
+            v-if="payments.payments_enabled"
+            class="max-w-2xl rounded-md border border-default px-4 py-3 text-sm text-muted"
+            data-test="payments-manual"
+          >
+            <span class="font-medium text-default">Manual collection</span> — no payment gateway is
+            configured; operators mark orders paid from the order page.
+          </div>
+        </template>
 
         <div v-else class="max-w-2xl space-y-6" data-test="payments-panel">
           <UFormField
