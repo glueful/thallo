@@ -60,7 +60,7 @@ final class CapabilityDeclarationsTest extends AppTestCase
         $missing = array_values(array_diff(self::FIRST_PARTY, $ids));
         self::assertSame([], $missing, 'every first-party capability is declared');
         $foreign = array_values(array_filter($ids, static fn (string $id): bool => !str_starts_with($id, 'thallo.')));
-        self::assertSame([], $foreign);
+        self::assertSame(['acme.bookings'], $foreign, 'only the installed third-party fixture');
     }
 
     public function testAPackageMetadataDeclarationAppearsWhileItsPackageIsDisabled(): void

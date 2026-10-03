@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "dd1eb335cebcf95af38cfea9bcb513c6",
+    "content-hash": "7bc2ff4c34db95a1a885988f22ba0675",
     "packages": [
         {
             "name": "composer/semver",
@@ -6822,6 +6822,70 @@
         }
     ],
     "packages-dev": [
+        {
+            "name": "acme/bookings",
+            "version": "1.0.0",
+            "dist": {
+                "type": "path",
+                "url": "tests/fixtures/packages/acme-bookings",
+                "reference": "9f03dc106f2e72b91451e5c2f00c6f55f34df075"
+            },
+            "type": "glueful-extension",
+            "extra": {
+                "glueful": {
+                    "name": "Bookings",
+                    "provider": "Acme\\Bookings\\BookingsServiceProvider",
+                    "requires": {
+                        "glueful": ">=1.79.0",
+                        "extensions": []
+                    },
+                    "migrations": [
+                        {
+                            "id": "default",
+                            "path": "migrations",
+                            "priority": "dependent",
+                            "mode": "on_enable"
+                        }
+                    ]
+                },
+                "thallo": {
+                    "capabilities": [
+                        {
+                            "id": "acme.bookings",
+                            "label": "Bookings",
+                            "description": "Appointments your visitors book from your pages.",
+                            "mode": "activation",
+                            "copy": {
+                                "turn_on": "This prepares Bookings and adds its block. Your existing content is kept.",
+                                "turn_off": "The Bookings block is hidden. Your bookings are kept, and you can turn it on again.",
+                                "links": [
+                                    {
+                                        "label": "Block types",
+                                        "to": "/settings/block-types"
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Acme\\Bookings\\": "src/"
+                },
+                "classmap": [
+                    "migrations/"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "A third-party Thallo extension used by the test suite: one activation capability, one block type, one permission, one table.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
         {
             "name": "myclabs/deep-copy",
             "version": "1.14.0",
