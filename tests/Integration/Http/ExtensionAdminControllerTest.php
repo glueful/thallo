@@ -201,6 +201,21 @@ final class ExtensionAdminControllerTest extends AppTestCase
         }
     }
 
+    public function testAnExtensionListChangeStillRunningIs409(): void
+    {
+        // The framework's extension-state lock timed out: another change (an activation, a CLI
+        // enable) is still writing the list. That is contention, not a bad request.
+        $controller = $this->spied();
+        $controller->executor->throws = new \RuntimeException(
+            'Another change to the extension list is still running (waited 30s).'
+        );
+
+        $resp = $controller->enable($this->jsonPost(['name' => 'glueful/media']));
+
+        self::assertSame(409, $resp->getStatusCode());
+        self::assertStringContainsString('still running', (string) $resp->getContent());
+    }
+
     public function testOtherRuntimeRefusalsAre422(): void
     {
         $controller = $this->spied();

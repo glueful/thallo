@@ -133,7 +133,7 @@ when it boots (once: boot can run more than once in a process), and declares its
 `permissions()`. The activation grants them to the `superuser` and `administrator` roles; a
 permission an operator revokes later stays revoked. Until your capability's activation runs,
 provision syncs your permissions but grants them to no one, even when your extension is already
-enabled.
+enabled. That holds for permissions your engine's own provider declares; declare them there.
 
 ```php
 <?php
@@ -206,7 +206,8 @@ Turning Bookings off hides the block and keeps your extension enabled, its table
 Thallo blocks a capability, and the packages it claims, when its declaration conflicts or can't be
 read:
 
-- an entry in `extra.thallo.capabilities` is invalid (a missing id, an unknown mode);
+- an entry in `extra.thallo.capabilities` is invalid (a missing id, an unknown mode), or the value
+  isn't a list; every capability your package declares is blocked with it;
 - the same id is declared differently by two sources, two packages or a package and Thallo;
 - two capabilities that are not `simple` claim the same package, including one that is blocked for
   another reason;

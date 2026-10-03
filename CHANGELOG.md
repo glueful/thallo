@@ -44,8 +44,9 @@ as the next release, never a mutated tag.
 ### Fixed
 - **Turning a feature off removes its pages at once.** A compiled route table built before the
   switch is never served after it.
-- **An admin enable and an `extensions:enable` at the same time both finish.** They no longer wait on
-  each other until one gives up with "Another schema operation holds the migration lock".
+- **An admin enable and an `extensions:enable` at the same time no longer deadlock.** Each used to
+  hold the lock the other needed until the admin gave up with "Another schema operation holds the
+  migration lock". Two changes to the same package still run one after the other.
 - **Overlapping provisions keep every role grant**, and a permission you revoke stays revoked. Role
   grants and their record of what was offered are now decided in one serialized transaction.
 

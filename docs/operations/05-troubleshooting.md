@@ -180,7 +180,8 @@ reason.
 | The reason says | What it means | What to do |
 |---|---|---|
 | "declared differently by …" | Two sources — two packages, or a package and Thallo's own code — declare the same id with different settings; the reason names them | Remove one of the packages, or ask its author to rename the capability |
-| "an invalid declaration in …" | A package's `extra.thallo.capabilities` entry can't be read: a missing id, an unknown mode, a malformed field. The reason says which | Update or remove the package; ask its author to fix the entry |
+| "an invalid declaration in …" | A package's `extra.thallo.capabilities` entry can't be read: a missing id, an unknown mode, a malformed field, or a value that isn't a list. The reason says which | Update or remove the package; ask its author to fix the entry |
+| "a capability over …, which has an invalid capability entry" | The capability is fine, but another entry in the same package can't be read, so the package is blocked with it | Fix the invalid entry; the capability is listed again on the next request |
 | "one of several capabilities that claim …" | Two capabilities that are not plain switches name the same package, or a misconfigured one names a package another activation owns | Remove the package whose capability you don't want |
 | "an activation over …, which is required by Thallo" | An activation names a package Thallo can't run without | Remove the package that declares it |
 | "an activation over …, which is not installed" | The package the activation enables isn't installed | `composer require` the package, or remove the one that declares the capability |

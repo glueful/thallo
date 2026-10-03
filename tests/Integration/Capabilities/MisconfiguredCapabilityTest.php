@@ -25,6 +25,7 @@ use Thallo\Core\Http\Controllers\CapabilityActivationController;
 use Thallo\Core\Http\DTOs\ActivationGenerationData;
 use Thallo\Core\Http\DTOs\UpdateCapabilityStateData;
 use Thallo\Core\Setup\Console\DoctorCommand;
+use Thallo\Core\Setup\InstallRoleGrants;
 use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Core\Tests\Support\Capabilities\ContestedConsumerProvider;
 use Thallo\Core\Tests\Support\Capabilities\ContestingProvider;
@@ -193,6 +194,47 @@ final class MisconfiguredCapabilityTest extends AppTestCase
         self::assertSame(['other/one', 'other/two'], array_column($errors['acme.shared'], 'package'));
     }
 
+    /**
+     * @param array<string, mixed> $thallo acme/x's extra.thallo
+     * @return array{0: list<CapabilityDeclaration>, 1: array<string, list<array{reason: string, package: string}>>}
+     */
+    private function declaredBy(array $thallo): array
+    {
+        $installed = tempnam(sys_get_temp_dir(), 'thallo-installed-') ?: '';
+        file_put_contents($installed, (string) json_encode(['packages' => [[
+            'name' => 'acme/x',
+            'type' => 'glueful-extension',
+            'extra' => ['thallo' => $thallo],
+        ]]]));
+        $packages = new PackageCapabilityDeclarations($this->appContext(), $installed);
+        try {
+            return [$packages->all(), $packages->errorsById()];
+        } finally {
+            @unlink($installed);
+        }
+    }
+
+    public function testABrokenEntryIsNamedAsTheReasonItsValidSiblingIsBlocked(): void
+    {
+        [$declarations, $errors] = $this->declaredBy(['capabilities' => [
+            ['id' => 'acme.x', 'mode' => 'activation'],
+            ['mode' => 'bogus'],
+        ]]);
+        $set = new DeclarationSet($declarations, ['acme/x' => 'Acme\\X'], $errors);
+        self::assertStringContainsString(
+            'acme/x, which has an invalid capability entry',
+            $set->misconfigured()['acme.x']['reason'],
+        );
+    }
+
+    public function testACapabilitiesKeyThatIsNotAListIsReported(): void
+    {
+        [, $errors] = $this->declaredBy(['capabilities' => 'acme.x']);
+        self::assertArrayHasKey('acme/x (capabilities)', $errors);
+        self::assertSame('acme/x', $errors['acme/x (capabilities)'][0]['package']);
+        self::assertStringContainsString('must be a list', $errors['acme/x (capabilities)'][0]['reason']);
+    }
+
     public function testADeclarationThatConflictsOverAnotherActivationsEngineBlocksBoth(): void
     {
         $providers = ['acme/one' => 'Acme\\One', 'acme/two' => 'Acme\\Two'];
@@ -309,6 +351,18 @@ final class MisconfiguredCapabilityTest extends AppTestCase
         $row = array_column($rows, null, 'name')['glueful/media'];
         self::assertSame('misconfigured', $row['management']['class']);
         self::assertNull($row['cli_command'], 'extensions:enable/disable would be refused');
+    }
+
+    public function testProvisionWithholdsTheClaimedPackagesPermissions(): void
+    {
+        // A misconfigured capability can't be activated, so the packages it claims get no grants
+        // from provision either until the declarations are fixed.
+        $slug = (string) $this->connection()->getPDO()
+            ->query("SELECT slug FROM permissions WHERE managed_by = 'glueful/import-export' LIMIT 1")->fetchColumn();
+        self::assertNotSame('', $slug);
+        $withheld = $this->contested()->get(InstallRoleGrants::class)->withheldPermissions(null);
+        self::assertContains($slug, $withheld);
+        self::assertNotContains($slug, $this->container()->get(InstallRoleGrants::class)->withheldPermissions(null));
     }
 
     public function testTheCapabilityListSaysWhyItIsMisconfigured(): void

@@ -110,6 +110,19 @@ final class ExtensionStateHandoverTest extends AppTestCase
         self::assertSame(1, count(array_keys($this->enabled(), self::AUDIT, true)), 'enabled once');
     }
 
+    public function testThePauseSeamIsNotInTheProductionController(): void
+    {
+        putenv('THALLO_TEST_PAUSE_BEFORE_EXECUTOR=1');
+        try {
+            $child = $this->startChild('extension_toggle_production_child.php');
+        } finally {
+            putenv('THALLO_TEST_PAUSE_BEFORE_EXECUTOR');
+        }
+        $out = $child->finish(60);
+        self::assertStringContainsString('http=200', $out, $out);
+        self::assertStringNotContainsString('before-executor', $out, 'the production controller never pauses');
+    }
+
     public function testAnActivationAndAnIndependentPackageCliKeepBothProviders(): void
     {
         // The third-party fixture's engine (in no testing overlay), prepared as its activation does.

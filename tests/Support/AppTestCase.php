@@ -371,6 +371,9 @@ abstract class AppTestCase extends TestCase
                 $removed[$key] = $value;
             }
         }
+        if ($flags !== null && $removed !== []) {
+            CapabilityBaseline::advanceVersion($flags);       // a different state: its own route table
+        }
 
         try {
             return Framework::create($root)
@@ -383,6 +386,9 @@ abstract class AppTestCase extends TestCase
                 $flags?->prepare(
                     'INSERT INTO thallo_system_flags (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING'
                 )->execute([$key, $value]);
+            }
+            if ($flags !== null && $removed !== []) {
+                CapabilityBaseline::advanceVersion($flags);
             }
             if ($previous !== null) {
                 file_put_contents($overrideFile, $previous);
