@@ -203,10 +203,10 @@ final class ExtensionAdminControllerTest extends AppTestCase
 
     public function testAnExtensionListChangeStillRunningIs409(): void
     {
-        // The framework's extension-state lock timed out: another change (an activation, a CLI
-        // enable) is still writing the list. That is contention, not a bad request.
+        // The framework's extension-state lock timed out (glueful/framework 1.88.1 throws lock
+        // contention): another change, an activation or a CLI enable, is still writing the list.
         $controller = $this->spied();
-        $controller->executor->throws = new \RuntimeException(
+        $controller->executor->throws = new LockContentionException(
             'Another change to the extension list is still running (waited 30s).'
         );
 
