@@ -210,6 +210,27 @@ final class ProvisionAdoptionTest extends AppTestCase
         self::assertSame([], $this->record('fresh_target'), 'nothing was recorded');
     }
 
+    public function testAnAdoptionThatFailsAfterTheMigrationsIsReportedAndCanBeRetried(): void
+    {
+        // An upgraded install (system table, a ready ledger) where Commerce is eligible, but whose
+        // activation table is missing: adopting fails after the migrations ran.
+        $pdo = $this->connection()->getPDO();
+        $pdo->exec('CREATE SCHEMA fresh_target');
+        foreach (['thallo_system_flags', 'migrations'] as $table) {
+            $pdo->exec("CREATE TABLE fresh_target.{$table} (LIKE public.{$table} INCLUDING ALL)");
+        }
+        $pdo->exec('INSERT INTO fresh_target.migrations SELECT * FROM public.migrations');
+
+        $command = $this->provision(new FakeProvisionInstaller());
+        $result = $command->installWithAdoption(
+            base_path($this->appContext()),
+            new InstallOptions(database: $this->target('fresh_target')),
+        );
+        self::assertTrue($result->ok, 'the migrations stand');
+        self::assertStringContainsString('thallo:provision', (string) $command->adoptionFailure());
+        self::assertSame('captured', $this->record('fresh_target')['state'] ?? null, 'a retry adopts it');
+    }
+
     private function freshSwitches(): int
     {
         return (int) $this->connection()->getPDO()

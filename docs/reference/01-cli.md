@@ -857,7 +857,7 @@ with `--enable` or `--disable`.
 | Option | What it does |
 |---|---|
 | `--enable=ENABLE` | Turn this capability on; refused while its engine cannot back it, for a misconfigured capability, and for an activation capability (Commerce, Subscriptions, Payments, or one an extension declares), which turns on with `thallo:capabilities:enable` |
-| `--disable=DISABLE` | Turn this capability off (for an activation capability, this also cancels an activation in progress) |
+| `--disable=DISABLE` | Turn this capability off (for an activation capability, this also cancels an activation in progress); refused for a misconfigured capability |
 | `--json` | Print the list as JSON, for scripts |
 
 A flip takes effect on the next request and clears the compiled route cache. Queue workers and

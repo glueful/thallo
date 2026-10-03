@@ -23,8 +23,8 @@
 //      the platform operator (no `provider_subscription_id`), so a self-serve `POST /cancel`
 //      would always 409 `not_provider_managed` -- the UI never offers a button that can only fail.
 //   7. active (entitling + provider_managed) -- plan, period end, Cancel with per-mode confirm, and
-//      Change plan: switched at the provider where it can (meta.plan_change_supported), otherwise
-//      the dialog explains cancelling and subscribing again.
+//      Change plan (not offered while Payments is off): switched at the provider where it can
+//      (meta.plan_change_supported), otherwise the dialog explains cancelling and subscribing again.
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
@@ -356,6 +356,7 @@ const activePlanLabel = computed(() =>
                 @click="cancelOpen = true"
               />
               <UButton
+                v-if="meta?.payments_enabled"
                 color="neutral"
                 variant="outline"
                 label="Change plan"

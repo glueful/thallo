@@ -210,9 +210,13 @@ schema state, and who manages it:
 - **Required by Thallo:** `glueful/aegis` and `glueful/users`, plus any listed in
   `required_packages` in `config/thallo.php`. They have no switch, and
   `php glueful thallo:provision` puts one back if it was removed from the enabled list.
-- **Managed by a feature:** `glueful/commerce`, `glueful/subscriptions` and `glueful/payvia` turn
-  on and off with their feature, `glueful/tenancy` with **Settings › Workspaces**, and an
-  extension's own package with the capability it declares.
+- **Managed by a feature:** `glueful/commerce`, `glueful/subscriptions` and `glueful/payvia` are
+  enabled when their feature turns on, and an extension's own package when the capability it
+  declares turns on. Turning the feature off hides it and leaves the engine enabled, with its
+  tables and data. `glueful/tenancy` is managed by **Settings › Workspaces**.
+- **Misconfigured:** a package that conflicting capability declarations claim. It has no switch
+  until the declarations are fixed; see
+  [troubleshooting](../operations/05-troubleshooting.md#a-capability-is-misconfigured).
 - **Everything else** has an **Enable** or **Disable** button.
 
 Every generic enable and disable (the admin, the API and `extensions:enable` / `extensions:disable`)

@@ -60,6 +60,8 @@ question and gets the same answer:
 - **Billing** in a workspace says "Online payments are off on this platform" and offers no
   **Subscribe**. A pricing block's button no longer leads to checkout; it uses the block's own
   button link if it has one.
+- **Change plan** is not offered on an active subscription, and a request to change plan is
+  refused: the provider could bill the difference online. **Cancel subscription** still works.
 
 **Settings › Payments** says "Payments is off" with a link to Extensions. Your saved gateway keys
 stay on the page, and stay stored.

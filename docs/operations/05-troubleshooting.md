@@ -171,15 +171,17 @@ where it stands now.
 ## A capability is misconfigured
 
 A card in **Extensions › Capabilities** reads "Misconfigured: … Fix the declarations; until then it
-can't be switched." Two packages, or a package and Thallo, declare a capability in ways that
-conflict, so Thallo blocks it everywhere: it has no switch, the API and
-`thallo:capabilities:enable` refuse it, and the packages it claims refuse the generic enable and
-disable. `php glueful thallo:doctor` fails its `capability-declarations` check with the same reason.
+can't be switched." A capability's declarations conflict, or a package's declaration is invalid, so
+Thallo blocks it everywhere: it has no switch, the API and `thallo:capabilities` refuse it, and the
+packages it claims show **Misconfigured** in **Extensions › Installed** and refuse the generic enable
+and disable. `php glueful thallo:doctor` fails its `capability-declarations` check with the same
+reason.
 
 | The reason says | What it means | What to do |
 |---|---|---|
-| "declared differently by …" | Two packages declare the same id with different settings | Remove one of the packages, or ask its author to rename the capability |
-| "one of several capabilities that claim …" | Two capabilities that are not plain switches name the same package | Remove the package whose capability you don't want |
+| "declared differently by …" | Two sources — two packages, or a package and Thallo's own code — declare the same id with different settings; the reason names them | Remove one of the packages, or ask its author to rename the capability |
+| "an invalid declaration in …" | A package's `extra.thallo.capabilities` entry can't be read: a missing id, an unknown mode, a malformed field. The reason says which | Update or remove the package; ask its author to fix the entry |
+| "one of several capabilities that claim …" | Two capabilities that are not plain switches name the same package, or a misconfigured one names a package another activation owns | Remove the package whose capability you don't want |
 | "an activation over …, which is required by Thallo" | An activation names a package Thallo can't run without | Remove the package that declares it |
 | "an activation over …, which is not installed" | The package the activation enables isn't installed | `composer require` the package, or remove the one that declares the capability |
 

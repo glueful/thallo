@@ -20,6 +20,7 @@ use Thallo\Core\Capabilities\FeatureManagementPolicy;
 use Thallo\Core\Http\Controllers\PlatformPaymentsSettingsController;
 use Thallo\Core\Payments\PaymentsGatedCollector;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\CapabilityBaseline;
 
 /**
  * Payments is a capability (spec §7.7): core declares it over glueful/payvia, it turns on through
@@ -142,7 +143,7 @@ final class PaymentsCapabilityTest extends AppTestCase
         // The real flows, run by their own tests in a process where Payments is off (and the
         // sentinel below proves it was): a webhook settling a payment started before, the refund
         // block, abandoning and resolving a pending checkout, an existing origination's visibility,
-        // and a self-serve checkout refused before it reaches the gateway.
+        // and a self-serve checkout and a plan change refused before they reach the provider.
         $filter = implode('|', [
             'testPaymentsIsOffInThisRun',
             'testAVerifiedSuccessWebhookPaysTheOrderConsumesTheLinkAndSettlesTheIntent',
@@ -150,18 +151,20 @@ final class PaymentsCapabilityTest extends AppTestCase
             'testAbandonConfirmedDeadTransitionsOriginationOpensGuardAndReleasesReservation',
             'testResolveConfirmedDeadReleasesReservationOpensGuardAndAdvancesToAbandoned',
             'testWhilePaymentsIsOffTheStatusSaysSoAndCheckoutIsRefused',
+            'testWhilePaymentsIsOffAPlanChangeIsRefused',
         ]);
         $runs = [
             'tests/Integration/Payments/PaymentsCapabilityTest.php' => 1,       // the sentinel
             'tests/Integration/Commerce/WebhookOrderSettlementTest.php' => 1,
             'tests/Integration/Commerce/AdminOrderPaymentsTest.php' => 1,
-            'tests/Integration/Subscriptions/WorkspaceBillingCancelAbandonTest.php' => 2,
+            'tests/Integration/Subscriptions/WorkspaceBillingCancelAbandonTest.php' => 3,
             'tests/Integration/Subscriptions/WorkspaceBillingSelfServeTest.php' => 1,
         ];
         foreach ($runs as $file => $count) {
             $out = self::runWithPaymentsOff($filter, $file);
             self::assertMatchesRegularExpression("/OK \\({$count} tests?/", $out, $file . "\n" . $out);
         }
+        CapabilityBaseline::restore($this->connection()->getPDO());     // the off runs cleared Payments
     }
 
     private static function runWithPaymentsOff(string $filter, string $file): string

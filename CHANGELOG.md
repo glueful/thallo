@@ -12,13 +12,14 @@ as the next release, never a mutated tag.
   prepare it at deploy time with `--prepare` and finish on the running site, and see where every
   capability with an activation stands.
 - **Payments is a capability.** Turn it on in Extensions to take online payments; turning it off
-  stops new online payments but keeps settling the ones in flight, refunds and renewals already
-  billed by your provider. Sites with Payvia enabled keep Payments on.
+  stops new online payments and plan changes, but keeps settling the ones in flight, refunds and
+  renewals already billed by your provider. A site where Payvia was enabled with its schema ready keeps Payments on
+  once `php glueful thallo:provision` runs after the update.
 - **Extensions can add their own capabilities.** A package declares one in its `composer.json`
   (`extra.thallo.capabilities`): it appears in Extensions while the package is still disabled, and
   an activation capability turns on with one action that enables the package, adds its blocks and
-  grants its permissions. Conflicting declarations are blocked and reported by
-  `php glueful thallo:doctor`. `thallo.required_packages` adds packages no switch may disable.
+  grants its permissions (never before it). Conflicting or invalid declarations are blocked, with
+  their packages, and reported by `php glueful thallo:doctor`. `thallo.required_packages` adds packages no switch may disable.
 
 ### Changed
 - **Packs declare capabilities instead of registering them.** A package declares its capabilities

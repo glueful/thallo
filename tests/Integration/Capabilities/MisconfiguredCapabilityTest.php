@@ -19,6 +19,7 @@ use Thallo\Core\Capabilities\Console\CapabilitiesCommand;
 use Thallo\Core\Capabilities\Console\CapabilitiesEnableCommand;
 use Thallo\Core\Capabilities\Declarations\CapabilityDeclaration;
 use Thallo\Core\Capabilities\Declarations\DeclarationSet;
+use Thallo\Core\Capabilities\Declarations\PackageCapabilityDeclarations;
 use Thallo\Core\Capabilities\FeatureManagementPolicy;
 use Thallo\Core\Http\Controllers\CapabilityActivationController;
 use Thallo\Core\Http\DTOs\ActivationGenerationData;
@@ -117,6 +118,48 @@ final class MisconfiguredCapabilityTest extends AppTestCase
         self::assertSame([], $same->misconfigured());
     }
 
+    public function testAnInvalidPackageDeclarationProtectsItsPackageAndKeepsEveryEntry(): void
+    {
+        $installed = tempnam(sys_get_temp_dir(), 'thallo-installed-') ?: '';
+        file_put_contents($installed, (string) json_encode(['packages' => [[
+            'name' => 'acme/x',
+            'type' => 'glueful-extension',
+            'extra' => ['thallo' => ['capabilities' => [
+                ['mode' => 'bogus'],                         // no id
+                ['label' => 'Also no id'],                   // no id
+                ['id' => 'acme.y', 'mode' => 'bogus'],
+            ]]],
+        ]]]));
+        try {
+            $packages = new PackageCapabilityDeclarations($this->appContext(), $installed);
+            $set = new DeclarationSet($packages->all(), ['acme/x' => 'Acme\\X'], $packages->errors());
+        } finally {
+            @unlink($installed);
+        }
+        self::assertCount(3, $set->misconfigured(), 'every invalid entry is kept');
+        foreach ($set->misconfigured() as $entry) {
+            self::assertSame(['acme/x'], $entry['packages'], 'the declaring package is protected');
+        }
+        self::assertSame('misconfigured', $set->packageManagement()['acme/x']['class']);
+        self::assertStringStartsWith('an invalid declaration in acme/x: ', $set->misconfigured()['acme.y']['reason']);
+    }
+
+    public function testADeclarationThatConflictsOverAnotherActivationsEngineBlocksBoth(): void
+    {
+        $providers = ['acme/one' => 'Acme\\One', 'acme/two' => 'Acme\\Two'];
+        $activation = static fn (string $id, string $pkg): Capability
+            => new Capability($id, owningPackage: $pkg, management: ManagementMode::Activation);
+        $set = self::set([
+            self::decl($activation('a.x', 'acme/one'), 'p1'),
+            self::decl($activation('a.y', 'acme/one'), 'p2'),
+            self::decl($activation('a.y', 'acme/two'), 'p3'),
+        ], $providers);
+        self::assertStringStartsWith('declared differently', $set->misconfigured()['a.y']['reason']);
+        self::assertArrayHasKey('a.x', $set->misconfigured(), 'a.y also claims acme/one');
+        self::assertStringContainsString('claim acme/one', $set->misconfigured()['a.x']['reason']);
+        self::assertSame('misconfigured', $set->packageManagement()['acme/one']['class']);
+    }
+
     public function testAConflictMakesACapabilityStoredOnIneffectiveInEitherRegistrationOrder(): void
     {
         $providers = ['glueful/media' => self::MEDIA, 'glueful/import-export' => self::IMPORT_EXPORT];
@@ -208,6 +251,15 @@ final class MisconfiguredCapabilityTest extends AppTestCase
         $response = $toggle->disable($request);
         self::assertSame(409, $response->getStatusCode());
         self::assertSame([], $toggle->executor->calls);
+    }
+
+    public function testTheInstalledRowOffersNoCommandThatWouldBeRefused(): void
+    {
+        $controller = new TestableExtensionAdminController($this->contested()->get(ApplicationContext::class));
+        $rows = json_decode((string) $controller->index()->getContent(), true)['data']['extensions'];
+        $row = array_column($rows, null, 'name')['glueful/media'];
+        self::assertSame('misconfigured', $row['management']['class']);
+        self::assertNull($row['cli_command'], 'extensions:enable/disable would be refused');
     }
 
     public function testTheCapabilityListSaysWhyItIsMisconfigured(): void

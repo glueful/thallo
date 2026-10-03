@@ -24,12 +24,15 @@ export interface InstalledExtension {
   schema_reasons: string[]
   /** The CLI equivalent an operator can run for this row's state. */
   cli_command: string | null
-  /** Who switches this package: Thallo needs it, a feature manages it, or it is independent. */
+  /**
+   * Who switches this package: Thallo needs it, a feature manages it, conflicting capability
+   * declarations claim it (no switch until they are fixed), or it is independent.
+   */
   management: PackageManagement
 }
 
 export interface PackageManagement {
-  class: 'required' | 'managed' | 'independent'
+  class: 'required' | 'managed' | 'misconfigured' | 'independent'
   capability: string | null
   reason: string | null
   link: string | null

@@ -129,9 +129,11 @@ final class BookingBlockTypes implements StarterBlockTypeContributor
 ## Register it, and declare a permission
 
 Your provider registers the contributor with `Thallo\Contracts\Starter\StarterBlockTypeRegistry`
-when it boots, and declares its permissions in `permissions()`. The activation grants every
-permission it finds to the `superuser` and `administrator` roles; a permission an operator revokes
-later stays revoked.
+when it boots (once: boot can run more than once in a process), and declares its permissions in
+`permissions()`. The activation grants them to the `superuser` and `administrator` roles; a
+permission an operator revokes later stays revoked. Until your capability's activation runs,
+provision syncs your permissions but grants them to no one, even when your extension is already
+enabled.
 
 ```php
 <?php
@@ -148,9 +150,16 @@ final class BookingsServiceProvider extends ServiceProvider
     public function boot(ApplicationContext $context): void
     {
         $container = $context->getContainer();
-        if ($container->has(StarterBlockTypeRegistry::class)) {
-            $container->get(StarterBlockTypeRegistry::class)->register(new BookingBlockTypes());
+        if (!$container->has(StarterBlockTypeRegistry::class)) {
+            return;
         }
+        $registry = $container->get(StarterBlockTypeRegistry::class);
+        foreach ($registry->all() as $contributor) {
+            if ($contributor instanceof BookingBlockTypes) {
+                return;                                    // registered already
+            }
+        }
+        $registry->register(new BookingBlockTypes());
     }
 
     public function permissions(): array
@@ -194,10 +203,13 @@ Turning Bookings off hides the block and keeps your extension enabled, its table
 
 ## When Thallo refuses a declaration
 
-Thallo blocks a capability, and the packages it claims, when its declaration conflicts:
+Thallo blocks a capability, and the packages it claims, when its declaration conflicts or can't be
+read:
 
-- the same id is declared differently by two packages;
-- two capabilities that are not `simple` claim the same package;
+- an entry in `extra.thallo.capabilities` is invalid (a missing id, an unknown mode);
+- the same id is declared differently by two sources, two packages or a package and Thallo;
+- two capabilities that are not `simple` claim the same package, including one that is blocked for
+  another reason;
 - an `activation` capability's package is one Thallo requires;
 - an `activation` capability's package isn't installed.
 

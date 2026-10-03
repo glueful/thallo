@@ -368,6 +368,45 @@ describe('the Extensions page', () => {
     expect(w.find('[data-test="package-toggle"]').exists()).toBe(false)
   })
 
+  it('misconfigured package shows Misconfigured, its reason, and no switch or command', async () => {
+    const reason =
+      "Misconfigured: acme.contested is one of several capabilities that claim glueful/media (acme.a, acme.b). Fix the declarations; until then it can't be switched."
+    serve({
+      'GET /v1/admin/extensions': () => ({
+        data: {
+          extensions: [
+            {
+              name: 'glueful/media',
+              provider: 'Glueful\\Extensions\\Media\\MediaServiceProvider',
+              version: '1.0.0',
+              requires_extensions: [],
+              enabled: true,
+              schema_state: 'ready',
+              schema_reasons: [],
+              cli_command: null,
+              management: { class: 'misconfigured', capability: 'acme.a', reason, link: null },
+            },
+          ],
+        },
+      }),
+    })
+    const { default: InstalledPackages } =
+      await import('@/pages/extensions/components/InstalledPackages.vue')
+    const w = mount(InstalledPackages, {
+      global: { plugins: [createPinia(), PiniaColada, router()] },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    const row = w.find('[data-test="package-glueful/media"]')
+    expect(row.text()).toContain('Misconfigured')
+    await row.trigger('click')
+    await flushPromises()
+
+    expect(w.text()).toContain('one of several capabilities that claim glueful/media')
+    expect(w.find('[data-test="package-toggle"]').exists()).toBe(false)
+    expect(w.text()).not.toContain('extensions:disable')
+  })
+
   it('the Extensions page opens on Capabilities', async () => {
     serve({ [MANAGE]: manage(commerce()) })
     await mountExtensions()

@@ -242,6 +242,18 @@ final class ThirdPartyActivationTest extends AppTestCase
         self::assertContains(self::BLOCK, $request->get(BlockTypeKind::class)->hiddenSlugs(), 'its block is hidden');
     }
 
+    public function testProvisionWithholdsItsPermissionUntilItsActivation(): void
+    {
+        // Provision's role grants run in an application where the engine is enabled but the
+        // capability was never turned on: the permission is synced, not granted, and not recorded
+        // as offered — so the activation still grants it.
+        self::withEngine()->get(InstallRoleGrants::class)->apply();
+        self::assertSame([], $this->rolesGranted(), 'nothing granted before its activation');
+
+        $this->turnOn();
+        self::assertSame(['administrator', 'superuser'], $this->rolesGranted());
+    }
+
     public function testTurningOffHidesItAndKeepsTheEngineAndItsData(): void
     {
         $this->turnOn();

@@ -203,6 +203,17 @@ final class ActivationAdoptionTest extends AppTestCase
         self::assertSame(ActivationStatus::IDLE, $record->status);
     }
 
+    public function testAConfigurationValueOtherThanTrueIsReadAsTheOldRuleDid(): void
+    {
+        // The old rule read a configured value as on only when it was exactly true: a string from
+        // env() ('true', '0') meant off, so it isn't adopted either.
+        $string = self::bootAppWithConfigOverride('thallo', ['capabilities' => ['thallo.commerce' => 'true']])
+            ->getContainer();
+        $adopted = $this->upgrade($string);
+        self::assertNotContains('thallo.commerce', $adopted);
+        self::assertNull($this->storedValue('thallo.commerce'));
+    }
+
     public function testAStoredOffAndAnOpenActivationAreUntouched(): void
     {
         $this->container()->get(CapabilityStateStore::class)->put('thallo.commerce', false);

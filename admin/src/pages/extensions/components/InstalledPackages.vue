@@ -28,6 +28,7 @@ const switchable = (ext: InstalledExtension) => ext.management.class === 'indepe
 function managementBadge(ext: InstalledExtension): string | null {
   if (ext.management.class === 'required') return 'Required'
   if (ext.management.class === 'managed') return 'Managed'
+  if (ext.management.class === 'misconfigured') return 'Misconfigured'
   return null
 }
 
@@ -106,7 +107,7 @@ async function toggle(ext: InstalledExtension) {
           <UBadge
             v-if="managementBadge(ext)"
             :label="managementBadge(ext) ?? ''"
-            color="neutral"
+            :color="ext.management.class === 'misconfigured' ? 'warning' : 'neutral'"
             variant="outline"
             size="xs"
             class="shrink-0"
