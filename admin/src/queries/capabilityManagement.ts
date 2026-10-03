@@ -49,6 +49,8 @@ export interface ManagedCapability {
   destination: ExternalFlowDestination | null
   /** Declared copy for an activation capability. */
   copy: ActivationCopy | null
+  /** Why its declarations conflict; a misconfigured capability can't be switched. */
+  misconfigured: string | null
 }
 
 const base = () => `${runtimeConfig.apiBase}/capabilities`

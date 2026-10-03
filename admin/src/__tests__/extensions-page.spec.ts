@@ -35,6 +35,7 @@ function commerce(over: Json = {}): Json {
     application_files_writable: true,
     engine_enabled: true,
     destination: null,
+    misconfigured: null,
     copy: {
       turn_on:
         'This prepares your store and adds products, orders, shop blocks and templates. Your existing content is kept.',
@@ -264,6 +265,22 @@ describe('the Extensions page', () => {
     serve({ [MANAGE]: manage(commerce({ requested: true, effective: true, activation: null })) })
     await mountExtensions()
     expect(inCard('[data-test="capability-summary"]')?.textContent?.trim()).toBe('Commerce is on.')
+  })
+
+  it('a misconfigured capability says why and offers nothing', async () => {
+    serve({
+      [MANAGE]: manage(
+        commerce({
+          available: false,
+          reason: 'Misconfigured: thallo.commerce is declared differently by a and b.',
+          misconfigured: 'Misconfigured: thallo.commerce is declared differently by a and b.',
+        }),
+      ),
+    })
+    await mountExtensions()
+    expect(card().textContent).toContain('declared differently')
+    expect(card().querySelector('button')).toBeNull()
+    expect(inCard('[role="switch"]')).toBeNull()
   })
 
   it('the confirmation copy comes from the capability', async () => {

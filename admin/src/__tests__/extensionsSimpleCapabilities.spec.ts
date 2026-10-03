@@ -43,6 +43,7 @@ const cap = (over: Partial<ManagedCapability> = {}): ManagedCapability => ({
   application_files_writable: null,
   engine_enabled: null,
   destination: null,
+  misconfigured: null,
   copy: null,
   ...over,
 })

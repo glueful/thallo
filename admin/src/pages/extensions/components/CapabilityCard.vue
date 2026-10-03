@@ -48,6 +48,7 @@ const activation = computed<ActivationRecord | null>(() =>
 type CardState =
   | 'simple'
   | 'external'
+  | 'misconfigured'
   | 'preparing'
   | 'failed'
   | 'open'
@@ -57,6 +58,7 @@ type CardState =
 
 const state = computed<CardState>(() => {
   const cap = props.capability
+  if (cap.misconfigured) return 'misconfigured'
   if (cap.management === 'external_flow') return 'external'
   if (cap.management !== 'activation') return 'simple'
   if (flow.running.value) return 'preparing'
@@ -77,7 +79,7 @@ const state = computed<CardState>(() => {
  */
 const showUnavailable = computed(() => {
   const cap = props.capability
-  if (cap.available || state.value === 'read-only' || state.value === 'on') return false
+  if (cap.available || ['read-only', 'on', 'misconfigured'].includes(state.value)) return false
   return cap.management !== 'activation' || cap.requested
 })
 
@@ -185,7 +187,19 @@ async function toggleSimple(): Promise<void> {
       </div>
     </div>
 
-    <ActivationProgress v-if="state === 'preparing'" :label="label" :step="activation?.next_step" />
+    <p
+      v-if="state === 'misconfigured'"
+      class="text-sm text-error"
+      data-test="capability-misconfigured"
+    >
+      {{ capability.misconfigured }}
+    </p>
+
+    <ActivationProgress
+      v-else-if="state === 'preparing'"
+      :label="label"
+      :step="activation?.next_step"
+    />
 
     <div v-else-if="state === 'failed'" class="flex flex-col gap-2 text-sm">
       <p class="text-error">{{ activation?.error }}</p>

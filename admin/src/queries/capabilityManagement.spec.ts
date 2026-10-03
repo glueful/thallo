@@ -49,6 +49,7 @@ const row = (over: Record<string, unknown> = {}) => ({
   application_files_writable: null,
   engine_enabled: null,
   destination: null,
+  misconfigured: null,
   copy: null,
   ...over,
 })
