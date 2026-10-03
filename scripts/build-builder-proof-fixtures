@@ -1185,10 +1185,17 @@ try {
 
 // The library with Commerce off (shop-patterns.spec.ts): the server's own answer from a second boot
 // under a capability override — the same boot the integration tests use for it — restored after.
+// Commerce is an activation capability, so its stored switch wins over the override: the boot
+// takes place with that switch cleared (and the state version moved), and both are put back after.
 $overrideDir = $root . '/config/testing';
 $overrideFile = $overrideDir . '/thallo.php';
 $previousOverride = is_file($overrideFile) ? (string) file_get_contents($overrideFile) : null;
 file_put_contents($overrideFile, "<?php\nreturn " . var_export(['capabilities' => ['thallo.commerce' => false]], true) . ";\n");
+$flagsPdo = $container->get(Glueful\Database\Connection::class)->getPDO();
+$cleared = $flagsPdo->prepare("DELETE FROM thallo_system_flags WHERE key = 'capability.thallo.commerce.enabled' RETURNING value");
+$cleared->execute();
+$storedCommerce = $cleared->fetchColumn();
+\Thallo\Core\Tests\Support\CapabilityBaseline::advanceVersion($flagsPdo);
 \Glueful\Routing\RouteManifest::reset();
 \Glueful\Extensions\ServiceProvider::resetLoadedRoutes();
 try {
@@ -1201,6 +1208,11 @@ try {
     $json('patterns-commerce-off', (string) $withoutCommerce
         ->get(\Thallo\Core\Content\Http\Controllers\PatternController::class)->index(Request::create('/x'))->getContent());
 } finally {
+    if (is_string($storedCommerce)) {
+        $flagsPdo->prepare("INSERT INTO thallo_system_flags (key, value) VALUES ('capability.thallo.commerce.enabled', ?)
+            ON CONFLICT (key) DO NOTHING")->execute([$storedCommerce]);
+    }
+    \Thallo\Core\Tests\Support\CapabilityBaseline::advanceVersion($flagsPdo);
     if ($previousOverride !== null) {
         file_put_contents($overrideFile, $previousOverride);
     } else {
