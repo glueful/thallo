@@ -157,7 +157,7 @@ done, and a retry skips them.
 |---|---|---|
 | Enable the engine, with "Application files can't be written on this host" | `config/extensions.php` or `bootstrap/cache/` is read-only at runtime, as on an immutable deploy | Run `php glueful thallo:capabilities:enable thallo.commerce --prepare` where they are writable (at deploy time), then finish in **Extensions › Capabilities** or with `thallo:capabilities:resume` |
 | Enable the engine, with a migration error | One of the engine's migrations failed | Read the error and `storage/logs/`, fix the cause (`php glueful migrate:verify` lists divergent migrations), then **Retry** |
-| Check the engine in a fresh request | The engine's provider isn't loaded: the extension cache was not rebuilt (the engine step reports "cache stale"), or a long-running PHP process still serves the old one | `php glueful extensions:cache`, restart PHP-FPM or the workers if they cache code, then **Retry** |
+| Check the engine in a fresh request | The engine's provider isn't loaded: the extension cache was built from an out-of-date list, or not rebuilt (the engine step reports "cache stale"), or a long-running PHP process still serves the old one | **Retry**: it rebuilds the extension cache, then checks again. If it fails the same way, run `php glueful extensions:cache`, restart PHP-FPM (with `opcache.validate_timestamps=0` it never rereads changed files) or the workers, then **Retry** |
 | Add its blocks | Seeding failed in one or more workspaces, which the error names | Fix the cause and **Retry**: it covers only those workspaces, and drops one that was deleted since |
 | Grant its permissions, or switch it on | A database error, usually a lost connection | **Retry** |
 

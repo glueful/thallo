@@ -235,6 +235,35 @@ final class ActivationRunnerTest extends AppTestCase
         self::assertFalse($this->states()->fresh('thallo.commerce'));
     }
 
+    public function testRetryAfterTheBootCheckFoundNoProviderRebuildsTheCacheThenChecksAgain(): void
+    {
+        // The engine is listed and ready, but the extension cache this request booted from lacks
+        // it (OPcache served a stale list to the rebuild): the check fails and reopens the engine
+        // step; Retry rebuilds the cache, then the check runs in the request after.
+        $gen = $this->startAndRun('thallo.commerce');
+        $failed = $this->runnerBootedWithoutCommerce()->run('thallo.commerce', $gen, freshBoot: true);
+        self::assertSame(ActivationStep::VERIFY_BOOT, $failed->record->failedStep);
+        self::assertNotContains(
+            ActivationStep::ENABLE_ENGINE,
+            $failed->record->stepsDone,
+            'Retry runs the engine step again',
+        );
+
+        $rebuilds = 0;
+        $retryGen = $this->store()->startOrJoin('thallo.commerce', 't')->generation;
+        $countRebuild = static function () use (&$rebuilds): void {
+            $rebuilds++;
+        };
+        $engine = $this->engine(container: self::$withoutCommerce, writeCache: $countRebuild);
+        $retry = $this->runner($engine, self::$withoutCommerce)->run('thallo.commerce', $retryGen, freshBoot: true);
+        self::assertSame(1, $rebuilds, 'the cache was rebuilt');
+        self::assertTrue($retry->needsBoot, 'the check waits for a request booted from the rebuilt cache');
+
+        $out = $this->freshBootRunner()->run('thallo.commerce', $retryGen, freshBoot: true);
+        self::assertSame(ActivationStatus::SUCCEEDED, $out->record->status);
+        self::assertTrue($this->states()->fresh('thallo.commerce'));
+    }
+
     public function testCacheStaleStaysOffUntilTheGatePasses(): void
     {
         $stale = $this->engine([], writeCache: static function (): void {
@@ -247,7 +276,10 @@ final class ActivationRunnerTest extends AppTestCase
         self::assertSame(ActivationStep::VERIFY_BOOT, $out->record->failedStep);
         self::assertFalse($this->states()->fresh('thallo.commerce'));
 
-        // the cache is rebuilt: a context booted now loads the provider
+        // Retry runs the engine step again (the cache can be rebuilt now), then the check runs in
+        // the request after, booted from it.
+        $retry = $this->freshBootRunner()->run('thallo.commerce', $gen, freshBoot: true);
+        self::assertTrue($retry->needsBoot);
         $out = $this->freshBootRunner()->run('thallo.commerce', $gen, freshBoot: true);
         self::assertSame(ActivationStatus::SUCCEEDED, $out->record->status);
         self::assertSame($gen, $out->record->generation);
