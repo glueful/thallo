@@ -32,6 +32,15 @@ final class ActivationStoreTest extends AppTestCase
         return $this->container()->get(CapabilityStateStore::class);
     }
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Rows exist before a capability is actionable: each test capability is initialized first.
+        foreach (['test.shop', 'test.race'] as $capability) {
+            $this->store()->initializeRow($capability);
+        }
+    }
+
     protected function tearDown(): void
     {
         $pdo = $this->connection()->getPDO();
@@ -186,7 +195,12 @@ final class ActivationStoreTest extends AppTestCase
     public function testShareAllLocksEveryActivationRowInOrderAndReadsFreshState(): void
     {
         $states = $this->connection()->transaction(fn (): array => $this->store()->shareAll());
-        self::assertSame(['thallo.commerce', 'thallo.subscriptions'], array_keys($states));
+        $keys = array_keys($states);
+        $sorted = $keys;
+        sort($sorted);
+        self::assertSame($sorted, $keys, 'locked in capability order');
+        self::assertContains('thallo.commerce', $keys);
+        self::assertContains('thallo.subscriptions', $keys);
         self::assertArrayHasKey('on', $states['thallo.commerce']);
         self::assertArrayHasKey('preparing', $states['thallo.commerce']);
     }
