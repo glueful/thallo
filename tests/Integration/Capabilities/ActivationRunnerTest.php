@@ -189,21 +189,6 @@ final class ActivationRunnerTest extends AppTestCase
         $pdo->prepare('DELETE FROM permissions WHERE slug = ?')->execute([$slug]);
     }
 
-    private function anAdvisoryLockWaiterAppears(int $timeoutSeconds = 15): bool
-    {
-        $deadline = microtime(true) + $timeoutSeconds;
-        while (microtime(true) < $deadline) {
-            $waiting = (int) $this->connection()->getPDO()
-                ->query("SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND NOT granted")
-                ->fetchColumn();
-            if ($waiting > 0) {
-                return true;
-            }
-            usleep(50_000);
-        }
-        return false;
-    }
-
     // ── the boot boundary ──────────────────────────────────────────────────────────
 
     public function testTheEngineStepAlwaysStopsAtTheBootBoundary(): void
@@ -385,8 +370,8 @@ final class ActivationRunnerTest extends AppTestCase
         $a = $this->startChild('engine_prepare_child.php', ['glueful/commerce', $config, '--pause-in-lock']);
         $a->waitFor('in-lock');
         $b = $this->startChild('engine_prepare_child.php', ['glueful/subscriptions', $config]);
-        self::assertTrue($this->anAdvisoryLockWaiterAppears(), 'B waits on the extension-state lock');
-        self::assertFalse($b->isFinished(), 'B does not write while A holds the lock');
+        usleep(1_500_000);                                     // long enough for B to boot and reach the lock
+        self::assertFalse($b->isFinished(), 'B waits on the extension-state lock while A holds it');
         $a->signal('resume');
         self::assertStringContainsString('prepared', $a->finish());
         self::assertStringContainsString('prepared', $b->finish());

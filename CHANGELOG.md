@@ -5,6 +5,15 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Fixed
+- **A new project installs cleanly.** `composer create-project` failed at its `extensions:cache`
+  step ("password authentication failed") because the extension-state lock needed the database
+  before `.env` was filled in. It is a file lock now (glueful/framework 1.88.2), and Thallo's own
+  writers of the extension list take that same lock. If an install stopped there, run
+  `php glueful thallo:provision` to carry on.
+
 ## [1.0.0-beta.78] - 2026-10-03 — Developer Preview
 
 Features turn on in one place. **Extensions › Capabilities** lists every capability, and
