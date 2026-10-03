@@ -553,8 +553,10 @@ A third-party capability discovered after the upgrade is never adopted: it start
 A disabled extension's provider never loads, so a declaration made only in that provider can't put
 the capability on the page. Two sources are supported, and both are read without enabling the engine:
 
-1. **An always-loaded integration pack** registers the capability through `CapabilityRegistry`, with
-   its mode, as Thallo's packs do today (Commerce, Subscriptions, Payments from core, tenancy).
+1. **An always-loaded integration pack** declares the capability, with its mode, from its provider
+   (`DeclaresCapabilities`), as Thallo's packs do (Commerce, Subscriptions, Payments from core,
+   tenancy); Thallo fills `CapabilityRegistry` from the declarations before boot and seals it, so a
+   `register()` call after that is refused.
 2. **Package metadata:** an installed package declares its capabilities in `composer.json`
    (`extra.thallo.capabilities`: id, label, description, mode, copy, destination). Thallo reads it
    from the package manifest whether or not the package is enabled. The declaring package is the

@@ -21,6 +21,10 @@ as the next release, never a mutated tag.
   `php glueful thallo:doctor`. `thallo.required_packages` adds packages no switch may disable.
 
 ### Changed
+- **Packs declare capabilities instead of registering them.** A package declares its capabilities
+  from its provider (`DeclaresCapabilities`) or in `composer.json` (`extra.thallo.capabilities`).
+  Calling `CapabilityRegistry::register()` from a pack's boot no longer works: it throws outside
+  production and is ignored, with a log entry, in production.
 - **Commerce and Subscriptions stay as they were on upgrade.** A site where they were on keeps them
   on; from now on they turn on through Extensions, which prepares everything first. Run
   `php glueful thallo:provision` after updating, as usual: until it runs, they read off.

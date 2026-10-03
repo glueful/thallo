@@ -192,6 +192,24 @@ final class ProvisionAdoptionTest extends AppTestCase
         self::assertSame([], $this->record());
     }
 
+    public function testAReadinessCheckThatFailsStopsProvisionInsteadOfRecordingNothing(): void
+    {
+        // An existing install (it has the system table) whose migrations ledger can't be read: the
+        // engines' readiness is unknown, which is not "not eligible".
+        $pdo = $this->connection()->getPDO();
+        $pdo->exec('CREATE SCHEMA fresh_target');
+        $pdo->exec('CREATE TABLE fresh_target.thallo_system_flags (LIKE public.thallo_system_flags INCLUDING ALL)');
+        $pdo->exec('CREATE TABLE fresh_target.migrations (id integer)');     // a ledger it can't read
+        $installer = new FakeProvisionInstaller();
+        try {
+            $this->install($installer, $this->target('fresh_target'));
+            self::fail('an unknown readiness was recorded as nothing to adopt');
+        } catch (CapabilityAdoptionCaptureFailed) {
+        }
+        self::assertSame(0, $installer->calls, 'the installer never ran');
+        self::assertSame([], $this->record('fresh_target'), 'nothing was recorded');
+    }
+
     private function freshSwitches(): int
     {
         return (int) $this->connection()->getPDO()
