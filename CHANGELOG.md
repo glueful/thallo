@@ -5,7 +5,11 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.79] - 2026-10-03 — Developer Preview
+
+A new project installs cleanly again: `composer create-project` no longer stops at its
+`extensions:cache` step. Requires glueful/framework 1.88.2, which `composer update` brings in. No
+migrations and nothing to provision.
 
 ### Fixed
 - **A new project installs cleanly.** `composer create-project` failed at its `extensions:cache`
