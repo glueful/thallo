@@ -95,17 +95,29 @@ final class SearchPageTest extends AppTestCase
 
     public function testAnEngineThatCannotAnswerIs503WithTheForm(): void
     {
-        // Meilisearch asked for and not configured: no engine can answer.
-        putenv('SEARCH_ENGINE=meilisearch');
-        $_ENV['SEARCH_ENGINE'] = 'meilisearch';
+        // Meilisearch asked for, at a host nothing answers: no engine can answer. (A host set in
+        // the local .env may well answer, so the test names one that cannot.)
+        $env = ['SEARCH_ENGINE' => 'meilisearch', 'MEILISEARCH_HOST' => 'http://127.0.0.1:9'];
+        $saved = [];
+        foreach ($env as $key => $value) {
+            $saved[$key] = getenv($key);
+            putenv("{$key}={$value}");
+            $_ENV[$key] = $value;
+        }
         try {
             $broken = new SearchOnApp(self::bootAppWithConfigOverride(
                 'thallo',
                 ['capabilities' => ['thallo.search' => true]],
             ));
         } finally {
-            putenv('SEARCH_ENGINE');
-            unset($_ENV['SEARCH_ENGINE']);
+            foreach ($saved as $key => $value) {
+                putenv($value === false ? $key : "{$key}={$value}");
+                if ($value === false) {
+                    unset($_ENV[$key]);
+                } else {
+                    $_ENV[$key] = $value;
+                }
+            }
         }
         $res = $broken->page('/search?q=rose&locale=en');
         self::assertSame(503, $res->getStatusCode());
@@ -156,6 +168,7 @@ final class SearchPageTest extends AppTestCase
 
     public function testMalformedInputsNeverFail(): void
     {
+        $this->site->reconcile(); // built, so a status measures the input, not the index
         foreach (
             [
             'q[]=a',

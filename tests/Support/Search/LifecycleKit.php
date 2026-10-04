@@ -29,6 +29,9 @@ use Thallo\Search\Store\PostgresIndexStore;
  */
 final class LifecycleKit
 {
+    /** @var list<array<string, mixed>> wake-ups the reconciler queued */
+    public array $wakes = [];
+
     private const LABELS = ['thallo.commerce' => 'Commerce', 'thallo.search' => 'Search'];
 
     public FixedClock $clock;
@@ -125,6 +128,9 @@ final class LifecycleKit
             new Workspace($this->context),
             $this->context->getContainer()->get(SystemChannel::class),
             new NullLogger(),
+            function (array $data): void {
+                $this->wakes[] = $data;
+            },
         );
     }
 

@@ -176,7 +176,7 @@ final class DemandAndRecoveryTest extends AppTestCase
         self::assertNotNull($this->kit->state->row('entries')['active_target']);
     }
 
-    public function testAConfigOnlyFlipIsRecoveredAtBoot(): void
+    public function testBootRecoveryRecordsDemandAndWakesTheQueueWithoutRebuildingInTheRequest(): void
     {
         self::assertSame(RebuildOutcome::PROMOTED, $this->kit->rebuilder()->run('entries'));
         $this->flags()->put(Reconciler::AVAILABILITY_MARKER, json_encode([]));
@@ -189,6 +189,20 @@ final class DemandAndRecoveryTest extends AppTestCase
             'capability',
             $this->connection()->table('search_index_demand')->orderBy('seq', 'DESC')->first()['reason'],
         );
+        self::assertSame($generation, (int) $this->kit->state->row('entries')['generation'], 'no rebuild in a request');
+        self::assertSame([['workspace' => null]], $this->kit->wakes, 'the queue worker does the work');
+        self::assertSame(json_encode(['entries']), $this->flags()->get(Reconciler::AVAILABILITY_MARKER));
+    }
+
+    public function testTheScheduledRunCatchesAConfigOnlyFlipToo(): void
+    {
+        self::assertSame(RebuildOutcome::PROMOTED, $this->kit->rebuilder()->run('entries'));
+        $this->flags()->put(Reconciler::AVAILABILITY_MARKER, json_encode([]));
+        $generation = (int) $this->kit->state->row('entries')['generation'];
+
+        $this->kit->clock->advance(5);
+        $this->kit->reconciler()->runAll(false);
+
         self::assertGreaterThan($generation, (int) $this->kit->state->row('entries')['generation']);
         self::assertSame(json_encode(['entries']), $this->flags()->get(Reconciler::AVAILABILITY_MARKER));
     }
