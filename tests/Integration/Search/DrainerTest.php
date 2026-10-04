@@ -354,7 +354,8 @@ final class DrainerTest extends AppTestCase
 
     public function testDrainingFailureNeverReachesTheRequest(): void
     {
-        $this->targets('pg', 1, null, null, $this->pgStore());
+        // A broken engine (a mock store counts as Meilisearch here), with its own active index.
+        $this->targets('content_v2_entries_g1', 1, null, null, $this->meiliStore());
         $broken = $this->createMock(IndexStore::class);
         $broken->method('replaceSource')->willThrowException(
             new \RuntimeException('connect failed: http://meili_user:secret@meili.internal:7700/indexes'),

@@ -257,8 +257,8 @@ server needs a key. Neither is in the shipped `.env.example`; write them in your
 
 A choice that cannot be honoured is never swapped for the other engine behind your back. Search
 goes unavailable instead: the endpoint answers 503, saving carries on untouched, and
-**Settings › Search** and `php glueful search:status` print the reason. Rebuild every kind after
-changing engines.
+**Settings › Search** and `php glueful search:status` print the reason. After a switch of engines
+every kind answers "rebuilding" and the scheduler rebuilds it on the new engine; nothing to press.
 
 `SEARCH_SNIPPET_LENGTH` sets the snippet length in words (`40`).
 

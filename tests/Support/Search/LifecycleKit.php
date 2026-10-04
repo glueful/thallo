@@ -88,6 +88,7 @@ final class LifecycleKit
             $this->registry,
             $this->context->getContainer()->get(SystemChannel::class),
             $this->state,
+            $this->locator(),
         );
     }
 
