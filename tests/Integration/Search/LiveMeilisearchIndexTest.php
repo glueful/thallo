@@ -59,4 +59,40 @@ final class LiveMeilisearchIndexTest extends AppTestCase
         self::assertSame('content_v2_entries_g1', $raw['hits'][0]['_index']);
         self::assertSame(0.9, $raw['hits'][0]['_score']);
     }
+
+    public function testListingIndexesReadsEveryPage(): void
+    {
+        $client = new class ('http://meili.invalid', null, 'site_') extends MeilisearchClient {
+            public function getIndexes(
+                ?\Meilisearch\Contracts\IndexesQuery $options = null,
+            ): \Meilisearch\Contracts\IndexesResults {
+                $query = $options?->toArray() ?? [];
+                $offset = (int) ($query['offset'] ?? 0);
+                $limit = (int) ($query['limit'] ?? 20);
+                $all = 2500;
+                $results = [];
+                for ($i = $offset; $i < min($all, $offset + $limit); $i++) {
+                    $uid = 'site_content_v2_entries_g' . $i;
+                    $results[] = new class ($uid) {
+                        public function __construct(private string $uid)
+                        {
+                        }
+
+                        public function getUid(): string
+                        {
+                            return $this->uid;
+                        }
+                    };
+                }
+                return new \Meilisearch\Contracts\IndexesResults(
+                    ['results' => $results, 'offset' => $offset, 'limit' => $limit, 'total' => $all],
+                );
+            }
+        };
+        $index = new LiveMeilisearchIndex(new IndexManager($client, $this->appContext()));
+
+        $names = $index->listIndexes('content_v2_entries_');
+        self::assertCount(2500, $names);
+        self::assertSame('content_v2_entries_g2499', $names[2499]);
+    }
 }
