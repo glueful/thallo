@@ -387,6 +387,30 @@ final class RebuilderTest extends AppTestCase
         self::assertArrayHasKey($second, $this->meili->indexes);
     }
 
+    public function testOrphanCollectionNeverDropsABuildThatStartsWhileItLists(): void
+    {
+        $store = $this->store('meili');
+        $this->source->items = ['a' => ['en' => 'A']];
+        self::assertSame(RebuildOutcome::PROMOTED, $this->rebuilder($store)->run('entries'));
+        $this->clock->advance(5);
+        $retirement = $this->retirement($store);
+        $locator = $this->locator($store);
+
+        // Another process claims a build and creates its index after the collector read the
+        // state row; the listing then includes that index.
+        $building = null;
+        $this->meili->beforeList = function () use ($store, $locator, &$building): void {
+            $claim = $this->state->claimBuild('entries', 120, 0, 1);
+            self::assertNotNull($claim);
+            $building = $locator->buildTarget('entries', $claim->generation);
+            $store->createTarget($building);
+        };
+        $retirement->collect('entries');
+
+        self::assertNotNull($building);
+        self::assertArrayHasKey($building->name, $this->meili->indexes, 'a live build\'s index is never an orphan');
+    }
+
     private function store(string $engine): IndexStore
     {
         return $engine === 'pg'

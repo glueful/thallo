@@ -16,6 +16,8 @@ final class FakeMeilisearch implements MeilisearchIndex
 {
     public string $version = '1.10.0';
     public bool $autoComplete = true;
+    /** Runs once at the start of the next listing — a competing process acting meanwhile. */
+    public ?\Closure $beforeList = null;
     /** The next N document additions fail asynchronously (accepted, then failed). */
     public int $failNextAdds = 0;
     /** @var list<array{indexUid: string, q: string, filter: string}> */
@@ -89,6 +91,11 @@ final class FakeMeilisearch implements MeilisearchIndex
 
     public function listIndexes(string $prefix): array
     {
+        if ($this->beforeList !== null) {
+            $hook = $this->beforeList;
+            $this->beforeList = null;
+            $hook();
+        }
         $names = array_values(array_filter(
             array_keys($this->indexes),
             static fn (string $n): bool => str_starts_with($n, $prefix),
