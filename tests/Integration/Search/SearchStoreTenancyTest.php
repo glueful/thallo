@@ -75,6 +75,25 @@ final class SearchStoreTenancyTest extends RetrofittedTenantTestCase
         });
     }
 
+    public function testANewWorkspaceGetsDemandAndRebuildsAlone(): void
+    {
+        $kit = new \Thallo\Core\Tests\Support\Search\LifecycleKit($this->appContext(), $this->connection());
+        $kit->source->items = ['a' => ['en' => 'A']];
+        $generationA = $this->runAsTenant(self::$tenantAUuid, function () use ($kit): int {
+            $kit->reconciler()->runWorkspace(false);
+            return (int) $kit->state->row('entries')['generation'];
+        });
+
+        $this->runAsTenant(self::$tenantBUuid, function () use ($kit): void {
+            self::assertSame('new_workspace', $kit->demand()->pending('entries'));
+            $kit->reconciler()->runWorkspace(false);
+            self::assertNotNull($kit->state->row('entries')['active_target']);
+        });
+        $this->runAsTenant(self::$tenantAUuid, function () use ($kit, $generationA): void {
+            self::assertSame($generationA, (int) $kit->state->row('entries')['generation'], 'B rebuilt alone');
+        });
+    }
+
     /** @return array{0: StateRepository, 1: PostgresIndexStore} */
     private function stores(): array
     {

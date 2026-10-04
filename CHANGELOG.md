@@ -19,6 +19,9 @@ as the next release, never a mutated tag.
 - **Switching any feature on or off purges cached pages and the CDN from core**, including a change
   made only in configuration. A second CDN purge retries after five minutes and survives a restart.
   Commerce's own purge is retired.
+- **`search:reindex` now requests a rebuild** and returns. Add `--wait` to run it in the foreground.
+  `--type` and `--locale` are removed: search rebuilds whole kinds; use `--kind=entries`. Rebuilds are
+  coordinated and recovered automatically by the scheduled `search:reconcile`.
 
 ## [1.0.0-beta.80] - 2026-10-03 — Developer Preview
 
