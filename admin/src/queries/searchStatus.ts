@@ -34,8 +34,8 @@ export async function fetchSearchStatus(): Promise<SearchStatus> {
 
 export interface RebuildResult {
   recorded: boolean
-  /** false when the wake-up could not be queued; the scheduled reconcile still picks it up */
-  queued: boolean
+  /** false when the wake-up could not be queued (the scheduled reconcile still picks it up); null when not yet known */
+  queued: boolean | null
 }
 
 export async function requestRebuild(kind: string | null): Promise<RebuildResult> {

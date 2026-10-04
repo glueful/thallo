@@ -103,6 +103,17 @@ final class SearchAdminApiTest extends AppTestCase
         self::assertSame([], $this->pushes);
     }
 
+    public function testInsideACallersTransactionTheQueueingIsNotYetKnown(): void
+    {
+        $this->pushFailure = new \RuntimeException('queue down');
+        $res = null;
+        $this->connection()->transaction(function () use (&$res): void {
+            $res = $this->controller()->rebuild($this->body(['kind' => 'entries']));
+        });
+        // The push runs after the caller commits; the response cannot have known it would fail.
+        self::assertNull($this->json($res)['queued']);
+    }
+
     public function testAnUnavailableKindCannotBeRebuilt(): void
     {
         $this->kit->capabilities['thallo.commerce'] = false;
