@@ -29,6 +29,8 @@ as the next release, never a mutated tag.
   `total_approximate`. It keeps its entries-only default, its `type` filter and its error responses.
 - **Search results are checked against current records**, so a withdrawn item, or text removed since it
   was indexed, is never shown. Snippets come from the current text.
+- **Products appear in search** when Search and Commerce are both on, always showing the current name,
+  price and picture.
 
 ## [1.0.0-beta.80] - 2026-10-03 — Developer Preview
 
