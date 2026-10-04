@@ -81,6 +81,13 @@ final class SearchEntryPointsTest extends AppTestCase
         self::assertStringContainsString('immutable', (string) $served->headers->get('Cache-Control'));
 
         self::assertSame(404, $this->site->page('/_thallo/search/nope.js')->getStatusCode());
+
+        // A page cached before a deploy names the previous fingerprint: it gets today's script,
+        // without the year-long cache, rather than a 404 that leaves the block without JavaScript.
+        $stale = $this->site->page('/_thallo/search/search-000000000000.js');
+        self::assertSame(200, $stale->getStatusCode());
+        self::assertSame((string) $served->getContent(), (string) $stale->getContent());
+        self::assertStringNotContainsString('immutable', (string) $stale->headers->get('Cache-Control'));
     }
 
     /** @return array<string, mixed> the job's parameters exactly as config/schedule.php declares them */
