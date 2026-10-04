@@ -22,9 +22,9 @@ as the next release, never a mutated tag.
 - **`search:reindex` now requests a rebuild** and returns. Add `--wait` to run it in the foreground.
   `--type` and `--locale` are removed: search rebuilds whole kinds; use `--kind=entries`. Rebuilds are
   coordinated and recovered automatically by the scheduled `search:reconcile`.
-- **Upgrading rebuilds the search index into its new format** with no gap. Entries keep answering
-  from the old index until the new one is ready (where that is safe). Sites with workspaces on
-  Meilisearch show “rebuilding” until each workspace's own index is ready.
+- **Search keeps one index per kind**, and per workspace on an install with workspaces. Upgrading
+  starts it empty: search answers “rebuilding” until the first build finishes, usually within a
+  minute or two, and the old index is no longer read.
 - **`/v1/search` gains `kind` (`all`, `products`) and `cursor`/`next`**, and every response says
   `total_approximate`. It keeps its entries-only default, its `type` filter and its error responses.
 - **Search results are checked against current records**, so a withdrawn item, or text removed since it
