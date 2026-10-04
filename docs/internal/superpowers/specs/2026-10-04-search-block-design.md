@@ -47,8 +47,13 @@ results page all ask one query service.
 
 ### 3.1 The Search block
 
-The search pack owns the block (`thallo-search`, `requiresCapability: 'thallo.search'`). Its markup is
-visitor-independent, like the mini-cart's.
+The search pack owns the block (`thallo-search`, slug **`search`**, `requiresCapability: 'thallo.search'`).
+Its markup is visitor-independent, like the mini-cart's.
+
+**Header placement.** Region palettes are enforced on the server (`RegionDefinitions::PALETTES`), so
+registering the block is not enough: `search` joins the `header` palette, beside `mini-cart` and
+`wishlist-link`. As with those, the picker offers it only while its capability is on, and a stored one
+renders through the missing-template fallback while Search is off.
 
 **Settings**
 
@@ -206,7 +211,8 @@ the results page and `/v1/search`:
 **Pagination and totals**
 
 - **Cursor:** opaque, HMAC-signed, binding a hash of the normalised `q`, the normalised scope or kind,
-  the locale, the workspace, the audience, and the raw backend offset. It advances to just past the last
+  the normalised `type` filter (`/v1/search`; empty when absent), the locale, the workspace, the
+  audience, and the raw backend offset. It advances to just past the last
   candidate actually examined; fetched but unexamined candidates are not consumed. A cursor is a
   continuation position, not a snapshot: live edits and generation changes can reorder results between
   requests.
@@ -272,8 +278,8 @@ All state is per workspace and kind.
    failed whatever its seq**, by re-reading `documents()` and stamping G. A failed deletion from before
    the rebuild resolves here: `documents()` returns nothing and the document is deleted.
 4. **Promote** (3.5.4).
-5. **Sweep** (Postgres): delete this kind's rows with `generation < G`. On Meilisearch, delete the build
-   indexes for this workspace and kind that are neither active nor claimed.
+5. **Sweep** (Postgres): delete this kind's rows with `generation < G`. On Meilisearch, retire the
+   previously active index and abandoned build indexes for this workspace and kind (3.5.8).
 6. **Satisfy:** set `satisfied_seq` to the demand seq recorded at step 2, never the current one; demand
    arriving mid-build keeps the kind pending and it runs again.
 
@@ -354,8 +360,41 @@ old target only, so the entry stays pending for the new active target.
   the next write to that item or by the next successful full reconcile after the stale write. A failed
   reconcile leaves the kind `out_of_date` in the panel. Visibility and display are never stale.
 
-**Availability depends on capabilities alone, never on the index's state.** A kind still building is
-searched with whatever is indexed.
+#### 3.5.8 Retiring Meilisearch indexes
+
+- **Grace before deletion.** An index that stops being active (or a build index whose attempt was
+  abandoned) is marked retired with a time; it is deleted only after a grace period longer than the
+  query timeout, so a query that read the old active name just before promotion still finds it.
+- **Bounded retry.** If a query still meets a missing index (Meilisearch `index_not_found`, single or
+  inside a federated query), the query service reloads the active targets from the state rows and
+  retries once; a second miss is a backend failure (503 on the page, the error state in suggestions).
+- **Periodic orphan cleanup.** Every reconcile also lists the indexes by this installation's prefix and
+  deletes any for a workspace and kind that are neither active, nor claimed by a live lease, nor within
+  their grace period — including an abandoned build index recreated by a late write after the
+  post-promotion cleanup ran.
+
+#### 3.5.9 What a query reads while a kind is building
+
+- **Meilisearch** queries only promoted (active) indexes. A rebuild never exposes its build index; the
+  previous active index stays searchable until promotion.
+- **With no active index** (a first build, or a workspace still cutting over), the first-build and cutover
+  states of 3.5.6 apply: a workspace still on the legacy format reads legacy where 3.5.6 allows it or shows
+  rebuilding; a kind with no active index returns nothing for that kind.
+- **Postgres** rebuilds the shared rows in place, so a kind being rebuilt can expose partial progress
+  (rows already stamped G alongside rows awaiting the sweep).
+
+**Availability depends on capabilities alone in every case, never on the index's state.**
+
+#### 3.5.10 `search:reindex`
+
+`search:reindex` stays, as a compatibility entry point into the coordinated lifecycle. It no longer
+writes to the backend: it records manual demand and, with `--wait`, runs the reconcile in the
+foreground under the normal claim, lease and fences, printing progress. Without `--wait` it reports the
+demand and returns. `--kind` limits it to one kind. The old `--type` and `--locale` filters are
+**deprecated**: filtered rebuilds are not supported, because a filtered build cannot safely sweep.
+Passing either prints "`--type`/`--locale` are no longer supported: search rebuilds whole kinds. Use
+`search:reindex --kind=entries`." and exits non-zero without touching the index. `search:reconcile` is
+the scheduled command; `search:reindex` is the operator's.
 
 ### 3.6 Page-cache invalidation on availability changes (core)
 
@@ -428,7 +467,7 @@ Visible when Search is on.
   202. Repeated presses add demand, never a second builder.
 - **When automatic processing cannot run** — demand pending past a threshold with no build started, or
   the wake-up failed to queue — the panel says so: "Background processing hasn't picked this up. Make sure
-  the queue worker and scheduler are running, or run `php glueful search:reconcile`."
+  the queue worker and scheduler are running, or run `php glueful search:reindex --wait`."
 - **Updates:** poll every 5 s while something is pending or building; every 60 s while idle; refresh on
   window focus. An open panel therefore learns of a later failure.
 - **Settings › General** keeps the toggle with new help text: "Indexing runs automatically; progress and
@@ -464,6 +503,9 @@ Visible when Search is on.
 **Block**
 
 - Schema; both display modes; hidden `scope` and `locale`; accessible names; unique ids per block.
+- Header: `search` is in the header palette; a header region holding a Search block passes
+  `RegionValidator`, saves, and renders on a public page (integration), and e2e inserts it from the
+  header picker, saves, and sees it on the site.
 - Unavailable scope: nothing on the public page, the placeholder in the editor.
 - Warmed page cache: Commerce off removes a products-scoped block from a cached page; on restores it; an
   empty index hides nothing.
@@ -483,9 +525,17 @@ or sweeping A leaves B unchanged.
 - Update, deletion and insertion during a rebuild.
 - Overlapping rebuild requests coalesce.
 - A killed rebuild: the replacement claims a new G and restarts.
-- Paused builder: A pauses before a write, B takes over, builds and promotes; A and B have different
-  index names; A's resumed write lands only in `g{G_A}`; B's promoted index is unchanged; newer content
-  survives — both engines.
+- Paused builder: A pauses before a write, B takes over, builds and promotes, A resumes; newer content
+  survives. **Meilisearch:** A and B have different index names; A's write lands only in `g{G_A}`; B's
+  promoted index is unchanged. **Postgres:** A's write is rejected by the row-lock fence and rolls back.
+- Index retirement: a query reads the old active name, promotion and post-promotion cleanup run, then the
+  query reaches Meilisearch — it succeeds (grace) and, with the grace forced to zero, the bounded retry
+  reloads the targets and succeeds; the same for a federated query. A late write recreating an abandoned
+  build index is removed by the next reconcile's orphan cleanup.
+- While a Meilisearch kind rebuilds, queries return the previous active index's results; Postgres may
+  return partial progress; a first build with no active index follows 3.5.6.
+- `search:reindex`: records demand and goes through the claim (no direct backend writes); `--wait` runs
+  under the fences; `--type`/`--locale` exit non-zero without touching the index.
 - A failed deletion from before a rebuild is replayed and resolved.
 - A failed live update outlives an older rebuild; status stays `out_of_date`.
 - Meilisearch asynchronous batch failure blocks the sweep and leaves the rebuild failed.
@@ -520,7 +570,8 @@ or sweeping A leaves B unchanged.
 - `/v1/search`: entries-only default; `kind=all` and `kind=products`; `type` with a conflicting kind is
   422; fixed offset windows return no refill duplicates; `offset` with `cursor` is 422; a bad cursor is
   400; `total_approximate` always present.
-- Cursors bound to every input; a tampered cursor rejected by the API and recovered by the page.
+- Cursors bound to every input; a tampered cursor rejected by the API and recovered by the page;
+  changing or removing `type` between `/v1/search` requests returns 400.
 - A run of withdrawn candidates longer than the refill limit followed by a valid result: the batch
   message and "More results" on page one, the result reachable.
 - Snippet highlighting with `&`, `<`, quotes and multibyte text.
