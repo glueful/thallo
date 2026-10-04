@@ -5,7 +5,30 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.81] - 2026-10-04 — Developer Preview
+
+Search, on the site and across kinds: a Search block (a field, or an icon that opens one, header
+ready), a `/search` results page, and products found alongside pages, with Settings › Search to
+watch and rebuild the index. Indexing now runs in the background on the queue and the scheduler.
+Run `php glueful thallo:provision` after `composer update`; read the Upgrade Notes.
+
+### Added
+- **A Search block**: a search field, or an icon that opens one. It can sit in the header, and its scope
+  chooses all results or one kind (pages, products). It hides itself when its scope isn't available.
+- **A `/search` results page** in the theme, with clear messages for no results, an unavailable scope,
+  rebuilding and too many searches. It works without JavaScript.
+- **Products appear in search** when Search and Commerce are both on, always showing the current name,
+  price and picture.
+- **Settings › Search** shows each kind's index status, progress and last error, with Rebuild
+  buttons, and says when background processing isn't running. Extensions › Capabilities shows
+  Search's state.
+- **`/v1/search` gains `kind` (`all`, `products`) and `cursor`/`next`**, and every response says
+  `total_approximate`. It keeps its entries-only default, its `type` filter and its error responses.
+- **Block fields can draw their choices from the server** (`options_source`), keeping a stored choice
+  that is no longer available and saying why. Authors who can edit pages see them.
+- **`thallo:doctor` and `thallo:provision` name the scheduled jobs your schedule is missing** —
+  any of `schedules_run`, `render_availability_purge`, `search_reconcile` and
+  `search_reconcile_full` — since a site's `config/schedule.php` replaces the shipped list.
 
 ### Changed
 - **The product grid takes how many products and how many on a row.** **Limit** is a number from
@@ -25,21 +48,8 @@ as the next release, never a mutated tag.
 - **Search keeps one index per kind**, and per workspace on an install with workspaces. Upgrading
   starts it empty: search answers “rebuilding” until the first build finishes, usually within a
   minute or two, and the old index is no longer read.
-- **`/v1/search` gains `kind` (`all`, `products`) and `cursor`/`next`**, and every response says
-  `total_approximate`. It keeps its entries-only default, its `type` filter and its error responses.
 - **Search results are checked against current records**, so a withdrawn item, or text removed since it
   was indexed, is never shown. Snippets come from the current text.
-- **Products appear in search** when Search and Commerce are both on, always showing the current name,
-  price and picture.
-- **A Search block**: a search field, or an icon that opens one. It can sit in the header, and its scope
-  chooses all results or one kind (pages, products). It hides itself when its scope isn't available.
-- **A `/search` results page** in the theme, with clear messages for no results, an unavailable scope,
-  rebuilding and too many searches. It works without JavaScript.
-- **Block fields can draw their choices from the server** (`options_source`), keeping a stored choice
-  that is no longer available and saying why. Authors who can edit pages see them.
-- **Settings › Search** shows each kind's index status, progress and last error, with Rebuild
-  buttons, and says when background processing isn't running. Extensions › Capabilities shows
-  Search's state.
 
 ### Upgrade Notes
 - `composer update && php glueful thallo:provision`, which adds the search pack's index-lifecycle
