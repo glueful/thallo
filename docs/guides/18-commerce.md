@@ -127,7 +127,7 @@ and insert from the **Commerce** group of the Blocks tab:
 
 | Block | What it inserts | Its settings |
 |---|---|---|
-| **Product grid** | A grid of products | **source** (`category`, `tag`, `manual`, `newest`), **category slug**, **tag slug**, **products** (one slug per line), **page size** |
+| **Product grid** | A grid of products | **source** (`category`, `tag`, `manual`, `newest`), **category slug**, **tag slug**, **products** (one slug per line), **limit** (how many products, 1 to 48), **columns** (how many on a row: auto, or 2 to 6) |
 | **Featured product** | One product, spotlit | **product slug** |
 | **Add to cart** | An add-to-cart control | **product slug**, blank to use the product linked to the current entry |
 | **Mini cart** | A cart count and drawer | none |

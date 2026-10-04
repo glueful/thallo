@@ -5,6 +5,14 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Changed
+- **The product grid takes how many products and how many on a row.** **Limit** is a number from
+  1 to 48 (12 by default), replacing the small, medium and large sizes. **Columns** sets how many
+  cards sit on a row at desktop, 2 to 6, stepping down to 3 on tablets and 2 on phones; **auto**
+  keeps fitting as many as the width allows.
+
 ## [1.0.0-beta.80] - 2026-10-03 — Developer Preview
 
 Turning a feature on from the admin no longer stops at "the extension cache is out of date" on a
