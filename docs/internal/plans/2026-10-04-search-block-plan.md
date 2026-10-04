@@ -1,5 +1,7 @@
 # The Search block, and products in search — Implementation Plan
 
+> Amended a third time 2026-10-04: confirmation keeps `PENDING` tasks and their ids, resolving them before any replacement (Tasks 8–10); the locking bullets match the lock-then-check implementation (Task 7).
+>
 > Amended again 2026-10-04: leases use `clock_timestamp()` and decide only after the row lock is held (Task 7); `replaceSource` with one receipt shape replaces `writeLive`/`deleteSource`, and a target is acknowledged only when its upsert and deletion both succeed (Tasks 8–10).
 >
 > Amended 2026-10-04 after plan review: Postgres acknowledgements are generation-qualified and live writes never lower a generation (Tasks 8, 10); the promoted fence and database-time leases are explicit (Tasks 7, 11); only a promoted build satisfies demand and versions (Tasks 11, 13); the API's `type` narrows entries and keeps its responses and hit fields (Task 15); contributors register while their capability is off (Tasks 12, 16); entry enumeration pages whole entries (Task 12); suggestions invalidate on input, not after the debounce (Task 18); CDN purge obligations carry an identity (Task 4); Task 9 keeps the old backend working; the Rebuild-permission test lives in Task 21.
@@ -289,7 +291,12 @@ interface HtmlTextExtractor
   - `write(Target $t, list<SearchDocument> $docs, Fence $f): list<TargetReceipt>`: a build batch into one target. Its documents are all new, so it never deletes.
   - `replaceSource(list<Target> $targets, string $kind, string $sourceId, list<SearchDocument> $docs, Fence $f): list<TargetReceipt>`: makes each target hold **exactly** `$docs` for that source. It upserts the given locales and deletes every other locale of `(kind, sourceId)`; an empty `$docs` removes the source entirely. The source id is carried even when `$docs` is empty. Used by live applies and replays.
   - `sweep(string $kind, int $belowGeneration, Fence $f): void` (Postgres)
-  - `confirm(TargetReceipt $r): ConfirmResult` (`SUCCEEDED` | `FAILED` | `PENDING`): `SUCCEEDED` only when **every** operation the receipt names succeeded.
+  - `confirm(TargetReceipt $r): ReceiptOutcome`, where `ReceiptOutcome` is `(ConfirmResult $result, list<int> $outstandingTaskUids)`:
+    - **`PENDING`** whenever any task is still enqueued or processing after the bounded wait, **even if another task in the receipt already failed**. `outstandingTaskUids` lists them.
+    - **`FAILED`** when every task has finished and at least one failed or was canceled.
+    - **`SUCCEEDED`** only when every task succeeded.
+
+    Postgres receipts are always `SUCCEEDED` with no outstanding uids.
   - **`TargetReceipt`**, the same shape on both engines: `(string $targetKey, list<int> $taskUids)`. Postgres returns one receipt per satisfied target key with `taskUids = []`, meaning committed and therefore succeeded. Meilisearch returns one receipt per target, naming every task that target needed (the upsert and the deletion). A target is acknowledged only from a receipt whose `confirm` is `SUCCEEDED`.
   - `search(list<Target> $targets, StoreQuery $q): StoreResult`
   - `createTarget(Target $t): void`
@@ -794,8 +801,8 @@ interface HtmlTextExtractor
   If the check fails, the transaction rolls back and the callback never runs. A lock wait that crosses the lease's expiry, or a long outer transaction, can therefore never let an expired holder through.
 - **Produces** `StateRepository`:
   - `ensure(string $kind): array` returns the row, creating it with `status = 'pending'` if missing.
-  - `locked(string $kind, callable $fn): mixed`: begins a transaction, runs `UPDATE … SET locked_at = now WHERE kind = ?`, then `$fn($row)` with the re-read row; commits.
-  - `fenced(Fence $f, callable $fn): mixed`: the same, but the locking update adds the fence condition (`owner_token = ? AND building_generation = ?` for a builder, `drainer_token = ? AND drainer_lease_until > now` for a drainer). Zero rows updated throws `StaleFence`.
+  - `locked(string $kind, callable $fn): mixed`: begins a transaction, locks the row by kind (`update(['locked_at' => …])` matched on `kind` only), then reads `clock_timestamp()` and re-reads the row, and calls `$fn($row, $now)`; commits.
+  - `fenced(Fence $f, callable $fn): mixed`: the same lock by kind, then the fence is checked in PHP against the **fresh row and fresh time** read after the lock is held: owner token, `building_generation` and `lease_until > now` for a builder; drainer token and `drainer_lease_until > now` for a drainer; `generation = G` for promoted. A failed check throws `StaleFence` before the callback runs.
   - `appendChange(string $kind, string $sourceId): int` runs inside `locked()`: `journal_head + 1`, inserts the change, returns the seq.
   - `claimBuild(string $kind, int $leaseSeconds, int $versionAtStart, int $schemaVersionAtStart): ?Claim`: under the timing rule (lock, then `clock_timestamp()`, then decide), it claims only when `owner_token` is null or `lease_until <= now`; allocates `generation_counter + 1` and records `building_generation`, `building_target = null`, `owner_token`, `journal_start_seq = journal_head`, `demand_seq_at_start = max(demand seq)`, `cursor = null`. Returns `Claim(kind, token, generation, journalStartSeq, demandSeqAtStart, versionAtStart, schemaVersionAtStart)` or null. `versionAtStart` is the highest relevant `changed_at` (Search plus the kind's required capabilities), read from the state-version rows **at claim time**, and `schemaVersionAtStart` is the contributor's `schemaVersion()`; `claimBuild` takes both as arguments from the caller.
   - `renewBuild(Fence $f, int $leaseSeconds): void` and `releaseBuild(Fence $f): void`, both fenced.
@@ -812,7 +819,7 @@ interface HtmlTextExtractor
   - `advanceCursor(Fence $f, ?string $after, int $count): void`: sets `cursor` and adds to `processed` (fenced).
   - `satisfy(Fence $promoted, int $demandSeq, int $reconciledVersion, int $schemaVersion): void`: under the **promoted** fence, sets `satisfied_seq`, `reconciled_version` and `schema_version` to the values captured at claim time (Task 13).
   - `releaseDrainer(Fence $f): void`: clears the drainer token (fenced).
-  - **`Fence` roles:** `Fence::builder(kind, token, G)`, `Fence::drainer(kind, token)`, and `Fence::promoted(kind, G)`. In `fenced()`, the promoted role's locking update checks `generation = G` and nothing else; it is used after promotion clears the owner token.
+  - **`Fence` roles:** `Fence::builder(kind, token, G)`, `Fence::drainer(kind, token)`, and `Fence::promoted(kind, G)`. In `fenced()`, after locking by kind, the promoted role checks only that the fresh row's `generation = G`; it is used after promotion clears the owner token.
 
 - [ ] **Step 1: Write the failing tests** (`AppTestCase`, using a fake `Clock`):
   - `testOneClaimAtATimeAndAnExpiredLeaseCanBeTakenWithANewGeneration`: claim A gives G1, and a second claim is null. Advance the clock past the lease. Claim B gives G2 (≠ G1) with a different token.
@@ -872,7 +879,7 @@ interface HtmlTextExtractor
 ## Task 8: the Postgres index store, fenced
 
 **Files:**
-- Create: `packages/thallo-search/src/Store/{IndexStore,Target,TargetReceipt,ConfirmResult,StoreQuery,StoreResult,StoreHit,Readiness}.php`, `packages/thallo-search/src/Store/PostgresIndexStore.php`
+- Create: `packages/thallo-search/src/Store/{IndexStore,Target,TargetReceipt,ConfirmResult,ReceiptOutcome,StoreQuery,StoreResult,StoreHit,Readiness}.php`, `packages/thallo-search/src/Store/PostgresIndexStore.php`
 - Modify: `packages/thallo-search/src/Engine/PostgresFtsBackend.php`. Keep its `words()` / `configFor()` as public statics; the legacy read for `format = legacy` moves into `PostgresIndexStore::searchLegacy()`.
 - Test: `tests/Integration/Search/PostgresIndexStoreTest.php`
 
@@ -971,7 +978,7 @@ interface HtmlTextExtractor
   - `write` returns `[TargetReceipt($target->key(), [$addTaskUid])]` and **never waits**.
   - `replaceSource` works per target. When `$docs` is non-empty it calls `addDocuments`, then `deleteByFilter($uid, 'kind = "k" AND source_id = "s" AND locale NOT IN ["en", …]')`, or with no locale clause when `$docs` is empty. It returns `TargetReceipt($target->key(), [$addTaskUid?, $deleteTaskUid])`. `source_id` and `kind` join `subtype` and `locale` in the index's filterable attributes (set by `createTarget`).
   - The seam's `deleteByFilter(string $uid, string $filter): int` (task uid) is permanent, not a transition method.
-  - `confirm()` polls `task()` with a bounded wait (`search.meilisearch_task_timeout`, default 10 s, poll 50 ms). It returns `SUCCEEDED`, `FAILED` (failed or canceled) or `PENDING` (timed out).
+  - `confirm()` polls `task()` for every uid in the receipt with a bounded wait (`search.meilisearch_task_timeout`, default 10 s, poll 50 ms), and returns the `ReceiptOutcome` defined in Shared contracts. A timeout is `PENDING` with the unfinished uids, never `FAILED`.
   - `readiness()` returns unavailable with the Global Constraints copy when `version_compare(serverVersion, '1.10.0', '<')`.
   - `search()` builds one federated query per target, with `filter` = `kind = "k" [AND subtype IN [...]] AND (locale = "L" OR locale = "*")`, using the existing `quote()`.
 
@@ -1011,6 +1018,8 @@ interface HtmlTextExtractor
   - `Drainer::drain(string $kind, int $budget = 50): void`.
 
 - [ ] **Step 1: Write the failing tests:**
+  - `testAPendingDeletionIsConfirmedBeforeAnyRetry` (Meilisearch): a source drops a locale. Its add task succeeds and its delete task is held past the confirm timeout, so the ack stays `pending` with the delete uid. Drainer A stops. Drainer B takes over after quiescence and **first** confirms the original delete uid: still held, B submits nothing for that target and the entry stays unresolved. Release the task as succeeded; B's next pass acknowledges the target from the original receipt, without a second `replaceSource`, and resolves the entry. The fake records exactly one delete task for that source.
+  - `testAPendingTaskIsKeptWhenItsSiblingFailed` (Meilisearch): add fails, delete is still pending. The ack stays `pending` with the delete uid only, and no retry is submitted until the delete finishes. Then a retry replaces the uids.
   - `testAMeilisearchDeletionFailureKeepsTheEntryUnresolved`: the source loses a locale, the add task succeeds and the delete task fails. The ack is `failed`, the journal entry stays unresolved, and the kind is `out_of_date`. On the next drain, with deletion succeeding, it resolves.
   - `testRemovingOneOfTwoLocalesAndRemovingTheSource`, on both engines: through `LiveSearchIndex::changed`, a source that drops fr keeps en; a source that disappears is removed from every current target, and only then does its entry resolve.
   - `testAnOldGenerationAckCannotSatisfyTheBuild` (Postgres): an entry acked only as `pg:g1` is not counted for build target `pg:g2`, and promotion of G2 replays it first.
@@ -1034,9 +1043,16 @@ interface HtmlTextExtractor
   ```
   `applyToAllTargets` loops:
   1. Read the targets.
-  2. Find the target keys without a succeeded ack. Check that the lease's remaining time, in database time, exceeds `requestTimeout + margin`; if not, stop.
+  2. Find the target keys without a succeeded ack.
+     - **A key whose ack is `pending` with task uids is resolved first:** `confirm` a receipt built from those stored uids. If it's still `PENDING`, that target is skipped this round, with no replacement submitted, because the original tasks may still run. `SUCCEEDED` acknowledges it. `FAILED` makes it eligible for a retry below.
+     - Check that the lease's remaining time, in database time, exceeds `requestTimeout + margin`; if not, stop.
   3. Read `documents($sourceId)` and call `store->replaceSource(missing targets, $kind, $sourceId, documents, fence)`. That one operation upserts retained locales and deletes absent ones; with no documents, it removes the source.
-  4. For each receipt, record a `pending` ack holding its task uids, then `confirm`. Record `succeeded` only if every task in the receipt succeeded; otherwise record `failed`.
+  4. For each receipt, record a `pending` ack holding its task uids **before** confirming, then `confirm`:
+     - **`SUCCEEDED`:** record `succeeded`.
+     - **`PENDING`:** keep the ack `pending` with its **outstanding** uids, even if a sibling task failed. Do not retry that target until those uids finish.
+     - **`FAILED`:** every task finished; record `failed`. Only then may a later round submit a replacement, whose receipt replaces the ack's uids.
+
+     `recordAck` refuses to overwrite a `pending` ack's uids with a new receipt's uids unless the stored ones have been confirmed finished.
   5. Call `StateRepository::resolveIfComplete($fence, $seq)`, which re-checks the current targets under the lock.
   6. If it didn't resolve (a target appeared, or a write failed), repeat from step 1, at most 3 rounds, then leave the entry unresolved and `markOutOfDate`.
 - [ ] **Step 4: Run the tests.** Expected: PASS.
