@@ -148,7 +148,25 @@ final class ProductsSearchContributorTest extends AppTestCase
             StorefrontCatalogChanged::REASON_CATEGORY_CHANGED,
             null,
         ));
-        self::assertSame(['changed:products:Ab12Cd34Ef56', 'kind:products:taxonomy'], $index->calls);
+        // Stock, attribute and add-on changes carry no product and change no indexed word (a
+        // product's body is its name, description, category and tag names): no rebuild.
+        $ignored = [
+            StorefrontCatalogChanged::REASON_STOCK_CHANGED,
+            StorefrontCatalogChanged::REASON_ATTRIBUTE_CHANGED,
+            StorefrontCatalogChanged::REASON_ADDON_CHANGED,
+        ];
+        foreach ($ignored as $reason) {
+            $listener->onCatalogChanged(new StorefrontCatalogChanged(self::TENANT, $reason, null));
+        }
+        $listener->onCatalogChanged(new StorefrontCatalogChanged(
+            self::TENANT,
+            StorefrontCatalogChanged::REASON_TAG_CHANGED,
+            null,
+        ));
+        self::assertSame(
+            ['changed:products:Ab12Cd34Ef56', 'kind:products:taxonomy', 'kind:products:taxonomy'],
+            $index->calls,
+        );
     }
 
     public function testTheKindIsDiscoverableWhileCommerceIsOff(): void
