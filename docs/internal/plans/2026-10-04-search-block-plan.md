@@ -1,5 +1,7 @@
 # The Search block, and products in search — Implementation Plan
 
+> Amended again 2026-10-04: leases use `clock_timestamp()` and decide only after the row lock is held (Task 7); `replaceSource` with one receipt shape replaces `writeLive`/`deleteSource`, and a target is acknowledged only when its upsert and deletion both succeed (Tasks 8–10).
+>
 > Amended 2026-10-04 after plan review: Postgres acknowledgements are generation-qualified and live writes never lower a generation (Tasks 8, 10); the promoted fence and database-time leases are explicit (Tasks 7, 11); only a promoted build satisfies demand and versions (Tasks 11, 13); the API's `type` narrows entries and keeps its responses and hit fields (Task 15); contributors register while their capability is off (Tasks 12, 16); entry enumeration pages whole entries (Task 12); suggestions invalidate on input, not after the debounce (Task 18); CDN purge obligations carry an identity (Task 4); Task 9 keeps the old backend working; the Rebuild-permission test lives in Task 21.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -284,10 +286,11 @@ interface HtmlTextExtractor
 - `Thallo\Search\Store\Target`: a value object `(string $engine, string $name, int $generation)`. `$name` is the Meilisearch index uid, or `'pg'` on Postgres.
   - `Target::key(): string` is the **acknowledgement identity**: the uid on Meilisearch (already unique per attempt), and **`pg:g{G}`** on Postgres. The name alone is never used to identify a target, because on Postgres every generation shares the physical name `pg`.
 - `Thallo\Search\Store\IndexStore`, the engine port:
-  - `write(Target $t, list<SearchDocument> $docs, Fence $f): WriteReceipt`
-  - `delete(Target $t, string $kind, list<string> $docIds, Fence $f): WriteReceipt`
+  - `write(Target $t, list<SearchDocument> $docs, Fence $f): list<TargetReceipt>`: a build batch into one target. Its documents are all new, so it never deletes.
+  - `replaceSource(list<Target> $targets, string $kind, string $sourceId, list<SearchDocument> $docs, Fence $f): list<TargetReceipt>`: makes each target hold **exactly** `$docs` for that source. It upserts the given locales and deletes every other locale of `(kind, sourceId)`; an empty `$docs` removes the source entirely. The source id is carried even when `$docs` is empty. Used by live applies and replays.
   - `sweep(string $kind, int $belowGeneration, Fence $f): void` (Postgres)
-  - `confirm(WriteReceipt $r): ConfirmResult` (`SUCCEEDED` | `FAILED` | `PENDING`)
+  - `confirm(TargetReceipt $r): ConfirmResult` (`SUCCEEDED` | `FAILED` | `PENDING`): `SUCCEEDED` only when **every** operation the receipt names succeeded.
+  - **`TargetReceipt`**, the same shape on both engines: `(string $targetKey, list<int> $taskUids)`. Postgres returns one receipt per satisfied target key with `taskUids = []`, meaning committed and therefore succeeded. Meilisearch returns one receipt per target, naming every task that target needed (the upsert and the deletion). A target is acknowledged only from a receipt whose `confirm` is `SUCCEEDED`.
   - `search(list<Target> $targets, StoreQuery $q): StoreResult`
   - `createTarget(Target $t): void`
   - `dropTarget(Target $t): void`
@@ -741,7 +744,7 @@ interface HtmlTextExtractor
 | `search_documents` (new columns) | `kind` string(16) nullable; `source_id` string(64) nullable; `subtype` string(64) nullable; `meta` text nullable (JSON); `generation` bigInteger default 0. `doc_id` is widened to 128, and `entry_uuid`, `content_type_uuid`, `content_type_slug` become nullable (Postgres pending operations). Index `idx_search_documents_kind_gen (kind, generation)`. |
 | `search_index_state` | `id` pk; `kind` string(16); `generation` bigInteger default 0 (active); `generation_counter` bigInteger default 0; `active_target` string(191) nullable; `building_generation` bigInteger nullable; `building_target` string(191) nullable; `owner_token` string(32) nullable; `lease_until` string(32) nullable (UTC `Y-m-d H:i:s`); `cursor` string(64) nullable; `journal_start_seq` bigInteger nullable; `demand_seq_at_start` bigInteger nullable; `satisfied_seq` bigInteger default 0; `reconciled_version` bigInteger default 0; `schema_version` integer default 0; `status` string(16) default `'pending'`; `format` string(8) default `'legacy'`; `processed` integer default 0; `documents` integer default 0; `last_success_at` string(32) nullable; `last_error` text nullable; `drainer_token` string(32) nullable; `drainer_lease_until` string(32) nullable; `journal_head` bigInteger default 0; `retired_targets` text nullable (JSON list of `{name, retired_at}`); `locked_at` string(32) nullable; `updated_at` string(32) nullable. Unique `(kind)`, widened to `(tenant_uuid, kind)`. |
 | `search_index_changes` | `id` pk; `kind` string(16); `source_id` string(64); `seq` bigInteger; `resolved` smallInteger default 0; `failed_at` string(32) nullable; `error` text nullable; `created_at` string(32). Unique `(kind, seq)`, widened to `(tenant_uuid, kind, seq)`; index `(kind, resolved)`. |
-| `search_index_acks` | `id` pk; `kind` string(16); `entry_seq` bigInteger; `target` string(191); `task_uid` string(32) nullable; `status` string(12) (`pending`, `succeeded`, `failed`); `writer_token` string(32); `updated_at` string(32). Unique `(kind, entry_seq, target)`, widened with `tenant_uuid`. |
+| `search_index_acks` | `id` pk; `kind` string(16); `entry_seq` bigInteger; `target` string(191); `task_uid` string(191) nullable (comma-joined uids); `status` string(12) (`pending`, `succeeded`, `failed`); `writer_token` string(32); `updated_at` string(32). Unique `(kind, entry_seq, target)`, widened with `tenant_uuid`. |
 | `search_index_demand` | `id` pk; `kind` string(16); `seq` bigInteger; `reason` string(24); `created_at` string(32). Unique `(kind, seq)`, widened. |
 
 - [ ] **Step 1: Write the failing test.** `SearchLifecycleSchemaTest`:
@@ -777,18 +780,29 @@ interface HtmlTextExtractor
 
 **Interfaces:**
 - **Consumes:** `Connection` (query builder only; there is no `lockForUpdate`, so a **lock is taken by updating the row's `locked_at`**, which holds the row's write lock until the transaction ends on Postgres and on any row-locking engine).
-- **`Clock` reads database time.** `DatabaseClock::now()` runs `SELECT CURRENT_TIMESTAMP` on the connection (no table, so no tenancy scoping applies) and returns it normalised to UTC `Y-m-d H:i:s`. Every lease decision (claim, renew, takeover, quiescence, the drainer's remaining-lease check) takes one database "now" per operation and compares against it. Worker clocks are never consulted. Tests bind a fake `Clock`.
+- **`Clock` reads the database's current wall-clock time, not the transaction's start time.** `CURRENT_TIMESTAMP` is fixed at the start of a Postgres transaction, so it can't be used. `DatabaseClock::now()` runs, per driver:
+  - `pgsql`: `SELECT clock_timestamp()`;
+  - `mysql`: `SELECT SYSDATE(6)`;
+  - `sqlite`: `SELECT strftime('%Y-%m-%d %H:%M:%f','now')`.
+
+  It runs on the connection (no table, so no tenancy scoping applies) and is normalised to UTC `Y-m-d H:i:s`. Worker clocks are never consulted. Tests bind a fake `Clock`.
+- **Timing rule for every lease decision** (fenced sections, claims, renewals, drainer claims): **take the row lock first, then read the clock, then decide.**
+  1. Lock the row with an unconditional `update(['locked_at' => …])` matched on `kind` only. This may wait for another holder.
+  2. Once the lock is held, read `DatabaseClock::now()` and re-read the row.
+  3. Check ownership and expiry in PHP against that fresh time.
+
+  If the check fails, the transaction rolls back and the callback never runs. A lock wait that crosses the lease's expiry, or a long outer transaction, can therefore never let an expired holder through.
 - **Produces** `StateRepository`:
   - `ensure(string $kind): array` returns the row, creating it with `status = 'pending'` if missing.
   - `locked(string $kind, callable $fn): mixed`: begins a transaction, runs `UPDATE … SET locked_at = now WHERE kind = ?`, then `$fn($row)` with the re-read row; commits.
   - `fenced(Fence $f, callable $fn): mixed`: the same, but the locking update adds the fence condition (`owner_token = ? AND building_generation = ?` for a builder, `drainer_token = ? AND drainer_lease_until > now` for a drainer). Zero rows updated throws `StaleFence`.
   - `appendChange(string $kind, string $sourceId): int` runs inside `locked()`: `journal_head + 1`, inserts the change, returns the seq.
-  - `claimBuild(string $kind, int $leaseSeconds, int $versionAtStart, int $schemaVersionAtStart): ?Claim`: a conditional update where `owner_token IS NULL OR lease_until < now`; allocates `generation_counter + 1` and records `building_generation`, `building_target = null`, `owner_token`, `journal_start_seq = journal_head`, `demand_seq_at_start = max(demand seq)`, `cursor = null`. Returns `Claim(kind, token, generation, journalStartSeq, demandSeqAtStart, versionAtStart, schemaVersionAtStart)` or null. `versionAtStart` is the highest relevant `changed_at` (Search plus the kind's required capabilities), read from the state-version rows **at claim time**, and `schemaVersionAtStart` is the contributor's `schemaVersion()`; `claimBuild` takes both as arguments from the caller.
+  - `claimBuild(string $kind, int $leaseSeconds, int $versionAtStart, int $schemaVersionAtStart): ?Claim`: under the timing rule (lock, then `clock_timestamp()`, then decide), it claims only when `owner_token` is null or `lease_until <= now`; allocates `generation_counter + 1` and records `building_generation`, `building_target = null`, `owner_token`, `journal_start_seq = journal_head`, `demand_seq_at_start = max(demand seq)`, `cursor = null`. Returns `Claim(kind, token, generation, journalStartSeq, demandSeqAtStart, versionAtStart, schemaVersionAtStart)` or null. `versionAtStart` is the highest relevant `changed_at` (Search plus the kind's required capabilities), read from the state-version rows **at claim time**, and `schemaVersionAtStart` is the contributor's `schemaVersion()`; `claimBuild` takes both as arguments from the caller.
   - `renewBuild(Fence $f, int $leaseSeconds): void` and `releaseBuild(Fence $f): void`, both fenced.
   - `claimDrainer(string $kind, int $leaseSeconds, int $quiescenceSeconds): ?string`: succeeds when `drainer_token IS NULL` or `drainer_lease_until + quiescence < now`. Returns the token.
   - `addDemand(string $kind, string $reason): int` (the seq).
   - `maxDemandSeq(string $kind): int`.
-  - `recordAck(Fence $f, int $entrySeq, string $targetKey, ?string $taskUid, string $status): void`: fenced, upsert on `(kind, entry_seq, target)`, where the `target` column holds `Target::key()`.
+  - `recordAck(Fence $f, int $entrySeq, string $targetKey, list<int> $taskUids, string $status): void`: fenced, upsert on `(kind, entry_seq, target)`, where the `target` column holds `Target::key()` and `task_uid` holds the uids comma-joined (widen it to string(191) in Task 6).
   - `unresolvedEntries(string $kind, ?int $afterSeq = null): list<JournalEntry>`: entries with `resolved = 0`, plus every entry with `seq > afterSeq` when given.
   - `ackedFor(string $kind, string $targetKey, list<int> $seqs): list<int>`: the seqs with a `succeeded` ack for that `Target::key()`.
   - `resolveIfComplete(Fence $drainer, int $seq): bool`: in **one** fenced section (the row lock), it re-reads the current targets, checks `ackedFor` for each target key, and sets `resolved = 1` only if every current target has a succeeded ack. Returns whether it resolved. There is no unfenced `markResolved`.
@@ -808,7 +822,9 @@ interface HtmlTextExtractor
   - `testUnresolvedIncludesOldFailures`: entries 1 (failed, unresolved), 2 (resolved), 3 (new); `unresolvedEntries('k', 2)` gives `[1, 3]`.
   - `testThePromotedFenceCompletesAndGoesStaleAfterANewerPromotion`: promote G1, and `satisfy(Fence::promoted(k, G1), …)` succeeds. Promote G2, and `satisfy` with G1 throws `StaleFence`.
   - `testResolveIfCompleteChecksTargetsUnderTheLock`: an entry acked on the active target only, while a build target exists, is not resolved. After acking the build target it resolves.
-  - `testLeasesUseDatabaseTime`: with `DatabaseClock` bound, `claimBuild` writes `lease_until` equal to the database's `CURRENT_TIMESTAMP` (read back in the same test) plus the lease, to within one second, whatever PHP's own clock says.
+  - `testLeasesUseDatabaseTime`: with `DatabaseClock` bound, `claimBuild` writes `lease_until` equal to `clock_timestamp()` (read back in the same test) plus the lease, to within one second, whatever PHP's own clock says.
+  - `testAnExpiredHolderInsideALongOuterTransactionIsRefused` (real `DatabaseClock`): claim with a 1 s lease. Open an outer transaction on the same connection and wait 1.5 s inside it (`usleep`), then call `fenced(builder fence, $callback)`: it throws `StaleFence` and `$callback` never ran (a flag stays false). This proves the check uses `clock_timestamp()`, not the transaction start.
+  - `testALockWaitThatCrossesExpiryIsRefused` (real `DatabaseClock`, two connections): claim with a 1 s lease. Connection 2 locks the state row and holds it for 1.5 s, while connection 1 calls `fenced(builder fence, $callback)`, which waits on the lock. After the wait it throws `StaleFence` and `$callback` never ran. The same holds for `renewBuild`, and for `claimDrainer` succeeding only after quiescence measured after the wait.
   - `testDrainerTakeoverWaitsForQuiescence`: drainer A's lease ends at T. A claim at T + 1 with quiescence 30 is null; at T + 31 it succeeds.
 - [ ] **Step 2: Run them.** Expected: FAIL.
 - [ ] **Step 3: Implement.** The core of the lock and the fence:
@@ -816,24 +832,39 @@ interface HtmlTextExtractor
   public function fenced(Fence $f, callable $fn): mixed
   {
       return $this->db->transaction(function () use ($f, $fn) {
-          $now = $this->clock->now();                       // database time
-          $q = $this->db->table('search_index_state')->where('kind', '=', $f->kind);
-          match ($f->role) {
-              Fence::BUILDER => $q->where('owner_token', '=', $f->token)
-                  ->where('building_generation', '=', $f->generation)->where('lease_until', '>', $now),
-              Fence::DRAINER => $q->where('drainer_token', '=', $f->token)->where('drainer_lease_until', '>', $now),
-              // After promotion the owner token is cleared; completion is fenced on the generation
-              // it promoted, so a newer build that already promoted makes it stale.
-              Fence::PROMOTED => $q->where('generation', '=', $f->generation),
+          // 1. Lock first. This may wait behind another holder; no decision has been made yet.
+          $locked = $this->db->table('search_index_state')->where('kind', '=', $f->kind)
+              ->update(['locked_at' => $this->clock->now()]);
+          if ($locked !== 1) {
+              throw new StaleFence("No state row for '{$f->kind}'.");
+          }
+          // 2. Then read the time and the row, both after the lock is held.
+          $now = $this->clock->now();                      // clock_timestamp(), not the transaction start
+          $row = $this->db->table('search_index_state')->where('kind', '=', $f->kind)->first();
+          // 3. Then decide.
+          $held = match ($f->role) {
+              Fence::BUILDER => $row['owner_token'] === $f->token
+                  && (int) $row['building_generation'] === $f->generation
+                  && (string) $row['lease_until'] > $now,
+              Fence::DRAINER => $row['drainer_token'] === $f->token && (string) $row['drainer_lease_until'] > $now,
+              // After promotion the owner token is cleared; completion is fenced on the generation it
+              // promoted, so a newer build that already promoted makes it stale.
+              Fence::PROMOTED => (int) $row['generation'] === $f->generation,
           };
-          if ($q->update(['locked_at' => $now]) !== 1) {
+          if (!$held) {
               throw new StaleFence("Fence for '{$f->kind}' ({$f->role}) is no longer held.");
           }
-          $row = $this->db->table('search_index_state')->where('kind', '=', $f->kind)->first();
           return $fn($row, $now);
       });
   }
   ```
+  `claimBuild`, `renewBuild` and `claimDrainer` follow the same three steps inside their own `locked()` transaction. For example, `claimBuild`:
+  1. lock;
+  2. `$now = clock->now()`, then re-read the row;
+  3. claim only if `owner_token === null || lease_until <= $now`; otherwise roll back and return null.
+
+  `renewBuild` extends `lease_until` from that fresh `$now` only if the fence still holds by the same check.
+
   Timestamps are database-time strings from `DatabaseClock`, in UTC `Y-m-d H:i:s`, compared as strings (they sort). Tokens are `bin2hex(random_bytes(16))`. Every write goes through the query builder, so the tenancy hook scopes and stamps it.
 - [ ] **Step 4: Run the tests.** Expected: PASS.
 - [ ] **Step 5: Commit** `feat(search): claims, leases, fences and a journal for the search index`.
@@ -841,17 +872,19 @@ interface HtmlTextExtractor
 ## Task 8: the Postgres index store, fenced
 
 **Files:**
-- Create: `packages/thallo-search/src/Store/{IndexStore,Target,WriteReceipt,ConfirmResult,StoreQuery,StoreResult,StoreHit,Readiness}.php`, `packages/thallo-search/src/Store/PostgresIndexStore.php`
+- Create: `packages/thallo-search/src/Store/{IndexStore,Target,TargetReceipt,ConfirmResult,StoreQuery,StoreResult,StoreHit,Readiness}.php`, `packages/thallo-search/src/Store/PostgresIndexStore.php`
 - Modify: `packages/thallo-search/src/Engine/PostgresFtsBackend.php`. Keep its `words()` / `configFor()` as public statics; the legacy read for `format = legacy` moves into `PostgresIndexStore::searchLegacy()`.
 - Test: `tests/Integration/Search/PostgresIndexStoreTest.php`
 
 **Interfaces:**
 - **Consumes:** `StateRepository::fenced()`, `DocumentId`.
 - **Produces** `PostgresIndexStore implements IndexStore`:
-  - `write(Target, list<SearchDocument>, Fence): WriteReceipt`: inside `fenced()`, delete by `doc_id` and insert each row with `kind`, `source_id`, `subtype`, `meta` (JSON), `ts_config = PostgresFtsBackend::configFor($locale === '*' ? 'simple' : $locale)`, and `generation = max($target->generation, the existing row's generation)`, read in the same transaction before the delete. A write never lowers a row's generation, so a live write can't push a row the build already stamped below the sweep line. The receipt is `confirmed`.
-  - `writeLive(list<Target> $targets, list<SearchDocument>, Fence $drainer): WriteReceipt`: Postgres has **one physical row** for every generation. A live apply writes it once, stamped `max(generation of each target)`, and returns a receipt naming **every** target key it satisfies (`pg:g{active}` and `pg:g{building}`). The drainer records one ack per key from that receipt. On Meilisearch, `writeLive` writes each target separately and returns one receipt per target.
-  - `delete(Target, string $kind, list<string> $docIds, Fence)`.
-  - `deleteSource(Target, string $kind, string $sourceId, Fence)`: deletes every locale's row for one item.
+  - `write(Target, list<SearchDocument>, Fence): list<TargetReceipt>`: inside `fenced()`, delete by `doc_id` and insert each row with `kind`, `source_id`, `subtype`, `meta` (JSON), `ts_config = PostgresFtsBackend::configFor($locale === '*' ? 'simple' : $locale)`, and `generation = max($target->generation, the existing row's generation)`, read in the same transaction before the delete. A write never lowers a row's generation, so a live write can't push a row the build already stamped below the sweep line. It returns `[TargetReceipt($target->key(), [])]`.
+  - `replaceSource(list<Target>, string $kind, string $sourceId, list<SearchDocument>, Fence)`: Postgres has **one physical row** per document for every generation. In one fenced transaction it:
+    1. deletes the rows of `(kind, source_id)` whose locale is not among `$docs`' locales (all of them when `$docs` is empty);
+    2. upserts `$docs`, stamped `max(generation of each target, the existing row's generation)`.
+
+    It returns one receipt per target key it satisfies (`pg:g{active}` and `pg:g{building}`), each with `taskUids = []`. Either all of it commits or none does.
   - `sweep(string $kind, int $below, Fence)`: `DELETE WHERE kind = ? AND generation < ?`.
   - `confirm()` is always `SUCCEEDED`.
   - `search(list<Target>, StoreQuery): StoreResult`.
@@ -867,7 +900,9 @@ interface HtmlTextExtractor
     - `products => none()` excludes products.
   - `testSweepRemovesOnlyOlderGenerationsOfOneKind`.
   - `testALiveWriteNeverLowersAGeneration`: the build writes `a` at G2; a live write targeting only the active G1 (a drainer that read targets before the build started) keeps `a` at G2, and the sweep below G2 keeps it.
-  - `testOneLiveWriteSatisfiesBothGenerations`: with active G1 and building G2, `writeLive` returns the keys `pg:g1` and `pg:g2`.
+  - `testOneReplacementSatisfiesBothGenerations`: with active G1 and building G2, `replaceSource` returns receipts for `pg:g1` and `pg:g2`.
+  - `testReplacingKeepsRetainedLocalesAndRemovesAbsentOnes`: a source with en and fr rows, replaced with only the en document, keeps en (updated) and removes fr.
+  - `testReplacingWithNoDocumentsRemovesTheSource`: `replaceSource(…, [], …)` removes every locale row of that source and none of another source's.
   - `testTheSameSourceIdInTwoWorkspacesStaysApart`: under `runAsTenant('ws1…')` and `runAsTenant('ws2…')` (enforcement on, the `TenancyFixture` pattern used by the tenancy tests), write the same `entries_x_Len` in each. Each workspace's search sees one hit. Sweeping ws1 leaves ws2's row in place.
   - `testLegacyRowsAreReadOnlyWhenAskedAndOnlyForEntries`: a row with `kind IS NULL` appears only when `legacy: true`, and only as kind `entries`.
 - [ ] **Step 2: Run them.** Expected: FAIL.
@@ -933,7 +968,9 @@ interface HtmlTextExtractor
   Names go through the extension's `prefixedIndexName()`, so `IndexManager`'s prefix applies.
 - **Produces** `IndexNameFor::target(string $index, ?string $workspace, string $kind, int $g): string`, which gives `{index}_v2_{workspace}_{kind}_g{g}`, or `{index}_v2_{kind}_g{g}` when `$workspace === null`.
 - **Produces** `MeilisearchIndexStore implements IndexStore`:
-  - `write` returns a `WriteReceipt(target, taskUid)` and **never waits**.
+  - `write` returns `[TargetReceipt($target->key(), [$addTaskUid])]` and **never waits**.
+  - `replaceSource` works per target. When `$docs` is non-empty it calls `addDocuments`, then `deleteByFilter($uid, 'kind = "k" AND source_id = "s" AND locale NOT IN ["en", …]')`, or with no locale clause when `$docs` is empty. It returns `TargetReceipt($target->key(), [$addTaskUid?, $deleteTaskUid])`. `source_id` and `kind` join `subtype` and `locale` in the index's filterable attributes (set by `createTarget`).
+  - The seam's `deleteByFilter(string $uid, string $filter): int` (task uid) is permanent, not a transition method.
   - `confirm()` polls `task()` with a bounded wait (`search.meilisearch_task_timeout`, default 10 s, poll 50 ms). It returns `SUCCEEDED`, `FAILED` (failed or canceled) or `PENDING` (timed out).
   - `readiness()` returns unavailable with the Global Constraints copy when `version_compare(serverVersion, '1.10.0', '<')`.
   - `search()` builds one federated query per target, with `filter` = `kind = "k" [AND subtype IN [...]] AND (locale = "L" OR locale = "*")`, using the existing `quote()`.
@@ -943,12 +980,14 @@ interface HtmlTextExtractor
   - `testIndexNamesAreUniquePerAttemptAndValid`: `IndexNameFor::target('content', 'ws1abcdefghi', 'products', 7)` gives `'content_v2_ws1abcdefghi_products_g7'`, which matches `/\A[A-Za-z0-9_-]+\z/`; the single-store form omits the workspace.
   - `testFederatedSearchSpansTargetsWithFilters`: two targets (entries and products), the expected filter strings on each query, and hits merged in the fake's score order.
   - `testAnOldServerIsNotReady`: the fake version is 1.9.2, so `readiness()->available` is false and its message is exactly the readiness copy with `1.9.2`.
+  - `testAWriteThatSucceedsWithAFailedDeletionIsNotConfirmed`: `replaceSource` whose add task succeeds and whose delete task fails gives `confirm` = `FAILED` for that target.
+  - `testReplacingRemovesOneLocaleOrTheWholeSource`: the same two cases as the Postgres store's tests, on the fake.
   - `testAMissingIndexSurfacesAsIndexNotFound`: searching a dropped target throws `IndexNotFound`, which carries the uid.
 - [ ] **Step 2: Run them.** Expected: FAIL.
 - [ ] **Step 3: Implement the fake, the seam and the store.** The fake applies tasks only when the test calls `complete($uid)` / `fail($uid)`, or immediately when `autoComplete` is on (the default). Searching the fake filters by the parsed `kind` / `subtype` / `locale` clauses (a small parser over the exact strings the store emits) and scores by term count.
 - [ ] **Step 4: Keep the old backend working through the transition.** `MeilisearchBackend` (still the `SearchBackend` that `SearchController`, `SearchContentReindexer` and `ReindexCommand` use until Tasks 12, 13 and 15 replace them) is updated in **this** commit to call the new seam with the legacy uid (`prefixed search.index`):
   - `addDocuments($legacyUid, …)` and `deleteDocuments($legacyUid, …)`;
-  - a filtered delete through a `deleteByFilter(string $uid, string $filter): int` method kept on the seam until Task 15;
+  - a filtered delete through the seam's `deleteByFilter(string $uid, string $filter): int`;
   - `rawSearch($legacyUid, …)`.
 
   Its behaviour is unchanged: it doesn't wait on tasks, as before. `tests/Unit/Search/MeilisearchBackendTest.php` keeps every assertion, with the fake swapped for `FakeMeilisearch`. Run it with the new tests, plus `tests/Integration/Search/SearchEndpointTest.php` and `tests/Integration/Search/MeilisearchSmokeTest.php` (which skips without a server). Expected: PASS.
@@ -972,6 +1011,8 @@ interface HtmlTextExtractor
   - `Drainer::drain(string $kind, int $budget = 50): void`.
 
 - [ ] **Step 1: Write the failing tests:**
+  - `testAMeilisearchDeletionFailureKeepsTheEntryUnresolved`: the source loses a locale, the add task succeeds and the delete task fails. The ack is `failed`, the journal entry stays unresolved, and the kind is `out_of_date`. On the next drain, with deletion succeeding, it resolves.
+  - `testRemovingOneOfTwoLocalesAndRemovingTheSource`, on both engines: through `LiveSearchIndex::changed`, a source that drops fr keeps en; a source that disappears is removed from every current target, and only then does its entry resolve.
   - `testAnOldGenerationAckCannotSatisfyTheBuild` (Postgres): an entry acked only as `pg:g1` is not counted for build target `pg:g2`, and promotion of G2 replays it first.
   - `testAnEntryIsAppliedOnlyWhenEveryCurrentTargetHasIt`: with an active and a building target, draining a change writes to both and records two acks; `resolved = 1`. If the building target's write fails (the fake fails its task), the entry stays unresolved and the kind is `out_of_date`.
   - `testABuildStartingBetweenTargetReadAndAckIsCaughtUp`: inject a hook after the target read that claims a build (a new building target). After the ack, the drainer re-reads targets, sees the new one, applies there, and only then resolves.
@@ -994,8 +1035,8 @@ interface HtmlTextExtractor
   `applyToAllTargets` loops:
   1. Read the targets.
   2. Find the target keys without a succeeded ack. Check that the lease's remaining time, in database time, exceeds `requestTimeout + margin`; if not, stop.
-  3. Read `documents($sourceId)` and call `store->writeLive(missing targets, documents, fence)`, plus `deleteSource` for locales no longer present.
-  4. For each receipt key, record a `pending` ack with its task uid, `confirm`, then record `succeeded` or `failed`.
+  3. Read `documents($sourceId)` and call `store->replaceSource(missing targets, $kind, $sourceId, documents, fence)`. That one operation upserts retained locales and deletes absent ones; with no documents, it removes the source.
+  4. For each receipt, record a `pending` ack holding its task uids, then `confirm`. Record `succeeded` only if every task in the receipt succeeded; otherwise record `failed`.
   5. Call `StateRepository::resolveIfComplete($fence, $seq)`, which re-checks the current targets under the lock.
   6. If it didn't resolve (a target appeared, or a write failed), repeat from step 1, at most 3 rounds, then leave the entry unresolved and `markOutOfDate`.
 - [ ] **Step 4: Run the tests.** Expected: PASS.
@@ -1041,7 +1082,7 @@ interface HtmlTextExtractor
       $this->state->recordBuildTarget($fence, $target->name);           // drainers now include it
       for ($after = null; ;) {
           $page = $this->contributor($kind)->enumerate($after, $this->batch);
-          $receipt = $this->store->write($target, $page->documents, $fence);
+          [$receipt] = $this->store->write($target, $page->documents, $fence);
           if ($this->store->confirm($receipt) !== ConfirmResult::SUCCEEDED) {
               $this->state->setStatus($fence, 'failed', 'A batch did not complete.');
               return RebuildOutcome::FAILED;                             // no sweep, no promotion
@@ -1061,6 +1102,8 @@ interface HtmlTextExtractor
       return RebuildOutcome::LOST;
   }
   ```
+  `replay()` takes every entry with `seq > journalStartSeq` plus every unresolved entry. Each one goes through `store->replaceSource([$target], $kind, $sourceId, documents($sourceId), $fence)` and is acknowledged for the build target key only from a `SUCCEEDED` receipt, so a source that vanished is deleted, and a failed deletion keeps the entry unacknowledged for that target.
+
   `Promotion::promote` runs inside `StateRepository::fenced()`, which takes the same row lock as `appendChange`:
   1. read `S = journal_head`;
   2. compute the relevant seqs: unresolved, or `seq > journalStartSeq`, and `≤ S`;
