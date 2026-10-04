@@ -79,7 +79,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [lint-unit, integration-a, integration-b, integration-c, integration-d, integration-e]
+        shard: [lint-unit, integration-a, integration-b, integration-c, integration-d, integration-e, tenancy-harness]
 
     services:
       postgres:
@@ -250,6 +250,18 @@ jobs:
               ;;
             integration-e)
               timeout --signal=KILL 900 vendor/bin/phpunit $INTEGRATION_SHARD_E
+              ;;
+            tenancy-harness)
+              # The workspace-isolation suites, opt-in elsewhere (THALLO_TENANCY_DEV_LINK=1): real
+              # tenancy enforcement over a throwaway database each suite drops and recreates — which
+              # a shared PHP process cannot survive, so one file per process (~3 min locally).
+              status=0
+              for f in $(grep -rlE 'extends (RetrofittedTenantTestCase|RetrofitHarnessTestCase|TenantOracleTestCase)' tests/Integration | sort); do
+                echo "::group::$f"
+                THALLO_TENANCY_DEV_LINK=1 timeout --signal=KILL 300 vendor/bin/phpunit "$f" || status=1
+                echo "::endgroup::"
+              done
+              exit $status
               ;;
           esac
 
