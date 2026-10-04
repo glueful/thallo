@@ -32,6 +32,7 @@ abstract class AppTestCase extends TestCase
         'style_class_jobs', 'style_classes', 'style_generations', 'saved_sections', 'admin_ui_settings', 'layouts',
         'render_template_versions', 'render_templates',
         'navigation_items', 'navigation_menus',
+        'search_index_acks', 'search_index_changes', 'search_index_demand', 'search_index_state',
         'search_documents',
         'workflow_transitions', 'workflow_review_states',
         'entry_schedules',
