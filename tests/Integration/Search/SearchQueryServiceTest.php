@@ -195,11 +195,21 @@ final class SearchQueryServiceTest extends AppTestCase
         $this->build();
         $broken = $this->createMock(\Thallo\Search\Store\IndexStore::class);
         $broken->method('search')->willThrowException(new \RuntimeException('engine down'));
-        $service = $this->service($broken);
+        $logger = new class extends \Psr\Log\AbstractLogger {
+            /** @var list<string> */
+            public array $lines = [];
+
+            public function log($level, string|\Stringable $message, array $context = []): void
+            {
+                $this->lines[] = $level . ': ' . $message;
+            }
+        };
+        $service = $this->service($broken, logger: $logger);
         self::assertSame(
             'unavailable',
             $service->search($this->input(['q' => 'rose']), SearchAudience::public(), 10, true)->state,
         );
+        self::assertSame(['warning: Search could not answer: engine down'], $logger->lines, 'logged, not swallowed');
     }
 
     public function testAFederatedQueryRetriesOnceAfterAMissingIndex(): void
@@ -247,6 +257,7 @@ final class SearchQueryServiceTest extends AppTestCase
         ?\Thallo\Search\Store\IndexStore $store = null,
         ?LifecycleKit $kit = null,
         ?\Closure $locator = null,
+        ?\Psr\Log\LoggerInterface $logger = null,
     ): SearchQueryService {
         $kit ??= $this->kit;
         return new SearchQueryService(
@@ -256,6 +267,7 @@ final class SearchQueryServiceTest extends AppTestCase
             $kit->locator(),
             new CursorSigner('test-key'),
             new Workspace($this->appContext()),
+            $logger ?? new \Psr\Log\NullLogger(),
         );
     }
 }

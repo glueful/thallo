@@ -166,6 +166,22 @@ final class SearchPageTest extends AppTestCase
         self::assertStringContainsString('&quot;&gt;&lt;script&gt;x&lt;/script&gt;&amp;amp;', $html);
     }
 
+    public function testBeforeTheMigrationsRunSearchIsUnavailableNotAnError(): void
+    {
+        // Between `composer update` and `thallo:provision` the lifecycle tables do not exist yet.
+        $pdo = $this->site->app->getContainer()->get(\Glueful\Database\Connection::class)->getPDO();
+        $pdo->exec('ALTER TABLE search_index_state RENAME TO search_index_state_hidden');
+        try {
+            self::assertSame(503, $this->site->page('/search?q=rose&locale=en')->getStatusCode());
+            $suggest = $this->site->get('/_search/suggest?q=rose&locale=en');
+            self::assertSame(200, $suggest->getStatusCode(), (string) $suggest->getContent());
+            self::assertSame('unavailable', SearchOnApp::data($suggest)['state']);
+            self::assertSame(503, $this->site->get('/v1/search?q=rose&locale=en')->getStatusCode());
+        } finally {
+            $pdo->exec('ALTER TABLE search_index_state_hidden RENAME TO search_index_state');
+        }
+    }
+
     public function testMalformedInputsNeverFail(): void
     {
         $this->site->reconcile(); // built, so a status measures the input, not the index
