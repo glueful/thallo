@@ -116,6 +116,7 @@ describe('the static manifest', () => {
       'submissions',
       'tenancy',
       'account',
+      'search',
       'subscriptions',
     ])
   })

@@ -12,6 +12,7 @@ import { commerceModule } from './commerceModule'
 import { submissionsModule } from './submissionsModule'
 import { tenancyModule } from './tenancyModule'
 import { accountModule } from './accountModule'
+import { searchModule } from './searchModule'
 import { subscriptionsModule } from './subscriptionsModule'
 
 /**
@@ -40,5 +41,6 @@ export const adminManifest: readonly AdminModule[] = [
   submissionsModule,
   tenancyModule,
   accountModule,
+  searchModule,
   subscriptionsModule,
 ]
