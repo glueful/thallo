@@ -23,29 +23,29 @@ on:
 # exactly one shard list below; the "Shard coverage guard" step fails every job if an entry is
 # unassigned or listed twice, so a new directory can never silently skip CI.
 env:
-  # ~95s alone
+  # Local timings, 2026-10-04 (CI runs ~2.5x slower; the watchdog kills a shard at 15 minutes).
+  # ~208s alone
   INTEGRATION_SHARD_A: >-
     tests/Integration/Render
     tests/Integration/Collections
-    tests/Integration/Search
-  # ~86s alone
+  # ~247s alone
   INTEGRATION_SHARD_B: >-
     tests/Integration/Commerce
     tests/Integration/Payments
-  # ~95s alone
+  # ~169s alone
   INTEGRATION_SHARD_C: >-
     tests/Integration/Content
     tests/Integration/Account
     tests/Integration/Tenancy
     tests/Integration/Signup
-  # ~126s alone
+  # ~167s alone
   INTEGRATION_SHARD_D: >-
     tests/Integration/Subscriptions
     tests/Integration/Http
     tests/Integration/Settings
     tests/Integration/Setup
     tests/Integration/Seo
-  # Split from D when D outgrew the 15-minute watchdog (~6 min locally, ~2.5x that on CI).
+  # ~151s alone. Split from D when D outgrew the 15-minute watchdog (~6 min locally, ~2.5x that on CI).
   INTEGRATION_SHARD_E: >-
     tests/Integration/Workflow
     tests/Integration/Pipeline
@@ -70,6 +70,9 @@ env:
     tests/Integration/DeliveryFlowTest.php
     tests/Integration/FoundationFlowTest.php
     tests/Integration/PreviewFlowTest.php
+  # ~65s alone. Split from A when A outgrew the watchdog (323s locally, killed on CI at 94%).
+  INTEGRATION_SHARD_F: >-
+    tests/Integration/Search
 
 jobs:
   test:
@@ -79,7 +82,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [lint-unit, integration-a, integration-b, integration-c, integration-d, integration-e, tenancy-harness]
+        shard: [lint-unit, integration-a, integration-b, integration-c, integration-d, integration-e, integration-f, tenancy-harness]
 
     services:
       postgres:
@@ -179,7 +182,7 @@ jobs:
       # silently stops running new directories. Fails loudly with the unassigned names.
       - name: Shard coverage guard
         run: |
-          covered=$(printf '%s %s %s %s %s' "$INTEGRATION_SHARD_A" "$INTEGRATION_SHARD_B" "$INTEGRATION_SHARD_C" "$INTEGRATION_SHARD_D" "$INTEGRATION_SHARD_E" | tr ' ' '\n' | sed '/^$/d; s#^tests/Integration/##' | sort)
+          covered=$(printf '%s %s %s %s %s %s' "$INTEGRATION_SHARD_A" "$INTEGRATION_SHARD_B" "$INTEGRATION_SHARD_C" "$INTEGRATION_SHARD_D" "$INTEGRATION_SHARD_E" "$INTEGRATION_SHARD_F" | tr ' ' '\n' | sed '/^$/d; s#^tests/Integration/##' | sort)
           actual=$(ls tests/Integration | sort)
           twice=$(echo "$covered" | uniq -d)
           if [ -n "$twice" ]; then
@@ -250,6 +253,9 @@ jobs:
               ;;
             integration-e)
               timeout --signal=KILL 900 vendor/bin/phpunit $INTEGRATION_SHARD_E
+              ;;
+            integration-f)
+              timeout --signal=KILL 900 vendor/bin/phpunit $INTEGRATION_SHARD_F
               ;;
             tenancy-harness)
               # The workspace-isolation suites, opt-in elsewhere (THALLO_TENANCY_DEV_LINK=1): real
