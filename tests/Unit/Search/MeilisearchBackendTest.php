@@ -30,31 +30,56 @@ final class MeilisearchBackendTest extends TestCase
             public array $searchResult = ['hits' => [], 'estimatedTotalHits' => 0];
             public bool $up = true;
 
-            public function ensureIndex(array $settings): void
+            public function serverVersion(): string
+            {
+                return '1.10.0';
+            }
+            public function ensureIndex(string $uid, array $settings): void
             {
                 $this->settings = $settings;
             }
-            public function addDocuments(array $documents): void
+            public function addDocuments(string $uid, array $documents): int
             {
                 foreach ($documents as $d) {
                     $this->added[] = $d;
                 }
+                return 1;
             }
-            public function deleteDocument(string $id): void
+            public function deleteDocuments(string $uid, array $ids): int
             {
-                $this->deletedIds[] = $id;
+                foreach ($ids as $id) {
+                    $this->deletedIds[] = $id;
+                }
+                return 2;
             }
-            public function deleteByFilter(string $filter): void
+            public function deleteByFilter(string $uid, string $filter): int
             {
                 $this->deletedFilters[] = $filter;
+                return 3;
             }
-            public function rawSearch(string $query, array $params): array
+            public function deleteIndex(string $uid): int
+            {
+                return 4;
+            }
+            public function task(int $taskUid): array
+            {
+                return ['status' => 'succeeded', 'error' => null];
+            }
+            public function listIndexes(string $prefix): array
+            {
+                return [];
+            }
+            public function federatedSearch(array $queries, int $limit, int $offset): array
+            {
+                return ['hits' => [], 'estimatedTotalHits' => 0];
+            }
+            public function rawSearch(string $uid, string $query, array $params): array
             {
                 $this->lastQuery = $query;
                 $this->lastParams = $params;
                 return $this->searchResult;
             }
-            public function reachable(): bool
+            public function reachable(string $uid): bool
             {
                 return $this->up;
             }
