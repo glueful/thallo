@@ -25,6 +25,10 @@ as the next release, never a mutated tag.
 - **Upgrading rebuilds the search index into its new format** with no gap. Entries keep answering
   from the old index until the new one is ready (where that is safe). Sites with workspaces on
   Meilisearch show “rebuilding” until each workspace's own index is ready.
+- **`/v1/search` gains `kind` (`all`, `products`) and `cursor`/`next`**, and every response says
+  `total_approximate`. It keeps its entries-only default, its `type` filter and its error responses.
+- **Search results are checked against current records**, so a withdrawn item, or text removed since it
+  was indexed, is never shown. Snippets come from the current text.
 
 ## [1.0.0-beta.80] - 2026-10-03 — Developer Preview
 
