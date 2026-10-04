@@ -12,6 +12,8 @@ as the next release, never a mutated tag.
   1 to 48 (12 by default), replacing the small, medium and large sizes. **Columns** sets how many
   cards sit on a row at desktop, 2 to 6, stepping down to 3 on tablets and 2 on phones; **auto**
   keeps fitting as many as the width allows.
+- **Every capability switch records the state version it changed at** (`capability.{id}.changed_at`),
+  so a consumer can notice an off/on cycle it never saw.
 
 ## [1.0.0-beta.80] - 2026-10-03 — Developer Preview
 
