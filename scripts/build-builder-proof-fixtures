@@ -68,38 +68,54 @@ if (!is_dir($out . '/api') && !mkdir($out . '/api', 0755, true)) {
 
 // The fixtures are an ordinary site with Search on (the Search block in the header palette, its
 // scope picker — search-block.spec.ts): the boot reads a testing override, with any stored Search
-// switch cleared so the override decides. Both are put back when the build ends, however it ends.
+// switch cleared so the override decides. The restore is registered before anything is changed, and
+// an interrupt exits through it, so an aborted build never leaves the test suite with Search on.
 $searchOverrideFile = $root . '/config/testing/thallo.php';
 $searchPreviousOverride = is_file($searchOverrideFile) ? (string) file_get_contents($searchOverrideFile) : null;
-$searchOverride = $searchPreviousOverride !== null ? (array) (require $searchOverrideFile) : [];
-$searchOverride['capabilities'] = ['thallo.search' => true] + (array) ($searchOverride['capabilities'] ?? []);
-file_put_contents($searchOverrideFile, "<?php\nreturn " . var_export($searchOverride, true) . ";\n");
-$searchFlagsPdo = new PDO(
-    sprintf('pgsql:host=%s;port=%s;dbname=%s', $env('DB_PGSQL_HOST', '127.0.0.1'), $env('DB_PGSQL_PORT', '5432'), $database),
-    (string) $env('DB_PGSQL_USERNAME', ''),
-    (string) $env('DB_PGSQL_PASSWORD', ''),
-);
-$searchCleared = $searchFlagsPdo->prepare("DELETE FROM thallo_system_flags WHERE key = 'capability.thallo.search.enabled' RETURNING value");
-$searchCleared->execute();
-$storedSearch = $searchCleared->fetchColumn();
-\Thallo\Core\Tests\Support\CapabilityBaseline::advanceVersion($searchFlagsPdo);
+$searchFlagsPdo = null;
+$storedSearch = false;
 register_shutdown_function(static function () use (
     $searchOverrideFile,
     $searchPreviousOverride,
-    $searchFlagsPdo,
-    $storedSearch,
+    &$searchFlagsPdo,
+    &$storedSearch,
 ): void {
     if ($searchPreviousOverride !== null) {
         file_put_contents($searchOverrideFile, $searchPreviousOverride);
     } else {
         @unlink($searchOverrideFile);
     }
-    if (is_string($storedSearch)) {
-        $searchFlagsPdo->prepare("INSERT INTO thallo_system_flags (key, value) VALUES ('capability.thallo.search.enabled', ?)
-            ON CONFLICT (key) DO NOTHING")->execute([$storedSearch]);
+    if ($searchFlagsPdo instanceof PDO) {
+        if (is_string($storedSearch)) {
+            $searchFlagsPdo->prepare("INSERT INTO thallo_system_flags (key, value) VALUES ('capability.thallo.search.enabled', ?)
+                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value")->execute([$storedSearch]);
+        } else {
+            $searchFlagsPdo->exec("DELETE FROM thallo_system_flags WHERE key = 'capability.thallo.search.enabled'");
+        }
+        \Thallo\Core\Tests\Support\CapabilityBaseline::advanceVersion($searchFlagsPdo);
     }
-    \Thallo\Core\Tests\Support\CapabilityBaseline::advanceVersion($searchFlagsPdo);
 });
+if (function_exists('pcntl_async_signals')) {
+    pcntl_async_signals(true);
+    foreach ([SIGINT, SIGTERM] as $signal) {
+        pcntl_signal($signal, static function (): void {
+            exit(130); // runs the restore above
+        });
+    }
+}
+$searchFlagsPdo = new PDO(
+    sprintf('pgsql:host=%s;port=%s;dbname=%s', $env('DB_PGSQL_HOST', '127.0.0.1'), $env('DB_PGSQL_PORT', '5432'), $database),
+    (string) $env('DB_PGSQL_USERNAME', ''),
+    (string) $env('DB_PGSQL_PASSWORD', ''),
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
+);
+$searchCleared = $searchFlagsPdo->prepare("DELETE FROM thallo_system_flags WHERE key = 'capability.thallo.search.enabled' RETURNING value");
+$searchCleared->execute();
+$storedSearch = $searchCleared->fetchColumn();
+\Thallo\Core\Tests\Support\CapabilityBaseline::advanceVersion($searchFlagsPdo);
+$searchOverride = $searchPreviousOverride !== null ? (array) (require $searchOverrideFile) : [];
+$searchOverride['capabilities'] = ['thallo.search' => true] + (array) ($searchOverride['capabilities'] ?? []);
+file_put_contents($searchOverrideFile, "<?php\nreturn " . var_export($searchOverride, true) . ";\n");
 
 $container = TestApplication::instance()->getContainer();
 
