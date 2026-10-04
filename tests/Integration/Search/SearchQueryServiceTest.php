@@ -176,6 +176,31 @@ final class SearchQueryServiceTest extends AppTestCase
         self::assertSame(['entries:e1'], $found);
     }
 
+    public function testWhileNothingIsBuiltTheEngineIsAskedOnceInAWhileNotPerQuery(): void
+    {
+        $probes = 0;
+        $store = $this->createMock(\Thallo\Search\Store\IndexStore::class);
+        $ready = static function () use (&$probes): \Thallo\Search\Store\Readiness {
+            $probes++;
+            return new \Thallo\Search\Store\Readiness(true, null);
+        };
+        $store->method('readiness')->willReturnCallback($ready);
+        $cache = $this->container()->get(\Glueful\Cache\CacheStore::class);
+        $cache->delete('search:readiness');
+        for ($i = 0; $i < 3; $i++) {
+            // A new service per query, as each request builds one: only the cache carries over.
+            $outcome = $this->service($store, cache: $cache)->search(
+                $this->input(['q' => 'rose']),
+                SearchAudience::public(),
+                10,
+                true,
+            );
+            self::assertSame('rebuilding', $outcome->state);
+        }
+        self::assertSame(1, $probes);
+        $cache->delete('search:readiness');
+    }
+
     public function testNothingBuiltYetIsRebuildingNotNoResults(): void
     {
         $outcome = $this->service()->search($this->input(['q' => 'rose']), SearchAudience::public(), 10, true);
@@ -258,6 +283,7 @@ final class SearchQueryServiceTest extends AppTestCase
         ?LifecycleKit $kit = null,
         ?\Closure $locator = null,
         ?\Psr\Log\LoggerInterface $logger = null,
+        ?\Glueful\Cache\CacheStore $cache = null,
     ): SearchQueryService {
         $kit ??= $this->kit;
         return new SearchQueryService(
@@ -268,6 +294,7 @@ final class SearchQueryServiceTest extends AppTestCase
             new CursorSigner('test-key'),
             new Workspace($this->appContext()),
             $logger ?? new \Psr\Log\NullLogger(),
+            $cache,
         );
     }
 }
