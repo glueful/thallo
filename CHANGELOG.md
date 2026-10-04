@@ -33,6 +33,8 @@ as the next release, never a mutated tag.
   price and picture.
 - **A Search block**: a search field, or an icon that opens one. It can sit in the header, and its scope
   chooses all results or one kind (pages, products). It hides itself when its scope isn't available.
+- **A `/search` results page** in the theme, with clear messages for no results, an unavailable scope,
+  rebuilding and too many searches. It works without JavaScript.
 
 ## [1.0.0-beta.80] - 2026-10-03 — Developer Preview
 

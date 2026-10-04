@@ -82,6 +82,13 @@ final class SearchOnApp
         return (new \Glueful\Application($this->app))->handle($request);
     }
 
+    /** A browser's request for a page (no JSON Accept header). */
+    public function page(string $uri, string $ip = '127.0.0.1'): Response
+    {
+        $request = Request::create($uri, 'GET', [], [], [], ['REMOTE_ADDR' => $ip]);
+        return (new \Glueful\Application($this->app))->handle($request);
+    }
+
     /** @return array<string, mixed> */
     public static function data(Response $response): array
     {
