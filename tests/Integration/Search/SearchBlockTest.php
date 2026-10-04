@@ -112,6 +112,14 @@ final class SearchBlockTest extends AppTestCase
         self::assertStringContainsString("Products search isn't available: Commerce is off.", $stage);
     }
 
+    public function testWithSearchOffTheStageSaysSoOnce(): void
+    {
+        $off = self::booted(self::bootAppWithConfigOverride('thallo', ['capabilities' => ['thallo.search' => false]]));
+        $stage = $this->render(['display' => 'field'], [], $off, true);
+        self::assertStringContainsString("Search isn't available: Search is off.", $stage);
+        self::assertStringNotContainsString('Search search', $stage);
+    }
+
     public function testAnEmptyIndexHidesNothing(): void
     {
         self::assertStringContainsString('thallo-block-search', $this->render(['display' => 'field']));
