@@ -6,9 +6,9 @@ order: 4
 summary: "Every block that ships: what it is for, its fields, and its style settings."
 ---
 
-Thallo ships **54 block types**. Two [capabilities](../concepts/06-capabilities.md) add more:
+Thallo ships **54 block types**. Three [capabilities](../concepts/06-capabilities.md) add more:
 Accounts adds four, Commerce adds eighteen — five shop blocks, nine fields for the product page and
-four blocks for the shop home and category pages.
+four blocks for the shop home and category pages — and Search adds one.
 This page lists all of them, in the order the Blocks tab and **Settings › Block Types** show them.
 
 ## How to read the tables
@@ -32,7 +32,7 @@ Spacer and Animated text. [Style settings](05-style-settings.md) says what each 
 what it becomes in CSS.
 
 Categories lead with Layout, Content, Media and Items; any other category follows in alphabetical
-order, which is why Account, Advanced, Commerce and Fields come last. Within a category the admin puts the
+order, which is why Account, Advanced, Commerce, Fields and Site come last. Within a category the admin puts the
 active blocks first and orders each part by label; that is the order used here.
 
 ## Layout
@@ -156,7 +156,7 @@ and **Visibility** only.
 | **Add to cart** (`add-to-cart`) | An add-to-cart control for a product. Left blank, it uses the product linked to the entry being rendered. With no product to use, the stage shows `Add to cart — choose a product` and the site hides it, as it does when a linked product is gone; a product chosen by slug that is gone reads as not available. Without JavaScript it is a link to the shop. | `product_slug` (string) | — | — |
 | **Featured product** (`featured-product`) | Spotlight a single product. With no product set, the stage shows `Featured product — choose a product` and the site hides it, as it does for a product that is gone. Without JavaScript it is a link to the shop. | `product_slug` (string) | — | Corners, Shadow, Colours, Border |
 | **Mini cart** (`mini-cart`) | A cart count and drawer that fills in over JavaScript; a plain cart link without it. | none | — | — |
-| **Product grid** (`product-grid`) | A grid of products from a category, a tag, a manual list, or the newest arrivals. On the stage it names what it will show, such as `Product grid — the newest products`; the products appear on the published site. Without JavaScript it is a link to the shop, or to its category. | `source` (enum: category, tag, manual, newest), `category_slug` (string), `tag_slug` (string), `products` (text — one product slug per line), `page_size` (enum: small, medium, large) | — | Width |
+| **Product grid** (`product-grid`) | A grid of products from a category, a tag, a manual list, or the newest arrivals. On the stage it names what it will show, such as `Product grid — the newest products`; the products appear on the published site. Without JavaScript it is a link to the shop, or to its category. | `source` (enum: category, tag, manual, newest), `category_slug` (string), `tag_slug` (string), `products` (text — one product slug per line), `limit` (number, 1 to 48, default 12), `columns` (enum: auto, 2, 3, 4, 5, 6 — how many on a row at desktop; a fixed count shows 3 on tablets and 2 on phones, auto fits as many as the width allows) | — | Width |
 | **Wishlist link** (`wishlist-link`) | A link to the wishlist page with a live saved-item count; a plain wishlist link without JavaScript. | `label` (string) | — | — |
 
 Turning Commerce on and connecting a shop is [sell something](../guides/18-commerce.md).
@@ -229,6 +229,23 @@ arranges them; the block type declares that grid, so the tab shows it as the the
 A layout's editor checks each field when the layout is applied and saved: **Entry cover** needs an
 asset field, **Entry terms** a reference field, **Entry excerpt** a text field, **Entry content**
 a blocks field, and **Entry field** any other scalar field.
+
+## Site
+
+One block the **Search** capability (`thallo.search`) contributes, on the same terms as the
+Account blocks above. Its style settings are **Spacing**, **Width**, **Visibility** and **Sizing
+in a parent layout**.
+
+| Block | What it is for | Fields | Holds blocks | Style settings adds |
+|---|---|---|---|---|
+| **Search** (`search`) | A search field, or an icon that opens one, sending visitors to the `/search` results page. Suggestions appear as a visitor types. | `display` (enum: field, icon — default field), `placeholder` (string — default `Search`), `scope` (string — every kind, or one: Pages & posts, Products; the choices come from the features that are on), `live_results` (boolean — suggestions while typing; on unless switched off) | — | Width |
+
+It is in the header's palette as well as the page's, so it can sit beside the navigation. A scope
+that cannot be searched — Search is off, or the scope's feature (Commerce, for products) is off —
+hides the block on the site, and the stage shows why instead, such as `Products search isn't
+available: Commerce is off.` The inspector keeps a saved scope that is no longer offered and says
+why. Without JavaScript the field is a plain form that opens `/search`, and the icon a plain link
+to it. [Add search to the site](../guides/11-search.md) covers placing one in the header.
 
 ## Checking what an install has
 

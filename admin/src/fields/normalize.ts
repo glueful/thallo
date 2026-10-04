@@ -23,5 +23,6 @@ export function toFieldDef(f: ContentTypeField): FieldDef {
     blockTypes: f.block_types ?? undefined,
     group: f.group ?? undefined,
     domain: f.domain ?? undefined,
+    optionsSource: f.options_source ?? undefined,
   }
 }

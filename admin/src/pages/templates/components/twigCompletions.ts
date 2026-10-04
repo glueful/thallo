@@ -55,6 +55,7 @@ const FUNCTIONS = [
   'markdown',
   'markdown_toc',
   'search_enabled',
+  'search_scope_state',
   'is_preview',
   'media_image',
   'media_text',

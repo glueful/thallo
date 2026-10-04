@@ -30,8 +30,7 @@ final class DocumentBuilder
 
     /**
      * The Meilisearch document id for one entry+locale. Meilisearch ids allow only
-     * alphanumerics, `-` and `_` — never use `:` or other separators here. Deletes
-     * (MeilisearchBackend::deleteEntry) must compose the identical id.
+     * alphanumerics, `-` and `_` — never use `:` or other separators here.
      */
     public static function documentId(string $entryUuid, string $locale): string
     {
@@ -113,6 +112,16 @@ final class DocumentBuilder
             'title' => (string) ($title ?? ''),
             'body' => implode("\n\n", $bodyParts),
         ];
+    }
+
+    /**
+     * The words a reader sees, as the index holds them — what results are shown from, so the index
+     * and the display agree on what an entry says.
+     */
+    public function text(IndexableContent $content, ContentSchemaReader $schema): string
+    {
+        $document = $this->build($content, $schema);
+        return trim($document['title'] . "\n\n" . $document['body']);
     }
 
     /**

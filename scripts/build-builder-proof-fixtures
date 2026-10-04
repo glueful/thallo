@@ -66,6 +66,57 @@ if (!is_dir($out . '/api') && !mkdir($out . '/api', 0755, true)) {
     exit(1);
 }
 
+// The fixtures are an ordinary site with Search on (the Search block in the header palette, its
+// scope picker — search-block.spec.ts): the boot reads a testing override, with any stored Search
+// switch cleared so the override decides. The restore is registered before anything is changed, and
+// an interrupt exits through it, so an aborted build never leaves the test suite with Search on.
+$searchOverrideFile = $root . '/config/testing/thallo.php';
+$searchPreviousOverride = is_file($searchOverrideFile) ? (string) file_get_contents($searchOverrideFile) : null;
+$searchFlagsPdo = null;
+$storedSearch = false;
+register_shutdown_function(static function () use (
+    $searchOverrideFile,
+    $searchPreviousOverride,
+    &$searchFlagsPdo,
+    &$storedSearch,
+): void {
+    if ($searchPreviousOverride !== null) {
+        file_put_contents($searchOverrideFile, $searchPreviousOverride);
+    } else {
+        @unlink($searchOverrideFile);
+    }
+    if ($searchFlagsPdo instanceof PDO) {
+        if (is_string($storedSearch)) {
+            $searchFlagsPdo->prepare("INSERT INTO thallo_system_flags (key, value) VALUES ('capability.thallo.search.enabled', ?)
+                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value")->execute([$storedSearch]);
+        } else {
+            $searchFlagsPdo->exec("DELETE FROM thallo_system_flags WHERE key = 'capability.thallo.search.enabled'");
+        }
+        \Thallo\Core\Tests\Support\CapabilityBaseline::advanceVersion($searchFlagsPdo);
+    }
+});
+if (function_exists('pcntl_async_signals')) {
+    pcntl_async_signals(true);
+    foreach ([SIGINT, SIGTERM] as $signal) {
+        pcntl_signal($signal, static function (): void {
+            exit(130); // runs the restore above
+        });
+    }
+}
+$searchFlagsPdo = new PDO(
+    sprintf('pgsql:host=%s;port=%s;dbname=%s', $env('DB_PGSQL_HOST', '127.0.0.1'), $env('DB_PGSQL_PORT', '5432'), $database),
+    (string) $env('DB_PGSQL_USERNAME', ''),
+    (string) $env('DB_PGSQL_PASSWORD', ''),
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
+);
+$searchCleared = $searchFlagsPdo->prepare("DELETE FROM thallo_system_flags WHERE key = 'capability.thallo.search.enabled' RETURNING value");
+$searchCleared->execute();
+$storedSearch = $searchCleared->fetchColumn();
+\Thallo\Core\Tests\Support\CapabilityBaseline::advanceVersion($searchFlagsPdo);
+$searchOverride = $searchPreviousOverride !== null ? (array) (require $searchOverrideFile) : [];
+$searchOverride['capabilities'] = ['thallo.search' => true] + (array) ($searchOverride['capabilities'] ?? []);
+file_put_contents($searchOverrideFile, "<?php\nreturn " . var_export($searchOverride, true) . ";\n");
+
 $container = TestApplication::instance()->getContainer();
 
 // Block types: the shipped starters with their style declarations, as the test suite syncs them.
@@ -183,6 +234,16 @@ $json('draft', (string) $container->get(EntryController::class)->getDraft($get('
 $json('style-schema', (string) $container->get(StyleSchemaController::class)->show()->getContent());
 $json('style-classes', (string) $container->get(StyleClassController::class)->index($get('/x'))->getContent());
 $json('capabilities', (string) $container->get(CapabilityAdminController::class)->index()->getContent());
+// The Search block's scope choices, as GET /field-options/thallo-search.scopes answers an author.
+$scopes = $container->get(\Thallo\Contracts\Fields\FieldOptionSourceRegistry::class)->find('thallo-search.scopes');
+if ($scopes === null) {
+    fwrite(STDERR, "the thallo-search.scopes option source is not registered: is Search on?\n");
+    exit(1);
+}
+$json('field-options-thallo-search.scopes', (string) json_encode(
+    ['success' => true, 'message' => 'Success', 'data' => ['options' => $scopes->options()]],
+    JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR,
+));
 $json('config', json_encode([
     'apiBase' => '/v1/admin',
     'sitePreviewUrl' => '',

@@ -219,6 +219,17 @@ the `local` and `memory` drivers are built in: pointing a disk at `s3` fails unt
 | `MEILISEARCH_KEY` | empty | The server's key, if it needs one. |
 | `SEARCH_INDEX` | `content` | The Meilisearch index name. |
 | `SEARCH_SNIPPET_LENGTH` | `40` | Words of context in a highlighted excerpt. |
+| `SEARCH_PAGE_SIZE` | `10` | Results on one page of `/search`. |
+| `SEARCH_PAGE_RATE_LIMIT` | `60` | Searches one visitor may make on `/search` in a minute. |
+| `SEARCH_REQUEST_TIMEOUT` | `10` | Seconds one request to the engine may take. |
+| `SEARCH_MEILISEARCH_TASK_TIMEOUT` | `10` | Seconds a Meilisearch task is waited for before it is reported as still pending. |
+| `SEARCH_BUILD_BATCH` | `200` | Documents written per batch during a rebuild. |
+| `SEARCH_BUILD_LEASE` | `120` | Seconds a rebuild holds its claim before it must renew it. |
+| `SEARCH_DRAINER_LEASE` | `60` | The same, for the process applying live changes. |
+| `SEARCH_LEASE_MARGIN` | `5` | Seconds kept before a claim ends, in which no more writes are sent. |
+| `SEARCH_RETIRE_GRACE` | `120` | Seconds a replaced Meilisearch index is kept before it is deleted, so a query already reading it finishes. |
+| `SEARCH_STALL_AFTER` | `600` | Seconds a rebuild request may wait unclaimed before **Settings › Search** says background processing isn't running. |
+| `SEARCH_FULL_RECONCILE` | `true` | The daily full rebuild of every kind (`search_reconcile_full` in `config/schedule.php`). |
 
 Search is off until its capability is switched on. See [search](../guides/11-search.md).
 
@@ -255,6 +266,7 @@ signed previews do not survive a change.
 | `RENDER_LISTING_PER_PAGE` | `10` | Items on a rendered listing page. |
 | `RENDER_CACHE_ENABLED` | `true` | The full-page render cache. Set it to `false` while theming. |
 | `RENDER_CACHE_TTL` | `3600` | Seconds a rendered page is held. Surrogate tags do the real invalidation; on a cache driver without tags this is the only bound. |
+| `RENDER_AVAILABILITY_EDGE_GRACE` | `300` | Seconds before the CDN purge that follows a change in the switched-on features is repeated. A retry window, not a staleness bound. |
 | `RENDER_DB_TEMPLATES` | `true` | Templates edited in the admin, layered over the theme's files. `false` also unregisters the template admin routes. |
 | `CUSTOM_CSS_MAX_BYTES` | `262144` | The size cap on the site's custom stylesheet. |
 | `THALLO_COLOR_MODE_ENABLED` | `true` | `false` renders the site light-only: no toggle, no dark CSS, whatever the visitor prefers. |

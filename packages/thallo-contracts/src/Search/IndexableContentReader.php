@@ -20,4 +20,15 @@ interface IndexableContentReader
         ?string $typeSlug = null,
         ?string $locale = null,
     ): IndexablePage;
+
+    /**
+     * Distinct entries with at least one published locale, in uuid order, strictly after
+     * `$afterUuid` — whole entries, so a page never splits one entry's translations.
+     *
+     * @return list<string>
+     */
+    public function publishedEntryUuidsAfter(?string $afterUuid, int $limit): array;
+
+    /** @return list<string> the locales one entry is published in */
+    public function publishedLocalesOf(string $entryUuid): array;
 }

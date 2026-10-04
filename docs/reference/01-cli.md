@@ -100,7 +100,10 @@ Check that this host can run a Thallo instance: PHP, extensions, paths, database
 |---|---|
 | `--strict` | Treat warnings (e.g. absent security keys) as failures |
 
-One row per check, each OK, WARN or FAIL. Any FAIL fails the command.
+One row per check, each OK, WARN or FAIL. Any FAIL fails the command. The `schedule` row warns when
+`config/schedule.php` is missing a job Thallo runs on (`schedules_run`, `render_availability_purge`,
+`search_reconcile`, `search_reconcile_full`): the file is your own copy, so a job a release adds runs
+only once you list it. `thallo:provision` repeats the warning when it finishes.
 
 ```bash
 $ php glueful thallo:doctor --strict
@@ -422,37 +425,68 @@ formats.
 
 ## Search
 
-Both commands exist only while the **Search** capability is on.
+These commands exist only while the **Search** capability is on.
 
 ### search:reindex
 
-Backfill the search index from published content. **Writes** to the index.
+Ask for a rebuild of the search index. **Writes** a rebuild request; with `--wait` it also runs
+the rebuild.
 
 | Option | What it does |
 |---|---|
-| `--type=TYPE` | Limit to a content-type slug |
-| `--locale=LOCALE` | Limit to a locale |
+| `--kind=KIND` | Rebuild one kind (`entries`, `products`, …) |
+| `--wait` | Run the rebuild now and report |
 
-It makes sure the index exists, pages through published records and upserts them, then prints how
-many documents it indexed. If the engine is unreachable it stops and points at `search:status`.
+Without `--wait` it records the request and returns: `Rebuild requested for entries, products.`
+The scheduler's `search:reconcile` picks the request up within a minute. With `--wait` it runs
+each kind in the foreground and prints one line per kind: `rebuilt`, `up to date`, `failed`,
+`taken over by another builder` or `still being rebuilt by another process`. A rebuild already
+under way is waited for, never run alongside. A failed kind makes the command exit non-zero. A
+kind that is not available (its feature is off) is refused.
+
+The options `--type` and `--locale` are removed. Passing either prints that they are no longer
+supported and exits non-zero without touching the index; search rebuilds whole kinds.
 
 ```bash
-$ php glueful search:reindex --type=post
+$ php glueful search:reindex --kind=entries --wait
+```
+
+### search:reconcile
+
+Rebuild every kind that has a rebuild outstanding, in every workspace. **Writes** to the index.
+
+| Option | What it does |
+|---|---|
+| `--full` | Rebuild every available kind, even ones reporting ready |
+
+The scheduler runs it every minute, and with `--full` once a day at 03:30
+(`search_reconcile_full` in `config/schedule.php`, switched by `SEARCH_FULL_RECONCILE`). The daily
+run is what repairs a change lost between a save and the index hearing of it. Run it by hand when
+the scheduler is not running.
+
+```bash
+$ php glueful search:reconcile --full
 ```
 
 ### search:status
 
-Report search backend health and configuration warnings. **Reads only.**
+Report the search engine and each kind's index. **Reads only.**
 
-It prints the engine that answers, whether the backend is reachable, and one warning line per
-configured type whose fields do not line up with its content type. An unreachable backend fails
-the command.
+| Option | What it does |
+|---|---|
+| `--all` | Every workspace |
+
+It prints whether the engine is ready (with the Meilisearch version) or why not, then a table of
+kinds: status, documents, progress, last success, last error and any outstanding rebuild request.
+A kind whose feature is off shows why instead of a status. A warning line follows for every
+configured type whose fields do not line up with its content type. An engine that cannot answer
+fails the command.
 
 ```bash
 $ php glueful search:status
 ```
 
-[Add search to the site](../guides/11-search.md) explains the two engines.
+[Add search to the site](../guides/11-search.md) explains the engines and the index.
 
 ## Workspaces
 
@@ -815,6 +849,17 @@ the rendering capability is on, so stale pages can be cleared after switching it
 
 ```bash
 $ php glueful render:cache:clear
+```
+
+### thallo:availability:purge
+
+Purge cached pages after the set of switched-on features changed, and finish a CDN purge that is
+due. **Writes** to the page cache. The scheduler runs it every minute
+(`render_availability_purge`), and a request notices the change on its own; run it by hand to
+finish a pending purge at once.
+
+```bash
+$ php glueful thallo:availability:purge
 ```
 
 ### render:theme:clone

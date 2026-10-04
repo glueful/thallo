@@ -146,7 +146,7 @@ final class RenderPageCacheTest extends AppTestCase
         self::assertStringContainsString('-g' . $generation, $this->appearanceFingerprint());
         $this->handle(Request::create('/blog/hello', 'GET'));
         $keys = $this->cache()->getKeys('render:*');
-        $under = static fn (int $g): callable => static fn (string $k): bool => str_contains($k, "-g{$g}:");
+        $under = static fn (int $g): callable => static fn (string $k): bool => str_contains($k, "-g{$g}-a");
         self::assertCount(1, array_filter($keys, $under($generation)));
 
         $this->container()->get(\Thallo\Core\Content\Style\Classes\StyleClassRepository::class)

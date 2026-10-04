@@ -266,6 +266,18 @@ final class RenderContextExtension extends AbstractExtension
          * null, so a shop block's stage placeholder says "choose a product".
          */
         private readonly ?\Thallo\Contracts\Delivery\StorefrontBlockPreview $blockPreview = null,
+        /**
+         * Soft-bound (search block spec §3.1): null → search_scope_state() reports every scope
+         * unavailable ("Search is off"), so a Search block renders nothing.
+         */
+        private readonly ?\Thallo\Contracts\Search\SearchScopeStatus $searchScopes = null,
+        /**
+         * Packages' block scripts, name => fingerprinted URL (BlockScriptContributor), read on
+         * first use so the contribution registry freezes only once rendering starts.
+         *
+         * @var (\Closure(): array<string, string>)|null
+         */
+        private readonly ?\Closure $contributedBlockScripts = null,
     ) {
         $this->locale = $defaultLocale;
     }
@@ -375,6 +387,7 @@ final class RenderContextExtension extends AbstractExtension
             // Stage only: the named placeholder of a Featured product or Add to cart. Off the stage
             // it answers null without a lookup, so the public path stays cache-safe.
             new TwigFunction('shop_block_product_label', $this->shopBlockProductLabel(...)),
+            new TwigFunction('search_scope_state', $this->searchScopeState(...)),
             new TwigFunction('shop_category_url', $this->shopCategoryUrl(...)),
             new TwigFunction('shop_index_url', $this->shopIndexUrl(...)),
             new TwigFunction('json_script', $this->jsonScript(...)),
@@ -629,6 +642,18 @@ final class RenderContextExtension extends AbstractExtension
     }
 
     /**
+     * Whether a Search block's scope can be searched now, and if not, why (search block spec §3.1).
+     *
+     * @return array{available: bool, label: ?string, reason: ?string}
+     */
+    public function searchScopeState(mixed $scope = ''): array
+    {
+        $scope = is_string($scope) ? $scope : '';
+        return $this->searchScopes?->stateOf($scope)
+            ?? ['available' => false, 'label' => null, 'reason' => 'Search is off'];
+    }
+
+    /**
      * The name of the product a shop block would show, for its stage placeholder; null when none,
      * and always null off the stage — a public render never pays for the lookup.
      */
@@ -755,15 +780,29 @@ final class RenderContextExtension extends AbstractExtension
      */
     public function blockScript(string $name): \Twig\Markup
     {
-        if (!in_array($name, self::BLOCK_SCRIPT_ASSETS, true) || isset($this->emittedBlockScripts[$name])) {
+        if (isset($this->emittedBlockScripts[$name])) {
             return new \Twig\Markup('', 'UTF-8');
+        }
+        if (in_array($name, self::BLOCK_SCRIPT_ASSETS, true)) {
+            $src = '/_thallo/runtime/block-' . $name . '.js';
+        } else {
+            $this->blockScriptUrls ??= $this->contributedBlockScripts !== null
+                ? ($this->contributedBlockScripts)()
+                : [];
+            $src = $this->blockScriptUrls[$name] ?? null;
+            if ($src === null) {
+                return new \Twig\Markup('', 'UTF-8');
+            }
         }
         $this->emittedBlockScripts[$name] = true;
         return new \Twig\Markup(
-            '<script defer src="/_thallo/runtime/block-' . $name . '.js"></script>',
+            '<script defer src="' . htmlspecialchars($src, ENT_QUOTES, 'UTF-8') . '"></script>',
             'UTF-8',
         );
     }
+
+    /** @var array<string, string>|null packages' block scripts, resolved on first use */
+    private ?array $blockScriptUrls = null;
 
     /** The verbatim no-flash resolver (color-mode spec §3.1), or empty markup when disabled. */
     public function colorModeScript(): \Twig\Markup

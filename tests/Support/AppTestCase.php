@@ -32,6 +32,7 @@ abstract class AppTestCase extends TestCase
         'style_class_jobs', 'style_classes', 'style_generations', 'saved_sections', 'admin_ui_settings', 'layouts',
         'render_template_versions', 'render_templates',
         'navigation_items', 'navigation_menus',
+        'search_index_acks', 'search_index_changes', 'search_index_demand', 'search_index_state',
         'search_documents',
         'workflow_transitions', 'workflow_review_states',
         'entry_schedules',
@@ -264,11 +265,14 @@ abstract class AppTestCase extends TestCase
 
     /**
      * The render cache's appearance segment for the active theme (colours, design settings and
-     * the theme artifact hash): cache keys in tests derive from it instead of pinning a literal.
+     * the theme artifact hash), followed by the availability fingerprint of the features that are
+     * on, as the page caches key it: cache keys in tests derive from it instead of pinning a literal.
      */
     protected function appearanceFingerprint(): string
     {
-        return $this->container()->get(\Thallo\Render\ThemeAppearanceSource::class)->fingerprint();
+        $container = $this->container();
+        return $container->get(\Thallo\Render\ThemeAppearanceSource::class)->fingerprint()
+            . '-a' . $container->get(\Thallo\Contracts\Capability\AvailabilityFingerprint::class)->current();
     }
 
     /** Reset BaseRepository's process-static connection after a secondary app boot. */

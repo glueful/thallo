@@ -325,10 +325,10 @@ async function onSave() {
                     v-model="form.search_enabled"
                     data-test="search-enabled"
                     label="Content search"
-                    description="Public search API (/v1/search), the docs search box and content
-                      reindexing. Works with your site's own PostgreSQL database, or with
-                      Meilisearch if you have configured one. After enabling, run
-                      php glueful search:reindex to index existing content."
+                    description="Site search, the Search block and the public search API
+                      (/v1/search). Works with your site's own PostgreSQL database, or with
+                      Meilisearch if you have configured one. Indexing runs automatically;
+                      progress and problems appear in Settings › Search."
                   />
                 </div>
               </UCard>

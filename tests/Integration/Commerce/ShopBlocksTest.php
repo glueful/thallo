@@ -158,8 +158,14 @@ final class ShopBlocksTest extends AppTestCase
         self::assertSame('string', $byName['category_slug']['type']);
         self::assertSame('string', $byName['tag_slug']['type']);
         self::assertSame('text', $byName['products']['type']);
-        self::assertSame('enum', $byName['page_size']['type']);
-        self::assertSame(['small', 'medium', 'large'], $byName['page_size']['enum']);
+        // How many products: a number, as many as the server serves (48), not size buckets.
+        self::assertSame('number', $byName['limit']['type']);
+        self::assertSame(1, $byName['limit']['min']);
+        self::assertSame(48, $byName['limit']['max']);
+        // How many on a row at desktop: auto (by width) or a fixed count.
+        self::assertSame('enum', $byName['columns']['type']);
+        self::assertSame(['auto', '2', '3', '4', '5', '6'], $byName['columns']['enum']);
+        self::assertArrayNotHasKey('page_size', $byName);
     }
 
     public function testAddToCartProductSlugFieldIsNotRequired(): void
@@ -671,12 +677,40 @@ final class ShopBlocksTest extends AppTestCase
             'category_slug' => 'shoes',
             'tag_slug' => '',
             'products' => '',
-            'page_size' => 'large',
+            'limit' => 10,
+            'columns' => '5',
         ]);
 
         self::assertStringContainsString('data-source="category"', $html);
         self::assertStringContainsString('data-category-slug="shoes"', $html);
-        self::assertStringContainsString('data-page-size="48"', $html);
+        self::assertStringContainsString('data-page-size="10"', $html);
+        self::assertStringContainsString('thallo-block-product-grid--cols-5', $html);
+    }
+
+    public function testProductGridLimitIsClampedAndDefaultsToTwelve(): void
+    {
+        self::assertStringContainsString('data-page-size="12"', $this->renderBlock('product-grid', []));
+        $tooMany = $this->renderBlock('product-grid', ['limit' => 200]);
+        self::assertStringContainsString('data-page-size="48"', $tooMany);
+        self::assertStringContainsString('data-page-size="1"', $this->renderBlock('product-grid', ['limit' => 0]));
+        $notANumber = $this->renderBlock('product-grid', ['limit' => 'many']);
+        self::assertStringContainsString('data-page-size="12"', $notANumber);
+    }
+
+    public function testProductGridColumnsAutoOrUnknownLeavesTheWidthBasedGrid(): void
+    {
+        foreach ([[], ['columns' => 'auto'], ['columns' => '9']] as $data) {
+            self::assertStringNotContainsString('--cols-', $this->renderBlock('product-grid', $data));
+        }
+    }
+
+    public function testShopCssStepsAFixedColumnCountDownOnNarrowScreens(): void
+    {
+        $css = (string) file_get_contents(dirname(__DIR__, 3) . '/packages/thallo-commerce/assets/shop.css');
+        foreach (['2', '3', '4', '5', '6'] as $n) {
+            $selector = ".thallo-block-product-grid--cols-{$n} .thallo-block-product-grid__items";
+            self::assertStringContainsString($selector, $css);
+        }
     }
 
     public function testProductGridTemplateFallsBackToNewestForAnUnknownSource(): void

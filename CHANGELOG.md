@@ -5,6 +5,78 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.81] - 2026-10-04 — Developer Preview
+
+Search, on the site and across kinds: a Search block (a field, or an icon that opens one, header
+ready), a `/search` results page, and products found alongside pages, with Settings › Search to
+watch and rebuild the index. Indexing now runs in the background on the queue and the scheduler.
+Run `php glueful thallo:provision` after `composer update`; read the Upgrade Notes.
+
+### Added
+- **A Search block**: a search field, or an icon that opens one. It can sit in the header, and its scope
+  chooses all results or one kind (pages, products). It hides itself when its scope isn't available.
+- **A `/search` results page** in the theme, with clear messages for no results, an unavailable scope,
+  rebuilding and too many searches. It works without JavaScript.
+- **Products appear in search** when Search and Commerce are both on, always showing the current name,
+  price and picture.
+- **Settings › Search** shows each kind's index status, progress and last error, with Rebuild
+  buttons, and says when background processing isn't running. Extensions › Capabilities shows
+  Search's state.
+- **`/v1/search` gains `kind` (`all`, `products`) and `cursor`/`next`**, and every response says
+  `total_approximate`. It keeps its entries-only default, its `type` filter and its error responses.
+- **Block fields can draw their choices from the server** (`options_source`), keeping a stored choice
+  that is no longer available and saying why. Authors who can edit pages see them.
+- **`thallo:doctor` and `thallo:provision` name the scheduled jobs your schedule is missing** —
+  any of `schedules_run`, `render_availability_purge`, `search_reconcile` and
+  `search_reconcile_full` — since a site's `config/schedule.php` replaces the shipped list.
+
+### Changed
+- **The product grid takes how many products and how many on a row.** **Limit** is a number from
+  1 to 48 (12 by default), replacing the small, medium and large sizes. **Columns** sets how many
+  cards sit on a row at desktop, 2 to 6, stepping down to 3 on tablets and 2 on phones; **auto**
+  keeps fitting as many as the width allows.
+- **Every capability switch records the state version it changed at** (`capability.{id}.changed_at`),
+  so a consumer can notice an off/on cycle it never saw.
+- **Cached pages are keyed by which features are on**, so a page rendered before a feature was
+  switched on or off is never served after it.
+- **Switching any feature on or off purges cached pages and the CDN from core**, including a change
+  made only in configuration. A second CDN purge retries after five minutes and survives a restart.
+  Commerce's own purge is retired.
+- **`search:reindex` now requests a rebuild** and returns. Add `--wait` to run it in the foreground.
+  `--type` and `--locale` are removed: search rebuilds whole kinds; use `--kind=entries`. Rebuilds are
+  coordinated and recovered automatically by the scheduled `search:reconcile`.
+- **Search keeps one index per kind**, and per workspace on an install with workspaces. Upgrading
+  starts it empty: search answers “rebuilding” until the first build finishes, usually within a
+  minute or two, and the old index is no longer read.
+- **Search results are checked against current records**, so a withdrawn item, or text removed since it
+  was indexed, is never shown. Snippets come from the current text.
+
+### Upgrade Notes
+- `composer update && php glueful thallo:provision`, which adds the search pack's index-lifecycle
+  tables. The queue worker and the scheduler must be running: indexing now happens in the
+  background.
+- **Add three jobs to your `config/schedule.php`** (copy them from a new site's file):
+  `search_reconcile` and `search_reconcile_full`, which build and repair the search index, and
+  `render_availability_purge`, which finishes the delayed CDN purge after a feature is switched on
+  or off. Your schedule is your own copy and replaces the shipped list, so without them search
+  only builds when a visitor's request or a **Rebuild** press wakes the queue. `thallo:provision`
+  and `thallo:doctor` name any of them your schedule is missing.
+- **A page of your own at `/search` is replaced** by the search results page; with Search off,
+  `/search` is a 404. Move such a page to another path before upgrading.
+- **`search:reindex` now only records a rebuild request.** Add `--wait` to run the rebuild in the
+  foreground and see the result, as before. Scripts that relied on it finishing should add
+  `--wait`.
+- **`search:reindex --type` and `--locale` are removed** and exit non-zero without touching the
+  index. Search rebuilds whole kinds: use `search:reindex --kind=entries`.
+- `/v1/search` keeps its entries-only default, its `type` filter and its error responses. It gains
+  `kind` and `cursor`, and every response now carries `total_approximate` and `next`.
+- **Meilisearch sites need server 1.10 or newer.** An older server leaves search unavailable, and
+  Settings › Search names the version it found.
+- **After upgrading, search starts empty and rebuilds itself.** The old index is not read or
+  carried over: `thallo:provision` clears its rows, and search answers "rebuilding" until the
+  scheduler's first build finishes, usually within a minute or two. On Meilisearch the scheduled
+  reconcile deletes the old `content` index; nothing reads it.
+
 ## [1.0.0-beta.80] - 2026-10-03 — Developer Preview
 
 Turning a feature on from the admin no longer stops at "the extension cache is out of date" on a

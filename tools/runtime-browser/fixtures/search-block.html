@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Search block</title>
+<link rel="stylesheet" href="/packages/thallo-search/assets/search.css">
+<style>.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}body{font:16px sans-serif;padding:2rem}</style>
+</head>
+<body>
+<!-- The Search block's markup as search.twig renders it (field, icon, and a field with live
+     suggestions off). Kept in step with packages/thallo-search/templates. -->
+<div class="thallo-block thallo-block-search thallo-block-search--field" data-search-block data-live="1" data-scope="" data-locale="en" data-key="blk1">
+<form method="get" action="/search" role="search" class="thallo-search-form">
+  <label for="thallo-search-input-blk1" class="sr-only">Search</label>
+  <input id="thallo-search-input-blk1" name="q" type="search" value="" placeholder="Search" role="combobox" aria-expanded="false" aria-controls="thallo-search-list-blk1" aria-autocomplete="list" autocomplete="off" class="thallo-search-form__input">
+  <input type="hidden" name="scope" value="">
+  <input type="hidden" name="locale" value="en">
+  <button type="submit" class="thallo-search-form__submit">Search</button>
+  <ul id="thallo-search-list-blk1" role="listbox" class="thallo-search-form__list" hidden></ul>
+  <p class="thallo-search-form__status" role="status" aria-live="polite" data-search-status></p>
+</form>
+</div>
+<button id="after-field">Next control</button>
+
+<div class="thallo-block thallo-block-search thallo-block-search--icon" data-search-block data-live="1" data-scope="products" data-locale="en" data-key="blk2" style="margin-top:2rem">
+  <a class="thallo-block-search__trigger" href="/search?scope=products&amp;locale=en" aria-label="Search" aria-expanded="false" aria-controls="thallo-search-panel-blk2" data-search-trigger>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"></circle></svg>
+  </a>
+  <div id="thallo-search-panel-blk2" class="thallo-block-search__panel" data-search-panel hidden>
+<form method="get" action="/search" role="search" class="thallo-search-form">
+  <label for="thallo-search-input-blk2" class="sr-only">Search</label>
+  <input id="thallo-search-input-blk2" name="q" type="search" value="" placeholder="Search" role="combobox" aria-expanded="false" aria-controls="thallo-search-list-blk2" aria-autocomplete="list" autocomplete="off" class="thallo-search-form__input">
+  <input type="hidden" name="scope" value="products">
+  <input type="hidden" name="locale" value="en">
+  <button type="submit" class="thallo-search-form__submit">Search</button>
+  <ul id="thallo-search-list-blk2" role="listbox" class="thallo-search-form__list" hidden></ul>
+  <p class="thallo-search-form__status" role="status" aria-live="polite" data-search-status></p>
+</form>
+  </div>
+</div>
+
+<div class="thallo-block thallo-block-search thallo-block-search--field" data-search-block data-live="0" data-scope="" data-locale="en" data-key="blk3" style="margin-top:12rem">
+<form method="get" action="/search" role="search" class="thallo-search-form">
+  <label for="thallo-search-input-blk3" class="sr-only">Search</label>
+  <input id="thallo-search-input-blk3" name="q" type="search" value="" placeholder="Search" role="combobox" aria-expanded="false" aria-controls="thallo-search-list-blk3" aria-autocomplete="list" autocomplete="off" class="thallo-search-form__input">
+  <input type="hidden" name="scope" value="">
+  <input type="hidden" name="locale" value="en">
+  <button type="submit" class="thallo-search-form__submit">Search</button>
+  <ul id="thallo-search-list-blk3" role="listbox" class="thallo-search-form__list" hidden></ul>
+  <p class="thallo-search-form__status" role="status" aria-live="polite" data-search-status></p>
+</form>
+</div>
+<script src="/packages/thallo-search/assets/search.js" defer></script>
+</body>
+</html>

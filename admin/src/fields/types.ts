@@ -37,4 +37,6 @@ export interface FieldDef {
   group?: string
   /** The vocabulary domain a `token` field picks from (`color`, `spacing`, …). */
   domain?: string
+  /** A server source for this field's choices (`options_source`), e.g. 'thallo-search.scopes'. */
+  optionsSource?: string
 }

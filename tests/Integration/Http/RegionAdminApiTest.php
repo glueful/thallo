@@ -115,6 +115,37 @@ final class RegionAdminApiTest extends AppTestCase
         self::assertSame(['mini-cart'], array_column($saved['blocks'], 'type'));
     }
 
+    public function testSearchIsInTheHeaderPaletteAndSavesIntoTheHeader(): void
+    {
+        // The Search block in the header (search block spec §3.1): the palette is enforced on the
+        // server, so the block type alone is not enough — `search` is a header palette entry.
+        $controller = $this->controller();
+        $repo = new BlockTypeRepository($this->connection());
+        if ($repo->findBySlug('search') === null) {
+            $repo->create([
+                'slug' => 'search', 'label' => 'Search', 'icon' => 'i-lucide-search', 'category' => 'Site',
+                'description' => 'A search field, or an icon that opens one.', 'schema' => [],
+            ]);
+        }
+        $regions = json_decode((string) $controller->index()->getContent(), true)['data']['regions'];
+        self::assertContains('search', $regions[0]['palette'], 'the header palette offers search');
+
+        $resp = $controller->update($this->dto([
+            'blocks' => [['id' => 'apihdrsrch01', 'type' => 'search', 'data' => ['display' => 'icon']]],
+            'settings' => [],
+        ]), 'header');
+        self::assertSame(200, $resp->getStatusCode(), (string) $resp->getContent());
+        $saved = (new RegionRepository($this->connection()))->find('header');
+        self::assertSame(['search'], array_column($saved['blocks'] ?? [], 'type'));
+
+        $on = self::bootAppWithConfigOverride('thallo', ['capabilities' => ['thallo.search' => true]]);
+        $html = (string) (new \Glueful\Application($on))->handle(\Symfony\Component\HttpFoundation\Request::create(
+            '/',
+            'GET',
+        ))->getContent();
+        self::assertStringContainsString('thallo-block-search', $html, 'and it renders on the site');
+    }
+
     public function testWishlistLinkIsInBothPalettesAndSavesIntoTheHeader(): void
     {
         // Storefront-v1 Task 8 (spec §5): the wishlist link is placeable in the chrome exactly

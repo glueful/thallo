@@ -87,6 +87,31 @@ return [
             'description' => 'Fire due scheduled publish/unpublish actions',
         ],
         [
+            'name' => 'render_availability_purge',
+            'schedule' => '* * * * *',
+            'handler_class' => \Thallo\Core\Jobs\RunConsoleCommandJob::class,
+            'parameters' => ['command' => \Thallo\Core\Capabilities\Console\AvailabilityPurgeCommand::class],
+            'description' => 'Purge cached pages after the features in use changed, and finish the delayed CDN purge',
+        ],
+        [
+            'name' => 'search_reconcile',
+            'schedule' => '* * * * *',
+            'handler_class' => \Thallo\Core\Jobs\RunConsoleCommandJob::class,
+            'parameters' => ['command' => 'Thallo\\Search\\Console\\ReconcileCommand'],
+            'description' => 'Rebuild search index kinds with outstanding demand',
+        ],
+        [
+            'name' => 'search_reconcile_full',
+            'schedule' => '30 3 * * *',
+            'handler_class' => \Thallo\Core\Jobs\RunConsoleCommandJob::class,
+            'parameters' => [
+                'command' => 'Thallo\\Search\\Console\\ReconcileCommand',
+                'arguments' => ['--full' => true],
+            ],
+            'description' => 'Rebuild every search index kind (repairs changes lost between a commit and its event)',
+            'enabled' => env('SEARCH_FULL_RECONCILE', true),
+        ],
+        [
             'name' => 'domain_reverification_sweep',
             'schedule' => '0 * * * *',
             'handler_class' => \Thallo\Tenancy\Reverification\DomainReverificationSweepJob::class,

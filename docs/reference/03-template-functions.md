@@ -82,6 +82,7 @@ Both memoise per render, so asking for the body and its contents costs one rende
 | Function | Returns | Example |
 |---|---|---|
 | `search_enabled()` | Whether the `thallo.search` capability is on. Offer a search box only inside it, so a visitor never gets one that cannot answer. | `{% if search_enabled() %}` |
+| `search_scope_state(scope)` | Whether a search scope can be searched now: `available`, `label` and `reason`. `scope` is a kind (`entries`, `products`) or empty for every kind. With Search off, `reason` is `Search is off`; with a kind's feature off, it names that feature. | `{% set state = search_scope_state('products') %}{% if state.available %}…{% endif %}` |
 
 ## Theme assets and stylesheets
 
@@ -93,7 +94,7 @@ Both memoise per render, so asking for the body and its contents costs one rende
 | `settings_stylesheet_url()` | The compiled settings artifact: the design tokens and the utilities the Design view's settings need, inside `@layer settings`. Linked after the theme artifact. | `{{ settings_stylesheet_url() }}` |
 | `custom_css()` | The URL of the site's `custom.css`, or `null` when it is empty. It loads last, so it is the final override. | `{% set customCss = custom_css() %}` |
 | `runtime_script()` | The URL of the pack's theme runtime, which drives the carousel, tabs, navigation, colour mode and forms. Keep it in a copied `layout.twig`. | `{{ runtime_script() }}` |
-| `block_script(name)` | A deferred script tag for one block's runtime asset, once per render. The names are `animated-text`, `code`, `docs-search`, `gallery` and `motion`; anything else emits nothing. | `{{ block_script('gallery') }}` |
+| `block_script(name)` | A deferred script tag for one block's runtime asset, once per render. The names are `animated-text`, `code`, `docs-search`, `gallery`, `map` and `motion`, and `search`, which the Search pack adds; anything else emits nothing. | `{{ block_script('gallery') }}` |
 | `font_faces_style(family, roman, italic)` | A preload link and the `@font-face` rules for a webfont in the theme's `assets/`. `italic` is optional. Emits nothing when the file is missing, or when the site's typeface setting uses another face. | `{{ font_faces_style('Figtree', 'fonts/figtree-roman-latin.woff2') }}` |
 
 A theme links exactly three stylesheets — the layer order, the theme artifact, the settings

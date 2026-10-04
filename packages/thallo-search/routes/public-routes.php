@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Thallo\Search\Http\SearchController;
+use Thallo\Search\Http\SuggestController;
 use Glueful\Routing\Router;
 
 /** @var Router $router */
@@ -13,3 +14,14 @@ $router->get('/v1/search', [SearchController::class, 'search'])
     ->middleware('optional_api_key')
     ->middleware('rate_limit')
     ->rateLimit(120, 1, by: 'user');
+
+// The Search block's live suggestions: always public, never cached (search block spec §3.4).
+$router->get('/_search/suggest', [SuggestController::class, 'suggest'])
+    ->middleware(['tenant_profile:public', 'tenant_bootstrap'])
+    ->middleware('rate_limit')
+    ->rateLimit(120, 1, by: 'ip');
+
+// The Search block's script and stylesheet, fingerprinted. Under /_thallo/ because hosts' static
+// rules hand only /_thallo/* .js/.css URLs to PHP.
+$router->get('/_thallo/search/{file}', [\Thallo\Search\Assets\SearchAssetController::class, 'serve'])
+    ->middleware(['tenant_profile:public', 'tenant_bootstrap']);

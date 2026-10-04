@@ -166,9 +166,9 @@ final class AccountCapabilityFlipPurgeTest extends AppTestCase
 
     public function testTheMarkerKeyIsAccountOwned(): void
     {
-        // Sharing Commerce's marker would mean whichever pack booted second sees no flip.
+        // Sharing core's availability marker would mean whichever reconciled second sees no change.
         self::assertNotSame(
-            \Thallo\Commerce\Shop\CapabilityFlipPurge::MARKER_KEY,
+            \Thallo\Core\Capabilities\AvailabilityPurge::MARKER,
             CapabilityFlipPurge::MARKER_KEY,
         );
     }

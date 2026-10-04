@@ -15,7 +15,6 @@ use Thallo\Commerce\Console\CommerceDiagnoseCommand;
 use Thallo\Commerce\Http\Shop\CartCookie;
 use Thallo\Commerce\Http\Shop\GuestOrderCookie;
 use Glueful\Cache\CacheStore;
-use Thallo\Commerce\Shop\CapabilityFlipPurge;
 use Thallo\Commerce\Starter\ShopBlockTypesContributor;
 use Thallo\Render\RenderContextExtension;
 use Thallo\Render\Templates\RuntimeAssetMap;
@@ -253,12 +252,18 @@ final class StorefrontInertnessTest extends AppTestCase
                 'stored shop blocks fall to blocks()\' ordinary missing-template fallback',
             );
 
-            // boot() ran the flip reconciler on this capability-off boot (its own store's
-            // marker records the state — this is what makes the NEXT flip purge fire).
+            // Core's availability purge records the state this capability-off boot rendered under
+            // (the first request reconciles it), which is what makes the NEXT change purge.
+            (new \Glueful\Application($disabledApp))
+                ->handle(\Symfony\Component\HttpFoundation\Request::create('/', 'GET'));
+            $flags = $container->get(\Thallo\Contracts\Settings\SystemChannel::class);
+            if (method_exists($flags, 'clearCache')) {
+                $flags->clearCache();
+            }
             self::assertSame(
-                'off',
-                $container->get(CacheStore::class)->get(CapabilityFlipPurge::MARKER_KEY),
-                'the capability-off boot must record its state for flip detection',
+                $container->get(\Thallo\Contracts\Capability\AvailabilityFingerprint::class)->current(),
+                $flags->get(\Thallo\Core\Capabilities\AvailabilityPurge::MARKER),
+                'the capability-off boot must record its state for change detection',
             );
 
             // The general theme runtime is render-owned and unaffected (capability pin).

@@ -188,8 +188,8 @@ See the [command reference](../reference/01-cli.md#thallocapabilitiesenable) and
 - **A config value.** Search picks its engine from `SEARCH_ENGINE` — `auto`, `postgres` or
   `meilisearch`. `auto` uses Meilisearch when `MEILISEARCH_HOST` is set and the site's own
   PostgreSQL otherwise, so search needs nothing else installed.
-- **A command.** Switching Search on indexes nothing by itself. Run `php glueful search:reindex`
-  to build the index from published content.
+- **The scheduler.** Switching Search on asks for the index to be built; the scheduler and the
+  queue worker build it and keep it in step, and **Settings › Search** shows its progress.
 - **A cron line.** Analytics keeps raw facts for `ANALYTICS_RETENTION_DAYS` days (90 by default)
   and `php glueful analytics:prune` deletes the rest. No job in `config/schedule.php` runs it, so
   schedule it yourself alongside [the scheduler](../operations/03-scheduler-and-queues.md).

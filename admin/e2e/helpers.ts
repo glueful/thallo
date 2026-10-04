@@ -140,6 +140,10 @@ export async function routeWorld(page: Page, world: World = {}): Promise<Recorde
     }
     if (method === 'GET' && path === '/render/style-schema')
       return json(route, fixture('api/style-schema.json'))
+    // A block field's server-provided choices (search block spec §3.9), as the server answers.
+    const options = /^\/field-options\/([^/]+)$/.exec(path)
+    if (method === 'GET' && options)
+      return json(route, fixture(`api/field-options-${decodeURIComponent(options[1]!)}.json`))
     if (method === 'GET' && path === '/style-classes') {
       if (world.styleClasses === undefined) return json(route, fixture('api/style-classes.json'))
       return json(

@@ -30,6 +30,8 @@ set it to `false` and the job is never registered.
 | Job | Schedule | What it does | Switch |
 |---|---|---|---|
 | `schedules_run` | `* * * * *` | Fires due scheduled publish and unpublish actions | always registered |
+| `render_availability_purge` | `* * * * *` | Purges cached pages after a feature is switched on or off, and finishes the delayed CDN purge | always registered |
+| `search_reconcile` | `* * * * *` | Builds search index kinds with an outstanding rebuild request; does nothing while Search is off | always registered |
 | `notification_retry_processor` | `*/10 * * * *` | Processes queued notification retries | `NOTIFICATION_RETRIES_ENABLED` |
 | `domain_reverification_sweep` | `0 * * * *` | Re-verifies due custom-domain ownership proofs | `TENANCY_REVERIFICATION_ENABLED` |
 | `session_cleaner` | `0 0 * * *` | Cleans up expired user sessions | `SESSION_CLEANER_ENABLED` |
@@ -38,6 +40,7 @@ set it to `false` and the job is never registered.
 | `signup_intent_sweep` | `15 2 * * *` | Removes expired and sanitised public-signup intents | `SIGNUP_SWEEP_ENABLED` |
 | `cache_maintenance` | `0 3 * * *` | Runs cache maintenance | `CACHE_MAINTENANCE_ENABLED` |
 | `webhook_cleanup` | `30 3 * * *` | Deletes webhook delivery records past their retention (delivered 7 days, failed 30) | `WEBHOOK_CLEANUP_ENABLED` |
+| `search_reconcile_full` | `30 3 * * *` | Rebuilds every available search kind, repairing changes lost between a save and the index | `SEARCH_FULL_RECONCILE` |
 | `blob_purge` | `40 3 * * *` | Removes deleted uploads, file and row, once `UPLOADS_PURGE_DELETED_AFTER_DAYS` (30) have passed | `BLOB_PURGE_ENABLED` |
 | `import_export_cleanup` | `45 3 * * *` | Deletes finished import and export files older than `import_export.retention_days` (30) | `IMPORT_EXPORT_CLEANUP_ENABLED` |
 | `form_submissions_prune` | `50 3 * * *` | Deletes form submissions older than `FORMS_RETENTION_DAYS`; does nothing while it is 0 | `FORMS_PRUNE_ENABLED` |

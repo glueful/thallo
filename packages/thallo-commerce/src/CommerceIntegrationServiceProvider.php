@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Thallo\Commerce;
 
+use Thallo\Contracts\Capability\AvailabilityFingerprint;
 use Glueful\Extensions\DeclaresLoadOrder;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Cache\CacheStore;
 use Glueful\Container\RebindableContainer;
 use Glueful\Container\Definition\FactoryDefinition;
-use Glueful\Cache\Contracts\EdgeCacheInterface;
 use Glueful\Database\Connection;
 use Glueful\Encryption\EncryptionService;
 use Glueful\Events\EventService;
@@ -94,7 +94,6 @@ use Thallo\Commerce\Listeners\EntryDeletedListener;
 use Thallo\Commerce\Listeners\ProductDeletedListener;
 use Thallo\Commerce\Purge\CommercePurgeHandler;
 use Thallo\Commerce\Settings\InvoiceLogoResolver;
-use Thallo\Commerce\Shop\CapabilityFlipPurge;
 use Thallo\Commerce\Shop\Contribution\ShopReservedPathContributor;
 use Thallo\Commerce\Shop\Contribution\ShopStylesheetContributor;
 use Thallo\Commerce\Shop\Contribution\ShopTemplatePathContributor;
@@ -1026,12 +1025,17 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
     {
         $context = $container->get(ApplicationContext::class);
         $appearance = $container->get(ThemeAppearanceSource::class);
+        // Which features are on is part of a cached page's identity (search block spec §3.6).
+        $availability = $container->has(AvailabilityFingerprint::class)
+            ? $container->get(AvailabilityFingerprint::class)
+            : null;
 
         return new ShopPageCache(
             $container->get(CacheStore::class),
             $container->get(CommerceTenantResolution::class),
             $container->get(ThemeLocator::class)->activePaths()['name'],
-            static fn (): string => $appearance->fingerprint(),
+            static fn (): string => $appearance->fingerprint()
+                . ($availability !== null ? '-a' . $availability->current() : ''),
             (bool) config($context, 'thallo-commerce.shop_cache.enabled', true),
             (int) config($context, 'thallo-commerce.shop_cache.ttl', 3600),
             $context,
@@ -1215,12 +1219,6 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
         // whether or not the capability is currently on.
         $this->registerLatePaymentVisibility($context);
 
-        // Capability-boundary pin: a flip of thallo.commerce between boots purges the rendered
-        // page cache (+ edge) so previously cached shop shells/script tags — or, on re-enable,
-        // cached missing-template fallbacks — disappear immediately. OUTSIDE the gate for the
-        // same reason as every purge above: it must run precisely when the capability is OFF.
-        $this->reconcileCapabilityState($context, $registry->isEnabled('thallo.commerce'));
-
         // Gated by ENABLED state (spec §3) AND engine presence (distribution posture,
         // 2026-08-15): capabilities default ENABLED, and in a fresh install the engine is
         // tier-2 installed-but-disabled — so "capability on, engine absent" is the DEFAULT
@@ -1241,6 +1239,9 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
         // unconditionally is what lets the app know which rows are this pack's when the
         // capability is off. Registration itself never writes a row.
         $this->registerShopBlockTypeContributor($context);
+        // Products as a search kind, registered whether or not Commerce is on, so the kind is
+        // discoverable ("requires Commerce"); its engine services resolve only when used.
+        $this->registerProductsSearchSource($context);
 
         $engineActive = $context->getContainer()->has(\Glueful\Extensions\Commerce\Catalog\CatalogService::class);
         if ($registry->isEnabled('thallo.commerce') && $engineActive) {
@@ -1592,6 +1593,14 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
                 'onCatalogChanged',
             ]);
         }
+        if (class_exists(StorefrontCatalogChanged::class)) {
+            $events->addListener(StorefrontCatalogChanged::class, [
+                new \Thallo\Commerce\Search\PushCatalogChangesToSearch(
+                    static fn (): \Thallo\Contracts\Search\SearchIndex => self::searchIndex($container),
+                ),
+                'onCatalogChanged',
+            ]);
+        }
         if (class_exists(ProductSlugChanged::class)) {
             $events->addListener(ProductSlugChanged::class, [
                 app($context, PurgeShopCacheOnSlugChange::class),
@@ -1838,6 +1847,25 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
         }
     }
 
+    /** The search pack's index while it is installed; otherwise changes go nowhere. */
+    private static function searchIndex(ContainerInterface $container): \Thallo\Contracts\Search\SearchIndex
+    {
+        return $container->has(\Thallo\Contracts\Search\SearchIndex::class)
+            ? $container->get(\Thallo\Contracts\Search\SearchIndex::class)
+            : new \Thallo\Commerce\Search\NoSearchIndex();
+    }
+
+    private function registerProductsSearchSource(ApplicationContext $context): void
+    {
+        $container = $context->getContainer();
+        if (!$container->has(\Thallo\Contracts\Search\SearchSourceRegistry::class)) {
+            return; // the search pack is not installed
+        }
+        $container->get(\Thallo\Contracts\Search\SearchSourceRegistry::class)->register(
+            new \Thallo\Commerce\Search\ProductsSearchContributor($container, $context),
+        );
+    }
+
     public function registerShopBlockTypeContributor(
         ApplicationContext $context,
         ?StarterBlockTypeRegistry $registry = null,
@@ -1925,32 +1953,5 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
         $registry->registerTemplatePaths(new ShopTemplatePathContributor());
         // The storefront stylesheet rides inside the theme artifact (visual builder spec §2.2).
         $registry->registerStylesheets(new ShopStylesheetContributor());
-    }
-
-    /**
-     * Capability-boundary pin: {@see CapabilityFlipPurge} — purge rendered pages (+ edge) when
-     * the `thallo.commerce` enabled state changed since the last boot, so cached pages carrying
-     * the OLD boundary (shop shells + shop.js tag after a disable; missing-template fallbacks
-     * after a re-enable) stop serving immediately. Runs OUTSIDE the gate — it must fire
-     * precisely on the boot where the capability turned off. Soft-resolves everything
-     * (CLI/pre-migration boots, absent cache): a skipped reconcile only delays the purge to the
-     * next fully-wired boot, because the marker is only ever advanced by reconcile() itself.
-     */
-    private function reconcileCapabilityState(ApplicationContext $context, bool $enabled): void
-    {
-        if (!interface_exists(CommerceTenantResolution::class)) {
-            return; // Commerce package itself absent — none of this pack's services are bound.
-        }
-        $container = $context->getContainer();
-        if (!$container->has(CacheStore::class)) {
-            return;
-        }
-        $edge = $container->has(EdgeCacheInterface::class)
-            ? $container->get(EdgeCacheInterface::class)
-            : null;
-        $pages = $container->has(\Thallo\Contracts\Delivery\RenderedPageCachePurge::class)
-            ? $container->get(\Thallo\Contracts\Delivery\RenderedPageCachePurge::class)
-            : null;
-        (new CapabilityFlipPurge($container->get(CacheStore::class), $edge, $pages))->reconcile($enabled);
     }
 }

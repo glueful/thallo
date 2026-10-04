@@ -56,7 +56,7 @@ these on: Accounts, Analytics, Content importers, Navigation, Rendered delivery,
 Approval workflow. These are off:
 
 - **Search** is off by default. It runs on your PostgreSQL database and needs nothing installed;
-  switch it on, then run `php glueful search:reindex`.
+  switch it on and the index builds itself in the background.
 - **Collections** is off by default; switch it on in Extensions.
 - **Commerce**, **Subscriptions** and **Payments** turn on with one action in Extensions, which
   prepares their engines, blocks and permissions (`php glueful thallo:capabilities:enable
