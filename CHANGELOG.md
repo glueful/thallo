@@ -22,6 +22,9 @@ as the next release, never a mutated tag.
 - **`search:reindex` now requests a rebuild** and returns. Add `--wait` to run it in the foreground.
   `--type` and `--locale` are removed: search rebuilds whole kinds; use `--kind=entries`. Rebuilds are
   coordinated and recovered automatically by the scheduled `search:reconcile`.
+- **Upgrading rebuilds the search index into its new format** with no gap. Entries keep answering
+  from the old index until the new one is ready (where that is safe). Sites with workspaces on
+  Meilisearch show “rebuilding” until each workspace's own index is ready.
 
 ## [1.0.0-beta.80] - 2026-10-03 — Developer Preview
 

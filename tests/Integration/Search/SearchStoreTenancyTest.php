@@ -94,6 +94,83 @@ final class SearchStoreTenancyTest extends RetrofittedTenantTestCase
         });
     }
 
+    public function testTwoWorkspacesWhereOneFinishesAndOneIsInterruptedOnMeilisearch(): void
+    {
+        $kit = new \Thallo\Core\Tests\Support\Search\LifecycleKit($this->appContext(), $this->connection(), 'meili');
+        $kit->source->items = ['a' => ['en' => 'A']];
+        $kit->meili->ensureIndex('content', []); // the shared legacy index
+        $cutover = $this->cutover($kit);
+        $flags = $this->container()->get(\Thallo\Contracts\Settings\SystemChannel::class);
+        $flags->forget(\Thallo\Search\Lifecycle\Cutover::LEGACY_FLAG);
+
+        $this->runAsTenant(self::$tenantAUuid, function () use ($kit, $cutover): void {
+            $kit->reconciler()->runWorkspace(false);
+            $cutover->flipIfReady();
+            self::assertSame('v2', $kit->locator()->readMode('entries'));
+        });
+        $this->runAsTenant(self::$tenantBUuid, function () use ($kit): void {
+            $kit->state->ensure('entries');
+            $kit->state->claimBuild('entries', 120, 0, 1); // B's upgrade is interrupted
+            self::assertSame('rebuilding', $kit->locator()->readMode('entries'), 'never the shared legacy index');
+        });
+        $this->runAsSystem(fn () => $cutover->retireLegacyIndexIfUnused());
+        self::assertArrayHasKey('content', $kit->meili->indexes, 'B still depends on it');
+        self::assertNotSame('retired', $flags->get(\Thallo\Search\Lifecycle\Cutover::LEGACY_FLAG));
+
+        $kit->clock->advance(121);
+        // B resumes and finishes; the installation's default workspace moves too — retirement
+        // waits for every workspace, not just the two this test names.
+        foreach ([self::$tenantBUuid, self::$defaultTenantUuid] as $tenant) {
+            $this->runAsTenant($tenant, function () use ($kit, $cutover): void {
+                $kit->reconciler()->runWorkspace(false);
+                $cutover->flipIfReady();
+            });
+        }
+        $this->runAsSystem(fn () => $cutover->retireLegacyIndexIfUnused());
+        if (method_exists($flags, 'clearCache')) {
+            $flags->clearCache();
+        }
+        self::assertArrayNotHasKey('content', $kit->meili->indexes);
+        self::assertSame('retired', $flags->get(\Thallo\Search\Lifecycle\Cutover::LEGACY_FLAG));
+        $flags->forget(\Thallo\Search\Lifecycle\Cutover::LEGACY_FLAG);
+    }
+
+    public function testPostgresLegacyRowsGoPerWorkspace(): void
+    {
+        $kit = new \Thallo\Core\Tests\Support\Search\LifecycleKit($this->appContext(), $this->connection());
+        $kit->source->items = ['legacyone01' => ['en' => 'Rose']];
+        foreach ([self::$tenantAUuid, self::$tenantBUuid] as $tenant) {
+            $this->runAsTenant($tenant, function (): void {
+                $this->connection()->table('search_documents')->insert([
+                    'doc_id' => 'legacyone01_en', 'entry_uuid' => 'legacyone01', 'locale' => 'en',
+                    'content_type_uuid' => 't1', 'content_type_slug' => 'post', 'href' => '/rose',
+                    'title' => 'Rose', 'body' => 'Rose', 'ts_config' => 'english', 'generation' => 0,
+                ]);
+            });
+        }
+        $this->runAsTenant(self::$tenantAUuid, function () use ($kit): void {
+            $kit->reconciler()->runWorkspace(false);
+            $this->cutover($kit)->flipIfReady();
+            self::assertSame(0, $this->connection()->table('search_documents')->whereNull('kind')->count());
+        });
+        $this->runAsTenant(self::$tenantBUuid, function (): void {
+            self::assertSame(1, $this->connection()->table('search_documents')->whereNull('kind')->count());
+        });
+    }
+
+    private function cutover(\Thallo\Core\Tests\Support\Search\LifecycleKit $kit): \Thallo\Search\Lifecycle\Cutover
+    {
+        return new \Thallo\Search\Lifecycle\Cutover(
+            $kit->state,
+            $kit->store,
+            $kit->locator(),
+            new \Thallo\Search\Lifecycle\Workspace($this->appContext()),
+            $this->container()->get(\Thallo\Contracts\Settings\SystemChannel::class),
+            $this->connection(),
+            'content',
+        );
+    }
+
     /** @return array{0: StateRepository, 1: PostgresIndexStore} */
     private function stores(): array
     {
