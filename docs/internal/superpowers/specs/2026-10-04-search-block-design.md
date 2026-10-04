@@ -391,7 +391,7 @@ old target only, so the entry stays pending for the new active target.
 writes to the backend: it records manual demand and, with `--wait`, runs the reconcile in the
 foreground under the normal claim, lease and fences, printing progress. Without `--wait` it reports the
 demand and returns. `--kind` limits it to one kind. The old `--type` and `--locale` filters are
-**deprecated**: filtered rebuilds are not supported, because a filtered build cannot safely sweep.
+**removed**: filtered rebuilds are not supported, because a filtered build cannot safely sweep.
 Passing either prints "`--type`/`--locale` are no longer supported: search rebuilds whole kinds. Use
 `search:reindex --kind=entries`." and exits non-zero without touching the index. `search:reconcile` is
 the scheduled command; `search:reindex` is the operator's.
@@ -606,6 +606,10 @@ minutes locally; `composer test:distribution` runs because capability-adjacent d
   regenerated with `CACHE_DRIVER=array`, changed operations spliced by hand.
 - **Commerce guide:** products appear in search when both features are on.
 - **Changelog:** each commit's bullets under `[Unreleased]`.
+- **Upgrade notes** (in the changelog entry and the search guide): `search:reindex` now only records a
+  rebuild request by default — add `--wait` to run it in the foreground; `--type` and `--locale` are
+  **removed** (they exit non-zero) — use `search:reindex --kind=entries`; `/v1/search` keeps its
+  entries-only default and gains `kind` and `cursor`; Meilisearch sites need server 1.10 or newer.
 
 ## 6. Out of scope
 
