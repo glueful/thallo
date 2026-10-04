@@ -301,7 +301,7 @@ final class DrainerTest extends AppTestCase
         $this->source->items['a'] = ['en' => 'Rose'];
         $index->changed('entries', 'a');
 
-        self::assertSame([['workspace' => null]], $wakes, 'the queue worker applies it');
+        self::assertSame([['workspace' => null, 'drain' => 'entries']], $wakes, 'the queue worker applies it');
         self::assertSame([], $this->locales('pg', 'a'), 'not applied in the saving request');
     }
 

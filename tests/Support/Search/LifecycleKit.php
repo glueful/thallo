@@ -116,7 +116,7 @@ final class LifecycleKit
         return new Drainer($this->state, $this->store, $this->registry, $this->locator(), 60, 10, 5, new NullLogger());
     }
 
-    public function reconciler(): Reconciler
+    public function reconciler(?\Thallo\Search\Lifecycle\WakeGate $gate = null): Reconciler
     {
         return new Reconciler(
             $this->availability(),
@@ -131,6 +131,7 @@ final class LifecycleKit
             function (array $data): void {
                 $this->wakes[] = $data;
             },
+            $gate,
         );
     }
 
