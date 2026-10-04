@@ -237,10 +237,10 @@ final class RebuilderTest extends AppTestCase
         self::assertSame(RebuildOutcome::PROMOTED, $this->rebuilder($store)->run('entries'));
         $new = (string) $this->state->row('entries')['active_target'];
         self::assertNotSame($old, $new);
-        self::assertSame(
-            'succeeded',
-            $this->state->ack('entries', $seq, $new)['status'],
-            'replayed into the new target',
+        $ack = $this->state->ack('entries', $seq, $new);
+        self::assertTrue(
+            $ack === null ? $this->resolved($seq) : $ack['status'] === 'succeeded',
+            'replayed into the new target (its acknowledgement pruned once resolved)',
         );
         self::assertSame('A edited', $this->meili->document($new, 'entries_a_Len')['title']);
 
@@ -276,6 +276,32 @@ final class RebuilderTest extends AppTestCase
         $this->drainer($store)->drain('entries');
         self::assertTrue($this->resolved($seq));
         self::assertSame(['a' => 'A after'], $this->activeTitles('pg'));
+    }
+
+    public function testPromotionPrunesTheJournalNoLaterBuildCanNeed(): void
+    {
+        $store = $this->store('pg');
+        $this->source->items = ['a' => ['en' => 'A'], 'b' => ['en' => 'B']];
+        self::assertSame(RebuildOutcome::PROMOTED, $this->rebuilder($store)->run('entries'));
+        // Live changes, drained and resolved, then one left unresolved.
+        foreach (['a', 'b', 'a'] as $id) {
+            $this->state->appendChange('entries', $id);
+        }
+        $this->drainer($store)->drain('entries');
+        $pending = $this->state->appendChange('entries', 'b');
+        $db = $this->connection();
+        self::assertSame(4, $db->table('search_index_changes')->where('kind', '=', 'entries')->count());
+
+        $this->clock->advance(5);
+        self::assertSame(RebuildOutcome::PROMOTED, $this->rebuilder($store)->run('entries'));
+
+        // Everything the new generation's build began after is resolved and gone, with its acks;
+        // nothing older than the next build's start can ever be relevant again.
+        $start = (int) $db->table('search_index_changes')->where('kind', '=', 'entries')->count();
+        self::assertSame(0, $start, 'resolved history at or below the journal start is pruned');
+        self::assertSame(0, $db->table('search_index_acks')->where('kind', '=', 'entries')
+            ->where('entry_seq', '<=', $pending)->count());
+        self::assertSame([], $this->state->unresolvedEntries('entries'));
     }
 
     public function testAnAsynchronousBatchFailureFailsTheBuildAndNeverSweeps(): void
@@ -413,6 +439,7 @@ final class RebuilderTest extends AppTestCase
         return new LiveSearchIndex($this->state, $this->drainer($store), $this->connection(), new NullLogger());
     }
 
+    /** Resolved — or resolved and then pruned by a promotion, which only ever drops resolved rows. */
     private function resolved(int $seq): bool
     {
         $row = $this->connection()->table('search_index_changes')->where(
@@ -420,7 +447,7 @@ final class RebuilderTest extends AppTestCase
             '=',
             'entries',
         )->where('seq', '=', $seq)->first();
-        return (int) ($row['resolved'] ?? 0) === 1;
+        return $row === null || (int) $row['resolved'] === 1;
     }
 
     /** @return array<string, string> the active target's documents, source id => title */
