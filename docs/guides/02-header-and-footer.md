@@ -47,7 +47,8 @@ A region takes a fixed list of block types, and the server enforces it: a type t
 list is refused, not merely hidden in the palette.
 
 The header takes **Logo**, **Navigation**, **Button**, **Color mode**, **Social links**,
-**Container** and **Rich text**.
+**Container** and **Rich text**, and **Search** while the Search capability is on — see
+[add search to the site](11-search.md#put-a-search-block-in-the-header).
 
 The footer takes **Logo**, **Navigation**, **Button**, **Social links**, **Container**,
 **Rich text**, **Separator**, **Spacer**, **Icon**, **Image**, **Shortcode**, **HTML**,

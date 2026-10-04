@@ -142,7 +142,7 @@ now), and syntax colouring inside code listings.
 
 ## Search
 
-Turn on **Settings › General › Content search** and run `php glueful search:reindex` once. The
+Turn on **Settings › General › Content search**; the index builds itself in the background. The
 sidebar and the index then carry a search box: results as you type, scoped to your docs, walked
 with the arrow keys, opened with Enter, focused with `/`. It uses the site's own PostgreSQL
 database — there is nothing to install — or Meilisearch if you have configured one

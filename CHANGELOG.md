@@ -41,6 +41,23 @@ as the next release, never a mutated tag.
   buttons, and says when background processing isn't running. Extensions › Capabilities shows
   Search's state.
 
+### Upgrade Notes
+- `composer update && php glueful thallo:provision`, which adds the search pack's index-lifecycle
+  tables. The queue worker and the scheduler must be running: indexing now happens in the
+  background.
+- **`search:reindex` now only records a rebuild request.** Add `--wait` to run the rebuild in the
+  foreground and see the result, as before. Scripts that relied on it finishing should add
+  `--wait`.
+- **`search:reindex --type` and `--locale` are removed** and exit non-zero without touching the
+  index. Search rebuilds whole kinds: use `search:reindex --kind=entries`.
+- `/v1/search` keeps its entries-only default, its `type` filter and its error responses. It gains
+  `kind` and `cursor`, and every response now carries `total_approximate` and `next`.
+- **Meilisearch sites need server 1.10 or newer.** An older server leaves search unavailable, and
+  Settings › Search names the version it found.
+- After upgrading, the index rebuilds itself. Until the new index is ready the old one keeps
+  answering, except on sites with workspaces on Meilisearch, which show search as rebuilding
+  until each workspace's own index is ready.
+
 ## [1.0.0-beta.80] - 2026-10-03 — Developer Preview
 
 Turning a feature on from the admin no longer stops at "the extension cache is out of date" on a

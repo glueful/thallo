@@ -146,6 +146,9 @@ A blank block whose linked product is gone hides. If the shop's data cannot be l
 product hides and Add to cart says `This product could not be loaded.` A reader without
 JavaScript gets a link to the shop instead of either block.
 
+With [search](11-search.md#products-in-search) on as well, products appear in search: in the
+Search block, on `/search`, and from `/v1/search?kind=products`.
+
 ## Shop pages from templates
 
 With Commerce on, the Design view's library offers eight shop sections and four shop pages:

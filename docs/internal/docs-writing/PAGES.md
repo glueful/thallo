@@ -619,6 +619,15 @@ Things you look up. Complete, in a predictable order.
   every cut (`tests/Unit/Docs/ChangelogPageTest.php` fails while the page is behind)
 - **Must cover** Every released version. Never edited by hand.
 
+### search-sources — Search sources
+- **File** `reference/09-search-sources.md` · **Order** 9 · **Status** done
+- **Summary** "The contracts a pack implements to add a kind of search result, report changes, and offer a block field its choices."
+- **Sources** `packages/thallo-contracts/src/Search/*`, `packages/thallo-contracts/src/Fields/FieldOption*.php`,
+  `packages/thallo-commerce/src/Search/ProductsSearchContributor.php` (the reference contributor),
+  `packages/thallo-search/src/Sources/SearchScopesOptionSource.php`
+- **Must cover** `SearchSourceContributor` and every method, `present()` as the authority on what is shown, the
+  identity rules, registering, `SearchIndex`, `FieldOptionSource` and `options_source`, a minimal contributor.
+
 ### limitations — Known limitations
 - **File** `limitations.md` (exists, stays at the top of `docs/`) · **Order** 90 · **Status** done
 

@@ -6,9 +6,9 @@ order: 4
 summary: "Every block that ships: what it is for, its fields, and its style settings."
 ---
 
-Thallo ships **54 block types**. Two [capabilities](../concepts/06-capabilities.md) add more:
+Thallo ships **54 block types**. Three [capabilities](../concepts/06-capabilities.md) add more:
 Accounts adds four, Commerce adds eighteen — five shop blocks, nine fields for the product page and
-four blocks for the shop home and category pages.
+four blocks for the shop home and category pages — and Search adds one.
 This page lists all of them, in the order the Blocks tab and **Settings › Block Types** show them.
 
 ## How to read the tables
@@ -32,7 +32,7 @@ Spacer and Animated text. [Style settings](05-style-settings.md) says what each 
 what it becomes in CSS.
 
 Categories lead with Layout, Content, Media and Items; any other category follows in alphabetical
-order, which is why Account, Advanced, Commerce and Fields come last. Within a category the admin puts the
+order, which is why Account, Advanced, Commerce, Fields and Site come last. Within a category the admin puts the
 active blocks first and orders each part by label; that is the order used here.
 
 ## Layout
@@ -229,6 +229,23 @@ arranges them; the block type declares that grid, so the tab shows it as the the
 A layout's editor checks each field when the layout is applied and saved: **Entry cover** needs an
 asset field, **Entry terms** a reference field, **Entry excerpt** a text field, **Entry content**
 a blocks field, and **Entry field** any other scalar field.
+
+## Site
+
+One block the **Search** capability (`thallo.search`) contributes, on the same terms as the
+Account blocks above. Its style settings are **Spacing**, **Width**, **Visibility** and **Sizing
+in a parent layout**.
+
+| Block | What it is for | Fields | Holds blocks | Style settings adds |
+|---|---|---|---|---|
+| **Search** (`search`) | A search field, or an icon that opens one, sending visitors to the `/search` results page. Suggestions appear as a visitor types. | `display` (enum: field, icon — default field), `placeholder` (string — default `Search`), `scope` (string — every kind, or one: Pages & posts, Products; the choices come from the features that are on), `live_results` (boolean — suggestions while typing; on unless switched off) | — | Width |
+
+It is in the header's palette as well as the page's, so it can sit beside the navigation. A scope
+that cannot be searched — Search is off, or the scope's feature (Commerce, for products) is off —
+hides the block on the site, and the stage shows why instead, such as `Products search isn't
+available: Commerce is off.` The inspector keeps a saved scope that is no longer offered and says
+why. Without JavaScript the field is a plain form that opens `/search`, and the icon a plain link
+to it. [Add search to the site](../guides/11-search.md) covers placing one in the header.
 
 ## Checking what an install has
 
