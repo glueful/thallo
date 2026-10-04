@@ -241,7 +241,7 @@ All state is per workspace and kind.
 
 - **`search_index_state`:** `generation` (active), `building_generation`, `owner`, `lease_until`,
   `cursor`, `journal_start_seq`, `satisfied_seq`, `reconciled_version`, `status` (pending, building,
-  ready, out_of_date, failed), `format` (legacy | v2), counts, last success, last error, and the drainer's
+  ready, out_of_date, failed), counts, last success, last error, and the drainer's
   token and lease.
 - **`search_index_changes`** (the journal): `(kind, source_id, seq)`.
 - **`search_index_acks`:** `(entry_seq, target, task_uid, status)` — which physical index (Meilisearch)
@@ -322,21 +322,13 @@ old target only, so the entry stays pending for the new active target.
   document on Meilisearch. Display and visibility stay correct through `present()`; matching is repaired
   by the next write to that item or by the next successful full reconcile after the stale write.
 
-#### 3.5.6 Cutover from the legacy index
+#### 3.5.6 Upgrading from the old index (amended)
 
-- **`format=legacy`** reads the old documents: Meilisearch's existing shared index, or Postgres rows with
-  `kind IS NULL`; entries only.
-- **Enforced workspaces never read the shared legacy Meilisearch index**: its results cannot be
-  attributed to a workspace. Until a workspace's isolated index is ready it is **rebuilding**. A
-  single-store site keeps serving the legacy index until its cutover.
-- Entries build first. Once confirmed `ready`, `format` flips to `v2` in one update and queries move in
-  one step.
-- **Postgres** legacy rows are deleted per workspace after its flip, idempotently, retried until done.
-- **The legacy Meilisearch index is retired installation-wide**: deleted only when a check run as the
-  system over every workspace finds none on `format=legacy`. The check runs after each cutover and on
-  every reconcile, so a failed delete is retried.
-- Products become searchable after the flip, once their own build finishes; until then a products scope
-  is available and returns nothing.
+*Amended after implementation, at the user's direction: no site needed a no-gap upgrade, so the cutover
+was removed.* The old index is not read or carried over. Migration 002 deletes the documents written
+before kinds existed; every kind then builds from its source like a new workspace, answering
+**rebuilding** (3.5.9) until its first build is promoted. A Meilisearch site deletes the old shared
+`content` index by hand once the new indexes are ready (Upgrade Notes).
 
 #### 3.5.7 Rebuild demand and recovery
 
@@ -377,9 +369,10 @@ old target only, so the entry stays pending for the new active target.
 
 - **Meilisearch** queries only promoted (active) indexes. A rebuild never exposes its build index; the
   previous active index stays searchable until promotion.
-- **With no active index** (a first build, or a workspace still cutting over), the first-build and cutover
-  states of 3.5.6 apply: a workspace still on the legacy format reads legacy where 3.5.6 allows it or shows
-  rebuilding; a kind with no active index returns nothing for that kind.
+- **With no active index** (a first build): a single-kind search answers **rebuilding**; an all-kinds
+  search searches the kinds that have one and leaves the rest out, and answers rebuilding only when none
+  has. With nothing built and an engine that cannot answer, the answer is **unavailable**. *(Amended with
+  3.5.6.)*
 - **Postgres** rebuilds the shared rows in place, so a kind being rebuilt can expose partial progress
   (rows already stamped G alongside rows awaiting the sweep).
 
@@ -462,7 +455,6 @@ Visible when Search is on.
 - **Per kind, for this workspace:** label, status, document count, progress while building, last
   success, last error (sanitised: no credentials or hosts), pending demand. Unavailable kinds show why
   ("Requires Commerce") and have no Rebuild.
-- **Cutover:** a notice while the workspace is on the legacy format.
 - **Rebuild** per kind and **Rebuild all**: demand committed, wake-up dispatched after commit (3.5.7),
   202. Repeated presses add demand, never a second builder.
 - **When automatic processing cannot run** — demand pending past a threshold with no build started, or
@@ -475,8 +467,7 @@ Visible when Search is on.
 - **Extensions › Capabilities:** the Search card shows a status pill (Ready, Rebuilding, Needs attention)
   linking to the panel.
 - **Permissions:** viewing the panel and Rebuild require `content.manage`, as Settings › General does.
-- **CLI:** `search:status` shows the same table; `--all` covers every workspace and the installation-wide
-  legacy-index state.
+- **CLI:** `search:status` shows the same table; `--all` covers every workspace.
 
 ### 3.9 Dynamic field options (`options_source`)
 
@@ -548,10 +539,9 @@ or sweeping A leaves B unchanged.
   current data and its matching is restored by the next reconcile.
 - Demand: an off/on cycle with no Search boot; queue failure leaves demand pending; a new workspace;
   taxonomy and manual demand; completion acknowledges only the demand captured at start.
-- Cutover: every published entry appears exactly once after an upgrade on both engines; entries keep
-  appearing through an interrupted upgrade on a single-store site; two workspaces where A finishes and B
-  is interrupted — the legacy index survives, B shows rebuilding and never legacy results, A's Postgres
-  legacy rows are gone and B's intact; after B finishes the legacy index is deleted.
+- Upgrade (amended with 3.5.6): a kind on its first build answers rebuilding and drops out of an
+  all-kinds search; two workspaces where A finishes and B is interrupted — B shows rebuilding and never
+  A's index, then finishes alone.
 - Meilisearch server older than 1.10 gives the readiness failure.
 
 **Visibility and display**
