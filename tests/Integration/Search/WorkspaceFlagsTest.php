@@ -51,5 +51,10 @@ final class WorkspaceFlagsTest extends AppTestCase
         $flags->values = ['tenancy.enabled' => '1', 'tenancy.enable_step' => 'on'];
         $now += 6;
         self::assertTrue($workspace->enforcementActive(), 'a change is seen within seconds');
+
+        // A new request or job starts afresh, whatever the clock says.
+        $flags->values = [];
+        $workspace->forget();
+        self::assertFalse($workspace->enforcementActive());
     }
 }
