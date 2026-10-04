@@ -185,6 +185,65 @@
       }
     },
     {
+      "name": "search-inserted",
+      "page": "home",
+      "document": {
+        "header": {
+          "blocks": [
+            {
+              "id": "e2ehdr000001",
+              "type": "logo",
+              "data": {},
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000002",
+              "type": "navigation",
+              "data": {
+                "menu": "e2e-main"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000003",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Header note</p>"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000004",
+              "type": "button",
+              "data": {
+                "label": "Get started",
+                "url": "/start"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2enew000003",
+              "$factory": "search"
+            }
+          ],
+          "settings": {}
+        },
+        "footer": {
+          "blocks": [
+            {
+              "id": "e2eftr000001",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Footer note</p>"
+              },
+              "settings": {}
+            }
+          ],
+          "settings": {}
+        }
+      }
+    },
+    {
       "name": "restyled",
       "page": "home",
       "document": {
