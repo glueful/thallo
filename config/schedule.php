@@ -87,6 +87,13 @@ return [
             'description' => 'Fire due scheduled publish/unpublish actions',
         ],
         [
+            'name' => 'render_availability_purge',
+            'schedule' => '* * * * *',
+            'handler_class' => \Thallo\Core\Jobs\RunConsoleCommandJob::class,
+            'parameters' => ['command' => \Thallo\Core\Capabilities\Console\AvailabilityPurgeCommand::class],
+            'description' => 'Purge cached pages after the features in use changed, and finish the delayed CDN purge',
+        ],
+        [
             'name' => 'domain_reverification_sweep',
             'schedule' => '0 * * * *',
             'handler_class' => \Thallo\Tenancy\Reverification\DomainReverificationSweepJob::class,

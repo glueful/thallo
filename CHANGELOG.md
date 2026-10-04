@@ -16,6 +16,9 @@ as the next release, never a mutated tag.
   so a consumer can notice an off/on cycle it never saw.
 - **Cached pages are keyed by which features are on**, so a page rendered before a feature was
   switched on or off is never served after it.
+- **Switching any feature on or off purges cached pages and the CDN from core**, including a change
+  made only in configuration. A second CDN purge retries after five minutes and survives a restart.
+  Commerce's own purge is retired.
 
 ## [1.0.0-beta.80] - 2026-10-03 — Developer Preview
 
