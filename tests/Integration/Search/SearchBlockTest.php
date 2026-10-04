@@ -66,7 +66,18 @@ final class SearchBlockTest extends AppTestCase
         self::assertStringContainsString('<input type="hidden" name="locale" value="en">', $html);
         self::assertStringContainsString('id="thallo-search-list-blk1" role="listbox"', $html);
         self::assertStringContainsString('data-live="1"', $html);
-        self::assertStringContainsString('/_thallo/search/search.js', $html);
+    }
+
+    public function testTheScriptIsFingerprintedAndEmittedOncePerPageAndTheStylesComeWithTheTheme(): void
+    {
+        $html = $this->render(['display' => 'field'], [['display' => 'icon']]);
+        self::assertSame(
+            1,
+            preg_match_all('#<script defer src="/_thallo/search/search-[a-f0-9]+\.js"></script>#', $html),
+            'one fingerprinted tag for two blocks: no redirect, no repeat',
+        );
+        self::assertStringNotContainsString('/_thallo/search/search.js', $html);
+        self::assertStringNotContainsString('<link', $html, 'the styles are in the theme stylesheet already');
     }
 
     public function testIconMode(): void

@@ -197,6 +197,41 @@ final class RenderContributionTest extends AppTestCase
         $registry->registerTemplatePaths($this->templateContributor('dup', ['/dir/y']));
     }
 
+    public function testBlockScriptsFreezeByNameAndADuplicateNameThrowsNeverFirstWins(): void
+    {
+        $scripts = static fn (string $id, array $map): \Thallo\Render\Contribution\BlockScriptContributor =>
+            new class ($id, $map) implements \Thallo\Render\Contribution\BlockScriptContributor {
+                /** @param array<string, string> $map */
+                public function __construct(private string $id, private array $map)
+                {
+                }
+
+                public function contributorId(): string
+                {
+                    return $this->id;
+                }
+
+                public function priority(): int
+                {
+                    return 0;
+                }
+
+                public function blockScripts(): array
+                {
+                    return $this->map;
+                }
+            };
+        $registry = new RenderContributionRegistry();
+        $registry->registerBlockScripts($scripts('a', ['search' => '/_thallo/search/search-1.js']));
+        self::assertSame(['search' => '/_thallo/search/search-1.js'], $registry->frozenBlockScripts());
+
+        $clash = new RenderContributionRegistry();
+        $clash->registerBlockScripts($scripts('a', ['search' => '/a.js']));
+        $clash->registerBlockScripts($scripts('b', ['search' => '/b.js']));
+        $this->expectException(\LogicException::class);
+        $clash->frozenBlockScripts();
+    }
+
     public function testDuplicateReservedPrefixAcrossContributorsThrowsNeverFirstWins(): void
     {
         $registry = new RenderContributionRegistry();
