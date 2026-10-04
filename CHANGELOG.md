@@ -14,6 +14,8 @@ as the next release, never a mutated tag.
   keeps fitting as many as the width allows.
 - **Every capability switch records the state version it changed at** (`capability.{id}.changed_at`),
   so a consumer can notice an off/on cycle it never saw.
+- **Cached pages are keyed by which features are on**, so a page rendered before a feature was
+  switched on or off is never served after it.
 
 ## [1.0.0-beta.80] - 2026-10-03 — Developer Preview
 
