@@ -64,8 +64,8 @@ as the next release, never a mutated tag.
   Settings › Search names the version it found.
 - **After upgrading, search starts empty and rebuilds itself.** The old index is not read or
   carried over: `thallo:provision` clears its rows, and search answers "rebuilding" until the
-  scheduler's first build finishes, usually within a minute or two. A Meilisearch site can delete
-  the old `content` index by hand once the new ones are ready.
+  scheduler's first build finishes, usually within a minute or two. On Meilisearch the scheduled
+  reconcile deletes the old `content` index; nothing reads it.
 
 ## [1.0.0-beta.80] - 2026-10-03 — Developer Preview
 

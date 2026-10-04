@@ -327,8 +327,7 @@ old target only, so the entry stays pending for the new active target.
 *Amended after implementation, at the user's direction: no site needed a no-gap upgrade, so the cutover
 was removed.* The old index is not read or carried over. Migration 002 deletes the documents written
 before kinds existed; every kind then builds from its source like a new workspace, answering
-**rebuilding** (3.5.9) until its first build is promoted. A Meilisearch site deletes the old shared
-`content` index by hand once the new indexes are ready (Upgrade Notes).
+**rebuilding** (3.5.9) until its first build is promoted. The scheduled reconcile deletes the old shared Meilisearch `content` index once (it is read by nothing).
 
 #### 3.5.7 Rebuild demand and recovery
 
