@@ -54,4 +54,14 @@ final class IndexableContentReaderTest extends AppTestCase
         $empty = $this->reader()->enumerateIndexablePublished(limit: 10, offset: 0, typeSlug: 'no-such-type');
         self::assertSame([], $empty->items);
     }
+
+    public function testListsDistinctPublishedEntriesAfterAUuid(): void
+    {
+        $entry = $this->seedBilingualPublishedEntry();
+        $all = $this->reader()->publishedEntryUuidsAfter(null, 10);
+        self::assertSame([$entry], $all, 'one entry, though published in two locales');
+        self::assertSame([], $this->reader()->publishedEntryUuidsAfter($entry, 10));
+        self::assertSame(['en', 'fr'], $this->reader()->publishedLocalesOf($entry));
+        self::assertSame([], $this->reader()->publishedLocalesOf('nosuchentry1'));
+    }
 }

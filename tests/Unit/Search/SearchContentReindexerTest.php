@@ -4,176 +4,62 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Unit\Search;
 
-use Thallo\Contracts\Schema\ContentSchemaReader;
-use Thallo\Contracts\Schema\ContentTypeReader;
-use Thallo\Contracts\Schema\FieldDescriptor;
-use Thallo\Contracts\Search\IndexableContent;
-use Thallo\Contracts\Search\IndexableContentReader;
-use Thallo\Contracts\Search\IndexablePage;
-use Thallo\Search\Engine\SearchBackend;
-use Thallo\Search\Index\DocumentBuilder;
+use PHPUnit\Framework\TestCase;
+use Psr\Log\AbstractLogger;
+use Thallo\Contracts\Search\ContentReindexer;
+use Thallo\Contracts\Search\SearchIndex;
 use Thallo\Search\Index\ResilientContentReindexer;
 use Thallo\Search\Index\SearchContentReindexer;
-use Thallo\Search\Query\SearchRequest;
-use Thallo\Search\Query\SearchResults;
-use PHPUnit\Framework\TestCase;
-use Psr\Log\NullLogger;
-use RuntimeException;
 
+/**
+ * The core's entry events become journaled search changes (search block spec §3.5.2): one change per
+ * entry, whatever the locale — the entries contributor re-reads every published locale when the
+ * change is applied — and a failure never reaches the publish that caused it.
+ */
 final class SearchContentReindexerTest extends TestCase
 {
-    /** A SearchBackend spy recording upserts/deletes. */
-    private function backend(): SearchBackend
+    public function testEveryEntryEventJournalsOneEntriesChange(): void
     {
-        return new class implements SearchBackend {
-            /** @var list<array<string,mixed>> */
-            public array $upserted = [];
-            /** @var list<array{0:string,1:?string}> */
-            public array $deletes = [];
-            public bool $throwOnUpsert = false;
-            public int $ensured = 0;
-            public function name(): string
-            {
-                return 'test double';
-            }
+        $index = $this->index();
+        $reindexer = new SearchContentReindexer($index);
+        $reindexer->reindexEntry('entryuuid001', 'en');
+        $reindexer->reindexEntry('entryuuid001', null);
 
-            public function ensureIndex(): void
+        self::assertSame([['entries', 'entryuuid001'], ['entries', 'entryuuid001']], $index->changes);
+    }
+
+    public function testResilientDecoratorSwallowsFailures(): void
+    {
+        $failing = new class implements ContentReindexer {
+            public function reindexEntry(string $entryUuid, ?string $locale): void
             {
-                $this->ensured++;
-            }
-            public function upsert(iterable $documents): void
-            {
-                if ($this->throwOnUpsert) {
-                    throw new RuntimeException('meili down');
-                }
-                foreach ($documents as $d) {
-                    $this->upserted[] = $d;
-                }
-            }
-            public function deleteEntry(string $entryUuid, ?string $locale = null): void
-            {
-                $this->deletes[] = [$entryUuid, $locale];
-            }
-            public function search(SearchRequest $r): SearchResults
-            {
-                return new SearchResults([], 0, 20, 0);
-            }
-            public function health(): bool
-            {
-                return true;
+                throw new \RuntimeException('journal down');
             }
         };
-    }
-
-    private function reader(?IndexableContent $record): IndexableContentReader
-    {
-        return new class ($record) implements IndexableContentReader {
-            public function __construct(private ?IndexableContent $record)
+        $logger = new class extends AbstractLogger {
+            /** @var list<string> */
+            public array $messages = [];
+            public function log($level, \Stringable|string $message, array $context = []): void
             {
-            }
-            public function getIndexablePublished(string $e, string $l): ?IndexableContent
-            {
-                return $this->record;
-            }
-            public function enumerateIndexablePublished(
-                int $limit,
-                int $offset = 0,
-                ?string $t = null,
-                ?string $l = null
-            ): IndexablePage {
-                return new IndexablePage([], $limit, $offset);
+                $this->messages[] = (string) $message;
             }
         };
+        (new ResilientContentReindexer($failing, $logger))->reindexEntry('entryuuid001', 'en');
+        self::assertNotSame([], $logger->messages);
     }
 
-    private function types(): ContentTypeReader
+    private function index(): SearchIndex
     {
-        return new class implements ContentTypeReader {
-            public function findUuidBySlug(string $slug): ?string
+        return new class implements SearchIndex {
+            /** @var list<array{0: string, 1: string}> */
+            public array $changes = [];
+            public function changed(string $kind, string $sourceId): void
             {
-                return null;
+                $this->changes[] = [$kind, $sourceId];
             }
-            public function isPublicDelivery(string $uuid): bool
+            public function kindChanged(string $kind, string $reason): void
             {
-                return true;
-            }
-            public function schemaFor(string $uuid): ?ContentSchemaReader
-            {
-                return new class implements ContentSchemaReader {
-                    public function fields(): array
-                    {
-                        return [];
-                    }
-                    public function field(string $name): ?FieldDescriptor
-                    {
-                        return null;
-                    }
-                };
-            }
-            public function deliveryTypes(): array
-            {
-                return [];
             }
         };
-    }
-
-    private function record(): IndexableContent
-    {
-        return new IndexableContent('e-1', 'en', 'ct-1', 'blog', true, '/en/blog/x', 'x', ['title' => 'T']);
-    }
-
-    public function testNullLocaleDeletesAllEntryDocuments(): void
-    {
-        $backend = $this->backend();
-        $r = new SearchContentReindexer($this->reader(null), new DocumentBuilder([]), $backend, $this->types());
-        $r->reindexEntry('e-1', null);
-        self::assertSame([['e-1', null]], $backend->deletes);
-        self::assertSame([], $backend->upserted);
-    }
-
-    public function testMissingRecordForLocaleDeletesThatLocaleDocument(): void
-    {
-        $backend = $this->backend();
-        $r = new SearchContentReindexer($this->reader(null), new DocumentBuilder([]), $backend, $this->types());
-        $r->reindexEntry('e-1', 'en');
-        self::assertSame([['e-1', 'en']], $backend->deletes);
-        self::assertSame([], $backend->upserted);
-    }
-
-    public function testPresentRecordUpsertsBuiltDocument(): void
-    {
-        $backend = $this->backend();
-        $r = new SearchContentReindexer(
-            $this->reader($this->record()),
-            new DocumentBuilder([]),
-            $backend,
-            $this->types(),
-        );
-        $r->reindexEntry('e-1', 'en');
-        self::assertSame([], $backend->deletes);
-        self::assertSame('e-1_en', $backend->upserted[0]['id']);
-        // The event path must ensure the index (with settings) before its first upsert —
-        // addDocuments would otherwise auto-create a settings-less index that rejects
-        // every visibility-filtered search. Ensured once, not per upsert.
-        self::assertSame(1, $backend->ensured);
-        $r->reindexEntry('e-1', 'en');
-        self::assertSame(1, $backend->ensured);
-    }
-
-    public function testResilientDecoratorSwallowsBackendFailures(): void
-    {
-        $backend = $this->backend();
-        $backend->throwOnUpsert = true;
-        $inner = new SearchContentReindexer(
-            $this->reader($this->record()),
-            new DocumentBuilder([]),
-            $backend,
-            $this->types(),
-        );
-        $resilient = new ResilientContentReindexer($inner, new NullLogger());
-
-        // Must NOT throw — publishing must never break on a search failure.
-        $resilient->reindexEntry('e-1', 'en');
-        self::assertTrue(true);
     }
 }

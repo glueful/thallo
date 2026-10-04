@@ -46,6 +46,14 @@ final class ReindexCommandTest extends TestCase
                 $slice = array_slice($this->records, $offset, $limit);
                 return new IndexablePage(array_values($slice), $limit, $offset);
             }
+            public function publishedEntryUuidsAfter(?string $afterUuid, int $limit): array
+            {
+                return [];
+            }
+            public function publishedLocalesOf(string $entryUuid): array
+            {
+                return [];
+            }
         };
 
         $backend = new class implements SearchBackend {
