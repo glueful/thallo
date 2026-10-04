@@ -295,13 +295,32 @@ final class RebuilderTest extends AppTestCase
         $this->clock->advance(5);
         self::assertSame(RebuildOutcome::PROMOTED, $this->rebuilder($store)->run('entries'));
 
-        // Everything the new generation's build began after is resolved and gone, with its acks;
-        // nothing older than the next build's start can ever be relevant again.
-        $start = (int) $db->table('search_index_changes')->where('kind', '=', 'entries')->count();
-        self::assertSame(0, $start, 'resolved history at or below the journal start is pruned');
+        // Everything at or below the new generation's journal start is resolved and gone, with its
+        // acks; nothing older than the next build's start can ever be relevant again.
+        $left = (int) $db->table('search_index_changes')->where('kind', '=', 'entries')->count();
+        self::assertSame(0, $left, 'resolved history at or below the journal start is pruned');
         self::assertSame(0, $db->table('search_index_acks')->where('kind', '=', 'entries')
             ->where('entry_seq', '<=', $pending)->count());
         self::assertSame([], $this->state->unresolvedEntries('entries'));
+    }
+
+    public function testAnEntryJournaledDuringTheBuildIsResolvedButKept(): void
+    {
+        $store = $this->store('pg');
+        $this->source->items = ['a' => ['en' => 'A']];
+        $mid = null;
+        $this->hooks['beforePromote'] = function () use (&$mid): void {
+            $this->source->items['a'] = ['en' => 'A mid-build'];
+            $mid = $this->state->appendChange('entries', 'a');
+        };
+        self::assertSame(RebuildOutcome::PROMOTED, $this->rebuilder($store)->run('entries'));
+
+        $start = (int) $this->state->row('entries')['journal_start_seq'];
+        self::assertGreaterThan($start, (int) $mid);
+        $row = $this->connection()->table('search_index_changes')->where('kind', '=', 'entries')
+            ->where('seq', '=', $mid)->first();
+        self::assertNotNull($row, 'above the journal start: kept for the next build to see');
+        self::assertSame(1, (int) $row['resolved']);
     }
 
     public function testAnAsynchronousBatchFailureFailsTheBuildAndNeverSweeps(): void
@@ -463,7 +482,10 @@ final class RebuilderTest extends AppTestCase
         return new LiveSearchIndex($this->state, $this->drainer($store), $this->connection(), new NullLogger());
     }
 
-    /** Resolved — or resolved and then pruned by a promotion, which only ever drops resolved rows. */
+    /**
+     * Resolved — or pruned by a promotion, which drops only resolved rows at or below the promoted
+     * build's journal start: a missing row above that start is a bug, not "resolved".
+     */
     private function resolved(int $seq): bool
     {
         $row = $this->connection()->table('search_index_changes')->where(
@@ -471,7 +493,10 @@ final class RebuilderTest extends AppTestCase
             '=',
             'entries',
         )->where('seq', '=', $seq)->first();
-        return $row === null || (int) $row['resolved'] === 1;
+        if ($row !== null) {
+            return (int) $row['resolved'] === 1;
+        }
+        return $seq <= (int) ($this->state->row('entries')['journal_start_seq'] ?? 0);
     }
 
     /** @return array<string, string> the active target's documents, source id => title */
