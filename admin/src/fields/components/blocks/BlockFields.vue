@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import OptionsSourceField from '../OptionsSourceField.vue'
 // A block's schema form (visual builder spec §3.4 — the Content tab): every field of the
 // block type rendered through the field registry, with the seeded types' cosmetic
 // ergonomics (the navigation menu select). Blocks-typed fields (container
@@ -134,6 +135,12 @@ const menuOptions = computed(() =>
             @update:model-value="(v: unknown) => patchData('menu', v)"
           />
         </UFormField>
+        <OptionsSourceField
+          v-else-if="toFieldDef(f).type === 'string' && toFieldDef(f).optionsSource"
+          :field="{ ...displayFieldDef(f), optionsSource: toFieldDef(f).optionsSource as string }"
+          :model-value="block.data[f.name]"
+          @update:model-value="(v: string) => patchData(f.name, v)"
+        />
         <component
           :is="fieldComponent(toFieldDef(f).type)"
           v-else

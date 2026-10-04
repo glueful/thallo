@@ -49,6 +49,8 @@ export interface ContentTypeField {
   block_types?: string[]
   /** The vocabulary domain a `token` field draws from (visual builder spec §1.7). */
   domain?: string | null
+  /** Block schema: the server source of this string field's choices. */
+  options_source?: string | null
   /** Anchored regex body a string/text value must fully match. */
   pattern?: string | null
   /** Inclusive lower bound for a `number` field. */

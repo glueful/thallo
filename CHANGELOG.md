@@ -35,6 +35,8 @@ as the next release, never a mutated tag.
   chooses all results or one kind (pages, products). It hides itself when its scope isn't available.
 - **A `/search` results page** in the theme, with clear messages for no results, an unavailable scope,
   rebuilding and too many searches. It works without JavaScript.
+- **Block fields can draw their choices from the server** (`options_source`), keeping a stored choice
+  that is no longer available and saying why. Authors who can edit pages see them.
 
 ## [1.0.0-beta.80] - 2026-10-03 — Developer Preview
 
