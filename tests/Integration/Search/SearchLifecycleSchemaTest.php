@@ -26,7 +26,7 @@ final class SearchLifecycleSchemaTest extends AppTestCase
         foreach (self::TABLES as $table) {
             self::assertTrue($schema->hasTable($table), $table);
         }
-        foreach (['retired_targets', 'journal_head', 'drainer_token', 'format', 'satisfied_seq'] as $column) {
+        foreach (['retired_targets', 'journal_head', 'drainer_token', 'satisfied_seq'] as $column) {
             self::assertTrue($schema->hasColumn('search_index_state', $column), "search_index_state.{$column}");
         }
     }
@@ -60,7 +60,7 @@ final class SearchLifecycleSchemaTest extends AppTestCase
         self::assertFalse($verifier->verify($this->connection(), '999_Unknown.php'));
     }
 
-    public function testLegacyColumnsAcceptNullOnPostgres(): void
+    public function testWidenedColumnsAcceptAProductRowOnPostgres(): void
     {
         if ($this->connection()->getDriverName() !== 'pgsql') {
             self::markTestSkipped('The widening runs on Postgres only.');

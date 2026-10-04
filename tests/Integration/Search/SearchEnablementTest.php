@@ -53,8 +53,8 @@ final class SearchEnablementTest extends AppTestCase
         // it — 200, not the 503 this boot answered while Meilisearch was the only engine.
         $c = self::$enabledApp->getContainer();
         self::assertInstanceOf(
-            \Thallo\Search\Engine\PostgresFtsBackend::class,
-            $c->get(\Thallo\Search\Engine\SearchBackend::class),
+            \Thallo\Search\Store\PostgresIndexStore::class,
+            $c->get(\Thallo\Search\Store\IndexStore::class),
         );
 
         $db = $c->get(\Glueful\Database\Connection::class);
@@ -84,6 +84,7 @@ final class SearchEnablementTest extends AppTestCase
             new \Thallo\Core\Content\Repositories\ReferenceProjectionRepository($db),
         ))->publish($entry, 'en', 'user00000001');
         $c->get(ContentReindexer::class)->reindexEntry($entry, 'en');
+        $c->get(\Thallo\Search\Lifecycle\Reconciler::class)->runAll(true);
 
         $res = (new Application(self::$enabledApp))->handle(Request::create(
             '/v1/search?q=deplo&locale=en&type=searchdocs',

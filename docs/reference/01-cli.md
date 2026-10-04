@@ -471,7 +471,7 @@ Report the search engine and each kind's index. **Reads only.**
 
 | Option | What it does |
 |---|---|
-| `--all` | Every workspace, and the installation-wide legacy index |
+| `--all` | Every workspace |
 
 It prints whether the engine is ready (with the Meilisearch version) or why not, then a table of
 kinds: status, documents, progress, last success, last error and any outstanding rebuild request.

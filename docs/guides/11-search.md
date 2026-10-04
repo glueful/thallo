@@ -274,10 +274,6 @@ documents never sit in another's index. The names start with `SEARCH_INDEX` (`co
 new index and switches to it when complete; the old one is deleted two minutes later
 (`SEARCH_RETIRE_GRACE`), once no query can still be reading it.
 
-The single `content` index of an older install keeps answering until the new indexes are ready,
-and is deleted once no workspace needs it. On an install with workspaces it is never read: each
-workspace shows search as rebuilding until its own index is ready.
-
 ## Behind a CDN
 
 Rendered pages are sent `public, max-age=0, must-revalidate` with an ETag, and the page cache is

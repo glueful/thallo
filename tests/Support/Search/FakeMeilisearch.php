@@ -117,24 +117,6 @@ final class FakeMeilisearch implements MeilisearchIndex
         return ['hits' => array_slice($hits, $offset, $limit), 'estimatedTotalHits' => count($hits)];
     }
 
-    public function rawSearch(string $uid, string $query, array $params): array
-    {
-        if (!isset($this->indexes[$uid])) {
-            throw new IndexNotFound($uid);
-        }
-        $hits = [];
-        foreach ($this->indexes[$uid]['docs'] as $document) {
-            $score = self::score($document, $query);
-            if ($score > 0 && self::matches($document, (string) ($params['filter'] ?? ''))) {
-                $hits[] = $document + ['_rankingScore' => $score, '_formatted' => ['body' => $document['body'] ?? '']];
-            }
-        }
-        usort($hits, static fn (array $a, array $b): int => $b['_rankingScore'] <=> $a['_rankingScore']);
-        return [
-            'hits' => array_slice($hits, (int) ($params['offset'] ?? 0), (int) ($params['limit'] ?? 20)),
-            'estimatedTotalHits' => count($hits),
-        ];
-    }
 
     public function reachable(string $uid): bool
     {

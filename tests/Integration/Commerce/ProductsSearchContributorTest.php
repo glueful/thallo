@@ -12,7 +12,6 @@ use Thallo\Contracts\Search\SearchAudience;
 use Thallo\Contracts\Search\SearchIndex;
 use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Core\Tests\Support\Search\LifecycleKit;
-use Thallo\Search\Lifecycle\Cutover;
 use Thallo\Search\Lifecycle\Workspace;
 use Thallo\Search\Query\CursorSigner;
 use Thallo\Search\Query\SearchInput;
@@ -222,16 +221,6 @@ final class ProductsSearchContributorTest extends AppTestCase
 
     private function build(LifecycleKit $kit): void
     {
-        $kit->reconciler()->runWorkspace(false);
-        (new Cutover(
-            $kit->state,
-            $kit->store,
-            $kit->locator(),
-            new Workspace($this->appContext()),
-            $this->container()->get(\Thallo\Contracts\Settings\SystemChannel::class),
-            $this->connection(),
-            'content',
-        ))->flipIfReady();
         $kit->reconciler()->runWorkspace(false);
     }
 

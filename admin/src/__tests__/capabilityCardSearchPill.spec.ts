@@ -15,7 +15,6 @@ const k = (over: Record<string, unknown>) => ({
   available: true,
   reason: null,
   status: 'ready',
-  format: 'v2',
   documents: 1,
   processed: 1,
   last_success_at: null,

@@ -145,7 +145,7 @@ final class MeilisearchIndexStoreTest extends TestCase
         $result = $this->store->search(['entries' => $entries, 'products' => $products], new StoreQuery('rose', 'en', [
             'entries' => KindFilter::subtypes(['t1']),
             'products' => KindFilter::all(),
-        ], 10, 0, false));
+        ], 10, 0));
 
         $found = array_map(static fn ($h): string => $h->kind . ':' . $h->sourceId, $result->hits);
         sort($found);
@@ -178,26 +178,10 @@ final class MeilisearchIndexStoreTest extends TestCase
         $this->expectException(IndexNotFound::class);
         $this->store->search(
             ['entries' => $target],
-            new StoreQuery('rose', 'en', ['entries' => KindFilter::all()], 10, 0, false),
+            new StoreQuery('rose', 'en', ['entries' => KindFilter::all()], 10, 0),
         );
     }
 
-    public function testLegacyQueriesReadTheSharedIndexAsEntries(): void
-    {
-        $this->meili->ensureIndex('content', []);
-        $this->meili->addDocuments('content', [[
-            'id' => 'legacy1_en', 'entry_uuid' => 'legacy1', 'content_type_uuid' => 't1', 'locale' => 'en',
-            'title' => 'Rose legacy', 'body' => 'old',
-        ]]);
-        $result = $this->store->search(
-            [],
-            new StoreQuery('rose', 'en', ['entries' => KindFilter::subtypes(['t1'])], 10, 0, true),
-        );
-        self::assertSame(
-            ['entries', 'legacy1', 't1'],
-            [$result->hits[0]->kind, $result->hits[0]->sourceId, $result->hits[0]->subtype],
-        );
-    }
 
     public function testTargetsAreListedByPrefixAndDropped(): void
     {

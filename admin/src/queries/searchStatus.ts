@@ -11,7 +11,6 @@ export interface SearchKindStatus {
   available: boolean
   reason: string | null
   status: 'pending' | 'building' | 'ready' | 'out_of_date' | 'failed'
-  format: 'legacy' | 'v2'
   documents: number
   processed: number
   last_success_at: string | null

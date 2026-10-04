@@ -8,7 +8,6 @@ use Thallo\Contracts\Search\SearchAudience;
 use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Core\Tests\Support\Search\ArraySource;
 use Thallo\Core\Tests\Support\Search\LifecycleKit;
-use Thallo\Search\Lifecycle\Cutover;
 use Thallo\Search\Lifecycle\RebuildOutcome;
 use Thallo\Search\Lifecycle\Workspace;
 use Thallo\Search\Query\CursorSigner;
@@ -162,6 +161,27 @@ final class SearchQueryServiceTest extends AppTestCase
         self::assertNull($outcome->next);
     }
 
+    public function testAKindOnItsFirstBuildIsRebuildingAndDropsOutOfAnAllKindsSearch(): void
+    {
+        $this->kit->reconciler()->runKind('entries', true); // entries built; products never
+        $service = $this->service();
+
+        $public = SearchAudience::public();
+        $one = $service->search($this->input(['q' => 'rose', 'scope' => 'products']), $public, 10, true);
+        self::assertSame('rebuilding', $one->state);
+
+        $all = $service->search($this->input(['q' => 'rose']), $public, 10, true);
+        self::assertSame('results', $all->state);
+        $found = array_map(static fn ($i): string => $i->kind . ':' . $i->sourceId, $all->items);
+        self::assertSame(['entries:e1'], $found);
+    }
+
+    public function testNothingBuiltYetIsRebuildingNotNoResults(): void
+    {
+        $outcome = $this->service()->search($this->input(['q' => 'rose']), SearchAudience::public(), 10, true);
+        self::assertSame('rebuilding', $outcome->state);
+    }
+
     public function testAnEmptyQueryAsksForNothing(): void
     {
         self::assertSame(
@@ -214,16 +234,6 @@ final class SearchQueryServiceTest extends AppTestCase
 
     private function buildWith(LifecycleKit $kit): void
     {
-        $kit->reconciler()->runWorkspace(false);
-        (new Cutover(
-            $kit->state,
-            $kit->store,
-            $kit->locator(),
-            new Workspace($this->appContext()),
-            $this->container()->get(\Thallo\Contracts\Settings\SystemChannel::class),
-            $this->connection(),
-            'content',
-        ))->flipIfReady();
         $kit->reconciler()->runWorkspace(false);
     }
 

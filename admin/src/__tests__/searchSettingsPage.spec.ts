@@ -32,7 +32,6 @@ const kind = (over: Partial<SearchStatus['kinds'][number]>): SearchStatus['kinds
   available: true,
   reason: null,
   status: 'ready',
-  format: 'v2',
   documents: 12,
   processed: 12,
   last_success_at: '2026-10-04 10:00:00',

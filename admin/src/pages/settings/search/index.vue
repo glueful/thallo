@@ -21,9 +21,6 @@ const rebuild = useSearchRebuild()
 
 const forbidden = computed(() => error.value instanceof ApiError && error.value.status === 403)
 const active = computed(() => (data.value?.kinds ?? []).some(isActive))
-const legacy = computed(() =>
-  (data.value?.kinds ?? []).some((k) => k.available && k.format === 'legacy'),
-)
 
 // One timer, restarted whenever the pace changes, so the first slow poll comes a full minute after
 // work finishes rather than whenever an independent interval happens to tick.
@@ -95,11 +92,6 @@ async function onRebuild(kind: string | null) {
             {{ data.engine.message }}
           </p>
         </UCard>
-
-        <p v-if="legacy" class="mb-4 text-sm text-muted" data-test="search-cutover">
-          The index is being rebuilt into its new format. Search keeps answering from the old index
-          meanwhile, where that is safe.
-        </p>
 
         <table class="w-full text-sm" data-test="search-kinds">
           <thead>

@@ -391,7 +391,7 @@ final class DrainerTest extends AppTestCase
         $this->connection()->table('search_index_state')->where('kind', '=', 'entries')->update([
             'active_target' => $active, 'generation' => $generation,
             'building_target' => $building, 'building_generation' => $buildingGeneration,
-            'status' => 'ready', 'format' => 'v2',
+            'status' => 'ready',
         ]);
         foreach (
             array_filter(

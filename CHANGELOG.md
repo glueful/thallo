@@ -54,9 +54,10 @@ as the next release, never a mutated tag.
   `kind` and `cursor`, and every response now carries `total_approximate` and `next`.
 - **Meilisearch sites need server 1.10 or newer.** An older server leaves search unavailable, and
   Settings › Search names the version it found.
-- After upgrading, the index rebuilds itself. Until the new index is ready the old one keeps
-  answering, except on sites with workspaces on Meilisearch, which show search as rebuilding
-  until each workspace's own index is ready.
+- **After upgrading, search starts empty and rebuilds itself.** The old index is not read or
+  carried over: `thallo:provision` clears its rows, and search answers "rebuilding" until the
+  scheduler's first build finishes, usually within a minute or two. A Meilisearch site can delete
+  the old `content` index by hand once the new ones are ready.
 
 ## [1.0.0-beta.80] - 2026-10-03 — Developer Preview
 

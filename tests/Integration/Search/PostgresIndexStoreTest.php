@@ -76,7 +76,7 @@ final class PostgresIndexStoreTest extends AppTestCase
         $result = $this->store->search([], new StoreQuery('rose', 'en', [
             'entries' => KindFilter::subtypes(['t1']),
             'products' => KindFilter::all(),
-        ], 10, 0, false));
+        ], 10, 0));
         $found = array_map(static fn ($h): string => $h->kind . ':' . $h->sourceId, $result->hits);
         sort($found);
         self::assertSame(['entries:e1', 'products:P1'], $found);
@@ -85,7 +85,7 @@ final class PostgresIndexStoreTest extends AppTestCase
         $none = $this->store->search([], new StoreQuery('rose', 'en', [
             'entries' => KindFilter::subtypes(['t1']),
             'products' => KindFilter::none(),
-        ], 10, 0, false));
+        ], 10, 0));
         self::assertSame(
             ['entries:e1'],
             array_map(static fn ($h): string => $h->kind . ':' . $h->sourceId, $none->hits),
@@ -94,7 +94,7 @@ final class PostgresIndexStoreTest extends AppTestCase
 
         self::assertSame(0, $this->store->search([], new StoreQuery('rose', 'en', [
             'entries' => KindFilter::none(),
-        ], 10, 0, false))->total);
+        ], 10, 0))->total);
     }
 
     public function testSweepRemovesOnlyOlderGenerationsOfOneKind(): void
@@ -189,31 +189,6 @@ final class PostgresIndexStoreTest extends AppTestCase
         $this->store->replaceSource([$this->pg(1)], 'entries', 'a', [], $drainer);
 
         self::assertSame(['b'], $this->sourceIds('entries'));
-    }
-
-    public function testLegacyRowsAreReadOnlyWhenAskedAndOnlyForEntries(): void
-    {
-        $this->connection()->table('search_documents')->insert([
-            'doc_id' => 'legacyentry1_en', 'entry_uuid' => 'legacyentry1', 'locale' => 'en',
-            'content_type_uuid' => 't1', 'content_type_slug' => 'post', 'href' => '/blog/rose',
-            'title' => 'Rose legacy', 'body' => 'An old rose page', 'ts_config' => 'english', 'generation' => 0,
-        ]);
-        $filters = ['entries' => KindFilter::subtypes(['t1'])];
-
-        self::assertSame(0, $this->store->search([], new StoreQuery('rose', 'en', $filters, 10, 0, false))->total);
-        $legacy = $this->store->search([], new StoreQuery('rose', 'en', $filters, 10, 0, true));
-        self::assertSame(1, $legacy->total);
-        self::assertSame(
-            ['entries', 'legacyentry1', 't1'],
-            [$legacy->hits[0]->kind, $legacy->hits[0]->sourceId, $legacy->hits[0]->subtype],
-        );
-        self::assertSame(
-            0,
-            $this->store->search(
-                [],
-                new StoreQuery('rose', 'en', ['entries' => KindFilter::subtypes(['t9'])], 10, 0, true),
-            )->total,
-        );
     }
 
     private function pg(int $generation, string $kind = 'entries'): Target
