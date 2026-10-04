@@ -1,5 +1,7 @@
 # The Search block, and products in search — Implementation Plan
 
+> Amended 2026-10-04 after plan review: Postgres acknowledgements are generation-qualified and live writes never lower a generation (Tasks 8, 10); the promoted fence and database-time leases are explicit (Tasks 7, 11); only a promoted build satisfies demand and versions (Tasks 11, 13); the API's `type` narrows entries and keeps its responses and hit fields (Task 15); contributors register while their capability is off (Tasks 12, 16); entry enumeration pages whole entries (Task 12); suggestions invalidate on input, not after the debounce (Task 18); CDN purge obligations carry an identity (Task 4); Task 9 keeps the old backend working; the Rebuild-permission test lives in Task 21.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A brandless Search block (a field or an icon that opens one) that can sit in the header, a `/search` results page, and one search over pages and products. Packs contribute result kinds, every workspace gets its own isolated index, display and visibility always come from current records, and rebuilds are coordinated, durable and visible in Settings › Search.
@@ -280,6 +282,7 @@ interface HtmlTextExtractor
 
 - `Thallo\Search\Identity\DocumentId::encode(string $kind, string $sourceId, string $locale): string` and `::decode(string $id): array{kind,sourceId,locale}`.
 - `Thallo\Search\Store\Target`: a value object `(string $engine, string $name, int $generation)`. `$name` is the Meilisearch index uid, or `'pg'` on Postgres.
+  - `Target::key(): string` is the **acknowledgement identity**: the uid on Meilisearch (already unique per attempt), and **`pg:g{G}`** on Postgres. The name alone is never used to identify a target, because on Postgres every generation shares the physical name `pg`.
 - `Thallo\Search\Store\IndexStore`, the engine port:
   - `write(Target $t, list<SearchDocument> $docs, Fence $f): WriteReceipt`
   - `delete(Target $t, string $kind, list<string> $docIds, Fence $f): WriteReceipt`
@@ -525,6 +528,8 @@ interface HtmlTextExtractor
   - `testFirstSightRecordsWithoutPurging`: no `render.availability.purged` flag. `reconcile()` sets it to `current()`, with no purges.
   - `testAChangePurgesPagesAndEdgeAndSchedulesTheRetry`: flag = `'old'`. `reconcile()` invalidates `thallo:render:page` (a tagged probe key is gone, an untagged neighbour stays), calls `purgeAll()` once, sets `render.availability.edge_purge_due` to a time at or after now plus `search.edge_purge_grace` (default 300 s), and sets the flag to `current()`.
   - `testAFailedEdgePurgeLeavesTheMarkerUnadvanced`: edge `purgeAll()` returns false. The flag stays `'old'`, and a second `reconcile()` purges again.
+  - `testAnOldCompletionCannotEraseANewerObligation`: read obligation O1 (fingerprint f1) into `completeDue`. A hook in the fake edge's `purgeAll` simulates a new flip that writes O2 (f2). After `completeDue` returns, `EDGE_DUE` still holds O2.
+  - `testTheMarkerAdvancesOnlyAfterTheRequiredPurges`: the local purge throws, so the marker is unchanged and no obligation is written. Then the edge fails, with the same result. Then both succeed, so the marker advances and the obligation exists. Finally, a fault injected into the obligation write rolls back the transaction, leaving the marker unchanged too.
   - `testTheDelayedPurgeSurvivesARestartAndClearsOnSuccess`: set the due flag in the past, then rebuild `AvailabilityPurge` from a fresh container (a "restart"). `completeDue(now)` calls `purgeAll()` and forgets the due flag. Failing once keeps it.
   - `testAConfigOnlyCommerceFlipPurgesAndPagesLoseTheShop`: the parity test that replaces `CapabilityFlipPurgeTest`. Warm `/` with a mini-cart in the header in the default boot. Boot `bootAppWithConfigOverride('thallo', ['capabilities' => ['thallo.commerce' => false]])` and handle one request; `onBeginRequest` reconciles. `/` renders without `data-shop-mini-cart`, and the fake edge saw `purgeAll()`.
   - `testTurningSearchOffPurges`: the same with `thallo.search`, seeded on, then off.
@@ -534,11 +539,12 @@ interface HtmlTextExtractor
   final class AvailabilityPurge
   {
       public const MARKER = 'render.availability.purged';
-      public const EDGE_DUE = 'render.availability.edge_purge_due';
+      public const EDGE_DUE = 'render.availability.edge_purge_due'; // value: "{fingerprint}|{due UTC}"
 
       public function __construct(
           private readonly AvailabilityFingerprint $fingerprint,
           private readonly SystemChannel $system,
+          private readonly Connection $db,
           private readonly CacheStore $cache,
           private readonly int $graceSeconds,
           private readonly ?RenderedPageCachePurge $pages = null,
@@ -552,29 +558,45 @@ interface HtmlTextExtractor
           if ($last === $current) {
               return;
           }
-          if ($last !== null) {
-              $this->pages !== null ? $this->pages->purge(['thallo:render:page'])
-                  : $this->cache->invalidateTags(['thallo:render:page']);
-              if ($this->edge !== null && $this->edge->isEnabled()) {
-                  if (!$this->edge->purgeAll()) {
-                      return; // marker stays: the next request or tick retries
-                  }
-                  $this->system->put(self::EDGE_DUE, gmdate('Y-m-d H:i:s', time() + $this->graceSeconds));
-              }
-          }
-          $this->system->put(self::MARKER, $current);
-      }
-
-      /** The retry: an obsolete response may reach the edge after the first purge. */
-      public function completeDue(\DateTimeImmutable $now): void
-      {
-          $due = $this->system->get(self::EDGE_DUE);
-          if ($due === null || $now < new \DateTimeImmutable($due . ' UTC')) {
+          if ($last === null) {                       // first sight: nothing cached under an older state
+              $this->system->put(self::MARKER, $current);
               return;
           }
-          if ($this->edge === null || !$this->edge->isEnabled() || $this->edge->purgeAll()) {
-              $this->system->forget(self::EDGE_DUE);
+          // The required purges: local pages, then the first edge purge. Either failing leaves the
+          // marker where it is, so the next request or tick repeats both.
+          $this->pages !== null ? $this->pages->purge(['thallo:render:page'])
+              : $this->cache->invalidateTags(['thallo:render:page']);
+          $edgeOn = $this->edge !== null && $this->edge->isEnabled();
+          if ($edgeOn && !$this->edge->purgeAll()) {
+              return;
           }
+          // Only now does the marker advance, in one transaction with the retry obligation, which is
+          // named by this fingerprint so an older completion can never clear it.
+          $this->db->transaction(function () use ($current, $edgeOn): void {
+              if ($edgeOn) {
+                  $this->system->put(self::EDGE_DUE, $current . '|' . gmdate('Y-m-d H:i:s', time() + $this->graceSeconds));
+              }
+              $this->system->put(self::MARKER, $current);
+          });
+      }
+
+      /** The retry. It clears only the obligation it read, and only if it is still there unchanged. */
+      public function completeDue(\DateTimeImmutable $now): void
+      {
+          $value = $this->system->get(self::EDGE_DUE);
+          if ($value === null || !str_contains($value, '|')) {
+              return;
+          }
+          [, $due] = explode('|', $value, 2);
+          if ($now < new \DateTimeImmutable($due . ' UTC')) {
+              return;
+          }
+          if ($this->edge !== null && $this->edge->isEnabled() && !$this->edge->purgeAll()) {
+              return;                                  // stays due; the next tick retries
+          }
+          // Conditional delete: a newer flip that replaced the obligation meanwhile is left alone.
+          $this->db->table('thallo_system_flags')->where('key', '=', self::EDGE_DUE)->where('value', '=', $value)->delete();
+          SystemFlags::clearCache();
       }
   }
   ```
@@ -750,30 +772,31 @@ interface HtmlTextExtractor
 ## Task 7: the state repository — claims, leases, fences, the journal, demand and acknowledgements
 
 **Files:**
-- Create: `packages/thallo-search/src/Lifecycle/{StateRepository,Fence,Claim,StaleFence,JournalEntry,Clock,SystemClock}.php`
+- Create: `packages/thallo-search/src/Lifecycle/{StateRepository,Fence,Claim,StaleFence,JournalEntry,Clock,DatabaseClock}.php`
 - Test: `tests/Integration/Search/StateRepositoryTest.php`
 
 **Interfaces:**
-- **Consumes:** `Connection` (query builder only; there is no `lockForUpdate`, so a **lock is taken by updating the row's `locked_at`**, which holds the row's write lock until the transaction ends on Postgres and on any row-locking engine). A `Clock` for tests.
+- **Consumes:** `Connection` (query builder only; there is no `lockForUpdate`, so a **lock is taken by updating the row's `locked_at`**, which holds the row's write lock until the transaction ends on Postgres and on any row-locking engine).
+- **`Clock` reads database time.** `DatabaseClock::now()` runs `SELECT CURRENT_TIMESTAMP` on the connection (no table, so no tenancy scoping applies) and returns it normalised to UTC `Y-m-d H:i:s`. Every lease decision (claim, renew, takeover, quiescence, the drainer's remaining-lease check) takes one database "now" per operation and compares against it. Worker clocks are never consulted. Tests bind a fake `Clock`.
 - **Produces** `StateRepository`:
   - `ensure(string $kind): array` returns the row, creating it with `status = 'pending'` if missing.
   - `locked(string $kind, callable $fn): mixed`: begins a transaction, runs `UPDATE … SET locked_at = now WHERE kind = ?`, then `$fn($row)` with the re-read row; commits.
   - `fenced(Fence $f, callable $fn): mixed`: the same, but the locking update adds the fence condition (`owner_token = ? AND building_generation = ?` for a builder, `drainer_token = ? AND drainer_lease_until > now` for a drainer). Zero rows updated throws `StaleFence`.
   - `appendChange(string $kind, string $sourceId): int` runs inside `locked()`: `journal_head + 1`, inserts the change, returns the seq.
-  - `claimBuild(string $kind, int $leaseSeconds): ?Claim`: a conditional update where `owner_token IS NULL OR lease_until < now`; allocates `generation_counter + 1` and records `building_generation`, `building_target = null`, `owner_token`, `journal_start_seq = journal_head`, `demand_seq_at_start = max(demand seq)`, `cursor = null`. Returns `Claim(kind, token, generation, journalStartSeq, demandSeqAtStart)` or null.
+  - `claimBuild(string $kind, int $leaseSeconds, int $versionAtStart, int $schemaVersionAtStart): ?Claim`: a conditional update where `owner_token IS NULL OR lease_until < now`; allocates `generation_counter + 1` and records `building_generation`, `building_target = null`, `owner_token`, `journal_start_seq = journal_head`, `demand_seq_at_start = max(demand seq)`, `cursor = null`. Returns `Claim(kind, token, generation, journalStartSeq, demandSeqAtStart, versionAtStart, schemaVersionAtStart)` or null. `versionAtStart` is the highest relevant `changed_at` (Search plus the kind's required capabilities), read from the state-version rows **at claim time**, and `schemaVersionAtStart` is the contributor's `schemaVersion()`; `claimBuild` takes both as arguments from the caller.
   - `renewBuild(Fence $f, int $leaseSeconds): void` and `releaseBuild(Fence $f): void`, both fenced.
   - `claimDrainer(string $kind, int $leaseSeconds, int $quiescenceSeconds): ?string`: succeeds when `drainer_token IS NULL` or `drainer_lease_until + quiescence < now`. Returns the token.
   - `addDemand(string $kind, string $reason): int` (the seq).
   - `maxDemandSeq(string $kind): int`.
-  - `recordAck(Fence $f, int $entrySeq, string $target, ?string $taskUid, string $status): void`: fenced, upsert on `(kind, entry_seq, target)`.
+  - `recordAck(Fence $f, int $entrySeq, string $targetKey, ?string $taskUid, string $status): void`: fenced, upsert on `(kind, entry_seq, target)`, where the `target` column holds `Target::key()`.
   - `unresolvedEntries(string $kind, ?int $afterSeq = null): list<JournalEntry>`: entries with `resolved = 0`, plus every entry with `seq > afterSeq` when given.
-  - `ackedFor(string $kind, string $target, list<int> $seqs): list<int>`: the seqs with a `succeeded` ack.
-  - `markResolved(string $kind, list<int> $seqs): void`.
+  - `ackedFor(string $kind, string $targetKey, list<int> $seqs): list<int>`: the seqs with a `succeeded` ack for that `Target::key()`.
+  - `resolveIfComplete(Fence $drainer, int $seq): bool`: in **one** fenced section (the row lock), it re-reads the current targets, checks `ackedFor` for each target key, and sets `resolved = 1` only if every current target has a succeeded ack. Returns whether it resolved. There is no unfenced `markResolved`.
   - `setStatus(Fence $f, string $status, ?string $error = null): void` (fenced).
   - `markOutOfDate(string $kind, string $error): void`: unfenced, because it is called from the live path. It never overwrites `building` with `ready`.
   - `recordBuildTarget(Fence $f, string $target): void`: sets `building_target` (fenced), so drainers include it from then on.
   - `advanceCursor(Fence $f, ?string $after, int $count): void`: sets `cursor` and adds to `processed` (fenced).
-  - `satisfy(Fence $f, int $demandSeq): void`: sets `satisfied_seq` (promoted fence).
+  - `satisfy(Fence $promoted, int $demandSeq, int $reconciledVersion, int $schemaVersion): void`: under the **promoted** fence, sets `satisfied_seq`, `reconciled_version` and `schema_version` to the values captured at claim time (Task 13).
   - `releaseDrainer(Fence $f): void`: clears the drainer token (fenced).
   - **`Fence` roles:** `Fence::builder(kind, token, G)`, `Fence::drainer(kind, token)`, and `Fence::promoted(kind, G)`. In `fenced()`, the promoted role's locking update checks `generation = G` and nothing else; it is used after promotion clears the owner token.
 
@@ -783,6 +806,9 @@ interface HtmlTextExtractor
   - `testAppendsAreSerialisedWithLockedSections`: open a transaction and run `locked('entries', …)` in it (holding the lock). From a **second PDO connection** (a separate `Connection` built from the test config), `appendChange` blocks until the first commits. Prove it with `statement_timeout` = 1 s on the second connection: the append fails with a lock timeout while the first holds the lock, and succeeds after commit.
   - `testDemandAndAcknowledgements`: `addDemand` seqs increase. `recordAck` upserts. `ackedFor` returns only succeeded acks. A fenced `recordAck` with a stale drainer throws.
   - `testUnresolvedIncludesOldFailures`: entries 1 (failed, unresolved), 2 (resolved), 3 (new); `unresolvedEntries('k', 2)` gives `[1, 3]`.
+  - `testThePromotedFenceCompletesAndGoesStaleAfterANewerPromotion`: promote G1, and `satisfy(Fence::promoted(k, G1), …)` succeeds. Promote G2, and `satisfy` with G1 throws `StaleFence`.
+  - `testResolveIfCompleteChecksTargetsUnderTheLock`: an entry acked on the active target only, while a build target exists, is not resolved. After acking the build target it resolves.
+  - `testLeasesUseDatabaseTime`: with `DatabaseClock` bound, `claimBuild` writes `lease_until` equal to the database's `CURRENT_TIMESTAMP` (read back in the same test) plus the lease, to within one second, whatever PHP's own clock says.
   - `testDrainerTakeoverWaitsForQuiescence`: drainer A's lease ends at T. A claim at T + 1 with quiescence 30 is null; at T + 31 it succeeds.
 - [ ] **Step 2: Run them.** Expected: FAIL.
 - [ ] **Step 3: Implement.** The core of the lock and the fence:
@@ -790,22 +816,25 @@ interface HtmlTextExtractor
   public function fenced(Fence $f, callable $fn): mixed
   {
       return $this->db->transaction(function () use ($f, $fn) {
+          $now = $this->clock->now();                       // database time
           $q = $this->db->table('search_index_state')->where('kind', '=', $f->kind);
-          $now = $this->clock->now();
-          if ($f->role === Fence::BUILDER) {
-              $q->where('owner_token', '=', $f->token)->where('building_generation', '=', $f->generation);
-          } else {
-              $q->where('drainer_token', '=', $f->token)->where('drainer_lease_until', '>', $now);
-          }
+          match ($f->role) {
+              Fence::BUILDER => $q->where('owner_token', '=', $f->token)
+                  ->where('building_generation', '=', $f->generation)->where('lease_until', '>', $now),
+              Fence::DRAINER => $q->where('drainer_token', '=', $f->token)->where('drainer_lease_until', '>', $now),
+              // After promotion the owner token is cleared; completion is fenced on the generation
+              // it promoted, so a newer build that already promoted makes it stale.
+              Fence::PROMOTED => $q->where('generation', '=', $f->generation),
+          };
           if ($q->update(['locked_at' => $now]) !== 1) {
               throw new StaleFence("Fence for '{$f->kind}' ({$f->role}) is no longer held.");
           }
           $row = $this->db->table('search_index_state')->where('kind', '=', $f->kind)->first();
-          return $fn($row);
+          return $fn($row, $now);
       });
   }
   ```
-  Timestamps are `gmdate('Y-m-d H:i:s')` strings, compared as strings (sortable). Tokens are `bin2hex(random_bytes(16))`. Every write goes through the query builder, so the tenancy hook scopes and stamps it.
+  Timestamps are database-time strings from `DatabaseClock`, in UTC `Y-m-d H:i:s`, compared as strings (they sort). Tokens are `bin2hex(random_bytes(16))`. Every write goes through the query builder, so the tenancy hook scopes and stamps it.
 - [ ] **Step 4: Run the tests.** Expected: PASS.
 - [ ] **Step 5: Commit** `feat(search): claims, leases, fences and a journal for the search index`.
 
@@ -819,7 +848,8 @@ interface HtmlTextExtractor
 **Interfaces:**
 - **Consumes:** `StateRepository::fenced()`, `DocumentId`.
 - **Produces** `PostgresIndexStore implements IndexStore`:
-  - `write(Target, list<SearchDocument>, Fence): WriteReceipt`: inside `fenced()`, delete by `doc_id` and insert each row with `kind`, `source_id`, `subtype`, `meta` (JSON), `generation = $target->generation`, `ts_config = PostgresFtsBackend::configFor($locale === '*' ? 'simple' : $locale)`. The receipt is `confirmed`.
+  - `write(Target, list<SearchDocument>, Fence): WriteReceipt`: inside `fenced()`, delete by `doc_id` and insert each row with `kind`, `source_id`, `subtype`, `meta` (JSON), `ts_config = PostgresFtsBackend::configFor($locale === '*' ? 'simple' : $locale)`, and `generation = max($target->generation, the existing row's generation)`, read in the same transaction before the delete. A write never lowers a row's generation, so a live write can't push a row the build already stamped below the sweep line. The receipt is `confirmed`.
+  - `writeLive(list<Target> $targets, list<SearchDocument>, Fence $drainer): WriteReceipt`: Postgres has **one physical row** for every generation. A live apply writes it once, stamped `max(generation of each target)`, and returns a receipt naming **every** target key it satisfies (`pg:g{active}` and `pg:g{building}`). The drainer records one ack per key from that receipt. On Meilisearch, `writeLive` writes each target separately and returns one receipt per target.
   - `delete(Target, string $kind, list<string> $docIds, Fence)`.
   - `deleteSource(Target, string $kind, string $sourceId, Fence)`: deletes every locale's row for one item.
   - `sweep(string $kind, int $below, Fence)`: `DELETE WHERE kind = ? AND generation < ?`.
@@ -827,7 +857,7 @@ interface HtmlTextExtractor
   - `search(list<Target>, StoreQuery): StoreResult`.
   - `StoreQuery`: `(string $q, string $locale, array<string, KindFilter> $kinds, int $limit, int $offset, bool $legacy)`.
   - `StoreResult`: `(list<StoreHit> $hits, int $total)`.
-  - `StoreHit`: `(string $kind, string $sourceId, string $locale, float $score)`.
+  - `StoreHit`: `(string $kind, string $sourceId, string $locale, ?string $subtype, float $score)`; `subtype` is `subtype ?? content_type_uuid`.
 
 - [ ] **Step 1: Write the failing tests:**
   - `testWritesAreFencedAndAStaleBuilderRollsBack`: claim A, then let the lease expire and claim B. `write(…, Fence A)` throws `StaleFence` and leaves no row. B's write lands.
@@ -836,6 +866,8 @@ interface HtmlTextExtractor
     - `kinds = ['entries' => subtypes(['t1']), 'products' => all()]` with locale en returns the t1 entry and the product, never the t2 or fr ones;
     - `products => none()` excludes products.
   - `testSweepRemovesOnlyOlderGenerationsOfOneKind`.
+  - `testALiveWriteNeverLowersAGeneration`: the build writes `a` at G2; a live write targeting only the active G1 (a drainer that read targets before the build started) keeps `a` at G2, and the sweep below G2 keeps it.
+  - `testOneLiveWriteSatisfiesBothGenerations`: with active G1 and building G2, `writeLive` returns the keys `pg:g1` and `pg:g2`.
   - `testTheSameSourceIdInTwoWorkspacesStaysApart`: under `runAsTenant('ws1…')` and `runAsTenant('ws2…')` (enforcement on, the `TenancyFixture` pattern used by the tenancy tests), write the same `entries_x_Len` in each. Each workspace's search sees one hit. Sweeping ws1 leaves ws2's row in place.
   - `testLegacyRowsAreReadOnlyWhenAskedAndOnlyForEntries`: a row with `kind IS NULL` appears only when `legacy: true`, and only as kind `entries`.
 - [ ] **Step 2: Run them.** Expected: FAIL.
@@ -914,7 +946,12 @@ interface HtmlTextExtractor
   - `testAMissingIndexSurfacesAsIndexNotFound`: searching a dropped target throws `IndexNotFound`, which carries the uid.
 - [ ] **Step 2: Run them.** Expected: FAIL.
 - [ ] **Step 3: Implement the fake, the seam and the store.** The fake applies tasks only when the test calls `complete($uid)` / `fail($uid)`, or immediately when `autoComplete` is on (the default). Searching the fake filters by the parsed `kind` / `subtype` / `locale` clauses (a small parser over the exact strings the store emits) and scores by term count.
-- [ ] **Step 4: Run the tests plus `tests/Unit/Search/MeilisearchBackendTest.php`.** Expected: PASS. Adapt that test to the new seam signature, keeping its assertions about legacy reads.
+- [ ] **Step 4: Keep the old backend working through the transition.** `MeilisearchBackend` (still the `SearchBackend` that `SearchController`, `SearchContentReindexer` and `ReindexCommand` use until Tasks 12, 13 and 15 replace them) is updated in **this** commit to call the new seam with the legacy uid (`prefixed search.index`):
+  - `addDocuments($legacyUid, …)` and `deleteDocuments($legacyUid, …)`;
+  - a filtered delete through a `deleteByFilter(string $uid, string $filter): int` method kept on the seam until Task 15;
+  - `rawSearch($legacyUid, …)`.
+
+  Its behaviour is unchanged: it doesn't wait on tasks, as before. `tests/Unit/Search/MeilisearchBackendTest.php` keeps every assertion, with the fake swapped for `FakeMeilisearch`. Run it with the new tests, plus `tests/Integration/Search/SearchEndpointTest.php` and `tests/Integration/Search/MeilisearchSmokeTest.php` (which skips without a server). Expected: PASS.
 - [ ] **Step 5: Commit** `feat(search): a Meilisearch store with an index per workspace, kind and attempt`.
 
 ## Task 10: the locator and the drainer — live changes acknowledged per target
@@ -935,6 +972,7 @@ interface HtmlTextExtractor
   - `Drainer::drain(string $kind, int $budget = 50): void`.
 
 - [ ] **Step 1: Write the failing tests:**
+  - `testAnOldGenerationAckCannotSatisfyTheBuild` (Postgres): an entry acked only as `pg:g1` is not counted for build target `pg:g2`, and promotion of G2 replays it first.
   - `testAnEntryIsAppliedOnlyWhenEveryCurrentTargetHasIt`: with an active and a building target, draining a change writes to both and records two acks; `resolved = 1`. If the building target's write fails (the fake fails its task), the entry stays unresolved and the kind is `out_of_date`.
   - `testABuildStartingBetweenTargetReadAndAckIsCaughtUp`: inject a hook after the target read that claims a build (a new building target). After the ack, the drainer re-reads targets, sees the new one, applies there, and only then resolves.
   - `testAStaleDrainerCannotAcknowledgeOrSetStatus`: drainer A's lease expires and B takes over after quiescence. A's `recordAck` and `setStatus` throw `StaleFence` and change no row.
@@ -954,9 +992,12 @@ interface HtmlTextExtractor
   $this->state->releaseDrainer($fence);
   ```
   `applyToAllTargets` loops:
-  1. read the targets;
-  2. for each target without a succeeded ack: check the lease's remaining time exceeds `requestTimeout + margin` (else stop); read `documents($sourceId)`; write the documents (plus `deleteSource` for locales no longer present); record a `pending` ack with the task uid; `confirm`; record `succeeded` or `failed`;
-  3. re-read the targets. If every current target has a succeeded ack, `markResolved`. Otherwise repeat, at most 3 rounds, then leave it unresolved and `markOutOfDate`.
+  1. Read the targets.
+  2. Find the target keys without a succeeded ack. Check that the lease's remaining time, in database time, exceeds `requestTimeout + margin`; if not, stop.
+  3. Read `documents($sourceId)` and call `store->writeLive(missing targets, documents, fence)`, plus `deleteSource` for locales no longer present.
+  4. For each receipt key, record a `pending` ack with its task uid, `confirm`, then record `succeeded` or `failed`.
+  5. Call `StateRepository::resolveIfComplete($fence, $seq)`, which re-checks the current targets under the lock.
+  6. If it didn't resolve (a target appeared, or a write failed), repeat from step 1, at most 3 rounds, then leave the entry unresolved and `markOutOfDate`.
 - [ ] **Step 4: Run the tests.** Expected: PASS.
 - [ ] **Step 5: Commit** `feat(search): live changes are acknowledged per index, and stale drainers are fenced out`.
 
@@ -976,6 +1017,7 @@ interface HtmlTextExtractor
 - [ ] **Step 1: Write the failing tests.** Most run on both engines through a data provider (Postgres store, or `MeilisearchIndexStore` over `FakeMeilisearch`):
   - `testAnUpdateDeletionAndInsertionDuringABuildAllLand`: a contributor double enumerates `a, b, c`. During enumeration (a hook after batch 1): update `a`, delete `b`, insert `d`, each through `LiveSearchIndex::changed`. After `run()`: `a` is current, `b` is gone, `d` is present, `c` is present.
   - `testAFailedDeletionFromBeforeTheBuildIsReplayedAndResolved`: an unresolved change for `z` whose earlier delete failed, and `z` no longer exists. After `run()`, `z` is gone and its entry is resolved.
+  - `testCompletionUsesThePromotedFence`: a successful run ends with `satisfied_seq`, `reconciled_version` and `schema_version` equal to the claim-time values, never the end-time ones (bump a capability's `changed_at` mid-run: `reconciled_version` keeps the start value, so demand stays pending).
   - `testOverlappingRequestsCoalesce`: two `run()` calls while the first holds the claim: the second returns `BUSY`. Demand added mid-build leaves `satisfied_seq` at the start value, so the kind is still pending.
   - `testAKilledBuildIsRestartedNotResumed`: run A to batch 2, then stop it (the hook throws out of the process loop without releasing). Advance past the lease. Run B: a new generation, enumeration from the start, a different target name on Meilisearch, and `processed` counting from 0.
   - `testAPausedBuilderCannotTouchTheReplacement` (Meilisearch only, as the spec's test correction says): A pauses before a write (hook), B takes over, builds and promotes, A resumes and writes. A's index name differs from B's, B's promoted index documents are unchanged, and A's write landed only in `…_g{G_A}`. The Postgres twin, `testAPausedBuilderIsRejectedByTheRowLock`: A's resumed write throws `StaleFence` and rolls back.
@@ -990,7 +1032,7 @@ interface HtmlTextExtractor
 - [ ] **Step 2: Run them.** Expected: FAIL.
 - [ ] **Step 3: Implement `Rebuilder::run`:**
   ```php
-  $claim = $this->state->claimBuild($kind, $this->lease);
+  $claim = $this->state->claimBuild($kind, $this->lease, $this->demand->relevantVersion($kind), $this->contributor($kind)->schemaVersion());
   if ($claim === null) { return RebuildOutcome::BUSY; }
   $fence = Fence::builder($kind, $claim->token, $claim->generation);
   $target = $this->locator->buildTarget($kind, $claim->generation);   // Meilisearch: new uid; Postgres: 'pg'
@@ -1011,8 +1053,9 @@ interface HtmlTextExtractor
       }
       $this->replay($fence, $target, $claim->journalStartSeq);
       $this->promotion->promote($fence, $target, $claim);              // loops replay until S is covered
-      $this->sweepOrRetire($fence, $kind, $target);
-      $this->state->satisfy($fence, $claim->demandSeqAtStart);
+      $promoted = Fence::promoted($kind, $claim->generation);          // the owner token is gone now
+      $this->sweepOrRetire($promoted, $kind, $target);
+      $this->state->satisfy($promoted, $claim->demandSeqAtStart, $claim->versionAtStart, $claim->schemaVersionAtStart);
       return RebuildOutcome::PROMOTED;
   } catch (StaleFence) {
       return RebuildOutcome::LOST;
@@ -1021,7 +1064,7 @@ interface HtmlTextExtractor
   `Promotion::promote` runs inside `StateRepository::fenced()`, which takes the same row lock as `appendChange`:
   1. read `S = journal_head`;
   2. compute the relevant seqs: unresolved, or `seq > journalStartSeq`, and `≤ S`;
-  3. `missing = relevant - ackedFor(build target)`. If non-empty, leave the transaction, replay the missing entries, and retry (at most 5 rounds, then `FAILED`);
+  3. `missing = relevant - ackedFor(build target->key())`. If non-empty, leave the transaction, replay the missing entries, and retry (at most 5 rounds, then `FAILED`);
   4. otherwise set `generation = G`, `active_target = build target`, `building_* = null`, `owner_token = null`, `status = (has unresolved failed entries newer than journalStartSeq ? 'out_of_date' : 'ready')`, `last_success_at = now`.
 
   `sweepOrRetire` runs after promotion, in a fenced section keyed on the promoted generation: `Fence::promoted($kind, G)` checks `generation = G`, because promotion clears the owner token. A newer build that has already promoted is therefore never swept by an older one.
@@ -1036,7 +1079,7 @@ interface HtmlTextExtractor
 - Create: `packages/thallo-search/src/Sources/EntriesContributor.php`
 - Modify: `packages/thallo-search/src/Index/DocumentBuilder.php`. Add `text(IndexableContent, ContentSchemaReader): string`, the body words `build()` already joins, so `present()` and the index agree on what an entry says.
 - Modify: `packages/thallo-search/src/Index/SearchContentReindexer.php`. `reindexEntry($uuid, $locale)` becomes `SearchIndex::changed('entries', $uuid)` (all locales are recomputed by `documents()`). It remains the `ContentReindexer` the core listener calls, so `ReindexSearchListener` is unchanged.
-- Modify: `packages/thallo-search/src/SearchServiceProvider.php`. Register `EntriesContributor` into the registry at boot when enabled.
+- Modify: `packages/thallo-search/src/SearchServiceProvider.php`. Register `EntriesContributor` into the registry at boot, outside the gate (metadata is always discoverable; `KindAvailability` decides availability, and every kind is unavailable while `thallo.search` is off).
 - Test: `tests/Integration/Search/EntriesContributorTest.php`
 
 **Interfaces:**
@@ -1044,18 +1087,22 @@ interface HtmlTextExtractor
 - **Produces** `EntriesContributor implements SearchSourceContributor`:
   - `kind() = 'entries'`, `label() = 'Pages & posts'`, `requiredCapabilities() = []`, `schemaVersion() = 1`.
   - `documents()`: for each enabled locale, `getIndexablePublished` builds a `SearchDocument` with `subtype = contentTypeUuid`, `title`/`body` from `DocumentBuilder::build()` and no meta.
-  - `enumerate()`: pages through `enumerateIndexablePublished` and returns documents ordered by entry uuid. The current reader pages by offset, so enumeration collects pages until it has `$size` documents after `$after` (in uuid order). **Ruling:** add `enumerateIndexablePublishedAfter(?string $afterUuid, int $limit)` to `IndexableContentReader` and implement it in `EngineIndexableContentReader` with `WHERE entry uuid > ? ORDER BY entry uuid`. It is a contracts change; the existing offset method stays for its other callers.
+  - `enumerate()` pages **distinct entries**, never entry-and-locale records, so a page boundary cannot split one entry's translations.
+    - **New reader method:** add `publishedEntryUuidsAfter(?string $afterUuid, int $limit): list<string>` to `IndexableContentReader`. It returns distinct entry uuids that have at least one published locale, ordered by uuid. Implement it in `EngineIndexableContentReader` with `SELECT DISTINCT entry uuid … WHERE uuid > ? ORDER BY uuid LIMIT ?`.
+    - **Building the page:** the contributor calls `documents($uuid)` for each returned uuid (every published locale). `nextAfter` is the last uuid when `count === $limit`, else null.
+    - It is a contracts change; the existing offset method stays for its other callers.
   - `visibilityFilter()`: `VisibilityResolver::resolve(audience scopes)` gives `all()` when `allAccess`, else `subtypes($visibleTypeUuids)`.
   - `present()`: for each id, `getIndexablePublished($id, $locale)`. Null means dropped. A type not accessible to the audience means dropped. Otherwise `ResultDisplay(title, href, mb_strcut(DocumentBuilder::text(...), 0, 20480))`.
 
 - [ ] **Step 1: Write the failing tests:**
   - `testDocumentsCoverEveryPublishedLocaleAndNothingUnpublished`;
   - `testEnumerationIsOrderedAndResumable`: seed 5 entries; pages of 2 give all 5 in uuid order; `nextAfter` is null at the end;
+  - `testATranslatedEntryIsNeverSplitAcrossPages`: three entries, the middle one published in en, fr and de. Pages of size **1** and of size 2 together yield every (entry, locale) pair exactly once;
   - `testPresentReadsCurrentRecords`: publish an entry, change its body text (removing a sentence) and republish **without** draining (`NullSearchIndex` bound). `present()` returns the new text, without the removed sentence;
   - `testPresentDropsUnpublishedAndPrivateTypes`: an unpublished entry gives null; a type flipped to private gives null for the public audience and a display for an api key with `read:content:{slug}`;
   - `testPublishingAppendsAChange`: publish gives one `search_index_changes` row for `('entries', uuid)`.
 - [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement** the contributor, the reader method (contract plus `EngineIndexableContentReader` plus its existing test file `tests/Integration/Search/IndexableContentReaderTest.php` gaining `testEnumeratesAfterAUuid`), `DocumentBuilder::text()`, and the reindexer change.
+- [ ] **Step 3: Implement** the contributor, the reader method (contract plus `EngineIndexableContentReader` plus its existing test file `tests/Integration/Search/IndexableContentReaderTest.php` gaining `testListsDistinctPublishedEntriesAfterAUuid`), `DocumentBuilder::text()`, and the reindexer change.
 - [ ] **Step 4: Run the tests plus `tests/Unit/Search tests/Integration/Search`.** Expected: PASS.
 - [ ] **Step 5: Commit** `feat(search): entries become a search source, and edits feed the journal`.
 
@@ -1077,7 +1124,8 @@ interface HtmlTextExtractor
     4. `'demand'` when `maxDemandSeq > satisfied_seq`.
 
     Only available kinds are considered.
-  - `Reconciler::runWorkspace(bool $full): void`. For each available kind, a full run or one with pending demand runs `Rebuilder::run`. Afterwards it sets `reconciled_version` to the version captured before the run and `schema_version`. It then runs `IndexRetirement::collect`, the drainer, and the legacy check (Task 14).
+  - `Reconciler::runWorkspace(bool $full): void`. For each available kind, a full run or one with pending demand runs `Rebuilder::run`. **The reconciler writes no versions itself.** `reconciled_version`, `schema_version` and `satisfied_seq` are written only by `Rebuilder` on `PROMOTED`, under the promoted fence, with the claim-time values (Task 11). `BUSY`, `FAILED` and `LOST` leave all three unchanged, so the demand stays outstanding for the next scheduled run. Afterwards it runs `IndexRetirement::collect`, the drainer, and the legacy check (Task 14).
+  - `DemandResolver::relevantVersion(string $kind): int`: the highest `capability.{id}.changed_at` across `thallo.search` and the kind's required capabilities, read fresh from `thallo_system_flags`.
   - `Reconciler::runAll(bool $full)` goes through `WorkspaceRunner::each()`: `ForEachTenant::run` when enforcement is active, else the single store.
   - `Reconciler::recoverIfDue()`: the boot recovery, which runs `runAll(false)` only when any workspace has demand. It also compares the evaluated availability of search kinds against `search.availability_marker` in `SystemChannel`, for config-only flips.
   - `SearchWakeJob extends Job`. `getData()['workspace']` is `?string`; `handle()` runs `Reconciler::runWorkspace(false)` inside `WorkspaceRunner::in($workspace)`.
@@ -1089,6 +1137,9 @@ interface HtmlTextExtractor
   - `testARolledBackRequestDispatchesNothing`: `request()` inside a transaction that throws gives no demand row and no push.
   - `testANewWorkspaceGetsDemandAndRebuildsAlone`: create workspace ws3 (`TenancyFixture`) after Search was on. Its first suggestion request (`/_search/suggest?q=a`, after Task 15; here assert `DemandResolver` directly) has `'new_workspace'`. `runAll()` builds ws3 and leaves ws1's generation unchanged.
   - `testTaxonomyAndManualDemandAndCompletionAcknowledgesOnlyStartDemand`: add demand during a run (a hook); afterwards `satisfied_seq` equals the start value and `pending` is still `'demand'`.
+  - `testAFailedCapabilityTriggeredRebuildIsRetriedByTheSchedule`: create capability demand. Make the first run's batch fail (store double), so the outcome is `FAILED`, `reconciled_version` is unchanged, and `pending` is still `'capability'`. Let the store succeed and run `search:reconcile` (the scheduled command): it rebuilds and the demand clears.
+  - `testAFailedSchemaTriggeredRebuildIsRetriedByTheSchedule`: the same with a bumped `schemaVersion()`.
+  - `testBusyAndLostLeaveDemandOutstanding`: a held claim gives `BUSY`; a fence lost mid-run gives `LOST`. In both, `pending` is unchanged.
   - `testAFullReconcileRebuildsAReadyKind`: a ready kind with no demand, then `runWorkspace(true)`, gives a new generation.
   - `testAConfigOnlyFlipIsRecoveredAtBoot`: boot with `bootAppWithConfigOverride('thallo', ['capabilities' => ['thallo.search' => true]])` (no switch written) and handle one request. `recoverIfDue` creates and runs demand for `entries`.
   - `ReindexCommandTest`:
@@ -1143,9 +1194,9 @@ interface HtmlTextExtractor
 **Interfaces:**
 - **Consumes:** `SearchInput`, `CursorSigner`, `CursorBinding`, `SearchSourceRegistry`, `IndexStore`, `SearchIndexLocator`, `CapabilityRegistry`.
 - **Produces:**
-  - `KindAvailability::available(): array<string, SearchSourceContributor>`: contributors whose `requiredCapabilities` (plus `thallo.search`) are all enabled.
+  - `KindAvailability::available(): array<string, SearchSourceContributor>`: registered contributors whose `requiredCapabilities` (plus `thallo.search`) are all enabled. `reasonFor()` names the first missing capability's label ("Requires Search" or "Requires Commerce").
   - `KindAvailability::reasonFor(string $kind): ?string`: "Requires Commerce" (the label of the first missing capability), or "No longer provided by any installed feature" for an unregistered kind.
-  - `SearchQueryService::search(SearchInput $in, SearchAudience $a, int $limit, bool $refill): SearchOutcome`.
+  - `SearchQueryService::search(SearchInput $in, SearchAudience $a, int $limit, bool $refill, ?string $typeUuid = null): SearchOutcome`.
   - `SearchOutcome`:
     - `string $state`: `results`, `empty_batch`, `no_matches`, `scope_unavailable`, `rebuilding`, `unavailable` or `no_query`;
     - `list<SearchResultItem> $items`;
@@ -1183,6 +1234,9 @@ interface HtmlTextExtractor
   - `testAFederatedQueryRetriesAfterAMissingIndex` (Meilisearch).
 
   `SearchEndpointTest` (`/v1/search`):
+  - `testTypeNarrowsToThatTypeOnly`: matching Posts and Pages both contain "rose"; `type=post` returns only Posts, and every hit's `type` is `post`;
+  - `testUnknownAndInaccessibleTypesKeepTheirResponses`: `type=nope` gives 404 "Content type not found."; a private type without a key gives 403;
+  - `testEntryHitsKeepTypeAndLocale` and `testAnEmptyQueryIs422`;
   - `testDefaultIsEntriesOnly`;
   - `testKindAllAndProducts`;
   - `testOffsetWindowsAreFixedAndNeverDuplicate`: offset 0 and 10 with withdrawn candidates inside the first window; no item appears on both pages;
@@ -1200,7 +1254,7 @@ interface HtmlTextExtractor
   1. `q === ''` gives `no_query`.
   2. If the scope is unavailable or names an unavailable kind, `scope_unavailable` with the label and reason.
   3. Kinds = all available kinds, or the one. Each read mode comes from `SearchIndexLocator`: `rebuilding` for any kind (and every requested kind rebuilding or empty) gives `rebuilding`; kinds in `empty` mode are skipped.
-  4. Filters = `contributor->visibilityFilter($a)`, per kind.
+  4. Filters = `contributor->visibilityFilter($a)`, per kind. **The API's `type` narrows `entries`** (the adapter resolves it first, step 4 of the adapter below): the entries filter becomes `all() ∩ {typeUuid}` = `subtypes([typeUuid])`, or `subtypes(S) ∩ {typeUuid}`. An empty intersection can't happen, because the adapter refuses an inaccessible type first. `SearchQueryService::search` takes it as `?string $typeUuid`.
   5. Start from `cursor->rawOffset`, or `offset`, or 0.
   6. Loop over batches of `limit` (at most `1 + (refill ? 3 : 0)`): `store->search(targets, StoreQuery(...))`; group hits by kind, then `present($a, locale, ids)`; walk the hits in score order, counting examined; keep the non-null ones until `limit`. Stop when the page is full or the backend is exhausted (`offset + count(batch hits) >= total`).
   7. `next` = sign(binding, offset + examined) when not exhausted.
@@ -1216,11 +1270,12 @@ interface HtmlTextExtractor
   4. Then emit `htmlspecialchars(segment)` and `<mark>` + `htmlspecialchars(match)` + `</mark>` alternately.
 - [ ] **Step 4: Implement the adapters.**
   - **`SearchController`** (`/v1/search`):
-    1. `SearchInput::from($request->query->all(), Surface::API, …)`, catching `InvalidSearchInput` into `Response::error(msg, status)`.
+    1. `SearchInput::from($request->query->all(), Surface::API, …)`, catching `InvalidSearchInput` into `Response::error(msg, status)`. An empty or missing `q` keeps today's 422: "A non-empty `q` query parameter is required."
     2. The audience is `apiKey(scopes)` when the request carries `api_key_scopes`, else `public()`.
     3. The cursor is verified against `CursorBinding::of(...)`; a bad one gives 400.
-    4. Search with `refill = (cursor present)`.
-    5. Map to the envelope; `state` `unavailable` or `rebuilding` gives 503.
+    4. **Type:** when `type` is given, `ContentTypeReader::findUuidBySlug`. Null keeps today's `Response::notFound('Content type not found.')`, and a type the audience can't see keeps today's `Response::forbidden('This content type requires a scoped API key')` (`VisibilityResolver::isTypeAccessible`). The uuid is passed to the service.
+    5. Search with `refill = (cursor present)`.
+    6. Map to the envelope. Entry hits keep today's fields `uuid`, `type` (the content-type **slug**, from `ContentTypeReader::deliveryTypes()[subtype]['slug']`; `StoreHit` gains `?string $subtype` for this) and `locale`. Every hit gains `kind`, plus `source_id` for non-entries. `state` `unavailable` or `rebuilding` gives 503.
   - **`SuggestController`**: `Surface::PUBLIC`, `public()` audience, limit 6, refill on; adds `Cache-Control: no-store` and `see_all` = `/search?q=…&scope=…&locale=…`.
 - [ ] **Step 5: Run the tests plus `tools/runtime-browser` `docs-search.spec.js`** (`cd tools/runtime-browser && npx playwright test tests/docs-search.spec.js`). Expected: PASS.
 - [ ] **Step 6: Regenerate OpenAPI** for `/v1/search` (memory: `CACHE_DRIVER=array composer docs:openapi`, then splice only the changed operation into `docs/openapi.json` by hand), then `cd admin && pnpm gen:api`.
@@ -1236,13 +1291,14 @@ interface HtmlTextExtractor
 - Create: `packages/thallo-commerce/src/Search/{ProductsSearchContributor,PushCatalogChangesToSearch}.php`
 - Modify: `packages/thallo-commerce/src/CommerceIntegrationServiceProvider.php`:
   - `services()`: both classes, autowired;
-  - `boot()`, inside the enabled gate with `$engineActive`: register the contributor when the container has `SearchSourceRegistry` (idempotent on `all()` keys);
+  - `boot()`, **outside** the enabled gate (like `registerShopBlockTypeContributor`): register the contributor when the container has `SearchSourceRegistry`, with a plain `register()`. A duplicate `products` kind throws, as the registry intends; nothing is silently skipped. The kind's metadata (`kind`, `label`, `requiredCapabilities`, `schemaVersion`) is therefore discoverable while Commerce is off, which is what gives "Requires Commerce" in the scope picker and the block's unavailable message. The listener registration below stays where Commerce registers its other listeners;
   - `registerShopCachePurgeListeners()`: also listen to `StorefrontCatalogChanged` with `PushCatalogChangesToSearch::onCatalogChanged`.
 - Create: `packages/thallo-render/src/Delivery/SanitizingHtmlTextExtractor.php` (implements `HtmlTextExtractor` with `RenderContextExtension::safeHtml()`'s sanitizer, then `strip_tags`, entity decode and whitespace collapse); bind it in `RenderServiceProvider::services()`.
 - Test: `tests/Integration/Commerce/ProductsSearchContributorTest.php`
 
 **Interfaces:**
 - **Consumes:** `ProductRepository::activeFilteredQuery()` and `findActiveBuyerAvailableByUuids()`, `ShopProductCardAssembler`, `CommerceTenantResolution`, `HtmlTextExtractor` (soft), `SearchIndex`.
+- **Engine work is resolved only when used.** The contributor takes the `ContainerInterface` and resolves `ProductRepository`, `ShopProductCardAssembler` and `CommerceTenantResolution` lazily inside `documents`/`enumerate`/`present`, guarded by `$container->has(ProductRepository::class)`, as `ShopBlockPreview` does. With the engine absent, it returns `[]`, an empty page, and all-null presentations.
 - **Produces** `ProductsSearchContributor`:
   - `kind() = 'products'`, `label() = 'Products'`, `requiredCapabilities() = ['thallo.commerce']`, `schemaVersion() = 1`.
   - `documents($uuid)`: `[SearchDocument('products', $uuid, '*', null, url, name, body, meta)]` when eligible, else `[]`.
@@ -1259,6 +1315,7 @@ interface HtmlTextExtractor
   - `testARenamedProductShowsItsCurrentNameWhileTheIndexIsStale`: through `SearchQueryService`, the index holds the old name (draining disabled), and a search for a word in the **old** name returns the item displaying the **new** name;
   - `testPresentReturnsPriceAndCover`: `price` is `ShopMoney::display` of the cheapest active variant, and `image` is the cover URL;
   - `testCatalogChangesReachTheJournal`: `StorefrontCatalogChanged(tenant, 'product.updated', uuid)` appends `('products', uuid)`; a null-uuid `category.changed` adds demand `taxonomy`;
+  - `testTheKindIsDiscoverableWhileCommerceIsOff`: boot with Commerce off. `SearchSourceRegistry::all()` has `products`, `KindAvailability::reasonFor('products')` is "Requires Commerce", and `documents()` / `present()` return empty without touching the engine.
   - `testCommerceOffExcludesProductsWithoutDeletingThem`: build both kinds, then boot with Commerce off; `/_search/suggest?scope=` returns no products, and the `products` documents are still in `search_documents`;
   - `testCommerceBackOnReconcilesWhatChangedWhileOff`: while off, delete one product and rename another directly through `CatalogService` (the listener is not registered while off). Turn it back on and run `search:reconcile`: the deleted one is gone from the index, and the renamed one matches its new name.
 - [ ] **Step 2: Run them.** Expected: FAIL.
@@ -1394,6 +1451,8 @@ interface HtmlTextExtractor
   - `See all is the last selectable action; No results and headings are not options`: with `state: no_matches`, the list shows a "No results" status (`role="status"`, not `role="option"`) and "See all results for “zz”" as `role="option"`.
   - `Escape closes the list, then the panel, and focus returns to the icon`: in the icon block, click the trigger; the panel is visible and focus is in its input; type, list open; Escape closes the list; Escape again hides the panel and focuses the trigger.
   - `a late response never replaces a newer query's results`: answer "r" after 300 ms and "ro" at once; after both, the list shows "ro"'s items.
+  - `an old response arriving inside the debounce window is not shown`: type "r" and let its request start. Type "o", and answer "r" within 150 ms, before "ro" dispatches: the list does not show "r"'s items, and `aria-activedescendant` is empty.
+  - `Escape before dispatch cancels the pending request`: type, then press Escape within 150 ms. No request is sent, and the list stays closed after 300 ms.
   - `a response arriving after Escape does not reopen the list`: delay the answer, press Escape, then release it; the list stays closed.
   - `live_results off sends no request`: the block with `data-live="0"`; typing sends zero `/_search/suggest` requests.
   - `a failed request shows "Suggestions are unavailable" and Enter still submits`.
@@ -1405,12 +1464,11 @@ interface HtmlTextExtractor
 - [ ] **Step 2: Run them.** `cd tools/runtime-browser && npx playwright test tests/search-block.spec.js`. Expected: FAIL.
 - [ ] **Step 3: Implement `search.js`** (an IIFE, no dependencies):
   - **Per block:** state `{seq, shownSeq, dismissed, active: -1, items: []}`.
-  - **On `input`:**
-    1. if `data-live="0"`, do nothing;
-    2. debounce 150 ms;
-    3. `seq++`, `dismissed = false`, `active = -1`;
-    4. fetch `/_search/suggest?q&scope&locale` with `credentials: 'same-origin'`;
-    5. on response: if `mySeq < state.seq || state.dismissed`, drop it; else render.
+  - **On `input`, immediately:** `seq++`, `active = -1` (clear `aria-activedescendant`), `dismissed = false`, `clearTimeout(timer)`. Any response already in flight is now stale.
+    - If `data-live="0"`, stop there.
+    - **Only the dispatch is debounced:** `timer = setTimeout(dispatch, 150)` captures `mySeq = seq`. `dispatch` fetches `/_search/suggest?q&scope&locale` with `credentials: 'same-origin'`.
+    - **On response:** if `mySeq !== state.seq || state.dismissed`, drop it; else render.
+  - **Invalidation:** Escape, Tab and closing the panel all `clearTimeout(timer)`, `seq++` and set `dismissed = true`. A pending timer or a response in flight can then neither render nor clear `dismissed`.
   - **Render:** an option per item (`role="option"`, `id = list.id + '-' + i`, `aria-selected`), headings as `role="presentation"`, the status text into `[data-search-status]`, and the see-all option last.
   - **Keys:**
     - ArrowDown/ArrowUp change `active` and `aria-activedescendant`;
@@ -1489,7 +1547,6 @@ interface HtmlTextExtractor
     - `{value: '', label: 'All results', available: true}`;
     - `entries` available;
     - `products` with `available` equal to the Commerce capability state and `reason: 'Requires Commerce'` when off.
-  - `testTheSameAuthorCannotRebuild`: `POST /v1/admin/search/rebuild` (Task 21) as that author gives 403. Write this test here and leave it marked `@group pending-task-21`: it runs green once Task 21 lands, and Task 21's Step 2 removes the group.
   - `testAnUnknownSourceIs404AndNoSessionIs401Or403`.
   - `testTheSourceIsResolvedInTheServersWorkspace`: with enforcement on, the response reflects the request's workspace capability state (the same as the panel's).
 - [ ] **Step 2: Write the failing admin unit test.** `optionsSourceField.spec.ts` mocks `@/queries/fieldOptions` with plain refs, in the `generalSettingsPage.spec.ts` style:
@@ -1519,7 +1576,7 @@ interface HtmlTextExtractor
       }
   }
   ```
-  `SearchScopesOptionSource`: `id()` is `'thallo-search.scopes'` and `permission()` is `'content.edit'`. `options()` is "All results" followed by each **registered** kind (`SearchSourceRegistry::all()`, which is empty when Search is off: then only "All results"), each with `KindAvailability`'s `available` and `reasonFor()`. Kinds whose contributor isn't registered at all are absent, which is how the admin knows "no longer provided".
+  `SearchScopesOptionSource`: `id()` is `'thallo-search.scopes'` and `permission()` is `'content.edit'`. `options()` is "All results" followed by each **registered** kind (`SearchSourceRegistry::all()`; contributors register regardless of capabilities), each with `KindAvailability`'s `available` and `reasonFor()`. Kinds whose contributor isn't registered at all are absent, which is how the admin knows "no longer provided".
 - [ ] **Step 5: Implement the admin side.** `OptionsSourceField.vue`:
   ```vue
   <script setup lang="ts">
@@ -1586,7 +1643,7 @@ interface HtmlTextExtractor
   - `testRebuildCommitsDemandBeforeDispatch`: bind a `QueueManager` spy. The demand row exists when `push` is called (assert inside the spy). The response is 202 `recorded: true`.
   - `testRebuildWithAFailingQueueIsReportedTruthfully`: `push` throws. The response is still 202 `recorded: true`. The next status has `stalled: true` and the error text begins `queue:`.
   - `testARolledBackRebuildDispatchesNothing`: wrap the controller call in a transaction that throws after it. No demand row and no push.
-  - `testRebuildNeedsManage`: a `content.edit`-only author gets 403. Remove the `pending-task-21` group from Task 20's test here.
+  - `testAnAuthorWhoCanEditButNotManageCannotRebuild`: the `content.edit`-only author from Task 20's test (same role helper) gets 403 on `POST /v1/admin/search/rebuild`, while `GET /v1/admin/field-options/thallo-search.scopes` still gives that author 200.
   - `testAnUnavailableKindCannotBeRebuilt`: `{kind: 'products'}` with Commerce off gives 422.
 - [ ] **Step 2: Write the failing admin tests.** `searchSettingsPage.spec.ts` mocks `@/queries/searchStatus` with refs, and `useIntervalFn` with `vi.useFakeTimers()`:
   - the table renders one row per kind with status badges;
@@ -1602,7 +1659,7 @@ interface HtmlTextExtractor
 - [ ] **Step 3: Run them.** Expected: FAIL.
 - [ ] **Step 4: Implement** the controller, the routes, the queries (typed client after `pnpm gen:api`), the page (a `UDashboardPanel` with a `UTable` of kinds, an engine card, and the cutover notice), the poller, the pill and the General help text: "Indexing runs automatically; progress and problems appear in Settings › Search." The pill's data comes from `useSearchStatus()`, enabled only for the Search card.
 - [ ] **Step 5: Regenerate OpenAPI** for the two admin operations (with `CACHE_DRIVER=array`, splicing by hand), then `pnpm gen:api`.
-- [ ] **Step 6: Run** the server tests, the admin gates and Task 20's author test. Expected: PASS.
+- [ ] **Step 6: Run** the server tests and the admin gates. Expected: PASS.
 - [ ] **Step 7: Commit** with a changelog bullet: "**Settings › Search** shows each kind's index status, progress and last error, with Rebuild buttons, and says when background processing isn't running. Extensions › Capabilities shows Search's state." Message: `feat(search): Settings › Search with status and Rebuild`.
 
 ## Task 22: docs, upgrade notes, and the release gates
