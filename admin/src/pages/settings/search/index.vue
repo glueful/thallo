@@ -52,8 +52,12 @@ const STATUS: Record<
 
 async function onRebuild(kind: string | null) {
   try {
-    await rebuild.mutateAsync(kind)
-    success(kind === null ? 'Rebuild requested for every kind' : 'Rebuild requested')
+    const result = await rebuild.mutateAsync(kind)
+    if (result?.queued === false) {
+      success('Rebuild requested; it will start when background processing runs')
+    } else {
+      success(kind === null ? 'Rebuild requested for every kind' : 'Rebuild requested')
+    }
   } catch (e) {
     notifyError(e, 'Couldn’t request a rebuild')
   }

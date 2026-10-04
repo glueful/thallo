@@ -153,6 +153,8 @@ final class SearchPageTest extends AppTestCase
             $res = $this->site->page($uri);
             self::assertStringContainsString('no-store', (string) $res->headers->get('Cache-Control'), $uri);
             self::assertSame('noindex', $res->headers->get('X-Robots-Tag'), $uri);
+            $html = (string) $res->getContent();
+            self::assertStringContainsString('<meta name="robots" content="noindex">', $html, $uri);
         }
     }
 

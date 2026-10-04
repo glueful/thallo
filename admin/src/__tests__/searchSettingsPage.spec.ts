@@ -20,8 +20,9 @@ vi.mock('@/queries/searchStatus', async (importOriginal) => {
     useSearchRebuild: () => ({ mutateAsync: rebuild, isLoading: ref(false) }),
   }
 })
+const success = vi.fn()
 vi.mock('@/composables/useNotify', () => ({
-  useNotify: () => ({ success: vi.fn(), error: vi.fn() }),
+  useNotify: () => ({ success, error: vi.fn() }),
 }))
 
 import SearchSettingsPage from '@/pages/settings/search/index.vue'
@@ -74,6 +75,21 @@ describe('Settings › Search', () => {
     await wrapper.get('[data-test="search-rebuild-entries"]').trigger('click')
     await wrapper.get('[data-test="search-rebuild-all"]').trigger('click')
     expect(rebuild.mock.calls).toEqual([['entries'], [null]])
+  })
+
+  it('says when the rebuild could not be queued', async () => {
+    success.mockReset()
+    rebuild.mockResolvedValueOnce({ recorded: true, queued: false })
+    rebuild.mockResolvedValueOnce({ recorded: true, queued: true })
+    const wrapper = mount(SearchSettingsPage)
+    await wrapper.get('[data-test="search-rebuild-entries"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-test="search-rebuild-entries"]').trigger('click')
+    await flushPromises()
+    expect(success.mock.calls).toEqual([
+      ['Rebuild requested; it will start when background processing runs'],
+      ['Rebuild requested'],
+    ])
   })
 
   it('says when background processing has not picked a request up', () => {

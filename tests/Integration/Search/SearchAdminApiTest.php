@@ -68,6 +68,8 @@ final class SearchAdminApiTest extends AppTestCase
         self::assertTrue($this->json($res)['recorded']);
         self::assertCount(1, $this->pushes);
         self::assertSame([1], $this->demandSeenAtPush, 'the demand row existed when the wake-up was queued');
+        self::assertTrue($this->json($res)['queued']);
+        self::assertSame('Rebuild requested.', json_decode((string) $res->getContent(), true)['message']);
     }
 
     public function testRebuildWithAFailingQueueIsReportedTruthfully(): void
@@ -76,6 +78,12 @@ final class SearchAdminApiTest extends AppTestCase
         $res = $this->controller()->rebuild($this->body([]));
         self::assertSame(202, $res->getStatusCode());
         self::assertTrue($this->json($res)['recorded']);
+        self::assertFalse($this->json($res)['queued']);
+        self::assertSame(
+            'Rebuild requested; it will start when background processing runs.',
+            json_decode((string) $res->getContent(), true)['message'],
+        );
+        self::assertSame(2, $this->connection()->table('search_index_demand')->count(), 'every kind recorded');
 
         $kinds = array_column($this->json($this->controller()->status())['kinds'], null, 'kind');
         self::assertTrue($kinds['entries']['stalled']);

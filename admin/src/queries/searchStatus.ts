@@ -32,12 +32,18 @@ export async function fetchSearchStatus(): Promise<SearchStatus> {
   return (json.data ?? json) as SearchStatus
 }
 
-export async function requestRebuild(kind: string | null): Promise<{ recorded: boolean }> {
+export interface RebuildResult {
+  recorded: boolean
+  /** false when the wake-up could not be queued; the scheduled reconcile still picks it up */
+  queued: boolean
+}
+
+export async function requestRebuild(kind: string | null): Promise<RebuildResult> {
   const json = await authFetch(`${base()}/rebuild`, {
     method: 'POST',
     body: JSON.stringify(kind === null ? {} : { kind }),
   })
-  return (json.data ?? json) as { recorded: boolean }
+  return (json.data ?? json) as RebuildResult
 }
 
 export function useSearchStatus(enabled: () => boolean = () => true) {
