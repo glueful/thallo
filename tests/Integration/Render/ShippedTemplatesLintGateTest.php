@@ -56,6 +56,7 @@ final class ShippedTemplatesLintGateTest extends AppTestCase
             $repoRoot . '/packages/thallo-render/themes/default/templates',
             $repoRoot . '/packages/thallo-account/templates',
             $repoRoot . '/packages/thallo-commerce/templates',
+            $repoRoot . '/packages/thallo-search/templates',
         ];
         foreach ($roots as $root) {
             $it = new \RecursiveIteratorIterator(

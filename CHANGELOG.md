@@ -31,6 +31,8 @@ as the next release, never a mutated tag.
   was indexed, is never shown. Snippets come from the current text.
 - **Products appear in search** when Search and Commerce are both on, always showing the current name,
   price and picture.
+- **A Search block**: a search field, or an icon that opens one. It can sit in the header, and its scope
+  chooses all results or one kind (pages, products). It hides itself when its scope isn't available.
 
 ## [1.0.0-beta.80] - 2026-10-03 — Developer Preview
 
