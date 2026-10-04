@@ -16,6 +16,8 @@ final class FakeMeilisearch implements MeilisearchIndex
 {
     public string $version = '1.10.0';
     public bool $autoComplete = true;
+    /** The next N document additions fail asynchronously (accepted, then failed). */
+    public int $failNextAdds = 0;
     /** @var list<array{indexUid: string, q: string, filter: string}> */
     public array $lastQueries = [];
     /** @var array<string, array{settings: array<string, mixed>, docs: array<string, array<string, mixed>>}> */
@@ -37,6 +39,12 @@ final class FakeMeilisearch implements MeilisearchIndex
 
     public function addDocuments(string $uid, array $documents): int
     {
+        if ($this->failNextAdds > 0) {
+            $this->failNextAdds--;
+            $task = $this->nextTask++;
+            $this->tasks[$task] = ['status' => 'failed', 'apply' => static fn () => null, 'error' => 'batch failed'];
+            return $task;
+        }
         return $this->enqueue(function () use ($uid, $documents): void {
             // Like the real server, adding to a missing index creates it.
             $this->indexes[$uid] ??= ['settings' => [], 'docs' => []];
