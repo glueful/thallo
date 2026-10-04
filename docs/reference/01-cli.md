@@ -100,7 +100,10 @@ Check that this host can run a Thallo instance: PHP, extensions, paths, database
 |---|---|
 | `--strict` | Treat warnings (e.g. absent security keys) as failures |
 
-One row per check, each OK, WARN or FAIL. Any FAIL fails the command.
+One row per check, each OK, WARN or FAIL. Any FAIL fails the command. The `schedule` row warns when
+`config/schedule.php` is missing a job Thallo runs on (`schedules_run`, `render_availability_purge`,
+`search_reconcile`, `search_reconcile_full`): the file is your own copy, so a job a release adds runs
+only once you list it. `thallo:provision` repeats the warning when it finishes.
 
 ```bash
 $ php glueful thallo:doctor --strict

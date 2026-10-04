@@ -42,6 +42,32 @@ final class DoctorTest extends TestCase
         return $dir;
     }
 
+    public function testAScheduleMissingTheJobsThalloRunsOnWarnsAndNamesThem(): void
+    {
+        $dir = $this->tempProject(withEnv: true, withExample: true);
+        mkdir($dir . '/config');
+        file_put_contents($dir . '/config/schedule.php', "<?php\nreturn ['jobs' => [\n"
+            . "    ['name' => 'schedules_run', 'schedule' => '* * * * *', 'handler_class' => 'X'],\n]];\n");
+        $check = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql']))->preflight())['schedule'];
+        self::assertSame(Check::WARN, $check->status);
+        foreach (['render_availability_purge', 'search_reconcile', 'search_reconcile_full'] as $job) {
+            self::assertStringContainsString($job, $check->message);
+        }
+        self::assertStringNotContainsString('schedules_run', $check->message);
+    }
+
+    public function testAScheduleWithEveryJobIsOkAndNoScheduleFileIsNotChecked(): void
+    {
+        $dir = $this->tempProject(withEnv: true, withExample: true);
+        mkdir($dir . '/config');
+        copy(dirname(__DIR__, 3) . '/skeleton/config/schedule.php', $dir . '/config/schedule.php');
+        $checks = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql']))->preflight());
+        self::assertSame(Check::OK, $checks['schedule']->status);
+
+        $bare = $this->tempProject(withEnv: true, withExample: true);
+        self::assertArrayNotHasKey('schedule', $this->byName((new Doctor($bare, '8.3.0', ['pdo_pgsql']))->preflight()));
+    }
+
     public function testDevelopmentModeWithAPublicBaseUrlWarns(): void
     {
         $dir = $this->tempProjectWithEnv("APP_ENV=development\nBASE_URL=https://thallo.dev\n");

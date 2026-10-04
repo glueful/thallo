@@ -49,7 +49,8 @@ as the next release, never a mutated tag.
   `search_reconcile` and `search_reconcile_full`, which build and repair the search index, and
   `render_availability_purge`, which finishes the delayed CDN purge after a feature is switched on
   or off. Your schedule is your own copy and replaces the shipped list, so without them search
-  only builds when a visitor's request or a **Rebuild** press wakes the queue.
+  only builds when a visitor's request or a **Rebuild** press wakes the queue. `thallo:provision`
+  and `thallo:doctor` name any of them your schedule is missing.
 - **A page of your own at `/search` is replaced** by the search results page; with Search off,
   `/search` is a 404. Move such a page to another path before upgrading.
 - **`search:reindex` now only records a rebuild request.** Add `--wait` to run the rebuild in the
