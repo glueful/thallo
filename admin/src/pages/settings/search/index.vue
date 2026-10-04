@@ -15,7 +15,7 @@ import {
 // refreshes when the window regains focus — so an open panel learns of a later failure.
 definePage({ meta: { requiresAuth: true, requiresCapability: 'thallo.search' } })
 
-const { success, error: notifyError } = useNotify()
+const { success, warning, error: notifyError } = useNotify()
 const { data, status, error, refresh } = useSearchStatus()
 const rebuild = useSearchRebuild()
 
@@ -54,7 +54,7 @@ async function onRebuild(kind: string | null) {
   try {
     const result = await rebuild.mutateAsync(kind)
     if (result?.queued === false) {
-      success('Rebuild requested; it will start when background processing runs')
+      warning('Rebuild requested; it will start when background processing runs')
     } else {
       success(kind === null ? 'Rebuild requested for every kind' : 'Rebuild requested')
     }
