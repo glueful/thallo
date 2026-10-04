@@ -13,6 +13,7 @@ import {
 } from '@/queries/capabilityManagement'
 import { useNotify } from '@/composables/useNotify'
 import ActivationProgress from './ActivationProgress.vue'
+import SearchStatusPill from './SearchStatusPill.vue'
 
 // One capability on Extensions › Capabilities. A feature with an activation flow turns on with one action
 // (confirm → start → continue while the server asks) and shows where its activation stands; a
@@ -153,6 +154,7 @@ async function toggleSimple(): Promise<void> {
             size="xs"
             data-test="state-badge"
           />
+          <SearchStatusPill v-if="capability.id === 'thallo.search' && capability.effective" />
         </div>
         <p v-if="capability.description" class="mt-0.5 text-xs text-muted">
           {{ capability.description }}

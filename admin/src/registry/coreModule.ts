@@ -113,6 +113,11 @@ const main: (NavigationMenuItem | SettingsAnchor)[] = [
         to: '/settings/general',
       },
       {
+        label: 'Search',
+        icon: 'i-lucide-search',
+        to: '/settings/search',
+      },
+      {
         label: 'Languages',
         icon: 'i-lucide-languages',
         to: '/settings/languages',

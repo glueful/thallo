@@ -37,6 +37,9 @@ as the next release, never a mutated tag.
   rebuilding and too many searches. It works without JavaScript.
 - **Block fields can draw their choices from the server** (`options_source`), keeping a stored choice
   that is no longer available and saying why. Authors who can edit pages see them.
+- **Settings › Search** shows each kind's index status, progress and last error, with Rebuild
+  buttons, and says when background processing isn't running. Extensions › Capabilities shows
+  Search's state.
 
 ## [1.0.0-beta.80] - 2026-10-03 — Developer Preview
 
