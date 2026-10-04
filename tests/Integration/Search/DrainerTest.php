@@ -284,6 +284,46 @@ final class DrainerTest extends AppTestCase
         self::assertTrue($this->resolved($seq));
     }
 
+    public function testALiveChangeQueuesTheDrainInsteadOfRunningItInTheRequest(): void
+    {
+        $store = $this->pgStore();
+        $this->targets('pg', 1, null, null, $store);
+        $wakes = [];
+        $index = new LiveSearchIndex(
+            $this->state,
+            $this->drainer($store),
+            $this->connection(),
+            new NullLogger(),
+            static function (array $data) use (&$wakes): void {
+                $wakes[] = $data;
+            },
+        );
+        $this->source->items['a'] = ['en' => 'Rose'];
+        $index->changed('entries', 'a');
+
+        self::assertSame([['workspace' => null]], $wakes, 'the queue worker applies it');
+        self::assertSame([], $this->locales('pg', 'a'), 'not applied in the saving request');
+    }
+
+    public function testWhenTheQueueIsDownALiveChangeIsAppliedInline(): void
+    {
+        $store = $this->pgStore();
+        $this->targets('pg', 1, null, null, $store);
+        $index = new LiveSearchIndex(
+            $this->state,
+            $this->drainer($store),
+            $this->connection(),
+            new NullLogger(),
+            static function (): void {
+                throw new \RuntimeException('queue down');
+            },
+        );
+        $this->source->items['a'] = ['en' => 'Rose'];
+        $index->changed('entries', 'a');
+
+        self::assertSame(['en'], $this->locales('pg', 'a'));
+    }
+
     public function testAnOldGenerationAckCannotSatisfyTheBuild(): void
     {
         $this->state->ensure('entries');
