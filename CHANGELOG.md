@@ -5,6 +5,12 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Fixed
+- **The Typefaces card's header no longer wraps**: Add family is a single + button, named for
+  screen readers and with its label as a tooltip.
+
 ## [1.0.0-beta.82] - 2026-10-05 — Developer Preview
 
 Typefaces for every block that shows text, from a font library of your own: seven built-ins and
