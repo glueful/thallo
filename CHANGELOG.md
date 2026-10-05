@@ -5,12 +5,15 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.82] - 2026-10-05 — Developer Preview
+
+Typefaces for every block that shows text, from a font library of your own: seven built-ins and
+families added from `.woff2` files, read for the weights and styles they really draw. Appearance's
+Custom fonts move into the library, open editors reload when the look changes elsewhere, and Black
+joins the colour choices. Run `php glueful thallo:provision` after `composer update`; read the
+Upgrade Notes.
 
 ### Added
-- **Black is a colour choice** for a block's Background, Text, Border and Aside panel colours, as
-  `#000000` in light and dark mode alike, like White. A theme of your own that doesn't map
-  `color.black` gets `#000000`.
 - **A Typeface on every block that shows text**, in the Style tab's Typography group, and in style
   classes. Each target and part keeps its own — a card's title and its text can differ. The list
   shows each family in its own face, says which weights and styles it has, and marks the weights a
@@ -25,10 +28,14 @@ as the next release, never a mutated tag.
 - **Open editors stay current.** A change to the theme, Appearance or the font library — made in
   another tab, or by someone else — reloads the stage of every open page, header and footer, and
   layout editor, keeping unsaved work and undo history.
+- **Black is a colour choice** for a block's Background, Text, Border and Aside panel colours, as
+  `#000000` in light and dark mode alike, like White. A theme of your own that doesn't map
+  `color.black` gets `#000000`.
 - **`/v1/admin/fonts`** — list, add, edit, remove, restore, delete permanently, read again, usage,
-  and usage counts for every family — and **`GET /v1/admin/render/appearance-fingerprint`**, which tells an open stage when to
-  reload. Any editor can read the font list; usage and changes need `content.manage`.
-  `DELETE /v1/blobs/{uuid}` refuses a font library file, as the media library does.
+  and usage counts for every family — and **`GET /v1/admin/render/appearance-fingerprint`**,
+  which tells an open stage when to reload. Any editor can read the font list; usage and changes
+  need `content.manage`. `DELETE /v1/blobs/{uuid}` refuses a font library file, as the media
+  library does.
 
 ### Changed
 - **Appearance's Custom picks Text and Headings from the font library**, with **Add a font…** to
@@ -45,6 +52,8 @@ as the next release, never a mutated tag.
   banner or a phone photo — and `IMAGE_MAX_WIDTH`/`IMAGE_MAX_HEIGHT` still set the limit.
 
 ### Upgrade Notes
+- `composer update && php glueful thallo:provision`, which adds the font library's tables and
+  moves Appearance's Custom fonts into it.
 - **Appearance's Custom fonts move into the font library.** `php glueful thallo:provision` turns
   the text and headings files you uploaded into font library families — "Site text", "Site
   headings", or one "Site font" when both were the same file — and Custom's Text and Headings
