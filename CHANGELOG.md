@@ -8,6 +8,11 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Fixed
+- **Large images load again after their first view.** A resized copy over 1MB (a wide banner or
+  background at 1536px and up, from an original over 2048px) was served once, then answered 500
+  on every request after it: the Redis cache stored it but could not read it back. glueful/framework
+  1.88.4 renders such a copy again instead, and stops storing what it cannot read. A copy over the
+  cache's limit is now resized on each request.
 - **An uploaded font now renders on the site.** Its files were uploaded private on an install whose
   default upload visibility is private, so the fonts stylesheet left their faces out and blocks set
   in the family showed its fallback. Adding a file to the library now makes it public, and

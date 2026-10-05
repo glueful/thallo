@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "be277d89cc6c5e9a701f3cd091abe28a",
+    "content-hash": "a2dac6e15042a7a53bd1fd11a6f95c5e",
     "packages": [
         {
             "name": "composer/semver",
@@ -848,16 +848,16 @@
         },
         {
             "name": "glueful/framework",
-            "version": "v1.88.3",
+            "version": "v1.88.4",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/framework.git",
-                "reference": "c21aa73f65af89ab89e7aa754100543f1daefb9c"
+                "reference": "848c80e76a57fd135f68b72df2a6227ecd345259"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/framework/zipball/c21aa73f65af89ab89e7aa754100543f1daefb9c",
-                "reference": "c21aa73f65af89ab89e7aa754100543f1daefb9c",
+                "url": "https://api.github.com/repos/glueful/framework/zipball/848c80e76a57fd135f68b72df2a6227ecd345259",
+                "reference": "848c80e76a57fd135f68b72df2a6227ecd345259",
                 "shasum": ""
             },
             "require": {
@@ -954,7 +954,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-10-03T20:38:55+00:00"
+            "time": "2026-10-05T21:34:20+00:00"
         },
         {
             "name": "glueful/i18n",
@@ -1793,7 +1793,7 @@
                 "glueful/audit": "^1.4",
                 "glueful/commerce": "^1.13",
                 "glueful/email-notification": "^1.14",
-                "glueful/framework": "^1.88.3",
+                "glueful/framework": "^1.88.4",
                 "glueful/i18n": "^1.2",
                 "glueful/import-export": "^1.2.1",
                 "glueful/media": "^1.2",
@@ -2035,6 +2035,7 @@
                 "glueful/framework": "^1.65.0",
                 "glueful/meilisearch": "^2.0",
                 "glueful/thallo-contracts": "self.version",
+                "glueful/thallo-render": "self.version",
                 "php": "^8.3"
             },
             "type": "library",
