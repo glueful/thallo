@@ -17,6 +17,8 @@ import { readPath, settingSegments } from '@/editor/ops/apply'
 import { BREAKPOINTS } from '@/style/types'
 import { isFolded, toggleFold } from './styleGroupFolds'
 import { pathsForTab } from './tabMap'
+import { resolve } from '@/style/resolver'
+import { suppliedWeights, useFontLibrary } from '@/queries/fontLibrary'
 
 const props = defineProps<{
   block: BlockInstance
@@ -94,6 +96,7 @@ const LABELS: Record<string, string> = {
   'spacing.margin.top': 'Margin top',
   'spacing.margin.bottom': 'Margin bottom',
   'alignment.text': 'Text alignment',
+  'typography.family': 'Typeface',
   'typography.size': 'Size',
   'typography.weight': 'Weight',
   'typography.line_height': 'Line height',
@@ -168,9 +171,17 @@ function itemsOf(rows: StylePropertyRow[]): Item[] {
   return items.sort((a, b) => position(a) - position(b))
 }
 
+/** The Typeface leads Typography: it decides which weights the rest can mean (spec §4.1). */
+function ordered(rows: StylePropertyRow[]): StylePropertyRow[] {
+  const family = rows.filter((r) => r.path === 'typography.family')
+  return [...family, ...rows.filter((r) => r.path !== 'typography.family')]
+}
+
 const groups = computed(() =>
   GROUPS.map((g) => {
-    const rows = props.schema.properties.filter((r) => allowed.value.has(r.path) && g.match(r))
+    const rows = ordered(
+      props.schema.properties.filter((r) => allowed.value.has(r.path) && g.match(r)),
+    )
     return { ...g, rows, items: itemsOf(rows), responsive: rows.some((r) => r.responsive) }
   }).filter((g) => g.rows.length > 0),
 )
@@ -187,6 +198,41 @@ function styleOf(block: BlockInstance): Record<string, unknown> {
   return typeof s === 'object' && s !== null ? (s as Record<string, unknown>) : {}
 }
 const style = computed<Record<string, unknown>>(() => styleOf(props.block))
+
+// The font library: a class's removed typeface is named, and Weight marks what the chosen family
+// does not supply (block typeface spec §4.2, §4.4).
+const { data: fontLibrary } = useFontLibrary()
+const fonts = computed(
+  () =>
+    new Map(
+      (fontLibrary.value?.families ?? []).map((f) => [f.id, { name: f.name, removed: f.removed }]),
+    ),
+)
+const WEIGHTS: Record<string, number> = { regular: 400, medium: 500, semibold: 600, bold: 700 }
+const weightMarks = computed<Record<string, string> | undefined>(() => {
+  const row = props.schema.properties.find((r) => r.path === 'typography.family')
+  if (!row) return undefined
+  const resolved = resolve(row.path, props.classes, style.value, {
+    path: row.path,
+    group: row.group,
+    responsive: row.responsive,
+    tokenDomain: row.token_domain,
+    choices: row.choices,
+    kinds: row.kinds,
+  }) as Record<string, { value: StyleValue | null }>
+  const value = resolved.base?.value
+  const family =
+    value?.type === 'font'
+      ? fontLibrary.value?.families.find((f) => f.id === value.value)
+      : undefined
+  const supplied = family && !family.removed ? suppliedWeights(family) : null
+  if (supplied === null) return undefined
+  const marks: Record<string, string> = {}
+  for (const [choice, weight] of Object.entries(WEIGHTS)) {
+    if (!supplied.has(weight)) marks[choice] = '— not in this family'
+  }
+  return marks
+})
 const styles = computed(() => (multi.value ? (props.blocks ?? []).map(styleOf) : undefined))
 
 /** How many of a group's properties this block declares at any breakpoint: a folded group's cue. */
@@ -304,6 +350,8 @@ function setCount(rows: StylePropertyRow[]): number {
               :re-resolving="reResolving"
               :active-breakpoint="activeBreakpoint"
               :vocabulary="schema.vocabulary"
+              :marks="item.def.path === 'typography.weight' ? weightMarks : undefined"
+              :fonts="fonts"
               hide-breakpoints
               @set="(path, bp, value) => emit('set', path, bp, value)"
               @set-all="(path, value) => emit('set-all', path, value)"

@@ -25,7 +25,10 @@ export function classEditorSchema(extra: StyleSchemaResult['properties'] = []): 
         (def): StylePropertyRow => ({
           path: def.path,
           group: def.group,
-          kinds: [def.tokenDomain !== null ? 'token' : 'choice', 'reset'],
+          kinds: (def.kinds as StylePropertyRow['kinds'] | undefined) ?? [
+            def.tokenDomain !== null ? 'token' : 'choice',
+            'reset',
+          ],
           responsive: def.responsive,
           token_domain: def.tokenDomain,
           choices: def.choices,

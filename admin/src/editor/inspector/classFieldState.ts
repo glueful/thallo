@@ -56,9 +56,18 @@ function stored(style: Record<string, unknown>, path: string): unknown {
   return node
 }
 
+/** A typeface property (block typeface spec §1): its value is a font ID. */
+export function isFontProperty(def: PropertyDefinition): boolean {
+  return def.kinds?.includes('font') ?? def.path === 'typography.family'
+}
+
+/** A typeface ID's shape: a reserved built-in, or a library family's 12 letters and digits. */
+const FONT_ID = /^(?:theme|serif|humanist|geometric|slab|mono|system|[A-Za-z0-9]{12})$/
+
 /** Whether the contract offers this value for the property. Tokens are judged only when named. */
 function offered(def: PropertyDefinition, value: StyleValue, tokens?: readonly string[]): boolean {
   if (value.type === 'reset') return true
+  if (isFontProperty(def)) return value.type === 'font' && FONT_ID.test(value.value)
   if (def.choices !== null) return value.type === 'choice' && def.choices.includes(value.value)
   if (def.tokenDomain !== null) {
     return value.type === 'token' && (tokens === undefined || tokens.includes(value.value))
@@ -72,6 +81,8 @@ export function classFieldState(
   breakpoint: Breakpoint,
   /** The vocabulary's names for the property's token domain; absent, tokens are not judged. */
   tokens?: readonly string[],
+  /** The font library's families by ID, so a removed one is named as such (block typeface §4.4). */
+  fonts?: ReadonlyMap<string, { name: string; removed: boolean }>,
 ): ClassFieldState {
   if (!def.responsive) {
     // Stored under a breakpoint, a non-responsive property resolves to nothing — the resolver
@@ -109,7 +120,9 @@ export function classFieldState(
   if (!offered(def, value, tokens)) {
     return { kind: 'invalid', from, value, label: 'Invalid', declaredHere }
   }
+  const family = value.type === 'font' ? fonts?.get(value.value) : undefined
+  const setLabel = family?.removed ? `Set — removed typeface: ${family.name}` : 'Set'
   return declaredHere
-    ? { kind: 'set', from, value, label: 'Set', declaredHere }
+    ? { kind: 'set', from, value, label: setLabel, declaredHere }
     : { kind: 'inherited', from, value, label: `Inherited from ${origin.breakpoint}`, declaredHere }
 }

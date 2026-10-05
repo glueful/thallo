@@ -136,10 +136,14 @@ final class FontLibraryApiTest extends AppTestCase
     {
         $blob = $this->upload('fontstatic01', 'static-700.woff2');
         $id = (string) self::data($this->create('Brand', [$blob]))['family']['id'];
-        $res = $this->controller()->index();
+        $manager = $this->userWith('test_font_picker_manager', ['content.manage']);
+        $res = $this->controller()->index($this->requestAs($manager));
         self::assertSame(200, $res->getStatusCode());
         $data = self::data($res);
-        self::assertSame(['families', 'theme_face'], array_keys($data), 'no usage in the picker');
+        self::assertSame(['families', 'theme_face', 'can_manage'], array_keys($data), 'no usage in the picker');
+        self::assertTrue($data['can_manage']);
+        $editor = $this->userWith('test_font_picker_editor', ['content.edit']);
+        self::assertFalse(self::data($this->controller()->index($this->requestAs($editor)))['can_manage']);
         $builtIns = ['theme', 'serif', 'humanist', 'geometric', 'slab', 'mono', 'system'];
         self::assertSame($builtIns, array_slice(array_column($data['families'], 'id'), 0, 7));
         self::assertSame('builtin', $data['families'][0]['kind']);
