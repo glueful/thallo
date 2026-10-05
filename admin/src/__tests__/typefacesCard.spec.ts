@@ -273,4 +273,18 @@ describe('TypefacesCard', () => {
     await flushPromises()
     expect(m.readAgain.mutateAsync).toHaveBeenCalledWith('Uk3dE5fG7hJ9')
   })
+
+  it('says when a family has a file the site cannot serve', () => {
+    library.value = fontLibrary()
+    library.value.families.find((f) => f.id === 'Vr3dE5fG7hJ9')!.faces[0]!.url = ''
+    const w = mountCard()
+    expect(
+      w.find('[data-test="typeface-family-Vr3dE5fG7hJ9"] [data-test="family-unserved"]').text(),
+    ).toBe(
+      'A file of this family is private, so visitors get the fallback. Add it again from a public upload.',
+    )
+    expect(
+      w.find('[data-test="typeface-family-Ab3dE5fG7hJ9"] [data-test="family-unserved"]').exists(),
+    ).toBe(false)
+  })
 })

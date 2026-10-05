@@ -322,4 +322,22 @@ describe.each(['entry design', 'region', 'layout'])('the %s stage', () => {
     expect(reloads.count).toBe(1)
     unmount()
   })
+
+  it('with auto-apply off, edits not yet applied are shown again after the reload', async () => {
+    let current = 'fp-1'
+    const { host, editor, unmount } = await opened(() => current)
+    edit(editor, 'Unapplied')
+    await flushPromises()
+    expect(host.apply).not.toHaveBeenCalled()
+    current = 'fp-2'
+    changes.listener!({ kind: 'appearance', at: Date.now() })
+    await flushPromises()
+    stageReady('fp-2')
+    await flushPromises()
+    expect(host.apply).toHaveBeenCalledTimes(1)
+    expect(
+      (host.apply.mock.calls[0]![1].body as { data: { title: string } }[])[0]!.data.title,
+    ).toBe('Unapplied')
+    unmount()
+  })
 })

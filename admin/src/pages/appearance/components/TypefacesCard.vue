@@ -211,6 +211,14 @@ const hasUnknown = (family: FontFamily) => family.faces.some((f) => f.unknown)
             <p class="text-xs text-muted">
               {{ facesLabel(family) }} · Falls back to {{ family.fallback ?? 'sans-serif' }}
             </p>
+            <p
+              v-if="family.faces.some((f) => f.url === '')"
+              class="text-xs text-warning"
+              data-test="family-unserved"
+            >
+              A file of this family is private, so visitors get the fallback. Add it again from a
+              public upload.
+            </p>
             <div class="flex flex-wrap gap-2 text-xs">
               <button
                 type="button"

@@ -1821,7 +1821,10 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
       startAppearanceReload()
       return
     }
-    if (applyQueued.value) void runApply(true)
+    // The reloaded stage shows the last applied tree. Edits not yet applied — queued during the
+    // reload, or held because Auto is off — are applied now, or the stage would silently drop them.
+    // An apply only renders the preview; nothing is saved.
+    if (applyQueued.value || stageStale.value) void runApply(true)
   }
 
   let checkingAppearance = false
