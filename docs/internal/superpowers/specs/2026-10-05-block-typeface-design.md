@@ -42,13 +42,32 @@ Built-ins resolve to their real stacks, never wrapped in a generated family name
 - `serif`, `humanist`, `geometric`, `slab`, `mono`, `system` — the named stacks `ThemeDesign`
   already defines (for example `serif` is `"Iowan Old Style","Palatino Linotype","Book Antiqua",
   Georgia,serif`).
-- `theme` — the theme's own face. A theme declares its stack in `theme.json` (the default theme:
+- `theme` — the theme's own face, from optional `theme.json` metadata (§2.2.1; the default theme:
   Figtree, then the system stack).
 
 The Theme face's `@font-face` rules are **always declared**; whether to **preload** it stays a
 separate decision (§3.6). Today `font_faces_style()` suppresses the declarations when the site's
 text uses another face (`RenderContextExtension.php:2090`); that suppression moves to the preload
 only, so a block set to Theme renders in the theme's face on a site whose body is Serif.
+
+#### 2.2.1 Themes without the face metadata
+
+The `theme.json` face declaration is **optional**. Existing themes keep working unchanged:
+
+- **Ordinary rendering is untouched.** The metadata is read only to resolve an explicit **Theme**
+  choice (the `t-font-theme` utility) and the inspector's faces line. A theme's own CSS, and every
+  target with no Typeface setting, render exactly as before.
+- **No declaration:** an explicit Theme choice resolves to the documented system stack
+  (`ThemeDesign`'s `system` stack: `system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+  Arial, sans-serif`), and the inspector says "This theme declares no face; Theme uses the system
+  stack."
+- **Declared face files missing:** a face whose file is absent is not declared (the same existence
+  check `font_faces_style()` uses today); the stack's next family renders. Nothing errors, and the
+  inspector shows "Supplied by the theme" only for faces that exist.
+- **A theme switch while an editor is open:** `t-font-theme` lives in the theme's compiled settings
+  artifact, so a switch re-keys it with the appearance fingerprint. The open stage refreshes from one
+  new snapshot (theme and library), as in §4.5, keeping the document and undo history; the inspector
+  re-reads the Theme face line. Stored values never change — `theme` stays `theme`.
 
 ### 2.3 Uploaded families
 
@@ -90,8 +109,8 @@ Three distinct cases:
 A file the reader cannot parse still becomes a face, so nothing disappears in the upgrade (§2.7).
 This is **compatibility behaviour, not metadata**: it keeps the old declaration (`font-weight:
 100 900`, normal style). Its faces are labelled **Unknown faces**, weight predictions are suppressed
-for it (§5.2), and **Read again** is offered with the warning that success may change how the font
-renders. A newly added file that cannot be read is refused instead (§5.5).
+for it (§4.2), and **Read again** is offered with the warning that success may change how the font
+renders. A newly added file that cannot be read is refused instead (§4.6).
 
 ### 2.6 Lifecycle
 
@@ -274,9 +293,15 @@ either opens the Add family dialog and selects the new family on save.
 
 ### 4.8 Access
 
-Authors with `content.edit` may read the library for their pickers (names, faces, specimen file
-URLs). Adding, editing, deleting, restoring and Read again need `content.manage`, the permission that
-guards Site › Appearance's settings today.
+Every editor that shows Typeface can read the library for its picker. The **picker read** (names,
+faces, specimen file URLs, the Theme face line) is allowed with **any** of `content.edit`,
+`content.manage`, `templates.manage` (layout editing) or `styles.manage` (style-class editing); none of
+these implies another, so a style-class editor without `content.edit` can still pick a typeface.
+
+**Usage details** (which entries, layouts, sections, classes and assignments use a family) are a
+separate response, never part of the picker read, and need `content.manage`. Adding, editing,
+deleting, restoring and Read again also need `content.manage`, the permission that guards
+Site › Appearance's settings today.
 
 ## 5. Testing
 
@@ -300,6 +325,14 @@ guards Site › Appearance's settings today.
   including synthesis.
 - **Lifecycle:** usage scan across every listed kind, workspace-scoped; soft delete protects media;
   restore; permanent delete releases media and turns references unknown.
+- **Access:** the picker read succeeds for a user holding only `content.edit`, only `content.manage`,
+  only `templates.manage`, and only `styles.manage` (each without `content.edit` where applicable),
+  and fails with none of them; the usage response and every mutation fail without `content.manage`;
+  the picker response carries no usage details.
+- **Themes without the metadata:** a custom theme with no face declaration renders public pages and
+  the stage exactly as before for unset targets, and an explicit Theme choice resolves to the system
+  stack on both; a declared face whose file is missing is not declared; a theme switch while the
+  stage is open refreshes markup and stylesheet from one snapshot, keeping undo.
 - **Inspector:** grouping and specimens; faces line per kind; Weight marks; computed-typography
   messages keyed and stale-safe; notice wording; context-free notices in the style-class editor;
   removed/unknown states.
