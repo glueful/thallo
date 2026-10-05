@@ -14,6 +14,7 @@ on:
       - 'scripts/build-listing-layout-proof-fixtures'
       - 'scripts/build-shop-layout-proof-fixtures'
       - 'scripts/build-shop-block-proof-fixtures'
+      - 'scripts/build-typography-bridge-fixtures'
       - 'packages/thallo-commerce/assets/shop.js'
       - 'tests/fixtures/render/**'
       - 'tests/Support/ListingPageSeed.php'
@@ -48,6 +49,7 @@ on:
       - 'scripts/build-listing-layout-proof-fixtures'
       - 'scripts/build-shop-layout-proof-fixtures'
       - 'scripts/build-shop-block-proof-fixtures'
+      - 'scripts/build-typography-bridge-fixtures'
       - 'packages/thallo-commerce/assets/shop.js'
       - 'tests/fixtures/render/**'
       - 'tests/Support/ListingPageSeed.php'
@@ -199,6 +201,12 @@ jobs:
       - name: Build the shop block fixtures
         working-directory: .
         run: php scripts/build-shop-block-proof-fixtures
+
+      # The stage the computed-typography bridge reads (typography-bridge.spec.js): Links blocks in
+      # canvas mode — one nested in a Container, one without a title — then rolled back.
+      - name: Build the typography bridge fixture
+        working-directory: .
+        run: php scripts/build-typography-bridge-fixtures
 
       - uses: actions/setup-node@v6
         with:

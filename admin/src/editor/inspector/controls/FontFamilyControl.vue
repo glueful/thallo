@@ -5,7 +5,7 @@
 // and offering a way out. The same list serves a block's target, a part, and a style class.
 import { computed, ref, watch } from 'vue'
 import type { StyleValue } from '@/style/types'
-import { facesLabel, useFontLibrary, type FontFamily } from '@/queries/fontLibrary'
+import { facesLabel, suppliedWeights, useFontLibrary, type FontFamily } from '@/queries/fontLibrary'
 import { loadFamilyFaces } from '@/fonts/loadFamilyFaces'
 import { FONT_STACKS, THEME_FACE_FAMILY, fallbackStack } from '@/fonts/stacks'
 
@@ -63,6 +63,29 @@ const missing = computed<{ label: string } | null>(() => {
 const facesLine = computed(() =>
   chosen.value !== null && !chosen.value.removed ? facesLabel(chosen.value, themeFace.value) : null,
 )
+
+/**
+ * What the stage renders that the chosen family does not supply (block typeface spec §4.2): a
+ * block's target or a part only — a class renders nowhere — and only for a family whose faces are
+ * known; a built-in or a file whose weights could not be read says nothing.
+ */
+const notices = computed<string[]>(() => {
+  const family = chosen.value
+  const measured = props.computed
+  if (props.context === 'class' || props.context === 'region' || !measured || !family) return []
+  if (family.removed || suppliedWeights(family) === null) return []
+  const out: string[] = []
+  const weight = measured.weight
+  if (!family.faces.some((f) => weight >= f.weight_min && weight <= f.weight_max)) {
+    out.push(
+      `${weight} isn't supplied by ${family.name}; the browser will select an available face.`,
+    )
+  }
+  if (measured.style !== 'normal' && !family.faces.some((f) => f.italic)) {
+    out.push("There's no italic face; the browser may slant the text.")
+  }
+  return out
+})
 
 /** Each option's own face: the generated family before its fallback, a built-in's named stack. */
 function specimen(family: FontFamily): string {
@@ -184,5 +207,12 @@ function chooseAnother(): void {
     <p v-if="facesLine" class="text-[11px] text-muted" data-test="typeface-faces">
       {{ facesLine }}
     </p>
+    <div
+      v-if="notices.length > 0"
+      class="space-y-0.5 text-[11px] text-warning"
+      data-test="typeface-notice"
+    >
+      <p v-for="line in notices" :key="line">{{ line }}</p>
+    </div>
   </div>
 </template>

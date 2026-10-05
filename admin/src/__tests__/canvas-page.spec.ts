@@ -170,6 +170,8 @@ const bridge = vi.hoisted(() => {
       mirrorMove: vi.fn(),
       mirrorRemove: vi.fn(),
       mirrorDuplicate: vi.fn(),
+      requestTypography: vi.fn().mockResolvedValue(null),
+      dropTypography: vi.fn(),
       dispose: vi.fn(),
     },
   }

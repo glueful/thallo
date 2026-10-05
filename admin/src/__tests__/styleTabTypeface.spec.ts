@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { ref } from 'vue'
 import { resetFolds } from '@/editor/inspector/styleGroupFolds'
 import type { BlockType } from '@/queries/blockTypes'
 import type { FontLibraryResult } from '@/queries/fontLibrary'
 import { classEditorSchema } from './helpers/classEditorSchema'
 import { fontLibrary } from './helpers/fontLibraryFixture'
+import { StageTypographyKey } from '@/editor/stage/stageTypography'
 
 // Typeface on the Style tab (block typeface spec §4.1–§4.2; plan Task 9): first in Typography, a
 // font value when picked, "Use theme default" as its reset, and Weight marking the weights the
@@ -105,5 +106,76 @@ describe('Typeface on the Style tab', () => {
     for (const id of ['Vr3dE5fG7hJ9', 'serif', 'Uk3dE5fG7hJ9']) {
       expect(weight(family(id)).text()).not.toContain('not in this family')
     }
+  })
+})
+
+// What the stage renders (plan Task 10): the tab asks the stage for the target the typography
+// group maps to — or for its part — and asks again after every stage render; the control's
+// not-supplied notice reads the answer.
+describe('Typeface and the stage', () => {
+  const links = {
+    ...heading,
+    uuid: 'links',
+    slug: 'links',
+    style_targets: { targets: { root: {}, title: {} }, map: { typography: 'title' } },
+  } as unknown as BlockType
+
+  function mountWithStage(
+    props: Record<string, unknown>,
+    answer: { weight: number; style: string } | null = { weight: 600, style: 'normal' },
+  ) {
+    const renders = ref(0)
+    const request = vi.fn(() => Promise.resolve(answer))
+    const w = mount(StyleTab, {
+      props: {
+        block: {
+          id: 'b1',
+          type: 'links',
+          data: {},
+          settings: { style: family('Ab3dE5fG7hJ9') },
+        },
+        blockType: links,
+        schema: classEditorSchema(),
+        classes: [],
+        activeBreakpoint: 'base',
+        ...props,
+      } as never,
+      global: {
+        stubs: { RouterLink: { template: '<a><slot /></a>' } },
+        provide: { [StageTypographyKey as symbol]: { request, renders } },
+      },
+    })
+    return { w, request, renders }
+  }
+
+  it("asks for the target the typography group maps to, and shows what isn't supplied", async () => {
+    const { w, request } = mountWithStage({})
+    await flushPromises()
+    expect(request).toHaveBeenCalledWith('b1', 'title')
+    expect(w.find('[data-test="typeface-notice"]').text()).toContain("600 isn't supplied by Brand")
+  })
+
+  it('asks again after each stage render', async () => {
+    const { request, renders } = mountWithStage({})
+    await flushPromises()
+    renders.value++
+    await flushPromises()
+    expect(request).toHaveBeenCalledTimes(2)
+  })
+
+  it('asks for a part by its name', async () => {
+    const { request } = mountWithStage({ context: 'part', part: 'link' })
+    await flushPromises()
+    expect(request).toHaveBeenCalledWith('b1', 'link')
+  })
+
+  it('never asks for a class or a multi-selection', async () => {
+    const { request } = mountWithStage({ context: 'class' })
+    await flushPromises()
+    expect(request).not.toHaveBeenCalled()
+    const block = { id: 'b2', type: 'links', data: {}, settings: {} }
+    const multi = mountWithStage({ blocks: [block, block], blockTypes: [links, links] })
+    await flushPromises()
+    expect(multi.request).not.toHaveBeenCalled()
   })
 })

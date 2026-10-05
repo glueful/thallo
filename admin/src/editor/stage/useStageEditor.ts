@@ -1,9 +1,10 @@
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch, type Ref } from 'vue'
 import { visibleTypes } from '@/editor/palette/order'
 import { MAX_BLOCK_DEPTH, useBlockTypes } from '@/queries/blockTypes'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import { proseRichFieldName } from '@/fields/components/blocks/proseDetection'
 import { useCanvasBridge } from '@/composables/useCanvasBridge'
+import { StageTypographyKey, type StageTypography } from '@/editor/stage/stageTypography'
 import { createApplyMetrics, type ApplyPath } from '@/editor/applyMetrics'
 import { createEditorHistory, type EditorHistory } from '@/editor/ops/history'
 import { diffDocuments } from '@/editor/ops/diff'
@@ -1733,11 +1734,22 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   let switchingNow = false
   // A stage showing its expired page renews through the host, as a dead token does (spec §6.5).
   bridge.onSessionExpired(() => void switchSession(host.renew))
+  // What the stage renders a target in (block typeface plan Task 10): the Style tab asks, and asks
+  // again after each render — a load or an in-place patch; a new selection's answers are its own,
+  // so whatever is still pending is dropped.
+  const stageRenders = ref(0)
   /** The stage shows a layout's placeholder page (its sample gone): told by the stage on each load. */
   const stagePlaceholder = ref(false)
   bridge.onStageState((placeholder) => {
     stagePlaceholder.value = placeholder
+    stageRenders.value++
   })
+  const stageTypography: StageTypography = {
+    request: (id, target) => bridge.requestTypography(id, target),
+    renders: stageRenders,
+  }
+  provide(StageTypographyKey, stageTypography)
+  watch(selected, () => bridge.dropTypography())
 
   /**
    * Start over from a fresh session and its tree (a Reload after a conflict): the document, its
@@ -1767,6 +1779,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     const result = await bridge.stageRefresh()
     noteStyleGeneration(result.style_generation)
     if (result.mode === 'patched') {
+      stageRenders.value++
       if (result.epoch !== null && result.revision !== null) {
         displayed.value = { epoch: result.epoch, revision: result.revision }
       }
@@ -1796,6 +1809,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
       })
       noteStyleGeneration(swap.style_generation)
       if (swap.mode === 'patched') {
+        stageRenders.value++
         if (swap.epoch !== null && swap.revision !== null) {
           displayed.value = { epoch: swap.epoch, revision: swap.revision }
         }
@@ -2186,6 +2200,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     onSetPartAll,
     onPatchData,
     playSelectedMotion,
+    stageTypography,
     onInsertInto,
     stageEditingId,
     // style classes

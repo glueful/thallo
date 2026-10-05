@@ -5,7 +5,7 @@
 // Only properties `tabMap` assigns to Style appear here; width, placement and content
 // distribution moved to the Layout tab (container-layout spec §5), because how wide a box is and
 // how it sits in its parent are layout decisions, not styling ones.
-import { computed } from 'vue'
+import { computed, inject, ref, watch } from 'vue'
 import type { BlockType } from '@/queries/blockTypes'
 import type { StylePropertyRow, StyleSchemaResult } from '@/queries/styleSchema'
 import type { Breakpoint, StyleClassRef, StyleValue } from '@/style/types'
@@ -19,6 +19,8 @@ import { isFolded, toggleFold } from './styleGroupFolds'
 import { pathsForTab } from './tabMap'
 import { resolve } from '@/style/resolver'
 import { suppliedWeights, useFontLibrary } from '@/queries/fontLibrary'
+import type { ComputedTypography } from '@/composables/useCanvasBridge'
+import { StageTypographyKey, typographyTarget } from '@/editor/stage/stageTypography'
 
 const props = defineProps<{
   block: BlockInstance
@@ -42,6 +44,8 @@ const props = defineProps<{
   noSaveAsClass?: boolean
   /** The host has a stage that can replay a block's motion: only then is Play offered. */
   canPlayMotion?: boolean
+  /** A part's Style tab (`context` 'part'): the part's name, which the stage marks it by. */
+  part?: string
 }>()
 
 const multi = computed(() => (props.blocks?.length ?? 0) > 1)
@@ -235,6 +239,32 @@ const weightMarks = computed<Record<string, string> | undefined>(() => {
 })
 const styles = computed(() => (multi.value ? (props.blocks ?? []).map(styleOf) : undefined))
 
+// What the stage renders the typeface's target in (plan Task 10), for the not-supplied notice: a
+// single block's target or part, asked again after each stage render. Only the latest answer counts.
+const stageTypography = inject(StageTypographyKey, null)
+const measuredTarget = computed<string | null>(() => {
+  if (stageTypography === null || multi.value) return null
+  const context = props.context ?? 'block'
+  if (context === 'part') return props.part ?? null
+  return context === 'block' ? typographyTarget(props.blockType) : null
+})
+const measured = ref<ComputedTypography | null>(null)
+let measureSeq = 0
+watch(
+  () => [props.block.id, measuredTarget.value, stageTypography?.renders.value] as const,
+  ([id, target]) => {
+    const seq = ++measureSeq
+    if (stageTypography === null || target === null) {
+      measured.value = null
+      return
+    }
+    void stageTypography.request(id, target).then((value) => {
+      if (seq === measureSeq) measured.value = value
+    })
+  },
+  { immediate: true },
+)
+
 /** How many of a group's properties this block declares at any breakpoint: a folded group's cue. */
 function setCount(rows: StylePropertyRow[]): number {
   return rows.filter((row) =>
@@ -352,6 +382,7 @@ function setCount(rows: StylePropertyRow[]): number {
               :vocabulary="schema.vocabulary"
               :marks="item.def.path === 'typography.weight' ? weightMarks : undefined"
               :fonts="fonts"
+              :computed-typography="item.def.path === 'typography.family' ? measured : undefined"
               hide-breakpoints
               @set="(path, bp, value) => emit('set', path, bp, value)"
               @set-all="(path, value) => emit('set-all', path, value)"

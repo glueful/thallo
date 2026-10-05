@@ -103,6 +103,14 @@ export interface StageFragments {
   fragments: Record<string, string>
 }
 
+/** What a block's target or part renders in, as the stage computes it (block typeface plan Task 10). */
+export interface ComputedTypography {
+  weight: number
+  style: 'normal' | 'italic' | 'oblique'
+}
+
+const FONT_STYLES = new Set(['normal', 'italic', 'oblique'])
+
 export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)))
     .map((b) => b.toString(16).padStart(2, '0'))
@@ -139,6 +147,20 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   let flushResolve: (() => void) | null = null
   let pendingRefresh: { id: string; resolve: (result: StageRefreshResult) => void } | null = null
   let refreshSeq = 0
+  // Computed typography: one pending request per (block, target), the latest seq only.
+  const typographyPending = new Map<
+    string,
+    { seq: number; resolve: (value: ComputedTypography | null) => void; timer: number }
+  >()
+  let typographySeq = 0
+  const typographyKey = (id: string, target: string) => `${id}\u0000${target}`
+  function settleTypography(key: string, value: ComputedTypography | null): void {
+    const pending = typographyPending.get(key)
+    if (!pending) return
+    typographyPending.delete(key)
+    clearTimeout(pending.timer)
+    pending.resolve(value)
+  }
 
   function targetOrigin(): string {
     const src = iframeRef.value?.src ?? ''
@@ -298,6 +320,32 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     }
     if (data.type === 'thallo:scroll' && typeof data.y === 'number') {
       scrollCb?.(data.y)
+    }
+    // A target's computed weight and style: only the latest request for it is answered.
+    if (data.type === 'thallo:typography-state' && typeof data.id === 'string') {
+      const state = data as BridgeMessage & {
+        target?: unknown
+        seq?: unknown
+        weight?: unknown
+        style?: unknown
+      }
+      if (typeof state.target === 'string') {
+        const key = typographyKey(data.id, state.target)
+        const pending = typographyPending.get(key)
+        if (
+          pending !== undefined &&
+          state.seq === pending.seq &&
+          typeof state.weight === 'number' &&
+          Number.isFinite(state.weight) &&
+          typeof state.style === 'string' &&
+          FONT_STYLES.has(state.style)
+        ) {
+          settleTypography(key, {
+            weight: state.weight,
+            style: state.style as ComputedTypography['style'],
+          })
+        }
+      }
     }
     // The stage is showing its expired page (regions-stage spec §6.5).
     if (data.type === 'thallo:session-expired') sessionExpiredCb?.()
@@ -500,6 +548,26 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
       const refreshId = `f${++refreshSeq}-${nonce}`
       post({ type: 'thallo:fragments', refresh_id: refreshId, ...patch })
       return awaitAck(refreshId)
+    },
+    /**
+     * What `target` (a target or part name) of block `id` renders in. Resolves the stage's answer
+     * to THIS request only: a newer request for the same target settles this one with null, as
+     * does {@link dropTypography}; no answer within a second (an optional target the block does
+     * not render, a stage mid-reload) is null too.
+     */
+    requestTypography(id: string, target: string): Promise<ComputedTypography | null> {
+      const key = typographyKey(id, target)
+      settleTypography(key, null)
+      const seq = ++typographySeq
+      post({ type: 'thallo:typography-request', id, target, seq })
+      return new Promise((resolve) => {
+        const timer = window.setTimeout(() => settleTypography(key, null), 1000)
+        typographyPending.set(key, { seq, resolve, timer })
+      })
+    },
+    /** A selection change: every pending typography request settles with null. */
+    dropTypography(): void {
+      for (const key of typographyPending.keys()) settleTypography(key, null)
     },
     dispose(): void {
       window.removeEventListener('message', onMessage)
