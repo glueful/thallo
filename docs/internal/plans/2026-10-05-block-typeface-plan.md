@@ -238,6 +238,7 @@ final class BrotliDecoderTest extends TestCase
 {
     private const DIR = __DIR__ . '/../../fixtures/fonts/brotli';
     private const PROBE = __DIR__ . '/../../Support/Fonts/decode-probe.php';
+    private const MEMORY_BUDGET = 32 * 1024 * 1024;
 
     private function decoder(): BrotliDecoder
     {
@@ -288,8 +289,8 @@ final class BrotliDecoderTest extends TestCase
     private static function assertBounded(array $report): void
     {
         self::assertSame('REFUSED:This font is too large to read', $report['result']);
-        // 32 MiB leaves room for the decoder's window; the 64 MiB expansion itself cannot fit.
-        self::assertLessThan($report['baseline'] + 32 * 1024 * 1024, $report['peak'], 'allocated far past the cap');
+        // The budget leaves room for the decoder's window; the 64 MiB expansion itself cannot fit.
+        self::assertLessThan($report['baseline'] + self::MEMORY_BUDGET, $report['peak'], 'allocated far past the cap');
     }
 
     public function testExpansionIsBoundedInAllocationAndTime(): void
@@ -297,16 +298,21 @@ final class BrotliDecoderTest extends TestCase
         self::assertBounded(self::probe('pure'));
     }
 
-    /** The negative control: a decoder that allocates everything first must FAIL the safety check. */
-    public function testTheSafetyCheckRejectsAnUnboundedDecoder(): void
+    /**
+     * The negative control proves the MEMORY check specifically: the unbounded decoder must produce a
+     * valid report with the expected refusal (a crash, malformed output or a timeout fails here, as
+     * setup, rather than counting as proof), and its peak must exceed the budget assertBounded uses.
+     */
+    public function testTheMemoryCheckDetectsAllocateThenRefuse(): void
     {
-        try {
-            self::assertBounded(self::probe('unbounded'));
-        } catch (\PHPUnit\Framework\AssertionFailedError) {
-            $this->addToAssertionCount(1);
-            return;
-        }
-        self::fail('the safety check passed an unbounded decoder');
+        $report = self::probe('unbounded');
+        self::assertNotSame('KILLED', $report['result'], 'the control timed out: no proof either way');
+        self::assertSame('REFUSED:This font is too large to read', $report['result']);
+        self::assertGreaterThanOrEqual(
+            $report['baseline'] + self::MEMORY_BUDGET,
+            $report['peak'],
+            'the control stayed inside the budget, so the memory check proves nothing',
+        );
     }
 
     public function testThePurePhpDecoderIsFastEnoughOnRealTables(): void
@@ -359,7 +365,7 @@ final class BrotliDecoders
 
 The vendored decoder must check the running output length **as each block is emitted** (before appending the next), so output never exceeds the cap by more than one block and total allocation stays within the cap plus the decoder's window; that is what `testExpansionIsBoundedInAllocationAndTime` measures (and the negative control proves the check can fail).
 
-- [ ] **Step 6: Run it.** Expected: PASS, including the negative control failing the safety check. If any criterion fails for every pure-PHP candidate, stop and ask the user.
+- [ ] **Step 6: Run it.** Expected: PASS, including the negative control producing a valid refusal whose peak exceeds the memory budget. If any criterion fails for every pure-PHP candidate, stop and ask the user.
 
 - [ ] **Step 7: Write the failing reader test** `tests/Unit/Fonts/Woff2FaceReaderTest.php`:
 
@@ -713,8 +719,8 @@ Notice text (block/part context, only when `suppliedWeights` is non-null): weigh
 
 **Files:**
 - Create: `admin/src/pages/appearance/components/{TypefacesCard,FontFamilyDialog,FontUsageDialog,FontFamilyPicker}.vue`, `admin/src/composables/useAppearanceChanges.ts`
-- Modify: `admin/src/pages/appearance/index.vue` (card; Custom's Text/Headings use `FontFamilyPicker`; `FontFaceField` removed), `admin/src/queries/fontLibrary.ts` (mutations), `admin/src/editor/stage/types.ts` (`StageHost.appearanceFingerprint`), `admin/src/editor/stage/useStageEditor.ts` (freshness and `refreshAfterAppearanceChange()`), the three hosts (`pages/content/[type]/[uuid]/design/[locale].vue`, `pages/regions/useRegionHost.ts`, `pages/layouts/useLayoutHost.ts`), `packages/thallo-render/routes/admin-routes.php` and `src/Http/Controllers/RenderAdminController.php` (the read endpoint), the stage render responses (add `appearance_fingerprint` beside `style_generation`)
-- Create: `admin/src/queries/appearanceFingerprint.ts`, `tests/Integration/Render/AppearanceFingerprintEndpointTest.php`
+- Modify: `admin/src/pages/appearance/index.vue` (card; Custom's Text/Headings use `FontFamilyPicker`; `FontFaceField` removed), `admin/src/queries/fontLibrary.ts` (mutations), `admin/src/editor/stage/types.ts` (`StageHost.appearanceFingerprint`), `admin/src/editor/stage/useStageEditor.ts` (freshness and `refreshAfterAppearanceChange()`), the three hosts (`pages/content/[type]/[uuid]/design/[locale].vue`, `pages/regions/useRegionHost.ts`, `pages/layouts/useLayoutHost.ts`), `packages/thallo-render/src/RenderServiceProvider.php` (load `stage-routes.php` unconditionally), the stage render responses (add `appearance_fingerprint` beside `style_generation`)
+- Create: `packages/thallo-render/routes/stage-routes.php`, `packages/thallo-render/src/Http/Controllers/RenderAdminController.php`, `admin/src/queries/appearanceFingerprint.ts`, `tests/Integration/Render/AppearanceFingerprintEndpointTest.php`
 - Test: `admin/src/__tests__/typefacesCard.spec.ts`, `appearanceCustomFamilies.spec.ts`, `appearanceChanges.spec.ts`, `stageAppearanceFreshness.spec.ts`, e2e `admin/e2e/tests/typeface.spec.ts`
 
 **Card behaviour:** Built-in list with specimens; Your fonts rows (name escaped, specimen, faces line, fallback, usage count fetched lazily); Add family dialog (name, fallback, `.woff2` drop; each file uploaded via `useUploadMedia`, then `POST /fonts`; per-file reasons from the 422; duplicate face flagged); Edit; Delete → `FontUsageDialog` grouped with links, the copy distinguishing "Blocks using it inherit their parent's font" from "Appearance falls back: Text to the theme's face, Headings to Text"; Removed (collapsed) with Restore / Delete permanently; Read again on a family with unknown faces, warning "If this succeeds, the font may render differently." Appearance Custom: Text/Headings `FontFamilyPicker` (library families + "Add a font…" opening `FontFamilyDialog` and selecting the new family on save).
@@ -723,7 +729,7 @@ Notice text (block/part context, only when `suppliedWeights` is non-null): weigh
 - `useAppearanceChanges()` owns a `BroadcastChannel('thallo-appearance')` (falling back to the `storage` event on a `localStorage` key where `BroadcastChannel` is absent). After any successful library mutation or Appearance save, the tab posts `{kind: 'fonts' | 'appearance', at: Date.now()}`.
 - **Freshness check for changes made elsewhere** (another browser, another admin):
   - Every stage render response already carries `style_generation`; it now also carries `appearance_fingerprint` (the `ThemeAppearanceSource::fingerprint()` the render used — theme, appearance, fonts artifact hash). The stage editor remembers the last value it rendered with.
-  - **A new read-only endpoint**, `GET /render/appearance-fingerprint` (`packages/thallo-render/routes/admin-routes.php`, `RenderAdminController::appearanceFingerprint()`), returns `{"appearance_fingerprint": "…"}`. Permission: `content_permission:content.edit,content.manage,templates.manage` (any of the three stage editors' permissions). Workspace: the admin route group's tenant binding, so it reads the current workspace's appearance and library. Preview context: it computes the fingerprint exactly as a stage render does — saved appearance, the current library snapshot, the active theme — never an Appearance-preview token's overrides, because stages render saved appearance. It mints nothing, touches no session, and is never cached (`Cache-Control: no-store`).
+  - **A new read-only endpoint**, `GET /render/appearance-fingerprint` (`RenderAdminController::appearanceFingerprint()`), registered in a **new** routes file `packages/thallo-render/routes/stage-routes.php` that `RenderServiceProvider` loads unconditionally beside `public-routes.php` (line ~850) — **not** in `admin-routes.php`, which is loaded only when `render.db_templates` is true (line ~873), so disabling database template editing must not turn freshness polling into a 404. The file uses the same admin group as `admin-routes.php` (`auth`, `tenant_profile:admin`, `tenant_bootstrap`, `admin_tenant_binding`). It returns `{"appearance_fingerprint": "…"}`. Permission: `content_permission:content.edit,content.manage,templates.manage` (any of the three stage editors' permissions). Workspace: the admin route group's tenant binding, so it reads the current workspace's appearance and library. Preview context: it computes the fingerprint exactly as a stage render does — saved appearance, the current library snapshot, the active theme — never an Appearance-preview token's overrides, because stages render saved appearance. It mints nothing, touches no session, and is never cached (`Cache-Control: no-store`).
   - **A shared host method**: `StageHost` (`admin/src/editor/stage/types.ts`) gains `appearanceFingerprint(): Promise<string>`, implemented once in `admin/src/queries/appearanceFingerprint.ts` and wired into all three hosts — the entry Design page (`pages/content/[type]/[uuid]/design/[locale].vue`), `useRegionHost`, `useLayoutHost`.
   - The stage editor calls it on window focus and every 60 s while visible; a value different from the last rendered one means a change happened elsewhere.
 - **Reload, coordinated with applies:** `refreshAfterAppearanceChange()` (on a broadcast or a freshness mismatch) waits for the in-flight apply to settle (the editor's existing apply queue), then performs a **full iframe reload of the working copy** (the in-place patch cannot replace head stylesheet links). Edits made while the reload is in progress are queued by the existing edit-end re-arm and applied after the stage reports ready; the working copy and undo history live in the admin and are untouched.
@@ -731,7 +737,7 @@ Notice text (block/part context, only when `suppliedWeights` is non-null): weigh
 - [ ] **Step 1: Failing specs.**
   - Card and pickers: each behaviour above.
   - `appearanceChanges.spec.ts`: a mutation posts on the channel; another instance receives it; the `storage` fallback path works.
-  - `AppearanceFingerprintEndpointTest`: 200 for a user holding only `content.edit`, only `content.manage`, only `templates.manage`; 403 with none; the value equals the `appearance_fingerprint` of a stage render of the same workspace; it ignores an Appearance-preview token in the request; calling it creates no preview session or token (count the session/token store before and after) and leaves an open session's baseline revision unchanged; another workspace's change doesn't alter it (opt-in harness).
+  - `AppearanceFingerprintEndpointTest`: **with `render.db_templates=false`** (a boot with that config override) the endpoint still answers 200 with authentication, workspace and permission checks intact (403 without a permission, 401 unauthenticated); 200 for a user holding only `content.edit`, only `content.manage`, only `templates.manage`; 403 with none; the value equals the `appearance_fingerprint` of a stage render of the same workspace; it ignores an Appearance-preview token in the request; calling it creates no preview session or token (count the session/token store before and after) and leaves an open session's baseline revision unchanged; another workspace's change doesn't alter it (opt-in harness).
   - `stageAppearanceFreshness.spec.ts`, **for each of the three stage types** (entry Design, region, layout hosts): polling calls only `host.appearanceFingerprint()` — never `mint`, `apply` or `renew` — and leaves the baseline and working copy refs unchanged when the value matches; (a) **two tabs** — Appearance saved in tab A (broadcast) while tab B's stage has an unsaved edit: tab B waits for its pending apply, reloads once, keeps the edit and the undo stack; (b) **an edit arriving during the reload** is applied after the stage reports ready, exactly once; (c) **a change made elsewhere** (no broadcast): a focus event fetches a different `appearance_fingerprint` and reloads; an unchanged fingerprint does nothing; (d) removal then restoration of the selected family each trigger one reload and keep the selection.
   - E2E (`typeface.spec.ts`; the fixture builder seeds one family from `tests/fixtures/fonts/variable.woff2` and captures `api/fonts.json`; `admin/e2e/helpers.ts` routes `/fonts`; a `typeface-applied` regions scenario): choose the uploaded family on the header Links title and see `t-font-<id>` on the stage; the style-class editor shows the control without a computed notice.
 - [ ] **Step 2: Run.** Expected: FAIL.
