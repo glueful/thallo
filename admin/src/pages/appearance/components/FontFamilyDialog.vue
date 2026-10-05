@@ -95,7 +95,9 @@ async function save(): Promise<void> {
     } else {
       const blobs: string[] = []
       for (const file of unique.value) {
-        const uploaded = await uploadBlob(file)
+        // Public: the site serves a family's files to every visitor, and a private file has no
+        // address to serve (the install's default visibility may be private).
+        const uploaded = await uploadBlob(file, { visibility: 'public' })
         if (!uploaded.blob_uuid) throw new Error(`${file.name}: the upload returned no file`)
         blobs.push(uploaded.blob_uuid)
       }

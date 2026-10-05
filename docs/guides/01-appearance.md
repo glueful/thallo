@@ -100,8 +100,9 @@ chosen twice is added once. One family takes at most 18 files at a time — nine
 italic — and a set that takes too long to read is refused with `These files took too long to read;
 add fewer at a time`.
 
-A file the media library keeps private cannot be served to visitors: the family's row then says so,
-and visitors see its fallback. Add the family again from a public upload.
+A family's files are served to every visitor, so adding a file to the library makes it public,
+whatever the install's default upload visibility. Should one become private later, the family's
+row says so and visitors see its fallback; `php glueful thallo:provision` makes it public again.
 
 Each file goes to the media library, which accepts a font only while `font/woff2` is listed in
 `allowed_types` in `config/uploads.php`. An install made before that entry existed refuses it as

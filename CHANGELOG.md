@@ -8,6 +8,10 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Fixed
+- **An uploaded font now renders on the site.** Its files were uploaded private on an install whose
+  default upload visibility is private, so the fonts stylesheet left their faces out and blocks set
+  in the family showed its fallback. Adding a file to the library now makes it public, and
+  `php glueful thallo:provision` makes the files of families added before this public.
 - **The Typefaces card's header no longer wraps**: Add family is a single + button, named for
   screen readers and with its label as a tooltip.
 

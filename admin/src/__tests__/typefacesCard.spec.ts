@@ -143,6 +143,8 @@ describe('TypefacesCard', () => {
     await w.find('[data-test="font-family-save"]').trigger('click')
     await flushPromises()
     expect(upload.mock.calls.map((c) => (c[0] as File).name)).toEqual(['a.woff2', 'b.woff2'])
+    // Public, as every upload the site serves to visitors is: a private file has no address.
+    for (const call of upload.mock.calls) expect(call[1]).toEqual({ visibility: 'public' })
     expect(m.create.mutateAsync).toHaveBeenCalledWith({
       name: 'New face',
       fallback: 'sans-serif',
