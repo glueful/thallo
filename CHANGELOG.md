@@ -5,6 +5,14 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Fixed
+- **Images wider or taller than 2048px get thumbnails and resized copies again.** The media library
+  showed a broken thumbnail for them, and a Container's background, or any responsive image made
+  from them, did not load. Originals up to 6000px on either side are resized now — an ordinary
+  banner or a phone photo — and `IMAGE_MAX_WIDTH`/`IMAGE_MAX_HEIGHT` still set the limit.
+
 ## [1.0.0-beta.81] - 2026-10-04 — Developer Preview
 
 Search, on the site and across kinds: a Search block (a field, or an icon that opens one, header
