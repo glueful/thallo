@@ -97,13 +97,18 @@ final class ThemeCustomFontsTest extends AppTestCase
         self::assertSame('', (string) $this->ext('sans', ['body' => 'fontbody0001'])->themeColorsStyle());
     }
 
-    public function testTheThemesOwnFaceIsNotDownloadedWhenNothingIsSetInIt(): void
+    public function testTheThemesOwnFaceIsNotPreloadedWhenTheTextIsNotSetInIt(): void
     {
+        // Declared either way, so a block can choose the Theme typeface (block typeface spec §2.2);
+        // only the preload follows the site-wide text.
         $args = ['Figtree', 'fonts/figtree-roman-latin.woff2', 'fonts/figtree-italic-latin.woff2'];
         self::assertStringContainsString('rel="preload"', (string) $this->ext('sans', [])->fontFacesStyle(...$args));
         self::assertStringContainsString('rel="preload"', (string) $this->ext('slab', [])->fontFacesStyle(...$args));
-        self::assertSame('', (string) $this->ext('serif', [])->fontFacesStyle(...$args));
-        self::assertSame('', (string) $this->ext('custom', ['body' => 'fontbody0001'])->fontFacesStyle(...$args));
+        foreach ([['serif', []], ['custom', ['body' => 'fontbody0001']]] as [$font, $faces]) {
+            $html = (string) $this->ext($font, $faces)->fontFacesStyle(...$args);
+            self::assertStringNotContainsString('rel="preload"', $html, $font);
+            self::assertStringContainsString('@font-face { font-family: "Figtree"', $html, $font);
+        }
         self::assertStringContainsString(
             'rel="preload"',
             (string) $this->ext('custom', ['display' => 'fonthead0001'])->fontFacesStyle(...$args),
