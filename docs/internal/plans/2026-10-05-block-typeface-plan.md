@@ -15,7 +15,7 @@
 
 **Spec:** `docs/internal/superpowers/specs/2026-10-05-block-typeface-design.md` (approved at `b3e04084`). Every section is in this release.
 
-> Amended 2026-10-05 after plan review: bounded Brotli decoding proven in a killed child process, the extension used only through its incremental API, and real decompressed tables for timing (Task 1); one lock order for blobs, families and faces, with race tests (Tasks 2, 8); targets versus parts from the real model, the Links fixture and the `settings.parts.<name>` path (Tasks 5, 8); stage-only target/part marker classes (Task 10); the Appearance cutover end to end — request and preview DTOs, contract, admin types, preview flow (Task 7); absent versus deliberately cleared assignments, the appearance lock, every workspace and an atomic per-workspace marker (Task 7); cross-tab notification, a freshness fingerprint, and reloads coordinated with applies (Task 11); one specimen-loading mechanism, `FontFace` per face (Task 9); OpenAPI and `gen:api` (Task 12); all pre-change references captured before Task 4.
+> Amended 2026-10-05 after plan review: bounded Brotli decoding proven in a killed child process with a peak-memory check and an unbounded negative control, the extension not selected (its API cannot bound allocation), real decompressed tables for timing, and the generator/probe fixes (Task 1); the complete blob set locked sorted before any multi-family work (Tasks 2, 7); a read-only fingerprint endpoint and shared `StageHost` method for stage freshness (Task 11); specimen faces replaced by revision (Task 9); one lock order for blobs, families and faces, with race tests (Tasks 2, 8); targets versus parts from the real model, the Links fixture and the `settings.parts.<name>` path (Tasks 5, 8); stage-only target/part marker classes (Task 10); the Appearance cutover end to end — request and preview DTOs, contract, admin types, preview flow (Task 7); absent versus deliberately cleared assignments, the appearance lock, every workspace and an atomic per-workspace marker (Task 7); cross-tab notification, a freshness fingerprint, and reloads coordinated with applies (Task 11); one specimen-loading mechanism, `FontFace` per face (Task 9); OpenAPI and `gen:api` (Task 12); all pre-change references captured before Task 4.
 
 ## Rulings made while planning (from the code)
 
@@ -61,7 +61,7 @@
 - `Woff2FaceReader.php` — reads one `.woff2`: table directory, Brotli stream, `OS/2`, `head`, `fvar`.
 - `FaceMetadata.php` — `weightMin`, `weightMax`, `italic`, `variable`.
 - `UnreadableFont.php` — exception with a user-facing reason.
-- `Brotli/BrotliDecoder.php` (interface), `Brotli/ExtBrotliDecoder.php`, `Brotli/PurePhpBrotliDecoder.php` (wraps the vendored decoder), `Brotli/BrotliDecoders.php` (picks ext when loaded).
+- `Brotli/BrotliDecoder.php` (interface), `Brotli/PurePhpBrotliDecoder.php` (wraps the vendored decoder), `Brotli/BrotliDecoders.php` (selects it; the extension cannot bound allocation, Task 1).
 - `FontId.php` — shape validation, reserved names.
 - `FontLibrary.php` — repository over `font_families` / `font_faces`; bumps `fonts.generation`.
 - `FontLibrarySnapshot.php` — immutable view; implements the contract.
@@ -87,21 +87,21 @@
 ### Task 1: The WOFF2 reader, its dependency, and the fixture proof
 
 **Files:**
-- Create: `scripts/build-font-fixtures.py`, `tests/fixtures/fonts/*` (generated, committed, with `PROVENANCE.md` and the OFL notice), `core/src/Content/Fonts/{Woff2FaceReader,FaceMetadata,UnreadableFont}.php`, `core/src/Content/Fonts/Brotli/{BrotliDecoder,ExtBrotliDecoder,PurePhpBrotliDecoder,BrotliDecoders}.php`, `core/src/Content/Fonts/vendor-brotli/` (if selected), `tests/Unit/Fonts/BrotliDecoderTest.php`, `tests/Unit/Fonts/Woff2FaceReaderTest.php`, `tests/Support/Fonts/decode-probe.php` (the bounded-expansion probe)
+- Create: `scripts/build-font-fixtures.py`, `tests/fixtures/fonts/*` (generated, committed, with `PROVENANCE.md` and the OFL notice), `core/src/Content/Fonts/{Woff2FaceReader,FaceMetadata,UnreadableFont}.php`, `core/src/Content/Fonts/Brotli/{BrotliDecoder,PurePhpBrotliDecoder,BrotliDecoders}.php`, `core/src/Content/Fonts/vendor-brotli/`, `tests/Unit/Fonts/BrotliDecoderTest.php`, `tests/Unit/Fonts/Woff2FaceReaderTest.php`, `tests/Support/Fonts/decode-probe.php` (the bounded-allocation probe), `tests/Support/Fonts/UnboundedBrotliDecoder.php` (the negative control)
 - Modify: `composer.json` (only if a Packagist decoder is selected), `phpcs.xml` (exclude `vendor-brotli/`)
 
 **Interfaces:**
 - Produces:
   - `interface BrotliDecoder { public function decode(string $compressed, int $maxOutput): string; }` — **bounded**: it stops producing output once `$maxOutput` bytes are exceeded and throws `UnreadableFont('This font is too large to read')`; it never materialises more than `$maxOutput + one internal block` bytes. Corrupt input throws `UnreadableFont('Couldn\'t read this font\'s data')`, never a PHP error.
-  - `BrotliDecoders::best(): BrotliDecoder` — the extension decoder **only if** it meets the same bounded contract (incremental API present, below); otherwise the pure-PHP decoder.
+  - `BrotliDecoders::best(): BrotliDecoder` — always the pure-PHP decoder in this release (the extension is not selected; see the decision procedure).
   - `final class FaceMetadata { public function __construct(public int $weightMin, public int $weightMax, public bool $italic, public bool $variable) }`.
   - `final class Woff2FaceReader { public function __construct(BrotliDecoder $brotli, int $maxDecompressed = 33554432); public function read(string $path): FaceMetadata }`.
   - `final class UnreadableFont extends \RuntimeException` with `public readonly string $reason`.
 
 **Decision procedure (record the outcome as a ledger ruling):**
-1. **The extension is never trusted merely because it is installed.** `brotli_uncompress()`'s second argument is a dictionary, not an output limit, so one-shot decoding cannot be bounded. `ExtBrotliDecoder` uses the incremental API — `brotli_uncompress_init()` then `brotli_uncompress_add($ctx, $chunk, BROTLI_PROCESS)` over 16 KiB input chunks, counting output and aborting past `$maxOutput` — and `BrotliDecoders::best()` selects it only when `function_exists('brotli_uncompress_init')`. It runs the same tests as the pure-PHP decoder wherever the extension exists (CI does not have it; the tests skip it there, and the ruling records that the extension path was proven locally or left unselected).
+1. **The extension is not selected in this release.** `brotli_uncompress()`'s second argument is a dictionary, not an output limit, and the incremental API (`brotli_uncompress_add()`) has no output limit either: one call fed a 16 KiB input chunk can return many megabytes before PHP sees its length, so the bound cannot be enforced **during** expansion. There is no `ExtBrotliDecoder`. A later release may add one only with a mechanism that bounds allocation inside the extension (none exists today); the ruling records this.
 2. **The universal decoder is pure PHP** (no extension, no `proc_open`/`exec`, no FFI). Candidates in order: (a) the MIT PHP output of BrotliHaxe, vendored under `core/src/Content/Fonts/vendor-brotli/` with its license and a provenance note (commit, generator command, any patches); (b) another pure-PHP decoder found at selection time meeting the criteria. Exec-based packages (`n5s/brotli`, `vdechenaux/brotli`) are excluded.
-3. **Acceptance criteria**, proven by the tests below: byte-exact on every vector; every WOFF2 fixture read; corrupt and truncated streams rejected as `UnreadableFont`; **bounded expansion** (the probe below finishes under a hard deadline and a memory ceiling); the real decompressed table stream of `variable.woff2` decodes in under 2 s and a 1 MiB table stream in under 20 s; MIT/BSD/Apache-compatible license. If the vendored decoder has no output cap, add one in its output loop (a running count checked as each block is emitted) and record the patch in `PROVENANCE.md`.
+3. **Acceptance criteria**, proven by the tests below: byte-exact on every vector; every WOFF2 fixture read; corrupt and truncated streams rejected as `UnreadableFont`; **bounded allocation** — expanding a 64 MiB stream with a 1 MiB cap, the child process's peak memory stays under its baseline plus 32 MiB (room for the decoder's sliding window, far below the 64 MiB the expansion would need) and it refuses within a 10 s deadline, and the **negative control** (an unbounded decoder) fails the same check; the real decompressed table stream of `variable.woff2` decodes in under 2 s and a 1 MiB table stream in under 20 s; MIT/BSD/Apache-compatible license. If the vendored decoder has no output cap, add one in its output loop (a running count checked as each block is emitted) and record the patch in `PROVENANCE.md`.
 4. **If no pure-PHP candidate passes: STOP and ask the user.**
 
 - [ ] **Step 1: Write the fixture generator** `scripts/build-font-fixtures.py` (dev-only; `fontTools` and `brotli`):
@@ -142,7 +142,7 @@ woff1 = src('figtree-roman-latin.woff2'); woff1.flavor = 'woff'; woff1.save(os.p
 # The decompressed table stream (what the Brotli stream inflates to), from fontTools' reader.
 with open(variable, 'rb') as f:
     reader = WOFF2Reader(f)
-    tables = reader.transformBuffer
+    tables = reader.transformBuffer.getvalue()   # a BytesIO in fontTools
 compressed_len = struct.unpack('>I', data[20:24])[0]          # totalCompressedSize
 stream_offset = len(data) - compressed_len                       # header + directory precede it (no metadata/private blocks)
 assert brotli.decompress(data[stream_offset:]) == tables
@@ -176,22 +176,45 @@ print('fixtures written to', OUT)
 
 Run: `python3 scripts/build-font-fixtures.py`. Expected: `fixtures written to …` (the `assert` proves `font-tables` is the decompressed stream, not the compressed file). Record `fontTools` and `brotli` versions in `PROVENANCE.md`.
 
-- [ ] **Step 2: Write the bounded-expansion probe** `tests/Support/Fonts/decode-probe.php` — run in a child process so a runaway decoder is **killed**, not timed afterwards:
+- [ ] **Step 2: Write the bounded-allocation probe and the negative control.** The probe runs in a child process so a runaway decoder is **killed**, and it reports its own peak memory so "allocate everything, then refuse" is caught:
 
 ```php
 <?php
-// Usage: php -d memory_limit=96M decode-probe.php <decoder: pure|ext> <file> <maxOutput>
-// Prints REFUSED:<reason> or DECODED:<bytes>; a runaway decoder is killed by the parent.
+// tests/Support/Fonts/decode-probe.php
+// Usage: php -d memory_limit=256M decode-probe.php <pure|unbounded> <file> <maxOutput>
+// Prints one JSON line: {"result":"REFUSED:<reason>"|"DECODED:<bytes>","baseline":<bytes>,"peak":<bytes>}
 declare(strict_types=1);
 require __DIR__ . '/../../../vendor/autoload.php';
 [$_, $which, $file, $max] = $argv;
-$decoder = $which === 'ext'
-    ? new \Thallo\Core\Content\Fonts\Brotli\ExtBrotliDecoder()
+$input = (string) file_get_contents($file);
+$decoder = $which === 'unbounded'
+    ? new \Thallo\Core\Tests\Support\Fonts\UnboundedBrotliDecoder()
     : new \Thallo\Core\Content\Fonts\Brotli\PurePhpBrotliDecoder();
+gc_collect_cycles();
+memory_reset_peak_usage();
+$baseline = memory_get_usage(true);
 try {
-    echo 'DECODED:', strlen($decoder->decode((string) file_get_contents($file), (int) $max));
+    $decoded = $decoder->decode($input, (int) $max);   // evaluated before anything is printed
+    $result = 'DECODED:' . strlen($decoded);
 } catch (\Thallo\Core\Content\Fonts\UnreadableFont $e) {
-    echo 'REFUSED:', $e->reason;
+    $result = 'REFUSED:' . $e->reason;
+}
+echo json_encode(['result' => $result, 'baseline' => $baseline, 'peak' => memory_get_peak_usage(true)]);
+```
+
+`tests/Support/Fonts/UnboundedBrotliDecoder.php` — the negative control: decode everything, **then** check the length (the allocation pattern the safety test must reject):
+
+```php
+final class UnboundedBrotliDecoder implements BrotliDecoder
+{
+    public function decode(string $compressed, int $maxOutput): string
+    {
+        $all = (new PurePhpBrotliDecoder())->decode($compressed, PHP_INT_MAX);
+        if (strlen($all) > $maxOutput) {
+            throw new UnreadableFont('This font is too large to read');
+        }
+        return $all;
+    }
 }
 ```
 
@@ -207,7 +230,6 @@ namespace Thallo\Core\Tests\Unit\Fonts;
 use PHPUnit\Framework\TestCase;
 use Thallo\Core\Content\Fonts\Brotli\BrotliDecoder;
 use Thallo\Core\Content\Fonts\Brotli\BrotliDecoders;
-use Thallo\Core\Content\Fonts\Brotli\ExtBrotliDecoder;
 use Thallo\Core\Content\Fonts\Brotli\PurePhpBrotliDecoder;
 use Thallo\Core\Content\Fonts\UnreadableFont;
 
@@ -217,68 +239,74 @@ final class BrotliDecoderTest extends TestCase
     private const DIR = __DIR__ . '/../../fixtures/fonts/brotli';
     private const PROBE = __DIR__ . '/../../Support/Fonts/decode-probe.php';
 
-    /** @return iterable<string, array{string}> */
-    public static function decoders(): iterable
+    private function decoder(): BrotliDecoder
     {
-        yield 'pure php' => ['pure'];
-        yield 'extension' => ['ext'];
-    }
-
-    private function make(string $which): BrotliDecoder
-    {
-        if ($which === 'ext') {
-            if (!function_exists('brotli_uncompress_init')) {
-                self::markTestSkipped('No incremental brotli extension here; it is never selected without one.');
-            }
-            return new ExtBrotliDecoder();
-        }
         return new PurePhpBrotliDecoder();
     }
 
-    /** @dataProvider decoders */
-    public function testEveryVectorDecodesByteExact(string $which): void
+    public function testEveryVectorDecodesByteExact(): void
     {
-        $decoder = $this->make($which);
         foreach (glob(self::DIR . '/*.q*.br') ?: [] as $file) {
             $raw = (string) file_get_contents((string) preg_replace('/\.q\d+\.br$/', '.raw', $file));
-            self::assertSame($raw, $decoder->decode((string) file_get_contents($file), 1 << 22), basename($file));
+            self::assertSame($raw, $this->decoder()->decode((string) file_get_contents($file), 1 << 22), basename($file));
         }
     }
 
-    /** @dataProvider decoders */
-    public function testACorruptStreamIsUnreadableNotAnError(string $which): void
+    public function testACorruptStreamIsUnreadableNotAnError(): void
     {
         $this->expectException(UnreadableFont::class);
-        $this->make($which)->decode(substr((string) file_get_contents(self::DIR . '/text.q11.br'), 0, 40), 1 << 20);
+        $this->decoder()->decode(substr((string) file_get_contents(self::DIR . '/text.q11.br'), 0, 40), 1 << 20);
     }
 
-    /**
-     * Bounded expansion: a 64 MiB stream with a 1 MiB cap, in a child process with a 96 MiB memory
-     * limit, killed after 10 s. Only a decoder that stops expanding passes.
-     *
-     * @dataProvider decoders
-     */
-    public function testExpansionStopsAtTheCapUnderADeadline(string $which): void
+    /** Runs the probe in a child process, killed at the deadline; returns its JSON report. */
+    private static function probe(string $which): array
     {
-        $this->make($which);
-        $cmd = [PHP_BINARY, '-d', 'memory_limit=96M', self::PROBE, $which, self::DIR . '/expansion-64m.br', (string) (1 << 20)];
+        $cmd = [PHP_BINARY, '-d', 'memory_limit=256M', self::PROBE, $which, self::DIR . '/expansion-64m.br', (string) (1 << 20)];
         $proc = proc_open($cmd, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
         self::assertIsResource($proc);
+        stream_set_blocking($pipes[1], false);
         $deadline = microtime(true) + 10.0;
         $out = '';
-        stream_set_blocking($pipes[1], false);
         while (proc_get_status($proc)['running']) {
             $out .= (string) stream_get_contents($pipes[1]);
             if (microtime(true) > $deadline) {
                 proc_terminate($proc, 9);
-                self::fail('the decoder kept expanding past the deadline');
+                proc_close($proc);
+                return ['result' => 'KILLED', 'baseline' => 0, 'peak' => PHP_INT_MAX];
             }
             usleep(20000);
         }
         $out .= (string) stream_get_contents($pipes[1]);
         $err = (string) stream_get_contents($pipes[2]);
         proc_close($proc);
-        self::assertSame('REFUSED:This font is too large to read', $out, $err);
+        $report = json_decode($out, true);
+        self::assertIsArray($report, $out . $err);
+        return $report;
+    }
+
+    /** The safety check: refused at the cap, within the deadline, without allocating the expansion. */
+    private static function assertBounded(array $report): void
+    {
+        self::assertSame('REFUSED:This font is too large to read', $report['result']);
+        // 32 MiB leaves room for the decoder's window; the 64 MiB expansion itself cannot fit.
+        self::assertLessThan($report['baseline'] + 32 * 1024 * 1024, $report['peak'], 'allocated far past the cap');
+    }
+
+    public function testExpansionIsBoundedInAllocationAndTime(): void
+    {
+        self::assertBounded(self::probe('pure'));
+    }
+
+    /** The negative control: a decoder that allocates everything first must FAIL the safety check. */
+    public function testTheSafetyCheckRejectsAnUnboundedDecoder(): void
+    {
+        try {
+            self::assertBounded(self::probe('unbounded'));
+        } catch (\PHPUnit\Framework\AssertionFailedError) {
+            $this->addToAssertionCount(1);
+            return;
+        }
+        self::fail('the safety check passed an unbounded decoder');
     }
 
     public function testThePurePhpDecoderIsFastEnoughOnRealTables(): void
@@ -291,12 +319,9 @@ final class BrotliDecoderTest extends TestCase
         }
     }
 
-    public function testTheExtensionIsSelectedOnlyWithItsIncrementalApi(): void
+    public function testThePurePhpDecoderIsSelected(): void
     {
-        self::assertInstanceOf(
-            function_exists('brotli_uncompress_init') ? ExtBrotliDecoder::class : PurePhpBrotliDecoder::class,
-            BrotliDecoders::best(),
-        );
+        self::assertInstanceOf(PurePhpBrotliDecoder::class, BrotliDecoders::best());
     }
 }
 ```
@@ -323,42 +348,18 @@ final class PurePhpBrotliDecoder implements BrotliDecoder
     }
 }
 
-final class ExtBrotliDecoder implements BrotliDecoder
-{
-    private const CHUNK = 16384;
-
-    public function decode(string $compressed, int $maxOutput): string
-    {
-        $ctx = \brotli_uncompress_init();
-        $out = '';
-        $length = strlen($compressed);
-        for ($offset = 0; $offset < $length; $offset += self::CHUNK) {
-            $mode = $offset + self::CHUNK >= $length ? \BROTLI_FINISH : \BROTLI_PROCESS;
-            $piece = @\brotli_uncompress_add($ctx, substr($compressed, $offset, self::CHUNK), $mode);
-            if (!is_string($piece)) {
-                throw new UnreadableFont('Couldn\'t read this font\'s data');
-            }
-            $out .= $piece;
-            if (strlen($out) > $maxOutput) {
-                throw new UnreadableFont('This font is too large to read');
-            }
-        }
-        return $out;
-    }
-}
-
 final class BrotliDecoders
 {
     public static function best(): BrotliDecoder
     {
-        return function_exists('brotli_uncompress_init') ? new ExtBrotliDecoder() : new PurePhpBrotliDecoder();
+        return new PurePhpBrotliDecoder();   // the extension cannot bound allocation (Task 1 ruling)
     }
 }
 ```
 
-(An empty input still calls `brotli_uncompress_add($ctx, '', BROTLI_FINISH)` once; handle `$length === 0` with that single call.) If the extension's incremental mode can emit one chunk far larger than its input (a 16 KiB chunk of the 64 MiB stream inflates hugely), that is why the probe exists: if it fails for the extension, `best()` must not select it — change the condition to `false` and record the ruling.
+The vendored decoder must check the running output length **as each block is emitted** (before appending the next), so output never exceeds the cap by more than one block and total allocation stays within the cap plus the decoder's window; that is what `testExpansionIsBoundedInAllocationAndTime` measures (and the negative control proves the check can fail).
 
-- [ ] **Step 6: Run it.** Expected: PASS (extension cases skip where absent). If any criterion fails for every pure-PHP candidate, stop and ask the user.
+- [ ] **Step 6: Run it.** Expected: PASS, including the negative control failing the safety check. If any criterion fails for every pure-PHP candidate, stop and ask the user.
 
 - [ ] **Step 7: Write the failing reader test** `tests/Unit/Fonts/Woff2FaceReaderTest.php`:
 
@@ -425,7 +426,7 @@ The bomb is refused because the reader caps decoding at the **directory's own** 
 
 - [ ] **Step 10: Run both tests.** Expected: PASS.
 
-- [ ] **Step 11: Commit.** Ledger: `Task 1: Ruling: decoder = <chosen> (measured: variable <t1>s, 1 MiB <t2>s; probe refused in <t3>s); extension <selected|not selected, why> — cost if wrong: swap behind BrotliDecoder`.
+- [ ] **Step 11: Commit.** Ledger: `Task 1: Ruling: decoder = <chosen> (measured: variable <t1>s, 1 MiB <t2>s; probe refused in <t3>s, peak +<m> MiB); the extension is not selected — its API cannot bound allocation during expansion — cost if wrong: slower decoding on hosts that have it`.
 
 ```bash
 git add scripts/build-font-fixtures.py tests/fixtures/fonts tests/Support/Fonts core/src/Content/Fonts tests/Unit/Fonts phpcs.xml
@@ -447,7 +448,7 @@ git commit -m "feat(fonts): read a WOFF2 face's weight, style and range from the
   - `FontStacks`: constants `SERIF`, `SYSTEM`, `HUMANIST`, `GEOMETRIC`, `SLAB`, `MONO` (moved verbatim from `ThemeDesign`); `named(string $id): ?string` for the six device built-ins; `forFallback(string $generic): string` — `sans-serif` → `FontStacks::SYSTEM` with its trailing generic replaced by `sans-serif`; `serif` → `SERIF`; `monospace` → `MONO`; `cursive` → `"Snell Roundhand","Segoe Script","Brush Script MT",cursive`; `system-ui` → `SYSTEM`; `FALLBACKS = ['sans-serif','serif','monospace','cursive','system-ui']`.
   - `interface FontBlobFiles { public function localPath(string $blobUuid): string; }` — `StorageFontBlobFiles` copies the stored blob to a temp file the way `UploadController::readToTempFile()` does; it refuses (`UnreadableFont('That file isn\'t in the media library')`) a blob that is missing, `status != 'active'`, `deleted_at` set, not `font/woff2`, or belonging to another workspace (`blobs.tenant_uuid` checked through the workspace scope). `FixtureFontBlobFiles(array<string,string> $uuidToPath)` for tests.
   - Contracts: `FontLibraryReader { public function snapshot(): FontLibrarySnapshotView; }`; `FontLibrarySnapshotView { public function generation(): int; public function family(string $id): ?FontFamilyView; public function active(): list<FontFamilyView>; public function resolution(string $id): string /* 'builtin'|'uploaded'|'missing' */; }`; `FontFamilyView { public string $id; public string $name; public string $fallback; public bool $removed; /** @var list<array{blob_uuid:string,url:string,weight_min:int,weight_max:int,italic:bool,variable:bool,unknown:bool}> */ public array $faces; }`.
-  - `FontLibrary`: `create(string $name, string $fallback, list<string> $blobUuids): string`; `rename(string $id, string $name): void`; `setFallback(string $id, string $fallback): void`; `addFace(string $id, string $blobUuid): void`; `removeFace(string $id, string $blobUuid): void`; `remove(string $id): void`; `restore(string $id): void`; `purge(string $id): void`; `readAgain(string $id): void`; `snapshot(): FontLibrarySnapshot`; `isLibraryBlob(string $blobUuid): bool` (current or removed families); `lockBlob(string $blobUuid): void` (shared with media deletion, below).
+  - `FontLibrary`: `withBlobsLocked(list<string> $blobUuids, callable $work): mixed`; `create(string $name, string $fallback, list<string> $blobUuids): string`; `rename(string $id, string $name): void`; `setFallback(string $id, string $fallback): void`; `addFace(string $id, string $blobUuid): void`; `removeFace(string $id, string $blobUuid): void`; `remove(string $id): void`; `restore(string $id): void`; `purge(string $id): void`; `readAgain(string $id): void`; `snapshot(): FontLibrarySnapshot`; `isLibraryBlob(string $blobUuid): bool` (current or removed families); `lockBlob(string $blobUuid): void` (shared with media deletion, below).
 
 **Schema** (`042_CreateFontLibraryTables.php`, the `037_CreateLayoutsTable` pattern):
 - `font_families`: `id` string(12) primary, `tenant_uuid` string(12) nullable + index, `name` string(120), `fallback` string(16), `removed_at` timestamp nullable, `created_at`, `updated_at`.
@@ -460,7 +461,7 @@ git commit -m "feat(fonts): read a WOFF2 face's weight, style and range from the
 2. **Family row second** — `SELECT … FROM font_families WHERE id = ? FOR UPDATE`, for every mutation of that family.
 3. Then faces. All in one transaction (`Connection::transaction`), with the generation bump last.
 - Blob checks happen **after** the lock: active, not deleted, `font/woff2`, this workspace. Face-count checks happen after the family lock: `removeFace` counts faces under the lock, so two concurrent removals cannot both see two faces. Reading the file (slow) happens **before** the transaction, then the blob's state is re-checked under the lock (a blob deleted meanwhile refuses the mutation).
-- Multi-blob `create` locks blobs in sorted `uuid` order to avoid deadlocks between two creates.
+- **The complete blob set is locked up front, in sorted order, before anything else in the transaction.** `FontLibrary::withBlobsLocked(list<string> $blobUuids, callable $work): mixed` opens the transaction, locks every blob in ascending `uuid` order, then runs `$work` — and every multi-blob or multi-family operation goes through it: a multi-file `create`, and Task 7's upgrade, which creates several families in one transaction and so must collect **all** their blobs and lock them together first. Inside `withBlobsLocked`, `create`/`addFace` skip their own blob locking (they assert the blob is already held).
 
 - [ ] **Step 1: Write the failing tests.**
   - `FontIdTest`: reserved names valid; `Ab3dE5fG7hJ9` valid; `abc`, `inherit`, `reset`, `ab_cdefghijk`, `Ab3dE5fG7hJ9x`, `<script>` invalid.
@@ -468,6 +469,7 @@ git commit -m "feat(fonts): read a WOFF2 face's weight, style and range from the
   - `FontLibraryRacesTest` (uses `tests/Support/Search/RowLockHolder` — a second connection holding a row lock — to interleave):
     - `testTwoConcurrentRemovalsCannotLeaveAFamilyWithoutFaces`: family with faces A and B; connection 2 holds the family row lock and removes A; connection 1's `removeFace(B)` blocks, then sees one face and refuses ("A family keeps at least one face").
     - `testABlobDeletedWhileReadingIsRefused`: read completes, the blob is marked deleted before the transaction, `addFace` refuses under the lock.
+    - `testTwoMultiBlobOperationsNeverDeadlock`: operation 1 needs blobs {B, A} (e.g. the upgrade's Text from B, Headings from A), operation 2 is a multi-file `create` of {A, B}; started concurrently on two connections, both complete (each locks A then B), and Postgres reports no deadlock (`SQLSTATE 40P01` never raised).
 - [ ] **Step 2: Run them.** Expected: FAIL (classes missing).
 - [ ] **Step 3: Implement** the migration; `ThalloTenantTables` entries (`'font_families' => self::row($inst, [])`, `'font_faces' => self::row($inst, [['uniq_font_faces_blob', ['tenant_uuid','family_id','blob_uuid']]])`); `FontStacks` (moved constants; `ThemeDesign` references them); `FontId`; `FontBlobFiles` implementations; `FontLibrary` with the lock order above; `FontLibrarySnapshot` (immutable, built from one read at one generation).
 - [ ] **Step 4: Run them, plus** `vendor/bin/phpunit tests/Unit/Render tests/Integration/Render/AppearanceDesignTest.php` (stacks unchanged) and `THALLO_TENANCY_DEV_LINK=1 vendor/bin/phpunit tests/Integration/Content/Fonts/FontLibraryTest.php`. Expected: PASS.
@@ -602,14 +604,14 @@ A face with `unknown = true` keeps the compatibility declaration `font-weight:10
 **The upgrade, exactly:**
 - **Every workspace.** `ProvisionCommand` iterates workspaces with the tenancy context runner (`TenantContextRunner::forEachTenant()` when enforcement is active; otherwise once, single-store), and runs `FontLibraryUpgrade::run()` inside each.
 - **Marker per workspace.** `thallo.fonts.custom_migrated` lives in that workspace's `settings`; present → the step does nothing.
-- **One transaction per workspace**, under the appearance lock: read the legacy keys (`theme_font_body`, `theme_font_display`) and the new keys' **raw** states; create or reuse families; write assignments; write the marker. A crash before commit leaves no families, no assignments and no marker, so a retry starts clean. Files are read **before** the transaction (their blobs re-checked under the lock, per Task 2).
+- **One transaction per workspace**, under the appearance lock: read the legacy keys (`theme_font_body`, `theme_font_display`) and the new keys' **raw** states; **collect the complete set of blobs the step will use and lock them all, sorted, through `FontLibrary::withBlobsLocked()` before creating any family** (Task 2's rule); then create or reuse families; write assignments; write the marker. A crash before commit leaves no families, no assignments and no marker, so a retry starts clean. Files are read **before** the transaction (their blobs re-checked under the lock, per Task 2).
 - **Untouched-only.** A new assignment key is written only when its stored value is **absent** (`storedValue() === null`). A stored empty string means someone deliberately cleared it — never overwritten. `theme_font` is never changed.
 - **Shared file → one family**; names `Site text`, `Site headings`, or `Site font` when shared; fallback `system-ui` (today's stack ends in the system stack). Unreadable → a face with `unknown = true`, declared `100 900` normal.
 - **Unselected Custom** (`theme_font != custom`): families and assignments are created, inactive because `theme_font` is unchanged.
 - After the marker exists, the legacy keys are ignored by rendering and refused by the request DTO.
 
 - [ ] **Step 1: Failing tests.**
-  - Upgrade: repeatable (a second run creates nothing); shared file → one family; Text-only, Headings-only, both, unselected — each assignment as specified; **explicit clear** (new key stored as `''` before the run → left `''`); an assignment changed after the marker is never restored; **concurrent save** (a `RowLockHolder` connection holds the appearance lock while saving a new Text family; the upgrade waits, then sees a stored value and leaves it); **interrupted retry** (throw inside the transaction after family creation; no families, assignments or marker remain; the next run completes); unreadable → unknown face; every workspace visited, each with its own marker (opt-in harness).
+  - Upgrade: **the deadlock race** — Text from blob B and Headings from blob A, against a concurrent multi-file `create` of {A, B}: both finish, no `40P01`; repeatable (a second run creates nothing); shared file → one family; Text-only, Headings-only, both, unselected — each assignment as specified; **explicit clear** (new key stored as `''` before the run → left `''`); an assignment changed after the marker is never restored; **concurrent save** (a `RowLockHolder` connection holds the appearance lock while saving a new Text family; the upgrade waits, then sees a stored value and leaves it); **interrupted retry** (throw inside the transaction after family creation; no families, assignments or marker remain; the next run completes); unreadable → unknown face; every workspace visited, each with its own marker (opt-in harness).
   - Rendering, against the Step 0 captures from Task 4: for Text-only, Headings-only, both and shared, the sources and role assignments are identical; the declarations differ exactly by the recorded list — family names `thallo-font-<id>`, weights and styles from the file, `font-synthesis` (now `style` for uploaded roles) — and the test asserts that list, synthesis included. A removed Text family falls back to the theme face; removed Headings follow Text.
   - Re-keying: changing Text from family A to family B changes the page fingerprint (a cached page is not served) while `fonts-{hash}.css` stays the same hash (the library didn't change).
   - Preview (`AppearanceFamiliesPreviewTest`): minting a preview with an unsaved `font_text_family` renders that family's tokens; `none` previews the fallback (theme face) for a saved Text family; an invalid ID is a 422; saving then reloading `GET /settings/general` returns the saved IDs.
@@ -664,7 +666,7 @@ A face with `unknown = true` keeps the compatibility declaration `font-weight:10
 **Font loading for specimens — one mechanism: the `FontFace` API.**
 - Each uploaded **face** registers its own `FontFace` with its descriptors: `new FontFace('thallo-font-<id>', `url("<url>") format("woff2")`, { weight: min === max ? `${min}` : `${min} ${max}`, style: italic ? 'italic' : 'normal', display: 'swap' })`, added to `document.fonts` lazily when the picker opens; a face with `unknown` registers `weight: '100 900'`, `style: 'normal'` (its compatibility declaration). No stylesheet link is used in the admin.
 - **Theme's specimen** registers `theme_face.files` the same way under the family `thallo-theme-face`; with no declared files, the specimen uses the theme's stack as-is.
-- Registration is idempotent per face (a module-level `Set` of `<id>:<blob_uuid>`); a failed load leaves the option set in its stack's fallback.
+- **Registration tracks a revision and replaces obsolete faces.** A module-level registry maps `<id>:<blob_uuid>` (and, for Theme, `theme:<src>`) to `{revision, face}`, where `revision` is the face's URL plus its descriptors (`weight`, `style`). On each library or theme-face read: a key with a different revision has its old `FontFace` removed (`document.fonts.delete(old)`) and a new one added; keys no longer present (a removed face or family, a theme's dropped files, a switched theme's whole set) are removed from `document.fonts` and the registry. Unchanged keys are left alone. A failed load leaves the option set in its stack's fallback.
 
 **Behaviour:**
 - Groups **Built-in** / **Your fonts**; each option's text set in its own face.
@@ -674,7 +676,7 @@ A face with `unknown = true` keeps the compatibility declaration `font-weight:10
 - "Use theme default" (reset) with help "Returns this target to its contextual default."; Theme option help "The theme's original face."
 - Class context: the same list and faces line; no computed notice; keeps "Use theme default", "Remove", "Not set in this class".
 
-- [ ] **Step 1: Failing specs** for every behaviour above (mock `useFontLibrary` and `document.fonts`), including: one `FontFace` per face with exact descriptors; Theme files registered under `thallo-theme-face`; idempotent registration; the `classFieldState` font branch (`set` for a valid ID, `invalid` for a malformed one, `set` with the removed label for a removed one).
+- [ ] **Step 1: Failing specs** for every behaviour above (mock `useFontLibrary` and `document.fonts`), including: one `FontFace` per face with exact descriptors; Theme files registered under `thallo-theme-face`; unchanged revisions not re-registered; **after Read again** (same `<id>:<blob_uuid>`, new weight/style) the old face is deleted from `document.fonts` and one with the new descriptors added; **after a theme switch** (new `theme_face.files`) every old theme face is removed and the new ones registered — both without reloading the admin; the `classFieldState` font branch (`set` for a valid ID, `invalid` for a malformed one, `set` with the removed label for a removed one).
 - [ ] **Step 2: Run.** Expected: FAIL.
 - [ ] **Step 3: Implement.**
 - [ ] **Step 4: Run** `pnpm type-check`, the new and inspector specs, `pnpm lint`, `pnpm exec oxfmt` on touched files. Expected: PASS.
@@ -711,20 +713,26 @@ Notice text (block/part context, only when `suppliedWeights` is non-null): weigh
 
 **Files:**
 - Create: `admin/src/pages/appearance/components/{TypefacesCard,FontFamilyDialog,FontUsageDialog,FontFamilyPicker}.vue`, `admin/src/composables/useAppearanceChanges.ts`
-- Modify: `admin/src/pages/appearance/index.vue` (card; Custom's Text/Headings use `FontFamilyPicker`; `FontFaceField` removed), `admin/src/queries/fontLibrary.ts` (mutations), `admin/src/editor/stage/useStageEditor.ts` (freshness and `refreshAfterAppearanceChange()`), the regions and layout stage editors that share it, `packages/thallo-render` stage/session responses (add `appearance_fingerprint` beside `style_generation`)
+- Modify: `admin/src/pages/appearance/index.vue` (card; Custom's Text/Headings use `FontFamilyPicker`; `FontFaceField` removed), `admin/src/queries/fontLibrary.ts` (mutations), `admin/src/editor/stage/types.ts` (`StageHost.appearanceFingerprint`), `admin/src/editor/stage/useStageEditor.ts` (freshness and `refreshAfterAppearanceChange()`), the three hosts (`pages/content/[type]/[uuid]/design/[locale].vue`, `pages/regions/useRegionHost.ts`, `pages/layouts/useLayoutHost.ts`), `packages/thallo-render/routes/admin-routes.php` and `src/Http/Controllers/RenderAdminController.php` (the read endpoint), the stage render responses (add `appearance_fingerprint` beside `style_generation`)
+- Create: `admin/src/queries/appearanceFingerprint.ts`, `tests/Integration/Render/AppearanceFingerprintEndpointTest.php`
 - Test: `admin/src/__tests__/typefacesCard.spec.ts`, `appearanceCustomFamilies.spec.ts`, `appearanceChanges.spec.ts`, `stageAppearanceFreshness.spec.ts`, e2e `admin/e2e/tests/typeface.spec.ts`
 
 **Card behaviour:** Built-in list with specimens; Your fonts rows (name escaped, specimen, faces line, fallback, usage count fetched lazily); Add family dialog (name, fallback, `.woff2` drop; each file uploaded via `useUploadMedia`, then `POST /fonts`; per-file reasons from the 422; duplicate face flagged); Edit; Delete → `FontUsageDialog` grouped with links, the copy distinguishing "Blocks using it inherit their parent's font" from "Appearance falls back: Text to the theme's face, Headings to Text"; Removed (collapsed) with Restore / Delete permanently; Read again on a family with unknown faces, warning "If this succeeds, the font may render differently." Appearance Custom: Text/Headings `FontFamilyPicker` (library families + "Add a font…" opening `FontFamilyDialog` and selecting the new family on save).
 
 **Change notification across tabs, and freshness:**
 - `useAppearanceChanges()` owns a `BroadcastChannel('thallo-appearance')` (falling back to the `storage` event on a `localStorage` key where `BroadcastChannel` is absent). After any successful library mutation or Appearance save, the tab posts `{kind: 'fonts' | 'appearance', at: Date.now()}`.
-- **Freshness check for changes made elsewhere** (another browser, another admin): every stage render response already carries `style_generation`; it now also carries `appearance_fingerprint` (the `ThemeAppearanceSource::fingerprint()` the render used, which includes the fonts artifact hash and theme). The stage editor remembers the last value; on window focus and every 60 s while the editor is visible it asks the session for the current fingerprint (`GET` the existing session endpoint, now including it). A different value means a change happened elsewhere.
+- **Freshness check for changes made elsewhere** (another browser, another admin):
+  - Every stage render response already carries `style_generation`; it now also carries `appearance_fingerprint` (the `ThemeAppearanceSource::fingerprint()` the render used — theme, appearance, fonts artifact hash). The stage editor remembers the last value it rendered with.
+  - **A new read-only endpoint**, `GET /render/appearance-fingerprint` (`packages/thallo-render/routes/admin-routes.php`, `RenderAdminController::appearanceFingerprint()`), returns `{"appearance_fingerprint": "…"}`. Permission: `content_permission:content.edit,content.manage,templates.manage` (any of the three stage editors' permissions). Workspace: the admin route group's tenant binding, so it reads the current workspace's appearance and library. Preview context: it computes the fingerprint exactly as a stage render does — saved appearance, the current library snapshot, the active theme — never an Appearance-preview token's overrides, because stages render saved appearance. It mints nothing, touches no session, and is never cached (`Cache-Control: no-store`).
+  - **A shared host method**: `StageHost` (`admin/src/editor/stage/types.ts`) gains `appearanceFingerprint(): Promise<string>`, implemented once in `admin/src/queries/appearanceFingerprint.ts` and wired into all three hosts — the entry Design page (`pages/content/[type]/[uuid]/design/[locale].vue`), `useRegionHost`, `useLayoutHost`.
+  - The stage editor calls it on window focus and every 60 s while visible; a value different from the last rendered one means a change happened elsewhere.
 - **Reload, coordinated with applies:** `refreshAfterAppearanceChange()` (on a broadcast or a freshness mismatch) waits for the in-flight apply to settle (the editor's existing apply queue), then performs a **full iframe reload of the working copy** (the in-place patch cannot replace head stylesheet links). Edits made while the reload is in progress are queued by the existing edit-end re-arm and applied after the stage reports ready; the working copy and undo history live in the admin and are untouched.
 
 - [ ] **Step 1: Failing specs.**
   - Card and pickers: each behaviour above.
   - `appearanceChanges.spec.ts`: a mutation posts on the channel; another instance receives it; the `storage` fallback path works.
-  - `stageAppearanceFreshness.spec.ts`: (a) **two tabs** — Appearance saved in tab A (broadcast) while tab B's stage has an unsaved edit: tab B waits for its pending apply, reloads once, keeps the edit and the undo stack; (b) **an edit arriving during the reload** is applied after the stage reports ready, exactly once; (c) **a change made elsewhere** (no broadcast): a focus event fetches a different `appearance_fingerprint` and reloads; an unchanged fingerprint does nothing; (d) removal then restoration of the selected family each trigger one reload and keep the selection.
+  - `AppearanceFingerprintEndpointTest`: 200 for a user holding only `content.edit`, only `content.manage`, only `templates.manage`; 403 with none; the value equals the `appearance_fingerprint` of a stage render of the same workspace; it ignores an Appearance-preview token in the request; calling it creates no preview session or token (count the session/token store before and after) and leaves an open session's baseline revision unchanged; another workspace's change doesn't alter it (opt-in harness).
+  - `stageAppearanceFreshness.spec.ts`, **for each of the three stage types** (entry Design, region, layout hosts): polling calls only `host.appearanceFingerprint()` — never `mint`, `apply` or `renew` — and leaves the baseline and working copy refs unchanged when the value matches; (a) **two tabs** — Appearance saved in tab A (broadcast) while tab B's stage has an unsaved edit: tab B waits for its pending apply, reloads once, keeps the edit and the undo stack; (b) **an edit arriving during the reload** is applied after the stage reports ready, exactly once; (c) **a change made elsewhere** (no broadcast): a focus event fetches a different `appearance_fingerprint` and reloads; an unchanged fingerprint does nothing; (d) removal then restoration of the selected family each trigger one reload and keep the selection.
   - E2E (`typeface.spec.ts`; the fixture builder seeds one family from `tests/fixtures/fonts/variable.woff2` and captures `api/fonts.json`; `admin/e2e/helpers.ts` routes `/fonts`; a `typeface-applied` regions scenario): choose the uploaded family on the header Links title and see `t-font-<id>` on the stage; the style-class editor shows the control without a computed notice.
 - [ ] **Step 2: Run.** Expected: FAIL.
 - [ ] **Step 3: Implement.**
