@@ -50,6 +50,10 @@ const bridge = vi.hoisted(
       { get: (target, key: string) => target[key] ?? (() => {}) },
     ),
 )
+const fingerprint = vi.hoisted(() => ({ fetch: vi.fn(async () => 'fp-host') }))
+vi.mock('@/queries/appearanceFingerprint', () => ({
+  fetchAppearanceFingerprint: fingerprint.fetch,
+}))
 vi.mock('@/composables/useCanvasBridge', () => ({ useCanvasBridge: () => bridge }))
 
 import { regionSchema, toDocument, toPayload, useRegionHost } from '@/pages/regions/useRegionHost'
@@ -443,6 +447,17 @@ describe('the restore sequence', () => {
     expect(host.page.value).toBeUndefined()
     expect(host.switching.value).toBe(false)
     expect(editor.iframeSrc.value).toBe('/_preview/tok1?canvas=1')
+    unmount()
+  })
+})
+
+// A fresh stage (block typeface plan Task 11): the region host answers the freshness check with the
+// shared read-only query, and nothing else.
+describe('the region host and appearance freshness', () => {
+  it('asks the shared appearance fingerprint query', async () => {
+    const { host, unmount } = mountHost()
+    await expect(host.host.appearanceFingerprint()).resolves.toBe('fp-host')
+    expect(fingerprint.fetch).toHaveBeenCalledTimes(1)
     unmount()
   })
 })

@@ -1,8 +1,9 @@
-import { useQuery } from '@pinia/colada'
+import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { getActivePinia } from 'pinia'
 import { shallowRef } from 'vue'
 import { client } from '@/api/client'
 import { toApiError } from '@/api/errors'
+import { useAppearanceChanges } from '@/composables/useAppearanceChanges'
 import { qk } from './keys'
 
 // The font library (block typeface spec §2, §4): what the Typeface control offers — the built-ins,
@@ -105,4 +106,112 @@ export function suppliedWeights(family: FontFamily): Set<number> | null {
     }
   }
   return weights
+}
+
+// ── Managing the library (content.manage; block typeface plan Task 11) ──────────────────────────
+
+/** Where a family is used, as GET /fonts/{id}/usage answers. */
+export interface FontUsage {
+  entries: {
+    uuid: string
+    title: string | null
+    locale: string | null
+    draft: boolean
+    published: boolean
+    versions: boolean
+  }[]
+  regions: string[]
+  layouts: { id: string; name: string }[]
+  saved_sections: { id: string; name: string }[]
+  style_classes: { id: string; name: string }[]
+  appearance: { text: boolean; headings: boolean }
+}
+
+/** How many places a usage names: each document, region, layout, section, class and role. */
+export function usageCount(usage: FontUsage): number {
+  return (
+    usage.entries.length +
+    usage.regions.length +
+    usage.layouts.length +
+    usage.saved_sections.length +
+    usage.style_classes.length +
+    Number(usage.appearance.text) +
+    Number(usage.appearance.headings)
+  )
+}
+
+type Untyped = (
+  path: string,
+  init?: { body?: unknown },
+) => Promise<{ data?: { data: unknown }; error?: unknown; response: Response }>
+
+/** One call to a fonts endpoint; the body's `data`. */
+async function call<T>(
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  // TODO(block typeface plan, Task 12): typed once the API reference is regenerated.
+  const send = client[method] as unknown as Untyped
+  const { data, error, response } = await send(path, body === undefined ? undefined : { body })
+  if (error) throw toApiError(error, response)
+  return (data as { data: T }).data
+}
+
+export function fetchFontUsage(id: string): Promise<FontUsage> {
+  return call<FontUsage>('GET', `/fonts/${encodeURIComponent(id)}/usage`)
+}
+
+/**
+ * The library's changes. Each refreshes the library and, once it succeeds, tells the admin's other
+ * tabs, whose open stages reload to show it (useAppearanceChanges).
+ */
+export function useFontLibraryMutations() {
+  const cache = useQueryCache()
+  const changes = useAppearanceChanges()
+  const invalidate = () => cache.invalidateQueries({ key: qk.fonts() })
+  const told = () => changes.notify('fonts')
+  const path = (id: string, rest = '') => `/fonts/${encodeURIComponent(id)}${rest}`
+  const familyId = (data: { family: { id: string } }) => data.family.id
+
+  return {
+    create: useMutation({
+      mutation: async (body: { name: string; fallback: string; blob_uuids: string[] }) =>
+        familyId(await call('POST', '/fonts', body)),
+      onSuccess: told,
+      onSettled: invalidate,
+    }),
+    update: useMutation({
+      mutation: async ({ id, ...body }: { id: string; name?: string; fallback?: string }) =>
+        familyId(await call('PATCH', path(id), body)),
+      onSuccess: told,
+      onSettled: invalidate,
+    }),
+    addFace: useMutation({
+      mutation: async ({ id, blob_uuid }: { id: string; blob_uuid: string }) =>
+        familyId(await call('POST', path(id, '/faces'), { blob_uuid })),
+      onSuccess: told,
+      onSettled: invalidate,
+    }),
+    remove: useMutation({
+      mutation: (id: string) => call('DELETE', path(id)),
+      onSuccess: told,
+      onSettled: invalidate,
+    }),
+    restore: useMutation({
+      mutation: (id: string) => call('POST', path(id, '/restore')),
+      onSuccess: told,
+      onSettled: invalidate,
+    }),
+    purge: useMutation({
+      mutation: (id: string) => call('DELETE', path(id, '/permanent')),
+      onSuccess: told,
+      onSettled: invalidate,
+    }),
+    readAgain: useMutation({
+      mutation: (id: string) => call('POST', path(id, '/read-again')),
+      onSuccess: told,
+      onSettled: invalidate,
+    }),
+  }
 }

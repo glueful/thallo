@@ -73,6 +73,12 @@ export interface StageHost {
    */
   renew(fields: Record<string, unknown>): Promise<StageRenewal>
   /**
+   * What a stage render's head would depend on now — theme, saved appearance, fonts stylesheet
+   * (block typeface plan Task 11). Read-only: a value different from the one the stage rendered
+   * with means a change was made elsewhere, and the stage reloads.
+   */
+  appearanceFingerprint(): Promise<string>
+  /**
    * Extra operations a starter page brings along, riding the same transaction as its blocks
    * (the Design page hides the theme's title above a page that opens with its own h1).
    */

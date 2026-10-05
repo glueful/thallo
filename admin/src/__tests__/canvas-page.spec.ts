@@ -177,6 +177,10 @@ const bridge = vi.hoisted(() => {
   }
 })
 vi.mock('@/composables/useCanvasBridge', () => ({ useCanvasBridge: () => bridge.instance }))
+const fingerprint = vi.hoisted(() => ({ fetch: vi.fn(async () => 'fp-entry') }))
+vi.mock('@/queries/appearanceFingerprint', () => ({
+  fetchAppearanceFingerprint: fingerprint.fetch,
+}))
 // The server block factory (visual builder spec §5.5): stubbed per slug — a fresh id, the
 // canonical defaults the server would send, and the starter merged in.
 const factoryStarter: Record<string, Record<string, unknown>> = {
@@ -2858,6 +2862,19 @@ describe('the inspector tabs', () => {
     // The editing tabs keep their visible labels.
     const labelled = tabs.map((t) => t.find('[data-slot="label"]')).filter((l) => l.exists())
     expect(labelled.map((l) => l.text())).toEqual(['Content', 'Blocks', 'Page'])
+    wrapper.unmount()
+  })
+
+  // A fresh stage (block typeface plan Task 11): the Design page's host answers the freshness check
+  // with the shared read-only query.
+  it('asks the shared appearance fingerprint query on focus', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    fingerprint.fetch.mockClear()
+    const wrapper = mountPage()
+    await flushPromises()
+    window.dispatchEvent(new Event('focus'))
+    await flushPromises()
+    expect(fingerprint.fetch).toHaveBeenCalledTimes(1)
     wrapper.unmount()
   })
 })

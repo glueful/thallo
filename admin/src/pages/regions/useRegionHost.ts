@@ -19,6 +19,7 @@ import {
   type StageSession,
 } from '@/editor/stage/types'
 import type { StageEditor } from '@/editor/stage/useStageEditor'
+import { fetchAppearanceFingerprint } from '@/queries/appearanceFingerprint'
 
 // The region host (regions stage spec §5.1–§5.3): the Regions page's side of the stage editor. The
 // editor edits ONE document — both regions' block lists as root blocks fields, their settings as
@@ -144,6 +145,7 @@ export function useRegionHost(options: { regions: Ref<RegionData[] | undefined> 
     apply: (token, fields, applyOptions) => applyRegions(token, toPayload(fields), applyOptions),
     // A fresh session has no working copy to reconcile.
     reconcileOnOpen: false,
+    appearanceFingerprint: fetchAppearanceFingerprint,
     /**
      * The restore sequence (spec §5.3): mint a session for the page, apply the whole current
      * document to it with a null pair, and answer only once that apply is accepted. A newer

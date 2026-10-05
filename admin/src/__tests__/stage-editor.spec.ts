@@ -94,6 +94,7 @@ function fakeHost(options: { reconcileOnOpen?: boolean; renew?: Mock<StageHost['
         accepted: { epoch: 'e2', revision: 1 },
         retryWithExistingPair: false,
       })),
+    appearanceFingerprint: vi.fn<StageHost['appearanceFingerprint']>(async () => 'fp'),
   }
 }
 

@@ -4,6 +4,7 @@ import { MAX_BLOCK_DEPTH, useBlockTypes } from '@/queries/blockTypes'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import { proseRichFieldName } from '@/fields/components/blocks/proseDetection'
 import { useCanvasBridge } from '@/composables/useCanvasBridge'
+import { useAppearanceChanges } from '@/composables/useAppearanceChanges'
 import { StageTypographyKey, type StageTypography } from '@/editor/stage/stageTypography'
 import { createApplyMetrics, type ApplyPath } from '@/editor/applyMetrics'
 import { createEditorHistory, type EditorHistory } from '@/editor/ops/history'
@@ -1420,6 +1421,8 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
 
   // ── Apply loop (loop C spec §4): ephemeral render, nothing persisted ──────────
   const applying = ref(false)
+  /** A reload for an appearance change is in flight (see Fresh stages): applies wait for it. */
+  let appearanceReloading = false
 
   // ── Auto-apply (auto-apply spec §1): a SCHEDULER over the one runApply core ──
   const autoEnabled = ref(localStorage.getItem('thallo.canvas.auto_apply') !== '0')
@@ -1562,7 +1565,8 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
    */
   async function runApply(auto: boolean): Promise<void> {
     // A session switch owns the stage: what is edited meanwhile waits for the new session.
-    if (switchingNow) {
+    // So does a reload for an appearance change: what is edited meanwhile applies once it is ready.
+    if (switchingNow || appearanceReloading) {
       applyQueued.value = true
       return
     }
@@ -1740,9 +1744,11 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   const stageRenders = ref(0)
   /** The stage shows a layout's placeholder page (its sample gone): told by the stage on each load. */
   const stagePlaceholder = ref(false)
-  bridge.onStageState((placeholder) => {
+  bridge.onStageState((placeholder, fingerprint) => {
     stagePlaceholder.value = placeholder
     stageRenders.value++
+    if (fingerprint !== null) renderedFingerprint = fingerprint
+    if (appearanceReloading) appearanceReloaded()
   })
   const stageTypography: StageTypography = {
     request: (id, target) => bridge.requestTypography(id, target),
@@ -1750,6 +1756,103 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   }
   provide(StageTypographyKey, stageTypography)
   watch(selected, () => bridge.dropTypography())
+
+  // ── Fresh stages (block typeface plan Task 11) ────────────────────────────────────────────────
+  // A stage's head — theme, appearance, the fonts stylesheet — is fixed when it loads; an in-place
+  // patch cannot replace it. So a change announced by another tab, or found by asking the host on
+  // focus and every minute while visible, reloads the stage: after the apply in flight, once, with
+  // the working copy and its history untouched. What is edited during the reload applies once the
+  // stage reports it is ready.
+  const appearanceChanges = useAppearanceChanges()
+  /** What the stage on screen was rendered with; null until it or the host first says. */
+  let renderedFingerprint: string | null = null
+  let reloadAgain = false
+  let reloadGuard: ReturnType<typeof setTimeout> | null = null
+  let appearanceQueued: Promise<void> | null = null
+
+  /** Resolves once no apply is in flight (a coalesced follow-up counts as in flight). */
+  async function applySettled(): Promise<void> {
+    while (applying.value) {
+      await new Promise<void>((resolve) => {
+        const stop = watch(applying, (busy) => {
+          if (!busy) {
+            stop()
+            resolve()
+          }
+        })
+      })
+    }
+  }
+
+  function refreshAfterAppearanceChange(): Promise<void> {
+    if (appearanceReloading) {
+      // The page being fetched may predate this change: once it is ready, reload once more.
+      reloadAgain = true
+      return Promise.resolve()
+    }
+    appearanceQueued ??= (async () => {
+      await applySettled()
+      appearanceQueued = null
+      startAppearanceReload()
+    })()
+    return appearanceQueued
+  }
+
+  function startAppearanceReload(): void {
+    if (iframeSrc.value === '') return // no stage yet: the first load shows what is current
+    appearanceReloading = true
+    reloadAgain = false
+    reloadStage()
+    // A stage that never reports (a failed load) must not hold applies forever.
+    if (reloadGuard !== null) clearTimeout(reloadGuard)
+    reloadGuard = setTimeout(appearanceReloaded, 10_000)
+  }
+
+  function appearanceReloaded(): void {
+    if (reloadGuard !== null) clearTimeout(reloadGuard)
+    reloadGuard = null
+    appearanceReloading = false
+    if (reloadAgain) {
+      startAppearanceReload()
+      return
+    }
+    if (applyQueued.value) void runApply(true)
+  }
+
+  let checkingAppearance = false
+  async function checkAppearance(): Promise<void> {
+    if (checkingAppearance || renderDisabled.value) return
+    checkingAppearance = true
+    try {
+      const now = await host.appearanceFingerprint()
+      if (renderedFingerprint === null) {
+        renderedFingerprint = now // a theme whose stage does not say: the first answer is the baseline
+      } else if (now !== renderedFingerprint) {
+        renderedFingerprint = now
+        await refreshAfterAppearanceChange()
+      }
+    } catch {
+      // Offline, signed out, a deploy in progress: the next focus or minute asks again.
+    } finally {
+      checkingAppearance = false
+    }
+  }
+
+  appearanceChanges.onChange(() => void refreshAfterAppearanceChange())
+  const onWindowFocus = (): void => void checkAppearance()
+  let appearanceTimer: ReturnType<typeof setInterval> | null = null
+  onMounted(() => {
+    window.addEventListener('focus', onWindowFocus)
+    appearanceTimer = setInterval(() => {
+      if (document.visibilityState === 'visible') void checkAppearance()
+    }, 60_000)
+  })
+  onBeforeUnmount(() => {
+    window.removeEventListener('focus', onWindowFocus)
+    if (appearanceTimer !== null) clearInterval(appearanceTimer)
+    if (reloadGuard !== null) clearTimeout(reloadGuard)
+    appearanceChanges.dispose()
+  })
 
   /**
    * Start over from a fresh session and its tree (a Reload after a conflict): the document, its
@@ -2160,6 +2263,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     restart,
     refreshPreview,
     reloadStage,
+    refreshAfterAppearanceChange,
     resetStage,
     switchSession,
     runApply,

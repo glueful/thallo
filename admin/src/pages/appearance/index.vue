@@ -12,7 +12,10 @@ import { blobDisplayUrl } from '@/queries/media'
 import { fetchRenderThemes, type ThemeCard } from '@/queries/templates'
 import ThemeGallery from './components/ThemeGallery.vue'
 import BrandColorField from './components/BrandColorField.vue'
+import TypefacesCard from './components/TypefacesCard.vue'
+import FontFamilyPicker from './components/FontFamilyPicker.vue'
 import { useNotify } from '@/composables/useNotify'
+import { useAppearanceChanges } from '@/composables/useAppearanceChanges'
 
 definePage({ meta: { requiresAuth: true } })
 
@@ -62,28 +65,6 @@ const FONT_ITEMS = [
   { value: 'system', label: "System — each visitor's own interface font" },
   { value: 'custom', label: 'Custom — choose from the font library' },
 ]
-// Custom's Text and Headings come from the font library (block typeface spec §2.8). The built-ins
-// are always there; '' leaves the role unset (headings follow the text; no text keeps the theme's).
-const UNSET = 'unset' // a select item cannot carry '': this stands for it
-const FAMILY_ITEMS = [
-  { value: UNSET, label: 'Not set' },
-  { value: 'theme', label: 'Theme — the theme’s own font' },
-  { value: 'serif', label: 'Serif' },
-  { value: 'humanist', label: 'Humanist' },
-  { value: 'geometric', label: 'Geometric' },
-  { value: 'slab', label: 'Slab' },
-  { value: 'mono', label: 'Mono' },
-  { value: 'system', label: 'System' },
-]
-const familyModel = (key: 'theme_font_text_family' | 'theme_font_headings_family') =>
-  computed({
-    get: () => form[key] || UNSET,
-    set: (value: string) => {
-      form[key] = value === UNSET ? '' : value
-    },
-  })
-const textFamily = familyModel('theme_font_text_family')
-const headingsFamily = familyModel('theme_font_headings_family')
 const BACKGROUND_ITEMS = [
   { value: 'plain', label: 'Plain — white page, tinted panels (default)' },
   { value: 'tinted', label: 'Tinted — tinted page, white panels' },
@@ -131,10 +112,14 @@ const logoField = { name: 'site_logo', label: '', type: 'asset' } as const
 const logoDarkField = { name: 'site_logo_dark', label: '', type: 'asset' } as const
 const faviconField = { name: 'site_favicon', label: '', type: 'asset' } as const
 
+// A saved appearance changes every stage's head: the admin's other tabs reload theirs.
+const appearanceChanges = useAppearanceChanges()
+
 async function onSave() {
   try {
     await save.mutateAsync(payload())
     saved()
+    appearanceChanges.notify('appearance')
     success('Appearance saved', 'Changes apply on the next page view.')
   } catch (e) {
     notifyError(e, 'Couldn’t save the appearance settings')
@@ -261,21 +246,19 @@ async function onSave() {
                       With only a text font, headings use it too; with neither, the theme's own font
                       stays.
                     </p>
+                    <!-- Custom's Text and Headings come from the font library (block typeface
+                         spec §2.8); Not set leaves the role to its fallback. -->
                     <UFormField label="Text">
-                      <USelect
-                        v-model="textFamily"
-                        :items="FAMILY_ITEMS"
-                        value-key="value"
-                        class="w-full"
+                      <FontFamilyPicker
+                        v-model="form.theme_font_text_family"
+                        label="Text"
                         data-test="font-family-text"
                       />
                     </UFormField>
                     <UFormField label="Headings">
-                      <USelect
-                        v-model="headingsFamily"
-                        :items="FAMILY_ITEMS"
-                        value-key="value"
-                        class="w-full"
+                      <FontFamilyPicker
+                        v-model="form.theme_font_headings_family"
+                        label="Headings"
                         data-test="font-family-headings"
                       />
                     </UFormField>
@@ -292,6 +275,8 @@ async function onSave() {
                 </div>
               </div>
             </UCard>
+
+            <TypefacesCard />
 
             <UCard data-test="logos-card">
               <template #header>

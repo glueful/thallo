@@ -28,6 +28,8 @@ interface BridgeMessage {
   preset?: string
   /** stage-state: the stage shows a layout's placeholder page. */
   placeholder?: boolean
+  /** stage-state: what the stage's head was rendered with (block typeface plan Task 11). */
+  appearance_fingerprint?: unknown
   /** `thallo:history`: undo or redo, asked for from the stage. Validated before use. */
   direction?: string
 }
@@ -120,7 +122,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   let deselectCb: ((id: string) => void) | null = null
   let hoverCb: ((id: string) => void) | null = null
   let indexCb: ((ids: string[]) => void) | null = null
-  let stageStateCb: ((placeholder: boolean) => void) | null = null
+  let stageStateCb: ((placeholder: boolean, fingerprint: string | null) => void) | null = null
   let moveCb: ((id: string, delta: 1 | -1) => void) | null = null
   let dragProposeCb: ((session: string, blocks: string[], zone: StageZone | null) => void) | null =
     null
@@ -192,7 +194,13 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     if (data.type === 'thallo:blocks-index' && Array.isArray(data.ids)) {
       indexCb?.(data.ids.filter((v): v is string => typeof v === 'string'))
     }
-    if (data.type === 'thallo:stage-state') stageStateCb?.(data.placeholder === true)
+    if (data.type === 'thallo:stage-state') {
+      const fingerprint =
+        typeof data.appearance_fingerprint === 'string' && data.appearance_fingerprint !== ''
+          ? data.appearance_fingerprint
+          : null
+      stageStateCb?.(data.placeholder === true, fingerprint)
+    }
     // Stage toolbar intents (stage-toolbar spec §1).
     if (data.type === 'thallo:block-move' && typeof data.id === 'string') {
       if (data.delta === 1 || data.delta === -1) moveCb?.(data.id, data.delta)
@@ -385,8 +393,11 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     onBlocksIndex(cb: (ids: string[]) => void): void {
       indexCb = cb
     },
-    /** What the stage shows, told on each load: whether it is a layout's placeholder page. */
-    onStageState(cb: (placeholder: boolean) => void): void {
+    /**
+     * What the stage shows, told on each load: whether it is a layout's placeholder page, and what
+     * its head was rendered with (null from a theme that does not say).
+     */
+    onStageState(cb: (placeholder: boolean, fingerprint: string | null) => void): void {
       stageStateCb = cb
     },
     /** Ring `id` on the stage (with its toolbar); `ids` rings the whole sibling selection. */

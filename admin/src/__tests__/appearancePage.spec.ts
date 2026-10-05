@@ -58,6 +58,35 @@ vi.mock('@/fields/components/AssetField.vue', () => ({
   },
 }))
 
+// The font library (the Typefaces card, Custom's pickers): its own specs cover it; here, the fixture.
+const fontLib = vi.hoisted(() => ({ data: null as unknown }))
+vi.mock('@/queries/fontLibrary', async (importOriginal) => {
+  const { ref: vref } = await import('vue')
+  const { fontLibrary } = await import('./helpers/fontLibraryFixture')
+  fontLib.data = vref(fontLibrary())
+  const op = () => ({ mutateAsync: vi.fn(), isLoading: { value: false } })
+  return {
+    ...(await importOriginal<typeof import('@/queries/fontLibrary')>()),
+    useFontLibrary: () => ({ data: fontLib.data }),
+    fetchFontUsage: vi.fn(() => new Promise(() => {})),
+    useFontLibraryMutations: () => ({
+      create: op(),
+      update: op(),
+      addFace: op(),
+      remove: op(),
+      restore: op(),
+      purge: op(),
+      readAgain: op(),
+    }),
+  }
+})
+vi.mock('@/fonts/loadFamilyFaces', () => ({ loadFamilyFaces: vi.fn(() => Promise.resolve()) }))
+// A saved appearance tells the admin's other tabs, whose open stages reload.
+const told = vi.hoisted(() => vi.fn())
+vi.mock('@/composables/useAppearanceChanges', () => ({
+  useAppearanceChanges: () => ({ notify: told, onChange: () => () => {}, dispose: () => {} }),
+}))
+
 import AppearancePage from '@/pages/appearance/index.vue'
 
 const settings = (): GeneralSettings => ({
@@ -430,5 +459,39 @@ describe('appearance page', () => {
     settingsData.value = { ...settings(), site_logo: 'fromserver01' }
     await flushPromises()
     expect(await save(wrapper)).toMatchObject({ site_logo: 'blob00000042' })
+  })
+
+  // Fonts (block typeface plan Task 11): the Typefaces card, and Custom's pickers from the library.
+  it('shows the Typefaces card, where the Typeface control’s Restore link leads', async () => {
+    settingsData.value = settings()
+    const wrapper = mount(AppearancePage)
+    await flushPromises()
+    expect(wrapper.find('#typefaces[data-test="typefaces-card"]').exists()).toBe(true)
+  })
+
+  it('Custom picks Text and Headings from the library', async () => {
+    settingsData.value = { ...settings(), theme_font: 'custom' }
+    const wrapper = mount(AppearancePage)
+    await flushPromises()
+    await wrapper.find('[data-test="font-family-text"] [data-test="family-option-Ab3dE5fG7hJ9"]').trigger('click')
+    await wrapper.find('[data-test="font-family-headings"] [data-test="family-option-serif"]').trigger('click')
+    expect(await save(wrapper)).toMatchObject({
+      theme_font_text_family: 'Ab3dE5fG7hJ9',
+      theme_font_headings_family: 'serif',
+    })
+  })
+
+  it('a save tells the other tabs; a failed one does not', async () => {
+    settingsData.value = settings()
+    told.mockReset()
+    const wrapper = mount(AppearancePage)
+    await flushPromises()
+    saveMock.mockResolvedValueOnce({})
+    await save(wrapper)
+    expect(told).toHaveBeenCalledWith('appearance')
+    told.mockReset()
+    saveMock.mockRejectedValueOnce(new Error('nope'))
+    await save(wrapper)
+    expect(told).not.toHaveBeenCalled()
   })
 })
