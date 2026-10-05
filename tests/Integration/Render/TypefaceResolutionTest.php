@@ -9,6 +9,7 @@ use Thallo\Contracts\Style\StyleClassProvider;
 use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 use Thallo\Render\RenderContextExtension;
+use Thallo\Render\Style\RequestFontSnapshot;
 use Thallo\Render\ThemeLocator;
 use Thallo\Render\TwigFactory;
 
@@ -213,14 +214,17 @@ final class TypefaceResolutionTest extends AppTestCase
         self::assertStringNotContainsString('t-font-', $html);
     }
 
-    public function testTheSnapshotIsTakenOncePerRenderAndRefreshedForTheNext(): void
+    public function testTheSnapshotIsTakenOncePerRequestAndRefreshedForTheNext(): void
     {
         $settings = ['style' => ['typography' => ['family' => self::font(self::UPLOADED)]]];
         [$title] = $this->titleClasses($settings);
         self::assertSame(['t-font-' . self::UPLOADED], self::fonts($title));
         $this->connection()->table('font_families')->where('id', '=', self::UPLOADED)
             ->update(['removed_at' => gmdate('Y-m-d H:i:s')]);
+        [$same] = $this->titleClasses($settings);
+        self::assertSame(['t-font-' . self::UPLOADED], self::fonts($same), 'one snapshot per request');
+        $this->container()->get(RequestFontSnapshot::class)->refresh();
         [$after] = $this->titleClasses($settings);
-        self::assertSame(['t-font-inherit'], self::fonts($after), 'the next render reads the library again');
+        self::assertSame(['t-font-inherit'], self::fonts($after), 'the next request reads the library again');
     }
 }

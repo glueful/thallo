@@ -188,7 +188,8 @@ final class BlocksRenderingTest extends AppTestCase
         // 28 = map_embed() joined the allowlist (the Map block: a Google map from a place or Google's embed link)
         // 29 = layout_blocks(), entry_slot() and neighbours() joined the allowlist (type layouts)
         // 30 = search_scope_state() joined the allowlist (the Search block)
-        self::assertSame(30, TemplatePolicy::CACHE_VERSION);
+        // 31 = fonts_stylesheet_url() joined the allowlist (block typeface: the fonts stylesheet)
+        self::assertSame(31, TemplatePolicy::CACHE_VERSION);
 
         // DB templates calling the allowlisted functions lint clean.
         $linter = $this->container()->get(TemplateLinter::class);

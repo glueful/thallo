@@ -227,6 +227,10 @@ abstract class AppTestCase extends TestCase
         if ($this->container()->has(\Thallo\Contracts\Style\StyleClassProvider::class)) {
             $this->container()->get(\Thallo\Contracts\Style\StyleClassProvider::class)->refresh();
         }
+        // So does the font library snapshot (block typeface spec §3.4): one per request.
+        if ($this->container()->has(\Thallo\Render\Style\RequestFontSnapshot::class)) {
+            $this->container()->get(\Thallo\Render\Style\RequestFontSnapshot::class)->refresh();
+        }
 
         self::wipe($this->connection());
         self::$wipedThisClass = true;
