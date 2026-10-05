@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
-import { defineComponent, ref, watch } from 'vue'
+import { defineComponent, ref } from 'vue'
 import type { BlockType } from '@/queries/blockTypes'
 import type { FieldDef } from '@/fields/types'
 import type { FieldEditorExposed, StageHost } from '@/editor/stage/types'
