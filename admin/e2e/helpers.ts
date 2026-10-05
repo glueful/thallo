@@ -118,6 +118,14 @@ export async function routeWorld(page: Page, world: World = {}): Promise<Recorde
   )
 
   // The admin API.
+  // The appearance fingerprint of the last stage document served (block typeface plan Task 11).
+  let renderedFingerprint: string | null = null
+  page.on('response', async (response) => {
+    if (response.request().resourceType() !== 'document') return
+    const body = await response.text().catch(() => '')
+    const rendered = /data-thallo-appearance-fingerprint="([^"]+)"/.exec(body)
+    if (rendered) renderedFingerprint = rendered[1]!
+  })
   await page.route('**/v1/admin/**', async (route) => {
     const request = route.request()
     const url = new URL(request.url())
@@ -140,6 +148,37 @@ export async function routeWorld(page: Page, world: World = {}): Promise<Recorde
     }
     if (method === 'GET' && path === '/render/style-schema')
       return json(route, fixture('api/style-schema.json'))
+    // The font library as the server answers it, with one family read from a real .woff2 file
+    // (block typeface plan Task 11); and the stage's freshness check, which never changes here.
+    if (method === 'GET' && path === '/fonts') return json(route, fixture('api/fonts.json'))
+    if (method === 'GET' && path === '/fonts/usage-counts') {
+      return json(route, JSON.stringify({ success: true, data: { counts: {} } }))
+    }
+    if (method === 'GET' && /^\/fonts\/[^/]+\/usage$/.test(path)) {
+      return json(
+        route,
+        JSON.stringify({
+          success: true,
+          data: {
+            entries: [],
+            regions: [],
+            layouts: [],
+            saved_sections: [],
+            style_classes: [],
+            appearance: { text: false, headings: false },
+          },
+        }),
+      )
+    }
+    if (method === 'GET' && path === '/render/appearance-fingerprint') {
+      // What the stage on screen was rendered with: nothing changed elsewhere, so no stage reloads.
+      // Until that is known, the check fails — as offline does — and the stage is left alone.
+      if (renderedFingerprint === null) return route.fulfill({ status: 503, body: '' })
+      return json(
+        route,
+        JSON.stringify({ success: true, data: { appearance_fingerprint: renderedFingerprint } }),
+      )
+    }
     // A block field's server-provided choices (search block spec §3.9), as the server answers.
     const options = /^\/field-options\/([^/]+)$/.exec(path)
     if (method === 'GET' && options)
@@ -511,6 +550,18 @@ export async function dragCardTo(
   if (release) await page.mouse.up()
 }
 
+/** Open a new style class in the style class editor (block typeface plan Task 11). */
+export async function openStyleClassEditor(page: Page): Promise<Recorded> {
+  const recorded = await routeWorld(page)
+  await signInAndOpen(
+    page,
+    '/admin/settings/style-classes/new',
+    '[data-test="style-class-editor"]',
+    'the style class editor',
+  )
+  return recorded
+}
+
 // ── The regions stage (regions stage plan R8) ─────────────────────────────────────────────────
 
 export interface RegionsDocument {
@@ -563,13 +614,13 @@ const same = (a: unknown, b: unknown) =>
  * session, apply and save endpoints are routed and recorded; each mocked session keeps its own
  * `{epoch, revision}` as the server does (a stale pair answers PREVIEW_REVISION_STALE); and the
  * stage is served from the fixture whose document equals the session's last accepted document —
- * before any apply, its own baseline (`baseline`, or the `container` or `empty` session's) — on the
+ * before any apply, its own baseline (`baseline`, or the `container`, `links` or `empty` session's) — on the
  * session's page, with its revision metadata rewritten to the pair just accepted. A combination no
  * fixture renders is recorded in `unmatched` and answered 500, never with a stale stage.
  */
 export async function openRegionsStage(
   page: Page,
-  options: { session?: 'baseline' | 'container' | 'empty' } = {},
+  options: { session?: 'baseline' | 'container' | 'links' | 'empty' } = {},
 ): Promise<RegionsRecorded> {
   await routeWorld(page)
   // The site's pages live at its root, as a new install's `pages` type does: the page picker lists
@@ -600,7 +651,11 @@ export async function openRegionsStage(
    */
   const openingFor = (name: string) => {
     const opening = JSON.parse(
-      fixture(name === 'container' ? 'regions/session-container.json' : 'regions/session.json'),
+      fixture(
+        name === 'container' || name === 'links'
+          ? `regions/session-${name}.json`
+          : 'regions/session.json',
+      ),
     ) as { data: { regions: Record<string, Record<string, unknown>> } & Record<string, unknown> }
     if (name === 'empty') {
       for (const slug of ['header', 'footer'] as const) {

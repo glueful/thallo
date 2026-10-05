@@ -61,12 +61,12 @@ final class UpdateGeneralSettingsData implements RequestData
         /** @var string|null Typeface pairing, or `custom`; enum-validated in the controller. */
         #[Rule('string')]
         public readonly ?string $theme_font = null,
-        /** @var string|null Media library uuid of the site's own text face (woff2); '' clears. */
+        /** @var string|null Custom's Text family: a built-in or a current family's ID; '' clears (and stays). */
         #[Rule('string')]
-        public readonly ?string $theme_font_body = null,
-        /** @var string|null Media library uuid of the site's own headings face (woff2); '' clears. */
+        public readonly ?string $theme_font_text_family = null,
+        /** @var string|null Custom's Headings family, the same way; '' clears (headings follow the text). */
         #[Rule('string')]
-        public readonly ?string $theme_font_display = null,
+        public readonly ?string $theme_font_headings_family = null,
         /** @var string|null Page ground: plain | tinted; enum-validated in the controller. */
         #[Rule('string')]
         public readonly ?string $theme_background = null,

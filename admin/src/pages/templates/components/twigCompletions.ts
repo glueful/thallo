@@ -31,6 +31,7 @@ const FUNCTIONS = [
   'layers_stylesheet_url',
   'theme_stylesheet_url',
   'settings_stylesheet_url',
+  'fonts_stylesheet_url',
   'style_classes',
   'style_attrs',
   'token_class',

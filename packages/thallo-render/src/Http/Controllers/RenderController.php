@@ -113,6 +113,10 @@ final class RenderController
         private readonly ?\Thallo\Contracts\Layouts\LayoutStageSnapshots $layoutSnapshots = null,
         /** What each layout surface renders against (its frame, its placeholder sample). */
         private readonly ?\Thallo\Contracts\Layouts\LayoutSurfaceRegistry $layoutSurfaces = null,
+        /** The workspace's fonts stylesheets (block typeface spec §3.4), served by hash. */
+        private readonly ?\Thallo\Render\Style\FontsArtifacts $fontsArtifacts = null,
+        /** The request's font library snapshot: a preview reads the current stylesheet from it. */
+        private readonly ?\Thallo\Render\Style\RequestFontSnapshot $fontSnapshots = null,
     ) {
     }
 
@@ -907,8 +911,21 @@ final class RenderController
         // immutable, from the artifact store rather than the theme's own files.
         $hash = ThemeStylesheetArtifact::hashFromFileName($path);
         $compiled = CompiledStyleArtifacts::hashFromFileName($path);
-        if ($hash !== null || $compiled !== null) {
-            $css = $hash !== null ? $this->themeArtifacts?->read($hash) : $this->compiledArtifacts?->read($compiled);
+        $fonts = \Thallo\Render\Style\FontsArtifacts::hashFromFileName($path);
+        if ($hash !== null || $compiled !== null || $fonts !== null) {
+            // The workspace's fonts stylesheet (block typeface spec §3.4): its own directory, so a
+            // workspace only ever serves its own; an old hash serves the bytes it was published with.
+            $css = match (true) {
+                $hash !== null => $this->themeArtifacts?->read($hash),
+                $compiled !== null => $this->compiledArtifacts?->read($compiled),
+                default => $this->fontsArtifacts?->read((string) $fonts),
+            };
+            if ($css === null && $fonts !== null && $this->fontsArtifacts !== null) {
+                // Not on this node yet (another server rendered the page, or the cache was cleared):
+                // the current library's stylesheet is published on demand; any other hash stays 404.
+                $this->extension->fontsStylesheetUrl();
+                $css = $this->fontsArtifacts->read($fonts);
+            }
             return $css === null
                 ? ApiResponse::error('Not Found', 404)
                 : new Response($css, 200, [
@@ -973,10 +990,19 @@ final class RenderController
         }
         $hash = ThemeStylesheetArtifact::hashFromFileName($path);
         $compiled = CompiledStyleArtifacts::hashFromFileName($path);
-        if ($hash !== null || $compiled !== null) {
+        $fonts = \Thallo\Render\Style\FontsArtifacts::hashFromFileName($path);
+        if ($hash !== null || $compiled !== null || $fonts !== null) {
             // The preview theme's artifacts: built for the preview render, read back by hash.
             $css = null;
-            if ($hash !== null) {
+            if ($fonts !== null) {
+                // The fonts stylesheet is the workspace's, not the theme's: the published file, or
+                // the current snapshot's (published as it is read).
+                $snapshot = $this->fontSnapshots?->current();
+                $current = $snapshot !== null ? $this->fontsArtifacts?->forSnapshot($snapshot) : null;
+                $css = $current !== null && $current['hash'] === $fonts
+                    ? $current['css']
+                    : $this->fontsArtifacts?->read($fonts);
+            } elseif ($hash !== null) {
                 $artifact = $this->themeArtifacts?->forTheme($locator);
                 $css = $artifact !== null && $artifact->hash === $hash ? $artifact->css : null;
             } else {
@@ -1291,6 +1317,12 @@ final class RenderController
             $context['entry'] = $entry;
         }
         $context += $extra;
+        // A stage names what its head was rendered with (block typeface plan Task 11), with or
+        // without a working copy yet, so the admin can tell when a change made elsewhere needs a
+        // reload. Never on a live page.
+        if ($this->annotationScope !== 'none') {
+            $context['appearance_fingerprint'] = $this->extension->appearanceFingerprint();
+        }
         // Every render carries a presentation context (spec §5a): entry-less
         // pages (listings, terms, errors) compose with no override.
         $context['presentation'] ??= $this->presentationContext(null, null);

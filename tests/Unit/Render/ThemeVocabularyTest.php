@@ -73,6 +73,15 @@ final class ThemeVocabularyTest extends TestCase
         self::assertSame('var(--paper)', $mapped->value('color.white'));
     }
 
+    public function testBlackIsFilledWhenAThemeOmitsIt(): void
+    {
+        // color.black joined the baseline after themes were copied, as white did before it.
+        $json = $this->defaultThemeJson();
+        unset($json['vocabulary']['color.black']);
+        $vocabulary = ThemeVocabulary::fromThemeJson($json, self::DEFAULT_THEME);
+        self::assertSame('#000000', $vocabulary->value('color.black'));
+    }
+
     public function testAMissingBaselineNameFailsNamingIt(): void
     {
         $json = $this->defaultThemeJson();

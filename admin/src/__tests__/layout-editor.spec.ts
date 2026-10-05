@@ -110,6 +110,7 @@ const bridge = vi.hoisted(() => {
     {
       editFlush: async () => undefined,
       stageRefresh: async () => ({ mode: 'patched', epoch: null, revision: null }),
+      requestTypography: async () => null,
     } as Record<string, unknown>,
     {
       get(target, key: string) {

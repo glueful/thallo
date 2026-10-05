@@ -98,8 +98,11 @@ template, so it works on any theme that reads them.
 - **Design.** **Corners** (`round`, `soft` or `sharp`), **Typefaces** and **Page ground**
   (`plain` or `tinted`). **Typefaces** offers nine choices: the theme's own face, seven pairings
   (five of them built from fonts the visitor already has; Editorial and Slab still use the
-  theme's face for the text), and **Custom**, which uses `.woff2` files you upload into the
-  media library.
+  theme's face for the text), and **Custom**, which picks a Text and a Headings family from the
+  site's font library.
+- **Typefaces card.** The font library itself: the seven built-ins and the families you add from
+  `.woff2` files. Any block or style class can then set its own **Typeface** from it, over whatever
+  the theme and Appearance chose.
 - **Logos & site icon.** The site logo, a dark-scheme variant, and the favicon.
 
 Each choice is emitted as a small `:root` override plus its dark-mode counterpart, after the

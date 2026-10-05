@@ -33,6 +33,8 @@ final class ThemeAppearanceSource
         private readonly ?\Closure $settingsArtifactHash = null,
         /** The style class generation (spec §4.3), lazily: the request's snapshot names the entry. */
         private readonly ?\Closure $styleGeneration = null,
+        /** The fonts stylesheet's hash (block typeface spec §3.4), lazily; '' when there is none. */
+        private readonly ?\Closure $fontsArtifactHash = null,
     ) {
     }
 
@@ -85,20 +87,20 @@ final class ThemeAppearanceSource
     }
 
     /**
-     * The site's own faces as media library uuids; a value that is not one is not a face.
+     * Custom's Text and Headings as font library IDs; a value that is not an ID is no family.
      *
-     * @return array{body?: string, display?: string}
+     * @return array{text?: string, headings?: string}
      */
-    public function fontFaces(): array
+    public function fontFamilies(): array
     {
-        $faces = [];
-        foreach (['body', 'display'] as $role) {
-            $uuid = ($this->settings?->fontFaces() ?? [])[$role] ?? null;
-            if (is_string($uuid) && ThemeDesign::normalizeFace($uuid) !== null) {
-                $faces[$role] = $uuid;
+        $families = [];
+        foreach (['text', 'headings'] as $role) {
+            $id = ($this->settings?->fontFamilies() ?? [])[$role] ?? null;
+            if (is_string($id) && ThemeDesign::normalizeFamily($id) !== null) {
+                $families[$role] = $id;
             }
         }
-        return $faces;
+        return $families;
     }
 
     public function background(): string
@@ -117,10 +119,36 @@ final class ThemeAppearanceSource
      */
     public function fingerprint(): string
     {
+        return implode('-', $this->segments(true));
+    }
+
+    /**
+     * What a stage's head depends on (block typeface plan Task 11): the fingerprint without the style
+     * class generation, which has its own carrier (`style_generation`) and is re-resolved in place —
+     * a class edit never needs a stage reload.
+     */
+    public function appearanceFingerprint(): string
+    {
+        return implode('-', $this->segments(false));
+    }
+
+    /**
+     * Drops what this instance memoised, for a caller that must read the stored appearance now —
+     * a freshness check in a worker that outlives one request.
+     */
+    public function forget(): void
+    {
+        $this->accentMemo = $this->neutralMemo = $this->radiusMemo = $this->fontMemo = $this->backgroundMemo = null;
+    }
+
+    /** @return list<string> */
+    private function segments(bool $withStyleGeneration): array
+    {
         $segments = [$this->accent(), $this->neutral(), $this->radius(), $this->font(), $this->background()];
-        // The site's own faces re-key every cached page; with none, the fingerprint it always had.
-        if ($this->fontFaces() !== []) {
-            $segments[] = 'f' . implode('.', $this->fontFaces());
+        // Custom's families re-key every cached page; with none, the fingerprint it always had.
+        $families = $this->fontFamilies();
+        if ($families !== []) {
+            $segments[] = 'f' . ($families['text'] ?? '') . '.' . ($families['headings'] ?? '');
         }
         if ($this->themeArtifactHash !== null) {
             $segments[] = 't' . substr((string) ($this->themeArtifactHash)(), 0, 8);
@@ -128,10 +156,15 @@ final class ThemeAppearanceSource
         if ($this->settingsArtifactHash !== null) {
             $segments[] = 's' . substr((string) ($this->settingsArtifactHash)(), 0, 8);
         }
-        if ($this->styleGeneration !== null) {
+        if ($withStyleGeneration && $this->styleGeneration !== null) {
             $segments[] = 'g' . (int) ($this->styleGeneration)();
         }
-        return implode('-', $segments);
+        // A library change re-keys every cached page; with no current family, the fingerprint it had.
+        $fonts = $this->fontsArtifactHash !== null ? (string) ($this->fontsArtifactHash)() : '';
+        if ($fonts !== '') {
+            $segments[] = 'l' . substr($fonts, 0, 8);
+        }
+        return $segments;
     }
 
     /** @param callable(string):?string $normalize */

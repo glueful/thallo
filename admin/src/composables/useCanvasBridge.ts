@@ -28,6 +28,8 @@ interface BridgeMessage {
   preset?: string
   /** stage-state: the stage shows a layout's placeholder page. */
   placeholder?: boolean
+  /** stage-state: what the stage's head was rendered with (block typeface plan Task 11). */
+  appearance_fingerprint?: unknown
   /** `thallo:history`: undo or redo, asked for from the stage. Validated before use. */
   direction?: string
 }
@@ -103,6 +105,14 @@ export interface StageFragments {
   fragments: Record<string, string>
 }
 
+/** What a block's target or part renders in, as the stage computes it (block typeface plan Task 10). */
+export interface ComputedTypography {
+  weight: number
+  style: 'normal' | 'italic' | 'oblique'
+}
+
+const FONT_STYLES = new Set(['normal', 'italic', 'oblique'])
+
 export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)))
     .map((b) => b.toString(16).padStart(2, '0'))
@@ -112,7 +122,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   let deselectCb: ((id: string) => void) | null = null
   let hoverCb: ((id: string) => void) | null = null
   let indexCb: ((ids: string[]) => void) | null = null
-  let stageStateCb: ((placeholder: boolean) => void) | null = null
+  let stageStateCb: ((placeholder: boolean, fingerprint: string | null) => void) | null = null
   let moveCb: ((id: string, delta: 1 | -1) => void) | null = null
   let dragProposeCb: ((session: string, blocks: string[], zone: StageZone | null) => void) | null =
     null
@@ -139,6 +149,20 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   let flushResolve: (() => void) | null = null
   let pendingRefresh: { id: string; resolve: (result: StageRefreshResult) => void } | null = null
   let refreshSeq = 0
+  // Computed typography: one pending request per (block, target), the latest seq only.
+  const typographyPending = new Map<
+    string,
+    { seq: number; resolve: (value: ComputedTypography | null) => void; timer: number }
+  >()
+  let typographySeq = 0
+  const typographyKey = (id: string, target: string) => `${id}\u0000${target}`
+  function settleTypography(key: string, value: ComputedTypography | null): void {
+    const pending = typographyPending.get(key)
+    if (!pending) return
+    typographyPending.delete(key)
+    clearTimeout(pending.timer)
+    pending.resolve(value)
+  }
 
   function targetOrigin(): string {
     const src = iframeRef.value?.src ?? ''
@@ -170,7 +194,13 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     if (data.type === 'thallo:blocks-index' && Array.isArray(data.ids)) {
       indexCb?.(data.ids.filter((v): v is string => typeof v === 'string'))
     }
-    if (data.type === 'thallo:stage-state') stageStateCb?.(data.placeholder === true)
+    if (data.type === 'thallo:stage-state') {
+      const fingerprint =
+        typeof data.appearance_fingerprint === 'string' && data.appearance_fingerprint !== ''
+          ? data.appearance_fingerprint
+          : null
+      stageStateCb?.(data.placeholder === true, fingerprint)
+    }
     // Stage toolbar intents (stage-toolbar spec §1).
     if (data.type === 'thallo:block-move' && typeof data.id === 'string') {
       if (data.delta === 1 || data.delta === -1) moveCb?.(data.id, data.delta)
@@ -299,6 +329,32 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     if (data.type === 'thallo:scroll' && typeof data.y === 'number') {
       scrollCb?.(data.y)
     }
+    // A target's computed weight and style: only the latest request for it is answered.
+    if (data.type === 'thallo:typography-state' && typeof data.id === 'string') {
+      const state = data as BridgeMessage & {
+        target?: unknown
+        seq?: unknown
+        weight?: unknown
+        style?: unknown
+      }
+      if (typeof state.target === 'string') {
+        const key = typographyKey(data.id, state.target)
+        const pending = typographyPending.get(key)
+        if (
+          pending !== undefined &&
+          state.seq === pending.seq &&
+          typeof state.weight === 'number' &&
+          Number.isFinite(state.weight) &&
+          typeof state.style === 'string' &&
+          FONT_STYLES.has(state.style)
+        ) {
+          settleTypography(key, {
+            weight: state.weight,
+            style: state.style as ComputedTypography['style'],
+          })
+        }
+      }
+    }
     // The stage is showing its expired page (regions-stage spec §6.5).
     if (data.type === 'thallo:session-expired') sessionExpiredCb?.()
   }
@@ -337,8 +393,11 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     onBlocksIndex(cb: (ids: string[]) => void): void {
       indexCb = cb
     },
-    /** What the stage shows, told on each load: whether it is a layout's placeholder page. */
-    onStageState(cb: (placeholder: boolean) => void): void {
+    /**
+     * What the stage shows, told on each load: whether it is a layout's placeholder page, and what
+     * its head was rendered with (null from a theme that does not say).
+     */
+    onStageState(cb: (placeholder: boolean, fingerprint: string | null) => void): void {
       stageStateCb = cb
     },
     /** Ring `id` on the stage (with its toolbar); `ids` rings the whole sibling selection. */
@@ -500,6 +559,26 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
       const refreshId = `f${++refreshSeq}-${nonce}`
       post({ type: 'thallo:fragments', refresh_id: refreshId, ...patch })
       return awaitAck(refreshId)
+    },
+    /**
+     * What `target` (a target or part name) of block `id` renders in. Resolves the stage's answer
+     * to THIS request only: a newer request for the same target settles this one with null, as
+     * does {@link dropTypography}; no answer within a second (an optional target the block does
+     * not render, a stage mid-reload) is null too.
+     */
+    requestTypography(id: string, target: string): Promise<ComputedTypography | null> {
+      const key = typographyKey(id, target)
+      settleTypography(key, null)
+      const seq = ++typographySeq
+      post({ type: 'thallo:typography-request', id, target, seq })
+      return new Promise((resolve) => {
+        const timer = window.setTimeout(() => settleTypography(key, null), 1000)
+        typographyPending.set(key, { seq, resolve, timer })
+      })
+    },
+    /** A selection change: every pending typography request settles with null. */
+    dropTypography(): void {
+      for (const key of typographyPending.keys()) settleTypography(key, null)
     },
     dispose(): void {
       window.removeEventListener('message', onMessage)

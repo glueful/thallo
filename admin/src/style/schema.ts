@@ -14,13 +14,30 @@ const token = (
   responsive,
   tokenDomain: domain,
   choices: null,
+  kinds: ['token', 'reset'],
 })
 const choice = (
   path: string,
   group: string,
   responsive: boolean,
   choices: string[],
-): PropertyDefinition => ({ path, group, responsive, tokenDomain: null, choices })
+): PropertyDefinition => ({
+  path,
+  group,
+  responsive,
+  tokenDomain: null,
+  choices,
+  kinds: ['choice', 'reset'],
+})
+// A typeface ID (block typeface spec §1), validated by shape: no token domain, no closed choices.
+const font = (path: string, group: string, responsive: boolean): PropertyDefinition => ({
+  path,
+  group,
+  responsive,
+  tokenDomain: null,
+  choices: null,
+  kinds: ['font', 'reset'],
+})
 
 const PROPERTIES: PropertyDefinition[] = [
   ...['top', 'right', 'bottom', 'left'].map((s) =>
@@ -119,6 +136,8 @@ const PROPERTIES: PropertyDefinition[] = [
     'relaxed',
     'loose',
   ]),
+  // The fourth: the typeface, one value for every width this release (settings version 11).
+  font('typography.family', 'typography', false),
   // Motion: how a block ENTERS as it scrolls into view (`motion`, any block); how a block that
   // arranges children spaces out THEIR entrances (`motion.children`); and Ken Burns, a picture
   // drifting inside its frame (`motion.media`). None is responsive: an entrance is one event.

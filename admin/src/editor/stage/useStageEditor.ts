@@ -1,9 +1,11 @@
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch, type Ref } from 'vue'
 import { visibleTypes } from '@/editor/palette/order'
 import { MAX_BLOCK_DEPTH, useBlockTypes } from '@/queries/blockTypes'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import { proseRichFieldName } from '@/fields/components/blocks/proseDetection'
 import { useCanvasBridge } from '@/composables/useCanvasBridge'
+import { useAppearanceChanges } from '@/composables/useAppearanceChanges'
+import { StageTypographyKey, type StageTypography } from '@/editor/stage/stageTypography'
 import { createApplyMetrics, type ApplyPath } from '@/editor/applyMetrics'
 import { createEditorHistory, type EditorHistory } from '@/editor/ops/history'
 import { diffDocuments } from '@/editor/ops/diff'
@@ -1375,15 +1377,49 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   /** The block whose text is being edited on the stage, or null: one text has one owner at a time. */
   const stageEditingId = ref<string | null>(null)
 
-  bridge.onEditRequest((id, field) => {
+  /** Grants an edit when the field is editable now; false when it is not (or not known yet). */
+  function grantEdit(id: string, field: string): boolean {
     const kind = editableKindOf(id, field)
-    if (kind === null) return
+    if (kind === null) return false
     // The stage takes over from the panel, and nothing has to be handed across: the panel's editor
     // writes every change as it is made, so there is nothing to flush, and the double-click that asked
     // for this moved the browser's focus into the stage, so the panel no longer holds a caret. The
     // panel goes read-only when the session starts (edit-start) and writable again when it ends.
     bridge.editGrant(id, field, kind)
+    return true
+  }
+
+  // A double-click can land before the document's tree (or the block types) is ready — the stage
+  // often loads first, and the field editor fills its tree on its own schedule, with nothing here to
+  // watch. Such a request is held and tried again every 100 ms for three seconds; dropping it silently
+  // left the double-click doing nothing.
+  let pendingEdit: {
+    id: string
+    field: string
+    retry: ReturnType<typeof setInterval>
+    expiry: ReturnType<typeof setTimeout>
+  } | null = null
+  function clearPendingEdit(): void {
+    if (pendingEdit === null) return
+    clearInterval(pendingEdit.retry)
+    clearTimeout(pendingEdit.expiry)
+    pendingEdit = null
+  }
+  bridge.onEditRequest((id, field) => {
+    clearPendingEdit()
+    if (grantEdit(id, field)) return
+    // Known and not editable: nothing to wait for.
+    if (allBlockTypes.value !== undefined && fieldEditorRef.value?.blockTypeOfBlock(id)) return
+    pendingEdit = {
+      id,
+      field,
+      retry: setInterval(() => {
+        if (pendingEdit !== null && grantEdit(pendingEdit.id, pendingEdit.field)) clearPendingEdit()
+      }, 100),
+      expiry: setTimeout(clearPendingEdit, 3000),
+    }
   })
+  onBeforeUnmount(clearPendingEdit)
 
   bridge.onTextChanged((id, field, payload) => {
     // Re-validate (v3 pin, matrix-shaped): edit messages are requests, not
@@ -1419,6 +1455,8 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
 
   // ── Apply loop (loop C spec §4): ephemeral render, nothing persisted ──────────
   const applying = ref(false)
+  /** A reload for an appearance change is in flight (see Fresh stages): applies wait for it. */
+  let appearanceReloading = false
 
   // ── Auto-apply (auto-apply spec §1): a SCHEDULER over the one runApply core ──
   const autoEnabled = ref(localStorage.getItem('thallo.canvas.auto_apply') !== '0')
@@ -1561,7 +1599,8 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
    */
   async function runApply(auto: boolean): Promise<void> {
     // A session switch owns the stage: what is edited meanwhile waits for the new session.
-    if (switchingNow) {
+    // So does a reload for an appearance change: what is edited meanwhile applies once it is ready.
+    if (switchingNow || appearanceReloading) {
       applyQueued.value = true
       return
     }
@@ -1733,10 +1772,147 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   let switchingNow = false
   // A stage showing its expired page renews through the host, as a dead token does (spec §6.5).
   bridge.onSessionExpired(() => void switchSession(host.renew))
+  // What the stage renders a target in (block typeface plan Task 10): the Style tab asks, and asks
+  // again after each render — a load or an in-place patch; a new selection's answers are its own,
+  // so whatever is still pending is dropped.
+  const stageRenders = ref(0)
   /** The stage shows a layout's placeholder page (its sample gone): told by the stage on each load. */
   const stagePlaceholder = ref(false)
-  bridge.onStageState((placeholder) => {
+  bridge.onStageState((placeholder, fingerprint) => {
     stagePlaceholder.value = placeholder
+    stageRenders.value++
+    if (fingerprint !== null) renderedFingerprint = fingerprint
+    if (appearanceReloading) appearanceReloaded()
+  })
+  const stageTypography: StageTypography = {
+    request: (id, target) => bridge.requestTypography(id, target),
+    renders: stageRenders,
+  }
+  provide(StageTypographyKey, stageTypography)
+  watch(selected, () => bridge.dropTypography())
+
+  // ── Fresh stages (block typeface plan Task 11) ────────────────────────────────────────────────
+  // A stage's head — theme, appearance, the fonts stylesheet — is fixed when it loads; an in-place
+  // patch cannot replace it. So a change announced by another tab, or found by asking the host on
+  // focus and every minute while visible, reloads the stage: after the apply in flight, once, with
+  // the working copy and its history untouched. What is edited during the reload applies once the
+  // stage reports it is ready.
+  const appearanceChanges = useAppearanceChanges()
+  /** What the stage on screen was rendered with; null until it or the host first says. */
+  let renderedFingerprint: string | null = null
+  /** The answer the last focus or minute reloaded the stage for. */
+  let reloadedFor: string | null = null
+  let reloadAgain = false
+  let reloadGuard: ReturnType<typeof setTimeout> | null = null
+  let appearanceQueued: Promise<void> | null = null
+
+  /** Resolves once no apply is in flight (a coalesced follow-up counts as in flight). */
+  async function applySettled(): Promise<void> {
+    while (applying.value) {
+      await new Promise<void>((resolve) => {
+        const stop = watch(applying, (busy) => {
+          if (!busy) {
+            stop()
+            resolve()
+          }
+        })
+      })
+    }
+  }
+
+  function refreshAfterAppearanceChange(): Promise<void> {
+    if (appearanceReloading) {
+      // The page being fetched may predate this change: once it is ready, reload once more.
+      reloadAgain = true
+      return Promise.resolve()
+    }
+    appearanceQueued ??= (async () => {
+      // Text being typed on the stage lives there until it is committed: commit it first, or the
+      // reload would throw it away. The commit is an edit like any other and applies after.
+      if (editSessionActive.value) await bridge.editFlush()
+      await applySettled()
+      appearanceQueued = null
+      startAppearanceReload()
+    })()
+    return appearanceQueued
+  }
+
+  function startAppearanceReload(): void {
+    if (iframeSrc.value === '') return // no stage yet: the first load shows what is current
+    appearanceReloading = true
+    reloadAgain = false
+    reloadStage()
+    // A stage that never reports (a failed load) must not hold applies forever.
+    if (reloadGuard !== null) clearTimeout(reloadGuard)
+    reloadGuard = setTimeout(appearanceReloaded, 10_000)
+  }
+
+  function appearanceReloaded(): void {
+    if (reloadGuard !== null) clearTimeout(reloadGuard)
+    reloadGuard = null
+    appearanceReloading = false
+    if (reloadAgain) {
+      startAppearanceReload()
+      return
+    }
+    // The reloaded stage shows the last applied tree. Edits not yet applied — queued during the
+    // reload, or held because Auto is off — are applied now, or the stage would silently drop them.
+    // An apply only renders the preview; nothing is saved.
+    if (applyQueued.value || stageStale.value) void runApply(true)
+  }
+
+  let checkingAppearance = false
+  async function checkAppearance(): Promise<void> {
+    if (checkingAppearance || renderDisabled.value) return
+    checkingAppearance = true
+    try {
+      const now = await host.appearanceFingerprint()
+      if (renderedFingerprint === null) {
+        renderedFingerprint = now // a theme whose stage does not say: the first answer is the baseline
+      } else if (now !== renderedFingerprint && now !== reloadedFor) {
+        // Once per change: a stage that still reports another value after reloading for it is not
+        // reloaded again on every focus — only a further change reloads it.
+        reloadedFor = now
+        renderedFingerprint = now
+        await refreshAfterAppearanceChange()
+      }
+    } catch {
+      // Offline, signed out, a deploy in progress: the next focus or minute asks again.
+    } finally {
+      checkingAppearance = false
+    }
+  }
+
+  // Another tab says something changed: reload only if the stage's head would differ — a rename, for
+  // one, changes nothing a stage shows. When the check cannot answer, trust the announcement.
+  async function onAnnouncedChange(): Promise<void> {
+    let now: string | null = null
+    try {
+      now = await host.appearanceFingerprint()
+    } catch {
+      // Offline, signed out: reload as announced.
+    }
+    if (now !== null && renderedFingerprint !== null && now === renderedFingerprint) return
+    if (now !== null) {
+      renderedFingerprint = now
+      reloadedFor = now
+    }
+    await refreshAfterAppearanceChange()
+  }
+  appearanceChanges.onChange(() => void onAnnouncedChange())
+  const onWindowFocus = (): void => void checkAppearance()
+  let appearanceTimer: ReturnType<typeof setInterval> | null = null
+  onMounted(() => {
+    window.addEventListener('focus', onWindowFocus)
+    appearanceTimer = setInterval(() => {
+      if (document.visibilityState === 'visible') void checkAppearance()
+    }, 60_000)
+  })
+  onBeforeUnmount(() => {
+    window.removeEventListener('focus', onWindowFocus)
+    if (appearanceTimer !== null) clearInterval(appearanceTimer)
+    if (reloadGuard !== null) clearTimeout(reloadGuard)
+    appearanceChanges.dispose()
   })
 
   /**
@@ -1767,6 +1943,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     const result = await bridge.stageRefresh()
     noteStyleGeneration(result.style_generation)
     if (result.mode === 'patched') {
+      stageRenders.value++
       if (result.epoch !== null && result.revision !== null) {
         displayed.value = { epoch: result.epoch, revision: result.revision }
       }
@@ -1796,6 +1973,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
       })
       noteStyleGeneration(swap.style_generation)
       if (swap.mode === 'patched') {
+        stageRenders.value++
         if (swap.epoch !== null && swap.revision !== null) {
           displayed.value = { epoch: swap.epoch, revision: swap.revision }
         }
@@ -2146,6 +2324,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     restart,
     refreshPreview,
     reloadStage,
+    refreshAfterAppearanceChange,
     resetStage,
     switchSession,
     runApply,
@@ -2186,6 +2365,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     onSetPartAll,
     onPatchData,
     playSelectedMotion,
+    stageTypography,
     onInsertInto,
     stageEditingId,
     // style classes

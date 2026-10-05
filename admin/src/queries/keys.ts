@@ -23,6 +23,9 @@ export const qk = {
   layoutPatterns: (surface: string, target: string) =>
     ['patterns', 'layout', surface, target] as const,
   styleSchema: () => ['style-schema'] as const,
+  /** The font library: built-ins, the site's families and the theme's face (block typeface §4). */
+  fonts: () => ['fonts'] as const,
+  fontUsage: (id: string) => ['font-usage', id] as const,
   styleClasses: () => ['style-classes'] as const,
   styleClassUsage: (id: string) => ['style-class-usage', id] as const,
   styleClassJob: (id: string, job: string) => ['style-class-job', id, job] as const,

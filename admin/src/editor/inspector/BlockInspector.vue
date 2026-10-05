@@ -367,6 +367,7 @@ const cardFields = computed<string[]>(() =>
               :schema="schema"
               :classes="[]"
               context="part"
+              :part="part.name"
               :active-breakpoint="activeBreakpoint"
               @set="(path, bp, value) => emit('set-part-setting', part.name, path, bp, value)"
               @set-all="(path, value) => emit('set-part-all', part.name, path, value)"

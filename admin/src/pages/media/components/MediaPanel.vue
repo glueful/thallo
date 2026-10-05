@@ -34,6 +34,9 @@ async function runOptimize() {
 }
 const { success, error: notifyError } = useNotify()
 const { data: usage, status: usageStatus } = useMediaUsage(() => props.item.uuid)
+const entryUsage = computed(() => usage.value?.entries ?? [])
+/** Font library families using the file: the server refuses its deletion while any do. */
+const fontUsage = computed(() => usage.value?.font_library ?? [])
 
 const form = ref({ title: '', alt_text: '', caption: '', tags: [] as string[] })
 const tagInput = ref('')
@@ -232,12 +235,17 @@ function fmtDate(v?: string | null): string {
         color="error"
         variant="soft"
         block
+        :disabled="fontUsage.length > 0"
+        data-test="media-delete"
         @click="
           () => {
             pendingDelete = true
           }
         "
       />
+      <p v-if="fontUsage.length > 0" class="text-xs text-muted" data-test="media-delete-blocked">
+        A font in the library: delete the family permanently on Site › Appearance first.
+      </p>
     </div>
 
     <!-- Details -->
@@ -261,11 +269,22 @@ function fmtDate(v?: string | null): string {
     <div>
       <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Used in</h3>
       <div v-if="usageStatus === 'pending'" class="text-sm text-muted">Checking…</div>
-      <p v-else-if="!(usage ?? []).length" class="text-sm text-muted">
+      <p v-else-if="!entryUsage.length && !fontUsage.length" class="text-sm text-muted">
         This media is not currently used anywhere.
       </p>
       <ul v-else class="flex flex-col gap-1.5">
-        <li v-for="u in usage" :key="u.entry_uuid" class="flex items-center gap-2 text-sm">
+        <li
+          v-for="f in fontUsage"
+          :key="f.id"
+          class="flex items-center gap-2 text-sm"
+          data-test="media-usage-font"
+        >
+          <UIcon name="i-lucide-type" class="size-4 shrink-0 text-muted" />
+          <RouterLink to="/appearance#typefaces" class="truncate text-default hover:underline">
+            Font library · {{ f.name }}{{ f.removed ? ' (removed)' : '' }}
+          </RouterLink>
+        </li>
+        <li v-for="u in entryUsage" :key="u.entry_uuid" class="flex items-center gap-2 text-sm">
           <UIcon name="i-lucide-file-text" class="size-4 shrink-0 text-muted" />
           <span class="truncate text-default">
             <code class="text-xs">{{ u.entry_uuid.slice(0, 8) }}</code>

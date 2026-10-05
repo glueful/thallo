@@ -216,7 +216,9 @@ final class LayoutFixturesRenderTest extends AppTestCase
     #[DataProvider('casesProvider')]
     public function testTheAnnotatedRenderingCarriesTheSameStyleClassesAsThePublicOne(array $case): void
     {
+        // The stage's own target markers (block typeface plan Task 10) are the one difference.
         $classes = static function (string $html): array {
+            $html = (string) preg_replace('~ thallo-stage-(?:target|part)--[\w-]+~', '', $html);
             preg_match_all('~class="([^"]*\bt-[^"]*)"~', $html, $m);
             return $m[1];
         };

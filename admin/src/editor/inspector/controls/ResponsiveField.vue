@@ -18,6 +18,7 @@ import { classFieldState } from '@/editor/inspector/classFieldState'
 import { CHOICE_LABELS } from '@/editor/inspector/choiceLabels'
 import TokenScaleControl from './TokenScaleControl.vue'
 import ChoiceControl from './ChoiceControl.vue'
+import FontFamilyControl from './FontFamilyControl.vue'
 
 const props = defineProps<{
   def: StylePropertyRow
@@ -36,6 +37,12 @@ const props = defineProps<{
   hideBreakpoints?: boolean
   /** Where the row is: a block's inspector (the default) or a style class's editor. */
   context?: 'block' | 'class' | 'region' | 'part'
+  /** A note after a choice that stays choosable (Weight's "— not in this family"). */
+  marks?: Record<string, string>
+  /** The font library's families by ID: a class's removed typeface is named as such. */
+  fonts?: ReadonlyMap<string, { name: string; removed: boolean }>
+  /** What the stage reports the target renders in, for the Typeface control (plan Task 10). */
+  computedTypography?: { weight: number; style: string } | null
 }>()
 const emit = defineEmits<{
   /** Set (or clear with null) the value at one breakpoint (null breakpoint = non-responsive). */
@@ -53,7 +60,10 @@ const definition = computed(() => ({
   responsive: props.def.responsive,
   tokenDomain: props.def.token_domain,
   choices: props.def.choices,
+  kinds: props.def.kinds,
 }))
+/** A typeface (block typeface spec §4): a font ID, chosen from the library. */
+const isFont = computed(() => props.def.kinds.includes('font'))
 
 const resolutions = computed(
   () =>
@@ -93,6 +103,7 @@ const classState = computed(() =>
           (name) => `${props.def.token_domain}.${name}`,
         )
       : undefined,
+    props.fonts,
   ),
 )
 const currentValue = computed(() => {
@@ -120,10 +131,17 @@ const declaredAt = computed(() =>
 )
 
 function toValue(raw: string): StyleValue {
+  if (isFont.value) return { type: 'font', value: raw }
   return props.def.token_domain !== null
     ? { type: 'token', value: raw }
     : { type: 'choice', value: raw }
 }
+/** The Typeface control's value: the font ID this row presents, or nothing. */
+const fontValue = computed<StyleValue | null>(() =>
+  currentValue.value !== null ? { type: 'font', value: currentValue.value } : null,
+)
+/** A typeface's reset returns its target to the contextual default (block typeface spec §3.3). */
+const RESET_HELP = 'Returns this target to its contextual default.'
 
 function onPick(raw: string): void {
   emit('set', props.def.path, breakpoint.value, toValue(raw))
@@ -245,8 +263,16 @@ const sourceLabel = computed(() => {
          supply its own chooser (icons, track swatches); the state and the actions stay the row's. -->
     <div data-test="style-chooser">
       <slot name="control" :value="currentValue" :pick="onPick">
+        <FontFamilyControl
+          v-if="isFont"
+          :value="fontValue"
+          :context="context ?? 'block'"
+          :computed="computedTypography ?? null"
+          @pick="onPick"
+          @clear="clear()"
+        />
         <TokenScaleControl
-          v-if="def.token_domain !== null"
+          v-else-if="def.token_domain !== null"
           :domain="def.token_domain"
           :names="vocabulary.domains[def.token_domain] ?? []"
           :values="vocabulary.values"
@@ -257,6 +283,7 @@ const sourceLabel = computed(() => {
           v-else
           :choices="def.choices ?? []"
           :labels="CHOICE_LABELS[def.path]"
+          :marks="marks"
           :model-value="currentValue"
           :name="def.path"
           @update:model-value="onPick"
@@ -269,6 +296,7 @@ const sourceLabel = computed(() => {
           type="button"
           class="text-muted hover:text-default"
           data-test="style-use-theme-default"
+          :title="isFont ? RESET_HELP : undefined"
           @click="reset()"
         >
           Use theme default
@@ -288,9 +316,10 @@ const sourceLabel = computed(() => {
           type="button"
           class="text-muted hover:text-default"
           data-test="style-reset"
+          :title="isFont ? RESET_HELP : undefined"
           @click="reset()"
         >
-          Reset to theme
+          {{ isFont ? 'Use theme default' : 'Reset to theme' }}
         </button>
         <button
           v-if="current.state === 'explicit' || current.state === 'reset'"

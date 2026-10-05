@@ -116,14 +116,14 @@ These are the names, written `domain.name` — `spacing.lg`, `typography.size.2x
 | `spacing` | `none` `xs` `sm` `md` `lg` `xl` `2xl` `3xl` |
 | `width` | `narrow` `content` `container` `full` |
 | `radius` | `none` `sm` `md` `lg` `full` |
-| `color` | `background` `surface` `surface-2` `text` `muted` `line` `accent` `accent-contrast` `transparent` `white` |
+| `color` | `background` `surface` `surface-2` `text` `muted` `line` `accent` `accent-contrast` `transparent` `white` `black` |
 | `shadow` | `none` `xs` `sm` `md` `lg` `xl` |
 | `typography.size` | `xs` `sm` `md` `lg` `xl` `2xl` `3xl` |
 
 A value is any CSS value, including a reference to a variable of your own: the default theme maps
 `spacing.xs` to `var(--space-1)`, so changing one variable re-scales everything the Design view
-offers. `color.white` fills itself in as `#ffffff` when a theme omits it; every other name has to
-be there. A name the vocabulary does not have cannot be declared: there are no extra tokens.
+offers. `color.white` and `color.black` fill themselves in as `#ffffff` and `#000000` when a theme
+omits them; every other name has to be there. A name the vocabulary does not have cannot be declared: there are no extra tokens.
 
 The rest is optional and cannot break the theme — a wrong value is left off the card rather than
 refused:
@@ -138,9 +138,42 @@ refused:
 | `screenshot` | An image inside the theme's folder: `png`, `jpg` or `webp`, 2 MB at most. A `screenshot.jpg`, `.png` or `.webp` at the theme's root is found without being named. The card is 4:3; the shipped screenshot is 1200×900. |
 | `colors` | `background`, `text` and `accent` as hex. When there is no screenshot, the admin draws a small page in these colours, so a card is never blank. |
 | `settings` | The theme's presentation defaults: `show_title` (true or false) and `layout` (`full` or `centered`), and a `types` object keyed by content type slug carrying the same two keys for that type. An unknown key here is an error, not an omission. |
+| `face` | The theme's own typeface: `family`, its name; `stack`, the CSS font stack it renders in; and `files`, each a `.woff2` inside `assets/` with its `weight` (`400`, or a range such as `300 900`) and `style` (`normal` or `italic`). It is what a block set to **Theme** renders in, and what the admin shows that choice in. Without it, **Theme** is the system stack. A file that is not there is simply not declared. |
 
 The site serves the screenshot at `/_thallo/theme-screenshot/<name>` — that one file of a theme,
 and nothing else.
+
+The default theme's `face` reads:
+
+```json
+"face": {
+  "family": "Figtree",
+  "stack": "\"Figtree\", \"Figtree Fallback\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+  "files": [
+    { "src": "fonts/figtree-roman-latin.woff2", "weight": "300 900", "style": "normal" },
+    { "src": "fonts/figtree-italic-latin.woff2", "weight": "300 900", "style": "italic" }
+  ]
+}
+```
+
+Appearance's typefaces reach a theme as variables on `:root`: `--font-body` and `--font-display`
+for the families, and `--font-synthesis-body` and `--font-synthesis-display` for whether the browser
+may fake a weight or a slant — an uploaded family is never given a faked bold. Read all four where
+the theme sets its fonts, as the default theme does:
+
+```css
+body { font-family: var(--font-body); font-synthesis: var(--font-synthesis-body, weight style); }
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-synthesis: var(--font-synthesis-display, weight style);
+}
+```
+
+A theme that ignores the synthesis variables still works; the browser then fakes a bold an uploaded
+family does not have. A block's own **Typeface** is a setting, and beats the theme's fonts whatever
+the selectors. Its faces come from the site's fonts stylesheet: link `fonts_stylesheet_url()` after
+the settings stylesheet, as the default `layout.twig` does — a layout that only calls
+`theme_colors_style()` gets the link from it.
 
 ## The hooks a template must keep
 

@@ -21,6 +21,7 @@ import type { StageEditor } from '@/editor/stage/useStageEditor'
 import type { Pattern } from '@/queries/patterns'
 import { checkLayoutCandidate } from '@/editor/structure/layoutCandidate'
 import { present } from '@/editor/ops/types'
+import { fetchAppearanceFingerprint } from '@/queries/appearanceFingerprint'
 
 // The layout host (type layouts spec §6.2): the layout editor's side of the stage editor. The editor
 // edits ONE document — the layout's blocks as a root blocks field named `blocks`, its Frame options
@@ -200,6 +201,7 @@ export function useLayoutHost(options: { surface: string; target: string }) {
     },
     // A fresh session has no working copy to reconcile.
     reconcileOnOpen: false,
+    appearanceFingerprint: fetchAppearanceFingerprint,
     /**
      * The restore sequence (Regions spec §5.3): mint a session for the sample, apply the whole
      * current document to it with a null pair, and answer only once that apply is accepted. A newer

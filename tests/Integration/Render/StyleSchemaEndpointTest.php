@@ -34,6 +34,12 @@ final class StyleSchemaEndpointTest extends AppTestCase
                 'responsive' => true, 'token_domain' => 'spacing', 'choices' => null],
             $byPath['spacing.padding.top'],
         );
+        // The typeface: a font ID or a reset, one value for every width (block typeface plan Task 3).
+        self::assertSame(
+            ['path' => 'typography.family', 'group' => 'typography', 'kinds' => ['font', 'reset'],
+                'responsive' => false, 'token_domain' => null, 'choices' => null],
+            $byPath['typography.family'],
+        );
         self::assertSame(['start', 'center', 'end'], $byPath['alignment.text']['choices']);
         self::assertFalse($byPath['radius']['responsive']);
         $advanced = ['anchor', 'css_classes', 'attributes', 'accessibility.label'];
@@ -43,5 +49,8 @@ final class StyleSchemaEndpointTest extends AppTestCase
         $values = $this->container()->get(ThemeLocator::class)->vocabulary()->values();
         self::assertSame($values, $data['vocabulary']['values']);
         self::assertSame('var(--space-4)', $data['vocabulary']['values']['spacing.lg']);
+        // The editor's colour choices come from here: Black among them, as #000000.
+        self::assertContains('black', $data['vocabulary']['domains']['color']);
+        self::assertSame('#000000', $data['vocabulary']['values']['color.black']);
     }
 }

@@ -106,6 +106,8 @@ final class RenderContextExtension extends AbstractExtension
      * controller ASSIGNS it before every render; never on for live renders.
      */
     private bool $annotateBlocks = false;
+    /** Whether this render has asked for the fonts stylesheet (see themeColorsStyle()). */
+    private bool $fontsLinked = false;
 
     /**
      * Rendering a loop's second or later card: the card repeats the first card's design for another
@@ -278,14 +280,59 @@ final class RenderContextExtension extends AbstractExtension
          * @var (\Closure(): array<string, string>)|null
          */
         private readonly ?\Closure $contributedBlockScripts = null,
+        /**
+         * Soft-bound (block typeface spec §3.3–§3.4): the request's font library snapshot. Null →
+         * only the built-in typefaces resolve, any other ID renders as `inherit`, and no fonts
+         * stylesheet is linked.
+         */
+        private readonly ?\Thallo\Render\Style\RequestFontSnapshot $fontSnapshots = null,
+        /** The workspace's fonts stylesheets (spec §3.4): null → none is linked. */
+        private readonly ?\Thallo\Render\Style\FontsArtifacts $fontsArtifacts = null,
     ) {
         $this->locale = $defaultLocale;
+    }
+
+    /**
+     * The font library as this request sees it: one snapshot for the page's typeface utilities, its
+     * fonts stylesheet, the link and the page cache's fingerprint (RequestFontSnapshot).
+     */
+    public function fontSnapshot(): ?\Thallo\Contracts\Fonts\FontLibrarySnapshotView
+    {
+        return $this->fontSnapshots?->current();
+    }
+
+    /**
+     * The workspace's fonts stylesheet URL (spec §3.4), published before it is returned; null when
+     * the library has no current family (nothing to link).
+     */
+    public function fontsStylesheetUrl(): ?string
+    {
+        $this->fontsLinked = true;
+        $snapshot = $this->fontSnapshot();
+        if ($snapshot === null || $this->fontsArtifacts === null) {
+            return null;
+        }
+        $artifact = $this->fontsArtifacts->forSnapshot($snapshot);
+        if ($artifact['css'] === '') {
+            return null;
+        }
+        $file = \Thallo\Render\Style\FontsArtifacts::fileName($artifact['hash']);
+        return ($this->assetBase ?? '/theme-assets') . '/' . $file;
     }
 
     /** The generation of the style class snapshot this request renders from (spec §4.3). */
     public function styleSnapshotGeneration(): int
     {
         return $this->styleClasses?->snapshot()->generation ?? 0;
+    }
+
+    /**
+     * What this render's head depends on — the theme, the saved appearance, the fonts stylesheet
+     * (block typeface plan Task 11): a stage compares it with what the admin last rendered with.
+     */
+    public function appearanceFingerprint(): string
+    {
+        return $this->appearance?->appearanceFingerprint() ?? '';
     }
 
     /**
@@ -396,6 +443,7 @@ final class RenderContextExtension extends AbstractExtension
             new TwigFunction('layers_stylesheet_url', $this->layersStylesheetUrl(...)),
             new TwigFunction('theme_stylesheet_url', $this->themeStylesheetUrl(...)),
             new TwigFunction('settings_stylesheet_url', $this->settingsStylesheetUrl(...)),
+            new TwigFunction('fonts_stylesheet_url', $this->fontsStylesheetUrl(...)),
             // Style targets (visual builder spec §2.5): a block template styles its declared
             // targets through these; nothing else turns a setting into markup.
             new TwigFunction('style_classes', $this->styleClasses(...)),
@@ -503,7 +551,14 @@ final class RenderContextExtension extends AbstractExtension
             $targets,
             $target,
             $this->classRefsFor($frame['settings']['classes'] ?? null),
+            $this->fontSnapshot(),
         );
+        // On the stage only, the element names itself, so the preview bridge can read what a target
+        // or part renders in (block typeface plan Task 10). A public page never carries it.
+        if ($this->annotateBlocks) {
+            $classes[] = (in_array($target, $targets->names(), true) ? 'thallo-stage-target--' : 'thallo-stage-part--')
+                . $target;
+        }
         return $classes === [] ? '' : ' ' . implode(' ', $classes);
     }
 
@@ -854,9 +909,18 @@ final class RenderContextExtension extends AbstractExtension
             ThemeDesign::normalizeBackground($design['background'] ?? '')
                 ?? $this->appearance?->background() ?? ThemeDesign::DEFAULT_BACKGROUND,
             $neutral,
-            $this->effectiveFontFaces(),
+            ...array_values($this->effectiveFontRoles()),
         );
-        return new \Twig\Markup($css === '' ? '' : "<style>{$css}</style>", 'UTF-8');
+        $html = $css === '' ? '' : "<style>{$css}</style>";
+        // A theme whose own layout predates the font library calls this but never asks for the fonts
+        // stylesheet: link it here, so Custom's families and block typefaces still have their faces.
+        if (!$this->fontsLinked) {
+            $url = $this->fontsStylesheetUrl();
+            if ($url !== null) {
+                $html = '<link rel="stylesheet" href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '">' . $html;
+            }
+        }
+        return new \Twig\Markup($html, 'UTF-8');
     }
 
     /** The typeface pairing this render uses: a preview's when it names one, else the saved one. */
@@ -867,32 +931,58 @@ final class RenderContextExtension extends AbstractExtension
     }
 
     /**
-     * The site's own faces as the URLs the media library serves them at — a preview's uuids when
-     * it names any, else the saved ones. A face the library no longer has is simply not used; a
-     * setting never reaches the stylesheet as anything but a looked-up URL.
+     * Custom's Text and Headings families for this render: a preview's when it names one (`none`
+     * takes a saved one off), else the saved ones.
      *
-     * @return array{body?: string, display?: string}
+     * @return array{text?: string, headings?: string}
      */
-    private function effectiveFontFaces(): array
+    private function effectiveFontFamilies(): array
     {
-        $uuids = $this->appearance?->fontFaces() ?? [];
-        foreach (['body' => 'font_body', 'display' => 'font_display'] as $role => $key) {
+        $families = $this->appearance?->fontFamilies() ?? [];
+        foreach (['text' => 'font_text_family', 'headings' => 'font_headings_family'] as $role => $key) {
             $previewed = $this->appearanceDesignOverride[$key] ?? null;
             if (is_string($previewed)) {
-                unset($uuids[$role]);
-                if (ThemeDesign::normalizeFace($previewed) !== null) {
-                    $uuids[$role] = $previewed;
+                unset($families[$role]);
+                if (ThemeDesign::normalizeFamily($previewed) !== null) {
+                    $families[$role] = $previewed;
                 }
             }
         }
-        $faces = [];
-        foreach ($uuids as $role => $uuid) {
-            $url = $this->mediaUrls?->url($uuid);
-            if (is_string($url) && $url !== '') {
-                $faces[$role] = $url;
+        return $families;
+    }
+
+    /**
+     * Custom's roles resolved through the request's font library snapshot (block typeface spec
+     * §2.8): a built-in to its named stack and the browser's synthesis; a current uploaded family to
+     * its generated family and fallback stack, synthesis `style`; Theme, a removed or an unknown
+     * family to nothing (the role falls back by the Text/Headings rules).
+     *
+     * @return array{text: array{stack: string, synthesis: string}|null,
+     *     headings: array{stack: string, synthesis: string}|null}
+     */
+    private function effectiveFontRoles(): array
+    {
+        $snapshot = $this->fontSnapshot();
+        $resolve = static function (?string $id) use ($snapshot): ?array {
+            if ($id === null || $id === 'theme') {
+                return null;
             }
-        }
-        return $faces;
+            $named = \Thallo\Contracts\Style\FontStacks::named($id);
+            if ($named !== null) {
+                return ['stack' => $named, 'synthesis' => 'weight style'];
+            }
+            $family = $snapshot?->resolution($id) === 'uploaded' ? $snapshot->family($id) : null;
+            if ($family === null) {
+                return null;
+            }
+            return [
+                'stack' => '"thallo-font-' . $family->id . '",'
+                    . \Thallo\Contracts\Style\FontStacks::forFallback($family->fallback),
+                'synthesis' => 'style',
+            ];
+        };
+        $families = $this->effectiveFontFamilies();
+        return ['text' => $resolve($families['text'] ?? null), 'headings' => $resolve($families['headings'] ?? null)];
     }
 
     /**
@@ -1166,7 +1256,7 @@ final class RenderContextExtension extends AbstractExtension
         if (!is_array($style) || $style === []) {
             return '';
         }
-        $classes = $this->styleEmitter->classesFor(['style' => $style], $targets, $target);
+        $classes = $this->styleEmitter->classesFor(['style' => $style], $targets, $target, [], $this->fontSnapshot());
         return $classes === [] ? '' : ' ' . implode(' ', $classes);
     }
 
@@ -1796,6 +1886,7 @@ final class RenderContextExtension extends AbstractExtension
      */
     public function resetPerRenderState(): void
     {
+        $this->fontsLinked = false;
         $this->cardCopy = false;
         $this->cardPath = '';
         $this->resetBlockDepth();
@@ -2085,13 +2176,13 @@ final class RenderContextExtension extends AbstractExtension
      * quotes, backslashes, control chars, and `<` so nothing can form `</style>`). A
      * missing roman emits nothing — a theme without the files (custom theme inheriting the
      * default layout) falls through to the system stack. Roman only is preloaded.
+     *
+     * The faces are always declared, so any block may choose the Theme typeface (block typeface
+     * spec §2.2); an undeclared use costs nothing, since a browser downloads a face only when text
+     * uses it. Only the preload depends on the site-wide text being set in this face.
      */
     public function fontFacesStyle(string $family, string $romanRel, ?string $italicRel = null): Markup
     {
-        // A site whose text is set in another face entirely would download this one for nothing.
-        if (!ThemeDesign::usesThemeFace($this->effectiveFont(), $this->effectiveFontFaces())) {
-            return new Markup('', 'UTF-8');
-        }
         $romanUrl = $this->assetUrlIfExists($romanRel);
         if ($romanUrl === null) {
             return new Markup('', 'UTF-8');
@@ -2107,9 +2198,13 @@ final class RenderContextExtension extends AbstractExtension
                 . 'font-weight: 300 900; font-style: italic; font-display: swap; }';
         }
 
-        $html = '<link rel="preload" as="font" type="font/woff2" href="'
-            . htmlspecialchars($romanUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
-            . '" crossorigin>' . "\n<style>\n" . $css . "\n</style>";
+        $html = "<style>\n" . $css . "\n</style>";
+        // A site whose text is set in another face entirely would preload this one for nothing.
+        if (ThemeDesign::usesThemeFace($this->effectiveFont(), $this->effectiveFontRoles()['text'])) {
+            $html = '<link rel="preload" as="font" type="font/woff2" href="'
+                . htmlspecialchars($romanUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+                . '" crossorigin>' . "\n" . $html;
+        }
 
         return new Markup($html, 'UTF-8');
     }

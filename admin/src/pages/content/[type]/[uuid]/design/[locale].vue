@@ -36,6 +36,7 @@ import { localeStatus } from '../components/localeStatus'
 import CanvasOutline from './components/CanvasOutline.vue'
 import { useStageEditor } from '@/editor/stage/useStageEditor'
 import type { FieldEditorExposed, StageHost } from '@/editor/stage/types'
+import { fetchAppearanceFingerprint } from '@/queries/appearanceFingerprint'
 
 // The visual canvas (visual-canvas spec §1): a FULL-SCREEN sibling of the entry
 // editor — iframe stage (real theme render via a preview session), left outline,
@@ -101,6 +102,7 @@ const host: StageHost = {
   // only by saveDraft, TTL-bounded. An abandoned session's stash overlays the DRAFT on the next
   // open, so one initial apply of the hydrated tree overwrites it with truth.
   reconcileOnOpen: true,
+  appearanceFingerprint: fetchAppearanceFingerprint,
   renew: async () => {
     const minted = await mintPreviewData(uuid.value, locale.value)
     effectiveLayout.value = minted.layout

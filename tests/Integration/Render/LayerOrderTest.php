@@ -69,7 +69,7 @@ final class LayerOrderTest extends AppTestCase
             {
                 return 'plain';
             }
-            public function fontFaces(): array
+            public function fontFamilies(): array
             {
                 return [];
             }

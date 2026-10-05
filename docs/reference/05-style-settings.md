@@ -23,7 +23,7 @@ ordinal scales, not promises about pixels.
 | `spacing` | `none` `xs` `sm` `md` `lg` `xl` `2xl` `3xl` |
 | `width` | `narrow` `content` `container` `full` |
 | `radius` | `none` `sm` `md` `lg` `full` |
-| `color` | `background` `surface` `surface-2` `text` `muted` `line` `accent` `accent-contrast` `transparent` `white` |
+| `color` | `background` `surface` `surface-2` `text` `muted` `line` `accent` `accent-contrast` `transparent` `white` `black` |
 | `shadow` | `none` `xs` `sm` `md` `lg` `xl` |
 | `typography.size` | `xs` `sm` `md` `lg` `xl` `2xl` `3xl` |
 
@@ -33,9 +33,9 @@ dots replaced by hyphens and `--t-` in front: `spacing.lg` becomes `--t-spacing-
 `--t-color-accent`. Those are the variables the utilities below read, so a theme that re-maps a
 token re-skins every block that used it.
 
-`color.white` fills itself in as `#ffffff` when a theme omits it; every other name has to be
-mapped, or the theme fails validation. There are no extra tokens: a document may reference
-baseline names only.
+`color.white` and `color.black` fill themselves in as `#ffffff` and `#000000` when a theme omits
+them, and are the same in light and dark mode; every other name has to be mapped, or the theme
+fails validation. There are no extra tokens: a document may reference baseline names only.
 
 ## The breakpoints
 
@@ -70,8 +70,13 @@ typed value directly.
 }
 ```
 
-The three value kinds are `token`, `choice` and `reset`. A token must be a baseline name of the
-property's own domain; a choice must be one of the property's listed values.
+The four value kinds are `token`, `choice`, `font` and `reset`. A token must be a baseline name of
+the property's own domain; a choice must be one of the property's listed values. A font names a
+typeface by its ID — `{"type": "font", "value": "serif"}` — and only **Typeface** takes it: one of
+the built-ins `theme`, `serif`, `humanist`, `geometric`, `slab`, `mono` and `system`, or the
+12-character ID of a family in the site's font library. Only the ID's shape is checked, never that
+the family exists, so a page stays valid after a family is removed or when it comes from another
+site.
 
 The renderer resolves each property through the cascade — the block's style classes in list
 order, then the block's own settings — and emits one utility class per breakpoint where the
@@ -85,13 +90,18 @@ above `base`: `t-pt-lg`, `md:t-pt-lg`, `lg:t-radius-full`. A slash in a value be
 so `layout.basis` `1/3` emits `t-basis-1-3`. In the stylesheet the colon is escaped —
 `.md\:t-pt-lg`.
 
-Three stylesheets deliver all of it, in this order:
+Up to four stylesheets deliver all of it, in this order:
 
 ```text
 /_thallo/layers.css                  @layer theme, settings;
 /theme-assets/theme-{hash}.css       @layer theme    — the theme's own CSS
 /theme-assets/settings-{hash}.css    @layer settings — :root {--t-*}, then the utilities
+/theme-assets/fonts-{hash}.css       @layer settings — the font library's faces and utilities
 ```
+
+The fourth is linked only when the site's font library holds a family. It is the site's own: each
+workspace has its own, named by the hash of what it holds, and a version once written is never
+rewritten — a page that links an older one keeps getting the faces it was rendered with.
 
 The utilities are emitted base first, then inside `@media (min-width: 768px)`, then inside
 `@media (min-width: 1024px)`. Because `settings` is the later layer, a setting always beats the
@@ -99,8 +109,8 @@ theme, whatever the selectors say — which is why the theme build refuses `!imp
 managed property in any rule that names `.thallo-block`. The site's own custom CSS is unlayered,
 so it still wins over both.
 
-Both artifacts are served by content hash, so changing a theme's CSS or its vocabulary re-keys
-every cached page.
+The artifacts are served by content hash, so changing a theme's CSS, its vocabulary or the font
+library re-keys every cached page.
 
 ## How a reset works
 
@@ -120,6 +130,11 @@ their own on the element. Their reset still stops resolution.
 
 **Clear**, beside it, is different: it removes the declaration entirely and lets whatever is
 underneath — a narrower breakpoint, a style class, the theme — show through.
+
+For **Typeface** the reset is labelled **Use theme default**, and it returns the element to its
+*contextual* default rather than to one particular face: a heading may take the Headings face
+Appearance assigns, and an element the theme sets no font on inherits its parent's. To ask for the
+theme's own face whatever surrounds it, choose **Theme**.
 
 ## The Style tab
 
@@ -151,11 +166,37 @@ All six take a `spacing` token. There is no left or right margin: horizontal pla
 
 | Setting | Path | Responsive | Class | Declaration |
 |---|---|---|---|---|
+| Typeface | `typography.family` | no | `t-font-{id}` | `font-family:` the family's stack, and `font-synthesis` |
 | Size | `typography.size` | yes | `t-size-{name}` | `font-size: var(--t-typography-size-{name})` |
 | Weight | `typography.weight` | yes | `t-weight-{value}` | `font-weight:` `regular` 400, `medium` 500, `semibold` 600, `bold` 700 |
 | Line height | `typography.line_height` | yes | `t-leading-{value}` | `line-height:` `tight` 1.1, `snug` 1.25, `normal` 1.5, `relaxed` 1.65, `loose` 1.9 |
 
 The line height is unitless, so it follows whatever the Size setting beside it resolves to.
+
+**Typeface** takes a `font` value and is set once for every width. What its utility declares
+depends on what the ID names:
+
+| Value | `font-family` | `font-synthesis` | Where the rule lives |
+|---|---|---|---|
+| `serif` `humanist` `geometric` `slab` `mono` `system` | the named stack, ending with its generic | `weight style` | the settings stylesheet |
+| `theme` | the theme's own face, then the system stack | `weight style` | the settings stylesheet |
+| a family in the font library | `"thallo-font-{id}"`, then its fallback's stack | `style` | the fonts stylesheet |
+| a removed or unknown family | `inherit` — the class is `t-font-inherit` | `inherit` | the settings stylesheet |
+
+The named stacks are `serif` `"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif`;
+`humanist` `Seravek,"Gill Sans Nova",Ubuntu,Calibri,"DejaVu Sans",source-sans-pro,sans-serif`;
+`geometric` `Avenir,Montserrat,Corbel,"URW Gothic",source-sans-pro,sans-serif`; `slab`
+`Rockwell,"Rockwell Nova","Roboto Slab","DejaVu Serif","Sitka Small",serif`; `mono`
+`ui-monospace,"Cascadia Code","Source Code Pro",Menlo,Consolas,"DejaVu Sans Mono",monospace`; and
+`system` `system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif`.
+
+An uploaded family is never given a faked bold: a weight its files do not supply is drawn from the
+nearest face the family has, and only italic may be slanted by the browser when there is no italic
+face. The stored ID is kept whatever happens to the family: a removed one renders as if nothing were
+set here — the element inherits — and comes back when the family is restored.
+
+A block's parts carry their own Typeface (`settings.parts.{part}.typography.family`), so a card's
+title and its text can be set in different families; a block's style classes never reach a part.
 
 ### Colours
 

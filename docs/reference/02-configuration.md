@@ -203,6 +203,7 @@ and the same three for `CRITICAL_`, `HIGH_`, `MAINTENANCE_`, `NOTIFICATIONS_`, `
 | `UPLOADS_MAX_WIDTH`, `UPLOADS_MAX_HEIGHT` | `2048` | The largest resize candidate. |
 | `UPLOADS_CACHE_TTL` | `604800` | How long a resized variant is kept. |
 | `IMAGE_DRIVER` | `gd` | `gd` or `imagick`, for thumbnails and resizes. |
+| `IMAGE_MAX_WIDTH`, `IMAGE_MAX_HEIGHT` | `6000`, `6000` | The largest original, in pixels, that thumbnails and resized copies are made from. A larger image is still stored and served whole; it gets no thumbnail. |
 | `STORAGE_DEFAULT_DISK` | `uploads` | The default disk for everything else. |
 | `CDN_URL` | empty | A base URL for public file URLs on the local disk. |
 

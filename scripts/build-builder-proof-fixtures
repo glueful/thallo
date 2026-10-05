@@ -331,7 +331,7 @@ $canonical = static function (mixed $value) use (&$canonical): mixed {
 
 $db = $container->get(Glueful\Database\Connection::class);
 try {
-    $db->transaction(static function () use ($container, $contentTypes, $pageUuid, $entries, $page, $scenarios, $regionsOut, $out, $canonical): void {
+    $db->transaction(static function () use ($container, $contentTypes, $pageUuid, $entries, $page, $scenarios, $regionsOut, $out, $canonical, $root): void {
         $contentTypes->updateMeta($pageUuid, ['public_delivery' => true]);
         // Published directly, as the render tests publish: no workflow gate stands between a proof
         // fixture and its page.
@@ -401,10 +401,41 @@ try {
             return $out;
         };
 
+        // The font library's one family (block typeface plan Task 11), read from a real variable
+        // .woff2 file put in the media library: the Typeface control offers it (api/fonts.json), and
+        // the `typeface-applied` scenario sets the footer's Links title in it — "$typeface" there is
+        // its id, which is not known before.
+        $fontDisk = $container->get(Glueful\Storage\StorageManager::class)->disk('uploads');
+        $fontPath = 'e2e-fonts/variable.woff2';
+        $fontDisk->write($fontPath, (string) file_get_contents($root . '/tests/fixtures/fonts/variable.woff2'));
+        try {
+            $db->table('blobs')->insert([
+                'uuid' => 'e2efontblob1', 'name' => 'ProofSans-Variable.woff2', 'mime_type' => 'font/woff2',
+                'size' => (int) filesize($root . '/tests/fixtures/fonts/variable.woff2'), 'url' => $fontPath,
+                'storage_type' => 'uploads', 'visibility' => 'public', 'status' => 'active',
+                'created_by' => 'user00000001', 'created_at' => gmdate('Y-m-d H:i:s'),
+            ]);
+            $typeface = $container->get(Thallo\Core\Content\Fonts\FontLibrary::class)
+                ->create('Proof Sans', 'sans-serif', ['e2efontblob1']);
+        } finally {
+            $fontDisk->delete($fontPath); // read once; the fixtures never fetch it
+        }
+        // The renders below take the library as it is now, not as an earlier render saw it.
+        $container->get(Thallo\Render\Style\RequestFontSnapshot::class)->refresh();
+        file_put_contents(
+            $out . '/api/fonts.json',
+            (string) $container->get(Thallo\Core\Content\Fonts\Http\FontLibraryController::class)->index()->getContent(),
+        );
+
         $validator = $container->get(Thallo\Core\Content\Regions\RegionValidator::class);
         $documents = [];
         foreach ($scenarios as $scenario) {
-            $doc = $scenario['document'];
+            $doc = json_decode(
+                str_replace('"$typeface"', json_encode($typeface, JSON_THROW_ON_ERROR), json_encode($scenario['document'], JSON_THROW_ON_ERROR)),
+                true,
+                512,
+                JSON_THROW_ON_ERROR,
+            );
             foreach (['header', 'footer'] as $slug) {
                 $doc[$slug]['blocks'] = $expand($doc[$slug]['blocks']);
             }
@@ -443,10 +474,13 @@ try {
         [$body] = $sessionOf(null);
         $write('session.json', $body);
         $write('regions.json', (string) $container->get(Thallo\Core\Http\Controllers\RegionAdminController::class)->index()->getContent());
-        // The container proof starts from its own session, whose baseline is `container`.
-        $saveRows($documents['container']);
-        [$body] = $sessionOf(null);
-        $write('session-container.json', $body);
+        // The container proof starts from its own session, whose baseline is `container`; the
+        // typeface proof from one whose footer holds a Links block (`links`).
+        foreach (['container', 'links'] as $opening) {
+            $saveRows($documents[$opening]);
+            [$body] = $sessionOf(null);
+            $write("session-{$opening}.json", $body);
+        }
         $saveRows($documents['baseline']);
 
         // One session per state: mint for its page, apply its document, render the stage.
@@ -490,6 +524,8 @@ try {
 } catch (RegionFixturesWritten) {
     // Written, and rolled back.
 }
+// The family seeded for the regions went with the rollback: later renders take the library as it is.
+$container->get(Thallo\Render\Style\RequestFontSnapshot::class)->refresh();
 
 // ── The layout stage (type layouts plan L9) ───────────────────────────────────────────────────
 // A publicly delivered `post` type with one published post, and its layout saved once, then every

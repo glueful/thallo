@@ -94,6 +94,7 @@ function fakeHost(options: { reconcileOnOpen?: boolean; renew?: Mock<StageHost['
         accepted: { epoch: 'e2', revision: 1 },
         retryWithExistingPair: false,
       })),
+    appearanceFingerprint: vi.fn<StageHost['appearanceFingerprint']>(async () => 'fp'),
   }
 }
 
@@ -540,6 +541,43 @@ describe('the layout hooks (sections and templates design §4)', () => {
     await flushPromises()
     expect((editor.fields.value.body as { id: string }[]).map((b) => b.id)).toEqual(minted)
     expect(editor.fields.value._layout_settings).toEqual({ width: 'full' })
+    unmount()
+  })
+})
+
+// What the stage renders a target in (block typeface plan Task 10): the editor counts the stage's
+// renders — each load and each in-place patch — so the inspector asks again, and a selection
+// change drops every answer still pending.
+describe('the stage typography probe', () => {
+  it('counts each stage load and each patched refresh', async () => {
+    const host = fakeHost()
+    const { editor, unmount } = mountEditor(host)
+    host.initial.value = structuredClone(TREE)
+    await flushPromises()
+    const before = editor.stageTypography.renders.value
+    callbacks.onStageState!(false as never)
+    expect(editor.stageTypography.renders.value).toBe(before + 1)
+    edit(editor, 'B')
+    await flushPromises()
+    editor.commitNow()
+    await editor.applyWorking()
+    await flushPromises()
+    expect(editor.stageTypography.renders.value).toBe(before + 2)
+    unmount()
+  })
+
+  it('a selection change drops the pending answers', async () => {
+    const drop = vi.fn()
+    ;(bridge as Record<string, unknown>).dropTypography = drop
+    const { editor, unmount } = mountEditor(fakeHost())
+    await flushPromises()
+    editor.selectOne('blockaaa0001')
+    await flushPromises()
+    expect(drop).toHaveBeenCalledTimes(1)
+    editor.clearSelection()
+    await flushPromises()
+    expect(drop).toHaveBeenCalledTimes(2)
+    delete (bridge as Record<string, unknown>).dropTypography
     unmount()
   })
 })

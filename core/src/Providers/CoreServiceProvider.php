@@ -1522,6 +1522,7 @@ final class CoreServiceProvider extends ServiceProvider implements \Thallo\Contr
                 : null,
             $container->get(PreviewWorkingCopyStore::class),
             $container->get(\Thallo\Core\Content\Layouts\EntryLayoutStatus::class),
+            $container->get(\Thallo\Contracts\Fonts\FontLibraryReader::class),
         );
     }
 
@@ -1572,6 +1573,41 @@ final class CoreServiceProvider extends ServiceProvider implements \Thallo\Contr
             $container->get(\Thallo\Core\Content\Preview\LayoutPreviewStore::class),
             $container->get(\Thallo\Core\Content\Layouts\LayoutChanges::class),
         );
+    }
+
+    public static function makeWoff2FaceReader(): \Thallo\Core\Content\Fonts\Woff2FaceReader
+    {
+        return new \Thallo\Core\Content\Fonts\Woff2FaceReader(
+            \Thallo\Core\Content\Fonts\Brotli\BrotliDecoders::best(),
+        );
+    }
+
+    public static function makeFontLibrary(ContainerInterface $container): \Thallo\Core\Content\Fonts\FontLibrary
+    {
+        return new \Thallo\Core\Content\Fonts\FontLibrary(
+            $container->get(\Glueful\Database\Connection::class),
+            $container->get(\Thallo\Core\Content\Fonts\FontBlobFiles::class),
+            $container->get(\Thallo\Core\Content\Fonts\Woff2FaceReader::class),
+            $container->get(\Thallo\Tenancy\System\SystemFlags::class),
+            $container->get(MediaUrlBatchResolver::class),
+        );
+    }
+
+    public static function makeFontLibraryUpgradeStep(
+        ContainerInterface $container,
+    ): \Thallo\Core\Content\Fonts\FontLibraryUpgradeStep {
+        $runner = \Glueful\Extensions\Contracts\Tenancy\TenantContextRunner::class;
+        return new \Thallo\Core\Content\Fonts\FontLibraryUpgradeStep(
+            $container->get(\Thallo\Core\Content\Fonts\FontLibraryUpgrade::class),
+            $container->get(\Thallo\Tenancy\System\SystemFlags::class),
+            $container->has($runner) ? $container->get($runner) : null,
+        );
+    }
+
+    public static function makeFontLibraryReader(
+        ContainerInterface $container,
+    ): \Thallo\Contracts\Fonts\FontLibraryReader {
+        return $container->get(\Thallo\Core\Content\Fonts\FontLibrary::class);
     }
 
     public static function makeLayoutChanges(ContainerInterface $container): \Thallo\Core\Content\Layouts\LayoutChanges
@@ -1880,6 +1916,56 @@ final class CoreServiceProvider extends ServiceProvider implements \Thallo\Contr
                 'shared' => true,
                 'autowire' => true,
             ],
+            // The font library (block typeface spec §2.3): faces read from WOFF2 files with Thallo's
+            // bounded Brotli port; the library is also the render pack's FontLibraryReader.
+            \Thallo\Core\Content\Fonts\Woff2FaceReader::class => [
+                'factory' => [self::class, 'makeWoff2FaceReader'],
+                'shared' => true,
+            ],
+            \Thallo\Core\Content\Fonts\FontBlobCheck::class => [
+                'class' => \Thallo\Core\Content\Fonts\FontBlobCheck::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Fonts\FontBlobFiles::class => [
+                'class' => \Thallo\Core\Content\Fonts\StorageFontBlobFiles::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Fonts\FontLibrary::class => [
+                'factory' => [self::class, 'makeFontLibrary'],
+                'shared' => true,
+            ],
+            \Thallo\Contracts\Fonts\FontLibraryReader::class => [
+                'factory' => [self::class, 'makeFontLibraryReader'],
+                'shared' => true,
+            ],
+            // Appearance's Custom from the library (spec §2.7–§2.8): the lock every assignment
+            // writer takes, and provision's one-time upgrade of the old uploads.
+            \Thallo\Core\Content\Fonts\FontUsage::class => [
+                'class' => \Thallo\Core\Content\Fonts\FontUsage::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Fonts\Http\FontLibraryController::class => [
+                'class' => \Thallo\Core\Content\Fonts\Http\FontLibraryController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Settings\AppearanceLock::class => [
+                'class' => \Thallo\Core\Settings\AppearanceLock::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Fonts\FontLibraryUpgrade::class => [
+                'class' => \Thallo\Core\Content\Fonts\FontLibraryUpgrade::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Fonts\FontLibraryUpgradeStep::class => [
+                'factory' => [self::class, 'makeFontLibraryUpgradeStep'],
+                'shared' => true,
+            ],
             \Thallo\Core\Content\Layouts\LayoutWriteLock::class => [
                 'class' => \Thallo\Core\Content\Layouts\LayoutWriteLock::class,
                 'shared' => true,
@@ -2038,6 +2124,12 @@ final class CoreServiceProvider extends ServiceProvider implements \Thallo\Contr
                 'factory' => [self::class, 'makeRequirePermission'],
                 'shared' => true,
                 'alias' => ['content_permission'],
+            ],
+            \Thallo\Core\Content\Fonts\Http\FontLibraryBlobGuard::class => [
+                'class' => \Thallo\Core\Content\Fonts\Http\FontLibraryBlobGuard::class,
+                'shared' => true,
+                'autowire' => true,
+                'alias' => ['font_library_blob_guard'],
             ],
             PermissionRequirementAuthority::class => [
                 'factory' => [self::class, 'makePermissionRequirementAuthority'],
@@ -3190,6 +3282,16 @@ final class CoreServiceProvider extends ServiceProvider implements \Thallo\Contr
 
     public function boot(ApplicationContext $context): void
     {
+        // The media extension caps an original at 2048px on either side before it makes a resized
+        // copy — a guard against decompression bombs that also refused ordinary banners and every
+        // phone photo, breaking their thumbnails, srcsets and backgrounds. Thallo's default is
+        // 6000px (36 MP); IMAGE_MAX_WIDTH/HEIGHT or the site's config/image.php still win. Set at
+        // boot, after every provider's register(), so it lands over the extension's own default.
+        $context->mergeConfigDefaults('image', ['limits' => [
+            'max_width' => (int) env('IMAGE_MAX_WIDTH', 6000),
+            'max_height' => (int) env('IMAGE_MAX_HEIGHT', 6000),
+        ]]);
+
         // The capability declaration set, and with it the extensions.protected defaults, exists
         // from here on even if no provider has made a capability decision yet.
         $context->getContainer()->get(\Thallo\Core\Capabilities\Declarations\DeclarationSet::class);

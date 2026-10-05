@@ -6,7 +6,7 @@ import { qk } from './keys'
 // The style schema (visual builder spec §1.3, §3.4): the one runtime source the inspector
 // generates its controls from, plus the active theme's vocabulary values for previews.
 
-export type StyleValueKind = 'token' | 'choice' | 'identifier' | 'reset'
+export type StyleValueKind = 'token' | 'choice' | 'identifier' | 'font' | 'reset'
 
 export interface StylePropertyRow {
   path: string

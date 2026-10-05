@@ -7,6 +7,11 @@ defineProps<{
   name?: string
   /** What a choice reads as, where the stored value is not the word for it (`80` → `80%`). */
   labels?: Record<string, string>
+  /**
+   * A note after a choice that stays choosable — Weight's "— not in this family" for a weight the
+   * chosen typeface does not supply (block typeface spec §4.2).
+   */
+  marks?: Record<string, string>
 }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 </script>
@@ -29,6 +34,9 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
       @click="emit('update:modelValue', choice)"
     >
       {{ labels?.[choice] ?? choice }}
+      <span v-if="marks?.[choice]" class="normal-case text-muted" data-test="choice-mark">
+        {{ marks[choice] }}
+      </span>
     </button>
   </div>
 </template>

@@ -27,6 +27,7 @@ abstract class AppTestCase extends TestCase
         'thallo_commerce_payment_link_deliveries',
         'thallo_commerce_product_links', 'thallo_commerce_product_slugs', 'thallo_commerce_checkout_attempts',
         'block_type_migrations',
+        'font_faces', 'font_families',
         'blobs',
         'block_types',
         'style_class_jobs', 'style_classes', 'style_generations', 'saved_sections', 'admin_ui_settings', 'layouts',
@@ -225,6 +226,10 @@ abstract class AppTestCase extends TestCase
         // spec §4.3); a test is a request, so its memo must not outlive the truncation below.
         if ($this->container()->has(\Thallo\Contracts\Style\StyleClassProvider::class)) {
             $this->container()->get(\Thallo\Contracts\Style\StyleClassProvider::class)->refresh();
+        }
+        // So does the font library snapshot (block typeface spec §3.4): one per request.
+        if ($this->container()->has(\Thallo\Render\Style\RequestFontSnapshot::class)) {
+            $this->container()->get(\Thallo\Render\Style\RequestFontSnapshot::class)->refresh();
         }
 
         self::wipe($this->connection());

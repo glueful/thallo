@@ -6,6 +6,14 @@
   "author": "Thallo",
   "tags": ["general", "light and dark", "all blocks"],
   "screenshot": "screenshot.jpg",
+  "face": {
+    "family": "Figtree",
+    "stack": "\"Figtree\", \"Figtree Fallback\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+    "files": [
+      { "src": "fonts/figtree-roman-latin.woff2", "weight": "300 900", "style": "normal" },
+      { "src": "fonts/figtree-italic-latin.woff2", "weight": "300 900", "style": "italic" }
+    ]
+  },
   "vocabulary": {
     "spacing.none": "0",
     "spacing.xs": "var(--space-1)",
@@ -34,6 +42,7 @@
     "color.accent-contrast": "var(--accent-ink)",
     "color.transparent": "transparent",
     "color.white": "#ffffff",
+    "color.black": "#000000",
     "shadow.none": "var(--shadow-none)",
     "shadow.xs": "var(--shadow-xs)",
     "shadow.sm": "var(--shadow-sm)",

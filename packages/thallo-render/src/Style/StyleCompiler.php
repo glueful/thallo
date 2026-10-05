@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Thallo\Render\Style;
 
+use Thallo\Contracts\Style\FontStacks;
 use Thallo\Contracts\Style\StyleSchema;
 use Thallo\Contracts\Style\ValueKind;
 use Thallo\Contracts\Style\Vocabulary;
@@ -25,7 +26,13 @@ final class StyleCompiler
     // 10: a hero's aside — aside.padding and aside.surface.
     // 11: the aside's padding is a side each.
     // 12: layout.columns `theme` — the theme's own tracks, for a target that declares them.
-    public const VERSION = 12;
+    // 13: typography.family's reset (t-font-reset: family and synthesis back to the context's).
+    // 14: the built-in typefaces, Theme from the theme's declared face, and t-font-inherit.
+    // 15: color.black, a literal #000000 like white — its token and its colour utilities.
+    public const VERSION = 15;
+
+    /** The built-in typefaces' synthesis: the browser's default (an uploaded family's is `style`). */
+    private const BUILT_IN_SYNTHESIS = 'weight style';
 
     /** Where an entrance STARTS from; `none` starts nowhere. */
     private const ENTRANCES = [
@@ -165,6 +172,8 @@ final class StyleCompiler
     {
         return substr(hash('sha256', json_encode([
             'vocabulary' => $vocabulary->values(),
+            // Theme's typeface is compiled from the declared face, so a new face is a new artifact.
+            'face' => $vocabulary->themeFaceStack(),
             'schema' => Vocabulary::VERSION,
             'settings' => StyleSchema::VERSION,
             'compiler' => self::VERSION,
@@ -184,11 +193,36 @@ final class StyleCompiler
         foreach (['--t-surface', '--t-surface-default'] as $name) {
             $out .= "@property {$name} { syntax: '*'; inherits: false; }\n";
         }
-        $out .= self::rules('base');
+        $out .= self::rules('base') . self::fontRules($vocabulary);
         foreach (self::MEDIA as $bp => $min) {
             $out .= "@media (min-width: {$min}px) {\n" . self::rules($bp) . "}\n";
         }
         return $out . "}\n";
+    }
+
+    /**
+     * The typeface utilities (block typeface spec §3.3), one value for every width: each built-in
+     * sets its named stack and the browser's synthesis; `theme` the theme's declared face (or the
+     * system stack); `inherit` — a removed or unknown family — takes both from the parent; `reset`
+     * returns the target to its contextual default. Every resolved family sets synthesis, because
+     * `font-synthesis` inherits.
+     */
+    private static function fontRules(ThemeVocabulary $vocabulary): string
+    {
+        $out = '';
+        $stacks = [];
+        foreach (['serif', 'humanist', 'geometric', 'slab', 'mono', 'system'] as $id) {
+            $stacks[$id] = (string) FontStacks::named($id);
+        }
+        $stacks['theme'] = $vocabulary->themeFaceStack();
+        foreach ($stacks as $id => $stack) {
+            $out .= ClassNames::selector(ClassNames::forFont($id))
+                . ' { font-family: ' . $stack . '; font-synthesis: ' . self::BUILT_IN_SYNTHESIS . "; }\n";
+        }
+        $out .= ClassNames::selector(ClassNames::forFont('inherit'))
+            . " { font-family: inherit; font-synthesis: inherit; }\n";
+        return $out . ClassNames::selector(ClassNames::reset('typography.family'))
+            . " { font-family: revert-layer; font-synthesis: revert-layer; }\n";
     }
 
     /** `spacing.lg` → `--t-spacing-lg` */
@@ -206,6 +240,11 @@ final class StyleCompiler
             }
             // A span has no rule of its own: spanRules() pairs it with the parent's track count.
             if ($path === 'layout.span') {
+                continue;
+            }
+            // The typeface's values are not a token or choice table: fontRules() compiles the
+            // built-ins with the theme's face; uploaded families go to the workspace's fonts artifact.
+            if ($path === 'typography.family') {
                 continue;
             }
             foreach (self::valuesFor($path, $def->tokenDomain, $def->choices) as $value) {

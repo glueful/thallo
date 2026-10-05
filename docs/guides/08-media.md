@@ -45,8 +45,8 @@ The list is newest first, thirty files to a page, with the count and a pager at 
 search box matches the file's name, in any case, and takes `%` and `_` as the characters they
 are. The buttons above it — **All**, **Images**, **Videos**,
 **Audio** and **Docs** — narrow by type. **Docs** means everything that is not an image, a
-video, audio or a font, so a typeface uploaded from **Site › Appearance** shows up only under
-**All**.
+video, audio or a font, so a font file added to the font library under **Site › Appearance** shows
+up only under **All**.
 
 ## Describe a file
 
@@ -138,6 +138,11 @@ run `php glueful thallo:media:rebuild-usage` once to fill the list in.
 
 A page that used a deleted file still renders. The theme resolves the image first and skips the
 element when it cannot, so the picture goes and everything around it stays.
+
+A font file that a family in the font library uses cannot be deleted here, even while the family is
+removed: **Used in** names it under **Font library**, and **Delete** is unavailable, with the reason
+beneath it. Delete the family permanently from the **Typefaces** card on **Site › Appearance** and
+the file is an ordinary file again.
 
 ## Show your location on a map
 

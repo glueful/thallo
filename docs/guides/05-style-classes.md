@@ -58,6 +58,14 @@ too: it stops resolution and hands the property back to the theme.
 A class declares no capabilities, so it may carry a setting a block does not offer. On such a
 block the declaration is kept and unused.
 
+A class can carry a **Typeface** too: a "Brand type" class set in one of the site's families puts
+every block it is applied to in that family. The class editor offers the same Typeface list a block
+does, but says nothing about weights the family lacks — a class renders nowhere until it is applied,
+so that note appears on the block. A class naming a family that has since been removed reads
+**Set — removed typeface:** and the family's name, and the blocks it is on inherit their parent's
+font until the family is restored. A class never reaches a block's parts, such as a card's title:
+each part keeps its own Typeface.
+
 ## Change the class once, for every block
 
 Open **Settings › Style classes**. Each row gives the class's name, its description and the

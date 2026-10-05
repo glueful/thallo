@@ -5,7 +5,7 @@
 // Only properties `tabMap` assigns to Style appear here; width, placement and content
 // distribution moved to the Layout tab (container-layout spec §5), because how wide a box is and
 // how it sits in its parent are layout decisions, not styling ones.
-import { computed } from 'vue'
+import { computed, inject, ref, watch } from 'vue'
 import type { BlockType } from '@/queries/blockTypes'
 import type { StylePropertyRow, StyleSchemaResult } from '@/queries/styleSchema'
 import type { Breakpoint, StyleClassRef, StyleValue } from '@/style/types'
@@ -17,6 +17,10 @@ import { readPath, settingSegments } from '@/editor/ops/apply'
 import { BREAKPOINTS } from '@/style/types'
 import { isFolded, toggleFold } from './styleGroupFolds'
 import { pathsForTab } from './tabMap'
+import { resolve } from '@/style/resolver'
+import { suppliedWeights, useFontLibrary } from '@/queries/fontLibrary'
+import type { ComputedTypography } from '@/composables/useCanvasBridge'
+import { StageTypographyKey, typographyTarget } from '@/editor/stage/stageTypography'
 
 const props = defineProps<{
   block: BlockInstance
@@ -40,6 +44,8 @@ const props = defineProps<{
   noSaveAsClass?: boolean
   /** The host has a stage that can replay a block's motion: only then is Play offered. */
   canPlayMotion?: boolean
+  /** A part's Style tab (`context` 'part'): the part's name, which the stage marks it by. */
+  part?: string
 }>()
 
 const multi = computed(() => (props.blocks?.length ?? 0) > 1)
@@ -94,6 +100,7 @@ const LABELS: Record<string, string> = {
   'spacing.margin.top': 'Margin top',
   'spacing.margin.bottom': 'Margin bottom',
   'alignment.text': 'Text alignment',
+  'typography.family': 'Typeface',
   'typography.size': 'Size',
   'typography.weight': 'Weight',
   'typography.line_height': 'Line height',
@@ -168,9 +175,17 @@ function itemsOf(rows: StylePropertyRow[]): Item[] {
   return items.sort((a, b) => position(a) - position(b))
 }
 
+/** The Typeface leads Typography: it decides which weights the rest can mean (spec §4.1). */
+function ordered(rows: StylePropertyRow[]): StylePropertyRow[] {
+  const family = rows.filter((r) => r.path === 'typography.family')
+  return [...family, ...rows.filter((r) => r.path !== 'typography.family')]
+}
+
 const groups = computed(() =>
   GROUPS.map((g) => {
-    const rows = props.schema.properties.filter((r) => allowed.value.has(r.path) && g.match(r))
+    const rows = ordered(
+      props.schema.properties.filter((r) => allowed.value.has(r.path) && g.match(r)),
+    )
     return { ...g, rows, items: itemsOf(rows), responsive: rows.some((r) => r.responsive) }
   }).filter((g) => g.rows.length > 0),
 )
@@ -187,7 +202,68 @@ function styleOf(block: BlockInstance): Record<string, unknown> {
   return typeof s === 'object' && s !== null ? (s as Record<string, unknown>) : {}
 }
 const style = computed<Record<string, unknown>>(() => styleOf(props.block))
+
+// The font library: a class's removed typeface is named, and Weight marks what the chosen family
+// does not supply (block typeface spec §4.2, §4.4).
+const { data: fontLibrary } = useFontLibrary()
+const fonts = computed(
+  () =>
+    new Map(
+      (fontLibrary.value?.families ?? []).map((f) => [f.id, { name: f.name, removed: f.removed }]),
+    ),
+)
+const WEIGHTS: Record<string, number> = { regular: 400, medium: 500, semibold: 600, bold: 700 }
+const weightMarks = computed<Record<string, string> | undefined>(() => {
+  const row = props.schema.properties.find((r) => r.path === 'typography.family')
+  if (!row) return undefined
+  const resolved = resolve(row.path, props.classes, style.value, {
+    path: row.path,
+    group: row.group,
+    responsive: row.responsive,
+    tokenDomain: row.token_domain,
+    choices: row.choices,
+    kinds: row.kinds,
+  }) as Record<string, { value: StyleValue | null }>
+  const value = resolved.base?.value
+  const family =
+    value?.type === 'font'
+      ? fontLibrary.value?.families.find((f) => f.id === value.value)
+      : undefined
+  const supplied = family && !family.removed ? suppliedWeights(family) : null
+  if (supplied === null) return undefined
+  const marks: Record<string, string> = {}
+  for (const [choice, weight] of Object.entries(WEIGHTS)) {
+    if (!supplied.has(weight)) marks[choice] = '— not in this family'
+  }
+  return marks
+})
 const styles = computed(() => (multi.value ? (props.blocks ?? []).map(styleOf) : undefined))
+
+// What the stage renders the typeface's target in (plan Task 10), for the not-supplied notice: a
+// single block's target or part, asked again after each stage render. Only the latest answer counts.
+const stageTypography = inject(StageTypographyKey, null)
+const measuredTarget = computed<string | null>(() => {
+  if (stageTypography === null || multi.value) return null
+  const context = props.context ?? 'block'
+  if (context === 'part') return props.part ?? null
+  return context === 'block' ? typographyTarget(props.blockType) : null
+})
+const measured = ref<ComputedTypography | null>(null)
+let measureSeq = 0
+watch(
+  () => [props.block.id, measuredTarget.value, stageTypography?.renders.value] as const,
+  ([id, target]) => {
+    const seq = ++measureSeq
+    if (stageTypography === null || target === null) {
+      measured.value = null
+      return
+    }
+    void stageTypography.request(id, target).then((value) => {
+      if (seq === measureSeq) measured.value = value
+    })
+  },
+  { immediate: true },
+)
 
 /** How many of a group's properties this block declares at any breakpoint: a folded group's cue. */
 function setCount(rows: StylePropertyRow[]): number {
@@ -304,6 +380,9 @@ function setCount(rows: StylePropertyRow[]): number {
               :re-resolving="reResolving"
               :active-breakpoint="activeBreakpoint"
               :vocabulary="schema.vocabulary"
+              :marks="item.def.path === 'typography.weight' ? weightMarks : undefined"
+              :fonts="fonts"
+              :computed-typography="item.def.path === 'typography.family' ? measured : undefined"
               hide-breakpoints
               @set="(path, bp, value) => emit('set', path, bp, value)"
               @set-all="(path, value) => emit('set-all', path, value)"

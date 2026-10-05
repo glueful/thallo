@@ -61,6 +61,8 @@ tools/runtime-browser/fixtures/listing-layout/
 tools/runtime-browser/fixtures/shop-layout/
 # scripts/build-shop-block-proof-fixtures renders pages holding Featured product and Add to cart (shop-block-selection.spec.js).
 tools/runtime-browser/fixtures/shop-block-selection/
+# scripts/build-typography-bridge-fixtures renders the stage the computed-typography bridge reads (typography-bridge.spec.js).
+tools/runtime-browser/fixtures/typography-bridge/
 
 # A capability override the e2e fixture builder writes for its own boot (restored on exit).
 /config/testing/thallo.php

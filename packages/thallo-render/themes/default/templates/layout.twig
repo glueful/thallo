@@ -24,6 +24,11 @@
   <link rel="stylesheet" href="{{ layers_stylesheet_url() }}">
   <link rel="stylesheet" href="{{ theme_stylesheet_url() }}">
   <link rel="stylesheet" href="{{ settings_stylesheet_url() }}">
+  {#~ The workspace's own typefaces (block typeface spec §3.4): its uploaded families' faces and
+     utilities, in @layer settings; nothing at all when the font library has none. #}
+  {%~ set fonts_url = fonts_stylesheet_url() %}
+  {%~ if fonts_url %}  <link rel="stylesheet" href="{{ fonts_url }}">
+{% endif %}
   {# Theme color config (theme-color-config spec §5): a :root + dark token
      override generated from the operator's accent/neutral choice. Emits nothing
      for the default (blue/slate). AFTER the theme CSS, BEFORE custom.css so
@@ -153,7 +158,7 @@
      -> theme.json per-type -> theme.json default -> built-ins. Templates never
      read _presentation directly. #}
   {% set layoutClass = {centered: 'layout--centered', full: 'layout--full'}[presentation.layout ?? 'centered'] ?? 'layout--centered' %}
-  <main id="main" tabindex="-1" class="{{ layoutClass }}{% if presentation.style_classes|default('') %} {{ presentation.style_classes }}{% endif %}"{% if preview_revision is defined and preview_revision %} data-thallo-epoch="{{ preview_revision.epoch }}" data-thallo-revision="{{ preview_revision.revision }}"{% if preview_revision.style_generation is defined %} data-thallo-style-generation="{{ preview_revision.style_generation }}"{% endif %}{% endif %}>
+  <main id="main" tabindex="-1" class="{{ layoutClass }}{% if presentation.style_classes|default('') %} {{ presentation.style_classes }}{% endif %}"{% if preview_revision is defined and preview_revision %} data-thallo-epoch="{{ preview_revision.epoch }}" data-thallo-revision="{{ preview_revision.revision }}"{% if preview_revision.style_generation is defined %} data-thallo-style-generation="{{ preview_revision.style_generation }}"{% endif %}{% endif %}{% if appearance_fingerprint|default('') is not empty %} data-thallo-appearance-fingerprint="{{ appearance_fingerprint }}"{% endif %}>
     {% block content %}{% endblock %}
   </main>
   {% set footerHidden = (presentation.footer|default('default')) == 'hidden' and not region_stage() %}

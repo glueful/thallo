@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { openDesignPage } from '../helpers'
+import { fixture, openDesignPage } from '../helpers'
 
 // Site › Appearance, in a real browser: reached from the Site group in the sidebar, it shows how the
 // site looks — theme colours, design, logos — and a change is saved with ITS OWN keys only, so it
@@ -118,8 +118,8 @@ test('Appearance is in the Site group, and saves only its own settings', async (
     theme_neutral: 'slate',
     theme_radius: 'sharp',
     theme_font: 'sans',
-    theme_font_body: '',
-    theme_font_display: '',
+    theme_font_text_family: '',
+    theme_font_headings_family: '',
     theme_background: 'plain',
     site_logo: '',
     site_logo_dark: '',
@@ -225,28 +225,15 @@ test('a brand colour says how it will read, and the site’s own font shows itse
   await openDesignPage(page)
   const saves = await routeSettings(page)
   const looks = await routePreview(page)
-  // The upload is the framework's blob route; the font it "stores" is the theme's real woff2,
-  // served back from the media URL as the site would serve it.
-  const FONT = readFileSync(
-    resolve(
-      __dirname,
-      '../../../packages/thallo-render/themes/default/assets/fonts/figtree-roman-latin.woff2',
-    ),
-  )
-  const uploads: string[] = []
-  await page.route('**/v1/blobs', (route) => {
-    if (route.request().method() !== 'POST') return route.fallback()
-    uploads.push(route.request().headers()['content-type'] ?? '')
-    return route.fulfill({
-      status: 201,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        success: true,
-        data: { uuid: 'fontbody0001', blob_uuid: 'fontbody0001' },
-      }),
-    })
-  })
-  await page.route('**/v1/blobs/fontbody0001*', (route) =>
+  // The site's own font is the library family the fixture build read from a real variable .woff2
+  // (block typeface plan Task 11); its file is served back from its media URL as the site serves it.
+  const FONT = readFileSync(resolve(__dirname, '../../../tests/fixtures/fonts/variable.woff2'))
+  const family = (
+    JSON.parse(fixture('api/fonts.json')) as {
+      data: { families: { id: string; kind: string; removed: boolean; faces: { url: string }[] }[] }
+    }
+  ).data.families.find((f) => f.kind === 'uploaded' && !f.removed)!
+  await page.route(`**${family.faces[0]!.url}*`, (route) =>
     route.fulfill({ contentType: 'font/woff2', body: FONT }),
   )
   await page.goto('/admin/appearance')
@@ -281,29 +268,28 @@ test('a brand colour says how it will read, and the site’s own font shows itse
   await page.locator('[data-test="theme-font"]').click()
   await page.getByRole('option', { name: /^Custom/ }).click()
   await expect(page.locator('[data-test="custom-fonts"]')).toBeVisible()
-  await page
-    .locator('[data-test="font-upload-body"]')
-    .setInputFiles({ name: 'Brand.woff2', mimeType: 'font/woff2', buffer: FONT })
-  const specimen = page.locator('[data-test="font-specimen-body"]')
-  await expect(specimen).toBeVisible()
-  expect(uploads).toHaveLength(1)
-  // The specimen is really set in the uploaded face: the browser loaded it from the media URL.
-  await expect
-    .poll(() => page.evaluate(() => document.fonts.check('16px "thallo-admin-face-body"')))
-    .toBe(true)
-  expect(await specimen.evaluate((el) => getComputedStyle(el).fontFamily)).toContain(
-    'thallo-admin-face-body',
+  const option = page.locator(
+    `[data-test="font-family-text"] [data-test="family-option-${family.id}"]`,
   )
-  await expect.poll(() => looks.at(-1)?.font_body).toBe('fontbody0001')
-  expect(looks.at(-1)).toMatchObject({ font: 'custom', font_display: 'none' })
+  await option.click()
+  await expect(option).toHaveAttribute('aria-pressed', 'true')
+  // The option is really set in the family's face: the browser loaded it from the media URL.
+  await expect
+    .poll(() => page.evaluate((id) => document.fonts.check(`16px "thallo-font-${id}"`), family.id))
+    .toBe(true)
+  expect(await option.evaluate((el) => getComputedStyle(el).fontFamily)).toContain(
+    `thallo-font-${family.id}`,
+  )
+  await expect.poll(() => looks.at(-1)?.font_text_family).toBe(family.id)
+  expect(looks.at(-1)).toMatchObject({ font: 'custom', font_headings_family: 'none' })
 
   await page.locator('[data-test="appearance-save"]').click()
   await expect.poll(() => saves.length).toBe(1)
   expect(saves[0]).toMatchObject({
     theme_accent: '#1e3a8a',
     theme_font: 'custom',
-    theme_font_body: 'fontbody0001',
-    theme_font_display: '',
+    theme_font_text_family: family.id,
+    theme_font_headings_family: '',
   })
 })
 

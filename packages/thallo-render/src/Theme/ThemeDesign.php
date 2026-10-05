@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Thallo\Render\Theme;
 
+use Thallo\Contracts\Style\FontStacks;
+
 /**
  * Site-wide design tokens (website plan phase 1b): corner radius, typeface pairing and
  * page ground, chosen in Settings next to the theme colours. Closed enums; the defaults
@@ -26,12 +28,13 @@ final class ThemeDesign
     public const DEFAULT_FONT = 'sans';
     public const DEFAULT_BACKGROUND = 'plain';
 
-    private const SERIF = '"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif';
-    private const SYSTEM = 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif';
-    private const HUMANIST = 'Seravek,"Gill Sans Nova",Ubuntu,Calibri,"DejaVu Sans",source-sans-pro,sans-serif';
-    private const GEOMETRIC = 'Avenir,Montserrat,Corbel,"URW Gothic",source-sans-pro,sans-serif';
-    private const SLAB = 'Rockwell,"Rockwell Nova","Roboto Slab","DejaVu Serif","Sitka Small",serif';
-    private const MONO = 'ui-monospace,"Cascadia Code","Source Code Pro",Menlo,Consolas,"DejaVu Sans Mono",monospace';
+    // The named stacks are shared with the font library and the typeface utilities (FontStacks).
+    private const SERIF = FontStacks::SERIF;
+    private const SYSTEM = FontStacks::SYSTEM;
+    private const HUMANIST = FontStacks::HUMANIST;
+    private const GEOMETRIC = FontStacks::GEOMETRIC;
+    private const SLAB = FontStacks::SLAB;
+    private const MONO = FontStacks::MONO;
 
     /**
      * A pairing as [display, body]; null leaves that role to the theme's own face.
@@ -64,10 +67,12 @@ final class ThemeDesign
         return in_array($v, self::FONTS, true) ? $v : null;
     }
 
-    /** A media library uuid naming one of the site's own faces, or null for anything else. */
-    public static function normalizeFace(string $v): ?string
+    /** A font library ID (a built-in name or a family's 12 letters and digits), or null. */
+    public static function normalizeFamily(string $v): ?string
     {
-        return preg_match('/\A[A-Za-z0-9_-]{8,40}\z/', $v) === 1 ? $v : null;
+        return preg_match('/\A(?:theme|serif|humanist|geometric|slab|mono|system|[A-Za-z0-9]{12})\z/', $v) === 1
+            ? $v
+            : null;
     }
 
     public static function normalizeBackground(string $v): ?string
@@ -79,12 +84,12 @@ final class ThemeDesign
      * Whether the theme's own text face is still what the site is set in. The layout preloads
      * that face; a site whose text is another face entirely would download it for nothing.
      *
-     * @param array{body?: string, display?: string} $faces the site's own faces (`custom`)
+     * @param array{stack: string, synthesis: string}|null $text Custom's resolved Text family
      */
-    public static function usesThemeFace(string $font, array $faces): bool
+    public static function usesThemeFace(string $font, ?array $text = null): bool
     {
         if ($font === 'custom') {
-            return !isset($faces['body']);
+            return $text === null;
         }
         return !isset(self::PAIRINGS[$font]) || self::PAIRINGS[$font][1] === null;
     }
@@ -94,33 +99,31 @@ final class ThemeDesign
      * tokens only: dark mode keeps the theme's own dark ground, and the theme's
      * html[data-theme="dark"] rule outranks :root.
      *
-     * @param array{body?: string, display?: string} $faces URLs of the site's own woff2 faces,
-     *        used only by the `custom` choice
+     * The `custom` pairing takes its Text and Headings from the font library (block typeface spec
+     * §2.8), each resolved to its stack and synthesis policy (`style` for an uploaded family, the
+     * browser's `weight style` for a built-in); their faces are declared by the workspace's fonts
+     * stylesheet. Headings without a family follow the Text; no Text leaves the theme's face.
+     *
+     * @param array{stack: string, synthesis: string}|null $text
+     * @param array{stack: string, synthesis: string}|null $headings
      */
     public static function css(
         string $radius,
         string $font,
         string $background,
         string $neutral,
-        array $faces = [],
+        ?array $text = null,
+        ?array $headings = null,
     ): string {
         $tokens = self::RADIUS_TOKENS[$radius] ?? [];
-        $fontFaces = '';
 
         if ($font === 'custom') {
-            foreach (['body' => 'Site Body', 'display' => 'Site Display'] as $role => $family) {
-                if (isset($faces[$role]) && $faces[$role] !== '') {
-                    // One file serves every weight: a variable font covers the range itself, and
-                    // a single-weight file is better shown as it is than faked bold by the browser.
-                    $fontFaces .= '@font-face{font-family:"' . $family . '";src:url("'
-                        . self::cssString($faces[$role]) . '") format("woff2");'
-                        . 'font-weight:100 900;font-display:swap}';
-                    $tokens['--font-' . $role] = '"' . $family . '",' . self::SYSTEM;
+            $headings ??= $text;
+            foreach (['body' => $text, 'display' => $headings] as $role => $family) {
+                if ($family !== null) {
+                    $tokens['--font-' . $role] = $family['stack'];
+                    $tokens['--font-synthesis-' . $role] = $family['synthesis'];
                 }
-            }
-            // Only a text face: headings follow it, as they follow the body in the theme.
-            if (isset($tokens['--font-body']) && !isset($tokens['--font-display'])) {
-                $tokens['--font-display'] = $tokens['--font-body'];
             }
         } elseif (isset(self::PAIRINGS[$font])) {
             [$display, $body] = self::PAIRINGS[$font];
@@ -137,7 +140,7 @@ final class ThemeDesign
         }
 
         if ($tokens === []) {
-            return $fontFaces;
+            return '';
         }
 
         $out = '';
@@ -145,16 +148,6 @@ final class ThemeDesign
             $out .= ($out === '' ? '' : ';') . $name . ':' . $value;
         }
 
-        return $fontFaces . ':root{' . $out . '}';
-    }
-
-    /** A value inside a CSS string: backslash-hex for anything that could end the string or the sheet. */
-    private static function cssString(string $value): string
-    {
-        return (string) preg_replace_callback(
-            '/[\x00-\x1F\x7F"\'\\\\<>(){};]/',
-            static fn (array $m): string => sprintf('\\%x ', ord($m[0])),
-            $value,
-        );
+        return ':root{' . $out . '}';
     }
 }

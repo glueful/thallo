@@ -1,0 +1,224 @@
+import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
+import { getActivePinia } from 'pinia'
+import { effectScope, shallowRef } from 'vue'
+import { client } from '@/api/client'
+import { toApiError } from '@/api/errors'
+import { useAppearanceChanges } from '@/composables/useAppearanceChanges'
+import { qk } from './keys'
+
+// The font library (block typeface spec §2, §4): what the Typeface control offers — the built-ins,
+// the workspace's uploaded families with the faces read from their files (removed ones flagged, so a
+// stored value can be named), and the active theme's face. Any editor may read it; it carries no usage.
+
+export interface FontFaceRow {
+  blob_uuid?: string
+  url: string
+  weight_min: number
+  weight_max: number
+  italic: boolean
+  variable: boolean
+  /** A file the reader could not parse: it keeps the compatibility declaration (100–900, normal). */
+  unknown: boolean
+}
+
+export interface FontFamily {
+  id: string
+  name: string
+  kind: 'builtin' | 'uploaded'
+  /** An uploaded family's fallback generic; null for a built-in. */
+  fallback: string | null
+  removed: boolean
+  faces: FontFaceRow[]
+}
+
+export interface ThemeFace {
+  declared: boolean
+  family: string | null
+  /** The theme's own files that exist, for the Theme specimen. */
+  files: { url: string; weight: string; style: string }[]
+}
+
+export interface FontLibraryResult {
+  families: FontFamily[]
+  theme_face: ThemeFace
+  /** Whether the reader may manage the library (only then is Restore offered). */
+  can_manage: boolean
+}
+
+export async function fetchFontLibrary(): Promise<FontLibraryResult> {
+  const { data, error, response } = await client.GET('/fonts')
+  if (error) throw toApiError(error, response)
+  return (data as unknown as { data: FontLibraryResult }).data
+}
+
+/**
+ * The font library, cached under `['fonts']`. Where no query cache exists (a component rendered on
+ * its own, outside the app), there is no library: the control offers the built-ins alone.
+ */
+export function useFontLibrary() {
+  if (!getActivePinia()) return { data: shallowRef<FontLibraryResult | undefined>(undefined) }
+  followOtherTabs(useQueryCache())
+  return useQuery({ key: qk.fonts(), query: fetchFontLibrary, staleTime: 60_000 })
+}
+
+/** The query caches already listening for another tab's library changes: one listener each. */
+const following = new WeakSet<object>()
+
+/**
+ * Another tab changed the library: read it again now, so no list here offers a removed family or
+ * misses a new one until the cache goes stale.
+ */
+function followOtherTabs(cache: ReturnType<typeof useQueryCache>): void {
+  if (following.has(cache)) return
+  following.add(cache)
+  // A detached scope: the listener belongs to the page's cache, not to the component that first read.
+  effectScope(true).run(() =>
+    useAppearanceChanges().onChange((change) => {
+      if (change.kind === 'fonts') void cache.invalidateQueries({ key: qk.fonts() })
+    }),
+  )
+}
+
+/** One face as the faces line names it: `400`, `400 italic`, `300–900 variable`. */
+function faceLabel(face: FontFaceRow): string {
+  const weight =
+    face.weight_min === face.weight_max
+      ? `${face.weight_min}`
+      : `${face.weight_min}–${face.weight_max}`
+  return `${weight}${face.variable ? ' variable' : ''}${face.italic ? ' italic' : ''}`
+}
+
+/**
+ * What a family's faces are, in one line: "Faces: 400, 700, 400 italic", "Faces: 300–900 variable",
+ * "Unknown faces", "Provided by the visitor's device", or — for Theme — whether the theme supplies it.
+ */
+export function facesLabel(family: FontFamily, themeFace?: ThemeFace | null): string {
+  if (family.kind === 'builtin') {
+    if (family.id !== 'theme') return 'Provided by the visitor’s device'
+    return themeFace?.declared && themeFace.files.length > 0
+      ? 'Supplied by the theme'
+      : 'This theme declares no face; Theme uses the system stack'
+  }
+  if (family.faces.some((f) => f.unknown)) return 'Unknown faces'
+  const faces = [...family.faces].sort(
+    (a, b) => Number(a.italic) - Number(b.italic) || a.weight_min - b.weight_min,
+  )
+  return `Faces: ${faces.map(faceLabel).join(', ')}`
+}
+
+/**
+ * The hundreds a family's files cover — a static face its weight, a variable one its range — or null
+ * where nothing can be said: a built-in (the visitor's device decides) or a family with unknown faces.
+ */
+export function suppliedWeights(family: FontFamily): Set<number> | null {
+  if (family.kind === 'builtin' || family.faces.some((f) => f.unknown)) return null
+  const weights = new Set<number>()
+  for (const face of family.faces) {
+    for (let w = 100; w <= 900; w += 100) {
+      if (w >= face.weight_min && w <= face.weight_max) weights.add(w)
+    }
+  }
+  return weights
+}
+
+// ── Managing the library (content.manage; block typeface plan Task 11) ──────────────────────────
+
+/** Where a family is used, as GET /fonts/{id}/usage answers. */
+export interface FontUsage {
+  entries: {
+    uuid: string
+    title: string | null
+    locale: string | null
+    draft: boolean
+    published: boolean
+    versions: boolean
+  }[]
+  regions: string[]
+  layouts: { id: string; name: string }[]
+  saved_sections: { id: string; name: string }[]
+  style_classes: { id: string; name: string }[]
+  appearance: { text: boolean; headings: boolean }
+}
+
+/** How many places a usage names: each document, region, layout, section, class and role. */
+export function usageCount(usage: FontUsage): number {
+  return (
+    usage.entries.length +
+    usage.regions.length +
+    usage.layouts.length +
+    usage.saved_sections.length +
+    usage.style_classes.length +
+    Number(usage.appearance.text) +
+    Number(usage.appearance.headings)
+  )
+}
+
+/** A response's `data`, or the error it carried. */
+function dataOf<T>(result: { data?: unknown; error?: unknown; response: Response }): T {
+  if (result.error) throw toApiError(result.error, result.response)
+  return (result.data as { data: T }).data
+}
+
+export async function fetchFontUsage(id: string): Promise<FontUsage> {
+  return dataOf<FontUsage>(await client.GET('/fonts/{id}/usage', { params: { path: { id } } }))
+}
+
+/** How many places use each family, current or removed — one scan for the whole library. */
+export async function fetchFontUsageCounts(): Promise<Record<string, number>> {
+  return dataOf<{ counts: Record<string, number> }>(await client.GET('/fonts/usage-counts')).counts
+}
+
+/**
+ * The library's changes. Each refreshes the library and, once it succeeds, tells the admin's other
+ * tabs, whose open stages reload to show it (useAppearanceChanges).
+ */
+export function useFontLibraryMutations() {
+  const cache = useQueryCache()
+  const changes = useAppearanceChanges()
+  const invalidate = () => cache.invalidateQueries({ key: qk.fonts() })
+  const told = () => changes.notify('fonts')
+  const at = (id: string) => ({ params: { path: { id } } })
+  const familyId = (result: Parameters<typeof dataOf>[0]) =>
+    dataOf<{ family: { id: string } }>(result).family.id
+
+  return {
+    create: useMutation({
+      mutation: async (body: { name: string; fallback: string; blob_uuids: string[] }) =>
+        familyId(await client.POST('/fonts', { body })),
+      onSuccess: told,
+      onSettled: invalidate,
+    }),
+    update: useMutation({
+      mutation: async ({ id, ...body }: { id: string; name?: string; fallback?: string }) =>
+        familyId(await client.PATCH('/fonts/{id}', { ...at(id), body })),
+      onSuccess: told,
+      onSettled: invalidate,
+    }),
+    addFace: useMutation({
+      mutation: async ({ id, blob_uuid }: { id: string; blob_uuid: string }) =>
+        familyId(await client.POST('/fonts/{id}/faces', { ...at(id), body: { blob_uuid } })),
+      onSuccess: told,
+      onSettled: invalidate,
+    }),
+    remove: useMutation({
+      mutation: async (id: string) => dataOf(await client.DELETE('/fonts/{id}', at(id))),
+      onSuccess: told,
+      onSettled: invalidate,
+    }),
+    restore: useMutation({
+      mutation: async (id: string) => dataOf(await client.POST('/fonts/{id}/restore', at(id))),
+      onSuccess: told,
+      onSettled: invalidate,
+    }),
+    purge: useMutation({
+      mutation: async (id: string) => dataOf(await client.DELETE('/fonts/{id}/permanent', at(id))),
+      onSuccess: told,
+      onSettled: invalidate,
+    }),
+    readAgain: useMutation({
+      mutation: async (id: string) => dataOf(await client.POST('/fonts/{id}/read-again', at(id))),
+      onSuccess: told,
+      onSettled: invalidate,
+    }),
+  }
+}

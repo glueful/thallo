@@ -64,6 +64,8 @@ final class ClassNames
         'colors.surface_opacity' => 'bgo',
         'backdrop.blur' => 'blur',
         'typography.line_height' => 'leading',
+        // The typeface (block typeface spec §3.3): `t-font-serif`, `t-font-<id>`, `t-font-reset`.
+        'typography.family' => 'font',
         'motion.entrance' => 'enter',
         'motion.duration' => 'enterdur',
         'motion.delay' => 'enterdelay',
@@ -89,6 +91,12 @@ final class ClassNames
         $stem = self::STEMS[$property] ?? throw new \InvalidArgumentException("unknown managed property {$property}");
         $class = 't-' . $stem . '-' . self::valueName($value);
         return $breakpoint === 'base' ? $class : $breakpoint . ':' . $class;
+    }
+
+    /** A typeface's utility: `t-font-serif`, `t-font-<library id>` (never a display name). */
+    public static function forFont(string $id): string
+    {
+        return 't-font-' . $id;
     }
 
     public static function reset(string $property, string $breakpoint = 'base'): string

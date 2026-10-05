@@ -21,9 +21,9 @@ export interface PendingLook {
   radius: string
   font: string
   background: string
-  /** The site's own faces, pending (Custom pairing only): a media uuid, or `none`. */
-  font_body?: string
-  font_display?: string
+  /** Custom's Text and Headings, pending (Custom pairing only): a font library ID, or `none`. */
+  font_text_family?: string
+  font_headings_family?: string
 }
 
 const props = defineProps<{
