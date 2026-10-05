@@ -22,11 +22,15 @@ final class BlobResolutionTest extends TestCase
         $adminActions = [
             BlobRouteAction::UPLOAD,
             BlobRouteAction::INFO,
-            BlobRouteAction::DELETE,
             BlobRouteAction::SIGN,
         ];
         foreach ($adminActions as $action) {
             self::assertSame(['auth', 'tenant_profile:admin'], $provider->middlewareFor($action));
         }
+        // DELETE also refuses a font library file, after the workspace is bound.
+        self::assertSame(
+            ['auth', 'tenant_profile:admin', 'font_library_blob_guard'],
+            $provider->middlewareFor(BlobRouteAction::DELETE),
+        );
     }
 }
