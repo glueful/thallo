@@ -88,6 +88,13 @@ export interface MediaUsageEntry {
   status?: string | null
 }
 
+/** Where a file is used: entries, and the font library's families (block typeface spec §2.6). */
+export interface MediaUsage {
+  entries: MediaUsageEntry[]
+  /** Families whose faces use the file, current or removed: it cannot be deleted while any do. */
+  font_library: { id: string; name: string; removed: boolean }[]
+}
+
 export interface MediaPage {
   media: MediaItem[]
   total: number
@@ -155,10 +162,15 @@ export function useMediaItem(uuid: MaybeRefOrGetter<string | undefined>) {
   })
 }
 
-export async function fetchMediaUsage(uuid: string): Promise<MediaUsageEntry[]> {
+export async function fetchMediaUsage(uuid: string): Promise<MediaUsage> {
   const json = await authFetch(`${mediaBase()}/${encodeURIComponent(uuid)}/usage`)
   const d = (json.data ?? json) as Record<string, unknown>
-  return Array.isArray(d.usage) ? (d.usage as MediaUsageEntry[]) : []
+  return {
+    entries: Array.isArray(d.usage) ? (d.usage as MediaUsageEntry[]) : [],
+    font_library: Array.isArray(d.font_library)
+      ? (d.font_library as MediaUsage['font_library'])
+      : [],
+  }
 }
 
 export function useMediaUsage(uuid: MaybeRefOrGetter<string | undefined>) {
