@@ -21,6 +21,7 @@ use Thallo\Core\Content\Repositories\EntryRepository;
 use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Render\Http\Controllers\RenderController;
 use Thallo\Render\RenderContextExtension;
+use Thallo\Render\Style\RequestFontSnapshot;
 
 /**
  * What an open stage asks to know when to reload (block typeface plan Task 11):
@@ -172,6 +173,33 @@ final class AppearanceFingerprintEndpointTest extends AppTestCase
         self::assertSame(200, $stage->getStatusCode());
         $html = (string) $stage->getContent();
         self::assertSame(1, preg_match('~data-thallo-appearance-fingerprint="([^"]+)"~', $html, $m));
+
+        $this->grant($this->appContext(), ['content.edit']);
+        self::assertSame(html_entity_decode($m[1]), self::fingerprint($this->get($this->appContext())));
+    }
+
+    /** With a family in the library the value carries the fonts segment, on both sides alike. */
+    public function testItIsTheValueAStageRenderCarriesWithALibraryFamily(): void
+    {
+        $now = gmdate('Y-m-d H:i:s');
+        $this->connection()->table('font_families')->insert([
+            'id' => 'Ab3dE5fG7hJ9', 'name' => 'Brand', 'fallback' => 'serif', 'removed_at' => null,
+            'created_at' => $now, 'updated_at' => $now,
+        ]);
+        $this->connection()->table('font_faces')->insert([
+            'id' => 'faceAb3dE5fG', 'family_id' => 'Ab3dE5fG7hJ9', 'blob_uuid' => 'blobAb3dE5fG',
+            'weight_min' => 400, 'weight_max' => 400, 'italic' => false, 'variable' => false,
+            'unknown' => false, 'created_at' => $now,
+        ]);
+        $this->container()->get(RequestFontSnapshot::class)->refresh();
+        [, $token] = $this->stageSession();
+        $stage = $this->container()->get(RenderController::class)->preview(
+            Request::create('/_preview/' . $token . '?canvas=1', 'GET'),
+            $token,
+        );
+        $html = (string) $stage->getContent();
+        self::assertSame(1, preg_match('~data-thallo-appearance-fingerprint="([^"]+)"~', $html, $m));
+        self::assertMatchesRegularExpression('~-l[0-9a-f]{8}$~', $m[1], 'the fonts segment is there');
 
         $this->grant($this->appContext(), ['content.edit']);
         self::assertSame(html_entity_decode($m[1]), self::fingerprint($this->get($this->appContext())));

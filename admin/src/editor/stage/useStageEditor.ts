@@ -1766,6 +1766,8 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   const appearanceChanges = useAppearanceChanges()
   /** What the stage on screen was rendered with; null until it or the host first says. */
   let renderedFingerprint: string | null = null
+  /** The answer the last focus or minute reloaded the stage for. */
+  let reloadedFor: string | null = null
   let reloadAgain = false
   let reloadGuard: ReturnType<typeof setTimeout> | null = null
   let appearanceQueued: Promise<void> | null = null
@@ -1830,7 +1832,10 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
       const now = await host.appearanceFingerprint()
       if (renderedFingerprint === null) {
         renderedFingerprint = now // a theme whose stage does not say: the first answer is the baseline
-      } else if (now !== renderedFingerprint) {
+      } else if (now !== renderedFingerprint && now !== reloadedFor) {
+        // Once per change: a stage that still reports another value after reloading for it is not
+        // reloaded again on every focus — only a further change reloads it.
+        reloadedFor = now
         renderedFingerprint = now
         await refreshAfterAppearanceChange()
       }

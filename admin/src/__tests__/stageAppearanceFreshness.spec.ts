@@ -272,4 +272,27 @@ describe.each(['entry design', 'region', 'layout'])('the %s stage', () => {
     target.editFlush = flush
     unmount()
   })
+
+  it('a stage that still disagrees after its reload is not reloaded again for the same change', async () => {
+    let current = 'fp-1'
+    const { reloads, unmount } = await opened(() => current)
+    current = 'fp-2'
+    window.dispatchEvent(new Event('focus'))
+    await flushPromises()
+    expect(reloads.count).toBe(1)
+    // The reloaded stage reports something else than the host answers: no reload loop.
+    stageReady('fp-other')
+    await flushPromises()
+    for (let i = 0; i < 3; i++) {
+      window.dispatchEvent(new Event('focus'))
+      await flushPromises()
+    }
+    expect(reloads.count).toBe(1)
+    // A real change after it still reloads.
+    current = 'fp-3'
+    window.dispatchEvent(new Event('focus'))
+    await flushPromises()
+    expect(reloads.count).toBe(2)
+    unmount()
+  })
 })
