@@ -10,6 +10,8 @@ use Thallo\Core\Content\Fonts\FontBlobCheck;
 use Thallo\Core\Content\Fonts\FontLibrary;
 use Thallo\Core\Content\Fonts\FontLibraryUpgrade;
 use Thallo\Core\Content\Fonts\Woff2FaceReader;
+use Thallo\Core\Http\Controllers\GeneralSettingsController;
+use Thallo\Core\Http\DTOs\UpdateGeneralSettingsData;
 use Thallo\Core\Settings\AppearanceLock;
 use Thallo\Core\Settings\GeneralSettings;
 use Thallo\Core\Settings\SettingsStore;
@@ -174,6 +176,38 @@ final class FontLibraryUpgradeTest extends AppTestCase
         ]);
         $this->upgrade()->run();
         self::assertSame('', $this->assignments()[0], 'someone cleared it: never overwritten');
+    }
+
+    /**
+     * The Appearance page sends every key it shows, Custom's families included, as '' when unset. A
+     * save of something else before provision runs is not a clear: the upgrade still assigns.
+     */
+    public function testAnAppearanceSaveBeforeTheUpgradeIsNotAClear(): void
+    {
+        $this->store(['theme_font' => 'custom', 'theme_font_body' => $this->blob('fontbody0001', 'static-700.woff2')]);
+        $res = $this->container()->get(GeneralSettingsController::class)->update(new UpdateGeneralSettingsData(
+            theme_accent: 'rose',
+            theme_font_text_family: '',
+            theme_font_headings_family: '',
+        ));
+        self::assertSame(200, $res->getStatusCode(), (string) $res->getContent());
+        $this->upgrade()->run();
+        [$family] = $this->families();
+        self::assertSame([$family['id'], null], $this->assignments());
+    }
+
+    /** Clearing a family that is stored is a clear, and the upgrade leaves it. */
+    public function testClearingAStoredFamilyFromTheAppearancePageIsAClear(): void
+    {
+        $this->store([
+            'theme_font' => 'custom',
+            'theme_font_body' => $this->blob('fontbody0001', 'static-700.woff2'),
+            'theme_font_text_family' => 'serif',
+        ]);
+        $this->container()->get(GeneralSettingsController::class)
+            ->update(new UpdateGeneralSettingsData(theme_font_text_family: ''));
+        $this->upgrade()->run();
+        self::assertSame('', $this->assignments()[0]);
     }
 
     public function testAnAssignmentChangedAfterTheMarkerIsNeverRestored(): void
