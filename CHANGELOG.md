@@ -22,9 +22,10 @@ as the next release, never a mutated tag.
 - **Open editors stay current.** A change to the theme, Appearance or the font library — made in
   another tab, or by someone else — reloads the stage of every open page, header and footer, and
   layout editor, keeping unsaved work and undo history.
-- **`/v1/admin/fonts`** — list, add, edit, remove, restore, delete permanently, read again, and
-  usage — and **`GET /v1/admin/render/appearance-fingerprint`**, which tells an open stage when to
+- **`/v1/admin/fonts`** — list, add, edit, remove, restore, delete permanently, read again, usage,
+  and usage counts for every family — and **`GET /v1/admin/render/appearance-fingerprint`**, which tells an open stage when to
   reload. Any editor can read the font list; usage and changes need `content.manage`.
+  `DELETE /v1/blobs/{uuid}` refuses a font library file, as the media library does.
 
 ### Changed
 - **Appearance's Custom picks Text and Headings from the font library**, with **Add a font…** to

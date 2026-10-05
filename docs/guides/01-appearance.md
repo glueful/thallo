@@ -96,7 +96,12 @@ file per weight and style, or one variable file for every weight. Thallo reads e
 weights and styles it really draws, so a label never decides it: the faces line then reads, for
 example, `Faces: 400, 700, 400 italic` or `Faces: 300–900 variable`. A file it cannot read is
 refused, named with the reason — `Not a WOFF2 font`, for one — and the family is not added; a file
-chosen twice is added once.
+chosen twice is added once. One family takes at most 18 files at a time — nine weights, upright and
+italic — and a set that takes too long to read is refused with `These files took too long to read;
+add fewer at a time`.
+
+A file the media library keeps private cannot be served to visitors: the family's row then says so,
+and visitors see its fallback. Add the family again from a public upload.
 
 Each file goes to the media library, which accepts a font only while `font/woff2` is listed in
 `allowed_types` in `config/uploads.php`. An install made before that entry existed refuses it as
