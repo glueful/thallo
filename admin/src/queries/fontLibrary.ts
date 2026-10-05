@@ -144,6 +144,11 @@ export async function fetchFontUsage(id: string): Promise<FontUsage> {
   return dataOf<FontUsage>(await client.GET('/fonts/{id}/usage', { params: { path: { id } } }))
 }
 
+/** How many places use each family, current or removed — one scan for the whole library. */
+export async function fetchFontUsageCounts(): Promise<Record<string, number>> {
+  return dataOf<{ counts: Record<string, number> }>(await client.GET('/fonts/usage-counts')).counts
+}
+
 /**
  * The library's changes. Each refreshes the library and, once it succeeds, tells the admin's other
  * tabs, whose open stages reload to show it (useAppearanceChanges).

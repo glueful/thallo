@@ -10,6 +10,7 @@ import type { FontLibraryResult, FontUsage } from '@/queries/fontLibrary'
 // saying where it is used), restoring and deleting permanently; and reading a family's files again.
 const library = ref<FontLibraryResult | undefined>(fontLibrary())
 const usage = vi.hoisted(() => vi.fn())
+const counts = vi.hoisted(() => vi.fn())
 const m = vi.hoisted(() => {
   const op = () => ({ mutateAsync: vi.fn(), isLoading: { value: false } })
   return {
@@ -26,6 +27,7 @@ vi.mock('@/queries/fontLibrary', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/queries/fontLibrary')>()),
   useFontLibrary: () => ({ data: library }),
   fetchFontUsage: usage,
+  fetchFontUsageCounts: counts,
   useFontLibraryMutations: () => m,
 }))
 const upload = vi.hoisted(() => vi.fn())
@@ -78,6 +80,7 @@ async function choose(w: ReturnType<typeof mountCard>, files: File[]): Promise<v
 beforeEach(() => {
   library.value = fontLibrary()
   usage.mockReset().mockResolvedValue(NO_USE)
+  counts.mockReset().mockResolvedValue({})
   upload.mockReset()
   for (const op of Object.values(m)) op.mutateAsync.mockReset()
 })
@@ -103,11 +106,7 @@ describe('TypefacesCard', () => {
   it('shows each family: its name as text, its specimen, faces, fallback, and how often it is used', async () => {
     library.value = fontLibrary()
     library.value.families.find((f) => f.id === 'Ab3dE5fG7hJ9')!.name = '<b>Brand</b>'
-    usage.mockImplementation(async (id: string) =>
-      id === 'Ab3dE5fG7hJ9'
-        ? { ...NO_USE, regions: ['header'], appearance: { text: true, headings: false } }
-        : NO_USE,
-    )
+    counts.mockResolvedValue({ Ab3dE5fG7hJ9: 2, Vr3dE5fG7hJ9: 0, Uk3dE5fG7hJ9: 1 })
     const w = mountCard()
     const row = w.find('[data-test="typeface-family-Ab3dE5fG7hJ9"]')
     expect(row.find('[data-test="family-name"]').text()).toBe('<b>Brand</b>')
@@ -118,8 +117,16 @@ describe('TypefacesCard', () => {
     expect(row.text()).toContain('Faces: 400, 700, 400 italic')
     expect(row.text()).toContain('Falls back to serif')
     await flushPromises()
-    expect(usage).toHaveBeenCalledWith('Ab3dE5fG7hJ9')
+    // One request for every family's count, never a scan per family.
+    expect(counts).toHaveBeenCalledTimes(1)
+    expect(usage).not.toHaveBeenCalled()
     expect(row.find('[data-test="family-usage"]').text()).toBe('Used in 2 places')
+    expect(
+      w.find('[data-test="typeface-family-Vr3dE5fG7hJ9"] [data-test="family-usage"]').text(),
+    ).toBe('Not used')
+    expect(
+      w.find('[data-test="typeface-family-Uk3dE5fG7hJ9"] [data-test="family-usage"]').text(),
+    ).toBe('Used in 1 place')
     // Removed families are not among them.
     expect(w.find('[data-test="typeface-family-Rm3dE5fG7hJ9"]').exists()).toBe(false)
   })

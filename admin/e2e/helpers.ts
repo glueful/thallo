@@ -151,6 +151,9 @@ export async function routeWorld(page: Page, world: World = {}): Promise<Recorde
     // The font library as the server answers it, with one family read from a real .woff2 file
     // (block typeface plan Task 11); and the stage's freshness check, which never changes here.
     if (method === 'GET' && path === '/fonts') return json(route, fixture('api/fonts.json'))
+    if (method === 'GET' && path === '/fonts/usage-counts') {
+      return json(route, JSON.stringify({ success: true, data: { counts: {} } }))
+    }
     if (method === 'GET' && /^\/fonts\/[^/]+\/usage$/.test(path)) {
       return json(
         route,

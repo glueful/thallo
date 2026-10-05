@@ -3,10 +3,11 @@
 // site's own families — each set in its own face, with its faces, its fallback and how often it is
 // used. Add, edit, remove (after saying where it is used), restore, delete permanently, and read a
 // family's files again when they could not be read before.
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import {
   facesLabel,
   fetchFontUsage,
+  fetchFontUsageCounts,
   useFontLibrary,
   useFontLibraryMutations,
   usageCount,
@@ -48,27 +49,27 @@ function specimen(family: FontFamily): string {
   return FONT_STACKS[family.id] ?? FONT_STACKS.system!
 }
 
-// Usage, fetched after the list shows — one request per family, never part of the list's own.
-const usages = reactive<Record<string, FontUsage | undefined>>({})
+// How often each family is used: one request for all of them, after the list shows — never part
+// of the list's own request, and never a full scan per family.
+const counts = ref<Record<string, number>>({})
+let countsAsked = ''
 watch(
   yours,
   (list) => {
-    for (const family of list) {
-      if (family.id in usages) continue
-      usages[family.id] = undefined
-      fetchFontUsage(family.id)
-        .then((u) => (usages[family.id] = u))
-        .catch(() => {
-          // Shown as unknown; the remove dialog asks again.
-        })
-    }
+    const ids = list.map((f) => f.id).join(',')
+    if (ids === '' || ids === countsAsked) return
+    countsAsked = ids
+    fetchFontUsageCounts()
+      .then((c) => (counts.value = c))
+      .catch(() => {
+        countsAsked = '' // shown as unknown; asked again when the list changes
+      })
   },
   { immediate: true },
 )
 function usageLine(id: string): string {
-  const u = usages[id]
-  if (!u) return ''
-  const n = usageCount(u)
+  const n = counts.value[id]
+  if (n === undefined) return ''
   return n === 0 ? 'Not used' : n === 1 ? 'Used in 1 place' : `Used in ${n} places`
 }
 
@@ -95,7 +96,7 @@ async function askRemove(family: FontFamily): Promise<void> {
   removingUsage.value = null
   try {
     removingUsage.value = await fetchFontUsage(family.id)
-    usages[family.id] = removingUsage.value
+    counts.value = { ...counts.value, [family.id]: usageCount(removingUsage.value) }
   } catch (e) {
     removing.value = null
     notifyError(e, 'Couldn’t find where the family is used')

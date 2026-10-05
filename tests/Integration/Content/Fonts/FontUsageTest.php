@@ -174,6 +174,28 @@ final class FontUsageTest extends AppTestCase
         self::assertSame([], $this->usage($sources)->of('Zz9yX8wV7uT6')['entries']);
     }
 
+    /** The card's counts (final review): every family at once, one scan, as many places as of() names. */
+    public function testCountsEveryFamilyInOneScan(): void
+    {
+        $other = 'Zz9yX8wV7uT6';
+        $sources = new BlockDocumentSources(
+            self::source(
+                EntryDraftsSource::ID,
+                self::doc(EntryDraftsSource::ID, 'entrydraft01', 'en', [
+                    self::heading(self::ID),
+                    self::heading($other),
+                ]),
+            ),
+            self::source(RegionsSource::ID, self::doc(RegionsSource::ID, 'header', null, [self::heading(self::ID)])),
+        );
+        $this->container()->get(SettingsStore::class)->putMany(['theme_font_headings_family' => $other]);
+        $usage = $this->usage($sources);
+        self::assertSame(
+            [self::ID => 2, $other => 2, 'Nn0nE0fG7hJ9' => 0],
+            $usage->counts([self::ID, $other, 'Nn0nE0fG7hJ9']),
+        );
+    }
+
     public function testTheRealRegistryIsScanned(): void
     {
         $usage = $this->container()->get(FontUsage::class)->of(self::ID);

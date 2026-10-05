@@ -103,6 +103,7 @@ final class FontLibraryApiTest extends AppTestCase
         $routes = [
             ['GET', '/v1/admin/fonts', self::PICKER],
             ['GET', '/v1/admin/fonts/{id}/usage', 'content_permission:content.manage'],
+            ['GET', '/v1/admin/fonts/usage-counts', 'content_permission:content.manage'],
             ['POST', '/v1/admin/fonts', 'content_permission:content.manage'],
             ['PATCH', '/v1/admin/fonts/{id}', 'content_permission:content.manage'],
             ['POST', '/v1/admin/fonts/{id}/faces', 'content_permission:content.manage'],
@@ -159,6 +160,55 @@ final class FontLibraryApiTest extends AppTestCase
         $italicFile = $data['theme_face']['files'][1];
         self::assertSame(['300 900', 'italic'], [$italicFile['weight'], $italicFile['style']]);
         self::assertStringEndsWith('fonts/figtree-roman-latin.woff2', $data['theme_face']['files'][0]['url']);
+    }
+
+    /**
+     * The picker reads the library once however many families it holds (final review): one snapshot,
+     * so the media URLs are resolved in one batch, not once per family.
+     */
+    public function testThePickerReadsTheLibraryOnce(): void
+    {
+        $calls = 0;
+        $urls = new class ($calls) implements \Thallo\Contracts\Delivery\MediaUrlBatchResolver {
+            public function __construct(private int &$calls)
+            {
+            }
+            public function urls(array $uuids): array
+            {
+                $this->calls++;
+                return array_fill_keys($uuids, '/v1/blobs/x');
+            }
+        };
+        foreach (['fontcounta01', 'fontcountb01', 'fontcountc01'] as $uuid) {
+            $this->upload($uuid, 'static-700.woff2');
+            self::assertSame(201, $this->create('Family ' . $uuid, [$uuid])->getStatusCode());
+        }
+        $library = new FontLibrary(
+            $this->connection(),
+            $this->container()->get(\Thallo\Core\Content\Fonts\FontBlobFiles::class),
+            $this->container()->get(\Thallo\Core\Content\Fonts\Woff2FaceReader::class),
+            $this->container()->get(\Thallo\Tenancy\System\SystemFlags::class),
+            $urls,
+        );
+        $controller = new FontLibraryController(
+            $library,
+            $this->container()->get(\Thallo\Core\Content\Fonts\FontUsage::class),
+            $this->connection(),
+        );
+        $families = self::data($controller->index())['families'];
+        self::assertCount(10, $families);
+        self::assertSame(1, $calls);
+    }
+
+    /** The Typefaces card's counts: every family, current or removed, from one scan. */
+    public function testUsageCountsCoverEveryFamily(): void
+    {
+        $this->upload('fontcountd01', 'static-700.woff2');
+        $id = (string) (self::data($this->create('Counted', ['fontcountd01']))['family']['id'] ?? '');
+        $this->container()->get(\Thallo\Core\Settings\SettingsStore::class)
+            ->putMany(['theme_font_text_family' => $id]);
+        $counts = self::data($this->controller()->usageCounts())['counts'];
+        self::assertSame([$id => 1], $counts);
     }
 
     public function testTheLifecycleThroughTheApi(): void
