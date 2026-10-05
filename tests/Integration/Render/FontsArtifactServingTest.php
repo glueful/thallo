@@ -101,6 +101,60 @@ final class FontsArtifactServingTest extends AppTestCase
         self::assertSame(404, $unknown->getStatusCode());
     }
 
+    /**
+     * A node that never rendered a page with the current library (another server, a cleared cache):
+     * a request for the current hash publishes it and serves it, instead of a 404 (final review).
+     */
+    public function testACurrentHashMissingFromThisNodeIsPublishedAndServed(): void
+    {
+        $this->family('Ab3dE5fG7hJ9');
+        $url = (string) $this->extension()->fontsStylesheetUrl();
+        $base = $this->container()->get(ApplicationContext::class)->getBasePath();
+        foreach (glob($base . '/storage/cache/fonts/*/' . basename($url)) ?: [] as $file) {
+            unlink($file);
+        }
+        // A fresh process: nothing remembered.
+        $artifacts = $this->container()->get(FontsArtifacts::class);
+        (fn () => $this->memo = [])->call($artifacts);
+        $this->container()->get(RequestFontSnapshot::class)->refresh();
+
+        $res = $this->handle(Request::create($url, 'GET'));
+        self::assertSame(200, $res->getStatusCode());
+        self::assertStringContainsString('.t-font-Ab3dE5fG7hJ9{', (string) $res->getContent());
+    }
+
+    /**
+     * Publishing is not paid on every request (final review): a stylesheet refreshed within the hour
+     * is left alone; an older one is touched again so retention keeps the current one.
+     */
+    public function testARecentlyPublishedStylesheetIsNotRewrittenOrTouched(): void
+    {
+        $this->family('Ab3dE5fG7hJ9');
+        $snapshot = $this->container()->get(RequestFontSnapshot::class)->current();
+        self::assertNotNull($snapshot);
+        $dir = sys_get_temp_dir() . '/thallo-fonts-' . bin2hex(random_bytes(4));
+        $request = static fn (): FontsArtifacts => new FontsArtifacts($dir, static fn (): string => 'site');
+        $artifact = $request()->forSnapshot($snapshot);
+        $file = $dir . '/site/' . FontsArtifacts::fileName($artifact['hash']);
+        self::assertSame($artifact['css'], file_get_contents($file));
+        self::assertSame([], glob($dir . '/site/*.tmp') ?: [], 'written whole, through a temporary file');
+
+        touch($file, time() - 600);
+        clearstatcache();
+        $request()->forSnapshot($snapshot);
+        clearstatcache();
+        self::assertSame(time() - 600, filemtime($file), 'fresh: left alone');
+
+        touch($file, time() - 7200);
+        clearstatcache();
+        $request()->forSnapshot($snapshot);
+        clearstatcache();
+        self::assertGreaterThan(time() - 60, filemtime($file), 'older than an hour: touched again');
+        array_map('unlink', glob($dir . '/site/*') ?: []);
+        rmdir($dir . '/site');
+        rmdir($dir);
+    }
+
     public function testAnOldHashServesItsOwnVersionAfterAnEdit(): void
     {
         $this->family('Ab3dE5fG7hJ9');
