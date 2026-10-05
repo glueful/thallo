@@ -1846,7 +1846,23 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     }
   }
 
-  appearanceChanges.onChange(() => void refreshAfterAppearanceChange())
+  // Another tab says something changed: reload only if the stage's head would differ — a rename, for
+  // one, changes nothing a stage shows. When the check cannot answer, trust the announcement.
+  async function onAnnouncedChange(): Promise<void> {
+    let now: string | null = null
+    try {
+      now = await host.appearanceFingerprint()
+    } catch {
+      // Offline, signed out: reload as announced.
+    }
+    if (now !== null && renderedFingerprint !== null && now === renderedFingerprint) return
+    if (now !== null) {
+      renderedFingerprint = now
+      reloadedFor = now
+    }
+    await refreshAfterAppearanceChange()
+  }
+  appearanceChanges.onChange(() => void onAnnouncedChange())
   const onWindowFocus = (): void => void checkAppearance()
   let appearanceTimer: ReturnType<typeof setInterval> | null = null
   onMounted(() => {

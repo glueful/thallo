@@ -195,7 +195,8 @@ describe.each(['entry design', 'region', 'layout'])('the %s stage', () => {
   })
 
   it('another tab’s change waits for the apply in flight, reloads once, and keeps the edit and its history', async () => {
-    const { host, editor, reloads, unmount } = await opened()
+    let current = 'fp-1'
+    const { host, editor, reloads, unmount } = await opened(() => current)
     let release!: () => void
     host.apply.mockImplementationOnce(
       () => new Promise((resolve) => (release = () => resolve(applied()))),
@@ -205,6 +206,7 @@ describe.each(['entry design', 'region', 'layout'])('the %s stage', () => {
     editor.commitNow()
     const applying = editor.applyWorking()
     await flushPromises()
+    current = 'fp-2'
     changes.listener!({ kind: 'appearance', at: Date.now() })
     await flushPromises()
     expect(reloads.count).toBe(0)
@@ -218,7 +220,9 @@ describe.each(['entry design', 'region', 'layout'])('the %s stage', () => {
   })
 
   it('an edit made during the reload is applied once the stage is ready, exactly once', async () => {
-    const { host, editor, reloads, unmount } = await opened()
+    let current = 'fp-1'
+    const { host, editor, reloads, unmount } = await opened(() => current)
+    current = 'fp-2'
     changes.listener!({ kind: 'fonts', at: Date.now() })
     await flushPromises()
     expect(reloads.count).toBe(1)
@@ -238,12 +242,15 @@ describe.each(['entry design', 'region', 'layout'])('the %s stage', () => {
   })
 
   it('removing and then restoring the chosen family reload once each, and the selection stays', async () => {
-    const { editor, reloads, unmount } = await opened()
+    let current = 'fp-1'
+    const { editor, reloads, unmount } = await opened(() => current)
     editor.selectOne('blockaaa0001')
+    current = 'fp-2'
     changes.listener!({ kind: 'fonts', at: Date.now() })
     await flushPromises()
     stageReady('fp-2')
     await flushPromises()
+    current = 'fp-3'
     changes.listener!({ kind: 'fonts', at: Date.now() })
     await flushPromises()
     stageReady('fp-3')
@@ -260,11 +267,13 @@ describe.each(['entry design', 'region', 'layout'])('the %s stage', () => {
     target.editFlush = async () => {
       order.push('flush')
     }
-    const { editor, unmount } = await opened()
+    let current = 'fp-1'
+    const { editor, unmount } = await opened(() => current)
     const stop = watch(editor.iframeSrc, (src) => {
       if (src === '') order.push('reload')
     })
     callbacks.onEditStart!('blockaaa0001' as never)
+    current = 'fp-2'
     changes.listener!({ kind: 'appearance', at: Date.now() })
     await flushPromises()
     expect(order).toEqual(['flush', 'reload'])
@@ -293,6 +302,24 @@ describe.each(['entry design', 'region', 'layout'])('the %s stage', () => {
     window.dispatchEvent(new Event('focus'))
     await flushPromises()
     expect(reloads.count).toBe(2)
+    unmount()
+  })
+
+  it('another tab’s change that leaves the head as it is — a rename — reloads nothing', async () => {
+    const { host, reloads, unmount } = await opened(() => 'fp-1')
+    changes.listener!({ kind: 'fonts', at: Date.now() })
+    await flushPromises()
+    expect(host.appearanceFingerprint).toHaveBeenCalledTimes(1)
+    expect(reloads.count).toBe(0)
+    unmount()
+  })
+
+  it('a change announced while the check cannot answer reloads anyway', async () => {
+    const { host, reloads, unmount } = await opened()
+    host.appearanceFingerprint.mockRejectedValueOnce(new Error('offline'))
+    changes.listener!({ kind: 'fonts', at: Date.now() })
+    await flushPromises()
+    expect(reloads.count).toBe(1)
     unmount()
   })
 })
