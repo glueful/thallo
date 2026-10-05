@@ -12,7 +12,6 @@ import { blobDisplayUrl } from '@/queries/media'
 import { fetchRenderThemes, type ThemeCard } from '@/queries/templates'
 import ThemeGallery from './components/ThemeGallery.vue'
 import BrandColorField from './components/BrandColorField.vue'
-import FontFaceField from './components/FontFaceField.vue'
 import { useNotify } from '@/composables/useNotify'
 
 definePage({ meta: { requiresAuth: true } })
@@ -27,8 +26,8 @@ const { form, dirty, payload, saved } = useSettingsForm(data, {
   theme_neutral: 'slate',
   theme_radius: 'round',
   theme_font: 'sans',
-  theme_font_body: '',
-  theme_font_display: '',
+  theme_font_text_family: '',
+  theme_font_headings_family: '',
   theme_background: 'plain',
   site_logo: '',
   site_logo_dark: '',
@@ -61,8 +60,30 @@ const FONT_ITEMS = [
   { value: 'slab', label: 'Slab — slab-serif headings, sans body' },
   { value: 'mono', label: 'Mono — monospace throughout' },
   { value: 'system', label: "System — each visitor's own interface font" },
-  { value: 'custom', label: 'Custom — upload your own fonts' },
+  { value: 'custom', label: 'Custom — choose from the font library' },
 ]
+// Custom's Text and Headings come from the font library (block typeface spec §2.8). The built-ins
+// are always there; '' leaves the role unset (headings follow the text; no text keeps the theme's).
+const UNSET = 'unset' // a select item cannot carry '': this stands for it
+const FAMILY_ITEMS = [
+  { value: UNSET, label: 'Not set' },
+  { value: 'theme', label: 'Theme — the theme’s own font' },
+  { value: 'serif', label: 'Serif' },
+  { value: 'humanist', label: 'Humanist' },
+  { value: 'geometric', label: 'Geometric' },
+  { value: 'slab', label: 'Slab' },
+  { value: 'mono', label: 'Mono' },
+  { value: 'system', label: 'System' },
+]
+const familyModel = (key: 'theme_font_text_family' | 'theme_font_headings_family') =>
+  computed({
+    get: () => form[key] || UNSET,
+    set: (value: string) => {
+      form[key] = value === UNSET ? '' : value
+    },
+  })
+const textFamily = familyModel('theme_font_text_family')
+const headingsFamily = familyModel('theme_font_headings_family')
 const BACKGROUND_ITEMS = [
   { value: 'plain', label: 'Plain — white page, tinted panels (default)' },
   { value: 'tinted', label: 'Tinted — tinted page, white panels' },
@@ -81,10 +102,13 @@ const pendingLook = computed(() => ({
   radius: form.theme_radius,
   font: form.theme_font,
   background: form.theme_background,
-  // The site's own faces ride along only with the pairing that uses them. `none` is a saved
-  // face taken off but not yet saved: '' would mean "as saved" to the preview.
+  // Custom's families ride along only with the pairing that uses them. `none` is a saved family
+  // taken off but not yet saved: '' would mean "as saved" to the preview.
   ...(form.theme_font === 'custom'
-    ? { font_body: form.theme_font_body || 'none', font_display: form.theme_font_display || 'none' }
+    ? {
+        font_text_family: form.theme_font_text_family || 'none',
+        font_headings_family: form.theme_font_headings_family || 'none',
+      }
     : {}),
 }))
 
@@ -234,16 +258,27 @@ async function onSave() {
                     data-test="custom-fonts"
                   >
                     <p class="text-xs text-muted">
-                      Upload .woff2 files. A variable font covers every weight from one file. With
-                      only a text font, headings use it too; with neither, the theme's own font
+                      With only a text font, headings use it too; with neither, the theme's own font
                       stays.
                     </p>
-                    <FontFaceField v-model="form.theme_font_body" role="body" label="Text" />
-                    <FontFaceField
-                      v-model="form.theme_font_display"
-                      role="display"
-                      label="Headings"
-                    />
+                    <UFormField label="Text">
+                      <USelect
+                        v-model="textFamily"
+                        :items="FAMILY_ITEMS"
+                        value-key="value"
+                        class="w-full"
+                        data-test="font-family-text"
+                      />
+                    </UFormField>
+                    <UFormField label="Headings">
+                      <USelect
+                        v-model="headingsFamily"
+                        :items="FAMILY_ITEMS"
+                        value-key="value"
+                        class="w-full"
+                        data-test="font-family-headings"
+                      />
+                    </UFormField>
                   </div>
                   <UFormField label="Page ground" description="What the page sits on.">
                     <USelect

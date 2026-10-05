@@ -6,11 +6,11 @@ namespace Thallo\Core\Tests\Support\Fonts;
 
 use Thallo\Contracts\Settings\ThemeAppearanceProvider;
 
-/** An appearance with a chosen pairing and Custom faces; everything else the defaults. */
+/** An appearance with a chosen pairing and Custom's Text and Headings families; the rest default. */
 final class FixedThemeAppearance implements ThemeAppearanceProvider
 {
-    /** @param array{body?: string, display?: string} $faces */
-    public function __construct(private readonly string $font, private readonly array $faces = [])
+    /** @param array{text?: string, headings?: string} $families library family IDs */
+    public function __construct(private readonly string $font, private readonly array $families = [])
     {
     }
 
@@ -39,8 +39,8 @@ final class FixedThemeAppearance implements ThemeAppearanceProvider
         return 'plain';
     }
 
-    public function fontFaces(): array
+    public function fontFamilies(): array
     {
-        return $this->faces;
+        return $this->families;
     }
 }

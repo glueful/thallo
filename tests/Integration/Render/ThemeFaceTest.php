@@ -25,8 +25,8 @@ final class ThemeFaceTest extends AppTestCase
     private const ARGS = ['Figtree', 'fonts/figtree-roman-latin.woff2', 'fonts/figtree-italic-latin.woff2'];
     private const PRE = __DIR__ . '/../../fixtures/render/pre-typeface';
 
-    /** @param array{body?: string, display?: string} $faces */
-    private function ext(string $font, array $faces = [], ?string $assets = null): RenderContextExtension
+    /** @param array{text?: string, headings?: string} $families */
+    private function ext(string $font, array $families = [], ?string $assets = null): RenderContextExtension
     {
         $base = $this->appContext()->getBasePath();
         $ext = new RenderContextExtension(
@@ -34,7 +34,7 @@ final class ThemeFaceTest extends AppTestCase
             $this->container()->get(EntryTargetResolver::class),
             'en',
             mediaUrls: new BlobRouteMediaUrls(),
-            appearance: new ThemeAppearanceSource(new FixedThemeAppearance($font, $faces), new NullLogger()),
+            appearance: new ThemeAppearanceSource(new FixedThemeAppearance($font, $families), new NullLogger()),
         );
         $ext->bindTheme(new ThemeLocator('default', $base . '/themes'));
         $ext->setAssetContext(null, $assets ?? $base . '/packages/thallo-render/themes/default/assets');
@@ -58,7 +58,7 @@ final class ThemeFaceTest extends AppTestCase
 
     public function testCustomTextDeclaresTheFaceWithoutPreloadingIt(): void
     {
-        $html = (string) $this->ext('custom', ['body' => 'fontbody0001'])->fontFacesStyle(...self::ARGS);
+        $html = (string) $this->ext('custom', ['text' => 'serif'])->fontFacesStyle(...self::ARGS);
         self::assertStringContainsString('@font-face { font-family: "Figtree"', $html);
         self::assertStringNotContainsString('rel="preload"', $html);
     }

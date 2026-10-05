@@ -56,10 +56,12 @@ describe('line height', () => {
   it('sits in Typography after Size and Weight', () => {
     const group = mountTab().find('[data-test="style-group-typography"]')
     const fields = group.findAll('[data-test^="style-field-typography."]')
+    // The typeface joined the group after it (block typeface, settings version 11).
     expect(fields.map((f) => f.attributes('data-test'))).toEqual([
       'style-field-typography.size',
       'style-field-typography.weight',
       'style-field-typography.line_height',
+      'style-field-typography.family',
     ])
     expect(fields[2]!.text()).toContain('Line height')
   })

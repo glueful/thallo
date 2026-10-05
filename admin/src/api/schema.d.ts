@@ -24452,8 +24452,8 @@ export interface operations {
          *       "radius": "example",
          *       "font": "example",
          *       "background": "example",
-         *       "font_body": "example",
-         *       "font_display": "example"
+         *       "font_text_family": "example",
+         *       "font_headings_family": "example"
          *     }
          */
         'application/json': {
@@ -24469,10 +24469,10 @@ export interface operations {
           radius?: string | null
           font?: string | null
           background?: string | null
-          /** @description Pending text face (`custom` pairing): a media uuid, or `none` to take it off. */
-          font_body?: string | null
-          /** @description Pending headings face: a media uuid, or `none` to take it off. */
-          font_display?: string | null
+          /** @description Pending Custom Text family: a font library ID (a built-in or a current */
+          font_text_family?: string | null
+          /** @description Pending Custom Headings family, the same way. */
+          font_headings_family?: string | null
         }
       }
     }
@@ -30996,8 +30996,8 @@ export interface operations {
          *       "theme_neutral": "example",
          *       "theme_radius": "example",
          *       "theme_font": "example",
-         *       "theme_font_body": "example",
-         *       "theme_font_display": "example",
+         *       "theme_font_text_family": "example",
+         *       "theme_font_headings_family": "example",
          *       "theme_background": "example",
          *       "admin_url": "example",
          *       "listing_types": "example"
@@ -31029,10 +31029,10 @@ export interface operations {
           theme_radius?: string | null
           /** @description Typeface pairing, or `custom`; enum-validated in the controller. */
           theme_font?: string | null
-          /** @description Media library uuid of the site's own text face (woff2); '' clears. */
-          theme_font_body?: string | null
-          /** @description Media library uuid of the site's own headings face (woff2); '' clears. */
-          theme_font_display?: string | null
+          /** @description Custom's Text family: a font library ID — a built-in (`serif`, `theme`, */
+          theme_font_text_family?: string | null
+          /** @description Custom's Headings family, the same way; '' clears (headings follow the text). */
+          theme_font_headings_family?: string | null
           /** @description Page ground: plain | tinted; enum-validated in the controller. */
           theme_background?: string | null
           /** @description Where the admin is, when hosted elsewhere; '' means this site's own, at /admin. */

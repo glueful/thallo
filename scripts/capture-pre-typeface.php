@@ -7,7 +7,9 @@
  *
  *     CACHE_DRIVER=array php scripts/capture-pre-typeface.php
  *
- * Uses the test database (app_test) and a throwaway fixture theme it removes afterwards.
+ * Uses the test database (app_test) and a throwaway fixture theme it removes afterwards. It reproduces
+ * the references only on the code it captured (d546be4d): Appearance's Custom has since moved from
+ * uploaded faces to font library families.
  */
 
 declare(strict_types=1);

@@ -47,28 +47,28 @@ final class GeneralSettingsAppearanceTest extends AppTestCase
         );
     }
 
-    public function testASiteMaySetItsOwnTypefaces(): void
+    public function testASiteMayChooseItsTypefacesFromTheLibrary(): void
     {
         $controller = $this->container()->get(GeneralSettingsController::class);
         $res = $controller->update(new UpdateGeneralSettingsData(
             theme_font: 'custom',
-            theme_font_body: 'fontbody0001',
-            theme_font_display: 'fonthead0001',
+            theme_font_text_family: 'serif',
+            theme_font_headings_family: 'slab',
         ));
         self::assertSame(200, $res->getStatusCode(), (string) $res->getContent());
         $provider = new \Thallo\Core\Settings\EngineThemeAppearanceProvider(
             $this->container()->get(GeneralSettings::class),
         );
         self::assertSame('custom', $provider->font());
-        self::assertSame(['body' => 'fontbody0001', 'display' => 'fonthead0001'], $provider->fontFaces());
+        self::assertSame(['text' => 'serif', 'headings' => 'slab'], $provider->fontFamilies());
 
-        // '' takes a face off; the other stays.
-        $controller->update(new UpdateGeneralSettingsData(theme_font_display: ''));
-        self::assertSame(['body' => 'fontbody0001'], $provider->fontFaces());
+        // '' takes a family off; the other stays.
+        $controller->update(new UpdateGeneralSettingsData(theme_font_headings_family: ''));
+        self::assertSame(['text' => 'serif'], $provider->fontFamilies());
 
         self::assertSame(
             422,
-            $controller->update(new UpdateGeneralSettingsData(theme_font_body: '../../etc/passwd'))->getStatusCode(),
+            $controller->update(new UpdateGeneralSettingsData(theme_font_text_family: '../../etc'))->getStatusCode(),
         );
         // The pairings a site can choose between grew, and an unknown one is still refused.
         $humanist = $controller->update(new UpdateGeneralSettingsData(theme_font: 'humanist'));

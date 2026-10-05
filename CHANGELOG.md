@@ -13,6 +13,16 @@ as the next release, never a mutated tag.
   from them, did not load. Originals up to 6000px on either side are resized now — an ordinary
   banner or a phone photo — and `IMAGE_MAX_WIDTH`/`IMAGE_MAX_HEIGHT` still set the limit.
 
+### Upgrade Notes
+- **Appearance's Custom fonts move into the font library.** `php glueful thallo:provision` turns
+  the text and headings files you uploaded into font library families — "Site text", "Site
+  headings", or one "Site font" when both were the same file — and Custom's Text and Headings
+  then name them; until provision runs, a site using Custom shows the theme's own font. It runs
+  once per workspace and never changes a choice you made since. The page changes in three
+  deliberate ways: each file now declares the weight and style read from the file (not every
+  weight from 100 to 900), the family is named by its library ID, and an uploaded font is never
+  given a faked bold — headings in a single-weight file show that weight, as the file draws it.
+
 ## [1.0.0-beta.81] - 2026-10-04 — Developer Preview
 
 Search, on the site and across kinds: a Search block (a field, or an icon that opens one, header

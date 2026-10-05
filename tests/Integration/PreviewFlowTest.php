@@ -130,8 +130,8 @@ final class PreviewFlowTest extends AppTestCase
         $res = $mint(new \Thallo\Core\Content\Http\DTOs\MintPreviewData(
             accent: '#0A7C66',
             font: 'custom',
-            font_body: 'fontbody0001',
-            font_display: 'none', // a saved face taken off, not yet saved
+            font_text_family: 'serif',
+            font_headings_family: 'none', // a saved family taken off, not yet saved
         ));
         self::assertSame(200, $res->getStatusCode(), (string) $res->getContent());
         $token = (string) json_decode((string) $res->getContent(), true)['data']['token'];
@@ -140,7 +140,7 @@ final class PreviewFlowTest extends AppTestCase
         self::assertNotNull($claims);
         self::assertSame('#0a7c66', $claims->accent);
         self::assertSame(
-            ['font' => 'custom', 'font_body' => 'fontbody0001', 'font_display' => 'none'],
+            ['font' => 'custom', 'font_text_family' => 'serif', 'font_headings_family' => 'none'],
             $claims->design,
         );
 
@@ -150,7 +150,7 @@ final class PreviewFlowTest extends AppTestCase
         );
         self::assertSame(
             422,
-            $mint(new \Thallo\Core\Content\Http\DTOs\MintPreviewData(font_body: '../../etc/passwd'))->getStatusCode(),
+            $mint(new \Thallo\Core\Content\Http\DTOs\MintPreviewData(font_text_family: '../etc'))->getStatusCode(),
         );
     }
 
