@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { getActivePinia } from 'pinia'
-import { shallowRef } from 'vue'
+import { effectScope, shallowRef } from 'vue'
 import { client } from '@/api/client'
 import { toApiError } from '@/api/errors'
 import { useAppearanceChanges } from '@/composables/useAppearanceChanges'
@@ -57,7 +57,26 @@ export async function fetchFontLibrary(): Promise<FontLibraryResult> {
  */
 export function useFontLibrary() {
   if (!getActivePinia()) return { data: shallowRef<FontLibraryResult | undefined>(undefined) }
+  followOtherTabs(useQueryCache())
   return useQuery({ key: qk.fonts(), query: fetchFontLibrary, staleTime: 60_000 })
+}
+
+/** The query caches already listening for another tab's library changes: one listener each. */
+const following = new WeakSet<object>()
+
+/**
+ * Another tab changed the library: read it again now, so no list here offers a removed family or
+ * misses a new one until the cache goes stale.
+ */
+function followOtherTabs(cache: ReturnType<typeof useQueryCache>): void {
+  if (following.has(cache)) return
+  following.add(cache)
+  // A detached scope: the listener belongs to the page's cache, not to the component that first read.
+  effectScope(true).run(() =>
+    useAppearanceChanges().onChange((change) => {
+      if (change.kind === 'fonts') void cache.invalidateQueries({ key: qk.fonts() })
+    }),
+  )
 }
 
 /** One face as the faces line names it: `400`, `400 italic`, `300–900 variable`. */
