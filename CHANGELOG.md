@@ -52,6 +52,9 @@ as the next release, never a mutated tag.
 - **Themes:** the default theme reads `--font-synthesis-body` and `--font-synthesis-display`, which
   Appearance sets so an uploaded family is never given a faked bold. A theme of your own keeps
   working without them; add them where it sets `font-family` (see the theme guide) to match.
+- **Themes with their own `layout.twig`:** the font library's faces arrive in a new stylesheet,
+  `fonts_stylesheet_url()`. Link it after `settings_stylesheet_url()`; until you do,
+  `theme_colors_style()` links it for you.
 
 ## [1.0.0-beta.81] - 2026-10-04 — Developer Preview
 

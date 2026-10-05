@@ -170,8 +170,10 @@ h1, h2, h3, h4 {
 ```
 
 A theme that ignores the synthesis variables still works; the browser then fakes a bold an uploaded
-family does not have. A block's own **Typeface** needs nothing from the theme: it is a setting, and
-beats the theme's fonts whatever the selectors.
+family does not have. A block's own **Typeface** is a setting, and beats the theme's fonts whatever
+the selectors. Its faces come from the site's fonts stylesheet: link `fonts_stylesheet_url()` after
+the settings stylesheet, as the default `layout.twig` does — a layout that only calls
+`theme_colors_style()` gets the link from it.
 
 ## The hooks a template must keep
 

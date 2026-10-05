@@ -92,6 +92,7 @@ Both memoise per render, so asking for the body and its contents costs one rende
 | `layers_stylesheet_url()` | The layer-order stylesheet. A layout links it first. | `{{ layers_stylesheet_url() }}` |
 | `theme_stylesheet_url()` | The theme artifact: every stylesheet `theme.json` lists plus every pack-contributed sheet, inside `@layer theme`, served by content hash. | `{{ theme_stylesheet_url() }}` |
 | `settings_stylesheet_url()` | The compiled settings artifact: the design tokens and the utilities the Design view's settings need, inside `@layer settings`. Linked after the theme artifact. | `{{ settings_stylesheet_url() }}` |
+| `fonts_stylesheet_url()` | The site's fonts stylesheet: the font library's faces and each family's Typeface utility, inside `@layer settings`. `null` when the library holds no family. Link it after the settings artifact; a layout that does not, gets it from `theme_colors_style()` instead. | `{% set fonts = fonts_stylesheet_url() %}` |
 | `custom_css()` | The URL of the site's `custom.css`, or `null` when it is empty. It loads last, so it is the final override. | `{% set customCss = custom_css() %}` |
 | `runtime_script()` | The URL of the pack's theme runtime, which drives the carousel, tabs, navigation, colour mode and forms. Keep it in a copied `layout.twig`. | `{{ runtime_script() }}` |
 | `block_script(name)` | A deferred script tag for one block's runtime asset, once per render. The names are `animated-text`, `code`, `docs-search`, `gallery`, `map` and `motion`, and `search`, which the Search pack adds; anything else emits nothing. | `{{ block_script('gallery') }}` |
@@ -120,7 +121,7 @@ block type declares is [the block library](04-block-library.md).
 |---|---|---|
 | `color_mode_enabled()` | Whether light/dark switching is on. When it is off, the script and the **Color mode** block render nothing. | `{% if color_mode_enabled() %}` |
 | `color_mode_script()` | The no-flash resolver that stamps `data-theme` on `html` before the CSS loads. Put it first in the `head`. | `{{ color_mode_script() }}` |
-| `theme_colors_style()` | The token override for the site's accent, neutral, corners, typeface and page ground. Empty for the defaults. Goes after the theme's CSS and before `custom.css`. | `{{ theme_colors_style() }}` |
+| `theme_colors_style()` | The token override for the site's accent, neutral, corners, typeface and page ground. Empty for the defaults. Goes after the theme's CSS and before `custom.css`. When the layout has not called `fonts_stylesheet_url()`, it also links the fonts stylesheet. | `{{ theme_colors_style() }}` |
 | `theme_style_scope(accent, neutral)` | A scoped re-skin for a `style` block: `class`, a class fragment with a leading space, and `style`, the rules for it. Both are empty when neither colour is set. | `{% set scope = theme_style_scope(data.accent, data.neutral) %}` |
 
 ## The head
