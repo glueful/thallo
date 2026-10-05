@@ -64,7 +64,11 @@ final class FrameworkBlobDeleteGuardTest extends AppTestCase
         $key = ApiKeyService::create($this->appContext(), [
             'user_uuid' => $this->user, 'name' => 'blob-guard', 'scopes' => ['*'],
         ])['plain'];
-        return $this->handle(Request::create('/v1/blobs/' . $uuid, 'DELETE', [], [], [], [
+        // The framework's routes carry the API prefix when it is applied (CI applies it).
+        $prefix = (bool) config($this->appContext(), 'api.versioning.apply_prefix_to_routes', true)
+            ? rtrim((string) config($this->appContext(), 'api.versioning.prefix', '/api'), '/')
+            : '';
+        return $this->handle(Request::create($prefix . '/v1/blobs/' . $uuid, 'DELETE', [], [], [], [
             'HTTP_ACCEPT' => 'application/json',
             'HTTP_X_API_KEY' => $key,
             'HTTP_AUTHORIZATION' => 'Bearer ' . $key,
