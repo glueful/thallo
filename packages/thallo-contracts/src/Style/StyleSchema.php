@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 10;
+    public const VERSION = 11;
 
     /**
      * Paths that were once properties and are no longer. A stored value at one is dropped when a
@@ -157,6 +157,11 @@ final class StyleSchema
         $defs[] = new PropertyDefinition('typography.line_height', 'typography', $choice, true, null, [
             'tight', 'snug', 'normal', 'relaxed', 'loose',
         ]);
+        // The fourth (block typeface spec §1, settings version 11): the typeface, a font ID — a
+        // reserved built-in or a font library family — validated by shape, so content keeps an ID
+        // whose family is removed or from another site. One value for every width this release; a
+        // later responsive version reads a plain value as `base`.
+        $defs[] = new PropertyDefinition('typography.family', 'typography', [ValueKind::Font, ValueKind::Reset], false);
 
         // Motion: how a block ENTERS as it scrolls into view. `motion` is a group any block may
         // declare — the entrance, how long it takes, how long it waits, whether it replays each

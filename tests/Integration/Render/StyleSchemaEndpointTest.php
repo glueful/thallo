@@ -34,6 +34,12 @@ final class StyleSchemaEndpointTest extends AppTestCase
                 'responsive' => true, 'token_domain' => 'spacing', 'choices' => null],
             $byPath['spacing.padding.top'],
         );
+        // The typeface: a font ID or a reset, one value for every width (block typeface plan Task 3).
+        self::assertSame(
+            ['path' => 'typography.family', 'group' => 'typography', 'kinds' => ['font', 'reset'],
+                'responsive' => false, 'token_domain' => null, 'choices' => null],
+            $byPath['typography.family'],
+        );
         self::assertSame(['start', 'center', 'end'], $byPath['alignment.text']['choices']);
         self::assertFalse($byPath['radius']['responsive']);
         $advanced = ['anchor', 'css_classes', 'attributes', 'accessibility.label'];

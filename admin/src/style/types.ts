@@ -9,6 +9,8 @@ export type StyleValue =
   | { type: 'token'; value: string }
   | { type: 'choice'; value: string }
   | { type: 'identifier'; value: string }
+  // A typeface ID (block typeface spec §1): a reserved built-in or a font library family.
+  | { type: 'font'; value: string }
   | { type: 'reset' }
 
 export type ResolutionState = 'explicit' | 'inherited' | 'theme-default' | 'reset'
@@ -33,4 +35,9 @@ export interface PropertyDefinition {
   responsive: boolean
   tokenDomain: string | null
   choices: string[] | null
+  /**
+   * The value kinds the path accepts, reset included (StyleSchema's `kinds`). The local mirror sets
+   * it; definitions built from a style-schema row may leave it out.
+   */
+  kinds?: string[]
 }

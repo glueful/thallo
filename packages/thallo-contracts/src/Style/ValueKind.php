@@ -14,5 +14,7 @@ enum ValueKind: string
     case Choice = 'choice';
     case Identifier = 'identifier';
     case Reset = 'reset';
+    /** A typeface ID (block typeface spec §1): a reserved built-in or a font library family. */
+    case Font = 'font';
     case Literal = 'literal';
 }

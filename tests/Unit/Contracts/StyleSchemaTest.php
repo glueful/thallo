@@ -54,6 +54,8 @@ final class StyleSchemaTest extends TestCase
             'border.sides', 'colors.surface_opacity', 'backdrop.blur',
             // The third typography property: how far apart a text's lines sit.
             'typography.line_height',
+            // The fourth: the typeface, a font ID (block typeface spec §1); one value for every width.
+            'typography.family',
             // Motion: how a block enters as it scrolls into view — and, on a block that arranges
             // children, how far apart their entrances start.
             'motion.entrance', 'motion.duration', 'motion.delay', 'motion.repeat', 'motion.stagger',
@@ -65,8 +67,19 @@ final class StyleSchemaTest extends TestCase
             'aside.padding.top', 'aside.padding.right', 'aside.padding.bottom', 'aside.padding.left',
             'aside.surface',
         ], $paths);
-        self::assertSame(10, StyleSchema::VERSION);
+        self::assertSame(11, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
+    }
+
+    public function testTheTypefaceIsAFontOrAResetForEveryWidth(): void
+    {
+        $def = StyleSchema::property('typography.family');
+        self::assertNotNull($def);
+        self::assertSame([ValueKind::Font, ValueKind::Reset], $def->kinds);
+        self::assertFalse($def->responsive);
+        self::assertSame('typography', $def->group);
+        self::assertContains('typography.family', StyleSchema::pathsInGroup('typography'));
+        self::assertSame('font', ValueKind::Font->value);
     }
 
     public function testEveryStylePropertyDeclaresItsKindsAndAcceptsReset(): void
@@ -187,7 +200,7 @@ final class StyleSchemaTest extends TestCase
             StyleSchema::pathsInGroup('layout.item'),
             StyleCapabilities::fromDeclaration(['layout.item'])->paths(),
         );
-        self::assertSame(10, StyleSchema::VERSION);
+        self::assertSame(11, StyleSchema::VERSION);
     }
 
     public function testMotionIsABlocksOwnGroupAndStaggerIsTheArrangersAlone(): void
@@ -230,8 +243,9 @@ final class StyleSchemaTest extends TestCase
         self::assertSame(['tight', 'snug', 'normal', 'relaxed', 'loose'], $def->choices);
         self::assertTrue($def->responsive);
         self::assertSame(StyleSchema::property('typography.size')?->responsive, $def->responsive);
+        // The typeface joined the group after it (settings version 11).
         self::assertSame(
-            ['typography.size', 'typography.weight', 'typography.line_height'],
+            ['typography.size', 'typography.weight', 'typography.line_height', 'typography.family'],
             StyleSchema::pathsInGroup('typography'),
         );
     }
