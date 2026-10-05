@@ -217,7 +217,8 @@ final class FontLibraryApiTest extends AppTestCase
 
         $refused = $media->destroy(Request::create('/x', 'DELETE'), $static);
         self::assertSame(409, $refused->getStatusCode());
-        $message = 'This file is a font in the library (Brand); remove it there first.';
+        $message = 'This file is a font in the library (Brand); '
+            . 'delete the family permanently in Site › Appearance › Typefaces first.';
         self::assertStringContainsString($message, (string) $refused->getContent());
         $usage = self::data($media->usage($static));
         self::assertSame([['id' => $id, 'name' => 'Brand', 'removed' => false]], $usage['font_library']);

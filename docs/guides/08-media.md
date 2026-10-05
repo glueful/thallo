@@ -140,9 +140,9 @@ A page that used a deleted file still renders. The theme resolves the image firs
 element when it cannot, so the picture goes and everything around it stays.
 
 A font file that a family in the font library uses cannot be deleted here, even while the family is
-removed: **Used in** names it under **Font library**, and **Delete** answers
-`This file is a font in the library (…); remove it there first.` Delete the family permanently from
-the **Typefaces** card on **Site › Appearance** and the file is an ordinary file again.
+removed: **Used in** names it under **Font library**, and **Delete** is unavailable, with the reason
+beneath it. Delete the family permanently from the **Typefaces** card on **Site › Appearance** and
+the file is an ordinary file again.
 
 ## Show your location on a map
 
