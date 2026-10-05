@@ -169,12 +169,11 @@ export async function routeWorld(page: Page, world: World = {}): Promise<Recorde
     }
     if (method === 'GET' && path === '/render/appearance-fingerprint') {
       // What the stage on screen was rendered with: nothing changed elsewhere, so no stage reloads.
+      // Until that is known, the check fails — as offline does — and the stage is left alone.
+      if (renderedFingerprint === null) return route.fulfill({ status: 503, body: '' })
       return json(
         route,
-        JSON.stringify({
-          success: true,
-          data: { appearance_fingerprint: renderedFingerprint ?? 'proof-fingerprint' },
-        }),
+        JSON.stringify({ success: true, data: { appearance_fingerprint: renderedFingerprint } }),
       )
     }
     // A block field's server-provided choices (search block spec §3.9), as the server answers.

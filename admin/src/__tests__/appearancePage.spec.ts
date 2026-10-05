@@ -473,8 +473,12 @@ describe('appearance page', () => {
     settingsData.value = { ...settings(), theme_font: 'custom' }
     const wrapper = mount(AppearancePage)
     await flushPromises()
-    await wrapper.find('[data-test="font-family-text"] [data-test="family-option-Ab3dE5fG7hJ9"]').trigger('click')
-    await wrapper.find('[data-test="font-family-headings"] [data-test="family-option-serif"]').trigger('click')
+    await wrapper
+      .find('[data-test="font-family-text"] [data-test="family-option-Ab3dE5fG7hJ9"]')
+      .trigger('click')
+    await wrapper
+      .find('[data-test="font-family-headings"] [data-test="family-option-serif"]')
+      .trigger('click')
     expect(await save(wrapper)).toMatchObject({
       theme_font_text_family: 'Ab3dE5fG7hJ9',
       theme_font_headings_family: 'serif',

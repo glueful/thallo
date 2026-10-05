@@ -6,13 +6,8 @@ import { toApiError } from '@/api/errors'
 // and touches no preview session — so every stage's host answers its freshness check with it.
 
 export async function fetchAppearanceFingerprint(): Promise<string> {
-  // TODO(block typeface plan, Task 12): typed once the API reference is regenerated.
-  const get = client.GET as unknown as (path: string) => Promise<{
-    data?: { data: { appearance_fingerprint: string } }
-    error?: unknown
-    response: Response
-  }>
-  const { data, error, response } = await get('/render/appearance-fingerprint')
+  const { data, error, response } = await client.GET('/render/appearance-fingerprint')
   if (error) throw toApiError(error, response)
-  return (data as { data: { appearance_fingerprint: string } }).data.appearance_fingerprint
+  return (data as unknown as { data: { appearance_fingerprint: string } }).data
+    .appearance_fingerprint
 }

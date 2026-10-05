@@ -1791,6 +1791,9 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
       return Promise.resolve()
     }
     appearanceQueued ??= (async () => {
+      // Text being typed on the stage lives there until it is committed: commit it first, or the
+      // reload would throw it away. The commit is an edit like any other and applies after.
+      if (editSessionActive.value) await bridge.editFlush()
       await applySettled()
       appearanceQueued = null
       startAppearanceReload()

@@ -16,8 +16,8 @@ sets one. Without it the preview pane says so and links there; everything else s
 
 ## Open Site › Appearance
 
-In the sidebar, open the **Site** group and press **Appearance**. Four cards run down the left —
-**Theme**, **Theme colors**, **Design**, **Logos & site icon** — with the preview beside them,
+In the sidebar, open the **Site** group and press **Appearance**. Five cards run down the left —
+**Theme**, **Theme colors**, **Design**, **Typefaces**, **Logos & site icon** — with the preview beside them,
 staying put while the cards scroll. On a narrow window the preview moves above them.
 
 Nothing here reaches the site until you press **Save**, at the top right. A dot appears on that
@@ -73,19 +73,46 @@ The **Design** card holds three more choices.
   throughout. **Serif**, **Humanist**, **Geometric**, **Mono** and **System** set the whole site in
   fonts the visitor already has, and the theme's own face is then not downloaded at all.
   **Editorial** and **Slab** change the headings only and leave the body in the theme's face.
-  **Custom** is your own files.
+  **Custom** is two families you choose from the font library.
 - **Page ground** — **Plain** (white page, tinted panels) or **Tinted** (tinted page, white
   panels). Tinted changes light mode only; dark mode keeps the theme's own ground.
 
-Choosing **Custom** opens two uploads, **Text** and **Headings**. Each takes one `.woff2` file: it
-is the one format every browser a theme supports reads, and the only one the field accepts. A
-variable font covers every weight from a single file. After the upload the field sets a specimen in
-the face, so you see it rather than a file name; **Replace** swaps it, **Remove** takes it off.
-Upload a text font only and the headings follow it; upload neither and the theme's own font stays.
+Choosing **Custom** opens two pickers, **Text** and **Headings**. Each lists **Not set**, the
+built-ins and your own families, every one written in its own face. Choose a text family only and
+the headings follow it; choose neither and the theme's own font stays. **Add a font…**, at the end
+of either list, adds a family to the library (below) and picks it.
 
-The file goes to the media library, which accepts a font only while `font/woff2` is listed in
+## Add your own typefaces
+
+The **Typefaces** card is the site's font library: what Custom, every block's **Typeface** and every
+style class can be set in. **Built-in** lists the seven that cost a visitor nothing to download —
+**Theme** (the theme's own face), **Serif**, **Humanist**, **Geometric**, **Slab**, **Mono** and
+**System** — each written in its own stack. **Your fonts** lists the families you added, with their
+faces, their fallback and how many places use them.
+
+Press **Add family**, give it a name and a fallback — the kind of stack that shows while the font
+loads, and for anything it lacks — and drop its `.woff2` files on the box, or choose them. Add one
+file per weight and style, or one variable file for every weight. Thallo reads each file for the
+weights and styles it really draws, so a label never decides it: the faces line then reads, for
+example, `Faces: 400, 700, 400 italic` or `Faces: 300–900 variable`. A file it cannot read is
+refused, named with the reason — `Not a WOFF2 font`, for one — and the family is not added; a file
+chosen twice is added once.
+
+Each file goes to the media library, which accepts a font only while `font/woff2` is listed in
 `allowed_types` in `config/uploads.php`. An install made before that entry existed refuses it as
-`Invalid file type`; add the line and upload again.
+`Invalid file type`; add the line and add the family again.
+
+**Edit** renames a family or changes its fallback. **Remove** first lists everything that uses
+it — pages and posts, the header and footer, layouts, saved sections, style classes and Appearance —
+and says what happens there: blocks set in it inherit their parent's font, and Appearance falls back,
+Text to the theme's face and Headings to Text. A removed family moves to **Removed families**, at
+the bottom of the card, where **Restore** brings it back with everything that names it, and
+**Delete permanently** gives its files back to the media library. While a family exists, removed or
+not, its files cannot be deleted from the media library.
+
+A family added from files an older Thallo could not read shows **Unknown faces**. **Read again**
+asks Thallo to read them now; if it succeeds, the font may render differently, because it is then
+declared with the faces the files really hold.
 
 ## Upload your logo and favicon
 
@@ -120,7 +147,8 @@ writes only this page's settings, so nothing on **Settings › General** is dist
 outside the lists above is refused rather than stored.
 
 Open the site and reload. Everything on this page is live at once: saving the theme, a colour,
-a design setting, a logo or the favicon clears the rendered page cache.
+a design setting, a logo or the favicon clears the rendered page cache. A page open in the editor in
+another tab reloads its stage to show the change, keeping whatever you had not yet saved there.
 
 For what these settings cannot do — CSS of your own, loaded after everything else — open
 **Site › Theme editor** and edit `custom.css`.

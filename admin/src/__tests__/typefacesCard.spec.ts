@@ -95,22 +95,26 @@ describe('TypefacesCard', () => {
       'typeface-builtin-mono',
       'typeface-builtin-system',
     ])
-    expect(w.find('[data-test="typeface-builtin-serif"] [data-test="specimen"]').attributes('style')).toContain(
-      'Georgia',
-    )
+    expect(
+      w.find('[data-test="typeface-builtin-serif"] [data-test="specimen"]').attributes('style'),
+    ).toContain('Georgia')
   })
 
   it('shows each family: its name as text, its specimen, faces, fallback, and how often it is used', async () => {
     library.value = fontLibrary()
     library.value.families.find((f) => f.id === 'Ab3dE5fG7hJ9')!.name = '<b>Brand</b>'
     usage.mockImplementation(async (id: string) =>
-      id === 'Ab3dE5fG7hJ9' ? { ...NO_USE, regions: ['header'], appearance: { text: true, headings: false } } : NO_USE,
+      id === 'Ab3dE5fG7hJ9'
+        ? { ...NO_USE, regions: ['header'], appearance: { text: true, headings: false } }
+        : NO_USE,
     )
     const w = mountCard()
     const row = w.find('[data-test="typeface-family-Ab3dE5fG7hJ9"]')
     expect(row.find('[data-test="family-name"]').text()).toBe('<b>Brand</b>')
     expect(row.find('b').exists()).toBe(false)
-    expect(row.find('[data-test="specimen"]').attributes('style')).toContain('thallo-font-Ab3dE5fG7hJ9')
+    expect(row.find('[data-test="specimen"]').attributes('style')).toContain(
+      'thallo-font-Ab3dE5fG7hJ9',
+    )
     expect(row.text()).toContain('Faces: 400, 700, 400 italic')
     expect(row.text()).toContain('Falls back to serif')
     await flushPromises()
@@ -138,16 +142,23 @@ describe('TypefacesCard', () => {
     expect(w.find('[data-test="modal"]').exists()).toBe(false)
   })
 
-  it("says why a file was refused, and flags a file chosen twice", async () => {
+  it('says why a file was refused, and flags a file chosen twice', async () => {
     upload.mockImplementation(async (file: File) => ({ blob_uuid: `blob-${file.name}` }))
     m.create.mutateAsync.mockRejectedValue(
-      new ApiError('bad.woff2: Not a WOFF2 file', 422, { blob_uuids: 'bad.woff2: Not a WOFF2 file' }, null),
+      new ApiError(
+        'bad.woff2: Not a WOFF2 file',
+        422,
+        { blob_uuids: 'bad.woff2: Not a WOFF2 file' },
+        null,
+      ),
     )
     const w = mountCard()
     await w.find('[data-test="typefaces-add"]').trigger('click')
     await w.find('[data-test="font-family-name"]').setValue('Bad')
     await choose(w, [woff2('bad.woff2'), woff2('bad.woff2')])
-    expect(w.find('[data-test="font-file-duplicate"]').text()).toContain('bad.woff2 is chosen twice')
+    expect(w.find('[data-test="font-file-duplicate"]').text()).toContain(
+      'bad.woff2 is chosen twice',
+    )
     await w.find('[data-test="font-family-save"]').trigger('click')
     await flushPromises()
     expect(upload).toHaveBeenCalledTimes(1)
@@ -159,14 +170,18 @@ describe('TypefacesCard', () => {
     const w = mountCard()
     await w.find('[data-test="typefaces-add"]').trigger('click')
     await choose(w, [new File(['x'], 'face.ttf', { type: 'font/ttf' })])
-    expect(w.find('[data-test="font-file-refused"]').text()).toContain('face.ttf isn’t a .woff2 file')
+    expect(w.find('[data-test="font-file-refused"]').text()).toContain(
+      'face.ttf isn’t a .woff2 file',
+    )
     expect(w.find('[data-test="font-family-save"]').attributes('disabled')).toBeDefined()
   })
 
   it('edits a family’s name and fallback', async () => {
     m.update.mutateAsync.mockResolvedValue('Ab3dE5fG7hJ9')
     const w = mountCard()
-    await w.find('[data-test="typeface-family-Ab3dE5fG7hJ9"] [data-test="family-edit"]').trigger('click')
+    await w
+      .find('[data-test="typeface-family-Ab3dE5fG7hJ9"] [data-test="family-edit"]')
+      .trigger('click')
     const name = w.find('[data-test="font-family-name"]')
     expect((name.element as HTMLInputElement).value).toBe('Brand')
     await name.setValue('Brand Two')
@@ -183,7 +198,16 @@ describe('TypefacesCard', () => {
   it('removing says where the family is used and what happens there, then removes it', async () => {
     usage.mockResolvedValue({
       ...NO_USE,
-      entries: [{ uuid: 'entry0000001', title: 'About', locale: 'en', draft: true, published: true, versions: false }],
+      entries: [
+        {
+          uuid: 'entry0000001',
+          title: 'About',
+          locale: 'en',
+          draft: true,
+          published: true,
+          versions: false,
+        },
+      ],
       regions: ['header'],
       style_classes: [{ id: 'class0000001', name: 'Brand type' }],
       appearance: { text: true, headings: true },
@@ -191,7 +215,9 @@ describe('TypefacesCard', () => {
     m.remove.mutateAsync.mockResolvedValue({})
     const w = mountCard()
     await flushPromises()
-    await w.find('[data-test="typeface-family-Ab3dE5fG7hJ9"] [data-test="family-remove"]').trigger('click')
+    await w
+      .find('[data-test="typeface-family-Ab3dE5fG7hJ9"] [data-test="family-remove"]')
+      .trigger('click')
     await flushPromises()
     const dialog = w.find('[data-test="font-usage"]')
     expect(dialog.find('[data-test="usage-entries"]').text()).toContain('About')
@@ -230,9 +256,9 @@ describe('TypefacesCard', () => {
   it('offers Read again only for unknown faces, warning that the font may render differently', async () => {
     m.readAgain.mutateAsync.mockResolvedValue({})
     const w = mountCard()
-    expect(w.find('[data-test="typeface-family-Ab3dE5fG7hJ9"] [data-test="family-read-again"]').exists()).toBe(
-      false,
-    )
+    expect(
+      w.find('[data-test="typeface-family-Ab3dE5fG7hJ9"] [data-test="family-read-again"]').exists(),
+    ).toBe(false)
     const row = w.find('[data-test="typeface-family-Uk3dE5fG7hJ9"]')
     await row.find('[data-test="family-read-again"]').trigger('click')
     expect(w.text()).toContain('If this succeeds, the font may render differently.')

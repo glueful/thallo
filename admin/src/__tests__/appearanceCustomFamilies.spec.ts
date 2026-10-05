@@ -34,7 +34,8 @@ function mountPicker(modelValue: string) {
       stubs: {
         Modal: {
           props: ['open', 'title'],
-          template: '<div v-if="open" data-test="modal"><slot name="body" /><slot name="footer" /></div>',
+          template:
+            '<div v-if="open" data-test="modal"><slot name="body" /><slot name="footer" /></div>',
         },
       },
     },

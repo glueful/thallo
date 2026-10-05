@@ -46,15 +46,9 @@ export interface FontLibraryResult {
 }
 
 export async function fetchFontLibrary(): Promise<FontLibraryResult> {
-  // TODO(block typeface plan, Task 12): typed once the API reference is regenerated.
-  const get = client.GET as unknown as (path: string) => Promise<{
-    data?: { data: FontLibraryResult }
-    error?: unknown
-    response: Response
-  }>
-  const { data, error, response } = await get('/fonts')
+  const { data, error, response } = await client.GET('/fonts')
   if (error) throw toApiError(error, response)
-  return (data as { data: FontLibraryResult }).data
+  return (data as unknown as { data: FontLibraryResult }).data
 }
 
 /**
@@ -140,26 +134,14 @@ export function usageCount(usage: FontUsage): number {
   )
 }
 
-type Untyped = (
-  path: string,
-  init?: { body?: unknown },
-) => Promise<{ data?: { data: unknown }; error?: unknown; response: Response }>
-
-/** One call to a fonts endpoint; the body's `data`. */
-async function call<T>(
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
-  path: string,
-  body?: unknown,
-): Promise<T> {
-  // TODO(block typeface plan, Task 12): typed once the API reference is regenerated.
-  const send = client[method] as unknown as Untyped
-  const { data, error, response } = await send(path, body === undefined ? undefined : { body })
-  if (error) throw toApiError(error, response)
-  return (data as { data: T }).data
+/** A response's `data`, or the error it carried. */
+function dataOf<T>(result: { data?: unknown; error?: unknown; response: Response }): T {
+  if (result.error) throw toApiError(result.error, result.response)
+  return (result.data as { data: T }).data
 }
 
-export function fetchFontUsage(id: string): Promise<FontUsage> {
-  return call<FontUsage>('GET', `/fonts/${encodeURIComponent(id)}/usage`)
+export async function fetchFontUsage(id: string): Promise<FontUsage> {
+  return dataOf<FontUsage>(await client.GET('/fonts/{id}/usage', { params: { path: { id } } }))
 }
 
 /**
@@ -171,45 +153,46 @@ export function useFontLibraryMutations() {
   const changes = useAppearanceChanges()
   const invalidate = () => cache.invalidateQueries({ key: qk.fonts() })
   const told = () => changes.notify('fonts')
-  const path = (id: string, rest = '') => `/fonts/${encodeURIComponent(id)}${rest}`
-  const familyId = (data: { family: { id: string } }) => data.family.id
+  const at = (id: string) => ({ params: { path: { id } } })
+  const familyId = (result: Parameters<typeof dataOf>[0]) =>
+    dataOf<{ family: { id: string } }>(result).family.id
 
   return {
     create: useMutation({
       mutation: async (body: { name: string; fallback: string; blob_uuids: string[] }) =>
-        familyId(await call('POST', '/fonts', body)),
+        familyId(await client.POST('/fonts', { body })),
       onSuccess: told,
       onSettled: invalidate,
     }),
     update: useMutation({
       mutation: async ({ id, ...body }: { id: string; name?: string; fallback?: string }) =>
-        familyId(await call('PATCH', path(id), body)),
+        familyId(await client.PATCH('/fonts/{id}', { ...at(id), body })),
       onSuccess: told,
       onSettled: invalidate,
     }),
     addFace: useMutation({
       mutation: async ({ id, blob_uuid }: { id: string; blob_uuid: string }) =>
-        familyId(await call('POST', path(id, '/faces'), { blob_uuid })),
+        familyId(await client.POST('/fonts/{id}/faces', { ...at(id), body: { blob_uuid } })),
       onSuccess: told,
       onSettled: invalidate,
     }),
     remove: useMutation({
-      mutation: (id: string) => call('DELETE', path(id)),
+      mutation: async (id: string) => dataOf(await client.DELETE('/fonts/{id}', at(id))),
       onSuccess: told,
       onSettled: invalidate,
     }),
     restore: useMutation({
-      mutation: (id: string) => call('POST', path(id, '/restore')),
+      mutation: async (id: string) => dataOf(await client.POST('/fonts/{id}/restore', at(id))),
       onSuccess: told,
       onSettled: invalidate,
     }),
     purge: useMutation({
-      mutation: (id: string) => call('DELETE', path(id, '/permanent')),
+      mutation: async (id: string) => dataOf(await client.DELETE('/fonts/{id}/permanent', at(id))),
       onSuccess: told,
       onSettled: invalidate,
     }),
     readAgain: useMutation({
-      mutation: (id: string) => call('POST', path(id, '/read-again')),
+      mutation: async (id: string) => dataOf(await client.POST('/fonts/{id}/read-again', at(id))),
       onSuccess: told,
       onSettled: invalidate,
     }),

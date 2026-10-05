@@ -138,9 +138,40 @@ refused:
 | `screenshot` | An image inside the theme's folder: `png`, `jpg` or `webp`, 2 MB at most. A `screenshot.jpg`, `.png` or `.webp` at the theme's root is found without being named. The card is 4:3; the shipped screenshot is 1200×900. |
 | `colors` | `background`, `text` and `accent` as hex. When there is no screenshot, the admin draws a small page in these colours, so a card is never blank. |
 | `settings` | The theme's presentation defaults: `show_title` (true or false) and `layout` (`full` or `centered`), and a `types` object keyed by content type slug carrying the same two keys for that type. An unknown key here is an error, not an omission. |
+| `face` | The theme's own typeface: `family`, its name; `stack`, the CSS font stack it renders in; and `files`, each a `.woff2` inside `assets/` with its `weight` (`400`, or a range such as `300 900`) and `style` (`normal` or `italic`). It is what a block set to **Theme** renders in, and what the admin shows that choice in. Without it, **Theme** is the system stack. A file that is not there is simply not declared. |
 
 The site serves the screenshot at `/_thallo/theme-screenshot/<name>` — that one file of a theme,
 and nothing else.
+
+The default theme's `face` reads:
+
+```json
+"face": {
+  "family": "Figtree",
+  "stack": "\"Figtree\", \"Figtree Fallback\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+  "files": [
+    { "src": "fonts/figtree-roman-latin.woff2", "weight": "300 900", "style": "normal" },
+    { "src": "fonts/figtree-italic-latin.woff2", "weight": "300 900", "style": "italic" }
+  ]
+}
+```
+
+Appearance's typefaces reach a theme as variables on `:root`: `--font-body` and `--font-display`
+for the families, and `--font-synthesis-body` and `--font-synthesis-display` for whether the browser
+may fake a weight or a slant — an uploaded family is never given a faked bold. Read all four where
+the theme sets its fonts, as the default theme does:
+
+```css
+body { font-family: var(--font-body); font-synthesis: var(--font-synthesis-body, weight style); }
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-synthesis: var(--font-synthesis-display, weight style);
+}
+```
+
+A theme that ignores the synthesis variables still works; the browser then fakes a bold an uploaded
+family does not have. A block's own **Typeface** needs nothing from the theme: it is a setting, and
+beats the theme's fonts whatever the selectors.
 
 ## The hooks a template must keep
 

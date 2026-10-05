@@ -7,6 +7,33 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **A Typeface on every block that shows text**, in the Style tab's Typography group, and in style
+  classes. Each target and part keeps its own — a card's title and its text can differ. The list
+  shows each family in its own face, says which weights and styles it has, and marks the weights a
+  family lacks. A removed or unknown family is named, renders as inherited, and offers Choose
+  another, Clear and Restore.
+- **A font library** under **Site › Appearance › Typefaces**: seven built-ins (Theme, Serif,
+  Humanist, Geometric, Slab, Mono, System) and families you add from `.woff2` files, each file read
+  for the weights and styles it really draws. Removing a family first lists every page, region,
+  layout, saved section, style class and Appearance choice that uses it; Restore brings it back
+  whole, and Delete permanently gives its files back. A font file a family uses can't be deleted
+  from the media library.
+- **Open editors stay current.** A change to the theme, Appearance or the font library — made in
+  another tab, or by someone else — reloads the stage of every open page, header and footer, and
+  layout editor, keeping unsaved work and undo history.
+- **`/v1/admin/fonts`** — list, add, edit, remove, restore, delete permanently, read again, and
+  usage — and **`GET /v1/admin/render/appearance-fingerprint`**, which tells an open stage when to
+  reload. Any editor can read the font list; usage and changes need `content.manage`.
+
+### Changed
+- **Appearance's Custom picks Text and Headings from the font library**, with **Add a font…** to
+  add one on the spot; the upload fields are gone.
+- **The Theme face is always declared**, so a block set to Theme renders in the theme's own face
+  even when the site's text uses another; it is still only preloaded when the site's text uses it.
+- **A theme may declare its own face in `theme.json`** (`face`: family, stack, files) — what a block
+  set to Theme renders in. Without it, Theme is the system stack; nothing else changes.
+
 ### Fixed
 - **Images wider or taller than 2048px get thumbnails and resized copies again.** The media library
   showed a broken thumbnail for them, and a Container's background, or any responsive image made
@@ -22,6 +49,9 @@ as the next release, never a mutated tag.
   deliberate ways: each file now declares the weight and style read from the file (not every
   weight from 100 to 900), the family is named by its library ID, and an uploaded font is never
   given a faked bold — headings in a single-weight file show that weight, as the file draws it.
+- **Themes:** the default theme reads `--font-synthesis-body` and `--font-synthesis-display`, which
+  Appearance sets so an uploaded family is never given a faked bold. A theme of your own keeps
+  working without them; add them where it sets `font-family` (see the theme guide) to match.
 
 ## [1.0.0-beta.81] - 2026-10-04 — Developer Preview
 

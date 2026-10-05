@@ -231,9 +231,9 @@ describe.each(['entry design', 'region', 'layout'])('the %s stage', () => {
     stageReady('fp-2')
     await flushPromises()
     expect(host.apply).toHaveBeenCalledTimes(1)
-    expect((host.apply.mock.calls[0]![1].body as { data: { title: string } }[])[0]!.data.title).toBe(
-      'C',
-    )
+    expect(
+      (host.apply.mock.calls[0]![1].body as { data: { title: string } }[])[0]!.data.title,
+    ).toBe('C')
     unmount()
   })
 
@@ -250,6 +250,26 @@ describe.each(['entry design', 'region', 'layout'])('the %s stage', () => {
     await flushPromises()
     expect(reloads.count).toBe(2)
     expect(editor.selected.value).toBe('blockaaa0001')
+    unmount()
+  })
+
+  it('text being edited on the stage is committed before the reload, never lost', async () => {
+    const order: string[] = []
+    const target = bridge as Record<string, unknown>
+    const flush = target.editFlush
+    target.editFlush = async () => {
+      order.push('flush')
+    }
+    const { editor, unmount } = await opened()
+    const stop = watch(editor.iframeSrc, (src) => {
+      if (src === '') order.push('reload')
+    })
+    callbacks.onEditStart!('blockaaa0001' as never)
+    changes.listener!({ kind: 'appearance', at: Date.now() })
+    await flushPromises()
+    expect(order).toEqual(['flush', 'reload'])
+    stop()
+    target.editFlush = flush
     unmount()
   })
 })

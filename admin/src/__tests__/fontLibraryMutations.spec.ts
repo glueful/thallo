@@ -65,15 +65,17 @@ describe('useFontLibraryMutations', () => {
     await m.purge.mutateAsync('Ab3dE5fG7hJ9')
     await m.readAgain.mutateAsync('Ab3dE5fG7hJ9')
     await m.update.mutateAsync({ id: 'Ab3dE5fG7hJ9', name: 'Brand 2', fallback: 'serif' })
-    expect(send.DELETE.mock.calls.map((c) => c[0])).toEqual([
-      '/fonts/Ab3dE5fG7hJ9',
-      '/fonts/Ab3dE5fG7hJ9/permanent',
+    const at = { params: { path: { id: 'Ab3dE5fG7hJ9' } } }
+    expect(send.DELETE.mock.calls).toEqual([
+      ['/fonts/{id}', at],
+      ['/fonts/{id}/permanent', at],
     ])
-    expect(send.POST.mock.calls.map((c) => c[0])).toEqual([
-      '/fonts/Ab3dE5fG7hJ9/restore',
-      '/fonts/Ab3dE5fG7hJ9/read-again',
+    expect(send.POST.mock.calls).toEqual([
+      ['/fonts/{id}/restore', at],
+      ['/fonts/{id}/read-again', at],
     ])
-    expect(send.PATCH).toHaveBeenCalledWith('/fonts/Ab3dE5fG7hJ9', {
+    expect(send.PATCH).toHaveBeenCalledWith('/fonts/{id}', {
+      ...at,
       body: { name: 'Brand 2', fallback: 'serif' },
     })
     expect(notify).toHaveBeenCalledTimes(5)
@@ -82,7 +84,10 @@ describe('useFontLibraryMutations', () => {
   it('a refused change tells no one', async () => {
     send.POST.mockResolvedValue({
       data: undefined,
-      error: { message: 'a.woff2: Not a WOFF2 file', errors: { blob_uuids: 'a.woff2: Not a WOFF2 file' } },
+      error: {
+        message: 'a.woff2: Not a WOFF2 file',
+        errors: { blob_uuids: 'a.woff2: Not a WOFF2 file' },
+      },
       response: new Response(null, { status: 422 }),
     })
     const m = await mutations()
