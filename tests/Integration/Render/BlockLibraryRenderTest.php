@@ -111,6 +111,34 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringNotContainsString('thallo-shadow-', $out);
     }
 
+    /** Black is a colour token like white: a background and a text colour, compiled to #000000. */
+    public function testABlockCanBeBlackOnTheBackgroundAndInItsText(): void
+    {
+        $this->syncBlockStyleDeclarations();
+        $out = $this->render([[
+            'id' => 'bk', 'type' => 'container',
+            'data' => ['content' => []],
+            'settings' => ['style' => ['colors' => [
+                'surface' => ['type' => 'token', 'value' => 'color.black'],
+                'text' => ['type' => 'token', 'value' => 'color.black'],
+            ]]],
+        ]]);
+        $root = $this->rootTag($out, 'thallo-block-container');
+        self::assertStringContainsString(' t-bg-black', $root);
+        self::assertStringContainsString(' t-fg-black', $root);
+
+        $base = $this->container()->get(\Glueful\Bootstrap\ApplicationContext::class)->getBasePath();
+        $css = \Thallo\Render\Style\StyleCompiler::compile(
+            (new \Thallo\Render\ThemeLocator('default', $base . '/themes'))->vocabulary(),
+        );
+        self::assertStringContainsString('--t-color-black: #000000;', $css);
+        self::assertStringContainsString(
+            '.t-bg-black { --t-surface: var(--t-color-black); background: var(--t-color-black); }',
+            $css,
+        );
+        self::assertStringContainsString('.t-fg-black { color: var(--t-color-black); }', $css);
+    }
+
     public function testContainerRejectsAnUnknownOverlayAndDropsTheRetiredLayoutFields(): void
     {
         $schema = $this->containerSchema();

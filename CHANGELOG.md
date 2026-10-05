@@ -8,6 +8,9 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Added
+- **Black is a colour choice** for a block's Background, Text, Border and Aside panel colours, as
+  `#000000` in light and dark mode alike, like White. A theme of your own that doesn't map
+  `color.black` gets `#000000`.
 - **A Typeface on every block that shows text**, in the Style tab's Typography group, and in style
   classes. Each target and part keeps its own — a card's title and its text can differ. The list
   shows each family in its own face, says which weights and styles it has, and marks the weights a

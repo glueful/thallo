@@ -337,12 +337,12 @@ final class StyleSchemaTest extends TestCase
         self::assertSame(
             [
                 'background', 'surface', 'surface-2', 'text', 'muted', 'line', 'accent', 'accent-contrast',
-                'transparent', 'white',
+                'transparent', 'white', 'black',
             ],
             Vocabulary::names('color'),
         );
         self::assertSame(['none', 'xs', 'sm', 'md', 'lg', 'xl'], Vocabulary::names('shadow'));
         self::assertSame(['xs', 'sm', 'md', 'lg', 'xl', '2xl', '3xl'], Vocabulary::names('typography.size'));
-        self::assertCount(8 + 4 + 5 + 10 + 6 + 7, Vocabulary::all());
+        self::assertCount(8 + 4 + 5 + 11 + 6 + 7, Vocabulary::all());
     }
 }

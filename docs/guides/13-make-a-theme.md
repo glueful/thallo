@@ -116,14 +116,14 @@ These are the names, written `domain.name` — `spacing.lg`, `typography.size.2x
 | `spacing` | `none` `xs` `sm` `md` `lg` `xl` `2xl` `3xl` |
 | `width` | `narrow` `content` `container` `full` |
 | `radius` | `none` `sm` `md` `lg` `full` |
-| `color` | `background` `surface` `surface-2` `text` `muted` `line` `accent` `accent-contrast` `transparent` `white` |
+| `color` | `background` `surface` `surface-2` `text` `muted` `line` `accent` `accent-contrast` `transparent` `white` `black` |
 | `shadow` | `none` `xs` `sm` `md` `lg` `xl` |
 | `typography.size` | `xs` `sm` `md` `lg` `xl` `2xl` `3xl` |
 
 A value is any CSS value, including a reference to a variable of your own: the default theme maps
 `spacing.xs` to `var(--space-1)`, so changing one variable re-scales everything the Design view
-offers. `color.white` fills itself in as `#ffffff` when a theme omits it; every other name has to
-be there. A name the vocabulary does not have cannot be declared: there are no extra tokens.
+offers. `color.white` and `color.black` fill themselves in as `#ffffff` and `#000000` when a theme
+omits them; every other name has to be there. A name the vocabulary does not have cannot be declared: there are no extra tokens.
 
 The rest is optional and cannot break the theme — a wrong value is left off the card rather than
 refused:

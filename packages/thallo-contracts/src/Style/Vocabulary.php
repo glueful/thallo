@@ -18,7 +18,7 @@ final class Vocabulary
         'radius' => ['none', 'sm', 'md', 'lg', 'full'],
         'color' => [
             'background', 'surface', 'surface-2', 'text', 'muted', 'line', 'accent', 'accent-contrast', 'transparent',
-            'white',
+            'white', 'black',
         ],
         'shadow' => ['none', 'xs', 'sm', 'md', 'lg', 'xl'],
         'typography.size' => ['xs', 'sm', 'md', 'lg', 'xl', '2xl', '3xl'],
@@ -29,7 +29,7 @@ final class Vocabulary
      * manifest omits them — so a token added to the baseline after a theme was copied still
      * resolves. A theme may still map them.
      */
-    public const LITERAL_DEFAULTS = ['color.white' => '#ffffff'];
+    public const LITERAL_DEFAULTS = ['color.white' => '#ffffff', 'color.black' => '#000000'];
 
     /** @return list<string> the domains in contract order */
     public static function domains(): array

@@ -49,5 +49,8 @@ final class StyleSchemaEndpointTest extends AppTestCase
         $values = $this->container()->get(ThemeLocator::class)->vocabulary()->values();
         self::assertSame($values, $data['vocabulary']['values']);
         self::assertSame('var(--space-4)', $data['vocabulary']['values']['spacing.lg']);
+        // The editor's colour choices come from here: Black among them, as #000000.
+        self::assertContains('black', $data['vocabulary']['domains']['color']);
+        self::assertSame('#000000', $data['vocabulary']['values']['color.black']);
     }
 }

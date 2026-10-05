@@ -23,7 +23,7 @@ ordinal scales, not promises about pixels.
 | `spacing` | `none` `xs` `sm` `md` `lg` `xl` `2xl` `3xl` |
 | `width` | `narrow` `content` `container` `full` |
 | `radius` | `none` `sm` `md` `lg` `full` |
-| `color` | `background` `surface` `surface-2` `text` `muted` `line` `accent` `accent-contrast` `transparent` `white` |
+| `color` | `background` `surface` `surface-2` `text` `muted` `line` `accent` `accent-contrast` `transparent` `white` `black` |
 | `shadow` | `none` `xs` `sm` `md` `lg` `xl` |
 | `typography.size` | `xs` `sm` `md` `lg` `xl` `2xl` `3xl` |
 
@@ -33,9 +33,9 @@ dots replaced by hyphens and `--t-` in front: `spacing.lg` becomes `--t-spacing-
 `--t-color-accent`. Those are the variables the utilities below read, so a theme that re-maps a
 token re-skins every block that used it.
 
-`color.white` fills itself in as `#ffffff` when a theme omits it; every other name has to be
-mapped, or the theme fails validation. There are no extra tokens: a document may reference
-baseline names only.
+`color.white` and `color.black` fill themselves in as `#ffffff` and `#000000` when a theme omits
+them, and are the same in light and dark mode; every other name has to be mapped, or the theme
+fails validation. There are no extra tokens: a document may reference baseline names only.
 
 ## The breakpoints
 
