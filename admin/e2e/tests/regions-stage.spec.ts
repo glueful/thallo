@@ -144,6 +144,8 @@ test('switching to another page keeps the unsaved header and shows it there', as
   const recorded = await openRegionsStage(page)
   const region = regionsStage(page).locator('[data-thallo-edit-block="e2ehdr000003"]')
   await region.dblclick()
+  // Typed before the stage grants editing, the keys go nowhere.
+  await expect(region).toHaveAttribute('contenteditable', 'true')
   await region.press('ControlOrMeta+a')
   await region.pressSequentially('Edited header')
   await region.press('Escape')

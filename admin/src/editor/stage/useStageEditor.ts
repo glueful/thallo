@@ -1377,15 +1377,49 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   /** The block whose text is being edited on the stage, or null: one text has one owner at a time. */
   const stageEditingId = ref<string | null>(null)
 
-  bridge.onEditRequest((id, field) => {
+  /** Grants an edit when the field is editable now; false when it is not (or not known yet). */
+  function grantEdit(id: string, field: string): boolean {
     const kind = editableKindOf(id, field)
-    if (kind === null) return
+    if (kind === null) return false
     // The stage takes over from the panel, and nothing has to be handed across: the panel's editor
     // writes every change as it is made, so there is nothing to flush, and the double-click that asked
     // for this moved the browser's focus into the stage, so the panel no longer holds a caret. The
     // panel goes read-only when the session starts (edit-start) and writable again when it ends.
     bridge.editGrant(id, field, kind)
+    return true
+  }
+
+  // A double-click can land before the document's tree (or the block types) is ready — the stage
+  // often loads first, and the field editor fills its tree on its own schedule, with nothing here to
+  // watch. Such a request is held and tried again every 100 ms for three seconds; dropping it silently
+  // left the double-click doing nothing.
+  let pendingEdit: {
+    id: string
+    field: string
+    retry: ReturnType<typeof setInterval>
+    expiry: ReturnType<typeof setTimeout>
+  } | null = null
+  function clearPendingEdit(): void {
+    if (pendingEdit === null) return
+    clearInterval(pendingEdit.retry)
+    clearTimeout(pendingEdit.expiry)
+    pendingEdit = null
+  }
+  bridge.onEditRequest((id, field) => {
+    clearPendingEdit()
+    if (grantEdit(id, field)) return
+    // Known and not editable: nothing to wait for.
+    if (allBlockTypes.value !== undefined && fieldEditorRef.value?.blockTypeOfBlock(id)) return
+    pendingEdit = {
+      id,
+      field,
+      retry: setInterval(() => {
+        if (pendingEdit !== null && grantEdit(pendingEdit.id, pendingEdit.field)) clearPendingEdit()
+      }, 100),
+      expiry: setTimeout(clearPendingEdit, 3000),
+    }
   })
+  onBeforeUnmount(clearPendingEdit)
 
   bridge.onTextChanged((id, field, payload) => {
     // Re-validate (v3 pin, matrix-shaped): edit messages are requests, not
