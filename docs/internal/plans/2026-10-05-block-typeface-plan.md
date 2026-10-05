@@ -61,14 +61,14 @@
 - `Woff2FaceReader.php` — reads one `.woff2`: table directory, Brotli stream, `OS/2`, `head`, `fvar`.
 - `FaceMetadata.php` — `weightMin`, `weightMax`, `italic`, `variable`.
 - `UnreadableFont.php` — exception with a user-facing reason.
-- `Brotli/BrotliDecoder.php` (interface), `Brotli/PurePhpBrotliDecoder.php` (wraps the vendored decoder), `Brotli/BrotliDecoders.php` (selects it; the extension cannot bound allocation, Task 1).
+- `Brotli/BrotliDecoder.php` (interface), `Brotli/PurePhpBrotliDecoder.php` (wraps the port), `Brotli/BrotliDecoders.php` (selects it; the extension cannot bound allocation, Task 1).
 - `FontId.php` — shape validation, reserved names.
 - `FontLibrary.php` — repository over `font_families` / `font_faces`; bumps `fonts.generation`.
 - `FontLibrarySnapshot.php` — immutable view; implements the contract.
 - `FontUsage.php` — usage scan.
 - `FontLibraryUpgrade.php` — the provision migration step.
 - `Http/FontLibraryController.php` — admin API.
-- `vendor-brotli/` — the vendored pure-PHP decoder (license file kept) if Task 1 selects it.
+- `Brotli/Port/` — Thallo's PHP port of google/brotli's Java decoder (pinned commit, MIT licence, dictionary, `PROVENANCE.md`).
 
 **Contracts** — `packages/thallo-contracts/src/Fonts/FontLibraryReader.php`, `FontFamilyView.php`; `Style/ValueKind.php` (+`Font`), `Style/StyleSchema.php` (+`typography.family`, VERSION 11), `Style/FontStacks.php` (the named built-in stacks, moved from `ThemeDesign` so contracts, core and render share one source).
 
@@ -84,25 +84,35 @@
 
 ---
 
-### Task 1: The WOFF2 reader, its dependency, and the fixture proof
+### Task 1: The WOFF2 reader, Thallo's Brotli port, and the expanded decoder gate
+
+> Amended 2026-10-05 after the decoder gate stopped: no pure-PHP Brotli decoder runs on PHP 8.4 (BrotliHaxe's Haxe 3 runtime does not parse), so Thallo ports Google's MIT Java decoder. The user approved the port as a gated Task 1 with an expanded proof; nothing after Task 1 starts until that gate passes, and a failure in correctness, memory or performance stops the work rather than weakening the gate.
 
 **Files:**
-- Create: `scripts/build-font-fixtures.py`, `tests/fixtures/fonts/*` (generated, committed, with `PROVENANCE.md` and the OFL notice), `core/src/Content/Fonts/{Woff2FaceReader,FaceMetadata,UnreadableFont}.php`, `core/src/Content/Fonts/Brotli/{BrotliDecoder,PurePhpBrotliDecoder,BrotliDecoders}.php`, `core/src/Content/Fonts/vendor-brotli/`, `tests/Unit/Fonts/BrotliDecoderTest.php`, `tests/Unit/Fonts/Woff2FaceReaderTest.php`, `tests/Support/Fonts/decode-probe.php` (the bounded-allocation probe), `tests/Support/Fonts/UnboundedBrotliDecoder.php` (the negative control)
-- Modify: `composer.json` (only if a Packagist decoder is selected), `phpcs.xml` (exclude `vendor-brotli/`)
+- Create: `scripts/build-font-fixtures.py`, `scripts/build-brotli-vectors.py` (dev-only; the differential corpus), `tests/fixtures/fonts/*` (generated, committed, with `PROVENANCE.md` and the OFL notice), `tests/fixtures/brotli/*` (upstream corpus, SynthTest vectors, generated and mutated streams, each with the upstream decoder's outcome), `core/src/Content/Fonts/{Woff2FaceReader,FaceMetadata,UnreadableFont}.php`, `core/src/Content/Fonts/Brotli/{BrotliDecoder,PurePhpBrotliDecoder,BrotliDecoders}.php`, `core/src/Content/Fonts/Brotli/Port/` (the port: `Decoder.php`, its exceptions, `dictionary.bin`, `LICENSE`, `PROVENANCE.md`), `tests/Unit/Fonts/{BrotliDecoderTest,BrotliDifferentialTest,Woff2FaceReaderTest}.php`, `tests/Support/Fonts/decode-probe.php`, `tests/Support/Fonts/UnboundedBrotliDecoder.php` (the negative control)
+
+**The port's requirements (user, 2026-10-05):**
+- **One pinned upstream commit**, google/brotli `42a2ed4355bc6287da6bb6319f090b499cba4550` (`java/org/brotli/dec`). Its MIT licence, the static dictionary (`c/common/dictionary.bin`, 122,784 bytes, SHA-256 checked by a test) and the relevant upstream tests (the `tests/testdata` corpus, `SynthTest`'s vectors) are preserved. `PROVENANCE.md` lists every intentional departure. The port is reachable only through `BrotliDecoder`.
+- **Packed memory.** The ring buffer, the dictionary and the context maps are PHP strings (one byte per byte), never one array element per byte. Every allocation is sized and charged to an allocation budget **before** it is made, including those a malformed header drives (block types, trees, context maps); a header that would exceed it is refused. The ring buffer never exceeds the window or the smallest power of two above the output cap.
+- **Internal deadline.** The decoder checks its own deadline (default set from the measured timings, recorded in the ledger) and refuses with `This font took too long to read`; the test watchdog is not the production protection.
+- **Differential testing** against the upstream decoder (the C reference through Python `brotli`, plus upstream's own expected outputs): the upstream corpus; `SynthTest`'s vectors; generated streams covering dictionary words and transforms, overlapping copies, window sizes 10–24 with copies at the window boundary, uncompressed and multi-metablock streams; and truncated and mutated streams, where the port must match the upstream outcome exactly (the same bytes, or a refusal).
+- **Supported PHP versions**: the unit tests run on PHP 8.3, 8.4 and 8.5.
+- **Acceptance limits unchanged** from the decision procedure below.
 
 **Interfaces:**
 - Produces:
-  - `interface BrotliDecoder { public function decode(string $compressed, int $maxOutput): string; }` — **bounded**: it stops producing output once `$maxOutput` bytes are exceeded and throws `UnreadableFont('This font is too large to read')`; it never materialises more than `$maxOutput + one internal block` bytes. Corrupt input throws `UnreadableFont('Couldn\'t read this font\'s data')`, never a PHP error.
+  - `interface BrotliDecoder { public function decode(string $compressed, int $maxOutput): string; }` — **bounded**: it stops producing output once `$maxOutput` bytes are exceeded and throws `UnreadableFont('This font is too large to read')`; it never materialises more than `$maxOutput + one ring buffer` bytes. Corrupt input throws `UnreadableFont('Couldn\'t read this font\'s data')`, never a PHP error. Past its deadline it throws `UnreadableFont('This font took too long to read')`.
+  - `PurePhpBrotliDecoder::__construct(float $timeLimitSeconds = <measured default>)`.
   - `BrotliDecoders::best(): BrotliDecoder` — always the pure-PHP decoder in this release (the extension is not selected; see the decision procedure).
   - `final class FaceMetadata { public function __construct(public int $weightMin, public int $weightMax, public bool $italic, public bool $variable) }`.
   - `final class Woff2FaceReader { public function __construct(BrotliDecoder $brotli, int $maxDecompressed = 33554432); public function read(string $path): FaceMetadata }`.
   - `final class UnreadableFont extends \RuntimeException` with `public readonly string $reason`.
 
 **Decision procedure (record the outcome as a ledger ruling):**
-1. **The extension is not selected in this release.** `brotli_uncompress()`'s second argument is a dictionary, not an output limit, and the incremental API (`brotli_uncompress_add()`) has no output limit either: one call fed a 16 KiB input chunk can return many megabytes before PHP sees its length, so the bound cannot be enforced **during** expansion. There is no `ExtBrotliDecoder`. A later release may add one only with a mechanism that bounds allocation inside the extension (none exists today); the ruling records this.
-2. **The universal decoder is pure PHP** (no extension, no `proc_open`/`exec`, no FFI). Candidates in order: (a) the MIT PHP output of BrotliHaxe, vendored under `core/src/Content/Fonts/vendor-brotli/` with its license and a provenance note (commit, generator command, any patches); (b) another pure-PHP decoder found at selection time meeting the criteria. Exec-based packages (`n5s/brotli`, `vdechenaux/brotli`) are excluded.
-3. **Acceptance criteria**, proven by the tests below: byte-exact on every vector; every WOFF2 fixture read; corrupt and truncated streams rejected as `UnreadableFont`; **bounded allocation** — expanding a 64 MiB stream with a 1 MiB cap, the child process's peak memory stays under its baseline plus 32 MiB (room for the decoder's sliding window, far below the 64 MiB the expansion would need) and it refuses within a 10 s deadline, and the **negative control** (an unbounded decoder) fails the same check; the real decompressed table stream of `variable.woff2` decodes in under 2 s and a 1 MiB table stream in under 20 s; MIT/BSD/Apache-compatible license. If the vendored decoder has no output cap, add one in its output loop (a running count checked as each block is emitted) and record the patch in `PROVENANCE.md`.
-4. **If no pure-PHP candidate passes: STOP and ask the user.**
+1. **The extension is not selected in this release.** `brotli_uncompress()`'s second argument is a dictionary, not an output limit, and the incremental API (`brotli_uncompress_add()`) has no output limit either: one call fed a 16 KiB input chunk can return many megabytes before PHP sees its length, so the bound cannot be enforced **during** expansion. There is no `ExtBrotliDecoder`.
+2. **The universal decoder is Thallo's PHP port** of the pinned Java decoder (no extension, no `proc_open`/`exec`, no FFI). BrotliHaxe was evaluated and fails to parse on PHP 8.4; no other pure-PHP decoder exists.
+3. **Acceptance criteria**, proven by the tests below: byte-exact on every vector and on the whole differential corpus; every WOFF2 fixture read; corrupt, truncated and mutated streams refused exactly where upstream refuses; **bounded allocation** — expanding a 64 MiB stream with a 1 MiB cap, the child process's peak memory stays under its baseline plus 32 MiB and it refuses within a 10 s deadline, a stream whose headers demand the maximum block types and trees stays under the same budget, and the **negative control** (an unbounded decoder) fails the memory check; the real decompressed table stream of `variable.woff2` decodes in under 2 s and a 1 MiB table stream in under 20 s, on every supported PHP version; MIT/BSD/Apache-compatible licence.
+4. **If the port fails any criterion: STOP and ask the user.** The limits are not loosened to fit.
 
 - [ ] **Step 1: Write the fixture generator** `scripts/build-font-fixtures.py` (dev-only; `fontTools` and `brotli`):
 
@@ -336,36 +346,11 @@ The probe test uses `proc_open` only in the test suite; production code never do
 
 - [ ] **Step 4: Run it.** `vendor/bin/phpunit tests/Unit/Fonts/BrotliDecoderTest.php`. Expected: FAIL, `PurePhpBrotliDecoder` not found.
 
-- [ ] **Step 5: Implement the decoders.**
+- [ ] **Step 5: Implement the port and the decoders.** `Port\Decoder::decompress(string $input, int $maxOutput, float $deadline): string` follows `Decode.java`'s states and helpers by name; `PurePhpBrotliDecoder` maps `Port\OutputLimitExceeded` → `This font is too large to read`, `Port\DeadlineExceeded` → `This font took too long to read`, and `Port\CorruptStream` or any other `\Throwable` → `Couldn't read this font's data`. `BrotliDecoders::best()` returns `new PurePhpBrotliDecoder()`. The output cap is checked as each ring-buffer flush is appended, so output never exceeds the cap and allocation stays within the cap plus one ring buffer plus the charged tables.
 
-```php
-final class PurePhpBrotliDecoder implements BrotliDecoder
-{
-    public function decode(string $compressed, int $maxOutput): string
-    {
-        try {
-            // The vendored decoder's entry point, patched to stop past $maxOutput (PROVENANCE.md).
-            return \Thallo\Core\Content\Fonts\VendorBrotli\Decoder::decompress($compressed, $maxOutput);
-        } catch (\Thallo\Core\Content\Fonts\VendorBrotli\OutputLimitExceeded) {
-            throw new UnreadableFont('This font is too large to read');
-        } catch (\Throwable $e) {
-            throw new UnreadableFont('Couldn\'t read this font\'s data', previous: $e);
-        }
-    }
-}
+- [ ] **Step 6: Run it.** Expected: PASS, including the negative control producing a valid refusal whose peak exceeds the memory budget, and the malformed-header probe (`max-trees.br`) staying inside it.
 
-final class BrotliDecoders
-{
-    public static function best(): BrotliDecoder
-    {
-        return new PurePhpBrotliDecoder();   // the extension cannot bound allocation (Task 1 ruling)
-    }
-}
-```
-
-The vendored decoder must check the running output length **as each block is emitted** (before appending the next), so output never exceeds the cap by more than one block and total allocation stays within the cap plus the decoder's window; that is what `testExpansionIsBoundedInAllocationAndTime` measures (and the negative control proves the check can fail).
-
-- [ ] **Step 6: Run it.** Expected: PASS, including the negative control producing a valid refusal whose peak exceeds the memory budget. If any criterion fails for every pure-PHP candidate, stop and ask the user.
+- [ ] **Step 6a: The differential corpus.** `scripts/build-brotli-vectors.py` writes `tests/fixtures/brotli/`: `upstream/` (every `tests/testdata/*.compressed*` at the pinned commit, with its expected output's length and SHA-256 from upstream's own file, confirmed by the C decoder), `synth.json` (`SynthTest`'s 46 vectors: bytes, expected success, expected output as `[count, text]` runs), `generated/` (streams from the C encoder over dictionary text, short-period repeats, window sizes 10–24 with copies at the boundary, random data, multi-metablock inputs), and `mutated.json` (truncations at every byte for small streams and sampled points for larger ones, plus seeded bit flips and byte overwrites, each with the C decoder's outcome: `error` or the output's length and SHA-256). `tests/Unit/Fonts/BrotliDifferentialTest.php` asserts the port's outcome equals upstream's for every entry. Run it on PHP 8.3, 8.4 and 8.5. Expected: PASS on all three; any disagreement is a port bug, found and fixed, never an exclusion.
 
 - [ ] **Step 7: Write the failing reader test** `tests/Unit/Fonts/Woff2FaceReaderTest.php`:
 
@@ -432,10 +417,10 @@ The bomb is refused because the reader caps decoding at the **directory's own** 
 
 - [ ] **Step 10: Run both tests.** Expected: PASS.
 
-- [ ] **Step 11: Commit.** Ledger: `Task 1: Ruling: decoder = <chosen> (measured: variable <t1>s, 1 MiB <t2>s; probe refused in <t3>s, peak +<m> MiB); the extension is not selected — its API cannot bound allocation during expansion — cost if wrong: slower decoding on hosts that have it`.
+- [ ] **Step 11: Commit.** Ledger: `Task 1: Ruling: decoder = Thallo's port of google/brotli 42a2ed43 (measured per PHP version: variable <t1>s, 1 MiB <t2>s; probe refused in <t3>s, peak +<m> MiB); the extension is not selected — its API cannot bound allocation during expansion — cost if wrong: slower decoding on hosts that have it`.
 
 ```bash
-git add scripts/build-font-fixtures.py tests/fixtures/fonts tests/Support/Fonts core/src/Content/Fonts tests/Unit/Fonts phpcs.xml
+git add scripts/build-font-fixtures.py scripts/build-brotli-vectors.py tests/fixtures/fonts tests/fixtures/brotli tests/Support/Fonts core/src/Content/Fonts tests/Unit/Fonts
 git commit -m "feat(fonts): read a WOFF2 face's weight, style and range from the file, with bounded decoding"
 ```
 
