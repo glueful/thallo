@@ -10,6 +10,23 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.87] - 2026-10-06 — Developer Preview
+
+A fix for the editor's stage: a block added with nothing in it, such as a Links block in a
+footer section, is visible again. Read the Upgrade Notes.
+
+### Fixed
+- **A block added to the stage with nothing in it shows up again.** A block that draws nothing,
+  such as a new Links block with no links, gets a dashed "Empty links — select it to add content,
+  or delete it" box on the stage. The stage checked for that box on every update but measured the
+  box itself, so it flipped on and off. Depending on how many updates followed, the block could
+  vanish, and on the Regions page adding a Links or Social links block to a footer section looked
+  like nothing had happened. The box now stays until the block has content.
+
+### Upgrade Notes
+- `composer update && php glueful thallo:provision`. The fix is in the stage script, which the
+  site serves from the updated package; reload an open editor to pick it up.
+
 ## [1.0.0-beta.86] - 2026-10-06 — Developer Preview
 
 A fix for beta.85: a Logos block no longer opens on 40px of space no setting could change. Read

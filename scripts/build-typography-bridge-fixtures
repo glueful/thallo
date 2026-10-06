@@ -3,7 +3,8 @@
 /**
  * Build the stage fixture of the computed-typography bridge (block typeface plan Task 10): a page
  * rendered in canvas mode by the real render pack — a Links block with a title and a weighted link
- * part, a Container holding another Links block, and a Links block with no title — written to
+ * part, a Container holding another Links block, a Links block with no title, and one with nothing
+ * at all (empty-block.spec.js) — written to
  * `tools/runtime-browser/fixtures/typography-bridge/stage.html` (gitignored) with its stylesheets
  * inlined, the page's scripts dropped, and the real preview bridge put back by its repo path.
  * Seeded inside a transaction that is rolled back.
@@ -115,6 +116,9 @@ try {
                     'style' => ['typography' => ['weight' => ['base' => $choice('semibold')]]],
                 ])]]],
             $links('linksnotitle', null),
+            // A Links block with neither title nor links: it paints nothing, so the stage stubs it
+            // (empty-block.spec.js), and must keep the stub however often the bridge re-checks.
+            ['id' => 'linksempty01', 'type' => 'links', 'settings' => [], 'data' => ['title' => null, 'items' => []]],
         ]], (int) $page['schema_version'], (int) ($draft['lock_version'] ?? 0), null);
 
         $mint = $container->get(PreviewController::class)->mint(

@@ -100,6 +100,44 @@ test('a rich text dragged from the Blocks tab into the footer inserts the queued
   served(recorded)
 })
 
+test('a rich text dragged from the Blocks tab into a Footer block’s empty section lands there', async ({
+  page,
+}) => {
+  const recorded = await openRegionsStage(page, { session: 'footer-block' })
+  await queueIds(page, ['e2enew000002'])
+  await page.locator('[data-test="regions-switch-footer"]').click()
+  await tab(page, 'Blocks')
+  const copyright = block(page, 'e2eftrblk001').locator('[data-thallo-slot="copyright"]')
+  await dragTileTo(page, 'rich_text', copyright)
+  await acceptedIs(page, recorded, 'footer-block-inserted')
+  served(recorded)
+})
+
+test('the + in a Footer block’s empty section arms the Blocks tab into it, and a tile click inserts there', async ({
+  page,
+}) => {
+  const recorded = await openRegionsStage(page, { session: 'footer-block' })
+  await queueIds(page, ['e2enew000002'])
+  await page.locator('[data-test="regions-switch-footer"]').click()
+  const copyright = block(page, 'e2eftrblk001').locator('[data-thallo-slot="copyright"]')
+  await expect(copyright).toContainText('Drag a block here')
+  await copyright.locator('[data-slot-add]').click()
+  await expect(page.locator('[data-test="palette-target"]')).toContainText(
+    'Inserting into Footer › copyright',
+  )
+  await page.locator('[data-test="palette-card-rich_text"]').click()
+  // A tile click mints its own id (only a drag takes the queued one): judge the insert it sent.
+  await expect
+    .poll(() => recorded.applies.flatMap((a) => (a as { operations?: unknown[] }).operations ?? []))
+    .toMatchObject([
+      {
+        type: 'InsertBlock',
+        position: { parent: 'e2eftrblk001', slot: 'copyright', index: 0 },
+        block: { type: 'rich_text' },
+      },
+    ])
+})
+
 test('the button’s corners set on its Block tab restyle it', async ({ page }) => {
   const recorded = await openRegionsStage(page)
   await select(page, 'e2ehdr000004')
