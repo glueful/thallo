@@ -145,6 +145,26 @@ final class RegionSaveApiTest extends AppTestCase
         self::assertSame(422, $dup['status']);
     }
 
+    public function testASaveStillRefusesABlockMissingARequiredField(): void
+    {
+        // A saved region is live at once, so a save keeps the publish gate the stage relaxes: a
+        // Shortcode with no name is refused, on the field that needs filling in.
+        $this->seed();
+        $footer = ['id' => 'ftrblock0001', 'type' => 'footer', 'settings' => [], 'data' => [
+            'top' => [], 'links' => [], 'social' => [],
+            'copyright' => [['id' => 'shortcode001', 'type' => 'shortcode', 'data' => [], 'settings' => []]],
+        ]];
+        $result = $this->saveAll([
+            'regions' => ['footer' => ['blocks' => [$footer], 'settings' => []]],
+            'expected' => $this->versions(),
+        ]);
+        self::assertSame(422, $result['status'], json_encode($result['body']));
+        self::assertSame(
+            'is required',
+            $result['body']['error']['details']['regions.footer.blocks.0.copyright.0.name'] ?? null,
+        );
+    }
+
     public function testAStaleVersionOfTheUnchangedRegionConflicts(): void
     {
         $this->seed();

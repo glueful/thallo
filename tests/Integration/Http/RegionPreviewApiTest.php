@@ -148,6 +148,23 @@ final class RegionPreviewApiTest extends AppTestCase
         self::assertSame(1, $stale['body']['error']['details']['current']['revision'] ?? null);
     }
 
+    public function testABlockStillBeingFilledInIsAcceptedOnTheStage(): void
+    {
+        // A Shortcode just dropped into a Footer block's copyright: its required name is not
+        // chosen yet. The stage takes it as the Design page's stage does (required is a publish
+        // gate); a save still refuses it (RegionSaveApiTest).
+        $data = $this->session();
+        $footer = ['id' => 'ftrblock0001', 'type' => 'footer', 'settings' => [], 'data' => [
+            'top' => [], 'links' => [], 'social' => [],
+            'copyright' => [['id' => 'shortcode001', 'type' => 'shortcode', 'data' => [], 'settings' => []]],
+        ]];
+        $result = $this->apply(['token' => $data['token'], 'regions' => [
+            'header' => ['blocks' => [], 'settings' => []],
+            'footer' => ['blocks' => [$footer], 'settings' => []],
+        ]]);
+        self::assertSame(200, $result['status'], json_encode($result['body']));
+    }
+
     public function testAnInvalidRegionOrAnIdInBothRegionsIsRefused(): void
     {
         $data = $this->session();

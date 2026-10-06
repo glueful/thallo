@@ -13,6 +13,11 @@ as the next release, never a mutated tag.
   list's card, shows a + on the Block tab. On those two pages clicking it did nothing. It now
   opens the Blocks tab aimed at that list, as on the Design page, and the next block you click
   goes there.
+- **A Shortcode block can be added in the header and footer.** The Header & footer stage refused
+  any change containing a Shortcode whose name wasn't chosen yet ("name is required"), so adding
+  one undid itself. The stage now accepts a block that is still being filled in, as the Design
+  page does; Save still requires the name, since a saved region goes live. A Shortcode with no
+  name also shows on the stage as an "Empty shortcode" box you can select, instead of nothing.
 
 ## [1.0.0-beta.87] - 2026-10-06 — Developer Preview
 
