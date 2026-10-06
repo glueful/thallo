@@ -38,7 +38,9 @@ final class ShopChromeStyleTest extends AppTestCase
         $extension->setAnnotationScope('none');
         $extension->setLocale('en');
         return (string) $extension->blocks($env, ['entry' => null, 'site' => []], [
-            ['id' => 'shopchrome01', 'type' => $type, 'data' => $data, 'settings' => ['style' => $style]],
+            ['id' => 'shopchrome01', 'type' => $type, 'data' => $data, 'settings' => isset($style['parts'])
+                ? ['parts' => $style['parts']]
+                : ['style' => $style]],
         ]);
     }
 
@@ -118,6 +120,27 @@ final class ShopChromeStyleTest extends AppTestCase
         foreach ([...self::lookClasses(), ClassNames::for('typography.size', 'typography.size.lg')] as $class) {
             self::assertStringContainsString($class, $link);
             self::assertStringNotContainsString($class, $root);
+        }
+    }
+
+    public function testTheMiniCartsPanelTakesItsOwnLook(): void
+    {
+        $token = static fn (string $v): array => ['type' => 'token', 'value' => $v];
+        $html = $this->render('mini-cart', ['parts' => ['panel' => [
+            'colors' => ['surface' => $token('color.black'), 'text' => $token('color.white')],
+            'radius' => $token('radius.sm'),
+            'spacing' => ['padding' => ['top' => ['base' => $token('spacing.lg')]]],
+        ]]]);
+        $panel = self::classOf($html, 'thallo-block-mini-cart__panel');
+        $own = [
+            ClassNames::for('colors.surface', 'color.black'),
+            ClassNames::for('colors.text', 'color.white'),
+            ClassNames::for('radius', 'radius.sm'),
+            ClassNames::for('spacing.padding.top', 'spacing.lg'),
+        ];
+        foreach ($own as $class) {
+            self::assertStringContainsString($class, $panel);
+            self::assertStringNotContainsString($class, self::classOf($html, 'thallo-block-mini-cart__toggle'));
         }
     }
 

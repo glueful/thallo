@@ -126,6 +126,11 @@ try {
             ['id' => 'chromecart02', 'type' => 'mini-cart', 'data' => [], 'settings' => $look],
             ['id' => 'chromewish01', 'type' => 'wishlist-link', 'data' => ['label' => 'Saved'], 'settings' => []],
             ['id' => 'chromewish02', 'type' => 'wishlist-link', 'data' => ['label' => 'Saved'], 'settings' => $look],
+            // The Mini cart's Panel part: its drop-down, styled on its own.
+            ['id' => 'chromecart03', 'type' => 'mini-cart', 'data' => [], 'settings' => ['parts' => ['panel' => [
+                'colors' => ['surface' => $token('color.black'), 'text' => $token('color.white')],
+                'radius' => $token('radius.sm'),
+            ]]]],
         ]], '2026-07-01 09:00:00');
 
         foreach (['unlinked', 'gone', 'chrome'] as $slug) {

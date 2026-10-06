@@ -11,8 +11,11 @@ as the next release, never a mutated tag.
 - **Mini cart, Wishlist link and Search take their look from the Style tab.** Background, Text
   colour, Border, Corners and Shadow now apply to the Mini cart's button, the Wishlist link's link
   and the Search block's field; the Wishlist link and Search also take Typography. Spacing,
-  Visibility and Layout stay on the block. `thallo:provision` gives an existing install's blocks
-  the new settings.
+  Visibility and Layout stay on the block. Their other pieces have sections of their own in the
+  Style tab: the Mini cart's drop-down (**Panel**), and the Search block's submit button
+  (**Button**) and, in the icon display, its icon (**Icon**) and drop-down (**Panel**). A style
+  class applies to the block, not to these sections. `thallo:provision` gives an existing
+  install's blocks the new settings.
 
 ### Fixed
 - **Style settings beat the shop's own stylesheet.** Shop blocks link the shop stylesheet

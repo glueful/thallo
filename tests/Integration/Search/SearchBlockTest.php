@@ -211,6 +211,48 @@ final class SearchBlockTest extends AppTestCase
         }
     }
 
+    public function testTheButtonIconAndPanelTakeTheirOwnLook(): void
+    {
+        $token = static fn (string $v): array => ['type' => 'token', 'value' => $v];
+        $look = static fn (string $colour): array => [
+            'colors' => ['surface' => $token($colour)],
+            'radius' => $token('radius.sm'),
+        ];
+        $parts = ['button' => $look('color.black'), 'icon' => $look('color.accent'), 'panel' => $look('color.white')];
+        $render = function (string $display) use ($parts): string {
+            $container = $this->on->getContainer();
+            $extension = $container->get(RenderContextExtension::class);
+            $extension->resetPerRenderState();
+            $extension->setAnnotationScope('none');
+            $extension->setLocale('en');
+            return $extension->blocks(
+                $container->get(TwigFactory::class)->environment(),
+                ['entry' => null, 'site' => ['locale' => 'en', 'locales' => ['en']]],
+                [[
+                    'id' => 'blk1', 'type' => 'search',
+                    'data' => ['display' => $display], 'settings' => ['parts' => $parts],
+                ]],
+            );
+        };
+        $classOf = static function (string $html, string $class): string {
+            $pattern = '~class="([^"]*\b' . preg_quote($class, '~') . '(?![\w-])[^"]*)"~';
+            self::assertSame(1, preg_match($pattern, $html, $m), $class);
+            return $m[1];
+        };
+        $bg = static fn (string $colour): string => ClassNames::for('colors.surface', $colour);
+        $field = $render('field');
+        self::assertStringContainsString($bg('color.black'), $classOf($field, 'thallo-search-form__submit'));
+        $icon = $render('icon');
+        self::assertStringContainsString($bg('color.black'), $classOf($icon, 'thallo-search-form__submit'));
+        self::assertStringContainsString($bg('color.accent'), $classOf($icon, 'thallo-block-search__trigger'));
+        self::assertStringContainsString($bg('color.white'), $classOf($icon, 'thallo-block-search__panel'));
+        self::assertStringNotContainsString(
+            ClassNames::for('colors.surface', 'color.black'),
+            $classOf($icon, 'thallo-search-form__input'),
+            "the button's look stays on the button",
+        );
+    }
+
     private function render(array $data, array $more = [], ?ApplicationContext $app = null, bool $stage = false): string
     {
         $container = ($app ?? $this->on)->getContainer();

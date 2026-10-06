@@ -26,7 +26,7 @@ for (const [name, selector] of [
 ]) {
   test(`the ${name}'s look lands on its button and beats the shop stylesheet`, async ({ page }) => {
     await page.goto(PAGE);
-    await expect(page.locator(selector)).toHaveCount(2);
+    await expect(page.locator(selector)).toHaveCount(name === 'Mini cart' ? 3 : 2);
     const plain = await drawn(page, selector, 0);
     const styled = await drawn(page, selector, 1);
     // Untouched: the shop's own look — transparent, no border, a pill.
@@ -41,3 +41,26 @@ for (const [name, selector] of [
     expect(styled.radius).not.toBe(plain.radius);
   });
 }
+
+test("the Mini cart's Panel takes its own look, and the button keeps the shop's", async ({ page }) => {
+  await page.goto(PAGE);
+  // Opened as shop.js opens it (the fixture carries no scripts): the toggle says it is expanded
+  // and the drawer loses its `hidden`.
+  const panels = await page.locator('.thallo-block-mini-cart').evaluateAll((carts) =>
+    carts.map((cart) => {
+      cart.querySelector('.thallo-block-mini-cart__toggle').setAttribute('aria-expanded', 'true');
+      const panel = cart.querySelector('.thallo-block-mini-cart__panel');
+      panel.hidden = false;
+      const cs = getComputedStyle(panel);
+      const toggle = getComputedStyle(cart.querySelector('.thallo-block-mini-cart__toggle'));
+      return { display: cs.display, background: cs.backgroundColor, color: cs.color, radius: cs.borderTopLeftRadius, toggle: toggle.backgroundColor };
+    }),
+  );
+  const [plain, , styled] = panels;
+  expect(styled.display).not.toBe('none');
+  expect(styled.background).toBe('rgb(0, 0, 0)');
+  expect(styled.color).toBe('rgb(255, 255, 255)');
+  expect(styled.background).not.toBe(plain.background);
+  expect(styled.radius).not.toBe(plain.radius);
+  expect(styled.toggle).toBe('rgba(0, 0, 0, 0)'); // the panel's look stays on the panel
+});
