@@ -5,6 +5,13 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Fixed
+- **The Upload button in the Add media window can be clicked again** after choosing an image for
+  a field that takes several, such as Logos. The drop area kept a fixed height, so a tall preview
+  spilled over the button and took its clicks. The area now grows to fit its previews.
+
 ## [1.0.0-beta.84] - 2026-10-06 — Developer Preview
 
 Letter spacing, text transform and text decoration for every block that shows text, and a
