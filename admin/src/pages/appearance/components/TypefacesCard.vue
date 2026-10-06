@@ -160,9 +160,17 @@ const hasUnknown = (family: FontFamily) => family.faces.some((f) => f.unknown)
             download.
           </p>
         </div>
-        <UButton size="sm" icon="i-lucide-plus" data-test="typefaces-add" @click="add">
-          Add family
-        </UButton>
+        <UTooltip text="Add family">
+          <UButton
+            size="sm"
+            icon="i-lucide-plus"
+            square
+            aria-label="Add family"
+            class="shrink-0"
+            data-test="typefaces-add"
+            @click="add"
+          />
+        </UTooltip>
       </div>
     </template>
 

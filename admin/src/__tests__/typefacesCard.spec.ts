@@ -55,6 +55,8 @@ function mountCard() {
     attachTo: document.body,
     global: {
       stubs: {
+        // The app's root provides the tooltips; mounted alone, the card shows the trigger.
+        Tooltip: { template: '<div><slot /></div>' },
         // The auto-imported UModal registers under its file name.
         Modal: {
           props: ['open', 'title'],
@@ -141,6 +143,8 @@ describe('TypefacesCard', () => {
     await w.find('[data-test="font-family-save"]').trigger('click')
     await flushPromises()
     expect(upload.mock.calls.map((c) => (c[0] as File).name)).toEqual(['a.woff2', 'b.woff2'])
+    // Public, as every upload the site serves to visitors is: a private file has no address.
+    for (const call of upload.mock.calls) expect(call[1]).toEqual({ visibility: 'public' })
     expect(m.create.mutateAsync).toHaveBeenCalledWith({
       name: 'New face',
       fallback: 'sans-serif',
@@ -286,5 +290,12 @@ describe('TypefacesCard', () => {
     expect(
       w.find('[data-test="typeface-family-Ab3dE5fG7hJ9"] [data-test="family-unserved"]').exists(),
     ).toBe(false)
+  })
+
+  it('adds a family from an icon button that still says what it does', () => {
+    const w = mountCard()
+    const add = w.find('[data-test="typefaces-add"]')
+    expect(add.attributes('aria-label')).toBe('Add family')
+    expect(add.text()).toBe('')
   })
 })

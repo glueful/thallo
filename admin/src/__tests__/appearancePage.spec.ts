@@ -4,7 +4,7 @@
 // settings with a stale copy.
 import { afterEach, describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { mount, flushPromises } from '@vue/test-utils'
+import { config, mount, flushPromises } from '@vue/test-utils'
 import { ref } from 'vue'
 import type { GeneralSettings } from '@/queries/generalSettings'
 
@@ -88,6 +88,9 @@ vi.mock('@/composables/useAppearanceChanges', () => ({
 }))
 
 import AppearancePage from '@/pages/appearance/index.vue'
+
+// The app's root provides the tooltips (the Typefaces card's Add button carries one).
+config.global.stubs = { ...config.global.stubs, Tooltip: { template: '<div><slot /></div>' } }
 
 const settings = (): GeneralSettings => ({
   site_name: 'Thallo',
