@@ -66,7 +66,10 @@ final class LogosStyleTest extends AppTestCase
     private static function sized(): array
     {
         $choice = static fn (string $v): array => ['type' => 'choice', 'value' => $v];
-        return ['logos' => ['height' => ['base' => $choice('sm'), 'md' => $choice('lg')]]];
+        return ['logos' => [
+            'height' => ['base' => $choice('sm'), 'md' => $choice('lg')],
+            'max_width' => ['base' => $choice('md')],
+        ]];
     }
 
     public function testTheLogoSizeLandsOnEveryLogoPerWidth(): void
@@ -77,6 +80,7 @@ final class LogosStyleTest extends AppTestCase
         foreach ($images as $image) {
             self::assertStringContainsString(ClassNames::for('logos.height', 'sm'), $image);
             self::assertStringContainsString(ClassNames::for('logos.height', 'lg', 'md'), $image);
+            self::assertStringContainsString(ClassNames::for('logos.max_width', 'md'), $image);
         }
         [$root] = self::classesOf($html, 'thallo-block-logos');
         self::assertStringNotContainsString('t-logoh-', $root);
@@ -88,6 +92,7 @@ final class LogosStyleTest extends AppTestCase
         self::assertCount(4, $images, 'the run and its copy');
         foreach ($images as $image) {
             self::assertStringContainsString(ClassNames::for('logos.height', 'sm'), $image);
+            self::assertStringContainsString(ClassNames::for('logos.max_width', 'md'), $image);
         }
     }
 
@@ -114,7 +119,7 @@ final class LogosStyleTest extends AppTestCase
     public function testTheLogosBlockDeclaresItsSizeAndGaps(): void
     {
         $capabilities = $this->container()->get(BlockStyleRegistry::class)->capabilitiesFor('logos');
-        foreach (['logos.height', 'layout.gap.column', 'layout.gap.row'] as $path) {
+        foreach (['logos.height', 'logos.max_width', 'layout.gap.column', 'layout.gap.row'] as $path) {
             self::assertTrue($capabilities->allows($path), $path);
         }
     }

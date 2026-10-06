@@ -325,6 +325,17 @@ final class StyleCompilerTest extends TestCase
         self::assertSame('md:t-logoh-lg', ClassNames::for('logos.height', 'lg', 'md'));
     }
 
+    public function testALogosBlocksMaxWidthCapsEachLogoPerWidth(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+        foreach (['sm' => '6rem', 'md' => '8rem', 'lg' => '10rem', 'xl' => '12rem'] as $choice => $value) {
+            self::assertStringContainsString(".t-logow-{$choice} { max-width: {$value}; }", $css);
+        }
+        self::assertStringContainsString('.md\\:t-logow-xl { max-width: 12rem; }', $css);
+        self::assertStringContainsString('.t-logow-reset { max-width: revert-layer; }', $css);
+        self::assertSame('lg:t-logow-sm', ClassNames::for('logos.max_width', 'sm', 'lg'));
+    }
+
     public function testBorderSidesTakeTheOtherSidesAway(): void
     {
         $css = StyleCompiler::compile($this->vocabulary());

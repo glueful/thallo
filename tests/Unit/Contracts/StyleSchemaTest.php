@@ -69,8 +69,8 @@ final class StyleSchemaTest extends TestCase
             // padding a side each, as the block's own is.
             'aside.padding.top', 'aside.padding.right', 'aside.padding.bottom', 'aside.padding.left',
             'aside.surface',
-            // How tall a Logos block's logos are drawn (settings version 13); widths follow.
-            'logos.height',
+            // How tall a Logos block's logos are drawn, and how wide one may get (settings version 13).
+            'logos.height', 'logos.max_width',
         ], $paths);
         self::assertSame(13, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
@@ -327,7 +327,13 @@ final class StyleSchemaTest extends TestCase
         self::assertSame([ValueKind::Choice, ValueKind::Reset], $def->kinds);
         self::assertTrue($def->responsive, 'a strip of logos may be smaller on a phone');
         self::assertSame(['sm', 'md', 'lg', 'xl'], $def->choices);
-        self::assertSame(['logos.height'], StyleSchema::pathsInGroup('logos'));
+        $width = StyleSchema::property('logos.max_width');
+        self::assertNotNull($width);
+        self::assertSame('logos', $width->group);
+        self::assertSame([ValueKind::Choice, ValueKind::Reset], $width->kinds);
+        self::assertTrue($width->responsive);
+        self::assertSame(['sm', 'md', 'lg', 'xl'], $width->choices);
+        self::assertSame(['logos.height', 'logos.max_width'], StyleSchema::pathsInGroup('logos'));
     }
 
     public function testTheMarkerPropertiesMirrorTheCardsOwn(): void

@@ -94,6 +94,31 @@ describe('Logo size', () => {
   })
 })
 
+describe('Logo max width', () => {
+  it('follows Logo size in the Logos group, offered in words, per width', async () => {
+    const def = styleProperties().find((p) => p.path === 'logos.max_width')
+    expect(def).toMatchObject({
+      group: 'logos',
+      responsive: true,
+      choices: ['sm', 'md', 'lg', 'xl'],
+    })
+    const w = mount(StyleTab, { props: props({}, 'lg') })
+    const group = w.find('[data-test="style-group-logos"]')
+    expect(
+      group.findAll('[data-test^="style-field-logos."]').map((f) => f.attributes('data-test')),
+    ).toEqual(['style-field-logos.height', 'style-field-logos.max_width'])
+    const field = group.find('[data-test="style-field-logos.max_width"]')
+    expect(field.text()).toContain('Logo max width')
+    const words = field
+      .findAll('[data-test^="choice-"]')
+      .filter((c) => c.attributes('data-test') !== 'choice-mark')
+      .map((c) => c.text())
+    expect(words).toEqual(['Narrow', 'Medium', 'Wide', 'Extra wide'])
+    await field.find('[data-test="choice-sm"]').trigger('click')
+    expect(w.emitted('set')).toEqual([['logos.max_width', 'lg', { type: 'choice', value: 'sm' }]])
+  })
+})
+
 describe('the gaps between logos', () => {
   it("are the Layout tab's, and unset they name the theme's logo gaps", () => {
     const w = mount(LayoutTab, { props: props() })

@@ -296,13 +296,18 @@ value has no effect and is dropped the next time the page is saved.
 
 ### Logos
 
-The Logos block's logos, each drawn at the height set for the width. Only the height is set, so
-each logo keeps its own proportions, and every logo of a scrolling strip takes it, the copied run
-included.
+The Logos block's logos, each drawn at the height set for the width and no wider than its max
+width. Each logo keeps its own proportions, and every logo of a scrolling strip takes both
+settings, the copied run included.
 
 | Setting | Path | Responsive | Class | Declaration |
 |---|---|---|---|---|
 | Logo size | `logos.height` | yes | `t-logoh-{value}` | `height:` `sm` 1.75rem, `md` 2.5rem (the theme's own), `lg` 3.5rem, `xl` 5rem |
+| Logo max width | `logos.max_width` | yes | `t-logow-{value}` | `max-width:` `sm` 6rem, `md` 8rem, `lg` 10rem, `xl` 12rem |
+
+Logo max width is a cap, not a width. A logo narrower than it is unchanged. A wider one, such as a
+long wordmark, scales down whole inside the cap, because the theme draws logos with
+`object-fit: contain`. Unset, nothing caps a logo's width.
 
 The space between the logos is the Layout tab's **Gap**, Column and Row, which lands on the row
 of logos. Unset, the theme's own logo gaps apply: `2xl` between logos and `lg` between wrapped rows.

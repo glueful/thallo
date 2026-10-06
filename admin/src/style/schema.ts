@@ -178,8 +178,10 @@ const PROPERTIES: PropertyDefinition[] = [
     token(`aside.padding.${side}`, 'aside', true, 'spacing'),
   ),
   token('aside.surface', 'aside', false, 'color'),
-  // How tall a Logos block draws its logos (settings version 13): per width, height alone.
+  // How tall a Logos block draws its logos, and how wide one may get (settings version 13): per
+  // width, each logo keeping its proportions.
   choice('logos.height', 'logos', true, ['sm', 'md', 'lg', 'xl']),
+  choice('logos.max_width', 'logos', true, ['sm', 'md', 'lg', 'xl']),
 ]
 
 const BY_PATH = new Map(PROPERTIES.map((p) => [p.path, p]))

@@ -208,9 +208,11 @@ final class StyleSchema
         }
         $defs[] = new PropertyDefinition('aside.surface', 'aside', $token, false, 'color');
 
-        // Settings version 13: how tall a Logos block draws its logos. Height alone, per width, so
-        // each logo keeps its own proportions; the block's own group, as a tab strip's corners are.
+        // Settings version 13: how tall a Logos block draws its logos, and how wide one may get — a
+        // wide wordmark then scales down whole. Per width, each logo keeping its own proportions;
+        // the block's own group, as a tab strip's corners are.
         $defs[] = new PropertyDefinition('logos.height', 'logos', $choice, true, null, ['sm', 'md', 'lg', 'xl']);
+        $defs[] = new PropertyDefinition('logos.max_width', 'logos', $choice, true, null, ['sm', 'md', 'lg', 'xl']);
 
         $byPath = [];
         foreach ($defs as $def) {

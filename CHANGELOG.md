@@ -8,12 +8,13 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Added
-- **Logo size and gaps for the Logos block.** Logo size, in the Style tab's new Logos group, is
-  Small, Medium (today's size), Large or Extra large and can differ by screen width. It sets
-  height only, so each logo keeps its proportions, and a scrolling strip's repeated logos take it
-  too. The Layout tab's Gap, Column and Row, sets the space between logos. Unset, it names the
-  theme's own logo gaps. Settings version 13; style compiler 17. `thallo:provision` gives an
-  existing install's Logos block the new settings.
+- **Logo size, max width and gaps for the Logos block.** In the Style tab's new Logos group, Logo
+  size is Small, Medium (today's size), Large or Extra large. Logo max width is Narrow, Medium,
+  Wide or Extra wide: it caps each logo, so a long wordmark scales down whole while narrower logos
+  are unchanged. Both can differ by screen width, both keep each logo's proportions, and a
+  scrolling strip's repeated logos take them too. The Layout tab's Gap, Column and Row, sets the
+  space between logos. Unset, it names the theme's own logo gaps. Settings version 13; style
+  compiler 18. `thallo:provision` gives an existing install's Logos block the new settings.
 
 ### Fixed
 - **The Upload button in the Add media window can be clicked again** after choosing an image for

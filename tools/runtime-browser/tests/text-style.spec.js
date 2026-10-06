@@ -77,7 +77,7 @@ for (const [where, url] of Object.entries(PAGES)) {
       await expect(page.locator('main .thallo-block-links')).toHaveCount(LINKS.length);
       await expect(page.locator('main .thallo-block-button__link')).toHaveCount(BUTTONS.length);
       await expect(page.locator('main .thallo-block-separator')).toHaveCount(2);
-      await expect(page.locator('main .thallo-block-logos')).toHaveCount(3);
+      await expect(page.locator('main .thallo-block-logos')).toHaveCount(4);
     });
 
     test('a heading takes its casing and tracking, and neither brings the other', async ({ page }) => {
@@ -171,6 +171,24 @@ for (const [where, url] of Object.entries(PAGES)) {
       await page.setViewportSize({ width: 600, height: 900 }); // base
       expect((await measured(1)).heights).toEqual([28, 28]); // Small
       expect((await measured(0)).heights).toEqual([40, 40]);
+    });
+
+    test('a logo max width scales a wider logo down whole and leaves a narrower one alone', async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      const logos = await page
+        .locator('main .thallo-block-logos')
+        .nth(3)
+        .evaluate((el) =>
+          [...el.querySelectorAll('.thallo-block-logos__image')].map((img) => {
+            const box = img.getBoundingClientRect();
+            return { width: Math.round(box.width), height: box.height, fit: getComputedStyle(img).objectFit };
+          }),
+        );
+      // Extra large is 80px tall: the 4:3 logo would be 107px wide, over the Narrow cap of 96px.
+      expect(logos).toEqual([
+        { width: 96, height: 80, fit: 'contain' },
+        { width: 80, height: 80, fit: 'contain' },
+      ]);
     });
   });
 }

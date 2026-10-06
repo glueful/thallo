@@ -4,7 +4,7 @@
  * Build the fixtures of letter spacing, text transform and text decoration (settings version 12):
  * one page — Headings, Links and link-variant Buttons, each setting against an untouched control,
  * a Heading whose style class it overrides, a Separator coloured and with a styled label, and
- * Logos blocks sized per width with their gaps set (one scrolling) — rendered by the real render pack twice, published
+ * Logos blocks sized per width with their gaps set (one scrolling, one width-capped) — rendered by the real render pack twice, published
  * (`public.html`) and on the editor's canvas stage (`stage.html`), into
  * `tools/runtime-browser/fixtures/text-style/` (gitignored) with stylesheets inlined and scripts
  * dropped. Seeded inside a transaction that is rolled back. Read by text-style.spec.js.
@@ -164,7 +164,7 @@ try {
                 'colors' => ['border' => ['type' => 'token', 'value' => 'color.accent']],
                 'typography' => ['transform' => $choice('uppercase'), 'letter_spacing' => $choice('wider')],
             ]]],
-            // Logos: untouched; sized per width with its gaps set; and scrolling, sized.
+            // Logos: untouched; sized per width with its gaps set; scrolling, sized; and capped.
             $logos('logoplain001'),
             $logos('logosized001', false, [
                 'logos' => ['height' => ['base' => $choice('sm'), 'lg' => $choice('xl')]],
@@ -174,6 +174,11 @@ try {
                 ]],
             ]),
             $logos('logoscroll01', true, ['logos' => ['height' => ['base' => $choice('lg')]]]),
+            // A Narrow cap over Extra large logos: the wide one (4:3) scales down, the square fits.
+            $logos('logocapped01', false, ['logos' => [
+                'height' => ['base' => $choice('xl')],
+                'max_width' => ['base' => $choice('sm')],
+            ]]),
         ];
 
         $type = (string) $container->get(ContentTypeRepository::class)->create([

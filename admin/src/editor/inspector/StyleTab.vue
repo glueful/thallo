@@ -118,6 +118,7 @@ const LABELS: Record<string, string> = {
   'tabs.tab_radius': 'Active tab corners',
   'aside.surface': 'Background',
   'logos.height': 'Logo size',
+  'logos.max_width': 'Logo max width',
   'colors.surface': 'Background',
   'colors.text': 'Text colour',
   'colors.border': 'Border colour',
