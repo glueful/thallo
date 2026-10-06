@@ -5,7 +5,11 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.83] - 2026-10-06 — Developer Preview
+
+Fixes for beta.82: uploaded fonts render on the site, and large background images load again
+after their first view. Run `php glueful thallo:provision` after `composer update`; read the
+Upgrade Notes.
 
 ### Fixed
 - **Large images load again after their first view.** A resized copy over 1MB (a wide banner or
@@ -19,6 +23,11 @@ as the next release, never a mutated tag.
   `php glueful thallo:provision` makes the files of families added before this public.
 - **The Typefaces card's header no longer wraps**: Add family is a single + button, named for
   screen readers and with its label as a tooltip.
+
+### Upgrade Notes
+- `composer update && php glueful thallo:provision`. Provision makes the font library's files
+  public, so families added in beta.82 render; it reports how many files it changed. The update
+  brings glueful/framework 1.88.4, which ends the 500s on large resized images.
 
 ## [1.0.0-beta.82] - 2026-10-05 — Developer Preview
 
