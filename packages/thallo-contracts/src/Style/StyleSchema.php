@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 11;
+    public const VERSION = 12;
 
     /**
      * Paths that were once properties and are no longer. A stored value at one is dropped when a
@@ -162,6 +162,19 @@ final class StyleSchema
         // whose family is removed or from another site. One value for every width this release; a
         // later responsive version reads a plain value as `base`.
         $defs[] = new PropertyDefinition('typography.family', 'typography', [ValueKind::Font, ValueKind::Reset], false);
+        // Settings version 12: how far apart a text's letters sit, its casing, and the line drawn under
+        // or through it — three independent settings (uppercase does not bring tracking with it), each
+        // one value for every width. `none` is an explicit value, not a reset: it takes away casing or
+        // a line the theme gives the element itself.
+        $defs[] = new PropertyDefinition('typography.letter_spacing', 'typography', $choice, false, null, [
+            'tight', 'normal', 'wide', 'wider',
+        ]);
+        $defs[] = new PropertyDefinition('typography.transform', 'typography', $choice, false, null, [
+            'none', 'uppercase', 'lowercase', 'capitalize',
+        ]);
+        $defs[] = new PropertyDefinition('typography.decoration', 'typography', $choice, false, null, [
+            'none', 'underline', 'line-through',
+        ]);
 
         // Motion: how a block ENTERS as it scrolls into view. `motion` is a group any block may
         // declare — the entrance, how long it takes, how long it waits, whether it replays each

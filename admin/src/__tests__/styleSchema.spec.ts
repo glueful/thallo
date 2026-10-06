@@ -15,7 +15,7 @@ describe('style schema mirror', () => {
     })
   })
 
-  it('lists the typeface after line height in the typography group', () => {
+  it('lists the typeface, then letter spacing, casing and decoration, after line height', () => {
     const typography = styleProperties()
       .filter((p) => p.group === 'typography')
       .map((p) => p.path)
@@ -24,6 +24,9 @@ describe('style schema mirror', () => {
       'typography.weight',
       'typography.line_height',
       'typography.family',
+      'typography.letter_spacing',
+      'typography.transform',
+      'typography.decoration',
     ])
   })
 

@@ -104,6 +104,9 @@ const LABELS: Record<string, string> = {
   'typography.size': 'Size',
   'typography.weight': 'Weight',
   'typography.line_height': 'Line height',
+  'typography.letter_spacing': 'Letter spacing',
+  'typography.transform': 'Text transform',
+  'typography.decoration': 'Text decoration',
   visibility: 'Visibility',
   shadow: 'Shadow',
   radius: 'Corners',
@@ -383,6 +386,7 @@ function setCount(rows: StylePropertyRow[]): number {
               :marks="item.def.path === 'typography.weight' ? weightMarks : undefined"
               :fonts="fonts"
               :computed-typography="item.def.path === 'typography.family' ? measured : undefined"
+              :all-sizes-note="group.responsive"
               hide-breakpoints
               @set="(path, bp, value) => emit('set', path, bp, value)"
               @set-all="(path, value) => emit('set-all', path, value)"

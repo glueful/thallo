@@ -288,6 +288,31 @@ final class StyleCompilerTest extends TestCase
         self::assertSame('lg:t-leading-snug', ClassNames::for('typography.line_height', 'snug', 'lg'));
     }
 
+    public function testLetterSpacingTransformAndDecorationCompileOnceForEveryWidth(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+        $rules = [
+            't-tracking-tight' => 'letter-spacing: -0.025em', 't-tracking-normal' => 'letter-spacing: normal',
+            't-tracking-wide' => 'letter-spacing: 0.05em', 't-tracking-wider' => 'letter-spacing: 0.1em',
+            't-case-none' => 'text-transform: none', 't-case-uppercase' => 'text-transform: uppercase',
+            't-case-lowercase' => 'text-transform: lowercase', 't-case-capitalize' => 'text-transform: capitalize',
+            // The longhand: the shorthand would also reset the theme's decoration colour, thickness
+            // and style.
+            't-decor-none' => 'text-decoration-line: none', 't-decor-underline' => 'text-decoration-line: underline',
+            't-decor-line-through' => 'text-decoration-line: line-through',
+            't-tracking-reset' => 'letter-spacing: revert-layer', 't-case-reset' => 'text-transform: revert-layer',
+            't-decor-reset' => 'text-decoration-line: revert-layer',
+        ];
+        foreach ($rules as $class => $declaration) {
+            self::assertStringContainsString(".{$class} { {$declaration}; }", $css);
+        }
+        self::assertStringNotContainsString('text-decoration:', $css, 'never the shorthand');
+        foreach (['tracking', 'case', 'decor'] as $stem) {
+            self::assertStringNotContainsString(".md\\:t-{$stem}-", $css, 'set once for every width');
+        }
+        self::assertSame('t-decor-line-through', ClassNames::for('typography.decoration', 'line-through'));
+    }
+
     public function testBorderSidesTakeTheOtherSidesAway(): void
     {
         $css = StyleCompiler::compile($this->vocabulary());

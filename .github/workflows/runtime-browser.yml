@@ -15,6 +15,7 @@ on:
       - 'scripts/build-shop-layout-proof-fixtures'
       - 'scripts/build-shop-block-proof-fixtures'
       - 'scripts/build-typography-bridge-fixtures'
+      - 'scripts/build-text-style-fixtures'
       - 'packages/thallo-commerce/assets/shop.js'
       - 'tests/fixtures/render/**'
       - 'tests/Support/ListingPageSeed.php'
@@ -50,6 +51,7 @@ on:
       - 'scripts/build-shop-layout-proof-fixtures'
       - 'scripts/build-shop-block-proof-fixtures'
       - 'scripts/build-typography-bridge-fixtures'
+      - 'scripts/build-text-style-fixtures'
       - 'packages/thallo-commerce/assets/shop.js'
       - 'tests/fixtures/render/**'
       - 'tests/Support/ListingPageSeed.php'
@@ -207,6 +209,12 @@ jobs:
       - name: Build the typography bridge fixture
         working-directory: .
         run: php scripts/build-typography-bridge-fixtures
+
+      # Letter spacing, text transform and text decoration as a browser computes them
+      # (text-style.spec.js): one page published and on the canvas stage, then rolled back.
+      - name: Build the text style fixtures
+        working-directory: .
+        run: php scripts/build-text-style-fixtures
 
       - uses: actions/setup-node@v6
         with:
