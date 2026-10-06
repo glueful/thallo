@@ -139,9 +139,9 @@ try {
             'data' => ['label' => 'Read more', 'url' => '/more', 'variant' => 'link'],
             'settings' => $typography === [] ? [] : ['style' => ['typography' => $typography]],
         ];
-        $logos = static fn (string $id, bool $scroll = false, array $style = []): array => [
+        $logos = static fn (string $id, bool $scroll = false, array $style = [], ?string $title = null): array => [
             'id' => $id, 'type' => 'logos',
-            'data' => ['images' => array_keys(ListingPageSeed::IMAGES), 'scroll' => $scroll],
+            'data' => ['images' => array_keys(ListingPageSeed::IMAGES), 'scroll' => $scroll] + ($title === null ? [] : ['title' => $title]),
             'settings' => $style === [] ? [] : ['style' => $style],
         ];
         $body = [
@@ -179,6 +179,8 @@ try {
                 'height' => ['base' => $choice('xl')],
                 'max_width' => ['base' => $choice('sm')],
             ]]),
+            // Titled: the title's own bottom margin is the only space above the logos.
+            $logos('logotitled01', false, [], 'Trusted by'),
         ];
 
         $type = (string) $container->get(ContentTypeRepository::class)->create([

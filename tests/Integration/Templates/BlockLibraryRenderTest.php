@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Thallo\Core\Tests\Integration\Render;
+namespace Thallo\Core\Tests\Integration\Templates;
 
 use Thallo\Core\Content\Blocks\BlockTypeRepository;
 use Thallo\Core\Content\Blocks\StarterBlockTypes;

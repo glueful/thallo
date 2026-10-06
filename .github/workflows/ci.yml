@@ -24,7 +24,7 @@ on:
 # unassigned or listed twice, so a new directory can never silently skip CI.
 env:
   # Local timings, 2026-10-04 (CI runs ~2.5x slower; the watchdog kills a shard at 15 minutes).
-  # ~208s alone
+  # ~165s alone (Templates moved to F, 2026-10-06)
   INTEGRATION_SHARD_A: >-
     tests/Integration/Render
     tests/Integration/Collections
@@ -73,6 +73,12 @@ env:
   # ~65s alone. Split from A when A outgrew the watchdog (323s locally, killed on CI at 94%).
   INTEGRATION_SHARD_F: >-
     tests/Integration/Search
+  # ~25s alone. The template tests left Render when A was killed again at 92% on CI at 241s locally
+  # (CI ran ~3.7x slower than local that day: keep a shard under ~3 minutes locally). Their own
+  # shard, not F's: beside Search they took F from 65s to 3m54s locally — paired, both sets ran
+  # several times slower — so they run in a process of their own.
+  INTEGRATION_SHARD_G: >-
+    tests/Integration/Templates
 
 jobs:
   test:
@@ -82,7 +88,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [lint-unit, integration-a, integration-b, integration-c, integration-d, integration-e, integration-f, tenancy-harness]
+        shard: [lint-unit, integration-a, integration-b, integration-c, integration-d, integration-e, integration-f, integration-g, tenancy-harness]
 
     services:
       postgres:
@@ -182,7 +188,7 @@ jobs:
       # silently stops running new directories. Fails loudly with the unassigned names.
       - name: Shard coverage guard
         run: |
-          covered=$(printf '%s %s %s %s %s %s' "$INTEGRATION_SHARD_A" "$INTEGRATION_SHARD_B" "$INTEGRATION_SHARD_C" "$INTEGRATION_SHARD_D" "$INTEGRATION_SHARD_E" "$INTEGRATION_SHARD_F" | tr ' ' '\n' | sed '/^$/d; s#^tests/Integration/##' | sort)
+          covered=$(printf '%s %s %s %s %s %s %s' "$INTEGRATION_SHARD_A" "$INTEGRATION_SHARD_B" "$INTEGRATION_SHARD_C" "$INTEGRATION_SHARD_D" "$INTEGRATION_SHARD_E" "$INTEGRATION_SHARD_F" "$INTEGRATION_SHARD_G" | tr ' ' '\n' | sed '/^$/d; s#^tests/Integration/##' | sort)
           actual=$(ls tests/Integration | sort)
           twice=$(echo "$covered" | uniq -d)
           if [ -n "$twice" ]; then
@@ -256,6 +262,9 @@ jobs:
               ;;
             integration-f)
               timeout --signal=KILL 900 vendor/bin/phpunit $INTEGRATION_SHARD_F
+              ;;
+            integration-g)
+              timeout --signal=KILL 900 vendor/bin/phpunit $INTEGRATION_SHARD_G
               ;;
             tenancy-harness)
               # The workspace-isolation suites, opt-in elsewhere (THALLO_TENANCY_DEV_LINK=1): real
