@@ -22,6 +22,22 @@ const heading = (page, name) => page.locator('main .thallo-block-heading').nth(H
 const link = (page, name) =>
   page.locator('main .thallo-block-links').nth(LINKS.indexOf(name)).locator('.thallo-block-links__link').first();
 const button = (page, name) => page.locator('main .thallo-block-button__link').nth(BUTTONS.indexOf(name));
+const separator = (page, name) => page.locator('main .thallo-block-separator').nth(['plain', 'styled'].indexOf(name));
+
+/** A separator's line colours, and what its label draws. */
+const separatorDrawn = (locator) =>
+  locator.evaluate((el) => ({
+    lines: [...el.querySelectorAll('.thallo-block-separator__line')].map((l) => getComputedStyle(l).borderTopColor),
+    accent: (() => {
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--t-color-accent)';
+      el.appendChild(probe);
+      const colour = getComputedStyle(probe).color;
+      probe.remove();
+      return colour;
+    })(),
+    label: getComputedStyle(el.querySelector('.thallo-block-separator__content')).textTransform,
+  }));
 
 /** What the browser draws for an element: casing, tracking (in em) and its decoration longhands. */
 const drawn = (locator) =>
@@ -60,6 +76,7 @@ for (const [where, url] of Object.entries(PAGES)) {
       await expect(page.locator('main .thallo-block-heading')).toHaveCount(HEADINGS.length);
       await expect(page.locator('main .thallo-block-links')).toHaveCount(LINKS.length);
       await expect(page.locator('main .thallo-block-button__link')).toHaveCount(BUTTONS.length);
+      await expect(page.locator('main .thallo-block-separator')).toHaveCount(2);
     });
 
     test('a heading takes its casing and tracking, and neither brings the other', async ({ page }) => {
@@ -116,6 +133,16 @@ for (const [where, url] of Object.entries(PAGES)) {
       expect(under).toEqual(plain);
       expect(under.offset).toBe('3px');
       expect(await hovered(page, button(page, 'underline'))).toEqual(await hovered(page, button(page, 'plain')));
+    });
+
+    test("a separator's border colour draws both its lines, and its label takes Typography", async ({ page }) => {
+      const plain = await separatorDrawn(separator(page, 'plain'));
+      const styled = await separatorDrawn(separator(page, 'styled'));
+      expect(styled.lines).toHaveLength(2);
+      expect(styled.lines).toEqual([styled.accent, styled.accent]);
+      expect(plain.lines[0]).not.toBe(styled.accent); // the theme's line colour, untouched
+      expect(styled.label).toBe('uppercase');
+      expect(plain.label).toBe('none');
     });
   });
 }

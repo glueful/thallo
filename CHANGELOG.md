@@ -18,6 +18,13 @@ as the next release, never a mutated tag.
   the theme's value, and Remove lets a style class or the theme show through. Settings version 12;
   style compiler 16.
 
+### Fixed
+- **A Separator's border colour now colours its line.** The colour was set on the block, which has
+  no border, while the line is drawn by elements inside it, so the line kept the theme's colour. It
+  now lands on every line. The label and its icon also gain Typography: typeface, size, weight,
+  line height, letter spacing, casing and decoration. `thallo:provision` applies the new
+  declaration to an existing install, and a colour already chosen is kept.
+
 ## [1.0.0-beta.83] - 2026-10-06 — Developer Preview
 
 Fixes for beta.82: uploaded fonts render on the site, and large background images load again

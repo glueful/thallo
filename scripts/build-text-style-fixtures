@@ -3,7 +3,8 @@
 /**
  * Build the fixtures of letter spacing, text transform and text decoration (settings version 12):
  * one page — Headings, Links and link-variant Buttons, each setting against an untouched control,
- * and a Heading whose style class it overrides — rendered by the real render pack twice, published
+ * a Heading whose style class it overrides, and a Separator coloured and with a styled label —
+ * rendered by the real render pack twice, published
  * (`public.html`) and on the editor's canvas stage (`stage.html`), into
  * `tools/runtime-browser/fixtures/text-style/` (gitignored) with stylesheets inlined and scripts
  * dropped. Seeded inside a transaction that is rolled back. Read by text-style.spec.js.
@@ -142,6 +143,12 @@ try {
             $button('btnunder0001', ['decoration' => $choice('underline')]),
             $button('btnnone00001', ['decoration' => $choice('none')]),
             $button('btnreset0001', ['decoration' => $reset]),
+            // A Separator's colour is drawn by its lines, and its label takes Typography.
+            ['id' => 'sepplain0001', 'type' => 'separator', 'data' => ['label' => 'Or'], 'settings' => []],
+            ['id' => 'sepstyled001', 'type' => 'separator', 'data' => ['label' => 'Or'], 'settings' => ['style' => [
+                'colors' => ['border' => ['type' => 'token', 'value' => 'color.accent']],
+                'typography' => ['transform' => $choice('uppercase'), 'letter_spacing' => $choice('wider')],
+            ]]],
         ];
 
         $type = (string) $container->get(ContentTypeRepository::class)->create([
