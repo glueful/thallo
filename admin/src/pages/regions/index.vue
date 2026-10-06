@@ -20,6 +20,7 @@ import { createDirtyRegistry, useUnsavedGuard } from '@/composables/useSectionSt
 import RegionsTopBar from './components/RegionsTopBar.vue'
 import RegionSettingsTab from './components/RegionSettingsTab.vue'
 import { REGION_SLUGS, useRegionHost, type RegionSlug } from './useRegionHost'
+import type { Position } from '@/editor/ops/types'
 
 // The header and footer, edited on the stage (regions stage spec §3, §5.3): a real published page
 // with the chrome from this editor's working copy, the Design view's stage editing over it, and
@@ -104,6 +105,7 @@ const {
   cancelDelete,
   confirmDelete,
   armInsertTarget,
+  historySequence,
   paletteTypes,
   paletteTarget,
   targetStale,
@@ -285,7 +287,18 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
           <!-- The tree's single authority: the stage routes every intent through it, so it stays
                mounted, out of sight — the stage and the Outline are how the regions are edited. -->
           <div class="hidden">
-            <FieldEditor ref="fieldEditorRef" v-model="fields" :schema="schema" palette-insert />
+            <!-- A + in a block's own list on the Block tab (a Footer's copyright, a Container's
+                 content) arms the Blocks tab at that position, as on the Design page. -->
+            <FieldEditor
+              ref="fieldEditorRef"
+              v-model="fields"
+              :schema="schema"
+              palette-insert
+              @insert-request="
+                (p: Position) =>
+                  armInsertTarget({ kind: 'at', position: p, sequence: historySequence })
+              "
+            />
           </div>
           <p
             v-if="hidden.header || hidden.footer"

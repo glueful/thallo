@@ -108,8 +108,24 @@ final class ShopBlockTypesContributor implements StarterBlockTypeContributor
                 description: 'A cart count/drawer that hydrates live via JavaScript; a plain '
                     . 'cart link without it.',
                 schema: [],
-                styleCapabilities: ['spacing', 'visibility', 'layout.item'],
-                styleTargets: StyleTargets::root('box', ['spacing', 'visibility', 'layout.item']),
+                // The look is the cart button's (the `control` target), as a Button's is its link's;
+                // the block keeps its spacing, visibility and placement.
+                styleCapabilities: [
+                    'spacing', 'visibility', 'layout.item', 'colors', 'border', 'radius', 'shadow',
+                ],
+                styleTargets: StyleTargets::root('box', ['spacing', 'visibility', 'layout.item'], [
+                    'targets' => ['control' => ['kind' => 'box']],
+                    'map' => [
+                        'colors' => 'control', 'border' => 'control', 'radius' => 'control', 'shadow' => 'control',
+                    ],
+                ]) + ['parts' => [
+                    // The drop-down that opens from the button: a look of its own.
+                    'panel' => ['label' => 'Panel', 'capabilities' => [
+                        'colors', 'border', 'radius', 'shadow',
+                        'spacing.padding.top', 'spacing.padding.right',
+                        'spacing.padding.bottom', 'spacing.padding.left',
+                    ]],
+                ]],
             ),
             // Storefront-v1 spec §5: a LINK to the wishlist page, mirroring the mini cart
             // exactly (capability-gated, cacheable zero-count shell, JS-hydrated badge).
@@ -126,8 +142,19 @@ final class ShopBlockTypesContributor implements StarterBlockTypeContributor
                     // Optional: blank renders the icon with a screen-reader-only "Wishlist".
                     ['name' => 'label', 'type' => 'string'],
                 ],
-                styleCapabilities: ['spacing', 'visibility', 'layout.item'],
-                styleTargets: StyleTargets::root('box', ['spacing', 'visibility', 'layout.item']),
+                // The look is the link's (the `control` target), its label's text included; the
+                // block keeps its spacing, visibility and placement. Optional: with commerce off the
+                // block renders plain text and no link.
+                styleCapabilities: [
+                    'spacing', 'visibility', 'layout.item', 'colors', 'border', 'radius', 'shadow', 'typography',
+                ],
+                styleTargets: StyleTargets::root('box', ['spacing', 'visibility', 'layout.item'], [
+                    'targets' => ['control' => ['kind' => 'box', 'optional' => true]],
+                    'map' => [
+                        'colors' => 'control', 'border' => 'control', 'radius' => 'control',
+                        'shadow' => 'control', 'typography' => 'control',
+                    ],
+                ]),
             ),
         ];
     }

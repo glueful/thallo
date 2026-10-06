@@ -155,9 +155,9 @@ and **Visibility** only.
 |---|---|---|---|---|
 | **Add to cart** (`add-to-cart`) | An add-to-cart control for a product. Left blank, it uses the product linked to the entry being rendered. With no product to use, the stage shows `Add to cart — choose a product` and the site hides it, as it does when a linked product is gone; a product chosen by slug that is gone reads as not available. Without JavaScript it is a link to the shop. | `product_slug` (string) | — | — |
 | **Featured product** (`featured-product`) | Spotlight a single product. With no product set, the stage shows `Featured product — choose a product` and the site hides it, as it does for a product that is gone. Without JavaScript it is a link to the shop. | `product_slug` (string) | — | Corners, Shadow, Colours, Border |
-| **Mini cart** (`mini-cart`) | A cart count and drawer that fills in over JavaScript; a plain cart link without it. | none | — | — |
+| **Mini cart** (`mini-cart`) | A cart count and drawer that fills in over JavaScript; a plain cart link without it. | none | — | The cart button: Colours, Border, Corners, Shadow; its drop-down (its **Panel** section): Colours, Border, Corners, Shadow, Padding |
 | **Product grid** (`product-grid`) | A grid of products from a category, a tag, a manual list, or the newest arrivals. On the stage it names what it will show, such as `Product grid — the newest products`; the products appear on the published site. Without JavaScript it is a link to the shop, or to its category. | `source` (enum: category, tag, manual, newest), `category_slug` (string), `tag_slug` (string), `products` (text — one product slug per line), `limit` (number, 1 to 48, default 12), `columns` (enum: auto, 2, 3, 4, 5, 6 — how many on a row at desktop; a fixed count shows 3 on tablets and 2 on phones, auto fits as many as the width allows) | — | Width |
-| **Wishlist link** (`wishlist-link`) | A link to the wishlist page with a live saved-item count; a plain wishlist link without JavaScript. | `label` (string) | — | — |
+| **Wishlist link** (`wishlist-link`) | A link to the wishlist page with a live saved-item count; a plain wishlist link without JavaScript. | `label` (string) | — | The link: Colours, Border, Corners, Shadow, Typography |
 
 Turning Commerce on and connecting a shop is [sell something](../guides/18-commerce.md).
 
@@ -238,7 +238,7 @@ in a parent layout**.
 
 | Block | What it is for | Fields | Holds blocks | Style settings adds |
 |---|---|---|---|---|
-| **Search** (`search`) | A search field, or an icon that opens one, sending visitors to the `/search` results page. Suggestions appear as a visitor types. | `display` (enum: field, icon — default field), `placeholder` (string — default `Search`), `scope` (string — every kind, or one: Pages & posts, Products; the choices come from the features that are on), `live_results` (boolean — suggestions while typing; on unless switched off) | — | Width |
+| **Search** (`search`) | A search field, or an icon that opens one, sending visitors to the `/search` results page. Suggestions appear as a visitor types. | `display` (enum: field, icon — default field), `placeholder` (string — default `Search`), `scope` (string — every kind, or one: Pages & posts, Products; the choices come from the features that are on), `live_results` (boolean — suggestions while typing; on unless switched off) | — | Width; the search field: Colours, Border, Corners, Shadow, Typography; the submit button (**Button**): those and Padding; in the icon display, the icon (**Icon**): Colours, Border, Corners, Padding, and its drop-down (**Panel**): Colours, Border, Corners, Shadow, Padding |
 
 It is in the header's palette as well as the page's, so it can sit beside the navigation. A scope
 that cannot be searched — Search is off, or the scope's feature (Commerce, for products) is off —

@@ -5,6 +5,46 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.88] - 2026-10-06 — Developer Preview
+
+Mini cart, Wishlist link and Search take their look from the Style tab, with sections for their
+panels, button and icon. Blocks can be added to a Footer block's sections from the Block tab, and
+a Shortcode in the header or footer. Run `php glueful thallo:provision` after `composer update`;
+read the Upgrade Notes.
+
+### Added
+- **Mini cart, Wishlist link and Search take their look from the Style tab.** Background, Text
+  colour, Border, Corners and Shadow now apply to the Mini cart's button, the Wishlist link's link
+  and the Search block's field; the Wishlist link and Search also take Typography. Spacing,
+  Visibility and Layout stay on the block. Their other pieces have sections of their own in the
+  Style tab: the Mini cart's drop-down (**Panel**), and the Search block's submit button
+  (**Button**) and, in the icon display, its icon (**Icon**) and drop-down (**Panel**). A style
+  class applies to the block, not to these sections. `thallo:provision` gives an existing
+  install's blocks the new settings.
+
+### Fixed
+- **Style settings beat the shop's own stylesheet.** Shop blocks link the shop stylesheet
+  themselves, and it was served outside the theme's cascade layer, so its rules beat any style
+  setting: a Mini cart could not be given a background or a border. It is now served inside
+  `@layer theme`, as the copy in the theme stylesheet already was, under a new fingerprinted URL.
+- **The + buttons on a block's Block tab work on the Header & footer and Layouts pages.** Each
+  list a block holds, such as a Footer block's top, copyright, links and social, or an Entry
+  list's card, shows a + on the Block tab. On those two pages clicking it did nothing. It now
+  opens the Blocks tab aimed at that list, as on the Design page, and the next block you click
+  goes there.
+- **A Shortcode block can be added in the header and footer.** The Header & footer stage refused
+  any change containing a Shortcode whose name wasn't chosen yet ("name is required"), so adding
+  one undid itself. The stage now accepts a block that is still being filled in, as the Design
+  page does; Save still requires the name, since a saved region goes live. A Shortcode with no
+  name also shows on the stage as an "Empty shortcode" box you can select, instead of nothing.
+
+### Upgrade Notes
+- `composer update && php glueful thallo:provision`. Provision gives the Mini cart, Wishlist link
+  and Search blocks their new style settings; until then an existing install shows none of them.
+- The shop stylesheet moves to a new fingerprinted URL, served inside `@layer theme`. A theme that
+  relied on the old copy outranking style settings now sees the settings win, as they do for every
+  other block.
+
 ## [1.0.0-beta.87] - 2026-10-06 — Developer Preview
 
 A fix for the editor's stage: a block added with nothing in it, such as a Links block in a

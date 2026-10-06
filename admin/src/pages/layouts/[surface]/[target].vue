@@ -20,6 +20,7 @@ import LayoutFrameTab from '../components/LayoutFrameTab.vue'
 import { SETTINGS_KEY, useLayoutHost } from '../useLayoutHost'
 import { belongsIn, useLayoutPatterns, usePatterns, type Pattern } from '@/queries/patterns'
 import { isInsideCard } from '@/editor/structure/legality'
+import type { Position } from '@/editor/ops/types'
 
 // A layout, edited on the stage (type layouts spec §6.2): the surface's frame around a published
 // sample — or a placeholder — with the Design view's stage editing over the layout's own blocks and
@@ -110,6 +111,7 @@ const {
   cancelDelete,
   confirmDelete,
   armInsertTarget,
+  historySequence,
   paletteTypes,
   paletteTarget,
   targetStale,
@@ -405,7 +407,18 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
         >
           <!-- The tree's single authority, mounted out of sight as on the Header & footer page. -->
           <div class="hidden">
-            <FieldEditor ref="fieldEditorRef" v-model="fields" :schema="schema" palette-insert />
+            <!-- A + in a block's own list on the Block tab (a Footer's copyright, a Container's
+                 content) arms the Blocks tab at that position, as on the Design page. -->
+            <FieldEditor
+              ref="fieldEditorRef"
+              v-model="fields"
+              :schema="schema"
+              palette-insert
+              @insert-request="
+                (p: Position) =>
+                  armInsertTarget({ kind: 'at', position: p, sequence: historySequence })
+              "
+            />
           </div>
           <p
             v-if="session?.placeholder"
