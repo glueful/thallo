@@ -10,6 +10,33 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.85] - 2026-10-06 — Developer Preview
+
+Logo size, max width and gaps for the Logos block, and an Add media window whose Upload button can
+be clicked again. Run `php glueful thallo:provision` after `composer update`; read the Upgrade
+Notes.
+
+### Added
+- **Logo size, max width and gaps for the Logos block.** In the Style tab's new Logos group, Logo
+  size is Small, Medium (today's size), Large or Extra large. Logo max width is Narrow, Medium,
+  Wide or Extra wide: it caps each logo, so a long wordmark scales down whole while narrower logos
+  are unchanged. Both can differ by screen width, both keep each logo's proportions, and a
+  scrolling strip's repeated logos take them too. The Layout tab's Gap, Column and Row, sets the
+  space between logos. Unset, it names the theme's own logo gaps. Settings version 13; style
+  compiler 18. `thallo:provision` gives an existing install's Logos block the new settings.
+
+### Fixed
+- **The Upload button in the Add media window can be clicked again** after choosing an image for
+  a field that takes several, such as Logos. The drop area kept a fixed height, so a tall preview
+  spilled over the button and took its clicks. The area now grows to fit its previews.
+
+### Upgrade Notes
+- `composer update && php glueful thallo:provision`. Provision gives the Logos block its new style
+  declaration (Logo size, Logo max width and Gap). Until then an existing install's Logos block
+  shows none of them.
+- Stored settings need no conversion: the Logos settings are additive (settings version 13), and
+  the style artifact re-keys itself (compiler 18).
+
 ## [1.0.0-beta.84] - 2026-10-06 — Developer Preview
 
 Letter spacing, text transform and text decoration for every block that shows text, and a

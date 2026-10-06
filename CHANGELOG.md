@@ -5,7 +5,11 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.85] - 2026-10-06 — Developer Preview
+
+Logo size, max width and gaps for the Logos block, and an Add media window whose Upload button can
+be clicked again. Run `php glueful thallo:provision` after `composer update`; read the Upgrade
+Notes.
 
 ### Added
 - **Logo size, max width and gaps for the Logos block.** In the Style tab's new Logos group, Logo
@@ -20,6 +24,13 @@ as the next release, never a mutated tag.
 - **The Upload button in the Add media window can be clicked again** after choosing an image for
   a field that takes several, such as Logos. The drop area kept a fixed height, so a tall preview
   spilled over the button and took its clicks. The area now grows to fit its previews.
+
+### Upgrade Notes
+- `composer update && php glueful thallo:provision`. Provision gives the Logos block its new style
+  declaration (Logo size, Logo max width and Gap). Until then an existing install's Logos block
+  shows none of them.
+- Stored settings need no conversion: the Logos settings are additive (settings version 13), and
+  the style artifact re-keys itself (compiler 18).
 
 ## [1.0.0-beta.84] - 2026-10-06 — Developer Preview
 
