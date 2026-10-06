@@ -5,7 +5,11 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.84] - 2026-10-06 — Developer Preview
+
+Letter spacing, text transform and text decoration for every block that shows text, and a
+Separator whose border colour reaches its line. Run `php glueful thallo:provision` after
+`composer update`; read the Upgrade Notes.
 
 ### Added
 - **Letter spacing, Text transform and Text decoration** in Typography, after Line height, on every
@@ -24,6 +28,13 @@ as the next release, never a mutated tag.
   now lands on every line. The label and its icon also gain Typography: typeface, size, weight,
   line height, letter spacing, casing and decoration. `thallo:provision` applies the new
   declaration to an existing install, and a colour already chosen is kept.
+
+### Upgrade Notes
+- `composer update && php glueful thallo:provision`. Provision gives the Separator its new style
+  declaration: its line takes the border colour and its label takes Typography. Until then an
+  existing install's Separator line keeps the theme's colour.
+- Stored settings need no conversion: the new Typography settings are additive (settings version
+  12), and the style artifact re-keys itself (compiler 16).
 
 ## [1.0.0-beta.83] - 2026-10-06 — Developer Preview
 

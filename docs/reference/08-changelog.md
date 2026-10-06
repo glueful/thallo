@@ -10,6 +10,37 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.84] - 2026-10-06 — Developer Preview
+
+Letter spacing, text transform and text decoration for every block that shows text, and a
+Separator whose border colour reaches its line. Run `php glueful thallo:provision` after
+`composer update`; read the Upgrade Notes.
+
+### Added
+- **Letter spacing, Text transform and Text decoration** in Typography, after Line height, on every
+  block and part that has Typography and in style classes. Each is set once for every width.
+  Letter spacing is Tight, Normal, Wide or Wider. Normal overrides the theme's tracking, and
+  Uppercase adds no spacing of its own. Text transform is None, Uppercase, Lowercase or Capitalize.
+  Text decoration is None, Underline or Line-through, and sets only `text-decoration-line`, so the
+  theme's decoration colour, thickness and offset stay. None writes an explicit `none`, which
+  removes decoration set on the element itself but not an ancestor's. Use theme default restores
+  the theme's value, and Remove lets a style class or the theme show through. Settings version 12;
+  style compiler 16.
+
+### Fixed
+- **A Separator's border colour now colours its line.** The colour was set on the block, which has
+  no border, while the line is drawn by elements inside it, so the line kept the theme's colour. It
+  now lands on every line. The label and its icon also gain Typography: typeface, size, weight,
+  line height, letter spacing, casing and decoration. `thallo:provision` applies the new
+  declaration to an existing install, and a colour already chosen is kept.
+
+### Upgrade Notes
+- `composer update && php glueful thallo:provision`. Provision gives the Separator its new style
+  declaration: its line takes the border colour and its label takes Typography. Until then an
+  existing install's Separator line keeps the theme's colour.
+- Stored settings need no conversion: the new Typography settings are additive (settings version
+  12), and the style artifact re-keys itself (compiler 16).
+
 ## [1.0.0-beta.83] - 2026-10-06 — Developer Preview
 
 Fixes for beta.82: uploaded fonts render on the site, and large background images load again
