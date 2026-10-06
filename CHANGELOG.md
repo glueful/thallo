@@ -5,7 +5,12 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.88] - 2026-10-06 — Developer Preview
+
+Mini cart, Wishlist link and Search take their look from the Style tab, with sections for their
+panels, button and icon. Blocks can be added to a Footer block's sections from the Block tab, and
+a Shortcode in the header or footer. Run `php glueful thallo:provision` after `composer update`;
+read the Upgrade Notes.
 
 ### Added
 - **Mini cart, Wishlist link and Search take their look from the Style tab.** Background, Text
@@ -32,6 +37,13 @@ as the next release, never a mutated tag.
   one undid itself. The stage now accepts a block that is still being filled in, as the Design
   page does; Save still requires the name, since a saved region goes live. A Shortcode with no
   name also shows on the stage as an "Empty shortcode" box you can select, instead of nothing.
+
+### Upgrade Notes
+- `composer update && php glueful thallo:provision`. Provision gives the Mini cart, Wishlist link
+  and Search blocks their new style settings; until then an existing install shows none of them.
+- The shop stylesheet moves to a new fingerprinted URL, served inside `@layer theme`. A theme that
+  relied on the old copy outranking style settings now sees the settings win, as they do for every
+  other block.
 
 ## [1.0.0-beta.87] - 2026-10-06 — Developer Preview
 
