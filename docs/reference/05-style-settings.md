@@ -170,8 +170,33 @@ All six take a `spacing` token. There is no left or right margin: horizontal pla
 | Size | `typography.size` | yes | `t-size-{name}` | `font-size: var(--t-typography-size-{name})` |
 | Weight | `typography.weight` | yes | `t-weight-{value}` | `font-weight:` `regular` 400, `medium` 500, `semibold` 600, `bold` 700 |
 | Line height | `typography.line_height` | yes | `t-leading-{value}` | `line-height:` `tight` 1.1, `snug` 1.25, `normal` 1.5, `relaxed` 1.65, `loose` 1.9 |
+| Letter spacing | `typography.letter_spacing` | no | `t-tracking-{value}` | `letter-spacing:` `tight` -0.025em, `normal` normal, `wide` 0.05em, `wider` 0.1em |
+| Text transform | `typography.transform` | no | `t-case-{value}` | `text-transform:` `none`, `uppercase`, `lowercase`, `capitalize` |
+| Text decoration | `typography.decoration` | no | `t-decor-{value}` | `text-decoration-line:` `none`, `underline`, `line-through` |
 
 The line height is unitless, so it follows whatever the Size setting beside it resolves to.
+
+**Letter spacing**, **Text transform** and **Text decoration** are set once for every width, and
+the Style tab says **Applies at all sizes** beside them. They are independent: choosing
+**Uppercase** adds no letter spacing, and changing the spacing leaves the casing alone. Letter
+spacing is in `em`, so it scales with the size. **Normal** is a value of its own: it writes
+`letter-spacing: normal` over whatever tracking the theme gives the element (the default theme
+tightens headings to -0.02em), where **Use theme default** gives the theme's tracking back.
+
+Each row offers three different things that can look alike:
+
+- **None** (Text transform and Text decoration) writes an explicit `none`.
+- **Use theme default** writes a reset, so the element shows what the theme draws for it. Over a
+  Button in its `link` style, which the theme underlines, that is the underline again.
+- **Remove** deletes the declaration, so a style class or the theme shows through.
+
+Text decoration compiles to the `text-decoration-line` longhand only. The colour, thickness, style
+and underline offset a theme gives the decoration, including its hover thickness, stay as they are.
+
+A decoration's **None** removes decoration set on the element itself. It cannot remove one drawn
+from an ancestor: in CSS an ancestor's underline is painted across its descendants and cannot be
+taken off them. Nor does it reach links styled on their own inside a Rich text block. To change a
+link's decoration, set it on the link: a Links block's **Link** part carries its own Text decoration.
 
 **Typeface** takes a `font` value and is set once for every width. What its utility declares
 depends on what the ID names:
@@ -195,8 +220,9 @@ nearest face the family has, and only italic may be slanted by the browser when 
 face. The stored ID is kept whatever happens to the family: a removed one renders as if nothing were
 set here — the element inherits — and comes back when the family is restored.
 
-A block's parts carry their own Typeface (`settings.parts.{part}.typography.family`), so a card's
-title and its text can be set in different families; a block's style classes never reach a part.
+A block's parts carry their own Typography (`settings.parts.{part}.typography.family`, and the same
+for every Typography setting), so a card's title and its text can be set in different families; a
+block's style classes never reach a part.
 
 ### Colours
 

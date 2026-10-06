@@ -35,6 +35,8 @@ const props = defineProps<{
   styles?: Record<string, unknown>[]
   /** Hide this row's breakpoint chips: the Style tab's group header carries them instead. */
   hideBreakpoints?: boolean
+  /** Say "Applies at all sizes" on a row set once, beside a group whose other rows vary by width. */
+  allSizesNote?: boolean
   /** Where the row is: a block's inspector (the default) or a style class's editor. */
   context?: 'block' | 'class' | 'region' | 'part'
   /** A note after a choice that stays choosable (Weight's "— not in this family"). */
@@ -220,7 +222,7 @@ const sourceLabel = computed(() => {
           {{ sourceLabel }}
         </span>
         <span
-          v-if="inClass && !def.responsive"
+          v-if="(inClass || allSizesNote) && !def.responsive"
           class="text-[10px] text-muted"
           data-test="style-all-sizes"
         >

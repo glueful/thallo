@@ -5,6 +5,19 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Added
+- **Letter spacing, Text transform and Text decoration** in Typography, after Line height, on every
+  block and part that has Typography and in style classes. Each is set once for every width.
+  Letter spacing is Tight, Normal, Wide or Wider. Normal overrides the theme's tracking, and
+  Uppercase adds no spacing of its own. Text transform is None, Uppercase, Lowercase or Capitalize.
+  Text decoration is None, Underline or Line-through, and sets only `text-decoration-line`, so the
+  theme's decoration colour, thickness and offset stay. None writes an explicit `none`, which
+  removes decoration set on the element itself but not an ancestor's. Use theme default restores
+  the theme's value, and Remove lets a style class or the theme show through. Settings version 12;
+  style compiler 16.
+
 ## [1.0.0-beta.83] - 2026-10-06 — Developer Preview
 
 Fixes for beta.82: uploaded fonts render on the site, and large background images load again

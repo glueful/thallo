@@ -10,6 +10,9 @@ const words = (values: string[]): Record<string, string> =>
   )
 
 export const CHOICE_LABELS: Record<string, Record<string, string>> = {
+  'typography.letter_spacing': words(['tight', 'normal', 'wide', 'wider']),
+  'typography.transform': words(['none', 'uppercase', 'lowercase', 'capitalize']),
+  'typography.decoration': { none: 'None', underline: 'Underline', 'line-through': 'Line-through' },
   'colors.surface_opacity': percent(['100', '90', '80', '70', '60', '50']),
   'motion.entrance': words([
     'none',

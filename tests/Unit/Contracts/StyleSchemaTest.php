@@ -56,6 +56,9 @@ final class StyleSchemaTest extends TestCase
             'typography.line_height',
             // The fourth: the typeface, a font ID (block typeface spec §1); one value for every width.
             'typography.family',
+            // How far apart a text's letters sit, its casing, and the line drawn through or under it;
+            // each one value for every width (settings version 12).
+            'typography.letter_spacing', 'typography.transform', 'typography.decoration',
             // Motion: how a block enters as it scrolls into view — and, on a block that arranges
             // children, how far apart their entrances start.
             'motion.entrance', 'motion.duration', 'motion.delay', 'motion.repeat', 'motion.stagger',
@@ -67,7 +70,7 @@ final class StyleSchemaTest extends TestCase
             'aside.padding.top', 'aside.padding.right', 'aside.padding.bottom', 'aside.padding.left',
             'aside.surface',
         ], $paths);
-        self::assertSame(11, StyleSchema::VERSION);
+        self::assertSame(12, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
     }
 
@@ -200,7 +203,7 @@ final class StyleSchemaTest extends TestCase
             StyleSchema::pathsInGroup('layout.item'),
             StyleCapabilities::fromDeclaration(['layout.item'])->paths(),
         );
-        self::assertSame(11, StyleSchema::VERSION);
+        self::assertSame(12, StyleSchema::VERSION);
     }
 
     public function testMotionIsABlocksOwnGroupAndStaggerIsTheArrangersAlone(): void
@@ -245,9 +248,29 @@ final class StyleSchemaTest extends TestCase
         self::assertSame(StyleSchema::property('typography.size')?->responsive, $def->responsive);
         // The typeface joined the group after it (settings version 11).
         self::assertSame(
-            ['typography.size', 'typography.weight', 'typography.line_height', 'typography.family'],
+            [
+                'typography.size', 'typography.weight', 'typography.line_height', 'typography.family',
+                'typography.letter_spacing', 'typography.transform', 'typography.decoration',
+            ],
             StyleSchema::pathsInGroup('typography'),
         );
+    }
+
+    public function testLetterSpacingTransformAndDecorationAreChoicesSetOnceForEveryWidth(): void
+    {
+        $expected = [
+            'typography.letter_spacing' => ['tight', 'normal', 'wide', 'wider'],
+            'typography.transform' => ['none', 'uppercase', 'lowercase', 'capitalize'],
+            'typography.decoration' => ['none', 'underline', 'line-through'],
+        ];
+        foreach ($expected as $path => $choices) {
+            $def = StyleSchema::property($path);
+            self::assertNotNull($def, $path);
+            self::assertSame('typography', $def->group, $path);
+            self::assertSame($choices, $def->choices, $path);
+            self::assertSame([ValueKind::Choice, ValueKind::Reset], $def->kinds, $path);
+            self::assertFalse($def->responsive, $path . ' applies at all sizes');
+        }
     }
 
     public function testBorderSidesJoinsTheBorderGroupAndTheBackdropPairIsItsOwn(): void

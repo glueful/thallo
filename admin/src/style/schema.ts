@@ -138,6 +138,17 @@ const PROPERTIES: PropertyDefinition[] = [
   ]),
   // The fourth: the typeface, one value for every width this release (settings version 11).
   font('typography.family', 'typography', false),
+  // Letter spacing, casing and decoration (settings version 12): one value for every width, each
+  // independent of the others — uppercase brings no tracking. Decoration's `none` is an explicit
+  // value, distinct from a reset to the theme.
+  choice('typography.letter_spacing', 'typography', false, ['tight', 'normal', 'wide', 'wider']),
+  choice('typography.transform', 'typography', false, [
+    'none',
+    'uppercase',
+    'lowercase',
+    'capitalize',
+  ]),
+  choice('typography.decoration', 'typography', false, ['none', 'underline', 'line-through']),
   // Motion: how a block ENTERS as it scrolls into view (`motion`, any block); how a block that
   // arranges children spaces out THEIR entrances (`motion.children`); and Ken Burns, a picture
   // drifting inside its frame (`motion.media`). None is responsive: an entrance is one event.
