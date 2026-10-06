@@ -620,7 +620,7 @@ const same = (a: unknown, b: unknown) =>
  */
 export async function openRegionsStage(
   page: Page,
-  options: { session?: 'baseline' | 'container' | 'links' | 'empty' } = {},
+  options: { session?: 'baseline' | 'container' | 'links' | 'footer-block' | 'empty' } = {},
 ): Promise<RegionsRecorded> {
   await routeWorld(page)
   // The site's pages live at its root, as a new install's `pages` type does: the page picker lists
@@ -652,7 +652,7 @@ export async function openRegionsStage(
   const openingFor = (name: string) => {
     const opening = JSON.parse(
       fixture(
-        name === 'container' || name === 'links'
+        name === 'container' || name === 'links' || name === 'footer-block'
           ? `regions/session-${name}.json`
           : 'regions/session.json',
       ),

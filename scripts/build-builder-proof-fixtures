@@ -475,8 +475,9 @@ try {
         $write('session.json', $body);
         $write('regions.json', (string) $container->get(Thallo\Core\Http\Controllers\RegionAdminController::class)->index()->getContent());
         // The container proof starts from its own session, whose baseline is `container`; the
-        // typeface proof from one whose footer holds a Links block (`links`).
-        foreach (['container', 'links'] as $opening) {
+        // typeface proof from one whose footer holds a Links block (`links`); the footer-block
+        // proof from one whose footer holds a Footer block with its sections empty.
+        foreach (['container', 'links', 'footer-block'] as $opening) {
             $saveRows($documents[$opening]);
             [$body] = $sessionOf(null);
             $write("session-{$opening}.json", $body);

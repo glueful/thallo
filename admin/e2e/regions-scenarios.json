@@ -757,6 +757,127 @@
           "settings": {}
         }
       }
+    },
+    {
+      "name": "footer-block",
+      "page": "home",
+      "document": {
+        "header": {
+          "blocks": [
+            {
+              "id": "e2ehdr000001",
+              "type": "logo",
+              "data": {},
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000002",
+              "type": "navigation",
+              "data": {
+                "menu": "e2e-main"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000003",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Header note</p>"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000004",
+              "type": "button",
+              "data": {
+                "label": "Get started",
+                "url": "/start"
+              },
+              "settings": {}
+            }
+          ],
+          "settings": {}
+        },
+        "footer": {
+          "blocks": [
+            {
+              "id": "e2eftrblk001",
+              "type": "footer",
+              "data": {
+                "top": [],
+                "copyright": [],
+                "links": [],
+                "social": []
+              },
+              "settings": {}
+            }
+          ],
+          "settings": {}
+        }
+      }
+    },
+    {
+      "name": "footer-block-inserted",
+      "page": "home",
+      "document": {
+        "header": {
+          "blocks": [
+            {
+              "id": "e2ehdr000001",
+              "type": "logo",
+              "data": {},
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000002",
+              "type": "navigation",
+              "data": {
+                "menu": "e2e-main"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000003",
+              "type": "rich_text",
+              "data": {
+                "body": "<p>Header note</p>"
+              },
+              "settings": {}
+            },
+            {
+              "id": "e2ehdr000004",
+              "type": "button",
+              "data": {
+                "label": "Get started",
+                "url": "/start"
+              },
+              "settings": {}
+            }
+          ],
+          "settings": {}
+        },
+        "footer": {
+          "blocks": [
+            {
+              "id": "e2eftrblk001",
+              "type": "footer",
+              "data": {
+                "top": [],
+                "copyright": [
+                  {
+                    "id": "e2enew000002",
+                    "$factory": "rich_text"
+                  }
+                ],
+                "links": [],
+                "social": []
+              },
+              "settings": {}
+            }
+          ],
+          "settings": {}
+        }
+      }
     }
   ]
 }
