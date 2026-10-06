@@ -5,6 +5,15 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Fixed
+- **A Logos block no longer starts with 40px of space the inspector cannot change.** The theme gave
+  the row of logos a top margin, even when the block had no title, and stacked it under a title's
+  own bottom margin. It is gone: an untitled strip starts at its top edge, a title is spaced by its
+  own margin, and the block's Margin top and Padding top decide the rest. A site that set Margin
+  top to make up for it may want less now.
+
 ## [1.0.0-beta.85] - 2026-10-06 — Developer Preview
 
 Logo size, max width and gaps for the Logos block, and an Add media window whose Upload button can

@@ -77,7 +77,7 @@ for (const [where, url] of Object.entries(PAGES)) {
       await expect(page.locator('main .thallo-block-links')).toHaveCount(LINKS.length);
       await expect(page.locator('main .thallo-block-button__link')).toHaveCount(BUTTONS.length);
       await expect(page.locator('main .thallo-block-separator')).toHaveCount(2);
-      await expect(page.locator('main .thallo-block-logos')).toHaveCount(4);
+      await expect(page.locator('main .thallo-block-logos')).toHaveCount(5);
     });
 
     test('a heading takes its casing and tracking, and neither brings the other', async ({ page }) => {
@@ -189,6 +189,28 @@ for (const [where, url] of Object.entries(PAGES)) {
         { width: 96, height: 80, fit: 'contain' },
         { width: 80, height: 80, fit: 'contain' },
       ]);
+    });
+
+    test("the logos start at the block's top, or right under its title", async ({ page }) => {
+      const gaps = (i) =>
+        page
+          .locator('main .thallo-block-logos')
+          .nth(i)
+          .evaluate((el) => {
+            const track = el.querySelector('.thallo-block-logos__track').getBoundingClientRect();
+            const title = el.querySelector('.thallo-block-logos__title');
+            return {
+              fromTop: Math.round(track.top - el.getBoundingClientRect().top),
+              fromTitle: title ? Math.round(track.top - title.getBoundingClientRect().bottom) : null,
+              titleMargin: title ? Math.round(parseFloat(getComputedStyle(title).marginBottom)) : null,
+            };
+          });
+      // Untitled: no space of the theme's own above the logos; the block's Spacing decides it.
+      expect((await gaps(0)).fromTop).toBe(0);
+      // Titled: the title's bottom margin, and nothing stacked on it.
+      const titled = await gaps(4);
+      expect(titled.fromTitle).toBe(titled.titleMargin);
+      expect(titled.titleMargin).toBeGreaterThan(0);
     });
   });
 }
