@@ -294,6 +294,19 @@ The padding is set a side at a time, in the same four-cell box as the block's ow
 1.0.0-beta.56 and 57 stored it as one value, `aside.padding`; that path is retired, so a stored
 value has no effect and is dropped the next time the page is saved.
 
+### Logos
+
+The Logos block's logos, each drawn at the height set for the width. Only the height is set, so
+each logo keeps its own proportions, and every logo of a scrolling strip takes it, the copied run
+included.
+
+| Setting | Path | Responsive | Class | Declaration |
+|---|---|---|---|---|
+| Logo size | `logos.height` | yes | `t-logoh-{value}` | `height:` `sm` 1.75rem, `md` 2.5rem (the theme's own), `lg` 3.5rem, `xl` 5rem |
+
+The space between the logos is the Layout tab's **Gap**, Column and Row, which lands on the row
+of logos. Unset, the theme's own logo gaps apply: `2xl` between logos and `lg` between wrapped rows.
+
 ### Motion
 
 None of these is responsive: an entrance is one event, not a layout. See

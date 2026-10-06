@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 12;
+    public const VERSION = 13;
 
     /**
      * Paths that were once properties and are no longer. A stored value at one is dropped when a
@@ -207,6 +207,10 @@ final class StyleSchema
             $defs[] = new PropertyDefinition("aside.padding.{$side}", 'aside', $token, true, 'spacing');
         }
         $defs[] = new PropertyDefinition('aside.surface', 'aside', $token, false, 'color');
+
+        // Settings version 13: how tall a Logos block draws its logos. Height alone, per width, so
+        // each logo keeps its own proportions; the block's own group, as a tab strip's corners are.
+        $defs[] = new PropertyDefinition('logos.height', 'logos', $choice, true, null, ['sm', 'md', 'lg', 'xl']);
 
         $byPath = [];
         foreach ($defs as $def) {

@@ -69,8 +69,10 @@ final class StyleSchemaTest extends TestCase
             // padding a side each, as the block's own is.
             'aside.padding.top', 'aside.padding.right', 'aside.padding.bottom', 'aside.padding.left',
             'aside.surface',
+            // How tall a Logos block's logos are drawn (settings version 13); widths follow.
+            'logos.height',
         ], $paths);
-        self::assertSame(12, StyleSchema::VERSION);
+        self::assertSame(13, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
     }
 
@@ -203,7 +205,7 @@ final class StyleSchemaTest extends TestCase
             StyleSchema::pathsInGroup('layout.item'),
             StyleCapabilities::fromDeclaration(['layout.item'])->paths(),
         );
-        self::assertSame(12, StyleSchema::VERSION);
+        self::assertSame(13, StyleSchema::VERSION);
     }
 
     public function testMotionIsABlocksOwnGroupAndStaggerIsTheArrangersAlone(): void
@@ -315,6 +317,17 @@ final class StyleSchemaTest extends TestCase
             self::assertSame($radius?->responsive, $def->responsive);
         }
         self::assertSame(['tabs.bar_radius', 'tabs.tab_radius'], StyleSchema::pathsInGroup('tabs'));
+    }
+
+    public function testALogosBlocksLogoHeightIsItsOwnGroupAndVariesByScreen(): void
+    {
+        $def = StyleSchema::property('logos.height');
+        self::assertNotNull($def);
+        self::assertSame('logos', $def->group);
+        self::assertSame([ValueKind::Choice, ValueKind::Reset], $def->kinds);
+        self::assertTrue($def->responsive, 'a strip of logos may be smaller on a phone');
+        self::assertSame(['sm', 'md', 'lg', 'xl'], $def->choices);
+        self::assertSame(['logos.height'], StyleSchema::pathsInGroup('logos'));
     }
 
     public function testTheMarkerPropertiesMirrorTheCardsOwn(): void

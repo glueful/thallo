@@ -92,8 +92,13 @@ export function displayDefaults(type: BlockType | null | undefined): TargetDefau
     | { targets?: Record<string, { defaults?: unknown }>; map?: Record<string, unknown> }
     | null
     | undefined
-  const target = decl?.map?.['layout.display']
-  if (typeof target !== 'string') return null
+  // The arranging target: the one Layout lands on, or — for a block that only spaces its children
+  // (Logos' row of logos) — the one its gaps land on.
+  const map = decl?.map ?? {}
+  const target = [map['layout.display'], map['layout.gap.column'], map['layout.gap.row']].find(
+    (t): t is string => typeof t === 'string',
+  )
+  if (target === undefined) return null
   const defaults = decl?.targets?.[target]?.defaults as Record<string, unknown> | undefined
   if (!defaults || (defaults.display !== 'flex' && defaults.display !== 'grid')) return null
   const out: TargetDefaults = { display: defaults.display }

@@ -77,6 +77,7 @@ for (const [where, url] of Object.entries(PAGES)) {
       await expect(page.locator('main .thallo-block-links')).toHaveCount(LINKS.length);
       await expect(page.locator('main .thallo-block-button__link')).toHaveCount(BUTTONS.length);
       await expect(page.locator('main .thallo-block-separator')).toHaveCount(2);
+      await expect(page.locator('main .thallo-block-logos')).toHaveCount(3);
     });
 
     test('a heading takes its casing and tracking, and neither brings the other', async ({ page }) => {
@@ -143,6 +144,33 @@ for (const [where, url] of Object.entries(PAGES)) {
       expect(plain.lines[0]).not.toBe(styled.accent); // the theme's line colour, untouched
       expect(styled.label).toBe('uppercase');
       expect(plain.label).toBe('none');
+    });
+
+    test('a Logos block draws its logos at the size set for the width, and spaces them as set', async ({ page }) => {
+      const strip = (i) => page.locator('main .thallo-block-logos').nth(i);
+      const measured = (i) =>
+        strip(i).evaluate((el) => {
+          const track = getComputedStyle(el.querySelector('.thallo-block-logos__track'));
+          return {
+            heights: [...el.querySelectorAll('.thallo-block-logos__image')].map((img) => img.getBoundingClientRect().height),
+            columnGap: track.columnGap,
+            rowGap: track.rowGap,
+            space1: getComputedStyle(el).getPropertyValue('--space-1').trim(),
+          };
+        });
+      await page.setViewportSize({ width: 1280, height: 900 }); // lg
+      const plain = await measured(0);
+      const sized = await measured(1);
+      expect(plain.heights).toEqual([40, 40]); // the theme's 2.5rem
+      expect(sized.heights).toEqual([80, 80]); // Extra large, from lg up
+      expect(sized.columnGap).not.toBe(plain.columnGap);
+      expect(sized.rowGap).toBe('0px');
+      // Every logo of a scrolling strip, its copied run too, takes the size.
+      expect((await measured(2)).heights).toEqual([56, 56, 56, 56]);
+
+      await page.setViewportSize({ width: 600, height: 900 }); // base
+      expect((await measured(1)).heights).toEqual([28, 28]); // Small
+      expect((await measured(0)).heights).toEqual([40, 40]);
     });
   });
 }
