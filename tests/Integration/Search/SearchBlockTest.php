@@ -6,9 +6,13 @@ namespace Thallo\Core\Tests\Integration\Search;
 
 use Glueful\Bootstrap\ApplicationContext;
 use Symfony\Component\HttpFoundation\Request;
+use Thallo\Contracts\Style\BlockStyleRegistry;
+use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
+use Thallo\Core\Content\Blocks\StarterBlockTypeSync;
 use Thallo\Core\Content\Regions\RegionRepository;
 use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Render\RenderContextExtension;
+use Thallo\Render\Style\ClassNames;
 use Thallo\Render\TwigFactory;
 use Thallo\Search\Starter\SearchBlockTypeContributor;
 
@@ -29,6 +33,10 @@ final class SearchBlockTest extends AppTestCase
             'thallo',
             ['capabilities' => ['thallo.search' => true]],
         ));
+        // The search block's row as provision leaves it: seeded, with the shipped declaration.
+        $this->on->getContainer()->get(StarterBlockTypeSeeder::class)->seedMissing();
+        $this->on->getContainer()->get(StarterBlockTypeSync::class)->sync();
+        $this->on->getContainer()->get(BlockStyleRegistry::class)->reset();
     }
 
     /** Late-tier providers boot with the first request; rendering always happens inside one. */
@@ -158,6 +166,51 @@ final class SearchBlockTest extends AppTestCase
      * @param array<string, mixed> $data
      * @param list<array<string, mixed>> $more further Search blocks on the same page
      */
+    public function testTheFieldTakesTheBlocksLookAndTheBlockKeepsItsSpacing(): void
+    {
+        $caps = $this->on->getContainer()->get(BlockStyleRegistry::class)->capabilitiesFor('search');
+        $paths = ['colors.surface', 'colors.text', 'colors.border', 'border.width', 'radius', 'shadow'];
+        foreach ([...$paths, 'typography.size'] as $path) {
+            self::assertTrue($caps->allows($path), $path);
+        }
+        $token = static fn (string $v): array => ['type' => 'token', 'value' => $v];
+        $style = [
+            'colors' => ['surface' => $token('color.black'), 'border' => $token('color.accent')],
+            'border' => ['width' => ['type' => 'choice', 'value' => 'thin']],
+            'radius' => $token('radius.sm'),
+            'spacing' => ['padding' => ['top' => ['base' => $token('spacing.lg')]]],
+        ];
+        $look = [
+            ClassNames::for('colors.surface', 'color.black'),
+            ClassNames::for('colors.border', 'color.accent'),
+            ClassNames::for('border.width', 'thin'),
+            ClassNames::for('radius', 'radius.sm'),
+        ];
+        foreach (['field', 'icon'] as $display) {
+            $container = $this->on->getContainer();
+            $extension = $container->get(RenderContextExtension::class);
+            $extension->resetPerRenderState();
+            $extension->setAnnotationScope('none');
+            $extension->setLocale('en');
+            $html = $extension->blocks(
+                $container->get(TwigFactory::class)->environment(),
+                ['entry' => null, 'site' => ['locale' => 'en', 'locales' => ['en']]],
+                [[
+                    'id' => 'blk1', 'type' => 'search',
+                    'data' => ['display' => $display], 'settings' => ['style' => $style],
+                ]],
+            );
+            $field = '~<input id="thallo-search-input-blk1"[^>]*class="([^"]*)"~';
+            self::assertSame(1, preg_match($field, $html, $input), $html);
+            self::assertSame(1, preg_match('~class="(thallo-block thallo-block-search[^"]*)"~', $html, $root));
+            foreach ($look as $class) {
+                self::assertStringContainsString($class, $input[1], "{$display}: {$class} on the field");
+                self::assertStringNotContainsString($class, $root[1], "{$display}: {$class} not on the block");
+            }
+            self::assertStringContainsString(ClassNames::for('spacing.padding.top', 'spacing.lg'), $root[1]);
+        }
+    }
+
     private function render(array $data, array $more = [], ?ApplicationContext $app = null, bool $stage = false): string
     {
         $container = ($app ?? $this->on)->getContainer();

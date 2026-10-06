@@ -7,7 +7,18 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **Mini cart, Wishlist link and Search take their look from the Style tab.** Background, Text
+  colour, Border, Corners and Shadow now apply to the Mini cart's button, the Wishlist link's link
+  and the Search block's field; the Wishlist link and Search also take Typography. Spacing,
+  Visibility and Layout stay on the block. `thallo:provision` gives an existing install's blocks
+  the new settings.
+
 ### Fixed
+- **Style settings beat the shop's own stylesheet.** Shop blocks link the shop stylesheet
+  themselves, and it was served outside the theme's cascade layer, so its rules beat any style
+  setting: a Mini cart could not be given a background or a border. It is now served inside
+  `@layer theme`, as the copy in the theme stylesheet already was, under a new fingerprinted URL.
 - **The + buttons on a block's Block tab work on the Header & footer and Layouts pages.** Each
   list a block holds, such as a Footer block's top, copyright, links and social, or an Entry
   list's card, shows a + on the Block tab. On those two pages clicking it did nothing. It now

@@ -7,7 +7,8 @@
  * reader without JavaScript receives. Seeded inside a transaction that is rolled back.
  *
  * Pages: `unlinked.html` — an ordinary page, not linked to a product, holding both blocks with no
- * product chosen; `gone.html` — a page holding both blocks set to a product that is then deleted.
+ * product chosen; `gone.html` — a page holding both blocks set to a product that is then deleted;
+ * `chrome.html` — a Mini cart and a Wishlist link, each untouched and styled (shop-chrome.spec.js).
  *
  *   CACHE_DRIVER=array DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-shop-block-proof-fixtures
  */
@@ -112,7 +113,22 @@ try {
         $pages->publish($type, 'gone', ['title' => 'Gone', 'body' => $blocks((string) $gone['slug'])], '2026-07-01 09:00:00');
         $container->get(CatalogService::class)->deleteProduct($context, (string) $gone['uuid']);
 
-        foreach (['unlinked', 'gone'] as $slug) {
+        // The shop chrome's look (shop-chrome.spec.js): a Mini cart and a Wishlist link, each
+        // untouched and styled — the style settings must beat the shop stylesheet the blocks link.
+        $token = static fn (string $v): array => ['type' => 'token', 'value' => $v];
+        $look = ['style' => [
+            'colors' => ['surface' => $token('color.black'), 'text' => $token('color.white'), 'border' => $token('color.accent')],
+            'border' => ['width' => ['type' => 'choice', 'value' => 'thin'], 'style' => ['type' => 'choice', 'value' => 'solid']],
+            'radius' => $token('radius.sm'),
+        ]];
+        $pages->publish($type, 'chrome', ['title' => 'Chrome', 'body' => [
+            ['id' => 'chromecart01', 'type' => 'mini-cart', 'data' => [], 'settings' => []],
+            ['id' => 'chromecart02', 'type' => 'mini-cart', 'data' => [], 'settings' => $look],
+            ['id' => 'chromewish01', 'type' => 'wishlist-link', 'data' => ['label' => 'Saved'], 'settings' => []],
+            ['id' => 'chromewish02', 'type' => 'wishlist-link', 'data' => ['label' => 'Saved'], 'settings' => $look],
+        ]], '2026-07-01 09:00:00');
+
+        foreach (['unlinked', 'gone', 'chrome'] as $slug) {
             $response = $get('/landing/' . $slug . '?proof=1');
             if ($response->getStatusCode() !== 200) {
                 throw new RuntimeException("/landing/{$slug} answered {$response->getStatusCode()}");
@@ -134,4 +150,4 @@ try {
     $seed->restoreTenant($previous);
 }
 
-fwrite(STDOUT, "Wrote unlinked.html, gone.html to tools/runtime-browser/fixtures/shop-block-selection.\n");
+fwrite(STDOUT, "Wrote unlinked.html, gone.html, chrome.html to tools/runtime-browser/fixtures/shop-block-selection.\n");
