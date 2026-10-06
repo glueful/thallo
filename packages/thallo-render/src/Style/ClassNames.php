@@ -60,6 +60,8 @@ final class ClassNames
         'aside.padding.bottom' => 'apadb',
         'aside.padding.left' => 'apadl',
         'aside.surface' => 'abg',
+        'logos.height' => 'logoh',
+        'logos.max_width' => 'logow',
         'border.sides' => 'bsides',
         'colors.surface_opacity' => 'bgo',
         'backdrop.blur' => 'blur',

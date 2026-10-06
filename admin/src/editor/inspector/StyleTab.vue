@@ -81,6 +81,8 @@ const GROUPS: { key: string; label: string; match: (row: StylePropertyRow) => bo
   { key: 'tabs', label: 'Tabs', match: (r) => r.group === 'tabs' },
   // A hero's aside — its padding and fill; the aside's corners and shadow are the block's Effects.
   { key: 'aside', label: 'Aside', match: (r) => r.group === 'aside' },
+  // A Logos block's logo size; the gaps between the logos are the Layout tab's.
+  { key: 'logos', label: 'Logos', match: (r) => r.group === 'logos' },
   // How the block enters, how a container spaces out its children's entrances, and Ken Burns:
   // three capability groups, so a block shows only what it can do, under one heading.
   {
@@ -115,6 +117,8 @@ const LABELS: Record<string, string> = {
   'tabs.bar_radius': 'Bar corners',
   'tabs.tab_radius': 'Active tab corners',
   'aside.surface': 'Background',
+  'logos.height': 'Logo size',
+  'logos.max_width': 'Logo max width',
   'colors.surface': 'Background',
   'colors.text': 'Text colour',
   'colors.border': 'Border colour',

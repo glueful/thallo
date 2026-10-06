@@ -3,8 +3,8 @@
 /**
  * Build the fixtures of letter spacing, text transform and text decoration (settings version 12):
  * one page — Headings, Links and link-variant Buttons, each setting against an untouched control,
- * a Heading whose style class it overrides, and a Separator coloured and with a styled label —
- * rendered by the real render pack twice, published
+ * a Heading whose style class it overrides, a Separator coloured and with a styled label, and
+ * Logos blocks sized per width with their gaps set (one scrolling, one width-capped) — rendered by the real render pack twice, published
  * (`public.html`) and on the editor's canvas stage (`stage.html`), into
  * `tools/runtime-browser/fixtures/text-style/` (gitignored) with stylesheets inlined and scripts
  * dropped. Seeded inside a transaction that is rolled back. Read by text-style.spec.js.
@@ -67,7 +67,7 @@ $db = $container->get(Connection::class);
 $selfContained = static fn (string $html): string => layout_self_contained(
     $html,
     static fn (Request $request): Response => $app->handle($request),
-    [],
+    ListingPageSeed::IMAGES,
     $root,
 );
 
@@ -100,6 +100,16 @@ try {
         $choice = static fn (string $value): array => ['type' => 'choice', 'value' => $value];
         $reset = ['type' => 'reset'];
 
+        // Real logos for the Logos blocks: the listing seed's images, inlined into the pages.
+        $disk = (string) config($context, 'thallo.media_disk', 'local');
+        foreach (ListingPageSeed::IMAGES as $blob => $file) {
+            $db->table('blobs')->insert([
+                'uuid' => $blob, 'name' => basename($file), 'mime_type' => 'image/png', 'size' => 1,
+                'url' => 'uploads/' . basename($file), 'visibility' => 'public', 'status' => 'active',
+                'storage_type' => $disk, 'created_by' => 'user00000001', 'created_at' => '2026-07-01 00:00:00',
+            ]);
+        }
+
         // A style class giving casing, spacing and an underline; the Heading wearing it overrides
         // the casing alone.
         $db->table('style_classes')->insert([
@@ -129,6 +139,11 @@ try {
             'data' => ['label' => 'Read more', 'url' => '/more', 'variant' => 'link'],
             'settings' => $typography === [] ? [] : ['style' => ['typography' => $typography]],
         ];
+        $logos = static fn (string $id, bool $scroll = false, array $style = []): array => [
+            'id' => $id, 'type' => 'logos',
+            'data' => ['images' => array_keys(ListingPageSeed::IMAGES), 'scroll' => $scroll],
+            'settings' => $style === [] ? [] : ['style' => $style],
+        ];
         $body = [
             $heading('headplain001', 'Quiet title'),
             $heading('headcase0001', 'Quiet title', ['transform' => $choice('uppercase'), 'letter_spacing' => $choice('wider')]),
@@ -149,6 +164,21 @@ try {
                 'colors' => ['border' => ['type' => 'token', 'value' => 'color.accent']],
                 'typography' => ['transform' => $choice('uppercase'), 'letter_spacing' => $choice('wider')],
             ]]],
+            // Logos: untouched; sized per width with its gaps set; scrolling, sized; and capped.
+            $logos('logoplain001'),
+            $logos('logosized001', false, [
+                'logos' => ['height' => ['base' => $choice('sm'), 'lg' => $choice('xl')]],
+                'layout' => ['gap' => [
+                    'column' => ['base' => ['type' => 'token', 'value' => 'spacing.xs']],
+                    'row' => ['base' => ['type' => 'token', 'value' => 'spacing.none']],
+                ]],
+            ]),
+            $logos('logoscroll01', true, ['logos' => ['height' => ['base' => $choice('lg')]]]),
+            // A Narrow cap over Extra large logos: the wide one (4:3) scales down, the square fits.
+            $logos('logocapped01', false, ['logos' => [
+                'height' => ['base' => $choice('xl')],
+                'max_width' => ['base' => $choice('sm')],
+            ]]),
         ];
 
         $type = (string) $container->get(ContentTypeRepository::class)->create([

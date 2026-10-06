@@ -93,7 +93,7 @@ and the Motion settings every other block has, are
 | **Icon** (`icon`) | A single decorative icon from the Lucide set, optionally linked. | `icon` (string, required), `size` (enum: small, medium, large), `align` (enum: start, center, end), `url` (string), `label` (string) | — | Text colour, Placement |
 | **Image** (`image`) | A single image with a caption. | `image` (asset, required), `alt` (string), `caption` (string), `width` (number, px), `height` (number, px), `fill` (boolean) | — | Width, Placement, Corners, Shadow |
 | **Logo** (`logo`) | The site logo from **Site › Appearance**; falls back to the site name. | `size` (enum: small, medium, large), `link_home` (boolean) | — | — |
-| **Logos** (`logos`) | A "trusted by" strip of brand logos. | `title` (string), `images` (asset, several), `grayscale` (boolean), `scroll` (boolean) | — | — |
+| **Logos** (`logos`) | A "trusted by" strip of brand logos. | `title` (string), `images` (asset, several), `grayscale` (boolean), `scroll` (boolean) | — | Logo size, Logo max width; the row of logos: Gap |
 | **Map** (`map`) | A Google map of your address, with directions. No API key: Google's own embed. | `place` (string), `embed_url` (string), `zoom` (number, 1–21), `view` (enum: map, satellite), `height` (enum: small, medium, large), `directions` (boolean), `click_to_load` (boolean), `caption` (string) | — | Width, Corners, Border, Shadow |
 | **Video** (`video`) | An uploaded video or a YouTube or Vimeo embed. | `source` (enum: upload, embed), `video` (asset), `url` (string), `poster` (asset), `caption` (string), `width` (enum: normal, wide, full) | — | Width, Corners, Shadow |
 

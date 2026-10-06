@@ -129,6 +129,9 @@ watch(open, (o) => {
         data-test="media-picker-tabs"
       >
         <template #upload>
+          <!-- The drop area grows with its previews (min-h, never a fixed h): the area is
+               positioned, so a preview spilling out of a fixed height painted over the Upload
+               button below and took its clicks. -->
           <div class="space-y-3 pt-2">
             <UFileUpload
               v-if="multiple"
@@ -136,14 +139,14 @@ watch(open, (o) => {
               multiple
               icon="i-lucide-upload"
               label="Drop files here or click to browse"
-              class="h-44 w-full"
+              class="min-h-44 w-full"
             />
             <UFileUpload
               v-else
               v-model="singleFile"
               icon="i-lucide-upload"
               label="Drop a file here or click to browse"
-              class="h-44 w-full"
+              class="min-h-44 w-full"
             />
             <div class="flex justify-end">
               <UButton

@@ -13,6 +13,8 @@ export const CHOICE_LABELS: Record<string, Record<string, string>> = {
   'typography.letter_spacing': words(['tight', 'normal', 'wide', 'wider']),
   'typography.transform': words(['none', 'uppercase', 'lowercase', 'capitalize']),
   'typography.decoration': { none: 'None', underline: 'Underline', 'line-through': 'Line-through' },
+  'logos.height': { sm: 'Small', md: 'Medium', lg: 'Large', xl: 'Extra large' },
+  'logos.max_width': { sm: 'Narrow', md: 'Medium', lg: 'Wide', xl: 'Extra wide' },
   'colors.surface_opacity': percent(['100', '90', '80', '70', '60', '50']),
   'motion.entrance': words([
     'none',
