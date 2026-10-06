@@ -216,3 +216,18 @@ test('in a grid or a flex list, a card’s blocks have no item controls; the lis
   }
   served(recorded)
 })
+
+test('the + under the Entry list’s card on its Block tab arms the Blocks tab into the card', async ({
+  page,
+}) => {
+  const recorded = await openLayoutStage(page, { world: 'listing' })
+  await selectLoop(page)
+  await page.locator('[data-test="block-inspector"] [data-test="add-block"]').first().click()
+  await expect(page.locator('[data-test="palette-target"]')).toContainText('Entry list › card')
+  await page.locator('[data-test="palette-card-entry_date"]').click()
+  await expect.poll(() => recorded.applies.length).toBeGreaterThan(0)
+  expect(lastInsert(recorded)).toMatchObject({
+    position: { parent: LOOP, slot: 'card', index: 1 },
+    block: { type: 'entry_date' },
+  })
+})

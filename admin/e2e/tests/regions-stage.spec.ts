@@ -138,6 +138,31 @@ test('the + in a Footer block’s empty section arms the Blocks tab into it, and
     ])
 })
 
+test('the + under a Footer block’s section on its Block tab arms the Blocks tab into that section', async ({
+  page,
+}) => {
+  const recorded = await openRegionsStage(page, { session: 'footer-block' })
+  await page.locator('[data-test="regions-switch-footer"]').click()
+  await select(page, 'e2eftrblk001')
+  await expect(activeTab(page)).toHaveText('Block')
+  const inspector = page.locator('[data-test="block-inspector"]')
+  // The sections in order — top, copyright, links, social — each its own list with its own +.
+  await inspector.locator('[data-test="add-block"]').nth(1).click()
+  await expect(page.locator('[data-test="palette-target"]')).toContainText(
+    'Inserting at position 1 of Footer › copyright',
+  )
+  await page.locator('[data-test="palette-card-rich_text"]').click()
+  await expect
+    .poll(() => recorded.applies.flatMap((a) => (a as { operations?: unknown[] }).operations ?? []))
+    .toMatchObject([
+      {
+        type: 'InsertBlock',
+        position: { parent: 'e2eftrblk001', slot: 'copyright', index: 0 },
+        block: { type: 'rich_text' },
+      },
+    ])
+})
+
 test('the button’s corners set on its Block tab restyle it', async ({ page }) => {
   const recorded = await openRegionsStage(page)
   await select(page, 'e2ehdr000004')

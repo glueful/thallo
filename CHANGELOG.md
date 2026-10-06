@@ -5,6 +5,15 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Fixed
+- **The + buttons on a block's Block tab work on the Header & footer and Layouts pages.** Each
+  list a block holds, such as a Footer block's top, copyright, links and social, or an Entry
+  list's card, shows a + on the Block tab. On those two pages clicking it did nothing. It now
+  opens the Blocks tab aimed at that list, as on the Design page, and the next block you click
+  goes there.
+
 ## [1.0.0-beta.87] - 2026-10-06 — Developer Preview
 
 A fix for the editor's stage: a block added with nothing in it, such as a Links block in a
