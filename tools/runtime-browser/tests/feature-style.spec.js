@@ -75,3 +75,31 @@ test('the description takes its own size and the space above it', async ({ page 
   expect(Math.round(styled.top)).toBe(Math.round(1.5 * r));
   expect(Math.round(plain.top)).toBe(Math.round(0.5 * r));
 });
+
+// Align icon: a large icon beside a title and a description.
+const aligned = (page, align) => page.locator('main .thallo-block-feature').nth(IDS.length + ['start', 'center', 'end'].indexOf(align));
+/** The drawn icon's box and the text's box, in px. */
+const boxes = (loc) =>
+  loc.evaluate((el) => {
+    const box = (r) => ({ top: r.top, bottom: r.bottom, middle: (r.top + r.bottom) / 2 });
+    return {
+      icon: box(el.querySelector('.thallo-block-feature__marker svg').getBoundingClientRect()),
+      title: box(el.querySelector('.thallo-block-feature__title').getBoundingClientRect()),
+      body: box(el.querySelector('.thallo-block-feature__body').getBoundingClientRect()),
+    };
+  });
+
+test('Align icon Start puts the icon level with the top of the title', async ({ page }) => {
+  const b = await boxes(aligned(page, 'start'));
+  expect(Math.abs(b.icon.top - b.title.top)).toBeLessThanOrEqual(1);
+});
+
+test('Align icon Center puts the icon on the middle of the text', async ({ page }) => {
+  const b = await boxes(aligned(page, 'center'));
+  expect(Math.abs(b.icon.middle - b.body.middle)).toBeLessThanOrEqual(1);
+});
+
+test('Align icon End puts the icon level with the bottom of the text', async ({ page }) => {
+  const b = await boxes(aligned(page, 'end'));
+  expect(Math.abs(b.icon.bottom - b.body.bottom)).toBeLessThanOrEqual(1);
+});

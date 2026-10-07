@@ -340,12 +340,17 @@ Colour colours the icon, or the number; Size scales the icon (it is 1em) or the 
 icon on a background is drawn as a chip, with room around the glyph. These beat the Block tab's
 Marker colour, background and size where both are set.
 
-The space between the marker and the text, beside it or above it, is the Feature's own setting, in
-Spacing:
+The space between the marker and the text, beside it or above it, and where the marker sits
+against the text, are the Feature's own settings, in Spacing:
 
 | Setting | Path | Responsive | Class | Declaration |
 |---|---|---|---|---|
 | Space after icon | `feature.gap` | yes | `t-fgap-{name}` | `gap: var(--t-spacing-{name})` |
+| Align icon | `feature.align` | yes | `t-falign-{start,center,end}` | `align-items: flex-start / center / flex-end` |
+
+Align icon places the marker against the title and description: Start, Center or End — top,
+middle or bottom beside the text, left, centre or right above it. Unset, the marker is level with
+the top of the text.
 
 The description is the Feature's **Description** part: its own Typography, Text colour, and the
 space above it (Margin top). The block's Typography is the title's.

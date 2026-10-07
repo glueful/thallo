@@ -1,12 +1,14 @@
-// A Feature's Style tab (settings version 16): the marker's colour, background and size sit in the
-// Marker section beside its corners and shadow; the space between the marker and the text sits in
-// Spacing.
+// A Feature's Style tab (settings versions 16 and 17): the marker's colour, background and size sit
+// in the Marker section beside its corners and shadow; the space between the marker and the text, and
+// where the marker sits against the text, sit in Spacing.
 import { beforeEach, describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import StyleTab from '@/editor/inspector/StyleTab.vue'
 import { resetFolds } from '@/editor/inspector/styleGroupFolds'
 import type { BlockType } from '@/queries/blockTypes'
 import { classEditorSchema } from './helpers/classEditorSchema'
+import { CHOICE_LABELS } from '@/editor/inspector/choiceLabels'
+import { propertyDefinition } from '@/style/schema'
 
 const schema = classEditorSchema()
 const feature = {
@@ -53,5 +55,11 @@ describe("a Feature's Style tab", () => {
   it('offers the space between the marker and the text in Spacing', () => {
     const w = mountTab()
     expect(field(w, 'spacing', 'feature.gap').text()).toContain('Space after icon')
+  })
+  it('offers where the marker sits against the text in Spacing: start, centre or end', () => {
+    const w = mountTab()
+    expect(field(w, 'spacing', 'feature.align').text()).toContain('Align icon')
+    expect(propertyDefinition('feature.align')?.choices).toEqual(['start', 'center', 'end'])
+    expect(CHOICE_LABELS['feature.align']).toEqual({ start: 'Start', center: 'Center', end: 'End' })
   })
 })

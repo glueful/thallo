@@ -62,7 +62,10 @@ final class FeatureStyleTest extends AppTestCase
     public function testTheFeatureOffersTheNewSettings(): void
     {
         $caps = $this->container()->get(BlockStyleRegistry::class)->capabilitiesFor('feature');
-        foreach (['marker.color', 'marker.background', 'marker.size', 'feature.gap', 'typography.size'] as $path) {
+        $paths = [
+            'marker.color', 'marker.background', 'marker.size', 'feature.gap', 'feature.align', 'typography.size',
+        ];
+        foreach ($paths as $path) {
             self::assertTrue($caps->allows($path), $path);
         }
         $targets = $this->container()->get(BlockStyleRegistry::class)->targetsFor('feature');
@@ -93,6 +96,20 @@ final class FeatureStyleTest extends AppTestCase
     {
         $html = $this->render(['style' => ['feature' => ['gap' => ['base' => self::token('spacing.lg')]]]]);
         self::assertStringContainsString('t-fgap-lg', self::classOf($html, 'thallo-block-feature'));
+    }
+
+    public function testTheAlignmentLandsOnTheBlockAtEveryWidth(): void
+    {
+        $targets = $this->container()->get(BlockStyleRegistry::class)->targetsFor('feature');
+        self::assertSame('root', $targets?->targetFor('feature.align'));
+        $html = $this->render(['style' => ['feature' => ['align' => [
+            'base' => ['type' => 'choice', 'value' => 'center'],
+            'md' => ['type' => 'choice', 'value' => 'start'],
+        ]]]]);
+        $root = self::classOf($html, 'thallo-block-feature');
+        self::assertStringContainsString('t-falign-center', $root);
+        self::assertStringContainsString('md:t-falign-start', $root);
+        self::assertStringNotContainsString('t-falign-', self::classOf($html, 'thallo-block-feature__marker'));
     }
 
     public function testTheTitleAndTheDescriptionEachTakeTheirOwnTypography(): void

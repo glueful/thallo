@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 16;
+    public const VERSION = 17;
 
     /**
      * Paths that were once properties and are no longer. A stored value at one is dropped when a
@@ -276,6 +276,16 @@ final class StyleSchema
         ) {
             $byPath[$def->path] = $def;
         }
+        // Settings version 17: where a Feature's marker sits against its text — top, middle or bottom
+        // beside it, left, centre or right above it.
+        $byPath['feature.align'] = new PropertyDefinition(
+            'feature.align',
+            'feature',
+            [ValueKind::Choice, ValueKind::Reset],
+            true,
+            null,
+            ['start', 'center', 'end'],
+        );
         return self::$properties = $byPath;
     }
 

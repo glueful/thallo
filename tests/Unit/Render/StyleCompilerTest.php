@@ -621,4 +621,14 @@ final class StyleCompilerTest extends TestCase
         self::assertStringContainsString('.t-fgap-sm { gap: var(--t-spacing-sm); }', $css);
         self::assertStringContainsString('.lg\\:t-fgap-sm { gap: var(--t-spacing-sm); }', $css);
     }
+
+    public function testAFeaturesAlignmentCompilesToAlignItems(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+        self::assertSame('t-falign-center', ClassNames::for('feature.align', 'center'));
+        self::assertStringContainsString('.t-falign-start { align-items: flex-start; }', $css);
+        self::assertStringContainsString('.t-falign-center { align-items: center; }', $css);
+        self::assertStringContainsString('.t-falign-end { align-items: flex-end; }', $css);
+        self::assertStringContainsString('.md\\:t-falign-center { align-items: center; }', $css);
+    }
 }

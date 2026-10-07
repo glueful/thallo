@@ -1,5 +1,5 @@
 {
-    "version": 16,
+    "version": 17,
     "properties": [
         {
             "path": "spacing.padding.top",
@@ -1019,6 +1019,21 @@
             "choices": null,
             "kinds": [
                 "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "feature.align",
+            "group": "feature",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "start",
+                "center",
+                "end"
+            ],
+            "kinds": [
+                "choice",
                 "reset"
             ]
         }

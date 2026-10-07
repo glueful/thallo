@@ -201,6 +201,8 @@ const PROPERTIES: PropertyDefinition[] = [
   token('marker.background', 'marker', false, 'color'),
   token('marker.size', 'marker', true, 'typography.size'),
   token('feature.gap', 'feature', true, 'spacing'),
+  // Settings version 17: where a Feature's marker sits against its text.
+  choice('feature.align', 'feature', true, ['start', 'center', 'end']),
 ]
 
 const BY_PATH = new Map(PROPERTIES.map((p) => [p.path, p]))
