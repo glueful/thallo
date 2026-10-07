@@ -142,4 +142,33 @@ describe('forced hover across an in-place swap', () => {
     expect(after.map((el) => el.getAttribute('data-k'))).toEqual(['new1', 'new2', 'new3'])
     for (const el of after) expect(before).not.toContain(el)
   })
+
+  it('an in-place refresh that changes nothing leaves the forced block in place', async () => {
+    const inner = block('hvQ', `<a class="thallo-stage-part--link" data-k="q"></a>`)
+    const html = `<!doctype html><html><body>${page('HVQ', 1, inner)}</body></html>`
+    document.body.innerHTML = page('HVQ', 1, inner)
+    window.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      redirected: false,
+      text: () => Promise.resolve(html),
+    }) as unknown as typeof window.fetch
+    send({ type: 'thallo:stage-refresh', refresh_id: 'establish-q' })
+    await new Promise((r) => setTimeout(r, 0))
+    await new Promise((r) => setTimeout(r, 0))
+
+    force('hvQ', { part: 'link' })
+    const before = document.querySelector('[data-k="q"]')
+    expect(before!.hasAttribute('data-thallo-hover')).toBe(true)
+    posted.mockClear()
+    send({ type: 'thallo:stage-refresh', refresh_id: 'same' })
+    await new Promise((r) => setTimeout(r, 0))
+    await new Promise((r) => setTimeout(r, 0))
+    // The forced attribute is the stage's own state, never content: the block compares equal.
+    const ack = posted.mock.calls
+      .map((c) => c[0] as Record<string, unknown>)
+      .find((m) => m.type === 'thallo:stage-refreshed')
+    expect(ack).toMatchObject({ mode: 'patched', detail: 'swapped:0/1' })
+    expect(document.querySelector('[data-k="q"]')).toBe(before)
+    expect(before!.hasAttribute('data-thallo-hover')).toBe(true)
+  })
 })
