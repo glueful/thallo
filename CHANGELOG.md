@@ -5,6 +5,14 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Fixed
+- **Blocks in the header and footer can be aligned vertically.** A block placed straight in the
+  header or footer bar now has the Layout tab's **As an item** settings, so **Align self** lines it
+  up (top, centre, bottom or stretch) beside its neighbours. They appeared only inside a Container
+  before, though the bars lay their blocks out in a row like one.
+
 ## [1.0.0-beta.88] - 2026-10-06 — Developer Preview
 
 Mini cart, Wishlist link and Search take their look from the Style tab, with sections for their

@@ -72,6 +72,12 @@ const props = defineProps<{
   /** The parent's own style classes, so its mode resolves through the same cascade. */
   parentClasses?: StyleClassRef[]
   /**
+   * What the page's root arranges its blocks as, for a block with no parent. The header and footer
+   * bars are flex rows, so a block placed straight in one is a flex item there (Align self is its
+   * vertical alignment); a page body's root arranges nothing, so it is null.
+   */
+  rootDisplay?: 'flex' | 'grid' | null
+  /**
    * Fill empty cells (spec §11.3), as the page judged it — the same answer the stage's button is
    * drawn from. The tab decides nothing: absent or not visible, there is no button.
    */
@@ -327,17 +333,21 @@ const parentArranges = computed(() => {
   return caps.includes('layout.display') || caps.includes('layout')
 })
 
-/** The mode the parent has in force at the active breakpoint, or null with no parent to ask. */
-const parentDisplay = computed(() =>
-  props.parent && parentArranges.value
+/**
+ * The mode the parent has in force at the active breakpoint; with no parent, what the page's root
+ * arranges as (null when it arranges nothing).
+ */
+const parentDisplay = computed(() => {
+  if (!props.parent) return props.rootDisplay ?? null
+  return parentArranges.value
     ? effectiveDisplay(
         props.parent,
         props.activeBreakpoint,
         props.parentClasses ?? [],
         displayDefaults(props.parentType)?.display ?? 'flex',
       )
-    : null,
-)
+    : null
+})
 
 /** The item rows the parent's mode actually uses; block mode uses none. */
 const itemRows = computed(() => {

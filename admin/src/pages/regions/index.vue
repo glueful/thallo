@@ -360,6 +360,7 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
                 :parent="selectedParent"
                 :parent-type="selectedParentType"
                 :parent-classes="classRefsFor(selectedParent)"
+                root-display="flex"
                 :active-breakpoint="activeBreakpoint"
                 :fill="selectedFill"
                 :blocks-host="selectedBlocksHost"
