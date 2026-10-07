@@ -5,13 +5,15 @@ import { propertyDefinition, styleProperties } from './schema'
 // server's expansion, `style_paths`; only synthetic types — a style class, a region — expand here,
 // with the same rule as StyleCapabilities: a hover path exists only beside its resting path.
 
-/** Hover path → the resting path it changes (mirror of StyleSchema::HOVER). */
-export const HOVER_OF: Record<string, string> = {
-  'hover.colors.text': 'colors.text',
-  'hover.colors.surface': 'colors.surface',
-  'hover.colors.border': 'colors.border',
-  'hover.opacity': 'opacity',
-}
+/**
+ * Hover path → the resting path it changes (StyleSchema::HOVER), derived from the schema: the
+ * `hover` group, each path the resting one under `hover.` (pinned on both sides by the parity tests).
+ */
+export const HOVER_OF: Record<string, string> = Object.fromEntries(
+  styleProperties()
+    .filter((row) => row.group === 'hover')
+    .map((row) => [row.path, row.path.slice('hover.'.length)]),
+)
 
 /** A declaration's paths: a path, or a group naming its paths; then the hover rule. */
 export function expandDeclaration(declaration: readonly string[] | null | undefined): Set<string> {

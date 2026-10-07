@@ -438,6 +438,13 @@ final class StyleSchemaTest extends TestCase
             self::assertSame($resting, StyleSchema::restingPathOf($hover));
         }
         self::assertNull(StyleSchema::restingPathOf('colors.text'));
+        // The `hover` group is exactly HOVER, each path its resting path under `hover.` — the admin
+        // derives its copy from the schema by this rule.
+        $derived = [];
+        foreach (StyleSchema::pathsInGroup('hover') as $path) {
+            $derived[$path] = substr($path, strlen('hover.'));
+        }
+        self::assertSame(StyleSchema::HOVER, $derived);
     }
 
     public function testHoverAloneExpandsToNothing(): void
