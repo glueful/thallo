@@ -5,7 +5,13 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.91] - 2026-10-07 — Developer Preview
+
+Buttons, links, social icons and File links can say what they look like under the pointer and on
+keyboard focus, with a Normal / Hover switch in the Style tab and a live preview on the stage. The
+Feature block gains its marker's colour, background and size, the space after its icon, and a
+Description section. Line height Relaxed now changes the text. Run `php glueful thallo:provision`
+after `composer update`; read the Upgrade Notes.
 
 ### Added
 - **Opacity and a hover state in the style system** (settings version 15). Blocks can offer an
