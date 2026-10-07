@@ -6144,6 +6144,8 @@ export interface operations {
                 flags?: boolean[] | null
                 /** @description Starter content for a freshly inserted block. */
                 starter_content?: unknown[] | null
+                /** @description What the block (`block`) and each part (`parts`) offer, expanded, in schema order. */
+                style_paths?: unknown[] | null
               }[]
             }
           }
@@ -6330,6 +6332,8 @@ export interface operations {
                 flags?: boolean[] | null
                 /** @description Starter content for a freshly inserted block. */
                 starter_content?: unknown[] | null
+                /** @description What the block (`block`) and each part (`parts`) offer, expanded, in schema order. */
+                style_paths?: unknown[] | null
               }
             }
           }
@@ -6476,6 +6480,8 @@ export interface operations {
                 flags?: boolean[] | null
                 /** @description Starter content for a freshly inserted block. */
                 starter_content?: unknown[] | null
+                /** @description What the block (`block`) and each part (`parts`) offer, expanded, in schema order. */
+                style_paths?: unknown[] | null
               }
             }
           }
@@ -6776,6 +6782,8 @@ export interface operations {
                 flags?: boolean[] | null
                 /** @description Starter content for a freshly inserted block. */
                 starter_content?: unknown[] | null
+                /** @description What the block (`block`) and each part (`parts`) offer, expanded, in schema order. */
+                style_paths?: unknown[] | null
               }
             }
           }
@@ -6939,6 +6947,8 @@ export interface operations {
                 flags?: boolean[] | null
                 /** @description Starter content for a freshly inserted block. */
                 starter_content?: unknown[] | null
+                /** @description What the block (`block`) and each part (`parts`) offer, expanded, in schema order. */
+                style_paths?: unknown[] | null
               }
             }
           }
@@ -7085,6 +7095,8 @@ export interface operations {
                 flags?: boolean[] | null
                 /** @description Starter content for a freshly inserted block. */
                 starter_content?: unknown[] | null
+                /** @description What the block (`block`) and each part (`parts`) offer, expanded, in schema order. */
+                style_paths?: unknown[] | null
               }
             }
           }

@@ -38956,6 +38956,14 @@
                                                                 ],
                                                                 "items": {},
                                                                 "description": "Starter content for a freshly inserted block."
+                                                            },
+                                                            "style_paths": {
+                                                                "type": [
+                                                                    "array",
+                                                                    "null"
+                                                                ],
+                                                                "items": {},
+                                                                "description": "What the block (`block`) and each part (`parts`) offer, expanded, in schema order."
                                                             }
                                                         }
                                                     }
@@ -39596,6 +39604,14 @@
                                                             ],
                                                             "items": {},
                                                             "description": "Starter content for a freshly inserted block."
+                                                        },
+                                                        "style_paths": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {},
+                                                            "description": "What the block (`block`) and each part (`parts`) offer, expanded, in schema order."
                                                         }
                                                     }
                                                 }
@@ -39847,6 +39863,14 @@
                                                             ],
                                                             "items": {},
                                                             "description": "Starter content for a freshly inserted block."
+                                                        },
+                                                        "style_paths": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {},
+                                                            "description": "What the block (`block`) and each part (`parts`) offer, expanded, in schema order."
                                                         }
                                                     }
                                                 }
@@ -40580,6 +40604,14 @@
                                                             ],
                                                             "items": {},
                                                             "description": "Starter content for a freshly inserted block."
+                                                        },
+                                                        "style_paths": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {},
+                                                            "description": "What the block (`block`) and each part (`parts`) offer, expanded, in schema order."
                                                         }
                                                     }
                                                 }
@@ -40991,6 +41023,14 @@
                                                             ],
                                                             "items": {},
                                                             "description": "Starter content for a freshly inserted block."
+                                                        },
+                                                        "style_paths": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {},
+                                                            "description": "What the block (`block`) and each part (`parts`) offer, expanded, in schema order."
                                                         }
                                                     }
                                                 }
@@ -41370,6 +41410,14 @@
                                                             ],
                                                             "items": {},
                                                             "description": "Starter content for a freshly inserted block."
+                                                        },
+                                                        "style_paths": {
+                                                            "type": [
+                                                                "array",
+                                                                "null"
+                                                            ],
+                                                            "items": {},
+                                                            "description": "What the block (`block`) and each part (`parts`) offer, expanded, in schema order."
                                                         }
                                                     }
                                                 }
