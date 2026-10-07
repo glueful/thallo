@@ -30,7 +30,12 @@
             "motion.duration",
             "motion.delay",
             "motion.repeat",
-            "typography.style"
+            "typography.style",
+            "opacity",
+            "hover.colors.text",
+            "hover.colors.surface",
+            "hover.colors.border",
+            "hover.opacity"
         ],
         "parts": {}
     },
@@ -53,7 +58,24 @@
             "motion.delay",
             "motion.repeat"
         ],
-        "parts": {}
+        "parts": {
+            "link": [
+                "spacing.padding.top",
+                "spacing.padding.right",
+                "spacing.padding.bottom",
+                "spacing.padding.left",
+                "typography.size",
+                "radius",
+                "colors.surface",
+                "colors.text",
+                "colors.border",
+                "opacity",
+                "hover.colors.text",
+                "hover.colors.surface",
+                "hover.colors.border",
+                "hover.opacity"
+            ]
+        }
     },
     "links": {
         "block": [
@@ -98,7 +120,8 @@
                 "typography.letter_spacing",
                 "typography.transform",
                 "typography.decoration",
-                "typography.style"
+                "typography.style",
+                "hover.colors.text"
             ]
         }
     },
@@ -135,7 +158,12 @@
                 "colors.border",
                 "border.width",
                 "border.style",
-                "border.sides"
+                "border.sides",
+                "opacity",
+                "hover.colors.text",
+                "hover.colors.surface",
+                "hover.colors.border",
+                "hover.opacity"
             ]
         }
     },
@@ -172,7 +200,12 @@
                 "colors.border",
                 "border.width",
                 "border.style",
-                "border.sides"
+                "border.sides",
+                "opacity",
+                "hover.colors.text",
+                "hover.colors.surface",
+                "hover.colors.border",
+                "hover.opacity"
             ]
         }
     }

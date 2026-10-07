@@ -12,6 +12,12 @@ as the next release, never a mutated tag.
   Opacity setting and a Hover state: the text colour, background, border colour and opacity an
   element takes under the pointer and on keyboard focus. A hover value only exists beside the
   setting it changes, on the same part of the block.
+- **Hover and Opacity on buttons and links.** A Button's control, each link of a Links block, the
+  icon of a Social link (and a Social links row's Icon section, which every link inherits) and a
+  File block's link can set what they look like under the pointer and on keyboard focus, and how
+  opaque they are. A Social link's own hover value beats its row's, one value at a time.
+- **A File block's link has its own Link section**: background, text and border colour, corners,
+  size, padding, opacity and hover.
 
 ## [1.0.0-beta.90] - 2026-10-07 — Developer Preview
 

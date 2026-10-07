@@ -91,6 +91,7 @@ final class FooterAndSocialStyleTest extends AppTestCase
                 'radius' => $token('radius.sm'),
                 'typography' => ['size' => ['base' => $token('typography.size.lg')]],
                 'spacing' => ['padding' => ['top' => ['base' => $token('spacing.sm')]]],
+                'hover' => ['colors' => ['text' => $token('color.accent')]],
             ]]],
         ]]);
         $links = self::classesOf($html, 'thallo-block-social_link__link');
@@ -102,6 +103,7 @@ final class FooterAndSocialStyleTest extends AppTestCase
             ClassNames::for('radius', 'radius.sm'),
             ClassNames::for('typography.size', 'typography.size.lg'),
             ClassNames::for('spacing.padding.top', 'spacing.sm'),
+            ClassNames::for('hover.colors.text', 'color.accent'),
         ];
         foreach ($links as $classes) {
             foreach ($look as $class) {
