@@ -145,3 +145,23 @@ test('clears on a new selection', async ({ page }) => {
   await selectViaOutline(page, 'head0000000a')
   await expect(anyForced(page)).toHaveCount(0)
 })
+
+test('clears when a sibling joins the selection, the anchor unchanged', async ({ page }) => {
+  await openDesignPage(page)
+  await select(page, 'ctabutn0001')
+  await hoverSwitch(page, 'colors').click()
+  await expect(anyForced(page)).toHaveCount(1)
+  // The sibling Button joins; the anchor stays the first. Back on the Block tab: the shared Style
+  // tab is still mounted, and it previews nothing for a multi-selection.
+  await selectViaOutline(page, 'ctabutn0002', ['Meta'])
+  expect((await hooks(page)).selection.ids).toEqual(['ctabutn0001', 'ctabutn0002'])
+  await page
+    .locator('[data-test="inspector-tabs"]')
+    .getByRole('tab', { name: 'Block', exact: true })
+    .click()
+  await expect(anyForced(page)).toHaveCount(0)
+  await expect(page.locator('[data-test="style-state-hover-colors"]').first()).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  )
+})

@@ -254,6 +254,45 @@ describe('the Style tab forces while Hover is on', () => {
     expect(w.find('[data-test="style-field-hover.colors.text"]').exists()).toBe(true)
   })
 
+  it('extending the selection to a sibling clears the force and returns to Normal', async () => {
+    const stage = fake()
+    const w = mountWith(stage, button)
+    await w.find('[data-test="style-state-hover-colors"]').trigger('click')
+    const owner = stage.force.mock.calls[0]![0]
+    stage.clear.mockClear() // the mount's own clear (Normal) is not the one under test
+    const two = [
+      { id: 'b1', type: 'button', data: {}, settings: {} },
+      { id: 'b2', type: 'button', data: {}, settings: {} },
+    ]
+    // The anchor stays b1 (shift-click keeps it): only the multi-selection changes.
+    await w.setProps({ blocks: two, blockTypes: [button, button] } as never)
+    expect(stage.clear).toHaveBeenCalledWith(owner)
+    expect(w.find('[data-test="style-state-hover-colors"]').attributes('aria-pressed')).toBe(
+      'false',
+    )
+    // Back to the single block: still Normal, so nothing is forced until Hover is chosen again.
+    stage.force.mockClear()
+    await w.setProps({ blocks: undefined, blockTypes: undefined } as never)
+    expect(stage.force).not.toHaveBeenCalled()
+  })
+
+  it('extending to a block without hover rows clears the force too', async () => {
+    const stage = fake()
+    const links = blockType('links', { style_paths: starters.links })
+    const w = mountWith(stage, button)
+    await w.find('[data-test="style-state-hover-colors"]').trigger('click')
+    const owner = stage.force.mock.calls[0]![0]
+    stage.clear.mockClear() // the mount's own clear (Normal) is not the one under test
+    await w.setProps({
+      blocks: [
+        { id: 'b1', type: 'button', data: {}, settings: {} },
+        { id: 'b3', type: 'links', data: {}, settings: {} },
+      ],
+      blockTypes: [button, links],
+    } as never)
+    expect(stage.clear).toHaveBeenCalledWith(owner)
+  })
+
   it('a multi-selection forces nothing', async () => {
     const stage = fake()
     const blocks = [

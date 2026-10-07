@@ -207,8 +207,10 @@ function ordered(rows: StylePropertyRow[]): StylePropertyRow[] {
  * section of its own.
  */
 const hoverState = ref<'normal' | 'hover'>('normal')
+// A new selection — another block, or the same anchor extended to (or shrunk from) siblings — starts
+// in Normal: its sections are not the ones the Hover was for.
 watch(
-  () => props.block.id,
+  () => [props.block.id, (props.blocks ?? []).map((b) => b.id).join(',')].join('|'),
   () => {
     hoverState.value = 'normal'
   },
@@ -253,10 +255,11 @@ const hoverShown = computed(
     groups.value.some((g) => g.hasHover && !isFolded(g.key)),
 )
 watch(
-  () => [hoverShown.value, props.block.id] as const,
-  ([shown, id]) => {
-    if (stageHover === null || multi.value) return
-    if (!shown) return stageHover.clear(hoverOwner)
+  () => [hoverShown.value, props.block.id, multi.value] as const,
+  ([shown, id, several]) => {
+    if (stageHover === null) return
+    // A multi-selection previews nothing: one stage force is one block's look.
+    if (several || !shown) return stageHover.clear(hoverOwner)
     const context = props.context ?? 'block'
     if (context === 'part' && props.part) {
       stageHover.force(hoverOwner, {

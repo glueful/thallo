@@ -1784,7 +1784,11 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   // forgets it — gets it again as soon as it reports ready; a new selection ends it.
   const stageHover = createStageHover((request) => bridge.forceHover(request))
   provide(StageHoverKey, stageHover)
-  watch(selected, () => stageHover.clearAny())
+  // Any change of selection ends it — a new anchor, or siblings added to or taken from the anchor.
+  watch(
+    () => [selected.value, ...selection.value.ids].join(','),
+    () => stageHover.clearAny(),
+  )
   onBeforeUnmount(() => stageHover.clearAny())
   bridge.onStageState((placeholder, fingerprint) => {
     stagePlaceholder.value = placeholder

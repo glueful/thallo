@@ -185,6 +185,9 @@ $entries->saveDraft(
             'links' => [
                 ['id' => 'ctabutn0001', 'type' => 'button',
                     'data' => ['label' => 'Start', 'url' => '/start'], 'settings' => []],
+                // A sibling Button: the hover preview's multi-selection proof (hover-preview.spec.ts).
+                ['id' => 'ctabutn0002', 'type' => 'button',
+                    'data' => ['label' => 'Learn more', 'url' => '/more'], 'settings' => []],
             ],
         ], 'settings' => []],
         // The grid on the stage (container-layout spec §11.2): an empty grid, whose tracks are
