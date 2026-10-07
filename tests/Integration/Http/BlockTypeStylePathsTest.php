@@ -98,6 +98,25 @@ final class BlockTypeStylePathsTest extends AppTestCase
         self::assertStringContainsString('"parts":{}', $json);
     }
 
+    public function testAStoredDeclarationThatNoLongerParsesDoesNotFailTheList(): void
+    {
+        $this->create('brokenlater', ['spacing'], [
+            'targets' => ['root' => ['kind' => 'box']],
+            'map' => ['spacing' => 'root'],
+        ]);
+        // Written around the repository's checks: a declaration a later contract no longer accepts.
+        $this->connection()->table('block_types')->where('slug', 'brokenlater')->update([
+            'style_targets' => json_encode(['targets' => ['root' => ['kind' => 'nonsense']], 'map' => []]),
+        ]);
+        $response = $this->api()->index(Request::create('/x'));
+        self::assertSame(200, $response->getStatusCode());
+        $rows = array_column($this->data($response)['block_types'], null, 'slug');
+        // That type offers nothing it cannot prove (an empty list, not null: null would send the admin
+        // back to expanding the raw declaration); every other type keeps its paths.
+        self::assertSame(['block' => [], 'parts' => []], $rows['brokenlater']['style_paths']);
+        self::assertIsArray($rows['button']['style_paths']);
+    }
+
     public function testTheListCarriesStylePaths(): void
     {
         $rows = $this->data($this->api()->index(Request::create('/x')))['block_types'];

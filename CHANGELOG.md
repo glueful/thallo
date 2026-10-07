@@ -31,6 +31,8 @@ as the next release, never a mutated tag.
   effects on buttons, Links block links, File links and social links (the lift, the tint, the darker
   text) now apply only where the device's main input can hover; keyboard focus behaves as before. The
   editor's Hover preview shows exactly what the pointer would.
+- **Buttons no longer animate their hover for visitors who ask for reduced motion**, like the
+  theme's other links already did; their hover colour, border and opacity now fade with the rest.
 
 ### Upgrade Notes
 - `composer update && php glueful thallo:provision`. Provision gives existing installs the new
