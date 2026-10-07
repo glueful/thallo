@@ -48,7 +48,11 @@ function blockType(slug: string, decl: Partial<BlockType> = {}): BlockType {
   } as BlockType
 }
 
-function rendered(type: BlockType, extra: Record<string, unknown> = {}): string[] {
+async function rendered(
+  type: BlockType,
+  extra: Record<string, unknown> = {},
+  hover = false,
+): Promise<string[]> {
   const w = mount(StyleTab, {
     props: {
       block: { id: 'b1', type: type.slug, data: {}, settings: { style: {} } },
@@ -59,6 +63,15 @@ function rendered(type: BlockType, extra: Record<string, unknown> = {}): string[
       ...extra,
     } as never,
   })
+  if (hover) {
+    const toggle = w.find('[data-test^="style-state-hover-"]')
+    if (!toggle.exists()) return []
+    await toggle.trigger('click')
+    // Only the sections with a hover row show hover rows.
+    return w
+      .findAll('[data-test^="style-field-hover."]')
+      .map((f) => f.attributes('data-test')!.slice(12))
+  }
   return w.findAll('[data-test^="style-field-"]').map((f) => f.attributes('data-test')!.slice(12))
 }
 
@@ -73,10 +86,14 @@ beforeEach(() => {
 
 describe('the shared expansion fixtures', () => {
   for (const c of expansion.filter((x) => x.expect !== undefined)) {
-    it(`${c.name}: the block offers exactly its style_paths`, () => {
+    it(`${c.name}: the block offers exactly its style_paths`, async () => {
       const type = blockType('fixture', { ...c.declaration, style_paths: c.expect! })
       expect(effectivePaths(type)).toEqual(new Set(c.expect!.block))
-      expect(rendered(type).sort()).toEqual(styleRows(c.expect!.block))
+      expect((await rendered(type)).sort()).toEqual(styleRows(c.expect!.block))
+      // Hover shows exactly the hover paths the block offers.
+      expect((await rendered(type, {}, true)).sort()).toEqual(
+        c.expect!.block.filter(isHover).sort(),
+      )
     })
     for (const [part, paths] of Object.entries(c.expect!.parts)) {
       it(`${c.name}: part ${part} offers exactly its style_paths`, () => {
@@ -89,14 +106,19 @@ describe('the shared expansion fixtures', () => {
 
 describe('a sibling multi-selection', () => {
   for (const c of multiSelect) {
-    it(`${c.name}: shows only what every block offers`, () => {
+    it(`${c.name}: shows only what every block offers`, async () => {
       const types = c.slugs.map((slug) => blockType(slug, { style_paths: starters[slug] }))
       const shared = types
         .map(effectivePaths)
         .reduce((a, b) => new Set([...a].filter((p) => b.has(p))))
       expect([...shared].filter(isHover).sort()).toEqual([...c.expect_hover].sort())
       const blocks = types.map((t, i) => ({ id: `b${i}`, type: t.slug, data: {}, settings: {} }))
-      expect(rendered(types[0]!, { blocks, blockTypes: types }).sort()).toEqual(styleRows(shared))
+      expect((await rendered(types[0]!, { blocks, blockTypes: types })).sort()).toEqual(
+        styleRows(shared),
+      )
+      expect((await rendered(types[0]!, { blocks, blockTypes: types }, true)).sort()).toEqual(
+        [...c.expect_hover].sort(),
+      )
     })
   }
 })

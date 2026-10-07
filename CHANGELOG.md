@@ -16,6 +16,9 @@ as the next release, never a mutated tag.
   icon of a Social link (and a Social links row's Icon section, which every link inherits) and a
   File block's link can set what they look like under the pointer and on keyboard focus, and how
   opaque they are. A Social link's own hover value beats its row's, one value at a time.
+- **The Style tab's Normal / Hover switch.** The Colours and Effects sections of a block, a part
+  or a style class that offers a hover state switch between the resting look and the hover look; a
+  dot marks a section with hover values set.
 - **A File block's link has its own Link section**: background, text and border colour, corners,
   size, padding, opacity and hover.
 

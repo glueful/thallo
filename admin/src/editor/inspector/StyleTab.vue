@@ -17,7 +17,7 @@ import { readPath, settingSegments } from '@/editor/ops/apply'
 import { BREAKPOINTS } from '@/style/types'
 import { isFolded, toggleFold } from './styleGroupFolds'
 import { pathsForTab } from './tabMap'
-import { effectivePaths } from '@/style/capabilities'
+import { effectivePaths, HOVER_OF } from '@/style/capabilities'
 import { resolve } from '@/style/resolver'
 import { suppliedWeights, useFontLibrary } from '@/queries/fontLibrary'
 import type { ComputedTypography } from '@/composables/useCanvasBridge'
@@ -140,6 +140,10 @@ const LABELS: Record<string, string> = {
   'motion.stagger': 'Stagger children',
   'motion.ken_burns': 'Ken Burns',
   'colors.surface_opacity': 'Background opacity',
+  'hover.colors.text': 'Text colour',
+  'hover.colors.surface': 'Background',
+  'hover.colors.border': 'Border colour',
+  'hover.opacity': 'Opacity',
   opacity: 'Opacity',
   'backdrop.blur': 'Backdrop blur',
 }
@@ -189,14 +193,50 @@ function ordered(rows: StylePropertyRow[]): StylePropertyRow[] {
   return [...family, ...rows.filter((r) => r.path !== 'typography.family')]
 }
 
+/**
+ * Normal or Hover (hover state spec §6.2): one state for the whole tab, back to Normal on a new
+ * selection. In Hover a section shows only its rows' hover counterparts; the hover group never has a
+ * section of its own.
+ */
+const hoverState = ref<'normal' | 'hover'>('normal')
+watch(
+  () => props.block.id,
+  () => {
+    hoverState.value = 'normal'
+  },
+)
+/** Resting path → its hover path. */
+const HOVER_FOR: Record<string, string> = Object.fromEntries(
+  Object.entries(HOVER_OF).map(([hover, resting]) => [resting, hover]),
+)
+
 const groups = computed(() =>
   GROUPS.map((g) => {
-    const rows = ordered(
+    const resting = ordered(
       props.schema.properties.filter((r) => allowed.value.has(r.path) && g.match(r)),
     )
-    return { ...g, rows, items: itemsOf(rows), responsive: rows.some((r) => r.responsive) }
+    // The hover counterparts this target offers, in the schema's order.
+    const hoverPaths = new Set(
+      resting.map((r) => HOVER_FOR[r.path]).filter((p) => p && allowed.value.has(p)),
+    )
+    const hoverRows = props.schema.properties.filter((r) => hoverPaths.has(r.path))
+    const hasHover = hoverRows.length > 0
+    const rows = hasHover && hoverState.value === 'hover' ? hoverRows : resting
+    return {
+      ...g,
+      rows,
+      hoverRows,
+      hasHover,
+      items: itemsOf(rows),
+      responsive: rows.some((r) => r.responsive),
+    }
   }).filter((g) => g.rows.length > 0),
 )
+
+/** Whether any of a section's hover values is declared on this target or part (the Hover dot). */
+function hoverDeclared(rows: StylePropertyRow[]): boolean {
+  return rows.some((row) => readPath(style.value, settingSegments(row.path, null).slice(1)).present)
+}
 
 /** Which breakpoints carry an exact declaration for any property of the group (a dot). */
 function declaredAt(rows: StylePropertyRow[]): Breakpoint[] {
@@ -326,6 +366,34 @@ function setCount(rows: StylePropertyRow[]): number {
             <UIcon name="i-lucide-play" class="size-3" />
             Play
           </button>
+          <div
+            v-if="group.hasHover && !isFolded(group.key)"
+            class="flex gap-0.5"
+            role="group"
+            aria-label="State"
+            :data-test="`style-state-${group.key}`"
+          >
+            <button
+              v-for="s in ['normal', 'hover'] as const"
+              :key="s"
+              type="button"
+              class="relative rounded px-1.5 py-0.5 text-[10px] normal-case tracking-normal"
+              :class="
+                s === hoverState ? 'bg-primary text-inverted' : 'text-muted hover:text-default'
+              "
+              :aria-pressed="s === hoverState ? 'true' : 'false'"
+              :data-test="`style-state-${s}-${group.key}`"
+              @click="hoverState = s"
+            >
+              {{ s === 'normal' ? 'Normal' : 'Hover' }}
+              <span
+                v-if="s === 'hover' && hoverDeclared(group.hoverRows)"
+                class="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-warning"
+                aria-hidden="true"
+                :data-test="`style-state-dot-${group.key}`"
+              />
+            </button>
+          </div>
           <div
             v-if="!isFolded(group.key) && group.responsive"
             class="flex gap-0.5"
