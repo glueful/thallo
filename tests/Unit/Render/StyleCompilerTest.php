@@ -336,6 +336,31 @@ final class StyleCompilerTest extends TestCase
         self::assertSame('lg:t-logow-sm', ClassNames::for('logos.max_width', 'sm', 'lg'));
     }
 
+    public function testFontStyleAndTheFooterDividerCompileOnceForEveryWidth(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+        foreach (
+            [
+            '.t-fstyle-normal { font-style: normal; }',
+            '.t-fstyle-italic { font-style: italic; }',
+            '.t-fstyle-reset { font-style: revert-layer; }',
+            // The divider is the top section's bottom edge alone: never a box around it.
+            '.t-fdivc-accent { border-bottom-color: var(--t-color-accent); }',
+            '.t-fdivw-none { border-bottom-width: 0; }',
+            '.t-fdivw-thin { border-bottom-width: 1px; }',
+            '.t-fdivw-medium { border-bottom-width: 2px; }',
+            '.t-fdivw-thick { border-bottom-width: 4px; }',
+            '.t-fdivs-dashed { border-bottom-style: dashed; }',
+            ] as $rule
+        ) {
+            self::assertStringContainsString($rule, $css);
+        }
+        self::assertDoesNotMatchRegularExpression('/\.t-fdiv[cws]-[a-z]+ \{ border-(width|style|color):/', $css);
+        foreach (['fstyle', 'fdivc', 'fdivw', 'fdivs'] as $stem) {
+            self::assertStringNotContainsString(".md\\:t-{$stem}-", $css, 'set once for every width');
+        }
+    }
+
     public function testBorderSidesTakeTheOtherSidesAway(): void
     {
         $css = StyleCompiler::compile($this->vocabulary());

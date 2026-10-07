@@ -8,6 +8,15 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Added
+- **Font style:** Normal or Italic, a Typography setting on every block and part that has
+  Typography, and in style classes. Set once for every width. **Normal** takes the italic off text
+  the theme sets italic.
+- **The Footer block's divider can be styled.** A **Divider** group (Colour, Width, Style) styles
+  the line under the footer's top section, and only that line: width **None** hides it.
+- **Social links take their look from the Style tab.** The block's **Icon** section (Background,
+  Text colour, Border, Corners, Size, Padding) styles every icon in the row at once. Settings
+  version 14; style compiler 19. `thallo:provision` gives an existing install's Footer and Social
+  links blocks their new settings.
 - **The Search block and the results page look finished out of the box.** The field is one
   rounded control with a magnifier, a clear button and the Search button set into it, and an
   accent ring on focus; `/` jumps to it. The icon is a round button the size of the header's other

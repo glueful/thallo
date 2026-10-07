@@ -238,6 +238,20 @@ final class StyleTargetsTest extends TestCase
         self::assertNull($t->targetFor('typography.size'));
     }
 
+    public function testAPartMayBeDrawnByTheBlocksChildren(): void
+    {
+        $t = StyleTargets::fromDeclaration([
+            'targets' => ['root' => ['kind' => 'row']],
+            'map' => ['spacing' => 'root'],
+            'parts' => [
+                'icon' => ['label' => 'Icon', 'children' => true, 'capabilities' => ['colors']],
+                'link' => ['label' => 'Link', 'capabilities' => ['colors.text']],
+            ],
+        ]);
+        self::assertTrue($t->drawnByChildren('icon'));
+        self::assertFalse($t->drawnByChildren('link'), 'its own template draws a part by default');
+    }
+
     public function testAPartNamedLikeATargetOrWithAnUnknownCapabilityIsRefused(): void
     {
         $refused = static function (array $decl): string {

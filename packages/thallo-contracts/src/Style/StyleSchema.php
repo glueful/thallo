@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 13;
+    public const VERSION = 14;
 
     /**
      * Paths that were once properties and are no longer. A stored value at one is dropped when a
@@ -213,6 +213,20 @@ final class StyleSchema
         // the block's own group, as a tab strip's corners are.
         $defs[] = new PropertyDefinition('logos.height', 'logos', $choice, true, null, ['sm', 'md', 'lg', 'xl']);
         $defs[] = new PropertyDefinition('logos.max_width', 'logos', $choice, true, null, ['sm', 'md', 'lg', 'xl']);
+
+        // Settings version 14: a text's style, upright or italic — one value for every width, in
+        // Typography, so every target and part that has Typography has it. `normal` is a value: it
+        // takes the italic off text the theme sets italic.
+        $defs[] = new PropertyDefinition('typography.style', 'typography', $choice, false, null, ['normal', 'italic']);
+        // The Footer block's divider: the line under its top section. Its own paths, because a
+        // border setting would draw all four sides of that section; these style its bottom edge.
+        $defs[] = new PropertyDefinition('footer.divider_color', 'footer', $token, false, 'color');
+        $defs[] = new PropertyDefinition('footer.divider_width', 'footer', $choice, false, null, [
+            'none', 'thin', 'medium', 'thick',
+        ]);
+        $defs[] = new PropertyDefinition('footer.divider_style', 'footer', $choice, false, null, [
+            'solid', 'dashed', 'dotted',
+        ]);
 
         $byPath = [];
         foreach ($defs as $def) {

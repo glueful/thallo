@@ -200,6 +200,22 @@ final class TemplateLinterTest extends AppTestCase
         self::assertStringContainsString('Declared style part "link" is never styled', $unstyled[0]['message']);
     }
 
+    /**
+     * A part the block's children draw (a Social links block's icons) is never styled in the block's
+     * own template — each child reads it with parent_style_classes() — so it is not required there.
+     */
+    public function testAPartDrawnByChildrenIsNotRequiredInTheParentsTemplate(): void
+    {
+        $this->syncBlockStyleDeclarations();
+        $linter = $this->linter();
+        $row = '<div class="x{{ style_classes(\'root\') }}"{{ style_attrs(\'root\') }}{{ slot_attrs(\'items\') }}>'
+            . '{{ blocks(data.items) }}</div>';
+        self::assertSame([], $linter->lint($row, 'blocks/social_links.twig'));
+        $child = '<div class="y{{ style_classes(\'root\') }}"{{ style_attrs(\'root\') }}>'
+            . '<a class="z{{ parent_style_classes(\'icon\') }}" href="#"></a></div>';
+        self::assertSame([], $linter->lint($child, 'blocks/social_link.twig'));
+    }
+
     /** Visual builder spec §2.5: the target rules apply to a block template whose type declares targets. */
     public function testStyleTargetRulesApplyToDeclaredBlockTemplates(): void
     {

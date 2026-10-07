@@ -109,6 +109,9 @@ final readonly class StyleTargets
             $parts[$name] = [
                 'label' => is_string($spec['label'] ?? null) ? $spec['label'] : ucfirst($name),
                 'capabilities' => $capabilities,
+                // Drawn by the block's CHILD blocks (a Social links block's icons are its Social
+                // links'), which read it with parent_style_classes(), not by the block's own template.
+                'children' => ($spec['children'] ?? false) === true,
             ];
         }
 
@@ -156,6 +159,12 @@ final readonly class StyleTargets
     public function partLabel(string $part): string
     {
         return $this->parts[$part]['label'] ?? throw new \InvalidArgumentException("unknown part \"{$part}\"");
+    }
+
+    /** Whether a part is drawn by the block's child blocks rather than its own template. */
+    public function drawnByChildren(string $part): bool
+    {
+        return $this->parts[$part]['children'] ?? throw new \InvalidArgumentException("unknown part \"{$part}\"");
     }
 
     /** What a part may be styled with: its own capabilities, never the block's. */
