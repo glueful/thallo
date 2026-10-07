@@ -5,6 +5,22 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Added
+- **Each Social link has its own Icon section** (Background, Text colour, Border, Corners, Size,
+  Padding), so one icon can look different from the rest of the row. Where a link and its Social
+  links block both set something, the link's value wins. `thallo:provision` gives an existing
+  install's Social link blocks the section.
+
+### Fixed
+- **A Social link's Text colour colours its icon.** The theme's own grey on the link beat it.
+- **The Search icon's panel shows suggestions and messages under the field.** They sat inside the
+  field's row, squeezing the text box, so a message such as "Search is being rebuilt" appeared
+  beside the input.
+- **The arrow in the Search panel's button keeps its size.** Padding from the **Button** section
+  squeezed it to a dot; the button now widens instead.
+
 ## [1.0.0-beta.89] - 2026-10-07 — Developer Preview
 
 The Search block and the results page get a finished default look, and the Search icon a Size

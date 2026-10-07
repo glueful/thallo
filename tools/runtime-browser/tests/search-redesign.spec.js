@@ -122,3 +122,40 @@ test('on a wide screen Cancel is not shown; the panel is a card under the icon',
   const [trigger, panel] = [await page.locator('[data-search-trigger]').boundingBox(), await page.locator('#thallo-search-panel-blk2').boundingBox()];
   expect(panel.y).toBeGreaterThan(trigger.y + trigger.height);
 });
+
+test("in the icon's panel, suggestions open under the field, across the panel, not inside its row", async ({ page }) => {
+  await ready(page);
+  await page.locator('[data-search-trigger]').click();
+  await page.locator('#thallo-search-input-blk2').fill('oud');
+  const panelList = page.locator('#thallo-search-list-blk2');
+  await expect(panelList).toBeVisible();
+  const form = await page.locator('[data-key="blk2"] .thallo-search-form').boundingBox();
+  const box = await panelList.boundingBox();
+  expect(box.y).toBeGreaterThanOrEqual(form.y + form.height);
+  expect(box.width).toBeGreaterThanOrEqual(form.width - 1);
+});
+
+test("in the icon's panel, a message such as rebuilding shows under the field, not beside it", async ({ page }) => {
+  await ready(page, [], 'rebuilding');
+  await page.locator('[data-search-trigger]').click();
+  await page.locator('#thallo-search-input-blk2').fill('gt');
+  const status = page.locator('[data-key="blk2"] [data-search-status]');
+  await expect(status).toHaveText('Search is being rebuilt. Please try again later.');
+  const form = await page.locator('[data-key="blk2"] .thallo-search-form').boundingBox();
+  const box = await status.boundingBox();
+  expect(box.y).toBeGreaterThanOrEqual(form.y + form.height);
+  // The field keeps its full width: the input is not squeezed by the message.
+  expect((await page.locator('#thallo-search-input-blk2').boundingBox()).width).toBeGreaterThan(200);
+});
+
+test("the panel's arrow keeps its size when the Button section adds padding", async ({ page }) => {
+  await ready(page);
+  await page.locator('[data-search-trigger]').click();
+  // What the Button part's Padding utilities set (lg:t-pl-md lg:t-pr-md on a live site).
+  const button = page.locator('[data-key="blk2"] .thallo-search-form__submit');
+  await button.evaluate((el) => { el.style.paddingLeft = '1rem'; el.style.paddingRight = '1rem'; });
+  const arrow = await button.locator('svg').boundingBox();
+  expect(Math.round(arrow.width)).toBeGreaterThanOrEqual(16);
+  const b = await button.boundingBox();
+  expect(b.width).toBeGreaterThanOrEqual(arrow.width + 32 - 1);
+});

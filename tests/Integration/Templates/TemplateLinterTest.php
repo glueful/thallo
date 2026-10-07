@@ -211,9 +211,16 @@ final class TemplateLinterTest extends AppTestCase
         $row = '<div class="x{{ style_classes(\'root\') }}"{{ style_attrs(\'root\') }}{{ slot_attrs(\'items\') }}>'
             . '{{ blocks(data.items) }}</div>';
         self::assertSame([], $linter->lint($row, 'blocks/social_links.twig'));
+        // A Social link draws the row's Icon section and, over it, its own — which it must style.
         $child = '<div class="y{{ style_classes(\'root\') }}"{{ style_attrs(\'root\') }}>'
-            . '<a class="z{{ parent_style_classes(\'icon\') }}" href="#"></a></div>';
+            . '<a class="z{{ parent_style_classes(\'icon\', \'icon\') }}{{ style_classes(\'icon\') }}" href="#">'
+            . '</a></div>';
         self::assertSame([], $linter->lint($child, 'blocks/social_link.twig'));
+        $withoutOwn = '<div class="y{{ style_classes(\'root\') }}"{{ style_attrs(\'root\') }}>'
+            . '<a class="z{{ parent_style_classes(\'icon\') }}" href="#"></a></div>';
+        $issues = $linter->lint($withoutOwn, 'blocks/social_link.twig');
+        self::assertCount(1, $issues);
+        self::assertStringContainsString('Declared style part "icon" is never styled', $issues[0]['message']);
     }
 
     /** Visual builder spec §2.5: the target rules apply to a block template whose type declares targets. */
