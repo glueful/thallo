@@ -53,6 +53,8 @@ final class StyleCompilerTest extends TestCase
         self::assertSame('.md\\:t-pt-lg', ClassNames::selector('md:t-pt-lg'));
         self::assertSame('lg:t-fg-reset', ClassNames::reset('colors.text', 'lg'));
         self::assertSame('t-vis-hidden', ClassNames::for('visibility', 'hidden'));
+        self::assertSame('t-hover-bg-accent', ClassNames::for('hover.colors.surface', 'color.accent'));
+        self::assertSame('t-opacity-80', ClassNames::for('opacity', '80'));
         foreach (array_keys(StyleSchema::properties()) as $path) {
             self::assertArrayHasKey($path, ClassNames::STEMS, "every managed property has a class stem: {$path}");
         }
@@ -113,7 +115,9 @@ final class StyleCompilerTest extends TestCase
                 : ($def->choices ?? []);
             foreach ($values as $value) {
                 $selector = ClassNames::selector(ClassNames::for($path, $value));
-                self::assertStringContainsString($selector . ' {', $css, "{$path} {$value}");
+                // A hover value's rules are state rules (hover state spec §4.1): pointer, focus, forced.
+                $opening = StyleSchema::restingPathOf($path) !== null ? ':focus-visible, ' : ' {';
+                self::assertStringContainsString($selector . $opening, $css, "{$path} {$value}");
             }
             $reset = ClassNames::selector(ClassNames::reset($path));
             self::assertStringContainsString($reset . ' {', $css, "{$path} reset");
@@ -561,5 +565,48 @@ final class StyleCompilerTest extends TestCase
         } finally {
             exec('rm -rf ' . escapeshellarg($dir));
         }
+    }
+
+    public function testAHoverUtilityHasAGatedPointerBranchAndAFocusAndForcedBranch(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+        // The pointer branch: inside the one `(hover: hover)` block, so a tap on a phone leaves nothing.
+        self::assertSame(1, preg_match('/@media \(hover: hover\) \{\n(.*?)\n\}\n/s', $css, $pointer));
+        self::assertStringContainsString(
+            '.t-hover-bg-accent:hover { --t-surface: var(--t-color-accent); background: var(--t-color-accent); }',
+            $pointer[1],
+        );
+        self::assertStringNotContainsString(':focus-visible', $pointer[1]);
+        $branch = static fn (string $class, string $declarations): string =>
+            ".{$class}:focus-visible, .{$class}[data-thallo-hover] { {$declarations} }";
+        self::assertStringContainsString($branch(
+            't-hover-bg-accent',
+            '--t-surface: var(--t-color-accent); background: var(--t-color-accent);',
+        ), $css);
+        self::assertStringContainsString($branch('t-hover-fg-accent', 'color: var(--t-color-accent);'), $css);
+        self::assertStringContainsString($branch('t-hover-bc-accent', 'border-color: var(--t-color-accent);'), $css);
+        self::assertStringContainsString($branch('t-hover-opacity-70', 'opacity: 0.7;'), $css);
+    }
+
+    public function testAHoverResetIsEmpty(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+        self::assertStringContainsString('.t-hover-bg-reset { }', $css);
+        self::assertStringNotContainsString('.t-hover-bg-reset:hover', $css);
+    }
+
+    public function testOpacityIsOneValueForEveryWidth(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+        self::assertStringContainsString('.t-opacity-80 { opacity: 0.8; }', $css);
+        self::assertStringContainsString('.t-opacity-reset { opacity: revert-layer; }', $css);
+        self::assertStringNotContainsString('md\\:t-opacity-', $css);
+    }
+
+    public function testHoverRulesFollowTheBaseUtilities(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+        self::assertGreaterThan(strpos($css, '.t-bg-accent {'), strpos($css, '.t-hover-bg-accent:hover'));
+        self::assertLessThan(strpos($css, '@media (min-width: 768px)'), strpos($css, '.t-hover-bg-accent:hover'));
     }
 }

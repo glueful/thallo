@@ -75,8 +75,12 @@ final class StyleSchemaTest extends TestCase
             // the line under its top section, its colour, width and style.
             'typography.style',
             'footer.divider_color', 'footer.divider_width', 'footer.divider_style',
+            // The element's opacity, and the hover state: the hover version of each colour and of
+            // opacity (settings version 15).
+            'opacity',
+            'hover.colors.text', 'hover.colors.surface', 'hover.colors.border', 'hover.opacity',
         ], $paths);
-        self::assertSame(14, StyleSchema::VERSION);
+        self::assertSame(15, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
     }
 
@@ -209,7 +213,7 @@ final class StyleSchemaTest extends TestCase
             StyleSchema::pathsInGroup('layout.item'),
             StyleCapabilities::fromDeclaration(['layout.item'])->paths(),
         );
-        self::assertSame(14, StyleSchema::VERSION);
+        self::assertSame(15, StyleSchema::VERSION);
     }
 
     public function testMotionIsABlocksOwnGroupAndStaggerIsTheArrangersAlone(): void
@@ -417,5 +421,44 @@ final class StyleSchemaTest extends TestCase
         self::assertSame(['none', 'xs', 'sm', 'md', 'lg', 'xl'], Vocabulary::names('shadow'));
         self::assertSame(['xs', 'sm', 'md', 'lg', 'xl', '2xl', '3xl'], Vocabulary::names('typography.size'));
         self::assertCount(8 + 4 + 5 + 11 + 6 + 7, Vocabulary::all());
+    }
+
+    public function testHoverPathsMirrorTheirRestingPaths(): void
+    {
+        foreach (StyleSchema::HOVER as $hover => $resting) {
+            $def = StyleSchema::property($hover);
+            $base = StyleSchema::property($resting);
+            self::assertNotNull($def, $hover);
+            self::assertNotNull($base, $resting);
+            self::assertSame('hover', $def->group);
+            self::assertFalse($def->responsive, "{$hover}: one value for every width");
+            self::assertSame($base->kinds, $def->kinds, $hover);
+            self::assertSame($base->tokenDomain, $def->tokenDomain, $hover);
+            self::assertSame($base->choices, $def->choices, $hover);
+            self::assertSame($resting, StyleSchema::restingPathOf($hover));
+        }
+        self::assertNull(StyleSchema::restingPathOf('colors.text'));
+    }
+
+    public function testHoverAloneExpandsToNothing(): void
+    {
+        self::assertSame([], StyleCapabilities::fromDeclaration(['hover'])->paths());
+        // Declaration order is kept here; the published form is schema-ordered (StyleTargets::stylePaths).
+        self::assertSame(
+            ['hover.colors.text', 'colors.text'],
+            StyleCapabilities::fromDeclaration(['hover', 'colors.text'])->paths(),
+        );
+        self::assertSame(
+            ['colors.text'],
+            StyleCapabilities::fromDeclaration(['hover.colors.surface', 'colors.text'])->paths(),
+        );
+    }
+
+    public function testOrderedIsTableOrder(): void
+    {
+        self::assertSame(
+            ['colors.text', 'opacity', 'hover.colors.text'],
+            StyleSchema::ordered(['hover.colors.text', 'opacity', 'colors.text']),
+        );
     }
 }

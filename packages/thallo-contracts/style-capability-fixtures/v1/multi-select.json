@@ -1,0 +1,33 @@
+{
+  "cases": [
+    {
+      "name": "Button + Button",
+      "slugs": [
+        "button",
+        "button"
+      ],
+      "expect_hover": [
+        "hover.colors.text",
+        "hover.colors.surface",
+        "hover.colors.border",
+        "hover.opacity"
+      ]
+    },
+    {
+      "name": "Button + Links",
+      "slugs": [
+        "button",
+        "links"
+      ],
+      "expect_hover": []
+    },
+    {
+      "name": "Button + Social link",
+      "slugs": [
+        "button",
+        "social_link"
+      ],
+      "expect_hover": []
+    }
+  ]
+}

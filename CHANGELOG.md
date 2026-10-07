@@ -5,6 +5,14 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Added
+- **Opacity and a hover state in the style system** (settings version 15). Blocks can offer an
+  Opacity setting and a Hover state: the text colour, background, border colour and opacity an
+  element takes under the pointer and on keyboard focus. A hover value only exists beside the
+  setting it changes, on the same part of the block.
+
 ## [1.0.0-beta.90] - 2026-10-07 — Developer Preview
 
 Each Social link has its own Icon section, and its Text colour now colours the icon. The Search

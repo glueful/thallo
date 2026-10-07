@@ -1,0 +1,982 @@
+{
+    "version": 15,
+    "properties": [
+        {
+            "path": "spacing.padding.top",
+            "group": "spacing",
+            "responsive": true,
+            "token_domain": "spacing",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "spacing.padding.right",
+            "group": "spacing",
+            "responsive": true,
+            "token_domain": "spacing",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "spacing.padding.bottom",
+            "group": "spacing",
+            "responsive": true,
+            "token_domain": "spacing",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "spacing.padding.left",
+            "group": "spacing",
+            "responsive": true,
+            "token_domain": "spacing",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "spacing.margin.top",
+            "group": "spacing",
+            "responsive": true,
+            "token_domain": "spacing",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "spacing.margin.bottom",
+            "group": "spacing",
+            "responsive": true,
+            "token_domain": "spacing",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "width",
+            "group": "width",
+            "responsive": true,
+            "token_domain": "width",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "alignment.text",
+            "group": "alignment",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "start",
+                "center",
+                "end"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "alignment.content",
+            "group": "alignment",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "start",
+                "center",
+                "end",
+                "between",
+                "around",
+                "evenly"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "alignment.self",
+            "group": "alignment",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "start",
+                "center",
+                "end"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "typography.size",
+            "group": "typography",
+            "responsive": true,
+            "token_domain": "typography.size",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "typography.weight",
+            "group": "typography",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "regular",
+                "medium",
+                "semibold",
+                "bold"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "visibility",
+            "group": "visibility",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "visible",
+                "hidden"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "shadow",
+            "group": "shadow",
+            "responsive": true,
+            "token_domain": "shadow",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "radius",
+            "group": "radius",
+            "responsive": false,
+            "token_domain": "radius",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "colors.surface",
+            "group": "colors",
+            "responsive": false,
+            "token_domain": "color",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "colors.text",
+            "group": "colors",
+            "responsive": false,
+            "token_domain": "color",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "colors.border",
+            "group": "colors",
+            "responsive": false,
+            "token_domain": "color",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "border.width",
+            "group": "border",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "none",
+                "thin",
+                "thick"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "border.style",
+            "group": "border",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "solid",
+                "dashed"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "layout.display",
+            "group": "layout",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "flex",
+                "grid"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "layout.direction",
+            "group": "layout",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "row",
+                "column",
+                "row-reverse",
+                "column-reverse"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "layout.wrap",
+            "group": "layout",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "nowrap",
+                "wrap"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "layout.align_items",
+            "group": "layout",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "start",
+                "center",
+                "end",
+                "stretch",
+                "baseline"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "layout.columns",
+            "group": "layout",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "1",
+                "2",
+                "3",
+                "4",
+                "6",
+                "12",
+                "1-2",
+                "2-1",
+                "1-3",
+                "3-1",
+                "1-2-1",
+                "1-1-2",
+                "2-1-1"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "layout.gap.column",
+            "group": "layout",
+            "responsive": true,
+            "token_domain": "spacing",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "layout.gap.row",
+            "group": "layout",
+            "responsive": true,
+            "token_domain": "spacing",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "layout.content_width",
+            "group": "layout",
+            "responsive": true,
+            "token_domain": "width",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "layout.gutter",
+            "group": "layout",
+            "responsive": true,
+            "token_domain": "spacing",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "layout.min_height",
+            "group": "layout",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "auto",
+                "half",
+                "screen"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "layout.overflow",
+            "group": "layout",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "visible",
+                "hidden",
+                "auto"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "layout.span",
+            "group": "layout.item",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "10",
+                "11",
+                "12",
+                "full"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "layout.basis",
+            "group": "layout.item",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "auto",
+                "1/4",
+                "1/3",
+                "1/2",
+                "2/3",
+                "3/4",
+                "full"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "layout.grow",
+            "group": "layout.item",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "0",
+                "1"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "layout.shrink",
+            "group": "layout.item",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "0",
+                "1"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "layout.align_self",
+            "group": "layout.item",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "start",
+                "center",
+                "end",
+                "stretch"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "marker.radius",
+            "group": "marker",
+            "responsive": false,
+            "token_domain": "radius",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "marker.shadow",
+            "group": "marker",
+            "responsive": true,
+            "token_domain": "shadow",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "tabs.bar_radius",
+            "group": "tabs",
+            "responsive": false,
+            "token_domain": "radius",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "tabs.tab_radius",
+            "group": "tabs",
+            "responsive": false,
+            "token_domain": "radius",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "border.sides",
+            "group": "border",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "all",
+                "top",
+                "right",
+                "bottom",
+                "left"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "colors.surface_opacity",
+            "group": "backdrop",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "100",
+                "90",
+                "80",
+                "70",
+                "60",
+                "50"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "backdrop.blur",
+            "group": "backdrop",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "none",
+                "sm",
+                "md",
+                "lg"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "typography.line_height",
+            "group": "typography",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "tight",
+                "snug",
+                "normal",
+                "relaxed",
+                "loose"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "typography.family",
+            "group": "typography",
+            "responsive": false,
+            "token_domain": null,
+            "choices": null,
+            "kinds": [
+                "font",
+                "reset"
+            ]
+        },
+        {
+            "path": "typography.letter_spacing",
+            "group": "typography",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "tight",
+                "normal",
+                "wide",
+                "wider"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "typography.transform",
+            "group": "typography",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "none",
+                "uppercase",
+                "lowercase",
+                "capitalize"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "typography.decoration",
+            "group": "typography",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "none",
+                "underline",
+                "line-through"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "motion.entrance",
+            "group": "motion",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "none",
+                "fade",
+                "fade-up",
+                "fade-down",
+                "slide-left",
+                "slide-right",
+                "zoom-in"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "motion.duration",
+            "group": "motion",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "fast",
+                "normal",
+                "slow"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "motion.delay",
+            "group": "motion",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "none",
+                "short",
+                "medium",
+                "long"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "motion.repeat",
+            "group": "motion",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "once",
+                "always"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "motion.stagger",
+            "group": "motion.children",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "none",
+                "short",
+                "medium",
+                "long"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "motion.ken_burns",
+            "group": "motion.media",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "none",
+                "zoom-in",
+                "zoom-out",
+                "pan-left",
+                "pan-right"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "aside.padding.top",
+            "group": "aside",
+            "responsive": true,
+            "token_domain": "spacing",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "aside.padding.right",
+            "group": "aside",
+            "responsive": true,
+            "token_domain": "spacing",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "aside.padding.bottom",
+            "group": "aside",
+            "responsive": true,
+            "token_domain": "spacing",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "aside.padding.left",
+            "group": "aside",
+            "responsive": true,
+            "token_domain": "spacing",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "aside.surface",
+            "group": "aside",
+            "responsive": false,
+            "token_domain": "color",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "logos.height",
+            "group": "logos",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "sm",
+                "md",
+                "lg",
+                "xl"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "logos.max_width",
+            "group": "logos",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "sm",
+                "md",
+                "lg",
+                "xl"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "typography.style",
+            "group": "typography",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "normal",
+                "italic"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "footer.divider_color",
+            "group": "footer",
+            "responsive": false,
+            "token_domain": "color",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "footer.divider_width",
+            "group": "footer",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "none",
+                "thin",
+                "medium",
+                "thick"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "footer.divider_style",
+            "group": "footer",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "solid",
+                "dashed",
+                "dotted"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "opacity",
+            "group": "opacity",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "100",
+                "90",
+                "80",
+                "70",
+                "60",
+                "50"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "hover.colors.text",
+            "group": "hover",
+            "responsive": false,
+            "token_domain": "color",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "hover.colors.surface",
+            "group": "hover",
+            "responsive": false,
+            "token_domain": "color",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "hover.colors.border",
+            "group": "hover",
+            "responsive": false,
+            "token_domain": "color",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "hover.opacity",
+            "group": "hover",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "100",
+                "90",
+                "80",
+                "70",
+                "60",
+                "50"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        }
+    ]
+}

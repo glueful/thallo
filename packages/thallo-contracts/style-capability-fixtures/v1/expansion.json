@@ -1,0 +1,340 @@
+{
+  "cases": [
+    {
+      "name": "text-only Links",
+      "declaration": {
+        "style_capabilities": [
+          "spacing.padding.top"
+        ],
+        "style_targets": {
+          "targets": {
+            "root": {
+              "kind": "box"
+            }
+          },
+          "map": {
+            "spacing.padding.top": "root"
+          },
+          "parts": {
+            "link": {
+              "label": "Link",
+              "capabilities": [
+                "hover",
+                "colors.text"
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "block": [
+          "spacing.padding.top"
+        ],
+        "parts": {
+          "link": [
+            "colors.text",
+            "hover.colors.text"
+          ]
+        }
+      }
+    },
+    {
+      "name": "different targets, hover on root",
+      "declaration": {
+        "style_capabilities": [
+          "colors.text",
+          "colors.surface",
+          "hover"
+        ],
+        "style_targets": {
+          "targets": {
+            "root": {
+              "kind": "box"
+            },
+            "title": {
+              "kind": "text"
+            }
+          },
+          "map": {
+            "colors.text": "title",
+            "colors.surface": "root",
+            "hover": "root"
+          }
+        }
+      },
+      "expect": {
+        "block": [
+          "colors.surface",
+          "colors.text",
+          "hover.colors.surface"
+        ],
+        "parts": {}
+      }
+    },
+    {
+      "name": "different targets, hover on title",
+      "declaration": {
+        "style_capabilities": [
+          "colors.text",
+          "colors.surface",
+          "hover"
+        ],
+        "style_targets": {
+          "targets": {
+            "root": {
+              "kind": "box"
+            },
+            "title": {
+              "kind": "text"
+            }
+          },
+          "map": {
+            "colors.text": "title",
+            "colors.surface": "root",
+            "hover": "title"
+          }
+        }
+      },
+      "expect": {
+        "block": [
+          "colors.surface",
+          "colors.text",
+          "hover.colors.text"
+        ],
+        "parts": {}
+      }
+    },
+    {
+      "name": "an individual hover path on the wrong target",
+      "declaration": {
+        "style_capabilities": [
+          "colors.text",
+          "hover.colors.text"
+        ],
+        "style_targets": {
+          "targets": {
+            "root": {
+              "kind": "box"
+            },
+            "title": {
+              "kind": "text"
+            }
+          },
+          "map": {
+            "colors.text": "title",
+            "hover.colors.text": "root"
+          }
+        }
+      },
+      "error": "hover.colors.text maps to \"root\", but colors.text is on \"title\""
+    },
+    {
+      "name": "order: hover listed first",
+      "declaration": {
+        "style_capabilities": [
+          "hover",
+          "colors"
+        ],
+        "style_targets": {
+          "targets": {
+            "root": {
+              "kind": "box"
+            }
+          },
+          "map": {
+            "hover": "root",
+            "colors": "root"
+          }
+        }
+      },
+      "expect": {
+        "block": [
+          "colors.surface",
+          "colors.text",
+          "colors.border",
+          "hover.colors.text",
+          "hover.colors.surface",
+          "hover.colors.border"
+        ],
+        "parts": {}
+      }
+    },
+    {
+      "name": "order: hover listed last",
+      "declaration": {
+        "style_capabilities": [
+          "colors",
+          "hover"
+        ],
+        "style_targets": {
+          "targets": {
+            "root": {
+              "kind": "box"
+            }
+          },
+          "map": {
+            "colors": "root",
+            "hover": "root"
+          }
+        }
+      },
+      "expect": {
+        "block": [
+          "colors.surface",
+          "colors.text",
+          "colors.border",
+          "hover.colors.text",
+          "hover.colors.surface",
+          "hover.colors.border"
+        ],
+        "parts": {}
+      }
+    },
+    {
+      "name": "sibling parts keep their own",
+      "declaration": {
+        "style_capabilities": [],
+        "style_targets": {
+          "targets": {
+            "root": {
+              "kind": "box"
+            }
+          },
+          "map": {},
+          "parts": {
+            "a": {
+              "capabilities": [
+                "hover",
+                "colors.text"
+              ]
+            },
+            "b": {
+              "capabilities": [
+                "colors.surface"
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "block": [],
+        "parts": {
+          "a": [
+            "colors.text",
+            "hover.colors.text"
+          ],
+          "b": [
+            "colors.surface"
+          ]
+        }
+      }
+    },
+    {
+      "name": "order: block paths are published in schema order, not declaration order",
+      "declaration": {
+        "style_capabilities": [
+          "opacity",
+          "hover",
+          "colors.text"
+        ],
+        "style_targets": {
+          "targets": {
+            "root": {
+              "kind": "box"
+            }
+          },
+          "map": {
+            "opacity": "root",
+            "hover": "root",
+            "colors.text": "root"
+          }
+        }
+      },
+      "expect": {
+        "block": [
+          "colors.text",
+          "opacity",
+          "hover.colors.text",
+          "hover.opacity"
+        ],
+        "parts": {}
+      }
+    },
+    {
+      "name": "order: part paths are published in schema order",
+      "declaration": {
+        "style_capabilities": [],
+        "style_targets": {
+          "targets": {
+            "root": {
+              "kind": "box"
+            }
+          },
+          "map": {},
+          "parts": {
+            "a": {
+              "capabilities": [
+                "hover",
+                "opacity",
+                "colors.text"
+              ]
+            },
+            "b": {
+              "capabilities": [
+                "colors.text",
+                "opacity",
+                "hover"
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "block": [],
+        "parts": {
+          "a": [
+            "colors.text",
+            "opacity",
+            "hover.colors.text",
+            "hover.opacity"
+          ],
+          "b": [
+            "colors.text",
+            "opacity",
+            "hover.colors.text",
+            "hover.opacity"
+          ]
+        }
+      }
+    },
+    {
+      "name": "no hover",
+      "declaration": {
+        "style_capabilities": [
+          "colors",
+          "opacity"
+        ],
+        "style_targets": {
+          "targets": {
+            "root": {
+              "kind": "box"
+            }
+          },
+          "map": {
+            "colors": "root",
+            "opacity": "root"
+          }
+        }
+      },
+      "expect": {
+        "block": [
+          "colors.surface",
+          "colors.text",
+          "colors.border",
+          "opacity"
+        ],
+        "parts": {}
+      }
+    }
+  ]
+}
