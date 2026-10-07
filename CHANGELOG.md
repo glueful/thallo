@@ -10,7 +10,8 @@ as the next release, never a mutated tag.
 ### Changed
 - **Commerce → Products: categories, tags and attributes are added and edited in a slide-over
   panel**, as are an attribute's values, instead of a form below the list.
-- **Commerce → Products is centred** like Settings → General.
+- **The Categories, Tags and Attributes tabs of Commerce → Products are centred** like
+  Settings → General; the tabs and the Products table stay full width.
 - **Commerce → Products remembers its tab**: the open tab is in the address (`?tab=categories`,
   `tags`, `attributes`), so a refresh or a shared link opens the same tab.
 

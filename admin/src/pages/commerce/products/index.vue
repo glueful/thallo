@@ -168,88 +168,87 @@ async function confirmDelete() {
     </template>
 
     <template #body>
-      <!-- Centred like Settings → General. -->
-      <div class="mx-auto w-full max-w-6xl" data-test="products-content">
-        <UTabs v-model="tab" variant="link" :items="tabItems" :content="false" class="mb-4" />
+      <UTabs v-model="tab" variant="link" :items="tabItems" :content="false" class="mb-4" />
 
-        <template v-if="tab === 'products'">
-          <!-- The table toolbar (the Nuxt UI table layout): search on the left, filters on the
+      <template v-if="tab === 'products'">
+        <!-- The table toolbar (the Nuxt UI table layout): search on the left, filters on the
              right — moved out of the dashboard navbar so the controls sit with the data. -->
-          <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <UInput
-              v-model="search"
-              icon="i-lucide-search"
-              placeholder="Search products…"
-              class="w-64 max-w-full"
-              data-test="products-search"
-            />
-            <div class="flex items-center gap-2">
-              <USelect v-model="statusFilter" :items="statusFilterItems" class="w-36" />
-              <USelect v-model="typeFilter" :items="typeFilterItems" class="w-36" />
-            </div>
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <UInput
+            v-model="search"
+            icon="i-lucide-search"
+            placeholder="Search products…"
+            class="w-64 max-w-full"
+            data-test="products-search"
+          />
+          <div class="flex items-center gap-2">
+            <USelect v-model="statusFilter" :items="statusFilterItems" class="w-36" />
+            <USelect v-model="typeFilter" :items="typeFilterItems" class="w-36" />
           </div>
+        </div>
 
-          <div
-            v-if="canManage && selected.length > 0"
-            class="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-default p-3"
-            data-test="bulk-status-bar"
-          >
-            <span class="text-sm text-muted">{{ selected.length }} selected</span>
-            <UButton
-              size="xs"
-              color="neutral"
-              variant="ghost"
-              label="Clear"
-              @click="
-                () => {
-                  selected = []
-                }
-              "
-            />
-            <USelect
-              v-model="bulkTarget"
-              :items="bulkStatusItems"
-              placeholder="Set status…"
-              class="w-40"
-              data-test="bulk-status"
-            />
-            <UButton
-              size="sm"
-              label="Apply"
-              data-test="bulk-status-apply"
-              :disabled="!bulkTarget"
-              :loading="bulkStatus.isLoading.value"
-              @click="applyBulkStatus"
-            />
-          </div>
-
-          <ProductsTable
-            :rows="rows"
-            :status="queryStatus"
-            :can-manage="canManage"
-            :selected="selected"
-            @toggle-select="toggleSelect"
-            @toggle-select-all="selectAllVisible"
-            @delete-request="
-              (row) => {
-                pendingDelete = row
+        <div
+          v-if="canManage && selected.length > 0"
+          class="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-default p-3"
+          data-test="bulk-status-bar"
+        >
+          <span class="text-sm text-muted">{{ selected.length }} selected</span>
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            label="Clear"
+            @click="
+              () => {
+                selected = []
               }
             "
           />
-
-          <TablePagination
-            v-if="(data?.total ?? 0) > 0"
-            v-model:page="page"
-            v-model:per-page="perPage"
-            :total="data?.total ?? 0"
-            label="products"
+          <USelect
+            v-model="bulkTarget"
+            :items="bulkStatusItems"
+            placeholder="Set status…"
+            class="w-40"
+            data-test="bulk-status"
           />
-        </template>
+          <UButton
+            size="sm"
+            label="Apply"
+            data-test="bulk-status-apply"
+            :disabled="!bulkTarget"
+            :loading="bulkStatus.isLoading.value"
+            @click="applyBulkStatus"
+          />
+        </div>
 
-        <CategoriesTab v-else-if="tab === 'categories'" :can-manage="canManage" />
+        <ProductsTable
+          :rows="rows"
+          :status="queryStatus"
+          :can-manage="canManage"
+          :selected="selected"
+          @toggle-select="toggleSelect"
+          @toggle-select-all="selectAllVisible"
+          @delete-request="
+            (row) => {
+              pendingDelete = row
+            }
+          "
+        />
 
+        <TablePagination
+          v-if="(data?.total ?? 0) > 0"
+          v-model:page="page"
+          v-model:per-page="perPage"
+          :total="data?.total ?? 0"
+          label="products"
+        />
+      </template>
+
+      <!-- The taxonomy tabs' content sits in the Settings → General column; the tabs and the
+             Products table stay full width. -->
+      <div v-else class="mx-auto w-full max-w-6xl" data-test="taxonomy-content">
+        <CategoriesTab v-if="tab === 'categories'" :can-manage="canManage" />
         <TagsTab v-else-if="tab === 'tags'" :can-manage="canManage" />
-
         <AttributesTab v-else-if="tab === 'attributes'" :can-manage="canManage" />
       </div>
     </template>

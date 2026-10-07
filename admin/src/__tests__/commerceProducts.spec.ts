@@ -6937,11 +6937,28 @@ describe('commerce products page — the open tab lives in the URL; the content 
     expect(routerReplace).toHaveBeenLastCalledWith({ query: { q: 'kept' } })
   })
 
-  it('centres the content the way Settings → General does', async () => {
+  it('centres the Categories, Tags and Attributes content the way Settings → General does', async () => {
+    for (const [name, marker] of [
+      ['categories', 'category-add'],
+      ['tags', 'tag-add'],
+      ['attributes', 'attribute-add'],
+    ]) {
+      routeState.query = { tab: name! }
+      const wrapper = mount(ProductsIndex, { global: { stubs: pageStubs } })
+      await flushPromises()
+      const content = wrapper.find('[data-test="taxonomy-content"]')
+      expect(content.classes()).toEqual(expect.arrayContaining(['mx-auto', 'w-full', 'max-w-6xl']))
+      expect(content.find(`[data-test="${marker}"]`).exists()).toBe(true)
+      // The tabs themselves stay full width.
+      expect(content.find('[role="tablist"]').exists()).toBe(false)
+      wrapper.unmount()
+    }
+  })
+
+  it('leaves the tabs and the Products tab full width', async () => {
     const wrapper = mount(ProductsIndex, { global: { stubs: pageStubs } })
     await flushPromises()
-    const content = wrapper.find('[data-test="products-content"]')
-    expect(content.classes()).toEqual(expect.arrayContaining(['mx-auto', 'w-full', 'max-w-6xl']))
-    expect(content.find('[role="tablist"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="taxonomy-content"]').exists()).toBe(false)
+    expect(wrapper.find('.max-w-6xl').exists()).toBe(false)
   })
 })
