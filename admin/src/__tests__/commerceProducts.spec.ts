@@ -4123,7 +4123,7 @@ describe('CategoriesTab (category management)', () => {
   function mountTab(canManage = true) {
     return mount(CategoriesTab, {
       props: { canManage },
-      global: { stubs: { Modal: teleportStub } },
+      global: { stubs: { Modal: teleportStub, Slideover: teleportStub } },
     })
   }
 
@@ -4563,7 +4563,10 @@ describe('CategoriesTab (product assignment)', () => {
 
 describe('TagsTab (tag management)', () => {
   function mountTab(canManage = true) {
-    return mount(TagsTab, { props: { canManage }, global: { stubs: { Modal: teleportStub } } })
+    return mount(TagsTab, {
+      props: { canManage },
+      global: { stubs: { Modal: teleportStub, Slideover: teleportStub } },
+    })
   }
 
   it('renders each tag', () => {
@@ -4990,7 +4993,7 @@ describe('AttributesTab (attribute management)', () => {
   function mountTab(canManage = true) {
     return mount(AttributesTab, {
       props: { canManage },
-      global: { stubs: { Modal: teleportStub } },
+      global: { stubs: { Modal: teleportStub, Slideover: teleportStub } },
     })
   }
 
@@ -6787,5 +6790,158 @@ describe('DownloadsPanel', () => {
     await flushPromises()
 
     expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+  })
+})
+
+// ── The products page's taxonomy tabs: forms in a slide-over, the tab in the URL, centred ─────
+
+// A slide-over stub that marks itself, so a test can tell a form inside the panel from one inline.
+const slideoverStub = {
+  props: ['open', 'title'],
+  template:
+    '<div v-if="open" data-test="slideover" :data-title="title"><slot name="body" /><slot name="footer" /></div>',
+}
+const panel = (w: ReturnType<typeof mount>) => w.find('[data-test="slideover"]')
+const panelStubs = { Modal: teleportStub, Slideover: slideoverStub }
+
+describe('taxonomy add and edit forms open in a slide-over', () => {
+  it('Categories: New category opens the panel, and a successful create closes it', async () => {
+    categoriesData.value = []
+    categoryCreateMock.mockResolvedValue(category({ uuid: 'new-1', name: 'New', slug: 'new' }))
+    const wrapper = mount(CategoriesTab, {
+      props: { canManage: true },
+      global: { stubs: panelStubs },
+    })
+    expect(panel(wrapper).exists()).toBe(false)
+
+    await wrapper.find('[data-test="category-add"]').trigger('click')
+    expect(panel(wrapper).attributes('data-title')).toBe('New category')
+    expect(panel(wrapper).find('#category-form').exists()).toBe(true)
+    expect(panel(wrapper).find('[data-test="category-form-submit"]').exists()).toBe(true)
+
+    await panel(wrapper).find('[data-test="category-name-input"]').setValue('New')
+    await panel(wrapper).find('#category-form').trigger('submit')
+    await flushPromises()
+    expect(categoryCreateMock).toHaveBeenCalled()
+    expect(panel(wrapper).exists()).toBe(false)
+  })
+
+  it('Categories: a failed create keeps the panel open, with the error inside it', async () => {
+    categoriesData.value = []
+    categoryCreateMock.mockRejectedValue(new Error('Slug already in use.'))
+    const wrapper = mount(CategoriesTab, {
+      props: { canManage: true },
+      global: { stubs: panelStubs },
+    })
+    await wrapper.find('[data-test="category-add"]').trigger('click')
+    await panel(wrapper).find('[data-test="category-name-input"]').setValue('Dup')
+    await panel(wrapper).find('#category-form').trigger('submit')
+    await flushPromises()
+    expect(panel(wrapper).find('[data-test="category-form-error"]').exists()).toBe(true)
+  })
+
+  it('Categories: Edit opens the panel titled Edit category', async () => {
+    categoriesData.value = [category({ uuid: 'c1', name: 'Men', slug: 'men' })]
+    const wrapper = mount(CategoriesTab, {
+      props: { canManage: true },
+      global: { stubs: panelStubs },
+    })
+    await wrapper.find('[data-test="category-edit"]').trigger('click')
+    expect(panel(wrapper).attributes('data-title')).toBe('Edit category')
+    expect(
+      (panel(wrapper).find('[data-test="category-name-input"]').element as HTMLInputElement).value,
+    ).toBe('Men')
+  })
+
+  it('Tags: New tag opens the panel, and a successful create closes it', async () => {
+    tagCreateMock.mockResolvedValue(tag({ uuid: 'new-1', name: 'New', slug: 'new' }))
+    const wrapper = mount(TagsTab, { props: { canManage: true }, global: { stubs: panelStubs } })
+    await wrapper.find('[data-test="tag-add"]').trigger('click')
+    expect(panel(wrapper).attributes('data-title')).toBe('New tag')
+    await panel(wrapper).find('[data-test="tag-name-input"]').setValue('New')
+    await panel(wrapper).find('#tag-form').trigger('submit')
+    await flushPromises()
+    expect(tagCreateMock).toHaveBeenCalled()
+    expect(panel(wrapper).exists()).toBe(false)
+  })
+
+  it('Attributes: New attribute opens the panel, and a successful create closes it', async () => {
+    attributesPage.value = { attributes: [], total: 0, current_page: 1, per_page: 24 }
+    attributeCreateMock.mockResolvedValue(attribute({ uuid: 'new-1', name: 'Size', slug: 'size' }))
+    const wrapper = mount(AttributesTab, {
+      props: { canManage: true },
+      global: { stubs: panelStubs },
+    })
+    await wrapper.find('[data-test="attribute-add"]').trigger('click')
+    expect(panel(wrapper).attributes('data-title')).toBe('New attribute')
+    await panel(wrapper).find('[data-test="attribute-name-input"]').setValue('Size')
+    await panel(wrapper).find('#attribute-form').trigger('submit')
+    await flushPromises()
+    expect(attributeCreateMock).toHaveBeenCalled()
+    expect(panel(wrapper).exists()).toBe(false)
+  })
+
+  it('Attributes: Add value opens the panel named for the attribute, and a successful create closes it', async () => {
+    attributesPage.value = {
+      attributes: [attribute({ uuid: 'a1', name: 'Color', values: [] })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    attributeCreateValueMock.mockResolvedValue(
+      attributeValue({ uuid: 'v1', value: 'Red', slug: 'red' }),
+    )
+    const wrapper = mount(AttributesTab, {
+      props: { canManage: true },
+      global: { stubs: panelStubs },
+    })
+    await wrapper.find('[data-test="attribute-values-toggle"]').trigger('click')
+    await wrapper.find('[data-test="attribute-value-add"]').trigger('click')
+    expect(panel(wrapper).attributes('data-title')).toBe('New value for Color')
+    await panel(wrapper).find('[data-test="attribute-value-value-input"]').setValue('Red')
+    await panel(wrapper).find('#attribute-value-form').trigger('submit')
+    await flushPromises()
+    expect(attributeCreateValueMock).toHaveBeenCalled()
+    expect(panel(wrapper).exists()).toBe(false)
+  })
+})
+
+describe('commerce products page — the open tab lives in the URL; the content is centred', () => {
+  const tabNamed = (w: ReturnType<typeof mount>, name: string) =>
+    w.findAll('[role="tab"]').find((t) => t.text() === name)!
+
+  it('opens the tab the URL names, so a refresh stays on it', async () => {
+    routeState.query = { tab: 'tags' }
+    const wrapper = mount(ProductsIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+    expect(wrapper.find('[data-test="tag-add"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="new-product"]').exists()).toBe(false)
+  })
+
+  it('opens Products for a tab it does not know', async () => {
+    routeState.query = { tab: 'nonsense' }
+    const wrapper = mount(ProductsIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+    expect(wrapper.find('[data-test="new-product"]').exists()).toBe(true)
+  })
+
+  it('writes the tab to the URL when switching, and drops it for Products', async () => {
+    routeState.query = { q: 'kept' }
+    const wrapper = mount(ProductsIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+    await tabNamed(wrapper, 'Attributes').trigger('mousedown', { button: 0 })
+    await flushPromises()
+    expect(routerReplace).toHaveBeenLastCalledWith({ query: { q: 'kept', tab: 'attributes' } })
+    await tabNamed(wrapper, 'Products').trigger('mousedown', { button: 0 })
+    await flushPromises()
+    expect(routerReplace).toHaveBeenLastCalledWith({ query: { q: 'kept' } })
+  })
+
+  it('centres the content the way Settings → General does', async () => {
+    const wrapper = mount(ProductsIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+    const content = wrapper.find('[data-test="products-content"]')
+    expect(content.classes()).toEqual(expect.arrayContaining(['mx-auto', 'w-full', 'max-w-6xl']))
+    expect(content.find('[role="tablist"]').exists()).toBe(true)
   })
 })

@@ -5,6 +5,15 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Changed
+- **Commerce → Products: categories, tags and attributes are added and edited in a slide-over
+  panel**, as are an attribute's values, instead of a form below the list.
+- **Commerce → Products is centred** like Settings → General.
+- **Commerce → Products remembers its tab**: the open tab is in the address (`?tab=categories`,
+  `tags`, `attributes`), so a refresh or a shared link opens the same tab.
+
 ## [1.0.0-beta.92] - 2026-10-07 — Developer Preview
 
 The Feature block's icon can sit at the start, centre or end of its title and description, with

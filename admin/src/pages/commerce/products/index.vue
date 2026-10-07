@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { refDebounced } from '@vueuse/core'
 import {
   useCommerceProducts,
@@ -17,6 +17,7 @@ import CategoriesTab from './components/CategoriesTab.vue'
 import TagsTab from './components/TagsTab.vue'
 import AttributesTab from './components/AttributesTab.vue'
 
+const route = useRoute()
 const router = useRouter()
 const { success, warning, error: notifyError } = useNotify()
 
@@ -28,7 +29,26 @@ const canManage = computed(() => meta.value?.can_manage ?? false)
 // Task 19a: Tags joins as a third tab, same reasoning — TagsTab.vue (management mode) mounts here.
 // Task 19b: Attributes joins as a fourth tab, same reasoning — AttributesTab.vue (management mode)
 // mounts here.
-const tab = ref<'products' | 'categories' | 'tags' | 'attributes'>('products')
+// The open tab is the URL's `?tab=` (Products, the default, leaves it out), so a refresh or a
+// shared link opens the same tab.
+type Tab = 'products' | 'categories' | 'tags' | 'attributes'
+const TABS: readonly Tab[] = ['products', 'categories', 'tags', 'attributes']
+const tabFromQuery = (value: unknown): Tab =>
+  TABS.includes(value as Tab) ? (value as Tab) : 'products'
+const tab = ref<Tab>(tabFromQuery(route.query.tab))
+watch(tab, (next) => {
+  const query = { ...route.query }
+  if (next === 'products') delete query.tab
+  else query.tab = next
+  router.replace({ query })
+})
+// Back and forward change the query without a click: follow them.
+watch(
+  () => route.query.tab,
+  (value) => {
+    tab.value = tabFromQuery(value)
+  },
+)
 const tabItems = [
   { label: 'Products', value: 'products' },
   { label: 'Categories', value: 'categories' },
@@ -148,87 +168,90 @@ async function confirmDelete() {
     </template>
 
     <template #body>
-      <UTabs v-model="tab" variant="link" :items="tabItems" :content="false" class="mb-4" />
+      <!-- Centred like Settings → General. -->
+      <div class="mx-auto w-full max-w-6xl" data-test="products-content">
+        <UTabs v-model="tab" variant="link" :items="tabItems" :content="false" class="mb-4" />
 
-      <template v-if="tab === 'products'">
-        <!-- The table toolbar (the Nuxt UI table layout): search on the left, filters on the
+        <template v-if="tab === 'products'">
+          <!-- The table toolbar (the Nuxt UI table layout): search on the left, filters on the
              right — moved out of the dashboard navbar so the controls sit with the data. -->
-        <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <UInput
-            v-model="search"
-            icon="i-lucide-search"
-            placeholder="Search products…"
-            class="w-64 max-w-full"
-            data-test="products-search"
-          />
-          <div class="flex items-center gap-2">
-            <USelect v-model="statusFilter" :items="statusFilterItems" class="w-36" />
-            <USelect v-model="typeFilter" :items="typeFilterItems" class="w-36" />
+          <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <UInput
+              v-model="search"
+              icon="i-lucide-search"
+              placeholder="Search products…"
+              class="w-64 max-w-full"
+              data-test="products-search"
+            />
+            <div class="flex items-center gap-2">
+              <USelect v-model="statusFilter" :items="statusFilterItems" class="w-36" />
+              <USelect v-model="typeFilter" :items="typeFilterItems" class="w-36" />
+            </div>
           </div>
-        </div>
 
-        <div
-          v-if="canManage && selected.length > 0"
-          class="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-default p-3"
-          data-test="bulk-status-bar"
-        >
-          <span class="text-sm text-muted">{{ selected.length }} selected</span>
-          <UButton
-            size="xs"
-            color="neutral"
-            variant="ghost"
-            label="Clear"
-            @click="
-              () => {
-                selected = []
+          <div
+            v-if="canManage && selected.length > 0"
+            class="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-default p-3"
+            data-test="bulk-status-bar"
+          >
+            <span class="text-sm text-muted">{{ selected.length }} selected</span>
+            <UButton
+              size="xs"
+              color="neutral"
+              variant="ghost"
+              label="Clear"
+              @click="
+                () => {
+                  selected = []
+                }
+              "
+            />
+            <USelect
+              v-model="bulkTarget"
+              :items="bulkStatusItems"
+              placeholder="Set status…"
+              class="w-40"
+              data-test="bulk-status"
+            />
+            <UButton
+              size="sm"
+              label="Apply"
+              data-test="bulk-status-apply"
+              :disabled="!bulkTarget"
+              :loading="bulkStatus.isLoading.value"
+              @click="applyBulkStatus"
+            />
+          </div>
+
+          <ProductsTable
+            :rows="rows"
+            :status="queryStatus"
+            :can-manage="canManage"
+            :selected="selected"
+            @toggle-select="toggleSelect"
+            @toggle-select-all="selectAllVisible"
+            @delete-request="
+              (row) => {
+                pendingDelete = row
               }
             "
           />
-          <USelect
-            v-model="bulkTarget"
-            :items="bulkStatusItems"
-            placeholder="Set status…"
-            class="w-40"
-            data-test="bulk-status"
+
+          <TablePagination
+            v-if="(data?.total ?? 0) > 0"
+            v-model:page="page"
+            v-model:per-page="perPage"
+            :total="data?.total ?? 0"
+            label="products"
           />
-          <UButton
-            size="sm"
-            label="Apply"
-            data-test="bulk-status-apply"
-            :disabled="!bulkTarget"
-            :loading="bulkStatus.isLoading.value"
-            @click="applyBulkStatus"
-          />
-        </div>
+        </template>
 
-        <ProductsTable
-          :rows="rows"
-          :status="queryStatus"
-          :can-manage="canManage"
-          :selected="selected"
-          @toggle-select="toggleSelect"
-          @toggle-select-all="selectAllVisible"
-          @delete-request="
-            (row) => {
-              pendingDelete = row
-            }
-          "
-        />
+        <CategoriesTab v-else-if="tab === 'categories'" :can-manage="canManage" />
 
-        <TablePagination
-          v-if="(data?.total ?? 0) > 0"
-          v-model:page="page"
-          v-model:per-page="perPage"
-          :total="data?.total ?? 0"
-          label="products"
-        />
-      </template>
+        <TagsTab v-else-if="tab === 'tags'" :can-manage="canManage" />
 
-      <CategoriesTab v-else-if="tab === 'categories'" :can-manage="canManage" />
-
-      <TagsTab v-else-if="tab === 'tags'" :can-manage="canManage" />
-
-      <AttributesTab v-else-if="tab === 'attributes'" :can-manage="canManage" />
+        <AttributesTab v-else-if="tab === 'attributes'" :can-manage="canManage" />
+      </div>
     </template>
   </UDashboardPanel>
 

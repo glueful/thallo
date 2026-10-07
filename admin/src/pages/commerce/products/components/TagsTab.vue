@@ -377,53 +377,6 @@ const saveDisabled = computed(
       />
     </section>
 
-    <!-- Create/edit form -------------------------------------------------------------------- -->
-    <template v-if="managementMode">
-      <UAlert
-        v-if="formError"
-        color="error"
-        variant="subtle"
-        icon="i-lucide-triangle-alert"
-        data-test="tag-form-error"
-        :title="formError"
-      />
-
-      <UForm
-        v-if="formOpen"
-        id="tag-form"
-        ref="formRef"
-        :schema="schema"
-        :state="state"
-        class="grid grid-cols-2 gap-3 rounded-md border border-default p-3"
-        @submit="submitForm"
-      >
-        <UFormField label="Name" name="name" required>
-          <UInput v-model="state.name" class="w-full" data-test="tag-name-input" />
-        </UFormField>
-        <UFormField label="Slug" name="slug" required>
-          <!-- Immutable once created — shown for reference while editing, never submitted
-               (see submitForm's docblock). -->
-          <UInput
-            v-model="state.slug"
-            :disabled="editingUuid !== null"
-            class="w-full"
-            data-test="tag-slug-input"
-            @update:model-value="slugTouched = true"
-          />
-        </UFormField>
-        <div class="col-span-2 flex gap-2">
-          <UButton
-            type="submit"
-            size="xs"
-            :loading="create.isLoading.value || update.isLoading.value"
-            :label="editingUuid ? 'Save' : 'Create'"
-            data-test="tag-form-submit"
-          />
-          <UButton size="xs" color="neutral" variant="ghost" label="Cancel" @click="cancelForm" />
-        </div>
-      </UForm>
-    </template>
-
     <!-- Product tag assignment ---------------------------------------------------------------- -->
     <section
       v-if="product"
@@ -490,6 +443,67 @@ const saveDisabled = computed(
       />
     </section>
   </div>
+
+  <!-- Create/edit form, in a slide-over ------------------------------------------------------ -->
+  <USlideover
+    v-if="managementMode"
+    :open="formOpen"
+    :title="editingUuid ? 'Edit tag' : 'New tag'"
+    :ui="{ content: 'sm:max-w-md' }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) cancelForm()
+      }
+    "
+  >
+    <template #body>
+      <div class="space-y-4">
+        <UAlert
+          v-if="formError"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-triangle-alert"
+          data-test="tag-form-error"
+          :title="formError"
+        />
+        <UForm
+          id="tag-form"
+          ref="formRef"
+          :schema="schema"
+          :state="state"
+          class="space-y-4"
+          @submit="submitForm"
+        >
+          <UFormField label="Name" name="name" required>
+            <UInput v-model="state.name" class="w-full" data-test="tag-name-input" />
+          </UFormField>
+          <UFormField label="Slug" name="slug" required>
+            <!-- Immutable once created — shown for reference while editing, never submitted
+                 (see submitForm's docblock). -->
+            <UInput
+              v-model="state.slug"
+              :disabled="editingUuid !== null"
+              class="w-full"
+              data-test="tag-slug-input"
+              @update:model-value="slugTouched = true"
+            />
+          </UFormField>
+        </UForm>
+      </div>
+    </template>
+    <template #footer>
+      <div class="flex w-full items-center justify-between">
+        <UButton color="neutral" variant="ghost" label="Cancel" @click="cancelForm" />
+        <UButton
+          type="submit"
+          form="tag-form"
+          :loading="create.isLoading.value || update.isLoading.value"
+          :label="editingUuid ? 'Save' : 'Create'"
+          data-test="tag-form-submit"
+        />
+      </div>
+    </template>
+  </USlideover>
 
   <UModal
     :open="pendingDelete !== null"

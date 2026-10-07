@@ -391,74 +391,6 @@ const saveDisabled = computed(
       </div>
     </section>
 
-    <!-- Create/edit form -------------------------------------------------------------------- -->
-    <template v-if="managementMode">
-      <UAlert
-        v-if="formError"
-        color="error"
-        variant="subtle"
-        icon="i-lucide-triangle-alert"
-        data-test="category-form-error"
-        :title="formError"
-      />
-
-      <UForm
-        v-if="formOpen"
-        id="category-form"
-        ref="formRef"
-        :schema="schema"
-        :state="state"
-        class="grid grid-cols-2 gap-3 rounded-md border border-default p-3"
-        @submit="submitForm"
-      >
-        <UFormField label="Name" name="name" required>
-          <UInput v-model="state.name" class="w-full" data-test="category-name-input" />
-        </UFormField>
-        <UFormField label="Slug" name="slug" required>
-          <UInput
-            v-model="state.slug"
-            class="w-full"
-            data-test="category-slug-input"
-            @update:model-value="slugTouched = true"
-          />
-        </UFormField>
-        <UFormField label="Description" name="description" class="col-span-2">
-          <UTextarea
-            v-model="state.description"
-            class="w-full"
-            :rows="2"
-            data-test="category-description-input"
-          />
-        </UFormField>
-        <UFormField label="Parent" name="parent_uuid">
-          <USelect
-            v-model="state.parent_uuid"
-            :items="parentItems"
-            class="w-full"
-            data-test="category-parent-input"
-          />
-        </UFormField>
-        <UFormField label="Position" name="position">
-          <UInput
-            v-model.number="state.position"
-            type="number"
-            class="w-full"
-            data-test="category-position-input"
-          />
-        </UFormField>
-        <div class="col-span-2 flex gap-2">
-          <UButton
-            type="submit"
-            size="xs"
-            :loading="create.isLoading.value || update.isLoading.value"
-            :label="editingUuid ? 'Save' : 'Create'"
-            data-test="category-form-submit"
-          />
-          <UButton size="xs" color="neutral" variant="ghost" label="Cancel" @click="cancelForm" />
-        </div>
-      </UForm>
-    </template>
-
     <!-- Product category assignment ---------------------------------------------------------- -->
     <section
       v-if="product"
@@ -527,6 +459,88 @@ const saveDisabled = computed(
       />
     </section>
   </div>
+
+  <!-- Create/edit form, in a slide-over ------------------------------------------------------ -->
+  <USlideover
+    v-if="managementMode"
+    :open="formOpen"
+    :title="editingUuid ? 'Edit category' : 'New category'"
+    :ui="{ content: 'sm:max-w-md' }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) cancelForm()
+      }
+    "
+  >
+    <template #body>
+      <div class="space-y-4">
+        <UAlert
+          v-if="formError"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-triangle-alert"
+          data-test="category-form-error"
+          :title="formError"
+        />
+        <UForm
+          id="category-form"
+          ref="formRef"
+          :schema="schema"
+          :state="state"
+          class="space-y-4"
+          @submit="submitForm"
+        >
+          <UFormField label="Name" name="name" required>
+            <UInput v-model="state.name" class="w-full" data-test="category-name-input" />
+          </UFormField>
+          <UFormField label="Slug" name="slug" required>
+            <UInput
+              v-model="state.slug"
+              class="w-full"
+              data-test="category-slug-input"
+              @update:model-value="slugTouched = true"
+            />
+          </UFormField>
+          <UFormField label="Description" name="description">
+            <UTextarea
+              v-model="state.description"
+              class="w-full"
+              :rows="3"
+              data-test="category-description-input"
+            />
+          </UFormField>
+          <UFormField label="Parent" name="parent_uuid">
+            <USelect
+              v-model="state.parent_uuid"
+              :items="parentItems"
+              class="w-full"
+              data-test="category-parent-input"
+            />
+          </UFormField>
+          <UFormField label="Position" name="position">
+            <UInput
+              v-model.number="state.position"
+              type="number"
+              class="w-full"
+              data-test="category-position-input"
+            />
+          </UFormField>
+        </UForm>
+      </div>
+    </template>
+    <template #footer>
+      <div class="flex w-full items-center justify-between">
+        <UButton color="neutral" variant="ghost" label="Cancel" @click="cancelForm" />
+        <UButton
+          type="submit"
+          form="category-form"
+          :loading="create.isLoading.value || update.isLoading.value"
+          :label="editingUuid ? 'Save' : 'Create'"
+          data-test="category-form-submit"
+        />
+      </div>
+    </template>
+  </USlideover>
 
   <UModal
     :open="pendingDelete !== null"
