@@ -19,6 +19,12 @@ as the next release, never a mutated tag.
 - **A File block's link has its own Link section**: background, text and border colour, corners,
   size, padding, opacity and hover.
 
+### Changed
+- **On phones and tablets, a tap no longer leaves a hover look behind.** The default theme's hover
+  effects on buttons, Links block links, File links and social links (the lift, the tint, the darker
+  text) now apply only where the device's main input can hover; keyboard focus behaves as before. The
+  editor's Hover preview shows exactly what the pointer would.
+
 ## [1.0.0-beta.90] - 2026-10-07 — Developer Preview
 
 Each Social link has its own Icon section, and its Text colour now colours the icon. The Search

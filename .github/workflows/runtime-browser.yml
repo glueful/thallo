@@ -16,6 +16,7 @@ on:
       - 'scripts/build-shop-block-proof-fixtures'
       - 'scripts/build-typography-bridge-fixtures'
       - 'scripts/build-text-style-fixtures'
+      - 'scripts/build-hover-fixtures'
       - 'packages/thallo-commerce/assets/shop.js'
       - 'packages/thallo-commerce/src/Shop/ShopAssetMap.php'
       - 'tests/fixtures/render/**'
@@ -53,6 +54,7 @@ on:
       - 'scripts/build-shop-block-proof-fixtures'
       - 'scripts/build-typography-bridge-fixtures'
       - 'scripts/build-text-style-fixtures'
+      - 'scripts/build-hover-fixtures'
       - 'packages/thallo-commerce/assets/shop.js'
       - 'packages/thallo-commerce/src/Shop/ShopAssetMap.php'
       - 'tests/fixtures/render/**'
@@ -217,6 +219,12 @@ jobs:
       - name: Build the text style fixtures
         working-directory: .
         run: php scripts/build-text-style-fixtures
+
+      # The hover state as a browser computes it (hover.spec.js): pointer, forced preview, focus and
+      # touch, on one page published and on the canvas stage, then rolled back.
+      - name: Build the hover fixtures
+        working-directory: .
+        run: php scripts/build-hover-fixtures
 
       - uses: actions/setup-node@v6
         with:

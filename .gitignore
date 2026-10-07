@@ -65,6 +65,8 @@ tools/runtime-browser/fixtures/shop-block-selection/
 tools/runtime-browser/fixtures/typography-bridge/
 # scripts/build-text-style-fixtures renders one page published and on the stage (text-style.spec.js).
 tools/runtime-browser/fixtures/text-style/
+# scripts/build-hover-fixtures renders one page published and on the stage (hover.spec.js).
+tools/runtime-browser/fixtures/hover/
 
 # A capability override the e2e fixture builder writes for its own boot (restored on exit).
 /config/testing/thallo.php

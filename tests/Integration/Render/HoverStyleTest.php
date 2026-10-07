@@ -29,7 +29,7 @@ final class HoverStyleTest extends AppTestCase
     // hover state existed (captured on the tree before hover reached the blocks).
     private const CAPTURED_BUTTON = [
         'thallo-block-button__link thallo-block-button__link--solid thallo-block-button__link--primary'
-            . ' thallo-block-button__link--md t-radius-full t-bg-ink',
+            . ' thallo-block-button__link--md t-radius-full t-bg-black',
     ];
     private const CAPTURED_LINKS = ['thallo-block-links__link t-size-lg', 'thallo-block-links__link t-size-lg'];
     private const CAPTURED_SOCIAL = [
@@ -134,12 +134,12 @@ final class HoverStyleTest extends AppTestCase
         $html = $this->render([self::button('hoverbtn0001', ['style' => [
             'opacity' => self::choice('80'),
             'hover' => [
-                'colors' => ['surface' => self::token('color.ink'), 'text' => self::token('color.white')],
+                'colors' => ['surface' => self::token('color.black'), 'text' => self::token('color.white')],
                 'opacity' => self::choice('100'),
             ],
         ]])]);
         [$control] = self::classesOf($html, 'thallo-block-button__link');
-        foreach (['t-opacity-80', 't-hover-bg-ink', 't-hover-fg-white', 't-hover-opacity-100'] as $class) {
+        foreach (['t-opacity-80', 't-hover-bg-black', 't-hover-fg-white', 't-hover-opacity-100'] as $class) {
             self::assertStringContainsString($class, $control);
         }
         [$row] = self::classesOf($html, 'thallo-block-button');
@@ -208,12 +208,12 @@ final class HoverStyleTest extends AppTestCase
         $html = $this->render([self::button('hoverbtn0002', [
             'classes' => ['hoverclass01'],
             'style' => [
-                'colors' => ['surface' => self::token('color.ink')],
+                'colors' => ['surface' => self::token('color.black')],
                 'hover' => ['colors' => ['surface' => ['type' => 'reset']]],
             ],
         ])]);
         [$control] = self::classesOf($html, 'thallo-block-button__link');
-        self::assertStringContainsString('t-bg-ink', $control);
+        self::assertStringContainsString('t-bg-black', $control);
         self::assertStringContainsString('t-hover-bg-reset', $control);
         self::assertStringNotContainsString('t-hover-bg-accent', $control);
     }
@@ -233,7 +233,7 @@ final class HoverStyleTest extends AppTestCase
         return $this->render([
             self::button('plainbtn0001', ['style' => [
                 'radius' => self::token('radius.full'),
-                'colors' => ['surface' => self::token('color.ink')],
+                'colors' => ['surface' => self::token('color.black')],
             ]]),
             self::links('plainlinks01', ['parts' => ['link' => ['typography' => [
                 'size' => ['base' => self::token('typography.size.lg')],
