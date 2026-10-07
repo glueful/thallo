@@ -169,7 +169,7 @@ All six take a `spacing` token. There is no left or right margin: horizontal pla
 | Typeface | `typography.family` | no | `t-font-{id}` | `font-family:` the family's stack, and `font-synthesis` |
 | Size | `typography.size` | yes | `t-size-{name}` | `font-size: var(--t-typography-size-{name})` |
 | Weight | `typography.weight` | yes | `t-weight-{value}` | `font-weight:` `regular` 400, `medium` 500, `semibold` 600, `bold` 700 |
-| Line height | `typography.line_height` | yes | `t-leading-{value}` | `line-height:` `tight` 1.1, `snug` 1.25, `normal` 1.5, `relaxed` 1.65, `loose` 1.9 |
+| Line height | `typography.line_height` | yes | `t-leading-{value}` | `line-height:` `tight` 1.1, `snug` 1.25, `normal` 1.5, `relaxed` 1.75, `loose` 1.9 |
 | Letter spacing | `typography.letter_spacing` | no | `t-tracking-{value}` | `letter-spacing:` `tight` -0.025em, `normal` normal, `wide` 0.05em, `wider` 0.1em |
 | Text transform | `typography.transform` | no | `t-case-{value}` | `text-transform:` `none`, `uppercase`, `lowercase`, `capitalize` |
 | Text decoration | `typography.decoration` | no | `t-decor-{value}` | `text-decoration-line:` `none`, `underline`, `line-through` |
@@ -254,19 +254,101 @@ are the `backdrop` group, which a block type opts into separately from `colors`.
 | Border width | `border.width` | no | `t-bw-{value}` | `border-width:` `none` 0, `thin` 1px, `thick` 2px |
 | Border style | `border.style` | no | `t-bs-{solid,dashed}` | `border-style: solid` / `dashed` |
 | Border sides | `border.sides` | no | `t-bsides-{value}` | `all` declares nothing; a side sets `border-{other}-width: 0` on the other three |
+| Opacity | `opacity` | no | `t-opacity-{100,90,80,70,60,50}` | `opacity: 1` … `0.5` |
 
 Border sides is the last property in the contract's table, so its rule follows the width's: at
 equal specificity the later rule takes three of the four sides away.
 
+Opacity fades the whole element, text and icon included. Background opacity, in Colours, fades
+only the background.
+
+### Hover
+
+A link or button can say what it looks like under the pointer and under keyboard focus. On a
+section that has any of these settings, the Style tab shows a **Normal / Hover** switch: Hover
+shows the hover version of the section's settings and hides the rest. The switch is one state for
+the whole tab, and a dot on Hover marks a section with hover values set.
+
+| Setting | Path | Responsive | Class | Declaration |
+|---|---|---|---|---|
+| Text colour | `hover.colors.text` | no | `t-hover-fg-{name}` | as Text colour |
+| Background | `hover.colors.surface` | no | `t-hover-bg-{name}` | as Background |
+| Border colour | `hover.colors.border` | no | `t-hover-bc-{name}` | as Border colour |
+| Opacity | `hover.opacity` | no | `t-hover-opacity-{100,…,50}` | as Opacity |
+
+Each hover utility is compiled twice:
+
+```css
+@media (hover: hover) {
+  .t-hover-bg-accent:hover { --t-surface: var(--t-color-accent); background: var(--t-color-accent); }
+}
+.t-hover-bg-accent:focus-visible,
+.t-hover-bg-accent[data-thallo-hover] { --t-surface: var(--t-color-accent); background: var(--t-color-accent); }
+```
+
+- **The pointer** branch applies only where the device's primary input can hover, so a tap on a
+  phone or tablet leaves nothing behind. On a touch-screen laptop, whose primary input can hover, a
+  finger tap may still leave the hover look until the next tap elsewhere.
+- **Keyboard focus** shows the same look, so a keyboard user sees what a mouse user sees.
+- **`[data-thallo-hover]`** is the editor stage's preview of the hover look. It never appears on a
+  published page.
+
+What beats what:
+
+- A hover value beats the resting value of the same property, at every width. Setting a hover
+  background needs no resting one, and resetting one leaves the other.
+- A hover value beats the theme's hover rule for that property; the theme's other hover effects
+  (a button's lift, a link's thicker underline) stay.
+- A hover background paints at full strength, even over a Background opacity.
+- **Reset** on a hover value compiles to an empty rule: it takes away a hover value a style class
+  or a Social links row gave, and keeps the resting look.
+
+#### Hover rules in a theme
+
+The default theme writes each hover rule of these elements in three branches, so the stage's
+Hover preview shows exactly what the pointer would, and a tap on a phone does not leave it behind:
+
+```css
+@media (hover: hover) {
+  .thallo-block-file__link:hover { background: var(--surface); }
+}
+.thallo-block-file__link:focus-visible,
+.thallo-block-file__link[data-thallo-hover] { background: var(--surface); }
+```
+
+Keep `:focus-visible` only where the rule already had it. A custom theme's hover rules keep
+working on a pointer unchanged. Until they take this form, the stage previews only the hover
+values set in the Style tab, and the theme's hover look may stay on a phone after a tap.
+Transitions are the theme's to set: the compiled utilities set none. The default theme fades every
+property a hover value can change on these elements, and turns the fades off under
+`prefers-reduced-motion: reduce`.
+
 ### Marker
 
-The Feature block's icon chip or number badge is a target of its own, so it has its own corners
-and shadow beside the card's.
+The Feature block's icon chip or number badge is a target of its own, so it has its own corners,
+shadow, colour, background and size beside the card's.
 
 | Setting | Path | Responsive | Class | Declaration |
 |---|---|---|---|---|
 | Corners | `marker.radius` | no | `t-mradius-{name}` | `border-radius: var(--t-radius-{name})` |
 | Shadow | `marker.shadow` | yes | `t-mshadow-{name}` | `box-shadow: var(--t-shadow-{name})` |
+| Colour | `marker.color` | no | `t-mcolor-{name}` | `color: var(--t-color-{name})` |
+| Background | `marker.background` | no | `t-mbg-{name}` | `background: var(--t-color-{name})` |
+| Size | `marker.size` | yes | `t-msize-{name}` | `font-size: var(--t-typography-size-{name})` |
+
+Colour colours the icon, or the number; Size scales the icon (it is 1em) or the number's text. An
+icon on a background is drawn as a chip, with room around the glyph. These beat the Block tab's
+Marker colour, background and size where both are set.
+
+The space between the marker and the text, beside it or above it, is the Feature's own setting, in
+Spacing:
+
+| Setting | Path | Responsive | Class | Declaration |
+|---|---|---|---|---|
+| Space after icon | `feature.gap` | yes | `t-fgap-{name}` | `gap: var(--t-spacing-{name})` |
+
+The description is the Feature's **Description** part: its own Typography, Text colour, and the
+space above it (Margin top). The block's Typography is the title's.
 
 ### Tabs
 
@@ -466,7 +548,16 @@ them.
 
 The group names a capability list may use are the contract's own: `spacing`, `width`,
 `alignment`, `typography`, `visibility`, `shadow`, `radius`, `colors`, `border`, `layout`,
-`layout.item`, `marker`, `tabs`, `backdrop`, `motion`, `motion.children`, `motion.media`.
+`layout.item`, `marker`, `tabs`, `backdrop`, `motion`, `motion.children`, `motion.media`,
+`opacity`, `hover`, `feature`.
+
+`hover` gives a target the hover version of each colour and of opacity **it already has**, and no
+other: the Links block's links, which have a text colour only, get a hover text colour only. The
+rule is per target: on a block with several targets, a hover setting exists only where `hover`
+and its resting setting land on the same target. Mapping the `hover` group to a target skips what
+that target cannot have; mapping one hover path (`'hover.colors.text' => 'root'`) to a target that
+lacks its resting path is refused. The admin reads what each block and part offers, already
+expanded, from the block type's `style_paths`.
 
 A target's kind decides what may land on it, and the declaration is refused otherwise.
 

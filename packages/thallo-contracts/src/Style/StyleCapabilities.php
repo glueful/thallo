@@ -52,12 +52,30 @@ final readonly class StyleCapabilities
                 $paths[$path] = true;
             }
         }
+        // A hover path exists only beside its resting path (hover state spec §2.2), whichever was
+        // listed first.
+        foreach (array_keys($paths) as $path) {
+            $resting = StyleSchema::restingPathOf($path);
+            if ($resting !== null && !isset($paths[$resting])) {
+                unset($paths[$path]);
+            }
+        }
         return new self(array_keys($paths));
     }
 
     public function allows(string $path): bool
     {
         return in_array($path, $this->paths, true);
+    }
+
+    /**
+     * The paths $keep keeps, in this set's order.
+     *
+     * @param callable(string): bool $keep
+     */
+    public function filter(callable $keep): self
+    {
+        return new self(array_values(array_filter($this->paths, $keep)));
     }
 
     /** @return list<string> */

@@ -5,7 +5,7 @@
 // Only properties `tabMap` assigns to Style appear here; width, placement and content
 // distribution moved to the Layout tab (container-layout spec §5), because how wide a box is and
 // how it sits in its parent are layout decisions, not styling ones.
-import { computed, inject, ref, watch } from 'vue'
+import { computed, inject, onBeforeUnmount, ref, watch } from 'vue'
 import type { BlockType } from '@/queries/blockTypes'
 import type { StylePropertyRow, StyleSchemaResult } from '@/queries/styleSchema'
 import type { Breakpoint, StyleClassRef, StyleValue } from '@/style/types'
@@ -17,6 +17,8 @@ import { readPath, settingSegments } from '@/editor/ops/apply'
 import { BREAKPOINTS } from '@/style/types'
 import { isFolded, toggleFold } from './styleGroupFolds'
 import { pathsForTab } from './tabMap'
+import { effectivePaths, HOVER_OF } from '@/style/capabilities'
+import { StageHoverKey, hoverTargets } from '@/editor/stage/stageHover'
 import { resolve } from '@/style/resolver'
 import { suppliedWeights, useFontLibrary } from '@/queries/fontLibrary'
 import type { ComputedTypography } from '@/composables/useCanvasBridge'
@@ -46,6 +48,13 @@ const props = defineProps<{
   canPlayMotion?: boolean
   /** A part's Style tab (`context` 'part'): the part's name, which the stage marks it by. */
   part?: string
+  /** A part's Style tab: whose elements its forced hover reaches (the part's declared scope). */
+  partScope?: 'own' | 'children'
+  /**
+   * The host shows another tab over this one, which it keeps mounted: no forced hover then. (A
+   * Boolean prop left out is false, so the default — shown — needs no binding.)
+   */
+  hidden?: boolean
 }>()
 
 const multi = computed(() => (props.blocks?.length ?? 0) > 1)
@@ -60,7 +69,12 @@ const emit = defineEmits<{
 }>()
 
 const GROUPS: { key: string; label: string; match: (row: StylePropertyRow) => boolean }[] = [
-  { key: 'spacing', label: 'Spacing', match: (r) => r.group === 'spacing' },
+  // A Feature's space between its marker and its text is spacing too.
+  {
+    key: 'spacing',
+    label: 'Spacing',
+    match: (r) => r.group === 'spacing' || r.group === 'feature',
+  },
   // Alignment splits across tabs: only text alignment is left here.
   { key: 'text', label: 'Text', match: (r) => r.group === 'alignment' },
   { key: 'typography', label: 'Typography', match: (r) => r.group === 'typography' },
@@ -73,7 +87,8 @@ const GROUPS: { key: string; label: string; match: (row: StylePropertyRow) => bo
   {
     key: 'effects',
     label: 'Effects',
-    match: (r) => r.group === 'radius' || r.group === 'shadow' || r.group === 'border',
+    match: (r) =>
+      r.group === 'radius' || r.group === 'shadow' || r.group === 'border' || r.group === 'opacity',
   },
   // The block's marker — a feature's icon chip or number badge — beside the block's own Effects.
   { key: 'marker', label: 'Marker', match: (r) => r.group === 'marker' },
@@ -138,19 +153,20 @@ const LABELS: Record<string, string> = {
   'motion.stagger': 'Stagger children',
   'motion.ken_burns': 'Ken Burns',
   'colors.surface_opacity': 'Background opacity',
+  'marker.color': 'Colour',
+  'marker.background': 'Background',
+  'marker.size': 'Size',
+  'feature.gap': 'Space after icon',
+  'hover.colors.text': 'Text colour',
+  'hover.colors.surface': 'Background',
+  'hover.colors.border': 'Border colour',
+  'hover.opacity': 'Opacity',
+  opacity: 'Opacity',
   'backdrop.blur': 'Backdrop blur',
 }
 
-/** The capability paths of one type: an entry names a path, or a group that expands to its paths. */
-function pathsOf(type: BlockType | null): Set<string> {
-  const out = new Set<string>()
-  const byPath = new Set(props.schema.properties.map((r) => r.path))
-  for (const entry of type?.style_capabilities ?? []) {
-    if (byPath.has(entry)) out.add(entry)
-    else for (const row of props.schema.properties) if (row.group === entry) out.add(row.path)
-  }
-  return out
-}
+/** The paths one type offers: the server's expansion (hover state spec §2.2.1). */
+const pathsOf = (type: BlockType | null): Set<string> => effectivePaths(type)
 
 /** The paths every selected block declares: a property any block lacks renders no control. */
 const allowed = computed<Set<string>>(() => {
@@ -194,14 +210,87 @@ function ordered(rows: StylePropertyRow[]): StylePropertyRow[] {
   return [...family, ...rows.filter((r) => r.path !== 'typography.family')]
 }
 
+/**
+ * Normal or Hover (hover state spec §6.2): one state for the whole tab, back to Normal on a new
+ * selection. In Hover a section shows only its rows' hover counterparts; the hover group never has a
+ * section of its own.
+ */
+const hoverState = ref<'normal' | 'hover'>('normal')
+// A new selection — another block, or the same anchor extended to (or shrunk from) siblings — starts
+// in Normal: its sections are not the ones the Hover was for.
+watch(
+  () => [props.block.id, (props.blocks ?? []).map((b) => b.id).join(',')].join('|'),
+  () => {
+    hoverState.value = 'normal'
+  },
+)
+/** Resting path → its hover path. */
+const HOVER_FOR: Record<string, string> = Object.fromEntries(
+  Object.entries(HOVER_OF).map(([hover, resting]) => [resting, hover]),
+)
+
 const groups = computed(() =>
   GROUPS.map((g) => {
-    const rows = ordered(
+    const resting = ordered(
       props.schema.properties.filter((r) => allowed.value.has(r.path) && g.match(r)),
     )
-    return { ...g, rows, items: itemsOf(rows), responsive: rows.some((r) => r.responsive) }
+    // The hover counterparts this target offers, in the schema's order.
+    const hoverPaths = new Set(
+      resting.map((r) => HOVER_FOR[r.path]).filter((p) => p && allowed.value.has(p)),
+    )
+    const hoverRows = props.schema.properties.filter((r) => hoverPaths.has(r.path))
+    const hasHover = hoverRows.length > 0
+    const rows = hasHover && hoverState.value === 'hover' ? hoverRows : resting
+    return {
+      ...g,
+      rows,
+      hoverRows,
+      hasHover,
+      items: itemsOf(rows),
+      responsive: rows.some((r) => r.responsive),
+    }
   }).filter((g) => g.rows.length > 0),
 )
+
+// While Hover is on and a section with hover rows is open, the stage shows the hover look of what
+// this tab governs (hover state spec §6.3): a block's every hover target, or this part with its
+// declared scope. Normal, folding those sections, a new selection or leaving the tab clears it.
+const stageHover = inject(StageHoverKey, null)
+const hoverOwner = Symbol('style-tab')
+const hoverShown = computed(
+  () =>
+    !props.hidden &&
+    hoverState.value === 'hover' &&
+    groups.value.some((g) => g.hasHover && !isFolded(g.key)),
+)
+watch(
+  () => [hoverShown.value, props.block.id, multi.value] as const,
+  ([shown, id, several]) => {
+    if (stageHover === null) return
+    // A multi-selection previews nothing: one stage force is one block's look.
+    if (several || !shown) return stageHover.clear(hoverOwner)
+    const context = props.context ?? 'block'
+    if (context === 'part' && props.part) {
+      stageHover.force(hoverOwner, {
+        id,
+        targets: [],
+        part: props.part,
+        scope: props.partScope ?? 'own',
+      })
+    } else if (context === 'block') {
+      const targets = hoverTargets(props.blockType)
+      if (targets.length > 0)
+        stageHover.force(hoverOwner, { id, targets, part: null, scope: 'own' })
+    }
+  },
+  { immediate: true },
+)
+onBeforeUnmount(() => stageHover?.clear(hoverOwner))
+
+/** Whether any of a section's hover values is declared on this target or part (the Hover dot). */
+function hoverDeclared(rows: StylePropertyRow[]): boolean {
+  return rows.some((row) => readPath(style.value, settingSegments(row.path, null).slice(1)).present)
+}
 
 /** Which breakpoints carry an exact declaration for any property of the group (a dot). */
 function declaredAt(rows: StylePropertyRow[]): Breakpoint[] {
@@ -331,6 +420,34 @@ function setCount(rows: StylePropertyRow[]): number {
             <UIcon name="i-lucide-play" class="size-3" />
             Play
           </button>
+          <div
+            v-if="group.hasHover && !isFolded(group.key)"
+            class="flex gap-0.5"
+            role="group"
+            aria-label="State"
+            :data-test="`style-state-${group.key}`"
+          >
+            <button
+              v-for="s in ['normal', 'hover'] as const"
+              :key="s"
+              type="button"
+              class="relative rounded px-1.5 py-0.5 text-[10px] normal-case tracking-normal"
+              :class="
+                s === hoverState ? 'bg-primary text-inverted' : 'text-muted hover:text-default'
+              "
+              :aria-pressed="s === hoverState ? 'true' : 'false'"
+              :data-test="`style-state-${s}-${group.key}`"
+              @click="hoverState = s"
+            >
+              {{ s === 'normal' ? 'Normal' : 'Hover' }}
+              <span
+                v-if="s === 'hover' && hoverDeclared(group.hoverRows)"
+                class="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-warning"
+                aria-hidden="true"
+                :data-test="`style-state-dot-${group.key}`"
+              />
+            </button>
+          </div>
           <div
             v-if="!isFolded(group.key) && group.responsive"
             class="flex gap-0.5"

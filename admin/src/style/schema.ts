@@ -188,6 +188,19 @@ const PROPERTIES: PropertyDefinition[] = [
   token('footer.divider_color', 'footer', false, 'color'),
   choice('footer.divider_width', 'footer', false, ['none', 'thin', 'medium', 'thick']),
   choice('footer.divider_style', 'footer', false, ['solid', 'dashed', 'dotted']),
+  // Settings version 15 (hover state spec §2): the element's opacity, and the hover state — the hover
+  // version of each colour and of opacity. Not responsive.
+  choice('opacity', 'opacity', false, ['100', '90', '80', '70', '60', '50']),
+  token('hover.colors.text', 'hover', false, 'color'),
+  token('hover.colors.surface', 'hover', false, 'color'),
+  token('hover.colors.border', 'hover', false, 'color'),
+  choice('hover.opacity', 'hover', false, ['100', '90', '80', '70', '60', '50']),
+  // Settings version 16: a Feature's marker colour, background and size, and the space between the
+  // marker and the text.
+  token('marker.color', 'marker', false, 'color'),
+  token('marker.background', 'marker', false, 'color'),
+  token('marker.size', 'marker', true, 'typography.size'),
+  token('feature.gap', 'feature', true, 'spacing'),
 ]
 
 const BY_PATH = new Map(PROPERTIES.map((p) => [p.path, p]))

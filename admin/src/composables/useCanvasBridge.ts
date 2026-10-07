@@ -1,4 +1,5 @@
 import type { Ref } from 'vue'
+import type { ForceHoverRequest } from '@/editor/stage/stageHover'
 
 // Canvas-side half of the preview bridge (visual-canvas spec §3). The iframe may
 // be cross-origin, so everything is postMessage: the parent says hello with a
@@ -575,6 +576,17 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
         const timer = window.setTimeout(() => settleTypography(key, null), 1000)
         typographyPending.set(key, { seq, resolve, timer })
       })
+    },
+    /**
+     * Show (or, with null, stop showing) a block's hover look on the stage without the pointer
+     * (hover state spec §6.3): the stage marks every element the request names.
+     */
+    forceHover(request: ForceHoverRequest | null): void {
+      post(
+        request === null
+          ? { type: 'thallo:force-hover', id: null, targets: [], part: null, scope: 'own' }
+          : { type: 'thallo:force-hover', ...request },
+      )
     },
     /** A selection change: every pending typography request settles with null. */
     dropTypography(): void {

@@ -1,5 +1,6 @@
 import { resolve } from './resolver'
-import { propertyDefinition, styleProperties } from './schema'
+import { styleProperties } from './schema'
+import { expandDeclaration } from './capabilities'
 import { BREAKPOINTS } from './types'
 import type { Breakpoint, Resolution, StyleClassRef, StyleValue } from './types'
 
@@ -10,14 +11,9 @@ import type { Breakpoint, Resolution, StyleClassRef, StyleValue } from './types'
 // previous resolution into the instance at that breakpoint (`reset` where the previous outcome
 // was a reset); normalise by dropping empty maps. Pure.
 
-/** The capability paths a declaration expands to: a path, or a group naming its paths. */
+/** The capability paths a declaration expands to (expandDeclaration, with the hover rule). */
 export function capabilityPaths(declaration: readonly string[] | null | undefined): Set<string> {
-  const out = new Set<string>()
-  for (const entry of declaration ?? []) {
-    if (propertyDefinition(entry) !== null) out.add(entry)
-    else for (const row of styleProperties()) if (row.group === entry) out.add(row.path)
-  }
-  return out
+  return expandDeclaration(declaration)
 }
 
 /** The effective outcome: a managed value, a reset, or the theme default. */

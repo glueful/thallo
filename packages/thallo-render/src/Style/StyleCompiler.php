@@ -33,7 +33,10 @@ final class StyleCompiler
     // 17: logos.height.
     // 18: logos.max_width.
     // 19: typography.style, and the footer divider (footer.divider_color, _width, _style).
-    public const VERSION = 19;
+    // 20: opacity, and the hover state (hover.colors.*, hover.opacity).
+    // 21: a Feature's marker colour, background and size, and feature.gap.
+    // 22: typography.line_height `relaxed` 1.65 → 1.75 (1.65 is the theme's body line height).
+    public const VERSION = 22;
 
     /** The built-in typefaces' synthesis: the browser's default (an uploaded family's is `style`). */
     private const BUILT_IN_SYNTHESIS = 'weight style';
@@ -99,9 +102,10 @@ final class StyleCompiler
             'font-weight' => ['regular' => '400', 'medium' => '500', 'semibold' => '600', 'bold' => '700'],
         ],
         'visibility' => ['display' => ['visible' => 'revert-layer', 'hidden' => 'none']],
-        // Unitless: a line's height follows its text's size — the Size setting beside it.
+        // Unitless: a line's height follows its text's size — the Size setting beside it. None is the
+        // default theme's body line height (1.65): Relaxed was, and changed nothing on body text.
         'typography.line_height' => ['line-height' => [
-            'tight' => '1.1', 'snug' => '1.25', 'normal' => '1.5', 'relaxed' => '1.65', 'loose' => '1.9',
+            'tight' => '1.1', 'snug' => '1.25', 'normal' => '1.5', 'relaxed' => '1.75', 'loose' => '1.9',
         ]],
         'typography.letter_spacing' => ['letter-spacing' => [
             'tight' => '-0.025em', 'normal' => 'normal', 'wide' => '0.05em', 'wider' => '0.1em',
@@ -121,6 +125,10 @@ final class StyleCompiler
         // inside its box (the theme draws logos with `object-fit: contain`). Unset, nothing caps it.
         'logos.max_width' => ['max-width' => ['sm' => '6rem', 'md' => '8rem', 'lg' => '10rem', 'xl' => '12rem']],
         'typography.style' => ['font-style' => ['normal' => 'normal', 'italic' => 'italic']],
+        // The whole element — text and icon included — unlike the backdrop's surface opacity.
+        'opacity' => ['opacity' => [
+            '100' => '1', '90' => '0.9', '80' => '0.8', '70' => '0.7', '60' => '0.6', '50' => '0.5',
+        ]],
         // The divider is the top section's bottom edge alone, never a box around the section.
         'footer.divider_width' => ['border-bottom-width' => [
             'none' => '0', 'thin' => '1px', 'medium' => '2px', 'thick' => '4px',
@@ -178,6 +186,12 @@ final class StyleCompiler
         // since they land on the marker while `radius` and `shadow` land on the card.
         'marker.shadow' => 'box-shadow',
         'marker.radius' => 'border-radius',
+        // Its colour (the icon's, or the number's), its fill, and its size (the icon is 1em).
+        'marker.color' => 'color',
+        'marker.background' => 'background',
+        'marker.size' => 'font-size',
+        // The space between a Feature's marker and its text, beside or above it.
+        'feature.gap' => 'gap',
         // A tab strip's corners, likewise: the bar's and the tab's, beside the panels area's.
         'tabs.bar_radius' => 'border-radius',
         'tabs.tab_radius' => 'border-radius',
@@ -277,6 +291,10 @@ final class StyleCompiler
             if ($path === 'typography.family') {
                 continue;
             }
+            // The hover state has rules of its own (hoverRules()), written once after the base utilities.
+            if (StyleSchema::restingPathOf($path) !== null) {
+                continue;
+            }
             foreach (self::valuesFor($path, $def->tokenDomain, $def->choices) as $value) {
                 $declarations = self::declarations($path, $value);
                 $out .= ClassNames::selector(ClassNames::for($path, $value, $bp))
@@ -293,7 +311,35 @@ final class StyleCompiler
                 $out .= ClassNames::selector(ClassNames::reset($path, $bp)) . ' { ' . $reset . " }\n";
             }
         }
-        return $out . self::spanRules($bp) . ($bp === 'base' ? self::motionRules() : '');
+        return $out . ($bp === 'base' ? self::hoverRules() : '') . self::spanRules($bp)
+            . ($bp === 'base' ? self::motionRules() : '');
+    }
+
+    /**
+     * The hover state (hover state spec §4.1): each value's declarations are its resting path's — on
+     * the pointer only where the primary input can hover, so a tap leaves nothing behind; on keyboard
+     * focus and the stage's forced preview, everywhere. One more pseudo-class than a resting utility,
+     * so it wins over it. A reset is empty: no hover value from this layer, never `revert-layer`,
+     * which would undo the resting utility while hovered.
+     */
+    private static function hoverRules(): string
+    {
+        $pointer = '';
+        $other = '';
+        foreach (StyleSchema::HOVER as $hover => $resting) {
+            $def = StyleSchema::property($hover);
+            if ($def === null) {
+                continue;
+            }
+            foreach (self::valuesFor($hover, $def->tokenDomain, $def->choices) as $value) {
+                $selector = ClassNames::selector(ClassNames::for($hover, $value));
+                $declarations = self::declarations($resting, $value);
+                $pointer .= "{$selector}:hover { {$declarations} }\n";
+                $other .= "{$selector}:focus-visible, {$selector}[data-thallo-hover] { {$declarations} }\n";
+            }
+            $other .= ClassNames::selector(ClassNames::reset($hover)) . " { }\n";
+        }
+        return "@media (hover: hover) {\n{$pointer}}\n{$other}";
     }
 
     /**

@@ -5,6 +5,69 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.91] - 2026-10-07 — Developer Preview
+
+Buttons, links, social icons and File links can say what they look like under the pointer and on
+keyboard focus, with a Normal / Hover switch in the Style tab and a live preview on the stage. The
+Feature block gains its marker's colour, background and size, the space after its icon, and a
+Description section. Line height Relaxed now changes the text. Run `php glueful thallo:provision`
+after `composer update`; read the Upgrade Notes.
+
+### Added
+- **Opacity and a hover state in the style system** (settings version 15). Blocks can offer an
+  Opacity setting and a Hover state: the text colour, background, border colour and opacity an
+  element takes under the pointer and on keyboard focus. A hover value only exists beside the
+  setting it changes, on the same part of the block.
+- **Hover and Opacity on buttons and links.** A Button's control, each link of a Links block, the
+  icon of a Social link (and a Social links row's Icon section, which every link inherits) and a
+  File block's link can set what they look like under the pointer and on keyboard focus, and how
+  opaque they are. A Social link's own hover value beats its row's, one value at a time.
+- **The Style tab's Normal / Hover switch.** The Colours and Effects sections of a block, a part
+  or a style class that offers a hover state switch between the resting look and the hover look; a
+  dot marks a section with hover values set.
+- **The stage previews the hover look while Hover is on**: every element the selected block owns
+  for that section — each link of a Links block, each link of a Social links row — shows the
+  theme's hover look and yours together, through edits and stage reloads, until you switch back to
+  Normal, select another block or leave the Style tab.
+- **A File block's link has its own Link section**: background, text and border colour, corners,
+  size, padding, opacity and hover.
+- **More Style settings for the Feature block** (settings version 16): the marker's Colour,
+  Background and Size in its Marker section, beside Corners and Shadow; **Space after icon**, the
+  space between the marker and the text, beside it or above it; and a **Description** section with
+  the description's own Typography, Text colour and the space above it. The block's Typography
+  styles the title. A marker background set here gets the same chip padding as the Block tab's.
+
+### Changed
+- **On phones and tablets, a tap no longer leaves a hover look behind.** The default theme's hover
+  effects on buttons, Links block links, File links and social links (the lift, the tint, the darker
+  text) now apply only where the device's main input can hover; keyboard focus behaves as before. The
+  editor's Hover preview shows exactly what the pointer would.
+- **Buttons no longer animate their hover for visitors who ask for reduced motion**, like the
+  theme's other links already did; their hover colour, border and opacity now fade with the rest.
+
+### Fixed
+- **Line height Relaxed now changes the text.** It was 1.65, the default theme's own body line
+  height, so a Rich text block (or any body text) set to Relaxed looked unchanged; it is now 1.75,
+  between Normal (1.5) and Loose (1.9).
+
+### Upgrade Notes
+- `composer update && php glueful thallo:provision`. Provision gives existing installs the new
+  settings: Opacity and Hover on Button, Links (each link), Social links and Social link (the
+  icon), the File block's Link section, and the Feature block's marker, spacing and Description
+  settings. Until then they do not show.
+- A theme that overrides `blocks/feature.twig` adds `{{ style_classes('description') }}` inside the
+  class attribute of `thallo-block-feature__description`, or the Description section has no effect
+  there. The default theme now spaces a vertical Feature with `gap` alone (no margin under the
+  marker); a theme rule that sets that margin adds to the new setting.
+- Text set to Line height **Relaxed** is now drawn at 1.75 instead of 1.65 — a little more open,
+  including headings set to Relaxed.
+- A theme that overrides `blocks/file.twig` adds `{{ style_classes('link') }}` inside the class
+  attribute of `thallo-block-file__link`, or the File block's Link section has no effect there.
+- A custom theme's hover rules keep working on a pointer. For the editor's Hover preview to show
+  them, and for them not to stay on a phone after a tap, write each in three branches: the pointer
+  inside `@media (hover: hover)`, keyboard focus where the rule had it, and `[data-thallo-hover]`
+  ([Hover rules in a theme](docs/reference/05-style-settings.md#hover-rules-in-a-theme)).
+
 ## [1.0.0-beta.90] - 2026-10-07 — Developer Preview
 
 Each Social link has its own Icon section, and its Text colour now colours the icon. The Search

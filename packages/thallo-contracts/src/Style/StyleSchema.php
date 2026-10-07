@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 14;
+    public const VERSION = 16;
 
     /**
      * Paths that were once properties and are no longer. A stored value at one is dropped when a
@@ -20,6 +20,18 @@ final class StyleSchema
      * `aside.padding` was one value for all four sides (1.0.0-beta.56 and 57); it is a side each.
      */
     public const RETIRED = ['aside.padding'];
+
+    /**
+     * Hover path => the resting path it changes (hover state spec §2.1). A hover path takes its
+     * resting path's kinds and vocabulary, and exists on a target only beside it (StyleCapabilities,
+     * StyleTargets).
+     */
+    public const HOVER = [
+        'hover.colors.text' => 'colors.text',
+        'hover.colors.surface' => 'colors.surface',
+        'hover.colors.border' => 'colors.border',
+        'hover.opacity' => 'opacity',
+    ];
 
     /** Platform breakpoints: `md` from 768px, `lg` from 1024px. */
     public const BREAKPOINTS = ['base', 'md', 'lg'];
@@ -228,11 +240,62 @@ final class StyleSchema
             'solid', 'dashed', 'dotted',
         ]);
 
+        // Settings version 15 (hover state spec §2): the element's opacity — the whole element, text
+        // and icon included, unlike the backdrop's surface opacity — and the hover state: the hover
+        // version of each colour and of opacity, under `hover.`, each mirroring its resting path. One
+        // value for every width: hover is a pointer state.
+        $defs[] = new PropertyDefinition('opacity', 'opacity', $choice, false, null, [
+            '100', '90', '80', '70', '60', '50',
+        ]);
         $byPath = [];
         foreach ($defs as $def) {
             $byPath[$def->path] = $def;
         }
+        foreach (self::HOVER as $hover => $resting) {
+            $base = $byPath[$resting];
+            $byPath[$hover] = new PropertyDefinition(
+                $hover,
+                'hover',
+                $base->kinds,
+                false,
+                $base->tokenDomain,
+                $base->choices,
+            );
+        }
+        // Settings version 16: a Feature's marker — the icon chip or number badge — takes its own
+        // colour, background and size beside its corners and shadow (their own paths, because
+        // `colors` is the card's), and the space between the marker and the text is the block's own.
+        $token = [ValueKind::Token, ValueKind::Reset];
+        foreach (
+            [
+            new PropertyDefinition('marker.color', 'marker', $token, false, 'color'),
+            new PropertyDefinition('marker.background', 'marker', $token, false, 'color'),
+            new PropertyDefinition('marker.size', 'marker', $token, true, 'typography.size'),
+            new PropertyDefinition('feature.gap', 'feature', $token, true, 'spacing'),
+            ] as $def
+        ) {
+            $byPath[$def->path] = $def;
+        }
         return self::$properties = $byPath;
+    }
+
+    /** The resting path a hover path changes, or null for any other path. */
+    public static function restingPathOf(string $path): ?string
+    {
+        return self::HOVER[$path] ?? null;
+    }
+
+    /**
+     * @param list<string> $paths
+     * @return list<string> the same paths, in table order
+     */
+    public static function ordered(array $paths): array
+    {
+        $set = array_flip($paths);
+        return array_values(array_filter(
+            array_keys(self::properties()),
+            static fn (string $path): bool => isset($set[$path]),
+        ));
     }
 
     /** @return array<string, PropertyDefinition> the `settings.advanced` properties (spec §1.4) */

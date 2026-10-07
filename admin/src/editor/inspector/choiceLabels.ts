@@ -19,6 +19,8 @@ export const CHOICE_LABELS: Record<string, Record<string, string>> = {
   'footer.divider_width': words(['none', 'thin', 'medium', 'thick']),
   'footer.divider_style': words(['solid', 'dashed', 'dotted']),
   'colors.surface_opacity': percent(['100', '90', '80', '70', '60', '50']),
+  opacity: percent(['100', '90', '80', '70', '60', '50']),
+  'hover.opacity': percent(['100', '90', '80', '70', '60', '50']),
   'motion.entrance': words([
     'none',
     'fade',

@@ -14,6 +14,14 @@ import type { ContentTypeField } from './contentTypes'
 /** Mirrors the backend Thallo\Core\Content\Blocks\BlockDepth::MAX (nesting amendment §A2). */
 export const MAX_BLOCK_DEPTH = 5
 
+/** What a block type offers, expanded by the server (hover state spec §2.2.1), in schema order. */
+export interface BlockStylePaths {
+  /** The block's effective style paths: every target's, a hover path only beside its resting one. */
+  block: string[]
+  /** Each part's paths, by part name. */
+  parts: Record<string, string[]>
+}
+
 export interface BlockType {
   uuid: string
   slug: string
@@ -32,6 +40,8 @@ export interface BlockType {
   flags: Record<string, boolean> | null
   /** Starter content for a freshly inserted block. */
   starter_content: Record<string, unknown> | null
+  /** What the type offers, expanded by the server (hover state spec §2.2.1); absent on a synthetic type. */
+  style_paths?: BlockStylePaths | null
 }
 
 export async function fetchBlockTypes(): Promise<BlockType[]> {

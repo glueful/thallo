@@ -157,6 +157,27 @@ try {
             ]],
             'settings' => $parts === [] ? [] : ['parts' => $parts],
         ];
+        $featureToken = static fn (string $value): array => ['type' => 'token', 'value' => $value];
+        $feature = static fn (string $id, string $orientation, array $settings = []): array => [
+            'id' => $id, 'type' => 'feature',
+            'data' => ['icon' => 'check', 'title' => 'Fast', 'description' => 'It is quick.',
+                'orientation' => $orientation, 'marker_size' => 'sm', 'marker_color' => 'muted'],
+            'settings' => $settings,
+        ];
+        $featureStyle = [
+            'style' => [
+                'marker' => [
+                    'color' => $featureToken('color.accent'),
+                    'background' => $featureToken('color.surface'),
+                    'size' => ['base' => $featureToken('typography.size.2xl')],
+                ],
+                'feature' => ['gap' => ['base' => $featureToken('spacing.lg')]],
+            ],
+            'parts' => ['description' => [
+                'typography' => ['size' => ['base' => $featureToken('typography.size.lg')]],
+                'spacing' => ['margin' => ['top' => ['base' => $featureToken('spacing.lg')]]],
+            ]],
+        ];
         $body = [
             $heading('headplain001', 'Quiet title'),
             $heading('headcase0001', 'Quiet title', ['transform' => $choice('uppercase'), 'letter_spacing' => $choice('wider')]),
@@ -226,6 +247,21 @@ try {
                 ]]],
                 ['style' => ['colors' => ['text' => ['type' => 'token', 'value' => 'color.accent']]]],
             ),
+            // Features (feature-style.spec.js): untouched beside and above their text; and both with
+            // the marker's size, colour and background, the gap, and the description's own settings —
+            // over a content Marker size and colour, which the settings beat.
+            $feature('featplain001', 'horizontal'),
+            $feature('featplain002', 'vertical'),
+            $feature('featstyled01', 'horizontal', $featureStyle),
+            $feature('featstyled02', 'vertical', $featureStyle),
+            // Rich text (rich-text-style.spec.js): untouched, and with each line height.
+            ['id' => 'richplain001', 'type' => 'rich_text', 'settings' => [],
+                'data' => ['body' => '<h2>A heading in the text</h2><p>One paragraph, long enough to wrap onto a second line at the reading measure so its line height can be measured.</p><ul><li>A list item</li></ul>']],
+            ...array_map(static fn (string $lh): array => [
+                'id' => str_pad('richlh' . $lh, 12, '0'), 'type' => 'rich_text',
+                'data' => ['body' => '<h2>A heading in the text</h2><p>One paragraph, long enough to wrap onto a second line at the reading measure so its line height can be measured.</p><ul><li>A list item</li></ul>'],
+                'settings' => ['style' => ['typography' => ['line_height' => ['base' => ['type' => 'choice', 'value' => $lh]]]]],
+            ], ['tight', 'snug', 'normal', 'relaxed', 'loose']),
         ];
 
         $type = (string) $container->get(ContentTypeRepository::class)->create([

@@ -67,6 +67,8 @@ final readonly class StyleTargets
 
         $styleMap = [];
         $advancedMap = [];
+        /** @var array<string, string> $hoverEntries mapped after everything else (hover state spec §2.2) */
+        $hoverEntries = [];
         foreach ((array) ($decl['map'] ?? []) as $capability => $target) {
             if (!is_string($target)) {
                 if (in_array($capability, self::ADVANCED, true)) {
@@ -84,6 +86,12 @@ final readonly class StyleTargets
                 $advancedMap[$capability] = $target;
                 continue;
             }
+            // The hover state is mapped in a second pass, once every resting path has its target, so
+            // the result does not depend on the declaration's order.
+            if ($capability === 'hover' || StyleSchema::restingPathOf((string) $capability) !== null) {
+                $hoverEntries[(string) $capability] = $target;
+                continue;
+            }
             $paths = StyleSchema::property($capability) !== null
                 ? [$capability]
                 : StyleSchema::pathsInGroup($capability);
@@ -93,6 +101,30 @@ final readonly class StyleTargets
             foreach ($paths as $path) {
                 $styleMap[$path] = $target;
             }
+        }
+
+        foreach ($hoverEntries as $capability => $target) {
+            if ($capability === 'hover') {
+                // The group: the hover paths whose resting path this target owns; the rest are not offered.
+                foreach (StyleSchema::HOVER as $hover => $resting) {
+                    if (($styleMap[$resting] ?? null) === $target) {
+                        $styleMap[$hover] = $target;
+                    }
+                }
+                continue;
+            }
+            // One hover path, named: asked for on a target that cannot have it is an error, not a drop.
+            $resting = (string) StyleSchema::restingPathOf($capability);
+            if (($styleMap[$resting] ?? null) !== $target) {
+                throw new \InvalidArgumentException(sprintf(
+                    '%s maps to "%s", but %s is on "%s"',
+                    $capability,
+                    $target,
+                    $resting,
+                    (string) ($styleMap[$resting] ?? 'no target'),
+                ));
+            }
+            $styleMap[$capability] = $target;
         }
 
         $parts = [];
@@ -264,6 +296,29 @@ final readonly class StyleTargets
         return $paths;
     }
 
+    /** $caps without the hover paths no target owns (hover state spec §2.2). */
+    public function effective(StyleCapabilities $caps): StyleCapabilities
+    {
+        return $caps->filter(
+            fn (string $path): bool => StyleSchema::restingPathOf($path) === null || isset($this->styleMap[$path]),
+        );
+    }
+
+    /**
+     * What the block and each part offer, as published (hover state spec §2.2.1): effective, and in
+     * schema table order whatever order the declaration used.
+     *
+     * @return array{block: list<string>, parts: array<string, list<string>>}
+     */
+    public function stylePaths(StyleCapabilities $caps): array
+    {
+        $parts = [];
+        foreach ($this->parts() as $part) {
+            $parts[$part] = StyleSchema::ordered($this->partCapabilities($part)->paths());
+        }
+        return ['block' => StyleSchema::ordered($this->effective($caps)->paths()), 'parts' => $parts];
+    }
+
     /** @return list<string> advanced paths owned by a target */
     public function advancedPathsFor(string $target): array
     {
@@ -311,6 +366,9 @@ final readonly class StyleTargets
         ];
         foreach ($caps->paths() as $path) {
             $target = $this->styleMap[$path] ?? null;
+            if ($target === null && StyleSchema::restingPathOf($path) !== null) {
+                continue; // dropped by the target-aware rule (hover state spec §2.2), not missing
+            }
             if ($target === null) {
                 $errors[] = "capability {$path} has no target";
                 continue;

@@ -6,6 +6,7 @@ import { proseRichFieldName } from '@/fields/components/blocks/proseDetection'
 import { useCanvasBridge } from '@/composables/useCanvasBridge'
 import { useAppearanceChanges } from '@/composables/useAppearanceChanges'
 import { StageTypographyKey, type StageTypography } from '@/editor/stage/stageTypography'
+import { StageHoverKey, createStageHover } from '@/editor/stage/stageHover'
 import { createApplyMetrics, type ApplyPath } from '@/editor/applyMetrics'
 import { createEditorHistory, type EditorHistory } from '@/editor/ops/history'
 import { diffDocuments } from '@/editor/ops/diff'
@@ -14,7 +15,8 @@ import { absent, present } from '@/editor/ops/types'
 import { readPath, setPath, settingSegments } from '@/editor/ops/apply'
 import { useStyleSchema } from '@/queries/styleSchema'
 import { useStyleClasses, useStyleClassMutations } from '@/queries/styleClasses'
-import { capabilityPaths, detachStyleClass } from '@/style/detach'
+import { detachStyleClass } from '@/style/detach'
+import { effectivePaths } from '@/style/capabilities'
 import { liftPreservesAppearance, liftedDeclarations } from '@/style/lift'
 import {
   createDragCoordinator,
@@ -1778,11 +1780,22 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   const stageRenders = ref(0)
   /** The stage shows a layout's placeholder page (its sample gone): told by the stage on each load. */
   const stagePlaceholder = ref(false)
+  // The stage's forced hover (hover state spec §6.3): held here, so a stage that reloads — and so
+  // forgets it — gets it again as soon as it reports ready; a new selection ends it.
+  const stageHover = createStageHover((request) => bridge.forceHover(request))
+  provide(StageHoverKey, stageHover)
+  // Any change of selection ends it — a new anchor, or siblings added to or taken from the anchor.
+  watch(
+    () => [selected.value, ...selection.value.ids].join(','),
+    () => stageHover.clearAny(),
+  )
+  onBeforeUnmount(() => stageHover.clearAny())
   bridge.onStageState((placeholder, fingerprint) => {
     stagePlaceholder.value = placeholder
     stageRenders.value++
     if (fingerprint !== null) renderedFingerprint = fingerprint
     if (appearanceReloading) appearanceReloaded()
+    stageHover.resend()
   })
   const stageTypography: StageTypography = {
     request: (id, target) => bridge.requestTypography(id, target),
@@ -2131,12 +2144,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     const index = ids.indexOf(classId)
     if (index === -1 || !history) return
     const type = allBlockTypes.value?.find((t) => t.slug === block.type)
-    const toStyle = detachStyleClass(
-      classRefsFor(block),
-      style,
-      classId,
-      capabilityPaths(type?.style_capabilities),
-    )
+    const toStyle = detachStyleClass(classRefsFor(block), style, classId, effectivePaths(type))
     const op = history.record({
       type: 'DetachStyleClass',
       block: block.id,
@@ -2203,7 +2211,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
       if (declarations.length === 0) return
       const created = await createStyleClass.mutateAsync({ name, description, style })
       const type = allBlockTypes.value?.find((t) => t.slug === block.type)
-      const allowed = capabilityPaths(type?.style_capabilities)
+      const allowed = effectivePaths(type)
       const lifted = { id: created.id, style: created.style }
       if (!liftPreservesAppearance(classRefsFor(block), style, lifted, allowed)) {
         await deleteStyleClass.mutateAsync(created.id)

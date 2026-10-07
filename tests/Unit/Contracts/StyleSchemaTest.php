@@ -75,8 +75,15 @@ final class StyleSchemaTest extends TestCase
             // the line under its top section, its colour, width and style.
             'typography.style',
             'footer.divider_color', 'footer.divider_width', 'footer.divider_style',
+            // The element's opacity, and the hover state: the hover version of each colour and of
+            // opacity (settings version 15).
+            'opacity',
+            'hover.colors.text', 'hover.colors.surface', 'hover.colors.border', 'hover.opacity',
+            // A Feature's marker — its colour, background and size — and the space between the
+            // marker and the text (settings version 16).
+            'marker.color', 'marker.background', 'marker.size', 'feature.gap',
         ], $paths);
-        self::assertSame(14, StyleSchema::VERSION);
+        self::assertSame(16, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
     }
 
@@ -209,7 +216,7 @@ final class StyleSchemaTest extends TestCase
             StyleSchema::pathsInGroup('layout.item'),
             StyleCapabilities::fromDeclaration(['layout.item'])->paths(),
         );
-        self::assertSame(14, StyleSchema::VERSION);
+        self::assertSame(16, StyleSchema::VERSION);
     }
 
     public function testMotionIsABlocksOwnGroupAndStaggerIsTheArrangersAlone(): void
@@ -382,7 +389,11 @@ final class StyleSchemaTest extends TestCase
         self::assertSame(StyleSchema::property('shadow')?->tokenDomain, $shadow->tokenDomain);
         self::assertSame(StyleSchema::property('radius')?->responsive, $radius->responsive);
         self::assertSame(StyleSchema::property('shadow')?->responsive, $shadow->responsive);
-        self::assertSame(['marker.radius', 'marker.shadow'], StyleSchema::pathsInGroup('marker'));
+        // Settings version 16 adds the marker's colour, background and size to the group.
+        self::assertSame(
+            ['marker.radius', 'marker.shadow', 'marker.color', 'marker.background', 'marker.size'],
+            StyleSchema::pathsInGroup('marker'),
+        );
     }
 
     public function testCapabilitiesRejectUnknownPaths(): void
@@ -417,5 +428,63 @@ final class StyleSchemaTest extends TestCase
         self::assertSame(['none', 'xs', 'sm', 'md', 'lg', 'xl'], Vocabulary::names('shadow'));
         self::assertSame(['xs', 'sm', 'md', 'lg', 'xl', '2xl', '3xl'], Vocabulary::names('typography.size'));
         self::assertCount(8 + 4 + 5 + 11 + 6 + 7, Vocabulary::all());
+    }
+
+    public function testHoverPathsMirrorTheirRestingPaths(): void
+    {
+        foreach (StyleSchema::HOVER as $hover => $resting) {
+            $def = StyleSchema::property($hover);
+            $base = StyleSchema::property($resting);
+            self::assertNotNull($def, $hover);
+            self::assertNotNull($base, $resting);
+            self::assertSame('hover', $def->group);
+            self::assertFalse($def->responsive, "{$hover}: one value for every width");
+            self::assertSame($base->kinds, $def->kinds, $hover);
+            self::assertSame($base->tokenDomain, $def->tokenDomain, $hover);
+            self::assertSame($base->choices, $def->choices, $hover);
+            self::assertSame($resting, StyleSchema::restingPathOf($hover));
+        }
+        self::assertNull(StyleSchema::restingPathOf('colors.text'));
+        // The `hover` group is exactly HOVER, each path its resting path under `hover.` — the admin
+        // derives its copy from the schema by this rule.
+        $derived = [];
+        foreach (StyleSchema::pathsInGroup('hover') as $path) {
+            $derived[$path] = substr($path, strlen('hover.'));
+        }
+        self::assertSame(StyleSchema::HOVER, $derived);
+    }
+
+    public function testHoverAloneExpandsToNothing(): void
+    {
+        self::assertSame([], StyleCapabilities::fromDeclaration(['hover'])->paths());
+        // Declaration order is kept here; the published form is schema-ordered (StyleTargets::stylePaths).
+        self::assertSame(
+            ['hover.colors.text', 'colors.text'],
+            StyleCapabilities::fromDeclaration(['hover', 'colors.text'])->paths(),
+        );
+        self::assertSame(
+            ['colors.text'],
+            StyleCapabilities::fromDeclaration(['hover.colors.surface', 'colors.text'])->paths(),
+        );
+    }
+
+    public function testOrderedIsTableOrder(): void
+    {
+        self::assertSame(
+            ['colors.text', 'opacity', 'hover.colors.text'],
+            StyleSchema::ordered(['hover.colors.text', 'opacity', 'colors.text']),
+        );
+    }
+
+    public function testAFeaturesMarkerAndGapAreTheirOwnPaths(): void
+    {
+        $shape = static function (string $path): array {
+            $def = StyleSchema::property($path);
+            return [$def?->group, $def?->tokenDomain, $def?->responsive];
+        };
+        self::assertSame(['marker', 'color', false], $shape('marker.color'));
+        self::assertSame(['marker', 'color', false], $shape('marker.background'));
+        self::assertSame(['marker', 'typography.size', true], $shape('marker.size'));
+        self::assertSame(['feature', 'spacing', true], $shape('feature.gap'));
     }
 }

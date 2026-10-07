@@ -23,6 +23,10 @@ const BODY = [
   'gridempty001',
   'gridspan0001',
   'prose0000001',
+  // The hover preview's blocks (hover-preview.spec.ts).
+  'hovlinks0001',
+  'hovnest00001',
+  'hovsocial001',
 ]
 
 async function openView(page: Page, view: 'sections' | 'pages'): Promise<void> {
@@ -114,7 +118,7 @@ test('a page lands whole, as one transaction', async ({ page }) => {
     position: { index: number }
     block: { id: string; type: string }
   }[]
-  expect(ops.map((op) => op.position.index)).toEqual([9, 10, 11, 12])
+  expect(ops.map((op) => op.position.index)).toEqual([0, 1, 2, 3].map((i) => BODY.length + i))
   expect(ops.map((op) => op.block.type)).toEqual(['hero', 'container', 'container', 'container'])
   expect(idsIn(h.document, ['body'])).toEqual([...BODY, ...ops.map((op) => op.block.id)])
   expect(
