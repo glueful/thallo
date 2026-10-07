@@ -303,6 +303,15 @@ export async function openDesignPage(page: Page, world: World = {}): Promise<Rec
   })
   await signInAndOpen(page, designPath, '[data-test="canvas-iframe"]', 'the Design page')
   await stage(page).locator('[data-thallo-block]').first().waitFor()
+  // The page's first apply is answered before a proof reads the hooks: otherwise, on a slow
+  // runner, its answer lands between a proof's before and after snapshots and moves the
+  // accepted pair under it.
+  await page.waitForFunction(
+    () =>
+      ((
+        window as unknown as { __thalloBuilder?: { applies: () => number } }
+      ).__thalloBuilder?.applies() ?? 0) >= 1,
+  )
   return recorded
 }
 
