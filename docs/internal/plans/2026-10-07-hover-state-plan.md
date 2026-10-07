@@ -5,6 +5,7 @@
 > - the published `style_paths` are normalised to schema order (`StyleTargets::stylePaths`, Tasks 1 and 3);
 > - the forced preview names every effective hover target and a part's declared scope (Task 8), and the parent-patch proof keeps the Button selected;
 > - Task 5 proves resets under the forced preview too, and override parity on every element.
+> - The parent-patch proof builds its fragment from a clean clone (no `data-thallo-hover`), asserts that, and is shown to fail with the post-swap re-application disabled (Task 8).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -1127,11 +1128,18 @@ The force names **what the inspector governs**, never a guess:
   - `the force survives a parent's fragment patch` (Review Focus 3). Selection stays on the Button throughout:
     1. Open the page with `World.fragments`, a function the test controls.
     2. Select `ctabutn0001`, open Style, and switch Colours to Hover.
-    3. Read the CTA wrapper's `outerHTML` from the stage, `[data-thallo-block="ctaa00000001"]`, and set `data-proof-swap="1"` on its `.thallo-block-button__link`. Make `World.fragments` answer the next apply with `{ ctaa00000001: <that html> }`.
+    3. Build the fragment from a **clean clone** of the stage's CTA wrapper, `[data-thallo-block="ctaa00000001"]`. In the stage:
+       - `cloneNode(true)`;
+       - remove `data-thallo-hover` from the clone and from every element in it (`clone.querySelectorAll('[data-thallo-hover]')` plus the clone itself);
+       - set `data-proof-swap="1"` on the clone's `.thallo-block-button__link`;
+       - serialize `clone.outerHTML`.
+
+       Before using it, assert that the fragment contains `data-proof-swap="1"` and does **not** contain `data-thallo-hover`. A fragment that carried the attribute would pass even if the bridge never re-applied anything. Make `World.fragments` answer the next apply with `{ ctaa00000001: <that html> }`.
     4. In the still-open Hover panel, pick a hover text colour. That is an edit to the Button, so the selection does not move, and it produces an apply.
     5. Wait for `applies()` to grow.
     6. Assert that `__thalloBuilder.snapshot().selection` is still `ctabutn0001`.
-    7. Assert that the stage's Button link carries `data-proof-swap="1"`, proving the parent's fragment really replaced the child's DOM, and carries `data-thallo-hover`, proving it was restored.
+    7. Assert that the stage's Button link carries both markers: `data-proof-swap="1"` proves the parent's fragment really replaced the child's DOM, and `data-thallo-hover` proves the bridge restored the force, since the fragment arrived without it. Assert the selection once more after the swap.
+    8. **Prove the test can fail.** Temporarily comment out the `applyForcedHover()` call after `markEmptySlots()` in the fragment swap (`preview-bridge.js`, the `onFragments` path), rerun only this test, and confirm it FAILs on the `data-thallo-hover` assertion with the swap marker present. Restore the line, rerun, and confirm it passes. Ledger both outcomes. The temporary edit is never committed: check with `git diff --stat packages/thallo-render/assets/preview/preview-bridge.js` before the Task 8 commit.
 
     If the stage refuses the swap (its pair guard), it falls back to a reload. The swap marker is then absent and the test fails, as it should. Fix the world's epoch and baseline to the mint fixture's pair, and ledger it.
   - `the force survives a full stage reload`: with Hover on for `hovlinks0001`'s Link part, `stage.evaluate(() => location.reload())`. Wait until the bridge has re-announced itself: the three links carry the attribute again (`expect.poll`), sent by the admin on `stage-state`.
