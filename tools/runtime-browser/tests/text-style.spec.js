@@ -14,7 +14,7 @@ const PAGES = {
 };
 
 // The fixture's blocks, in document order (a published page carries no block ids).
-const HEADINGS = ['plain', 'case', 'normal', 'reset', 'class'];
+const HEADINGS = ['plain', 'case', 'normal', 'reset', 'class', 'italic'];
 const LINKS = ['plain', 'underline', 'none', 'reset'];
 const BUTTONS = ['plain', 'underline', 'none', 'reset'];
 
@@ -211,6 +211,45 @@ for (const [where, url] of Object.entries(PAGES)) {
       const titled = await gaps(4);
       expect(titled.fromTitle).toBe(titled.titleMargin);
       expect(titled.titleMargin).toBeGreaterThan(0);
+    });
+
+    test('Font style italicises a heading', async ({ page }) => {
+      const style = await page.locator('main .thallo-block-heading').last().evaluate((el) => getComputedStyle(el).fontStyle);
+      expect(style).toBe('italic');
+    });
+
+    test("the Footer's divider is the top section's bottom edge, styled, and never a box", async ({ page }) => {
+      const edges = (i) =>
+        page.locator('main .thallo-block-footer__top').nth(i).evaluate((el) => {
+          const cs = getComputedStyle(el);
+          return { bottom: `${cs.borderBottomWidth} ${cs.borderBottomStyle}`, color: cs.borderBottomColor, top: cs.borderTopWidth, left: cs.borderLeftWidth };
+        });
+      const plain = await edges(0);
+      const styled = await edges(1);
+      expect(plain.bottom).toBe('1px solid'); // the theme's line
+      expect(styled.bottom).toBe('4px dashed');
+      expect(styled.color).not.toBe(plain.color);
+      expect([styled.top, styled.left]).toEqual(['0px', '0px']);
+    });
+
+    test("Social links' Icon section styles every icon", async ({ page }) => {
+      const drawn = (i) =>
+        page.locator('main .thallo-block-social_links').nth(i).evaluate((row) =>
+          [...row.querySelectorAll('.thallo-block-social_link__link')].map((a) => {
+            const cs = getComputedStyle(a);
+            const svg = a.querySelector('svg');
+            return { background: cs.backgroundColor, radius: cs.borderTopLeftRadius, icon: svg ? Math.round(svg.getBoundingClientRect().width) : 0 };
+          }),
+        );
+      const plain = await drawn(0);
+      const styled = await drawn(1);
+      expect(styled).toHaveLength(2);
+      for (const icon of styled) {
+        expect(icon.background).toBe('rgb(0, 0, 0)');
+        expect(icon.radius).not.toBe('0px');
+        expect(icon.icon).toBeGreaterThan(plain[0].icon); // Size scales the icon
+      }
+      expect(plain[0].background).toBe('rgba(0, 0, 0, 0)');
     });
   });
 }

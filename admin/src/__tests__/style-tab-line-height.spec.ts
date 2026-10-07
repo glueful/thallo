@@ -65,6 +65,7 @@ describe('line height', () => {
       'style-field-typography.letter_spacing',
       'style-field-typography.transform',
       'style-field-typography.decoration',
+      'style-field-typography.style',
     ])
     expect(fields[3]!.text()).toContain('Line height')
   })

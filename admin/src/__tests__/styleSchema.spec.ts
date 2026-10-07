@@ -27,6 +27,7 @@ describe('style schema mirror', () => {
       'typography.letter_spacing',
       'typography.transform',
       'typography.decoration',
+      'typography.style',
     ])
   })
 

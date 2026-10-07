@@ -34,6 +34,7 @@ const FUNCTIONS = [
   'fonts_stylesheet_url',
   'style_classes',
   'style_attrs',
+  'parent_style_classes',
   'token_class',
   'slot_attrs',
   'is_canvas',

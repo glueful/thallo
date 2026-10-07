@@ -182,6 +182,12 @@ const PROPERTIES: PropertyDefinition[] = [
   // width, each logo keeping its proportions.
   choice('logos.height', 'logos', true, ['sm', 'md', 'lg', 'xl']),
   choice('logos.max_width', 'logos', true, ['sm', 'md', 'lg', 'xl']),
+  // A text's style, upright or italic (settings version 14), for every target and part with
+  // Typography; and the Footer block's divider — the line under its top section, by its bottom edge.
+  choice('typography.style', 'typography', false, ['normal', 'italic']),
+  token('footer.divider_color', 'footer', false, 'color'),
+  choice('footer.divider_width', 'footer', false, ['none', 'thin', 'medium', 'thick']),
+  choice('footer.divider_style', 'footer', false, ['solid', 'dashed', 'dotted']),
 ]
 
 const BY_PATH = new Map(PROPERTIES.map((p) => [p.path, p]))

@@ -15,6 +15,9 @@ export const CHOICE_LABELS: Record<string, Record<string, string>> = {
   'typography.decoration': { none: 'None', underline: 'Underline', 'line-through': 'Line-through' },
   'logos.height': { sm: 'Small', md: 'Medium', lg: 'Large', xl: 'Extra large' },
   'logos.max_width': { sm: 'Narrow', md: 'Medium', lg: 'Wide', xl: 'Extra wide' },
+  'typography.style': words(['normal', 'italic']),
+  'footer.divider_width': words(['none', 'thin', 'medium', 'thick']),
+  'footer.divider_style': words(['solid', 'dashed', 'dotted']),
   'colors.surface_opacity': percent(['100', '90', '80', '70', '60', '50']),
   'motion.entrance': words([
     'none',

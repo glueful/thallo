@@ -50,6 +50,8 @@ const props = defineProps<{
   parent?: BlockInstance | null
   parentType?: BlockType | null
   parentClasses?: StyleClassRef[]
+  /** What the page's root arranges a parentless block as — the header and footer bars: flex. */
+  rootDisplay?: 'flex' | 'grid' | null
   /** The parent's blocks field the block sits in, and the document's loops (a layout's cards). */
   parentSlot?: string | null
   loops?: { type: string; card: string }[]
@@ -316,6 +318,7 @@ const cardFields = computed<string[]>(() =>
           :parent="parent"
           :parent-type="parentType"
           :parent-classes="parentClasses"
+          :root-display="rootDisplay"
           :parent-slot="parentSlot"
           :loops="loops"
           :fill="fill"

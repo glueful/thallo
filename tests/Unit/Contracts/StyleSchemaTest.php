@@ -71,8 +71,12 @@ final class StyleSchemaTest extends TestCase
             'aside.surface',
             // How tall a Logos block's logos are drawn, and how wide one may get (settings version 13).
             'logos.height', 'logos.max_width',
+            // A text's style, upright or italic (settings version 14), and the Footer block's divider:
+            // the line under its top section, its colour, width and style.
+            'typography.style',
+            'footer.divider_color', 'footer.divider_width', 'footer.divider_style',
         ], $paths);
-        self::assertSame(13, StyleSchema::VERSION);
+        self::assertSame(14, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
     }
 
@@ -205,7 +209,7 @@ final class StyleSchemaTest extends TestCase
             StyleSchema::pathsInGroup('layout.item'),
             StyleCapabilities::fromDeclaration(['layout.item'])->paths(),
         );
-        self::assertSame(13, StyleSchema::VERSION);
+        self::assertSame(14, StyleSchema::VERSION);
     }
 
     public function testMotionIsABlocksOwnGroupAndStaggerIsTheArrangersAlone(): void
@@ -252,7 +256,7 @@ final class StyleSchemaTest extends TestCase
         self::assertSame(
             [
                 'typography.size', 'typography.weight', 'typography.line_height', 'typography.family',
-                'typography.letter_spacing', 'typography.transform', 'typography.decoration',
+                'typography.letter_spacing', 'typography.transform', 'typography.decoration', 'typography.style',
             ],
             StyleSchema::pathsInGroup('typography'),
         );
@@ -334,6 +338,33 @@ final class StyleSchemaTest extends TestCase
         self::assertTrue($width->responsive);
         self::assertSame(['sm', 'md', 'lg', 'xl'], $width->choices);
         self::assertSame(['logos.height', 'logos.max_width'], StyleSchema::pathsInGroup('logos'));
+    }
+
+    public function testFontStyleIsATypographyChoiceSetOnceForEveryWidth(): void
+    {
+        $def = StyleSchema::property('typography.style');
+        self::assertNotNull($def);
+        self::assertSame('typography', $def->group);
+        self::assertSame([ValueKind::Choice, ValueKind::Reset], $def->kinds);
+        self::assertFalse($def->responsive);
+        self::assertSame(['normal', 'italic'], $def->choices);
+        self::assertContains('typography.style', StyleSchema::pathsInGroup('typography'));
+    }
+
+    public function testTheFooterDividerIsItsOwnGroup(): void
+    {
+        self::assertSame(
+            ['footer.divider_color', 'footer.divider_width', 'footer.divider_style'],
+            StyleSchema::pathsInGroup('footer'),
+        );
+        $colour = StyleSchema::property('footer.divider_color');
+        self::assertSame([ValueKind::Token, ValueKind::Reset], $colour?->kinds);
+        self::assertSame('color', $colour?->tokenDomain);
+        self::assertSame(['none', 'thin', 'medium', 'thick'], StyleSchema::property('footer.divider_width')?->choices);
+        self::assertSame(['solid', 'dashed', 'dotted'], StyleSchema::property('footer.divider_style')?->choices);
+        foreach (StyleSchema::pathsInGroup('footer') as $path) {
+            self::assertFalse(StyleSchema::property($path)?->responsive, $path);
+        }
     }
 
     public function testTheMarkerPropertiesMirrorTheCardsOwn(): void

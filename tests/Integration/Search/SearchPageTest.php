@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Search;
 
+use Thallo\Contracts\Search\SearchSourceRegistry;
+use Thallo\Search\Query\KindAvailability;
 use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Core\Tests\Support\Search\SearchOnApp;
 
@@ -49,6 +51,40 @@ final class SearchPageTest extends AppTestCase
         self::assertSame(3, substr_count($html, '<article'));
         self::assertStringContainsString('<mark>', $html);
         self::assertStringContainsString('<title>Search results for “rose” — ', $html);
+    }
+
+    public function testTabsAreTheKindsSearchableNowAsScopeLinks(): void
+    {
+        $this->site->publish('post', 'rose', 'Rose', 'A rose garden');
+        $this->site->reconcile();
+        $container = $this->site->app->getContainer();
+        $availability = $container->get(KindAvailability::class);
+        $kinds = array_values(array_filter(
+            array_keys($container->get(SearchSourceRegistry::class)->all()),
+            static fn (string $kind): bool => $availability->isAvailable($kind),
+        ));
+        $html = (string) $this->site->page('/search?q=rose&locale=en')->getContent();
+        if (count($kinds) < 2) {
+            // One kind to search: nothing to choose between, so no tabs.
+            self::assertStringNotContainsString('thallo-search-page__tabs', $html);
+            return;
+        }
+        // All first, current while every kind is searched; then each kind, a scope link keeping the query.
+        self::assertSame(1, preg_match('~<nav class="thallo-search-page__tabs"[^>]*>(.*?)</nav>~s', $html, $nav));
+        $tab = '~<a class="thallo-search-page__tab" href="([^"]+)"( aria-current="page")?>([^<]+)</a>~';
+        preg_match_all($tab, $nav[1], $tabs);
+        self::assertSame('All', $tabs[3][0]);
+        self::assertSame(' aria-current="page"', $tabs[2][0]);
+        self::assertCount(count($kinds) + 1, $tabs[1]);
+        foreach ($kinds as $i => $kind) {
+            self::assertStringContainsString('scope=' . $kind, html_entity_decode($tabs[1][$i + 1]));
+            self::assertStringContainsString('q=rose', html_entity_decode($tabs[1][$i + 1]));
+            self::assertSame('', $tabs[2][$i + 1]);
+        }
+        // On a kind's own scope, its tab is the current one.
+        $scoped = (string) $this->site->page('/search?q=rose&scope=' . $kinds[0] . '&locale=en')->getContent();
+        $current = '~<a class="thallo-search-page__tab" href="[^"]*scope=' . $kinds[0] . '[^"]*" aria-current="page">~';
+        self::assertSame(1, preg_match($current, $scoped));
     }
 
     public function testNoMatchesAndSearchEverything(): void

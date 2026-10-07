@@ -173,6 +173,7 @@ All six take a `spacing` token. There is no left or right margin: horizontal pla
 | Letter spacing | `typography.letter_spacing` | no | `t-tracking-{value}` | `letter-spacing:` `tight` -0.025em, `normal` normal, `wide` 0.05em, `wider` 0.1em |
 | Text transform | `typography.transform` | no | `t-case-{value}` | `text-transform:` `none`, `uppercase`, `lowercase`, `capitalize` |
 | Text decoration | `typography.decoration` | no | `t-decor-{value}` | `text-decoration-line:` `none`, `underline`, `line-through` |
+| Font style | `typography.style` | no | `t-fstyle-{value}` | `font-style:` `normal`, `italic` |
 
 The line height is unitless, so it follows whatever the Size setting beside it resolves to.
 
@@ -293,6 +294,20 @@ are the block's Corners and Shadow, which already land on the aside.
 The padding is set a side at a time, in the same four-cell box as the block's own Padding.
 1.0.0-beta.56 and 57 stored it as one value, `aside.padding`; that path is retired, so a stored
 value has no effect and is dropped the next time the page is saved.
+
+### Divider
+
+The Footer block's divider: the line under its top section, which the theme draws as that section's
+bottom border. These settings style that edge alone, so they never draw a box around the section.
+**Width** `none` hides the line.
+
+| Setting | Path | Responsive | Class | Declaration |
+|---|---|---|---|---|
+| Colour | `footer.divider_color` | no | `t-fdivc-{name}` | `border-bottom-color: var(--t-color-{name})` |
+| Width | `footer.divider_width` | no | `t-fdivw-{value}` | `border-bottom-width:` `none` 0, `thin` 1px, `medium` 2px, `thick` 4px |
+| Style | `footer.divider_style` | no | `t-fdivs-{value}` | `border-bottom-style:` `solid`, `dashed`, `dotted` |
+
+The top section only renders while it holds blocks, so a footer with an empty top has no divider.
 
 ### Logos
 

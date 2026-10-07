@@ -4,49 +4,64 @@
 <meta charset="utf-8">
 <title>Search block</title>
 <link rel="stylesheet" href="/packages/thallo-search/assets/search.css">
-<style>.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}body{font:16px sans-serif;padding:2rem}</style>
+<style>body{font:16px sans-serif;padding:2rem;color:#0f172a} .bar{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:0.5rem 1rem;margin-top:2rem;border:1px solid #e2e8f0} .cart{display:inline-flex;width:2.75rem;height:2.75rem;align-items:center;justify-content:center}</style>
 </head>
 <body>
-<!-- The Search block's markup as search.twig renders it (field, icon, and a field with live
-     suggestions off). Kept in step with packages/thallo-search/templates. -->
+<!-- The Search block's markup as search.twig renders it (field, icon in a header-like bar beside a
+     cart-sized button, and a field with live suggestions off). Kept in step with
+     packages/thallo-search/templates. -->
 <div class="thallo-block thallo-block-search thallo-block-search--field" data-search-block data-live="1" data-scope="" data-locale="en" data-key="blk1">
 <form method="get" action="/search" role="search" class="thallo-search-form">
+  <svg class="thallo-search-form__lead" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"></circle><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
   <label for="thallo-search-input-blk1" class="sr-only">Search</label>
   <input id="thallo-search-input-blk1" name="q" type="search" value="" placeholder="Search" role="combobox" aria-expanded="false" aria-controls="thallo-search-list-blk1" aria-autocomplete="list" autocomplete="off" class="thallo-search-form__input">
+  <button type="button" class="thallo-search-form__clear" aria-label="Clear search" tabindex="-1" data-search-clear hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></button>
+  <kbd class="thallo-search-form__kbd" aria-hidden="true" data-search-kbd hidden>/</kbd>
   <input type="hidden" name="scope" value="">
   <input type="hidden" name="locale" value="en">
   <button type="submit" class="thallo-search-form__submit">Search</button>
-  <ul id="thallo-search-list-blk1" role="listbox" class="thallo-search-form__list" hidden></ul>
+  <ul id="thallo-search-list-blk1" role="listbox" class="thallo-search-form__list" aria-label="Suggestions" hidden></ul>
   <p class="thallo-search-form__status" role="status" aria-live="polite" data-search-status></p>
 </form>
 </div>
-<button id="after-field">Next control</button>
+<button id="after-field" style="margin-top:22rem">Next control</button>
 
-<div class="thallo-block thallo-block-search thallo-block-search--icon" data-search-block data-live="1" data-scope="products" data-locale="en" data-key="blk2" style="margin-top:2rem">
+<div class="bar" data-bar>
+<span>Logo</span>
+<div class="thallo-block thallo-block-search thallo-block-search--icon" data-search-block data-live="1" data-scope="products" data-locale="en" data-key="blk2">
   <a class="thallo-block-search__trigger" href="/search?scope=products&amp;locale=en" aria-label="Search" aria-expanded="false" aria-controls="thallo-search-panel-blk2" data-search-trigger>
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"></circle></svg>
+    <svg class="thallo-block-search__glyph" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"></circle><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
   </a>
   <div id="thallo-search-panel-blk2" class="thallo-block-search__panel" data-search-panel hidden>
-<form method="get" action="/search" role="search" class="thallo-search-form">
+    <div class="thallo-block-search__sheet">
+<form method="get" action="/search" role="search" class="thallo-search-form thallo-search-form--compact">
+  <svg class="thallo-search-form__lead" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"></circle><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
   <label for="thallo-search-input-blk2" class="sr-only">Search</label>
   <input id="thallo-search-input-blk2" name="q" type="search" value="" placeholder="Search" role="combobox" aria-expanded="false" aria-controls="thallo-search-list-blk2" aria-autocomplete="list" autocomplete="off" class="thallo-search-form__input">
+  <button type="button" class="thallo-search-form__clear" aria-label="Clear search" tabindex="-1" data-search-clear hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></button>
   <input type="hidden" name="scope" value="products">
   <input type="hidden" name="locale" value="en">
-  <button type="submit" class="thallo-search-form__submit">Search</button>
-  <ul id="thallo-search-list-blk2" role="listbox" class="thallo-search-form__list" hidden></ul>
+  <button type="submit" class="thallo-search-form__submit"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="sr-only">Search</span></button>
+  <ul id="thallo-search-list-blk2" role="listbox" class="thallo-search-form__list" aria-label="Suggestions" hidden></ul>
   <p class="thallo-search-form__status" role="status" aria-live="polite" data-search-status></p>
 </form>
+      <button type="button" class="thallo-block-search__cancel" data-search-cancel>Cancel</button>
+    </div>
   </div>
 </div>
+<span class="cart" data-cart>Cart</span>
+</div>
 
-<div class="thallo-block thallo-block-search thallo-block-search--field" data-search-block data-live="0" data-scope="" data-locale="en" data-key="blk3" style="margin-top:12rem">
+<div class="thallo-block thallo-block-search thallo-block-search--field" data-search-block data-live="0" data-scope="" data-locale="en" data-key="blk3" style="margin-top:22rem">
 <form method="get" action="/search" role="search" class="thallo-search-form">
+  <svg class="thallo-search-form__lead" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"></circle><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
   <label for="thallo-search-input-blk3" class="sr-only">Search</label>
   <input id="thallo-search-input-blk3" name="q" type="search" value="" placeholder="Search" role="combobox" aria-expanded="false" aria-controls="thallo-search-list-blk3" aria-autocomplete="list" autocomplete="off" class="thallo-search-form__input">
+  <button type="button" class="thallo-search-form__clear" aria-label="Clear search" tabindex="-1" data-search-clear hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></button>
   <input type="hidden" name="scope" value="">
   <input type="hidden" name="locale" value="en">
   <button type="submit" class="thallo-search-form__submit">Search</button>
-  <ul id="thallo-search-list-blk3" role="listbox" class="thallo-search-form__list" hidden></ul>
+  <ul id="thallo-search-list-blk3" role="listbox" class="thallo-search-form__list" aria-label="Suggestions" hidden></ul>
   <p class="thallo-search-form__status" role="status" aria-live="polite" data-search-status></p>
 </form>
 </div>

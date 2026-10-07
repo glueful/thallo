@@ -68,6 +68,7 @@ describe('Letter spacing, Text transform and Text decoration', () => {
       'style-field-typography.letter_spacing',
       'style-field-typography.transform',
       'style-field-typography.decoration',
+      'style-field-typography.style',
     ])
     expect(fields[4]!.text()).toContain('Letter spacing')
     expect(fields[5]!.text()).toContain('Text transform')

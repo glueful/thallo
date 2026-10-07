@@ -200,15 +200,26 @@ final class SearchBlockTest extends AppTestCase
                     'data' => ['display' => $display], 'settings' => ['style' => $style],
                 ]],
             );
-            $field = '~<input id="thallo-search-input-blk1"[^>]*class="([^"]*)"~';
-            self::assertSame(1, preg_match($field, $html, $input), $html);
+            // The field is the whole control: its look lands on the form, never the bare input.
+            $form = '~<form method="get" action="/search" role="search" class="([^"]*)"~';
+            self::assertSame(1, preg_match($form, $html, $field), $html);
+            $inputPattern = '~<input id="thallo-search-input-blk1"[^>]*class="([^"]*)"~';
+            self::assertSame(1, preg_match($inputPattern, $html, $input));
             self::assertSame(1, preg_match('~class="(thallo-block thallo-block-search[^"]*)"~', $html, $root));
             foreach ($look as $class) {
-                self::assertStringContainsString($class, $input[1], "{$display}: {$class} on the field");
+                self::assertStringContainsString($class, $field[1], "{$display}: {$class} on the field");
+                self::assertStringNotContainsString($class, $input[1], "{$display}: {$class} not on the input");
                 self::assertStringNotContainsString($class, $root[1], "{$display}: {$class} not on the block");
             }
             self::assertStringContainsString(ClassNames::for('spacing.padding.top', 'spacing.lg'), $root[1]);
         }
+    }
+
+    public function testTheIconsSizeIsASetting(): void
+    {
+        $targets = $this->on->getContainer()->get(BlockStyleRegistry::class)->targetsFor('search');
+        self::assertNotNull($targets);
+        self::assertTrue($targets->partCapabilities('icon')->allows('typography.size'));
     }
 
     public function testTheButtonIconAndPanelTakeTheirOwnLook(): void

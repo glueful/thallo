@@ -144,6 +144,19 @@ try {
             'data' => ['images' => array_keys(ListingPageSeed::IMAGES), 'scroll' => $scroll] + ($title === null ? [] : ['title' => $title]),
             'settings' => $style === [] ? [] : ['style' => $style],
         ];
+        $footer = static fn (string $id, array $style = []): array => [
+            'id' => $id, 'type' => 'footer',
+            'data' => ['top' => [['id' => $id . 'tn', 'type' => 'rich_text', 'data' => ['body' => '<p>Top</p>']]]],
+            'settings' => $style === [] ? [] : ['style' => $style],
+        ];
+        $socials = static fn (string $id, array $parts = []): array => [
+            'id' => $id, 'type' => 'social_links',
+            'data' => ['items' => [
+                ['id' => $id . 'ig', 'type' => 'social_link', 'data' => ['icon' => 'brand:instagram', 'url' => 'https://example.com/ig']],
+                ['id' => $id . 'x1', 'type' => 'social_link', 'data' => ['icon' => 'brand:x', 'url' => 'https://example.com/x']],
+            ]],
+            'settings' => $parts === [] ? [] : ['parts' => $parts],
+        ];
         $body = [
             $heading('headplain001', 'Quiet title'),
             $heading('headcase0001', 'Quiet title', ['transform' => $choice('uppercase'), 'letter_spacing' => $choice('wider')]),
@@ -181,6 +194,22 @@ try {
             ]]),
             // Titled: the title's own bottom margin is the only space above the logos.
             $logos('logotitled01', false, [], 'Trusted by'),
+            // Font style; the Footer's divider, untouched and styled; Social links, untouched and
+            // with its Icon section set (each link reads it from its parent).
+            $heading('headitalic01', 'Quiet title', ['style' => $choice('italic')]),
+            $footer('footerplain1'),
+            $footer('footerstyled', ['footer' => [
+                'divider_color' => ['type' => 'token', 'value' => 'color.accent'],
+                'divider_width' => $choice('thick'),
+                'divider_style' => $choice('dashed'),
+            ]]),
+            $socials('socialsplain'),
+            $socials('socialstyled', ['icon' => [
+                'colors' => ['surface' => ['type' => 'token', 'value' => 'color.black'], 'text' => ['type' => 'token', 'value' => 'color.white']],
+                'radius' => ['type' => 'token', 'value' => 'radius.sm'],
+                'typography' => ['size' => ['base' => ['type' => 'token', 'value' => 'typography.size.xl']]],
+                'spacing' => ['padding' => ['top' => ['base' => ['type' => 'token', 'value' => 'spacing.sm']]]],
+            ]]),
         ];
 
         $type = (string) $container->get(ContentTypeRepository::class)->create([

@@ -670,6 +670,41 @@ describe('As an item', () => {
     ])
   })
 
+  it('a block at the root of a flex bar (the header, the footer) is that bar’s item', () => {
+    // The page says what its root is: the header and footer bars are flex rows, so a block placed
+    // straight in one aligns and sizes as a flex item — Align self is its vertical alignment.
+    const inBar = mountTab({
+      block: block('h1', 'heading'),
+      blockType: heading,
+      rootDisplay: 'flex',
+    })
+    const fields = inBar
+      .findAll('[data-test="layout-group-item"] [data-test^="style-field-"]')
+      .map((el) => el.attributes('data-test'))
+    expect(fields).toEqual([
+      'style-field-layout.basis',
+      'style-field-layout.grow',
+      'style-field-layout.shrink',
+      'style-field-layout.align_self',
+    ])
+    // A page body's root arranges nothing, so there a root block is no item.
+    const inBody = mountTab({ block: block('h1', 'heading'), blockType: heading })
+    expect(inBody.find('[data-test="layout-group-item"]').exists()).toBe(false)
+    // A parent, when there is one, is still what decides.
+    const inGrid = mountTab({
+      block: block('h1', 'heading'),
+      blockType: heading,
+      parent: grid(),
+      parentType: container,
+      rootDisplay: 'flex',
+    })
+    expect(
+      inGrid
+        .findAll('[data-test="layout-group-item"] [data-test^="style-field-"]')
+        .map((el) => el.attributes('data-test')),
+    ).toEqual(['style-field-layout.span', 'style-field-layout.align_self'])
+  })
+
   it('an untouched parent is a flex column, so its items size themselves as flex items', () => {
     const w = mountTab({
       block: block('h1', 'heading'),

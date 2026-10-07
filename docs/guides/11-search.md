@@ -137,8 +137,19 @@ field that does not exist, or is not a string or text field, is skipped at runti
 4. Set **scope** to search everything, or one kind: **Pages & posts** or **Products**.
 5. Press **Save**.
 
-**live results** shows up to six suggestions while a visitor types; switch it off for a plain
-field. Arrow keys move through the suggestions, Enter opens one, Escape closes the list.
+**live results** shows up to six suggestions while a visitor types, grouped by kind when the block
+searches everything, each with its picture and price; switch it off for a plain field. Arrow keys
+move through the suggestions, Enter opens one, Escape closes the list, and **See all results**
+opens the results page. On a page with a field, pressing `/` puts the cursor in it.
+
+The field is one rounded control: a magnifier, the text, a clear button once something is typed,
+and the **Search** button. The icon is a round button the size of the header's other icons; it
+opens a panel under the header, or a sheet across the top of a phone's screen with **Cancel**.
+Both take the theme's colours and the button corners chosen in **Appearance › Corners**.
+
+To restyle the block, select it and open **Style**: the field's own settings, then **Button**,
+**Icon** (with **Size** for the magnifier) and **Panel** sections. To line the icon up with the
+header's other icons, use **Layout › As an item › Align self**.
 
 The block works on a page too: it is in the Design view's **Blocks** tab under **Site**. A scope
 that cannot be searched — Search is off, or Commerce is off for a products scope — hides the block
@@ -149,10 +160,13 @@ icon a plain link, both opening `/search`. See
 ## The results page
 
 `/search?q=<terms>` lists results ten to a page, with **More results** to continue. It takes
-`scope` (a kind, or empty for every kind) and `locale`, and is what the Search block opens. It
-works without JavaScript, and says so plainly when there are no results, when a scope is not
-available, while the index is still being built, and when a visitor has searched too often (60
-searches a minute per visitor). The page is never cached and asks search engines not to index it.
+`scope` (a kind, or empty for every kind) and `locale`, and is what the Search block opens. The
+query is the heading with the count under it, and when more than one kind can be searched, tabs
+(**All**, then each kind) switch the scope. Each result is one row you can click anywhere on, with
+its picture, kind, price and the matching text. It works without JavaScript, and says so plainly
+when there are no results, when a scope is not available, while the index is still being built,
+and when a visitor has searched too often (60 searches a minute per visitor). The page is never
+cached and asks search engines not to index it.
 
 It renders through the theme template `search/results.twig`. `SEARCH_PAGE_SIZE` and
 `SEARCH_PAGE_RATE_LIMIT` change the page size and the limit; see
