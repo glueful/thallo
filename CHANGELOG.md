@@ -5,7 +5,12 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.89] - 2026-10-07 — Developer Preview
+
+The Search block and the results page get a finished default look, and the Search icon a Size
+setting. Font style joins Typography, the Footer block's divider can be styled, and Social links
+take their look from the Style tab. Blocks in the header and footer bars can be aligned
+vertically. Run `php glueful thallo:provision` after `composer update`; read the Upgrade Notes.
 
 ### Added
 - **Font style:** Normal or Italic, a Typography setting on every block and part that has
@@ -39,6 +44,17 @@ as the next release, never a mutated tag.
   header or footer bar now has the Layout tab's **As an item** settings, so **Align self** lines it
   up (top, centre, bottom or stretch) beside its neighbours. They appeared only inside a Container
   before, though the bars lay their blocks out in a row like one.
+
+### Upgrade Notes
+- `composer update && php glueful thallo:provision`. Provision gives the Footer and Social links
+  blocks their new style settings and every block with Typography its Font style; until then an
+  existing install shows none of them.
+- A Search block's **Field** styles now land on the whole rounded control instead of the text box
+  inside it, so a background or border set there draws around the magnifier and the button too.
+- A theme that overrides the Search block's or the results page's templates keeps its own
+  markup; copy the new templates to pick up the new look.
+- The template policy version is now 32 (`parent_style_classes()` joined the allowlist), so every
+  saved template recompiles on its next render.
 
 ## [1.0.0-beta.88] - 2026-10-06 — Developer Preview
 

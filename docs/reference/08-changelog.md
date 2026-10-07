@@ -10,6 +10,57 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.89] - 2026-10-07 — Developer Preview
+
+The Search block and the results page get a finished default look, and the Search icon a Size
+setting. Font style joins Typography, the Footer block's divider can be styled, and Social links
+take their look from the Style tab. Blocks in the header and footer bars can be aligned
+vertically. Run `php glueful thallo:provision` after `composer update`; read the Upgrade Notes.
+
+### Added
+- **Font style:** Normal or Italic, a Typography setting on every block and part that has
+  Typography, and in style classes. Set once for every width. **Normal** takes the italic off text
+  the theme sets italic.
+- **The Footer block's divider can be styled.** A **Divider** group (Colour, Width, Style) styles
+  the line under the footer's top section, and only that line: width **None** hides it.
+- **Social links take their look from the Style tab.** The block's **Icon** section (Background,
+  Text colour, Border, Corners, Size, Padding) styles every icon in the row at once. Settings
+  version 14; style compiler 19. `thallo:provision` gives an existing install's Footer and Social
+  links blocks their new settings.
+- **The Search block and the results page look finished out of the box.** The field is one
+  rounded control with a magnifier, a clear button and the Search button set into it, and an
+  accent ring on focus; `/` jumps to it. The icon is a round button the size of the header's other
+  icons, opening a panel under the header, or a sheet with Cancel across the top of a phone's
+  screen. Suggestions are grouped by kind, each with its picture and price, the matching words
+  highlighted, and **See all results** at the foot. The results page puts the query in the heading
+  and the count under it, adds tabs for each kind that can be searched, and shows each result as
+  one clickable row; empty and error states say what to do next. Everything follows the theme's
+  colours and **Appearance › Corners**.
+- **The Search icon's size is a setting:** **Size** in the Search block's **Icon** style section.
+
+### Fixed
+- **The Search icon lines up with the header's other icons.** It sat a few pixels high: its
+  button stopped short of the row's height and left the line's spacing under the magnifier.
+- **The Search field's label stays hidden on sites without Commerce.** The hidden "Search" label
+  relied on a class only the shop stylesheet defined.
+- **A Search block's Field styles apply to the whole field.** They now land on the rounded control
+  rather than the text box inside it.
+- **Blocks in the header and footer can be aligned vertically.** A block placed straight in the
+  header or footer bar now has the Layout tab's **As an item** settings, so **Align self** lines it
+  up (top, centre, bottom or stretch) beside its neighbours. They appeared only inside a Container
+  before, though the bars lay their blocks out in a row like one.
+
+### Upgrade Notes
+- `composer update && php glueful thallo:provision`. Provision gives the Footer and Social links
+  blocks their new style settings and every block with Typography its Font style; until then an
+  existing install shows none of them.
+- A Search block's **Field** styles now land on the whole rounded control instead of the text box
+  inside it, so a background or border set there draws around the magnifier and the button too.
+- A theme that overrides the Search block's or the results page's templates keeps its own
+  markup; copy the new templates to pick up the new look.
+- The template policy version is now 32 (`parent_style_classes()` joined the allowlist), so every
+  saved template recompiles on its next render.
+
 ## [1.0.0-beta.88] - 2026-10-06 — Developer Preview
 
 Mini cart, Wishlist link and Search take their look from the Style tab, with sections for their
