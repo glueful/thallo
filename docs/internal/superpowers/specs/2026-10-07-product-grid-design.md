@@ -1,6 +1,7 @@
 # Product grid — design
 
-**Status:** for review. **Date:** 2026-10-07.
+**Status:** for review (revision 2: no compatibility with grids saved before this release — there
+are no live sites to carry). **Date:** 2026-10-07.
 
 ## 1. Purpose
 
@@ -17,8 +18,7 @@ card, its image, title, price, meta, button and badges, with hover looks.
 **Success:** an author drops a Product grid on the home page, picks *On sale*, chooses *Men* and
 *Women* from a dropdown, sets 4 products in 4 columns, hides the rating, turns on a *Sale* badge,
 gives the cards a white background with a soft shadow that lifts on hover and zooms the image —
-and sees all of it on the stage, with real products, as they edit. A grid saved before this
-release renders the same products as before.
+and sees all of it on the stage, with real products, as they edit.
 
 **Out of scope for this release:**
 
@@ -78,24 +78,14 @@ The link under the grid:
 - exactly one category chosen, no tags → that category's page (as today);
 - anything else → the shop page.
 
-### 2.4 Grids saved before this release
+### 2.4 No carry-over from the old block
 
-Stored block data is not rewritten (there is no value-mapping block migration, and the block's
-last schema change set the precedent of read-time defaults). The grid reads old data as:
-
-| Stored | Read as |
-|---|---|
-| `source: newest` (or missing, or unknown) | `source: all`, `order_by: newest` |
-| `source: category`, `category_slug: men` | `source: all`, `categories: [men]` |
-| `source: tag`, `tag_slug: summer` | `source: all`, `tags: [summer]` |
-| `source: category` with no slug | `source: all`, no filter — but the stage keeps today's prompt to choose one |
-| `source: manual` | unchanged |
-
-`category_slug` and `tag_slug` stay in the schema as **legacy fields**, excluded from the
-inspector (`exclude`), read only when `categories` / `tags` are absent. The first save from the new
-inspector writes `categories` / `tags` and the grid reads those from then on. This mapping is one
-PHP normalizer (`ProductGridQuery::fromData()`), so the stage, the published page and the tests
-read old data the same way.
+There are no live sites, so nothing carries grids saved before this release forward: the old
+`category_slug` and `tag_slug` fields and the `category`, `tag` and `newest` source values are
+**removed** from the schema, not kept as legacy fields, and nothing maps them. Missing or invalid
+values read as the defaults of §2.1 (`ProductGridQuery::fromData()`, one PHP normalizer, so the
+stage, the published page and the tests agree). The shop patterns that build grids are updated to
+the new fields.
 
 ## 3. Rendering
 
@@ -117,8 +107,7 @@ already do:
 - On the published page `shop.js` binds the cards' add-to-cart forms and wishlist hearts the way it
   binds the shop index's server cards, so the cards carry the same hooks.
 - **The stage shows the real cards**, inert (no cart or wishlist behaviour), with `shop.css`. Its
-  placeholder remains only for an empty result: "Product grid — no products match" (or today's
-  "choose a category" prompt for an old category grid with no slug).
+  placeholder remains only for an empty result: "Product grid — no products match".
 
 ### 3.2 Caching
 
@@ -135,11 +124,12 @@ the catalog:
   its cache entry expires. Acceptable — the badge is approximate by nature — and stated in the
   docs.
 
-### 3.3 The old endpoint
+### 3.3 The old endpoint goes
 
-`/_shop/blocks/product-grid` and `shop.js`'s grid hydration stay this release, unchanged, so a page
-cached before the upgrade still fills. The block no longer uses them. Their removal is a later
-release's task.
+`/_shop/blocks/product-grid`, its controller action and `shop.js`'s grid hydration
+(`hydrateProductGrid`, `renderProductGrid`) are **removed**, with their tests and the API schema
+entry. `buildProductCard()` stays — the wishlist page builds its cards with it — and so does the
+card hook parity test.
 
 ### 3.4 Count and columns
 
@@ -154,9 +144,9 @@ The grid's query needs engine support the storefront list does not have. One min
 `glueful/commerce`, in `~/Sites/glueful/extensions/commerce`, before Thallo's:
 
 - **`ResolvedProductFilters`** takes lists: `categoryUuids` and `tagUuids` (any-of within each,
-  ANDed together), plus `onSale` and `inStock` booleans. The single-value constructor arguments
-  remain as a deprecated path that maps to one-item lists, so the storefront list
-  (`ProductListQuery`, one category and one tag) is unchanged.
+  ANDed together), plus `onSale` and `inStock` booleans. The single-value arguments are replaced,
+  not kept: the storefront list (`ProductController::index()`, one category and one tag from
+  `ProductListQuery`) passes one-item lists, with no change to its API.
 - **`activeFilteredQuery()`**: each list becomes one `EXISTS … IN (…)` subquery; `onSale` an
   `EXISTS` over active variants with `compare_at_price > price`; `inStock` an `EXISTS` over active
   variants left-joined to `commerce_stock` (`tracked = false OR quantity > 0`). All portable SQL
@@ -183,13 +173,13 @@ to show, Columns.
 
 **Display** — Show image, Show title, Title tag (`h2` / `h3` / `h4`), Show price, Show rating,
 Show categories, Show tags, Show add to cart, Show wishlist. Each *Show* is a boolean; an absent
-value means today's look: everything shown except tags (new) — so a saved grid is unchanged.
+value means today's card: everything shown except tags.
 *Show categories* shows every category of the product (today: the first only), in category
 order.
 
 **Badges** — Show sale badge (off), Sale badge text (`Sale`), Show new badge (off), New badge text
 (`New`), New badge days (7, 1–365), Badge position (`top-left`, `top-right`). Badges are off by
-default so a saved grid gains none.
+default.
 
 ### 5.2 Fields that only apply to some sources
 
@@ -211,7 +201,7 @@ search (Nuxt UI `USelectMenu` with `multiple`):
   `OptionsSourceField` renders a multi-select when `multiple` is set; a stored value that is no
   longer an option (a deleted category) stays selected and is shown as unavailable, as the single
   select does today.
-- **Slugs, not uuids:** consistent with the manual list and the legacy fields, readable in stored
+- **Slugs, not uuids:** consistent with the manual list, readable in stored
   data and patterns. A renamed category slug drops out of a grid (shown unavailable in the
   dropdown); tag slugs are immutable.
 
@@ -276,18 +266,21 @@ selectors, as the theme's hover rules are).
 - A storefront guide section: building a home-page grid; what On sale and Exclude out of stock
   mean; that the New badge follows page caching.
 - CHANGELOG entries with the change, and Upgrade Notes: run `thallo:provision` (the block's new
-  fields and parts); grids keep their products; a theme that overrides `product-grid.twig` must be
-  rewritten for server-rendered cards; requires `glueful/commerce ^1.14.0`.
+  fields and parts); a Product grid saved before this release must have its source and categories
+  or tags chosen again; a theme that overrides `product-grid.twig` must be rewritten for
+  server-rendered cards; the `/_shop/blocks/product-grid` endpoint is gone; requires
+  `glueful/commerce ^1.14.0`.
 
 ## 9. Testing
 
 **Commerce engine (its own suite):** each filter (category list, tag list, both, on sale, in
-stock — tracked and untracked), each sort with ties, the deprecated single-value path, and the
+stock — tracked and untracked), each sort with ties, the storefront list's one-item lists, and the
 batch projections; on SQLite and PostgreSQL.
 
 **Thallo, PHP:**
 
-- `ProductGridQuery::fromData()` — every row of §2.4's table, plus unknown values.
+- `ProductGridQuery::fromData()` — the defaults, valid values, and missing or invalid values
+  (including the removed `category` / `tag` / `newest` sources) reading as defaults.
 - Integration: grids render the right products for each source, filter combination, order and
   count; dedupe across categories; deleted slugs; View-all URL rules; empty result placeholder.
 - Display toggles and title tag; badges (sale rule, new window boundary, position, text escaping);
@@ -299,7 +292,7 @@ batch projections; on SQLite and PostgreSQL.
 - `FieldDefinition` `multiple` on option-source strings; validation of lists; the two commerce
   options sources (permission, labels).
 - The card hook parity test keeps passing (the client card's hooks remain a subset of the
-  server's).
+  server's); the removed endpoint answers 404.
 
 **Admin (vitest):** multi-select options field (select, deselect, unavailable value kept); the
 Product grid inspector's groups and help texts; the Style tab lists the seven parts.
