@@ -69,6 +69,8 @@ export interface World {
    * (api/patterns-commerce-off.json), so no shop section or template is in it.
    */
   commerceOff?: boolean
+  /** An accepted apply answers with these fragments (null, the default: none — the stage refreshes). */
+  fragments?: () => Record<string, string> | null
 }
 
 export async function routeWorld(page: Page, world: World = {}): Promise<Recorded> {
@@ -84,9 +86,17 @@ export async function routeWorld(page: Page, world: World = {}): Promise<Recorde
   // The stage: the rendered canvas and everything it links.
   await page.route('**/_preview/**', (route) => {
     recorded.stageLoads += 1
+    const html = fixture(world.underLayout ? 'layouts/canvas-under-layout.html' : 'canvas.html')
+    // A world that answers with fragments serves the stage with the pair it shows, as the server
+    // does, so the stage can accept a fragment swap whose baseline is that pair.
     return text(
       route,
-      fixture(world.underLayout ? 'layouts/canvas-under-layout.html' : 'canvas.html'),
+      world.fragments
+        ? html.replace(
+            '<main ',
+            `<main data-thallo-epoch="proof" data-thallo-revision="${revision}" `,
+          )
+        : html,
       'text/html',
     )
   })
@@ -234,7 +244,7 @@ export async function routeWorld(page: Page, world: World = {}): Promise<Recorde
             baseline: revision - 1,
             style_generation: 0,
             applied_at: new Date().toISOString(),
-            fragments: null,
+            fragments: world.fragments?.() ?? null,
             // Under a layout every accepted apply names it, as the mint did.
             ...(world.underLayout
               ? {

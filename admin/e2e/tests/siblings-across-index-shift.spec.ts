@@ -44,6 +44,10 @@ test('two selected headings drag together into an empty column with shifted indi
     'gridempty001',
     'gridspan0001',
     'prose0000001',
+    // The hover preview's blocks (hover-preview.spec.ts).
+    'hovlinks0001',
+    'hovnest00001',
+    'hovsocial001',
   ])
   expect(
     idsIn(h.document, ['body', 1, 'data', 'content', 0, 'data', 'content', 1, 'data', 'content']),

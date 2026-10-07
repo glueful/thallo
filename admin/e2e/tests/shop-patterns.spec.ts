@@ -15,6 +15,10 @@ const BODY = [
   'gridempty001',
   'gridspan0001',
   'prose0000001',
+  // The hover preview's blocks (hover-preview.spec.ts).
+  'hovlinks0001',
+  'hovnest00001',
+  'hovsocial001',
 ]
 
 type Block = { id: string; type: string; data: Record<string, unknown> }

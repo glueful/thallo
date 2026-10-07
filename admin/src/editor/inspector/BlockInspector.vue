@@ -20,6 +20,7 @@ import LayoutTab from './LayoutTab.vue'
 import type { FillAvailability } from '@/editor/structure/gridFill'
 import { hasTab } from './tabMap'
 import { effectivePaths, partBlockType } from '@/style/capabilities'
+import { partScope } from '@/editor/stage/stageHover'
 import AdvancedTab from './AdvancedTab.vue'
 import SaveSectionForm from './SaveSectionForm.vue'
 import type { SectionPlace } from '@/queries/patterns'
@@ -327,6 +328,7 @@ const cardFields = computed<string[]>(() =>
         <StyleTab
           v-else
           :block="block"
+          :hidden="tab !== 'style'"
           :block-type="blockType"
           :schema="schema"
           :classes="classes"
@@ -358,11 +360,13 @@ const cardFields = computed<string[]>(() =>
             </h4>
             <StyleTab
               :block="part.block"
+              :hidden="tab !== 'style'"
               :block-type="part.type"
               :schema="schema"
               :classes="[]"
               context="part"
               :part="part.name"
+              :part-scope="partScope(blockType, part.name)"
               :active-breakpoint="activeBreakpoint"
               @set="(path, bp, value) => emit('set-part-setting', part.name, path, bp, value)"
               @set-all="(path, value) => emit('set-part-all', part.name, path, value)"

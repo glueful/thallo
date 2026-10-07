@@ -215,6 +215,18 @@ $entries->saveDraft(
         // the Block tab's editor and its hand-over with the stage (inspector-content.spec.ts).
         ['id' => 'prose0000001', 'type' => 'rich_text', 'data' => ['body' => '<p>Written once.</p>'],
             'settings' => []],
+        // The hover preview (hover-preview.spec.ts): a Links block with three links, a Container holding
+        // another Links block (whose links a force on the first must not reach), and a Social links row.
+        ['id' => 'hovlinks0001', 'type' => 'links', 'data' => ['title' => 'More', 'items' => [
+            ['label' => 'One', 'url' => '/one'], ['label' => 'Two', 'url' => '/two'], ['label' => 'Three', 'url' => '/three'],
+        ]], 'settings' => []],
+        ['id' => 'hovnest00001', 'type' => 'container', 'data' => ['element' => 'div', 'content' => [
+            ['id' => 'hovlinks0002', 'type' => 'links', 'data' => ['items' => [['label' => 'Inner', 'url' => '/inner']]], 'settings' => []],
+        ]], 'settings' => []],
+        ['id' => 'hovsocial001', 'type' => 'social_links', 'data' => ['items' => [
+            ['id' => 'hovsocialig1', 'type' => 'social_link', 'data' => ['icon' => 'brand:instagram', 'url' => 'https://example.com/ig'], 'settings' => []],
+            ['id' => 'hovsocialx01', 'type' => 'social_link', 'data' => ['icon' => 'brand:x', 'url' => 'https://example.com/x'], 'settings' => []],
+        ]], 'settings' => []],
     ]],
     (int) $page['schema_version'],
     (int) ($draft['lock_version'] ?? 0),

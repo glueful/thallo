@@ -34,6 +34,10 @@ test('the stage + arms the tab after the container and Enter inserts the first m
     'gridempty001',
     'gridspan0001',
     'prose0000001',
+    // The hover preview's blocks (hover-preview.spec.ts).
+    'hovlinks0001',
+    'hovnest00001',
+    'hovsocial001',
   ])
   await expect(strip).toHaveCount(0) // consumed
 })

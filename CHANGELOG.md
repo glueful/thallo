@@ -19,6 +19,10 @@ as the next release, never a mutated tag.
 - **The Style tab's Normal / Hover switch.** The Colours and Effects sections of a block, a part
   or a style class that offers a hover state switch between the resting look and the hover look; a
   dot marks a section with hover values set.
+- **The stage previews the hover look while Hover is on**: every element the selected block owns
+  for that section — each link of a Links block, each link of a Social links row — shows the
+  theme's hover look and yours together, through edits and stage reloads, until you switch back to
+  Normal, select another block or leave the Style tab.
 - **A File block's link has its own Link section**: background, text and border colour, corners,
   size, padding, opacity and hover.
 

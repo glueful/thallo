@@ -6,6 +6,7 @@ import { proseRichFieldName } from '@/fields/components/blocks/proseDetection'
 import { useCanvasBridge } from '@/composables/useCanvasBridge'
 import { useAppearanceChanges } from '@/composables/useAppearanceChanges'
 import { StageTypographyKey, type StageTypography } from '@/editor/stage/stageTypography'
+import { StageHoverKey, createStageHover } from '@/editor/stage/stageHover'
 import { createApplyMetrics, type ApplyPath } from '@/editor/applyMetrics'
 import { createEditorHistory, type EditorHistory } from '@/editor/ops/history'
 import { diffDocuments } from '@/editor/ops/diff'
@@ -1779,11 +1780,18 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   const stageRenders = ref(0)
   /** The stage shows a layout's placeholder page (its sample gone): told by the stage on each load. */
   const stagePlaceholder = ref(false)
+  // The stage's forced hover (hover state spec §6.3): held here, so a stage that reloads — and so
+  // forgets it — gets it again as soon as it reports ready; a new selection ends it.
+  const stageHover = createStageHover((request) => bridge.forceHover(request))
+  provide(StageHoverKey, stageHover)
+  watch(selected, () => stageHover.clearAny())
+  onBeforeUnmount(() => stageHover.clearAny())
   bridge.onStageState((placeholder, fingerprint) => {
     stagePlaceholder.value = placeholder
     stageRenders.value++
     if (fingerprint !== null) renderedFingerprint = fingerprint
     if (appearanceReloading) appearanceReloaded()
+    stageHover.resend()
   })
   const stageTypography: StageTypography = {
     request: (id, target) => bridge.requestTypography(id, target),

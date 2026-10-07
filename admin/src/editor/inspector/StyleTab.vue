@@ -5,7 +5,7 @@
 // Only properties `tabMap` assigns to Style appear here; width, placement and content
 // distribution moved to the Layout tab (container-layout spec §5), because how wide a box is and
 // how it sits in its parent are layout decisions, not styling ones.
-import { computed, inject, ref, watch } from 'vue'
+import { computed, inject, onBeforeUnmount, ref, watch } from 'vue'
 import type { BlockType } from '@/queries/blockTypes'
 import type { StylePropertyRow, StyleSchemaResult } from '@/queries/styleSchema'
 import type { Breakpoint, StyleClassRef, StyleValue } from '@/style/types'
@@ -18,6 +18,7 @@ import { BREAKPOINTS } from '@/style/types'
 import { isFolded, toggleFold } from './styleGroupFolds'
 import { pathsForTab } from './tabMap'
 import { effectivePaths, HOVER_OF } from '@/style/capabilities'
+import { StageHoverKey, hoverTargets } from '@/editor/stage/stageHover'
 import { resolve } from '@/style/resolver'
 import { suppliedWeights, useFontLibrary } from '@/queries/fontLibrary'
 import type { ComputedTypography } from '@/composables/useCanvasBridge'
@@ -47,6 +48,13 @@ const props = defineProps<{
   canPlayMotion?: boolean
   /** A part's Style tab (`context` 'part'): the part's name, which the stage marks it by. */
   part?: string
+  /** A part's Style tab: whose elements its forced hover reaches (the part's declared scope). */
+  partScope?: 'own' | 'children'
+  /**
+   * The host shows another tab over this one, which it keeps mounted: no forced hover then. (A
+   * Boolean prop left out is false, so the default — shown — needs no binding.)
+   */
+  hidden?: boolean
 }>()
 
 const multi = computed(() => (props.blocks?.length ?? 0) > 1)
@@ -232,6 +240,40 @@ const groups = computed(() =>
     }
   }).filter((g) => g.rows.length > 0),
 )
+
+// While Hover is on and a section with hover rows is open, the stage shows the hover look of what
+// this tab governs (hover state spec §6.3): a block's every hover target, or this part with its
+// declared scope. Normal, folding those sections, a new selection or leaving the tab clears it.
+const stageHover = inject(StageHoverKey, null)
+const hoverOwner = Symbol('style-tab')
+const hoverShown = computed(
+  () =>
+    !props.hidden &&
+    hoverState.value === 'hover' &&
+    groups.value.some((g) => g.hasHover && !isFolded(g.key)),
+)
+watch(
+  () => [hoverShown.value, props.block.id] as const,
+  ([shown, id]) => {
+    if (stageHover === null || multi.value) return
+    if (!shown) return stageHover.clear(hoverOwner)
+    const context = props.context ?? 'block'
+    if (context === 'part' && props.part) {
+      stageHover.force(hoverOwner, {
+        id,
+        targets: [],
+        part: props.part,
+        scope: props.partScope ?? 'own',
+      })
+    } else if (context === 'block') {
+      const targets = hoverTargets(props.blockType)
+      if (targets.length > 0)
+        stageHover.force(hoverOwner, { id, targets, part: null, scope: 'own' })
+    }
+  },
+  { immediate: true },
+)
+onBeforeUnmount(() => stageHover?.clear(hoverOwner))
 
 /** Whether any of a section's hover values is declared on this target or part (the Hover dot). */
 function hoverDeclared(rows: StylePropertyRow[]): boolean {
