@@ -19,6 +19,7 @@ import StyleTab from './StyleTab.vue'
 import LayoutTab from './LayoutTab.vue'
 import type { FillAvailability } from '@/editor/structure/gridFill'
 import { hasTab } from './tabMap'
+import { effectivePaths, partBlockType } from '@/style/capabilities'
 import AdvancedTab from './AdvancedTab.vue'
 import SaveSectionForm from './SaveSectionForm.vue'
 import type { SectionPlace } from '@/queries/patterns'
@@ -135,11 +136,8 @@ const parts = computed(() => {
   ).map(([name, spec]) => ({
     name,
     label: spec.label ?? name,
-    type: {
-      ...props.blockType!,
-      style_capabilities: spec.capabilities ?? [],
-      style_targets: null,
-    } as BlockType,
+    // What the part offers, as the server expanded it (hover state spec §2.2.1).
+    type: partBlockType(props.blockType!, name),
     block: {
       ...props.block,
       settings: {
@@ -161,14 +159,8 @@ const declaredPaths = computed<string[]>(() => {
   const rows = props.schema?.properties ?? []
   const byPath = new Set(rows.map((r) => r.path))
   const types = multi.value ? (props.blockTypes ?? []) : [props.blockType]
-  const sets = types.map((type) => {
-    const out = new Set<string>()
-    for (const entry of type?.style_capabilities ?? []) {
-      if (byPath.has(entry)) out.add(entry)
-      else for (const row of rows) if (row.group === entry) out.add(row.path)
-    }
-    return out
-  })
+  // The server's expansion of each type (hover state spec §2.2.1), kept to the schema's paths.
+  const sets = types.map((type) => new Set([...effectivePaths(type)].filter((p) => byPath.has(p))))
   if (sets.length === 0) return []
   const [first, ...rest] = sets
   return [...first!].filter((path) => rest.every((set) => set.has(path)))

@@ -57,4 +57,14 @@ final class StyleCapabilityFixturesTest extends TestCase
         $by = array_column($doc['cases'], 'expect', 'name');
         self::assertSame($by['order: hover listed first'], $by['order: hover listed last']);
     }
+
+    public function testBothRuntimesReadTheSameFixtureFiles(): void
+    {
+        $spec = (string) file_get_contents(__DIR__ . '/../../../admin/src/__tests__/style-capabilities.spec.ts');
+        self::assertStringContainsString(
+            'style-capability-fixtures/v1',
+            $spec,
+            'the TypeScript spec reads the same folder',
+        );
+    }
 }

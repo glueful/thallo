@@ -14,7 +14,8 @@ import { absent, present } from '@/editor/ops/types'
 import { readPath, setPath, settingSegments } from '@/editor/ops/apply'
 import { useStyleSchema } from '@/queries/styleSchema'
 import { useStyleClasses, useStyleClassMutations } from '@/queries/styleClasses'
-import { capabilityPaths, detachStyleClass } from '@/style/detach'
+import { detachStyleClass } from '@/style/detach'
+import { effectivePaths } from '@/style/capabilities'
 import { liftPreservesAppearance, liftedDeclarations } from '@/style/lift'
 import {
   createDragCoordinator,
@@ -2131,12 +2132,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     const index = ids.indexOf(classId)
     if (index === -1 || !history) return
     const type = allBlockTypes.value?.find((t) => t.slug === block.type)
-    const toStyle = detachStyleClass(
-      classRefsFor(block),
-      style,
-      classId,
-      capabilityPaths(type?.style_capabilities),
-    )
+    const toStyle = detachStyleClass(classRefsFor(block), style, classId, effectivePaths(type))
     const op = history.record({
       type: 'DetachStyleClass',
       block: block.id,
@@ -2203,7 +2199,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
       if (declarations.length === 0) return
       const created = await createStyleClass.mutateAsync({ name, description, style })
       const type = allBlockTypes.value?.find((t) => t.slug === block.type)
-      const allowed = capabilityPaths(type?.style_capabilities)
+      const allowed = effectivePaths(type)
       const lifted = { id: created.id, style: created.style }
       if (!liftPreservesAppearance(classRefsFor(block), style, lifted, allowed)) {
         await deleteStyleClass.mutateAsync(created.id)

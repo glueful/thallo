@@ -24,6 +24,7 @@ import type { Breakpoint, Resolution, StyleClassRef, StyleValue } from '@/style/
 import type { FillAvailability } from '@/editor/structure/gridFill'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import { resolve } from '@/style/resolver'
+import { effectivePaths } from '@/style/capabilities'
 import { readPath, settingSegments } from '@/editor/ops/apply'
 import { BREAKPOINTS } from '@/style/types'
 import { BREAKPOINT_LABELS } from '@/editor/breakpoint'
@@ -103,16 +104,8 @@ const multi = computed(() => (props.blocks?.length ?? 0) > 1)
 /** In the Box section the same property names what the block does with its own content. */
 const BOX_LABELS: Record<string, string> = { 'alignment.content': 'Content alignment' }
 
-/** The capability paths of one type: an entry names a path, or a group that expands to its paths. */
-function pathsOf(type: BlockType | null): Set<string> {
-  const out = new Set<string>()
-  const byPath = new Set(props.schema.properties.map((r) => r.path))
-  for (const entry of type?.style_capabilities ?? []) {
-    if (byPath.has(entry)) out.add(entry)
-    else for (const row of props.schema.properties) if (row.group === entry) out.add(row.path)
-  }
-  return out
-}
+/** The paths one type offers: the server's expansion (hover state spec §2.2.1). */
+const pathsOf = (type: BlockType | null): Set<string> => effectivePaths(type)
 
 /** The layout paths every selected block declares: a property any block lacks renders no control. */
 const allowed = computed<Set<string>>(() => {

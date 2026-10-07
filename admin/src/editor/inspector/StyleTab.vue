@@ -17,6 +17,7 @@ import { readPath, settingSegments } from '@/editor/ops/apply'
 import { BREAKPOINTS } from '@/style/types'
 import { isFolded, toggleFold } from './styleGroupFolds'
 import { pathsForTab } from './tabMap'
+import { effectivePaths } from '@/style/capabilities'
 import { resolve } from '@/style/resolver'
 import { suppliedWeights, useFontLibrary } from '@/queries/fontLibrary'
 import type { ComputedTypography } from '@/composables/useCanvasBridge'
@@ -73,7 +74,8 @@ const GROUPS: { key: string; label: string; match: (row: StylePropertyRow) => bo
   {
     key: 'effects',
     label: 'Effects',
-    match: (r) => r.group === 'radius' || r.group === 'shadow' || r.group === 'border',
+    match: (r) =>
+      r.group === 'radius' || r.group === 'shadow' || r.group === 'border' || r.group === 'opacity',
   },
   // The block's marker — a feature's icon chip or number badge — beside the block's own Effects.
   { key: 'marker', label: 'Marker', match: (r) => r.group === 'marker' },
@@ -138,19 +140,12 @@ const LABELS: Record<string, string> = {
   'motion.stagger': 'Stagger children',
   'motion.ken_burns': 'Ken Burns',
   'colors.surface_opacity': 'Background opacity',
+  opacity: 'Opacity',
   'backdrop.blur': 'Backdrop blur',
 }
 
-/** The capability paths of one type: an entry names a path, or a group that expands to its paths. */
-function pathsOf(type: BlockType | null): Set<string> {
-  const out = new Set<string>()
-  const byPath = new Set(props.schema.properties.map((r) => r.path))
-  for (const entry of type?.style_capabilities ?? []) {
-    if (byPath.has(entry)) out.add(entry)
-    else for (const row of props.schema.properties) if (row.group === entry) out.add(row.path)
-  }
-  return out
-}
+/** The paths one type offers: the server's expansion (hover state spec §2.2.1). */
+const pathsOf = (type: BlockType | null): Set<string> => effectivePaths(type)
 
 /** The paths every selected block declares: a property any block lacks renders no control. */
 const allowed = computed<Set<string>>(() => {
