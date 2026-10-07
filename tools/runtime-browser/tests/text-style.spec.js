@@ -251,5 +251,32 @@ for (const [where, url] of Object.entries(PAGES)) {
       }
       expect(plain[0].background).toBe('rgba(0, 0, 0, 0)');
     });
+
+    test("a Social link's own Icon section beats the row's, and its Text colour reaches the icon", async ({ page }) => {
+      const links = page.locator('main .thallo-block-social_links').nth(2).locator('.thallo-block-social_link__link');
+      const look = (i) => links.nth(i).evaluate((a) => {
+        const cs = getComputedStyle(a);
+        const svg = a.querySelector('svg');
+        return { background: cs.backgroundColor, color: cs.color, border: cs.borderTopWidth, radius: cs.borderTopLeftRadius, icon: svg ? Math.round(svg.getBoundingClientRect().width) : 0 };
+      });
+      const accent = await page.evaluate(() => {
+        const probe = document.createElement('span');
+        probe.style.color = 'var(--accent)';
+        document.body.append(probe);
+        const c = getComputedStyle(probe).color;
+        probe.remove();
+        return c;
+      });
+      const own = await look(0);
+      const plainRow = await page.locator('main .thallo-block-social_links').nth(0).locator('.thallo-block-social_link__link').first().evaluate((a) => Math.round(a.querySelector('svg').getBoundingClientRect().width));
+      expect(own.background).toBe(accent); // not the row's black
+      expect(own.color).toBe('rgb(255, 255, 255)');
+      expect(own.border).toBe('2px');
+      expect(own.radius).not.toBe('0px');
+      expect(own.icon).toBeGreaterThan(plainRow);
+      const tinted = await look(1);
+      expect(tinted.background).toBe('rgb(0, 0, 0)'); // the row's, where the link sets none
+      expect(tinted.color).toBe(accent); // the link's Text colour, not the theme's muted grey
+    });
   });
 }

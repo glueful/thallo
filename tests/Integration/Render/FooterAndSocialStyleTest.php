@@ -127,6 +127,49 @@ final class FooterAndSocialStyleTest extends AppTestCase
         self::assertSame(['thallo-block-social_link__link'], self::classesOf($html, 'thallo-block-social_link__link'));
     }
 
+    public function testASocialLinksOwnIconSectionStylesItsLinkAndBeatsTheRows(): void
+    {
+        $token = static fn (string $v): array => ['type' => 'token', 'value' => $v];
+        $html = $this->render([[
+            'id' => 'socials00002', 'type' => 'social_links',
+            'data' => ['items' => [
+                ['id' => 'sociallink03', 'type' => 'social_link',
+                    'data' => ['icon' => 'brand:x', 'url' => 'https://example.com/x'],
+                    'settings' => ['parts' => ['icon' => [
+                        'colors' => ['surface' => $token('color.accent')],
+                        'typography' => ['size' => ['base' => $token('typography.size.2xl')]],
+                    ]]]],
+                ['id' => 'sociallink04', 'type' => 'social_link',
+                    'data' => ['icon' => 'brand:x', 'url' => 'https://example.com/y']],
+            ]],
+            'settings' => ['parts' => ['icon' => [
+                'colors' => ['surface' => $token('color.black'), 'text' => $token('color.white')],
+                'typography' => ['size' => ['base' => $token('typography.size.lg')]],
+            ]]],
+        ]]);
+        [$own, $other] = self::classesOf($html, 'thallo-block-social_link__link');
+        // The link's own values, and the row's for what the link leaves unset.
+        self::assertStringContainsString(ClassNames::for('colors.surface', 'color.accent'), $own);
+        self::assertStringContainsString(ClassNames::for('typography.size', 'typography.size.2xl'), $own);
+        self::assertStringContainsString(ClassNames::for('colors.text', 'color.white'), $own);
+        self::assertStringNotContainsString(ClassNames::for('colors.surface', 'color.black'), $own);
+        self::assertStringNotContainsString(ClassNames::for('typography.size', 'typography.size.lg'), $own);
+        // A link with no settings of its own takes the row's whole look.
+        self::assertStringContainsString(ClassNames::for('colors.surface', 'color.black'), $other);
+        self::assertStringContainsString(ClassNames::for('typography.size', 'typography.size.lg'), $other);
+    }
+
+    public function testASocialLinkOnItsOwnTakesItsIconSection(): void
+    {
+        $html = $this->render([[
+            'id' => 'sociallink05', 'type' => 'social_link',
+            'data' => ['icon' => 'brand:x', 'url' => 'https://example.com/x'],
+            'settings' => ['parts' => ['icon' => ['radius' => ['type' => 'token', 'value' => 'radius.full']]]],
+        ]]);
+        [$link] = self::classesOf($html, 'thallo-block-social_link__link');
+        self::assertStringContainsString(ClassNames::for('radius', 'radius.full'), $link);
+    }
+
     public function testFontStyleIsATypographySetting(): void
     {
         $registry = $this->container()->get(BlockStyleRegistry::class);

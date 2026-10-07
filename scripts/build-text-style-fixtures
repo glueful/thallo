@@ -149,11 +149,11 @@ try {
             'data' => ['top' => [['id' => $id . 'tn', 'type' => 'rich_text', 'data' => ['body' => '<p>Top</p>']]]],
             'settings' => $style === [] ? [] : ['style' => $style],
         ];
-        $socials = static fn (string $id, array $parts = []): array => [
+        $socials = static fn (string $id, array $parts = [], array $igSettings = [], array $xSettings = []): array => [
             'id' => $id, 'type' => 'social_links',
             'data' => ['items' => [
-                ['id' => $id . 'ig', 'type' => 'social_link', 'data' => ['icon' => 'brand:instagram', 'url' => 'https://example.com/ig']],
-                ['id' => $id . 'x1', 'type' => 'social_link', 'data' => ['icon' => 'brand:x', 'url' => 'https://example.com/x']],
+                ['id' => $id . 'ig', 'type' => 'social_link', 'data' => ['icon' => 'brand:instagram', 'url' => 'https://example.com/ig'], 'settings' => $igSettings],
+                ['id' => $id . 'x1', 'type' => 'social_link', 'data' => ['icon' => 'brand:x', 'url' => 'https://example.com/x'], 'settings' => $xSettings],
             ]],
             'settings' => $parts === [] ? [] : ['parts' => $parts],
         ];
@@ -210,6 +210,22 @@ try {
                 'typography' => ['size' => ['base' => ['type' => 'token', 'value' => 'typography.size.xl']]],
                 'spacing' => ['padding' => ['top' => ['base' => ['type' => 'token', 'value' => 'spacing.sm']]]],
             ]]),
+            // One Social link's own Icon section beats the row's; another's Text colour reaches its icon.
+            $socials(
+                'socialsown01',
+                ['icon' => ['colors' => ['surface' => ['type' => 'token', 'value' => 'color.black']]]],
+                ['parts' => ['icon' => [
+                    'colors' => [
+                        'surface' => ['type' => 'token', 'value' => 'color.accent'],
+                        'text' => ['type' => 'token', 'value' => 'color.white'],
+                        'border' => ['type' => 'token', 'value' => 'color.black'],
+                    ],
+                    'border' => ['width' => ['type' => 'choice', 'value' => 'thick'], 'style' => ['type' => 'choice', 'value' => 'solid']],
+                    'radius' => ['type' => 'token', 'value' => 'radius.full'],
+                    'typography' => ['size' => ['base' => ['type' => 'token', 'value' => 'typography.size.2xl']]],
+                ]]],
+                ['style' => ['colors' => ['text' => ['type' => 'token', 'value' => 'color.accent']]]],
+            ),
         ];
 
         $type = (string) $container->get(ContentTypeRepository::class)->create([

@@ -87,6 +87,26 @@ final class SearchPageTest extends AppTestCase
         self::assertSame(1, preg_match($current, $scoped));
     }
 
+    /** Products is a tab only while Commerce is on: with it off, entries are the only kind, so no tabs. */
+    public function testTheProductsTabNeedsCommerce(): void
+    {
+        $tabsOf = static function (bool $commerce, string $type): string {
+            $site = new SearchOnApp(self::bootAppWithConfigOverride(
+                'thallo',
+                ['capabilities' => ['thallo.search' => true, 'thallo.commerce' => $commerce]],
+            ));
+            $site->publish($type, 'rose', 'Rose', 'A rose garden');
+            $site->reconcile();
+            $html = (string) $site->page('/search?q=rose&locale=en')->getContent();
+            preg_match('~<nav class="thallo-search-page__tabs"[^>]*>(.*?)</nav>~s', $html, $nav);
+            return $nav[1] ?? '';
+        };
+        $on = $tabsOf(true, 'post');
+        self::assertStringContainsString('scope=products', html_entity_decode($on));
+        self::assertStringContainsString('>Products</a>', $on);
+        self::assertSame('', $tabsOf(false, 'note'), 'no tabs, and no Products tab, with Commerce off');
+    }
+
     public function testNoMatchesAndSearchEverything(): void
     {
         $this->site->publish('post', 'rose', 'Rose');

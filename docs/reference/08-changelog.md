@@ -10,6 +10,35 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.90] - 2026-10-07 — Developer Preview
+
+Each Social link has its own Icon section, and its Text colour now colours the icon. The Search
+icon's panel shows suggestions and messages under the field again, and its arrow button keeps its
+size. Run `php glueful thallo:provision` after `composer update`; read the Upgrade Notes.
+
+### Added
+- **Each Social link has its own Icon section** (Background, Text colour, Border, Corners, Size,
+  Padding), so one icon can look different from the rest of the row. Where a link and its Social
+  links block both set something, the link's value wins. `thallo:provision` gives an existing
+  install's Social link blocks the section.
+
+### Fixed
+- **A Social link's Text colour colours its icon.** The theme's own grey on the link beat it.
+- **The Search icon's panel shows suggestions and messages under the field.** They sat inside the
+  field's row, squeezing the text box, so a message such as "Search is being rebuilt" appeared
+  beside the input.
+- **The arrow in the Search panel's button keeps its size.** Padding from the **Button** section
+  squeezed it to a dot; the button now widens instead.
+
+### Upgrade Notes
+- `composer update && php glueful thallo:provision`. Provision gives existing Social link blocks
+  their Icon section; until then it does not show.
+- A Social link's icon now inherits its colour from the block, so a theme rule that coloured
+  `.thallo-block-social_link__link` directly still wins over the block's Text colour; move such a
+  rule to `.thallo-block-social_link`.
+- A theme that overrides `search/_form.twig` or `blocks/search.twig` keeps the old panel layout
+  until it copies the new templates (and the new `search/_suggestions.twig`).
+
 ## [1.0.0-beta.89] - 2026-10-07 — Developer Preview
 
 The Search block and the results page get a finished default look, and the Search icon a Size
