@@ -82,8 +82,10 @@ final class StyleSchemaTest extends TestCase
             // A Feature's marker — its colour, background and size — and the space between the
             // marker and the text (settings version 16).
             'marker.color', 'marker.background', 'marker.size', 'feature.gap',
+            // Where a Feature's marker sits against its text (settings version 17).
+            'feature.align',
         ], $paths);
-        self::assertSame(16, StyleSchema::VERSION);
+        self::assertSame(17, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
     }
 
@@ -216,7 +218,7 @@ final class StyleSchemaTest extends TestCase
             StyleSchema::pathsInGroup('layout.item'),
             StyleCapabilities::fromDeclaration(['layout.item'])->paths(),
         );
-        self::assertSame(16, StyleSchema::VERSION);
+        self::assertSame(17, StyleSchema::VERSION);
     }
 
     public function testMotionIsABlocksOwnGroupAndStaggerIsTheArrangersAlone(): void
@@ -486,5 +488,14 @@ final class StyleSchemaTest extends TestCase
         self::assertSame(['marker', 'color', false], $shape('marker.background'));
         self::assertSame(['marker', 'typography.size', true], $shape('marker.size'));
         self::assertSame(['feature', 'spacing', true], $shape('feature.gap'));
+    }
+
+    public function testAFeaturesAlignmentIsAResponsiveChoiceOfThree(): void
+    {
+        $def = StyleSchema::property('feature.align');
+        self::assertSame('feature', $def?->group);
+        self::assertTrue($def->responsive);
+        self::assertSame(['start', 'center', 'end'], $def->choices);
+        self::assertSame(['feature.gap', 'feature.align'], StyleSchema::pathsInGroup('feature'));
     }
 }

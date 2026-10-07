@@ -69,7 +69,8 @@ const emit = defineEmits<{
 }>()
 
 const GROUPS: { key: string; label: string; match: (row: StylePropertyRow) => boolean }[] = [
-  // A Feature's space between its marker and its text is spacing too.
+  // A Feature's space between its marker and its text, and where the marker sits against the text,
+  // are spacing too.
   {
     key: 'spacing',
     label: 'Spacing',
@@ -157,6 +158,7 @@ const LABELS: Record<string, string> = {
   'marker.background': 'Background',
   'marker.size': 'Size',
   'feature.gap': 'Space after icon',
+  'feature.align': 'Align icon',
   'hover.colors.text': 'Text colour',
   'hover.colors.surface': 'Background',
   'hover.colors.border': 'Border colour',

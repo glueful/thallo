@@ -254,6 +254,15 @@ try {
             $feature('featplain002', 'vertical'),
             $feature('featstyled01', 'horizontal', $featureStyle),
             $feature('featstyled02', 'vertical', $featureStyle),
+            // A large icon beside two lines of text, aligned to the start, the centre and the end.
+            ...array_map(static fn (string $align): array => $feature(
+                str_pad('featal' . $align, 12, '0'),
+                'horizontal',
+                ['style' => [
+                    'marker' => ['size' => ['base' => $featureToken('typography.size.3xl')]],
+                    'feature' => ['align' => ['base' => ['type' => 'choice', 'value' => $align]]],
+                ]],
+            ), ['start', 'center', 'end']),
             // Rich text (rich-text-style.spec.js): untouched, and with each line height.
             ['id' => 'richplain001', 'type' => 'rich_text', 'settings' => [],
                 'data' => ['body' => '<h2>A heading in the text</h2><p>One paragraph, long enough to wrap onto a second line at the reading measure so its line height can be measured.</p><ul><li>A list item</li></ul>']],

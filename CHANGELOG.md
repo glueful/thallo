@@ -5,6 +5,14 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Added
+- **Align icon on the Feature block** (settings version 17), in its Style tab's Spacing section:
+  where the marker sits against the title and description — Start, Center or End. Beside the text
+  that is top, middle or bottom; above it, left, centre or right. It can differ per breakpoint. A
+  Feature without it renders as before, with the marker level with the top of the text.
+
 ## [1.0.0-beta.91] - 2026-10-07 — Developer Preview
 
 Buttons, links, social icons and File links can say what they look like under the pointer and on
