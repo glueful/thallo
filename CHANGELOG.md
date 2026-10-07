@@ -32,6 +32,19 @@ as the next release, never a mutated tag.
   text) now apply only where the device's main input can hover; keyboard focus behaves as before. The
   editor's Hover preview shows exactly what the pointer would.
 
+### Upgrade Notes
+- `composer update && php glueful thallo:provision`. Provision gives existing installs the new
+  settings: Opacity and Hover on Button, Links (each link), Social links and Social link (the
+  icon), and the File block's Link section. Until then they do not show.
+- A theme that overrides `blocks/file.twig` adds `{{ style_classes('link') }}` inside the class
+  attribute of `thallo-block-file__link`, or the File block's Link section has no effect there.
+- A custom theme's hover rules keep working on a pointer. For the editor's Hover preview to show
+  them, and for them not to stay on a phone after a tap, write each in three branches: the pointer
+  inside `@media (hover: hover)`, keyboard focus where the rule had it, and `[data-thallo-hover]`
+  ([Hover rules in a theme](docs/reference/05-style-settings.md#hover-rules-in-a-theme)).
+- On phones and tablets, the default theme's hover look on buttons, links, File links and social
+  links no longer stays after a tap.
+
 ## [1.0.0-beta.90] - 2026-10-07 — Developer Preview
 
 Each Social link has its own Icon section, and its Text colour now colours the icon. The Search

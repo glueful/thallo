@@ -254,9 +254,72 @@ are the `backdrop` group, which a block type opts into separately from `colors`.
 | Border width | `border.width` | no | `t-bw-{value}` | `border-width:` `none` 0, `thin` 1px, `thick` 2px |
 | Border style | `border.style` | no | `t-bs-{solid,dashed}` | `border-style: solid` / `dashed` |
 | Border sides | `border.sides` | no | `t-bsides-{value}` | `all` declares nothing; a side sets `border-{other}-width: 0` on the other three |
+| Opacity | `opacity` | no | `t-opacity-{100,90,80,70,60,50}` | `opacity: 1` … `0.5` |
 
 Border sides is the last property in the contract's table, so its rule follows the width's: at
 equal specificity the later rule takes three of the four sides away.
+
+Opacity fades the whole element, text and icon included. Background opacity, in Colours, fades
+only the background.
+
+### Hover
+
+A link or button can say what it looks like under the pointer and under keyboard focus. On a
+section that has any of these settings, the Style tab shows a **Normal / Hover** switch: Hover
+shows the hover version of the section's settings and hides the rest. The switch is one state for
+the whole tab, and a dot on Hover marks a section with hover values set.
+
+| Setting | Path | Responsive | Class | Declaration |
+|---|---|---|---|---|
+| Text colour | `hover.colors.text` | no | `t-hover-fg-{name}` | as Text colour |
+| Background | `hover.colors.surface` | no | `t-hover-bg-{name}` | as Background |
+| Border colour | `hover.colors.border` | no | `t-hover-bc-{name}` | as Border colour |
+| Opacity | `hover.opacity` | no | `t-hover-opacity-{100,…,50}` | as Opacity |
+
+Each hover utility is compiled twice:
+
+```css
+@media (hover: hover) {
+  .t-hover-bg-accent:hover { --t-surface: var(--t-color-accent); background: var(--t-color-accent); }
+}
+.t-hover-bg-accent:focus-visible,
+.t-hover-bg-accent[data-thallo-hover] { --t-surface: var(--t-color-accent); background: var(--t-color-accent); }
+```
+
+- **The pointer** branch applies only where the device's primary input can hover, so a tap on a
+  phone or tablet leaves nothing behind. On a touch-screen laptop, whose primary input can hover, a
+  finger tap may still leave the hover look until the next tap elsewhere.
+- **Keyboard focus** shows the same look, so a keyboard user sees what a mouse user sees.
+- **`[data-thallo-hover]`** is the editor stage's preview of the hover look. It never appears on a
+  published page.
+
+What beats what:
+
+- A hover value beats the resting value of the same property, at every width. Setting a hover
+  background needs no resting one, and resetting one leaves the other.
+- A hover value beats the theme's hover rule for that property; the theme's other hover effects
+  (a button's lift, a link's thicker underline) stay.
+- A hover background paints at full strength, even over a Background opacity.
+- **Reset** on a hover value compiles to an empty rule: it takes away a hover value a style class
+  or a Social links row gave, and keeps the resting look.
+
+#### Hover rules in a theme
+
+The default theme writes each hover rule of these elements in three branches, so the stage's
+Hover preview shows exactly what the pointer would, and a tap on a phone does not leave it behind:
+
+```css
+@media (hover: hover) {
+  .thallo-block-file__link:hover { background: var(--surface); }
+}
+.thallo-block-file__link:focus-visible,
+.thallo-block-file__link[data-thallo-hover] { background: var(--surface); }
+```
+
+Keep `:focus-visible` only where the rule already had it. A custom theme's hover rules keep
+working on a pointer unchanged. Until they take this form, the stage previews only the hover
+values set in the Style tab, and the theme's hover look may stay on a phone after a tap.
+Transitions are the theme's to set: the compiled utilities set none.
 
 ### Marker
 
@@ -466,7 +529,16 @@ them.
 
 The group names a capability list may use are the contract's own: `spacing`, `width`,
 `alignment`, `typography`, `visibility`, `shadow`, `radius`, `colors`, `border`, `layout`,
-`layout.item`, `marker`, `tabs`, `backdrop`, `motion`, `motion.children`, `motion.media`.
+`layout.item`, `marker`, `tabs`, `backdrop`, `motion`, `motion.children`, `motion.media`,
+`opacity`, `hover`.
+
+`hover` gives a target the hover version of each colour and of opacity **it already has**, and no
+other: the Links block's links, which have a text colour only, get a hover text colour only. The
+rule is per target: on a block with several targets, a hover setting exists only where `hover`
+and its resting setting land on the same target. Mapping the `hover` group to a target skips what
+that target cannot have; mapping one hover path (`'hover.colors.text' => 'root'`) to a target that
+lacks its resting path is refused. The admin reads what each block and part offers, already
+expanded, from the block type's `style_paths`.
 
 A target's kind decides what may land on it, and the declaration is refused otherwise.
 
