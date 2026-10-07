@@ -238,7 +238,7 @@ in a parent layout**.
 
 | Block | What it is for | Fields | Holds blocks | Style settings adds |
 |---|---|---|---|---|
-| **Search** (`search`) | A search field, or an icon that opens one, sending visitors to the `/search` results page. Suggestions appear as a visitor types. | `display` (enum: field, icon — default field), `placeholder` (string — default `Search`), `scope` (string — every kind, or one: Pages & posts, Products; the choices come from the features that are on), `live_results` (boolean — suggestions while typing; on unless switched off) | — | Width; the search field: Colours, Border, Corners, Shadow, Typography; the submit button (**Button**): those and Padding; in the icon display, the icon (**Icon**): Colours, Border, Corners, Padding, and its drop-down (**Panel**): Colours, Border, Corners, Shadow, Padding |
+| **Search** (`search`) | A search field, or an icon that opens one, sending visitors to the `/search` results page. Suggestions appear as a visitor types. | `display` (enum: field, icon — default field), `placeholder` (string — default `Search`), `scope` (string — every kind, or one: Pages & posts, Products; the choices come from the features that are on), `live_results` (boolean — suggestions while typing; on unless switched off) | — | Width; the search field: Colours, Border, Corners, Shadow, Typography; the submit button (**Button**): those and Padding; in the icon display, the icon (**Icon**): Size, Colours, Border, Corners, Padding, and its drop-down (**Panel**): Colours, Border, Corners, Shadow, Padding |
 
 It is in the header's palette as well as the page's, so it can sit beside the navigation. A scope
 that cannot be searched — Search is off, or the scope's feature (Commerce, for products) is off —

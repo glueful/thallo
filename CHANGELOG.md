@@ -7,7 +7,25 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **The Search block and the results page look finished out of the box.** The field is one
+  rounded control with a magnifier, a clear button and the Search button set into it, and an
+  accent ring on focus; `/` jumps to it. The icon is a round button the size of the header's other
+  icons, opening a panel under the header, or a sheet with Cancel across the top of a phone's
+  screen. Suggestions are grouped by kind, each with its picture and price, the matching words
+  highlighted, and **See all results** at the foot. The results page puts the query in the heading
+  and the count under it, adds tabs for each kind that can be searched, and shows each result as
+  one clickable row; empty and error states say what to do next. Everything follows the theme's
+  colours and **Appearance › Corners**.
+- **The Search icon's size is a setting:** **Size** in the Search block's **Icon** style section.
+
 ### Fixed
+- **The Search icon lines up with the header's other icons.** It sat a few pixels high: its
+  button stopped short of the row's height and left the line's spacing under the magnifier.
+- **The Search field's label stays hidden on sites without Commerce.** The hidden "Search" label
+  relied on a class only the shop stylesheet defined.
+- **A Search block's Field styles apply to the whole field.** They now land on the rounded control
+  rather than the text box inside it.
 - **Blocks in the header and footer can be aligned vertically.** A block placed straight in the
   header or footer bar now has the Layout tab's **As an item** settings, so **Align self** lines it
   up (top, centre, bottom or stretch) beside its neighbours. They appeared only inside a Container
