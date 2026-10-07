@@ -39,6 +39,11 @@ as the next release, never a mutated tag.
 - **Buttons no longer animate their hover for visitors who ask for reduced motion**, like the
   theme's other links already did; their hover colour, border and opacity now fade with the rest.
 
+### Fixed
+- **Line height Relaxed now changes the text.** It was 1.65, the default theme's own body line
+  height, so a Rich text block (or any body text) set to Relaxed looked unchanged; it is now 1.75,
+  between Normal (1.5) and Loose (1.9).
+
 ### Upgrade Notes
 - `composer update && php glueful thallo:provision`. Provision gives existing installs the new
   settings: Opacity and Hover on Button, Links (each link), Social links and Social link (the
@@ -48,6 +53,8 @@ as the next release, never a mutated tag.
   class attribute of `thallo-block-feature__description`, or the Description section has no effect
   there. The default theme now spaces a vertical Feature with `gap` alone (no margin under the
   marker); a theme rule that sets that margin adds to the new setting.
+- Text set to Line height **Relaxed** is now drawn at 1.75 instead of 1.65 — a little more open,
+  including headings set to Relaxed.
 - A theme that overrides `blocks/file.twig` adds `{{ style_classes('link') }}` inside the class
   attribute of `thallo-block-file__link`, or the File block's Link section has no effect there.
 - A custom theme's hover rules keep working on a pointer. For the editor's Hover preview to show

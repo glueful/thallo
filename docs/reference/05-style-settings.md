@@ -169,7 +169,7 @@ All six take a `spacing` token. There is no left or right margin: horizontal pla
 | Typeface | `typography.family` | no | `t-font-{id}` | `font-family:` the family's stack, and `font-synthesis` |
 | Size | `typography.size` | yes | `t-size-{name}` | `font-size: var(--t-typography-size-{name})` |
 | Weight | `typography.weight` | yes | `t-weight-{value}` | `font-weight:` `regular` 400, `medium` 500, `semibold` 600, `bold` 700 |
-| Line height | `typography.line_height` | yes | `t-leading-{value}` | `line-height:` `tight` 1.1, `snug` 1.25, `normal` 1.5, `relaxed` 1.65, `loose` 1.9 |
+| Line height | `typography.line_height` | yes | `t-leading-{value}` | `line-height:` `tight` 1.1, `snug` 1.25, `normal` 1.5, `relaxed` 1.75, `loose` 1.9 |
 | Letter spacing | `typography.letter_spacing` | no | `t-tracking-{value}` | `letter-spacing:` `tight` -0.025em, `normal` normal, `wide` 0.05em, `wider` 0.1em |
 | Text transform | `typography.transform` | no | `t-case-{value}` | `text-transform:` `none`, `uppercase`, `lowercase`, `capitalize` |
 | Text decoration | `typography.decoration` | no | `t-decor-{value}` | `text-decoration-line:` `none`, `underline`, `line-through` |

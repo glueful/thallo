@@ -283,7 +283,7 @@ final class StyleCompilerTest extends TestCase
         $css = StyleCompiler::compile($this->vocabulary());
 
         // Unitless, so a line's height follows its text's size — the Size setting beside it.
-        $expected = ['tight' => '1.1', 'snug' => '1.25', 'normal' => '1.5', 'relaxed' => '1.65', 'loose' => '1.9'];
+        $expected = ['tight' => '1.1', 'snug' => '1.25', 'normal' => '1.5', 'relaxed' => '1.75', 'loose' => '1.9'];
         foreach ($expected as $choice => $value) {
             self::assertStringContainsString(".t-leading-{$choice} { line-height: {$value}; }", $css);
         }
