@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Fixed
+- **Creating, editing or deleting a category, tag or attribute no longer hangs** (glueful/framework
+  1.88.5). The change was saved, but the request then looped until it ran out of memory, so the
+  admin's button spun until the server or a proxy gave up (Cloudflare answers 524); a refresh
+  showed the change. Thallo requires `glueful/framework ^1.88.5`.
+
 ### Changed
 - **Commerce → Products: categories, tags and attributes are added and edited in a slide-over
   panel**, as are an attribute's values, instead of a form below the list.
