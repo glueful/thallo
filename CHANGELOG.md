@@ -25,6 +25,11 @@ as the next release, never a mutated tag.
   Normal, select another block or leave the Style tab.
 - **A File block's link has its own Link section**: background, text and border colour, corners,
   size, padding, opacity and hover.
+- **More Style settings for the Feature block** (settings version 16): the marker's Colour,
+  Background and Size in its Marker section, beside Corners and Shadow; **Space after icon**, the
+  space between the marker and the text, beside it or above it; and a **Description** section with
+  the description's own Typography, Text colour and the space above it. The block's Typography
+  styles the title. A marker background set here gets the same chip padding as the Block tab's.
 
 ### Changed
 - **On phones and tablets, a tap no longer leaves a hover look behind.** The default theme's hover
@@ -37,7 +42,12 @@ as the next release, never a mutated tag.
 ### Upgrade Notes
 - `composer update && php glueful thallo:provision`. Provision gives existing installs the new
   settings: Opacity and Hover on Button, Links (each link), Social links and Social link (the
-  icon), and the File block's Link section. Until then they do not show.
+  icon), the File block's Link section, and the Feature block's marker, spacing and Description
+  settings. Until then they do not show.
+- A theme that overrides `blocks/feature.twig` adds `{{ style_classes('description') }}` inside the
+  class attribute of `thallo-block-feature__description`, or the Description section has no effect
+  there. The default theme now spaces a vertical Feature with `gap` alone (no margin under the
+  marker); a theme rule that sets that margin adds to the new setting.
 - A theme that overrides `blocks/file.twig` adds `{{ style_classes('link') }}` inside the class
   attribute of `thallo-block-file__link`, or the File block's Link section has no effect there.
 - A custom theme's hover rules keep working on a pointer. For the editor's Hover preview to show

@@ -69,7 +69,12 @@ const emit = defineEmits<{
 }>()
 
 const GROUPS: { key: string; label: string; match: (row: StylePropertyRow) => boolean }[] = [
-  { key: 'spacing', label: 'Spacing', match: (r) => r.group === 'spacing' },
+  // A Feature's space between its marker and its text is spacing too.
+  {
+    key: 'spacing',
+    label: 'Spacing',
+    match: (r) => r.group === 'spacing' || r.group === 'feature',
+  },
   // Alignment splits across tabs: only text alignment is left here.
   { key: 'text', label: 'Text', match: (r) => r.group === 'alignment' },
   { key: 'typography', label: 'Typography', match: (r) => r.group === 'typography' },
@@ -148,6 +153,10 @@ const LABELS: Record<string, string> = {
   'motion.stagger': 'Stagger children',
   'motion.ken_burns': 'Ken Burns',
   'colors.surface_opacity': 'Background opacity',
+  'marker.color': 'Colour',
+  'marker.background': 'Background',
+  'marker.size': 'Size',
+  'feature.gap': 'Space after icon',
   'hover.colors.text': 'Text colour',
   'hover.colors.surface': 'Background',
   'hover.colors.border': 'Border colour',

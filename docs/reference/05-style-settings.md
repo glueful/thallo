@@ -325,13 +325,30 @@ property a hover value can change on these elements, and turns the fades off und
 
 ### Marker
 
-The Feature block's icon chip or number badge is a target of its own, so it has its own corners
-and shadow beside the card's.
+The Feature block's icon chip or number badge is a target of its own, so it has its own corners,
+shadow, colour, background and size beside the card's.
 
 | Setting | Path | Responsive | Class | Declaration |
 |---|---|---|---|---|
 | Corners | `marker.radius` | no | `t-mradius-{name}` | `border-radius: var(--t-radius-{name})` |
 | Shadow | `marker.shadow` | yes | `t-mshadow-{name}` | `box-shadow: var(--t-shadow-{name})` |
+| Colour | `marker.color` | no | `t-mcolor-{name}` | `color: var(--t-color-{name})` |
+| Background | `marker.background` | no | `t-mbg-{name}` | `background: var(--t-color-{name})` |
+| Size | `marker.size` | yes | `t-msize-{name}` | `font-size: var(--t-typography-size-{name})` |
+
+Colour colours the icon, or the number; Size scales the icon (it is 1em) or the number's text. An
+icon on a background is drawn as a chip, with room around the glyph. These beat the Block tab's
+Marker colour, background and size where both are set.
+
+The space between the marker and the text, beside it or above it, is the Feature's own setting, in
+Spacing:
+
+| Setting | Path | Responsive | Class | Declaration |
+|---|---|---|---|---|
+| Space after icon | `feature.gap` | yes | `t-fgap-{name}` | `gap: var(--t-spacing-{name})` |
+
+The description is the Feature's **Description** part: its own Typography, Text colour, and the
+space above it (Margin top). The block's Typography is the title's.
 
 ### Tabs
 
@@ -532,7 +549,7 @@ them.
 The group names a capability list may use are the contract's own: `spacing`, `width`,
 `alignment`, `typography`, `visibility`, `shadow`, `radius`, `colors`, `border`, `layout`,
 `layout.item`, `marker`, `tabs`, `backdrop`, `motion`, `motion.children`, `motion.media`,
-`opacity`, `hover`.
+`opacity`, `hover`, `feature`.
 
 `hover` gives a target the hover version of each colour and of opacity **it already has**, and no
 other: the Links block's links, which have a text colour only, get a hover text colour only. The

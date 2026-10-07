@@ -195,6 +195,12 @@ const PROPERTIES: PropertyDefinition[] = [
   token('hover.colors.surface', 'hover', false, 'color'),
   token('hover.colors.border', 'hover', false, 'color'),
   choice('hover.opacity', 'hover', false, ['100', '90', '80', '70', '60', '50']),
+  // Settings version 16: a Feature's marker colour, background and size, and the space between the
+  // marker and the text.
+  token('marker.color', 'marker', false, 'color'),
+  token('marker.background', 'marker', false, 'color'),
+  token('marker.size', 'marker', true, 'typography.size'),
+  token('feature.gap', 'feature', true, 'spacing'),
 ]
 
 const BY_PATH = new Map(PROPERTIES.map((p) => [p.path, p]))

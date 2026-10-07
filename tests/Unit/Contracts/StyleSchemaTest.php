@@ -79,8 +79,11 @@ final class StyleSchemaTest extends TestCase
             // opacity (settings version 15).
             'opacity',
             'hover.colors.text', 'hover.colors.surface', 'hover.colors.border', 'hover.opacity',
+            // A Feature's marker — its colour, background and size — and the space between the
+            // marker and the text (settings version 16).
+            'marker.color', 'marker.background', 'marker.size', 'feature.gap',
         ], $paths);
-        self::assertSame(15, StyleSchema::VERSION);
+        self::assertSame(16, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
     }
 
@@ -213,7 +216,7 @@ final class StyleSchemaTest extends TestCase
             StyleSchema::pathsInGroup('layout.item'),
             StyleCapabilities::fromDeclaration(['layout.item'])->paths(),
         );
-        self::assertSame(15, StyleSchema::VERSION);
+        self::assertSame(16, StyleSchema::VERSION);
     }
 
     public function testMotionIsABlocksOwnGroupAndStaggerIsTheArrangersAlone(): void
@@ -386,7 +389,11 @@ final class StyleSchemaTest extends TestCase
         self::assertSame(StyleSchema::property('shadow')?->tokenDomain, $shadow->tokenDomain);
         self::assertSame(StyleSchema::property('radius')?->responsive, $radius->responsive);
         self::assertSame(StyleSchema::property('shadow')?->responsive, $shadow->responsive);
-        self::assertSame(['marker.radius', 'marker.shadow'], StyleSchema::pathsInGroup('marker'));
+        // Settings version 16 adds the marker's colour, background and size to the group.
+        self::assertSame(
+            ['marker.radius', 'marker.shadow', 'marker.color', 'marker.background', 'marker.size'],
+            StyleSchema::pathsInGroup('marker'),
+        );
     }
 
     public function testCapabilitiesRejectUnknownPaths(): void
@@ -467,5 +474,17 @@ final class StyleSchemaTest extends TestCase
             ['colors.text', 'opacity', 'hover.colors.text'],
             StyleSchema::ordered(['hover.colors.text', 'opacity', 'colors.text']),
         );
+    }
+
+    public function testAFeaturesMarkerAndGapAreTheirOwnPaths(): void
+    {
+        $shape = static function (string $path): array {
+            $def = StyleSchema::property($path);
+            return [$def?->group, $def?->tokenDomain, $def?->responsive];
+        };
+        self::assertSame(['marker', 'color', false], $shape('marker.color'));
+        self::assertSame(['marker', 'color', false], $shape('marker.background'));
+        self::assertSame(['marker', 'typography.size', true], $shape('marker.size'));
+        self::assertSame(['feature', 'spacing', true], $shape('feature.gap'));
     }
 }

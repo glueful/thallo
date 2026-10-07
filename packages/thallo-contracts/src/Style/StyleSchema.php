@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 15;
+    public const VERSION = 16;
 
     /**
      * Paths that were once properties and are no longer. A stored value at one is dropped when a
@@ -261,6 +261,20 @@ final class StyleSchema
                 $base->tokenDomain,
                 $base->choices,
             );
+        }
+        // Settings version 16: a Feature's marker — the icon chip or number badge — takes its own
+        // colour, background and size beside its corners and shadow (their own paths, because
+        // `colors` is the card's), and the space between the marker and the text is the block's own.
+        $token = [ValueKind::Token, ValueKind::Reset];
+        foreach (
+            [
+            new PropertyDefinition('marker.color', 'marker', $token, false, 'color'),
+            new PropertyDefinition('marker.background', 'marker', $token, false, 'color'),
+            new PropertyDefinition('marker.size', 'marker', $token, true, 'typography.size'),
+            new PropertyDefinition('feature.gap', 'feature', $token, true, 'spacing'),
+            ] as $def
+        ) {
+            $byPath[$def->path] = $def;
         }
         return self::$properties = $byPath;
     }

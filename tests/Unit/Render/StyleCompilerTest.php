@@ -609,4 +609,16 @@ final class StyleCompilerTest extends TestCase
         self::assertGreaterThan(strpos($css, '.t-bg-accent {'), strpos($css, '.t-hover-bg-accent:hover'));
         self::assertLessThan(strpos($css, '@media (min-width: 768px)'), strpos($css, '.t-hover-bg-accent:hover'));
     }
+
+    public function testAFeaturesMarkerAndGapCompileToTheirOwnUtilities(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+        self::assertSame('t-mcolor-accent', ClassNames::for('marker.color', 'color.accent'));
+        self::assertStringContainsString('.t-mcolor-accent { color: var(--t-color-accent); }', $css);
+        self::assertStringContainsString('.t-mbg-surface { background: var(--t-color-surface); }', $css);
+        self::assertStringContainsString('.t-msize-lg { font-size: var(--t-typography-size-lg); }', $css);
+        self::assertStringContainsString('.md\\:t-msize-lg { font-size: var(--t-typography-size-lg); }', $css);
+        self::assertStringContainsString('.t-fgap-sm { gap: var(--t-spacing-sm); }', $css);
+        self::assertStringContainsString('.lg\\:t-fgap-sm { gap: var(--t-spacing-sm); }', $css);
+    }
 }

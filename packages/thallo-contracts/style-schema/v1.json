@@ -1,5 +1,5 @@
 {
-    "version": 15,
+    "version": 16,
     "properties": [
         {
             "path": "spacing.padding.top",
@@ -975,6 +975,50 @@
             ],
             "kinds": [
                 "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "marker.color",
+            "group": "marker",
+            "responsive": false,
+            "token_domain": "color",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "marker.background",
+            "group": "marker",
+            "responsive": false,
+            "token_domain": "color",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "marker.size",
+            "group": "marker",
+            "responsive": true,
+            "token_domain": "typography.size",
+            "choices": null,
+            "kinds": [
+                "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "feature.gap",
+            "group": "feature",
+            "responsive": true,
+            "token_domain": "spacing",
+            "choices": null,
+            "kinds": [
+                "token",
                 "reset"
             ]
         }
