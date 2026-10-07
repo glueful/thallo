@@ -1,6 +1,7 @@
 # Product grid — design
 
-**Status:** for review (revision 3: both page-cache families, workspace isolation, empty results and
+**Status:** for review (revision 4: a stale page is refused on read — guards stored in the entry and checked before
+serving or answering 304; one value per guard; missing generations (§3.2). Revision 3: both page-cache families, workspace isolation, empty results and
 late renders (§3.2); the storefront stylesheet only through the theme layer (§3.4); resting opacity
 (§7.1); every scalar filter caller (§4); exact display defaults and the title tag (§5.1).
 Revision 2: no compatibility with grids saved before this release). **Date:** 2026-10-07.
@@ -149,18 +150,32 @@ and the segment is empty.
 
 **A render that finishes after a purge.** A page render can read the catalog, a change can commit
 and purge, and the render can then store its now-stale page under the tag that was just purged.
-To close that:
+Deleting it afterwards is not enough — another request could read it first, or the worker could
+stop before deleting — so **a stale entry must be unusable when read**:
 
-- Each workspace has a **catalog generation** (`{segment}shop:catalog-gen:{tenant}`, a random
+- **Catalog generation.** Each workspace has one (`{segment}shop:catalog-gen:{tenant}`, a random
   token, like the shop layout generations of `ShopLayoutTags`). The purge listener replaces it on
   every catalog change, before invalidating tags.
-- `product_grid()` reads the generation **before** it queries products and records it as a
-  render-scoped **cache guard** (key, value), collected like tags and carried to the page caches
-  on the request's attributes — never sent to the client.
-- Both page caches, before storing, re-read every guard key: if any value changed, the response
-  is served but not stored. After storing and tagging they re-read once more and delete the entry
-  if a guard changed in between, so a purge landing during the store cannot leave it behind.
-- This holds on every driver: the generation does not depend on tag support.
+- **Reading it.** `product_grid()` reads the generation **before** it queries products. A missing
+  token is initialized with `setNx` to a fresh value and **re-read** (as `ShopPageCache` does for
+  layout generations); if it still cannot be read, the render is marked **uncacheable**. Two
+  missing values never count as a match.
+- **The render's guard.** Each read is recorded as a render-scoped **cache guard** (key, value),
+  collected like tags and carried to the page caches on the request's attributes — never sent to
+  the client. A render holds **one value per guard key**: the first grid's observation is kept,
+  and if a later grid on the same page reads a **different** value for the same key, the render
+  is marked uncacheable. A later grid never replaces an earlier grid's older value.
+- **Storing.** A page cache stores nothing for an uncacheable render. Otherwise it re-reads every
+  guard key first and skips the store if any value changed or is unreadable; if not, it stores the
+  **guards inside the cached entry**, beside the body and headers.
+- **Serving.** On every hit, **before** answering — including before deciding a 304 — the page
+  cache re-reads each guard stored in the entry. If any value differs from the stored one, or
+  cannot be read, the entry is treated as a **miss**: it is deleted, the page renders afresh, and
+  no 304 or stale body is ever served from it. An entry with no guards (a page without a grid)
+  serves as today, with no extra reads.
+- So the order of the store and the purge no longer matters: an entry stored after the purge
+  carries the old generation and is refused on its first read, whether or not anything deletes it.
+- This holds on every driver: the generation and the guards do not depend on tag support.
 
 The New badge (§6) depends on the date: a cached page keeps a badge until the page is purged or
 its cache entry expires. Acceptable — the badge is approximate by nature — and stated in the docs.
@@ -390,8 +405,19 @@ batch projections; on SQLite and PostgreSQL.
   - a grid with **no matching products** is tagged, and creating a matching product purges it;
   - **two workspaces**: a change in one purges its own grid pages, leaves the other's cached, and
     the fallback deletes only the owning workspace's keys;
-  - **late render**: a catalog change between the grid's generation read and the store leaves the
-    page unstored; a change between store and the re-check deletes the entry.
+  - **late render**, each against both families:
+    - a catalog change between the grid's generation read and the pre-store check leaves the page
+      unstored;
+    - a change **after** the pre-store check but before the store: the entry is stored, and the
+      next reader — arriving before anything could delete it — gets a fresh render, not the stale
+      body, and no 304 for the stale ETag;
+    - **the worker stops right after storing** (simulated: the entry is written with the old guard
+      and nothing else runs): the next reader still gets a fresh render;
+    - **two grids straddling a change** on one page (the first reads generation A, a change
+      commits, the second reads B): the render is not stored;
+  - a **missing generation** is initialized with `setNx` and re-read; an unreadable generation
+    leaves the page uncached rather than matching another missing value;
+  - a page **without** a grid stores and serves with no guard and no extra cache read.
 - Category surfaces on the new engine (§4): the public category page lists exactly its products,
   paginates and 404s an unknown slug; the category layout's stage renders the category's products
   and its empty state.
