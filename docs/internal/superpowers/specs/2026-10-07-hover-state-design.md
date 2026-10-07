@@ -227,8 +227,11 @@ forced preview:
 
 The compiled artifact sets **no `transition`**: a transition is the theme's choice, and a utility
 that set one would replace the theme's (the button's includes `transform`). The default theme gives
-each element in scope a colour/opacity transition where it lacks one (Social link, Links), keeps the
-ones it has (Button, File), and turns them off under `prefers-reduced-motion: reduce`.
+each element in scope a transition on every property a hover value can change there — colour,
+background, border colour and opacity, as the element offers them — adding them to the Button's and
+the File link's existing transitions (amended after the implementation review: a hover opacity or
+text colour must not snap while the background fades), and turns them all off under
+`prefers-reduced-motion: reduce`.
 
 ### 4.3 The theme's hover rules
 

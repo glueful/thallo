@@ -42,8 +42,6 @@ as the next release, never a mutated tag.
   them, and for them not to stay on a phone after a tap, write each in three branches: the pointer
   inside `@media (hover: hover)`, keyboard focus where the rule had it, and `[data-thallo-hover]`
   ([Hover rules in a theme](docs/reference/05-style-settings.md#hover-rules-in-a-theme)).
-- On phones and tablets, the default theme's hover look on buttons, links, File links and social
-  links no longer stays after a tap.
 
 ## [1.0.0-beta.90] - 2026-10-07 — Developer Preview
 

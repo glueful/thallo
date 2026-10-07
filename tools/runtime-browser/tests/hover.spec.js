@@ -81,8 +81,6 @@ async function pointerAndForced(page, loc) {
   return { rest, pointer, forced };
 }
 
-test.use({ reducedMotion: 'reduce' });
-
 /** The page with every transition and smooth scroll off: the proofs compare end states, never a value
  * mid-flight (the theme's own reduced-motion rules do not cover every element), and point at an element
  * that has finished moving. */
@@ -198,6 +196,32 @@ for (const [where, url] of Object.entries(PAGES)) {
   });
 }
 
+test('tabbing through a Social links row: every link shows the authored hover colour and its focus ring', async ({
+  page,
+}) => {
+  await open(page, PAGES.public)
+  const accent = await colour(page, 'accent')
+  const row = page.locator('main .thallo-block-social_links').nth(2)
+  const links = row.locator('.thallo-block-social_link__link')
+  // Start from the element just before the row, as a reader tabbing down the page would.
+  const before = page.locator('main .thallo-block-social_links').nth(1).locator('.thallo-block-social_link__link').last()
+  await before.focus()
+  const seen = []
+  for (let i = 0; i < (await links.count()); i++) {
+    await page.keyboard.press('Tab')
+    const link = links.nth(i)
+    expect(await link.evaluate((el) => el === document.activeElement && el.matches(':focus-visible'))).toBe(true)
+    seen.push({
+      colour: (await look(link)).color,
+      outline: await link.evaluate((el) => getComputedStyle(el).outlineStyle),
+    })
+  }
+  // The first link takes the row's hover colour; the second resets its own (keeps the resting muted).
+  expect(seen[0].colour).toBe(accent)
+  expect(seen[1].colour).toBe(await colour(page, 'muted'))
+  for (const s of seen) expect(s.outline).not.toBe('none')
+})
+
 test('keyboard focus shows the authored hover colour and keeps the focus ring', async ({ page }) => {
   await open(page, PAGES.public);
   const accent = await colour(page, 'accent');
@@ -215,6 +239,38 @@ test('keyboard focus shows the authored hover colour and keeps the focus ring', 
   const rest = await look(plainFile);
   await plainFile.focus();
   expect((await look(plainFile)).backgroundColor).not.toBe(rest.backgroundColor);
+});
+
+// What each element offers on hover (hover state spec §5), and the transition the theme must give it
+// so each hover property fades rather than snaps (§4.2).
+const FADES = [
+  ['a Button', (page) => plainButton(page, 'solid'), ['color', 'background-color', 'border-color', 'opacity']],
+  ['a Links link', (page) => link(page, 0), ['color']],
+  ['a File link', (page) => fileLink(page, 0), ['color', 'background-color', 'border-color', 'opacity']],
+  ['a Social link', (page) => social(page, 0), ['color', 'background-color', 'border-color', 'opacity']],
+];
+
+test.describe('transitions', () => {
+  for (const [name, find, props] of FADES) {
+    test(`${name} fades every hover property it offers`, async ({ page }) => {
+      await page.goto(PAGES.public);
+      const transition = await find(page).evaluate((el) => {
+        const cs = getComputedStyle(el);
+        return { props: cs.transitionProperty.split(',').map((p) => p.trim()), durations: cs.transitionDuration };
+      });
+      for (const p of props) expect(transition.props, `${name}: ${p}`).toContain(p);
+    });
+  }
+});
+
+test('under reduced motion, nothing in scope transitions', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(PAGES.public);
+  expect(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
+  for (const [name, find] of FADES) {
+    const durations = await find(page).evaluate((el) => getComputedStyle(el).transitionDuration);
+    expect(durations.split(',').every((d) => parseFloat(d) === 0), name).toBe(true);
+  }
 });
 
 // A phone's viewport and inputs (isMobile, hasTouch), in the project's own browser.

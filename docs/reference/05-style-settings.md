@@ -319,7 +319,9 @@ Hover preview shows exactly what the pointer would, and a tap on a phone does no
 Keep `:focus-visible` only where the rule already had it. A custom theme's hover rules keep
 working on a pointer unchanged. Until they take this form, the stage previews only the hover
 values set in the Style tab, and the theme's hover look may stay on a phone after a tap.
-Transitions are the theme's to set: the compiled utilities set none.
+Transitions are the theme's to set: the compiled utilities set none. The default theme fades every
+property a hover value can change on these elements, and turns the fades off under
+`prefers-reduced-motion: reduce`.
 
 ### Marker
 
