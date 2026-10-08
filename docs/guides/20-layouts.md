@@ -228,6 +228,7 @@ The **Blocks** tab leads with the product's fields:
 | **Product name** | the name | **level** (h1 to h4), **Link to the product** |
 | **Product rating** | the stars, the average and the review count | **Hide until it has reviews** |
 | **Product price** | the price, and the struck "was" price when there is one | **Hide the "was" price** |
+| **Add to cart button** | a labelled button: **Add to cart**, **Choose options** for a product with choices, or a disabled **Sold out** | — |
 | **Product description** | the description | — |
 | **Product buy box** | the options, the quantity, the **Add to cart** button, the wishlist heart and "In stock" | **Hide the wishlist heart**, **Hide "In stock"** |
 | **Product story** | the content of the product's [linked story](18-commerce.md#add-a-product) | — |
@@ -294,14 +295,22 @@ These go inside the card, and only there — the editor says so, and so does the
 
 | Block | Shows in a card | Settings |
 |---|---|---|
-| **Product tile** | the product's picture, its category, and the quick **Add to cart** and wishlist buttons | **Hide the category**, **Hide the quick buttons** |
+| **Product tile** | the product's picture, its category, and the quick **Add to cart** and wishlist buttons | **Hide the category**, **Hide the quick buttons** (both), **Hide quick add**, **Hide wishlist**; **Image ratio**, **Image fit**, **Image hover effect**; the **Sale** and **New** badges, their text, the New window in days and their position |
 | **Product name** | the name, as a heading | **level** (h1 to h4), **Link to the product** |
 | **Product rating** | one star, the average and the review count | **Hide until it has reviews** |
 | **Product price** | the price, and the struck "was" price when there is one | **Hide the "was" price** |
 
 The quick **Add to cart** works as the shop's grid always has: a product with one variant and no
 required add-on is added straight away, even where JavaScript is off; any other product links to its
-page to choose. The page's own blocks go outside the card:
+page to choose. The **Add to cart button** makes the same decision with a label, and says **Sold
+out** when nothing is in stock — place it under the price for a button on every card.
+
+The card styles like a Product grid's. The Product tile's **Style** tab has an **Image** section (the
+frame's background, transparent until set, and its corners), **Quick add** and **Wishlist** (the two
+round buttons, each apart; the heart is an outline until saved, whatever its colours), **Category
+chip** and **Badge**. The Add to cart button has a **Button** section. The Product list has a **Card**
+section that styles every card — background, border, corners, shadow, padding and a hover look — and
+a **Card hover effect** that lifts or shadows the card under the pointer. The page's own blocks go outside the card:
 
 | Block | Shows | Settings |
 |---|---|---|
