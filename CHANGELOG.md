@@ -5,7 +5,11 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.93] - 2026-10-08 — Developer Preview
+
+The Product grid is rebuilt: a source narrowed by categories and tags, cards rendered on the
+server with display options, badges and a full Style tab, and add to cart as an icon or a button.
+Saving a category, tag or attribute no longer hangs.
 
 ### Fixed
 - **Creating, editing or deleting a category, tag or attribute no longer hangs** (glueful/framework
