@@ -114,16 +114,25 @@ $shopImages = ShopPageSeed::IMAGES + LAYOUT_THUMBNAIL_SHOP_IMAGES;
 // Only the shop pictures render in the seed's workspace: every other picture keeps the single site
 // (a header's menu, seeded above, belongs to no workspace).
 $shopSeed->restoreTenant($outsideShop);
-/** How many of the shop's script-painted blocks a pattern holds: its picture waits for all of them. */
-$shopBlocks = static fn (array $pattern): int => (int) preg_match_all(
+/** Whether a pattern holds a shop block: it renders in the shop's workspace, with its products. */
+$holdsShop = static fn (array $pattern): bool => (bool) preg_match(
     '~"type":"(product-grid|featured-product|add-to-cart)"~',
+    (string) json_encode($pattern['blocks']),
+);
+/**
+ * How many of the shop's script-painted blocks a pattern holds: its picture waits for all of them.
+ * A Product grid renders its cards on the server, so it is not one.
+ */
+$shopBlocks = static fn (array $pattern): int => (int) preg_match_all(
+    '~"type":"(featured-product|add-to-cart)"~',
     (string) json_encode($pattern['blocks']),
 );
 
 $jobs = [];
 foreach ($container->get(PatternLibrary::class)->all() as $pattern) {
     $page = $work . '/' . $pattern['slug'] . '.html';
-    $shop = $shopBlocks($pattern) > 0;
+    $shop = $holdsShop($pattern);
+    $painted = $shopBlocks($pattern);
     $outside = $shop ? $shopSeed->useTenant() : [];
     $html = ($shop ? $renderShop : $render)(
         showcase_with_ids($configured($pattern['blocks'])),
@@ -132,13 +141,18 @@ foreach ($container->get(PatternLibrary::class)->all() as $pattern) {
         $site,
     );
     if ($shop) {
-        // The shop's blocks paint with script: each answered with the controller's own response to
-        // its exact request, and the picture taken only once every one of them has painted.
+        $html = shop_local_images($html, $shopImages, $root);
+    }
+    if ($painted > 0) {
+        // The shop's script-painted blocks: each answered with the controller's own response to its
+        // exact request, and the picture taken only once every one of them has painted.
         $html = shop_inject($html, shop_block_responses($html, $container, $shopImages, $root), $root);
+    }
+    if ($shop) {
         $shopSeed->restoreTenant($outside);
     }
     file_put_contents($page, $html);
-    $jobs[] = ($shop ? ['ready' => 'shop', 'shopBlocks' => $shopBlocks($pattern)] : []) + [
+    $jobs[] = ($painted > 0 ? ['ready' => 'shop', 'shopBlocks' => $painted] : []) + [
         'page' => $page,
         'out' => $out . '/' . $pattern['slug'] . '.jpg',
         // A header or footer is short and wide: drawn narrower (still wide enough for the desktop

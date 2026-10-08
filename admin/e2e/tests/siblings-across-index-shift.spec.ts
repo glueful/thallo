@@ -48,6 +48,7 @@ test('two selected headings drag together into an empty column with shifted indi
     'hovlinks0001',
     'hovnest00001',
     'hovsocial001',
+    'gridblock0e2',
   ])
   expect(
     idsIn(h.document, ['body', 1, 'data', 'content', 0, 'data', 'content', 1, 'data', 'content']),

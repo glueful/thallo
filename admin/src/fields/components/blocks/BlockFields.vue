@@ -139,7 +139,7 @@ const menuOptions = computed(() =>
           v-else-if="toFieldDef(f).type === 'string' && toFieldDef(f).optionsSource"
           :field="{ ...displayFieldDef(f), optionsSource: toFieldDef(f).optionsSource as string }"
           :model-value="block.data[f.name]"
-          @update:model-value="(v: string) => patchData(f.name, v)"
+          @update:model-value="(v: string | string[]) => patchData(f.name, v)"
         />
         <component
           :is="fieldComponent(toFieldDef(f).type)"
@@ -148,6 +148,13 @@ const menuOptions = computed(() =>
           :model-value="block.data[f.name]"
           @update:model-value="(v: unknown) => patchData(f.name, v)"
         />
+        <p
+          v-if="toFieldDef(f).help"
+          class="mt-1 text-xs text-muted"
+          :data-test="`field-help-${f.name}`"
+        >
+          {{ toFieldDef(f).help }}
+        </p>
       </template>
     </DefineFieldRow>
 

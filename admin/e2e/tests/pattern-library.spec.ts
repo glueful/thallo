@@ -27,6 +27,7 @@ const BODY = [
   'hovlinks0001',
   'hovnest00001',
   'hovsocial001',
+  'gridblock0e2',
 ]
 
 async function openView(page: Page, view: 'sections' | 'pages'): Promise<void> {

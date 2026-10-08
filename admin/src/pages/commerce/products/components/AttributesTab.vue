@@ -220,6 +220,11 @@ function openEditValue(attributeUuid: string, val: CommerceAttributeValue) {
   valueFormOpen.value = true
 }
 
+/** The attribute the value form adds to or edits under, named in the panel's title. */
+const valueFormAttributeName = computed(
+  () => rows.value.find((a) => a.uuid === valueFormAttributeUuid.value)?.name ?? '',
+)
+
 function cancelValueForm() {
   valueFormOpen.value = false
 }
@@ -727,64 +732,6 @@ const saveDisabled = computed(
               data-test="attribute-value-add"
               @click="openCreateValue(attr.uuid)"
             />
-
-            <UAlert
-              v-if="valueFormOpen && valueFormAttributeUuid === attr.uuid && valueFormError"
-              color="error"
-              variant="subtle"
-              icon="i-lucide-triangle-alert"
-              data-test="attribute-value-form-error"
-              :title="valueFormError"
-            />
-
-            <UForm
-              v-if="valueFormOpen && valueFormAttributeUuid === attr.uuid"
-              id="attribute-value-form"
-              :schema="valueSchema"
-              :state="valueState"
-              class="grid grid-cols-2 gap-3 rounded-md border border-default p-3 sm:grid-cols-3"
-              @submit="submitValueForm"
-            >
-              <UFormField label="Value" name="value" required>
-                <UInput
-                  v-model="valueState.value"
-                  class="w-full"
-                  data-test="attribute-value-value-input"
-                />
-              </UFormField>
-              <UFormField label="Slug" name="slug" required>
-                <UInput
-                  v-model="valueState.slug"
-                  class="w-full"
-                  data-test="attribute-value-slug-input"
-                  @update:model-value="valueSlugTouched = true"
-                />
-              </UFormField>
-              <UFormField label="Position" name="position">
-                <UInput
-                  v-model.number="valueState.position"
-                  type="number"
-                  class="w-full"
-                  data-test="attribute-value-position-input"
-                />
-              </UFormField>
-              <div class="col-span-2 flex gap-2 sm:col-span-3">
-                <UButton
-                  type="submit"
-                  size="xs"
-                  :loading="createValue.isLoading.value || updateValue.isLoading.value"
-                  :label="editingValueUuid ? 'Save' : 'Add'"
-                  data-test="attribute-value-form-submit"
-                />
-                <UButton
-                  size="xs"
-                  color="neutral"
-                  variant="ghost"
-                  label="Cancel"
-                  @click="cancelValueForm"
-                />
-              </div>
-            </UForm>
           </template>
         </div>
       </div>
@@ -797,58 +744,6 @@ const saveDisabled = computed(
         label="attributes"
       />
     </section>
-
-    <!-- Create/edit attribute form --------------------------------------------------------- -->
-    <template v-if="managementMode">
-      <UAlert
-        v-if="formError"
-        color="error"
-        variant="subtle"
-        icon="i-lucide-triangle-alert"
-        data-test="attribute-form-error"
-        :title="formError"
-      />
-
-      <UForm
-        v-if="formOpen"
-        id="attribute-form"
-        ref="formRef"
-        :schema="schema"
-        :state="state"
-        class="grid grid-cols-2 gap-3 rounded-md border border-default p-3 sm:grid-cols-3"
-        @submit="submitForm"
-      >
-        <UFormField label="Name" name="name" required>
-          <UInput v-model="state.name" class="w-full" data-test="attribute-name-input" />
-        </UFormField>
-        <UFormField label="Slug" name="slug" required>
-          <UInput
-            v-model="state.slug"
-            class="w-full"
-            data-test="attribute-slug-input"
-            @update:model-value="slugTouched = true"
-          />
-        </UFormField>
-        <UFormField label="Position" name="position">
-          <UInput
-            v-model.number="state.position"
-            type="number"
-            class="w-full"
-            data-test="attribute-position-input"
-          />
-        </UFormField>
-        <div class="col-span-2 flex gap-2 sm:col-span-3">
-          <UButton
-            type="submit"
-            size="xs"
-            :loading="create.isLoading.value || update.isLoading.value"
-            :label="editingUuid ? 'Save' : 'Create'"
-            data-test="attribute-form-submit"
-          />
-          <UButton size="xs" color="neutral" variant="ghost" label="Cancel" @click="cancelForm" />
-        </div>
-      </UForm>
-    </template>
 
     <!-- Product attribute assignment -------------------------------------------------------- -->
     <section
@@ -1050,6 +945,145 @@ const saveDisabled = computed(
       />
     </section>
   </div>
+
+  <!-- Create/edit attribute form, in a slide-over ------------------------------------------- -->
+  <USlideover
+    v-if="managementMode"
+    :open="formOpen"
+    :title="editingUuid ? 'Edit attribute' : 'New attribute'"
+    :ui="{ content: 'sm:max-w-md' }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) cancelForm()
+      }
+    "
+  >
+    <template #body>
+      <div class="space-y-4">
+        <UAlert
+          v-if="formError"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-triangle-alert"
+          data-test="attribute-form-error"
+          :title="formError"
+        />
+        <UForm
+          id="attribute-form"
+          ref="formRef"
+          :schema="schema"
+          :state="state"
+          class="space-y-4"
+          @submit="submitForm"
+        >
+          <UFormField label="Name" name="name" required>
+            <UInput v-model="state.name" class="w-full" data-test="attribute-name-input" />
+          </UFormField>
+          <UFormField label="Slug" name="slug" required>
+            <UInput
+              v-model="state.slug"
+              class="w-full"
+              data-test="attribute-slug-input"
+              @update:model-value="slugTouched = true"
+            />
+          </UFormField>
+          <UFormField label="Position" name="position">
+            <UInput
+              v-model.number="state.position"
+              type="number"
+              class="w-full"
+              data-test="attribute-position-input"
+            />
+          </UFormField>
+        </UForm>
+      </div>
+    </template>
+    <template #footer>
+      <div class="flex w-full items-center justify-between">
+        <UButton color="neutral" variant="ghost" label="Cancel" @click="cancelForm" />
+        <UButton
+          type="submit"
+          form="attribute-form"
+          :loading="create.isLoading.value || update.isLoading.value"
+          :label="editingUuid ? 'Save' : 'Create'"
+          data-test="attribute-form-submit"
+        />
+      </div>
+    </template>
+  </USlideover>
+
+  <!-- Create/edit value form, in a slide-over ----------------------------------------------- -->
+  <USlideover
+    v-if="managementMode"
+    :open="valueFormOpen"
+    :title="
+      editingValueUuid
+        ? `Edit value of ${valueFormAttributeName}`
+        : `New value for ${valueFormAttributeName}`
+    "
+    :ui="{ content: 'sm:max-w-md' }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) cancelValueForm()
+      }
+    "
+  >
+    <template #body>
+      <div class="space-y-4">
+        <UAlert
+          v-if="valueFormError"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-triangle-alert"
+          data-test="attribute-value-form-error"
+          :title="valueFormError"
+        />
+        <UForm
+          id="attribute-value-form"
+          :schema="valueSchema"
+          :state="valueState"
+          class="space-y-4"
+          @submit="submitValueForm"
+        >
+          <UFormField label="Value" name="value" required>
+            <UInput
+              v-model="valueState.value"
+              class="w-full"
+              data-test="attribute-value-value-input"
+            />
+          </UFormField>
+          <UFormField label="Slug" name="slug" required>
+            <UInput
+              v-model="valueState.slug"
+              class="w-full"
+              data-test="attribute-value-slug-input"
+              @update:model-value="valueSlugTouched = true"
+            />
+          </UFormField>
+          <UFormField label="Position" name="position">
+            <UInput
+              v-model.number="valueState.position"
+              type="number"
+              class="w-full"
+              data-test="attribute-value-position-input"
+            />
+          </UFormField>
+        </UForm>
+      </div>
+    </template>
+    <template #footer>
+      <div class="flex w-full items-center justify-between">
+        <UButton color="neutral" variant="ghost" label="Cancel" @click="cancelValueForm" />
+        <UButton
+          type="submit"
+          form="attribute-value-form"
+          :loading="createValue.isLoading.value || updateValue.isLoading.value"
+          :label="editingValueUuid ? 'Save' : 'Add'"
+          data-test="attribute-value-form-submit"
+        />
+      </div>
+    </template>
+  </USlideover>
 
   <UModal
     :open="pendingDelete !== null"

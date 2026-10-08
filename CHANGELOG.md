@@ -5,6 +5,79 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.93] - 2026-10-08 — Developer Preview
+
+The Product grid is rebuilt: a source narrowed by categories and tags, cards rendered on the
+server with display options, badges and a full Style tab, and add to cart as an icon or a button.
+Saving a category, tag or attribute no longer hangs.
+
+### Fixed
+- **Creating, editing or deleting a category, tag or attribute no longer hangs** (glueful/framework
+  1.88.5). The change was saved, but the request then looped until it ran out of memory, so the
+  admin's button spun until the server or a proxy gave up (Cloudflare answers 524); a refresh
+  showed the change. Thallo requires `glueful/framework ^1.88.5`.
+
+### Added
+- **Product grid display options**: show or hide the image, title, price, rating, categories, tags,
+  add to cart and wishlist; the title's heading level (H3 by default). Cards show every category.
+  A card's rating sits under the name and appears only once the product has a review; the price
+  has the last line to itself. **Add to cart** is an icon on the picture (the default) or a button
+  under the price, always visible: Add to cart, Choose options for a product with choices, or a
+  disabled Sold out; the Style tab's Button section styles either.
+- **Sale and New badges** on Product grid cards, with their own text, a New window in days, and a
+  position.
+- **Product grid Style tab**: Card, Image, Details, Title, Price, Meta, Button, Wishlist and Badge
+  sections; the Card, Title, Button and Wishlist have hover looks, and the Card, Button and
+  Wishlist opacity. The Image section sets the background of the frame around the picture
+  (transparent until you set one); Details pads the text under the picture on its own, apart from
+  the card's padding; Wishlist styles the heart apart from the cart button, an outline until saved
+  and filled once saved, whatever its colours. The grid's own Gap sets the space between cards,
+  across and down (1rem and 1.5rem until set).
+- **Product grid card effects**: a **Card** group sets the hover effect (lift, shadow), the image
+  ratio and fit, and image zoom on hover — only where the device can hover, and without movement for
+  visitors who ask for reduced motion.
+- **Block fields can show help text, and a field with server-provided choices is a dropdown or a
+  multi-select (at most a set number)** in blocks, entries and collection rows alike; contributed
+  block types can start a new block with default content.
+
+### Changed
+- **The Product grid is a source narrowed by categories and tags** (breaking): Source is All
+  products, On sale or Manual selection; Categories and Tags are multi-select dropdowns (any of
+  them, and both when both are set); Exclude out of stock; Order by newest, price or name;
+  Products to show; Columns. Grids saved before this release must have their source and
+  categories or tags chosen again.
+- **The Product grid has no View all products link** (breaking): add a button or link beside the
+  grid where the page needs one. `ProductGridView` no longer carries `viewAllUrl`.
+- **Product grid cards render on the server, and the stage shows them.** The
+  `/_shop/blocks/product-grid` endpoint and shop.js's grid loading are gone.
+- **Pages holding a Product grid refresh with the catalog** on both the render and shop page caches,
+  and a page rendered from a catalog that changed meanwhile is never served from the cache.
+- **Shop blocks and pages no longer link the shop stylesheet themselves**: it arrives once, inside
+  the theme stylesheet's `@layer theme`, instead of being downloaded a second time on every page
+  holding a mini cart, wishlist link or featured product, and on every shop page.
+- **Thallo requires `glueful/commerce ^1.14.0`**: the category page and the category layout pass
+  the engine's list filters.
+- **Commerce → Products: categories, tags and attributes are added and edited in a slide-over
+  panel**, as are an attribute's values, instead of a form below the list.
+- **The Categories, Tags and Attributes tabs of Commerce → Products are centred** like
+  Settings → General; the tabs and the Products table stay full width.
+- **Commerce → Products remembers its tab**: the open tab is in the address (`?tab=categories`,
+  `tags`, `attributes`), so a refresh or a shared link opens the same tab.
+
+### Upgrade Notes
+- `composer update && php glueful thallo:provision`. Requires `glueful/commerce ^1.14.0`.
+  Provision replaces the Product grid's fields with the new ones (the pack's definition owns
+  them, so the old ones are removed) and gives it its starter content and Style tab parts.
+- **A Product grid saved before this release must have its source and categories or tags chosen
+  again**: the `category`, `tag` and `newest` sources and the `category_slug` / `tag_slug` fields
+  are gone, and such a grid shows all products until edited.
+- A theme that overrides `product-grid.twig` must be rewritten: the cards render on the server
+  (see the default template); the `/_shop/blocks/product-grid` endpoint is gone.
+- Thallo's templates no longer link `/_thallo/shop/shop.css` — it arrives in the theme stylesheet.
+  A theme template that links it itself can drop the link: the file is served inside
+  `@layer theme`, so the link changes nothing but downloads it a second time.
+- Product grid cards name the product in an `h3` by default (the Block tab's **Title tag**).
+
 ## [1.0.0-beta.92] - 2026-10-07 — Developer Preview
 
 The Feature block's icon can sit at the start, centre or end of its title and description, with

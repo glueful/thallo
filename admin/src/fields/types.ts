@@ -39,4 +39,6 @@ export interface FieldDef {
   domain?: string
   /** A server source for this field's choices (`options_source`), e.g. 'thallo-search.scopes'. */
   optionsSource?: string
+  /** Guidance shown under the field in the editor (block schemas). */
+  help?: string
 }

@@ -2,8 +2,9 @@
 
 // Readiness of the JavaScript-painted shop blocks, for a thumbnail that pictures them
 // (sections and templates design §6): a picture is taken only once EVERY shop block on the page
-// has painted — a grid its items, a featured product its body, an add to cart its form or its
-// link — no loading, empty or error line is showing, and every image has loaded. A page where one
+// has painted — a featured product its body, an add to cart its form or its link — no loading,
+// empty or error line is showing, and every image has loaded. (A Product grid renders on the
+// server: it is not one of these.) A page where one
 // block painted and another did not is not ready.
 
 /** Runs in the page: null when ready, else a reason naming the first block that is not. */
@@ -20,14 +21,11 @@ function unready(expected) {
           return `it still says "${el.textContent.trim()}"`;
         }
       }
-      for (const sel of ['[data-shop-grid-empty]', '[data-shop-featured-empty]', '[data-shop-add-to-cart-status]']) {
+      for (const sel of ['[data-shop-featured-empty]', '[data-shop-add-to-cart-status]']) {
         const el = block.querySelector(sel);
         if (visible(el)) return `it shows "${el.textContent.trim()}"`;
       }
-      if (kind === 'product-grid') {
-        const items = block.querySelector('[data-shop-grid-items]');
-        if (!visible(items) || items.children.length === 0) return 'no product has painted';
-      } else if (kind === 'featured-product') {
+      if (kind === 'featured-product') {
         if (!visible(block.querySelector('[data-shop-featured-body]'))) return 'its product has not painted';
       } else if (kind === 'add-to-cart') {
         const form = block.querySelector('[data-shop-add-to-cart-form]');

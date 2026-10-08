@@ -1,0 +1,237 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Build the Product grid browser fixtures (product grid spec §3.4, §5, §7): one page holding a Mini
+ * cart and four grids, rendered by the real render pack into `tools/runtime-browser/fixtures/
+ * product-grid/` (gitignored):
+ *
+ *   public.html  — published, stylesheets and images inlined, scripts dropped (the no-JS reader);
+ *   grid-js.html — the same page with the runtime core and shop.js inlined back in;
+ *   stage.html   — the editor's canvas stage of the same entry.
+ *
+ * Grids: 0 styled (Card background, Title black turning accent on hover, Button black, lift, zoom,
+ * portrait cover images, badges top-right); 1 a product with five long category names at 4 columns;
+ * 2 defaults; 3 title, add to cart and wishlist hidden. Seeded inside a transaction that is rolled
+ * back. Read by product-grid.spec.js.
+ *
+ *   CACHE_DRIVER=array DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-product-grid-fixtures
+ */
+
+declare(strict_types=1);
+
+use Glueful\Bootstrap\ApplicationContext;
+use Glueful\Database\Connection;
+use Glueful\Extensions\Commerce\Catalog\CategoryRepository;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Thallo\Contracts\Style\BlockStyleRegistry;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
+use Thallo\Core\Content\Http\Controllers\PreviewController;
+use Thallo\Core\Content\Http\DTOs\MintPreviewData;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
+use Thallo\Core\Tests\Support\ListingPageSeed;
+use Thallo\Core\Tests\Support\ShopPageSeed;
+use Thallo\Core\Tests\Support\TestApplication;
+use Thallo\Render\Http\Controllers\RenderController;
+
+require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/lib/layout-thumbnails.php';
+
+foreach (getenv() as $key => $value) {
+    $_ENV[$key] ??= $value;
+}
+$_ENV['DB_POOLING_ENABLED'] = 'false';
+$root = dirname(__DIR__);
+if (is_file($root . '/.env')) {
+    Dotenv\Dotenv::createImmutable($root)->safeLoad();
+}
+$env = static fn (string $key, ?string $default = null): ?string => $_ENV[$key] ?? (getenv($key) === false ? $default : getenv($key));
+if ($env('APP_ENV', 'development') !== 'testing') {
+    fwrite(STDERR, "Refusing to build outside APP_ENV=testing (it seeds the test database).\n");
+    exit(1);
+}
+$database = (string) $env('DB_PGSQL_DATABASE', '');
+if ($database !== 'app_test' && !str_ends_with($database, '_test')) {
+    fwrite(STDERR, "Refusing to seed non-test database '{$database}'.\n");
+    exit(1);
+}
+
+$out = $root . '/tools/runtime-browser/fixtures/product-grid';
+if (!is_dir($out) && !mkdir($out, 0755, true)) {
+    fwrite(STDERR, "cannot create {$out}\n");
+    exit(1);
+}
+
+$app = TestApplication::instance();
+$container = $app->getContainer();
+$context = $container->get(ApplicationContext::class);
+$db = $container->get(Connection::class);
+$seed = new ShopPageSeed($container, $context);
+
+/** A GET through the application, following its redirects (asset aliases 302). */
+$get = static function (string $path) use ($app): Response {
+    for ($hop = 0; $hop < 4; $hop++) {
+        $response = $app->handle(Request::create($path, 'GET'));
+        if (!$response->isRedirection()) {
+            return $response;
+        }
+        $path = (string) $response->headers->get('Location');
+    }
+    throw new RuntimeException("too many redirects for {$path}");
+};
+
+/** The page as a self-contained document: stylesheets, fonts and images inlined, scripts dropped. */
+$selfContained = static fn (string $html): string => layout_self_contained(
+    $html,
+    static fn (Request $request): Response => $app->handle($request),
+    ShopPageSeed::IMAGES,
+    $root,
+);
+
+/** Thrown to roll the seeding back once the pages are written. */
+final class ProductGridFixturesWritten extends RuntimeException
+{
+}
+
+$container->get(StarterBlockTypeSeeder::class)->seedMissing();
+
+$previous = $seed->useTenant();
+try {
+    $db->transaction(static function () use ($container, $context, $db, $app, $seed, $get, $selfContained, $out): void {
+        // The shipped style declarations (the grid's parts), as the test suite syncs them.
+        $blockTypes = $container->get(BlockTypeRepository::class);
+        foreach ($container->get(BlockTypeKind::class)->definitions() as $definition) {
+            $payload = $definition->payload;
+            $row = $blockTypes->findBySlug((string) $payload['slug']);
+            if ($row !== null) {
+                $blockTypes->updateStyle(
+                    (string) $row['uuid'],
+                    $payload['style_capabilities'] ?? null,
+                    $payload['style_targets'] ?? null,
+                    $payload['flags'] ?? null,
+                    $payload['starter_content'] ?? $row['starter_content'] ?? null,
+                );
+            }
+        }
+        $container->get(BlockStyleRegistry::class)->reset();
+
+        $seed->clear();
+        $seed->seed();
+        // The tall mug (cover, one-click add) is new; the serving bowl is on sale (compare-at).
+        $db->table('commerce_products')->where('slug', '=', 'tall-mug')
+            ->update(['created_at' => gmdate('Y-m-d H:i:s', strtotime('-1 day'))]);
+        // A product with five long category names (wrapping proof).
+        $long = $seed->longNames();
+        $categories = new CategoryRepository();
+        foreach (['Outerwear and rainwear for coastal walks', 'Handmade ceramics from small studios',
+            'Gifts for people who already have everything', 'Kitchen and dining essentials'] as $i => $name) {
+            $uuid = 'gridlongc' . $i . 'xx';
+            $categories->insert($context, [
+                'uuid' => $uuid, 'tenant_uuid' => ShopPageSeed::TENANT, 'slug' => 'long-' . $i, 'name' => $name,
+                'position' => 10 + $i,
+            ]);
+            $categories->attachProduct($context, (string) $long['product'], $uuid);
+        }
+
+        $token = static fn (string $v): array => ['type' => 'token', 'value' => $v];
+        $styled = [
+            'parts' => [
+                'card' => ['colors' => ['surface' => $token('color.surface')]],
+                // Colours the shop's own defaults never produce (its button is the accent), so an
+                // unlayered copy of shop.css winning would show.
+                'title' => [
+                    'colors' => ['text' => $token('color.black')],
+                    'hover' => ['colors' => ['text' => $token('color.accent')]],
+                ],
+                'button' => ['colors' => ['surface' => $token('color.black')]],
+            ],
+        ];
+        $grid = static fn (string $id, array $data, array $settings = []): array => [
+            'id' => $id, 'type' => 'product-grid', 'data' => $data, 'settings' => $settings,
+        ];
+        $body = [
+            ['id' => 'gridminicrt1', 'type' => 'mini-cart', 'data' => [], 'settings' => []],
+            $grid('gridstyled01', [
+                'source' => 'manual', 'products' => "tall-mug\nserving-bowl", 'columns' => '2',
+                'card_hover' => 'lift', 'image_hover' => 'zoom', 'image_ratio' => 'portrait', 'image_fit' => 'cover',
+                'show_sale_badge' => true, 'show_new_badge' => true, 'new_badge_days' => 7,
+                'badge_position' => 'top-right',
+            ], $styled),
+            $grid('gridlongcats', [
+                'source' => 'manual', 'products' => (string) $long['slug'], 'columns' => '4',
+            ]),
+            $grid('griddefaults', ['limit' => 4]),
+            $grid('gridnotitle1', [
+                'source' => 'manual', 'products' => 'tall-mug',
+                'show_title' => false, 'show_add_to_cart' => false, 'show_wishlist' => false,
+            ]),
+        ];
+
+        $type = (string) $container->get(ContentTypeRepository::class)->create([
+            'slug' => 'landing', 'name' => 'Landing pages', 'public_delivery' => true, 'schema' => [
+                ['name' => 'title', 'type' => 'string', 'required' => true],
+                ['name' => 'body', 'type' => 'blocks'],
+            ],
+        ]);
+        $entry = (new ListingPageSeed($container, $context))
+            ->publish($type, 'grids', ['title' => 'Grids', 'body' => $body], '2026-07-01 09:00:00');
+
+        $public = $get('/landing/grids');
+        if ($public->getStatusCode() !== 200) {
+            throw new RuntimeException("/landing/grids answered {$public->getStatusCode()}");
+        }
+        $html = (string) $public->getContent();
+        file_put_contents($out . '/public.html', $selfContained($html));
+
+        // The same page with its scripts inlined back in: the runtime core first, then shop.js,
+        // both from the application (the src attributes the page carries).
+        preg_match_all('~<script[^>]+src="([^"]+)"[^>]*></script>~', $html, $scripts);
+        $inline = '';
+        foreach (array_unique($scripts[1]) as $src) {
+            $script = $get($src);
+            if ($script->getStatusCode() !== 200) {
+                throw new RuntimeException("cannot inline {$src}: {$script->getStatusCode()}");
+            }
+            $inline .= '<script>' . str_replace('</script', '<\/script', (string) $script->getContent()) . "</script>\n";
+        }
+        if (!str_contains($inline, 'ThalloRuntime') || !str_contains($inline, 'buildProductCard')) {
+            throw new RuntimeException('the page did not carry both the runtime core and shop.js');
+        }
+        file_put_contents($out . '/grid-js.html', str_replace('</body>', $inline . '</body>', $selfContained($html)));
+
+        // The canvas stage the editor frames, from the same entry.
+        $mint = $container->get(PreviewController::class)->mint(
+            new MintPreviewData(),
+            Request::create('/x', 'POST', [], [], [], ['CONTENT_TYPE' => 'application/json'], '{}'),
+            $entry,
+            'en',
+        );
+        $previewToken = (string) (json_decode((string) $mint->getContent(), true)['data']['token'] ?? '');
+        if ($previewToken === '') {
+            throw new RuntimeException('mint returned no token');
+        }
+        $stage = $container->get(RenderController::class)->preview(
+            Request::create('/_preview/' . $previewToken . '?canvas=1', 'GET'),
+            $previewToken,
+        );
+        if ($stage->getStatusCode() !== 200) {
+            throw new RuntimeException("the stage returned {$stage->getStatusCode()}");
+        }
+        file_put_contents($out . '/stage.html', $selfContained((string) $stage->getContent()));
+
+        throw new ProductGridFixturesWritten();
+    });
+} catch (ProductGridFixturesWritten) {
+    // Written, and rolled back.
+} catch (Throwable $e) {
+    $seed->restoreTenant($previous);
+    $detail = $e instanceof \Thallo\Core\Content\Validation\ValidationException ? ' ' . json_encode($e->errors()) : '';
+    fwrite(STDERR, 'the product grid fixtures failed: ' . $e::class . ': ' . $e->getMessage() . $detail . "\n");
+    exit(1);
+} finally {
+    $seed->restoreTenant($previous);
+}
+
+fwrite(STDOUT, "Wrote public.html, grid-js.html, stage.html to tools/runtime-browser/fixtures/product-grid.\n");

@@ -454,7 +454,7 @@ final class RuntimeShopCoexistenceTest extends AppTestCase
         // failure mode the registry contract forbids).
         var registeredNames = ['color-mode', 'forms', 'carousel', 'navigation', 'tabs',
           'shop-form', 'shop-gallery', 'shop-buy', 'shop-mini-cart',
-          'shop-product-grid', 'shop-featured-product', 'shop-add-to-cart',
+          'shop-featured-product', 'shop-add-to-cart',
           'shop-wishlist', 'shop-wishlist-page'];
         for (var rn = 0; rn < registeredNames.length; rn++) {
           var probeThrew = false;

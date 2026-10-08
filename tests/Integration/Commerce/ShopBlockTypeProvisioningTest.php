@@ -144,9 +144,10 @@ final class ShopBlockTypeProvisioningTest extends RetrofittedTenantTestCase
         };
         $this->runAsTenant(self::$tenantBUuid, function () use ($legacy): void {
             $repo = $this->container()->get(\Thallo\Core\Content\Blocks\BlockTypeRepository::class);
-            // mini-cart untouched; product-grid as an earlier definition labelled it, untouched since.
+            // mini-cart untouched; product-grid as an earlier definition left it — another label and,
+            // as no definition carried starter content then, none — untouched since.
             $this->connection()->table('block_types')->where('slug', '=', 'product-grid')
-                ->update(['label' => 'Product list']);
+                ->update(['label' => 'Product list', 'starter_content' => null]);
             foreach (['mini-cart', 'product-grid'] as $slug) {
                 $this->connection()->table('starter_provenance')
                     ->where('source_id', '=', 'thallo-commerce:' . $slug)
@@ -163,6 +164,38 @@ final class ShopBlockTypeProvisioningTest extends RetrofittedTenantTestCase
         self::assertSame(['unchanged', 'unchanged'], [
             $again['thallo-commerce:mini-cart'] ?? null, $again['thallo-commerce:product-grid'] ?? null,
         ]);
+    }
+
+    /**
+     * A workspace from before the Product grid release, its grid untouched since: the sync updates it
+     * to the definition, whose fields it owns — the removed fields and sources go.
+     */
+    public function testAnUntouchedOldProductGridTakesTheDefinitionsFieldsWhole(): void
+    {
+        $this->workspaceBWithout(self::SLUGS);
+        $this->syncAllBlockTypeKind();
+        $this->runAsTenant(self::$tenantBUuid, function (): void {
+            $repo = $this->container()->get(\Thallo\Core\Content\Blocks\BlockTypeRepository::class);
+            $row = $repo->findBySlug('product-grid');
+            $repo->applyMigratedSchema((string) $row['uuid'], [
+                ['name' => 'source', 'type' => 'enum', 'enum' => ['category', 'tag', 'manual', 'newest']],
+                ['name' => 'category_slug', 'type' => 'string'],
+                ['name' => 'tag_slug', 'type' => 'string'],
+            ]);
+            // As the sync of the day recorded it: untouched since.
+            $located = $this->container()->get(\Thallo\Core\Content\Starter\Kinds\BlockTypeKind::class)
+                ->locateExact('product-grid');
+            $this->connection()->table('starter_provenance')
+                ->where('source_id', '=', 'thallo-commerce:product-grid')
+                ->update(['fingerprint' => $located['fingerprint'], 'state' => 'applied']);
+        });
+
+        $report = $this->syncAllBlockTypeKind()[self::$tenantBUuid];
+        self::assertSame('updated', $report['thallo-commerce:product-grid'] ?? null);
+        $schema = $this->runAsTenant(self::$tenantBUuid, fn () => $this->container()
+            ->get(\Thallo\Core\Content\Blocks\BlockTypeRepository::class)->findBySlug('product-grid')['schema']);
+        self::assertNotContains('category_slug', array_column($schema, 'name'));
+        self::assertSame(['all', 'on_sale', 'manual'], $schema[0]['enum']);
     }
 
     /**

@@ -256,6 +256,11 @@ final class LayoutSaveTest extends AppTestCase
                 $this->log[] = 'purge:*';
                 return true;
             }
+
+            public function purgeWorkspace(string $tenantUuid): bool
+            {
+                return true;
+            }
         };
     }
 

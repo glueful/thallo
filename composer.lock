@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "a2dac6e15042a7a53bd1fd11a6f95c5e",
+    "content-hash": "dc72293a86d8da03824efb0f3b5918c5",
     "packages": [
         {
             "name": "composer/semver",
@@ -579,16 +579,16 @@
         },
         {
             "name": "glueful/commerce",
-            "version": "v1.13.0",
+            "version": "v1.14.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/commerce.git",
-                "reference": "342d7dbb74d8bcc06158b49b1ec5a10396c8fe94"
+                "reference": "3daee51ca0f9728eec9cce25c15ab36c6494fa41"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/commerce/zipball/342d7dbb74d8bcc06158b49b1ec5a10396c8fe94",
-                "reference": "342d7dbb74d8bcc06158b49b1ec5a10396c8fe94",
+                "url": "https://api.github.com/repos/glueful/commerce/zipball/3daee51ca0f9728eec9cce25c15ab36c6494fa41",
+                "reference": "3daee51ca0f9728eec9cce25c15ab36c6494fa41",
                 "shasum": ""
             },
             "require": {
@@ -606,7 +606,7 @@
                 "glueful": {
                     "icon": "assets/icon.png",
                     "name": "Commerce",
-                    "version": "1.13.0",
+                    "version": "1.14.0",
                     "provider": "Glueful\\Extensions\\Commerce\\CommerceServiceProvider",
                     "requires": {
                         "glueful": ">=1.79.0",
@@ -664,9 +664,9 @@
             ],
             "support": {
                 "issues": "https://github.com/glueful/commerce/issues",
-                "source": "https://github.com/glueful/commerce/tree/v1.13.0"
+                "source": "https://github.com/glueful/commerce/tree/v1.14.0"
             },
-            "time": "2026-08-18T01:33:41+00:00"
+            "time": "2026-10-08T00:27:06+00:00"
         },
         {
             "name": "glueful/email-notification",
@@ -848,16 +848,16 @@
         },
         {
             "name": "glueful/framework",
-            "version": "v1.88.4",
+            "version": "v1.88.5",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/framework.git",
-                "reference": "848c80e76a57fd135f68b72df2a6227ecd345259"
+                "reference": "571ead74b8c67ba077af63b664d488ceaad36536"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/framework/zipball/848c80e76a57fd135f68b72df2a6227ecd345259",
-                "reference": "848c80e76a57fd135f68b72df2a6227ecd345259",
+                "url": "https://api.github.com/repos/glueful/framework/zipball/571ead74b8c67ba077af63b664d488ceaad36536",
+                "reference": "571ead74b8c67ba077af63b664d488ceaad36536",
                 "shasum": ""
             },
             "require": {
@@ -954,7 +954,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-10-05T21:34:20+00:00"
+            "time": "2026-10-07T22:03:05+00:00"
         },
         {
             "name": "glueful/i18n",
@@ -1701,7 +1701,7 @@
                 "url": "packages/thallo-commerce"
             },
             "require": {
-                "glueful/commerce": "^1.12.0",
+                "glueful/commerce": "^1.14.0",
                 "glueful/extension-contracts": "*",
                 "glueful/framework": "^1.71.0",
                 "glueful/thallo-contracts": "self.version",
@@ -1793,7 +1793,7 @@
                 "glueful/audit": "^1.4",
                 "glueful/commerce": "^1.13",
                 "glueful/email-notification": "^1.14",
-                "glueful/framework": "^1.88.4",
+                "glueful/framework": "^1.88.5",
                 "glueful/i18n": "^1.2",
                 "glueful/import-export": "^1.2.1",
                 "glueful/media": "^1.2",

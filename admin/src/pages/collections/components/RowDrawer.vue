@@ -2,7 +2,7 @@
 import { computed, reactive, watch } from 'vue'
 import type { Collection, CollectionRow, CollectionField } from '@/queries/collections'
 import type { FieldDef } from '@/fields/types'
-import { fieldComponent } from '@/fields/registry'
+import { componentFor } from '@/fields/registry'
 import CollectionRelationField from './CollectionRelationField.vue'
 import CollectionTextField from './CollectionTextField.vue'
 
@@ -124,7 +124,7 @@ function onSave() {
             :field="rf.field"
           />
           <component
-            :is="fieldComponent(rf.def.type)"
+            :is="componentFor(rf.def)"
             v-else
             v-model="state[rf.field.name]"
             :field="rf.def"

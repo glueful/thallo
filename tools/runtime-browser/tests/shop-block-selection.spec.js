@@ -58,32 +58,6 @@ for (const [how, fail] of [
   });
 }
 
-// The Product grid on a failed request: it says the products could not be loaded, never the
-// "Loading products…" that hydration revealed; an answer still paints its products.
-const GRID = '/tools/runtime-browser/fixtures/shop-grid.html';
-const grid = (page) => page.locator('[data-shop-block="product-grid"]');
-
-for (const [how, fail] of [
-  ['a server error', (route) => route.fulfill({ status: 500, contentType: 'text/html', body: '<h1>Oops</h1>' })],
-  ['no answer', (route) => route.abort('failed')],
-]) {
-  test(`${how} leaves no loading line in a product grid`, async ({ page }) => {
-    await page.route('**/_shop/blocks/product-grid*', fail);
-    await page.goto(GRID);
-    await expect(grid(page).getByText('Products could not be loaded.')).toBeVisible();
-    await expect(page.getByText('Loading products…')).toBeHidden();
-    await expect(grid(page).locator('[data-shop-grid-items]')).toBeHidden();
-  });
-}
-
-test('a product grid that is answered paints its products', async ({ page }) => {
-  const item = { name: 'Tall mug', url: '/shop/products/tall-mug', price_formatted: '$24.00', currency: 'USD' };
-  await page.route('**/_shop/blocks/product-grid*', (route) => route.fulfill({ json: { items: [item] } }));
-  await page.goto(GRID);
-  await expect(grid(page).getByText('Tall mug')).toBeVisible();
-  await expect(page.getByText('Loading products…')).toBeHidden();
-});
-
 // Without JavaScript, on real pages (scripts/build-shop-block-proof-fixtures, gitignored): an
 // unlinked page and a page naming a deleted product. Neither shows "Loading…" — nothing would ever
 // finish it — and each block offers a link to the shop, never a product link that may be gone.
@@ -99,7 +73,7 @@ test.describe('without JavaScript', () => {
     test(`the ${name} page shows a link to the shop and no loading line`, async ({ page }) => {
       await page.goto(`/tools/runtime-browser/fixtures/shop-block-selection/${name}.html`);
       await expect(page.getByText('Loading…').first()).toBeHidden();
-      // The page's product grid neither: its loading line ships hidden too.
+      // The page's product grid neither: it renders on the server, with no loading line.
       await expect(page.getByText('Loading products…')).toBeHidden();
       // A blank block (the unlinked page) may have no product at all, so its line promises none.
       const cartLine = name === 'gone' ? 'Browse the shop to add this product to your cart' : 'Browse the shop';

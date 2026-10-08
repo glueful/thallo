@@ -38,6 +38,7 @@ test('the stage + arms the tab after the container and Enter inserts the first m
     'hovlinks0001',
     'hovnest00001',
     'hovsocial001',
+    'gridblock0e2',
   ])
   await expect(strip).toHaveCount(0) // consumed
 })

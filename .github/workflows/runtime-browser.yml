@@ -17,6 +17,7 @@ on:
       - 'scripts/build-typography-bridge-fixtures'
       - 'scripts/build-text-style-fixtures'
       - 'scripts/build-hover-fixtures'
+      - 'scripts/build-product-grid-fixtures'
       - 'packages/thallo-commerce/assets/shop.js'
       - 'packages/thallo-commerce/src/Shop/ShopAssetMap.php'
       - 'tests/fixtures/render/**'
@@ -55,6 +56,7 @@ on:
       - 'scripts/build-typography-bridge-fixtures'
       - 'scripts/build-text-style-fixtures'
       - 'scripts/build-hover-fixtures'
+      - 'scripts/build-product-grid-fixtures'
       - 'packages/thallo-commerce/assets/shop.js'
       - 'packages/thallo-commerce/src/Shop/ShopAssetMap.php'
       - 'tests/fixtures/render/**'
@@ -225,6 +227,12 @@ jobs:
       - name: Build the hover fixtures
         working-directory: .
         run: php scripts/build-hover-fixtures
+
+      # The Product grid as a browser computes it (product-grid.spec.js): four grids and a Mini cart
+      # published (without and with shop.js) and on the canvas stage, then rolled back.
+      - name: Build the Product grid fixtures
+        working-directory: .
+        run: php scripts/build-product-grid-fixtures
 
       - uses: actions/setup-node@v6
         with:

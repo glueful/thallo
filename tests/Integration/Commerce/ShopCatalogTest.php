@@ -23,6 +23,7 @@ use Glueful\Extensions\Commerce\Catalog\ProductMediaService;
 use Glueful\Helpers\Utils;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Commerce\Links\ProductLinkService;
+use Thallo\Commerce\Shop\ShopCatalogPage;
 use Thallo\Commerce\Shop\ShopUrlGenerator;
 use Thallo\Contracts\Delivery\StorefrontWishlistResolver;
 use Thallo\Tenancy\System\SystemFlags;
@@ -365,6 +366,29 @@ final class ShopCatalogTest extends AppTestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertStringContainsString('live-gadget', $html);
         self::assertStringNotContainsString('draft-gadget', $html);
+    }
+
+    /**
+     * Product grid plan Task 5: the category page on the engine's list filters (commerce 1.14.0) —
+     * exactly the category's products, paginated by ShopCatalogPage::PER_PAGE.
+     */
+    public function testCategoryArchiveListsExactlyItsProductsAndPaginates(): void
+    {
+        $categoryUuid = $this->seedCategory(self::TENANT_A, 'lamps', 'Lamps');
+        for ($i = 1; $i <= ShopCatalogPage::PER_PAGE + 1; $i++) {
+            $uuid = $this->seedProduct(self::TENANT_A, sprintf('lamp-%02d', $i), 999, status: 'active');
+            (new CategoryRepository())->attachProduct($this->appContext(), $uuid, $categoryUuid);
+        }
+        $this->seedProduct(self::TENANT_A, 'unfiled-chair', 999, status: 'active');
+
+        $first = (string) $this->handle(Request::create('/shop/categories/lamps', 'GET'))->getContent();
+        $second = (string) $this->handle(Request::create('/shop/categories/lamps?page=2', 'GET'))->getContent();
+
+        self::assertStringNotContainsString('unfiled-chair', $first . $second);
+        $listed = static fn (string $html): int
+            => preg_match_all('~lamp-\d{2}~', $html, $m) ? count(array_unique($m[0])) : 0;
+        self::assertSame(ShopCatalogPage::PER_PAGE, $listed($first));
+        self::assertSame(1, $listed($second));
     }
 
     public function testCategoryArchiveUnknownSlugIsNonRevealing404(): void

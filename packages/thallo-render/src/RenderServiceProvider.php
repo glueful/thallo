@@ -452,6 +452,9 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
             (int) config($context, 'render.cache_ttl', 3600),
             $container->get(TenantCacheSegment::class),
             $context,
+            // The cold render's hints (a Product grid in the chrome), taken once it has run.
+            static fn (): \Thallo\Render\Cache\RenderCacheHints => $container
+                ->get(RenderContextExtension::class)->drainCacheHints(),
         );
     }
 
@@ -800,6 +803,10 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
             // a shop block's stage placeholder says "choose a product".
             blockPreview: $container->has(\Thallo\Contracts\Delivery\StorefrontBlockPreview::class)
                 ? $container->get(\Thallo\Contracts\Delivery\StorefrontBlockPreview::class)
+                : null,
+            // product_grid() (product grid spec §3.1): soft-bound like the block preview above.
+            productGrid: $container->has(\Thallo\Contracts\Delivery\StorefrontProductGrid::class)
+                ? $container->get(\Thallo\Contracts\Delivery\StorefrontProductGrid::class)
                 : null,
             // search_scope_state() (search block spec §3.1): soft-bound; null = every scope reads
             // unavailable and a Search block renders nothing.

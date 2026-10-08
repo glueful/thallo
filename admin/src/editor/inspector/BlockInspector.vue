@@ -354,7 +354,7 @@ const cardFields = computed<string[]>(() =>
           >
             <h4
               class="text-[11px] font-semibold tracking-wide text-muted uppercase"
-              data-test="style-part-title"
+              data-test="style-part-label"
             >
               {{ part.label }}
             </h4>

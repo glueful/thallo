@@ -269,6 +269,11 @@ final class LayoutBindingsTest extends AppTestCase
                 $this->log[] = '*';
                 return true;
             }
+
+            public function purgeWorkspace(string $tenantUuid): bool
+            {
+                return true;
+            }
         };
         $lock = $this->container()->get(LayoutWriteLock::class);
         $service = new MigrationService(

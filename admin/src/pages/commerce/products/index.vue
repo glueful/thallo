@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { refDebounced } from '@vueuse/core'
 import {
   useCommerceProducts,
@@ -17,6 +17,7 @@ import CategoriesTab from './components/CategoriesTab.vue'
 import TagsTab from './components/TagsTab.vue'
 import AttributesTab from './components/AttributesTab.vue'
 
+const route = useRoute()
 const router = useRouter()
 const { success, warning, error: notifyError } = useNotify()
 
@@ -28,7 +29,26 @@ const canManage = computed(() => meta.value?.can_manage ?? false)
 // Task 19a: Tags joins as a third tab, same reasoning — TagsTab.vue (management mode) mounts here.
 // Task 19b: Attributes joins as a fourth tab, same reasoning — AttributesTab.vue (management mode)
 // mounts here.
-const tab = ref<'products' | 'categories' | 'tags' | 'attributes'>('products')
+// The open tab is the URL's `?tab=` (Products, the default, leaves it out), so a refresh or a
+// shared link opens the same tab.
+type Tab = 'products' | 'categories' | 'tags' | 'attributes'
+const TABS: readonly Tab[] = ['products', 'categories', 'tags', 'attributes']
+const tabFromQuery = (value: unknown): Tab =>
+  TABS.includes(value as Tab) ? (value as Tab) : 'products'
+const tab = ref<Tab>(tabFromQuery(route.query.tab))
+watch(tab, (next) => {
+  const query = { ...route.query }
+  if (next === 'products') delete query.tab
+  else query.tab = next
+  router.replace({ query })
+})
+// Back and forward change the query without a click: follow them.
+watch(
+  () => route.query.tab,
+  (value) => {
+    tab.value = tabFromQuery(value)
+  },
+)
 const tabItems = [
   { label: 'Products', value: 'products' },
   { label: 'Categories', value: 'categories' },
@@ -224,11 +244,13 @@ async function confirmDelete() {
         />
       </template>
 
-      <CategoriesTab v-else-if="tab === 'categories'" :can-manage="canManage" />
-
-      <TagsTab v-else-if="tab === 'tags'" :can-manage="canManage" />
-
-      <AttributesTab v-else-if="tab === 'attributes'" :can-manage="canManage" />
+      <!-- The taxonomy tabs' content sits in the Settings → General column; the tabs and the
+             Products table stay full width. -->
+      <div v-else class="mx-auto w-full max-w-6xl" data-test="taxonomy-content">
+        <CategoriesTab v-if="tab === 'categories'" :can-manage="canManage" />
+        <TagsTab v-else-if="tab === 'tags'" :can-manage="canManage" />
+        <AttributesTab v-else-if="tab === 'attributes'" :can-manage="canManage" />
+      </div>
     </template>
   </UDashboardPanel>
 

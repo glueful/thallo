@@ -45,6 +45,7 @@ use Thallo\Render\Style\BlockStyleEmitter;
 use Thallo\Render\Style\ClassNames;
 use Thallo\Render\Style\CompiledStyleArtifacts;
 use Thallo\Render\Style\ThemeStylesheetArtifacts;
+use Thallo\Render\Cache\RenderCacheHints;
 
 /**
  * The theme-facing template functions. The extension is the per-render context object:
@@ -68,6 +69,14 @@ final class RenderContextExtension extends AbstractExtension
 
     /** @var array<string,string> render-scoped surrogate tags (see resetTags/drainTags) */
     private array $collectedTags = [];
+
+    /** @var array<string,string> render-scoped private storage tags (product grid spec §3.2) */
+    private array $storageTags = [];
+
+    /** @var array<string,string> render-scoped cache guards: cache key => the first value observed */
+    private array $guards = [];
+
+    private bool $uncacheable = false;
 
     /** Render-scoped asset-context override (font spec §3): [base, assetsDir]. */
     private ?string $assetBase = null;
@@ -269,6 +278,11 @@ final class RenderContextExtension extends AbstractExtension
          */
         private readonly ?\Thallo\Contracts\Delivery\StorefrontBlockPreview $blockPreview = null,
         /**
+         * Soft-bound (product grid spec §3.1): null → product_grid() answers null and the block
+         * renders nothing.
+         */
+        private readonly ?\Thallo\Contracts\Delivery\StorefrontProductGrid $productGrid = null,
+        /**
          * Soft-bound (search block spec §3.1): null → search_scope_state() reports every scope
          * unavailable ("Search is off"), so a Search block renders nothing.
          */
@@ -434,6 +448,7 @@ final class RenderContextExtension extends AbstractExtension
             // Stage only: the named placeholder of a Featured product or Add to cart. Off the stage
             // it answers null without a lookup, so the public path stays cache-safe.
             new TwigFunction('shop_block_product_label', $this->shopBlockProductLabel(...)),
+            new TwigFunction('product_grid', $this->productGridView(...)),
             new TwigFunction('search_scope_state', $this->searchScopeState(...)),
             new TwigFunction('shop_category_url', $this->shopCategoryUrl(...)),
             new TwigFunction('shop_index_url', $this->shopIndexUrl(...)),
@@ -780,6 +795,28 @@ final class RenderContextExtension extends AbstractExtension
             $slug !== null && $slug !== '' ? $slug : null,
             $entryUuid !== null && $entryUuid !== '' ? $entryUuid : null,
         );
+    }
+
+    /**
+     * A Product grid's cards (product grid spec §3.1), recording its cache
+     * hints: the workspace's catalog storage tag and the catalog generation as a guard — even when
+     * nothing matches, so the first matching product purges the page (§3.2).
+     *
+     * @param array<string,mixed> $data
+     * @return array{cards: list<array<string,mixed>>}|null
+     */
+    public function productGridView(array $data): ?array
+    {
+        if ($this->productGrid === null) {
+            return null;
+        }
+        $view = $this->productGrid->grid($data);
+        if ($view === null) {
+            return null;
+        }
+        $this->addStorageTag($view->storageTag);
+        $this->observeGuard($view->guardKey, $view->guardValue);
+        return ['cards' => $view->cards];
     }
 
     public function shopProductUrl(?string $slug): ?string
@@ -2152,6 +2189,43 @@ final class RenderContextExtension extends AbstractExtension
     public function resetTags(): void
     {
         $this->collectedTags = [];
+        $this->storageTags = [];
+        $this->guards = [];
+        $this->uncacheable = false;
+    }
+
+    /** A tag the page caches store on the entry but never put in the public Cache-Tag header. */
+    public function addStorageTag(string $tag): void
+    {
+        $this->storageTags[$tag] = $tag;
+    }
+
+    /**
+     * Record that this render read `$key` as `$value` (product grid spec §3.2). Null (unreadable)
+     * marks the render uncacheable; a second observation of the same key that disagrees with the
+     * first does too — the first is never replaced (two grids straddling a catalog change).
+     */
+    public function observeGuard(string $key, ?string $value): void
+    {
+        if ($value === null) {
+            $this->uncacheable = true;
+            return;
+        }
+        if (isset($this->guards[$key]) && $this->guards[$key] !== $value) {
+            $this->uncacheable = true;
+            return;
+        }
+        $this->guards[$key] ??= $value;
+    }
+
+    /** The render's cache hints, drained (and cleared). */
+    public function drainCacheHints(): RenderCacheHints
+    {
+        $hints = new RenderCacheHints(array_values($this->storageTags), $this->guards, $this->uncacheable);
+        $this->storageTags = [];
+        $this->guards = [];
+        $this->uncacheable = false;
+        return $hints;
     }
 
     /**

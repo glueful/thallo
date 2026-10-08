@@ -176,6 +176,10 @@ final class BlockTypeKind extends AbstractStarterKind
         $row = $this->blocks->findBySlug($rowKey)
             ?? throw new \RuntimeException("block type {$rowKey} not found");
         $payload = $definition->payload;
+        if (($payload['owns_schema'] ?? false) === true) {
+            // The definition owns the fields (StarterBlockTypeSync): dropped ones go, not only additions.
+            $this->blocks->applyMigratedSchema((string) $row['uuid'], $payload['schema']);
+        }
         $this->blocks->updateSchema(
             (string) $row['uuid'],
             $payload['schema'],
@@ -278,6 +282,8 @@ final class BlockTypeKind extends AbstractStarterKind
                 'style_capabilities' => $definition->styleCapabilities,
                 'style_targets' => $definition->styleTargets,
                 'flags' => $definition->flags,
+                'starter_content' => $definition->starterContent,
+                'owns_schema' => $definition->ownsSchema,
             ],
         );
     }

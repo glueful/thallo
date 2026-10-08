@@ -19,6 +19,7 @@ const BODY = [
   'hovlinks0001',
   'hovnest00001',
   'hovsocial001',
+  'gridblock0e2',
 ]
 
 type Block = { id: string; type: string; data: Record<string, unknown> }

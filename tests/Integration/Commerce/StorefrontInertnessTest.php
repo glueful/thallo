@@ -119,7 +119,6 @@ final class StorefrontInertnessTest extends AppTestCase
 
             // `/_shop/*` block-data + wishlist resolution + fingerprinted assets.
             self::assertSame(404, $hit('GET', '/_shop/wishlist/items'), 'wishlist items endpoint');
-            self::assertSame(404, $hit('GET', '/_shop/blocks/product-grid'), 'product-grid block data');
             self::assertSame(404, $hit('GET', '/_shop/blocks/featured-product'), 'featured-product block data');
             self::assertSame(404, $hit('GET', '/_shop/blocks/add-to-cart'), 'add-to-cart block data');
             self::assertSame(404, $hit('GET', '/_thallo/shop/shop.js'), 'fingerprinted asset alias');
@@ -241,7 +240,7 @@ final class StorefrontInertnessTest extends AppTestCase
             $extension->setLocale('en');
             $html = $extension->blocks($env, ['entry' => null, 'site' => []], [
                 ['id' => 'b1', 'type' => 'mini-cart', 'data' => []],
-                ['id' => 'b2', 'type' => 'product-grid', 'data' => ['source' => 'latest']],
+                ['id' => 'b2', 'type' => 'product-grid', 'data' => ['source' => 'all']],
             ]);
             self::assertStringNotContainsString('data-shop-', $html);
             self::assertStringNotContainsString('shop.js', $html);

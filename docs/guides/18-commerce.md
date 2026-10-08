@@ -127,16 +127,40 @@ and insert from the **Commerce** group of the Blocks tab:
 
 | Block | What it inserts | Its settings |
 |---|---|---|
-| **Product grid** | A grid of products | **source** (`category`, `tag`, `manual`, `newest`), **category slug**, **tag slug**, **products** (one slug per line), **limit** (how many products, 1 to 48), **columns** (how many on a row: auto, or 2 to 6) |
+| **Product grid** | A grid of products | **Source** (All products, On sale, Manual selection), **Categories** and **Tags** to narrow it, **Exclude out of stock**, **Order by**, **Products to show** (1 to 48), **Columns** (auto, or 2 to 6), what each card shows, badges, and the card's hover and image look |
 | **Featured product** | One product, spotlit | **product slug** |
 | **Add to cart** | An add-to-cart control | **product slug**, blank to use the product linked to the current entry |
 | **Mini cart** | A cart count and drawer | none |
 | **Wishlist link** | A link to the wishlist with a saved count | **label** |
 
-Each renders a shell server-side and fetches its data afterwards, so a page carrying one stays
-cacheable. The shop's data never loads on the Design view's stage, so a **Product grid** there
-names what it will show, such as `Product grid — the newest products`. If the data cannot be
-loaded on the site, the grid says `Products could not be loaded.`
+The Product grid's cards render on the server, on the published page and on the Design view's
+stage alike, so a change in its Style tab shows at once. The other blocks render a shell and fetch
+their data afterwards, so a page carrying one stays cacheable.
+
+### A grid on the home page
+
+A home page usually wants a short row, not the whole catalogue. Insert a **Product grid**, keep
+**Source** on All products and **Order by** on Newest, set **Products to show** to 4 and
+**Columns** to 4: four products make one row on a desktop (a fixed column count steps down to 3 on
+tablets and 2 on phones, so the four wrap there). There is no pagination and no link to the shop under
+the grid: add a button or link beside it if the page needs one. The Style tab's **Gap** sets the space
+between the cards, across and down.
+
+- **Categories** and **Tags** narrow the source. Several categories mean any of them (Men or
+  Women); categories and tags together must both match (Men or Women, and tagged Summer). A
+  category deleted later is ignored; when every chosen category is gone the grid shows nothing.
+- **On sale** means at least one of the product's active variants has a compare-at price above its
+  price — the same rule as the Sale badge, so an On sale grid with the badge on badges every card.
+- **Exclude out of stock** keeps products with at least one active variant whose stock is not
+  tracked, or is tracked with some left. It applies to Manual selection too; Categories, Tags and
+  Order by do not, since a manual list keeps the order you typed.
+- **Order by price** uses the product's lowest active variant price; products with no price come
+  last.
+
+The grid's page is cached and refreshed whenever the catalogue changes. The **New badge** is
+decided when the page renders, so on a cached page it can stay up to the cache's lifetime
+(`RENDER_CACHE_TTL`, or `THALLO_COMMERCE_SHOP_CACHE_TTL` on shop pages, an hour by default) after
+the product passes **New badge days**, unless the catalogue changes first.
 
 A **Featured product** or **Add to cart** block with no product to show says so on the stage:
 `Featured product — choose a product`, keeping the block's styling so it stays in place and
