@@ -20,8 +20,16 @@ as the next release, never a mutated tag.
   position.
 - **Product grid Style tab**: Card, Image, Title, Price, Meta, Button and Badge sections; the Card,
   Title and Button have hover looks, and the Card and Button opacity.
+- **Product grid card effects**: a **Card** group sets the hover effect (lift, shadow), the image
+  ratio and fit, and image zoom on hover — only where the device can hover, and without movement for
+  visitors who ask for reduced motion.
 - **Block fields can show help text and a multi-select of server-provided choices** (at most a set
   number), and contributed block types can start a new block with default content.
+
+### Fixed
+- **Shop blocks and pages no longer load a second, unlayered copy of the shop stylesheet**, which
+  let the shop's defaults override Style tab settings on any page holding a mini cart, wishlist
+  link or featured product, and on every shop page.
 
 ### Changed
 - **The Product grid is a source narrowed by categories and tags** (breaking): Source is All
