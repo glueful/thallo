@@ -14,6 +14,8 @@ as the next release, never a mutated tag.
   showed the change. Thallo requires `glueful/framework ^1.88.5`.
 
 ### Changed
+- **Thallo requires `glueful/commerce ^1.14.0`**: the category page and the category layout pass
+  the engine's list filters.
 - **Commerce → Products: categories, tags and attributes are added and edited in a slide-over
   panel**, as are an attribute's values, instead of a form below the list.
 - **The Categories, Tags and Attributes tabs of Commerce → Products are centred** like

@@ -579,16 +579,16 @@
         },
         {
             "name": "glueful/commerce",
-            "version": "v1.13.0",
+            "version": "v1.14.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/commerce.git",
-                "reference": "342d7dbb74d8bcc06158b49b1ec5a10396c8fe94"
+                "reference": "3daee51ca0f9728eec9cce25c15ab36c6494fa41"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/commerce/zipball/342d7dbb74d8bcc06158b49b1ec5a10396c8fe94",
-                "reference": "342d7dbb74d8bcc06158b49b1ec5a10396c8fe94",
+                "url": "https://api.github.com/repos/glueful/commerce/zipball/3daee51ca0f9728eec9cce25c15ab36c6494fa41",
+                "reference": "3daee51ca0f9728eec9cce25c15ab36c6494fa41",
                 "shasum": ""
             },
             "require": {
@@ -606,7 +606,7 @@
                 "glueful": {
                     "icon": "assets/icon.png",
                     "name": "Commerce",
-                    "version": "1.13.0",
+                    "version": "1.14.0",
                     "provider": "Glueful\\Extensions\\Commerce\\CommerceServiceProvider",
                     "requires": {
                         "glueful": ">=1.79.0",
@@ -664,9 +664,9 @@
             ],
             "support": {
                 "issues": "https://github.com/glueful/commerce/issues",
-                "source": "https://github.com/glueful/commerce/tree/v1.13.0"
+                "source": "https://github.com/glueful/commerce/tree/v1.14.0"
             },
-            "time": "2026-08-18T01:33:41+00:00"
+            "time": "2026-10-08T00:27:06+00:00"
         },
         {
             "name": "glueful/email-notification",
@@ -1701,7 +1701,7 @@
                 "url": "packages/thallo-commerce"
             },
             "require": {
-                "glueful/commerce": "^1.12.0",
+                "glueful/commerce": "^1.14.0",
                 "glueful/extension-contracts": "*",
                 "glueful/framework": "^1.71.0",
                 "glueful/thallo-contracts": "self.version",
