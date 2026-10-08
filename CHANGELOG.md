@@ -23,8 +23,9 @@ as the next release, never a mutated tag.
 - **Product grid card effects**: a **Card** group sets the hover effect (lift, shadow), the image
   ratio and fit, and image zoom on hover — only where the device can hover, and without movement for
   visitors who ask for reduced motion.
-- **Block fields can show help text and a multi-select of server-provided choices** (at most a set
-  number), and contributed block types can start a new block with default content.
+- **Block fields can show help text, and a field with server-provided choices is a dropdown or a
+  multi-select (at most a set number)** in blocks, entries and collection rows alike; contributed
+  block types can start a new block with default content.
 
 ### Changed
 - **The Product grid is a source narrowed by categories and tags** (breaking): Source is All
@@ -57,8 +58,9 @@ as the next release, never a mutated tag.
   are gone, and such a grid shows all products until edited.
 - A theme that overrides `product-grid.twig` must be rewritten: the cards render on the server
   (see the default template); the `/_shop/blocks/product-grid` endpoint is gone.
-- Thallo's templates no longer link `/_thallo/shop/shop.css` — it arrives in the theme layer. A
-  theme template that links it itself should stop, or its copy will override Style tab settings.
+- Thallo's templates no longer link `/_thallo/shop/shop.css` — it arrives in the theme stylesheet.
+  A theme template that links it itself can drop the link: the file is served inside
+  `@layer theme`, so the link changes nothing but downloads it a second time.
 - Product grid cards name the product in an `h3` by default (the Block tab's **Title tag**).
 
 ## [1.0.0-beta.92] - 2026-10-07 — Developer Preview

@@ -460,6 +460,19 @@ final class ShopBlocksTest extends AppTestCase
         self::assertSame('Featured explicit', $data['product']['name']);
     }
 
+    public function testTheProductGridEndpointIsGoneWhileTheOtherBlockEndpointsAnswer(): void
+    {
+        // Product grid spec §3.3: the grid renders on the server, so its data endpoint is removed —
+        // with Commerce on, beside the two block endpoints that remain.
+        self::assertSame(404, $this->handle(Request::create('/_shop/blocks/product-grid', 'GET'))->getStatusCode());
+        self::assertSame(
+            404,
+            $this->handle(Request::create('/_shop/blocks/product-grid?source=all', 'GET'))->getStatusCode(),
+        );
+        self::assertSame(200, $this->handle(Request::create('/_shop/blocks/featured-product', 'GET'))->getStatusCode());
+        self::assertSame(200, $this->handle(Request::create('/_shop/blocks/add-to-cart', 'GET'))->getStatusCode());
+    }
+
     public function testFeaturedProductWithNoResolvableContextReturnsNull(): void
     {
         $data = $this->jsonBody($this->handle(Request::create('/_shop/blocks/featured-product', 'GET')));
@@ -640,7 +653,7 @@ final class ShopBlocksTest extends AppTestCase
         foreach (
             [
                 'mini-cart' => [],
-                'product-grid' => ['source' => 'newest'],
+                'product-grid' => ['source' => 'all'],
                 'featured-product' => ['product_slug' => 'widget'],
                 'add-to-cart' => ['product_slug' => 'widget'],
                 'wishlist-link' => [],
