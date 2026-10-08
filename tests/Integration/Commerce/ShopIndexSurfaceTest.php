@@ -83,13 +83,13 @@ final class ShopIndexSurfaceTest extends AppTestCase
         self::assertSame([['type' => 'product_loop']], $surface->required('@site'));
         self::assertSame(
             [['type' => 'product_loop', 'card' => 'card', 'items' => [
-                'product_tile', 'product_name', 'product_rating', 'product_price',
+                'product_tile', 'product_name', 'product_rating', 'product_price', 'product_add_to_cart',
             ]]],
             $surface->loops('@site'),
         );
         self::assertSame(
             ['product_loop', 'shop_title', 'category_rail', 'pagination', 'product_tile', 'product_name',
-                'product_rating', 'product_price'],
+                'product_rating', 'product_price', 'product_add_to_cart'],
             $surface->palette(),
         );
         self::assertSame([], $surface->pageTags('@site'), 'its pages live in the shop cache');
