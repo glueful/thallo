@@ -48,6 +48,19 @@ as the next release, never a mutated tag.
 - **Commerce → Products remembers its tab**: the open tab is in the address (`?tab=categories`,
   `tags`, `attributes`), so a refresh or a shared link opens the same tab.
 
+### Upgrade Notes
+- `composer update && php glueful thallo:provision`. Requires `glueful/commerce ^1.14.0`.
+  Provision gives existing installs the Product grid's new fields, starter content and Style tab
+  parts.
+- **A Product grid saved before this release must have its source and categories or tags chosen
+  again**: the `category`, `tag` and `newest` sources and the `category_slug` / `tag_slug` fields
+  are gone, and such a grid shows all products until edited.
+- A theme that overrides `product-grid.twig` must be rewritten: the cards render on the server
+  (see the default template); the `/_shop/blocks/product-grid` endpoint is gone.
+- Thallo's templates no longer link `/_thallo/shop/shop.css` — it arrives in the theme layer. A
+  theme template that links it itself should stop, or its copy will override Style tab settings.
+- Product grid cards name the product in an `h3` by default (the Block tab's **Title tag**).
+
 ## [1.0.0-beta.92] - 2026-10-07 — Developer Preview
 
 The Feature block's icon can sit at the start, centre or end of its title and description, with

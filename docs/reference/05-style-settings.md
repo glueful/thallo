@@ -414,6 +414,32 @@ long wordmark, scales down whole inside the cap, because the theme draws logos w
 The space between the logos is the Layout tab's **Gap**, Column and Row, which lands on the row
 of logos. Unset, the theme's own logo gaps apply: `2xl` between logos and `lg` between wrapped rows.
 
+### Product grid
+
+The Product grid's block settings (Spacing, Width, Visibility, As an item) land on the grid. Each
+card's pieces are **parts**, each a section of its own in the Style tab, and a part's settings
+reach that piece on every card:
+
+| Part | What it styles | Settings |
+|---|---|---|
+| Card | the card | Colours (background, border), Border, Corners, Shadow, Padding, Opacity; Hover: background, border colour, opacity |
+| Image | the image frame | Corners |
+| Title | the product name's link | Typography, Text colour; Hover: text colour |
+| Price | the price line | Typography, Text colour |
+| Meta | the categories and tags | Typography, Text colour |
+| Button | add to cart, or choose options | Colours, Border, Corners, Typography, Padding, Opacity; Hover: text colour, background, border colour, opacity |
+| Badge | the sale and new badges | Colours (background, text), Corners, Typography |
+
+The Title part is on the link inside the heading, where the pointer and keyboard focus land, so
+its Hover colour shows on focus too. The heading's level is the Block tab's **Title tag**.
+
+The card's hover effect, the image's ratio, fit and zoom are not style settings: they are the
+Block tab's **Card** fields, drawn by the shop stylesheet. They show only on devices that can
+hover, and on keyboard focus within a card; with reduced motion the card does not rise and the
+image does not zoom. The Shadow hover effect draws the theme's shadow, so a Shadow set on the Card
+part wins over it, at rest and on hover. With the Card part's Hover switch on, the stage previews
+the effects with the card's hover look.
+
 ### Motion
 
 None of these is responsive: an entrance is one event, not a layout. See
