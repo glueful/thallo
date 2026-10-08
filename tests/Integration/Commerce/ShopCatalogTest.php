@@ -385,7 +385,8 @@ final class ShopCatalogTest extends AppTestCase
         $second = (string) $this->handle(Request::create('/shop/categories/lamps?page=2', 'GET'))->getContent();
 
         self::assertStringNotContainsString('unfiled-chair', $first . $second);
-        $listed = static fn (string $html): int => preg_match_all('~lamp-\d{2}~', $html, $m) ? count(array_unique($m[0])) : 0;
+        $listed = static fn (string $html): int
+            => preg_match_all('~lamp-\d{2}~', $html, $m) ? count(array_unique($m[0])) : 0;
         self::assertSame(ShopCatalogPage::PER_PAGE, $listed($first));
         self::assertSame(1, $listed($second));
     }
