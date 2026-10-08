@@ -241,4 +241,42 @@ final class ShopCardBlocksTest extends AppTestCase
             $css,
         );
     }
+
+    // ---- the card itself, on the Product list ----------------------------------------------
+
+    public function testTheCardPartStylesEveryCard(): void
+    {
+        $accent = ['type' => 'token', 'value' => 'color.accent'];
+        $html = $this->render(
+            [self::block('tile', 'product_tile')],
+            [self::item('one'), self::item('two')],
+            [],
+            ['parts' => ['card' => ['colors' => ['surface' => $accent]]]],
+        );
+        self::assertSame(2, substr_count($html, '<li class="thallo-loop-card shop-grid__item t-bg-accent"'));
+        self::assertStringNotContainsString('shop-grid t-bg-accent', $html, 'the list of cards is not a card');
+    }
+
+    public function testTheCardHoverEffect(): void
+    {
+        foreach (['lift', 'shadow'] as $effect) {
+            $html = $this->render(
+                [self::block('tile', 'product_tile')],
+                [self::item('one')],
+                ['card_hover' => $effect],
+            );
+            self::assertStringContainsString(
+                '<div class="thallo-block thallo-block-product_loop thallo-block-product_loop--card-' . $effect,
+                $html,
+            );
+        }
+        $none = $this->render([self::block('tile', 'product_tile')], [self::item('one')], ['card_hover' => 'spin']);
+        self::assertStringNotContainsString('thallo-block-product_loop--card-', $none);
+        $css = (string) file_get_contents(dirname(__DIR__, 3) . '/packages/thallo-commerce/assets/shop.css');
+        self::assertMatchesRegularExpression(
+            '~\.thallo-block-product_loop--card-lift\) \.shop-grid__item:hover'
+                . ' \{ transform: translateY\(-0\.25rem\); \}~',
+            $css,
+        );
+    }
 }
