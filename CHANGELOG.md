@@ -22,11 +22,13 @@ as the next release, never a mutated tag.
   disabled Sold out; the Style tab's Button section styles either.
 - **Sale and New badges** on Product grid cards, with their own text, a New window in days, and a
   position.
-- **Product grid Style tab**: Card, Image, Details, Title, Price, Meta, Button and Badge sections; the
-  Card, Title and Button have hover looks, and the Card and Button opacity. The Image section sets the
-  background of the frame around the picture (transparent until you set one);
-  Details pads the text under the picture on its own, apart from the card's padding. The grid's
-  own Gap sets the space between cards, across and down (1rem and 1.5rem until set).
+- **Product grid Style tab**: Card, Image, Details, Title, Price, Meta, Button, Wishlist and Badge
+  sections; the Card, Title, Button and Wishlist have hover looks, and the Card, Button and
+  Wishlist opacity. The Image section sets the background of the frame around the picture
+  (transparent until you set one); Details pads the text under the picture on its own, apart from
+  the card's padding; Wishlist styles the heart apart from the cart button, an outline until saved
+  and filled once saved, whatever its colours. The grid's own Gap sets the space between cards,
+  across and down (1rem and 1.5rem until set).
 - **Product grid card effects**: a **Card** group sets the hover effect (lift, shadow), the image
   ratio and fit, and image zoom on hover — only where the device can hover, and without movement for
   visitors who ask for reduced motion.

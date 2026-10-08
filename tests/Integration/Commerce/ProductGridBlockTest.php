@@ -295,6 +295,18 @@ final class ProductGridBlockTest extends AppTestCase
         $this->assertBlockDataInvalid(['add_to_cart_style' => 'bar']);
     }
 
+    public function testTheWishlistPartStylesTheHeartAlone(): void
+    {
+        $this->product('p');
+        $accent = ['type' => 'token', 'value' => 'color.accent'];
+        $html = $this->renderBlock([], false, ['parts' => ['wishlist' => ['colors' => ['surface' => $accent]]]]);
+        self::assertMatchesRegularExpression(
+            '~<button class="shop-grid__action shop-grid__action--wishlist t-bg-accent" type="button"~',
+            $html,
+        );
+        self::assertDoesNotMatchRegularExpression('~shop-grid__action--cart[^"]*t-bg-accent~', $html);
+    }
+
     public function testTheGapsSpaceTheCardsList(): void
     {
         $this->product('p');
