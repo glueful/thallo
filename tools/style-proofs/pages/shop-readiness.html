@@ -5,15 +5,12 @@
      capture's readiness check (tests/shop-readiness.spec.js): each test answers the blocks' data
      endpoints itself. -->
 <main>
-  <div class="thallo-block thallo-block-product-grid" data-shop-block="product-grid" data-source="newest"
-       data-category-slug="" data-tag-slug="" data-products="" data-page-size="24">
-    <ul class="thallo-block-product-grid__items" data-shop-grid-items hidden></ul>
-    <p class="thallo-block-product-grid__empty" data-shop-grid-empty>Loading products…</p>
-  </div>
   <div class="thallo-block thallo-block-featured-product" data-shop-block="featured-product"
        data-product-slug="stoneware-bowl" data-entry-uuid="">
     <div class="thallo-block-featured-product__body" data-shop-featured-body hidden></div>
     <p class="thallo-block-featured-product__empty" data-shop-featured-empty hidden>Loading…</p>
+    <!-- An image the block holds: the picture waits for it to load. -->
+    <img src="/tests/fixtures/commerce/product-cover.png" alt="" width="40" height="40">
   </div>
   <div class="thallo-block thallo-block-add-to-cart" data-shop-block="add-to-cart"
        data-product-slug="stoneware-bowl" data-entry-uuid="">

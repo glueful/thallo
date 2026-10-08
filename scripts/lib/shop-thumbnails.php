@@ -34,13 +34,6 @@ function shop_block_responses(string $html, ContainerInterface $container, array
         /** @var DOMElement $node */
         $block = $node->getAttribute('data-shop-block');
         $params = match ($block) {
-            'product-grid' => [
-                'source' => $node->getAttribute('data-source') ?: 'newest',
-                'category_slug' => $node->getAttribute('data-category-slug'),
-                'tag_slug' => $node->getAttribute('data-tag-slug'),
-                'products' => $node->getAttribute('data-products'),
-                'page_size' => $node->getAttribute('data-page-size') ?: '24',
-            ],
             'featured-product', 'add-to-cart' => [
                 'product_slug' => $node->getAttribute('data-product-slug'),
                 'entry_uuid' => $node->getAttribute('data-entry-uuid'),
@@ -53,7 +46,6 @@ function shop_block_responses(string $html, ContainerInterface $container, array
         $path = '/_shop/blocks/' . $block;
         $request = Request::create($path, 'GET', $params);
         $response = match ($block) {
-            'product-grid' => $controller->productGrid($request),
             'featured-product' => $controller->featuredProduct($request),
             'add-to-cart' => $controller->addToCart($request),
         };
@@ -75,6 +67,25 @@ function shop_block_responses(string $html, ContainerInterface $container, array
     }
 
     return $responses;
+}
+
+/**
+ * The page's own product images — a Product grid's cards render on the server — pointed at the
+ * committed images they came from, as the block responses' covers are: a media URL resolves nowhere
+ * under `file://`. Every attribute value naming a seeded blob becomes that file.
+ *
+ * @param array<string,string> $imageFiles blob uuid => repo-relative committed file
+ */
+function shop_local_images(string $html, array $imageFiles, string $root): string
+{
+    foreach ($imageFiles as $blob => $file) {
+        $html = (string) preg_replace(
+            '~"[^"<>]*' . preg_quote($blob, '~') . '[^"<>]*"~',
+            '"' . htmlspecialchars('file://' . $root . '/' . $file, ENT_QUOTES) . '"',
+            $html,
+        );
+    }
+    return $html;
 }
 
 /**
