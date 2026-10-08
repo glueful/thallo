@@ -21,7 +21,8 @@ as the next release, never a mutated tag.
 - **Product grid Style tab**: Card, Image, Details, Title, Price, Meta, Button and Badge sections; the
   Card, Title and Button have hover looks, and the Card and Button opacity. The Image section sets the
   background of the frame around the picture (transparent until you set one);
-  Details pads the text under the picture on its own, apart from the card's padding.
+  Details pads the text under the picture on its own, apart from the card's padding. The grid's
+  own Gap sets the space between cards, across and down (1rem and 1.5rem until set).
 - **Product grid card effects**: a **Card** group sets the hover effect (lift, shadow), the image
   ratio and fit, and image zoom on hover — only where the device can hover, and without movement for
   visitors who ask for reduced motion.
@@ -35,6 +36,8 @@ as the next release, never a mutated tag.
   them, and both when both are set); Exclude out of stock; Order by newest, price or name;
   Products to show; Columns. Grids saved before this release must have their source and
   categories or tags chosen again.
+- **The Product grid has no View all products link** (breaking): add a button or link beside the
+  grid where the page needs one. `ProductGridView` no longer carries `viewAllUrl`.
 - **Product grid cards render on the server, and the stage shows them.** The
   `/_shop/blocks/product-grid` endpoint and shop.js's grid loading are gone.
 - **Pages holding a Product grid refresh with the catalog** on both the render and shop page caches,

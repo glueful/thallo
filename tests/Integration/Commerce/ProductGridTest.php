@@ -148,22 +148,6 @@ final class ProductGridTest extends AppTestCase
         self::assertSame(['Third', 'Second'], $this->names($data + ['exclude_out_of_stock' => true]));
     }
 
-    public function testViewAllIsTheCategoryPageOnlyForExactlyOneCategoryAndNoTags(): void
-    {
-        $p = $this->product('p');
-        $this->category('shoes', $p);
-        $this->tag('summer', $p);
-        $this->category('boots', $p);
-        $grid = $this->container()->get(StorefrontProductGrid::class);
-        $shop = (string) $grid->grid([])->viewAllUrl;
-        self::assertStringEndsWith('/shoes', (string) $grid->grid(['categories' => ['shoes']])->viewAllUrl);
-        $onSale = $grid->grid(['source' => 'on_sale', 'categories' => ['shoes']]);
-        self::assertStringEndsWith('/shoes', (string) $onSale->viewAllUrl);
-        self::assertSame($shop, $grid->grid(['categories' => ['shoes'], 'tags' => ['summer']])->viewAllUrl);
-        self::assertSame($shop, $grid->grid(['categories' => ['shoes', 'boots']])->viewAllUrl);
-        self::assertSame($shop, $grid->grid(['source' => 'manual', 'products' => 'p'])->viewAllUrl);
-    }
-
     public function testCardsCarryEveryCategoryTagsSaleAndNewFlags(): void
     {
         $p = $this->product('p', [

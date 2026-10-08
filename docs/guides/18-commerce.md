@@ -142,8 +142,9 @@ their data afterwards, so a page carrying one stays cacheable.
 A home page usually wants a short row, not the whole catalogue. Insert a **Product grid**, keep
 **Source** on All products and **Order by** on Newest, set **Products to show** to 4 and
 **Columns** to 4: four products make one row on a desktop (a fixed column count steps down to 3 on
-tablets and 2 on phones, so the four wrap there). There is no pagination; **View all products** under the
-grid goes to the shop, or to the category's page when exactly one category and no tag is chosen.
+tablets and 2 on phones, so the four wrap there). There is no pagination and no link to the shop under
+the grid: add a button or link beside it if the page needs one. The Style tab's **Gap** sets the space
+between the cards, across and down.
 
 - **Categories** and **Tags** narrow the source. Several categories mean any of them (Men or
   Women); categories and tags together must both match (Men or Women, and tagged Summer). A

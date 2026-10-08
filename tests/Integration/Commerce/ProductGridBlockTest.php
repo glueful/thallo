@@ -224,6 +224,30 @@ final class ProductGridBlockTest extends AppTestCase
         self::assertDoesNotMatchRegularExpression('~<(li|span) class="shop-grid__(item|media)[^"]*t-pt-lg~', $html);
     }
 
+    public function testTheGapsSpaceTheCardsList(): void
+    {
+        $this->product('p');
+        $html = $this->renderBlock([], false, ['style' => ['layout' => ['gap' => [
+            'column' => ['base' => ['type' => 'token', 'value' => 'spacing.lg']],
+            'row' => ['base' => ['type' => 'token', 'value' => 'spacing.md']],
+        ]]]]);
+        self::assertMatchesRegularExpression('~<ul class="thallo-block-product-grid__items[^"]* t-gapx-lg[ "]~', $html);
+        self::assertMatchesRegularExpression('~<ul class="thallo-block-product-grid__items[^"]* t-gapy-md[ "]~', $html);
+        self::assertDoesNotMatchRegularExpression(
+            '~<div class="thallo-block thallo-block-product-grid[^"]*t-gap~',
+            $html,
+        );
+    }
+
+    public function testTheGridHasNoViewAllLink(): void
+    {
+        $this->product('p');
+        $html = $this->renderBlock([]);
+        self::assertStringContainsString('class="shop-grid__item', $html);
+        self::assertStringNotContainsString('View all products', $html);
+        self::assertStringNotContainsString('__view-all', $html);
+    }
+
     public function testSavedSelectionsAndRenderedFiltersAgreeAtTheLimit(): void
     {
         // Twenty categories, the field's max_items: a block that passes validation renders all twenty.
