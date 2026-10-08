@@ -126,6 +126,12 @@ final class BookingBlockTypes implements StarterBlockTypeContributor
 }
 ```
 
+When a later release changes the definition, `thallo:provision` brings existing installs up to
+date. By default it only adds: a new field is appended, and a field you dropped, or choices you
+changed, stay as they were stored. Set `ownsSchema: true` when your definition owns the block's
+fields. Provision then replaces the stored fields with yours, so a dropped field goes and changed
+choices apply. A field someone added to the block in the admin goes too.
+
 ## Register it, and declare a permission
 
 Your provider registers the contributor with `Thallo\Contracts\Starter\StarterBlockTypeRegistry`

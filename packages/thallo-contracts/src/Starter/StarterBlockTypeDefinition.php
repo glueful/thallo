@@ -38,6 +38,12 @@ final readonly class StarterBlockTypeDefinition
         public ?array $flags = null,
         /** Data a new block of this type starts with (inserted by the editor). @var array<string,mixed>|null */
         public ?array $starterContent = null,
+        /**
+         * The definition owns the block's fields: an install's sync replaces the stored schema with
+         * this one — fields it dropped are removed, changed choices replaced — instead of only adding
+         * missing fields. For a block whose fields the pack defines and authors do not extend.
+         */
+        public bool $ownsSchema = false,
     ) {
     }
 }

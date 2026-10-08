@@ -51,8 +51,8 @@ as the next release, never a mutated tag.
 
 ### Upgrade Notes
 - `composer update && php glueful thallo:provision`. Requires `glueful/commerce ^1.14.0`.
-  Provision gives existing installs the Product grid's new fields, starter content and Style tab
-  parts.
+  Provision replaces the Product grid's fields with the new ones (the pack's definition owns
+  them, so the old ones are removed) and gives it its starter content and Style tab parts.
 - **A Product grid saved before this release must have its source and categories or tags chosen
   again**: the `category`, `tag` and `newest` sources and the `category_slug` / `tag_slug` fields
   are gone, and such a grid shows all products until edited.

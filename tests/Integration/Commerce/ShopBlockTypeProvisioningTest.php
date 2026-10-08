@@ -167,6 +167,38 @@ final class ShopBlockTypeProvisioningTest extends RetrofittedTenantTestCase
     }
 
     /**
+     * A workspace from before the Product grid release, its grid untouched since: the sync updates it
+     * to the definition, whose fields it owns — the removed fields and sources go.
+     */
+    public function testAnUntouchedOldProductGridTakesTheDefinitionsFieldsWhole(): void
+    {
+        $this->workspaceBWithout(self::SLUGS);
+        $this->syncAllBlockTypeKind();
+        $this->runAsTenant(self::$tenantBUuid, function (): void {
+            $repo = $this->container()->get(\Thallo\Core\Content\Blocks\BlockTypeRepository::class);
+            $row = $repo->findBySlug('product-grid');
+            $repo->applyMigratedSchema((string) $row['uuid'], [
+                ['name' => 'source', 'type' => 'enum', 'enum' => ['category', 'tag', 'manual', 'newest']],
+                ['name' => 'category_slug', 'type' => 'string'],
+                ['name' => 'tag_slug', 'type' => 'string'],
+            ]);
+            // As the sync of the day recorded it: untouched since.
+            $located = $this->container()->get(\Thallo\Core\Content\Starter\Kinds\BlockTypeKind::class)
+                ->locateExact('product-grid');
+            $this->connection()->table('starter_provenance')
+                ->where('source_id', '=', 'thallo-commerce:product-grid')
+                ->update(['fingerprint' => $located['fingerprint'], 'state' => 'applied']);
+        });
+
+        $report = $this->syncAllBlockTypeKind()[self::$tenantBUuid];
+        self::assertSame('updated', $report['thallo-commerce:product-grid'] ?? null);
+        $schema = $this->runAsTenant(self::$tenantBUuid, fn () => $this->container()
+            ->get(\Thallo\Core\Content\Blocks\BlockTypeRepository::class)->findBySlug('product-grid')['schema']);
+        self::assertNotContains('category_slug', array_column($schema, 'name'));
+        self::assertSame(['all', 'on_sale', 'manual'], $schema[0]['enum']);
+    }
+
+    /**
      * Tenant B as a workspace from before these blocks: neither the rows nor any record of having
      * seeded them. (The harness provisioned it with them, then empties block_types between tests —
      * which, with the records kept, reads as blocks the site deleted, and a sync leaves those deleted.)
