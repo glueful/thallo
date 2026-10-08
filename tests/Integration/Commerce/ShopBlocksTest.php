@@ -153,18 +153,30 @@ final class ShopBlocksTest extends AppTestCase
             $byName[$field['name']] = $field;
         }
 
+        // Product grid spec §2, §5: a source narrowed by categories and tags, nothing of the old block.
         self::assertSame('enum', $byName['source']['type']);
-        self::assertSame(['category', 'tag', 'manual', 'newest'], $byName['source']['enum']);
-        self::assertSame('string', $byName['category_slug']['type']);
-        self::assertSame('string', $byName['tag_slug']['type']);
+        self::assertSame(['all', 'on_sale', 'manual'], $byName['source']['enum']);
+        foreach (['categories' => 'thallo-commerce.categories', 'tags' => 'thallo-commerce.tags'] as $name => $source) {
+            self::assertSame('string', $byName[$name]['type']);
+            self::assertTrue($byName[$name]['multiple']);
+            self::assertSame(20, $byName[$name]['max_items']);
+            self::assertSame($source, $byName[$name]['options_source']);
+        }
+        self::assertArrayNotHasKey('category_slug', $byName);
+        self::assertArrayNotHasKey('tag_slug', $byName);
         self::assertSame('text', $byName['products']['type']);
+        self::assertSame(['newest', 'price_asc', 'price_desc', 'name'], $byName['order_by']['enum']);
         // How many products: a number, as many as the server serves (48), not size buckets.
         self::assertSame('number', $byName['limit']['type']);
         self::assertSame(1, $byName['limit']['min']);
         self::assertSame(48, $byName['limit']['max']);
+        self::assertSame('Products to show', $byName['limit']['label']);
         // How many on a row at desktop: auto (by width) or a fixed count.
         self::assertSame('enum', $byName['columns']['type']);
         self::assertSame(['auto', '2', '3', '4', '5', '6'], $byName['columns']['enum']);
+        self::assertSame('h3', $grid->starterContent['title_tag'] ?? null);
+        self::assertTrue($grid->starterContent['show_categories'] ?? null);
+        self::assertFalse($grid->starterContent['show_tags'] ?? null);
         self::assertArrayNotHasKey('page_size', $byName);
     }
 
@@ -435,134 +447,6 @@ final class ShopBlocksTest extends AppTestCase
     // E. Block-data JSON endpoints
     // ==================================================================
 
-    public function testProductGridNewestSourceReturnsSeededProductsAndShopIndexAsViewAll(): void
-    {
-        $this->seedSimpleProduct('grid-newest-1', 'Newest one');
-        $this->seedSimpleProduct('grid-newest-2', 'Newest two');
-
-        $data = $this->jsonBody($this->handle(Request::create('/_shop/blocks/product-grid?source=newest', 'GET')));
-
-        self::assertCount(2, $data['items']);
-        self::assertSame($this->urls()->shopIndex(), $data['view_all_url']);
-        self::assertStringNotContainsString('page=', $data['view_all_url']);
-    }
-
-    public function testProductGridCategorySourceFiltersAndViewAllIsTheCategoryArchive(): void
-    {
-        $matching = $this->seedSimpleProduct('grid-cat-match', 'In category');
-        $other = $this->seedSimpleProduct('grid-cat-other', 'Not in category');
-        $categoryUuid = $this->seedCategory('grid-cat-slug');
-        $this->attachCategory($matching, $categoryUuid);
-
-        $data = $this->jsonBody($this->handle(Request::create(
-            '/_shop/blocks/product-grid?source=category&category_slug=grid-cat-slug',
-            'GET',
-        )));
-
-        self::assertCount(1, $data['items']);
-        self::assertSame('In category', $data['items'][0]['name']);
-        self::assertSame($this->urls()->category('grid-cat-slug'), $data['view_all_url']);
-        self::assertStringNotContainsString('page=', $data['view_all_url']);
-        unset($other);
-    }
-
-    public function testProductGridTagSourceFiltersAndViewAllIsShopIndex(): void
-    {
-        $matching = $this->seedSimpleProduct('grid-tag-match', 'Has tag');
-        $this->seedSimpleProduct('grid-tag-other', 'No tag');
-        $tagUuid = $this->seedTag('grid-tag-slug');
-        $this->attachTag($matching, $tagUuid);
-
-        $data = $this->jsonBody($this->handle(Request::create(
-            '/_shop/blocks/product-grid?source=tag&tag_slug=grid-tag-slug',
-            'GET',
-        )));
-
-        self::assertCount(1, $data['items']);
-        self::assertSame('Has tag', $data['items'][0]['name']);
-        self::assertSame($this->urls()->shopIndex(), $data['view_all_url']);
-    }
-
-    public function testProductGridManualSourceResolvesInGivenOrderSkippingMissing(): void
-    {
-        $this->seedSimpleProduct('grid-manual-a', 'Manual A');
-        $this->seedSimpleProduct('grid-manual-b', 'Manual B');
-
-        $products = "grid-manual-b\nno-such-slug\ngrid-manual-a";
-        $data = $this->jsonBody($this->handle(Request::create(
-            '/_shop/blocks/product-grid?source=manual&products=' . urlencode($products),
-            'GET',
-        )));
-
-        self::assertSame(['Manual B', 'Manual A'], array_column($data['items'], 'name'));
-        self::assertSame($this->urls()->shopIndex(), $data['view_all_url']);
-    }
-
-    public function testProductGridManualSourceRejectsCommaDelimitedInput(): void
-    {
-        $response = $this->handle(Request::create(
-            '/_shop/blocks/product-grid?source=manual&products=' . urlencode('a,b,c'),
-            'GET',
-        ));
-
-        self::assertSame(422, $response->getStatusCode());
-        $data = json_decode((string) $response->getContent(), true);
-        self::assertSame([], $data['items']);
-    }
-
-    public function testProductGridPageSizeMapsSmallMediumLargeToTwelveTwentyFourFortyEight(): void
-    {
-        for ($i = 0; $i < 30; $i++) {
-            $this->seedSimpleProduct('grid-size-' . $i, 'Size product ' . $i);
-        }
-
-        $small = $this->getBlockJson('/_shop/blocks/product-grid?source=newest&page_size=12');
-        self::assertCount(12, $small['items']);
-
-        $large = $this->getBlockJson('/_shop/blocks/product-grid?source=newest&page_size=48');
-        self::assertCount(30, $large['items']); // only 30 exist — never more than available
-    }
-
-    /**
-     * shop.js paints grid items via `buildProductCard()`, which consumes the CLOSED
-     * ProductCardViewModel projection — so the grid JSON must be EXACTLY the pinned card
-     * allowlist (no options-arrow-forever, no missing category tag, no leaked fields).
-     */
-    public function testProductGridItemsAreThePinnedCardProjectionWithHonestCartModes(): void
-    {
-        $directUuid = $this->seedSimpleProduct('grid-card-direct', 'Card direct');
-        $categoryUuid = $this->seedCategory('grid-card-cat');
-        $this->attachCategory($directUuid, $categoryUuid);
-        $this->seedMultiVariantProduct('grid-card-select', 'Card select');
-        $variant = $this->connection()->table('commerce_variants')
-            ->where('product_uuid', '=', $directUuid)
-            ->first();
-        self::assertNotNull($variant);
-
-        $data = $this->getBlockJson('/_shop/blocks/product-grid?source=newest');
-        self::assertCount(2, $data['items']);
-
-        foreach ($data['items'] as $item) {
-            self::assertSame(
-                ['uuid', 'name', 'url', 'cover_url', 'rating', 'price_formatted',
-                    'compare_at_formatted', 'category_name', 'cart_mode', 'direct_variant_uuid'],
-                array_keys($item),
-            );
-        }
-
-        $byName = array_column($data['items'], null, 'name');
-
-        // Single active variant, no required add-on — the ONE honest direct-add case.
-        self::assertSame('direct', $byName['Card direct']['cart_mode']);
-        self::assertSame($variant['uuid'], $byName['Card direct']['direct_variant_uuid']);
-        self::assertSame('Grid-card-cat', $byName['Card direct']['category_name']);
-
-        // Multi-variant reduces to 'options' — the card links to the detail page instead.
-        self::assertSame('options', $byName['Card select']['cart_mode']);
-        self::assertNull($byName['Card select']['direct_variant_uuid']);
-        self::assertNull($byName['Card select']['category_name']);
-    }
-
     public function testFeaturedProductResolvesByExplicitSlug(): void
     {
         $this->seedSimpleProduct('featured-explicit', 'Featured explicit');
@@ -670,33 +554,6 @@ final class ShopBlocksTest extends AppTestCase
         self::assertStringContainsString('/_thallo/shop/shop.js', $html);
     }
 
-    public function testProductGridTemplateReflectsConfigurationInDataAttributes(): void
-    {
-        $html = $this->renderBlock('product-grid', [
-            'source' => 'category',
-            'category_slug' => 'shoes',
-            'tag_slug' => '',
-            'products' => '',
-            'limit' => 10,
-            'columns' => '5',
-        ]);
-
-        self::assertStringContainsString('data-source="category"', $html);
-        self::assertStringContainsString('data-category-slug="shoes"', $html);
-        self::assertStringContainsString('data-page-size="10"', $html);
-        self::assertStringContainsString('thallo-block-product-grid--cols-5', $html);
-    }
-
-    public function testProductGridLimitIsClampedAndDefaultsToTwelve(): void
-    {
-        self::assertStringContainsString('data-page-size="12"', $this->renderBlock('product-grid', []));
-        $tooMany = $this->renderBlock('product-grid', ['limit' => 200]);
-        self::assertStringContainsString('data-page-size="48"', $tooMany);
-        self::assertStringContainsString('data-page-size="1"', $this->renderBlock('product-grid', ['limit' => 0]));
-        $notANumber = $this->renderBlock('product-grid', ['limit' => 'many']);
-        self::assertStringContainsString('data-page-size="12"', $notANumber);
-    }
-
     public function testProductGridColumnsAutoOrUnknownLeavesTheWidthBasedGrid(): void
     {
         foreach ([[], ['columns' => 'auto'], ['columns' => '9']] as $data) {
@@ -711,12 +568,6 @@ final class ShopBlocksTest extends AppTestCase
             $selector = ".thallo-block-product-grid--cols-{$n} .thallo-block-product-grid__items";
             self::assertStringContainsString($selector, $css);
         }
-    }
-
-    public function testProductGridTemplateFallsBackToNewestForAnUnknownSource(): void
-    {
-        $html = $this->renderBlock('product-grid', ['source' => 'bogus']);
-        self::assertStringContainsString('data-source="newest"', $html);
     }
 
     public function testFeaturedProductTemplateCarriesTheEntryUuidOnlyWhenEnrichmentIsPresent(): void

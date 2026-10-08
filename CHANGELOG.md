@@ -13,7 +13,26 @@ as the next release, never a mutated tag.
   admin's button spun until the server or a proxy gave up (Cloudflare answers 524); a refresh
   showed the change. Thallo requires `glueful/framework ^1.88.5`.
 
+### Added
+- **Product grid display options**: show or hide the image, title, price, rating, categories, tags,
+  add to cart and wishlist; the title's heading level (H3 by default). Cards show every category.
+- **Sale and New badges** on Product grid cards, with their own text, a New window in days, and a
+  position.
+- **Product grid Style tab**: Card, Image, Title, Price, Meta, Button and Badge sections; the Card,
+  Title and Button have hover looks, and the Card and Button opacity.
+- **Block fields can show help text and a multi-select of server-provided choices** (at most a set
+  number), and contributed block types can start a new block with default content.
+
 ### Changed
+- **The Product grid is a source narrowed by categories and tags** (breaking): Source is All
+  products, On sale or Manual selection; Categories and Tags are multi-select dropdowns (any of
+  them, and both when both are set); Exclude out of stock; Order by newest, price or name;
+  Products to show; Columns. Grids saved before this release must have their source and
+  categories or tags chosen again.
+- **Product grid cards render on the server, and the stage shows them.** The
+  `/_shop/blocks/product-grid` endpoint and shop.js's grid loading are gone.
+- **Pages holding a Product grid refresh with the catalog** on both the render and shop page caches,
+  and a page rendered from a catalog that changed meanwhile is never served from the cache.
 - **Thallo requires `glueful/commerce ^1.14.0`**: the category page and the category layout pass
   the engine's list filters.
 - **Commerce → Products: categories, tags and attributes are added and edited in a slide-over

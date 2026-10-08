@@ -128,11 +128,13 @@ final class ShopPatternsTest extends AppTestCase
                 if (array_key_exists('product_slug', $data)) {
                     self::assertSame('', $data['product_slug'], "{$slug}: {$block['type']}");
                 }
-                foreach (['category_slug', 'tag_slug'] as $key) {
-                    self::assertSame('', (string) ($data[$key] ?? ''), "{$slug}: {$block['type']}.{$key}");
+                foreach (['categories', 'tags'] as $key) {
+                    self::assertSame([], $data[$key] ?? [], "{$slug}: {$block['type']}.{$key}");
                 }
                 if ($block['type'] === 'product-grid') {
-                    self::assertSame('newest', $data['source'], "{$slug}: a portable grid");
+                    // Portable: every product, newest first — no category, tag or product named.
+                    self::assertSame('all', $data['source'], "{$slug}: a portable grid");
+                    self::assertSame('newest', $data['order_by'], "{$slug}: a portable grid");
                 }
                 if (array_key_exists('url', $data)) {
                     self::assertSame('#', $data['url'], "{$slug}: {$block['type']}");

@@ -1211,7 +1211,7 @@ final class ShopJsRuntimeTest extends AppTestCase
         JS;
     }
 
-    public function testRuntimePresentRegistersTenModulesAndCoreDrivesEnhancement(): void
+    public function testRuntimePresentRegistersNineModulesAndCoreDrivesEnhancement(): void
     {
         $src = $this->shopJs();
         self::assertStringContainsString("register('shop-form'", $src);
@@ -1284,8 +1284,8 @@ final class ShopJsRuntimeTest extends AppTestCase
     public function testSameModuleSiblingContainment(): void
     {
         $src = $this->shopJs();
-        self::assertStringContainsString("register('shop-product-grid'", $src);
         self::assertStringContainsString("register('shop-featured-product'", $src);
+        self::assertStringContainsString("register('shop-add-to-cart'", $src);
 
         $node = $this->findNode();
         if ($node === null) {
@@ -1475,7 +1475,7 @@ final class ShopJsRuntimeTest extends AppTestCase
     }
 
     /**
-     * Harness proving that with the runtime present, shop.js registers its ten modules on
+     * Harness proving that with the runtime present, shop.js registers its nine modules on
      * the core (probed via the duplicate-name throw), attaches NO DOMContentLoaded listener
      * of its own (a DELTA from the post-runtime-eval snapshot — the core registers its own
      * when readyState is 'loading', so an absolute zero would be wrong), and that firing
@@ -1513,7 +1513,7 @@ final class ShopJsRuntimeTest extends AppTestCase
           );
 
           var names = ['shop-form', 'shop-gallery', 'shop-buy', 'shop-mini-cart',
-            'shop-product-grid', 'shop-featured-product', 'shop-add-to-cart',
+            'shop-featured-product', 'shop-add-to-cart',
             'shop-wishlist', 'shop-wishlist-page', 'shop-checkout-page'];
           for (var i = 0; i < names.length; i++) {
             var threw = false;
@@ -1673,37 +1673,37 @@ final class ShopJsRuntimeTest extends AppTestCase
 
     /**
      * Harness proving per-component containment among SAME-module siblings: the first
-     * product-grid shell's enhance throws (only for the 'data-source' read — the core's
+     * featured-product shell's enhance throws (only for the 'data-product-slug' read — the core's
      * markerHas() reads data-thallo-enhanced OUTSIDE its try, so a blanket getAttribute
-     * throw would abort the whole pass uncaught), yet the sibling grid still hydrates AND a
-     * module registered AFTER shop-product-grid (shop-featured-product) still enhances.
+     * throw would abort the whole pass uncaught), yet the sibling shell still hydrates AND a
+     * module registered AFTER shop-featured-product (shop-add-to-cart) still enhances.
      */
     private function runtimeContainmentHarness(string $shopJsSrc, string $runtimeSrc): string
     {
         return $this->harnessPrelude($shopJsSrc, $runtimeSrc) . "\n\n" . <<<JS
         (async function containment() {
           var doc = new Doc();
-          var grid1 = el('div', { 'data-shop-block': 'product-grid' });
-          // Throws ONLY for data-source (the first attribute hydrateProductGrid reads);
+          var featured1 = el('div', { 'data-shop-block': 'featured-product' });
+          // Throws ONLY for data-product-slug (the first attribute hydrateFeaturedProduct reads);
           // every other attribute — including the core's data-thallo-enhanced marker read,
           // which happens outside the containment try — behaves normally.
-          grid1.getAttribute = function (name) {
-            if (name === 'data-source') { throw new Error('simulated component failure'); }
+          featured1.getAttribute = function (name) {
+            if (name === 'data-product-slug') { throw new Error('simulated component failure'); }
             return Element.prototype.getAttribute.call(this, name);
           };
-          var grid2 = el('div', { 'data-shop-block': 'product-grid' });
-          var featured = el('div', { 'data-shop-block': 'featured-product' });
-          doc.body.appendChild(grid1);
-          doc.body.appendChild(grid2);
-          doc.body.appendChild(featured);
+          var featured2 = el('div', { 'data-shop-block': 'featured-product' });
+          var addToCart = el('div', { 'data-shop-block': 'add-to-cart' });
+          doc.body.appendChild(featured1);
+          doc.body.appendChild(featured2);
+          doc.body.appendChild(addToCart);
 
           var consoleErrors = [];
           var consoleStub = { error: function () { consoleErrors.push(arguments); } };
 
           var calls = [];
           var queue = [
-            { ok: true, status: 200, data: { items: [] } },
             { ok: true, status: 200, data: { product: null } },
+            { ok: true, status: 200, data: { mode: 'unavailable', available: false } },
           ];
           var win = {
             document: doc, location: { href: '' }, fetch: makeFetch(queue, calls), FormData: FakeFormData,
@@ -1720,26 +1720,27 @@ final class ShopJsRuntimeTest extends AppTestCase
           loadShopJs(win, doc);
           await flush(); // shop.js's scheduled catch-up pass
 
-          assert(calls.length === 2, 'containment: the sibling grid AND the later featured module fetched');
+          assert(calls.length === 2, 'containment: the sibling shell AND the later add-to-cart module fetched');
           assert(
-            calls[0].url.indexOf('/_shop/blocks/product-grid') === 0,
-            'containment: the SECOND grid hydrated despite its throwing sibling'
+            calls[0].url.indexOf('/_shop/blocks/featured-product') === 0,
+            'containment: the SECOND featured shell hydrated despite its throwing sibling'
           );
           assert(
-            calls[1].url.indexOf('/_shop/blocks/featured-product') === 0,
-            'containment: a module registered AFTER shop-product-grid still enhanced'
+            calls[1].url.indexOf('/_shop/blocks/add-to-cart') === 0,
+            'containment: a module registered AFTER shop-featured-product still enhanced'
           );
           assert(
-            (' ' + (grid2.getAttribute('data-thallo-enhanced') || '') + ' ').indexOf(' shop-product-grid ') !== -1,
-            'containment: the sibling grid carries the shop-product-grid marker'
-          );
-          assert(
-            (' ' + (featured.getAttribute('data-thallo-enhanced') || '') + ' ')
+            (' ' + (featured2.getAttribute('data-thallo-enhanced') || '') + ' ')
               .indexOf(' shop-featured-product ') !== -1,
-            'containment: the featured shell carries the shop-featured-product marker'
+            'containment: the sibling shell carries the shop-featured-product marker'
           );
           assert(
-            grid1.getAttribute('data-thallo-enhanced') === null,
+            (' ' + (addToCart.getAttribute('data-thallo-enhanced') || '') + ' ')
+              .indexOf(' shop-add-to-cart ') !== -1,
+            'containment: the add-to-cart shell carries the shop-add-to-cart marker'
+          );
+          assert(
+            featured1.getAttribute('data-thallo-enhanced') === null,
             'containment: the failed shell has NO data-thallo-enhanced marker'
           );
           assert(consoleErrors.length === 1, 'containment: the core logged the contained failure exactly once');
@@ -1769,7 +1770,7 @@ final class ShopJsRuntimeTest extends AppTestCase
           var form = el('form', { action: '/_shop/cart/add' }, [el('button', { type: 'submit' })]);
           doc.body.appendChild(form);
           doc.body.appendChild(el('div', { 'data-shop-mini-cart': '' }));
-          doc.body.appendChild(el('div', { 'data-shop-block': 'product-grid' }));
+          doc.body.appendChild(el('div', { 'data-shop-block': 'featured-product' }));
 
           var calls = [];
           var queue = []; // nothing may fetch — any call would also trip the count asserts

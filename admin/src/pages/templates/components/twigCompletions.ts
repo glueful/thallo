@@ -74,6 +74,7 @@ const FUNCTIONS = [
   'min',
   'max',
   'plan_checkout_url',
+  'product_grid',
 ]
 
 const FILTERS = [
