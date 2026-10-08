@@ -144,9 +144,10 @@ final class ShopBlockTypeProvisioningTest extends RetrofittedTenantTestCase
         };
         $this->runAsTenant(self::$tenantBUuid, function () use ($legacy): void {
             $repo = $this->container()->get(\Thallo\Core\Content\Blocks\BlockTypeRepository::class);
-            // mini-cart untouched; product-grid as an earlier definition labelled it, untouched since.
+            // mini-cart untouched; product-grid as an earlier definition left it — another label and,
+            // as no definition carried starter content then, none — untouched since.
             $this->connection()->table('block_types')->where('slug', '=', 'product-grid')
-                ->update(['label' => 'Product list']);
+                ->update(['label' => 'Product list', 'starter_content' => null]);
             foreach (['mini-cart', 'product-grid'] as $slug) {
                 $this->connection()->table('starter_provenance')
                     ->where('source_id', '=', 'thallo-commerce:' . $slug)
