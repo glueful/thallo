@@ -215,6 +215,15 @@ final class ProductGridBlockTest extends AppTestCase
         self::assertDoesNotMatchRegularExpression('~<li class="shop-grid__item[^"]*t-bg-white~', $html);
     }
 
+    public function testTheDetailsPaddingSitsOnTheTextUnderTheImage(): void
+    {
+        $this->product('p');
+        $lg = ['base' => ['type' => 'token', 'value' => 'spacing.lg']];
+        $html = $this->renderBlock([], false, ['parts' => ['details' => ['spacing' => ['padding' => ['top' => $lg]]]]]);
+        self::assertMatchesRegularExpression('~<span class="shop-grid__body[^"]* t-pt-lg[ "]~', $html);
+        self::assertDoesNotMatchRegularExpression('~<(li|span) class="shop-grid__(item|media)[^"]*t-pt-lg~', $html);
+    }
+
     public function testSavedSelectionsAndRenderedFiltersAgreeAtTheLimit(): void
     {
         // Twenty categories, the field's max_items: a block that passes validation renders all twenty.
