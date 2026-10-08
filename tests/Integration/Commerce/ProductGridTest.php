@@ -8,6 +8,7 @@ use Glueful\Cache\CacheStore;
 use Thallo\Commerce\Shop\CatalogGeneration;
 use Thallo\Contracts\Delivery\StorefrontProductGrid;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\CountingPdoStatement;
 use Thallo\Core\Tests\Support\SeedsShopCatalog;
 use Thallo\Tenancy\System\SystemFlags;
 
@@ -84,6 +85,34 @@ final class ProductGridTest extends AppTestCase
         $this->tag('summer', $both);
         self::assertEqualsCanonicalizing(['M', 'W', 'X'], $this->names(['categories' => ['men', 'women']]));
         self::assertSame(['X'], $this->names(['categories' => ['men', 'women'], 'tags' => ['summer']]));
+    }
+
+    public function testChosenCategoriesAndTagsCostTheSameQueriesWhateverTheirNumber(): void
+    {
+        $product = $this->product('p');
+        $categories = $tags = [];
+        foreach (range(1, 5) as $i) {
+            $this->category('cat-' . $i, $product);
+            $this->tag('tag-' . $i, $product);
+            $categories[] = 'cat-' . $i;
+            $tags[] = 'tag-' . $i;
+        }
+        $grid = $this->container()->get(StorefrontProductGrid::class);
+        $pdo = $this->connection()->getPDO();
+        $pdo->setAttribute(\PDO::ATTR_STATEMENT_CLASS, [CountingPdoStatement::class]);
+        try {
+            $grid->grid(['categories' => ['cat-1'], 'tags' => ['tag-1']]); // warm-up
+            $before = CountingPdoStatement::$count;
+            $grid->grid(['categories' => ['cat-1'], 'tags' => ['tag-1']]);
+            $one = CountingPdoStatement::$count - $before;
+            $before = CountingPdoStatement::$count;
+            $view = $grid->grid(['categories' => $categories, 'tags' => $tags]);
+            $five = CountingPdoStatement::$count - $before;
+        } finally {
+            $pdo->setAttribute(\PDO::ATTR_STATEMENT_CLASS, [\PDOStatement::class]);
+        }
+        self::assertCount(1, $view?->cards ?? []);
+        self::assertSame($one, $five, 'one lookup for the categories and one for the tags, not one per slug');
     }
 
     public function testDeletedCategoriesShowNothingNeverEverything(): void
