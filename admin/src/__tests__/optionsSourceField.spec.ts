@@ -81,3 +81,74 @@ describe('a field with server-provided choices', () => {
     expect(wrapper.emitted('update:modelValue')).toEqual([['products'], ['']])
   })
 })
+
+// Product grid spec §5.3: a `multiple` options-source field is a multi-select whose value is a list,
+// at most `maxItems`, and a stored value that is no longer a choice is kept and shown unavailable.
+const CATEGORIES: FieldOption[] = [
+  { value: 'men', label: 'Men', available: true, reason: null },
+  { value: 'women', label: 'Women', available: true, reason: null },
+]
+// The multi-select stands in as a named stub, as tenantSwitcher.spec.ts does.
+const USelectMenu = {
+  name: 'USelectMenu',
+  props: {
+    modelValue: { type: Array, default: undefined },
+    items: { type: Array, default: () => [] },
+    multiple: Boolean,
+    valueKey: { type: String, default: undefined },
+    loading: Boolean,
+  },
+  emits: ['update:modelValue'],
+  template: '<div />',
+}
+const mountMulti = (extra: Record<string, unknown>, modelValue: unknown) =>
+  mount(OptionsSourceField, {
+    global: { stubs: { SelectMenu: USelectMenu } },
+    props: {
+      field: {
+        name: 'categories',
+        type: 'string' as const,
+        optionsSource: 'thallo-commerce.categories',
+        multiple: true,
+        ...extra,
+      },
+      modelValue,
+    },
+  })
+
+describe('a multiple options-source field', () => {
+  beforeEach(() => {
+    options.value = CATEGORIES
+    status.value = 'success'
+  })
+
+  it('selects several values and emits the list', async () => {
+    const w = mountMulti({}, ['men'])
+    const select = w.findComponent({ name: 'USelectMenu' })
+    expect(select.props('multiple')).toBe(true)
+    expect(select.props('modelValue')).toEqual(['men'])
+    await select.vm.$emit('update:modelValue', ['men', 'women'])
+    const emitted = w.emitted('update:modelValue') ?? []
+    expect(emitted[emitted.length - 1]).toEqual([['men', 'women']])
+  })
+
+  it('keeps a stored value that is no longer an option and shows it unavailable', () => {
+    const w = mountMulti({}, ['gone', 'men'])
+    expect(w.find('[data-test="options-source-categories-gone"]').exists()).toBe(true)
+    expect(w.findComponent({ name: 'USelectMenu' }).props('modelValue')).toEqual(['gone', 'men'])
+  })
+
+  it('never emits more than maxItems and says so at the limit', async () => {
+    const twenty = Array.from({ length: 20 }, (_, i) => `c${i}`)
+    const w = mountMulti({ maxItems: 20 }, twenty)
+    expect(w.find('[data-test="options-source-limit-categories"]').exists()).toBe(true)
+    await w.findComponent({ name: 'USelectMenu' }).vm.$emit('update:modelValue', [...twenty, 'c20'])
+    const emitted = (w.emitted('update:modelValue') ?? []) as string[][][]
+    expect(emitted[emitted.length - 1]?.[0]).toHaveLength(20)
+  })
+
+  it('reads a non-list value as no selection', () => {
+    const w = mountMulti({}, 'men')
+    expect(w.findComponent({ name: 'USelectMenu' }).props('modelValue')).toEqual([])
+  })
+})

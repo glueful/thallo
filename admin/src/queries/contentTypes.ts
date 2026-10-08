@@ -51,6 +51,8 @@ export interface ContentTypeField {
   domain?: string | null
   /** Block schema: the server source of this string field's choices. */
   options_source?: string | null
+  /** Guidance shown under the field in the editor. */
+  help?: string | null
   /** Anchored regex body a string/text value must fully match. */
   pattern?: string | null
   /** Inclusive lower bound for a `number` field. */

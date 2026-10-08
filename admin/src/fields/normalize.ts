@@ -11,6 +11,7 @@ import type { FieldDef } from './types'
 export function toFieldDef(f: ContentTypeField): FieldDef {
   return {
     name: String(f.name ?? ''),
+    label: f.label ?? undefined,
     type: (f.type ?? 'string') as FieldDef['type'],
     required: f.required ?? undefined,
     enum: f.enum ?? undefined,
@@ -24,5 +25,6 @@ export function toFieldDef(f: ContentTypeField): FieldDef {
     group: f.group ?? undefined,
     domain: f.domain ?? undefined,
     optionsSource: f.options_source ?? undefined,
+    help: f.help ?? undefined,
   }
 }

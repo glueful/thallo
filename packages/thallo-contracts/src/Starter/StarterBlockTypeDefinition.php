@@ -36,6 +36,8 @@ final readonly class StarterBlockTypeDefinition
         public ?array $styleTargets = null,
         /** Block flags (`renders_children_inline`). @var array<string,bool>|null */
         public ?array $flags = null,
+        /** Data a new block of this type starts with (inserted by the editor). @var array<string,mixed>|null */
+        public ?array $starterContent = null,
     ) {
     }
 }
