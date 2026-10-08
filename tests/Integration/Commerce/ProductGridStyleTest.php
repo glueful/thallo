@@ -42,6 +42,8 @@ final class ProductGridStyleTest extends AppTestCase
             self::assertSame([], array_values($hover), $part);
         }
         self::assertContains('radius', $parts['image']);
+        // The image frame's tint is the part's own background, so a white card can have a white frame.
+        self::assertContains('colors.surface', $parts['image']);
         self::assertContains('typography.size', $parts['price']);
     }
 }

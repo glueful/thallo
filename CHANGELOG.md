@@ -19,7 +19,8 @@ as the next release, never a mutated tag.
 - **Sale and New badges** on Product grid cards, with their own text, a New window in days, and a
   position.
 - **Product grid Style tab**: Card, Image, Title, Price, Meta, Button and Badge sections; the Card,
-  Title and Button have hover looks, and the Card and Button opacity.
+  Title and Button have hover looks, and the Card and Button opacity. The Image section sets the
+  background of the frame around the picture (a light tint of the text colour until you set one).
 - **Product grid card effects**: a **Card** group sets the hover effect (lift, shadow), the image
   ratio and fit, and image zoom on hover — only where the device can hover, and without movement for
   visitors who ask for reduced motion.
