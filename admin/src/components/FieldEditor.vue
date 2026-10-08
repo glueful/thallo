@@ -5,7 +5,7 @@ import type { BlockType } from '@/queries/blockTypes'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import type { BlocksContext, BlocksHost } from '@/fields/components/blocks/context'
 import type { Position } from '@/editor/ops/types'
-import { fieldComponent } from '@/fields/registry'
+import { componentFor } from '@/fields/registry'
 
 defineProps<{
   schema: FieldDef[]
@@ -130,7 +130,7 @@ defineExpose({
   <div class="space-y-4">
     <div v-for="field in schema" :key="field.name">
       <component
-        :is="fieldComponent(field.type)"
+        :is="componentFor(field)"
         :ref="
           (el: Element | ComponentPublicInstance | null) => trackField(field.name, field.type, el)
         "

@@ -15,7 +15,7 @@ const loaded = new Promise<void>((resolve) => {
 })
 
 vi.mock('@/fields/registry', () => ({
-  fieldComponent: () =>
+  componentFor: () =>
     defineAsyncComponent(async () => {
       await loaded
       return defineComponent({

@@ -6,7 +6,7 @@ import { defineComponent, h } from 'vue'
 // FieldEditor takes the per-field messages and renders each one under its field.
 
 vi.mock('@/fields/registry', () => ({
-  fieldComponent: () =>
+  componentFor: () =>
     defineComponent({
       props: { field: { type: Object, required: true }, modelValue: null },
       setup: (props) => () =>
