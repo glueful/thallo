@@ -62,7 +62,8 @@ final class ProductGridStyleTest extends AppTestCase
     {
         $css = (string) file_get_contents(dirname(__DIR__, 3) . '/packages/thallo-commerce/assets/shop.css');
         self::assertMatchesRegularExpression(
-            '~\.thallo-block-product-grid \.shop-grid__media \{[^}]*background: transparent;~',
+            '~:is\(\.thallo-block-product-grid, \.thallo-block-product_tile\)'
+                . ' \.shop-grid__media \{[^}]*background: transparent;~',
             $css,
         );
     }
@@ -71,13 +72,14 @@ final class ProductGridStyleTest extends AppTestCase
     {
         $css = (string) file_get_contents(dirname(__DIR__, 3) . '/packages/thallo-commerce/assets/shop.css');
         self::assertMatchesRegularExpression(
-            '~\.thallo-block-product-grid \.shop-grid__action--wishlist path \{'
+            '~:is\(\.thallo-block-product-grid, \.thallo-block-product_tile\) \.shop-grid__action--wishlist path \{'
                 . '[^}]*fill: none;[^}]*stroke: currentColor;~',
             $css,
             'an outline heart until saved',
         );
         self::assertMatchesRegularExpression(
-            '~\.thallo-block-product-grid \.shop-grid__action--wishlist\[aria-pressed="true"\] path \{'
+            '~:is\(\.thallo-block-product-grid, \.thallo-block-product_tile\)'
+                . ' \.shop-grid__action--wishlist\[aria-pressed="true"\] path \{'
                 . '[^}]*fill: currentColor;~',
             $css,
             'a filled heart once saved',

@@ -132,4 +132,113 @@ final class ShopCardBlocksTest extends AppTestCase
         );
         self::assertStringContainsString('<button class="shop-grid__buy t-bg-accent" type="submit"', $html);
     }
+
+    // ---- the Product tile ------------------------------------------------------------------
+
+    public function testTheTilesPartsStyleTheirOwnPieces(): void
+    {
+        $token = static fn (string $t): array => [
+            'colors' => ['surface' => ['type' => 'token', 'value' => 'color.' . $t]],
+        ];
+        $html = $this->render([self::block('tile', 'product_tile', [], ['parts' => [
+            'image' => $token('accent'), 'quick_add' => $token('surface'), 'wishlist' => $token('muted'),
+            'chip' => $token('white'),
+        ]])], [self::item('mug')]);
+        self::assertMatchesRegularExpression('~<span class="shop-grid__media t-bg-accent">~', $html);
+        self::assertMatchesRegularExpression(
+            '~<button class="shop-grid__action shop-grid__action--cart t-bg-surface"~',
+            $html,
+        );
+        self::assertMatchesRegularExpression(
+            '~<button class="shop-grid__action shop-grid__action--wishlist t-bg-muted" type="button"~',
+            $html,
+        );
+        self::assertMatchesRegularExpression('~<span class="shop-grid__tag t-bg-white">Men</span>~', $html);
+    }
+
+    public function testTheTileHidesQuickAddAndTheWishlistApart(): void
+    {
+        $noCart = $this->render([self::block('tile', 'product_tile', ['hide_cart' => true])], [self::item('mug')]);
+        self::assertStringNotContainsString('shop-grid__action--cart', $noCart);
+        self::assertStringContainsString('data-shop-wishlist-toggle', $noCart);
+        $noHeart = $this->render([self::block('tile', 'product_tile', ['hide_wishlist' => true])], [self::item('mug')]);
+        self::assertStringContainsString('shop-grid__action--cart', $noHeart);
+        self::assertStringNotContainsString('data-shop-wishlist-toggle', $noHeart);
+        $neither = $this->render(
+            [self::block('tile', 'product_tile', ['hide_cart' => true, 'hide_wishlist' => true])],
+            [self::item('mug')],
+        );
+        self::assertStringNotContainsString('shop-grid__actions', $neither, 'no empty action stack');
+    }
+
+    public function testTheTilesPictureOptions(): void
+    {
+        $html = $this->render([self::block('tile', 'product_tile', [
+            'image_ratio' => 'portrait', 'image_fit' => 'cover', 'image_hover' => 'zoom',
+        ])], [self::item('mug')]);
+        self::assertMatchesRegularExpression(
+            '~<div class="shop-grid__tile thallo-block thallo-block-product_tile'
+                . ' thallo-block-product_tile--image-portrait'
+                . ' thallo-block-product_tile--image-cover thallo-block-product_tile--image-zoom"~',
+            $html,
+        );
+        $plain = $this->render([self::block('tile', 'product_tile', ['image_ratio' => 'bogus'])], [self::item('mug')]);
+        self::assertStringNotContainsString('thallo-block-product_tile--image', $plain);
+    }
+
+    public function testTheTileShowsSaleAndNewBadges(): void
+    {
+        $products = [
+            self::item('sale', ['onSale' => true, 'compare' => 'GHS 150.00']),
+            self::item('fresh', ['createdAt' => gmdate('Y-m-d H:i:s', strtotime('-2 days'))]),
+            self::item('old'),
+        ];
+        $off = $this->render([self::block('tile', 'product_tile')], $products);
+        self::assertStringNotContainsString('shop-grid__badge', $off, 'badges are off until switched on');
+        $badge = ['type' => 'token', 'value' => 'color.accent'];
+        $html = $this->render([self::block('tile', 'product_tile', [
+            'show_sale_badge' => true, 'sale_badge_text' => 'Promo', 'show_new_badge' => true,
+            'new_badge_days' => 7, 'badge_position' => 'top-right',
+        ], ['parts' => ['badge' => ['colors' => ['surface' => $badge]]]])], $products);
+        self::assertSame(1, substr_count($html, 'shop-grid__badge--sale'));
+        self::assertSame(1, substr_count($html, 'shop-grid__badge--new'));
+        self::assertStringContainsString(
+            '<span class="shop-grid__badges shop-grid__badges--top-right">'
+                . '<span class="shop-grid__badge shop-grid__badge--sale t-bg-accent">Promo</span></span>',
+            $html,
+        );
+        self::assertStringContainsString(
+            '<span class="shop-grid__badge shop-grid__badge--new t-bg-accent">New</span>',
+            $html,
+        );
+    }
+
+    public function testTheShopStylesheetDrawsTheTileAsTheGridsCard(): void
+    {
+        $css = (string) file_get_contents(dirname(__DIR__, 3) . '/packages/thallo-commerce/assets/shop.css');
+        // A transparent frame until the Image part sets a background, as the grid's.
+        self::assertMatchesRegularExpression(
+            '~:is\(\.thallo-block-product-grid, \.thallo-block-product_tile\)'
+                . ' \.shop-grid__media \{[^}]*background: transparent;~',
+            $css,
+        );
+        // The heart is an outline until saved, whatever the Wishlist part's colours.
+        self::assertMatchesRegularExpression(
+            '~:is\(\.thallo-block-product-grid, \.thallo-block-product_tile\)'
+                . ' \.shop-grid__action--wishlist path \{[^}]*fill: none;~',
+            $css,
+        );
+        self::assertMatchesRegularExpression(
+            '~\.thallo-block-product_tile--image-portrait\) \.shop-grid__image \{ aspect-ratio: 4 / 5; \}~',
+            $css,
+        );
+        self::assertMatchesRegularExpression(
+            '~\.thallo-block-product_tile--image-cover\) \.shop-grid__image \{ object-fit: cover;~',
+            $css,
+        );
+        self::assertMatchesRegularExpression(
+            '~\.shop-grid__item:hover \.thallo-block-product_tile--image-zoom \.shop-grid__image~',
+            $css,
+        );
+    }
 }
