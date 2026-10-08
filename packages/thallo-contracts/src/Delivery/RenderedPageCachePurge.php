@@ -23,4 +23,10 @@ interface RenderedPageCachePurge
 
     /** Drop every rendered page. */
     public function purgeAll(): bool;
+
+    /**
+     * Drop every rendered page of workspace `$tenantUuid` — every rendered page while tenancy is
+     * off. The caller names the workspace; it is never taken from the current request.
+     */
+    public function purgeWorkspace(string $tenantUuid): bool;
 }
