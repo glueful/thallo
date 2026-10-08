@@ -8,6 +8,7 @@
 > - the image links to the product, and the Title part sits on the focusable anchor, proved for pointer, keyboard and forced preview (Tasks 10, 12);
 > - the browser proofs tap on touch, check the cart request's product and the cart's result, submit the no-JS form, and assert the Button's authored background (Task 12);
 > - shared-contract task numbers corrected; the no-extra-read test counts reads (Task 6).
+> - second review: the image link becomes the card's named, focusable product link when Show title is off (Task 10, proved with cart and wishlist hidden too, Task 12); the cart proof answers with `CartViewModel::toArray()`'s real shape (Task 12); the bounded-string test uses a supported pattern, not an invented length key (Task 9).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -35,7 +36,7 @@
 - **Display toggles default through `starter_content`** (new `StarterBlockTypeDefinition::$starterContent`), so a new grid's inspector shows them on; the template still applies the same defaults when a value is absent.
 - **A hover-effect shadow yields to an authored card shadow.** `card_hover` lives in `@layer theme`; an author's Card shadow is `@layer settings` and wins at rest and on hover. The lift still moves. Stated in the docs.
 - **The Card part's hover colours answer the pointer and the stage's forced preview; keyboard focus reaches the card's own links** (image, title, button), whose parts carry their own hover looks — a `<li>` takes no focus, so the compiled `:focus-visible` branch cannot fire on it. The card *effects* (lift, shadow, zoom) also answer `:focus-within`. Cost if wrong: a card-level `:focus-within` utility in the compiler.
-- **The image link is out of the tab order and hidden from assistive tech** (`tabindex="-1" aria-hidden="true"`): the title link below names the same product, so a second stop per card would only repeat it.
+- **The image link is out of the tab order and hidden from assistive tech while the title shows** (`tabindex="-1" aria-hidden="true"`): the title link below names the same product, so a second stop per card would only repeat it. **With Show title off it is the card's product link**: focusable and named by the product (`aria-label`), so a card never loses its accessible link to the product — even with add to cart and wishlist hidden too.
 - **The engine suite runs on SQLite** (its `CommerceTestCase`); PostgreSQL is exercised by Thallo's integration tests, which run every engine query this plan adds.
 
 ## Global Constraints
@@ -2309,6 +2310,16 @@ final class MultipleOptionSourceFieldTest extends AppTestCase
         self::assertArrayHasKey('categories', $errors);
     }
 
+    public function testABoundedPatternBoundsEachItemsLength(): void
+    {
+        // Length is bounded through a supported constraint — the pattern — not an invented one.
+        $bounded = ['pattern' => '[a-z0-9-]{1,64}'];
+        [, $ok] = $this->validate([str_repeat('a', 64)], $bounded);
+        self::assertSame([], $ok);
+        [, $errors] = $this->validate([str_repeat('a', 65)], $bounded);
+        self::assertArrayHasKey('categories', $errors);
+    }
+
     public function testMultipleIsKeptOnAnOptionSourceStringAndDroppedOnAPlainOne(): void
     {
         self::assertTrue($this->field()->multiple);
@@ -2328,7 +2339,6 @@ final class MultipleOptionSourceFieldTest extends AppTestCase
         yield 'a string' => ['men'];
         yield 'a number in the list' => [['men', 3]];
         yield 'a map' => [['a' => 'men']];
-        yield 'too long' => [[str_repeat('x', 192)]];
     }
 
     /** @dataProvider invalid */
@@ -2350,7 +2360,7 @@ final class MultipleOptionSourceFieldTest extends AppTestCase
 }
 ```
 
-Before writing `validate()`, open the existing FieldValidator test it names and copy its construction exactly — then replace the comment with that code. The "too long" case relies on the string field's own length constraint reached through `checkConstraints()`; if string fields have no default length bound (`grep -n "max_length\|maxLength\|191" core/src/Content/Validation/FieldValidator.php`), give the test field `'max_length' => 191` (or the key `checkConstraints()` reads) and keep the case.
+Before writing `validate()`, open the existing FieldValidator test it names and copy its construction exactly — then replace the comment with that code. Item constraints are exactly `checkType()` + `checkConstraints()` for a single value of the field (the pattern is the supported way to bound a string's length; neither `FieldDefinition` nor `checkConstraints()` has a length key). Confirm `checkConstraints()` anchors the pattern the way it does for a single string (the icon field's `[a-z0-9]+(-[a-z0-9]+)*` relies on it); if it does not, anchor both test patterns with `\A…\z` in the field schema instead and record it.
 
 - [ ] **Step 2: Run it to verify it fails**
 
@@ -2676,7 +2686,7 @@ git commit -m "feat(fields): multi-select option-source fields, field labels and
 - Modify: `packages/thallo-commerce/src/Starter/ShopBlockTypesContributor.php:43-67` (schema, starter content **and the seven part declarations** — the templates call `style_classes('<part>')`, and `RenderContextExtension::styleFrame()` throws for an undeclared part)
 - Rewrite: `packages/thallo-commerce/templates/blocks/product-grid.twig`
 - Create: `packages/thallo-commerce/templates/shop/_grid_card.twig`
-- Modify: `packages/thallo-commerce/templates/shop/_product_tile.twig` (optional `link_media`, `media_class`, `action_class`, `show_cart`, `show_wishlist`, `badges`, `no_media` — defaults keep today's output byte-identical)
+- Modify: `packages/thallo-commerce/templates/shop/_product_tile.twig` (optional `link_media`, `media_link_named`, `media_class`, `action_class`, `show_cart`, `show_wishlist`, `badges`, `no_media` — defaults keep today's output byte-identical)
 - Modify: `packages/thallo-commerce/src/Patterns/ShopPatternsContributor.php:196-199`
 - Remove: `ShopBlockDataController::productGrid()` and its helpers; the route at `packages/thallo-commerce/routes/shop-routes.php:199`; `hydrateProductGrids`/`hydrateProductGrid`/`renderProductGrid` and the `shop-product-grid` registration in `assets/shop.js`; the endpoint entry in `admin/src/api/core-schema.d.ts:87-94` and `docs/openapi.json` (hand-splice; `docs:openapi` needs `CACHE_DRIVER=array`)
 - Modify tests: `tests/Integration/Commerce/ShopBlocksTest.php` (remove the endpoint tests 438–560 and the template tests 673–705; update `testProductGridSchemaHasTheDocumentedFieldsAndEnums`), `ShopBlockSelectionTest.php:187-240`, `StorefrontInertnessTest.php:122,244`, `ShopJsRuntimeTest.php:1287,1516,1676-1730`, `tests/Integration/Render/RuntimeShopCoexistenceTest.php:457`, `ShopPatternsTest.php` (grid data)
@@ -2747,6 +2757,17 @@ git commit -m "feat(fields): multi-select option-source fields, field labels and
             self::assertStringNotContainsString($absent, $html, $absent);
         }
         self::assertSame(['Summer'], $this->labels($html, 'tag'));
+    }
+
+    public function testWithTheTitleHiddenTheImageLinkIsTheNamedFocusableProductLink(): void
+    {
+        $this->product('p');
+        $html = $this->renderBlock(['show_title' => false, 'show_add_to_cart' => false, 'show_wishlist' => false]);
+        self::assertMatchesRegularExpression('~<a class="shop-grid__media-link" href="[^"]+" aria-label="P">~', $html);
+        self::assertStringNotContainsString('tabindex="-1"', $html);
+        self::assertStringNotContainsString('aria-hidden="true">' . "\n" . '    <span class="shop-grid__media', $html);
+        self::assertStringNotContainsString('shop-grid__name', $html);
+        self::assertStringNotContainsString('shop-grid__action', $html);
     }
 
     public function testTheTitlesPartClassesSitOnTheFocusableAnchor(): void
@@ -3018,12 +3039,15 @@ Run `vendor/bin/phpunit --filter testContributorSchemasPassBlockSchemaValidation
 
 - [ ] **Step 5: `_product_tile.twig` takes the grid's options (defaults unchanged)**
 
-Change the tile so every new hook is opt-in. The image link (spec §3.1: "the image and title link to the product") is a pointer convenience: out of the tab order and hidden from assistive tech, since the title link right below names the same product.
+Change the tile so every new hook is opt-in. The image link (spec §3.1: "the image and title link to the product") is a pointer convenience while the title shows — out of the tab order and hidden from assistive tech, since the title link right below names the same product. With the title hidden (`media_link_named`) it is the card's product link: in the tab order and named by the product.
 
 ```twig
 <div class="shop-grid__tile{{ tile_class|default('') }}{% if no_media|default(false) %} shop-grid__tile--no-media{% endif %}"{{ tile_attrs|default('') }}>
     {% if not no_media|default(false) %}
-    {% if link_media|default(false) %}<a class="shop-grid__media-link" href="{{ product.url }}" tabindex="-1" aria-hidden="true">{% endif %}
+    {% if link_media|default(false) %}
+      {%- if media_link_named|default(false) %}<a class="shop-grid__media-link" href="{{ product.url }}" aria-label="{{ product.name }}">
+      {%- else %}<a class="shop-grid__media-link" href="{{ product.url }}" tabindex="-1" aria-hidden="true">{% endif %}
+    {%- endif %}
     <span class="shop-grid__media{{ media_class|default('') }}">
       …unchanged img / empty span…
     </span>
@@ -3072,6 +3096,7 @@ Keep the indentation and whitespace-control markers so the shop index HTML and t
     show_tag: false,
     no_media: not show.image,
     link_media: true,
+    media_link_named: not show.title,
     media_class: style_classes('image'),
     action_class: style_classes('button'),
     show_actions: show.add_to_cart or show.wishlist,
@@ -3394,7 +3419,7 @@ git commit -m "feat(commerce): Product grid card and image effects; the shop sty
 - [ ] **Step 1: The fixture builder**
 
 Pages written to `tools/runtime-browser/fixtures/product-grid/`:
-- `public.html` — a page with a mini cart (header region or a block) and three grids: (a) styled — Card background `color.surface`, Title text `color.accent` with hover text `color.text`, Button background `color.accent`, `card_hover: lift`, `image_hover: zoom`, `image_ratio: portrait`, `image_fit: cover`, badges on, `badge_position: top-right`; (b) a product with five long category names (`'Outerwear & Rainwear'`, …) at 4 columns; (c) defaults. Stylesheets inlined, scripts **dropped** (the no-JS reader).
+- `public.html` — a page with a mini cart (header region or a block) and three grids: (a) styled — Card background `color.surface`, Title text `color.accent` with hover text `color.text`, Button background `color.accent`, `card_hover: lift`, `image_hover: zoom`, `image_ratio: portrait`, `image_fit: cover`, badges on, `badge_position: top-right`; (b) a product with five long category names (`'Outerwear & Rainwear'`, …) at 4 columns; (c) defaults; (d) `show_title`, `show_add_to_cart` and `show_wishlist` off. Stylesheets inlined, scripts **dropped** (the no-JS reader).
 - `grid-js.html` — the same page with `shop.js` and the runtime core **kept** (served from the fixture directory; copy the two assets next to it), for the after-initialization and cart/wishlist proofs.
 - `stage.html` — the stage render of the same entry.
 
@@ -3443,12 +3468,28 @@ test('add to cart posts that product and the cart shows it; the heart saves it',
   await page.goto(BASE + 'grid-js.html');
   const card = grid(page, 0).locator('.shop-grid__item').filter({ has: page.locator('.shop-grid__action--cart') }).first();
   const variant = await card.locator('input[name="variant_uuid"]').getAttribute('value');
+  const productName = await card.locator('.shop-grid__name-link').innerText();
   let posted = null;
   await page.route('**/_shop/cart/add', async (route) => {
     posted = route.request().postData();
-    // Answer the way ShopCartController answers an XHR add (read its JSON shape and the mini cart's
-    // count field in shop.js before relying on these keys).
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 1, lines: [] }) });
+    // ShopCartController::add() answers an XHR add with CartViewModel::toArray(); shop.js's onSuccess()
+    // keys on `item_count` and paints the mini cart from it.
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [{
+          variant_uuid: variant, sku: 'fixture-sku', product_name: productName, quantity: 1,
+          unit_price: 1000, unit_price_formatted: '$10.00', line_total: 1000, line_total_formatted: '$10.00',
+          currency: 'USD', addons: [],
+        }],
+        item_count: 1, discount_code: null,
+        subtotal: 1000, subtotal_formatted: '$10.00', discount_total: 0, discount_total_formatted: '$0.00',
+        shipping_total: 0, shipping_total_formatted: '$0.00', tax_total: 0, tax_total_formatted: '$0.00',
+        grand_total: 1000, grand_total_formatted: '$10.00', currency: 'USD',
+        cart_url: '/cart', checkout_url: '/checkout',
+      }),
+    });
   });
   const heart = card.locator('[data-shop-wishlist-toggle]');
   await expect(heart).toBeVisible();
@@ -3459,6 +3500,7 @@ test('add to cart posts that product and the cart shows it; the heart saves it',
   expect(new URLSearchParams(posted).get('variant_uuid')).toBe(variant);
   expect(new URLSearchParams(posted).get('quantity')).toBe('1');
   await expect(page.locator('[data-shop-cart-count]').first()).toHaveText('1');
+  await expect(page.locator('[data-shop-cart-count]').first()).toBeVisible();
 });
 
 test('without JavaScript a card adds to the cart by posting its form', async ({ page }) => {
@@ -3501,6 +3543,19 @@ test('the title link answers pointer, keyboard and the forced preview', async ({
   await link.evaluate((el) => el.blur());
   await link.evaluate((el) => el.setAttribute('data-thallo-hover', ''));
   expect(await link.evaluate((el) => getComputedStyle(el).color)).toBe(hoverColour);
+});
+
+test('with the title, cart and wishlist hidden, the keyboard reaches the named image link', async ({ page }) => {
+  await page.goto(BASE + 'public.html');
+  const link = grid(page, 3).locator('.shop-grid__media-link').first();
+  await expect(link).toHaveAttribute('aria-label', /.+/);
+  await expect(link).not.toHaveAttribute('tabindex', '-1');
+  await expect(link).toHaveAccessibleName(await link.getAttribute('aria-label'));
+  await link.evaluate((el) => el.closest('.thallo-block-product-grid').previousElementSibling?.querySelector('a, button')?.focus());
+  for (let i = 0; i < 40 && !(await link.evaluate((el) => el === document.activeElement)); i++) {
+    await page.keyboard.press('Tab');
+  }
+  expect(await link.evaluate((el) => el === document.activeElement)).toBe(true);
 });
 
 test('several long category labels wrap without overflowing the card', async ({ page }) => {
