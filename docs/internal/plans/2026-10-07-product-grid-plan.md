@@ -6,7 +6,7 @@
 
 **Architecture:**
 - **Engine (`glueful/commerce` 1.14.0).** `ResolvedProductFilters` takes lists plus `onSale` / `inStock`; `listActive()` takes a sort; batch category and tag projections. Released by the user before the Thallo tasks run.
-- **Contracts.** A soft-bound `StorefrontProductGrid` seam returns a `ProductGridView` (card arrays, View-all URL, a storage tag, one cache guard). `StarterBlockTypeDefinition` gains `starterContent`. `RenderedPageCachePurge` gains `purgeCurrentWorkspace()`.
+- **Contracts.** A soft-bound `StorefrontProductGrid` seam returns a `ProductGridView` (card arrays, View-all URL, a storage tag, one cache guard). `StarterBlockTypeDefinition` gains `starterContent`. `RenderedPageCachePurge` gains `purgeWorkspace(string $tenantUuid)`; `TenantCacheSegment` gains `segmentFor()`.
 - **Render.** `RenderContextExtension` collects render-scoped **cache hints** (private storage tags, guards, an uncacheable flag) and exposes `product_grid()`. The two page caches — `RenderPageCache` and `ShopPageCache` — read the hints from the request's attributes, store guards inside the entry and refuse a stale entry on every read.
 - **Commerce pack.** `ProductGridQuery` normalizes block data; `ProductGrid` implements the seam (catalog generation, query, `gridCards()`); the purge listener rotates the generation and narrows its fallback; the block template renders server-side through `shop/_grid_card.twig`; the old endpoint and shop.js hydration go.
 - **Admin.** Option-source string fields may be `multiple` (a multi-select); fields show `label` and `help`.
@@ -25,6 +25,8 @@
 - **Category and tag lists are capped at 20 slugs each** by `ProductGridQuery` (a dropdown never needs more; bounds the slug lookups).
 - **Display toggles default through `starter_content`** (new `StarterBlockTypeDefinition::$starterContent`), so a new grid's inspector shows them on; the template still applies the same defaults when a value is absent.
 - **A hover-effect shadow yields to an authored card shadow.** `card_hover` lives in `@layer theme`; an author's Card shadow is `@layer settings` and wins at rest and on hover. The lift still moves. Stated in the docs.
+- **The Card part's hover colours answer the pointer and the stage's forced preview; keyboard focus reaches the card's own links** (image, title, button), whose parts carry their own hover looks — a `<li>` takes no focus, so the compiled `:focus-visible` branch cannot fire on it. The card *effects* (lift, shadow, zoom) also answer `:focus-within`. Cost if wrong: a card-level `:focus-within` utility in the compiler.
+- **The image link is out of the tab order and hidden from assistive tech** (`tabindex="-1" aria-hidden="true"`): the title link below names the same product, so a second stop per card would only repeat it.
 - **The engine suite runs on SQLite** (its `CommerceTestCase`); PostgreSQL is exercised by Thallo's integration tests, which run every engine query this plan adds.
 
 ## Global Constraints
@@ -107,7 +109,7 @@ final readonly class ProductGridView
     ) {}
 }
 
-// thallo-render — src/Cache/RenderCacheHints.php (Task 5)
+// thallo-render — src/Cache/RenderCacheHints.php (Task 6)
 final class RenderCacheHints
 {
     public const ATTRIBUTE = 'thallo.render_cache_hints';
@@ -116,16 +118,21 @@ final class RenderCacheHints
         public readonly bool $uncacheable = false) {}
     public static function fromRequest(Request $request): self;  // empty hints when absent
 }
-// thallo-render — src/Cache/RenderCacheGuards.php (Task 5)
+// thallo-render — src/Cache/RenderCacheGuards.php (Task 6)
 final class RenderCacheGuards
 {
     /** @param array<string,string> $guards */
     public static function hold(CacheStore $cache, array $guards): bool; // every key still reads its value
 }
-// RenderContextExtension (Task 5): addStorageTag(string), observeGuard(string $key, ?string $value),
+// RenderContextExtension (Task 6): addStorageTag(string), observeGuard(string $key, ?string $value),
 //     drainCacheHints(): RenderCacheHints; resetTags() also clears the hints.
-// RenderContextExtension (Task 9): productGrid(array $data): ?array{cards: list<array>, view_all_url: ?string}
+// RenderContextExtension (Task 10): productGridView(array $data): ?array{cards: list<array>, view_all_url: ?string}
 //     — Twig `product_grid(data)`.
+
+// thallo-contracts — RenderedPageCachePurge (Task 7): purgeWorkspace(string $tenantUuid): bool
+//     — drops that workspace's rendered pages (every rendered page while tenancy is off).
+// thallo-tenancy — TenantCacheSegment::segmentFor(string $tenantUuid, string $surface = 'cache'): string
+//     — 'tenant:{uuid}:' while tenancy is on, '' while off; throws MissingTenantForCacheException on ''.
 
 // thallo-commerce — src/Shop/CatalogGeneration.php (Task 7)
 final class CatalogGeneration
@@ -1074,9 +1081,29 @@ final class RenderCacheGuardTest extends AppTestCase
     public function testAPageWithoutGuardsServesWithNoExtraRead(): void
     {
         $plain = static fn (Request $r): Response => new Response('plain', 200, ['Content-Type' => 'text/html']);
-        $this->middleware()->handle($this->get('/plain'), $plain);
-        $entry = $this->cache()->get($this->onlyRenderKey());
-        self::assertSame([], $entry['guards']);
+        $this->middleware()->handle($this->get('/plain'), $plain); // stored
+        $reads = [];
+        $spy = $this->readCounting($this->cache(), $reads);
+        $mw = new RenderPageCache($spy, 'default', static fn (): string => 'fp', true, 3600);
+        $hit = $mw->handle($this->get('/plain'), static fn () => throw new \LogicException('must be a hit'));
+        self::assertSame('plain', $hit->getContent());
+        self::assertCount(1, $reads, 'the entry read only — no guard reads for a page without a grid');
+    }
+
+    /**
+     * A CacheStore mock that records every get() and answers it from `$inner`. The hit path only
+     * calls get(), so no other method needs forwarding.
+     *
+     * @param list<string> $reads
+     */
+    private function readCounting(CacheStore $inner, array &$reads): CacheStore
+    {
+        $spy = $this->createMock(CacheStore::class);
+        $spy->method('get')->willReturnCallback(static function (string $key, mixed $default = null) use ($inner, &$reads): mixed {
+            $reads[] = $key;
+            return $inner->get($key, $default);
+        });
+        return $spy;
     }
 
     /** @return list<string> */
@@ -1275,7 +1302,7 @@ Expected: PASS.
 
 - [ ] **Step 8: Write the failing shop-family test**
 
-`tests/Integration/Commerce/ShopCacheGuardTest.php` — the same five cases as Step 1 (stored-and-served, change-after-store refused with no stale 304, worker-stopped entry refused, change-before-store unstored, uncacheable unstored), driving `ShopPageCache` with a `$next` that sets `RenderCacheHints` on the request. Build the middleware the way `ShopCacheTest` does (read its setup; reuse its tenant constant and construction helper), request `/shop`, and compute keys with that class's existing key helper. Copy each test body from Step 1, changing only the middleware construction, the path, and the key lookup.
+`tests/Integration/Commerce/ShopCacheGuardTest.php` — the same five cases as Step 1 (stored-and-served, change-after-store refused with no stale 304, worker-stopped entry refused, change-before-store unstored, uncacheable unstored, and the read-count case), driving `ShopPageCache` with a `$next` that sets `RenderCacheHints` on the request. Build the middleware the way `ShopCacheTest` does (read its setup; reuse its tenant constant and construction helper), request `/shop`, and compute keys with that class's existing key helper. Copy each test body from Step 1, changing only the middleware construction, the path, and the key lookup.
 
 - [ ] **Step 9: Run it to verify it fails**
 
@@ -1337,11 +1364,13 @@ git commit -m "feat(render): cache hints — private storage tags and guards sto
 **Files:**
 - Create: `packages/thallo-commerce/src/Shop/CatalogGeneration.php`
 - Modify: `packages/thallo-commerce/src/Shop/Listeners/PurgeShopCacheOnCatalogChange.php`
-- Modify: `packages/thallo-contracts/src/Delivery/RenderedPageCachePurge.php`, `packages/thallo-render/src/Http/Middleware/RenderCachePurge.php` (+ its factory in `RenderServiceProvider`, to pass the tenant segment and context)
+- Modify: `packages/thallo-contracts/src/Delivery/RenderedPageCachePurge.php`, `packages/thallo-render/src/Http/Middleware/RenderCachePurge.php` (+ its factory in `RenderServiceProvider`, to pass the optional `TenantCacheSegment`)
+- Modify: `packages/thallo-tenancy/src/Cache/TenantCacheSegment.php` (add `segmentFor()`; `segment()` delegates to it)
+- Create: `tests/Integration/Tenancy/CatalogPurgeWorkspaceTest.php` (a `RetrofittedTenantTestCase`; add it to the tenancy shard in `.github/workflows/ci.yml`)
 - Modify: the two anonymous implementors in `tests/Integration/Content/Layouts/LayoutSaveTest.php:243` and `LayoutBindingsTest.php:256` (add the method)
 - Create: `tests/Integration/Commerce/CatalogGenerationPurgeTest.php`
 
-**Interfaces:** Produces `CatalogGeneration` (Shared contracts) and `RenderedPageCachePurge::purgeCurrentWorkspace(): bool`.
+**Interfaces:** Produces `CatalogGeneration`, `RenderedPageCachePurge::purgeWorkspace(string $tenantUuid): bool` and `TenantCacheSegment::segmentFor()` (Shared contracts).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1402,9 +1431,10 @@ final class CatalogGenerationPurgeTest extends AppTestCase
             $patterns[] = $p;
             return true;
         });
-        $renderPurged = 0;
+        $renderPurged = [];
         $purge = new class ($renderPurged) implements RenderedPageCachePurge {
-            public function __construct(private int &$count)
+            /** @param list<string> $workspaces */
+            public function __construct(private array &$workspaces)
             {
             }
             public function purge(array $tags): void
@@ -1414,9 +1444,9 @@ final class CatalogGenerationPurgeTest extends AppTestCase
             {
                 return true;
             }
-            public function purgeCurrentWorkspace(): bool
+            public function purgeWorkspace(string $tenantUuid): bool
             {
-                $this->count++;
+                $this->workspaces[] = $tenantUuid;
                 return true;
             }
         };
@@ -1424,7 +1454,7 @@ final class CatalogGenerationPurgeTest extends AppTestCase
             new StorefrontCatalogChanged('gentenant04', StorefrontCatalogChanged::REASON_PRODUCT_UPDATED, null),
         );
         self::assertSame(['shop:gentenant04:*', 'tenant:gentenant04:shop:*'], $patterns);
-        self::assertSame(1, $renderPurged);
+        self::assertSame(['gentenant04'], $renderPurged, 'the EVENT\'s workspace, never the request\'s');
     }
 
     private function listener(CacheStore $cache, ?RenderedPageCachePurge $purge = null): PurgeShopCacheOnCatalogChange
@@ -1514,47 +1544,104 @@ final class CatalogGeneration
         // can sit on either), never another workspace's.
         $cache->deletePattern('shop:' . $event->tenantUuid . ':*');
         $cache->deletePattern('tenant:' . $event->tenantUuid . ':shop:*');
+        // The event names its workspace (the commerce tenant IS the workspace — both resolve
+        // through TenancyModePolicy); never the request's, which background or cross-workspace
+        // work may not share.
         if ($this->container->has(RenderedPageCachePurge::class)) {
-            $this->container->get(RenderedPageCachePurge::class)->purgeCurrentWorkspace();
+            $this->container->get(RenderedPageCachePurge::class)->purgeWorkspace($event->tenantUuid);
         }
     }
 ```
 
 Update the class docblock: the fallback is per workspace and reaches rendered pages.
 
-- [ ] **Step 5: `purgeCurrentWorkspace()` on the contract and the render pack**
+- [ ] **Step 5: `purgeWorkspace()` on the contract, the segment for an explicit workspace**
 
 Contract:
 
 ```php
-    /** Drop every rendered page of the current workspace (all of them while tenancy is off). */
-    public function purgeCurrentWorkspace(): bool;
+    /**
+     * Drop every rendered page of workspace `$tenantUuid` — every rendered page while tenancy is
+     * off. The caller names the workspace; it is never taken from the current request.
+     */
+    public function purgeWorkspace(string $tenantUuid): bool;
 ```
 
-`RenderCachePurge` gains `?TenantCacheSegment $tenantCache = null, ?ApplicationContext $context = null` (the same pair `RenderPageCache` takes; mirror its factory in `RenderServiceProvider`) and:
+`TenantCacheSegment`:
 
 ```php
-    public function purgeCurrentWorkspace(): bool
+    /** The key prefix of workspace `$tenantUuid` ('' while tenancy is off). */
+    public function segmentFor(string $tenantUuid, string $surface = 'cache'): string
     {
-        $prefix = $this->tenantCache !== null && $this->context !== null
-            ? $this->tenantCache->segment($this->context, 'render')
-            : '';
+        if (!$this->flags->tenancyEnabled()) {
+            return '';
+        }
+        if ($tenantUuid === '') {
+            throw new MissingTenantForCacheException($surface);
+        }
+        return 'tenant:' . $tenantUuid . ':';
+    }
+```
+
+and `segment()` ends with `return $this->segmentFor($tenantUuid, $surface);` after resolving the uuid as today.
+
+`RenderCachePurge` gains `?TenantCacheSegment $tenantCache = null` (passed by its `RenderServiceProvider` factory when bound, as for `RenderPageCache`) and:
+
+```php
+    public function purgeWorkspace(string $tenantUuid): bool
+    {
+        try {
+            $prefix = $this->tenantCache?->segmentFor($tenantUuid, 'render') ?? '';
+        } catch (MissingTenantForCacheException) {
+            // Tenancy on but no workspace named: never guess one — drop every rendered page.
+            return $this->purgeAll();
+        }
         return $this->cache->deletePattern($prefix . 'render:*');
     }
 ```
 
-Add `purgeCurrentWorkspace(): bool { return true; }` to the two anonymous test implementors.
+Add `purgeWorkspace(string $tenantUuid): bool { return true; }` to the two anonymous test implementors.
+
+`tests/Integration/Tenancy/CatalogPurgeWorkspaceTest.php` (a `RetrofittedTenantTestCase`, as `CommercePurgePipelineTest`), with a `CacheStore` whose `invalidateTags()` answers false and the real `RenderCachePurge`:
+
+```php
+    public function testAnEventForAWhileTheRequestIsInBPurgesAOnly(): void
+    {
+        [$a, $b] = [$this->provisionTenant(), $this->provisionTenant()]; // the harness's own helpers
+        $store = $this->fallbackStore($patterns); // invalidateTags() false; deletePattern() recorded
+        $this->runAsTenant($b, function () use ($a, $store): void {
+            $this->listenerWith($store)->onCatalogChanged(
+                new StorefrontCatalogChanged($a, StorefrontCatalogChanged::REASON_TAG_CHANGED, null),
+            );
+        });
+        self::assertContains('tenant:' . $a . ':render:*', $patterns);
+        self::assertNotContains('tenant:' . $b . ':render:*', $patterns);
+    }
+
+    public function testAnEventWithNoRequestWorkspaceStillPurgesItsOwn(): void
+    {
+        $a = $this->provisionTenant();
+        $store = $this->fallbackStore($patterns);
+        // Outside runAsTenant(): no request workspace (a queue worker's context).
+        $this->listenerWith($store)->onCatalogChanged(
+            new StorefrontCatalogChanged($a, StorefrontCatalogChanged::REASON_PRODUCT_UPDATED, null),
+        );
+        self::assertContains('tenant:' . $a . ':render:*', $patterns);
+    }
+```
+
+Use the harness's real helper names for provisioning and running as a tenant (read `RetrofittedTenantTestCase`); `fallbackStore()` and `listenerWith()` are local helpers built like `CatalogGenerationPurgeTest`'s.
 
 - [ ] **Step 6: Run the tests**
 
-Run: `vendor/bin/phpunit tests/Integration/Commerce/CatalogGenerationPurgeTest.php tests/Integration/Commerce/ShopCacheTest.php tests/Integration/Content/Layouts tests/Integration/Render/RenderPageCacheTest.php`
+Run: `vendor/bin/phpunit tests/Integration/Commerce/CatalogGenerationPurgeTest.php tests/Integration/Tenancy/CatalogPurgeWorkspaceTest.php tests/Integration/Commerce/ShopCacheTest.php tests/Integration/Content/Layouts tests/Integration/Render/RenderPageCacheTest.php tests/Integration/Tenancy`
 Expected: PASS.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add packages/thallo-commerce/src packages/thallo-contracts/src packages/thallo-render/src tests/Integration
-git commit -m "feat(commerce): catalog generation rotated on every change; the purge fallback is per workspace and reaches rendered pages"
+git add packages/thallo-commerce/src packages/thallo-contracts/src packages/thallo-render/src packages/thallo-tenancy/src tests/Integration .github/workflows/ci.yml
+git commit -m "feat(commerce): catalog generation rotated on every change; the purge fallback drops the event's workspace's shop and rendered pages"
 ```
 
 ## Task 8: the grid's query — normalizer, seam, cards
@@ -2193,7 +2280,24 @@ final class MultipleOptionSourceFieldTest extends AppTestCase
     private function field(array $extra = []): FieldDefinition
     {
         return FieldDefinition::fromArray(['name' => 'categories', 'type' => 'string', 'multiple' => true,
-            'options_source' => 'thallo-commerce.categories'] + $extra);
+            'max_items' => 20, 'options_source' => 'thallo-commerce.categories'] + $extra);
+    }
+
+    public function testMoreThanMaxItemsIsRefusedAndTheLimitIsKept(): void
+    {
+        self::assertSame(20, $this->field()->maxItems);
+        [, $errors] = $this->validate(array_map(static fn (int $i): string => 'c' . $i, range(1, 21)));
+        self::assertArrayHasKey('categories', $errors);
+        [$clean, $ok] = $this->validate(array_map(static fn (int $i): string => 'c' . $i, range(1, 20)));
+        self::assertSame([], $ok);
+        self::assertCount(20, $clean['categories']);
+    }
+
+    public function testEachItemMeetsTheStringFieldsConstraints(): void
+    {
+        // A pattern on the field applies to every item, as it would to a single value.
+        [, $errors] = $this->validate(['ok-slug', 'Not A Slug!'], ['pattern' => '[a-z0-9-]+']);
+        self::assertArrayHasKey('categories', $errors);
     }
 
     public function testMultipleIsKeptOnAnOptionSourceStringAndDroppedOnAPlainOne(): void
@@ -2225,8 +2329,11 @@ final class MultipleOptionSourceFieldTest extends AppTestCase
         self::assertArrayHasKey('categories', $errors);
     }
 
-    /** @return array{array<string,mixed>, array<string,string>} */
-    private function validate(mixed $value): array
+    /**
+     * @param array<string,mixed> $extra extra field schema keys
+     * @return array{array<string,mixed>, array<string,string>}
+     */
+    private function validate(mixed $value, array $extra = []): array
     {
         // Use FieldValidator the way its existing tests do (find one with
         // `grep -rln "new FieldValidator\|FieldValidator::class" tests`), with a schema of $this->field().
@@ -2234,7 +2341,7 @@ final class MultipleOptionSourceFieldTest extends AppTestCase
 }
 ```
 
-Before writing `validate()`, open the existing FieldValidator test it names and copy its construction exactly — then replace the comment with that code. Use 191 as the length bound only if string fields have one (`grep -n "191\|max_length\|maxLength" core/src/Content/Validation/FieldValidator.php`); otherwise drop the "too long" case and record it.
+Before writing `validate()`, open the existing FieldValidator test it names and copy its construction exactly — then replace the comment with that code. The "too long" case relies on the string field's own length constraint reached through `checkConstraints()`; if string fields have no default length bound (`grep -n "max_length\|maxLength\|191" core/src/Content/Validation/FieldValidator.php`), give the test field `'max_length' => 191` (or the key `checkConstraints()` reads) and keep the case.
 
 - [ ] **Step 2: Run it to verify it fails**
 
@@ -2269,17 +2376,26 @@ Expected: FAIL — `multiple` is false on the string field.
                     $errors[$field->name] = 'must be a list of strings';
                     continue;
                 }
-                $clean[$field->name] = [];
+                $items = [];
                 foreach ($value as $item) {
-                    if (!is_string($item) || strlen($item) > 191) {
-                        $errors[$field->name] = 'must be a list of strings';
-                        unset($clean[$field->name]);
+                    // Each item meets what a single value of this string field must (type, length,
+                    // pattern — checkType/checkConstraints, as for a single value).
+                    $itemError = is_string($item)
+                        ? ($this->checkType($field, $item) ?? $this->checkConstraints($field, $item))
+                        : 'must be a list of strings';
+                    if ($itemError !== null) {
+                        $errors[$field->name] = $itemError;
                         continue 2;
                     }
-                    if (!in_array($item, $clean[$field->name], true)) {
-                        $clean[$field->name][] = $item;
+                    if (!in_array($item, $items, true)) {
+                        $items[] = $item;
                     }
                 }
+                if ($field->maxItems !== null && count($items) > $field->maxItems) {
+                    $errors[$field->name] = 'must have at most ' . $field->maxItems . ' items';
+                    continue;
+                }
+                $clean[$field->name] = $items;
                 continue;
             }
 ```
@@ -2324,9 +2440,10 @@ final class CategoryOptionSource implements FieldOptionSource
         return 'thallo-commerce.categories';
     }
 
+    /** The catalogue's own read permission (spec §5.3) — `commerce.manage` grants satisfy it too. */
     public function permission(): string
     {
-        return 'content.edit';
+        return 'commerce.view';
     }
 
     public function options(): array
@@ -2350,7 +2467,7 @@ final class CategoryOptionSource implements FieldOptionSource
         }
 ```
 
-`tests/Integration/Commerce/CommerceOptionSourcesTest.php` (ShopBlocksTest-style setup, `use SeedsShopCatalog`): seed categories `women`, `Men` and tags; request `GET {apiBase}/field-options/thallo-commerce.categories` the way `tests` already call the search scopes source (`grep -rln "field-options" tests`), assert `[{value: 'Men'…}, {value: 'women'…}]` order by name case-insensitively, `available` true; a caller without `content.edit` gets 403 (copy the search source test's permission case).
+`tests/Integration/Commerce/CommerceOptionSourcesTest.php` (ShopBlocksTest-style setup, `use SeedsShopCatalog`): seed categories `women`, `Men` and tags; request `GET {apiBase}/field-options/thallo-commerce.categories` the way `tests` already call the search scopes source (`grep -rln "field-options" tests`), assert `[{value: 'Men'…}, {value: 'women'…}]` order by name case-insensitively, `available` true. Permission cases, both sources: a **content editor without `commerce.view`** (holds `content.edit` only) gets 403; with `commerce.view` 200; with `commerce.manage` only — check how `FieldOptionsController` checks the permission: if it does not treat `commerce.manage` as satisfying `commerce.view` the way `CommerceMetaController` does, assert the 403 and record in the ledger that a manage-only role cannot list choices.
 
 - [ ] **Step 6: Run the server tests**
 
@@ -2375,6 +2492,13 @@ describe('a multiple options-source field', () => {
     const w = mountField({ multiple: true }, ['gone', 'men'])
     expect(w.find('[data-test="options-source-categories-gone"]').exists()).toBe(true)
     expect(w.findComponent({ name: 'USelectMenu' }).props('modelValue')).toEqual(['gone', 'men'])
+  })
+  it('never emits more than maxItems and says so at the limit', async () => {
+    const twenty = Array.from({ length: 20 }, (_, i) => `c${i}`)
+    const w = mountField({ multiple: true, maxItems: 20 }, twenty)
+    expect(w.find('[data-test="options-source-limit-categories"]').exists()).toBe(true)
+    await w.findComponent({ name: 'USelectMenu' }).vm.$emit('update:modelValue', [...twenty, 'c20'])
+    expect((w.emitted('update:modelValue')?.at(-1) as string[][])[0]).toHaveLength(20)
   })
   it('reads a non-list value as no selection', () => {
     const w = mountField({ multiple: true }, 'men')
@@ -2455,8 +2579,13 @@ const unavailableInList = computed(() =>
     ? []
     : storedList.value.filter((v) => !data.value?.some((o) => o.value === v && o.available)),
 )
-const chooseMany = (v: unknown) =>
-  emit('update:modelValue', Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
+// At most `maxItems` (the server refuses more): a choice past the limit is not taken.
+const atLimit = computed(() => props.field.maxItems !== undefined && storedList.value.length >= props.field.maxItems)
+const chooseMany = (v: unknown) => {
+  const next = Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+  const max = props.field.maxItems
+  emit('update:modelValue', max !== undefined && next.length > max ? next.slice(0, max) : next)
+}
 </script>
 
 <template>
@@ -2479,6 +2608,9 @@ const chooseMany = (v: unknown) =>
         :data-test="`options-source-select-${field.name}`"
         @update:model-value="chooseMany"
       />
+      <p v-if="atLimit" class="text-xs text-muted" :data-test="`options-source-limit-${field.name}`">
+        At most {{ field.maxItems }}.
+      </p>
     </div>
     <div v-else class="space-y-1.5">
       <UnavailableChoice
@@ -2532,16 +2664,16 @@ git commit -m "feat(fields): multi-select option-source fields, field labels and
 
 **Files:**
 - Modify: `packages/thallo-render/src/RenderContextExtension.php` (constructor param `?StorefrontProductGrid $productGrid = null` after `$blockPreview`; Twig function; method), `packages/thallo-render/src/RenderServiceProvider.php:801` (soft-bind like `blockPreview`), `packages/thallo-render/src/Templates/TemplatePolicy.php:105` (allow `product_grid`)
-- Modify: `packages/thallo-commerce/src/Starter/ShopBlockTypesContributor.php:43-67`
+- Modify: `packages/thallo-commerce/src/Starter/ShopBlockTypesContributor.php:43-67` (schema, starter content **and the seven part declarations** — the templates call `style_classes('<part>')`, and `RenderContextExtension::styleFrame()` throws for an undeclared part)
 - Rewrite: `packages/thallo-commerce/templates/blocks/product-grid.twig`
 - Create: `packages/thallo-commerce/templates/shop/_grid_card.twig`
-- Modify: `packages/thallo-commerce/templates/shop/_product_tile.twig` (optional `media_class`, `action_class`, `show_cart`, `show_wishlist`, `badges`, `no_media` — defaults keep today's output byte-identical)
+- Modify: `packages/thallo-commerce/templates/shop/_product_tile.twig` (optional `link_media`, `media_class`, `action_class`, `show_cart`, `show_wishlist`, `badges`, `no_media` — defaults keep today's output byte-identical)
 - Modify: `packages/thallo-commerce/src/Patterns/ShopPatternsContributor.php:196-199`
 - Remove: `ShopBlockDataController::productGrid()` and its helpers; the route at `packages/thallo-commerce/routes/shop-routes.php:199`; `hydrateProductGrids`/`hydrateProductGrid`/`renderProductGrid` and the `shop-product-grid` registration in `assets/shop.js`; the endpoint entry in `admin/src/api/core-schema.d.ts:87-94` and `docs/openapi.json` (hand-splice; `docs:openapi` needs `CACHE_DRIVER=array`)
 - Modify tests: `tests/Integration/Commerce/ShopBlocksTest.php` (remove the endpoint tests 438–560 and the template tests 673–705; update `testProductGridSchemaHasTheDocumentedFieldsAndEnums`), `ShopBlockSelectionTest.php:187-240`, `StorefrontInertnessTest.php:122,244`, `ShopJsRuntimeTest.php:1287,1516,1676-1730`, `tests/Integration/Render/RuntimeShopCoexistenceTest.php:457`, `ShopPatternsTest.php` (grid data)
-- Create: `tests/Integration/Commerce/ProductGridBlockTest.php`, `tests/Integration/Commerce/ProductGridCacheTest.php`
+- Create: `tests/Integration/Commerce/ProductGridBlockTest.php`, `tests/Integration/Commerce/ProductGridCacheTest.php`, `tests/Integration/Commerce/ProductGridStyleTest.php`
 
-**Interfaces:** Consumes Tasks 6, 8, 9. Produces the Twig `product_grid(data)` and the grid markup classes later tasks style: root `thallo-block-product-grid` + modifiers `--cols-N`, `--card-{lift|shadow}`, `--image-{portrait|landscape}`, `--image-cover`, `--image-zoom`, `--empty`; card `shop-grid__item`; `shop-grid__media`, `shop-grid__badges shop-grid__badges--{top-left|top-right}`, `shop-grid__badge shop-grid__badge--{sale|new}`, `shop-grid__name` (heading), `shop-grid__labels`, `shop-grid__label shop-grid__label--{category|tag}`, `shop-grid__price`, `shop-grid__action`.
+**Interfaces:** Consumes Tasks 6, 8, 9. Produces the Twig `product_grid(data)`, the seven parts (`card`, `image`, `title`, `price`, `meta`, `button`, `badge`), and the grid markup classes later tasks style: root `thallo-block-product-grid` + modifiers `--cols-N`, `--card-{lift|shadow}`, `--image-{portrait|landscape}`, `--image-cover`, `--image-zoom`, `--empty`; card `shop-grid__item`; `shop-grid__media`, `shop-grid__badges shop-grid__badges--{top-left|top-right}`, `shop-grid__badge shop-grid__badge--{sale|new}`, `shop-grid__media-link` (the image link), `shop-grid__name` (heading) with `shop-grid__name-link` (its anchor, carrying the `title` part), `shop-grid__labels`, `shop-grid__label shop-grid__label--{category|tag}`, `shop-grid__price`, `shop-grid__action`.
 
 - [ ] **Step 1: Write the failing block test**
 
@@ -2583,7 +2715,8 @@ git commit -m "feat(fields): multi-select option-source fields, field labels and
         $this->tag('summer', $p);
         $html = $this->renderBlock([]);
         self::assertStringContainsString('<img class="shop-grid__image', $html);
-        self::assertMatchesRegularExpression('~<h3 class="shop-grid__name[^"]*"><a href="[^"]+">P</a></h3>~', $html);
+        self::assertMatchesRegularExpression('~<h3 class="shop-grid__name"><a class="shop-grid__name-link[^"]*" href="[^"]+">P</a></h3>~', $html);
+        self::assertMatchesRegularExpression('~<a class="shop-grid__media-link" href="[^"]+" tabindex="-1" aria-hidden="true">\s*<span class="shop-grid__media~', $html, 'the image links to the product');
         self::assertStringContainsString('shop-grid__rating', $html);
         self::assertStringContainsString('shop-grid__price', $html);
         self::assertSame(['Men', 'Women'], $this->labels($html, 'category'));
@@ -2605,6 +2738,27 @@ git commit -m "feat(fields): multi-select option-source fields, field labels and
             self::assertStringNotContainsString($absent, $html, $absent);
         }
         self::assertSame(['Summer'], $this->labels($html, 'tag'));
+    }
+
+    public function testTheTitlesPartClassesSitOnTheFocusableAnchor(): void
+    {
+        $this->product('p');
+        $html = $this->renderBlock([], false, ['parts' => ['title' => ['hover' => ['colors' => ['text' => ['type' => 'token', 'value' => 'color.accent']]]]]]);
+        self::assertMatchesRegularExpression('~<a class="shop-grid__name-link[^"]*t-hover-fg-accent~', $html);
+        self::assertDoesNotMatchRegularExpression('~<h3 class="[^"]*t-hover-~', $html);
+    }
+
+    public function testSavedSelectionsAndRenderedFiltersAgreeAtTheLimit(): void
+    {
+        // Twenty categories, the field's max_items: a block that passes validation renders all twenty.
+        $slugs = [];
+        foreach (range(1, 20) as $i) {
+            $slugs[] = 'cat' . $i;
+            $this->category('cat' . $i, $this->product('p' . $i));
+        }
+        $this->assertBlockDataValid(['categories' => $slugs]);
+        self::assertSame(20, substr_count($this->renderBlock(['categories' => $slugs, 'limit' => 48]), 'class="shop-grid__item'));
+        $this->assertBlockDataInvalid(['categories' => [...$slugs, 'cat21']]);
     }
 
     public function testTitleTag(): void
@@ -2665,10 +2819,63 @@ git commit -m "feat(fields): multi-select option-source fields, field labels and
     }
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+`renderBlock(array $data, bool $stage = false, array $settings = [])` passes `$settings` as the block's `settings`. `assertBlockDataValid()` / `assertBlockDataInvalid()` validate `['type' => 'product-grid', 'data' => $data]` against the seeded block type through the same validator a save uses (find it: `grep -rn "validateBlocks\|BlockValidator" core/src/Content/Validation | head`), asserting no error / an error on `categories`.
 
-Run: `vendor/bin/phpunit tests/Integration/Commerce/ProductGridBlockTest.php`
-Expected: FAIL — the shell has no cards.
+Also create `tests/Integration/Commerce/ProductGridStyleTest.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Thallo\Core\Tests\Integration\Commerce;
+
+use Thallo\Commerce\Starter\ShopBlockTypesContributor;
+use Thallo\Core\Content\Blocks\BlockTypeStylePaths;
+use Thallo\Core\Tests\Support\AppTestCase;
+
+/** Product grid spec §7.1: the seven parts, and resting opacity beside hover opacity. */
+final class ProductGridStyleTest extends AppTestCase
+{
+    /** @return array<string,mixed> */
+    private function paths(): array
+    {
+        foreach ((new ShopBlockTypesContributor())->blockTypeDefinitions() as $d) {
+            if ($d->slug === ShopBlockTypesContributor::SLUG_PRODUCT_GRID) {
+                return BlockTypeStylePaths::for([
+                    'style_capabilities' => $d->styleCapabilities,
+                    'style_targets' => $d->styleTargets,
+                ]);
+            }
+        }
+        self::fail('no product grid');
+    }
+
+    public function testThePublishedStylePaths(): void
+    {
+        $parts = $this->paths()['parts'];
+        self::assertSame(['card', 'image', 'title', 'price', 'meta', 'button', 'badge'], array_keys($parts));
+        foreach (['card', 'button'] as $part) {
+            self::assertContains('opacity', $parts[$part], $part);
+            self::assertContains('hover.opacity', $parts[$part], $part);
+            self::assertContains('hover.colors.surface', $parts[$part], $part);
+        }
+        self::assertContains('hover.colors.text', $parts['button']);
+        self::assertContains('hover.colors.text', $parts['title']);
+        self::assertNotContains('opacity', $parts['title']);
+        foreach (['image', 'price', 'meta', 'badge'] as $part) {
+            self::assertSame([], array_values(array_filter($parts[$part], static fn (string $p): bool => str_starts_with($p, 'hover.'))), $part);
+        }
+        self::assertContains('radius', $parts['image']);
+        self::assertContains('typography.size', $parts['price']);
+    }
+}
+```
+
+- [ ] **Step 2: Run them to verify they fail**
+
+Run: `vendor/bin/phpunit tests/Integration/Commerce/ProductGridBlockTest.php tests/Integration/Commerce/ProductGridStyleTest.php`
+Expected: FAIL — the shell has no cards; the block declares no parts.
 
 - [ ] **Step 3: `product_grid()` in the render extension**
 
@@ -2709,7 +2916,7 @@ register as `new TwigFunction('product_grid', $this->productGridView(...))`. `Re
 
 - [ ] **Step 4: The schema**
 
-Replace the product-grid definition's `schema`, `description`, `styleCapabilities`/`styleTargets` stay for Task 11, and add `starterContent`:
+Replace the product-grid definition's `description`, `schema`, `styleCapabilities` and `styleTargets`, and add `starterContent`:
 
 ```php
                 description: 'A grid of products: all, on sale or hand-picked, narrowed by categories and tags.',
@@ -2718,10 +2925,10 @@ Replace the product-grid definition's `schema`, `description`, `styleCapabilitie
                         'enum' => ['all', 'on_sale', 'manual'],
                         'enum_labels' => ['all' => 'All products', 'on_sale' => 'On sale', 'manual' => 'Manual selection']],
                     ['name' => 'categories', 'label' => 'Categories', 'type' => 'string', 'group' => 'Query',
-                        'multiple' => true, 'options_source' => 'thallo-commerce.categories',
+                        'multiple' => true, 'max_items' => 20, 'options_source' => 'thallo-commerce.categories',
                         'help' => 'Products in any of these. Not used by Manual selection.'],
                     ['name' => 'tags', 'label' => 'Tags', 'type' => 'string', 'group' => 'Query',
-                        'multiple' => true, 'options_source' => 'thallo-commerce.tags',
+                        'multiple' => true, 'max_items' => 20, 'options_source' => 'thallo-commerce.tags',
                         'help' => 'Products with any of these (and in a chosen category). Not used by Manual selection.'],
                     // One product slug per line — normalized/deduped/capped by ManualProductListNormalizer.
                     ['name' => 'products', 'label' => 'Products', 'type' => 'text', 'group' => 'Query',
@@ -2775,20 +2982,43 @@ Replace the product-grid definition's `schema`, `description`, `styleCapabilitie
                     'new_badge_text' => 'New', 'new_badge_days' => 7, 'badge_position' => 'top-left',
                     'card_hover' => 'none', 'image_ratio' => 'square', 'image_fit' => 'contain', 'image_hover' => 'none',
                 ],
+                styleCapabilities: ['spacing', 'width', 'visibility', 'layout.item'],
+                styleTargets: StyleTargets::root('box', ['spacing', 'width', 'visibility', 'layout.item']) + ['parts' => [
+                    'card' => ['label' => 'Card', 'capabilities' => [
+                        'colors.surface', 'colors.border', 'border', 'radius', 'shadow',
+                        'spacing.padding.top', 'spacing.padding.right', 'spacing.padding.bottom', 'spacing.padding.left',
+                        'opacity', 'hover',
+                    ]],
+                    'image' => ['label' => 'Image', 'capabilities' => ['radius']],
+                    // On the name's anchor, where pointer and keyboard focus land.
+                    'title' => ['label' => 'Title', 'capabilities' => ['typography', 'colors.text', 'hover']],
+                    'price' => ['label' => 'Price', 'capabilities' => ['typography', 'colors.text']],
+                    'meta' => ['label' => 'Meta', 'capabilities' => ['typography', 'colors.text']],
+                    'button' => ['label' => 'Button', 'capabilities' => [
+                        'colors', 'border', 'radius', 'typography',
+                        'spacing.padding.top', 'spacing.padding.right', 'spacing.padding.bottom', 'spacing.padding.left',
+                        'opacity', 'hover',
+                    ]],
+                    'badge' => ['label' => 'Badge', 'capabilities' => ['colors.surface', 'colors.text', 'radius', 'typography']],
+                ]],
 ```
+
+Run `ProductGridStyleTest`; adjust the capability lists only to match what `StyleCapabilities` accepts (e.g. if `border` already implies `colors.border`, drop the duplicate) and keep the asserted expansion.
 
 Run `vendor/bin/phpunit --filter testContributorSchemasPassBlockSchemaValidation tests/Integration/Commerce/ShopBlocksTest.php` now: if the block schema validator refuses `label`, `help` or `group`, add them to its allowed keys (they pass through raw today; record a ruling if a change is needed).
 
 - [ ] **Step 5: `_product_tile.twig` takes the grid's options (defaults unchanged)**
 
-Change the tile so every new hook is opt-in:
+Change the tile so every new hook is opt-in. The image link (spec §3.1: "the image and title link to the product") is a pointer convenience: out of the tab order and hidden from assistive tech, since the title link right below names the same product.
 
 ```twig
 <div class="shop-grid__tile{{ tile_class|default('') }}{% if no_media|default(false) %} shop-grid__tile--no-media{% endif %}"{{ tile_attrs|default('') }}>
     {% if not no_media|default(false) %}
+    {% if link_media|default(false) %}<a class="shop-grid__media-link" href="{{ product.url }}" tabindex="-1" aria-hidden="true">{% endif %}
     <span class="shop-grid__media{{ media_class|default('') }}">
       …unchanged img / empty span…
     </span>
+    {% if link_media|default(false) %}</a>{% endif %}
     {% endif %}
     {{ badges|default('') }}
     {% if product.categoryName and (show_tag ?? true) %}
@@ -2832,6 +3062,7 @@ Keep the indentation and whitespace-control markers so the shop index HTML and t
   {% include 'shop/_product_tile.twig' with {
     show_tag: false,
     no_media: not show.image,
+    link_media: true,
     media_class: style_classes('image'),
     action_class: style_classes('button'),
     show_actions: show.add_to_cart or show.wishlist,
@@ -2841,7 +3072,9 @@ Keep the indentation and whitespace-control markers so the shop index HTML and t
   } %}
   <span class="shop-grid__body">
     {% if show.title %}
-    <{{ title_tag }} class="shop-grid__name{{ style_classes('title') }}"><a href="{{ product.url }}">{{ product.name }}</a></{{ title_tag }}>
+    {# The Title part sits on the anchor: pointer hover and keyboard focus (:focus-visible) both
+       land there, and so does the stage's forced preview. #}
+    <{{ title_tag }} class="shop-grid__name"><a class="shop-grid__name-link{{ style_classes('title') }}" href="{{ product.url }}">{{ product.name }}</a></{{ title_tag }}>
     {% endif %}
     {% if (show.categories and product.categories is not empty) or (show.tags and product.tags is not empty) %}
     <span class="shop-grid__labels{{ style_classes('meta') }}">
@@ -2975,73 +3208,25 @@ Expected: PASS.
 - **Product grid display options**: show or hide the image, title, price, rating, categories, tags,
   add to cart and wishlist; the title's heading level (H3 by default). Cards show every category.
 - **Sale and New badges** with their own text, a New window in days, and a position.
+- **Product grid Style tab**: Card, Image, Title, Price, Meta, Button and Badge sections; the Card,
+  Title and Button have hover looks, and the Card and Button opacity.
 ```
 
 ```bash
 git add -A packages core admin/src/api docs/openapi.json tests .github/workflows/ci.yml CHANGELOG.md
-git commit -m "feat(commerce): the Product grid renders on the server — source plus filters, display, badges; the grid endpoint goes"
+git commit -m "feat(commerce): the Product grid renders on the server — source plus filters, display, badges, Style tab parts; the grid endpoint goes"
 ```
 
-## Task 11: the Style tab parts, card and image effects, the stylesheet through the theme layer
+## Task 11: card and image effects, the stylesheet through the theme layer
 
 **Files:**
-- Modify: `packages/thallo-commerce/src/Starter/ShopBlockTypesContributor.php` (product-grid `styleCapabilities` / `styleTargets` + parts)
-- Modify: `packages/thallo-commerce/assets/shop.css` (grid card, labels, badges, effects, no-media tile)
+- Modify: `packages/thallo-commerce/assets/shop.css` (grid card, image link, title link, labels, badges, effects, no-media tile)
 - Remove the raw `<link … shop.css>` from: `templates/blocks/wishlist-link.twig:39`, `featured-product.twig:38`, `mini-cart.twig:53`, `templates/shop/wishlist.twig:6`, `checkout.twig:5`, `confirmation.twig:5`, `product.twig:10`, `index.twig:6` (and any other hit of `grep -rn "shop/shop.css" packages/thallo-commerce/templates packages/thallo-render/themes`)
-- Create: `tests/Integration/Commerce/ProductGridStyleTest.php`, `tests/Integration/Commerce/ShopStylesheetDeliveryTest.php`
+- Create: `tests/Integration/Commerce/ShopStylesheetDeliveryTest.php`
 
-**Interfaces:** Consumes Task 10's markup.
+**Interfaces:** Consumes Task 10's markup and parts.
 
-- [ ] **Step 1: Write the failing style tests**
-
-```php
-<?php
-
-declare(strict_types=1);
-
-namespace Thallo\Core\Tests\Integration\Commerce;
-
-use Thallo\Commerce\Starter\ShopBlockTypesContributor;
-use Thallo\Core\Content\Blocks\BlockTypeStylePaths;
-use Thallo\Core\Tests\Support\AppTestCase;
-
-/** Product grid spec §7.1: the seven parts, and resting opacity beside hover opacity. */
-final class ProductGridStyleTest extends AppTestCase
-{
-    /** @return array<string,mixed> */
-    private function paths(): array
-    {
-        foreach ((new ShopBlockTypesContributor())->blockTypeDefinitions() as $d) {
-            if ($d->slug === ShopBlockTypesContributor::SLUG_PRODUCT_GRID) {
-                return BlockTypeStylePaths::for([
-                    'style_capabilities' => $d->styleCapabilities,
-                    'style_targets' => $d->styleTargets,
-                ]);
-            }
-        }
-        self::fail('no product grid');
-    }
-
-    public function testThePublishedStylePaths(): void
-    {
-        $parts = $this->paths()['parts'];
-        self::assertSame(['card', 'image', 'title', 'price', 'meta', 'button', 'badge'], array_keys($parts));
-        foreach (['card', 'button'] as $part) {
-            self::assertContains('opacity', $parts[$part], $part);
-            self::assertContains('hover.opacity', $parts[$part], $part);
-            self::assertContains('hover.colors.surface', $parts[$part], $part);
-        }
-        self::assertContains('hover.colors.text', $parts['button']);
-        self::assertContains('hover.colors.text', $parts['title']);
-        self::assertNotContains('opacity', $parts['title']);
-        foreach (['image', 'price', 'meta', 'badge'] as $part) {
-            self::assertSame([], array_values(array_filter($parts[$part], static fn (string $p): bool => str_starts_with($p, 'hover.'))), $part);
-        }
-        self::assertContains('radius', $parts['image']);
-        self::assertContains('typography.size', $parts['price']);
-    }
-}
-```
+- [ ] **Step 1: Write the failing stylesheet test**
 
 `tests/Integration/Commerce/ShopStylesheetDeliveryTest.php`:
 
@@ -3071,35 +3256,10 @@ Write the second body after reading `ThemeStylesheetArtifacts`' existing test (`
 
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `vendor/bin/phpunit tests/Integration/Commerce/ProductGridStyleTest.php tests/Integration/Commerce/ShopStylesheetDeliveryTest.php`
-Expected: FAIL — no parts; eight templates link shop.css.
+Run: `vendor/bin/phpunit tests/Integration/Commerce/ShopStylesheetDeliveryTest.php`
+Expected: FAIL — eight templates link shop.css.
 
-- [ ] **Step 3: Declare the parts**
-
-```php
-                styleCapabilities: ['spacing', 'width', 'visibility', 'layout.item'],
-                styleTargets: StyleTargets::root('box', ['spacing', 'width', 'visibility', 'layout.item']) + ['parts' => [
-                    'card' => ['label' => 'Card', 'capabilities' => [
-                        'colors.surface', 'colors.border', 'border', 'radius', 'shadow',
-                        'spacing.padding.top', 'spacing.padding.right', 'spacing.padding.bottom', 'spacing.padding.left',
-                        'opacity', 'hover',
-                    ]],
-                    'image' => ['label' => 'Image', 'capabilities' => ['radius']],
-                    'title' => ['label' => 'Title', 'capabilities' => ['typography', 'colors.text', 'hover']],
-                    'price' => ['label' => 'Price', 'capabilities' => ['typography', 'colors.text']],
-                    'meta' => ['label' => 'Meta', 'capabilities' => ['typography', 'colors.text']],
-                    'button' => ['label' => 'Button', 'capabilities' => [
-                        'colors', 'border', 'radius', 'typography',
-                        'spacing.padding.top', 'spacing.padding.right', 'spacing.padding.bottom', 'spacing.padding.left',
-                        'opacity', 'hover',
-                    ]],
-                    'badge' => ['label' => 'Badge', 'capabilities' => ['colors.surface', 'colors.text', 'radius', 'typography']],
-                ]],
-```
-
-Run Step 1's style test; adjust the capability lists only to match what `StyleCapabilities` accepts (e.g. if `border` already implies `colors.border`, drop the duplicate) and keep the asserted expansion.
-
-- [ ] **Step 4: The stylesheet**
+- [ ] **Step 3: The stylesheet**
 
 In `shop.css`, after the existing `.thallo-block-product-grid` rules (~828–850), add:
 
@@ -3112,9 +3272,12 @@ In `shop.css`, after the existing `.thallo-block-product-grid` rules (~828–850
   font: inherit;
   font-weight: 600;
 }
-.thallo-block-product-grid .shop-grid__name a {
+.thallo-block-product-grid .shop-grid__name-link {
   color: inherit;
   text-decoration: none;
+}
+.thallo-block-product-grid .shop-grid__media-link {
+  display: block;
 }
 .shop-grid__labels {
   display: flex;
@@ -3184,21 +3347,20 @@ In `shop.css`, after the existing `.thallo-block-product-grid` rules (~828–850
 
 `!important` inside `@layer theme` — confirm `ThemeCssLint` allows it (`packages/thallo-render/src/Style/ThemeCssLint.php`); if it refuses, raise the reduced-motion selectors' specificity instead (`.thallo-block-product-grid.thallo-block-product-grid .shop-grid__item:is(:hover, :focus-within, [data-thallo-hover])`).
 
-- [ ] **Step 5: Remove every raw link**
+- [ ] **Step 4: Remove every raw link**
 
 Delete each `<link rel="stylesheet" href="/_thallo/shop/shop.css">` (and its preceding comment) from the eight templates. For the shop page templates (`templates/shop/*.twig`), confirm they render through the theme layout that emits `theme_stylesheet_url()` (open `index.twig`'s `extends`); if one does not, it gets the theme artifact link instead of the raw one — record it.
 
-- [ ] **Step 6: Run the tests**
+- [ ] **Step 5: Run the tests**
 
 Run: `vendor/bin/phpunit tests/Integration/Commerce tests/Integration/Render`
 Expected: PASS (fix any test asserting the raw link's presence — e.g. `ShopBlocksTest`'s mini cart test asserted `shop.js` only; search `grep -rn "shop/shop.css" tests` and invert those assertions).
 
-- [ ] **Step 7: Changelog and commit**
+- [ ] **Step 6: Changelog and commit**
 
 ```markdown
-- **Product grid Style tab**: Card, Image, Title, Price, Meta, Button and Badge sections; the Card
-  and Button have hover looks and opacity. A **Card** group sets the hover effect (lift, shadow),
-  image ratio and fit, and image zoom on hover.
+- **Product grid card effects**: a **Card** group sets the hover effect (lift, shadow), image ratio
+  and fit, and image zoom on hover.
 ### Fixed
 - **Shop blocks and pages no longer load a second, unlayered copy of the shop stylesheet**, which
   let the shop's defaults override styles set in the Style tab on any page holding a mini cart,
@@ -3207,7 +3369,7 @@ Expected: PASS (fix any test asserting the raw link's presence — e.g. `ShopBlo
 
 ```bash
 git add packages/thallo-commerce tests/Integration/Commerce CHANGELOG.md
-git commit -m "feat(commerce): Product grid parts and card effects; the shop stylesheet only through the theme layer"
+git commit -m "feat(commerce): Product grid card and image effects; the shop stylesheet only through the theme layer"
 ```
 
 ## Task 12: browser and stage proofs
@@ -3223,7 +3385,7 @@ git commit -m "feat(commerce): Product grid parts and card effects; the shop sty
 - [ ] **Step 1: The fixture builder**
 
 Pages written to `tools/runtime-browser/fixtures/product-grid/`:
-- `public.html` — a page with a mini cart (header region or a block) and three grids: (a) styled — Card background `color.surface`, Title `colors.text` accent, Button background accent, `card_hover: lift`, `image_hover: zoom`, `image_ratio: portrait`, `image_fit: cover`, badges on, `badge_position: top-right`; (b) a product with five long category names (`'Outerwear & Rainwear'`, …) at 4 columns; (c) defaults. Stylesheets inlined, scripts **dropped** (the no-JS reader).
+- `public.html` — a page with a mini cart (header region or a block) and three grids: (a) styled — Card background `color.surface`, Title text `color.accent` with hover text `color.text`, Button background `color.accent`, `card_hover: lift`, `image_hover: zoom`, `image_ratio: portrait`, `image_fit: cover`, badges on, `badge_position: top-right`; (b) a product with five long category names (`'Outerwear & Rainwear'`, …) at 4 columns; (c) defaults. Stylesheets inlined, scripts **dropped** (the no-JS reader).
 - `grid-js.html` — the same page with `shop.js` and the runtime core **kept** (served from the fixture directory; copy the two assets next to it), for the after-initialization and cart/wishlist proofs.
 - `stage.html` — the stage render of the same entry.
 
@@ -3254,40 +3416,82 @@ const probe = (page, prop, value) =>
 test('authored part styles hold after shop.js initializes, with a mini cart on the page', async ({ page }) => {
   await page.goto(BASE + 'grid-js.html');
   await page.waitForFunction(() => document.querySelector('[data-shop-wishlist-toggle]:not([hidden])'));
+  expect(await page.locator('[data-shop-mini-cart]').count()).toBeGreaterThan(0);
   const card = grid(page, 0).locator('.shop-grid__item').first();
   expect(await card.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(
     await probe(page, 'backgroundColor', 'var(--t-color-surface)'),
   );
-  expect(await card.locator('.shop-grid__name').evaluate((el) => getComputedStyle(el).color)).toBe(
+  expect(await card.locator('.shop-grid__name-link').evaluate((el) => getComputedStyle(el).color)).toBe(
     await probe(page, 'color', 'var(--t-color-accent)'),
   );
-  expect(await page.locator('[data-shop-mini-cart]').count()).toBeGreaterThan(0);
+  // The Button part's authored background, over the shop's own action-button background.
+  expect(await card.locator('.shop-grid__action--cart').evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(
+    await probe(page, 'backgroundColor', 'var(--t-color-accent)'),
+  );
 });
 
-test('add to cart and the wishlist heart work on grid cards', async ({ page }) => {
+test('add to cart posts that product and the cart shows it; the heart saves it', async ({ page }) => {
   await page.goto(BASE + 'grid-js.html');
-  await page.route('**/_shop/cart/add', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 1 }) }),
-  );
-  const heart = grid(page, 0).locator('[data-shop-wishlist-toggle]').first();
+  const card = grid(page, 0).locator('.shop-grid__item').filter({ has: page.locator('.shop-grid__action--cart') }).first();
+  const variant = await card.locator('input[name="variant_uuid"]').getAttribute('value');
+  let posted = null;
+  await page.route('**/_shop/cart/add', async (route) => {
+    posted = route.request().postData();
+    // Answer the way ShopCartController answers an XHR add (read its JSON shape and the mini cart's
+    // count field in shop.js before relying on these keys).
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 1, lines: [] }) });
+  });
+  const heart = card.locator('[data-shop-wishlist-toggle]');
   await expect(heart).toBeVisible();
   await heart.click();
   await expect(heart).toHaveAttribute('aria-pressed', 'true');
-  const add = grid(page, 0).locator('.shop-grid__action--cart').first();
-  const request = page.waitForRequest('**/_shop/cart/add');
-  await add.click();
-  await request;
+  await card.locator('.shop-grid__action--cart').click();
+  await expect.poll(() => posted).not.toBeNull();
+  expect(new URLSearchParams(posted).get('variant_uuid')).toBe(variant);
+  expect(new URLSearchParams(posted).get('quantity')).toBe('1');
+  await expect(page.locator('[data-shop-cart-count]').first()).toHaveText('1');
 });
 
-test('without JavaScript the cards are styled and usable', async ({ page }) => {
+test('without JavaScript a card adds to the cart by posting its form', async ({ page }) => {
   await page.goto(BASE + 'public.html');
   const card = grid(page, 0).locator('.shop-grid__item').first();
   expect(await card.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(
     await probe(page, 'backgroundColor', 'var(--t-color-surface)'),
   );
-  await expect(card.locator('.shop-grid__name a')).toHaveAttribute('href', /\/shop\//);
-  await expect(grid(page, 0).locator('form.shop-grid__cart-form[action="/_shop/cart/add"]').first()).toBeAttached();
-  await expect(grid(page, 0).locator('[data-shop-wishlist-toggle]').first()).toBeHidden();
+  await expect(card.locator('.shop-grid__name-link')).toHaveAttribute('href', /\/shop\//);
+  await expect(card.locator('.shop-grid__media-link')).toHaveAttribute('href', /\/shop\//);
+  await expect(card.locator('[data-shop-wishlist-toggle]')).toBeHidden();
+  const form = grid(page, 0).locator('form.shop-grid__cart-form').first();
+  const variant = await form.locator('input[name="variant_uuid"]').getAttribute('value');
+  let posted = null;
+  await page.route('**/_shop/cart/add', async (route) => {
+    posted = { method: route.request().method(), body: route.request().postData() };
+    await route.fulfill({ status: 303, headers: { Location: '/cart-landed' } });
+  });
+  await page.route('**/cart-landed', (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '<p>cart</p>' }));
+  await form.locator('button[type="submit"]').click(); // a real form submission: no script on this page
+  await page.waitForURL('**/cart-landed');
+  expect(posted.method).toBe('POST');
+  expect(new URLSearchParams(posted.body).get('variant_uuid')).toBe(variant);
+});
+
+test('the title link answers pointer, keyboard and the forced preview', async ({ page }) => {
+  await page.goto(BASE + 'public.html');
+  const link = grid(page, 0).locator('.shop-grid__name-link').first();
+  const rest = await link.evaluate((el) => getComputedStyle(el).color);
+  const hoverColour = await probe(page, 'color', 'var(--t-color-text)'); // the fixture's Title hover colour
+  await link.hover();
+  expect(await link.evaluate((el) => getComputedStyle(el).color)).toBe(hoverColour);
+  await page.mouse.move(0, 0);
+  expect(await link.evaluate((el) => getComputedStyle(el).color)).toBe(rest);
+  await link.focus();
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab'); // keyboard focus → :focus-visible
+  expect(await link.evaluate((el) => el === document.activeElement)).toBe(true);
+  expect(await link.evaluate((el) => getComputedStyle(el).color)).toBe(hoverColour);
+  await link.evaluate((el) => el.blur());
+  await link.evaluate((el) => el.setAttribute('data-thallo-hover', ''));
+  expect(await link.evaluate((el) => getComputedStyle(el).color)).toBe(hoverColour);
 });
 
 test('several long category labels wrap without overflowing the card', async ({ page }) => {
@@ -3316,13 +3520,20 @@ test('card lift and image zoom under hover; ratio, fit and badge position', asyn
   expect(await image.evaluate((el) => getComputedStyle(el).transform)).not.toBe('none');
 });
 
-test('no lift or zoom without hover, or with reduced motion; the forced preview draws them', async ({ browser }) => {
+test('a tap on a touch screen leaves no lift or zoom behind', async ({ browser }) => {
   const touch = await browser.newContext({ hasTouch: true, isMobile: true });
   const page = await touch.newPage();
   await page.goto(BASE + 'public.html');
-  expect(await grid(page, 0).locator('.shop-grid__item').first().evaluate((el) => getComputedStyle(el).transform)).toBe('none');
+  const card = grid(page, 0).locator('.shop-grid__item').first();
+  // Tap the card's body (not a link), as a shopper scrolling past would.
+  await card.locator('.shop-grid__body').tap({ position: { x: 2, y: 2 } });
+  await page.waitForTimeout(400);
+  expect(await card.evaluate((el) => getComputedStyle(el).transform)).toBe('none');
+  expect(await card.locator('.shop-grid__image').evaluate((el) => getComputedStyle(el).transform)).toBe('none');
   await touch.close();
+});
 
+test('no movement with reduced motion; the forced preview draws the effects', async ({ browser }) => {
   const ctx = await browser.newContext();
   const reduced = await ctx.newPage();
   await reduced.emulateMedia({ reducedMotion: 'reduce' });
@@ -3345,7 +3556,10 @@ test('no lift or zoom without hover, or with reduced motion; the forced preview 
 - [ ] **Step 3: Build and run**
 
 Run: `CACHE_DRIVER=array DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-product-grid-fixtures && (cd tools/runtime-browser && npx playwright test tests/product-grid.spec.js)`
-Expected: PASS. Then prove the stylesheet test can fail: temporarily re-add the raw `<link>` to `mini-cart.twig`, rebuild, rerun — the first test must FAIL (the unlayered copy beats the authored background); restore.
+Expected: PASS. Then prove the proofs can fail, one at a time, restoring after each:
+- re-add the raw `<link>` to `mini-cart.twig`, rebuild: the first test FAILS (the unlayered copy beats the authored Card and Button backgrounds);
+- move the Title part's classes back onto the heading in `_grid_card.twig`, rebuild: the title test's keyboard assertion FAILS;
+- drop the `(hover: hover)` wrapper from the lift rule in `shop.css`, rebuild: the touch test FAILS.
 
 - [ ] **Step 4: The e2e stage proof**
 
