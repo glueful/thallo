@@ -26,11 +26,6 @@ as the next release, never a mutated tag.
 - **Block fields can show help text and a multi-select of server-provided choices** (at most a set
   number), and contributed block types can start a new block with default content.
 
-### Fixed
-- **Shop blocks and pages no longer load a second, unlayered copy of the shop stylesheet**, which
-  let the shop's defaults override Style tab settings on any page holding a mini cart, wishlist
-  link or featured product, and on every shop page.
-
 ### Changed
 - **The Product grid is a source narrowed by categories and tags** (breaking): Source is All
   products, On sale or Manual selection; Categories and Tags are multi-select dropdowns (any of
@@ -41,6 +36,9 @@ as the next release, never a mutated tag.
   `/_shop/blocks/product-grid` endpoint and shop.js's grid loading are gone.
 - **Pages holding a Product grid refresh with the catalog** on both the render and shop page caches,
   and a page rendered from a catalog that changed meanwhile is never served from the cache.
+- **Shop blocks and pages no longer link the shop stylesheet themselves**: it arrives once, inside
+  the theme stylesheet's `@layer theme`, instead of being downloaded a second time on every page
+  holding a mini cart, wishlist link or featured product, and on every shop page.
 - **Thallo requires `glueful/commerce ^1.14.0`**: the category page and the category layout pass
   the engine's list filters.
 - **Commerce → Products: categories, tags and attributes are added and edited in a slide-over

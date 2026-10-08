@@ -230,6 +230,8 @@ $entries->saveDraft(
             ['id' => 'hovsocialig1', 'type' => 'social_link', 'data' => ['icon' => 'brand:instagram', 'url' => 'https://example.com/ig'], 'settings' => []],
             ['id' => 'hovsocialx01', 'type' => 'social_link', 'data' => ['icon' => 'brand:x', 'url' => 'https://example.com/x'], 'settings' => []],
         ]], 'settings' => []],
+        // A Product grid (product grid spec §7): its Style tab carries the seven parts.
+        ['id' => 'gridblock0e2', 'type' => 'product-grid', 'data' => ['limit' => 4], 'settings' => []],
     ]],
     (int) $page['schema_version'],
     (int) ($draft['lock_version'] ?? 0),
@@ -259,6 +261,18 @@ $json('field-options-thallo-search.scopes', (string) json_encode(
     ['success' => true, 'message' => 'Success', 'data' => ['options' => $scopes->options()]],
     JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR,
 ));
+// The Product grid's category and tag choices (the catalogue is empty here), as the Block tab asks.
+foreach (['thallo-commerce.categories', 'thallo-commerce.tags'] as $sourceName) {
+    $source = $container->get(\Thallo\Contracts\Fields\FieldOptionSourceRegistry::class)->find($sourceName);
+    if ($source === null) {
+        fwrite(STDERR, "the {$sourceName} option source is not registered: is Commerce on?\n");
+        exit(1);
+    }
+    $json('field-options-' . $sourceName, (string) json_encode(
+        ['success' => true, 'message' => 'Success', 'data' => ['options' => $source->options()]],
+        JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR,
+    ));
+}
 $json('config', json_encode([
     'apiBase' => '/v1/admin',
     'sitePreviewUrl' => '',

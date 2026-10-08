@@ -454,7 +454,7 @@ describe('a block’s parts', () => {
     })
     const part = w.find('[data-test="style-part-link"]')
     expect(part.exists()).toBe(true)
-    expect(part.find('[data-test="style-part-title"]').text()).toBe('Link')
+    expect(part.find('[data-test="style-part-label"]').text()).toBe('Link')
     const fields = part
       .findAll('[data-test^="style-field-"]')
       .map((el) => el.attributes('data-test'))
