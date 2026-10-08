@@ -159,7 +159,7 @@ final class ProductGridBlockTest extends AppTestCase
             $html,
             'the image links to the product',
         );
-        self::assertStringContainsString('shop-grid__rating', $html);
+        self::assertStringNotContainsString('shop-grid__rating', $html, 'no reviews, no rating line');
         self::assertStringContainsString('shop-grid__price', $html);
         self::assertSame(['Men', 'Women'], $this->labels($html, 'category'));
         self::assertSame([], $this->labels($html, 'tag'), 'tags are off by default');
@@ -222,6 +222,27 @@ final class ProductGridBlockTest extends AppTestCase
         $html = $this->renderBlock([], false, ['parts' => ['details' => ['spacing' => ['padding' => ['top' => $lg]]]]]);
         self::assertMatchesRegularExpression('~<span class="shop-grid__body[^"]* t-pt-lg[ "]~', $html);
         self::assertDoesNotMatchRegularExpression('~<(li|span) class="shop-grid__(item|media)[^"]*t-pt-lg~', $html);
+    }
+
+    public function testARatedProductShowsItsRatingUnderTheNameAndThePriceOnItsOwnLine(): void
+    {
+        $p = $this->product('p');
+        $this->connection()->table('commerce_products')->where('uuid', '=', $p)
+            ->update(['rating_sum' => 9, 'rating_count' => 2]);
+        $this->category('men', $p);
+        $html = $this->renderBlock([]);
+        self::assertMatchesRegularExpression(
+            '~<span class="shop-grid__rating">.*?4\.5\s*<span class="shop-grid__rating-count">\(2\)~s',
+            $html,
+        );
+        // Name, then the rating, then the categories, then the price — the price no longer shares a row.
+        $name = (int) strpos($html, 'shop-grid__name"');
+        $rating = (int) strpos($html, 'shop-grid__rating"');
+        $labels = (int) strpos($html, 'shop-grid__labels');
+        $price = (int) strpos($html, 'shop-grid__price');
+        self::assertTrue($name < $rating && $rating < $labels && $labels < $price, 'name, rating, categories, price');
+        self::assertStringNotContainsString('shop-grid__meta', $html);
+        self::assertStringNotContainsString('shop-grid__rating--none', $html);
     }
 
     public function testTheGapsSpaceTheCardsList(): void
