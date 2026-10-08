@@ -178,8 +178,8 @@ test('a tap on a touch screen leaves no lift or zoom behind', async ({ browser }
   const page = await touch.newPage();
   await page.goto(BASE + 'public.html');
   const card = grid(page, 0).locator('.shop-grid__item').first();
-  // Tap the card's meta row (rating and price — not a link), as a shopper scrolling past would.
-  await card.locator('.shop-grid__meta').tap();
+  // Tap the card's price (not a link), as a shopper scrolling past would.
+  await card.locator('.shop-grid__price').tap();
   await page.waitForTimeout(400);
   expect(await card.evaluate((el) => getComputedStyle(el).transform)).toBe('none');
   expect(await card.locator('.shop-grid__image').evaluate((el) => getComputedStyle(el).transform)).toBe('none');
