@@ -245,6 +245,56 @@ final class ProductGridBlockTest extends AppTestCase
         self::assertStringNotContainsString('shop-grid__rating--none', $html);
     }
 
+    public function testTheButtonStyleAddsToCartUnderThePrice(): void
+    {
+        $this->product('p');
+        $html = $this->renderBlock(['add_to_cart_style' => 'button']);
+        self::assertMatchesRegularExpression(
+            '~<form class="shop-grid__buy-form" method="post" action="/_shop/cart/add">\s*'
+                . '<input type="hidden" name="variant_uuid" value="[^"]+">\s*'
+                . '<input type="hidden" name="quantity" value="1">\s*'
+                . '<button class="shop-grid__buy" type="submit" aria-label="Add P to cart">Add to cart</button>~',
+            $html,
+        );
+        self::assertLessThan(strpos($html, 'shop-grid__buy-form'), strpos($html, 'shop-grid__price'));
+        self::assertStringNotContainsString('shop-grid__action--cart', $html, 'no icon beside the button');
+        self::assertStringContainsString('data-shop-wishlist-toggle', $html, 'the heart stays on the picture');
+    }
+
+    public function testTheButtonAsksForOptionsOrSaysSoldOut(): void
+    {
+        $this->product('sizes', ['variants' => 2, 'created_at' => '2026-01-02 00:00:00']);
+        $this->product('gone', ['stock' => 0, 'created_at' => '2026-01-01 00:00:00']);
+        $html = $this->renderBlock(['add_to_cart_style' => 'button']);
+        self::assertMatchesRegularExpression(
+            '~<a class="shop-grid__buy shop-grid__buy--options" href="[^"]*/sizes">Choose options</a>~',
+            $html,
+        );
+        self::assertStringContainsString(
+            '<button class="shop-grid__buy shop-grid__buy--sold-out" type="button" disabled>Sold out</button>',
+            $html,
+        );
+        self::assertSame(2, substr_count($html, 'class="shop-grid__buy '), 'a link and a sold-out button');
+        self::assertStringNotContainsString('shop-grid__buy-form', $html, 'neither adds to the cart');
+    }
+
+    public function testTheIconStaysTheDefaultAndTheButtonTakesTheButtonPart(): void
+    {
+        $this->product('p');
+        $html = $this->renderBlock([]);
+        self::assertStringContainsString('shop-grid__action--cart', $html);
+        self::assertStringNotContainsString('shop-grid__buy', $html);
+        $accent = ['type' => 'token', 'value' => 'color.accent'];
+        $html = $this->renderBlock(
+            ['add_to_cart_style' => 'button'],
+            false,
+            ['parts' => ['button' => ['colors' => ['surface' => $accent]]]],
+        );
+        self::assertMatchesRegularExpression('~<button class="shop-grid__buy t-bg-accent"~', $html);
+        $this->assertBlockDataValid(['add_to_cart_style' => 'button']);
+        $this->assertBlockDataInvalid(['add_to_cart_style' => 'bar']);
+    }
+
     public function testTheGapsSpaceTheCardsList(): void
     {
         $this->product('p');

@@ -115,6 +115,19 @@ final class ProductGridTest extends AppTestCase
         self::assertSame($one, $five, 'one lookup for the categories and one for the tags, not one per slug');
     }
 
+    public function testCardsSayWhetherTheProductCanBeBought(): void
+    {
+        $this->product('untracked', ['created_at' => '2026-01-03 00:00:00']);
+        $this->product('stocked', ['stock' => 5, 'created_at' => '2026-01-02 00:00:00']);
+        $this->product('gone', ['stock' => 0, 'created_at' => '2026-01-01 00:00:00']);
+        $cards = $this->container()->get(StorefrontProductGrid::class)->grid([])?->cards ?? [];
+        $inStock = array_column(array_map(
+            static fn (array $c): array => ['name' => $c['name'], 'in' => $c['inStock']],
+            $cards,
+        ), 'in', 'name');
+        self::assertSame(['Untracked' => true, 'Stocked' => true, 'Gone' => false], $inStock);
+    }
+
     public function testDeletedCategoriesShowNothingNeverEverything(): void
     {
         $this->product('anything');

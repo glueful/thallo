@@ -17,7 +17,9 @@ as the next release, never a mutated tag.
 - **Product grid display options**: show or hide the image, title, price, rating, categories, tags,
   add to cart and wishlist; the title's heading level (H3 by default). Cards show every category.
   A card's rating sits under the name and appears only once the product has a review; the price
-  has the last line to itself.
+  has the last line to itself. **Add to cart** is an icon on the picture (the default) or a button
+  under the price, always visible: Add to cart, Choose options for a product with choices, or a
+  disabled Sold out; the Style tab's Button section styles either.
 - **Sale and New badges** on Product grid cards, with their own text, a New window in days, and a
   position.
 - **Product grid Style tab**: Card, Image, Details, Title, Price, Meta, Button and Badge sections; the
