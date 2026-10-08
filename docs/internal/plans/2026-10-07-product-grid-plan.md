@@ -1,5 +1,14 @@
 # The Product grid — Implementation Plan
 
+> Amended 2026-10-08 after plan review:
+> - the seven part declarations and their `style_paths` test land in Task 10 with the templates that call `style_classes()` (Task 11 keeps the effects and the stylesheet);
+> - the purge fallback drops the **event's** workspace's rendered pages (`purgeWorkspace($tenantUuid)` via `TenantCacheSegment::segmentFor()`), proved for an event in A while the request is in B and with no request workspace (Task 7);
+> - categories and tags carry `max_items: 20`, enforced by the validator and the picker, each item meeting the string field's constraints; saved and rendered filters are proved to agree (Tasks 9, 10);
+> - the option sources require `commerce.view`, proved against a content editor without it (Task 9);
+> - the image links to the product, and the Title part sits on the focusable anchor, proved for pointer, keyboard and forced preview (Tasks 10, 12);
+> - the browser proofs tap on touch, check the cart request's product and the cart's result, submit the no-JS form, and assert the Button's authored background (Task 12);
+> - shared-contract task numbers corrected; the no-extra-read test counts reads (Task 6).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A Product grid is a source (All products, On sale, Manual) narrowed by multi-select Categories and Tags, ordered and cut to a count, rendered on the server with display toggles, badges and a seven-part Style tab — previewed live on the stage, cached safely, styled through the theme layer.
@@ -3628,14 +3637,14 @@ git commit -m "docs: the Product grid — fields, parts, effects, storefront gui
 
 **Spec coverage:**
 - §2.1–2.3 → Tasks 1, 2, 8 (filters, order, count, View all); §2.4 → Task 8 (`ProductGridQuery` maps nothing) and Task 10 (schema, patterns).
-- §3.1 server render, stage, no-JS → Tasks 10, 12; §3.2 cache families, tagging, empty results, purge, isolation, late renders, guards on read, multiple grids, missing generations → Tasks 6, 7, 10 (`ProductGridCacheTest`, `ProductGridCacheTenancyTest`); §3.3 endpoint removal → Task 10; §3.4 stylesheet → Tasks 11, 12; §3.5 count and columns → Task 10 (help text).
+- §3.1 server render, stage, no-JS → Tasks 10, 12; §3.2 cache families, tagging, empty results, purge (the event's workspace), isolation, late renders, guards on read, multiple grids, missing generations → Tasks 6, 7, 10 (`ProductGridCacheTest`, `ProductGridCacheTenancyTest`); §3.3 endpoint removal → Task 10; §3.4 stylesheet → Tasks 11, 12; §3.5 count and columns → Task 10 (help text).
 - §4 engine → Tasks 1–3; Thallo callers with the bump → Task 5.
 - §5.1 fields and exact defaults → Tasks 9 (starter content), 10; §5.2 help texts → Tasks 9, 10; §5.3 multi-select, sources, slugs → Task 9.
-- §6 badges → Task 10. §7.1 parts and opacity → Task 11; §7.2 effects → Tasks 10 (classes), 11 (CSS), 12 (browser); §7.3 stage → Task 12.
+- §6 badges → Task 10. §7.1 parts and opacity → Task 10; §7.2 effects → Tasks 10 (classes), 11 (CSS), 12 (browser); §7.3 stage → Task 12.
 - §8 docs → Task 13. §9 tests → each task. §10 order → Part A then Task 5 first.
 
 **Placeholder scan:** Steps that defer to an existing helper name the file to copy from and what to copy (`FieldValidator` construction, `ShopCacheTest` middleware, `ThemeStylesheetArtifacts` test, the e2e world). `ProductGridCacheTest` bodies are described by precedent and must be written fully before the task's commit — the implementer writes them in Step 9.
 
-**Type consistency:** `ResolvedProductFilters(categoryUuids, tagUuids, attributePairs, onSale, inStock)` in Tasks 1, 5, 8; `listActive(…, $filters, $sort)` in Tasks 2, 8; `ProductGridView(cards, viewAllUrl, storageTag, guardKey, guardValue)` in Tasks 8, 10; `RenderCacheHints(storageTags, guards, uncacheable)` in Tasks 6, 10; `CatalogGeneration::key/read/rotate` in Tasks 7, 8; `productGridView()` registered as `product_grid` in Task 10.
+**Type consistency:** `ResolvedProductFilters(categoryUuids, tagUuids, attributePairs, onSale, inStock)` in Tasks 1, 5, 8; `listActive(…, $filters, $sort)` in Tasks 2, 8; `ProductGridView(cards, viewAllUrl, storageTag, guardKey, guardValue)` in Tasks 8, 10; `RenderCacheHints(storageTags, guards, uncacheable)` in Tasks 6, 10; `CatalogGeneration::key/read/rotate` in Tasks 7, 8; `productGridView()` registered as `product_grid` in Task 10; `purgeWorkspace(string $tenantUuid)` in Task 7's contract, implementor and test doubles.
 
 **Review Focus:** each line has its test — stale-on-read (Task 6 Step 1, Task 10 Step 9), chrome-block stylesheet (Task 12 Step 2 + the deliberate re-add in Step 3), all-deleted categories (Task 8 Step 6), unpriced products last (Task 2 Step 1), Manual + out of stock (Task 8 Step 6).
