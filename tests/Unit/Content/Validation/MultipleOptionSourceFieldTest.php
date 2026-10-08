@@ -46,6 +46,7 @@ final class MultipleOptionSourceFieldTest extends TestCase
         yield 'a string' => ['men'];
         yield 'a number in the list' => [['men', 3]];
         yield 'a map' => [['a' => 'men']];
+        yield 'an empty item' => [['men', '']];
     }
 
     #[DataProvider('invalid')]

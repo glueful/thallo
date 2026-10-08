@@ -108,10 +108,10 @@ final class ProductGridBlockTest extends AppTestCase
         self::assertSame([], $this->blockDataErrors($data));
     }
 
-    /** @param array<string,mixed> $data */
+    /** @param array<string,mixed> $data one field's value, refused under that field's name */
     private function assertBlockDataInvalid(array $data): void
     {
-        self::assertArrayHasKey('categories', $this->blockDataErrors($data));
+        self::assertArrayHasKey((string) array_key_first($data), $this->blockDataErrors($data));
     }
 
     public function testTheCardsRenderOnTheServerInGridOrder(): void
@@ -218,6 +218,12 @@ final class ProductGridBlockTest extends AppTestCase
         $html = $this->renderBlock(['categories' => $slugs, 'limit' => 48]);
         self::assertSame(20, substr_count($html, 'class="shop-grid__item'));
         $this->assertBlockDataInvalid(['categories' => [...$slugs, 'cat21']]);
+        // Each slug at most the column's 191 characters, categories and tags alike.
+        foreach (['categories', 'tags'] as $field) {
+            $this->assertBlockDataValid([$field => [str_repeat('s', 191)]]);
+            $this->assertBlockDataInvalid([$field => [str_repeat('s', 192)]]);
+            $this->assertBlockDataInvalid([$field => ['']]);
+        }
     }
 
     public function testTitleTag(): void
