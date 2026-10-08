@@ -41,6 +41,12 @@ const unavailableInList = computed(() =>
 const atLimit = computed(
   () => props.field.maxItems !== undefined && storedList.value.length >= props.field.maxItems,
 )
+// A stored value that is no longer a choice has no row in the select to clear: it is removed here.
+const remove = (value: string) =>
+  emit(
+    'update:modelValue',
+    storedList.value.filter((v) => v !== value),
+  )
 const chooseMany = (v: unknown) => {
   const next = Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
   const max = props.field.maxItems
@@ -51,13 +57,23 @@ const chooseMany = (v: unknown) => {
 <template>
   <UFormField :label="field.label ?? field.name" :name="field.name">
     <div v-if="field.multiple" class="space-y-1.5">
-      <UnavailableChoice
-        v-for="value in unavailableInList"
-        :key="value"
-        :state="{ kind: 'removed' }"
-        :value="value"
-        :data-test="`options-source-${field.name}-${value}`"
-      />
+      <div v-for="value in unavailableInList" :key="value" class="flex items-start gap-1">
+        <UnavailableChoice
+          class="flex-1"
+          :state="{ kind: 'gone' }"
+          :value="value"
+          :data-test="`options-source-${field.name}-${value}`"
+        />
+        <UButton
+          icon="i-lucide-x"
+          size="xs"
+          color="neutral"
+          variant="ghost"
+          :aria-label="`Remove ${value}`"
+          :data-test="`options-source-remove-${field.name}-${value}`"
+          @click="remove(value)"
+        />
+      </div>
       <USelectMenu
         :model-value="storedList"
         :items="items"

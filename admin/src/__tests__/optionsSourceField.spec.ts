@@ -134,8 +134,18 @@ describe('a multiple options-source field', () => {
 
   it('keeps a stored value that is no longer an option and shows it unavailable', () => {
     const w = mountMulti({}, ['gone', 'men'])
-    expect(w.find('[data-test="options-source-categories-gone"]').exists()).toBe(true)
+    const notice = w.get('[data-test="options-source-categories-gone"]')
+    // A deleted category, not a feature that went away: it says so in those terms.
+    expect(notice.text()).toContain('gone is no longer one of the choices')
+    expect(notice.text()).not.toContain('installed feature')
     expect(w.findComponent({ name: 'USelectMenu' }).props('modelValue')).toEqual(['gone', 'men'])
+  })
+
+  it('a stored value that is no longer an option can be removed, and nothing else changes', async () => {
+    const w = mountMulti({}, ['gone', 'men'])
+    await w.get('[data-test="options-source-remove-categories-gone"]').trigger('click')
+    const emitted = w.emitted('update:modelValue') ?? []
+    expect(emitted[emitted.length - 1]).toEqual([['men']])
   })
 
   it('never emits more than maxItems and says so at the limit', async () => {
