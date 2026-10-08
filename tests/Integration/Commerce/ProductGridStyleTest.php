@@ -50,4 +50,13 @@ final class ProductGridStyleTest extends AppTestCase
         }
         self::assertContains('typography.size', $parts['price']);
     }
+
+    public function testTheGridsImageFrameIsTransparentUntilTheImagePartSetsABackground(): void
+    {
+        $css = (string) file_get_contents(dirname(__DIR__, 3) . '/packages/thallo-commerce/assets/shop.css');
+        self::assertMatchesRegularExpression(
+            '~\.thallo-block-product-grid \.shop-grid__media \{[^}]*background: transparent;~',
+            $css,
+        );
+    }
 }

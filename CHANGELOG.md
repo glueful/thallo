@@ -20,7 +20,7 @@ as the next release, never a mutated tag.
   position.
 - **Product grid Style tab**: Card, Image, Details, Title, Price, Meta, Button and Badge sections; the
   Card, Title and Button have hover looks, and the Card and Button opacity. The Image section sets the
-  background of the frame around the picture (a light tint of the text colour until you set one);
+  background of the frame around the picture (transparent until you set one);
   Details pads the text under the picture on its own, apart from the card's padding.
 - **Product grid card effects**: a **Card** group sets the hover effect (lift, shadow), the image
   ratio and fit, and image zoom on hover — only where the device can hover, and without movement for
