@@ -31,6 +31,7 @@ abstract class AppTestCase extends TestCase
         'blobs',
         'block_types',
         'style_class_jobs', 'style_classes', 'style_generations', 'saved_sections', 'admin_ui_settings', 'layouts',
+        'palette_jobs', 'palette_state',
         'render_template_versions', 'render_templates',
         'navigation_items', 'navigation_menus',
         'search_index_acks', 'search_index_changes', 'search_index_demand', 'search_index_state',

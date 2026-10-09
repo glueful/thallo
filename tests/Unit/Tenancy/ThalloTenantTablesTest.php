@@ -16,7 +16,7 @@ final class ThalloTenantTablesTest extends TestCase
             'content_types', 'entries', 'entry_routes', 'block_types', 'regions', 'settings', 'form_submissions',
             'style_classes', 'style_generations', 'style_class_jobs', 'search_documents', 'saved_sections', 'layouts',
             'search_index_state', 'search_index_changes', 'search_index_acks', 'search_index_demand',
-            'font_families', 'font_faces',
+            'font_families', 'font_faces', 'palette_state', 'palette_jobs',
         ];
         foreach ($core as $t) {
             self::assertContains($t, $names, "$t must be tenant-owned");
