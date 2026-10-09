@@ -5,7 +5,9 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.97] - 2026-10-09 — Developer Preview
+
+A Separator can be a short accent line, placed at the start, centre or end of its row.
 
 ### Added
 - **A Separator can be a short accent line**: Length — Full width, Medium (8rem) or Short (3.5rem) —
