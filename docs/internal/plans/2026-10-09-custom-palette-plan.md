@@ -16,9 +16,18 @@
 > Amended again after the second plan review:
 > - **Colour locations are keyed by block id**, not array index: `<blockId>:<relative path>`, e.g. `head00000001:settings.style.colors.text`. Rewrites, refusals and the trusted basis all follow a block through moves and survive another block taking its index (Tasks 7, 12).
 > - **A save response never marks newer edits as saved.** The saved baseline is the submitted document plus its accepted rewrites. The current document is reconciled separately and keeps its newer edits and dirty state (Task 12).
-> - **History is reconciled with the palette.** Saves return the running replacements' `palette_mappings`, and the style schema names each slot's completed replacement (`retired`). Editors rewrite those tokens inside every recorded operation payload, whole blocks included, so undo and redo can never reintroduce a replaced colour (Tasks 6, 12).
+> - **History is reconciled with the palette.** Editors rewrite replaced tokens inside every recorded operation payload, whole blocks included, so undo and redo can never reintroduce a replaced colour. The third review replaced this round's `palette_mappings` / `retired` mechanism with ordered replacement records (below).
 > - **Restore provenance is the persisted basis itself** (`entry_drafts.restore_basis`), derived on the server when the restore runs. Version retention pruning can no longer remove it (Task 12).
 > - **Two-process proofs observe the wait.** The holder signals only after acquiring its lock. The contender runs in its own process, and the parent watches `pg_stat_activity` until the contender's backend is waiting on a lock, then releases the holder. Timeouts are failure bounds only (Task 14).
+>
+> Amended a third time after the third plan review (all Task 12):
+> - **Adoption never cancels an in-flight transaction.** A new `history.adopt()` replaces the document underneath the active transaction instead of `rebase()`, which cancels and inverts it.
+> - **History is reconciled by ordered, identified replacement records, never by bare token maps.**
+>   - A record is a *completed* Replace job: its id, slot, destinations, and the palette generation at which it completed.
+>   - Each editor applies each record once, in completion order, and only to state it held before that record.
+>   - A document loaded or restored after a record completed is that record's post-replacement truth and is never mapped through it. This preserves deliberately restored historical colours.
+>   - Running jobs' maps no longer reach history at all: the server maps those saves itself.
+> - **The walker's no-id fallback test** expects the index path again.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -2076,7 +2085,7 @@ final class ColorTokenWalkerTest extends AppTestCase
     public function testABlockWithoutAnIdFallsBackToItsIndexPath(): void
     {
         $doc = ['body' => [['type' => 'heading', 'data' => ['text' => 'x'], 'settings' => ['style' => ['colors' => ['text' => self::tok('color.brand-1')]]]]]];
-        self::assertSame(['head00000001:settings.style.colors.text' => 'color.brand-1'], $this->walker()->tokens(ColorTokenWalker::KIND_ENTRY, $doc, $this->schemaWithBlocksField('body')));
+        self::assertSame(['body.0.settings.style.colors.text' => 'color.brand-1'], $this->walker()->tokens(ColorTokenWalker::KIND_ENTRY, $doc, $this->schemaWithBlocksField('body')));
     }
 
     public function testMapRewritesOnlyWhatTheCallbackReplaces(): void
@@ -2482,7 +2491,7 @@ palette mutations' own settings write, which happens after (1) and takes no othe
 
 | Writer | Path | Fenced | Basis on mismatch | Notes |
 |---|---|---|---|---|
-| Editor draft save | EntryController::saveDraft → EntryRepository::saveDraft | yes | current draft ∪ the draft's persisted restore_basis | Task 10, 12; returns palette_rewrites and palette_mappings |
+| Editor draft save | EntryController::saveDraft → EntryRepository::saveDraft | yes | current draft ∪ the draft's persisted restore_basis | Task 10, 12; returns palette_rewrites, palette_replacements and palette_generation |
 | Authoring engine | EngineContentWriter::createDraft / EngineContentUpserter::updateDraft → saveDraft | yes (via saveDraft) | current draft | importers: CSV, Markdown, WordPress, Markdown folder |
 | Locale copy | EntryRepository::createLocaleDraft | yes (+ CAS on overwrite) | source draft, re-read | Task 10 |
 | Publish / publishStarter | PublishService::publishInternal | yes | the draft, re-read | Task 10 |
@@ -3798,80 +3807,106 @@ git commit -m "feat(palette): fence regions, layouts, saved sections, style clas
 
 ---
 
-### Task 12: The editor contract — restore with a persisted basis, adopting normalised saves, reconciling history
+### Task 12: The editor contract — restore with a persisted basis, adopting saves, reconciling history by replacement records
 
 **Files:**
 - Create: `core/database/migrations/044_AddRestoreBasisToEntryDrafts.php` (`entry_drafts.restore_basis`, nullable JSON)
-- Create: `core/src/Content/Palette/PaletteOutcome.php` (`list $rewrites`, `array<string,string> $mappings`)
+- Create: `core/database/migrations/045_AddCompletedGenerationToPaletteJobs.php` (`palette_jobs.completed_generation`, nullable bigint, indexed)
+- Create: `core/src/Content/Palette/PaletteOutcome.php` (`list $rewrites`, `int $generation`)
+- Create: `core/src/Content/Palette/PaletteReplacements.php` (completed replacement records, ordered)
 - Modify:
-  - `core/src/Content/Palette/PaletteFence.php` (`write()` hands the write closure the held snapshot; callers build a `PaletteOutcome`);
-  - `core/src/Content/Palette/PaletteNormalizer.php` (`mappingsOf(PaletteSnapshot): array<string,string>`, `mergeBasis(array ...$bases): array`);
-  - `core/src/Content/Repositories/EntryRepository.php` (`saveDraft` returns `PaletteOutcome`; new `restoreBasis()`; the restore write);
+  - `core/src/Content/Palette/PaletteFence.php` (the write closure receives the held snapshot);
+  - `core/src/Content/Palette/PaletteNormalizer.php` (`mergeBasis`);
+  - `core/src/Content/Palette/PaletteJobRepository.php` (`transition(..., 'completed')` records `completed_generation`);
+  - `core/src/Content/Repositories/EntryRepository.php` (`saveDraft` returns `PaletteOutcome`; `restoreBasis()`; the restore write);
   - `core/src/Content/Services/PublishService.php` (publish clears `restore_basis`).
 - Create: `core/src/Content/Services/DraftRestore.php`, `core/src/Content/Http/DTOs/RestoreDraftData.php` (`string $version_uuid`, `int $lock_version`)
 - Modify:
-  - `core/src/Content/Http/Controllers/EntryController.php` (`restoreDraft`; `saveDraft`'s response carries `palette_rewrites` and `palette_mappings`);
-  - the region, layout, saved-section and style-class save responses (`palette_rewrites`, `palette_mappings`);
-  - `packages/thallo-render/src/Http/Controllers/StyleSchemaController.php` and `core/src/Content/Palette/EnginePaletteStatusReader.php` (each slot gains `retired`);
+  - `core/src/Content/Http/Controllers/EntryController.php` (`restoreDraft`; the draft GET and save responses carry `palette_generation`; saves carry `palette_rewrites`);
+  - the region, layout, saved-section and style-class load and save responses (the same two fields);
+  - `packages/thallo-render/src/Http/Controllers/StyleSchemaController.php` (`palette.generation`, `palette.replacements`);
   - the draft routes file (grep `draft/{locale}`): `POST /entries/{uuid}/draft/{locale}/restore`, same permission as the draft `PUT`.
-- Create: `admin/src/editor/paletteRewrites.ts` (`applyPaletteRewrites`, `mapPaletteTokens`)
+- Create:
+  - `admin/src/editor/paletteRewrites.ts` (`applyPaletteRewrites`, `mapPaletteTokens`);
+  - `admin/src/editor/paletteReplacements.ts` (`createReplacementLedger`).
 - Modify:
-  - `admin/src/editor/ops/history.ts` (`reconcileTokens(mapping)`);
-  - `admin/src/editor/stage/useStageEditor.ts` (`adoptPaletteResult(submitted, outcome)`);
+  - `admin/src/editor/ops/history.ts` (`adopt(next)`, `reconcileTokens(mapping)`);
+  - `admin/src/editor/stage/useStageEditor.ts` (`adoptPaletteResult`, `applyReplacements`, `resetPaletteBaseline`);
   - `admin/src/pages/content/[type]/[uuid]/design/[locale].vue`, `admin/src/pages/content/[type]/[uuid]/index.vue`;
   - `admin/src/pages/regions/useRegionHost.ts`, `admin/src/pages/layouts/useLayoutHost.ts`;
   - `admin/src/pages/settings/style-classes/components/StyleClassEditor.vue`, the saved-section save path;
   - `admin/src/queries/drafts.ts`, `admin/src/queries/styleSchema.ts`;
   - `admin/e2e/helpers.ts`.
 - Test:
-  - `tests/Integration/Content/Palette/DraftRestoreTest.php`;
-  - `admin/src/__tests__/palette-rewrites.spec.ts`, `admin/src/__tests__/palette-history.spec.ts`, `admin/src/__tests__/restore-version.spec.ts`;
+  - `tests/Integration/Content/Palette/DraftRestoreTest.php`, `tests/Integration/Content/Palette/PaletteReplacementsTest.php`;
+  - `admin/src/__tests__/palette-rewrites.spec.ts`, `admin/src/__tests__/palette-history.spec.ts`, `admin/src/__tests__/palette-ledger.spec.ts`, `admin/src/__tests__/restore-version.spec.ts`;
   - `admin/e2e/tests/palette-restore-history.spec.ts`, `admin/e2e/tests/palette-normalized-save.spec.ts`.
 
 **Interfaces:**
-- Consumes: Task 7's id-keyed locations, Task 9's `Normalized::$rewrites`, `VersionRepository::findVersionByUuid()`, and the projector `PublishService::rollback` uses.
+- Consumes: Task 7's id-keyed locations, Task 9's `Normalized::$rewrites`, `VersionRepository::findVersionByUuid()`, the projector `PublishService::rollback` uses, and `PaletteState::bump()` (returns the new generation).
 - Produces:
-  - `PaletteOutcome { list<array{location,from,to}> $rewrites; array<string,string> $mappings }`. `mappings` holds every running replacement's token map from the snapshot the write held: `color.brand-N` → `to`, and `color.brand-N-contrast` → `contrast_to` when it is not null.
-  - Every fenced save response carries `palette_rewrites` and `palette_mappings`.
-  - `POST /v1/admin/entries/{uuid}/draft/{locale}/restore` with body `{version_uuid, lock_version}` → 200 `{draft: {fields, lock_version}, palette_rewrites, palette_mappings}`. Errors: 404, 409 `STALE_DRAFT`, 422 `palette`.
-  - The style schema slot gains `retired: null | {to, contrast_to}`. It is set when the slot is unset and its most recent job is `completed`, i.e. the slot was cleared by a Replace.
-  - Admin:
-    - `applyPaletteRewrites(doc, rewrites): { doc; applied }`, which resolves by block id;
-    - `mapPaletteTokens(value: unknown, mapping: Record<string,string>): unknown`, a deep map over `{type:'token', value}` nodes;
-    - `history.reconcileTokens(mapping)`;
-    - `editor.adoptPaletteResult(submittedSequence, outcome)`.
+  - **`PaletteOutcome { list<array{location,from,to}> $rewrites; int $generation }`.** `generation` is the palette generation the write held.
+  - **A replacement record:**
+    ```
+    {id: string, slot: 1|2|3, map: {"color.brand-N": to, "color.brand-N-contrast"?: contrast_to}, completed_generation: int}
+    ```
+    Only `completed` jobs are records. `map` omits the contrast key when `contrast_to` is null.
+  - **`PaletteReplacements::since(int $generation): list<record>`:** completed records whose `completed_generation > $generation`, ordered by `completed_generation` ascending.
+  - **`palette_generation: int`:** on every editor **load** response (draft GET, region, layout, style class, saved section) and every fenced **save** and **restore** response.
+  - **Fenced save and restore responses** also carry `palette_rewrites` and `palette_replacements` (`since(<the request's loaded generation>)`). The client sends its baseline generation as `palette_generation` in save bodies; when absent, the server sends `[]`.
+  - **The style schema `palette`** gains `generation` and `replacements` (completed records of the last 90 days, ordered). The slot field `retired` from the previous revision is dropped.
+  - **Admin:**
+    - `applyPaletteRewrites(doc, rewrites)`;
+    - `mapPaletteTokens(value, mapping)`;
+    - `history.adopt(next)`, `history.reconcileTokens(mapping)`;
+    - `createReplacementLedger(baseline: number): { baseline: number; pending(records): Record[]; markApplied(records): void; reset(generation): void }`;
+    - `editor.adoptPaletteResult(outcome)`, `editor.applyReplacements(records)`, `editor.resetPaletteBaseline(generation)`.
 
-**1. Restore provenance is a persisted basis (review point 4).**
-- **Writing it:** the restore endpoint computes the projected version's colour tokens on the server (`basisOf(KIND_ENTRY, $schema, $projected)`, kept only where the token is a brand token). It stores them as `entry_drafts.restore_basis` in the same conditional update that writes the restored fields.
-- **Using it:** every later draft save merges that stored basis into its trusted basis.
-- **Clearing it:** a publish, a discard, or another restore (which replaces it).
+**1. Restore provenance is a persisted basis.**
+- **Writing it:** the restore endpoint computes the projected version's brand-colour tokens on the server (`basisOf(KIND_ENTRY, $schema, $projected)`, kept only where a token is a brand token). It stores them as `entry_drafts.restore_basis` in the same conditional update that writes the restored fields.
+- **Using it:** every later draft save merges that basis into its trusted basis.
+- **Clearing it:** a publish, a discard, or another restore.
 
-The basis is never reloaded from `entry_versions`, so `VersionPruner` (which protects only publication references) cannot remove it. The client never sends or sees it.
+Because the basis is persisted, version retention pruning cannot remove it. The client never sends or sees it. Its locations are id-keyed, so restored colours stay trusted on their own blocks wherever they move, and a new block gains nothing.
 
-Its locations are id-keyed (Task 7), so the restored colours stay trusted on their own blocks wherever they move. A new block, with a new id, gains nothing from it.
+**2. Adopting a save's result never marks newer edits saved, and never cancels an in-flight edit.**
+- **Saved position:** a save already marks only the submitted sequence as saved (`design/[locale].vue:394`), and that stays.
+- **Why not `rebase()`:** `history.rebase()` calls `cancel()` when a transaction is active (`history.ts:225`). `cancel()` inverts the active ops and drops them, and text edits stay active through the 500 ms debounce. A save response arriving then would leave the text on screen but erase its history entry, so the dirty check would read clean.
+- **`history.adopt(next)`** replaces the history's document **underneath** the active transaction:
+  - the active transaction's ops are kept, uncommitted, and still coalesce;
+  - entries and sequences are untouched;
+  - `next` is the current fields snapshot, which already contains the active edits, with the accepted rewrites applied by block id.
 
-**2. Adopting a save's result never marks newer edits as saved (review point 1).**
-- **What stays as it was:** the dirty state is the history's sequence comparison, and a save already marks only the **submitted** sequence as saved (`saveDraftOnly`: `editor.markSaved(sequence)`, `design/[locale].vue:394`). That stays.
-- **Reconciling `adoptPaletteResult(submitted, outcome)`:**
-  - **(a)** applies `outcome.mappings` to every recorded operation payload (`history.reconcileTokens`, below). That includes the entries up to the submitted sequence, so the history's view of the saved state becomes "submitted document plus accepted rewrites".
-  - **(b)** applies `outcome.rewrites` to the **current** document by block id (`applyPaletteRewrites`), only where the value still equals `from`.
-  - **(c)** hands the reconciled current document to the history with `rebase()` (the existing `pendingRebase` path, `useStageEditor.ts:1270`), which records nothing.
-  - **Neither** `markSaved` nor the sequences move. Edits made while the request ran keep `currentSequence > savedSequence`, so the editor stays dirty and the next save sends them, already carrying the adopted colours.
-- **The stage:** it receives the reconciled document on the next working-copy apply.
+  A rewrite whose location the active transaction changed is skipped by `applyPaletteRewrites`'s `from` check.
+- **`adoptPaletteResult(outcome)`:**
+  1. applies `outcome.palette_rewrites` to the current document through `applyPaletteRewrites` (block id plus relative path; only where the value still equals `from`);
+  2. hands the result to `history.adopt()` through a `pendingAdopt` flag, mirroring `pendingRebase`, so the fields watcher records nothing;
+  3. then calls `applyReplacements(outcome.palette_replacements)` (section 3).
 
-**3. Locations are stable block identity (review point 2).** Rewrites, refusals and the basis use Task 7's `<blockId>:<relative path>`. `applyPaletteRewrites` finds the block by id anywhere in the document, then follows the relative path. A block that was deleted, or that no longer holds `from` there, is skipped. A different block taking the deleted one's index is never touched.
+  Edits made during the request keep `currentSequence > savedSequence`. The editor stays dirty, and the next save carries them.
 
-**4. History is reconciled with the palette (review point 3).** Redo replays recorded payloads (`history.ts:206`), so stale colours must not survive in them.
+**3. History is reconciled by ordered, identified replacement records.**
 
-`history.reconcileTokens(mapping)` deep-maps every `{type:'token', value}` node inside every entry's operations, and inside the active transaction's: `SetSetting` / `SetField` / `SetAdvanced` / `SetPageSettings` from and to values, and the whole blocks carried by `InsertBlock` / `InsertBlocks` / `RemoveBlock` / `DuplicateBlock`. It recomputes each entry's `bytes`. A mapping applies palette-wide because a replacement rewrites the slot everywhere.
+**Why not bare token maps.** A token map is not enough:
+- **Chains:** Brand 1 → Brand 2 then Brand 2 → Accent. A one-pass map turns Brand 1 into the cleared Brand 2, and a later refresh changes it again, so it is not idempotent.
+- **Slot reuse:** Brand 1 replaced, reconfigured, then replaced again. A map can't tell the two uses apart.
+- **Stale responses:** a response's map can arrive after its job was cancelled and a newer one started.
+- **Restores:** a map would overwrite a colour deliberately restored after the replacement finished.
 
-Mappings reach the editor two ways:
-- **while a replacement runs:** in every save response (`palette_mappings`);
-- **after it completes:** from the style schema, whose `retired` slots the editor applies on every schema load or refresh. That covers history recorded before the replacement and never saved during it.
-
-A cleared slot with no completed replacement has no mapping. Its references stay as they are, governed by the trusted basis like any stored value.
+**The ledger** (`createReplacementLedger(baseline)`) gives each editor session one baseline generation:
+- **Its starting value:** the `palette_generation` of the response that **loaded** the document it holds.
+- **The rule:** a record applies to an editor **only if** `record.completed_generation > ledger.baseline` and the record isn't yet applied. Records apply **one at a time, in `completed_generation` order**. Each one deep-maps its `map` through every history entry, the active transaction (`history.reconcileTokens`) and the current document (through `adopt`), and is then marked applied. Applying the same record set again, in any order or any number of times, changes nothing.
+- **Why it is correct:** a record with `completed_generation > baseline` completed after the editor's document was read, so everything the editor holds predates it and the server rewrote the same tokens in stored documents. A record at or below the baseline completed before the read. The loaded document is already that record's post-replacement truth, and anything in it (including restored unavailable colours) must not be mapped.
+- **Restores move the baseline.** A restore response carries `palette_generation` and `palette_replacements`. The editor applies those records to its **existing** history and document **first**, then sets the baseline to the response's generation, **then** applies the restore operations. The restored content was produced after every record the server knew about, so it is never mapped through any of them. A later schema refresh brings only records completed after that generation. If slot 1 is reconfigured and replaced again, that is a record completed after the restore, and the server rewrites stored documents the same way, so mapping matches the server.
+- **A full reload** (conflict reload, page reload, new stage) resets the ledger to the reloaded document's generation (`resetPaletteBaseline`).
+- **Ordering and identity:**
+  - **Chains:** a chain's second job can't start until the first ends, because its source slot is reserved. So completion order is application order. Brand 1 → Brand 2 → Accent applies as brand-1 → brand-2, then brand-2 → accent, and ends at Accent.
+  - **Stale responses:** a delayed response's records are a subset or superset of known ones by id, so it can only add records not yet applied, in order.
+  - **Cancelled and running jobs** are not records and never touch history. A running job's saves are mapped by the server's normaliser, and a cancelled job leaves the slot configured.
 
 - [ ] **Step 1: Write the failing server tests**
+
+`tests/Integration/Content/Palette/DraftRestoreTest.php`:
 
 ```php
 public function testRestoringBringsBackAnUnavailableReferenceAndSavingItAgainKeepsIt(): void
@@ -3882,7 +3917,7 @@ public function testRestoringBringsBackAnUnavailableReferenceAndSavingItAgainKee
     $this->replaceAndClear(1, 'color.accent');
     $res = $this->restore($uuid, 'en', $old, $this->lockOf($uuid));
     self::assertSame(200, $res->getStatusCode(), (string) $res->getContent());
-    self::assertSame('color.brand-1', $this->draftToken($uuid), 'restored although the draft held Accent there');
+    self::assertSame('color.brand-1', $this->draftToken($uuid));
     $edited = $this->draftFields($uuid);
     $edited['title'] = 'Changed';
     $this->repo()->saveDraft($uuid, 'en', $edited, 1, $this->lockOf($uuid), 'user00000001');
@@ -3898,8 +3933,8 @@ public function testRestoreThenUndoThenRedoIsAccepted(): void
     $before = $this->draftFields($uuid);
     $this->restore($uuid, 'en', $old, $this->lockOf($uuid));
     $restored = $this->draftFields($uuid);
-    $this->repo()->saveDraft($uuid, 'en', $before, 1, $this->lockOf($uuid), 'user00000001');   // undo
-    $this->repo()->saveDraft($uuid, 'en', $restored, 1, $this->lockOf($uuid), 'user00000001'); // redo
+    $this->repo()->saveDraft($uuid, 'en', $before, 1, $this->lockOf($uuid), 'user00000001');
+    $this->repo()->saveDraft($uuid, 'en', $restored, 1, $this->lockOf($uuid), 'user00000001');
     self::assertSame('color.brand-1', $this->draftToken($uuid));
 }
 
@@ -3912,17 +3947,17 @@ public function testRedoStillSavesAfterRetentionPrunedTheRestoredVersion(): void
     $before = $this->draftFields($uuid);
     $this->restore($uuid, 'en', $old, $this->lockOf($uuid));
     $restored = $this->draftFields($uuid);
-    $this->repo()->saveDraft($uuid, 'en', $before, 1, $this->lockOf($uuid), 'user00000001');   // undo
-    self::assertSame(1, $this->container()->get(VersionPruner::class)->deleteGuarded([$old]), 'retention removed it');
-    $this->repo()->saveDraft($uuid, 'en', $restored, 1, $this->lockOf($uuid), 'user00000001'); // redo
-    self::assertSame('color.brand-1', $this->draftToken($uuid), 'the persisted basis does not depend on the version row');
+    $this->repo()->saveDraft($uuid, 'en', $before, 1, $this->lockOf($uuid), 'user00000001');
+    self::assertSame(1, $this->container()->get(VersionPruner::class)->deleteGuarded([$old]));
+    $this->repo()->saveDraft($uuid, 'en', $restored, 1, $this->lockOf($uuid), 'user00000001');
+    self::assertSame('color.brand-1', $this->draftToken($uuid));
 }
 
 public function testAVersionPrunedBeforeTheRestoreReadsItIs404(): void
 {
     [$uuid] = $this->entry();
     $old = $this->publishWith($uuid, 'color.accent');
-    $this->publishWith($uuid, 'color.accent'); // $old is no longer pinned
+    $this->publishWith($uuid, 'color.accent');
     $this->container()->get(VersionPruner::class)->deleteGuarded([$old]);
     self::assertSame(404, $this->restore($uuid, 'en', $old, $this->lockOf($uuid))->getStatusCode());
 }
@@ -3933,10 +3968,8 @@ public function testAVersionPrunedAfterTheRestoreReadItStillRestoresWithItsBasis
     $this->configure(1, 'Gold', '#8a6a2a');
     $old = $this->publishWith($uuid, 'color.brand-1');
     $this->replaceAndClear(1, 'color.accent');
-    // the pruner deletes the version between the restore's read and its write
     $this->state()->afterNextSnapshot(fn () => $this->container()->get(VersionPruner::class)->deleteGuarded([$old]));
     self::assertSame(200, $this->restore($uuid, 'en', $old, $this->lockOf($uuid))->getStatusCode());
-    self::assertSame('color.brand-1', $this->draftToken($uuid));
     $this->repo()->saveDraft($uuid, 'en', $this->draftFields($uuid), 1, $this->lockOf($uuid), 'user00000001');
     self::assertSame('color.brand-1', $this->draftToken($uuid));
 }
@@ -3948,11 +3981,9 @@ public function testTheBasisFollowsTheRestoredBlockButNotANewOne(): void
     $old = $this->publishWithBlocks($uuid, [$this->heading('color.brand-1', 'head0000000a'), $this->heading('color.accent', 'head0000000b')]);
     $this->replaceAndClear(1, 'color.accent');
     $this->restore($uuid, 'en', $old, $this->lockOf($uuid));
-    // moved: the restored block keeps its colour wherever it goes
     $moved = ['body' => [$this->heading('color.accent', 'head0000000b'), $this->heading('color.brand-1', 'head0000000a')]];
     $this->repo()->saveDraft($uuid, 'en', $moved, 1, $this->lockOf($uuid), 'user00000001');
     self::assertSame('color.brand-1', $this->blockToken($uuid, 'head0000000a'));
-    // a NEW block naming the cleared colour is refused
     $added = ['body' => [...$moved['body'], $this->heading('color.brand-1', 'head0000000c')]];
     $this->expectException(PaletteRefusal::class);
     $this->repo()->saveDraft($uuid, 'en', $added, 1, $this->lockOf($uuid), 'user00000001');
@@ -3964,11 +3995,10 @@ public function testAPlainSaveCannotSmuggleAHistoricalReference(): void
     $this->configure(1, 'Gold', '#8a6a2a');
     $this->publishWith($uuid, 'color.brand-1');
     $this->replaceAndClear(1, 'color.accent');
-    $res = $this->putDraft($uuid, 'en', ['body' => [$this->heading('color.brand-1')]], $this->lockOf($uuid));
-    self::assertSame(422, $res->getStatusCode());
+    self::assertSame(422, $this->putDraft($uuid, 'en', ['body' => [$this->heading('color.brand-1')]], $this->lockOf($uuid))->getStatusCode());
 }
 
-public function testPublishAndDiscardForgetTheBasis(): void
+public function testPublishForgetsTheBasis(): void
 {
     [$uuid] = $this->entry();
     $this->configure(1, 'Gold', '#8a6a2a');
@@ -3987,7 +4017,21 @@ public function testAnotherEntrysVersionIs404(): void
     self::assertSame(404, $this->restore($a, 'en', $this->publishWith($b, 'color.accent'), $this->lockOf($a))->getStatusCode());
 }
 
-public function testRestoringDuringAReplacementMapsAndReportsRewritesAndMappings(): void
+public function testRestoreAndSaveResponsesCarryTheGenerationRewritesAndRecordsSinceTheClientsBaseline(): void
+{
+    [$uuid] = $this->entry();
+    $this->configure(1, 'Gold', '#8a6a2a');
+    $old = $this->publishWith($uuid, 'color.brand-1');
+    $loaded = self::data($this->getDraft($uuid, 'en'))['palette_generation'];
+    $this->replaceAndClear(1, 'color.accent');                    // completes a job after the client loaded
+    $data = self::data($this->restore($uuid, 'en', $old, $this->lockOf($uuid), paletteGeneration: $loaded));
+    self::assertGreaterThan($loaded, $data['palette_generation']);
+    self::assertCount(1, $data['palette_replacements']);
+    self::assertSame(['color.brand-1' => 'color.accent', 'color.brand-1-contrast' => 'color.accent-contrast'], $data['palette_replacements'][0]['map']);
+    self::assertSame([], self::data($this->putDraft($uuid, 'en', $this->draftFields($uuid), $this->lockOf($uuid), paletteGeneration: $data['palette_generation']))['palette_replacements'], 'nothing newer than the baseline');
+}
+
+public function testRestoringDuringAReplacementMapsAndReportsTheRewrite(): void
 {
     [$uuid] = $this->entry();
     $this->configure(1, 'Gold', '#8a6a2a');
@@ -3996,7 +4040,7 @@ public function testRestoringDuringAReplacementMapsAndReportsRewritesAndMappings
     $data = self::data($this->restore($uuid, 'en', $old, $this->lockOf($uuid)));
     self::assertSame('color.accent', $this->draftToken($uuid));
     self::assertSame([['location' => 'head00000001:settings.style.colors.text', 'from' => 'color.brand-1', 'to' => 'color.accent']], $data['palette_rewrites']);
-    self::assertSame(['color.brand-1' => 'color.accent', 'color.brand-1-contrast' => 'color.accent-contrast'], $data['palette_mappings']);
+    self::assertSame([], $data['palette_replacements'], 'a running job is not a record');
 }
 
 public function testRestoringIsFencedAgainstAMutationAfterItsRead(): void
@@ -4008,24 +4052,60 @@ public function testRestoringIsFencedAgainstAMutationAfterItsRead(): void
     $this->restore($uuid, 'en', $old, $this->lockOf($uuid));
     self::assertSame('color.accent', $this->draftToken($uuid));
 }
+```
 
-public function testTheStyleSchemaNamesACompletedReplacementAsRetired(): void
+`tests/Integration/Content/Palette/PaletteReplacementsTest.php`:
+
+```php
+public function testRecordsAreCompletedJobsInCompletionOrderWithSlotReuseKeptApart(): void
 {
     $this->configure(1, 'Gold', '#8a6a2a');
-    $this->replaceAndClear(1, 'color.accent'); // through a recorded, completed job (Task 14 makes this the real runner)
-    $slot = $this->schemaPalette()['slots']['brand-1'];
-    self::assertSame('unset', $slot['state']);
-    self::assertSame(['to' => 'color.accent', 'contrast_to' => 'color.accent-contrast'], $slot['retired']);
+    $this->configure(2, 'Rose', '#c98a8a');
+    $g0 = $this->state()->snapshot()->generation;
+    $this->replaceAndClear(1, 'color.brand-2');                   // record A: brand-1 → brand-2
+    $this->replaceAndClear(2, 'color.accent');                    // record B: brand-2 → accent
+    $this->configure(1, 'Ink', '#111111');                        // slot 1 reused
+    $this->replaceAndClear(1, 'color.surface', 'color.text');     // record C: brand-1 → surface
+    $cancelled = $this->startJob(1, 'color.accent', 'color.accent-contrast');
+    $records = $this->container()->get(PaletteReplacements::class)->since($g0);
+    self::assertSame(['color.brand-1' => 'color.brand-2', 'color.brand-1-contrast' => 'color.brand-2-contrast'], $records[0]['map']);
+    self::assertSame(['color.brand-2' => 'color.accent', 'color.brand-2-contrast' => 'color.accent-contrast'], $records[1]['map']);
+    self::assertSame(['color.brand-1' => 'color.surface', 'color.brand-1-contrast' => 'color.text'], $records[2]['map']);
+    self::assertCount(3, $records, 'a running job is not a record');
+    self::assertTrue($records[0]['completed_generation'] < $records[1]['completed_generation'] && $records[1]['completed_generation'] < $records[2]['completed_generation']);
+    self::assertSame([$records[2]], $this->container()->get(PaletteReplacements::class)->since($records[1]['completed_generation']));
+    $this->cancelJob($cancelled);
+    self::assertCount(3, $this->container()->get(PaletteReplacements::class)->since($g0), 'a cancelled job never becomes a record');
+}
+
+public function testAMappinglessContrastIsOmittedFromTheRecord(): void
+{
+    $this->configure(1, 'Gold', '#8a6a2a');
+    $this->replaceAndClear(1, 'color.surface', null);             // no contrast references, no mapping
+    $records = $this->container()->get(PaletteReplacements::class)->since(0);
+    self::assertSame(['color.brand-1' => 'color.surface'], $records[0]['map']);
 }
 ```
 
-Task 10's `testJobStartsWhileTheSaveIsPausedAfterNormalising` reads `$outcome->rewrites` once `saveDraft` returns a `PaletteOutcome`; update that assertion in this task.
+`replaceAndClear(int $slot, string $to, ?string $contrastTo = <pair>)` is a stand-in until Task 14:
+1. record the job (`PaletteJobRepository::start`);
+2. rewrite the draft and current publication through `PaletteFence::within`;
+3. clear the slot;
+4. `transition($id, 'completed')`, which records `completed_generation` from `bump()`.
 
-`replaceAndClear` is a stand-in until Task 14. It records a job via `PaletteJobRepository::start`, rewrites the draft and current publication through `PaletteFence::within`, clears the slot, and transitions the job to `completed`. Task 14 Step 7 re-runs this file against the real runner.
+Task 14 Step 7 re-runs both files against the real runner.
 
 - [ ] **Step 2: Write the failing admin unit specs**
 
-`admin/src/__tests__/palette-rewrites.spec.ts`:
+`admin/src/__tests__/palette-rewrites.spec.ts` checks:
+- a rewrite follows its block through a reorder of two same-coloured blocks;
+- a deleted block is skipped even when another takes its index;
+- an edit made during the request is kept;
+- nested blocks and token content fields;
+- page-level plain paths;
+- `mapPaletteTokens` maps only token nodes.
+
+The code is unchanged from the previous revision of this task:
 
 ```ts
 import { describe, expect, it } from 'vitest'
@@ -4038,15 +4118,12 @@ const colourOf = (doc: any, i: number) => doc.body[i].settings.style.colors.text
 
 describe('applyPaletteRewrites', () => {
   it('follows the block through a reorder of two blocks with the same colour', () => {
-    // submitted [a, b]; server rewrote only a (b was already Accent server-side? no: both) — rewrite a only
-    const reordered = { body: [heading('b', 'color.brand-1'), heading('a', 'color.brand-1')] }
-    const { doc } = applyPaletteRewrites(reordered, [rw('a')])
-    expect(colourOf(doc, 1)).toBe('color.accent') // a, now at index 1
-    expect(colourOf(doc, 0)).toBe('color.brand-1') // b untouched although it sits where a was
+    const { doc } = applyPaletteRewrites({ body: [heading('b', 'color.brand-1'), heading('a', 'color.brand-1')] }, [rw('a')])
+    expect(colourOf(doc, 1)).toBe('color.accent')
+    expect(colourOf(doc, 0)).toBe('color.brand-1')
   })
   it('skips a deleted block even when another block takes its index', () => {
-    const afterDelete = { body: [heading('b', 'color.brand-1')] } // a deleted during the request; b now index 0
-    const { doc, applied } = applyPaletteRewrites(afterDelete, [rw('a')])
+    const { doc, applied } = applyPaletteRewrites({ body: [heading('b', 'color.brand-1')] }, [rw('a')])
     expect(colourOf(doc, 0)).toBe('color.brand-1')
     expect(applied).toHaveLength(0)
   })
@@ -4071,67 +4148,122 @@ describe('mapPaletteTokens', () => {
     const out = mapPaletteTokens({ a: tok('color.brand-1'), b: [{ c: tok('color.brand-1-contrast') }], d: 'color.brand-1' }, { 'color.brand-1': 'color.accent', 'color.brand-1-contrast': 'color.accent-contrast' }) as any
     expect(out.a.value).toBe('color.accent')
     expect(out.b[0].c.value).toBe('color.accent-contrast')
-    expect(out.d).toBe('color.brand-1') // a plain string is not a token
+    expect(out.d).toBe('color.brand-1')
   })
 })
 ```
 
-`admin/src/__tests__/palette-history.spec.ts`, built on `createEditorHistory` the way `editor-history.spec.ts` builds it:
+`admin/src/__tests__/palette-ledger.spec.ts`:
 
 ```ts
-it('set Brand 1 → save normalises to Accent → replacement completes → undo → redo yields Accent', () => {
-  const h = historyOver({ fields: { body: [heading('a', 'color.text')] } })
-  h.record(setSetting('a', 'colors.text', tok('color.text'), tok('color.brand-1')))
-  const submitted = h.currentSequence()
-  h.markSaved(submitted)
-  h.reconcileTokens({ 'color.brand-1': 'color.accent', 'color.brand-1-contrast': 'color.accent-contrast' })
-  h.rebase(applyPaletteRewrites(h.document, [rw('a')]).doc)
-  h.undo()
-  expect(colourOf(h.document.fields, 0)).toBe('color.text')
-  h.redo()
-  expect(colourOf(h.document.fields, 0)).toBe('color.accent')
-})
+import { describe, expect, it } from 'vitest'
+import { createReplacementLedger } from '@/editor/paletteReplacements'
 
-it('reconciles whole blocks carried by insert, remove and duplicate operations', () => {
-  const h = historyOver({ fields: { body: [heading('a', 'color.text')] } })
-  h.record(insertBlock(1, heading('b', 'color.brand-1')))
-  h.record(removeBlock(1, heading('b', 'color.brand-1')))
-  h.reconcileTokens({ 'color.brand-1': 'color.accent' })
-  h.undo() // re-inserts b from RemoveBlock's payload
-  expect(colourOf(h.document.fields, 1)).toBe('color.accent')
-  h.undo() // removes b
-  h.redo() // re-inserts b from InsertBlock's payload
-  expect(colourOf(h.document.fields, 1)).toBe('color.accent')
-})
+const A = { id: 'jobA', slot: 1, map: { 'color.brand-1': 'color.brand-2' }, completed_generation: 5 }
+const B = { id: 'jobB', slot: 2, map: { 'color.brand-2': 'color.accent' }, completed_generation: 7 }
+const C = { id: 'jobC', slot: 1, map: { 'color.brand-1': 'color.surface' }, completed_generation: 9 } // slot 1 reused
 
-it('does not move the saved sequence: an edit made during the save stays dirty', () => {
-  const h = historyOver({ fields: { body: [heading('a', 'color.text', 'old')] } })
-  h.record(setSetting('a', 'colors.text', tok('color.text'), tok('color.brand-1')))
-  const submitted = h.currentSequence()
-  h.record(setField('a', 'text', 'old', 'new')) // during the request
-  h.markSaved(submitted)
-  h.reconcileTokens({ 'color.brand-1': 'color.accent' })
-  h.rebase(applyPaletteRewrites(h.document, [rw('a')]).doc)
-  expect(h.isDirty()).toBe(true)
-  expect(h.document.fields.body[0].data.text).toBe('new')
-  expect(colourOf(h.document.fields, 0)).toBe('color.accent')
+describe('replacement ledger', () => {
+  it('returns pending records newer than the baseline, in completion order, whatever order they arrive in', () => {
+    const l = createReplacementLedger(4)
+    expect(l.pending([B, A]).map((r) => r.id)).toEqual(['jobA', 'jobB'])
+  })
+  it('never returns a record twice', () => {
+    const l = createReplacementLedger(4)
+    l.markApplied(l.pending([A, B]))
+    expect(l.pending([A, B, C]).map((r) => r.id)).toEqual(['jobC'])
+    l.markApplied(l.pending([C]))
+    expect(l.pending([C, B, A])).toEqual([])
+  })
+  it('ignores records at or below the baseline (the loaded document already reflects them)', () => {
+    expect(createReplacementLedger(7).pending([A, B, C]).map((r) => r.id)).toEqual(['jobC'])
+  })
+  it('reset moves the baseline and forgets applied ids below it', () => {
+    const l = createReplacementLedger(4)
+    l.markApplied(l.pending([A]))
+    l.reset(7)
+    expect(l.pending([A, B, C]).map((r) => r.id)).toEqual(['jobC'])
+  })
 })
 ```
 
-`historyOver`, `setSetting`, `setField`, `insertBlock` and `removeBlock` build ops in the exact shapes of `admin/src/editor/ops/types.ts`; `editor-history.spec.ts` has the idioms. Use the history API's real names for the current sequence and dirty state, whatever `createEditorHistory` returns for them.
+`admin/src/__tests__/palette-history.spec.ts`, built on `createEditorHistory` as `editor-history.spec.ts` builds it:
+
+```ts
+it('a chained pair applied in order maps Brand 1 to Accent, and again changes nothing', () => {
+  const ed = editorOver({ fields: { body: [heading('a', 'color.text')] } }, { paletteGeneration: 4 })
+  ed.record(setSetting('a', 'colors.text', tok('color.text'), tok('color.brand-1')))
+  ed.applyReplacements([B, A])                       // delivered out of order
+  expect(colourOf(ed.document.fields, 0)).toBe('color.accent')
+  ed.applyReplacements([A, B])                       // a delayed duplicate delivery
+  expect(colourOf(ed.document.fields, 0)).toBe('color.accent')
+  ed.undo(); ed.redo()
+  expect(colourOf(ed.document.fields, 0)).toBe('color.accent')
+})
+
+it('a reused slot maps only what predates its second replacement', () => {
+  const ed = editorOver({ fields: { body: [heading('a', 'color.text')] } }, { paletteGeneration: 8 }) // A and B already in the loaded document
+  ed.record(setSetting('a', 'colors.text', tok('color.text'), tok('color.brand-1')))        // the NEW Brand 1 (Ink)
+  ed.applyReplacements([A, B, C])
+  expect(colourOf(ed.document.fields, 0)).toBe('color.surface')                           // C only, never A
+})
+
+it('a restore after completion is never mapped through records it postdates', () => {
+  const ed = editorOver({ fields: { body: [heading('a', 'color.text')] } }, { paletteGeneration: 4 })
+  // the restore response: record A completed at 5, the restore ran at generation 6
+  ed.restoreFromResponse({ fields: { body: [heading('a', 'color.brand-1')] }, palette_generation: 6, palette_replacements: [A] })
+  expect(colourOf(ed.document.fields, 0)).toBe('color.brand-1')
+  ed.applyReplacements([A])                          // a later schema refresh
+  expect(colourOf(ed.document.fields, 0)).toBe('color.brand-1')
+  ed.undo(); ed.redo()
+  expect(colourOf(ed.document.fields, 0)).toBe('color.brand-1')
+})
+
+it('reconciles whole blocks carried by insert, remove and duplicate operations', () => {
+  const ed = editorOver({ fields: { body: [heading('a', 'color.text')] } }, { paletteGeneration: 4 })
+  ed.record(insertBlock(1, heading('b', 'color.brand-1')))
+  ed.record(removeBlock(1, heading('b', 'color.brand-1')))
+  ed.applyReplacements([{ ...A, map: { 'color.brand-1': 'color.accent' } }])
+  ed.undo()
+  expect(colourOf(ed.document.fields, 1)).toBe('color.accent')
+  ed.undo(); ed.redo()
+  expect(colourOf(ed.document.fields, 1)).toBe('color.accent')
+})
+
+it('adopting a save result keeps an active, uncommitted text transaction and its undo record', () => {
+  const ed = editorOver({ fields: { body: [heading('a', 'color.text', 'old')] } }, { paletteGeneration: 4 })
+  ed.record(setSetting('a', 'colors.text', tok('color.text'), tok('color.brand-1')))
+  const submitted = ed.currentSequence()
+  ed.markSaved(submitted)
+  ed.beginTyping('a', 'text', 'old', 'new')          // records into the ACTIVE transaction; not committed
+  ed.adoptPaletteResult({ palette_rewrites: [rw('a')], palette_replacements: [] })
+  expect(ed.document.fields.body[0].data.text).toBe('new')
+  expect(colourOf(ed.document.fields, 0)).toBe('color.accent')
+  ed.commitTyping()                                  // the debounce fires
+  expect(ed.isDirty()).toBe(true)
+  ed.undo()
+  expect(ed.document.fields.body[0].data.text).toBe('old')
+  expect(colourOf(ed.document.fields, 0)).toBe('color.accent')
+})
+```
+
+`editorOver` wraps `createEditorHistory` plus the ledger, with the same adopt and apply logic `useStageEditor` uses. Extract that logic into a pure `createPaletteReconciler(history, ledger)` in `paletteReplacements.ts`, so the stage editor and these specs share one implementation. `beginTyping` / `commitTyping` record into, and commit, an active transaction the way the inspector's debounced text field does.
 
 `admin/src/__tests__/restore-version.spec.ts` checks the design page's restore:
-- it calls `restoreDraft(uuid, 'en', versionUuid, currentLock)`, never `PUT /draft`;
-- it applies one undoable `SetPageSettings` transaction built by `restoreOps(current, response.draft.fields)`, marked persisted;
-- it adopts the returned `lock_version` without queuing an autosave;
-- undo then queues an ordinary save of the pre-restore fields, and redo queues one of the restored fields, neither carrying any version id or basis.
+- it calls `restoreDraft(uuid, 'en', versionUuid, currentLock, paletteGeneration)`;
+- it applies the response's records to existing history first;
+- it moves the ledger baseline to the response's generation;
+- it applies one undoable `SetPageSettings` transaction built by `restoreOps`, marked persisted;
+- undo and redo send ordinary saves only.
 
 - [ ] **Step 3: Write the failing browser proofs**
 
 `admin/e2e/helpers.ts`:
-- `World` gains `restore?: { fields; lock_version }` (answering `POST …/draft/{locale}/restore`, recorded as `recorded.restores`);
-- it gains `saveResponses?: Array<{ palette_rewrites?: PaletteRewrite[]; palette_mappings?: Record<string,string> }>`, consumed one per `PUT` draft response, plus `saveDelayMs?: number`;
-- it gains `schemaPalette?` (merged into the style-schema fixture's `palette`), and a `reloadDraftFrom: 'last-save'` mode in which `GET …/draft` returns the last recorded save's fields.
+- `World` gains `restore?: { fields; lock_version; palette_generation; palette_replacements }`, answering `POST …/draft/{locale}/restore` and recorded as `recorded.restores`;
+- it gains `saveResponses?: Array<{ palette_rewrites?; palette_replacements?; palette_generation? }>` and `saveDelayMs?`;
+- it gains `schemaPalette?` (merged into the schema fixture's `palette`, including `generation` and `replacements`);
+- it gains `reloadDraftFrom: 'last-save'`;
+- the draft GET returns `palette_generation` (default 1).
 
 `admin/e2e/tests/palette-normalized-save.spec.ts`:
 
@@ -4140,160 +4272,147 @@ import { test, expect } from '@playwright/test'
 import { hooks, openDesignPage } from '../helpers'
 
 const rewrite = { location: 'ctabutn0001:settings.style.colors.text', from: 'color.brand-1', to: 'color.accent' }
-const mapping = { 'color.brand-1': 'color.accent', 'color.brand-1-contrast': 'color.accent-contrast' }
+const record = { id: 'jobA', slot: 1, map: { 'color.brand-1': 'color.accent', 'color.brand-1-contrast': 'color.accent-contrast' }, completed_generation: 3 }
 
-test('an unrelated text edit made during a normalised save stays dirty, is saved next, and survives a reload', async ({ page }) => {
-  const recorded = await openDesignPage(page, { saveResponses: [{ palette_rewrites: [rewrite], palette_mappings: mapping }, {}], saveDelayMs: 400, reloadDraftFrom: 'last-save' })
+test('a save response arriving while a text edit is still in its debounce keeps that edit, its undo and its dirty state', async ({ page }) => {
+  const recorded = await openDesignPage(page, { saveResponses: [{ palette_rewrites: [rewrite], palette_generation: 2 }, {}], saveDelayMs: 300, reloadDraftFrom: 'last-save' })
   await hooks(page).setStyleToken('ctabutn0001', 'colors.text', 'color.brand-1')
-  const first = hooks(page).saveNow()
-  await hooks(page).setFieldText('ctabutn0001', 'label', 'Order now')        // during the request
-  await first
-  expect(await hooks(page).blockToken('ctabutn0001')).toBe('color.accent')   // adopted
-  expect(await hooks(page).fieldText('ctabutn0001', 'label')).toBe('Order now') // kept
-  expect(await hooks(page).isDirty()).toBe(true)                               // not marked saved
+  const saving = hooks(page).saveNow()
+  await hooks(page).typeInInspector('ctabutn0001', 'label', 'Order now')     // the text transaction stays ACTIVE (500 ms debounce)
+  await saving                                                                // the response lands inside the debounce
+  expect(await hooks(page).hasActiveTransaction()).toBe(true)
+  expect(await hooks(page).blockToken('ctabutn0001')).toBe('color.accent')
+  await expect.poll(() => hooks(page).hasActiveTransaction()).toBe(false)    // the debounce commits it
+  expect(await hooks(page).isDirty()).toBe(true)
+  await page.keyboard.press('ControlOrMeta+z')
+  expect(await hooks(page).fieldText('ctabutn0001', 'label')).not.toBe('Order now') // its undo record exists
+  await page.keyboard.press('ControlOrMeta+Shift+z')
   await hooks(page).saveNow()
   const second = JSON.stringify(recorded.saves[1].fields)
   expect(second).toContain('Order now')
   expect(second).toContain('color.accent')
-  expect(second).not.toContain('color.brand-1')
   await page.reload()
-  await expect.poll(() => hooks(page).blockToken('ctabutn0001')).toBe('color.accent')
-  expect(await hooks(page).fieldText('ctabutn0001', 'label')).toBe('Order now')
+  await expect.poll(() => hooks(page).fieldText('ctabutn0001', 'label')).toBe('Order now')
+  expect(await hooks(page).blockToken('ctabutn0001')).toBe('color.accent')
+})
+
+test('a rewrite never lands on a different block after a reorder during the save', async ({ page }) => {
+  await openDesignPage(page, { saveResponses: [{ palette_rewrites: [rewrite] }], saveDelayMs: 300 })
+  await hooks(page).setStyleToken('ctabutn0001', 'colors.text', 'color.brand-1')
+  await hooks(page).setStyleToken('ctabutn0002', 'colors.text', 'color.brand-1')
+  const saving = hooks(page).saveNow()
+  await hooks(page).moveBlock('ctabutn0002', 'before', 'ctabutn0001')
+  await saving
+  expect(await hooks(page).blockToken('ctabutn0001')).toBe('color.accent')
+  expect(await hooks(page).blockToken('ctabutn0002')).toBe('color.brand-1')  // only the named block was rewritten
 })
 
 test('after the replacement completes, undo then redo replays Accent, not Brand 1', async ({ page }) => {
-  const recorded = await openDesignPage(page, { saveResponses: [{ palette_rewrites: [rewrite], palette_mappings: mapping }, {}, {}] })
+  const recorded = await openDesignPage(page, { saveResponses: [{ palette_rewrites: [rewrite], palette_generation: 2 }, {}] })
   await hooks(page).setStyleToken('ctabutn0001', 'colors.text', 'color.brand-1')
   await hooks(page).saveNow()
-  await hooks(page).setSchemaPalette({ 'brand-1': { state: 'unset', retired: { to: 'color.accent', contrast_to: 'color.accent-contrast' } } }) // the job finished
+  await hooks(page).setSchemaPalette({ generation: 3, replacements: [record] })   // the job finished
   await page.keyboard.press('ControlOrMeta+z')
   await page.keyboard.press('ControlOrMeta+Shift+z')
   expect(await hooks(page).blockToken('ctabutn0001')).toBe('color.accent')
   await hooks(page).saveNow()
   expect(JSON.stringify(recorded.saves.at(-1)!.fields)).not.toContain('color.brand-1')
 })
+```
 
-test('a rewrite never lands on a different block after a reorder during the save', async ({ page }) => {
-  await openDesignPage(page, { saveResponses: [{ palette_rewrites: [rewrite], palette_mappings: mapping }], saveDelayMs: 400 })
-  await hooks(page).setStyleToken('ctabutn0001', 'colors.text', 'color.brand-1')
-  await hooks(page).setStyleToken('ctabutn0002', 'colors.text', 'color.brand-1')
-  const saving = hooks(page).saveNow()
-  await hooks(page).moveBlock('ctabutn0002', 'before', 'ctabutn0001')          // swap during the request
-  await saving
-  expect(await hooks(page).blockToken('ctabutn0001')).toBe('color.accent')
-  expect(await hooks(page).blockToken('ctabutn0002')).toBe('color.accent')     // reconciled by the mapping, not the index
+`admin/e2e/tests/palette-restore-history.spec.ts`:
+
+```ts
+test('complete replacement → restore → refresh schema → undo → redo → save keeps the restored unavailable colour', async ({ page }) => {
+  const restored = fixtureWithBrandOne()                                         // the CTA button's colour is Brand 1
+  const recorded = await openDesignPage(page, {
+    schemaPalette: { generation: 3, replacements: [record] },                    // the replacement already completed
+    restore: { fields: restored, lock_version: 3, palette_generation: 4, palette_replacements: [record] },
+    saveResponses: [{}, {}],
+  })
+  await page.locator('[data-test="versions-open"]').click()
+  await page.locator('[data-test="version-restore"]').first().click()
+  await expect.poll(() => hooks(page).blockToken('ctabutn0001')).toBe('color.brand-1')
+  await hooks(page).refreshSchema()                                              // brings the completed record again
+  expect(await hooks(page).blockToken('ctabutn0001')).toBe('color.brand-1')     // not mapped to Accent
+  await page.keyboard.press('ControlOrMeta+z')
+  await page.keyboard.press('ControlOrMeta+Shift+z')
+  expect(await hooks(page).blockToken('ctabutn0001')).toBe('color.brand-1')
+  await hooks(page).saveNow()
+  const saved = JSON.stringify(recorded.saves.at(-1)!.fields)
+  expect(saved).toContain('color.brand-1')
+  expect(saved).not.toContain('"version')                                         // still an ordinary save
+})
+
+test('restore → undo → redo sends the restore once, then ordinary saves', async ({ page }) => {
+  const restored = fixtureWithBrandOne()
+  const recorded = await openDesignPage(page, { restore: { fields: restored, lock_version: 3, palette_generation: 1, palette_replacements: [] } })
+  await page.locator('[data-test="versions-open"]').click()
+  await page.locator('[data-test="version-restore"]').first().click()
+  await expect.poll(() => recorded.restores.length).toBe(1)
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect.poll(() => recorded.saves.length).toBe(1)
+  await page.keyboard.press('ControlOrMeta+Shift+z')
+  await expect.poll(() => recorded.saves.length).toBe(2)
+  expect(recorded.saves[1].fields).toEqual(restored)
 })
 ```
 
-`admin/e2e/tests/palette-restore-history.spec.ts` is the restore → undo → redo proof from the previous revision, unchanged (fixture built from `api/draft.json` with the CTA button's colour set to Brand 1, using `fixturePath()` from `helpers.ts`):
-- the restore is sent once;
-- undo and redo each send one ordinary save with no version id;
-- redo's fields equal the restored fields.
+`fixtureWithBrandOne()` builds from `api/draft.json` through `fixturePath()`, as in the previous revision.
 
-Add these E2E hooks beside `applies()`, present only in an E2E build: `setStyleToken`, `setFieldText`, `fieldText`, `blockToken`, `moveBlock`, `saveNow`, `isDirty`, `setSchemaPalette`, `historyLength`. Use block ids that exist in the composition fixture: read `api/draft.json` and choose two button or heading ids. If the fixture has only one CTA button, add a second to the fixture builder (`scripts/build-builder-proof-fixtures`) in this task.
+Add these E2E hooks beside `applies()`, present only in an E2E build: `setStyleToken`, `typeInInspector` (types through the real inspector field, so its debounce applies), `hasActiveTransaction`, `fieldText`, `blockToken`, `moveBlock`, `saveNow`, `isDirty`, `setSchemaPalette`, `refreshSchema`. The fixture needs two CTA buttons (`ctabutn0001`, `ctabutn0002`); add the second in `scripts/build-builder-proof-fixtures` if it's missing.
 
 - [ ] **Step 4: Run them all to see them fail**
 
-Run: `vendor/bin/phpunit tests/Integration/Content/Palette/DraftRestoreTest.php && (cd admin && pnpm vitest run src/__tests__/palette-rewrites.spec.ts src/__tests__/palette-history.spec.ts src/__tests__/restore-version.spec.ts)`
+Run: `vendor/bin/phpunit tests/Integration/Content/Palette/DraftRestoreTest.php tests/Integration/Content/Palette/PaletteReplacementsTest.php && (cd admin && pnpm vitest run src/__tests__/palette-rewrites.spec.ts src/__tests__/palette-ledger.spec.ts src/__tests__/palette-history.spec.ts src/__tests__/restore-version.spec.ts)`
 Run: `CACHE_DRIVER=array scripts/build-builder-proof-fixtures && cd admin/e2e && npx playwright test tests/palette-restore-history.spec.ts tests/palette-normalized-save.spec.ts`
 Expected: FAIL.
 
 - [ ] **Step 5: Implement the server side**
 
-- **Migration 044:** a nullable JSON `restore_basis` on `entry_drafts`. Use the alter-table API a recent add-column migration uses (`039_FieldLabelsOnSavedSections.php`).
-- **`PaletteNormalizer`:**
-  - `mappingsOf(PaletteSnapshot $s): array<string,string>` returns, for each active job, `color.brand-{slot}` → `to`, plus `color.brand-{slot}-contrast` → `contrastTo` when it is not null;
-  - `mergeBasis(array ...$bases)` unions the location → token lists.
-- **`PaletteFence::write`:** the write closure's second argument is the held (or read) snapshot. Callers return `new PaletteOutcome($normalized->rewrites, $normalizer->mappingsOf($held))` alongside their own result.
+- **Migrations:**
+  - 044 adds the nullable JSON `restore_basis` on `entry_drafts`;
+  - 045 adds the nullable bigint `completed_generation` on `palette_jobs`, with an index.
+
+  Use the alter-table API of `039_FieldLabelsOnSavedSections.php`.
+- **`PaletteJobRepository::transition($id, 'completed')`:** also writes `completed_generation`, taken from the `bump()` the completing transaction made. The runner's completion and the `replaceAndClear` stand-in both call `bump()` before `transition`, so pass that value: `transition(string $id, string $to, ?int $generation = null)`.
+- **`PaletteReplacements::since(int $g)`:** reads `palette_jobs WHERE status = 'completed' AND completed_generation > :g ORDER BY completed_generation`. It maps each row to the record shape, and `map` omits the contrast key when `contrast_to_token` is null. `recent(int $days = 90)` feeds the style schema.
+- **`PaletteNormalizer::mergeBasis(array ...$bases)`:** unions the location → token lists.
 - **`EntryRepository::saveDraft(..., array $extraBasis = [], ?array $recordRestoreBasis = null): PaletteOutcome`:**
   - the basis is `mergeBasis(basisOf(KIND_ENTRY, $schema, $currentDraft), $this->restoreBasis($uuid, $locale), $extraBasis)`;
-  - the CAS update writes `restore_basis = json_encode($recordRestoreBasis)` when that is given, and leaves the column alone otherwise.
-- **`EntryRepository::restoreBasis()`:** reads and decodes the column, returning `[]` when it is null or malformed.
+  - the CAS writes `restore_basis` when `$recordRestoreBasis` is given;
+  - it returns the rewrites and the held generation.
 - **`DraftRestore::restore`:**
-  1. Load and verify the version: it must belong to this entry and locale, else 404.
-  2. Project it and build the restored fields, keeping the draft's `_schema`.
-  3. Validate them.
-  4. Compute `$basis = array_filter(basisOf(KIND_ENTRY, $schema, $projected), fn ($tokens) => any is a brand token)`.
-  5. Call `saveDraft(..., extraBasis: $basis, recordRestoreBasis: $basis)`.
-  6. Return the fields, `lock_version + 1`, and the outcome's rewrites and mappings.
-- **`PublishService::publishInternal`:** inside its transaction, after `pin`, runs `UPDATE entry_drafts SET restore_basis = NULL WHERE entry_uuid AND locale`.
-- **`EnginePaletteStatusReader`:** for each unset slot, `retired` is the most recent `completed` job for that slot, as `{to, contrast_to}`, when no later `configured` change exists. Compare the job's `finished_at` with the slot's setting `updated_at`; a slot configured after the job is configured, so `retired` is null. `StyleSchemaController` passes it through.
-- **Controllers:** add `palette_rewrites` and `palette_mappings` to the draft-save, restore, region, layout, saved-section and style-class responses (and their response DTOs).
-- **Task 6's exact-array assertion** on `slots['brand-1']` gains `'retired' => null`.
+  1. load and verify the version (404);
+  2. project it;
+  3. build the fields, keeping the draft's `_schema`;
+  4. validate them;
+  5. compute the brand-only basis;
+  6. call `saveDraft(..., extraBasis: $basis, recordRestoreBasis: $basis)`.
+- **`PublishService::publishInternal`:** clears `restore_basis` after `pin`, inside its transaction.
+- **Controllers:**
+  - Load responses add `palette_generation` (`PaletteState::snapshot()->generation`).
+  - Save and restore responses add `palette_generation` (from the outcome), `palette_rewrites`, and `palette_replacements = PaletteReplacements::since($input->palette_generation)`, or `[]` when the body has none.
+  - Save DTOs gain `?int $palette_generation`.
+- **`StyleSchemaController`:** `palette.generation` and `palette.replacements` (`recent()`). Update Task 6's exact-array assertion; the slot carries no `retired`.
 
 - [ ] **Step 6: Implement the admin side**
 
-`admin/src/editor/paletteRewrites.ts`:
+`admin/src/editor/paletteRewrites.ts`: `applyPaletteRewrites` (block id plus relative path, `from` check) and `mapPaletteTokens` (deep token map), exactly as in the previous revision of this task.
 
-```ts
-export interface PaletteRewrite { location: string; from: string; to: string }
-type Tok = { type?: string; value?: unknown }
-
-function findBlock(node: unknown, id: string): Record<string, unknown> | null {
-  if (Array.isArray(node)) {
-    for (const item of node) {
-      const hit = findBlock(item, id)
-      if (hit) return hit
-    }
-    return null
-  }
-  if (node && typeof node === 'object') {
-    const o = node as Record<string, unknown>
-    if (o.id === id && typeof o.type === 'string') return o
-    for (const v of Object.values(o)) {
-      const hit = findBlock(v, id)
-      if (hit) return hit
-    }
-  }
-  return null
-}
-
-function follow(root: unknown, path: string): Tok | undefined {
-  let node: unknown = root
-  for (const k of path.split('.')) {
-    if (node === null || typeof node !== 'object') return undefined
-    node = (node as Record<string, unknown>)[k]
-  }
-  return node as Tok | undefined
-}
-
-/** Adopt what the server stored (custom palette spec §4.5): by block identity, only where the editor still holds what it sent. */
-export function applyPaletteRewrites(doc: Record<string, unknown>, rewrites: PaletteRewrite[]): { doc: Record<string, unknown>; applied: PaletteRewrite[] } {
-  const out = structuredClone(doc)
-  const applied: PaletteRewrite[] = []
-  for (const rw of rewrites) {
-    const colon = rw.location.indexOf(':')
-    const target = colon > 0
-      ? follow(findBlock(out, rw.location.slice(0, colon)), rw.location.slice(colon + 1))
-      : follow(out, rw.location)
-    if (target?.type === 'token' && target.value === rw.from) {
-      target.value = rw.to
-      applied.push(rw)
-    }
-  }
-  return { doc: out, applied }
-}
-
-/** Every `{type:'token', value}` node mapped through `mapping`, deep; nothing else touched. */
-export function mapPaletteTokens<T>(value: T, mapping: Record<string, string>): T {
-  if (Array.isArray(value)) return value.map((v) => mapPaletteTokens(v, mapping)) as T
-  if (value && typeof value === 'object') {
-    const o = value as Record<string, unknown>
-    if (o.type === 'token' && typeof o.value === 'string' && o.value in mapping) return { ...o, value: mapping[o.value] } as T
-    return Object.fromEntries(Object.entries(o).map(([k, v]) => [k, mapPaletteTokens(v, mapping)])) as T
-  }
-  return value
-}
-```
-
-`history.ts`:
+`history.ts` gains:
 
 ```ts
 /**
- * A palette replacement rewrote a slot everywhere (custom palette spec §4.4): recorded payloads must
- * not bring the old colour back on undo or redo. Maps every token node in every entry's operations
- * (whole blocks included) and in the active transaction; sequences and the saved position are untouched.
+ * Adopt a server-reconciled document underneath the ACTIVE transaction (custom palette spec §4.5):
+ * unlike rebase(), nothing is cancelled or inverted; the open transaction keeps its ops and keeps
+ * coalescing, and entries and sequences are untouched. `next` already contains the active edits.
  */
+function adopt(next: EditorDocument): void {
+  document = next
+}
+
+/** Map every token node in every entry, the active transaction and the document (one replacement record). */
 function reconcileTokens(mapping: Record<string, string>): void {
   if (Object.keys(mapping).length === 0) return
   for (const entry of entries) {
@@ -4305,45 +4424,83 @@ function reconcileTokens(mapping: Record<string, string>): void {
 }
 ```
 
-Add `reconcileTokens` to the returned API. If `entries[i].bytes` is computed differently elsewhere in the file, use that helper.
-
-`useStageEditor.ts`:
+`admin/src/editor/paletteReplacements.ts`:
 
 ```ts
-adoptPaletteResult(outcome: { palette_rewrites?: PaletteRewrite[]; palette_mappings?: Record<string, string> }): void {
-  const mappings = outcome.palette_mappings ?? {}
-  history?.reconcileTokens(mappings)
-  const current = { fields: snapshotFields() }
-  const next = applyPaletteRewrites(mapPaletteTokens(current.fields, mappings), outcome.palette_rewrites ?? []).doc
-  if (JSON.stringify(next) === JSON.stringify(current.fields)) return
-  pendingRebase = true          // the fields watcher hands it to history.rebase(): nothing recorded
-  replaceFields(next)           // the editor's own setter for its fields model (the one reload uses)
-  scheduleApply()               // the stage shows it on the next working-copy apply
-},
+export interface ReplacementRecord { id: string; slot: number; map: Record<string, string>; completed_generation: number }
+
+export function createReplacementLedger(baseline: number) {
+  const applied = new Set<string>()
+  return {
+    get baseline() { return baseline },
+    pending(records: ReplacementRecord[]): ReplacementRecord[] {
+      return records
+        .filter((r) => r.completed_generation > baseline && !applied.has(r.id))
+        .sort((a, b) => a.completed_generation - b.completed_generation)
+    },
+    markApplied(records: ReplacementRecord[]): void {
+      for (const r of records) applied.add(r.id)
+    },
+    reset(generation: number): void {
+      baseline = generation
+      applied.clear()
+    },
+  }
+}
+
+/** One implementation for the stage editor and its specs: ordered, once-only, identity-safe. */
+export function createPaletteReconciler(deps: {
+  history: { reconcileTokens(m: Record<string, string>): void; adopt(next: EditorDocument): void }
+  currentFields(): Record<string, unknown>
+  replaceFields(next: Record<string, unknown>): void // sets the fields model with the adopt flag raised
+  ledger: ReturnType<typeof createReplacementLedger>
+}) {
+  return {
+    applyReplacements(records: ReplacementRecord[]): void {
+      for (const record of deps.ledger.pending(records)) {
+        deps.history.reconcileTokens(record.map)
+        deps.replaceFields(mapPaletteTokens(deps.currentFields(), record.map))
+        deps.ledger.markApplied([record])
+      }
+    },
+    adoptPaletteResult(outcome: { palette_rewrites?: PaletteRewrite[]; palette_replacements?: ReplacementRecord[] }): void {
+      const next = applyPaletteRewrites(deps.currentFields(), outcome.palette_rewrites ?? []).doc
+      deps.replaceFields(next)
+      this.applyReplacements(outcome.palette_replacements ?? [])
+    },
+    restoreFromResponse(res: { palette_generation: number; palette_replacements: ReplacementRecord[] }, applyRestore: () => void): void {
+      this.applyReplacements(res.palette_replacements) // existing history first
+      deps.ledger.reset(res.palette_generation)         // the restored content postdates every known record
+      applyRestore()                                     // the undoable SetPageSettings transaction
+    },
+  }
+}
 ```
 
-Use the editor's real names for its fields setter and apply scheduling; `reloadStage` and the apply loop show them. Applying the mappings to the current document as well as the rewrites covers values the editor recorded **after** submitting: they would be normalised at the next save anyway, and adopting them now keeps the stage truthful.
+In `useStageEditor.ts`:
+- **Ledger:** create the ledger with the draft GET's `palette_generation`.
+- **`replaceFields(next)`:** set `pendingAdopt = true`, then assign the fields model. The fields watcher, seeing `pendingAdopt`, calls `history.adopt({ fields: snapshotFields() })` instead of `rebase` and records nothing, then schedules a working-copy apply.
+- **API:** expose `adoptPaletteResult`, `applyReplacements`, `resetPaletteBaseline(g)` (→ `ledger.reset(g)`) and `restoreFromResponse`.
+- **Full reload:** `reloadStage` and a conflict reload call `resetPaletteBaseline` with the reloaded draft's generation.
 
 Wiring:
-- **Design page:** `saveDraftOnly` calls `editor.markSaved(sequence)` as today, **then** `editor.adoptPaletteResult(result.data)`. The restore flow calls the restore endpoint, applies `restoreOps(current, res.draft.fields)` as one undoable transaction marked persisted, adopts `lock_version`, then calls `adoptPaletteResult(res)`.
-- **Every editor (design page, form page, region and layout hosts, style-class editor):** on each style-schema load or refresh, call `reconcileTokens` with the mappings built from `palette.slots[*].retired`:
-  ```js
-  { 'color.brand-N': retired.to, 'color.brand-N-contrast': retired.contrast_to }
-  ```
-  then adopt them into the current document the same way (no rewrites).
-- **Form page (`index.vue`) and saved sections:** no op history. Apply rewrites and mappings to the form model, and keep their dirty flag as computed against the submitted payload: the form page's existing "dirty since submit" logic, or the same submitted-snapshot comparison.
-- **Region and layout hosts (`useRegionHost.ts`, `useLayoutHost.ts`):** the same `markSaved` then `adoptPaletteResult` order.
+- **Design page:**
+  - `saveDraftOnly` sends `palette_generation: editor.paletteBaseline()` in the body, calls `editor.markSaved(sequence)` as today, then `editor.adoptPaletteResult(result.data)`.
+  - The restore flow calls `restoreDraft(..., editor.paletteBaseline())`, then `editor.restoreFromResponse(res, () => applyRestoreOps(res.draft.fields))`, then adopts `lock_version`.
+  - On every style-schema load or refresh it calls `editor.applyReplacements(schema.palette.replacements)`.
+- **Region and layout hosts, and the style-class editor:** the same three calls on their own editors.
+- **Form page and saved sections:** no op history. Each keeps a ledger, applies records to its form model, adopts rewrites, keeps its dirty flag against the submitted snapshot, and moves the baseline on restore and reload.
 
 - [ ] **Step 7: Run everything touched**
 
-Run: `vendor/bin/phpunit tests/Integration/Content/Palette tests/Integration/Content/EntryRepositoryTest.php tests/Integration/Content/PublishServiceTest.php tests/Integration/Render/StyleSchemaEndpointTest.php && (cd admin && pnpm vitest run src/__tests__/palette-rewrites.spec.ts src/__tests__/palette-history.spec.ts src/__tests__/restore-version.spec.ts src/__tests__/editor-history.spec.ts src/__tests__/region-style-editor.spec.ts src/__tests__/style-class-editor-output.spec.ts && pnpm type-check && pnpm lint && pnpm exec oxfmt --check src/editor src/queries src/pages e2e/helpers.ts e2e/tests/palette-restore-history.spec.ts e2e/tests/palette-normalized-save.spec.ts src/__tests__/palette-rewrites.spec.ts src/__tests__/palette-history.spec.ts src/__tests__/restore-version.spec.ts) && (cd admin/e2e && npx playwright test tests/palette-restore-history.spec.ts tests/palette-normalized-save.spec.ts)`
+Run: `vendor/bin/phpunit tests/Integration/Content/Palette tests/Integration/Content/EntryRepositoryTest.php tests/Integration/Content/PublishServiceTest.php tests/Integration/Render/StyleSchemaEndpointTest.php && (cd admin && pnpm vitest run src/__tests__/palette-rewrites.spec.ts src/__tests__/palette-ledger.spec.ts src/__tests__/palette-history.spec.ts src/__tests__/restore-version.spec.ts src/__tests__/editor-history.spec.ts src/__tests__/region-style-editor.spec.ts src/__tests__/style-class-editor-output.spec.ts && pnpm type-check && pnpm lint && pnpm exec oxfmt --check src/editor src/queries src/pages e2e/helpers.ts e2e/tests/palette-restore-history.spec.ts e2e/tests/palette-normalized-save.spec.ts src/__tests__/palette-rewrites.spec.ts src/__tests__/palette-ledger.spec.ts src/__tests__/palette-history.spec.ts src/__tests__/restore-version.spec.ts) && (cd admin/e2e && npx playwright test tests/palette-restore-history.spec.ts tests/palette-normalized-save.spec.ts)`
 Expected: PASS.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add core/database/migrations/044_AddRestoreBasisToEntryDrafts.php core/src core/routes packages/thallo-render/src tests admin/src admin/e2e scripts .github/workflows
-git commit -m "feat(palette): the editor contract — restore keeps a persisted basis, saves are adopted by block identity without marking newer edits saved, history is reconciled with the palette"
+git add core/database/migrations/044_AddRestoreBasisToEntryDrafts.php core/database/migrations/045_AddCompletedGenerationToPaletteJobs.php core/src core/routes packages/thallo-render/src tests admin/src admin/e2e scripts .github/workflows
+git commit -m "feat(palette): the editor contract — persisted restore basis, saves adopted by block identity under an open transaction, history reconciled by ordered replacement records"
 ```
 
 ---
