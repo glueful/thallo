@@ -83,13 +83,14 @@ final class ShopIndexSurfaceTest extends AppTestCase
         self::assertSame([['type' => 'product_loop']], $surface->required('@site'));
         self::assertSame(
             [['type' => 'product_loop', 'card' => 'card', 'items' => [
-                'product_tile', 'product_name', 'product_rating', 'product_price', 'product_add_to_cart',
+                'product_tile', 'product_name', 'product_rating', 'product_price', 'product_tags',
+                'product_add_to_cart',
             ]]],
             $surface->loops('@site'),
         );
         self::assertSame(
             ['product_loop', 'shop_title', 'category_rail', 'pagination', 'product_tile', 'product_name',
-                'product_rating', 'product_price', 'product_add_to_cart'],
+                'product_rating', 'product_price', 'product_tags', 'product_add_to_cart'],
             $surface->palette(),
         );
         self::assertSame([], $surface->pageTags('@site'), 'its pages live in the shop cache');
@@ -138,7 +139,7 @@ final class ShopIndexSurfaceTest extends AppTestCase
         // The card's closed allowlist, key for key.
         self::assertSame(
             ['uuid', 'name', 'url', 'coverUrl', 'rating', 'priceFormatted', 'compareAtFormatted', 'categoryName',
-                'cartMode', 'directVariantUuid', 'inStock', 'onSale', 'createdAt'],
+                'cartMode', 'directVariantUuid', 'inStock', 'onSale', 'createdAt', 'categories', 'tags'],
             array_keys($context['products'][0]),
         );
         self::assertSame('direct', $context['products'][0]['cartMode']);

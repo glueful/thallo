@@ -11,10 +11,10 @@ use Thallo\Render\RenderContextExtension;
 use Thallo\Render\TwigFactory;
 
 /**
- * The shop layouts' card has what a Product grid card has: an Add to cart button block, the tile's
- * picture, quick add, wishlist, chip and badges styled apart, and the card itself styled and lifted
- * on hover. Cards are built here as the shop pages hand them over (ShopCardStateTest proves the
- * pages supply stock, sale and age).
+ * The shop layouts' card has what a Product grid card has: an Add to cart button block, a Product
+ * tags block, the tile's picture, quick add, wishlist, chip and badges styled apart, and the card
+ * itself styled and lifted on hover. Cards are built here as the shop pages hand them over
+ * (ShopCardStateTest proves the pages supply stock, sale, age, categories and tags).
  */
 final class ShopCardBlocksTest extends AppTestCase
 {
@@ -48,6 +48,8 @@ final class ShopCardBlocksTest extends AppTestCase
             'directVariantUuid' => ($o['cartMode'] ?? 'direct') === 'direct' ? 'variant' . $slug : null,
             'inStock' => $o['inStock'] ?? true, 'onSale' => $o['onSale'] ?? false,
             'createdAt' => $o['createdAt'] ?? '2020-01-01 00:00:00',
+            'categories' => $o['categories'] ?? [['name' => 'Men', 'slug' => 'men']],
+            'tags' => $o['tags'] ?? [],
         ];
     }
 
@@ -131,6 +133,64 @@ final class ShopCardBlocksTest extends AppTestCase
             [self::item('mug')],
         );
         self::assertStringContainsString('<button class="shop-grid__buy t-bg-accent" type="submit"', $html);
+    }
+
+    // ---- the Product tags block -------------------------------------------------------------
+
+    public function testTheProductTagsBlockGoesInTheCardOnly(): void
+    {
+        self::assertContains('product_tags', ShopPageSurface::CARD_BLOCKS);
+    }
+
+    public function testTheProductTagsBlockShowsTheProductsTags(): void
+    {
+        $tags = [['name' => 'Swiss Arabian', 'slug' => 'swiss-arabian'], ['name' => 'Unisex', 'slug' => 'unisex']];
+        $html = $this->render([self::block('tags', 'product_tags')], [self::item('oud', ['tags' => $tags])]);
+        self::assertMatchesRegularExpression(
+            '~<div class="thallo-block thallo-block-product_tags shop-grid__labels">'
+                . '<span class="shop-grid__label shop-grid__label--tag">Swiss Arabian</span>'
+                . '<span class="shop-grid__label shop-grid__label--tag">Unisex</span></div>~',
+            $html,
+        );
+        self::assertStringNotContainsString('shop-grid__label--category', $html, 'categories only on request');
+    }
+
+    public function testTheProductTagsBlockShowsTheCategoriesToo(): void
+    {
+        $tags = [['name' => 'Unisex', 'slug' => 'unisex']];
+        $html = $this->render(
+            [self::block('tags', 'product_tags', ['with_categories' => true])],
+            [self::item('oud', ['tags' => $tags])],
+        );
+        self::assertStringContainsString(
+            '<span class="shop-grid__label shop-grid__label--category">Men</span>'
+                . '<span class="shop-grid__label shop-grid__label--tag">Unisex</span>',
+            $html,
+        );
+    }
+
+    public function testAProductWithoutTagsShowsNothingOnTheSiteAndAPlaceholderOnTheStage(): void
+    {
+        $card = [self::block('tags', 'product_tags')];
+        self::assertStringNotContainsString('thallo-block-product_tags', $this->render($card, [self::item('bare')]));
+        self::assertStringContainsString(
+            '<div class="thallo-block thallo-block-product_tags thallo-field-empty">Tags — this product has none</div>',
+            $this->render($card, [self::item('bare')], scope: 'layout'),
+        );
+    }
+
+    public function testTheLabelPartStylesEveryLabel(): void
+    {
+        $html = $this->render(
+            [self::block('tags', 'product_tags', [], [
+                'parts' => ['label' => ['colors' => ['surface' => ['type' => 'token', 'value' => 'color.accent']]]],
+            ])],
+            [self::item('oud', ['tags' => [['name' => 'Unisex', 'slug' => 'unisex']]])],
+        );
+        self::assertStringContainsString(
+            '<span class="shop-grid__label shop-grid__label--tag t-bg-accent">Unisex</span>',
+            $html,
+        );
     }
 
     // ---- the Product tile ------------------------------------------------------------------

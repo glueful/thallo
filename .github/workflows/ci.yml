@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
+    branches: [dev]
   pull_request:
+    branches: [main]
 
 # The Integration suite is split into four measured shards. Each CI job starts from a FRESH
 # database, so a shard is measured the same way: reset, migrate, run it alone (2026-09-20, on a
@@ -80,8 +82,16 @@ env:
   INTEGRATION_SHARD_G: >-
     tests/Integration/Templates
 
+# One run per commit (2026-10-09): pushes to dev are tested; a dev -> main PR shows those checks
+# (they are the head commit's), so only a PR from a fork runs here again, and a merge or a tag
+# pushes nothing new. A newer push to the same branch or PR cancels the older run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     name: ${{ matrix.shard }}
     runs-on: ubuntu-latest
 
@@ -284,6 +294,7 @@ jobs:
   # packs via path repositories, then run the documented first-run sequence against Postgres.
   # Proves the split without Packagist; the release's clean-machine gate proves it with it.
   skeleton-smoke:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     name: skeleton-smoke
     runs-on: ubuntu-latest
 

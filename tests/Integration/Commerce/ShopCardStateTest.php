@@ -11,7 +11,8 @@ use Thallo\Tenancy\System\SystemFlags;
 
 /**
  * The shop pages' cards carry what a card's Add to cart button and badges read: whether the product
- * can be bought now, whether it is on sale, and when it was created — the Product grid's rules.
+ * can be bought now, whether it is on sale, and when it was created — the Product grid's rules —
+ * and every category and tag, which a card's Product tags block shows.
  */
 final class ShopCardStateTest extends AppTestCase
 {
@@ -56,5 +57,27 @@ final class ShopCardStateTest extends AppTestCase
             'Sale' => [true, true, '2026-01-02 10:00:00'],
             'Gone' => [false, false, '2026-01-01 10:00:00'],
         ], $state);
+    }
+
+    public function testAShopPagesCardsCarryEveryCategoryAndTag(): void
+    {
+        $oud = $this->product('oud', ['created_at' => '2026-01-02 10:00:00']);
+        $this->product('bare', ['created_at' => '2026-01-01 10:00:00']);
+        $this->category('men', $oud);
+        $this->tag('swiss-arabian', $oud);
+        $this->tag('unisex', $oud);
+        $products = $this->container()->get(ShopCatalogPage::class)
+            ->forIndex(self::TENANT, 1)['layout_context']['products'];
+        $labels = [];
+        foreach ($products as $card) {
+            $labels[$card['name']] = [
+                array_column($card['categories'], 'name'),
+                array_column($card['tags'], 'name'),
+            ];
+        }
+        self::assertSame([
+            'Oud' => [['Men'], ['Swiss-arabian', 'Unisex']],
+            'Bare' => [[], []],
+        ], $labels);
     }
 }

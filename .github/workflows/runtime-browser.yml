@@ -2,6 +2,7 @@ name: Runtime Browser
 
 on:
   push:
+    branches: [dev]
     paths:
       - 'packages/thallo-render/**'
       - 'packages/thallo-contracts/src/Style/**'
@@ -41,6 +42,7 @@ on:
       - 'admin/src/pages/commerce/orders/**/invoice.vue'
       - 'admin/src/layouts/default.vue'
   pull_request:
+    branches: [main]
     paths:
       - 'packages/thallo-render/**'
       - 'packages/thallo-contracts/src/Style/**'
@@ -84,8 +86,16 @@ defaults:
   run:
     working-directory: tools/runtime-browser
 
+# One run per commit (2026-10-09): pushes to dev are tested; a dev -> main PR shows those checks
+# (they are the head commit's), so only a PR from a fork runs here again, and a merge or a tag
+# pushes nothing new. A newer push to the same branch or PR cancels the older run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
 
     # The layout proofs measure PAGES THIS JOB RENDERS: the fixtures are built from the committed
