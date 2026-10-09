@@ -62,6 +62,10 @@ final class ThemeColorsStyleTest extends AppTestCase
                     {
                         return $this->p;
                     }
+                    public function preview(array $claim): \Thallo\Contracts\Style\Palette
+                    {
+                        return $this->p;
+                    }
                 },
             ),
         );

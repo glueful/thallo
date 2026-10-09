@@ -40,6 +40,13 @@ final class PreviewSession
         public readonly ?string $surface = null,
         public readonly ?string $target = null,
         public readonly ?string $sample = null,
+        /**
+         * A previewed palette (custom palette spec §5.1): `neutral_custom`, `dark_base`, `brands`,
+         * any subset; null = none.
+         *
+         * @var array<string,mixed>|null
+         */
+        public readonly ?array $palette = null,
     ) {
     }
 
