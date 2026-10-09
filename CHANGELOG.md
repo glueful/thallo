@@ -11,6 +11,12 @@ as the next release, never a mutated tag.
 - **Custom palette settings**: General settings gain a Custom neutral (`theme_neutral: custom` with six
   hex colours in `theme_neutral_custom`), a dark-mode base family (`theme_dark_base`) and three named
   brand colours (`theme_brand_1` … `theme_brand_3`), validated and stored normalised.
+- **Brand colour tokens**: six site-controlled colour names — `brand-1` … `brand-3` and their
+  `-contrast` text colours — compiled into every theme's stylesheet (StyleCompiler 24). Their values
+  come from Appearance; a theme that maps them has the mapping ignored, and the Doctor warns.
+- The site's palette is emitted with its colours: the Custom neutral's six values in light mode, the
+  dark-mode base family in dark mode, and each configured brand colour with a derived dark value and a
+  black-or-white text colour.
 
 ## [1.0.0-beta.97] - 2026-10-09 — Developer Preview
 

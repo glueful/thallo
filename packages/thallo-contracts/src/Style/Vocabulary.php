@@ -19,6 +19,7 @@ final class Vocabulary
         'color' => [
             'background', 'surface', 'surface-2', 'text', 'muted', 'line', 'accent', 'accent-contrast', 'transparent',
             'white', 'black',
+            'brand-1', 'brand-1-contrast', 'brand-2', 'brand-2-contrast', 'brand-3', 'brand-3-contrast',
         ],
         'shadow' => ['none', 'xs', 'sm', 'md', 'lg', 'xl'],
         'typography.size' => ['xs', 'sm', 'md', 'lg', 'xl', '2xl', '3xl'],
@@ -30,6 +31,17 @@ final class Vocabulary
      * resolves. A theme may still map them.
      */
     public const LITERAL_DEFAULTS = ['color.white' => '#ffffff', 'color.black' => '#000000'];
+
+    /**
+     * Values the SITE sets, not the theme (custom palette spec §3.1): always the variables
+     * themeColorsStyle() emits from the palette. A theme's mapping for these is ignored, so a
+     * theme can never bypass the site's hex, its swatches or its contrast checks.
+     */
+    public const SITE_CONTROLLED = [
+        'color.brand-1' => 'var(--brand-1)', 'color.brand-1-contrast' => 'var(--brand-1-ink)',
+        'color.brand-2' => 'var(--brand-2)', 'color.brand-2-contrast' => 'var(--brand-2-ink)',
+        'color.brand-3' => 'var(--brand-3)', 'color.brand-3-contrast' => 'var(--brand-3-ink)',
+    ];
 
     /** @return list<string> the domains in contract order */
     public static function domains(): array

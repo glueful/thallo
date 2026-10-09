@@ -424,12 +424,13 @@ final class StyleSchemaTest extends TestCase
             [
                 'background', 'surface', 'surface-2', 'text', 'muted', 'line', 'accent', 'accent-contrast',
                 'transparent', 'white', 'black',
+                'brand-1', 'brand-1-contrast', 'brand-2', 'brand-2-contrast', 'brand-3', 'brand-3-contrast',
             ],
             Vocabulary::names('color'),
         );
         self::assertSame(['none', 'xs', 'sm', 'md', 'lg', 'xl'], Vocabulary::names('shadow'));
         self::assertSame(['xs', 'sm', 'md', 'lg', 'xl', '2xl', '3xl'], Vocabulary::names('typography.size'));
-        self::assertCount(8 + 4 + 5 + 11 + 6 + 7, Vocabulary::all());
+        self::assertCount(8 + 4 + 5 + 17 + 6 + 7, Vocabulary::all());
     }
 
     public function testHoverPathsMirrorTheirRestingPaths(): void

@@ -46,6 +46,21 @@ final class StyleCompilerTest extends TestCase
         );
     }
 
+    public function testTheBrandColourUtilitiesAreCompiled(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+        foreach (
+            [
+                ['colors.text', 'color.brand-1'],
+                ['colors.surface', 'color.brand-2-contrast'],
+                ['hover.colors.text', 'color.brand-3'],
+            ] as [$path, $token]
+        ) {
+            self::assertStringContainsString('.' . ClassNames::for($path, $token), $css, $path . ' ' . $token);
+        }
+        self::assertStringContainsString('--t-color-brand-3:var(--brand-3)', str_replace(' ', '', $css));
+    }
+
     public function testClassNamesAreTheOnePlaceASettingBecomesAClass(): void
     {
         self::assertSame('t-pt-lg', ClassNames::for('spacing.padding.top', 'spacing.lg'));

@@ -59,6 +59,27 @@ final class ThemeVocabularyTest extends TestCase
         );
     }
 
+    public function testBrandTokensAreSiteControlledAndAThemeCannotRemapThem(): void
+    {
+        $json = $this->defaultThemeJson();
+        $json['vocabulary']['color.brand-1'] = '#ff0000';
+        $vocabulary = ThemeVocabulary::fromThemeJson($json, self::DEFAULT_THEME);
+        self::assertSame('var(--brand-1)', $vocabulary->value('color.brand-1'));
+        self::assertSame('var(--brand-1-ink)', $vocabulary->value('color.brand-1-contrast'));
+        self::assertSame(['color.brand-1'], $vocabulary->ignored());
+    }
+
+    public function testAThemeWithoutBrandTokensLoads(): void
+    {
+        $json = $this->defaultThemeJson();
+        foreach (array_keys(Vocabulary::SITE_CONTROLLED) as $token) {
+            unset($json['vocabulary'][$token]);
+        }
+        $vocabulary = ThemeVocabulary::fromThemeJson($json, self::DEFAULT_THEME);
+        self::assertSame('var(--brand-3)', $vocabulary->value('color.brand-3'));
+        self::assertSame([], $vocabulary->ignored());
+    }
+
     public function testATokenWithALiteralDefaultIsFilledWhenAThemeOmitsIt(): void
     {
         // color.white joined the baseline after themes were copied: a theme.json that predates it
