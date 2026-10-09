@@ -12,6 +12,11 @@ as the next release, never a mutated tag.
   items, and Menu item (with a Hover state), Current page — the pill — Submenu and Submenu item
   sections. The current page's look wins over the menu item's, under the pointer too.
 
+### Fixed
+- **The Style tab's Hover rows keep the Normal rows' order**: Background, then Text colour, then
+  Border colour, in either state. Hover listed Text colour first, so a click meant for the
+  background set the text colour.
+
 ## [1.0.0-beta.95] - 2026-10-09 — Developer Preview
 
 The shop home and category layouts' card can show the product's tags.
