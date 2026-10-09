@@ -38,6 +38,11 @@
 > - **A batch read is atomic with pruning.** Records are read **first** and the horizon **after**, and pruning deletes and raises the horizon in one transaction. A prune that removed any record the read missed has therefore committed before the horizon read, and makes the batch an expiry rather than a truncated "complete" batch. A two-connection proof pauses the reader at both points.
 > - **Restore installation and batch processing are serialised** through one queue per editor, and the ledger keeps the records it applied. A restore never moves the ledger backwards. Records newer than the restore's generation that were already applied to history are applied to the restored content only, never twice to history. Batches arriving during a restore's gap fetch wait their turn.
 > - Load responses take `palette_generation` from `consistentRead()`.
+>
+> Final corrections from the sixth review, after which the plan was approved for implementation:
+> - A restore whose batch expires the ledger stops: no catch-up, no install, no advance; reload is required.
+> - The delayed-restore undo test makes a real change.
+> - The queued-arrival test waits for the gap fetch to start.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -3929,7 +3934,7 @@ Because the basis is persisted, version retention pruning cannot remove it. The 
 - **The ledger keeps what it applied:** `applied: Map<completed_generation, record>`.
 
 A restore response carries `palette_generation = R` (the generation its write held) and the batch `(palette_through, R]`. Installing it (`restoreFromResponse`):
-1. **Bring existing history up to R:** apply the response's batch through the normal rules (stale, apply, or gap fetch; refuse if expired). Records the ledger already passed are skipped.
+1. **Bring existing history up to R:** apply the response's batch through the normal rules (stale, apply, or gap fetch). Records the ledger already passed are skipped. If this step expires the ledger, **stop**: nothing is caught up, the restore is not installed, the boundary does not move, and the editor shows the reload-required notice. The server has stored the restore, and reloading shows it.
 2. **Catch the restored content up to the ledger.** With `L = ledger.through` after step 1, and `L` possibly greater than R because newer batches were applied earlier:
    - the records in `(R, L]` are exactly `ledger.applied` entries with `R < completed_generation <= L`;
    - map the **restored fields** through each, in order, before building the restore operations;
@@ -4414,26 +4419,51 @@ it('a newer batch applied BEFORE a delayed restore response: the restored conten
   const reconcile = vi.spyOn(ed.history, 'reconcileTokens')
   await ed.applyBatch(batch(3, 5, [A2]))                                        // the schema refresh
   expect(reconcile).toHaveBeenCalledTimes(1)
-  await ed.restoreFromResponse({ palette_generation: 4, palette_replacements: batch(3, 4, []) }, { body: [heading('a', 'color.brand-1')] })
+  await ed.restoreFromResponse({ palette_generation: 4, palette_replacements: batch(3, 4, []) }, { body: [heading('a', 'color.brand-1', 'Restored text')] })
   expect(colourOf(ed.document.fields, 0)).toBe('color.accent')                  // restored at 4, caught up through 5
+  expect(ed.document.fields.body[0].data.text).toBe('Restored text')            // a real restore transaction
   expect(reconcile).toHaveBeenCalledTimes(1)                                    // history not mapped again
   expect(ed.paletteThrough()).toBe(5)                                           // not moved back to 4
-  ed.undo()                                                                      // the restore transaction
-  expect(colourOf(ed.document.fields, 0)).toBe('color.accent')                  // the pre-restore state, already reconciled
+  ed.undo()                                                                      // undoes the restore transaction, not the earlier edit
+  expect(ed.document.fields.body[0].data.text).toBe('x')                        // the previous text is back
+  expect(colourOf(ed.document.fields, 0)).toBe('color.accent')                  // and the colour stays reconciled
 })
 
 it('a newer batch arriving DURING the restore\'s gap fetch waits, then applies to the restored content once', async () => {
   let releaseFetch!: (b: ReturnType<typeof batch>) => void
-  const fetchRange = vi.fn(() => new Promise<ReturnType<typeof batch>>((r) => { releaseFetch = r }))
+  let fetchStarted!: () => void
+  const started = new Promise<void>((r) => { fetchStarted = r })
+  const fetchRange = vi.fn(() => new Promise<ReturnType<typeof batch>>((r) => { releaseFetch = r; fetchStarted() }))
   const A2 = { id: 'jobA2', slot: 1, map: { 'color.brand-1': 'color.accent' }, completed_generation: 6 }
   const ed = editorOver({ fields: { body: [heading('a', 'color.text')] } }, { paletteGeneration: 2, fetchRange })
   const restoring = ed.restoreFromResponse({ palette_generation: 4, palette_replacements: batch(3, 4, []) }, { body: [heading('a', 'color.brand-1')] }) // gap (2, 3]
-  const refreshing = ed.applyBatch(batch(4, 6, [A2]))                           // arrives mid-fetch
+  await started                                                                  // the gap fetch is really in flight
+  const refreshing = ed.applyBatch(batch(4, 6, [A2]))                           // arrives mid-fetch, queues behind the restore
   releaseFetch(batch(2, 4, []))
   await Promise.all([restoring, refreshing])
   expect(colourOf(ed.document.fields, 0)).toBe('color.accent')                  // applied after the restore installed
   expect(ed.paletteThrough()).toBe(6)
   expect(fetchRange).toHaveBeenCalledTimes(1)
+})
+
+it('expiry during a restore\'s gap fetch stops the restore: nothing installed, nothing advanced, reload required', async () => {
+  let fetchStarted!: () => void
+  const started = new Promise<void>((r) => { fetchStarted = r })
+  const fetchRange = vi.fn(async () => {
+    fetchStarted()
+    throw Object.assign(new Error('expired'), { status: 410, code: 'PALETTE_HISTORY_EXPIRED' })
+  })
+  const A2 = { id: 'jobA2', slot: 1, map: { 'color.brand-1': 'color.accent' }, completed_generation: 3 }
+  const ed = editorOver({ fields: { body: [heading('a', 'color.text', 'Before')] } }, { paletteGeneration: 2, fetchRange })
+  await ed.applyBatch(batch(2, 3, [A2]))                                         // a retained record the catch-up must NOT use
+  const restoring = ed.restoreFromResponse({ palette_generation: 6, palette_replacements: batch(4, 6, []) }, { body: [heading('a', 'color.brand-1', 'Restored')] }) // gap (3, 4]
+  await started
+  await restoring
+  expect(ed.paletteExpired()).toBe(true)
+  expect(ed.document.fields.body[0].data.text).toBe('Before')                   // the restore was not installed
+  expect(ed.paletteThrough()).toBe(3)                                           // not advanced
+  expect(ed.canUndo()).toBe(false)
+  expect(ed.canRedo()).toBe(false)
 })
 
 it('reconciles whole blocks carried by insert, remove and duplicate operations', async () => {
@@ -4821,6 +4851,7 @@ export function createPaletteReconciler(deps: {
     ): Promise<void> {
       return serial(async () => {
         await applyBatchNow(res.palette_replacements)
+        if (deps.ledger.expired) return // reload required: no partial catch-up, no install, no advance
         const R = res.palette_generation
         let fields = restoredFields
         for (const record of deps.ledger.appliedBetween(R, deps.ledger.through)) {
