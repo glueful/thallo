@@ -1,5 +1,18 @@
 # Custom palette — Implementation Plan
 
+> Amended 2026-10-09 after plan review:
+> - **The trusted basis is a set of permitted tokens per location**, built by `basisOf(string $kind, ?ContentTypeSchema $schema, array ...$docs)`. A current Accent no longer hides a historical Brand 1 at the same location (Task 9).
+> - **Content import fences publication pointers and pinned versions.** An `entry_publication` record loads and normalises the version it points at, appending a normalised version when needed (Task 11).
+> - **Replace runs in its workspace.** The queued job carries the workspace and enters it before resolving palette services. Proven from a fresh worker and across two workspaces (Task 14).
+> - **Every job status change is a permitted transition checked under the palette lock.** `completed` and `cancelled` are terminal, and resume eligibility is checked inside the lock (Tasks 8, 14).
+> - **The contrast mapping is decided under the lock.** A replacement without one refuses any contrast reference that arrives later; it never maps text to the fill colour (Tasks 9, 14).
+> - **The editor contract is complete.**
+>   - The draft remembers, server-side, the version last restored into it, so restore → undo → redo saves.
+>   - Every fenced save returns its `palette_rewrites`, which editors adopt without losing edits made during the request.
+>   - Both sequences have browser proofs (Task 12).
+> - **The palette runner invalidates caches after each successful write.** A partly completed job's rewritten publications render their replacement (Task 14).
+> - **Real two-process database proofs** cover save-versus-clear, worker-versus-cancel and conflicting starts. `ensureRow()` inserts inside a savepoint (Tasks 8, 14).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Authors set a Custom neutral (six light hex values plus a dark-mode base family) and three named brand colours in Appearance. Every colour picker offers them by name with swatches. A brand colour that is cleared stops applying without disturbing anything else. Clearing a used colour goes through a fenced, resumable Replace job that never lets a stale save bring the old reference back.
@@ -29,7 +42,8 @@
    - **Today:** the admin builds the restored fields itself (`admin/src/editor/restoreVersion.ts`) and saves them through the ordinary `PUT /entries/{uuid}/draft/{locale}`. The server never knows a save is a restore, and the client supplies the old content. That contradicts §4.5's server-loaded trusted basis.
    - **New:** `POST /entries/{uuid}/draft/{locale}/restore` takes `{version_uuid, lock_version}`. The server loads the version from the entry's own retained versions, projects it (`BlockRestoreProjector`), builds the restored fields with the same rule as `restoredFields()`, normalises with the version as extra basis, and saves.
    - **Admin:** both restore callers use it. The design page then applies the returned fields as one local undoable transaction, without saving again.
-   - **Cost if wrong:** a redo after undoing a restore can hit a 422 for a reference to a cleared colour, which is then no longer in the stored revision.
+   - **Provenance:** the draft records the restored version server-side (`entry_drafts.restored_version_uuid`), and its colours stay in that draft's trusted basis until publish, discard or another restore. So restore → undo → redo saves, while the client can never nominate a version (Task 12).
+   - **Cost if wrong:** the recorded version keeps its cleared colours placeable at their original locations until the draft is published. That is the content the author restored.
 2. **The palette row is locked by an `UPDATE`, through the query builder.**
    - Glueful's builder has no `lockForUpdate()`. Precedents are `AppearanceLock::within` and `SiteStyleGeneration::incrementWithin`.
    - `PaletteState::lock()` runs `UPDATE palette_state SET generation = generation WHERE site = 'site'`. Tenancy scopes it like every builder write, and it reads the row back on the same connection.
@@ -195,7 +209,7 @@ final class PaletteJob
         public readonly string $id,
         public readonly int $slot,
         public readonly string $to,            // e.g. 'color.accent'
-        public readonly string $contrastTo,    // e.g. 'color.accent-contrast' or 'color.text'
+        public readonly ?string $contrastTo,   // e.g. 'color.accent-contrast', 'color.text'; null = no contrast mapping (contrast references are refused)
         public readonly string $status,        // running|failed|completed|cancelled
         public readonly int $passes,
         public readonly int $total,
@@ -233,17 +247,21 @@ final class ColorTokenWalker
 final class PaletteNormalizer
 {
     /**
-     * @param array<string,string> $basis location => token from server-loaded documents
+     * @param array<string,list<string>> $basis location => every token a server-loaded trusted document holds there
      * @throws PaletteRefusal (422) naming each refused location and slot name
      */
     public function normalize(string $kind, array $doc, PaletteSnapshot $snapshot, array $basis, ?ContentTypeSchema $schema = null): Normalized;
+    /** @return array<string,list<string>> */
+    public function basisOf(string $kind, ?ContentTypeSchema $schema, array ...$docs): array;
 }
 final class Normalized
 {
+    /** @param list<array{location:string,from:string,to:string}> $rewrites what normalisation changed */
     public function __construct(
         public readonly array $doc,
         public readonly bool $originalHadBrand,
         public readonly bool $normalizedHasBrand,
+        public readonly array $rewrites = [],
     ) {}
     public function fenced(): bool; // originalHadBrand || normalizedHasBrand
 }
@@ -263,7 +281,7 @@ final class PaletteFence
 // core/src/Content/Palette/PaletteState.php (Task 8)
 final class PaletteState
 {
-    public function ensureRow(): void;
+    public function ensureRow(): void;                           // conflict-safe: the insert runs in its own savepoint
     public function snapshot(): PaletteSnapshot;                 // unlocked read
     public function lock(): PaletteSnapshot;                     // inside a transaction: UPDATE-as-lock, then read
     public function bump(): int;                                 // inside a held lock: generation + 1
@@ -2386,9 +2404,14 @@ This task lands the §4.6 requirements **before any fence code**.
 **Interfaces:**
 - Consumes: `PaletteProvider::palette()`.
 - Produces: `PaletteState` (shared contracts), plus:
-  - `PaletteJobRepository::start(int $slot, string $to, string $contrastTo, ?string $actor): string` (inside a held lock);
+  - `PaletteJobRepository::start(int $slot, string $to, ?string $contrastTo, ?string $actor, ?string $workspace): string` (inside a held lock; `$workspace` is recorded for the queued worker);
   - `PaletteJobRepository::find(string $id): ?PaletteJob`, `active(): list<PaletteJob>`;
-  - `PaletteJobRepository::setStatus(string $id, string $status): void`;
+  - `PaletteJobRepository::transition(string $id, string $to): bool`. It requires the palette lock (`LogicException` otherwise) and applies only a permitted transition, returning false and writing nothing otherwise. The permitted transitions are:
+    - `running` → `completed` | `failed` | `cancelled`;
+    - `failed` → `running` (resume) | `cancelled`;
+    - `running` → `running` (resume of an interrupted job: refreshes `heartbeat_at`).
+
+    `completed` and `cancelled` are terminal. There is no unconditional `setStatus`.
   - `PaletteJobRepository::beginPass(string $id, int $total): void`, `incrementDone(string $id): void`;
   - `PaletteJobRepository::recordFailure(string $id, string $source, string $docId, ?string $locale, string $reason): void`;
   - `PaletteJobRepository::isActive(string $id): bool`;
@@ -2425,13 +2448,13 @@ palette mutations' own settings write, which happens after (1) and takes no othe
 
 | Writer | Path | Fenced | Basis on mismatch | Notes |
 |---|---|---|---|---|
-| Editor draft save | EntryController::saveDraft → EntryRepository::saveDraft | yes | current draft | Task 10 |
+| Editor draft save | EntryController::saveDraft → EntryRepository::saveDraft | yes | current draft ∪ the draft's recorded restored version | Task 10, 12; returns palette_rewrites |
 | Authoring engine | EngineContentWriter::createDraft / EngineContentUpserter::updateDraft → saveDraft | yes (via saveDraft) | current draft | importers: CSV, Markdown, WordPress, Markdown folder |
 | Locale copy | EntryRepository::createLocaleDraft | yes (+ CAS on overwrite) | source draft, re-read | Task 10 |
 | Publish / publishStarter | PublishService::publishInternal | yes | the draft, re-read | Task 10 |
 | Scheduled publish | ScheduleRunner::fire → PublishService::publish | yes (via publish) | the draft, re-read | claim transaction commits first |
 | Rollback | PublishService::rollback | yes | the version, server-loaded | changed fields force append-a-version |
-| Restore to draft | POST /entries/{uuid}/draft/{locale}/restore (new) | yes | current draft ∪ the version, server-loaded | Task 12 |
+| Restore to draft | POST /entries/{uuid}/draft/{locale}/restore (new) | yes | current draft ∪ the version, server-loaded; records it as the draft's restored version | Task 12 |
 | Region save | RegionSaver::save / RegionRepository::saveExpected | yes | current regions | Task 11 |
 | Region save (unconditional) | RegionRepository::save | no | — | RegionKind / RetireAccountLinkCommand: reads and writes under the region lock; starter payloads have no brand token |
 | Layout save | LayoutSaver::save | yes | current layout | Task 11 |
@@ -2441,13 +2464,15 @@ palette mutations' own settings write, which happens after (1) and takes no othe
 | Style class save | StyleClassController::store / update | yes | current class | Task 11 |
 | Style class detach job | StyleClassJobRunner::process (detach) | yes | current document | copies class values into blocks — Task 11 |
 | Style class remove job | StyleClassJobRunner::process (remove) | no | — | removes a class reference, adds no value; CAS |
-| Content bundle import | ContentImporter::upsert | yes | current record | per-record refusal — Task 11 |
+| Content bundle import: entry_draft | ContentImporter::upsert | yes | stored draft | per-record refusal — Task 11 |
+| Content bundle import: entry_version | ContentImporter::upsert | yes when it is the current publication; history stored as given | the stored version | Task 11 |
+| Content bundle import: entry_publication | ContentImporter::upsert | yes (a pointer change is a rollback) | the referenced version, server-loaded; a changed one is appended and pinned | Task 11 |
 | Block-type migration | BlockBackfillRunner::process | no | — | Delete/Rename on data fields; CAS persist |
 | Content-type migration | BackfillRunner::processDraft / processPublished | no | — | DeleteField/RenameField; CAS / pin re-check |
 | Settings converter | SettingsConversion::apply | no | — | no shipped stage; conversion tables predate brand tokens; CAS persist |
 | Tenant seed / starter sync | TenantSeeder / StarterSync kinds | no | — | starter payloads carry no brand token (pinned) |
 | Entry create / discard / delete / unpublish | EntryRepository / PublishService | no | — | write no style values |
-| Replace job | PaletteReplaceRunner | yes (forced, job id asserted) | current document | Task 14 |
+| Replace job | PaletteReplaceRunner (queued as RunPaletteReplaceJob, inside its workspace) | yes (forced, job id asserted; every status change a guarded transition) | current document | Task 14 |
 | Palette mutations | PaletteMutations (configure, rename, re-colour, clear, reset) | takes and bumps the row | — | Task 13 |
 ```
 
@@ -2539,16 +2564,41 @@ final class PaletteStateTest extends AppTestCase
         $db = $this->container()->get(Connection::class);
         $id = $db->transaction(function (): string {
             $this->state()->lock();
-            return $this->container()->get(PaletteJobRepository::class)->start(1, 'color.brand-2', 'color.brand-2-contrast', 'user00000001');
+            return $this->container()->get(PaletteJobRepository::class)->start(1, 'color.brand-2', 'color.brand-2-contrast', 'user00000001', null);
         });
         $snap = $this->state()->snapshot();
         self::assertSame($id, $snap->jobReplacing(1)?->id);
         self::assertSame([2], $snap->reservedSlots());
-        $this->container()->get(PaletteJobRepository::class)->setStatus($id, 'cancelled');
+        $this->container()->get(Connection::class)->transaction(function () use ($id): void {
+            $this->state()->lock();
+            self::assertTrue($this->container()->get(PaletteJobRepository::class)->transition($id, 'cancelled'));
+        });
         self::assertSame([], $this->state()->snapshot()->reservedSlots());
+    }
+
+    public function testCompletedAndCancelledAreTerminalAndTransitionsNeedTheLock(): void
+    {
+        $db = $this->container()->get(Connection::class);
+        $jobs = $this->container()->get(PaletteJobRepository::class);
+        $id = $db->transaction(function () use ($jobs): string {
+            $this->state()->lock();
+            return $jobs->start(1, 'color.accent', 'color.accent-contrast', null, null);
+        });
+        $db->transaction(function () use ($jobs, $id): void {
+            $this->state()->lock();
+            self::assertTrue($jobs->transition($id, 'completed'));
+            self::assertFalse($jobs->transition($id, 'failed'), 'completed is terminal');
+            self::assertFalse($jobs->transition($id, 'running'));
+            self::assertFalse($jobs->transition($id, 'cancelled'));
+        });
+        self::assertSame('completed', $jobs->find($id)?->status);
+        $this->expectException(\LogicException::class);
+        $jobs->transition($id, 'cancelled');
     }
 }
 ```
+
+The first-row race (two sessions creating the row at once, the loser inside an open transaction) cannot be staged on one connection. It is proven with two processes in Task 14's real-database proofs (scenario `first-row`).
 
 - [ ] **Step 4: Run it to see it fail**
 
@@ -2589,7 +2639,7 @@ final class CreatePaletteTables implements MigrationInterface
                 $table->string('id', 12)->primary();
                 $table->integer('slot');
                 $table->string('to_token', 64);
-                $table->string('contrast_to_token', 64);
+                $table->string('contrast_to_token', 64)->nullable(); // null: no contrast mapping (§4.2)
                 $table->string('status', 16);              // running | failed | completed | cancelled
                 $table->integer('passes')->default(0);
                 $table->integer('work_items_total')->default(0);
@@ -2655,16 +2705,24 @@ final class PaletteState
     ) {
     }
 
+    /**
+     * Creates the workspace's row when missing. The insert runs in its own transaction, or, inside
+     * an open one, a SAVEPOINT (Connection::transaction nests as savepoints). A duplicate-key loss to a
+     * concurrent first writer rolls back only the savepoint, so the caller's PostgreSQL transaction
+     * is never left aborted.
+     */
     public function ensureRow(): void
     {
         if ($this->db->table('palette_state')->select(['id'])->first() !== null) {
             return;
         }
         try {
-            $this->db->table('palette_state')->insert(['site' => 'site', 'generation' => 0, 'updated_at' => gmdate('Y-m-d H:i:s')]);
+            $this->db->transaction(function (): void {
+                $this->db->table('palette_state')->insert(['site' => 'site', 'generation' => 0, 'updated_at' => gmdate('Y-m-d H:i:s')]);
+            });
         } catch (\Throwable $e) {
             if ($this->db->table('palette_state')->select(['id'])->first() === null) {
-                throw $e;
+                throw $e; // not the race: surface it
             }
         }
     }
@@ -2767,7 +2825,7 @@ final class PaletteSnapshot
     {
         $out = [];
         foreach ($this->activeJobs as $job) {
-            foreach ([$job->to, $job->contrastTo] as $token) {
+            foreach (array_filter([$job->to, $job->contrastTo]) as $token) {
                 $slot = Palette::slotOf($token);
                 if ($slot !== null) {
                     $out[$slot] = $slot;
@@ -2780,7 +2838,35 @@ final class PaletteSnapshot
 }
 ```
 
-`PaletteJob` holds exactly the fields in the shared contracts. `PaletteJobRepository` follows `StyleClassJobRepository` (`core/src/Content/Style/Classes/StyleClassJobRepository.php`): `start` (id via the same 12-character id generator that repository uses; status `running`), `find`, `active()` (status in `running`/`failed`), `setStatus` (sets `finished_at` for `completed`/`cancelled`), `beginPass`, `incrementDone` (raw `UPDATE … +1` scoped by tenant through the barrier, exactly as `StyleClassJobRepository::incrementDone`), `recordFailure`, `recordCounts(string $id, array $counts)`, `isActive(string $id): bool`. A new raw-PDO file must be classified in `tests/Unit/Tenancy/RawPdoScopingLintTest.php`'s `SCOPED` list.
+`PaletteJob` holds exactly the fields in the shared contracts. `PaletteJobRepository` follows `StyleClassJobRepository` (`core/src/Content/Style/Classes/StyleClassJobRepository.php`):
+- `start(int $slot, string $to, ?string $contrastTo, ?string $actor, ?string $workspace)`: id via the same 12-character id generator that repository uses; status `running`; `heartbeat_at` now. Add a nullable `workspace` column (`string(12)`) to the migration above.
+- `find`, and `active()` (status `running`/`failed`).
+- `transition()`:
+
+  ```php
+  private const TRANSITIONS = ['running' => ['completed', 'failed', 'cancelled', 'running'], 'failed' => ['running', 'cancelled']];
+
+  public function transition(string $id, string $to): bool
+  {
+      if (!$this->state->heldInThisTransaction()) {
+          throw new \LogicException('a palette job changes state only under the palette lock');
+      }
+      $job = $this->find($id);
+      if ($job === null || !in_array($to, self::TRANSITIONS[$job->status] ?? [], true)) {
+          return false; // completed and cancelled are terminal; anything else unlisted is refused
+      }
+      $changes = ['status' => $to, 'heartbeat_at' => gmdate('Y-m-d H:i:s')];
+      if (in_array($to, ['completed', 'cancelled', 'failed'], true)) {
+          $changes['finished_at'] = gmdate('Y-m-d H:i:s');
+      }
+      return $this->db->table('palette_jobs')->where('id', '=', $id)->where('status', '=', $job->status)->update($changes) === 1;
+  }
+  ```
+
+  `PaletteState` is injected lazily (a `Closure(): PaletteState` or the container) to avoid the constructor cycle with `PaletteState`, which reads `active()`.
+- `beginPass`; `incrementDone` and `touchHeartbeat` (raw `UPDATE … +1` / `SET heartbeat_at`, scoped by tenant through the barrier, exactly as `StyleClassJobRepository::incrementDone`, each `WHERE status = 'running'`); `recordFailure`; `recordCounts(string $id, array $counts)`; `isActive(string $id): bool`.
+
+A new raw-PDO file must be classified in `tests/Unit/Tenancy/RawPdoScopingLintTest.php`'s `SCOPED` list.
 
 `EnginePaletteStatusReader::statuses()` reads `PaletteState::snapshot()`:
 - each active job's slot → `['state' => 'replacing', 'reserved' => false, 'replacing' => ['to' => $job->to, 'contrast_to' => $job->contrastTo]]`;
@@ -2811,15 +2897,18 @@ git commit -m "feat(palette): the palette lock order and writer inventory, and t
 - Consumes: `ColorTokenWalker`, `PaletteSnapshot`, `Palette`.
 - Produces:
   - `PaletteNormalizer::normalize(string $kind, array $doc, PaletteSnapshot $snapshot, array $basis, ?ContentTypeSchema $schema = null): Normalized`;
-  - `PaletteNormalizer::basisOf(string $kind, array ...$docs): array<string,string>` (location → token, the union of the given server-loaded documents; schema passed through a named `schema:` argument);
+  - `PaletteNormalizer::basisOf(string $kind, ?ContentTypeSchema $schema, array ...$docs): array<string, list<string>>` (location → every token any of the given server-loaded documents holds there);
   - `PaletteRefusal extends \RuntimeException` with `public readonly array $errors` (location → message), rendered by every caller as a 422 `{palette: [...]}`.
 
 **Rules (spec §4.5).** For each colour token in the **original** document:
-1. **Source slot of an active job:** the brand token → `job->to`; its contrast token → `job->contrastTo`.
-2. **Unconfigured slot:** kept if `$basis[$location] === $token`. Otherwise refused: `"<Name> is no longer in the palette"`, where Name is "Brand N" because the label is gone.
+1. **Source slot of an active job:**
+   - the brand token → `job->to`;
+   - its contrast token → `job->contrastTo`;
+   - when `contrastTo` is null (the job has no contrast mapping, Task 14), the contrast token is **refused**: `"Text on Brand N has no replacement in the running replacement"`. Text is never silently mapped to a fill colour.
+2. **Unconfigured slot:** kept if `in_array($token, $basis[$location] ?? [], true)`. Otherwise refused: `"Brand N is no longer in the palette"`, because the label is gone.
 3. **Anything else:** kept.
 
-`originalHadBrand` / `normalizedHasBrand` come from scanning before and after.
+`originalHadBrand` / `normalizedHasBrand` come from scanning before and after. `rewrites` lists each mapping applied (`location`, `from`, `to`). Writers return them so editors can adopt the accepted result (Task 12).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2856,7 +2945,7 @@ final class PaletteNormalizerTest extends AppTestCase
         return new PaletteSnapshot(7, new Palette(brands: $brands + [1 => null, 2 => null, 3 => null]), $jobs);
     }
 
-    private static function job(int $slot, string $to, string $contrastTo): PaletteJob
+    private static function job(int $slot, string $to, ?string $contrastTo): PaletteJob
     {
         return new PaletteJob('job000000001', $slot, $to, $contrastTo, 'running', 0, 0, 0, 0, []);
     }
@@ -2889,14 +2978,14 @@ final class PaletteNormalizerTest extends AppTestCase
 
     public function testAReferenceTheBasisAlreadyHoldsAtThatLocationIsKept(): void
     {
-        $basis = $this->n()->basisOf(self::K, self::cls('color.brand-2'));
+        $basis = $this->n()->basisOf(self::K, null, self::cls('color.brand-2'));
         $out = $this->n()->normalize(self::K, self::cls('color.brand-2'), self::snap([]), $basis);
         self::assertSame('color.brand-2', $out->doc['style']['colors']['text']['value']);
     }
 
     public function testTheBasisIsPerLocationNotPerDocument(): void
     {
-        $basis = $this->n()->basisOf(self::K, self::cls('color.brand-2'));       // text holds it
+        $basis = $this->n()->basisOf(self::K, null, self::cls('color.brand-2')); // text holds it
         $this->expectException(PaletteRefusal::class);
         $this->n()->normalize(self::K, self::cls('color.accent', 'color.brand-2'), self::snap([]), $basis); // moved to surface
     }
@@ -2914,8 +3003,30 @@ final class PaletteNormalizerTest extends AppTestCase
     public function testAJobsSourceWinsOverTheBasisDuringAReplacement(): void
     {
         $snap = self::snap([1 => new BrandSlot('Gold', '#8a6a2a')], [self::job(1, 'color.brand-2', 'color.brand-2-contrast')]);
-        $basis = $this->n()->basisOf(self::K, self::cls('color.brand-1'));
-        self::assertSame('color.brand-2', $this->n()->normalize(self::K, self::cls('color.brand-1'), $snap, $basis)->doc['style']['colors']['text']['value']);
+        $basis = $this->n()->basisOf(self::K, null, self::cls('color.brand-1'));
+        $out = $this->n()->normalize(self::K, self::cls('color.brand-1'), $snap, $basis);
+        self::assertSame('color.brand-2', $out->doc['style']['colors']['text']['value']);
+        self::assertSame([['location' => 'style.colors.text', 'from' => 'color.brand-1', 'to' => 'color.brand-2']], $out->rewrites);
+    }
+
+    public function testACurrentAccentDoesNotHideAHistoricalBrandAtTheSameLocation(): void
+    {
+        // the current draft holds Accent where the restored version held the now-cleared Brand 1
+        $basis = $this->n()->basisOf(self::K, null, self::cls('color.accent'), self::cls('color.brand-1'));
+        self::assertSame(['style.colors.text' => ['color.accent', 'color.brand-1']], $basis);
+        $out = $this->n()->normalize(self::K, self::cls('color.brand-1'), self::snap([]), $basis);
+        self::assertSame('color.brand-1', $out->doc['style']['colors']['text']['value']);
+    }
+
+    public function testAJobWithoutAContrastMappingRefusesAContrastReference(): void
+    {
+        $snap = self::snap([1 => new BrandSlot('Gold', '#8a6a2a')], [self::job(1, 'color.surface', null)]);
+        try {
+            $this->n()->normalize(self::K, self::cls('color.brand-1', 'color.brand-1-contrast'), $snap, []);
+            self::fail('a contrast reference with no mapping is refused');
+        } catch (PaletteRefusal $e) {
+            self::assertSame(['style.colors.surface' => 'Text on Brand 1 has no replacement in the running replacement'], $e->errors);
+        }
     }
 }
 ```
@@ -2946,12 +3057,13 @@ final class PaletteNormalizer
     {
     }
 
-    /** @param array<string,string> $basis */
+    /** @param array<string,list<string>> $basis */
     public function normalize(string $kind, array $doc, PaletteSnapshot $snapshot, array $basis, ?ContentTypeSchema $schema = null): Normalized
     {
         $hadBrand = false;
         $errors = [];
-        $out = $this->walker->map($kind, $doc, static function (string $loc, string $token) use ($snapshot, $basis, &$hadBrand, &$errors): ?string {
+        $rewrites = [];
+        $out = $this->walker->map($kind, $doc, static function (string $loc, string $token) use ($snapshot, $basis, &$hadBrand, &$errors, &$rewrites): ?string {
             $slot = Palette::slotOf($token);
             if ($slot === null) {
                 return null;
@@ -2959,9 +3071,15 @@ final class PaletteNormalizer
             $hadBrand = true;
             $job = $snapshot->jobReplacing($slot);
             if ($job !== null) {
-                return Palette::isContrastToken($token) ? $job->contrastTo : $job->to;
+                $to = Palette::isContrastToken($token) ? $job->contrastTo : $job->to;
+                if ($to === null) {
+                    $errors[$loc] = "Text on Brand {$slot} has no replacement in the running replacement";
+                    return null;
+                }
+                $rewrites[] = ['location' => $loc, 'from' => $token, 'to' => $to];
+                return $to;
             }
-            if (!$snapshot->palette->isConfigured($slot) && ($basis[$loc] ?? null) !== $token) {
+            if (!$snapshot->palette->isConfigured($slot) && !in_array($token, $basis[$loc] ?? [], true)) {
                 $errors[$loc] = "Brand {$slot} is no longer in the palette";
             }
             return null;
@@ -2969,34 +3087,31 @@ final class PaletteNormalizer
         if ($errors !== []) {
             throw new PaletteRefusal($errors);
         }
-        return new Normalized($out, $hadBrand, $this->walker->hasBrand($kind, $out, $schema));
+        return new Normalized($out, $hadBrand, $this->walker->hasBrand($kind, $out, $schema), $rewrites);
     }
 
-    /** @return array<string,string> */
-    public function basisOf(string $kind, array ...$docs): array
+    /** @return array<string,list<string>> */
+    public function basisOf(string $kind, ?ContentTypeSchema $schema, array ...$docs): array
     {
-        $schema = null;
-        if (isset($docs['schema'])) {
-            $schema = $docs['schema'];
-            unset($docs['schema']);
-        }
         $out = [];
         foreach ($docs as $doc) {
-            $out += $this->walker->tokens($kind, $doc, $schema);
+            foreach ($this->walker->tokens($kind, $doc, $schema) as $loc => $token) {
+                if (!in_array($token, $out[$loc] ?? [], true)) {
+                    $out[$loc][] = $token;
+                }
+            }
         }
         return $out;
     }
 }
 ```
 
-The `schema:` named argument lands in `$docs['schema']` through PHP's variadic named-argument collection.
-
 `Normalized` and `PaletteRefusal` follow the shared contracts. `PaletteRefusal::__construct(array $errors)` sets `$this->errors` and the message `implode('; ', $errors)`.
 
 - [ ] **Step 4: Run it**
 
 Run: `vendor/bin/phpunit tests/Unit/Content/Palette/PaletteNormalizerTest.php`
-Expected: PASS (6 tests).
+Expected: PASS (8 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -3201,8 +3316,9 @@ public function testJobStartsWhileTheSaveIsPausedAfterNormalising(): void
     [$uuid, $lock] = $this->entry();
     $this->configure(1, 'Gold', '#8a6a2a');
     $this->state()->afterNextSnapshot(fn () => $this->startJob(1, 'color.accent', 'color.accent-contrast'));
-    $this->repo()->saveDraft($uuid, 'en', ['body' => [$this->heading('color.brand-1')]], 1, $lock, 'user00000001');
+    $rewrites = $this->repo()->saveDraft($uuid, 'en', ['body' => [$this->heading('color.brand-1')]], 1, $lock, 'user00000001');
     self::assertSame('color.accent', $this->draftToken($uuid), 'the fence caught the mutation and re-normalised');
+    self::assertSame([['location' => 'body.0.settings.style.colors.text', 'from' => 'color.brand-1', 'to' => 'color.accent']], $rewrites, 'the editor is told what was accepted');
 }
 
 public function testAStaleMappingIsNotUsedAfterCancelAndANewReplacement(): void
@@ -3322,7 +3438,7 @@ $fields = $this->fence->write(
         ColorTokenWalker::KIND_ENTRY,
         $fields, // the ORIGINAL submitted fields, captured by the closure
         $s,
-        $this->normalizer->basisOf(ColorTokenWalker::KIND_ENTRY, $this->draftFields($entryUuid, $locale), schema: $schema),
+        $this->normalizer->basisOf(ColorTokenWalker::KIND_ENTRY, $schema, $this->draftFields($entryUuid, $locale), $this->restoredVersionFields($entryUuid, $locale)),
         $schema,
     ),
     function (array $doc) use ($entryUuid, $locale, $schemaVersion, $expectedLockVersion, $actor, &$oldFields, &$oldAssets, &$changed): array {
@@ -3339,6 +3455,10 @@ $fields = $this->fence->write(
 
 The events after the transaction then use `$fields` (now the normalised document). Inject `PaletteFence $fence` and `PaletteNormalizer $normalizer` as nullable constructor parameters, and skip the fence when either is null, so the many existing hand-built `EntryRepository` instances in tests keep working. The basis is re-read inside the normaliser closure on every call, so the second call reads the draft as stored under the held lock.
 
+`restoredVersionFields($entryUuid, $locale)` arrives with Task 12. Until then that argument is absent from the `basisOf` call; Task 12 adds it.
+
+**`saveDraft` returns what normalisation changed:** `@return list<array{location:string,from:string,to:string}>`. Capture `$rewrites` from the `Normalized` the fence used last: the write closure receives the doc, so have the normalise closure store its result in a by-reference `$last`. `EntryController::saveDraft` adds `palette_rewrites` to its 200 response (and to the response DTO's OpenAPI attributes); Task 12's editors adopt it. `EngineContentWriter` and `EngineContentUpserter` ignore the return value.
+
 - [ ] **Step 8: Fence publish, rollback and locale copy**
 
 **`PublishService::publishInternal`.** Keep the existence checks and gates where they are. From `$draft = $this->entries->findDraft(...)` through the transaction, wrap in:
@@ -3350,7 +3470,7 @@ $versionUuid = $this->fence->write(
         $fields = (array) $draft['fields'];
         // the draft IS the payload: re-read on every call, so a mismatch normalises the draft as stored now
         return $this->normalizer->normalize(ColorTokenWalker::KIND_ENTRY, $fields, $s,
-            $this->normalizer->basisOf(ColorTokenWalker::KIND_ENTRY, $fields, schema: $schema), $schema);
+            $this->normalizer->basisOf(ColorTokenWalker::KIND_ENTRY, $schema, $fields), $schema);
     },
     function (array $fields) use (/* … */): string {
         // the existing block-gate check, projection, strict validation and transaction, on $fields
@@ -3398,7 +3518,10 @@ git commit -m "feat(palette): the palette fence — entry drafts, locale copies,
 
 **Interfaces:**
 - Consumes: `PaletteFence::write/within`, `PaletteNormalizer`, `ColorTokenWalker` kinds.
-- Produces: no new public API. Each writer's 422 bodies gain `palette` errors, and the importer's per-record result gains `{"record": …, "error": "palette", "details": {...}}`.
+- Produces: no new public API beyond responses.
+  - Each writer's 422 bodies gain `palette` errors.
+  - Each writer's success response gains `palette_rewrites` (`list<{location, from, to}>`, empty when nothing changed). That covers the region save, layout save, saved-section create and style-class save; Task 12's editors adopt it.
+  - The importer's per-record result gains `{"record": …, "error": "palette", "details": {...}}`.
 
 **Lock order in these writers.** `PaletteFence::within()` must wrap the writer's **outermost** transaction, so the palette row precedes the advisory locks `RegionWriteLock` and `LayoutWriteLock` take. The normaliser itself runs inside, after the region or layout lock, because these writers validate inside their locks. On a generation mismatch nothing needs re-running: the palette row is already held when they normalise. Write that as:
 
@@ -3410,7 +3533,7 @@ return $this->fence->within(function () use ($posted, $expected, $actor) {
         // existing: read both regions, version check, RegionValidator::validateBoth …
         // NEW: for each posted region doc {blocks, settings}:
         //   $doc = $this->normalizer->normalize(ColorTokenWalker::KIND_REGION, $doc, $snapshot,
-        //            $this->normalizer->basisOf(ColorTokenWalker::KIND_REGION, $currentRow), null)->doc;
+        //            $this->normalizer->basisOf(ColorTokenWalker::KIND_REGION, null, $currentRow), null)->doc;
         // existing: saveExpected per slug, with the normalised doc
     });
 });
@@ -3427,18 +3550,29 @@ Taking the row unconditionally costs one row lock per region or layout save; bot
 ```php
 $this->fence->write(
     fn (PaletteSnapshot $s): Normalized => $this->normalizer->normalize($kindOf($ref), $fields, $s,
-        $this->normalizer->basisOf($kindOf($ref), $ref->fields, schema: $ref->schema), $ref->schema),
+        $this->normalizer->basisOf($kindOf($ref), $ref->schema, $ref->fields), $ref->schema),
     fn (array $doc): bool => $source->persist($ref, $doc) || throw new DocumentMoved(),
 );
 ```
 
 A `DocumentMoved` (a private exception) records the existing "changed concurrently" failure, and a `PaletteRefusal` records `reason = 'names a cleared brand colour'`. `$kindOf` maps `sourceType` to a walker kind: regions and saved sections are walked as `{blocks}` (`KIND_SECTION`), and entries as `KIND_ENTRY`.
 
-**Content import.** Wrap each record's write in `PaletteFence::write`:
-- the payload is the record's `fields` (entry drafts and versions), walked as `KIND_ENTRY` with the record's content type schema;
-- the basis is the existing stored row's fields, when one exists;
-- a `PaletteRefusal` adds a per-record error and continues;
-- records of other kinds are unaffected.
+**Content import.** Three record kinds can change what a site renders, and each goes through `PaletteFence::write`. A `PaletteRefusal` adds a per-record error and the import continues.
+
+- **`entry_draft`:**
+  - the payload is the record's `fields`, walked as `KIND_ENTRY` with the record's content type schema;
+  - the basis is the stored draft's fields, when one exists.
+- **`entry_version`:**
+  - **Not the current publication** (no `entry_publications` row points at its uuid, read under the lock): history, stored as given. That matches §4.1: history is never rewritten and renders a cleared colour as unavailable.
+  - **The current publication:** the import is rewriting live content. Normalise it with the stored version as basis, and store the normalised fields.
+- **`entry_publication`:** a pointer change is treated as a rollback, under the fence.
+  - Load the referenced version server-side: the database row, which a version record earlier in the same bundle has already written. A pointer to a version that doesn't exist is a per-record error.
+  - Normalise its fields with that version itself as the basis. That is rollback's rule (§4.5): pinning a version may keep the cleared colours it holds, as unavailable references.
+  - **When normalisation changed nothing:** upsert the pointer as given.
+  - **When it changed something** (a running job maps the version's Brand 1): don't pin the referenced version. Under the same transaction, append a normalised version through `VersionRepository::reserveNextVersionNumber` / `appendVersion` (actor null) and pin that instead, then `ReferenceProjectionRepository::rebuildForEntry`.
+
+  So a publication record can never repin a version that still names a job's source slot after the job scanned publications.
+- **Every other kind:** unaffected. None of them carries style values.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -3519,6 +3653,48 @@ public function testImportRefusesARecordNamingAnUnconfiguredSlotAndKeepsTheRest(
     self::assertNotNull($this->draftOf('entry0000002'));
 }
 
+public function testAnImportedPublicationPointerToAVersionNamingAJobsSourceAppendsANormalisedVersion(): void
+{
+    $this->configure(1, 'Gold', '#8a6a2a');
+    [$uuid] = $this->publishedEntryNaming('color.accent');
+    $old = $this->retainedVersionNaming($uuid, 'color.brand-1');   // already exists, not pinned
+    $this->startJob(1, 'color.accent', 'color.accent-contrast');
+    $before = $this->versionCount($uuid);
+    $this->importer()->process($this->bundle([$this->publicationRecord($uuid, 'en', $old)]));
+    self::assertNotSame($old, $this->publishedVersionUuid($uuid), 'the old version is not repinned as it is');
+    self::assertSame('color.accent', $this->publishedToken($uuid));
+    self::assertSame($before + 1, $this->versionCount($uuid));
+    self::assertSame('color.brand-1', $this->versionToken($old), 'history untouched');
+}
+
+public function testAnImportedPublicationPointerAfterTheSlotWasClearedPinsTheVersionWithAnUnavailableColour(): void
+{
+    $this->configure(1, 'Gold', '#8a6a2a');
+    [$uuid] = $this->publishedEntryNaming('color.accent');
+    $old = $this->retainedVersionNaming($uuid, 'color.brand-1');
+    $this->clear(1);
+    $this->importer()->process($this->bundle([$this->publicationRecord($uuid, 'en', $old)]));
+    self::assertSame($old, $this->publishedVersionUuid($uuid), 'a rollback-equivalent pin: the version itself is the basis');
+    self::assertStringNotContainsString('brand-1', $this->renderPublic($uuid), 'renders no colour for it');
+}
+
+public function testAnImportedVersionRecordThatIsTheCurrentPublicationIsNormalised(): void
+{
+    $this->configure(1, 'Gold', '#8a6a2a');
+    [$uuid] = $this->publishedEntryNaming('color.accent');
+    $pinned = $this->publishedVersionUuid($uuid);
+    $this->startJob(1, 'color.accent', 'color.accent-contrast');
+    $this->importer()->process($this->bundle([$this->versionRecord($pinned, $uuid, 'en', ['body' => [$this->heading('color.brand-1')]])]));
+    self::assertSame('color.accent', $this->versionToken($pinned));
+}
+
+public function testAnImportedHistoricalVersionRecordIsStoredAsGiven(): void
+{
+    [$uuid] = $this->publishedEntryNaming('color.accent');
+    $this->importer()->process($this->bundle([$this->versionRecord('verhist00001', $uuid, 'en', ['body' => [$this->heading('color.brand-3')]])]));
+    self::assertSame('color.brand-3', $this->versionToken('verhist00001'));
+}
+
 public function testImportCatchesAMutationAfterItsRead(): void
 {
     $this->configure(1, 'Gold', '#8a6a2a');
@@ -3586,75 +3762,147 @@ git commit -m "feat(palette): fence regions, layouts, saved sections, style clas
 
 ---
 
-### Task 12: Restore to draft on the server
+### Task 12: The editor contract — server-side restore with provenance, and adopting normalised saves
 
 **Files:**
-- Modify: `core/src/Content/Http/Controllers/EntryController.php` (new `restoreDraft(RestoreDraftData $input, Request $request, string $uuid, string $locale)`)
-- Create: `core/src/Content/Http/DTOs/RestoreDraftData.php` (`string $version_uuid`, `int $lock_version`)
-- Modify: `core/src/Content/Repositories/EntryRepository.php` (`saveDraft` gains `array $extraBasis = []`, merged into the basis)
-- Create: `core/src/Content/Services/DraftRestore.php` (load and verify the version, project, build fields, save)
-- Modify: `core/routes/admin.php` (or wherever the draft routes are: grep `draft/{locale}`): `POST /entries/{uuid}/draft/{locale}/restore`, with the same permission as the draft `PUT`
-- Modify: `admin/src/queries/drafts.ts` (`restoreDraft(uuid, locale, versionUuid, lockVersion)`)
-- Modify: `admin/src/pages/content/[type]/[uuid]/design/[locale].vue:357`, `admin/src/pages/content/[type]/[uuid]/index.vue:216`
-- Modify: `admin/src/editor/restoreVersion.ts` (keep `restoreOps`; `restoredFields` stays only as the op builder's input)
-- Test: `tests/Integration/Content/Palette/DraftRestoreTest.php`, `admin/src/__tests__/restore-version.spec.ts`
+- Create: `core/database/migrations/044_AddRestoredVersionToEntryDrafts.php` (`entry_drafts.restored_version_uuid`, nullable string(12))
+- Modify: `core/src/Content/Repositories/EntryRepository.php`:
+  - `saveDraft` gains `array $extraBasis = []` and returns rewrites (Task 10);
+  - new `restoredVersionFields(string $uuid, string $locale): array`;
+  - `discardDraft` clears the column.
+- Modify: `core/src/Content/Services/PublishService.php` (after a successful publish, clear the draft's `restored_version_uuid` inside the publish transaction)
+- Create: `core/src/Content/Services/DraftRestore.php`, `core/src/Content/Http/DTOs/RestoreDraftData.php` (`string $version_uuid`, `int $lock_version`)
+- Modify: `core/src/Content/Http/Controllers/EntryController.php` (new `restoreDraft`; `saveDraft`'s response carries `palette_rewrites`)
+- Modify: the draft routes file (grep `draft/{locale}`): `POST /entries/{uuid}/draft/{locale}/restore`, same permission as the draft `PUT`
+- Create: `admin/src/editor/paletteRewrites.ts` (`applyPaletteRewrites(doc, rewrites)`)
+- Modify:
+  - `admin/src/queries/drafts.ts` (`restoreDraft`; the save result type gains `palette_rewrites`);
+  - `admin/src/pages/content/[type]/[uuid]/design/[locale].vue` (restore through the endpoint; adopt rewrites after every save);
+  - `admin/src/pages/content/[type]/[uuid]/index.vue` (same, for the form page);
+  - `admin/src/pages/regions/components/RegionStyleEditor.vue` and the region editor page;
+  - `admin/src/pages/layouts/[surface]/[target].vue`;
+  - `admin/src/pages/settings/style-classes/components/StyleClassEditor.vue`;
+  - the saved-section save path. Each adopts `palette_rewrites` from its save response.
+- Modify: `admin/e2e/helpers.ts` (world options for the restore endpoint and a save response carrying rewrites)
+- Test:
+  - `tests/Integration/Content/Palette/DraftRestoreTest.php`;
+  - `admin/src/__tests__/palette-rewrites.spec.ts`, `admin/src/__tests__/restore-version.spec.ts`;
+  - `admin/e2e/tests/palette-restore-history.spec.ts`, `admin/e2e/tests/palette-normalized-save.spec.ts`.
 
 **Interfaces:**
-- Consumes: `VersionRepository::findVersionByUuid()`, `BlockRestoreProjector::project`, `EntryRepository::saveDraft(..., array $extraBasis)`.
-- Produces: `POST /v1/admin/entries/{uuid}/draft/{locale}/restore` with body `{version_uuid, lock_version}` → 200 `{draft: {fields, lock_version}}`. Errors:
-  - 404 when the version is not this entry's in this locale;
-  - 409 `STALE_DRAFT`;
-  - 422 `palette`.
+- Consumes: `VersionRepository::findVersionByUuid()`, the projector `PublishService::rollback` uses for a version's fields, and `EntryRepository::saveDraft(..., array $extraBasis)`.
+- Produces:
+  - **Restore:** `POST /v1/admin/entries/{uuid}/draft/{locale}/restore` with body `{version_uuid, lock_version}` → 200 `{draft: {fields, lock_version}, palette_rewrites}`. Errors: 404 when the version is not this entry's in this locale; 409 `STALE_DRAFT`; 422 `palette`.
+  - **Draft save:** `PUT /entries/{uuid}/draft/{locale}` 200 gains `palette_rewrites`.
+  - **Admin:** `applyPaletteRewrites(doc: Record<string, unknown>, rewrites: PaletteRewrite[]): { doc: Record<string, unknown>; applied: PaletteRewrite[] }`.
 
-  Also produces `DraftRestore::restore(string $uuid, string $locale, string $versionUuid, int $lockVersion, ?string $actor): array`.
+**Restore provenance (spec §4.5, amended per review).** The server, never the client, records which version was last restored into a draft.
+- **Writing it:** the restore endpoint sets `entry_drafts.restored_version_uuid` in the same CAS update that writes the restored fields.
+- **Using it:** every later draft save adds that version's fields, loaded server-side by the stored uuid, to its trusted basis (`restoredVersionFields`).
+- **Clearing it:** a publish, a discard, or another restore (which replaces it).
 
-**Server rule (mirrors `restoredFields()`).** The draft takes every field of the projected version except `_schema`, which stays the draft's own when present. The basis is the current draft **plus the projected version**, both loaded server-side. The client sends only `version_uuid`.
+Undo of a restore is an ordinary save that removes the references. Redo is an ordinary save that puts them back at the same locations, and it is accepted because the recorded version holds them there.
 
-- [ ] **Step 1: Write the failing tests**
+What it cannot do:
+- The client can't nominate a version: a plain save has no field naming one.
+- It can't widen the basis beyond the one recorded version.
+- It can't place a cleared colour anywhere the recorded version didn't hold it.
+
+**Restore rule (mirrors `restoredFields()`).** The draft takes every field of the projected version except `_schema`, which stays the draft's own when present. The basis is the current draft plus the projected version, both server-loaded.
+
+**Adopting normalised results.** Every fenced save returns `palette_rewrites`. The editor applies each rewrite to its **current** local document only where the value at `location` still equals `from`:
+- **Untouched value:** the editor adopts what the server stored.
+- **Value changed during the request:** the newer local edit wins. The next save normalises it again.
+
+Adoption is applied as an already-persisted change: it enters neither undo history nor the autosave diff, and the stage receives it through the editor's next apply of the working copy. Without it, the editor would keep Brand 1 after the server stored Accent, and its next save would be refused once the job cleared the slot.
+
+- [ ] **Step 1: Write the failing server tests**
 
 ```php
 public function testRestoringBringsBackAnUnavailableReferenceAndSavingItAgainKeepsIt(): void
 {
     [$uuid] = $this->entry();
     $this->configure(1, 'Gold', '#8a6a2a');
-    $old = $this->publishWith($uuid, 'color.brand-1');   // a retained version naming Brand 1
+    $old = $this->publishWith($uuid, 'color.brand-1');
     $this->replaceAndClear(1, 'color.accent');            // drafts and current publication rewritten; slot cleared
     $res = $this->restore($uuid, 'en', $old, $this->lockOf($uuid));
     self::assertSame(200, $res->getStatusCode(), (string) $res->getContent());
-    self::assertSame('color.brand-1', $this->draftToken($uuid), 'restored although the draft no longer held it');
-    // saving the restored draft again, with and without an unrelated edit
-    $this->repo()->saveDraft($uuid, 'en', $this->draftFields($uuid), 1, $this->lockOf($uuid), 'user00000001');
-    $edited = $this->draftFields($uuid); $edited['title'] = 'Changed';
+    self::assertSame('color.brand-1', $this->draftToken($uuid), 'restored although the draft held Accent there');
+    $edited = $this->draftFields($uuid);
+    $edited['title'] = 'Changed';
     $this->repo()->saveDraft($uuid, 'en', $edited, 1, $this->lockOf($uuid), 'user00000001');
     self::assertSame('color.brand-1', $this->draftToken($uuid));
 }
 
-public function testAPlainSaveCannotSmuggleTheSameReference(): void
+public function testRestoreThenUndoThenRedoIsAccepted(): void
+{
+    [$uuid] = $this->entry();
+    $this->configure(1, 'Gold', '#8a6a2a');
+    $old = $this->publishWith($uuid, 'color.brand-1');
+    $this->replaceAndClear(1, 'color.accent');
+    $before = $this->draftFields($uuid);                                    // Accent
+    $this->restore($uuid, 'en', $old, $this->lockOf($uuid));
+    $restored = $this->draftFields($uuid);                                  // Brand 1
+    $this->repo()->saveDraft($uuid, 'en', $before, 1, $this->lockOf($uuid), 'user00000001');   // undo
+    self::assertSame('color.accent', $this->draftToken($uuid));
+    $this->repo()->saveDraft($uuid, 'en', $restored, 1, $this->lockOf($uuid), 'user00000001'); // redo
+    self::assertSame('color.brand-1', $this->draftToken($uuid), 'the recorded restore keeps it trusted');
+}
+
+public function testTheRecordedRestoreDoesNotWidenToOtherLocationsOrOtherVersions(): void
+{
+    [$uuid] = $this->entry();
+    $this->configure(1, 'Gold', '#8a6a2a');
+    $this->configure(2, 'Rose', '#c98a8a');
+    $old = $this->publishWith($uuid, 'color.brand-1');                    // body.0 text = Brand 1
+    $other = $this->publishWith($uuid, 'color.brand-2');                  // another version
+    $this->replaceAndClear(1, 'color.accent');
+    $this->replaceAndClear(2, 'color.accent');
+    $this->restore($uuid, 'en', $old, $this->lockOf($uuid));
+    $moved = ['body' => [$this->heading('color.accent'), $this->heading('color.brand-1')]]; // Brand 1 at body.1
+    $this->expectException(PaletteRefusal::class);
+    $this->repo()->saveDraft($uuid, 'en', $moved, 1, $this->lockOf($uuid), 'user00000001');
+}
+
+public function testAPlainSaveCannotSmuggleAHistoricalReference(): void
 {
     [$uuid] = $this->entry();
     $this->configure(1, 'Gold', '#8a6a2a');
     $this->publishWith($uuid, 'color.brand-1');
     $this->replaceAndClear(1, 'color.accent');
-    $res = $this->putDraft($uuid, 'en', ['body' => [$this->heading('color.brand-1')]], $this->lockOf($uuid)); // client-supplied old payload
+    $res = $this->putDraft($uuid, 'en', ['body' => [$this->heading('color.brand-1')]], $this->lockOf($uuid));
     self::assertSame(422, $res->getStatusCode());
     self::assertStringContainsString('palette', (string) $res->getContent());
 }
 
+public function testPublishAndDiscardForgetTheRecordedRestore(): void
+{
+    [$uuid] = $this->entry();
+    $this->configure(1, 'Gold', '#8a6a2a');
+    $old = $this->publishWith($uuid, 'color.brand-1');
+    $this->replaceAndClear(1, 'color.accent');
+    $this->restore($uuid, 'en', $old, $this->lockOf($uuid));
+    $this->publisher()->publish($uuid, 'en', 'user00000001');
+    self::assertNull($this->restoredVersionOf($uuid));
+}
+
 public function testAnotherEntrysVersionIs404(): void
 {
-    [$a] = $this->entry(); [$b] = $this->entry();
+    [$a] = $this->entry();
+    [$b] = $this->entry();
     $versionOfB = $this->publishWith($b, 'color.accent');
     self::assertSame(404, $this->restore($a, 'en', $versionOfB, $this->lockOf($a))->getStatusCode());
 }
 
-public function testRestoringDuringAReplacementMapsTheReference(): void
+public function testRestoringDuringAReplacementMapsTheReferenceAndReportsTheRewrite(): void
 {
     [$uuid] = $this->entry();
     $this->configure(1, 'Gold', '#8a6a2a');
     $old = $this->publishWith($uuid, 'color.brand-1');
     $this->startJob(1, 'color.accent', 'color.accent-contrast');
-    $this->restore($uuid, 'en', $old, $this->lockOf($uuid));
+    $res = $this->restore($uuid, 'en', $old, $this->lockOf($uuid));
     self::assertSame('color.accent', $this->draftToken($uuid));
+    self::assertSame('color.accent', self::data($res)['palette_rewrites'][0]['to']);
 }
 
 public function testRestoringIsFencedAgainstAMutationAfterItsRead(): void
@@ -3666,72 +3914,210 @@ public function testRestoringIsFencedAgainstAMutationAfterItsRead(): void
     $this->restore($uuid, 'en', $old, $this->lockOf($uuid));
     self::assertSame('color.accent', $this->draftToken($uuid));
 }
-```
 
-`replaceAndClear` is a stand-in until Task 14 lands: it rewrites the draft and current publication through `PaletteFence::within` and clears the slot. Task 14's tests re-run this file's first test against the real job.
-
-Admin spec `admin/src/__tests__/restore-version.spec.ts`:
-- mount the design page's restore action with a mocked `restoreDraft` resolving `{draft: {fields, lock_version: 8}}`;
-- assert the client calls `restoreDraft(uuid, 'en', versionUuid, currentLock)`, never `PUT /draft`;
-- assert it applies one `SetPageSettings` transaction built by `restoreOps(current, response.fields)`;
-- assert it adopts `lock_version` 8 without queuing an autosave.
-
-- [ ] **Step 2: Run them to see them fail**
-
-Run: `vendor/bin/phpunit tests/Integration/Content/Palette/DraftRestoreTest.php && (cd admin && pnpm vitest run src/__tests__/restore-version.spec.ts)`
-Expected: FAIL. There is no route, and the client still calls `PUT`.
-
-- [ ] **Step 3: Implement**
-
-`DraftRestore::restore`:
-
-```php
-public function restore(string $uuid, string $locale, string $versionUuid, int $lockVersion, ?string $actor): array
+public function testTheDraftSaveResponseCarriesItsRewrites(): void
 {
-    $version = $this->versions->findVersionByUuid($versionUuid);
-    if ($version === null || (string) $version['entry_uuid'] !== $uuid || (string) $version['locale'] !== $locale) {
-        throw new VersionNotFound($versionUuid);
-    }
-    $entry = $this->entries->findEntry($uuid) ?? throw new VersionNotFound($versionUuid);
-    $typeUuid = (string) $entry['content_type_uuid'];
-    $projected = $this->projector->project($typeUuid, (int) $version['schema_version'], (array) $version['fields']);
-    $current = $this->entries->draftFields($uuid, $locale);
-    unset($projected['_schema']);
-    $fields = array_key_exists('_schema', $current) ? ['_schema' => $current['_schema']] + $projected : $projected;
-    $clean = $this->validator->validate($this->types->schemaFor($typeUuid), $fields);
-    $this->entries->saveDraft($uuid, $locale, $clean, $this->schemaVersionOf($typeUuid), $lockVersion, $actor, extraBasis: $projected);
-    return ['fields' => $this->entries->draftFields($uuid, $locale), 'lock_version' => $lockVersion + 1];
+    [$uuid, $lock] = $this->entry();
+    $this->configure(1, 'Gold', '#8a6a2a');
+    $this->startJob(1, 'color.accent', 'color.accent-contrast');
+    $res = $this->putDraft($uuid, 'en', ['body' => [$this->heading('color.brand-1')]], $lock);
+    self::assertSame([['location' => 'body.0.settings.style.colors.text', 'from' => 'color.brand-1', 'to' => 'color.accent']], self::data($res)['palette_rewrites']);
 }
 ```
 
-Match the projector's real signature, which `PublishService::rollback` (~195) uses. If `BlockRestoreProjector` differs from `SchemaProjector`, use what `rollback` uses for a version's fields.
+`replaceAndClear` is a stand-in until Task 14: it rewrites the draft and current publication through `PaletteFence::within`, then clears the slot. Task 14 Step 6 re-runs this file against the real job.
 
-`EntryRepository::saveDraft(..., array $extraBasis = [])`: inside the normaliser closure, the basis becomes `basisOf(KIND_ENTRY, $this->draftFields(...), $extraBasis, schema: $schema)`.
+- [ ] **Step 2: Write the failing admin unit specs**
 
-Controller: map `VersionNotFound` → 404, `OptimisticLockException` → 409 `STALE_DRAFT`, `PaletteRefusal` → 422.
+`admin/src/__tests__/palette-rewrites.spec.ts`:
 
-Admin:
-- `drafts.ts` gains `restoreDraft()`, a `POST` returning `{fields, lock_version}`.
-- `restoreVersionToDraft` in `design/[locale].vue`:
-  1. awaits the pending autosave flush (the page's existing `flushSave()` or equivalent);
-  2. calls `restoreDraft`;
-  3. applies `restoreOps(currentFields, res.fields)` as one transaction through the editor's op dispatcher with the "already persisted" flag the stage uses for server-applied ops (grep `persisted` / `remote` in `admin/src/editor/ops`). If none exists, set the draft's saved snapshot to `res.fields` so the autosave diff is empty;
-  4. adopts `res.lock_version`.
-- `index.vue:216` replaces its local restore with the same call and reloads the form from `res.fields`.
+```ts
+import { describe, expect, it } from 'vitest'
+import { applyPaletteRewrites } from '@/editor/paletteRewrites'
 
-- [ ] **Step 4: Run them**
+const doc = () => ({ body: [{ type: 'heading', settings: { style: { colors: { text: { type: 'token', value: 'color.brand-1' } } } } }] })
 
-Run: `vendor/bin/phpunit tests/Integration/Content/Palette/DraftRestoreTest.php tests/Integration/Content/EntryRepositoryTest.php && (cd admin && pnpm vitest run src/__tests__/restore-version.spec.ts && pnpm type-check && pnpm exec oxfmt --check src/queries/drafts.ts src/editor/restoreVersion.ts "src/pages/content/[type]/[uuid]/index.vue" "src/pages/content/[type]/[uuid]/design/[locale].vue" src/__tests__/restore-version.spec.ts)`
+describe('applyPaletteRewrites', () => {
+  it('adopts a rewrite where the local value is still what was sent', () => {
+    const { doc: out, applied } = applyPaletteRewrites(doc(), [{ location: 'body.0.settings.style.colors.text', from: 'color.brand-1', to: 'color.accent' }])
+    expect((out.body as any)[0].settings.style.colors.text.value).toBe('color.accent')
+    expect(applied).toHaveLength(1)
+  })
+  it('keeps an edit made during the request', () => {
+    const local = doc()
+    ;(local.body[0].settings.style.colors.text as any).value = 'color.muted'
+    const { doc: out, applied } = applyPaletteRewrites(local, [{ location: 'body.0.settings.style.colors.text', from: 'color.brand-1', to: 'color.accent' }])
+    expect((out.body as any)[0].settings.style.colors.text.value).toBe('color.muted')
+    expect(applied).toHaveLength(0)
+  })
+  it('ignores a location that no longer exists (the block was removed meanwhile)', () => {
+    const { applied } = applyPaletteRewrites({ body: [] }, [{ location: 'body.0.settings.style.colors.text', from: 'color.brand-1', to: 'color.accent' }])
+    expect(applied).toHaveLength(0)
+  })
+  it('rewrites a token content field', () => {
+    const { doc: out } = applyPaletteRewrites({ body: [{ type: 'animated_text', data: { prefix_color: { type: 'token', value: 'color.brand-1' } } }] }, [{ location: 'body.0.data.prefix_color', from: 'color.brand-1', to: 'color.accent' }])
+    expect((out.body as any)[0].data.prefix_color.value).toBe('color.accent')
+  })
+})
+```
+
+`admin/src/__tests__/restore-version.spec.ts`:
+- the design page's restore calls `restoreDraft(uuid, 'en', versionUuid, currentLock)`, never `PUT /draft`;
+- it applies one undoable `SetPageSettings` transaction built by `restoreOps(current, response.draft.fields)`;
+- it adopts `lock_version` without queuing an autosave;
+- undo then queues an ordinary save of the pre-restore fields, and redo queues one of the restored fields. Neither carries any version id.
+
+- [ ] **Step 3: Write the failing browser proofs**
+
+`admin/e2e/helpers.ts`:
+- `World` gains `restore?: { fields: Record<string, unknown>; lock_version: number }`, answered for `POST /entries/{uuid}/draft/{locale}/restore` and recorded as `recorded.restores`;
+- it gains `saveRewrites?: Array<Array<{location, from, to}>>`, one entry per successive `PUT` draft response's `palette_rewrites`.
+
+`admin/e2e/tests/palette-restore-history.spec.ts`:
+
+```ts
+import { readFileSync } from 'node:fs'
+import { test, expect } from '@playwright/test'
+import { fixturePath, hooks, openDesignPage } from '../helpers'
+
+/** The composition fixture's draft with one value changed: the CTA button's text colour is Brand 1. */
+function fixtureWithBrandOne(): Record<string, unknown> {
+  const draft = JSON.parse(readFileSync(fixturePath('api/draft.json'), 'utf8')).data.draft.fields
+  const walk = (blocks: any[]): void => {
+    for (const b of blocks) {
+      if (b.id === 'ctabutn0001') {
+        b.settings = { ...(b.settings ?? {}), style: { ...(b.settings?.style ?? {}), colors: { text: { type: 'token', value: 'color.brand-1' } } } }
+      }
+      for (const v of Object.values(b.data ?? {})) if (Array.isArray(v)) walk(v)
+    }
+  }
+  for (const v of Object.values(draft)) if (Array.isArray(v)) walk(v as any[])
+  return draft
+}
+
+test('restore → undo → redo sends the restore once, then two ordinary saves with no version id', async ({ page }) => {
+  const restored = fixtureWithBrandOne()
+  const recorded = await openDesignPage(page, { restore: { fields: restored, lock_version: 3 } })
+  await page.locator('[data-test="versions-open"]').click()
+  await page.locator('[data-test="version-restore"]').first().click()
+  await expect.poll(() => recorded.restores.length).toBe(1)
+  await expect.poll(() => hooks(page).draftToken('ctabutn0001')).toBe('color.brand-1')
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect.poll(() => recorded.saves.length).toBe(1)
+  expect(JSON.stringify(recorded.saves[0])).not.toContain('version')
+  await page.keyboard.press('ControlOrMeta+Shift+z')
+  await expect.poll(() => recorded.saves.length).toBe(2)
+  expect(recorded.saves[1].fields).toEqual(restored)
+  expect(JSON.stringify(recorded.saves[1])).not.toContain('version')
+})
+```
+
+`fixturePath()` is the helper `helpers.ts` uses to read fixtures (export it if private). Match the draft fixture's real envelope (`data.draft.fields` above) and the block id key. `hooks(page).draftToken(id)` is a new E2E hook: add it to `window.__thalloBuilder` beside `applies()`, returning the selected block's `settings.style.colors.text.value` from the editor's document. The version list's test ids are the ones the versions panel already uses; grep `version-restore`.
+
+`admin/e2e/tests/palette-normalized-save.spec.ts`:
+
+```ts
+test('a save normalised from Brand 1 to Accent is adopted by the editor and the stage', async ({ page }) => {
+  const recorded = await openDesignPage(page, {
+    saveRewrites: [[{ location: 'body.0.data.children.0.settings.style.colors.text', from: 'color.brand-1', to: 'color.accent' }]],
+  })
+  await hooks(page).setStyleToken('ctabutn0001', 'colors.text', 'color.brand-1')
+  await hooks(page).saveNow()
+  await expect.poll(() => hooks(page).draftToken('ctabutn0001')).toBe('color.accent')
+  await expect.poll(() => recorded.applies.at(-1)?.fields).toBeTruthy()
+  expect(JSON.stringify(recorded.applies.at(-1)!.fields)).toContain('color.accent')   // the stage's next working copy
+  expect(await hooks(page).historyLength()).toBe(1)                                    // only the author's own edit
+})
+
+test('an edit made while the save was in flight is kept', async ({ page }) => {
+  const recorded = await openDesignPage(page, {
+    saveRewrites: [[{ location: 'body.0.data.children.0.settings.style.colors.text', from: 'color.brand-1', to: 'color.accent' }]],
+    saveDelayMs: 400,
+  })
+  await hooks(page).setStyleToken('ctabutn0001', 'colors.text', 'color.brand-1')
+  const saving = hooks(page).saveNow()
+  await hooks(page).setStyleToken('ctabutn0001', 'colors.text', 'color.muted')     // during the request
+  await saving
+  expect(await hooks(page).draftToken('ctabutn0001')).toBe('color.muted')
+  await expect.poll(() => recorded.saves.length).toBe(2)                              // the newer edit is saved next
+})
+```
+
+The location must be the real path of `ctabutn0001` in the composition fixture; read it from `api/draft.json`. Add the E2E hooks `setStyleToken`, `saveNow` and `historyLength` beside `applies()` (present only in an E2E build). `saveDelayMs` delays the routed `PUT` response.
+
+- [ ] **Step 4: Run them all to see them fail**
+
+Run: `vendor/bin/phpunit tests/Integration/Content/Palette/DraftRestoreTest.php && (cd admin && pnpm vitest run src/__tests__/palette-rewrites.spec.ts src/__tests__/restore-version.spec.ts)`
+Run (admin e2e, after rebuilding fixtures per the standing rule: `CACHE_DRIVER=array scripts/build-builder-proof-fixtures`): `cd admin/e2e && npx playwright test tests/palette-restore-history.spec.ts tests/palette-normalized-save.spec.ts`
+Expected: FAIL. There is no route, no helper and no hooks yet.
+
+- [ ] **Step 5: Implement the server side**
+
+- **Migration 044:**
+  ```php
+  if (!$schema->hasColumn('entry_drafts', 'restored_version_uuid')) {
+      $schema->table('entry_drafts', fn ($t) => $t->string('restored_version_uuid', 12)->nullable());
+  }
+  ```
+  Match the alter-table API a recent add-column migration uses, e.g. `039_FieldLabelsOnSavedSections.php`.
+- **`EntryRepository::restoredVersionFields($uuid, $locale)`:** reads the column. When set, it loads the version, checks that it belongs to this entry and locale (else `[]`), and returns its projected fields.
+- **`saveDraft`:** gains `?string $recordRestore = null`. Inside its CAS update it writes `restored_version_uuid` when given; any other save leaves the column as it is.
+- **`DraftRestore::restore`:** as in the earlier revision of this task. It loads and verifies the version, projects it, builds the fields keeping the draft's `_schema`, validates, then calls `saveDraft(..., extraBasis: $projected, recordRestore: $versionUuid)`. It returns `['fields' => …, 'lock_version' => $lockVersion + 1, 'palette_rewrites' => $rewrites]`.
+- **`PublishService::publishInternal`:** inside its transaction, after `pin`, clears the column with `UPDATE entry_drafts SET restored_version_uuid = NULL WHERE entry_uuid AND locale`. `discardDraft` deletes the row anyway.
+- **Controller:** `VersionNotFound` → 404; `OptimisticLockException` → 409 `STALE_DRAFT`; `PaletteRefusal` → 422. `saveDraft` includes `palette_rewrites`.
+
+- [ ] **Step 6: Implement the admin side**
+
+`admin/src/editor/paletteRewrites.ts`:
+
+```ts
+export interface PaletteRewrite { location: string; from: string; to: string }
+
+/** Adopt what the server stored (custom palette spec §4.5), only where the editor still holds what it sent. */
+export function applyPaletteRewrites(doc: Record<string, unknown>, rewrites: PaletteRewrite[]): { doc: Record<string, unknown>; applied: PaletteRewrite[] } {
+  const out = structuredClone(doc)
+  const applied: PaletteRewrite[] = []
+  for (const rw of rewrites) {
+    const keys = rw.location.split('.')
+    let node: unknown = out
+    for (const k of keys) {
+      if (node === null || typeof node !== 'object') { node = undefined; break }
+      node = (node as Record<string, unknown>)[k]
+    }
+    const typed = node as { type?: string; value?: unknown } | undefined
+    if (typed?.type === 'token' && typed.value === rw.from) {
+      typed.value = rw.to
+      applied.push(rw)
+    }
+  }
+  return { doc: out, applied }
+}
+```
+
+Wiring:
+- **Design page:**
+  - After each draft save resolves, if `palette_rewrites` is non-empty, run `applyPaletteRewrites` on the editor's current document. Set the editor document **and** its saved baseline to the result, so the autosave diff and undo history are untouched, then schedule a working-copy apply so the stage shows it.
+  - Restore: flush the pending autosave, call `restoreDraft`, apply `restoreOps(current, res.draft.fields)` as one undoable transaction marked persisted, adopt `res.draft.lock_version`, then adopt `res.palette_rewrites` the same way.
+- **Form page (`index.vue`):** the same, on its form model.
+- **Region, layout, style-class and saved-section editors:** adopt `palette_rewrites` from their save responses on their local documents. The locations use each writer's document shape:
+  - regions and layouts: `blocks.N…` / `settings.style…`;
+  - style classes: `style…`;
+  - saved sections: `blocks.0…`.
+
+- [ ] **Step 7: Run everything touched**
+
+Run: `vendor/bin/phpunit tests/Integration/Content/Palette tests/Integration/Content/EntryRepositoryTest.php tests/Integration/Content/PublishServiceTest.php && (cd admin && pnpm vitest run src/__tests__/palette-rewrites.spec.ts src/__tests__/restore-version.spec.ts src/__tests__/region-style-editor.spec.ts src/__tests__/style-class-editor-output.spec.ts && pnpm type-check && pnpm lint && pnpm exec oxfmt --check src/editor/paletteRewrites.ts src/queries/drafts.ts src/pages e2e/helpers.ts e2e/tests/palette-restore-history.spec.ts e2e/tests/palette-normalized-save.spec.ts src/__tests__/palette-rewrites.spec.ts src/__tests__/restore-version.spec.ts) && (cd admin/e2e && npx playwright test tests/palette-restore-history.spec.ts tests/palette-normalized-save.spec.ts)`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add core/src core/routes tests admin/src .github/workflows
-git commit -m "feat(palette): restore to draft on the server — the version is loaded by id and is the trusted basis for its colours"
+git add core/database/migrations/044_AddRestoredVersionToEntryDrafts.php core/src core/routes tests admin/src admin/e2e .github/workflows
+git commit -m "feat(palette): restore to draft on the server with recorded provenance, so undo and redo save; editors adopt normalised saves without losing in-flight edits"
 ```
 
 ---
+
 ### Task 13: Palette mutations, Clear, and the contrast preview
 
 **Files:**
@@ -4023,10 +4409,15 @@ git commit -m "feat(palette): palette changes under the palette row — Clear re
   - `core/src/Content/Palette/Sources/RegionSettingsSource.php`, `LayoutSettingsSource.php`, `StyleClassesSource.php` (all implement `BlockDocumentSource`)
   - `core/src/Content/Palette/Http/ReplaceBrandData.php` (`string $to`, `?string $contrast_to`)
 - Modify: `core/src/Content/Palette/Http/PaletteController.php` (`replace`, `job`, `jobs`, `cancel`, `resume`), `core/routes/admin.php`
-- Test: `tests/Integration/Content/Palette/PaletteReplaceTest.php`, `tests/Integration/Content/Palette/PaletteReplaceConcurrencyTest.php`, `tests/Integration/Http/PaletteApiTest.php`
+- Create: `core/src/Content/Palette/PaletteCacheEffects.php` (after-commit invalidation per rewritten document)
+- Test:
+  - `tests/Integration/Content/Palette/PaletteReplaceTest.php`, `tests/Integration/Content/Palette/PaletteReplaceConcurrencyTest.php`;
+  - `tests/Integration/Content/Palette/PaletteReplaceWorkerTest.php` (fresh worker), `tests/Integration/Content/Palette/PaletteReplaceTenancyTest.php` (two workspaces, retrofit);
+  - `tests/Integration/Content/Palette/PaletteTwoProcessTest.php` and its actor `tests/Integration/Content/Palette/PaletteConcurrentActorTest.php`;
+  - `tests/Integration/Http/PaletteApiTest.php`.
 
 **Interfaces:**
-- Consumes: everything from Tasks 7–13; `PublishedEntriesSource::persist($ref, $fields, $actor)` (append-and-repin); `QueueManager::push`.
+- Consumes: everything from Tasks 7–13; `PublishedEntriesSource::persist($ref, $fields, $actor)` (append-and-repin); `QueueManager::push`; `TenantScope::current($tenants, $context)`; `TenantContextRunner::runAsTenant(string $workspace, callable $fn)`; `RenderedPageCachePurge::purge(array $tags)`.
 - Produces:
   - `PaletteReplaceService::start(int $slot, string $to, ?string $contrastTo, ?string $actor): string` (job id). Throws `PaletteConflict` (409), or `\InvalidArgumentException` (422) for a bad destination;
   - `PaletteReplaceService::cancel(string $jobId): void`, `resume(string $jobId): void`;
@@ -4035,21 +4426,25 @@ git commit -m "feat(palette): palette changes under the palette row — Clear re
 
 **Destination rules (spec §4.2).**
 - **`to` must be:** a colour token, not `color.brand-N` and not `color.brand-N-contrast` for the slot being replaced, not an unconfigured brand slot, not a slot that is a job's source, and not any contrast token (`accent-contrast`, `brand-M-contrast`).
-- **`contrast_to`, when omitted:** `to`'s pair (`accent` → `accent-contrast`, `brand-M` → `brand-M-contrast`). Without a pair, when the usage contains contrast references, a 422 `contrast_to is required`. With no contrast references, `contrast_to` defaults to `to` and is never written.
+- **`contrast_to`, when omitted:**
+  - `to` has a pair (`accent` → `accent-contrast`, `brand-M` → `brand-M-contrast`): the pair is the mapping.
+  - `to` has no pair: the contrast references are counted **under the palette lock**, in the start transaction.
+    - **Some exist:** 422 `contrast_to is required`, and nothing is recorded.
+    - **None exist:** the job records `contrast_to = null`, meaning **no contrast mapping**. A contrast reference arriving later is never mapped to the fill colour. The normaliser refuses it on an editor's save (422, Task 9), and the runner records it as a failure (`'a text colour on Brand N arrived after the replacement started; cancel and choose a text colour'`), so the job cannot complete until someone cancels and starts again with a mapping.
 - **`contrast_to`, when given:** passes the same rules as `to`.
 
 **Runner (spec §4.4).** For each pass, 1..5:
 1. Touch the heartbeat.
 2. Enumerate `PaletteDocumentSources`, keeping refs whose walked tokens name the slot. `beginPass(count)`.
-3. **When none remain:** take `PaletteFence::within` → `lock()` → assert the job is still active (else stop, writing nothing) → `bump()` → recount the blocking usage inside the transaction.
-   - **Zero:** delete `theme_brand_N`, set the status `completed`, record the counts, and queue the audit entry `palette.brand.replaced` plus `ThemeAppearanceChanged` after commit. Done.
+3. **When none remain:** take `PaletteFence::within` → `lock()` → recount the blocking usage inside the transaction.
+   - **Zero:** `transition($jobId, 'completed')`. When it returns false (the job was cancelled or finished by another worker), write nothing and stop. Otherwise `bump()`, delete `theme_brand_N`, record the counts, and queue the audit entry `palette.brand.replaced` plus `ThemeAppearanceChanged` after commit. Done.
    - **Not zero:** end the transaction and continue to the next pass.
 4. **Otherwise,** for each ref (up to three attempts):
 
    ```php
    $written = $this->fence->write(
        fn (PaletteSnapshot $s): Normalized => $this->normalizer->normalize($kind, $ref->fields, $s,
-           $this->normalizer->basisOf($kind, $ref->fields, schema: $ref->schema), $ref->schema),
+           $this->normalizer->basisOf($kind, $ref->schema, $ref->fields), $ref->schema),
        function (array $doc) use ($jobId, $source, $ref, $actor): bool {
            if (!$this->jobs->isActive($jobId)) {
                throw new JobFenced($jobId);         // cancelled: write nothing, stop the run
@@ -4062,11 +4457,39 @@ git commit -m "feat(palette): palette changes under the palette row — Clear re
 
    - `false` → re-read the ref from its source (`find`-by-identity: re-enumerate that one source and match `identity()`), then retry. After three attempts, `recordFailure(... 'document changed concurrently; retried on the next pass')`.
    - `JobFenced` → return immediately with the job's current status.
-   - Success → `incrementDone`, then add to the per-source counts.
+   - `PaletteRefusal` (a contrast reference under a job with no contrast mapping) → `recordFailure` with the reason above. The document is not written.
+   - Success → `incrementDone` and `touchHeartbeat`, add to the per-source counts, and register `PaletteCacheEffects::afterWrite($ref)` with `afterCommit` (see below).
 
-After five passes without completing, set the status `failed`, recording the remaining refs as failures.
+**Every status change is a guarded transition under the palette lock** (`PaletteJobRepository::transition`, Task 8).
+- **Five passes without completing:** `within` → `lock()` → `transition($jobId, 'failed')`. When it returns false, another worker completed the job or a cancel committed. The failure is then dropped: the job's status, its reservations and the slot are left exactly as the other actor left them. Only when the transition succeeds are the remaining refs recorded as failures.
+- **Resume:** eligibility is decided inside the lock. `failed` → `running`, or `running` with a stale heartbeat → `running`; anything else returns 409 without queueing.
+- **Cancel:** `running`/`failed` → `cancelled`.
+
+A worker therefore can never revive a terminal job or restore its reservations.
 
 **Job writes and the normaliser.** The normaliser maps the slot to `to`/`contrast_to` because the job is active in the held snapshot. Once the job is cancelled, the `isActive` check refuses the write first.
+
+**Cache effects after each successful write (review point 7).** `BlockDocumentSource::persist()` does not dispatch change events everywhere. `PublishedEntriesSource` appends and repins without the publication event, which is why `StyleClassJobRunner` purges separately. `PaletteCacheEffects::afterWrite(DocumentRef $ref)` runs after the write's commit:
+
+| Source | Effect |
+|---|---|
+| `entry_draft` | `EntryUpdated` is not needed for rendering; open stages refresh through the draft's next load. No purge. |
+| `entry_published` | `RenderedPageCachePurge::purge(['thallo:entry:{uuid}', 'thallo:type:{content_type}'])`, as `StyleClassJobRunner::purgeFor` does for entries. |
+| `region`, `region_settings` | `purge(['thallo:render:page'])` (every page shows the header and footer). |
+| `layout`, `layout_settings` | `LayoutChanges::announce($surface, $target)` (the layout source's own effect, which forgets the layout and purges its pages). `LayoutSettingsSource::persist` does this itself; the runner does not double it. |
+| `saved_section` | none (the library is read fresh; no page renders a saved section as such). |
+| `style_class` | `StyleClassRepository::write()` dispatches `StyleClassSaved`. Assert in the test that its listener purges rendered pages; if none does, purge `thallo:render:page` here. |
+
+These are per document, after commit, so a job that later fails has already invalidated every page it rewrote.
+
+**The queued job carries its workspace (review point 3).**
+- `start()` records `TenantScope::current($this->tenants, $this->context)` on the job row and pushes `['job_id' => $id, 'workspace' => $workspace]`.
+- `RunPaletteReplaceJob::handle()`:
+  1. reads both values;
+  2. when `workspace` is a non-empty string and the container has `TenantContextRunner`, runs the whole body inside `runAsTenant($workspace, …)`, resolving `PaletteReplaceRunner` **inside** that callback so every palette service is built in the workspace's context;
+  3. otherwise runs it directly (single-store site).
+- `IntentRetirement::runner()` (`core/src/Payments/Tenancy/IntentRetirement.php:97`) is the core precedent for obtaining the runner; `SearchWakeJob` is the queued-job precedent.
+- Resume pushes the same payload, read from the job row.
 
 - [ ] **Step 1: Write the failing replace tests**
 
@@ -4329,11 +4752,133 @@ public function testThemeAppearanceChangedFiresAfterTheClearingCommit(): void
     self::assertFalse($seenInsideTransaction, 'dispatched after the clearing transaction committed');
     self::assertNull($this->palette()->brand(1));
 }
+
+public function testAContrastReferenceArrivingBeforeStartTakesTheLockIsSeenAndRefusesAMappinglessStart(): void
+{
+    $this->configure(1, 'Gold', '#8a6a2a');
+    // start's unlocked read sees no contrast references; one is saved before start locks
+    $this->state()->afterNextSnapshot(fn () => $this->draftNaming('color.brand-1-contrast'));
+    $this->expectException(\InvalidArgumentException::class);
+    $this->service()->start(1, 'color.surface', null, 'user00000001');
+}
+
+public function testAStaleEditorIntroducingAContrastReferenceDuringAMappinglessJobIsRefused(): void
+{
+    $this->configure(1, 'Gold', '#8a6a2a');
+    [$uuid, $lock] = $this->entry();
+    $job = $this->service()->start(1, 'color.surface', null, 'user00000001');
+    self::assertNull($this->jobs()->find($job)->contrastTo);
+    $this->expectException(PaletteRefusal::class);
+    $this->repo()->saveDraft($uuid, 'en', ['body' => [$this->heading('color.brand-1-contrast')]], 1, $lock, 'user00000001');
+}
+
+public function testAContrastReferenceThatSlipsInIsAFailureNeverAFillColour(): void
+{
+    $this->configure(1, 'Gold', '#8a6a2a');
+    $job = $this->service()->start(1, 'color.surface', null, 'user00000001');
+    $uuid = $this->storeDraftRawNaming('color.brand-1-contrast'); // written without the fence, as a pre-palette writer would
+    $result = $this->runner()->run($job);
+    self::assertSame('failed', $result['status']);
+    self::assertSame('color.brand-1-contrast', $this->draftToken($uuid), 'never rewritten to the fill');
+    self::assertStringContainsString('arrived after the replacement started', json_encode($this->jobs()->find($job)->failureReport));
+    self::assertNotNull($this->palette()->brand(1));
+}
+
+public function testAnOldWorkerReachingFailureAfterAnotherCompletedChangesNothing(): void
+{
+    $this->configure(1, 'Gold', '#8a6a2a');
+    $job = $this->service()->start(1, 'color.accent', null, 'user00000001');
+    $this->runner()->run($job);                                       // completes: slot cleared
+    self::assertSame('completed', $this->jobs()->find($job)->status);
+    $this->failUnderLock($job);                                       // what an old worker's exhausted path does
+    self::assertSame('completed', $this->jobs()->find($job)->status, 'terminal');
+    self::assertSame([], $this->state()->snapshot()->reservedSlots());
+    self::assertSame([], $this->state()->snapshot()->activeJobs);
+}
+
+public function testAnOldWorkerReachingFailureAfterCancellationChangesNothing(): void
+{
+    $this->configure(1, 'Gold', '#8a6a2a');
+    $this->configure(2, 'Rose', '#c98a8a');
+    $job = $this->service()->start(1, 'color.brand-2', null, 'user00000001');
+    $this->service()->cancel($job);
+    $this->runnerWhoseSourcesNeverConverge()->run($job);              // would exhaust five passes and fail
+    self::assertSame('cancelled', $this->jobs()->find($job)->status);
+    self::assertSame([], $this->state()->snapshot()->reservedSlots(), 'Brand 2 is not reserved again');
+    $this->mutations()->clear(2, 'user00000001');                     // proves it: a reserved slot could not clear
+    self::assertNull($this->palette()->brand(2));
+}
+
+public function testResumeEligibilityIsDecidedUnderTheLock(): void
+{
+    $this->configure(1, 'Gold', '#8a6a2a');
+    $job = $this->service()->start(1, 'color.accent', null, 'user00000001');
+    $this->runner()->run($job);                                       // completed
+    $this->expectException(PaletteConflict::class);
+    $this->service()->resume($job);
+}
+
+public function testRewrittenPublicationsRenderTheirReplacementEvenWhenTheJobLaterFails(): void
+{
+    $this->configure(1, 'Gold', '#8a6a2a');
+    [$a] = $this->publishedEntryNaming('color.brand-1');
+    [$b] = $this->publishedEntryNaming('color.brand-1');
+    $this->renderPublic($a);                                          // warm the render cache for both
+    $this->renderPublic($b);
+    $job = $this->service()->start(1, 'color.accent', null, 'user00000001');
+    $this->runnerWithSourceThatThrowsAfter(1)->run($job);             // rewrites $a's publication, then fails
+    self::assertSame('failed', $this->jobs()->find($job)->status);
+    self::assertStringContainsString(ClassNames::for('colors.text', 'color.accent'), $this->renderPublic($a), 'purged after its write committed');
+}
 ```
 
 `runnerWith($source)` builds a `PaletteReplaceRunner` by hand, with a `PaletteDocumentSources` whose matching source is replaced by the double; this is the idiom of `tests/Integration/Content/StyleClassJobTest.php` (~242–330). `runnerWithSourceThatThrowsAfter(1)` and `runnerWithSourceThatCancelsDuringFirstPersist($job)` are the same with a throwing or cancelling double. Match the event listener idiom to the one `GeneralSettingsAppearanceTest` uses.
 
 `testTwoRacingStartsForConflictingSlots` depends on `start()` reading an unlocked snapshot first, for the 422 checks. Its fenced re-check under the lock (`within` → `lock()`) then sees the first job and throws `PaletteConflict`.
+
+Helper notes:
+- `failUnderLock($job)` runs `PaletteFence::within(fn () => $this->jobs()->transition($job, 'failed'))`, exactly what the runner's exhausted path does.
+- `runnerWhoseSourcesNeverConverge()` holds a source double that always reports a reference and always refuses its write.
+- `storeDraftRawNaming()` inserts a draft row directly.
+
+**Fresh worker and workspace isolation.** `PaletteReplaceWorkerTest.php` follows `SearchWakeQueueTest::testHandlingTheWakeUpBuildsWhatIsDue`:
+
+```php
+public function testAQueuedReplacementRunsFromAFreshWorker(): void
+{
+    $this->configure(1, 'Gold', '#8a6a2a');
+    [$uuid] = $this->publishedEntryNaming('color.brand-1');
+    $job = $this->service()->start(1, 'color.accent', null, 'user00000001');
+    $row = $this->lastQueueJobRow();
+    self::assertStringContainsString('"workspace"', (string) $row['payload']);
+    // a new application, as a worker process boots one: nothing shared with the request that queued it
+    $worker = self::bootAppWithConfigOverride('thallo', []);
+    (new RunPaletteReplaceJob(['job_id' => $job, 'workspace' => null], $worker))->handle();
+    self::assertSame('completed', $this->jobs()->find($job)->status);
+    self::assertSame('color.accent', $this->publishedToken($uuid));
+}
+```
+
+`PaletteReplaceTenancyTest.php` extends `RetrofittedTenantTestCase`, opt-in like every retrofit suite:
+
+```php
+public function testAQueuedReplacementRunsInItsOwnWorkspaceOnly(): void
+{
+    foreach ([self::$tenantAUuid, self::$tenantBUuid] as $tenant) {
+        $this->runAsTenant($tenant, function (): void {
+            $this->container()->get(StarterBlockTypeSeeder::class)->seedMissing();
+            $this->container()->get(GeneralSettings::class)->save(['theme_brand_1' => '{"name":"Gold","hex":"#8a6a2a"}']);
+            $this->container()->get(SavedSectionRepository::class)->create('Hero', 'Saved', null, $this->heading('color.brand-1'), null, null);
+        });
+    }
+    $job = $this->runAsTenant(self::$tenantAUuid, fn () => $this->container()->get(PaletteReplaceService::class)->start(1, 'color.accent', null, null));
+    // handled with NO tenant context, as a worker starts: the job must enter A itself
+    $this->runAsSystem(fn () => (new RunPaletteReplaceJob(['job_id' => $job, 'workspace' => self::$tenantAUuid], $this->appContext()))->handle());
+    self::assertSame('color.accent', $this->runAsTenant(self::$tenantAUuid, fn () => $this->sectionToken('Hero')));
+    self::assertSame('color.brand-1', $this->runAsTenant(self::$tenantBUuid, fn () => $this->sectionToken('Hero')), 'B untouched');
+    self::assertNotNull($this->runAsTenant(self::$tenantBUuid, fn () => $this->container()->get(PaletteProvider::class)->palette()->brand(1)), "B's slot still configured");
+}
+```
 
 `PaletteApiTest` route rows:
 
@@ -4384,12 +4929,11 @@ public function start(int $slot, string $to, ?string $contrastTo, ?string $actor
 {
     $read = $this->state->snapshot();
     $this->assertDestination($read, $slot, $to, 'to');
-    $hasContrastRefs = $this->usage->of($slot)['blocking']['contrast_references'];
-    $contrastTo ??= self::pairOf($to) ?? ($hasContrastRefs ? throw new \InvalidArgumentException('contrast_to is required: ' . $to . ' has no text colour of its own') : $to);
-    if ($contrastTo !== $to && $contrastTo !== self::pairOf($to)) {
+    if ($contrastTo !== null) {
         $this->assertDestination($read, $slot, $contrastTo, 'contrast_to');
     }
-    $id = $this->fence->within(function () use ($slot, $to, $contrastTo, $actor): string {
+    $workspace = TenantScope::current($this->tenants, $this->context);
+    $id = $this->fence->within(function () use ($slot, $to, $contrastTo, $actor, $workspace): string {
         $held = $this->state->lock();
         if (!$held->palette->isConfigured($slot)) {
             throw new PaletteConflict("Brand {$slot} is not configured");
@@ -4397,16 +4941,21 @@ public function start(int $slot, string $to, ?string $contrastTo, ?string $actor
         if ($held->jobReplacing($slot) !== null || in_array($slot, $held->reservedSlots(), true)) {
             throw new PaletteConflict(($held->palette->brand($slot)?->name ?? "Brand {$slot}") . ' is already part of a replacement');
         }
-        foreach ([$to, $contrastTo] as $dest) {
+        // the contrast decision is made HERE, under the lock (review point 5)
+        $mapping = $contrastTo ?? self::pairOf($to);
+        if ($mapping === null && $this->usage->of($slot)['blocking']['contrast_references']) {
+            throw new \InvalidArgumentException('contrast_to is required: ' . $to . ' has no text colour of its own');
+        }
+        foreach (array_filter([$to, $mapping]) as $dest) {
             $d = Palette::slotOf($dest);
             if ($d !== null && (!$held->palette->isConfigured($d) || $held->jobReplacing($d) !== null)) {
                 throw new PaletteConflict("Brand {$d} cannot be a destination right now");
             }
         }
         $this->state->bump();
-        return $this->jobs->start($slot, $to, $contrastTo, $actor);
+        return $this->jobs->start($slot, $to, $mapping, $actor, $workspace); // $mapping null = no contrast mapping
     });
-    $this->db->afterCommit(fn () => $this->queue->push(RunPaletteReplaceJob::class, ['job_id' => $id]));
+    $this->db->afterCommit(fn () => $this->queue->push(RunPaletteReplaceJob::class, ['job_id' => $id, 'workspace' => $workspace]));
     return $id;
 }
 
@@ -4427,7 +4976,9 @@ public static function pairOf(string $token): ?string
 - an unconfigured brand slot;
 - a slot whose job is active (`$read->jobReplacing`).
 
-`cancel()`: `within` → `lock()` → job active? → `setStatus('cancelled')` → `bump()`. `resume()`: the job must be `failed` or interrupted (running with a stale heartbeat), then `within` → `lock()` → `setStatus('running')` → `bump()` → push the queue job after commit.
+`cancel()`: `within` → `lock()` → `transition($id, 'cancelled')`. A false return (already terminal) is a 409. Then `bump()`.
+
+`resume()`: `within` → `lock()` → re-read the job **under the lock**. It is eligible only when `failed`, or `running` with `heartbeat_at` older than 120 s. Then `transition($id, 'running')` → `bump()`, and push `['job_id', 'workspace']` (from the row) after commit. An ineligible job returns 409 and queues nothing.
 
 `RunPaletteReplaceJob::handle(array $data)` resolves `PaletteReplaceRunner` and calls `run($data['job_id'])`, as `RunStyleClassJob` does.
 
@@ -4442,13 +4993,148 @@ Register the routes from Step 1.
 - [ ] **Step 5: Run the replace suites**
 
 Run: `vendor/bin/phpunit tests/Integration/Content/Palette tests/Integration/Http/PaletteApiTest.php tests/Integration/Content/StyleClassJobTest.php tests/Integration/Content/BlockDocumentSourcesTest.php`
+Run (retrofit, opt-in): `THALLO_TENANCY_DEV_LINK=1 vendor/bin/phpunit tests/Integration/Content/Palette/PaletteReplaceTenancyTest.php tests/Integration/Content/Palette/BrandColorUsageTenancyTest.php`
 Expected: PASS.
 
-- [ ] **Step 6: Re-run Task 12's restore proof against the real job**
+- [ ] **Step 6: Real-database concurrency proofs (two processes)**
+
+The snapshot hook proves the re-check logic on one connection. It cannot prove blocking, lock order, or visibility of another session's commit. These scenarios run a second PHP process with its own database session, on the barrier pattern of `StyleClassRepositoryTest::testConcurrentWritesToDifferentClassesSerialiseTheGeneration` (`tests/Integration/Content/StyleClassRepositoryTest.php:132`).
+
+`PaletteConcurrentActorTest.php` is the actor. It is skipped unless `THALLO_PALETTE_ACTOR` names a scenario and `THALLO_PALETTE_BARRIER` a directory. It skips the per-test truncation, like `StyleClassConcurrentWriterTest`. Each scenario:
+1. touches `ready-<name>` and waits for `start`;
+2. performs its operation **while holding its transaction open** for 800 ms after the write;
+3. touches `committed-<name>` after commit.
+
+```php
+public function testActor(): void
+{
+    $scenario = (string) getenv('THALLO_PALETTE_ACTOR');
+    $dir = (string) getenv('THALLO_PALETTE_BARRIER');
+    if ($scenario === '' || $dir === '') {
+        self::markTestSkipped('launched only by PaletteTwoProcessTest');
+    }
+    touch("{$dir}/ready-{$scenario}");
+    $deadline = microtime(true) + 20;
+    while (!is_file("{$dir}/start")) {
+        usleep(10000);
+        self::assertLessThan($deadline, microtime(true), 'the barrier never opened');
+    }
+    $fence = $this->container()->get(PaletteFence::class);
+    $hold = static fn () => usleep(800000);
+    match ($scenario) {
+        // holds the palette row with a committed-on-exit Brand 1 draft
+        'save' => $fence->within(function () use ($hold): void {
+            $this->container()->get(EntryRepository::class)->saveDraft((string) getenv('THALLO_PALETTE_ENTRY'), 'en', ['body' => [self::heading('color.brand-1')]], 1, (int) getenv('THALLO_PALETTE_LOCK'), 'user00000001');
+            $hold();
+        }),
+        'clear' => $fence->within(function () use ($hold): void {
+            $this->container()->get(PaletteMutations::class)->clear(1, 'user00000001');
+            $hold();
+        }),
+        'cancel' => $fence->within(function () use ($hold): void {
+            $this->container()->get(PaletteReplaceService::class)->cancel((string) getenv('THALLO_PALETTE_JOB'));
+            $hold();
+        }),
+        'start' => $fence->within(function () use ($hold): void {
+            $this->container()->get(PaletteReplaceService::class)->start(1, 'color.brand-2', null, 'user00000001');
+            $hold();
+        }),
+        'first-row' => $this->container()->get(Connection::class)->transaction(function () use ($hold): void {
+            $this->connection()->table('palette_state')->insert(['site' => 'site', 'generation' => 0, 'updated_at' => gmdate('Y-m-d H:i:s')]);
+            $hold(); // uncommitted: the other session's existence check sees no row
+        }),
+    };
+    touch("{$dir}/committed-{$scenario}");
+}
+```
+
+`PaletteTwoProcessTest.php` launches the actor with `proc_open` exactly as the style-class test does, waits for `ready-*`, opens `start`, waits until the actor is holding (~100 ms after start), then performs the competing operation in the test process, timing it:
+
+```php
+public function testASaveHoldingThePaletteRowMakesAClearWaitThenRefuse(): void
+{
+    $this->configure(1, 'Gold', '#8a6a2a');
+    [$uuid, $lock] = $this->entry();
+    $this->launch('save', ['THALLO_PALETTE_ENTRY' => $uuid, 'THALLO_PALETTE_LOCK' => (string) $lock]);
+    $t = microtime(true);
+    try {
+        $this->mutations()->clear(1, 'user00000001');
+        self::fail('the committed reference refuses the clear');
+    } catch (BrandColorInUse) {
+    }
+    self::assertGreaterThan(0.5, microtime(true) - $t, 'the clear waited on the palette row');
+    $this->finish('save');
+}
+
+public function testAClearHoldingThePaletteRowMakesASaveWaitThenRefuseTheFreshReference(): void
+{
+    $this->configure(1, 'Gold', '#8a6a2a');
+    [$uuid, $lock] = $this->entry();
+    $this->launch('clear');
+    $t = microtime(true);
+    try {
+        $this->repo()->saveDraft($uuid, 'en', ['body' => [$this->heading('color.brand-1')]], 1, $lock, 'user00000001');
+        self::fail('refused after the clear committed');
+    } catch (PaletteRefusal) {
+    }
+    self::assertGreaterThan(0.5, microtime(true) - $t, 'the save waited, then saw the other session's commit');
+    $this->finish('clear');
+}
+
+public function testACancelHoldingTheRowStopsAWorkerBeforeItsNextWrite(): void
+{
+    $this->configure(1, 'Gold', '#8a6a2a');
+    $this->draftsNaming('color.brand-1', 3);
+    $job = $this->service()->start(1, 'color.accent', null, 'user00000001');
+    $this->launch('cancel', ['THALLO_PALETTE_JOB' => $job]);
+    $result = $this->runner()->run($job);                // its first fenced write waits for the cancel's commit
+    self::assertSame('cancelled', $result['status']);
+    self::assertSame(3, $this->countDraftsNaming('color.brand-1'), 'no document written after the cancel');
+    self::assertNotNull($this->palette()->brand(1));
+    $this->finish('cancel');
+}
+
+public function testConflictingStartsInTwoSessions(): void
+{
+    $this->configure(1, 'Gold', '#8a6a2a');
+    $this->configure(2, 'Rose', '#c98a8a');
+    $this->launch('start');                              // 1 → Brand 2, holding the row
+    $t = microtime(true);
+    try {
+        $this->service()->start(2, 'color.accent', null, 'user00000001');
+        self::fail('Brand 2 is reserved by the other session's job');
+    } catch (PaletteConflict) {
+    }
+    self::assertGreaterThan(0.5, microtime(true) - $t);
+    $this->finish('start');
+    self::assertCount(1, $this->jobs()->active());
+}
+
+public function testTheFirstRowRaceLeavesTheLosersTransactionUsable(): void
+{
+    $this->connection()->table('palette_state')->delete();
+    $this->launch('first-row');
+    $result = $this->container()->get(Connection::class)->transaction(function (): int {
+        $this->container()->get(PaletteState::class)->ensureRow(); // blocks on the unique index, loses, rolls back its savepoint
+        return $this->connection()->table('palette_state')->count();  // PostgreSQL would refuse this in an aborted transaction
+    });
+    self::assertSame(1, $result);
+    $this->finish('first-row');
+}
+```
+
+- `launch($scenario, $env = [])` starts the actor process, waits for its `ready-` file, touches `start`, and sleeps 100 ms.
+- `finish($scenario)` waits for `committed-` and asserts the process exited 0, printing its output on failure.
+- Clean the barrier directory in `tearDown`.
+
+Run: `vendor/bin/phpunit tests/Integration/Content/Palette/PaletteTwoProcessTest.php`
+Expected: PASS, every timing assertion included. Put this file in its own `INTEGRATION_SHARD_*` slot after timing it; it holds rows for seconds.
+
+- [ ] **Step 7: Re-run Task 12's restore proof against the real job**
 
 In `DraftRestoreTest`, replace the `replaceAndClear` helper body with `start` + `run`. Run: `vendor/bin/phpunit tests/Integration/Content/Palette/DraftRestoreTest.php`. Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add core/src core/routes tests .github/workflows
