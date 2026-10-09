@@ -5,6 +5,13 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Added
+- **Custom palette settings**: General settings gain a Custom neutral (`theme_neutral: custom` with six
+  hex colours in `theme_neutral_custom`), a dark-mode base family (`theme_dark_base`) and three named
+  brand colours (`theme_brand_1` … `theme_brand_3`), validated and stored normalised.
+
 ## [1.0.0-beta.97] - 2026-10-09 — Developer Preview
 
 A Separator can be a short accent line, placed at the start, centre or end of its row.
