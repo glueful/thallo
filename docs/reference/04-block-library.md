@@ -171,7 +171,7 @@ product on the [product page's layout](../guides/20-layouts.md#design-the-produc
 while Commerce is on and hidden while it is off, like the Commerce blocks above. Four more, also
 Commerce's, design the [shop home and category
 pages](../guides/20-layouts.md#design-the-shop-home-and-category-pages): the **Product list**, the
-**Product tile**, the **Shop title** and the **Category chips**. They are offered
+**Product tile**, the **Add to cart button**, the **Shop title** and the **Category chips**. They are offered
 only in a layout's editor — each in its own kind of layout — and an entry, the header and footer
 and a saved section refuse them when saved. A field an entry block names is a field of the
 layout's content type; left empty, **Entry cover**, **Entry excerpt** and **Entry terms** show the
@@ -192,8 +192,8 @@ it. A layout that breaks either rule is refused, naming the block.
 
 Every shop home and category layout holds exactly one **Product list**, under the same rules. Its
 `card` is the one product's design the list repeats for every product on the page. **Product tile**,
-**Product name**, **Product rating** and **Product price** go inside the card on these pages, and
-only there; inside a card the name, rating and price show as the shop's grid card shows them. The
+**Product name**, **Product rating**, **Product price** and **Add to cart button** go inside the card
+on these pages, and only there; inside a card the name, rating and price show as the shop's grid card shows them. The
 Product list's cards are the shop's own grid — as many 15rem columns as fit — until its Layout tab
 arranges them; the block type declares that grid, so the tab shows it as the theme's default.
 
@@ -216,12 +216,13 @@ arranges them; the block type declares that grid, so the tab shows it as the the
 | **Product category** (`product_category`) | The product's category, above its name. | `link` (boolean) | — | Width, Placement, Text alignment, Typography, Text colour |
 | **Product description** (`product_description`) | The product's description. | — | — | Width, Placement, Text alignment, Typography, Text colour |
 | **Product gallery** (`product_gallery`) | The product's images: the cover, with thumbnails that swap it. | `hide_thumbnails` (boolean), `aspect` (enum: 4:3, 1:1, natural) | — | Width, Corners, Shadow |
-| **Product list** (`product_loop`) | Every product on a shop home or category page, each shown as the card you design once. Every shop layout holds one. | `card` (blocks), `empty_text` (string) | `card`: the product's card blocks and any general block | Width, on the list's own box, as its Spacing and Sizing in a parent layout; the Layout tab's arrangement of the cards (Layout, Direction, Wrap, Distribute, Align, Columns, Gap), the shop's adaptive grid by default (and no Visibility) |
+| **Product list** (`product_loop`) | Every product on a shop home or category page, each shown as the card you design once. Every shop layout holds one. | `card` (blocks), `empty_text` (string), `card_hover` (enum: none, lift, shadow) | `card`: the product's card blocks and any general block | Width, on the list's own box, as its Spacing and Sizing in a parent layout; the Layout tab's arrangement of the cards (Layout, Direction, Wrap, Distribute, Align, Columns, Gap), the shop's adaptive grid by default (and no Visibility); a **Card** section for every card (Background, Border, Corners, Shadow, Padding, Opacity, Hover) |
 | **Product name** (`product_name`) | The product's name; in a Product list card, the card's name. | `level` (enum: h1, h2, h3, h4), `link` (boolean) | — | Width, Placement, Text alignment, Typography, Text colour |
 | **Product price** (`product_price`) | The price, with the struck "was" price when there is one. Its size sets the amount's; the "was" price keeps to four fifths of it. | `hide_compare_at` (boolean) | — | Width, Placement, Typography, Text colour |
 | **Product rating** (`product_rating`) | The product's stars, average and review count; the stars grow with its size. | `hide_when_none` (boolean) | — | Width, Placement, Typography, Text colour |
 | **Product story** (`product_story`) | The content of the product's linked story. | — | — | Width |
-| **Product tile** (`product_tile`) | A Product list card's picture, its category, and the quick **Add to cart** and wishlist buttons; the quick add works without JavaScript for a product with one variant. | `hide_tag` (boolean), `hide_actions` (boolean) | — | Width |
+| **Product tile** (`product_tile`) | A Product list card's picture, its category, and the quick **Add to cart** and wishlist buttons; the quick add works without JavaScript for a product with one variant. Its frame is transparent until its Image section sets a background; the heart is an outline until saved. | `hide_tag`, `hide_actions`, `hide_cart`, `hide_wishlist` (boolean); `image_ratio` (enum: square, portrait, landscape), `image_fit` (enum: contain, cover), `image_hover` (enum: none, zoom); `show_sale_badge`, `show_new_badge` (boolean), `sale_badge_text`, `new_badge_text` (string), `new_badge_days` (number, 1 to 365), `badge_position` (enum: top-left, top-right) | — | Width; **Image** (Background, Corners), **Quick add** and **Wishlist** (Colours, Border, Corners, Opacity, Hover), **Category chip** and **Badge** (Background, Text colour, Corners, Typography) sections |
+| **Add to cart button** (`product_add_to_cart`) | A Product list card's labelled button: **Add to cart** for a product with one variant (it works without JavaScript), **Choose options** to the product page otherwise, and a disabled **Sold out** when nothing is in stock. | — | — | Width; a **Button** section (Colours, Border, Corners, Typography, Padding, Opacity, Hover) |
 | **Related entries** (`entry_related`) | The newest other entries of the type. | `count` (number, 1 to 6), `style` (enum: list, cards) | — | Width |
 | **Shop title** (`shop_title`) | "Shop", or the category's name, with the number of products beside it. | `level` (enum: h1, h2, h3, h4), `hide_count` (boolean) | — | Width; Typography, Text colour and Text alignment on the heading |
 | **Term description** (`term_description`) | An archive term's description. | — | — | Width, Placement, Text alignment, Typography, Text colour |

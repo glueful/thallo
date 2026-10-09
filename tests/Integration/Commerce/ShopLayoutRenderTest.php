@@ -275,6 +275,20 @@ final class ShopLayoutRenderTest extends AppTestCase
         );
     }
 
+    public function testTheFramesStylesPaintMain(): void
+    {
+        $style = [
+            'spacing' => ['padding' => ['top' => ['lg' => ['type' => 'token', 'value' => 'spacing.lg']]]],
+            'colors' => ['surface' => ['type' => 'token', 'value' => 'color.surface']],
+        ];
+        $this->saveLayout('shop_category', $this->starter('shop_category'), ['style' => $style]);
+        $html = (string) $this->page('/shop/categories/mugs')->getContent();
+        self::assertStringContainsString(
+            '<main id="main" tabindex="-1" class="layout--centered lg:t-pt-lg t-bg-surface"',
+            $html,
+        );
+    }
+
     public function testCommerceOffLeavesNoShopPageToRender(): void
     {
         $this->saveLayout('shop_index', $this->starter('shop_index'));

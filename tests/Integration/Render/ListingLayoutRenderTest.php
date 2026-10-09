@@ -169,6 +169,19 @@ final class ListingLayoutRenderTest extends AppTestCase
         self::assertStringNotContainsString('<header class="site-header', $html);
     }
 
+    public function testTheFramesStylesPaintMain(): void
+    {
+        $this->saveStarter('listing', 'post', ['style' => [
+            'spacing' => ['padding' => ['top' => ['lg' => ['type' => 'token', 'value' => 'spacing.lg']]]],
+            'colors' => ['surface' => ['type' => 'token', 'value' => 'color.surface']],
+        ]]);
+        $html = (string) $this->get('/post')->getContent();
+        self::assertMatchesRegularExpression(
+            '/<main id="main"[^>]*class="layout--centered lg:t-pt-lg t-bg-surface"/',
+            $html,
+        );
+    }
+
     /** The theme's per-type listing template (the shipped listing/docs.twig) gives way to a layout. */
     public function testALayoutWinsOverTheThemesTypeTemplateUntilRemoved(): void
     {

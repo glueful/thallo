@@ -5,17 +5,13 @@ import { useContentTypes } from '@/queries/contentTypes'
 import { useDraft, useSaveDraft } from '@/queries/drafts'
 import { applyPreview, mintPreviewData, type EntryLayout } from '@/queries/preview'
 import { useLayouts } from '@/queries/layouts'
-import { readPath, setPath, settingSegments } from '@/editor/ops/apply'
-import type { StylePropertyRow } from '@/queries/styleSchema'
 import type { DropZone } from '@/editor/structure/coordinator'
 import MoveToDialog from './components/MoveToDialog.vue'
 import BlocksPalette from '@/editor/palette/BlocksPalette.vue'
-import BoxField from '@/editor/inspector/controls/BoxField.vue'
-import ResponsiveField from '@/editor/inspector/controls/ResponsiveField.vue'
-import { activeBreakpoint, BREAKPOINT_LABELS, STAGE_FRAME_EDGE } from '@/editor/breakpoint'
+import PageStylesSection from '@/editor/inspector/PageStylesSection.vue'
+import { activeBreakpoint, STAGE_FRAME_EDGE } from '@/editor/breakpoint'
 import { belongsIn, holdsPageHeading } from '@/queries/patterns'
 import SaveAsStyleClassDialog from '@/editor/inspector/SaveAsStyleClassDialog.vue'
-import type { Breakpoint, StyleValue } from '@/style/types'
 import BlockInspector from '@/editor/inspector/BlockInspector.vue'
 import type { Position } from '@/editor/ops/types'
 import { useNotify } from '@/composables/useNotify'
@@ -310,41 +306,7 @@ function patchPresentation(
   fields.value = nextFields // reassign: the deep watcher schedules auto-apply
 }
 // The page's own style frame (Page tab › Styles): padding, margin and background stored under
-// _presentation.style in a block's style shape, painted on <main> by the render with the same
-// utility classes. The rows are fixed — the page owns exactly these capabilities.
-const PAGE_STYLE_ROWS: StylePropertyRow[] = [
-  ...['top', 'right', 'bottom', 'left'].map((s) => ({
-    path: `spacing.padding.${s}`,
-    group: 'spacing',
-    kinds: ['token', 'reset'],
-    responsive: true,
-    token_domain: 'spacing',
-    choices: null,
-  })),
-  ...['top', 'bottom'].map((s) => ({
-    path: `spacing.margin.${s}`,
-    group: 'spacing',
-    kinds: ['token', 'reset'],
-    responsive: true,
-    token_domain: 'spacing',
-    choices: null,
-  })),
-  {
-    path: 'colors.surface',
-    group: 'colors',
-    kinds: ['token', 'reset'],
-    // Colours are one value for every breakpoint in the style contract.
-    responsive: false,
-    token_domain: 'color',
-    choices: null,
-  },
-] as StylePropertyRow[]
-const pageStyleSides = (prefix: string) =>
-  PAGE_STYLE_ROWS.filter((r) => r.path.startsWith(prefix)).map((def) => ({
-    key: def.path.slice(prefix.length),
-    def,
-  }))
-const pageBackgroundRow = PAGE_STYLE_ROWS[PAGE_STYLE_ROWS.length - 1]!
+// _presentation.style, edited by PageStylesSection.
 const pageStyle = computed<Record<string, unknown>>(() => {
   const s = presentationOverride.value.style
   return s !== null && typeof s === 'object' && !Array.isArray(s)
@@ -353,30 +315,6 @@ const pageStyle = computed<Record<string, unknown>>(() => {
 })
 function writePageStyle(next: Record<string, unknown>): void {
   patchPresentation('style', Object.keys(next).length === 0 ? undefined : next)
-}
-function onPageStyleSet(path: string, bp: Breakpoint | null, value: StyleValue | null): void {
-  writePageStyle(
-    setPath(
-      pageStyle.value,
-      settingSegments(path, bp).slice(1),
-      value === null ? { present: false } : { present: true, value },
-    ) as Record<string, unknown>,
-  )
-}
-function onPageStyleSetAll(path: string, value: StyleValue): void {
-  let next = pageStyle.value
-  for (const bp of ['base', 'md', 'lg'] as const) {
-    next = setPath(next, settingSegments(path, bp).slice(1), { present: true, value }) as Record<
-      string,
-      unknown
-    >
-  }
-  writePageStyle(next)
-}
-function pageStyleDeclaredAt(bp: Breakpoint): boolean {
-  return PAGE_STYLE_ROWS.some(
-    (row) => readPath(pageStyle.value, settingSegments(row.path, bp).slice(1)).present,
-  )
 }
 
 // ── The type's layout (type layouts spec §6.3, §6.5): the strip over the stage and the Page tab's
@@ -1027,76 +965,16 @@ async function openThemePreview(): Promise<void> {
                   “Theme default” follows the theme’s settings; overrides save and publish with this
                   page.
                 </p>
-                <div
+                <PageStylesSection
                   v-if="styleSchema"
-                  class="space-y-3 border-t border-default pt-4"
-                  data-test="page-styles"
+                  :style="pageStyle"
+                  :vocabulary="styleSchema.vocabulary"
+                  :active-breakpoint="activeBreakpoint"
+                  @update:style="writePageStyle"
+                  @update:active-breakpoint="onActiveBreakpoint"
                 >
-                  <div class="flex items-center justify-between gap-2">
-                    <h4 class="text-[11px] font-semibold tracking-wide text-muted uppercase">
-                      Styles
-                    </h4>
-                    <div class="flex gap-0.5" role="group" aria-label="Breakpoint">
-                      <button
-                        v-for="bp in ['base', 'md', 'lg'] as const"
-                        :key="bp"
-                        type="button"
-                        class="relative rounded px-1.5 py-0.5 text-[10px]"
-                        :class="
-                          bp === activeBreakpoint
-                            ? 'bg-primary text-inverted'
-                            : 'text-muted hover:text-default'
-                        "
-                        :aria-pressed="bp === activeBreakpoint ? 'true' : 'false'"
-                        :title="BREAKPOINT_LABELS[bp]"
-                        :data-test="`page-breakpoint-${bp}`"
-                        @click="onActiveBreakpoint(bp)"
-                      >
-                        {{ bp }}
-                        <span
-                          v-if="pageStyleDeclaredAt(bp)"
-                          class="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-warning"
-                          aria-hidden="true"
-                        />
-                      </button>
-                    </div>
-                  </div>
-                  <BoxField
-                    label="Padding"
-                    :sides="pageStyleSides('spacing.padding.')"
-                    :style="pageStyle"
-                    :classes="[]"
-                    :active-breakpoint="activeBreakpoint"
-                    :vocabulary="styleSchema.vocabulary"
-                    @set="onPageStyleSet"
-                    @set-all="onPageStyleSetAll"
-                  />
-                  <BoxField
-                    label="Margin"
-                    :sides="pageStyleSides('spacing.margin.')"
-                    :style="pageStyle"
-                    :classes="[]"
-                    :active-breakpoint="activeBreakpoint"
-                    :vocabulary="styleSchema.vocabulary"
-                    @set="onPageStyleSet"
-                    @set-all="onPageStyleSetAll"
-                  />
-                  <ResponsiveField
-                    :def="pageBackgroundRow"
-                    label="Background"
-                    :style="pageStyle"
-                    :classes="[]"
-                    :active-breakpoint="activeBreakpoint"
-                    :vocabulary="styleSchema.vocabulary"
-                    hide-breakpoints
-                    @set="onPageStyleSet"
-                    @set-all="onPageStyleSetAll"
-                    @update:active-breakpoint="onActiveBreakpoint"
-                  />
-                  <p class="text-xs text-muted">
-                    The page’s own spacing and ground, around every block; the theme’s where unset.
-                  </p>
-                </div>
+                  The page’s own spacing and ground, around every block; the theme’s where unset.
+                </PageStylesSection>
               </div>
             </template>
           </UTabs>

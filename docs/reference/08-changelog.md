@@ -10,6 +10,38 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.94] - 2026-10-09 — Developer Preview
+
+The shop home and category layouts' card gets the Product grid's options — an Add to cart button
+block, picture options, Sale and New badges and Style sections — and a layout's Frame gets a page's
+Styles. The shop's pages line up with the header's logo.
+
+### Added
+- **An Add to cart button block for the shop home and category pages' card**: a labelled button —
+  Add to cart for a product with one variant, Choose options for one with choices, or a disabled
+  Sold out — with a Button section in its Style tab, as on the Product grid.
+- **The shop pages' Product tile has the Product grid card's options**: quick add and the wishlist
+  hide apart; Image ratio, Image fit and zoom on hover; Sale and New badges; and Image, Quick add,
+  Wishlist, Category chip and Badge sections in its Style tab.
+- **The shop pages' Product list styles every card**: a Card section (background, border, corners,
+  shadow, padding, opacity, hover) and a Card hover effect that lifts or shadows a card.
+- **A layout's Frame has Styles**: Padding, Margin and Background, at each breakpoint, for every page
+  of the kind — a page's own Styles, which still win where a page sets them.
+
+### Changed
+- **The shop pages' product pictures sit on the card as they are**: the tile's frame is
+  transparent, as the Product grid's, until its Image section sets a background; the wishlist heart
+  is an outline until saved.
+- **The shop's pages sit in the theme's page box**: the shop home, its categories, a product and
+  the wishlist take the theme's page width and side gutter, so their content starts where the
+  header's logo does, as a page's blocks do — wider than before (72rem in the default theme, from
+  64rem). A layout's Frame set to Full width now spans the page.
+
+### Upgrade Notes
+- `composer update && php glueful thallo:provision` adds the Add to cart button block and the
+  Product tile's and Product list's new settings and Style tab sections. With workspaces on, also
+  run `php glueful thallo:tenant:sync --all --kind=block_type`.
+
 ## [1.0.0-beta.93] - 2026-10-08 — Developer Preview
 
 The Product grid is rebuilt: a source narrowed by categories and tags, cards rendered on the

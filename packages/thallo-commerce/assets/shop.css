@@ -19,12 +19,17 @@
 }
 
 .shop-product {
-  /* Two-column detail page (approved Concept A artifact) — wider than the old single
-     column, same container width as the catalog pages. */
-  max-width: 64rem;
+  /* Two-column detail page (approved Concept A artifact), in the same box as the catalog pages:
+     the theme's page box — its width and side gutter, the header's — so the page starts where
+     the logo does. The fallbacks are the default theme's, for a theme without the tokens. */
+  max-width: var(--container, 72rem);
   margin: 0 auto;
-  padding: 1.5rem 1rem 3rem;
+  padding: 1.5rem var(--space-4, 1.5rem) 3rem;
   line-height: 1.5;
+}
+/* A layout's Frame set to Full width (type layouts spec §6.4) releases the box; the gutter stays. */
+.layout--full :is(.shop-product, .shop-index, .shop-category) {
+  max-width: none;
 }
 
 /* The product layout (type layouts plan C1): the page's parts are blocks there, and the theme gives
@@ -406,9 +411,10 @@
 
 .shop-index,
 .shop-category {
-  max-width: 64rem;
+  /* The theme's page box, as the product page's. */
+  max-width: var(--container, 72rem);
   margin: 0 auto;
-  padding: 1.5rem 1rem 3rem;
+  padding: 1.5rem var(--space-4, 1.5rem) 3rem;
   line-height: 1.5;
 }
 .shop-index h1,
@@ -876,7 +882,8 @@
   margin-top: 0.25rem;
 }
 /* The labelled add-to-cart button sits at the foot of the card, so the buttons in a row line up
-   whatever the names' lengths. The Button part styles it as it styles the icon. */
+   whatever the names' lengths. The Button part styles it as it styles the icon. A shop layout's
+   Add to cart button block draws the same button wherever the card places it. */
 .thallo-block-product-grid .shop-grid__item > .shop-grid__body {
   flex: 1;
   display: flex;
@@ -888,10 +895,10 @@
   margin-top: auto;
   padding-top: 0.5rem;
 }
-.thallo-block-product-grid .shop-grid__buy-form {
+:is(.thallo-block-product-grid, .thallo-block-product_add_to_cart) .shop-grid__buy-form {
   display: block;
 }
-.thallo-block-product-grid .shop-grid__buy {
+:is(.thallo-block-product-grid, .thallo-block-product_add_to_cart) .shop-grid__buy {
   display: block;
   width: 100%;
   padding: 0.7rem 1rem;
@@ -907,32 +914,33 @@
   text-decoration: none;
   cursor: pointer;
 }
-.thallo-block-product-grid .shop-grid__buy--options {
+:is(.thallo-block-product-grid, .thallo-block-product_add_to_cart) .shop-grid__buy--options {
   background: transparent;
   color: var(--shop-accent, #16211c);
 }
-.thallo-block-product-grid .shop-grid__buy--sold-out {
+:is(.thallo-block-product-grid, .thallo-block-product_add_to_cart) .shop-grid__buy--sold-out {
   border-color: transparent;
   background: color-mix(in srgb, currentColor 8%, transparent);
   color: color-mix(in srgb, currentColor 55%, transparent);
   cursor: default;
 }
-.thallo-block-product-grid .shop-grid__buy:focus-visible {
+:is(.thallo-block-product-grid, .thallo-block-product_add_to_cart) .shop-grid__buy:focus-visible {
   outline: 2px solid var(--shop-accent, #16211c);
   outline-offset: 2px;
 }
 /* The grid's heart says saved by its shape as well as its colours: the Wishlist part can set any
    colours, and an outline until saved, filled once saved, survives all of them. */
-.thallo-block-product-grid .shop-grid__action--wishlist path {
+:is(.thallo-block-product-grid, .thallo-block-product_tile) .shop-grid__action--wishlist path {
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
 }
-.thallo-block-product-grid .shop-grid__action--wishlist[aria-pressed="true"] path {
+:is(.thallo-block-product-grid, .thallo-block-product_tile) .shop-grid__action--wishlist[aria-pressed="true"] path {
   fill: currentColor;
 }
-/* The grid's picture sits on the card as it is; the Image part's background fills the frame. */
-.thallo-block-product-grid .shop-grid__media {
+/* The grid's picture sits on the card as it is, and so does a shop layout's Product tile's; the
+   Image part's background fills the frame. */
+:is(.thallo-block-product-grid, .thallo-block-product_tile) .shop-grid__media {
   background: transparent;
 }
 .shop-grid__labels {
@@ -972,32 +980,36 @@
   transform: none;
 }
 .shop-grid__tile--no-media .shop-grid__actions { flex-direction: row; }
-.thallo-block-product-grid--image-portrait .shop-grid__image { aspect-ratio: 4 / 5; }
-.thallo-block-product-grid--image-landscape .shop-grid__image { aspect-ratio: 4 / 3; }
-.thallo-block-product-grid--image-cover .shop-grid__image { object-fit: cover; padding: 0; }
+:is(.thallo-block-product-grid--image-portrait, .thallo-block-product_tile--image-portrait) .shop-grid__image { aspect-ratio: 4 / 5; }
+:is(.thallo-block-product-grid--image-landscape, .thallo-block-product_tile--image-landscape) .shop-grid__image { aspect-ratio: 4 / 3; }
+:is(.thallo-block-product-grid--image-cover, .thallo-block-product_tile--image-cover) .shop-grid__image { object-fit: cover; padding: 0; }
 /* Card and image hover effects (§7.2): only where the device can hover, on keyboard focus within
    the card, and under the stage's forced preview; no movement for reduced motion. */
 @media (prefers-reduced-motion: no-preference) {
-  .thallo-block-product-grid:is(.thallo-block-product-grid--card-lift, .thallo-block-product-grid--card-shadow) .shop-grid__item {
+  :is(.thallo-block-product-grid--card-lift, .thallo-block-product-grid--card-shadow, .thallo-block-product_loop--card-lift, .thallo-block-product_loop--card-shadow) .shop-grid__item {
     transition: transform 0.18s ease, box-shadow 0.18s ease;
   }
-  .thallo-block-product-grid--image-zoom .shop-grid__image { transition: transform 0.3s ease; }
+  :is(.thallo-block-product-grid--image-zoom, .thallo-block-product_tile--image-zoom) .shop-grid__image { transition: transform 0.3s ease; }
 }
 @media (hover: hover) {
-  .thallo-block-product-grid--card-lift .shop-grid__item:hover { transform: translateY(-0.25rem); }
-  .thallo-block-product-grid:is(.thallo-block-product-grid--card-lift, .thallo-block-product-grid--card-shadow) .shop-grid__item:hover {
+  :is(.thallo-block-product-grid--card-lift, .thallo-block-product_loop--card-lift) .shop-grid__item:hover { transform: translateY(-0.25rem); }
+  :is(.thallo-block-product-grid--card-lift, .thallo-block-product-grid--card-shadow, .thallo-block-product_loop--card-lift, .thallo-block-product_loop--card-shadow) .shop-grid__item:hover {
     box-shadow: 0 0.75rem 1.75rem rgb(0 0 0 / 0.12);
   }
-  .thallo-block-product-grid--image-zoom .shop-grid__item:hover .shop-grid__image { transform: scale(1.06); }
+  .thallo-block-product-grid--image-zoom .shop-grid__item:hover .shop-grid__image,
+  .shop-grid__item:hover .thallo-block-product_tile--image-zoom .shop-grid__image { transform: scale(1.06); }
 }
-.thallo-block-product-grid--card-lift .shop-grid__item:is(:focus-within, [data-thallo-hover]) { transform: translateY(-0.25rem); }
-.thallo-block-product-grid:is(.thallo-block-product-grid--card-lift, .thallo-block-product-grid--card-shadow) .shop-grid__item:is(:focus-within, [data-thallo-hover]) {
+:is(.thallo-block-product-grid--card-lift, .thallo-block-product_loop--card-lift) .shop-grid__item:is(:focus-within, [data-thallo-hover]) { transform: translateY(-0.25rem); }
+:is(.thallo-block-product-grid--card-lift, .thallo-block-product-grid--card-shadow, .thallo-block-product_loop--card-lift, .thallo-block-product_loop--card-shadow) .shop-grid__item:is(:focus-within, [data-thallo-hover]) {
   box-shadow: 0 0.75rem 1.75rem rgb(0 0 0 / 0.12);
 }
-.thallo-block-product-grid--image-zoom .shop-grid__item:is(:focus-within, [data-thallo-hover]) .shop-grid__image { transform: scale(1.06); }
+.thallo-block-product-grid--image-zoom .shop-grid__item:is(:focus-within, [data-thallo-hover]) .shop-grid__image,
+.shop-grid__item:is(:focus-within, [data-thallo-hover]) .thallo-block-product_tile--image-zoom .shop-grid__image { transform: scale(1.06); }
 @media (prefers-reduced-motion: reduce) {
   .thallo-block-product-grid .shop-grid__item,
-  .thallo-block-product-grid .shop-grid__image { transform: none !important; }
+  .thallo-block-product_loop .shop-grid__item,
+  .thallo-block-product-grid .shop-grid__image,
+  .thallo-block-product_tile .shop-grid__image { transform: none !important; }
 }
 
 .thallo-block-product-grid__empty {
@@ -1519,9 +1531,9 @@
 
 .shop-wishlist {
   /* Same centered page container as .shop-index/.shop-category. */
-  max-width: 64rem;
+  max-width: var(--container, 72rem);
   margin: 0 auto;
-  padding: 1.5rem 1rem 3rem;
+  padding: 1.5rem var(--space-4, 1.5rem) 3rem;
   line-height: 1.5;
   display: grid;
   gap: 1.25rem;

@@ -19,7 +19,8 @@ use Thallo\Contracts\Style\StyleTargets;
  * adaptive grid until someone arranges them (its `cards` target declares the shop stylesheet's
  * tracks as its defaults, so the inspector and the emitter both know). **Product tile** is the
  * card's smart block: the picture, the category chip and the quick actions, with fixed internals —
- * the grid's cart honesty stays in one place (`shop/_product_tile.twig`).
+ * the grid's cart honesty stays in one place (`shop/_product_tile.twig`). **Add to cart button** is the
+ * card's labelled button — the Product grid's, made a block: Add to cart, Choose options, or Sold out.
  *
  * Contributed definitions carry no starter data, so an inserted block starts empty: every option
  * that is on by default is named for turning it off (`hide_count`), and an absent value is always
@@ -28,7 +29,7 @@ use Thallo\Contracts\Style\StyleTargets;
 final class ShopLayoutBlocksContributor implements StarterBlockTypeContributor
 {
     /** @var list<string> in the order the shop pages show them */
-    public const SLUGS = ['shop_title', 'category_rail', 'product_loop', 'product_tile'];
+    public const SLUGS = ['shop_title', 'category_rail', 'product_loop', 'product_tile', 'product_add_to_cart'];
 
     /** The shop stylesheet's `.shop-grid`, as the Product list's cards are before anyone arranges them. */
     public const CARD_DEFAULTS = [
@@ -46,6 +47,19 @@ final class ShopLayoutBlocksContributor implements StarterBlockTypeContributor
         'layout.display', 'layout.direction', 'layout.wrap', 'alignment.content', 'layout.align_items',
         'layout.columns', 'layout.gap.column', 'layout.gap.row',
     ];
+
+    /** A button's styles: the Product grid's Button part, on the Add to cart button block. */
+    private const BUTTON = [
+        'colors', 'border', 'radius', 'typography',
+        'spacing.padding.top', 'spacing.padding.right', 'spacing.padding.bottom', 'spacing.padding.left',
+        'opacity', 'hover',
+    ];
+
+    /** A round icon button on the picture: the quick add, the heart. */
+    private const ICON_BUTTON = ['colors', 'border', 'radius', 'opacity', 'hover'];
+
+    /** A small label on the picture: the category chip, a badge. */
+    private const LABEL = ['colors.surface', 'colors.text', 'radius', 'typography'];
 
     /** @return list<StarterBlockTypeDefinition> */
     public function blockTypeDefinitions(): array
@@ -84,13 +98,26 @@ final class ShopLayoutBlocksContributor implements StarterBlockTypeContributor
                 [
                     ['name' => 'card', 'type' => 'blocks'],
                     ['name' => 'empty_text', 'type' => 'string', 'label' => 'When there are no products'],
+                    [
+                        'name' => 'card_hover', 'label' => 'Card hover effect', 'type' => 'enum',
+                        'enum' => ['none', 'lift', 'shadow'],
+                        'enum_labels' => ['none' => 'None', 'lift' => 'Lift', 'shadow' => 'Shadow'],
+                    ],
                 ],
                 // No visibility: every shop page shows its products, at every size.
                 ['spacing', 'width', 'layout.item', ...self::CARDS],
+                // The cards arrange in `cards`; the Card part styles every card, as the Product grid's.
                 StyleTargets::root('box', ['spacing', 'width', 'layout.item'], [
                     'targets' => ['cards' => ['kind' => 'stack', 'defaults' => self::CARD_DEFAULTS]],
                     'map' => array_fill_keys(self::CARDS, 'cards'),
-                ]),
+                ]) + ['parts' => [
+                    'card' => ['label' => 'Card', 'capabilities' => [
+                        'colors.surface', 'colors.border', 'border', 'radius', 'shadow',
+                        'spacing.padding.top', 'spacing.padding.right',
+                        'spacing.padding.bottom', 'spacing.padding.left',
+                        'opacity', 'hover',
+                    ]],
+                ]],
             ),
             $this->definition(
                 'product_tile',
@@ -100,9 +127,67 @@ final class ShopLayoutBlocksContributor implements StarterBlockTypeContributor
                 [
                     ['name' => 'hide_tag', 'type' => 'boolean', 'label' => 'Hide the category'],
                     ['name' => 'hide_actions', 'type' => 'boolean', 'label' => 'Hide the quick buttons'],
+                    ['name' => 'hide_cart', 'type' => 'boolean', 'label' => 'Hide quick add'],
+                    ['name' => 'hide_wishlist', 'type' => 'boolean', 'label' => 'Hide wishlist'],
+                    // The Product grid card's picture and badges (product grid spec §5, §7.2).
+                    [
+                        'name' => 'image_ratio', 'label' => 'Image ratio', 'type' => 'enum', 'group' => 'Picture',
+                        'enum' => ['square', 'portrait', 'landscape'],
+                        'enum_labels' => [
+                            'square' => 'Square', 'portrait' => 'Portrait (4:5)', 'landscape' => 'Landscape (4:3)',
+                        ],
+                    ],
+                    [
+                        'name' => 'image_fit', 'label' => 'Image fit', 'type' => 'enum', 'group' => 'Picture',
+                        'enum' => ['contain', 'cover'],
+                        'enum_labels' => ['contain' => 'Whole product', 'cover' => 'Fill the frame'],
+                    ],
+                    [
+                        'name' => 'image_hover', 'label' => 'Image hover effect', 'type' => 'enum',
+                        'group' => 'Picture', 'enum' => ['none', 'zoom'],
+                        'enum_labels' => ['none' => 'None', 'zoom' => 'Zoom'],
+                    ],
+                    [
+                        'name' => 'show_sale_badge', 'label' => 'Show sale badge', 'type' => 'boolean',
+                        'group' => 'Badges',
+                    ],
+                    [
+                        'name' => 'sale_badge_text', 'label' => 'Sale badge text', 'type' => 'string',
+                        'group' => 'Badges',
+                    ],
+                    ['name' => 'show_new_badge', 'label' => 'Show new badge', 'type' => 'boolean', 'group' => 'Badges'],
+                    ['name' => 'new_badge_text', 'label' => 'New badge text', 'type' => 'string', 'group' => 'Badges'],
+                    [
+                        'name' => 'new_badge_days', 'label' => 'New badge days', 'type' => 'number', 'min' => 1,
+                        'max' => 365, 'group' => 'Badges', 'help' => 'Products created within this many days.',
+                    ],
+                    [
+                        'name' => 'badge_position', 'label' => 'Badge position', 'type' => 'enum', 'group' => 'Badges',
+                        'enum' => ['top-left', 'top-right'],
+                        'enum_labels' => ['top-left' => 'Top left', 'top-right' => 'Top right'],
+                    ],
                 ],
                 self::BOX,
-                StyleTargets::root('box', self::BOX),
+                // The tile is the box; its pieces style apart, as the Product grid card's do.
+                StyleTargets::root('box', self::BOX) + ['parts' => [
+                    'image' => ['label' => 'Image', 'capabilities' => ['colors.surface', 'radius']],
+                    'quick_add' => ['label' => 'Quick add', 'capabilities' => self::ICON_BUTTON],
+                    'wishlist' => ['label' => 'Wishlist', 'capabilities' => self::ICON_BUTTON],
+                    'chip' => ['label' => 'Category chip', 'capabilities' => self::LABEL],
+                    'badge' => ['label' => 'Badge', 'capabilities' => self::LABEL],
+                ]],
+            ),
+            $this->definition(
+                'product_add_to_cart',
+                'Add to cart button',
+                'i-lucide-shopping-bag',
+                'A labelled button that adds the card\'s product, asks for its options, or says Sold out.',
+                [],
+                self::BOX,
+                // The block is the row; the button inside it takes the button's styles.
+                StyleTargets::root('box', self::BOX) + ['parts' => [
+                    'button' => ['label' => 'Button', 'capabilities' => self::BUTTON],
+                ]],
             ),
         ];
     }

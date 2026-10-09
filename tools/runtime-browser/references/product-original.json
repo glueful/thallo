@@ -5,8 +5,8 @@
       "breadcrumb": {
         "geometry": {
           "top": 24,
-          "left": 16,
-          "width": 343,
+          "left": 24,
+          "width": 327,
           "height": 19.5
         },
         "spacing": {
@@ -30,17 +30,17 @@
       "media": {
         "geometry": {
           "top": 59.5,
-          "left": 16,
-          "width": 343,
-          "height": 345.25
+          "left": 24,
+          "width": 327,
+          "height": 333.25
         }
       },
       "cover": {
         "geometry": {
           "top": 59.5,
-          "left": 16,
-          "width": 343,
-          "height": 257.25
+          "left": 24,
+          "width": 327,
+          "height": 245.25
         },
         "spacing": {
           "margin-top": "0px",
@@ -55,9 +55,9 @@
       },
       "thumbs": {
         "geometry": {
-          "top": 324.75,
-          "left": 16,
-          "width": 343,
+          "top": 312.75,
+          "left": 24,
+          "width": 327,
           "height": 60
         },
         "spacing": {
@@ -73,17 +73,17 @@
       },
       "info": {
         "geometry": {
-          "top": 436.75,
-          "left": 16,
-          "width": 343,
+          "top": 424.75,
+          "left": 24,
+          "width": 327,
           "height": 468.19
         }
       },
       "category": {
         "geometry": {
-          "top": 436.75,
-          "left": 16,
-          "width": 343,
+          "top": 424.75,
+          "left": 24,
+          "width": 327,
           "height": 16.5
         },
         "spacing": {
@@ -106,9 +106,9 @@
       },
       "name": {
         "geometry": {
-          "top": 461.25,
-          "left": 16,
-          "width": 343,
+          "top": 449.25,
+          "left": 24,
+          "width": 327,
           "height": 32.19
         },
         "spacing": {
@@ -131,9 +131,9 @@
       },
       "rating": {
         "geometry": {
-          "top": 505.44,
-          "left": 16,
-          "width": 343,
+          "top": 493.44,
+          "left": 24,
+          "width": 327,
           "height": 21
         },
         "spacing": {
@@ -156,9 +156,9 @@
       },
       "price": {
         "geometry": {
-          "top": 534.44,
-          "left": 16,
-          "width": 343,
+          "top": 522.44,
+          "left": 24,
+          "width": 327,
           "height": 30
         },
         "spacing": {
@@ -181,8 +181,8 @@
       },
       "priceCurrent": {
         "geometry": {
-          "top": 534.44,
-          "left": 16,
+          "top": 522.44,
+          "left": 24,
           "width": 65.83,
           "height": 30
         },
@@ -196,8 +196,8 @@
       },
       "priceCompare": {
         "geometry": {
-          "top": 539.44,
-          "left": 89.83,
+          "top": 527.44,
+          "left": 97.83,
           "width": 55.13,
           "height": 24
         },
@@ -211,9 +211,9 @@
       },
       "description": {
         "geometry": {
-          "top": 588.44,
-          "left": 16,
-          "width": 343,
+          "top": 576.44,
+          "left": 24,
+          "width": 327,
           "height": 114
         },
         "spacing": {
@@ -236,9 +236,9 @@
       },
       "buy": {
         "geometry": {
-          "top": 734.44,
-          "left": 16,
-          "width": 343,
+          "top": 722.44,
+          "left": 24,
+          "width": 327,
           "height": 107
         },
         "spacing": {
@@ -254,9 +254,9 @@
       },
       "form": {
         "geometry": {
-          "top": 734.44,
-          "left": 16,
-          "width": 343,
+          "top": 722.44,
+          "left": 24,
+          "width": 327,
           "height": 107
         },
         "spacing": {
@@ -272,8 +272,8 @@
       },
       "stepper": {
         "geometry": {
-          "top": 734.44,
-          "left": 16,
+          "top": 722.44,
+          "left": 24,
           "width": 130,
           "height": 47.5
         },
@@ -290,9 +290,9 @@
       },
       "submit": {
         "geometry": {
-          "top": 791.94,
-          "left": 16,
-          "width": 343,
+          "top": 779.94,
+          "left": 24,
+          "width": 327,
           "height": 49.5
         },
         "spacing": {
@@ -315,9 +315,9 @@
       },
       "availability": {
         "geometry": {
-          "top": 885.44,
-          "left": 16,
-          "width": 343,
+          "top": 873.44,
+          "left": 24,
+          "width": 327,
           "height": 19.5
         },
         "spacing": {
@@ -340,9 +340,9 @@
       },
       "story": {
         "geometry": {
-          "top": 944.94,
-          "left": 16,
-          "width": 343,
+          "top": 932.94,
+          "left": 24,
+          "width": 327,
           "height": 118.59
         },
         "spacing": {
@@ -361,8 +361,8 @@
       "breadcrumb": {
         "geometry": {
           "top": 24,
-          "left": 16,
-          "width": 668,
+          "left": 24,
+          "width": 652,
           "height": 19.5
         },
         "spacing": {
@@ -386,17 +386,17 @@
       "media": {
         "geometry": {
           "top": 59.5,
-          "left": 16,
-          "width": 668,
-          "height": 589
+          "left": 24,
+          "width": 652,
+          "height": 577
         }
       },
       "cover": {
         "geometry": {
           "top": 59.5,
-          "left": 16,
-          "width": 668,
-          "height": 501
+          "left": 24,
+          "width": 652,
+          "height": 489
         },
         "spacing": {
           "margin-top": "0px",
@@ -411,9 +411,9 @@
       },
       "thumbs": {
         "geometry": {
-          "top": 568.5,
-          "left": 16,
-          "width": 668,
+          "top": 556.5,
+          "left": 24,
+          "width": 652,
           "height": 60
         },
         "spacing": {
@@ -429,17 +429,17 @@
       },
       "info": {
         "geometry": {
-          "top": 680.5,
-          "left": 16,
-          "width": 668,
+          "top": 668.5,
+          "left": 24,
+          "width": 652,
           "height": 359.69
         }
       },
       "category": {
         "geometry": {
-          "top": 680.5,
-          "left": 16,
-          "width": 668,
+          "top": 668.5,
+          "left": 24,
+          "width": 652,
           "height": 16.5
         },
         "spacing": {
@@ -462,9 +462,9 @@
       },
       "name": {
         "geometry": {
-          "top": 705,
-          "left": 16,
-          "width": 668,
+          "top": 693,
+          "left": 24,
+          "width": 652,
           "height": 32.19
         },
         "spacing": {
@@ -487,9 +487,9 @@
       },
       "rating": {
         "geometry": {
-          "top": 749.19,
-          "left": 16,
-          "width": 668,
+          "top": 737.19,
+          "left": 24,
+          "width": 652,
           "height": 21
         },
         "spacing": {
@@ -512,9 +512,9 @@
       },
       "price": {
         "geometry": {
-          "top": 778.19,
-          "left": 16,
-          "width": 668,
+          "top": 766.19,
+          "left": 24,
+          "width": 652,
           "height": 30
         },
         "spacing": {
@@ -537,8 +537,8 @@
       },
       "priceCurrent": {
         "geometry": {
-          "top": 778.19,
-          "left": 16,
+          "top": 766.19,
+          "left": 24,
           "width": 65.83,
           "height": 30
         },
@@ -552,8 +552,8 @@
       },
       "priceCompare": {
         "geometry": {
-          "top": 783.19,
-          "left": 89.83,
+          "top": 771.19,
+          "left": 97.83,
           "width": 55.13,
           "height": 24
         },
@@ -567,9 +567,9 @@
       },
       "description": {
         "geometry": {
-          "top": 832.19,
-          "left": 16,
-          "width": 668,
+          "top": 820.19,
+          "left": 24,
+          "width": 652,
           "height": 63
         },
         "spacing": {
@@ -592,9 +592,9 @@
       },
       "buy": {
         "geometry": {
-          "top": 927.19,
-          "left": 16,
-          "width": 668,
+          "top": 915.19,
+          "left": 24,
+          "width": 652,
           "height": 49.5
         },
         "spacing": {
@@ -610,9 +610,9 @@
       },
       "form": {
         "geometry": {
-          "top": 927.19,
-          "left": 16,
-          "width": 668,
+          "top": 915.19,
+          "left": 24,
+          "width": 652,
           "height": 49.5
         },
         "spacing": {
@@ -628,8 +628,8 @@
       },
       "stepper": {
         "geometry": {
-          "top": 927.19,
-          "left": 16,
+          "top": 915.19,
+          "left": 24,
           "width": 130,
           "height": 49.5
         },
@@ -646,9 +646,9 @@
       },
       "submit": {
         "geometry": {
-          "top": 927.19,
-          "left": 156,
-          "width": 528,
+          "top": 915.19,
+          "left": 164,
+          "width": 512,
           "height": 49.5
         },
         "spacing": {
@@ -671,9 +671,9 @@
       },
       "availability": {
         "geometry": {
-          "top": 1020.69,
-          "left": 16,
-          "width": 668,
+          "top": 1008.69,
+          "left": 24,
+          "width": 652,
           "height": 19.5
         },
         "spacing": {
@@ -696,9 +696,9 @@
       },
       "story": {
         "geometry": {
-          "top": 1080.19,
-          "left": 16,
-          "width": 668,
+          "top": 1068.19,
+          "left": 24,
+          "width": 652,
           "height": 97.22
         },
         "spacing": {
@@ -717,8 +717,8 @@
       "breadcrumb": {
         "geometry": {
           "top": 24,
-          "left": 16,
-          "width": 768,
+          "left": 24,
+          "width": 752,
           "height": 19.5
         },
         "spacing": {
@@ -742,17 +742,17 @@
       "media": {
         "geometry": {
           "top": 59.5,
-          "left": 16,
-          "width": 376.97,
-          "height": 370.72
+          "left": 24,
+          "width": 368.77,
+          "height": 364.56
         }
       },
       "cover": {
         "geometry": {
           "top": 59.5,
-          "left": 16,
-          "width": 376.97,
-          "height": 282.72
+          "left": 24,
+          "width": 368.77,
+          "height": 276.56
         },
         "spacing": {
           "margin-top": "0px",
@@ -767,9 +767,9 @@
       },
       "thumbs": {
         "geometry": {
-          "top": 350.22,
-          "left": 16,
-          "width": 376.97,
+          "top": 344.06,
+          "left": 24,
+          "width": 368.77,
           "height": 60
         },
         "spacing": {
@@ -786,16 +786,16 @@
       "info": {
         "geometry": {
           "top": 59.5,
-          "left": 424.97,
-          "width": 359.02,
+          "left": 424.77,
+          "width": 351.23,
           "height": 410.69
         }
       },
       "category": {
         "geometry": {
           "top": 59.5,
-          "left": 424.97,
-          "width": 359.02,
+          "left": 424.77,
+          "width": 351.23,
           "height": 16.5
         },
         "spacing": {
@@ -819,8 +819,8 @@
       "name": {
         "geometry": {
           "top": 84,
-          "left": 424.97,
-          "width": 359.02,
+          "left": 424.77,
+          "width": 351.23,
           "height": 32.19
         },
         "spacing": {
@@ -844,8 +844,8 @@
       "rating": {
         "geometry": {
           "top": 128.19,
-          "left": 424.97,
-          "width": 359.02,
+          "left": 424.77,
+          "width": 351.23,
           "height": 21
         },
         "spacing": {
@@ -869,8 +869,8 @@
       "price": {
         "geometry": {
           "top": 157.19,
-          "left": 424.97,
-          "width": 359.02,
+          "left": 424.77,
+          "width": 351.23,
           "height": 30
         },
         "spacing": {
@@ -894,7 +894,7 @@
       "priceCurrent": {
         "geometry": {
           "top": 157.19,
-          "left": 424.97,
+          "left": 424.77,
           "width": 65.83,
           "height": 30
         },
@@ -909,7 +909,7 @@
       "priceCompare": {
         "geometry": {
           "top": 162.19,
-          "left": 498.8,
+          "left": 498.59,
           "width": 55.13,
           "height": 24
         },
@@ -924,8 +924,8 @@
       "description": {
         "geometry": {
           "top": 211.19,
-          "left": 424.97,
-          "width": 359.02,
+          "left": 424.77,
+          "width": 351.23,
           "height": 114
         },
         "spacing": {
@@ -949,8 +949,8 @@
       "buy": {
         "geometry": {
           "top": 357.19,
-          "left": 424.97,
-          "width": 359.02,
+          "left": 424.77,
+          "width": 351.23,
           "height": 49.5
         },
         "spacing": {
@@ -967,8 +967,8 @@
       "form": {
         "geometry": {
           "top": 357.19,
-          "left": 424.97,
-          "width": 359.02,
+          "left": 424.77,
+          "width": 351.23,
           "height": 49.5
         },
         "spacing": {
@@ -985,7 +985,7 @@
       "stepper": {
         "geometry": {
           "top": 357.19,
-          "left": 424.97,
+          "left": 424.77,
           "width": 130,
           "height": 49.5
         },
@@ -1003,8 +1003,8 @@
       "submit": {
         "geometry": {
           "top": 357.19,
-          "left": 564.97,
-          "width": 219.02,
+          "left": 564.77,
+          "width": 211.23,
           "height": 49.5
         },
         "spacing": {
@@ -1028,8 +1028,8 @@
       "availability": {
         "geometry": {
           "top": 450.69,
-          "left": 424.97,
-          "width": 359.02,
+          "left": 424.77,
+          "width": 351.23,
           "height": 19.5
         },
         "spacing": {
@@ -1053,8 +1053,8 @@
       "story": {
         "geometry": {
           "top": 510.19,
-          "left": 16,
-          "width": 768,
+          "left": 24,
+          "width": 752,
           "height": 98.61
         },
         "spacing": {
@@ -1073,8 +1073,8 @@
       "breadcrumb": {
         "geometry": {
           "top": 24,
-          "left": 16,
-          "width": 992,
+          "left": 24,
+          "width": 1104,
           "height": 19.5
         },
         "spacing": {
@@ -1098,17 +1098,17 @@
       "media": {
         "geometry": {
           "top": 59.5,
-          "left": 16,
-          "width": 491.7,
-          "height": 456.77
+          "left": 24,
+          "width": 549.06,
+          "height": 499.8
         }
       },
       "cover": {
         "geometry": {
           "top": 59.5,
-          "left": 16,
-          "width": 491.7,
-          "height": 368.77
+          "left": 24,
+          "width": 549.06,
+          "height": 411.8
         },
         "spacing": {
           "margin-top": "0px",
@@ -1123,9 +1123,9 @@
       },
       "thumbs": {
         "geometry": {
-          "top": 436.27,
-          "left": 16,
-          "width": 491.7,
+          "top": 479.3,
+          "left": 24,
+          "width": 549.06,
           "height": 60
         },
         "spacing": {
@@ -1142,16 +1142,16 @@
       "info": {
         "geometry": {
           "top": 59.5,
-          "left": 539.7,
-          "width": 468.3,
+          "left": 605.06,
+          "width": 522.92,
           "height": 359.69
         }
       },
       "category": {
         "geometry": {
           "top": 59.5,
-          "left": 539.7,
-          "width": 468.3,
+          "left": 605.06,
+          "width": 522.92,
           "height": 16.5
         },
         "spacing": {
@@ -1175,8 +1175,8 @@
       "name": {
         "geometry": {
           "top": 84,
-          "left": 539.7,
-          "width": 468.3,
+          "left": 605.06,
+          "width": 522.92,
           "height": 32.19
         },
         "spacing": {
@@ -1200,8 +1200,8 @@
       "rating": {
         "geometry": {
           "top": 128.19,
-          "left": 539.7,
-          "width": 468.3,
+          "left": 605.06,
+          "width": 522.92,
           "height": 21
         },
         "spacing": {
@@ -1225,8 +1225,8 @@
       "price": {
         "geometry": {
           "top": 157.19,
-          "left": 539.7,
-          "width": 468.3,
+          "left": 605.06,
+          "width": 522.92,
           "height": 30
         },
         "spacing": {
@@ -1250,7 +1250,7 @@
       "priceCurrent": {
         "geometry": {
           "top": 157.19,
-          "left": 539.7,
+          "left": 605.06,
           "width": 65.83,
           "height": 30
         },
@@ -1265,7 +1265,7 @@
       "priceCompare": {
         "geometry": {
           "top": 162.19,
-          "left": 613.53,
+          "left": 678.89,
           "width": 55.13,
           "height": 24
         },
@@ -1280,8 +1280,8 @@
       "description": {
         "geometry": {
           "top": 211.19,
-          "left": 539.7,
-          "width": 468.3,
+          "left": 605.06,
+          "width": 522.92,
           "height": 63
         },
         "spacing": {
@@ -1305,8 +1305,8 @@
       "buy": {
         "geometry": {
           "top": 306.19,
-          "left": 539.7,
-          "width": 468.3,
+          "left": 605.06,
+          "width": 522.92,
           "height": 49.5
         },
         "spacing": {
@@ -1323,8 +1323,8 @@
       "form": {
         "geometry": {
           "top": 306.19,
-          "left": 539.7,
-          "width": 468.3,
+          "left": 605.06,
+          "width": 522.92,
           "height": 49.5
         },
         "spacing": {
@@ -1341,7 +1341,7 @@
       "stepper": {
         "geometry": {
           "top": 306.19,
-          "left": 539.7,
+          "left": 605.06,
           "width": 130,
           "height": 49.5
         },
@@ -1359,8 +1359,8 @@
       "submit": {
         "geometry": {
           "top": 306.19,
-          "left": 679.7,
-          "width": 328.3,
+          "left": 745.06,
+          "width": 382.92,
           "height": 49.5
         },
         "spacing": {
@@ -1384,8 +1384,8 @@
       "availability": {
         "geometry": {
           "top": 399.69,
-          "left": 539.7,
-          "width": 468.3,
+          "left": 605.06,
+          "width": 522.92,
           "height": 19.5
         },
         "spacing": {
@@ -1408,9 +1408,9 @@
       },
       "story": {
         "geometry": {
-          "top": 556.27,
-          "left": 16,
-          "width": 992,
+          "top": 599.3,
+          "left": 24,
+          "width": 1104,
           "height": 102.3
         },
         "spacing": {
