@@ -6,13 +6,43 @@ namespace Thallo\Core\Tests\Integration\Render;
 
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Contracts\Style\StyleSchema;
+use Thallo\Core\Content\Http\RequirePermission;
+use Thallo\Core\Settings\GeneralSettings;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\Rbac\GrantsPermissions;
+use Thallo\Render\Style\RequestPalette;
 use Thallo\Render\Http\Controllers\StyleSchemaController;
 use Thallo\Render\ThemeLocator;
 
 /** Visual builder spec §3.4: the inspector's one runtime source of the property table. */
 final class StyleSchemaEndpointTest extends AppTestCase
 {
+    use GrantsPermissions;
+
+    private const PICKER = 'content.edit,content.manage,templates.manage,styles.manage';
+
+    private ?string $madePermission = null;
+
+    protected function tearDown(): void
+    {
+        $this->scrubGrants();
+        if ($this->madePermission !== null) {
+            $this->connection()->table('permissions')->where('uuid', '=', $this->madePermission)->delete();
+            \Glueful\Extensions\Aegis\Repositories\PermissionRepository::clearCache();
+        }
+        parent::tearDown();
+    }
+
+    /** The route middleware's check: its parameters arrive split on commas, as the router passes them. */
+    private function allows(?string $user, string $permissions): bool
+    {
+        $reached = false;
+        (new RequirePermission($this->appContext()))->handle($this->requestAs($user), function () use (&$reached) {
+            $reached = true;
+            return \Glueful\Http\Response::success([]);
+        }, ...explode(',', $permissions));
+        return $reached;
+    }
     public function testTheEndpointIsBoundUnderTheAdminRenderPrefix(): void
     {
         $match = $this->router()->match(Request::create('/v1/admin/render/style-schema', 'GET'));
@@ -52,5 +82,47 @@ final class StyleSchemaEndpointTest extends AppTestCase
         // The editor's colour choices come from here: Black among them, as #000000.
         self::assertContains('black', $data['vocabulary']['domains']['color']);
         self::assertSame('#000000', $data['vocabulary']['values']['color.black']);
+    }
+
+    public function testTheSchemaCarriesThePaletteWithStatesSwatchesAndLabels(): void
+    {
+        $settings = $this->container()->get(GeneralSettings::class);
+        $settings->save(['theme_brand_1' => '{"name":"Gold dark","hex":"#8a6a2a"}']);
+        $this->container()->get(RequestPalette::class)->refresh();
+        $response = $this->container()->get(StyleSchemaController::class)->show();
+        $data = json_decode((string) $response->getContent(), true)['data'];
+        $slots = $data['palette']['slots'];
+        self::assertSame(
+            [
+                'name' => 'Gold dark', 'hex' => '#8a6a2a', 'state' => 'configured',
+                'reserved' => false, 'replacing' => null,
+            ],
+            $slots['brand-1'],
+        );
+        self::assertSame('unset', $slots['brand-2']['state']);
+        self::assertSame('Gold dark — text', $data['palette']['labels']['color.brand-1-contrast']);
+        self::assertSame('Brand 2', $data['palette']['labels']['color.brand-2']);
+        self::assertSame('Surface 2', $data['palette']['labels']['color.surface-2']);
+        self::assertMatchesRegularExpression('/\A#[0-9a-f]{6}\z/', $data['palette']['swatches']['color.surface']);
+        self::assertArrayNotHasKey('color.transparent', $data['palette']['swatches']);
+    }
+
+    public function testAnyStyleEditorReadsTheSchema(): void
+    {
+        $match = $this->router()->match(Request::create('/v1/admin/render/style-schema', 'GET'));
+        self::assertNotNull($match);
+        self::assertContains('content_permission:' . self::PICKER, $match['route']->getMiddleware());
+        // `styles.manage` is the catalog's (CapabilityCatalog) and no migration seeds its row: make it.
+        $permissions = new \Glueful\Extensions\Aegis\Repositories\PermissionRepository($this->connection());
+        if ($permissions->findPermissionBySlug('styles.manage') === null) {
+            $this->madePermission = $permissions->createPermission([
+                'slug' => 'styles.manage', 'name' => 'Manage style classes', 'category' => 'Experience',
+            ])?->getUuid();
+        }
+        foreach (['content.edit', 'content.manage', 'templates.manage', 'styles.manage'] as $permission) {
+            $user = $this->userWith('test_schema_' . str_replace('.', '_', $permission), [$permission]);
+            self::assertTrue($this->allows($user, self::PICKER), $permission);
+        }
+        self::assertFalse($this->allows($this->userWith('test_schema_none', ['content.view']), self::PICKER));
     }
 }
