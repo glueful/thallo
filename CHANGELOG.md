@@ -17,6 +17,10 @@ as the next release, never a mutated tag.
 - The site's palette is emitted with its colours: the Custom neutral's six values in light mode, the
   dark-mode base family in dark mode, and each configured brand colour with a derived dark value and a
   black-or-white text colour.
+- **A cleared brand colour applies no colour**: a block, part, hover state, page, layout frame or region
+  style naming a brand colour that is not configured renders as if it never set that colour — a style
+  class's value or the theme default shows through, and a hover colour leaves the resting colour in
+  place. Animated text's colour fields follow the same rule. The palette enters the page cache key.
 
 ## [1.0.0-beta.97] - 2026-10-09 — Developer Preview
 

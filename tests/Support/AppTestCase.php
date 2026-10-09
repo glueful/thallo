@@ -231,6 +231,10 @@ abstract class AppTestCase extends TestCase
         if ($this->container()->has(\Thallo\Render\Style\RequestFontSnapshot::class)) {
             $this->container()->get(\Thallo\Render\Style\RequestFontSnapshot::class)->refresh();
         }
+        // And the palette (custom palette spec §3.2): one reading per request.
+        if ($this->container()->has(\Thallo\Render\Style\RequestPalette::class)) {
+            $this->container()->get(\Thallo\Render\Style\RequestPalette::class)->refresh();
+        }
 
         self::wipe($this->connection());
         self::$wipedThisClass = true;

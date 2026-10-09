@@ -216,4 +216,29 @@ final class GeneralSettingsAppearanceTest extends AppTestCase
             }
         }
     }
+
+    public function testAPaletteChangeFiresThemeAppearanceChangedAndAnUnchangedOneDoesNot(): void
+    {
+        $fired = 0;
+        $this->container()->get(EventService::class)->addListener(
+            ThemeAppearanceChanged::class,
+            static function () use (&$fired): void {
+                ++$fired;
+            },
+        );
+        $controller = $this->container()->get(GeneralSettingsController::class);
+        $store = $this->container()->get(SettingsStore::class);
+        try {
+            $controller->update(new UpdateGeneralSettingsData(theme_brand_1: '{"name":"Gold","hex":"#8a6a2a"}'));
+            self::assertSame(1, $fired);
+            $controller->update(new UpdateGeneralSettingsData(theme_brand_1: '{"name":"Gold","hex":"#8A6A2A"}'));
+            self::assertSame(1, $fired, 'the same normalised value: no event');
+            $controller->update(new UpdateGeneralSettingsData(theme_dark_base: 'stone'));
+            self::assertSame(2, $fired);
+        } finally {
+            foreach (['theme_brand_1', 'theme_dark_base'] as $key) {
+                $store->forget($key);
+            }
+        }
+    }
 }

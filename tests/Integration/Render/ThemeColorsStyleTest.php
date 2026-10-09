@@ -53,15 +53,17 @@ final class ThemeColorsStyleTest extends AppTestCase
             $this->container()->get(EntryTargetResolver::class),
             'en',
             appearance: new ThemeAppearanceSource($provider, new NullLogger()),
-            palettes: $palette === null ? null : new class ($palette) implements PaletteProvider {
-                public function __construct(private \Thallo\Contracts\Style\Palette $p)
-                {
-                }
-                public function palette(): \Thallo\Contracts\Style\Palette
-                {
-                    return $this->p;
-                }
-            },
+            paletteRequest: new \Thallo\Render\Style\RequestPalette(
+                $palette === null ? null : new class ($palette) implements PaletteProvider {
+                    public function __construct(private \Thallo\Contracts\Style\Palette $p)
+                    {
+                    }
+                    public function palette(): \Thallo\Contracts\Style\Palette
+                    {
+                        return $this->p;
+                    }
+                },
+            ),
         );
     }
 
