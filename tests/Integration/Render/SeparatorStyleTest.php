@@ -17,6 +17,8 @@ use Thallo\Render\TwigFactory;
  * A separator's border colour is drawn by its lines, so it lands on every line rather than on the
  * block (where `border-color` would colour nothing: the block has no border, and the lines do not
  * inherit it); its label — with its icon — takes the Typography group; spacing stays on the block.
+ * Its length — the whole width, or a short or medium accent — and where a shorter line sits are its
+ * own settings.
  */
 final class SeparatorStyleTest extends AppTestCase
 {
@@ -104,6 +106,49 @@ final class SeparatorStyleTest extends AppTestCase
         $capabilities = $this->container()->get(BlockStyleRegistry::class)->capabilitiesFor('separator');
         foreach (['typography.size', 'typography.family', 'typography.decoration', 'colors.border'] as $path) {
             self::assertTrue($capabilities->allows($path), $path);
+        }
+    }
+
+    public function testTheLengthAndAlignmentAreTheBlocksOwnModifiers(): void
+    {
+        $short = $this->separator([], ['length' => 'short', 'align' => 'start']);
+        [$root] = self::classesOf($short, 'thallo-block-separator');
+        self::assertStringContainsString('thallo-block-separator--length-short', $root);
+        self::assertStringContainsString('thallo-block-separator--align-start', $root);
+        $html = $this->separator([], ['length' => 'medium', 'align' => 'end']);
+        [$medium] = self::classesOf($html, 'thallo-block-separator');
+        self::assertStringContainsString('thallo-block-separator--length-medium', $medium);
+        self::assertStringContainsString('thallo-block-separator--align-end', $medium);
+    }
+
+    public function testUnsetOrUnknownValuesAreTheFullCentredLine(): void
+    {
+        foreach ([[], ['length' => 'huge', 'align' => 'left']] as $data) {
+            [$root] = self::classesOf($this->separator([], $data), 'thallo-block-separator');
+            self::assertStringContainsString('thallo-block-separator--length-full', $root);
+            self::assertStringContainsString('thallo-block-separator--align-center', $root);
+        }
+    }
+
+    public function testTheStylesheetDrawsAShortOrMediumLineWhereItIsAligned(): void
+    {
+        $css = (string) file_get_contents(
+            $this->container()->get(ApplicationContext::class)->getBasePath()
+                . '/packages/thallo-render/themes/default/assets/blocks.css',
+        );
+        self::assertMatchesRegularExpression(
+            '~\.thallo-block-separator--length-short \.thallo-block-separator__line \{ flex: 0 0 3\.5rem; \}~',
+            $css,
+        );
+        self::assertMatchesRegularExpression(
+            '~\.thallo-block-separator--length-medium \.thallo-block-separator__line \{ flex: 0 0 8rem; \}~',
+            $css,
+        );
+        foreach (['start' => 'flex-start', 'center' => 'center', 'end' => 'flex-end'] as $align => $justify) {
+            self::assertMatchesRegularExpression(
+                '~\.thallo-block-separator--align-' . $align . ' \{ justify-content: ' . $justify . '; \}~',
+                $css,
+            );
         }
     }
 }
