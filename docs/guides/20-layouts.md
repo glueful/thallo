@@ -94,6 +94,10 @@ post's own page settings win where it sets them: a post that hides its footer hi
 layout, and a post with its own background keeps it over the layout's while taking the layout's
 padding.
 
+The shop's pages — the shop home, its categories and a product — sit in the theme's page box, as a
+page's blocks do: their content starts where the header's logo does. **Full width** lets them span
+the page, the theme's side gutter kept.
+
 ## Preview against another post
 
 The picker in the top bar lists the type's published posts, newest first; the stage shows the

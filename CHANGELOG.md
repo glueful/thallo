@@ -23,6 +23,10 @@ as the next release, never a mutated tag.
 - **The shop pages' product pictures sit on the card as they are**: the tile's frame is
   transparent, as the Product grid's, until its Image section sets a background; the wishlist heart
   is an outline until saved.
+- **The shop's pages sit in the theme's page box**: the shop home, its categories, a product and
+  the wishlist take the theme's page width and side gutter, so their content starts where the
+  header's logo does, as a page's blocks do — wider than before (72rem in the default theme, from
+  64rem). A layout's Frame set to Full width now spans the page.
 
 ### Upgrade Notes
 - `composer update && php glueful thallo:provision` adds the Add to cart button block and the
