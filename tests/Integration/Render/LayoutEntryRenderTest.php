@@ -272,6 +272,41 @@ final class LayoutEntryRenderTest extends AppTestCase
         self::assertSame(1, substr_count($titled, '>Titled</h1>'));
     }
 
+    public function testTheFramesStylesPaintMainUnderThePagesOwn(): void
+    {
+        $this->publish('post', 'framed', 'Framed', [self::text('bodytext0011', 'FRAMED-WORDS')]);
+        $accent = ['colors' => ['surface' => ['type' => 'token', 'value' => 'color.accent']]];
+        $painted = [self::text('bodytext0012', 'PAINTED-WORDS')];
+        $this->publish('post', 'painted', 'Painted', $painted, ['style' => $accent]);
+        $this->saveLayout('post', self::postLayout(), ['style' => [
+            'spacing' => ['padding' => ['top' => ['lg' => ['type' => 'token', 'value' => 'spacing.lg']]]],
+            'colors' => ['surface' => ['type' => 'token', 'value' => 'color.surface']],
+        ]]);
+
+        $framed = (string) $this->get('/post/framed')->getContent();
+        self::assertMatchesRegularExpression(
+            '/<main id="main"[^>]*class="layout--centered lg:t-pt-lg t-bg-surface"/',
+            $framed,
+        );
+
+        // The page's own background wins; the frame's padding stays.
+        $painted = (string) $this->get('/post/painted')->getContent();
+        self::assertMatchesRegularExpression(
+            '/<main id="main"[^>]*class="layout--centered lg:t-pt-lg t-bg-accent"/',
+            $painted,
+        );
+
+        // A page's reset is a whole value: it takes the frame's background back to the theme's.
+        $reset = ['colors' => ['surface' => ['type' => 'reset']]];
+        $resetBody = [self::text('bodytext0013', 'RESET-WORDS')];
+        $this->publish('post', 'reset', 'Reset', $resetBody, ['style' => $reset]);
+        $html = (string) $this->get('/post/reset')->getContent();
+        self::assertMatchesRegularExpression(
+            '/<main id="main"[^>]*class="layout--centered lg:t-pt-lg t-bg-reset"/',
+            $html,
+        );
+    }
+
     public function testEveryEligiblePageCarriesTheSurfaceTag(): void
     {
         $this->publish('post', 'tagged', 'Tagged', [self::text('bodytext0009', 'TAG-WORDS')]);

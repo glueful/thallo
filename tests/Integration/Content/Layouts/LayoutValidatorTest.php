@@ -277,6 +277,26 @@ final class LayoutValidatorTest extends AppTestCase
         self::assertArrayHasKey('settings.sticky', $this->errors($body, ['sticky' => true]));
     }
 
+    public function testTheFrameStylesAreAPagesStyles(): void
+    {
+        $this->seedShapes();
+        $body = [self::block('entry_content', ['field' => 'body'])];
+        $style = [
+            'spacing' => ['padding' => ['top' => ['lg' => ['type' => 'token', 'value' => 'spacing.lg']]]],
+            'colors' => ['surface' => ['type' => 'token', 'value' => 'color.surface']],
+        ];
+        $clean = $this->validator()->validate('entry', 'post', self::withIds($body), ['style' => $style]);
+        self::assertSame(['style' => $style], $clean['settings']);
+        // Nothing set stores nothing.
+        $empty = $this->validator()->validate('entry', 'post', self::withIds($body), ['style' => []]);
+        self::assertSame([], $empty['settings']);
+        // A page's styles are spacing and a background; a frame's are the same.
+        $size = ['type' => 'token', 'value' => 'typography.size.lg'];
+        $errors = array_keys($this->errors($body, ['style' => ['typography' => ['size' => $size]]]));
+        self::assertNotSame([], array_filter($errors, fn (string $k) => str_starts_with($k, 'settings.style')));
+        self::assertArrayHasKey('settings.style', $this->errors($body, ['style' => 'big']));
+    }
+
     public function testAnUnknownSurfaceOrTargetIsRefused(): void
     {
         $this->seedShapes();

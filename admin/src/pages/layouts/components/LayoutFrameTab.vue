@@ -1,12 +1,23 @@
 <script setup lang="ts">
-// The Frame tab (type layouts spec §6.4): the page's width and whether the header and footer show,
-// for every page of the kind. A page's own settings win where it sets them. It edits a settings
+// The Frame tab (type layouts spec §6.4): the page's width, whether the header and footer show, and
+// its Styles — a page's padding, margin and background — for every page of the kind. A page's own
+// settings win where it sets them. It edits a settings
 // record and hands back a new one; the page writes it into the document, so every change is an edit
 // history records and undo reverts. A default is removed, not stored.
 import { computed } from 'vue'
+import PageStylesSection from '@/editor/inspector/PageStylesSection.vue'
+import type { Breakpoint } from '@/style/types'
 
-const props = defineProps<{ settings: Record<string, unknown> }>()
-const emit = defineEmits<{ 'update:settings': [settings: Record<string, unknown>] }>()
+const props = defineProps<{
+  settings: Record<string, unknown>
+  /** The theme's style vocabulary; null while the style schema loads (the Styles wait for it). */
+  vocabulary: { domains: Record<string, string[]>; values: Record<string, string> } | null
+  activeBreakpoint: Breakpoint
+}>()
+const emit = defineEmits<{
+  'update:settings': [settings: Record<string, unknown>]
+  'update:activeBreakpoint': [bp: Breakpoint]
+}>()
 
 const widthOptions = [
   { label: 'Theme default', value: 'default' },
@@ -14,7 +25,7 @@ const widthOptions = [
   { label: 'Full width', value: 'full' },
 ]
 
-function set(key: string, value: string | null): void {
+function set(key: string, value: unknown): void {
   const { [key]: _dropped, ...rest } = props.settings
   emit('update:settings', value === null ? rest : { ...rest, [key]: value })
 }
@@ -26,6 +37,15 @@ const width = computed<string>({
 const header = computed<boolean>({
   get: () => props.settings.header !== 'hidden',
   set: (show) => set('header', show ? null : 'hidden'),
+})
+const style = computed<Record<string, unknown>>({
+  get: () => {
+    const s = props.settings.style
+    return typeof s === 'object' && s !== null && !Array.isArray(s)
+      ? (s as Record<string, unknown>)
+      : {}
+  },
+  set: (next) => set('style', Object.keys(next).length === 0 ? null : next),
 })
 const footer = computed<boolean>({
   get: () => props.settings.footer !== 'hidden',
@@ -48,5 +68,14 @@ const footer = computed<boolean>({
     </UFormField>
     <USwitch v-model="header" label="Show the header" data-test="layout-frame-header" />
     <USwitch v-model="footer" label="Show the footer" data-test="layout-frame-footer" />
+    <PageStylesSection
+      v-if="vocabulary"
+      v-model:style="style"
+      :vocabulary="vocabulary"
+      :active-breakpoint="activeBreakpoint"
+      @update:active-breakpoint="(bp: Breakpoint) => emit('update:activeBreakpoint', bp)"
+    >
+      Every page’s own spacing and ground, around the layout; the theme’s where unset.
+    </PageStylesSection>
   </div>
 </template>

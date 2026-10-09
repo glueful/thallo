@@ -16,6 +16,8 @@ as the next release, never a mutated tag.
   Wishlist, Category chip and Badge sections in its Style tab.
 - **The shop pages' Product list styles every card**: a Card section (background, border, corners,
   shadow, padding, opacity, hover) and a Card hover effect that lifts or shadows a card.
+- **A layout's Frame has Styles**: Padding, Margin and Background, at each breakpoint, for every page
+  of the kind — a page's own Styles, which still win where a page sets them.
 
 ### Changed
 - **The shop pages' product pictures sit on the card as they are**: the tile's frame is

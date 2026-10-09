@@ -545,7 +545,13 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
             </template>
             <template #frame>
               <div data-test="layout-tab-frame">
-                <LayoutFrameTab :settings="frameSettings" @update:settings="setFrameSettings" />
+                <LayoutFrameTab
+                  :settings="frameSettings"
+                  :vocabulary="styleSchema?.vocabulary ?? null"
+                  :active-breakpoint="activeBreakpoint"
+                  @update:settings="setFrameSettings"
+                  @update:active-breakpoint="onActiveBreakpoint"
+                />
               </div>
             </template>
             <template #outline>

@@ -6,6 +6,7 @@ namespace Thallo\Core\Tests\Unit\Render;
 
 use PHPUnit\Framework\TestCase;
 use Thallo\Render\Layouts\FramePresentation;
+use Thallo\Render\Style\PageStyle;
 
 /**
  * A layout's Frame over a page with no theme presentation of its own (type layouts plan C1): the
@@ -33,6 +34,18 @@ final class FramePresentationTest extends TestCase
         self::assertSame('hidden', $full['header']);
         self::assertSame('hidden', $full['footer']);
         self::assertSame('centered', FramePresentation::fixed(['width' => 'contained'])['layout']);
+    }
+
+    public function testTheFramesStylesPaintMain(): void
+    {
+        $style = [
+            'spacing' => ['padding' => ['top' => ['lg' => ['type' => 'token', 'value' => 'spacing.lg']]]],
+            'colors' => ['surface' => ['type' => 'token', 'value' => 'color.surface']],
+        ];
+        $classes = FramePresentation::fixed(['style' => $style])['style_classes'];
+        self::assertSame(PageStyle::classes($style), $classes);
+        self::assertNotSame('', $classes);
+        self::assertSame('', FramePresentation::fixed(['style' => 'odd'])['style_classes']);
     }
 
     public function testAnUnknownValueDegradesToTheDefault(): void

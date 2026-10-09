@@ -88,8 +88,11 @@ layout: it does not select, and it changes with the sample.
 ## The page around the layout
 
 The **Frame** tab sets, for every post of the type, the page's **Width** (the theme default,
-contained or full width), **Show the header** and **Show the footer**. A post's own page settings win
-where it sets them: a post that hides its footer hides it under any layout.
+contained or full width), **Show the header** and **Show the footer**, and its **Styles**: the
+page's **Padding**, **Margin** and **Background**, at each breakpoint, as a page's own Styles. A
+post's own page settings win where it sets them: a post that hides its footer hides it under any
+layout, and a post with its own background keeps it over the layout's while taking the layout's
+padding.
 
 ## Preview against another post
 
