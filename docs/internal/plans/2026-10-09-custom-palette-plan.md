@@ -33,6 +33,11 @@
 > - **Every editor load reads its document and generation consistently**, by a generation-stable read: read the generation, read the document, read the generation again, and retry when it moved. Every response's records are bounded above by the response's own generation.
 > - **The ledger resets only when the editor replaces its document and history** (`restart()` and the initial load), never on `reloadStage()`, which only remounts the iframe.
 > - **Records travel as complete batches** `{after, through, records}`, and the ledger keeps one contiguous `through`. A batch that starts beyond it triggers a fetch of the missing range before anything is applied. History pruned past the editor's `through` (90-day retention, tracked as `palette_state.history_horizon`) is an explicit `410`, and the editor refuses partial reconciliation: undo and redo are locked until it reloads.
+>
+> Amended a fifth time after the fifth plan review (all Task 12):
+> - **A batch read is atomic with pruning.** Records are read **first** and the horizon **after**, and pruning deletes and raises the horizon in one transaction. A prune that removed any record the read missed has therefore committed before the horizon read, and makes the batch an expiry rather than a truncated "complete" batch. A two-connection proof pauses the reader at both points.
+> - **Restore installation and batch processing are serialised** through one queue per editor, and the ledger keeps the records it applied. A restore never moves the ledger backwards. Records newer than the restore's generation that were already applied to history are applied to the restored content only, never twice to history. Batches arriving during a restore's gap fetch wait their turn.
+> - Load responses take `palette_generation` from `consistentRead()`.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -3859,7 +3864,7 @@ git commit -m "feat(palette): fence regions, layouts, saved sections, style clas
     ```
     Only `completed` jobs are records. `map` omits the contrast key when `contrast_to` is null.
   - **A record batch:** `{after: int, through: int, records: list<record>}`. It **promises** to contain every completed record with `after < completed_generation <= through`, ordered by `completed_generation`.
-  - **`PaletteReplacements::batch(int $after, int $through): array`:** the batch for that range. It throws `PaletteHistoryExpired` when `$after < palette_state.history_horizon`, because records in that range may have been pruned.
+  - **`PaletteReplacements::batch(int $after, int $through): array`:** the batch for that range, read atomically with pruning (section 3). It throws `PaletteHistoryExpired` when `$after` is below the horizon read **after** the records.
   - **`PaletteState::consistentRead(callable $read): array{0: mixed, 1: int}`:** runs `$read` between two generation reads and retries (at most 5, then `RuntimeException`) until both match. It returns the result and the generation it is consistent with.
   - **`palette_generation: int`:** on every editor **load** response (draft GET, region, layout, style class, saved section). It is always produced by `consistentRead` around the document read.
   - **Fenced save and restore responses** carry `palette_generation` (the generation the write **held**), `palette_rewrites`, and `palette_replacements`: the batch `(client's palette_through, palette_generation]`, bounded above by the response's own generation. Save bodies send `palette_through`, the ledger's contiguous boundary; when it is absent the batch is empty with `after = through = palette_generation`. A `PaletteHistoryExpired` while building the batch makes the field `{"expired": true}`; the save itself still succeeds.
@@ -3919,13 +3924,21 @@ Because the basis is persisted, version retention pruning cannot remove it. The 
 
 **Chains.** A chain's second job can't start until the first ends (its source slot is reserved), so completion order is application order. Consider B (Brand 2 → Accent) arriving in a batch `(6, 8]` while the ledger's `through` is 4. A (Brand 1 → Brand 2, completed at 5) may exist in `(4, 6]`, so the editor fetches `(4, 8]` and applies A then B, ending at Accent. It never marks B applied ahead of A.
 
-**Restores move the boundary.**
-1. A restore response carries `palette_generation` (the generation its write held) and the batch `(palette_through, palette_generation]`.
-2. The editor applies that batch to its **existing** history and document first, fetching a gap if there is one, refusing if expired.
-3. It sets `ledger.through = palette_generation`.
-4. Then it applies the restore operations.
+**Restore installation and batch processing are serialised.**
+- **One queue:** each editor runs every batch application and every restore installation through a single promise chain. A batch arriving while a restore is installing, including during the restore's gap fetch, waits its turn, and the reverse.
+- **The ledger keeps what it applied:** `applied: Map<completed_generation, record>`.
 
-The restored content was written at that generation, so it is never mapped through any record at or below it. Records completing after it arrive in later batches and map it as the server maps stored documents.
+A restore response carries `palette_generation = R` (the generation its write held) and the batch `(palette_through, R]`. Installing it (`restoreFromResponse`):
+1. **Bring existing history up to R:** apply the response's batch through the normal rules (stale, apply, or gap fetch; refuse if expired). Records the ledger already passed are skipped.
+2. **Catch the restored content up to the ledger.** With `L = ledger.through` after step 1, and `L` possibly greater than R because newer batches were applied earlier:
+   - the records in `(R, L]` are exactly `ledger.applied` entries with `R < completed_generation <= L`;
+   - map the **restored fields** through each, in order, before building the restore operations;
+   - these records completed after the restore committed, so the server's replacement rewrote the restored draft the same way;
+   - they are **not** applied to history again, which already has them.
+3. **Install:** apply the restore operations built from the caught-up fields as one undoable transaction marked persisted.
+4. **Move the boundary only forwards:** `ledger.advance(R)`. When `L > R` nothing changes; the ledger never moves backwards.
+
+So restored content is never mapped through any record at or below R: it was written at R. It is mapped through every record above R exactly once, either in step 2 (already received) or later as a normal batch.
 
 **Resets happen only when the editor replaces its document and history:** the initial load, and `restart()` (`useStageEditor.ts:1935`, the conflict Reload, which sets `history = null` and replaces the fields). `reloadStage()` only remounts the iframe on the same URL (`useStageEditor.ts:2283`): document, history and ledger are all kept. A page reload builds a new editor from a new load, with a new ledger.
 
@@ -4133,6 +4146,8 @@ public function testRestoringIsFencedAgainstAMutationAfterItsRead(): void
 }
 ```
 
+`runActorToCommit('prune')` launches `PaletteConcurrentActorTest` with `THALLO_PALETTE_ACTOR=prune:holder` in its own process (its own database connection). It waits for `committed-prune`, written after `thallo:palette:prune-history`'s transaction commits; add that scenario to the actor in Task 14, as `'prune:holder' => $this->artisan('thallo:palette:prune-history')`, followed by the `committed-` file. Because this test file depends on the actor, Task 14 lands the actor's `prune` scenario. Until then, mark these two tests `@group palette-two-process` and run them in Task 14 Step 6.
+
 `afterNextCommit(Closure)` registers `$db->afterCommit` before the call. `completeJob($id)` runs `within` → `lock()` → `bump()` → `transition($id, 'completed', $gen)`. `getDraft` and `putDraft` read `palette_generation` and send `palette_through`.
 
 `tests/Integration/Content/Palette/PaletteReplacementsTest.php`:
@@ -4169,6 +4184,37 @@ public function testPruningRaisesTheHorizonAndARangeBelowItIsExpired(): void
     $this->artisan('thallo:palette:prune-history');                  // the scheduled command
     $horizon = (int) $this->connection()->table('palette_state')->first()['history_horizon'];
     self::assertGreaterThan($g0, $horizon);
+    $this->expectException(PaletteHistoryExpired::class);
+    $this->container()->get(PaletteReplacements::class)->batch($g0, $this->state()->snapshot()->generation);
+}
+
+public function testABatchReadRacingAPruneIsCompleteOrExpiredNeverTruncated(): void
+{
+    // two connections: the reader here; the pruner in its own process (Task 14's actor harness, scenario
+    // `prune`), committed while the reader is paused between its records read and its horizon read
+    $this->configure(1, 'Gold', '#8a6a2a');
+    $g0 = $this->state()->snapshot()->generation;
+    $this->replaceAndClear(1, 'color.accent');
+    $this->ageJobs(days: 91);
+    $replacements = $this->container()->get(PaletteReplacements::class);
+    $replacements->afterRecordsRead(fn () => $this->runActorToCommit('prune'));   // pause point 1
+    try {
+        $b = $replacements->batch($g0, $this->state()->snapshot()->generation);
+        self::assertCount(1, $b['records'], 'complete if not expired');
+    } catch (PaletteHistoryExpired) {
+        self::assertTrue(true, 'expired: acceptable');
+    }
+}
+
+public function testABatchReadStartingAfterAPruneCommittedIsExpired(): void
+{
+    // pause point 2: the prune commits before the records read (the horizon check the reviewer named
+    // would have passed under the old order)
+    $this->configure(1, 'Gold', '#8a6a2a');
+    $g0 = $this->state()->snapshot()->generation;
+    $this->replaceAndClear(1, 'color.accent');
+    $this->ageJobs(days: 91);
+    $this->runActorToCommit('prune');
     $this->expectException(PaletteHistoryExpired::class);
     $this->container()->get(PaletteReplacements::class)->batch($g0, $this->state()->snapshot()->generation);
 }
@@ -4352,12 +4398,42 @@ it('a reused slot maps only what predates its second replacement', async () => {
 it('a restore after completion is never mapped through records it postdates', async () => {
   const ed = editorOver({ fields: { body: [heading('a', 'color.text')] } }, { paletteGeneration: 4 })
   // the restore response: record A completed at 5, the restore's write held generation 6
-  await ed.restoreFromResponse({ fields: { body: [heading('a', 'color.brand-1')] }, palette_generation: 6, palette_replacements: batch(4, 6, [A]) })
+  await ed.restoreFromResponse({ palette_generation: 6, palette_replacements: batch(4, 6, [A]) }, { body: [heading('a', 'color.brand-1')] })
   expect(colourOf(ed.document.fields, 0)).toBe('color.brand-1')
   await ed.applyBatch(batch(0, 6, [A]))              // a later schema refresh: stale
   expect(colourOf(ed.document.fields, 0)).toBe('color.brand-1')
   ed.undo(); ed.redo()
   expect(colourOf(ed.document.fields, 0)).toBe('color.brand-1')
+})
+
+it('a newer batch applied BEFORE a delayed restore response: the restored content is caught up, history is not mapped twice, the ledger never moves back', async () => {
+  // restore committed at 4; replacement A' (brand-1 → accent) completed at 5; the editor sees 5 first
+  const A2 = { id: 'jobA2', slot: 1, map: { 'color.brand-1': 'color.accent' }, completed_generation: 5 }
+  const ed = editorOver({ fields: { body: [heading('a', 'color.text')] } }, { paletteGeneration: 3 })
+  ed.record(setSetting('a', 'colors.text', tok('color.text'), tok('color.brand-1')))
+  const reconcile = vi.spyOn(ed.history, 'reconcileTokens')
+  await ed.applyBatch(batch(3, 5, [A2]))                                        // the schema refresh
+  expect(reconcile).toHaveBeenCalledTimes(1)
+  await ed.restoreFromResponse({ palette_generation: 4, palette_replacements: batch(3, 4, []) }, { body: [heading('a', 'color.brand-1')] })
+  expect(colourOf(ed.document.fields, 0)).toBe('color.accent')                  // restored at 4, caught up through 5
+  expect(reconcile).toHaveBeenCalledTimes(1)                                    // history not mapped again
+  expect(ed.paletteThrough()).toBe(5)                                           // not moved back to 4
+  ed.undo()                                                                      // the restore transaction
+  expect(colourOf(ed.document.fields, 0)).toBe('color.accent')                  // the pre-restore state, already reconciled
+})
+
+it('a newer batch arriving DURING the restore\'s gap fetch waits, then applies to the restored content once', async () => {
+  let releaseFetch!: (b: ReturnType<typeof batch>) => void
+  const fetchRange = vi.fn(() => new Promise<ReturnType<typeof batch>>((r) => { releaseFetch = r }))
+  const A2 = { id: 'jobA2', slot: 1, map: { 'color.brand-1': 'color.accent' }, completed_generation: 6 }
+  const ed = editorOver({ fields: { body: [heading('a', 'color.text')] } }, { paletteGeneration: 2, fetchRange })
+  const restoring = ed.restoreFromResponse({ palette_generation: 4, palette_replacements: batch(3, 4, []) }, { body: [heading('a', 'color.brand-1')] }) // gap (2, 3]
+  const refreshing = ed.applyBatch(batch(4, 6, [A2]))                           // arrives mid-fetch
+  releaseFetch(batch(2, 4, []))
+  await Promise.all([restoring, refreshing])
+  expect(colourOf(ed.document.fields, 0)).toBe('color.accent')                  // applied after the restore installed
+  expect(ed.paletteThrough()).toBe(6)
+  expect(fetchRange).toHaveBeenCalledTimes(1)
 })
 
 it('reconciles whole blocks carried by insert, remove and duplicate operations', async () => {
@@ -4557,11 +4633,43 @@ Expected: FAIL.
   `generationNow()` is a plain unlocked `SELECT generation`. The `afterNextSnapshot` seam fires inside the first `generationNow()` as it does in `snapshot()`. Every editor load (draft GET, region, layout, style class, saved section) wraps its document read in `consistentRead` and returns that generation.
 
   **Why it is enough:** every completion bumps the generation in the same transaction that clears the slot, after all of that job's rewrites have committed. So equal generations before and after the read mean no completion happened during it, and the document reflects exactly the records at or below that generation.
-- **`PaletteReplacements::batch(int $after, int $through)`:**
-  - throws `PaletteHistoryExpired` when `$after < palette_state.history_horizon`;
-  - otherwise reads `palette_jobs WHERE status = 'completed' AND completed_generation > :after AND completed_generation <= :through ORDER BY completed_generation`;
-  - returns `['after' => $after, 'through' => $through, 'records' => …]`, where `map` omits the contrast key when `contrast_to_token` is null;
-  - `forSchema(int $generation)` returns `batch(max(horizon, <the largest completed_generation finished more than 90 days ago, else 0>), $generation)`.
+- **`PaletteReplacements::batch(int $after, int $through)`, atomic with pruning:**
+
+  ```php
+  public function batch(int $after, int $through): array
+  {
+      // 1. records FIRST
+      $rows = $this->db->table('palette_jobs')
+          ->where('status', '=', 'completed')
+          ->where('completed_generation', '>', $after)
+          ->where('completed_generation', '<=', $through)
+          ->orderBy('completed_generation', 'ASC')
+          ->get();
+      if ($this->afterRecordsRead !== null) { // concurrency proofs only, like PaletteState::afterNextSnapshot
+          $fn = $this->afterRecordsRead;
+          $this->afterRecordsRead = null;
+          $fn();
+      }
+      // 2. the horizon AFTER: pruning deletes and raises it in ONE transaction, so any deletion that could
+      // have hidden a row from step 1 is committed before this read and is seen here
+      $horizon = (int) ($this->db->table('palette_state')->select(['history_horizon'])->first()['history_horizon'] ?? 0);
+      if ($after < $horizon) {
+          throw new PaletteHistoryExpired($after, $horizon);
+      }
+      return ['after' => $after, 'through' => $through, 'records' => array_map(self::record(...), $rows)];
+  }
+  ```
+
+  **Why it is atomic.** The pruner deletes records and raises the horizon to at least every deleted `completed_generation`, in one transaction. Each statement here sees the database as committed when it starts.
+  - **Prune committed before step 1:** step 2 sees the raised horizon. If the range reaches below it, the batch expires.
+  - **Prune committed between steps 1 and 2:** step 1 saw every record (nothing was deleted yet). Step 2 sees the raised horizon and expires conservatively, which is never a truncated batch.
+  - **Prune committed after step 2:** both reads predate it, and the batch is complete.
+
+  A batch whose `after` is at or above the horizon cannot have lost a record, because pruning only deletes records at or below the horizon.
+
+  - `map` omits the contrast key when `contrast_to_token` is null.
+  - `afterRecordsRead(Closure)` is a one-shot seam for concurrency proofs, documented like `PaletteState::afterNextSnapshot()` and never called in production.
+  - `forSchema(int $generation)` reads the horizon, then calls `batch(max(horizon, <largest completed_generation finished more than 90 days ago, else 0>), $generation)`. It retries up to three times on `PaletteHistoryExpired`, because a prune between its horizon read and the batch's raises the floor. A fourth expiry is a 503.
 - **`thallo:palette:prune-history` (`core/src/Content/Console/PrunePaletteHistoryCommand.php`):**
   - inside `PaletteFence::within`, deletes `completed`/`cancelled` jobs with `finished_at` older than 90 days;
   - raises `palette_state.history_horizon` to the largest deleted `completed_generation`, never lowering it;
@@ -4582,7 +4690,7 @@ Expected: FAIL.
   6. call `saveDraft(..., extraBasis: $basis, recordRestoreBasis: $basis)`.
 - **`PublishService::publishInternal`:** clears `restore_basis` after `pin`, inside its transaction.
 - **Controllers:**
-  - Load responses add `palette_generation` (`PaletteState::snapshot()->generation`).
+  - Load responses add `palette_generation`: the generation returned by `consistentRead()` around the document read.
   - Save and restore responses add `palette_generation` (the held generation from the outcome), `palette_rewrites`, and `palette_replacements = batch($input->palette_through ?? $outcome->generation, $outcome->generation)`. The batch is built **after** the write commits, but is bounded by the write's generation, so a completion committed in between waits for a later batch. A `PaletteHistoryExpired` yields `{"expired": true}`.
   - Save and restore DTOs gain `?int $palette_through`.
 - **`StyleSchemaController`:** `palette.generation` and `palette.replacements` (`forSchema($generation)`), read through `consistentRead` so both describe the same moment. Update Task 6's exact-array assertion; the slot carries no `retired`.
@@ -4625,9 +4733,16 @@ export interface ReplacementBatch { after: number; through: number; records: Rep
 export function createReplacementLedger(baseline: number) {
   let through = baseline
   let expired = false
+  const applied = new Map<number, ReplacementRecord>() // completed_generation → record, for restore catch-up
   return {
     get through() { return through },
     get expired() { return expired },
+    /** Records this editor applied with after < completed_generation <= upTo, in order. */
+    appliedBetween(after: number, upTo: number): ReplacementRecord[] {
+      return [...applied.values()].filter((r) => r.completed_generation > after && r.completed_generation <= upTo)
+        .sort((a, b) => a.completed_generation - b.completed_generation)
+    },
+    remember(record: ReplacementRecord): void { applied.set(record.completed_generation, record) },
     /** 'apply' when the batch covers the boundary, 'gap' when it starts beyond it, 'stale' when it adds nothing. */
     accept(batch: ReplacementBatch): 'apply' | 'gap' | 'stale' {
       if (expired || batch.through <= through) return 'stale'
@@ -4641,7 +4756,7 @@ export function createReplacementLedger(baseline: number) {
     },
     advance(next: number): void { through = Math.max(through, next) },
     expire(): void { expired = true },
-    reset(generation: number): void { through = generation; expired = false },
+    reset(generation: number): void { through = generation; expired = false; applied.clear() },
   }
 }
 
@@ -4653,10 +4768,18 @@ export function createPaletteReconciler(deps: {
   ledger: ReturnType<typeof createReplacementLedger>
   fetchRange(after: number, through: number): Promise<ReplacementBatch> // GET …/palette/replacements; rejects 410 when expired
 }) {
+  let queue: Promise<void> = Promise.resolve()
+  /** Every batch and every restore installation, one at a time, in arrival order. */
+  function serial(work: () => Promise<void>): Promise<void> {
+    const run = queue.then(work, work)
+    queue = run.catch(() => undefined)
+    return run
+  }
   function apply(batch: ReplacementBatch): void {
     for (const record of deps.ledger.take(batch)) {
       deps.history.reconcileTokens(record.map)
       deps.replaceFields(mapPaletteTokens(deps.currentFields(), record.map))
+      deps.ledger.remember(record)
     }
     deps.ledger.advance(batch.through)
   }
@@ -4664,28 +4787,48 @@ export function createPaletteReconciler(deps: {
     deps.ledger.expire()
     deps.history.lockUndo(true) // refuse partial reconciliation: no undo or redo until reload
   }
+  async function applyBatchNow(batch: ReplacementBatch | { expired: true }): Promise<void> {
+    if ('expired' in batch) return expire()
+    const verdict = deps.ledger.accept(batch)
+    if (verdict === 'stale') return
+    if (verdict === 'apply') return apply(batch)
+    try {
+      const filled = await deps.fetchRange(deps.ledger.through, batch.through) // the missing range, whole
+      if (deps.ledger.accept(filled) === 'apply') apply(filled)
+    } catch (e: unknown) {
+      if ((e as { status?: number }).status === 410) return expire()
+      throw e
+    }
+  }
   return {
-    async applyBatch(batch: ReplacementBatch | { expired: true }): Promise<void> {
-      if ('expired' in batch) return expire()
-      const verdict = deps.ledger.accept(batch)
-      if (verdict === 'stale') return
-      if (verdict === 'apply') return apply(batch)
-      try {
-        const filled = await deps.fetchRange(deps.ledger.through, batch.through) // the missing range, whole
-        if (deps.ledger.accept(filled) === 'apply') apply(filled)
-      } catch (e: unknown) {
-        if ((e as { status?: number }).status === 410) return expire()
-        throw e
-      }
+    applyBatch(batch: ReplacementBatch | { expired: true }): Promise<void> {
+      return serial(() => applyBatchNow(batch))
     },
-    async adoptPaletteResult(outcome: { palette_rewrites?: PaletteRewrite[]; palette_replacements?: ReplacementBatch | { expired: true } }): Promise<void> {
+    adoptPaletteResult(outcome: { palette_rewrites?: PaletteRewrite[]; palette_replacements?: ReplacementBatch | { expired: true } }): Promise<void> {
+      // the rewrites are facts about the stored document: adopt now; the records queue
       deps.replaceFields(applyPaletteRewrites(deps.currentFields(), outcome.palette_rewrites ?? []).doc)
-      if (outcome.palette_replacements) await this.applyBatch(outcome.palette_replacements)
+      return outcome.palette_replacements ? serial(() => applyBatchNow(outcome.palette_replacements!)) : Promise.resolve()
     },
-    async restoreFromResponse(res: { palette_generation: number; palette_replacements: ReplacementBatch | { expired: true } }, applyRestore: () => void): Promise<void> {
-      await this.applyBatch(res.palette_replacements) // existing history first (fetching a gap, refusing if expired)
-      if (!deps.ledger.expired) deps.ledger.reset(res.palette_generation) // the restored content was written at this generation
-      applyRestore()
+    /**
+     * Install a restore at generation R: existing history up to R first, then the restored fields
+     * caught up through records this editor already applied above R (never applied to history twice),
+     * then the restore ops; the boundary only moves forward.
+     */
+    restoreFromResponse(
+      res: { palette_generation: number; palette_replacements: ReplacementBatch | { expired: true } },
+      restoredFields: Record<string, unknown>,
+      applyRestore: (fields: Record<string, unknown>) => void,
+    ): Promise<void> {
+      return serial(async () => {
+        await applyBatchNow(res.palette_replacements)
+        const R = res.palette_generation
+        let fields = restoredFields
+        for (const record of deps.ledger.appliedBetween(R, deps.ledger.through)) {
+          fields = mapPaletteTokens(fields, record.map) // records newer than the restore, already in history
+        }
+        applyRestore(fields)
+        deps.ledger.advance(R) // never backwards
+      })
     },
   }
 }
@@ -4706,7 +4849,7 @@ In `useStageEditor.ts`:
 Wiring:
 - **Design page:**
   - `saveDraftOnly` sends `palette_through: editor.paletteThrough()` in the body, calls `editor.markSaved(sequence)` as today, then `await editor.adoptPaletteResult(result.data)`.
-  - The restore flow calls `restoreDraft(..., editor.paletteThrough())`, then `await editor.restoreFromResponse(res, () => applyRestoreOps(res.draft.fields))`, then adopts `lock_version`.
+  - The restore flow calls `restoreDraft(..., editor.paletteThrough())`, then `await editor.restoreFromResponse(res, res.draft.fields, (fields) => applyRestoreOps(fields))`, then adopts `lock_version`.
   - On every style-schema load or refresh it calls `await editor.applyBatch(schema.palette.replacements)`.
   - While `editor.paletteExpired()` is true, it shows the notice "The palette changed while this editor was open for a long time. Reload to keep editing." with a Reload button (the existing conflict-reload path).
 - **Region and layout hosts, and the style-class editor:** the same three calls on their own editors.
@@ -5652,6 +5795,11 @@ public function testActor(): void
     if ($role === 'contender') {
         file_put_contents("{$dir}/pid-{$scenario}", (string) $pid);
     }
+    if ($scenario === 'prune') { // Task 12's batch-versus-prune proofs: run the pruner to commit, then signal
+        $this->artisan('thallo:palette:prune-history');
+        touch("{$dir}/committed-prune");
+        return;
+    }
     $outcome = ['result' => 'ok', 'detail' => null];
     try {
         $outcome['detail'] = match ("{$scenario}:{$role}") {
@@ -5758,8 +5906,8 @@ For `cancel-worker`, the observed wait is the runner's first fenced write, block
 
 Clean the barrier directory in `setUp` and `tearDown`. Put this file in its own `INTEGRATION_SHARD_*` slot after timing it.
 
-Run: `vendor/bin/phpunit tests/Integration/Content/Palette/PaletteTwoProcessTest.php`
-Expected: PASS. Each scenario's contender is observed lock-waiting on the holder's pid before release.
+Run: `vendor/bin/phpunit tests/Integration/Content/Palette/PaletteTwoProcessTest.php && vendor/bin/phpunit --group palette-two-process tests/Integration/Content/Palette/PaletteReplacementsTest.php`
+Expected: PASS. Each scenario's contender is observed lock-waiting on the holder's pid before release, and the batch-versus-prune proofs return a complete batch or an expiry, never a truncated batch.
 
 - [ ] **Step 7: Re-run Task 12's restore proof against the real job**
 
