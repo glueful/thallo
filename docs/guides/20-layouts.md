@@ -235,7 +235,6 @@ The **Blocks** tab leads with the product's fields:
 | **Product name** | the name | **level** (h1 to h4), **Link to the product** |
 | **Product rating** | the stars, the average and the review count | **Hide until it has reviews** |
 | **Product price** | the price, and the struck "was" price when there is one | **Hide the "was" price** |
-| **Add to cart button** | a labelled button: **Add to cart**, **Choose options** for a product with choices, or a disabled **Sold out** | — |
 | **Product description** | the description | — |
 | **Product buy box** | the options, the quantity, the **Add to cart** button, the wishlist heart and "In stock" | **Hide the wishlist heart**, **Hide "In stock"** |
 | **Product story** | the content of the product's [linked story](18-commerce.md#add-a-product) | — |
@@ -306,6 +305,8 @@ These go inside the card, and only there — the editor says so, and so does the
 | **Product name** | the name, as a heading | **level** (h1 to h4), **Link to the product** |
 | **Product rating** | one star, the average and the review count | **Hide until it has reviews** |
 | **Product price** | the price, and the struck "was" price when there is one | **Hide the "was" price** |
+| **Product tags** | the product's tags as small labels, as a Product grid card shows them; a product with none shows nothing (the stage says so) | **Show the categories too** (every category, before the tags) |
+| **Add to cart button** | a labelled button: **Add to cart**, **Choose options** for a product with choices, or a disabled **Sold out** | — |
 
 The quick **Add to cart** works as the shop's grid always has: a product with one variant and no
 required add-on is added straight away, even where JavaScript is off; any other product links to its
@@ -315,7 +316,7 @@ out** when nothing is in stock — place it under the price for a button on ever
 The card styles like a Product grid's. The Product tile's **Style** tab has an **Image** section (the
 frame's background, transparent until set, and its corners), **Quick add** and **Wishlist** (the two
 round buttons, each apart; the heart is an outline until saved, whatever its colours), **Category
-chip** and **Badge**. The Add to cart button has a **Button** section. The Product list has a **Card**
+chip** and **Badge**. Product tags has a **Label** section that styles every label. The Add to cart button has a **Button** section. The Product list has a **Card**
 section that styles every card — background, border, corners, shadow, padding and a hover look — and
 a **Card hover effect** that lifts or shadows the card under the pointer. The page's own blocks go outside the card:
 

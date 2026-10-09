@@ -5,6 +5,13 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Added
+- **A Product tags block for the shop home and category pages' card**: the product's tags as small
+  labels under its name, as the Product grid's **Show tags** shows them, with **Show the categories
+  too** and a Label section in its Style tab.
+
 ## [1.0.0-beta.94] - 2026-10-09 — Developer Preview
 
 The shop home and category layouts' card gets the Product grid's options — an Add to cart button
