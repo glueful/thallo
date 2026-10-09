@@ -44,6 +44,24 @@ final class ThemeAppearanceSourceTest extends AppTestCase
         };
     }
 
+    public function testTheCustomNeutralPassesThroughWithoutAWarning(): void
+    {
+        $logged = [];
+        $logger = new class ($logged) extends \Psr\Log\AbstractLogger {
+            /** @param list<string> $logged */
+            public function __construct(private array &$logged)
+            {
+            }
+            public function log($level, \Stringable|string $message, array $context = []): void
+            {
+                $this->logged[] = (string) $message;
+            }
+        };
+        $src = new ThemeAppearanceSource($this->provider('blue', 'custom'), $logger);
+        self::assertSame('custom', $src->neutral());
+        self::assertSame([], $logged);
+    }
+
     public function testReturnsSavedPair(): void
     {
         $src = new ThemeAppearanceSource($this->provider('emerald', 'zinc'), new NullLogger());
