@@ -5,7 +5,11 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.96] - 2026-10-09 — Developer Preview
+
+The Navigation block's Style tab styles the menu — its type, the space between items, the items and
+their hover look, the current page's pill and the submenu — and the Style tab's Hover rows keep
+their order.
 
 ### Added
 - **The Navigation block's Style tab styles the menu**: Typography for every link, the Gap between
