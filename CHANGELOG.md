@@ -5,7 +5,11 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.94] - 2026-10-09 — Developer Preview
+
+The shop home and category layouts' card gets the Product grid's options — an Add to cart button
+block, picture options, Sale and New badges and Style sections — and a layout's Frame gets a page's
+Styles. The shop's pages line up with the header's logo.
 
 ### Added
 - **An Add to cart button block for the shop home and category pages' card**: a labelled button —
