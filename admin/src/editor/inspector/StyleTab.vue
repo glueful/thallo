@@ -236,11 +236,13 @@ const groups = computed(() =>
     const resting = ordered(
       props.schema.properties.filter((r) => allowed.value.has(r.path) && g.match(r)),
     )
-    // The hover counterparts this target offers, in the schema's order.
-    const hoverPaths = new Set(
-      resting.map((r) => HOVER_FOR[r.path]).filter((p) => p && allowed.value.has(p)),
-    )
-    const hoverRows = props.schema.properties.filter((r) => hoverPaths.has(r.path))
+    // The hover counterparts this target offers, in their resting rows' order: each row keeps its
+    // place, so the first row is the background in Normal and in Hover alike.
+    const hoverRows = resting
+      .map((r) => HOVER_FOR[r.path])
+      .filter((p): p is string => !!p && allowed.value.has(p))
+      .map((p) => props.schema.properties.find((r) => r.path === p))
+      .filter((r): r is (typeof props.schema.properties)[number] => r !== undefined)
     const hasHover = hoverRows.length > 0
     const rows = hasHover && hoverState.value === 'hover' ? hoverRows : resting
     return {

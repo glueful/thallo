@@ -79,13 +79,14 @@ describe('the Normal / Hover switch', () => {
     expect(w.find('[data-test="style-state-hover-spacing"]').exists()).toBe(false)
   })
 
-  it('swaps the hoverable rows for their hover counterparts and hides the rest', async () => {
+  it('swaps the hoverable rows for their hover counterparts, in the same order, and hides the rest', async () => {
     const w = mountTab(button)
     expect(fields(w, 'colors')).toEqual(['colors.surface', 'colors.text', 'colors.border'])
     await w.find('[data-test="style-state-hover-colors"]').trigger('click')
+    // Each row keeps its place: a click on the first row is the background in either state.
     expect(fields(w, 'colors')).toEqual([
-      'hover.colors.text',
       'hover.colors.surface',
+      'hover.colors.text',
       'hover.colors.border',
     ])
     // Effects keeps only what hover can change: no corners, no shadow.

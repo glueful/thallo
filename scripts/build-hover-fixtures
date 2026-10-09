@@ -3,7 +3,8 @@
 /**
  * Build the fixtures of the hover state (hover state spec §4.1, §4.3): one page — Buttons of every
  * variant untouched and with one authored hover property, a Button whose hover reset beats its style
- * class, Links, File and Social links blocks untouched and with hover values — rendered by the real
+ * class, Links, File and Social links blocks untouched and with hover values, and a Navigation whose
+ * Menu item section has a hover background and whose Current page section is the pill — rendered by the real
  * render pack twice, published (`public.html`) and on the editor's canvas stage (`stage.html`), into
  * `tools/runtime-browser/fixtures/hover/` (gitignored) with stylesheets inlined and scripts dropped.
  * Seeded inside a transaction that is rolled back. Read by hover.spec.js.
@@ -169,6 +170,26 @@ try {
             ['parts' => ['icon' => ['colors' => ['text' => $token('color.muted')], 'hover' => ['colors' => ['text' => $accent]]]]],
             ['parts' => ['icon' => ['hover' => ['colors' => ['text' => ['type' => 'reset']]]]]],
         );
+
+        // A Navigation over a menu whose first item is this page: every item turns accent under the
+        // pointer, and the current page is a black pill that stays black.
+        $menus = $container->get(\Thallo\Navigation\MenuRepository::class);
+        $menu = $menus->createMenu('hovernav', 'Hover nav');
+        $item = static fn (string $uuid, int $position, string $url, string $label): array => [
+            'uuid' => $uuid, 'parent_uuid' => null, 'position' => $position, 'kind' => 'url',
+            'entry_uuid' => null, 'url' => $url, 'labels' => json_encode(['en' => $label]),
+            'created_at' => gmdate('Y-m-d H:i:s'), 'updated_at' => gmdate('Y-m-d H:i:s'),
+        ];
+        // Written as replaceTree() writes them: it opens a transaction of its own, and this is one.
+        foreach ([$item('hovernavit01', 0, '/landing/hover', 'Here'), $item('hovernavit02', 1, '/elsewhere', 'Elsewhere')] as $row) {
+            $db->table('navigation_items')->insert($row + ['menu_uuid' => (string) $menu['uuid']]);
+        }
+        $body[] = ['id' => 'hovernav0001', 'type' => 'navigation', 'data' => ['menu' => 'hovernav'], 'settings' => [
+            'parts' => [
+                'item' => ['hover' => ['colors' => ['surface' => $accent]]],
+                'current' => ['colors' => ['surface' => $token('color.black'), 'text' => $token('color.white')]],
+            ],
+        ]];
 
         $type = (string) $container->get(ContentTypeRepository::class)->create([
             'slug' => 'landing', 'name' => 'Landing pages', 'public_delivery' => true, 'schema' => [

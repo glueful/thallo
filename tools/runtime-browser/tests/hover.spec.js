@@ -196,6 +196,28 @@ for (const [where, url] of Object.entries(PAGES)) {
   });
 }
 
+// The Navigation's Menu item section turns every item accent under the pointer, over the pill
+// variant's own hover tint; its Current page section is the pill, and stays the pill under the
+// pointer. The published page only: the stage previews at its own address, so no item is current.
+test('a Navigation item turns its hover colour, and the current page keeps its pill', async ({ page }) => {
+  await open(page, PAGES.public);
+  const nav = page.locator('main .thallo-block-navigation');
+  const current = nav.locator('.thallo-block-navigation__link[aria-current="page"]');
+  const other = nav.locator('.thallo-block-navigation__link', { hasText: 'Elsewhere' });
+  const [accent, black, white] = [await colour(page, 'accent'), await colour(page, 'black'), await colour(page, 'white')];
+
+  const item = await pointerAndForced(page, other);
+  expect(item.pointer.backgroundColor).toBe(accent);
+  expect(item.forced.backgroundColor).toBe(accent);
+  expect(item.rest.backgroundColor).not.toBe(accent);
+
+  const pill = await pointerAndForced(page, current);
+  for (const look of [pill.rest, pill.pointer, pill.forced]) {
+    expect(look.backgroundColor).toBe(black);
+    expect(look.color).toBe(white);
+  }
+});
+
 test('tabbing through a Social links row: every link shows the authored hover colour and its focus ring', async ({
   page,
 }) => {
