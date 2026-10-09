@@ -1,11 +1,13 @@
 # Custom palette — design
 
-Status: draft for review (2026-10-09), revision 3. Implements the amendments agreed in
+Status: draft for review (2026-10-09), revision 4. Implements the amendments agreed in
 conversation; revision 2 applies the spec review (historical vs blocking usage, a replace job
 contract, publication history, the unavailable-colour contract and theme precedence, replacement
 destinations, palette read permissions); revision 3 adds a per-workspace palette fence for saves, job
 cancellation and destination reservations, uses the actual render paths (the style cascade and
-`token_class()`), and corrects the picker response and the byte-identical claim.
+`token_class()`), and corrects the picker response and the byte-identical claim; revision 4 fences on the original
+payload and re-normalises from it, makes restoration's trusted basis explicit, and requires a lock
+order and writer inventory in the plan.
 
 ## 1. Purpose
 
@@ -205,14 +207,22 @@ mutations with each other and with fenced saves.
 
 **Fenced saves.** Every save of a block-bearing document or style class (drafts, regions, layouts,
 saved sections, style classes, and the job's own writes) normalises colour tokens (§4.5) against
-the palette state it read, noting its `generation`. If the normalised payload names **any** brand
-token, the save's write transaction first runs a conditional update on the palette state row —
-`WHERE workspace = ? AND generation = ?` — and only then writes the document. A palette mutation
-that committed in between makes the conditional update match nothing: the save re-reads the palette
-state, re-normalises and retries (three attempts, then 409 "the palette changed, try again"). The
-conditional update also holds the row lock until the save commits, so a palette mutation started
-after it waits for the save to land and then sees it. Saves whose payload names no brand token
-cannot add a reference and take no fence.
+the palette state it read, noting its `generation`. The save is **fenced** when either the
+**original submitted payload** or the normalised payload names any brand token, and every write the
+replace job makes is fenced regardless. A fenced save's write transaction first runs a conditional
+update on the palette state row — `WHERE workspace = ? AND generation = ?` — and only then writes
+the document. A palette mutation that committed in between makes the conditional update match
+nothing: the save re-reads the palette state, **re-normalises from the original submitted payload**
+(never from its earlier normalised result, which may encode a decision the mutation made obsolete)
+and retries (three attempts, then 409 "the palette changed, try again"). The conditional update
+also holds the row lock until the save commits, so a palette mutation started after it waits for
+the save to land and then sees it.
+
+Fencing on the original payload matters because normalisation can remove every brand token: under
+a Brand 1 → Accent job a submitted Brand 1 normalises to Accent. If that job is cancelled and a
+Brand 1 → Brand 2 job starts before the save commits, the generation check catches it and the
+retry maps Brand 1 to Brand 2. Only a save whose submitted and normalised payloads both name no
+brand token skips the fence — it can neither add a reference nor carry a stale mapping.
 
 Both orderings are therefore safe:
 
@@ -289,14 +299,43 @@ brand token:
 
 - **Source of an active job:** mapped to the job's `to` / `contrast_to`. A stale draft that still
   names the slot writes the destination.
-- **Unconfigured slot:** accepted only if the document's stored revision the save is based on
-  already holds that same value at that location (existing data — e.g. a restored version — saves
-  unchanged); otherwise 422 "Gold dark is no longer in the palette". A save racing a clear can
-  therefore never add a fresh reference to a slot that was just cleared.
+- **Unconfigured slot:** accepted only if a **trusted basis** already holds that same value at
+  that location; otherwise 422 "Gold dark is no longer in the palette". A save racing a clear can
+  therefore never add a fresh reference to a slot that was just cleared. The trusted basis is
+  always loaded by the server, never taken from the request:
+  - **Ordinary saves:** the document's current stored revision the save is based on.
+  - **Restoration:** additionally, the historical version being restored, loaded server-side by
+    its id from the entry's own retained versions. A restore may therefore bring back the
+    unavailable references that version holds even when the current draft no longer does. The
+    client names only which version to restore; it cannot supply old content to widen the basis.
+  Once restored, the draft is the stored revision, so saving it again preserves those references
+  under the ordinary rule.
 - **Configured slot:** unchanged.
+
+Restoration follows the same rules as any save: during an active replacement, a restored
+reference to the job's source slot is mapped to its destination like any other write — only
+references to unconfigured slots are preserved as unavailable.
 
 The replace job applies the same mapping to the same locations, so Animated text's colours and
 every other token field are rewritten along with style settings.
+
+### 4.6 Implementation requirements
+
+The implementation plan must include, before any fence code:
+
+- **One lock order** covering the palette state row and the existing locks writers already take
+  (entry drafts' `lock_version`, version-number reservation and publication repin, content-type,
+  region, layout, saved-section and style-class rows). The palette state row is taken **first**,
+  before any document, type or region lock, in every path that takes it — fenced saves, palette
+  mutations, the job's writes and its clear — so no path can hold a document lock while waiting
+  for the palette row in the opposite order.
+- **An inventory of every writer** of block-bearing documents and style classes, each marked
+  fenced/normalised or justified as unable to write a colour token: editor saves, publish,
+  scheduled publish, restore, imports (site import, content import, seeders run against a live
+  workspace), the authoring engine (`EngineContentWriter` / `EngineContentUpserter`), background
+  rewrites (block-type migrations through `BackfillRunner`, the settings converter, style-class
+  jobs), region and layout savers, saved sections, and the replace job itself. Each fenced writer
+  gets a test that a palette mutation committed between its normalisation and its write is caught.
 
 ## 5. The admin
 
@@ -433,7 +472,11 @@ effective palette; the form previews it from the same rules for unsaved values.
   re-normalise and get 422 for the fresh reference, while a save that only carries a reference the
   document already stored succeeds. And at final clear: a save paused across the job's clearing
   transaction cannot commit the old token afterwards. A save naming no brand token takes no fence.
-  Three consecutive fence failures return 409.
+  Three consecutive fence failures return 409. **Stale mapping:** a save submitting Brand 1 is
+  paused after normalisation under a Brand 1 → Accent job (its normalised payload names no brand
+  token); the job is cancelled and a Brand 1 → Brand 2 job started; the save resumes, its fence
+  fails, and it re-normalises from the submitted payload and stores Brand 2, not Accent. Job writes
+  whose payloads name no brand token are still fenced.
 - **Concurrent document save:** an editor saving between the job's read and write makes
   `persist()` return false; the job re-reads and rewrites it; a publication landing mid-job is
   rewritten on retry.
@@ -448,8 +491,16 @@ effective palette; the form previews it from the same rules for unsaved values.
   cancelled the second can start. With Brand 2 → Accent running, Brand 1 → Brand 2 is refused at
   start. A separately chosen brand contrast destination is reserved the same way. Two starts racing
   for conflicting slots: exactly one succeeds.
-- **History:** replace a slot, then restore an older version that names it — the restored page
-  renders with no colour override for those properties and the picker shows the unavailable state.
+- **History and restoration:** replace a slot, then restore an older version that names it — the
+  restore succeeds although the current draft no longer holds the reference; the restored page
+  renders with no colour override for those properties and the picker shows the unavailable state;
+  saving the restored draft afterwards (with and without unrelated edits) succeeds and keeps the
+  reference. A save request that submits the same unavailable reference without a server-loaded
+  basis (a plain draft save naming a version id it is not restoring, or a client-supplied old
+  payload) gets 422. Restoring during an active replacement of that slot maps the reference to the
+  destination.
+- **Writer inventory:** for each fenced writer in §4.6, a mutation committed between normalisation
+  and write is caught.
 - **Permissions:** the style schema with only `content.edit`, only `content.manage`, only
   `templates.manage`, only `styles.manage` — each 200 with the palette; with none, 403. Usage
   and the replace job with each of the first, third and fourth alone — 403.
