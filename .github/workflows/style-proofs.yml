@@ -2,6 +2,7 @@ name: Style Proofs
 
 on:
   push:
+    branches: [dev]
     paths:
       - 'packages/thallo-render/**'
       - 'packages/thallo-contracts/src/Style/**'
@@ -10,6 +11,7 @@ on:
       - 'tools/style-proofs/**'
       - '.github/workflows/style-proofs.yml'
   pull_request:
+    branches: [main]
     paths:
       - 'packages/thallo-render/**'
       - 'packages/thallo-contracts/src/Style/**'
@@ -18,8 +20,16 @@ on:
       - 'tools/style-proofs/**'
       - '.github/workflows/style-proofs.yml'
 
+# One run per commit (2026-10-09): pushes to dev are tested; a dev -> main PR shows those checks
+# (they are the head commit's), so only a PR from a fork runs here again, and a merge or a tag
+# pushes nothing new. A newer push to the same branch or PR cancels the older run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   proofs:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

@@ -2,6 +2,7 @@ name: Builder Proofs
 
 on:
   push:
+    branches: [dev]
     paths:
       - 'admin/src/**'
       - 'admin/e2e/**'
@@ -12,6 +13,7 @@ on:
       - 'tests/fixtures/composition/**'
       - '.github/workflows/builder-proofs.yml'
   pull_request:
+    branches: [main]
     paths:
       - 'admin/src/**'
       - 'admin/e2e/**'
@@ -22,8 +24,16 @@ on:
       - 'tests/fixtures/composition/**'
       - '.github/workflows/builder-proofs.yml'
 
+# One run per commit (2026-10-09): pushes to dev are tested; a dev -> main PR shows those checks
+# (they are the head commit's), so only a PR from a fork runs here again, and a merge or a tag
+# pushes nothing new. A newer push to the same branch or PR cancels the older run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   proofs:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     services:
       postgres:
