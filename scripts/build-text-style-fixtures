@@ -198,6 +198,9 @@ try {
                 'colors' => ['border' => ['type' => 'token', 'value' => 'color.accent']],
                 'typography' => ['transform' => $choice('uppercase'), 'letter_spacing' => $choice('wider')],
             ]]],
+            // A short accent line at the start, and a medium one at the end, both 2px.
+            ['id' => 'sepshort0001', 'type' => 'separator', 'data' => ['length' => 'short', 'align' => 'start', 'size' => 'sm'], 'settings' => []],
+            ['id' => 'sepmedium001', 'type' => 'separator', 'data' => ['length' => 'medium', 'align' => 'end', 'size' => 'sm'], 'settings' => []],
             // Logos: untouched; sized per width with its gaps set; scrolling, sized; and capped.
             $logos('logoplain001'),
             $logos('logosized001', false, [

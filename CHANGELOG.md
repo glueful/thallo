@@ -5,6 +5,12 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Added
+- **A Separator can be a short accent line**: Length — Full width, Medium (8rem) or Short (3.5rem) —
+  and Align — Start, Centre or End — for where a shorter line sits.
+
 ## [1.0.0-beta.96] - 2026-10-09 — Developer Preview
 
 The Navigation block's Style tab styles the menu — its type, the space between items, the items and

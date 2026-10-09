@@ -22,7 +22,8 @@ const heading = (page, name) => page.locator('main .thallo-block-heading').nth(H
 const link = (page, name) =>
   page.locator('main .thallo-block-links').nth(LINKS.indexOf(name)).locator('.thallo-block-links__link').first();
 const button = (page, name) => page.locator('main .thallo-block-button__link').nth(BUTTONS.indexOf(name));
-const separator = (page, name) => page.locator('main .thallo-block-separator').nth(['plain', 'styled'].indexOf(name));
+const separator = (page, name) =>
+  page.locator('main .thallo-block-separator').nth(['plain', 'styled', 'short', 'medium'].indexOf(name));
 
 /** A separator's line colours, and what its label draws. */
 const separatorDrawn = (locator) =>
@@ -76,7 +77,7 @@ for (const [where, url] of Object.entries(PAGES)) {
       await expect(page.locator('main .thallo-block-heading')).toHaveCount(HEADINGS.length);
       await expect(page.locator('main .thallo-block-links')).toHaveCount(LINKS.length);
       await expect(page.locator('main .thallo-block-button__link')).toHaveCount(BUTTONS.length);
-      await expect(page.locator('main .thallo-block-separator')).toHaveCount(2);
+      await expect(page.locator('main .thallo-block-separator')).toHaveCount(4);
       await expect(page.locator('main .thallo-block-logos')).toHaveCount(5);
     });
 
@@ -144,6 +145,34 @@ for (const [where, url] of Object.entries(PAGES)) {
       expect(plain.lines[0]).not.toBe(styled.accent); // the theme's line colour, untouched
       expect(styled.label).toBe('uppercase');
       expect(plain.label).toBe('none');
+    });
+
+    test('a short separator is a 3.5rem accent at the start, a medium one 8rem at the end', async ({ page }) => {
+      const box = (loc) =>
+        loc.evaluate((el) => {
+          const root = el.getBoundingClientRect();
+          const cs = getComputedStyle(el);
+          const line = el.querySelector('.thallo-block-separator__line').getBoundingClientRect();
+          return {
+            start: root.left + parseFloat(cs.paddingLeft),
+            end: root.right - parseFloat(cs.paddingRight),
+            left: line.left,
+            right: line.right,
+            width: line.width,
+            thickness: parseFloat(getComputedStyle(el.querySelector('.thallo-block-separator__line')).borderTopWidth),
+          };
+        });
+      const rem = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize));
+      const short = await box(separator(page, 'short'));
+      expect(short.width).toBeCloseTo(3.5 * rem, 0);
+      expect(short.left).toBeCloseTo(short.start, 0);
+      expect(short.thickness).toBe(2);
+      const medium = await box(separator(page, 'medium'));
+      expect(medium.width).toBeCloseTo(8 * rem, 0);
+      expect(medium.right).toBeCloseTo(medium.end, 0);
+      // The full line still fills its row.
+      const full = await box(separator(page, 'plain'));
+      expect(full.width).toBeGreaterThan(medium.width);
     });
 
     test('a Logos block draws its logos at the size set for the width, and spaces them as set', async ({ page }) => {
