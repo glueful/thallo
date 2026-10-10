@@ -309,6 +309,17 @@ Each hover utility is compiled twice:
 - **`[data-thallo-hover]`** is the editor stage's preview of the hover look. It never appears on a
   published page.
 
+A block covered by a link (a Rich text block with a Link: `<a class="thallo-block-link">` over the
+text) cannot take focus itself; its cover does. So each hover utility has one more rule, which
+shows the block's hover look while its cover has keyboard focus:
+
+```css
+.t-hover-fg-accent:has(> .thallo-block-link:focus-visible) { color: var(--t-color-accent); }
+```
+
+A Rich text block's hover values apply only while it has a Link: without one, its text keeps its
+colour under the pointer.
+
 What beats what:
 
 - A hover value beats the resting value of the same property, at every width. Setting a hover

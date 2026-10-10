@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Render;
 
+use Thallo\Contracts\Style\StyleTargets;
 use Thallo\Core\Content\Blocks\StarterBlockTypes;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 use Thallo\Render\RenderContextExtension;
 use Thallo\Render\ThemeLocator;
 use Thallo\Render\TwigFactory;
@@ -15,11 +17,26 @@ use Thallo\Render\TwigFactory;
  * is covered by one, its own links staying clickable above it. The URL passes safe_url, so a
  * `javascript:` one leaves the text as it was. Animated text has no link: it is a reveal, not a
  * label.
+ *
+ * A link has a hover look an author can set (hover state spec §2.2): a Heading's on its Link part,
+ * the link itself; a Rich text block's on the block, and only while it is a link, so plain text
+ * never changes under the pointer.
  */
 final class TextBlockLinkTest extends AppTestCase
 {
-    /** @param array<string,mixed> $data */
-    private function render(string $type, array $data): string
+    use SyncsBlockStyleDeclarations;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->syncBlockStyleDeclarations();
+    }
+
+    /**
+     * @param array<string,mixed> $data
+     * @param array<string,mixed> $settings
+     */
+    private function render(string $type, array $data, array $settings = []): string
     {
         $base = $this->appContext()->getBasePath();
         $extension = $this->container()->get(RenderContextExtension::class);
@@ -27,7 +44,7 @@ final class TextBlockLinkTest extends AppTestCase
         $locator = new ThemeLocator('default', $base . '/themes');
         $env = (new TwigFactory($locator, $extension, $base . '/storage/cache/twig'))->environment();
         return $env->createTemplate('{{ blocks(l) }}')->render(['l' => [[
-            'id' => 'textlink0001', 'type' => $type, 'data' => $data,
+            'id' => 'textlink0001', 'type' => $type, 'data' => $data, 'settings' => $settings,
         ]]]);
     }
 
@@ -93,5 +110,63 @@ final class TextBlockLinkTest extends AppTestCase
             self::assertSame('boolean', $fields[$slug]['new_tab'] ?? null, $slug);
         }
         self::assertArrayNotHasKey('url', $fields['animated_text']);
+    }
+
+    private static function token(string $value): array
+    {
+        return ['type' => 'token', 'value' => $value];
+    }
+
+    /** @return StyleTargets the shipped declaration of `$slug` */
+    private static function targets(string $slug): StyleTargets
+    {
+        foreach (StarterBlockTypes::definitions() as $definition) {
+            if ($definition['slug'] === $slug) {
+                return StyleTargets::fromDeclaration($definition['style_targets']);
+            }
+        }
+        self::fail("no starter block {$slug}");
+    }
+
+    public function testAHeadingsLinkPartOffersATextColourAtRestAndOnHover(): void
+    {
+        $heading = self::targets('heading');
+        self::assertTrue($heading->isPart('link'));
+        foreach (['colors.text', 'hover.colors.text'] as $path) {
+            self::assertTrue($heading->partCapabilities('link')->allows($path), $path);
+        }
+        self::assertNotContains('hover.colors.text', $heading->stylePathsFor('root'), 'the heading is not the link');
+    }
+
+    public function testALinkedHeadingsLinkCarriesItsLinkPart(): void
+    {
+        $html = $this->render('heading', ['text' => 'Our story', 'url' => '/about'], ['parts' => ['link' => [
+            'colors' => ['text' => self::token('color.muted')],
+            'hover' => ['colors' => ['text' => self::token('color.accent')]],
+        ]]]);
+        self::assertMatchesRegularExpression(
+            '~<h2 class="thallo-block thallo-block-heading"><a class="thallo-block-heading__link'
+                . ' t-fg-muted t-hover-fg-accent" href="/about">~',
+            $html,
+        );
+    }
+
+    public function testARichTextBlockOffersAHoverTextColour(): void
+    {
+        self::assertContains('hover.colors.text', self::targets('rich_text')->stylePathsFor('root'));
+    }
+
+    public function testARichTextBlockCarriesItsHoverColourOnlyWhileItIsALink(): void
+    {
+        $settings = ['style' => [
+            'colors' => ['text' => self::token('color.muted')],
+            'hover' => ['colors' => ['text' => self::token('color.accent')]],
+        ]];
+        $linked = $this->render('rich_text', ['body' => '<p>Call us</p>', 'url' => 'tel:+233597478403'], $settings);
+        self::assertMatchesRegularExpression('~class="[^"]*--linked[^"]*\bt-hover-fg-accent\b~', $linked);
+
+        $plain = $this->render('rich_text', ['body' => '<p>Call us</p>'], $settings);
+        self::assertStringContainsString('t-fg-muted', $plain, 'its colour at rest stays');
+        self::assertStringNotContainsString('t-hover-', $plain);
     }
 }

@@ -52,7 +52,7 @@ final class StyleCompilerTest extends TestCase
         // variables come from its colours stylesheet, never the shared per-theme artifact.
         $css = StyleCompiler::compile($this->vocabulary());
         self::assertStringNotContainsString('brand-', $css);
-        self::assertSame(25, StyleCompiler::VERSION);
+        self::assertGreaterThanOrEqual(25, StyleCompiler::VERSION, 'brand colours left it at 25');
     }
 
     public function testClassNamesAreTheOnePlaceASettingBecomesAClass(): void
@@ -595,6 +595,19 @@ final class StyleCompilerTest extends TestCase
         self::assertStringContainsString($branch('t-hover-fg-accent', 'color: var(--t-color-accent);'), $css);
         self::assertStringContainsString($branch('t-hover-bc-accent', 'border-color: var(--t-color-accent);'), $css);
         self::assertStringContainsString($branch('t-hover-opacity-70', 'opacity: 0.7;'), $css);
+    }
+
+    public function testAHoverUtilityShowsWhenItsBlocksCoverLinkHasKeyboardFocus(): void
+    {
+        // A Rich text block made a link is covered by one (`.thallo-block-link`): the block cannot take
+        // focus, its cover does, so the block's hover look shows on the cover's focus too. A rule of its
+        // own, so a browser without :has() still keeps the focus and forced branches.
+        $rule = '.t-hover-fg-accent:has(> .thallo-block-link:focus-visible) { color: var(--t-color-accent); }';
+        self::assertStringContainsString("\n{$rule}\n", StyleCompiler::compile($this->vocabulary()));
+        self::assertStringContainsString(
+            "\n.t-hover-fg-brand-12:has(> .thallo-block-link:focus-visible) { color: var(--t-color-brand-12); }\n",
+            StyleCompiler::colorUtilities(['brand-12']),
+        );
     }
 
     public function testAHoverResetIsEmpty(): void

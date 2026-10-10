@@ -5,6 +5,21 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Added
+- **A linked Heading or Rich text block has a hover look**: under the pointer, on keyboard focus and in
+  the stage's Hover preview, a linked Heading's text and a linked Rich text block's text underline, and
+  a tap on a phone leaves nothing behind. In the Style tab, a Heading's new **Link** section sets the
+  link's text colour at rest and on hover. A Rich text block gains a hover text colour, which applies
+  only while the block has a link. Because a Rich text block takes focus through the link that covers
+  it, each hover utility also shows while a block's covering link (`.thallo-block-link`) has keyboard
+  focus. `thallo:provision` adds the settings to an existing site.
+
+### Fixed
+- **A linked Heading's underline no longer stays after a tap on a phone**, and the stage's Hover preview
+  now shows it.
+
 ## [1.0.0-beta.99] - 2026-10-10 — Developer Preview
 
 Links that work as typed: a Heading or a Rich text block can be a link, a link typed without
