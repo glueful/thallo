@@ -43,6 +43,11 @@ as the next release, never a mutated tag.
   (`/v1/admin/appearance/palette/jobs`, `…/{id}`, `…/{id}/cancel`, `…/{id}/resume`), runs in the
   workspace it was started in, and purges each rewritten page as it goes.
 
+### Fixed
+- Enabling multi-store tenancy no longer drops the header and footer's settings-schema stamp
+  (`regions.schema_stamp`): the table rebuild kept every other column, and anything reading the regions
+  as block documents — block migrations, the settings converter, brand colour usage — failed afterwards.
+
 ## [1.0.0-beta.97] - 2026-10-09 — Developer Preview
 
 A Separator can be a short accent line, placed at the start, centre or end of its row.
