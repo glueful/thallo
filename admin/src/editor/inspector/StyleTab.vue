@@ -25,6 +25,8 @@ import type { ComputedTypography } from '@/composables/useCanvasBridge'
 import { StageTypographyKey, typographyTarget } from '@/editor/stage/stageTypography'
 
 const props = defineProps<{
+  /** The block sits in a Style block that re-skins accent or neutral (custom palette spec §5.2). */
+  scopedSkin?: boolean
   block: BlockInstance
   blockType: BlockType | null
   schema: StyleSchemaResult
@@ -514,6 +516,8 @@ function setCount(rows: StylePropertyRow[]): number {
               :re-resolving="reResolving"
               :active-breakpoint="activeBreakpoint"
               :vocabulary="schema.vocabulary"
+              :palette="schema.palette"
+              :scoped-skin="scopedSkin"
               :marks="item.def.path === 'typography.weight' ? weightMarks : undefined"
               :fonts="fonts"
               :computed-typography="item.def.path === 'typography.family' ? measured : undefined"

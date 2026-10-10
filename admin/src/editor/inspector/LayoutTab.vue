@@ -561,6 +561,7 @@ const gutterDefault = computed(() => {
                 :re-resolving="reResolving"
                 :active-breakpoint="activeBreakpoint"
                 :vocabulary="schema.vocabulary"
+                :palette="schema.palette"
                 hide-breakpoints
                 @set="(path, bp, value) => emit('set', path, bp, value)"
                 @set-all="(path, value) => emit('set-all', path, value)"
@@ -677,6 +678,7 @@ const gutterDefault = computed(() => {
                   :re-resolving="reResolving"
                   :active-breakpoint="activeBreakpoint"
                   :vocabulary="schema.vocabulary"
+                  :palette="schema.palette"
                   hide-breakpoints
                   @set="(path, bp, value) => emit('set', path, bp, value)"
                   @set-all="(path, value) => emit('set-all', path, value)"
@@ -693,6 +695,7 @@ const gutterDefault = computed(() => {
                   :re-resolving="reResolving"
                   :active-breakpoint="activeBreakpoint"
                   :vocabulary="schema.vocabulary"
+                  :palette="schema.palette"
                   hide-breakpoints
                   @set="(path, bp, value) => emit('set', path, bp, value)"
                   @set-all="(path, value) => emit('set-all', path, value)"
@@ -746,6 +749,7 @@ const gutterDefault = computed(() => {
               :re-resolving="reResolving"
               :active-breakpoint="activeBreakpoint"
               :vocabulary="schema.vocabulary"
+              :palette="schema.palette"
               hide-breakpoints
               @set="(path, bp, value) => emit('set', path, bp, value)"
               @set-all="(path, value) => emit('set-all', path, value)"

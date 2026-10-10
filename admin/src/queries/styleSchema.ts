@@ -30,7 +30,7 @@ export interface StyleSchemaResult {
   }
   /** The workspace's palette (custom palette spec §5.2, §5.3); absent from an older server. */
   palette?: {
-    slots: Record<string, Record<string, unknown>>
+    slots: Record<string, PaletteSlot>
     swatches: Record<string, string>
     labels: Record<string, string>
     /** Whether the site renders a dark mode: the dark base applies only then. */
@@ -39,6 +39,21 @@ export interface StyleSchemaResult {
     generation: number
     /** The completed replacements of the recent past, through `generation`. */
     replacements: ReplacementBatch
+  }
+}
+
+/** One brand slot as the pickers see it (custom palette spec §5.2). */
+export interface PaletteSlot {
+  name: string | null
+  hex: string | null
+  state: 'unset' | 'configured' | 'replacing'
+  /** A running replacement writes to it: usable, not clearable. */
+  reserved: boolean
+  replacing: null | {
+    to: string
+    to_label: string
+    contrast_to: string | null
+    contrast_to_label: string | null
   }
 }
 

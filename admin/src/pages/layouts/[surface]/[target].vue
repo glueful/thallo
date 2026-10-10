@@ -452,6 +452,7 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
             </template>
             <template #block>
               <BlockInspector
+                :scoped-skin="editor.selectedScopedSkin.value"
                 v-if="selectedBlock"
                 :block="selectedBlock"
                 :block-type="selectedBlockType"
@@ -549,6 +550,7 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
                 <LayoutFrameTab
                   :settings="frameSettings"
                   :vocabulary="styleSchema?.vocabulary ?? null"
+                  :palette="styleSchema?.palette"
                   :active-breakpoint="activeBreakpoint"
                   @update:settings="setFrameSettings"
                   @update:active-breakpoint="onActiveBreakpoint"

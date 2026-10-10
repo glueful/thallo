@@ -33,7 +33,9 @@ function clear(): void {
         :names="names"
         :values="values"
         :model-value="current"
+        :palette="schema?.palette"
         @update:model-value="pick"
+        @clear="clear()"
       />
       <button
         v-if="current !== null"

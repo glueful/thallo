@@ -339,6 +339,7 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
             </template>
             <template #block>
               <BlockInspector
+                :scoped-skin="editor.selectedScopedSkin.value"
                 v-if="selectedBlock"
                 :block="selectedBlock"
                 :block-type="selectedBlockType"

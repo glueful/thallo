@@ -756,6 +756,7 @@ async function openThemePreview(): Promise<void> {
             </template>
             <template #block>
               <BlockInspector
+                :scoped-skin="editor.selectedScopedSkin.value"
                 v-if="selectedBlock"
                 :block="selectedBlock"
                 :block-type="selectedBlockType"
@@ -1012,6 +1013,7 @@ async function openThemePreview(): Promise<void> {
                   v-if="styleSchema"
                   :style="pageStyle"
                   :vocabulary="styleSchema.vocabulary"
+                  :palette="styleSchema.palette"
                   :active-breakpoint="activeBreakpoint"
                   @update:style="writePageStyle"
                   @update:active-breakpoint="onActiveBreakpoint"

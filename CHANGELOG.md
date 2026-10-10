@@ -50,6 +50,12 @@ as the next release, never a mutated tag.
   checks the text pairs of the unsaved palette in light and dark mode, warning under 4.5:1. The preview
   wears the unsaved palette. The style schema's palette says whether the site has a dark mode
   (`color_mode`).
+- **Colour pickers show swatches and names**: every colour choice in the inspector, a style class and a
+  colour content field shows its swatch and its name — your brand colours by the names you gave them.
+  A brand colour that is unset or being replaced is not offered for new choices; a block still naming
+  an unset one says **Unavailable colour: Brand N — No colour applied**, with **Choose another** and
+  **Clear**, and one being replaced says what it is becoming. Inside a Style block that re-skins accent
+  or neutral, the swatches are marked as the site's.
 
 ### Fixed
 - Enabling multi-store tenancy no longer drops the header and footer's settings-schema stamp

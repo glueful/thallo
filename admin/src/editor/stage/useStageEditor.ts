@@ -2403,6 +2403,23 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     stageSynced = false // a new document gets its own reconciliation
   }
 
+  /**
+   * The selected block, or an ancestor, is a Style block re-skinning accent or neutral (custom
+   * palette spec §5.2): its colour pickers say their swatches are the site's.
+   */
+  const selectedScopedSkin = computed(() => {
+    const id = selected.value
+    const editor = fieldEditorRef.value
+    if (id === null || !editor) return false
+    let block: BlockInstance | null = editor.blockById(id)
+    while (block) {
+      const data = (block.data ?? {}) as Record<string, unknown>
+      if (block.type === 'style' && (Boolean(data.accent) || Boolean(data.neutral))) return true
+      block = editor.parentOfBlockById(block.id)
+    }
+    return false
+  })
+
   // ── Palette reconciliation (custom palette spec §4.5, §5.3) ─────────────────────────────────
   // One ledger per document and history: reset only where both are replaced (the first load and
   // restart()); reloadStage() remounts the iframe over the same document and keeps it.
@@ -2510,6 +2527,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     allBlockTypes,
     styleSchema,
     selectedBlock,
+    selectedScopedSkin,
     selectedBlocksHost,
     selectedBlockType,
     selectedBlocks,

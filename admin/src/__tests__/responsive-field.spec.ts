@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ResponsiveField from '@/editor/inspector/controls/ResponsiveField.vue'
 import type { StylePropertyRow } from '@/queries/styleSchema'
+import { paletteFixture } from './helpers/classEditorSchema'
 
 const padding: StylePropertyRow = {
   path: 'spacing.padding.top',
@@ -82,5 +83,35 @@ describe('ResponsiveField', () => {
     expect(w.find('[data-test="style-state"]').text()).toBe('reset')
     await w.find('[data-test="token-radius.full"]').trigger('click')
     expect(w.emitted('set')?.[0]).toEqual(['radius', null, { type: 'token', value: 'radius.full' }])
+  })
+})
+
+describe('ResponsiveField › colour (custom palette spec §5.2)', () => {
+  const textColour: StylePropertyRow = {
+    path: 'colors.text',
+    group: 'colors',
+    kinds: ['token', 'reset'],
+    responsive: false,
+    token_domain: 'color',
+    choices: null,
+  }
+
+  it('shows the palette in the picker and clears an unavailable colour', async () => {
+    const w = mount(ResponsiveField, {
+      props: {
+        def: textColour,
+        label: 'Text colour',
+        style: { colors: { text: { type: 'token', value: 'color.brand-3' } } },
+        classes: [],
+        activeBreakpoint: 'base',
+        vocabulary: { domains: { color: ['text', 'brand-1', 'brand-3'] }, values: {} },
+        palette: paletteFixture({ 'brand-3': { state: 'unset' } }),
+        scopedSkin: true,
+      },
+    })
+    expect(w.find('[data-test="token-color.brand-1"]').text()).toContain('Gold dark')
+    expect(w.find('[data-test="swatch-site-default"]').exists()).toBe(true)
+    await w.find('[data-test="unavailable-clear"]').trigger('click')
+    expect(w.emitted('set')?.[0]).toEqual(['colors.text', null, null])
   })
 })

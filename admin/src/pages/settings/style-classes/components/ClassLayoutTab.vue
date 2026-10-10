@@ -227,6 +227,7 @@ const ITEM_NOTE: Record<string, { test: string; text: string }> = {
             :classes="[]"
             :active-breakpoint="activeBreakpoint"
             :vocabulary="schema.vocabulary"
+            :palette="schema.palette"
             context="class"
             hide-breakpoints
             :data-fallback="item.fallback ? 'true' : undefined"
