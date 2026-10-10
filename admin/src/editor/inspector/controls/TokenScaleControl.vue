@@ -1,12 +1,15 @@
 <script setup lang="ts">
 // A token property's control (visual builder spec §3.4): the ordinal scale of one vocabulary
 // domain as a segmented control, each step previewing the active theme's value in its title.
-// The colour domain (custom palette spec §5.2) shows a swatch and a name for every colour — the
-// author's names for brand colours — hides brand slots that are unset or being replaced from new
-// choices, and says when the stored colour is unavailable.
-import { computed, ref } from 'vue'
+// The colour domain (custom palette spec §5.2) shows a swatch and a name for every colour. Brand
+// colours are their own group after the theme's, in the author's order, with their text colours
+// folded behind a disclosure (open when the stored value is one); a manager gets a link to
+// Appearance's Colours tab. Removed, never-issued and replacing brand colours are hidden from new
+// choices, and a stored one that applies nothing is named by what it was.
+import { computed, ref, watch } from 'vue'
 import { contrast } from '@/style/contrast'
 import type { StyleSchemaResult } from '@/queries/styleSchema'
+import TokenSwatchButton from './TokenSwatchButton.vue'
 
 const props = defineProps<{
   /** The vocabulary domain, e.g. `spacing`. */
@@ -34,15 +37,17 @@ const items = computed(() =>
 
 const colour = computed(() => props.domain === 'color' && props.palette !== undefined)
 
+const BRAND = /^color\.brand-(\d+)(?:-contrast)?$/
 function slotOf(token: string): number | null {
-  const m = /^color\.brand-([123])(?:-contrast)?$/.exec(token)
+  const m = BRAND.exec(token)
   return m ? Number(m[1]) : null
 }
 function slot(n: number) {
   return props.palette?.slots[`brand-${n}`]
 }
+const isText = (token: string) => slotOf(token) !== null && token.endsWith('-contrast')
 
-/** New choices: every colour but a brand slot that is unset or being replaced (reserved ones stay). */
+/** New choices: a brand colour only while configured (reserved ones stay); never one removed or replaced. */
 const visible = computed(() =>
   items.value.filter((item) => {
     if (!colour.value) return true
@@ -50,16 +55,39 @@ const visible = computed(() =>
     return n === null || slot(n)?.state === 'configured'
   }),
 )
+const themeItems = computed(() => visible.value.filter((i) => slotOf(i.token) === null))
+const brandItems = computed(() =>
+  visible.value.filter((i) => slotOf(i.token) !== null && !isText(i.token)),
+)
+const brandTexts = computed(() => visible.value.filter((i) => isText(i.token)))
+const canManage = computed(() => props.palette?.can_manage === true)
+/** The group shows while brand colours are on and there is a colour to offer or a manager to add one. */
+const showBrandGroup = computed(
+  () =>
+    colour.value &&
+    (props.palette?.limit ?? 0) > 0 &&
+    (brandItems.value.length > 0 || canManage.value),
+)
+const showTexts = ref(props.modelValue !== null && isText(props.modelValue))
+watch(
+  () => props.modelValue,
+  (v) => {
+    if (v !== null && isText(v)) showTexts.value = true
+  },
+)
 
 const storedSlot = computed(() =>
   props.modelValue && colour.value ? slotOf(props.modelValue) : null,
 )
-/** The stored colour names a slot nobody configures: it applies no colour. */
-const unavailable = computed(() =>
-  storedSlot.value !== null && (slot(storedSlot.value)?.state ?? 'unset') === 'unset'
-    ? storedSlot.value
-    : null,
-)
+/** The stored colour names an id nothing configures — removed, never issued, or brand colours off. */
+const unavailable = computed<string | null>(() => {
+  const n = storedSlot.value
+  if (n === null) return null
+  const s = slot(n)
+  if (s?.state === 'configured' || s?.state === 'replacing') return null
+  if (s?.state === 'removed') return `${s.name} (removed)`
+  return props.palette?.labels[`color.brand-${n}`] ?? `Brand ${n}`
+})
 /** The stored colour's slot is being replaced: where it is going. */
 const replacing = computed(() =>
   storedSlot.value !== null && slot(storedSlot.value)?.state === 'replacing'
@@ -87,9 +115,10 @@ function labelOf(token: string, name: string): string {
   return colour.value ? (props.palette?.labels[token] ?? name) : name
 }
 
-const first = ref<HTMLButtonElement[]>([])
+/** The theme's colours: Choose another moves focus to the first of them. */
+const themeGroup = ref<HTMLElement | null>(null)
 function chooseAnother(): void {
-  first.value[0]?.focus()
+  themeGroup.value?.querySelector('button')?.focus()
 }
 </script>
 
@@ -102,7 +131,7 @@ function chooseAnother(): void {
     >
       <button type="button" disabled class="flex items-center gap-2 text-left text-default">
         <span class="swatch-checker inline-block size-3 rounded-full ring-1 ring-default" />
-        <span class="font-medium">Unavailable colour: Brand {{ unavailable }}</span>
+        <span class="font-medium">Unavailable colour: {{ unavailable }}</span>
       </button>
       <p class="text-muted">No colour applied</p>
       <div class="flex gap-2">
@@ -138,33 +167,84 @@ function chooseAnother(): void {
       />
       {{ labelOf(modelValue ?? '', '') }} — being replaced by {{ replacing.to_label }}
     </p>
-    <div class="flex flex-wrap gap-1" role="group" :aria-label="domain">
-      <button
-        v-for="item in visible"
+    <div ref="themeGroup" class="flex flex-wrap gap-1" role="group" :aria-label="domain">
+      <TokenSwatchButton
+        v-for="item in themeItems"
         :key="item.token"
-        ref="first"
-        type="button"
-        class="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs"
-        :class="
-          item.token === modelValue
-            ? 'border-primary bg-primary/10 font-medium text-primary'
-            : 'border-default text-muted hover:text-default'
-        "
-        :aria-pressed="item.token === modelValue ? 'true' : 'false'"
-        :title="item.value ? `${item.name}: ${item.value}` : item.name"
+        :token="item.token"
+        :name="item.name"
+        :value="item.value"
+        :label="labelOf(item.token, item.name)"
+        :selected="item.token === modelValue"
         :disabled="disabled"
-        :data-test="`token-${item.token}`"
-        @click="emit('update:modelValue', item.token)"
+        :colour="colour"
+        :swatch="swatchOf(item.token)"
+        @choose="emit('update:modelValue', item.token)"
+      />
+    </div>
+    <div v-if="showBrandGroup" class="space-y-1" data-test="brand-group">
+      <div class="flex items-center justify-between text-[11px] text-dimmed">
+        <span>Brand colours</span>
+        <RouterLink
+          v-if="canManage"
+          to="/appearance?tab=colours"
+          class="text-primary hover:underline"
+          data-test="manage-brand-colours"
+        >
+          Manage brand colours
+        </RouterLink>
+      </div>
+      <div
+        v-if="brandItems.length > 0"
+        class="flex flex-wrap gap-1"
+        role="group"
+        aria-label="Brand colours"
       >
-        <span
-          v-if="colour"
-          class="inline-block size-3 shrink-0 rounded-full ring-1 ring-default"
-          :class="{ 'swatch-checker': swatchOf(item.token) === null }"
-          :style="swatchStyle(item.token)"
-          data-test="swatch"
+        <TokenSwatchButton
+          v-for="item in brandItems"
+          :key="item.token"
+          :token="item.token"
+          :name="item.name"
+          :value="item.value"
+          :label="labelOf(item.token, item.name)"
+          :selected="item.token === modelValue"
+          :disabled="disabled"
+          :colour="colour"
+          :swatch="swatchOf(item.token)"
+          @choose="emit('update:modelValue', item.token)"
         />
-        {{ labelOf(item.token, item.name) }}
+      </div>
+      <button
+        v-if="brandTexts.length > 0"
+        type="button"
+        class="text-[11px] text-muted hover:text-default"
+        :aria-expanded="showTexts ? 'true' : 'false'"
+        data-test="brand-text-toggle"
+        @click="showTexts = !showTexts"
+      >
+        Text colours
       </button>
+      <div
+        v-if="showTexts && brandTexts.length > 0"
+        class="flex flex-wrap gap-1"
+        role="group"
+        aria-label="Brand text colours"
+        data-test="brand-text-colours"
+      >
+        <TokenSwatchButton
+          v-for="item in brandTexts"
+          :key="item.token"
+          :token="item.token"
+          :name="item.name"
+          :value="item.value"
+          :label="labelOf(item.token, item.name)"
+          :selected="item.token === modelValue"
+          :disabled="disabled"
+          :colour="colour"
+          :swatch="swatchOf(item.token)"
+          @choose="emit('update:modelValue', item.token)"
+        />
+      </div>
     </div>
     <p v-if="colour && scopedSkin" class="text-[11px] text-dimmed" data-test="swatch-site-default">
       Site default: this block's Style re-skins accent and neutral; brand colours stay as shown.
