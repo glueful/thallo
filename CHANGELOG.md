@@ -7,6 +7,15 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **A Heading or a Rich text block can be a link**: both gain **Link** (`url`) and **Open the link in
+  a new tab** (`new_tab`). A Heading's text becomes the link. A Rich text block is covered by one, named
+  by its text, while the links inside its text stay clickable above it. The URL goes through
+  `safe_url`, so an unsafe one leaves the block as it was. Animated text has no link. A rich-text block
+  with these two fields is still edited as text in place: the prose convention (one rich-text field)
+  now allows a `url` string and a `new_tab` boolean beside it, in the admin and on the server alike.
+  `thallo:provision` adds the fields to an existing site.
+
 ### Fixed
 - **Links typed without a scheme now leave the site**: in a rich-text link box, on the stage or in the
   panel, `www.example.com` or `example.com/shop` is linked as `https://…`, an email address as
