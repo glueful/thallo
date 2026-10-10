@@ -199,7 +199,7 @@ export interface paths {
     patch: operations['patchV1AdminApikeysByUuidTenant']
     trace?: never
   }
-  '/appearance/palette/brand/{slot}': {
+  '/appearance/palette/brand/{id}': {
     parameters: {
       query?: never
       header?: never
@@ -213,13 +213,13 @@ export interface paths {
      * Clear a brand colour
      * @description Clears the slot when nothing blocking names it (drafts, current publications, regions, layouts, saved sections, style classes); historical versions never block. 409 with `usage` when something does, 409 with `conflict` while a replacement replaces or writes to the slot. Requires `content.manage`.
      */
-    delete: operations['deleteV1AdminAppearancePaletteBrandBySlot']
+    delete: operations['deleteV1AdminAppearancePaletteBrandById']
     options?: never
     head?: never
     patch?: never
     trace?: never
   }
-  '/appearance/palette/brand/{slot}/replace': {
+  '/appearance/palette/brand/{id}/replace': {
     parameters: {
       query?: never
       header?: never
@@ -232,14 +232,14 @@ export interface paths {
      * Replace a brand colour
      * @description Starts a job that rewrites every current document naming the slot (drafts, current publications — as new versions — regions, layouts, saved sections, style classes) to `to`, its text colour to `contrast_to` (or the destination's own pair), then clears the slot. History is never rewritten. 409 while the slot or a destination is part of a replacement; 422 for a destination the rules refuse. Requires `content.manage`.
      */
-    post: operations['postV1AdminAppearancePaletteBrandBySlotReplace']
+    post: operations['postV1AdminAppearancePaletteBrandByIdReplace']
     delete?: never
     options?: never
     head?: never
     patch?: never
     trace?: never
   }
-  '/appearance/palette/brand/{slot}/usage': {
+  '/appearance/palette/brand/{id}/usage': {
     parameters: {
       query?: never
       header?: never
@@ -250,7 +250,7 @@ export interface paths {
      * Where a brand colour is used
      * @description Blocking documents (drafts, current publications, regions, layouts, saved sections, style classes) and historical versions naming the slot or its text colour. Requires `content.manage`.
      */
-    get: operations['getV1AdminAppearancePaletteBrandBySlotUsage']
+    get: operations['getV1AdminAppearancePaletteBrandByIdUsage']
     put?: never
     post?: never
     delete?: never
@@ -3633,7 +3633,7 @@ export interface paths {
     }
     /**
      * The style schema and the active theme vocabulary
-     * @description The managed property table (paths, kinds, responsiveness, choices), the breakpoints, the advanced paths, the active theme's vocabulary values and the workspace's palette (brand slot states, swatches, labels). Any style editor may read it: `content.edit`, `content.manage`, `templates.manage` or `styles.manage`.
+     * @description The managed property table (paths, kinds, responsiveness, choices), the breakpoints, the advanced paths, the active theme's vocabulary values (with the configured brand colours, in order) and the workspace's palette: its limit, the brand colours in order with their states, removed colours by name, swatches, labels and whether the reader may manage it. Any style editor may read it: `content.edit`, `content.manage`, `templates.manage` or `styles.manage`.
      */
     get: operations['getV1AdminRenderStyleschema']
     put?: never
@@ -6275,18 +6275,18 @@ export interface operations {
       }
     }
   }
-  deleteV1AdminAppearancePaletteBrandBySlot: {
+  deleteV1AdminAppearancePaletteBrandById: {
     parameters: {
       query?: never
       header?: never
       path: {
-        slot: string
+        id: string
       }
       cookie?: never
     }
     requestBody?: never
     responses: {
-      /** @description Cleared; the style schema's palette block. */
+      /** @description Cleared; the style schema's palette block and the stored brand colour list this Clear wrote (`brand_colors`). */
       200: {
         headers: {
           [name: string]: unknown
@@ -6353,12 +6353,12 @@ export interface operations {
       }
     }
   }
-  postV1AdminAppearancePaletteBrandBySlotReplace: {
+  postV1AdminAppearancePaletteBrandByIdReplace: {
     parameters: {
       query?: never
       header?: never
       path: {
-        slot: string
+        id: string
       }
       cookie?: never
     }
@@ -6460,12 +6460,12 @@ export interface operations {
       }
     }
   }
-  getV1AdminAppearancePaletteBrandBySlotUsage: {
+  getV1AdminAppearancePaletteBrandByIdUsage: {
     parameters: {
       query?: never
       header?: never
       path: {
-        slot: string
+        id: string
       }
       cookie?: never
     }
@@ -30596,12 +30596,18 @@ export interface operations {
                 values?: Record<string, never>
               }
               palette?: {
-                /** @description array<string,mixed>> `brand-N` => {name, hex, state: unset|configured|replacing, */
+                /** @description how many brand colours the deployment allows (`theme.brand_colors.max`; 0 = off) */
+                limit?: number
+                /** @description the configured and replacing brand colours (`brand-N`), in the author's order */
+                order?: unknown[]
+                /** @description array<string,mixed>> `brand-N` => {name, hex, state: configured|replacing, */
                 slots?: unknown[]
                 /** @description `color.<name>` => light-mode hex (no transparent, no brand slots) */
                 swatches?: string[]
-                /** @description `color.<name>` => label (brand slots: the author's name) */
+                /** @description `color.<name>` => label (brand colours: the author's name, removed ones too) */
                 labels?: string[]
+                /** @description whether the reader may manage brand colours (`content.manage`) */
+                can_manage?: boolean
                 /** @description whether the site renders a dark mode: the dark base applies only then */
                 color_mode?: boolean
                 /** @description the palette generation the slots were read at */
@@ -32318,9 +32324,7 @@ export interface operations {
          *       "theme_background": "example",
          *       "theme_neutral_custom": "example",
          *       "theme_dark_base": "example",
-         *       "theme_brand_1": "example",
-         *       "theme_brand_2": "example",
-         *       "theme_brand_3": "example",
+         *       "theme_brand_colors": "example",
          *       "admin_url": "example",
          *       "listing_types": "example"
          *     }
@@ -32361,12 +32365,8 @@ export interface operations {
           theme_neutral_custom?: string | null
           /** @description Dark-mode base family under Custom; enum-validated in the controller. */
           theme_dark_base?: string | null
-          /** @description Brand colour 1: JSON {name, hex}; cleared only through Clear (§4). */
-          theme_brand_1?: string | null
-          /** @description Brand colour 2: JSON {name, hex}. */
-          theme_brand_2?: string | null
-          /** @description Brand colour 3: JSON {name, hex}. */
-          theme_brand_3?: string | null
+          /** @description The brand colour list (custom palette spec §2.3): `{"base": <revision>, "colors": [{"id"?, "name", "hex"}, …]}` in display order; a colour without an id is new; `base` is the stored revision the list was edited from (a stale one is a 409). Removing a colour is Clear's. */
+          theme_brand_colors?: string | null
           /** @description Where the admin is, when hosted elsewhere; '' means this site's own, at /admin. */
           admin_url?: string | null
           /** @description Content types with public listings/archives; */

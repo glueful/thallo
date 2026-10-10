@@ -38685,22 +38685,22 @@
                 }
             }
         },
-        "\/v1\/admin\/appearance\/palette\/brand\/{slot}": {
+        "\/v1\/admin\/appearance\/palette\/brand\/{id}": {
             "delete": {
-                "operationId": "deleteV1AdminAppearancePaletteBrandBySlot",
+                "operationId": "deleteV1AdminAppearancePaletteBrandById",
                 "summary": "Clear a brand colour",
                 "tags": [
                     "Thallo Settings"
                 ],
                 "parameters": [
                     {
-                        "name": "slot",
+                        "name": "id",
                         "in": "path",
                         "required": true,
                         "description": "",
                         "schema": {
                             "type": "string",
-                            "pattern": "[123]"
+                            "pattern": "[1-9][0-9]{0,3}"
                         }
                     }
                 ],
@@ -38712,7 +38712,7 @@
                 "description": "Clears the slot when nothing blocking names it (drafts, current publications, regions, layouts, saved sections, style classes); historical versions never block. 409 with `usage` when something does, 409 with `conflict` while a replacement replaces or writes to the slot. Requires `content.manage`.",
                 "responses": {
                     "200": {
-                        "description": "Cleared; the style schema's palette block."
+                        "description": "Cleared; the style schema's palette block and the stored brand colour list this Clear wrote (`brand_colors`)."
                     },
                     "401": {
                         "description": "Unauthenticated.",
@@ -38816,22 +38816,22 @@
                 }
             }
         },
-        "\/v1\/admin\/appearance\/palette\/brand\/{slot}\/replace": {
+        "\/v1\/admin\/appearance\/palette\/brand\/{id}\/replace": {
             "post": {
-                "operationId": "postV1AdminAppearancePaletteBrandBySlotReplace",
+                "operationId": "postV1AdminAppearancePaletteBrandByIdReplace",
                 "summary": "Replace a brand colour",
                 "tags": [
                     "Thallo Settings"
                 ],
                 "parameters": [
                     {
-                        "name": "slot",
+                        "name": "id",
                         "in": "path",
                         "required": true,
                         "description": "",
                         "schema": {
                             "type": "string",
-                            "pattern": "[123]"
+                            "pattern": "[1-9][0-9]{0,3}"
                         }
                     }
                 ],
@@ -38983,22 +38983,22 @@
                 }
             }
         },
-        "\/v1\/admin\/appearance\/palette\/brand\/{slot}\/usage": {
+        "\/v1\/admin\/appearance\/palette\/brand\/{id}\/usage": {
             "get": {
-                "operationId": "getV1AdminAppearancePaletteBrandBySlotUsage",
+                "operationId": "getV1AdminAppearancePaletteBrandByIdUsage",
                 "summary": "Where a brand colour is used",
                 "tags": [
                     "Thallo Settings"
                 ],
                 "parameters": [
                     {
-                        "name": "slot",
+                        "name": "id",
                         "in": "path",
                         "required": true,
                         "description": "",
                         "schema": {
                             "type": "string",
-                            "pattern": "[123]"
+                            "pattern": "[1-9][0-9]{0,3}"
                         }
                     }
                 ],
@@ -82344,7 +82344,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "The managed property table (paths, kinds, responsiveness, choices), the breakpoints, the advanced paths, the active theme's vocabulary values and the workspace's palette (brand slot states, swatches, labels). Any style editor may read it: `content.edit`, `content.manage`, `templates.manage` or `styles.manage`.",
+                "description": "The managed property table (paths, kinds, responsiveness, choices), the breakpoints, the advanced paths, the active theme's vocabulary values (with the configured brand colours, in order) and the workspace's palette: its limit, the brand colours in order with their states, removed colours by name, swatches, labels and whether the reader may manage it. Any style editor may read it: `content.edit`, `content.manage`, `templates.manage` or `styles.manage`.",
                 "responses": {
                     "200": {
                         "description": "The style schema.",
@@ -82394,10 +82394,19 @@
                                                 "palette": {
                                                     "type": "object",
                                                     "properties": {
+                                                        "limit": {
+                                                            "type": "integer",
+                                                            "description": "how many brand colours the deployment allows (`theme.brand_colors.max`; 0 = off)"
+                                                        },
+                                                        "order": {
+                                                            "type": "array",
+                                                            "items": {},
+                                                            "description": "the configured and replacing brand colours (`brand-N`), in the author's order"
+                                                        },
                                                         "slots": {
                                                             "type": "array",
                                                             "items": {},
-                                                            "description": "array<string,mixed>> `brand-N` => {name, hex, state: unset|configured|replacing,"
+                                                            "description": "array<string,mixed>> `brand-N` => {name, hex, state: configured|replacing,"
                                                         },
                                                         "swatches": {
                                                             "type": "array",
@@ -82411,7 +82420,11 @@
                                                             "items": {
                                                                 "type": "string"
                                                             },
-                                                            "description": "`color.<name>` => label (brand slots: the author's name)"
+                                                            "description": "`color.<name>` => label (brand colours: the author's name, removed ones too)"
+                                                        },
+                                                        "can_manage": {
+                                                            "type": "boolean",
+                                                            "description": "whether the reader may manage brand colours (`content.manage`)"
                                                         },
                                                         "color_mode": {
                                                             "type": "boolean",
@@ -85555,26 +85568,12 @@
                                         ],
                                         "description": "Dark-mode base family under Custom; enum-validated in the controller."
                                     },
-                                    "theme_brand_1": {
+                                    "theme_brand_colors": {
                                         "type": [
                                             "string",
                                             "null"
                                         ],
-                                        "description": "Brand colour 1: JSON {name, hex}; cleared only through Clear (\u00a74)."
-                                    },
-                                    "theme_brand_2": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ],
-                                        "description": "Brand colour 2: JSON {name, hex}."
-                                    },
-                                    "theme_brand_3": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ],
-                                        "description": "Brand colour 3: JSON {name, hex}."
+                                        "description": "The brand colour list (custom palette spec \u00a72.3): `{\"base\": <revision>, \"colors\": [{\"id\"?, \"name\", \"hex\"}, \u2026]}` in display order; a colour without an id is new; `base` is the stored revision the list was edited from (a stale one is a 409). Removing a colour is Clear's."
                                     },
                                     "admin_url": {
                                         "type": [
@@ -85619,9 +85618,7 @@
                                 "theme_background": "example",
                                 "theme_neutral_custom": "example",
                                 "theme_dark_base": "example",
-                                "theme_brand_1": "example",
-                                "theme_brand_2": "example",
-                                "theme_brand_3": "example",
+                                "theme_brand_colors": "example",
                                 "admin_url": "example",
                                 "listing_types": "example"
                             }

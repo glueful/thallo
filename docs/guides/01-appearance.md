@@ -88,18 +88,28 @@ when the theme has a dark mode — because six light colours do not say what the
 
 ### Brand colours
 
-Up to three **Brand colours**, each a name and a hex: `Gold dark`, `#8a6a2a`. Every block colour
-picker offers them by that name, beside the theme's colours, each with its swatch. A brand colour has
-a text colour too — `Gold dark — text` — which is white or black, whichever reads on it; in dark mode
-Thallo lightens the colour, keeping its hue, until it can be seen.
+**Brand colours** are named colours of your own, each a name and a hex: `Gold dark`, `#8a6a2a`.
+**Add colour** appends a row; fill in its name and colour and save. The count beside them shows how
+many you have against your host's limit (`2 of 3`, three by default — see `THALLO_BRAND_COLORS_MAX`
+in the [configuration reference](../reference/02-configuration.md)); at the limit **Add colour** is
+turned off. A row you haven't saved yet has a remove button instead of **Clear**.
 
-Renaming or re-colouring a brand colour changes every block using it, at once.
+Every block colour picker offers your brand colours by name, in their own **Brand colours** group,
+each with its swatch, in the order you set here: drag a row by its handle to reorder. A brand colour
+has a text colour too — `Gold dark — text` — which is white or black, whichever reads on it; pickers
+keep these under **Text colours**. In dark mode Thallo lightens the colour, keeping its hue, until it
+can be seen.
+
+Renaming or re-colouring a brand colour changes every block using it, at once. Each colour keeps a
+permanent number that is never given to another colour, so a page that names a colour you later clear
+never quietly takes on a different one. If someone else changed the brand colours since you opened
+the page, **Save** asks you to reload rather than overwrite their change.
 
 **Clear** takes a brand colour off. Thallo first checks where it is used:
 
 - **Nowhere current:** it is cleared. If older versions of pages still name it, the dialog says how
-  many; restoring one shows that colour as `Unavailable colour` — no colour applied — until you
-  choose another.
+  many; restoring one shows that colour as `Unavailable colour: Gold dark (removed)` — no colour
+  applied — until you choose another.
 - **Still used** — on a page's draft or live version, the header or footer, a layout, a saved section
   or a style class: it cannot be cleared. The dialog lists where and offers **Replace with…**: choose
   the colour that takes its place, and Thallo rewrites every one of those places, then clears it.

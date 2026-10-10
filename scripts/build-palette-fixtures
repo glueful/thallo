@@ -2,10 +2,11 @@
 <?php
 /**
  * Build the fixtures of the custom palette (custom palette spec §3, §5.3): one page under a Custom
- * neutral (a cream ground, a stone dark base) with Brand 1 "Gold dark" configured and Brand 2 unset —
- * a Button filled with Brand 1 and lettered in its text colour, a Button whose hover text names the
- * unset Brand 2, a Heading inside a muted container whose own text names Brand 2, and a container on
- * Surface 2 — rendered by the real render pack twice, published (`public.html`) and on the editor's
+ * neutral (a cream ground, a stone dark base) with brand colours 1 "Gold dark" and 5 "Sky" configured
+ * and 12 "Rose" cleared — a Button filled with Brand 1 and lettered in its text colour, a Button
+ * filled with Sky (an id above three, its utilities from the workspace's colours stylesheet), a
+ * Button whose hover text names the cleared 12, a Heading inside a muted container whose own text
+ * names 12, and a container on Surface 2 — rendered by the real render pack twice, published (`public.html`) and on the editor's
  * canvas stage (`stage.html`), into `tools/runtime-browser/fixtures/palette/` (gitignored) with
  * stylesheets inlined and scripts dropped. Seeded inside a transaction that is rolled back. Read by
  * palette.spec.js.
@@ -21,6 +22,8 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Thallo\Contracts\Style\BlockStyleRegistry;
 use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Contracts\Style\BrandSlot;
+use Thallo\Core\Settings\BrandColors;
 use Thallo\Core\Settings\GeneralSettings;
 use Thallo\Render\Style\RequestPalette;
 use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
@@ -106,10 +109,10 @@ try {
         }
         $container->get(BlockStyleRegistry::class)->reset();
 
-        // The palette: a Custom neutral on cream with a stone dark base, Brand 1 "Gold dark". Brand 2
-        // is configured only while the page is saved — the fence refuses a fresh reference to an unset
-        // slot — and unset before rendering: the page then holds a colour nobody configures, as a
-        // restored older version does.
+        // The palette: a Custom neutral on cream with a stone dark base, brand colours 1 "Gold dark"
+        // and 5 "Sky". 12 "Rose" is configured only while the page is saved — the fence refuses a
+        // fresh reference to an unconfigured id — and cleared before rendering: the page then holds a
+        // colour nobody configures, as a restored older version does.
         $settings = $container->get(GeneralSettings::class);
         $settings->save([
             'theme_neutral' => 'custom',
@@ -118,8 +121,11 @@ try {
                 'ink' => '#1b1712', 'muted' => '#6b6156', 'line' => '#e2d8c6',
             ]),
             'theme_dark_base' => 'stone',
-            'theme_brand_1' => json_encode(['name' => 'Gold dark', 'hex' => '#8a6a2a']),
-            'theme_brand_2' => json_encode(['name' => 'Rose', 'hex' => '#c98a8a']),
+            'theme_brand_colors' => BrandColors::encode([
+                1 => new BrandSlot('Gold dark', '#8a6a2a'),
+                5 => new BrandSlot('Sky', '#38bdf8'),
+                12 => new BrandSlot('Rose', '#c98a8a'),
+            ], [], 1),
         ]);
         $container->get(RequestPalette::class)->refresh();
 
@@ -134,13 +140,16 @@ try {
             $button('palbrand0001', 'brand', ['colors' => [
                 'surface' => $token('color.brand-1'), 'text' => $token('color.brand-1-contrast'),
             ]]),
+            $button('palsky000001', 'brand-sky', ['colors' => [
+                'surface' => $token('color.brand-5'), 'text' => $token('color.brand-5-contrast'),
+            ]]),
             $button('palhover0001', 'hover-unset', [
                 'colors' => ['text' => $token('color.accent')],
-                'hover' => ['colors' => ['text' => $token('color.brand-2')]],
+                'hover' => ['colors' => ['text' => $token('color.brand-12')]],
             ]),
             ['id' => 'palsect00001', 'type' => 'container', 'data' => ['content' => [
                 ['id' => 'palhead00001', 'type' => 'heading', 'data' => ['text' => 'A heading', 'level' => 'h2'],
-                    'settings' => $anchor('heading-unset') + ['style' => ['colors' => ['text' => $token('color.brand-2')]]]],
+                    'settings' => $anchor('heading-unset') + ['style' => ['colors' => ['text' => $token('color.brand-12')]]]],
             ]], 'settings' => ['style' => ['colors' => ['text' => $token('color.muted')]]]],
             ['id' => 'palband00001', 'type' => 'container', 'data' => ['content' => [
                 ['id' => 'palbandtext1', 'type' => 'heading', 'data' => ['text' => 'A band', 'level' => 'h3'], 'settings' => []],
@@ -156,7 +165,9 @@ try {
         $entry = (new ListingPageSeed($container, $context))
             ->publish($type, 'palette', ['title' => 'Palette', 'body' => $body], '2026-07-01 09:00:00');
 
-        $settings->save(['theme_brand_2' => '']);
+        $settings->save([
+            'theme_brand_colors' => BrandColors::cleared($settings->stored('theme_brand_colors'), 12),
+        ]);
         $settings->clearStoreCache();
         $container->get(RequestPalette::class)->refresh();
 

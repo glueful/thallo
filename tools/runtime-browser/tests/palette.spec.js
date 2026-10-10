@@ -1,7 +1,8 @@
 // The custom palette (custom palette spec §3, §5.3) as a browser computes it, on the published page and
 // on the editor's canvas stage, both real renders of one entry (scripts/build-palette-fixtures): a
 // brand colour paints its hex in light mode and a derived value in dark mode, with the black or white
-// text the server picked; a hover colour naming an unset slot leaves the resting colour on hover, focus
+// text the server picked; an id above three (Sky, 5) paints from the workspace's colours stylesheet;
+// a hover colour naming a cleared colour leaves the resting colour on hover, focus
 // and the stage's forced preview ([data-thallo-hover]); a heading naming an unset slot keeps the colour
 // it had without that setting; and a Custom neutral paints the cream ground and Surface 2.
 'use strict';
@@ -34,6 +35,13 @@ test.describe('custom palette', () => {
     await expect
       .poll(() => btn.evaluate((el) => getComputedStyle(el).color))
       .toMatch(/^rgb\((0, 0, 0|255, 255, 255)\)$/);
+  });
+
+  test('a brand colour above three paints from the colours stylesheet, on the page and the stage', async ({ page }) => {
+    for (const url of [PAGES.public, PAGES.stage]) {
+      await page.goto(url);
+      await expect(link(page, 'brand-sky')).toHaveCSS('background-color', rgb('#38bdf8'));
+    }
   });
 
   test('a hover colour naming an unset slot keeps the resting colour on hover, focus and the forced preview', async ({ page }) => {

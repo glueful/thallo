@@ -9,11 +9,17 @@ as the next release, never a mutated tag.
 
 ### Added
 - **Custom palette settings**: General settings gain a Custom neutral (`theme_neutral: custom` with six
-  hex colours in `theme_neutral_custom`), a dark-mode base family (`theme_dark_base`) and three named
-  brand colours (`theme_brand_1` … `theme_brand_3`), validated and stored normalised.
-- **Brand colour tokens**: six site-controlled colour names — `brand-1` … `brand-3` and their
-  `-contrast` text colours — compiled into every theme's stylesheet (StyleCompiler 24). Their values
-  come from Appearance; a theme that maps them has the mapping ignored, and the Doctor warns.
+  hex colours in `theme_neutral_custom`), a dark-mode base family (`theme_dark_base`) and brand colours
+  — a list you add to with **Add colour**, up to your host's limit (`THALLO_BRAND_COLORS_MAX`, default
+  3, 0–12; 0 turns them off), stored as `theme_brand_colors`. Each colour keeps a permanent id, never
+  given to another colour, so a cleared colour's references stay unavailable rather than taking a
+  later one. A save names the revision it was edited from: one made from an older list is refused
+  (409) instead of overwriting someone else's change, and a save or a Clear answers with the list it
+  wrote.
+- **Brand colour tokens**: `brand-N` and its `-contrast` text colour for any id `N` from 1 to 9999 are
+  site-controlled colour names. Their values come from Appearance; a theme that maps one has the
+  mapping ignored, and the Doctor warns. Their utilities come from a per-workspace colours stylesheet,
+  so the shared theme stylesheet carries none (StyleCompiler 25).
 - The site's palette is emitted with its colours: the Custom neutral's six values in light mode, the
   dark-mode base family in dark mode, and each configured brand colour with a derived dark value and a
   black-or-white text colour.
@@ -29,42 +35,47 @@ as the next release, never a mutated tag.
   completed brand colour replacement to their undo history once, in order
   (`GET /v1/admin/appearance/palette/replacements`); an editor left open past the 90-day replacement
   history asks to be reloaded.
-- **Clearing a brand colour checks where it is used**: `DELETE /v1/admin/appearance/palette/brand/{slot}`
+- **Clearing a brand colour checks where it is used**: `DELETE /v1/admin/appearance/palette/brand/{id}`
   clears it only when no draft, current publication, region, layout, saved section or style class
-  names it (409 with the usage otherwise; historical versions never block). While a replacement runs,
-  the slot it replaces cannot be renamed, re-coloured or cleared and the slots it writes to cannot be
-  cleared (409). `POST /v1/admin/appearance/palette/preview` returns the contrast checks for unsaved
+  names it (409 with the usage otherwise; historical versions never block); a cleared colour keeps its
+  name, so a page still naming it can say which colour it was. While a replacement runs, the colour it
+  replaces cannot be renamed, re-coloured or cleared and the colours it writes to cannot be cleared
+  (409). `POST /v1/admin/appearance/palette/preview` returns the contrast checks for unsaved
   palette values. Palette changes take the palette row, so they never interleave with a save.
-- **Replace a brand colour**: `POST /v1/admin/appearance/palette/brand/{slot}/replace` starts a job that
+- **Replace a brand colour**: `POST /v1/admin/appearance/palette/brand/{id}/replace` starts a job that
   rewrites every current document naming the colour — drafts, current publications (as new versions,
   authored by whoever started it), regions and their own style, layouts and their frame, saved
   sections, style classes — to the chosen colour and its text colour to the destination's own pair (or
-  `contrast_to`), then clears the slot; history is never rewritten. While it runs, editors saving the
+  `contrast_to`), then clears the colour; history is never rewritten. While it runs, editors saving the
   old colour store the new one. The job is resumable and cancellable
   (`/v1/admin/appearance/palette/jobs`, `…/{id}`, `…/{id}/cancel`, `…/{id}/resume`), runs in the
   workspace it was started in, and purges each rewritten page as it goes. Each version it appends is
   noted in the Versions tab ("Replaced Gold with Accent"), and its audit entry counts what it rewrote
   in each kind of document, across resumes, and how many older versions still name the colour.
-- **Appearance › Theme colors**: Neutral gains **Custom — your own colours**: six hex colours
+- **Appearance › Colours**: Neutral gains **Custom — your own colours**: six hex colours
   (Background, Surface, Surface 2, Text, Muted, Line), pre-filled from the family you had the first
   time, a **Dark mode base** family (shown when the site has a dark mode) and **Reset to** the family.
-  Three **Brand colours** take a name and a hex each; a configured one shows **Clear**, one being
-  replaced shows the replacement's progress, and one a replacement writes to says so. **Contrast**
+  **Brand colours** are rows of a name and a hex: **Add colour** appends one (the count shows against
+  the limit, "2 of 3"), a row's handle drags it to a new place in the pickers' order, an unsaved row
+  has a remove button and a saved one **Clear**; one being replaced shows the replacement's progress,
+  and one a replacement writes to says so. **Contrast**
   checks the text pairs of the unsaved palette in light and dark mode, warning under 4.5:1. The preview
   wears the unsaved palette. The style schema's palette says whether the site has a dark mode
   (`color_mode`).
 - **Colour pickers show swatches and names**: every colour choice in the inspector, a style class and a
-  colour content field shows its swatch and its name — your brand colours by the names you gave them.
-  A brand colour that is unset or being replaced is not offered for new choices; a block still naming
-  an unset one says **Unavailable colour: Brand N — No colour applied**, with **Choose another** and
-  **Clear**, and one being replaced says what it is becoming. Inside a Style block that re-skins accent
+  colour content field shows its swatch and its name — your brand colours by the names you gave them,
+  in their own **Brand colours** group in your order, their text colours under **Text colours**, with a
+  **Manage brand colours** link to Appearance for whoever may change them. A cleared brand colour, or
+  one being replaced, is not offered for new choices; a block still naming a cleared one says
+  **Unavailable colour: Teal (removed)** (or **Brand 7** for an id never used here) — **No colour
+  applied**, with **Choose another** and **Clear** — and one being replaced says what it is becoming. Inside a Style block that re-skins accent
   or neutral, the swatches are marked as the site's. A save refused because a colour has left the
   palette says so, refreshes the pickers and selects the block, in the design view, the header and
   footer, layouts, the content form and style classes.
 - **Clear asks first**: clearing a brand colour in Appearance checks where it is used. Unused, it clears
   (saying how many older versions still name it). Used, it lists where — pages, header and footer,
   layouts, saved sections, style classes — and offers **Replace with…** a colour the rules allow; when
-  that colour has no text colour of its own and something uses the slot's, it asks what text on it
+  that colour has no text colour of its own and something uses its text colour, it asks what text on it
   becomes and shows that pair's contrast in light and dark mode.
 
 ### Changed
@@ -73,9 +84,10 @@ as the next release, never a mutated tag.
   field a save refused shows a dot, and the open tab is in the address (`/appearance?tab=colours`),
   so Back and Forward move between tabs.
 - `GET /v1/admin/render/style-schema` is readable by any style editor — `content.edit`,
-  `content.manage`, `templates.manage` or `styles.manage` — and carries the site's palette (brand
-  slot states, swatches, labels, its generation and the recent replacements), which the colour
-  pickers read.
+  `content.manage`, `templates.manage` or `styles.manage` — and carries the site's palette (the brand
+  colour limit, the brand colours in order with their states, cleared colours by name, swatches,
+  labels, whether the reader may manage them, its generation and the recent replacements), which the
+  colour pickers read; its colour vocabulary lists the configured brand colours after the theme's.
 
 ### Fixed
 - Enabling multi-store tenancy no longer drops the header and footer's settings-schema stamp

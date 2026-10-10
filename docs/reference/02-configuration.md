@@ -271,6 +271,7 @@ signed previews do not survive a change.
 | `RENDER_DB_TEMPLATES` | `true` | Templates edited in the admin, layered over the theme's files. `false` also unregisters the template admin routes. |
 | `CUSTOM_CSS_MAX_BYTES` | `262144` | The size cap on the site's custom stylesheet. |
 | `THALLO_COLOR_MODE_ENABLED` | `true` | `false` renders the site light-only: no toggle, no dark CSS, whatever the visitor prefers. |
+| `THALLO_BRAND_COLORS_MAX` | `3` | How many brand colours a site may have at once (`theme.brand_colors.max`), from `0` to `12`; anything above 12 reads as 12. `0` turns brand colours off: Appearance hides them and blocks naming one apply no colour. Lowering it removes nothing — existing colours keep rendering and stay editable, and **Add colour** waits until there are fewer. |
 | `CACHE_DRIVER` | `file` | `file`, `redis`, `memcached` or `array`. Only a driver with tag invalidation purges page by page; on `file`, a content change drops every rendered page. |
 | `CACHE_PREFIX` | `glueful:` | Key namespace. |
 | `CACHE_TTL` | `3600` | Default cache lifetime, in seconds. |

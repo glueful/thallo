@@ -364,3 +364,66 @@ test('the tabs are reachable by keyboard and each panel is labelled by its tab',
   await page.keyboard.press('Enter')
   await expect(page.getByRole('tabpanel', { name: 'Design' })).toBeVisible()
 })
+
+test('a brand colour can be added and saved without an id, and the next save names the id it got', async ({
+  page,
+}) => {
+  await openDesignPage(page)
+  await routePreview(page)
+  // The server's stored list, as the save answers it: the colours this save committed, at the next
+  // revision (brand colour list plan ruling 13).
+  let stored = '{"revision":2,"colors":[{"id":1,"name":"Gold","hex":"#8a6a2a"}],"removed":[]}'
+  const saves: Record<string, unknown>[] = []
+  await page.route('**/v1/admin/settings/general', (route) => {
+    if (route.request().method() === 'PUT') {
+      const body = route.request().postDataJSON() as Record<string, unknown>
+      saves.push(body)
+      const sent = JSON.parse(String(body.theme_brand_colors)) as {
+        base: number
+        colors: Array<{ id?: number; name: string; hex: string }>
+      }
+      let next = 2
+      stored = JSON.stringify({
+        revision: sent.base + 1,
+        colors: sent.colors.map((c) => ({ id: c.id ?? next++, name: c.name, hex: c.hex })),
+        removed: [],
+      })
+    }
+    return route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: { settings: { ...SETTINGS, theme_brand_colors: stored } },
+      }),
+    })
+  })
+  await page.goto('/admin/appearance?tab=colours')
+  const list = page.locator('[data-test="brand-colors"]')
+  await expect(list).toBeVisible({ timeout: 20_000 })
+  await expect(page.locator('[data-test="brand-count"]')).toHaveText('1 of 3')
+
+  await page.locator('[data-test="brand-add"]').click()
+  await list.getByLabel('New colour name').fill('Sky')
+  await list.locator('[data-test$="-hex"] input').last().fill('#38bdf8')
+  await page.locator('[data-test="appearance-save"]').click()
+  await expect.poll(() => saves.length).toBe(1)
+  expect(JSON.parse(String(saves[0]!.theme_brand_colors))).toEqual({
+    base: 2,
+    colors: [
+      { id: 1, name: 'Gold', hex: '#8a6a2a' },
+      { name: 'Sky', hex: '#38bdf8' },
+    ],
+  })
+
+  // The save answered with id 2: the row has it now, and the next save edits from revision 3.
+  await page.locator('[data-test="brand-row-2-name"]').fill('Sky blue')
+  await page.locator('[data-test="appearance-save"]').click()
+  await expect.poll(() => saves.length).toBe(2)
+  expect(JSON.parse(String(saves[1]!.theme_brand_colors))).toEqual({
+    base: 3,
+    colors: [
+      { id: 1, name: 'Gold', hex: '#8a6a2a' },
+      { id: 2, name: 'Sky blue', hex: '#38bdf8' },
+    ],
+  })
+})
