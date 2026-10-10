@@ -1,12 +1,25 @@
 import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { toValue, type MaybeRefOrGetter } from 'vue'
+import { authFetch } from '@/api/authFetch'
 import { client } from '@/api/client'
 import { toApiError } from '@/api/errors'
+import type { ExpiredBatch, ReplacementBatch } from '@/editor/paletteReplacements'
+import type { PaletteRewrite } from '@/editor/paletteRewrites'
+import { runtimeConfig } from '@/runtime/config'
 import { qk } from './keys'
 
 export interface DraftData {
   fields: Record<string, unknown>
   lock_version: number
+  /** The palette generation the draft was read at (custom palette spec §5.3): an editor's ledger baseline. */
+  palette_generation: number
+}
+
+/** What a save or restore response says about the palette (custom palette spec §4.5, §5.3). */
+export interface PaletteResultFields {
+  palette_rewrites?: PaletteRewrite[]
+  palette_generation?: number
+  palette_replacements?: ReplacementBatch | ExpiredBatch
 }
 
 export interface SaveDraftBody {
@@ -14,6 +27,8 @@ export interface SaveDraftBody {
   lock_version: number
   /** The preview revision the save was submitted from (visual builder spec §3.5); null = none. */
   preview_revision?: number | null
+  /** The editor's palette ledger boundary: the save's response sends the records newer than it. */
+  palette_through?: number | null
 }
 
 export async function fetchDraft(uuid: string, locale: string): Promise<DraftData> {
@@ -25,6 +40,8 @@ export async function fetchDraft(uuid: string, locale: string): Promise<DraftDat
   return {
     fields: (draft?.fields ?? {}) as Record<string, unknown>,
     lock_version: draft?.lock_version ?? 0,
+    palette_generation:
+      (data?.data as { palette_generation?: number } | undefined)?.palette_generation ?? 0,
   }
 }
 
@@ -43,10 +60,42 @@ export async function saveDraft(uuid: string, locale: string, body: SaveDraftBod
       fields: body.fields as unknown as unknown[],
       lock_version: body.lock_version,
       preview_revision: body.preview_revision ?? null,
-    },
+      ...(body.palette_through == null ? {} : { palette_through: body.palette_through }),
+    } as never,
   })
   if (error) throw toApiError(error, response)
-  return data
+  return data as typeof data & { data?: PaletteResultFields }
+}
+
+export interface RestoreDraftResult extends PaletteResultFields {
+  draft: { fields: Record<string, unknown>; lock_version: number }
+  palette_generation: number
+  palette_replacements: ReplacementBatch | ExpiredBatch
+}
+
+/**
+ * Restore a retained version into the draft, on the server (custom palette spec §4.5): the client
+ * names the version, never its content; the version's brand colours stay trusted for later saves.
+ */
+export async function restoreDraft(
+  uuid: string,
+  locale: string,
+  versionUuid: string,
+  lockVersion: number,
+  paletteThrough: number | null,
+): Promise<RestoreDraftResult> {
+  const json = await authFetch(
+    `${runtimeConfig.apiBase}/entries/${encodeURIComponent(uuid)}/draft/${encodeURIComponent(locale)}/restore`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        version_uuid: versionUuid,
+        lock_version: lockVersion,
+        ...(paletteThrough === null ? {} : { palette_through: paletteThrough }),
+      }),
+    },
+  )
+  return (json as { data: RestoreDraftResult }).data
 }
 
 // `locale` is a MaybeRefOrGetter so a single editor instance can switch locales and have saves +

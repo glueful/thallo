@@ -29,7 +29,9 @@ describe('a version', () => {
     const wrapper = mountPanel()
     await wrapper.get('[data-test="version-restore-draft-ver000000001"]').trigger('click')
 
-    expect(wrapper.emitted('restore-draft')).toEqual([[{ version: 3, fields }]])
+    expect(wrapper.emitted('restore-draft')).toEqual([
+      [{ uuid: 'ver000000001', version: 3, fields }],
+    ])
     expect(rollback.mutateAsync).not.toHaveBeenCalled()
   })
 

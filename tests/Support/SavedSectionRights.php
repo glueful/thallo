@@ -47,6 +47,7 @@ final class SavedSectionRights
             $container->get(\Thallo\Core\Content\Layouts\LayoutFieldLabels::class),
             $container->get(\Thallo\Core\Content\Palette\PaletteFence::class),
             $container->get(\Thallo\Core\Content\Palette\PaletteNormalizer::class),
+            $container->get(\Thallo\Core\Content\Palette\PaletteResponseFields::class),
         );
     }
 

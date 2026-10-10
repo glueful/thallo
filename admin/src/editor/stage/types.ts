@@ -113,6 +113,11 @@ export interface StageHost {
    * one it dropped as out of date — so the page can follow what the accepted document is.
    */
   onAccepted?(result: ApplyPreviewResult): void
+  /**
+   * The palette generation the hydrated tree was read at (custom palette spec §5.3): the replacement
+   * ledger's baseline, read when the first tree hydrates. Absent: 0.
+   */
+  paletteGeneration?(): number
 }
 
 /** What the page's FieldEditor exposes to the stage editor: the tree's single authority. */

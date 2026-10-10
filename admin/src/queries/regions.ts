@@ -1,3 +1,4 @@
+import { paletteOutcomeOf, type PaletteSaveOutcome } from '@/editor/paletteReplacements'
 import { useQuery } from '@pinia/colada'
 import { client } from '@/api/client'
 import { toApiError } from '@/api/errors'
@@ -50,6 +51,8 @@ export interface RegionSession {
   regions: Record<string, RegionContent & { lock_version: number | null }>
   /** Whether the page the session shows hides the header or the footer. */
   hidden: Record<'header' | 'footer', boolean>
+  /** The palette generation the regions were read at (custom palette spec §5.3). */
+  paletteGeneration?: number
 }
 
 function record(value: unknown): Record<string, unknown> {
@@ -83,6 +86,7 @@ export async function mintRegionSession(page?: string): Promise<RegionSession> {
     themeUrl: typeof d.theme_url === 'string' ? d.theme_url : null,
     regions,
     hidden: { header: hidden.header === true, footer: hidden.footer === true },
+    paletteGeneration: typeof d.palette_generation === 'number' ? d.palette_generation : 0,
   }
 }
 
@@ -123,6 +127,8 @@ export interface SaveRegionsResult {
   regions: Record<string, RegionContent & { lock_version: number | null }>
   /** Whether the save cleared the stage's working copy (the accepted pair matched). */
   previewCleared: boolean
+  /** What the palette normalisation changed, and the replacements newer than the editor's boundary. */
+  palette: PaletteSaveOutcome
 }
 
 /**
@@ -135,6 +141,8 @@ export async function saveRegions(body: {
   expected: Record<'header' | 'footer', number | null>
   token?: string | null
   preview_revision?: RevisionPair | null
+  /** The editor's palette ledger boundary (custom palette spec §5.3). */
+  palette_through?: number
 }): Promise<SaveRegionsResult> {
   const { data, error, response } = await client.PUT('/regions', { body: body as never })
   if (error) throw toApiError(error, response)
@@ -148,5 +156,5 @@ export async function saveRegions(body: {
       lock_version: typeof r.lock_version === 'number' ? r.lock_version : null,
     }
   }
-  return { regions, previewCleared: d.preview_cleared === true }
+  return { regions, previewCleared: d.preview_cleared === true, palette: paletteOutcomeOf(d) }
 }

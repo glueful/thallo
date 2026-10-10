@@ -13,19 +13,26 @@ describe('draft query/mutation', () => {
 
   it('fetchDraft returns fields + lock_version', async () => {
     GET.mockResolvedValue({
-      data: { data: { draft: { fields: { title: 'Home' }, lock_version: 3 } } },
+      data: {
+        data: { draft: { fields: { title: 'Home' }, lock_version: 3 }, palette_generation: 5 },
+      },
       error: undefined,
     })
     const res = await fetchDraft('e1', 'en')
     expect(GET).toHaveBeenCalledWith('/entries/{uuid}/draft/{locale}', {
       params: { path: { uuid: 'e1', locale: 'en' } },
     })
-    expect(res).toEqual({ fields: { title: 'Home' }, lock_version: 3 })
+    // the palette generation the draft was read at: the editor's ledger baseline
+    expect(res).toEqual({ fields: { title: 'Home' }, lock_version: 3, palette_generation: 5 })
   })
 
   it('fetchDraft defaults to empty fields + lock_version 0', async () => {
     GET.mockResolvedValue({ data: { data: {} }, error: undefined })
-    expect(await fetchDraft('e1', 'en')).toEqual({ fields: {}, lock_version: 0 })
+    expect(await fetchDraft('e1', 'en')).toEqual({
+      fields: {},
+      lock_version: 0,
+      palette_generation: 0,
+    })
   })
 
   it('saveDraft PUTs the fields object and lock_version', async () => {

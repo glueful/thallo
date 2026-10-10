@@ -120,8 +120,7 @@ final class EntryWritersFenceTest extends AppTestCase
         });
     }
 
-    /** @return list<array{location: string, from: string, to: string}> */
-    private function saveBrandOne(string $uuid, int $lock): array
+    private function saveBrandOne(string $uuid, int $lock): \Thallo\Core\Content\Palette\PaletteOutcome
     {
         $fields = ['body' => [self::heading('color.brand-1')]];
         return $this->repo()->saveDraft($uuid, 'en', $fields, 1, $lock, 'user00000001');
@@ -165,7 +164,7 @@ final class EntryWritersFenceTest extends AppTestCase
         [$uuid, $lock] = $this->entry();
         $this->configure(1, 'Gold', '#8a6a2a');
         $this->state()->afterNextSnapshot(fn () => $this->startJob(1, 'color.accent', 'color.accent-contrast'));
-        $rewrites = $this->saveBrandOne($uuid, $lock);
+        $rewrites = $this->saveBrandOne($uuid, $lock)->rewrites;
         self::assertSame('color.accent', $this->draftToken($uuid), 'the fence caught the change and normalised again');
         self::assertSame(
             [[

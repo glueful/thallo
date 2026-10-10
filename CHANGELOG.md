@@ -21,6 +21,13 @@ as the next release, never a mutated tag.
   style naming a brand colour that is not configured renders as if it never set that colour — a style
   class's value or the theme default shows through, and a hover colour leaves the resting colour in
   place. Animated text's colour fields follow the same rule. The palette enters the page cache key.
+- **Restore to draft happens on the server**: the Versions tab names the version and the server
+  restores it (`POST /v1/admin/entries/{uuid}/draft/{locale}/restore`), so a restored brand colour that
+  has since been cleared stays on its block through later saves, undo and redo. Editors adopt the
+  colours a save's palette normalisation changed without losing an edit in progress, and apply each
+  completed brand colour replacement to their undo history once, in order
+  (`GET /v1/admin/appearance/palette/replacements`); an editor left open past the 90-day replacement
+  history asks to be reloaded.
 
 ## [1.0.0-beta.97] - 2026-10-09 — Developer Preview
 

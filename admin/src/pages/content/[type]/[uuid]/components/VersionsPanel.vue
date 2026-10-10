@@ -10,7 +10,9 @@ import { useNotify } from '@/composables/useNotify'
 //   and the toast says so.
 const props = defineProps<{ uuid: string; locale: string; type: string }>()
 const emit = defineEmits<{
-  'restore-draft': [version: { version: number | undefined; fields: Record<string, unknown> }]
+  'restore-draft': [
+    version: { uuid: string; version: number | undefined; fields: Record<string, unknown> },
+  ]
 }>()
 const { success, error: notifyError } = useNotify()
 
@@ -22,7 +24,11 @@ const rollback = useRollback(props.uuid, props.locale, props.type)
 const restoring = computed(() => rollback.isLoading.value)
 
 function onRestoreDraft(v: VersionRow) {
-  emit('restore-draft', { version: v.version, fields: (v.fields ?? {}) as Record<string, unknown> })
+  emit('restore-draft', {
+    uuid: v.uuid,
+    version: v.version,
+    fields: (v.fields ?? {}) as Record<string, unknown>,
+  })
 }
 
 async function onMakeLive(v: VersionRow) {

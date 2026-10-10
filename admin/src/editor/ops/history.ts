@@ -8,6 +8,7 @@
 import type { RegionResolver } from '@/fields/components/blocks/useBlockListOps'
 import { createOperationApplier, type BlockFieldsResolver } from './apply'
 import { invertOperation } from './invert'
+import { mapPaletteTokens } from '../paletteRewrites'
 import { newOperationId, newTransactionId } from './session'
 import type { EditorDocument, Operation, OperationBody } from './types'
 
@@ -101,6 +102,8 @@ export function createEditorHistory(initial: EditorDocument, options: EditorHist
   let savedSequence = 0
   let nextSequence = 1
   let active: { id: string; ops: Operation[] } | null = null
+  /** An expired palette ledger (custom palette spec §5.3): undo and redo refused until reload. */
+  let undoLocked = false
 
   const applyAll = (ops: Operation[]) => {
     for (const op of ops) document = applier.applyOperation(document, op)
@@ -184,15 +187,18 @@ export function createEditorHistory(initial: EditorDocument, options: EditorHist
   }
 
   function canUndo(): boolean {
+    if (undoLocked) return false
     return (active !== null && active.ops.length > 0) || currentSequence > baseSequence
   }
 
   function canRedo(): boolean {
+    if (undoLocked) return false
     return active === null && entries.some((e) => e.sequence > currentSequence)
   }
 
   /** Undo settles the active transaction first, then reverts the latest entry. */
   function undo(): boolean {
+    if (undoLocked) return false
     if (active !== null) commit()
     const entry = entries.find((e) => e.sequence === currentSequence)
     if (!entry || currentSequence <= baseSequence) return false
@@ -204,7 +210,7 @@ export function createEditorHistory(initial: EditorDocument, options: EditorHist
 
   /** Replay the next entry: the same ops again, so allocated ids are reused. */
   function redo(): boolean {
-    if (active !== null) return false
+    if (undoLocked || active !== null) return false
     const entry = entries.find((e) => e.sequence > currentSequence)
     if (!entry) return false
     applyAll(entry.ops)
@@ -225,6 +231,35 @@ export function createEditorHistory(initial: EditorDocument, options: EditorHist
   function rebase(next: EditorDocument): void {
     if (active !== null) cancel()
     document = next
+  }
+
+  /**
+   * Adopt a server-reconciled document underneath the ACTIVE transaction (custom palette spec
+   * §4.5): unlike rebase(), nothing is cancelled or inverted; the open transaction keeps its ops
+   * and keeps coalescing, and entries and sequences are untouched. `next` already contains the
+   * active edits.
+   */
+  function adopt(next: EditorDocument): void {
+    document = next
+  }
+
+  /**
+   * One replacement record (custom palette spec §5.3): map every token node in every entry, the
+   * active transaction and the document, so undo and redo replay the replacement's colour.
+   */
+  function reconcileTokens(mapping: Record<string, string>): void {
+    if (Object.keys(mapping).length === 0) return
+    for (const entry of entries) {
+      entry.ops = entry.ops.map((op) => mapPaletteTokens(op, mapping))
+      entry.bytes = JSON.stringify(entry.ops).length
+    }
+    if (active !== null) active.ops = active.ops.map((op) => mapPaletteTokens(op, mapping))
+    document = mapPaletteTokens(document, mapping)
+  }
+
+  /** While locked, undo and redo do nothing and report unavailable; new edits still record. */
+  function lockUndo(locked: boolean): void {
+    undoLocked = locked
   }
 
   return {
@@ -258,6 +293,9 @@ export function createEditorHistory(initial: EditorDocument, options: EditorHist
     redo,
     markSaved,
     rebase,
+    adopt,
+    reconcileTokens,
+    lockUndo,
     applier,
   }
 }

@@ -139,6 +139,14 @@ return [
             'enabled' => env('VERSION_PRUNE_ENABLED', true),
         ],
         [
+            'name' => 'palette_history_prune',
+            'schedule' => '35 4 * * *',
+            'handler_class' => \Thallo\Core\Jobs\RunConsoleCommandJob::class,
+            'parameters' => ['command' => \Thallo\Core\Content\Console\PrunePaletteHistoryCommand::class],
+            'description' => 'Prune palette replace jobs finished more than 90 days ago (raises the history horizon)',
+            'enabled' => env('PALETTE_HISTORY_PRUNE_ENABLED', true),
+        ],
+        [
             'name' => 'import_export_cleanup',
             'schedule' => '45 3 * * *',
             'handler_class' => \Thallo\Core\Jobs\RunConsoleCommandJob::class,

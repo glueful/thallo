@@ -10,6 +10,10 @@ import {
   type StyleClassJobKind,
 } from '@/queries/styleClasses'
 import { useNotify } from '@/composables/useNotify'
+import { createPaletteReconciler, createReplacementLedger } from '@/editor/paletteReplacements'
+import PaletteExpiredNotice from '@/editor/PaletteExpiredNotice.vue'
+import { fetchPaletteReplacements } from '@/queries/paletteReplacements'
+import { useStyleSchema } from '@/queries/styleSchema'
 import StyleClassEditor from './components/StyleClassEditor.vue'
 import StyleClassSaveDialog from './components/StyleClassSaveDialog.vue'
 import StyleClassSaveErrors from './components/StyleClassSaveErrors.vue'
@@ -31,6 +35,24 @@ const style = ref<Record<string, unknown>>({})
 /** The version the form loaded: a save names it, a conflict reloads it (spec §4.3). */
 const loadedVersion = ref(0)
 
+// The palette ledger (custom palette spec §5.3): the form has no op history, so a completed
+// replacement's record maps the style being edited; it starts over only when the form reloads.
+const { data: styleSchema } = useStyleSchema()
+const paletteLedger = createReplacementLedger(0)
+const paletteExpired = ref(false)
+const palette = createPaletteReconciler({
+  history: null,
+  currentFields: () => ({ style: style.value }),
+  replaceFields: (next) => {
+    style.value = next.style as Record<string, unknown>
+  },
+  ledger: paletteLedger,
+  fetchRange: fetchPaletteReplacements,
+  onExpire: () => {
+    paletteExpired.value = true
+  },
+})
+
 // Hydrate ONCE per load (background refetches must not clobber in-progress edits).
 let hydrated = false
 watch(
@@ -41,10 +63,23 @@ watch(
     description.value = c.description ?? ''
     style.value = JSON.parse(JSON.stringify(c.style)) as Record<string, unknown>
     loadedVersion.value = c.version
+    paletteLedger.reset(list.value?.paletteGeneration ?? 0)
     hydrated = true
+    // The schema may have arrived first: its batch applies against the new baseline.
+    const batch = styleSchema.value?.palette?.replacements
+    if (batch) void palette.applyBatch(batch)
   },
   { immediate: true },
 )
+watch(
+  () => styleSchema.value?.palette?.replacements,
+  (batch) => {
+    if (batch && hydrated) void palette.applyBatch(batch)
+  },
+)
+function reloadPage(): void {
+  window.location.reload()
+}
 
 /**
  * The everywhere-jobs (spec §4.5): the class locks until the job completes. `detach` keeps how
@@ -127,8 +162,11 @@ async function onSave() {
       name: name.value.trim(),
       description: description.value.trim() || null,
       style: style.value,
+      palette_through: paletteLedger.through,
     })
     loadedVersion.value = saved.version
+    // What the palette changed in the stored style, and the replacements not yet seen.
+    await palette.adoptPaletteResult(saved.palette ?? {})
     confirming.value = false
     success('Style class saved', 'Published pages pick it up on their next request.')
   } catch (e) {
@@ -187,6 +225,7 @@ async function onSave() {
     </template>
     <template #body>
       <div class="mx-auto w-full max-w-6xl pb-5">
+        <PaletteExpiredNotice :show="paletteExpired" @reload="reloadPage" />
         <div v-if="status === 'pending'" class="space-y-2">
           <USkeleton v-for="n in 4" :key="n" class="h-12" />
         </div>

@@ -15,6 +15,11 @@ final class PaletteApiTest extends AppTestCase
     {
         return [
             ['GET', '/v1/admin/appearance/palette/brand/{slot}/usage', 'content_permission:content.manage'],
+            [
+                'GET',
+                '/v1/admin/appearance/palette/replacements',
+                'content_permission:content.edit,content.manage,templates.manage,styles.manage',
+            ],
         ];
     }
 

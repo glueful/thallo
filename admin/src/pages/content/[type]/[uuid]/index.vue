@@ -3,7 +3,11 @@ import { computed, reactive, ref, watch, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 import { useContentTypes } from '@/queries/contentTypes'
 import { fieldLabel } from '@/utils/fieldLabel'
-import { useDraft, useSaveDraft } from '@/queries/drafts'
+import { restoreDraft, useDraft, useSaveDraft } from '@/queries/drafts'
+import { fetchPaletteReplacements } from '@/queries/paletteReplacements'
+import { useStyleSchema } from '@/queries/styleSchema'
+import { createPaletteReconciler, createReplacementLedger } from '@/editor/paletteReplacements'
+import PaletteExpiredNotice from '@/editor/PaletteExpiredNotice.vue'
 import { useEntryLocales, useCreateLocaleDraft } from '@/queries/entries'
 import { usePublish } from '@/queries/publish'
 import { localeStatus } from './components/localeStatus'
@@ -17,7 +21,6 @@ import { useNotify } from '@/composables/useNotify'
 import PublishPanel from './components/PublishPanel.vue'
 import SeoPanel from './components/SeoPanel.vue'
 import VersionsPanel from './components/VersionsPanel.vue'
-import { restoredFields } from '@/editor/restoreVersion'
 import WorkflowPanel from './components/WorkflowPanel.vue'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useVisibleEditorPanels, type EntryEditorPanelContext } from '@/registry/entryEditorPanels'
@@ -200,26 +203,80 @@ const fields = ref<Record<string, unknown>>({})
 // the next successful save so a fixed field stops showing its error.
 const fieldErrors = ref<Record<string, string>>({})
 const lockVersion = ref(0)
+// The palette ledger (custom palette spec §5.3): the form has no op history, so a completed
+// replacement's record maps the form model; a reload of the draft starts the ledger over.
+const { data: styleSchema } = useStyleSchema()
+const paletteLedger = createReplacementLedger(0)
+const paletteExpired = ref(false)
+const palette = createPaletteReconciler({
+  history: null,
+  currentFields: () => fields.value,
+  replaceFields: (next) => {
+    fields.value = next
+  },
+  ledger: paletteLedger,
+  fetchRange: fetchPaletteReplacements,
+  onExpire: () => {
+    paletteExpired.value = true
+  },
+})
 watch(
   draft,
   (d) => {
     if (d) {
       fields.value = { ...d.fields }
       lockVersion.value = d.lock_version
+      paletteLedger.reset(d.palette_generation)
+      paletteExpired.value = false
+      // The schema may have arrived first: its batch applies against the new baseline.
+      const batch = styleSchema.value?.palette?.replacements
+      if (batch) void palette.applyBatch(batch)
     }
   },
   { immediate: true },
 )
+watch(
+  () => styleSchema.value?.palette?.replacements,
+  (batch) => {
+    if (batch && draft.value) void palette.applyBatch(batch)
+  },
+)
 
-// Restore to draft (Versions tab): the version's content fills the form. Like any edit it is kept
-// by saving the draft, and goes live only when published.
-function restoreVersionToDraft(v: {
+/** A reload starts the form over from the stored draft and a new ledger. */
+function reloadPage(): void {
+  window.location.reload()
+}
+
+// Restore to draft (Versions tab), on the server (custom palette spec §4.5): the server loads the
+// version by id and stores it as the draft, keeping its brand colours trusted; it goes live only
+// when published.
+async function restoreVersionToDraft(v: {
+  uuid: string
   version: number | undefined
   fields: Record<string, unknown>
 }) {
-  fields.value = restoredFields(fields.value, v.fields)
   const name = v.version === undefined ? 'That version' : `Version ${v.version}`
-  success(`${name} is in the form`, 'Save the draft to keep it. Publish to make it live.')
+  try {
+    const res = await restoreDraft(
+      uuid.value,
+      locale.value,
+      v.uuid,
+      lockVersion.value,
+      paletteLedger.through,
+    )
+    await palette.restoreFromResponse(res, res.draft.fields, (restored) => {
+      fields.value = { ...restored }
+    })
+    lockVersion.value = res.draft.lock_version
+    if (paletteExpired.value) return
+    success(`${name} is in your draft`, 'Publish to make it live.')
+  } catch (e: unknown) {
+    if (e instanceof ApiError && e.status === 409) {
+      warning('This draft changed elsewhere', 'Reload to get the latest version before restoring.')
+    } else {
+      notifyError(e, 'Couldn’t restore that version')
+    }
+  }
 }
 
 const showRoutes = ref(false)
@@ -256,8 +313,14 @@ async function onPublish() {
 
 async function onSave({ quiet = false }: { quiet?: boolean } = {}): Promise<boolean> {
   try {
-    await save.mutateAsync({ fields: fields.value, lock_version: lockVersion.value })
+    const result = await save.mutateAsync({
+      fields: fields.value,
+      lock_version: lockVersion.value,
+      palette_through: paletteLedger.through,
+    })
     fieldErrors.value = {}
+    // The stored colours the palette changed, and the replacements not yet seen (custom palette spec §4.5).
+    if (result?.data) await palette.adoptPaletteResult(result.data)
     if (!quiet) success('Draft saved')
     return true
   } catch (e: unknown) {
@@ -391,6 +454,7 @@ async function onSave({ quiet = false }: { quiet?: boolean } = {}): Promise<bool
         <!-- Entry content — the primary, wider pane -->
         <div class="min-w-0 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pe-1">
           <UCard :ui="{ root: 'ring-0' }">
+            <PaletteExpiredNotice :show="paletteExpired" @reload="reloadPage" />
             <UAlert
               v-if="showSharedNote"
               class="mb-4"

@@ -125,6 +125,8 @@ export function useLayoutHost(options: { surface: string; target: string }) {
 
   const host: StageHost = {
     schema,
+    // The generation the loaded layout was read at: the stage editor's ledger baseline.
+    paletteGeneration: () => session.value?.paletteGeneration ?? 0,
     initial,
     // The field blocks belong in a layout: this is the one editor whose palette offers them —
     // this surface's own, and only while a session has said which they are.
@@ -305,11 +307,14 @@ export function useLayoutHost(options: { surface: string; target: string }) {
         layout,
         expected_lock_version: baseline.value,
         preview_revision: editor.accepted.value,
+        palette_through: editor.paletteThrough(),
       })
       baseline.value = result.layout.lock_version
       saved.value = JSON.stringify(layout)
       live.value = true
       editor.markSaved(sequence)
+      // What the palette changed, adopted under any edit made meanwhile (custom palette spec §4.5).
+      await editor.adoptPaletteResult(result.palette)
       // Only the session the save came from was cleared; a newer one keeps its pair.
       if (result.previewCleared && editor.previewToken.value === token) {
         editor.accepted.value = null // the next apply starts a new epoch
@@ -360,7 +365,7 @@ export function useLayoutHost(options: { surface: string; target: string }) {
       conflict.value = false
       retired.value = false
       closed.value = minted.closed
-      editor.restart(asStage(minted), toDocument(minted.layout))
+      editor.restart(asStage(minted), toDocument(minted.layout), minted.paletteGeneration ?? 0)
     } catch (e) {
       const reason = closedReason(e)
       if (reason !== null) closed.value = reason

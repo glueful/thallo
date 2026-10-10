@@ -1,3 +1,4 @@
+import { paletteOutcomeOf, type PaletteSaveOutcome } from '@/editor/paletteReplacements'
 import { useQuery } from '@pinia/colada'
 import { client } from '@/api/client'
 import { toApiError } from '@/api/errors'
@@ -90,6 +91,8 @@ export interface LayoutSession {
   placeholder: boolean
   label: string
   reach: string
+  /** The palette generation the layout was read at (custom palette spec §5.3). */
+  paletteGeneration?: number
 }
 
 function record(value: unknown): Record<string, unknown> {
@@ -236,6 +239,7 @@ export async function mintLayoutSession(
     placeholder: d.placeholder === true,
     label: str(d.label),
     reach: str(d.reach),
+    paletteGeneration: typeof d.palette_generation === 'number' ? d.palette_generation : 0,
   }
 }
 
@@ -275,6 +279,8 @@ export interface SaveLayoutResult {
   layout: LayoutContent & { lock_version: number }
   /** Whether the save cleared the session's working copy (the accepted pair matched). */
   previewCleared: boolean
+  /** What the palette normalisation changed, and the replacements newer than the editor's boundary. */
+  palette: PaletteSaveOutcome
 }
 
 /**
@@ -289,6 +295,8 @@ export async function saveLayout(
     layout: LayoutContent
     expected_lock_version: number
     preview_revision: RevisionPair | null
+    /** The editor's palette ledger boundary (custom palette spec §5.3). */
+    palette_through?: number
   },
 ): Promise<SaveLayoutResult> {
   const { data, error, response } = await client.PUT('/layouts/{surface}/{target}', {
@@ -304,6 +312,7 @@ export async function saveLayout(
       lock_version: typeof layout.lock_version === 'number' ? layout.lock_version : 0,
     },
     previewCleared: d.preview_cleared === true,
+    palette: paletteOutcomeOf(d),
   }
 }
 

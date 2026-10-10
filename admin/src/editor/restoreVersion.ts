@@ -2,6 +2,7 @@
 // one, so a field the version did not have is removed — except the settings-schema stamp, which
 // describes the draft's own representation rather than its content and stays the draft's.
 import type { OperationBody } from '@/editor/ops/types'
+import type { PaletteRestoreResponse } from '@/editor/paletteReplacements'
 
 const STAMP = '_schema'
 
@@ -35,4 +36,36 @@ export function restoreOps(
     })
   }
   return ops
+}
+
+/**
+ * Restore to draft through the server (custom palette spec §4.5): the server loads the version by
+ * id and stores it as the draft; the editor then installs it — the response's replacement records
+ * reach existing history first, the restored fields are caught up to the ledger, and the restore
+ * lands as one transaction already persisted, so undo and redo after it are ordinary edits.
+ */
+export async function restoreVersionThroughServer<
+  R extends PaletteRestoreResponse & {
+    draft: { fields: Record<string, unknown>; lock_version: number }
+  },
+>(deps: {
+  current(): Record<string, unknown>
+  /** POST …/draft/{locale}/restore with the ledger's boundary. */
+  request(paletteThrough: number): Promise<R>
+  paletteThrough(): number
+  restoreFromResponse(
+    res: PaletteRestoreResponse,
+    restored: Record<string, unknown>,
+    apply: (fields: Record<string, unknown>) => Promise<void>,
+  ): Promise<void>
+  applyOps(ops: OperationBody[]): Promise<void>
+  markPersisted(): void
+}): Promise<R> {
+  const res = await deps.request(deps.paletteThrough())
+  await deps.restoreFromResponse(res, res.draft.fields, async (fields) => {
+    const ops = restoreOps(deps.current(), fields)
+    if (ops.length > 0) await deps.applyOps(ops)
+    deps.markPersisted()
+  })
+  return res
 }

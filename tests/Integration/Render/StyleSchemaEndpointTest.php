@@ -9,6 +9,7 @@ use Thallo\Contracts\Style\StyleSchema;
 use Thallo\Core\Content\Http\RequirePermission;
 use Thallo\Core\Settings\GeneralSettings;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\Palette\PaletteFixtures;
 use Thallo\Core\Tests\Support\Rbac\GrantsPermissions;
 use Thallo\Render\Style\RequestPalette;
 use Thallo\Render\Http\Controllers\StyleSchemaController;
@@ -18,6 +19,7 @@ use Thallo\Render\ThemeLocator;
 final class StyleSchemaEndpointTest extends AppTestCase
 {
     use GrantsPermissions;
+    use PaletteFixtures;
 
     private const PICKER = 'content.edit,content.manage,templates.manage,styles.manage';
 
@@ -105,6 +107,44 @@ final class StyleSchemaEndpointTest extends AppTestCase
         self::assertSame('Surface 2', $data['palette']['labels']['color.surface-2']);
         self::assertMatchesRegularExpression('/\A#[0-9a-f]{6}\z/', $data['palette']['swatches']['color.surface']);
         self::assertArrayNotHasKey('color.transparent', $data['palette']['swatches']);
+    }
+
+    public function testTheSchemaPaletteCarriesItsGenerationAndTheRecentReplacements(): void
+    {
+        $this->configure(1, 'Gold', '#8a6a2a');
+        $before = $this->state()->snapshot()->generation;
+        $this->replaceAndClear(1, 'color.accent');
+        $this->container()->get(RequestPalette::class)->refresh();
+        $palette = $this->schemaPalette();
+        self::assertSame($this->state()->snapshot()->generation, $palette['generation']);
+        self::assertSame($palette['generation'], $palette['replacements']['through']);
+        self::assertLessThanOrEqual($before, $palette['replacements']['after']);
+        self::assertSame(
+            ['color.brand-1' => 'color.accent', 'color.brand-1-contrast' => 'color.accent-contrast'],
+            $palette['replacements']['records'][0]['map']
+        );
+    }
+
+    public function testTheSchemaReadsItsSlotsAndGenerationConsistently(): void
+    {
+        $this->configure(1, 'Gold', '#8a6a2a');
+        $this->container()->get(RequestPalette::class)->refresh();
+        // a replacement completes between the first generation read and the slot read: read again
+        $this->state()->afterNextSnapshot(function (): void {
+            $this->replaceAndClear(1, 'color.accent');
+            $this->container()->get(RequestPalette::class)->refresh();
+        });
+        $palette = $this->schemaPalette();
+        self::assertSame('unset', $palette['slots']['brand-1']['state']);
+        self::assertSame($this->state()->snapshot()->generation, $palette['generation']);
+        self::assertCount(1, $palette['replacements']['records']);
+    }
+
+    /** @return array<string,mixed> */
+    private function schemaPalette(): array
+    {
+        $response = $this->container()->get(StyleSchemaController::class)->show();
+        return json_decode((string) $response->getContent(), true)['data']['palette'];
     }
 
     public function testAnyStyleEditorReadsTheSchema(): void

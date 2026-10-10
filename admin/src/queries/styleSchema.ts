@@ -1,6 +1,7 @@
 import { useQuery } from '@pinia/colada'
 import { client } from '@/api/client'
 import { toApiError } from '@/api/errors'
+import type { ReplacementBatch } from '@/editor/paletteReplacements'
 import { qk } from './keys'
 
 // The style schema (visual builder spec §1.3, §3.4): the one runtime source the inspector
@@ -26,6 +27,16 @@ export interface StyleSchemaResult {
     version: number
     domains: Record<string, string[]>
     values: Record<string, string>
+  }
+  /** The workspace's palette (custom palette spec §5.2, §5.3); absent from an older server. */
+  palette?: {
+    slots: Record<string, Record<string, unknown>>
+    swatches: Record<string, string>
+    labels: Record<string, string>
+    /** The palette generation the slots were read at. */
+    generation: number
+    /** The completed replacements of the recent past, through `generation`. */
+    replacements: ReplacementBatch
   }
 }
 
