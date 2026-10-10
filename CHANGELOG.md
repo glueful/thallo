@@ -42,6 +42,14 @@ as the next release, never a mutated tag.
   old colour store the new one. The job is resumable and cancellable
   (`/v1/admin/appearance/palette/jobs`, `…/{id}`, `…/{id}/cancel`, `…/{id}/resume`), runs in the
   workspace it was started in, and purges each rewritten page as it goes.
+- **Appearance › Theme colors**: Neutral gains **Custom — your own colours**: six hex colours
+  (Background, Surface, Surface 2, Text, Muted, Line), pre-filled from the family you had the first
+  time, a **Dark mode base** family (shown when the site has a dark mode) and **Reset to <family>**.
+  Three **Brand colours** take a name and a hex each; a configured one shows **Clear**, one being
+  replaced shows the replacement's progress, and one a replacement writes to says so. **Contrast**
+  checks the text pairs of the unsaved palette in light and dark mode, warning under 4.5:1. The preview
+  wears the unsaved palette. The style schema's palette says whether the site has a dark mode
+  (`color_mode`).
 
 ### Fixed
 - Enabling multi-store tenancy no longer drops the header and footer's settings-schema stamp

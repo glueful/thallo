@@ -8,6 +8,7 @@ import { computed, ref, watch } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
 import { client } from '@/api/client'
 import { STAGE_FRAME_EDGE, STAGE_WIDTHS, type ViewportPreset } from '@/editor/breakpoint'
+import type { PaletteLook } from '@/queries/palette'
 
 export interface PendingLook {
   /**
@@ -24,6 +25,8 @@ export interface PendingLook {
   /** Custom's Text and Headings, pending (Custom pairing only): a font library ID, or `none`. */
   font_text_family?: string
   font_headings_family?: string
+  /** The pending palette (custom palette spec §5.1), carried in the preview token. */
+  palette?: PaletteLook['palette']
 }
 
 const props = defineProps<{
@@ -46,7 +49,7 @@ const stale = ref(false)
 const loading = ref(false)
 let requested = 0
 
-function previewBody(): Record<string, string> {
+function previewBody(): Record<string, unknown> {
   const { theme, ...look } = props.look
   return theme === '' ? look : { theme, ...look }
 }

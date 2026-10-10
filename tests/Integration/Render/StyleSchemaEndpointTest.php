@@ -107,6 +107,8 @@ final class StyleSchemaEndpointTest extends AppTestCase
         self::assertSame('Surface 2', $data['palette']['labels']['color.surface-2']);
         self::assertMatchesRegularExpression('/\A#[0-9a-f]{6}\z/', $data['palette']['swatches']['color.surface']);
         self::assertArrayNotHasKey('color.transparent', $data['palette']['swatches']);
+        // whether the site renders a dark mode (theme.color_mode.enabled): the dark base matters only then
+        self::assertTrue($data['palette']['color_mode']);
     }
 
     public function testTheSchemaPaletteCarriesItsGenerationAndTheRecentReplacements(): void

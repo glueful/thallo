@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { client } from '@/api/client'
 import { toApiError } from '@/api/errors'
+import { qk as keys } from './keys'
 
 // ── General settings (Thallo\Core\Http\Controllers\GeneralSettingsController, /v1/admin/settings/general) ──
 //
@@ -41,6 +42,16 @@ export interface GeneralSettings {
   theme_font_text_family: string
   theme_font_headings_family: string
   theme_background: string
+  /**
+   * The palette (custom palette spec §2), each a JSON string: the Custom neutral's six colours
+   * (`theme_neutral` `custom`), the family dark mode is built from, and the three brand colours.
+   * '' = unset. A brand colour is cleared through the palette's Clear, never by saving ''.
+   */
+  theme_neutral_custom?: string
+  theme_dark_base?: string
+  theme_brand_1?: string
+  theme_brand_2?: string
+  theme_brand_3?: string
   /** Admin SPA base URL for the preview bar's Edit/Design links. */
   admin_url: string
   /** Content types with public listings/archives ([] = none). */
@@ -71,7 +82,11 @@ export function useGeneralSettingsMutations() {
   const cache = useQueryCache()
   const save = useMutation({
     mutation: updateGeneralSettings,
-    onSettled: () => cache.invalidateQueries({ key: qk() }),
+    onSettled: () => {
+      void cache.invalidateQueries({ key: qk() })
+      // The style schema carries the palette every colour picker offers.
+      void cache.invalidateQueries({ key: keys.styleSchema() })
+    },
   })
   return { save }
 }

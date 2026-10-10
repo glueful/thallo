@@ -33,6 +33,8 @@ export interface StyleSchemaResult {
     slots: Record<string, Record<string, unknown>>
     swatches: Record<string, string>
     labels: Record<string, string>
+    /** Whether the site renders a dark mode: the dark base applies only then. */
+    color_mode?: boolean
     /** The palette generation the slots were read at. */
     generation: number
     /** The completed replacements of the recent past, through `generation`. */

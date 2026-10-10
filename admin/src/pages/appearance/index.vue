@@ -2,7 +2,8 @@
 // Site › Appearance: how the site LOOKS — the live theme, its colours, the design settings, the
 // logos and site icon. These are general settings and share that endpoint with Settings › General,
 // which owns how the site behaves; each page edits and saves only its own keys (useSettingsForm).
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useQueryCache } from '@pinia/colada'
 import { useGeneralSettings, useGeneralSettingsMutations } from '@/queries/generalSettings'
 import { useSettingsForm } from '@/composables/useSettingsForm'
 import AssetField from '@/fields/components/AssetField.vue'
@@ -16,6 +17,20 @@ import TypefacesCard from './components/TypefacesCard.vue'
 import FontFamilyPicker from './components/FontFamilyPicker.vue'
 import { useNotify } from '@/composables/useNotify'
 import { useAppearanceChanges } from '@/composables/useAppearanceChanges'
+import { useStyleSchema } from '@/queries/styleSchema'
+import { qk } from '@/queries/keys'
+import { normalizeHex } from '@/style/contrast'
+import {
+  fetchPaletteJobs,
+  previewPalette,
+  type BrandKey,
+  type NeutralKey,
+  type PaletteJob,
+  type PaletteLook,
+} from '@/queries/palette'
+import CustomNeutralFields from './components/CustomNeutralFields.vue'
+import BrandColorsField, { type BrandDraft } from './components/BrandColorsField.vue'
+import ContrastChecks from './components/ContrastChecks.vue'
 
 definePage({ meta: { requiresAuth: true } })
 
@@ -35,6 +50,11 @@ const { form, dirty, payload, saved } = useSettingsForm(data, {
   site_logo: '',
   site_logo_dark: '',
   site_favicon: '',
+  theme_neutral_custom: '',
+  theme_dark_base: '',
+  theme_brand_1: '',
+  theme_brand_2: '',
+  theme_brand_3: '',
 })
 /** Read, never written here: the favicon preview's tab title, and what a preview opens through. */
 const siteName = computed(() => data.value?.site_name ?? '')
@@ -69,13 +89,222 @@ const BACKGROUND_ITEMS = [
   { value: 'plain', label: 'Plain — white page, tinted panels (default)' },
   { value: 'tinted', label: 'Tinted — tinted page, white panels' },
 ]
-const neutralItems = NEUTRAL_FAMILIES.map((f) => f.value)
-const neutralSwatch = computed(
-  () => NEUTRAL_FAMILIES.find((f) => f.value === form.theme_neutral)?.swatch ?? '#64748b',
+const neutralItems = [
+  ...NEUTRAL_FAMILIES.map((f) => ({ value: f.value, label: f.value })),
+  { value: 'custom', label: 'Custom — your own colours' },
+]
+const neutralSwatch = computed(() =>
+  form.theme_neutral === 'custom'
+    ? (neutralCustom.value?.bg ?? '#ffffff')
+    : (NEUTRAL_FAMILIES.find((f) => f.value === form.theme_neutral)?.swatch ?? '#64748b'),
 )
+
+// ── The palette (custom palette spec §2, §5.1) ───────────────────────────────────────────────
+// The form keeps each palette key as the JSON string the server stores; these read and write it.
+const NEUTRAL_KEYS: NeutralKey[] = ['bg', 'surface', 'surface_2', 'ink', 'muted', 'line']
+const BRAND_KEYS: BrandKey[] = ['1', '2', '3']
+const brandField = (key: BrandKey) => `theme_brand_${key}` as const
+
+function parseJson(value: string | undefined): Record<string, unknown> | null {
+  if (!value) return null
+  try {
+    const parsed: unknown = JSON.parse(value)
+    return typeof parsed === 'object' && parsed !== null
+      ? (parsed as Record<string, unknown>)
+      : null
+  } catch {
+    return null
+  }
+}
+
+const neutralCustom = computed<Record<NeutralKey, string> | null>(() => {
+  const parsed = parseJson(form.theme_neutral_custom)
+  if (parsed === null) return null
+  const out = {} as Record<NeutralKey, string>
+  for (const key of NEUTRAL_KEYS) out[key] = String(parsed[key] ?? '')
+  return out
+})
+function setNeutralCustom(next: Record<NeutralKey, string>): void {
+  form.theme_neutral_custom = JSON.stringify(next)
+}
+
+const brandDrafts = computed<Record<BrandKey, BrandDraft>>(() => {
+  const out = {} as Record<BrandKey, BrandDraft>
+  for (const key of BRAND_KEYS) {
+    const parsed = parseJson(form[brandField(key)])
+    out[key] = { name: String(parsed?.name ?? ''), hex: String(parsed?.hex ?? '') }
+  }
+  return out
+})
+function setBrandDrafts(next: Record<BrandKey, BrandDraft>): void {
+  for (const key of BRAND_KEYS) form[brandField(key)] = JSON.stringify(next[key])
+}
+/** A slot as the server would store it, or null while it is not a name and a colour. */
+function validBrand(draft: BrandDraft): BrandDraft | null {
+  const name = draft.name.trim()
+  const hex = normalizeHex(draft.hex)
+  return name !== '' && name.length <= 32 && hex !== null ? { name, hex } : null
+}
+const configured = computed<Record<BrandKey, boolean>>(() => {
+  const out = {} as Record<BrandKey, boolean>
+  for (const key of BRAND_KEYS) out[key] = parseJson(data.value?.[brandField(key)]) !== null
+  return out
+})
+
+// The family the form had before Custom: Custom's first values come from it, and Reset returns to it.
+const lastFamily = ref(form.theme_neutral === 'custom' ? '' : form.theme_neutral)
+watch(
+  () => form.theme_neutral,
+  async (next, previous) => {
+    if (next !== 'custom') {
+      lastFamily.value = next
+      return
+    }
+    const family = previous && previous !== 'custom' ? previous : lastFamily.value || 'slate'
+    if (form.theme_dark_base === '') form.theme_dark_base = family
+    if (neutralCustom.value !== null) return // stored or already edited: never pre-filled again
+    try {
+      const look = await previewPalette({ theme_neutral: family, palette: emptyPalette() })
+      const light = look.values.light
+      if (form.theme_neutral === 'custom' && neutralCustom.value === null) {
+        setNeutralCustom({
+          bg: light.background ?? '#ffffff',
+          surface: light.surface ?? '#ffffff',
+          surface_2: light['surface-2'] ?? '#ffffff',
+          ink: light.text ?? '#000000',
+          muted: light.muted ?? '#666666',
+          line: light.line ?? '#dddddd',
+        })
+      }
+    } catch {
+      // the six fields stay empty to fill in by hand
+    }
+  },
+)
+function resetNeutral(): void {
+  form.theme_neutral = form.theme_dark_base || lastFamily.value || 'slate'
+  form.theme_neutral_custom = ''
+}
+function emptyPalette(): PaletteLook['palette'] {
+  return { neutral_custom: null, dark_base: null, brands: { '1': null, '2': null, '3': null } }
+}
+const resetFamily = computed(() => form.theme_dark_base || lastFamily.value || 'slate')
+
+const { data: styleSchema } = useStyleSchema()
+const colorMode = computed(() => styleSchema.value?.palette?.color_mode !== false)
+const schemaSlots = computed(() => styleSchema.value?.palette?.slots ?? {})
+
+/** The pending palette: what the preview frames and the contrast checks judge. */
+const pendingPalette = computed<PaletteLook['palette']>(() => {
+  const brands = {} as PaletteLook['palette']['brands']
+  for (const key of BRAND_KEYS) brands[key] = validBrand(brandDrafts.value[key])
+  return {
+    neutral_custom: form.theme_neutral === 'custom' ? neutralCustom.value : null,
+    dark_base: form.theme_dark_base || null,
+    brands,
+  }
+})
+/** The saved palette, read as the form reads it. */
+const savedPalette = computed<PaletteLook['palette']>(() => {
+  const stored = data.value as Record<string, string | undefined> | undefined
+  const custom = parseJson(stored?.theme_neutral_custom)
+  const brands = {} as PaletteLook['palette']['brands']
+  for (const key of BRAND_KEYS) {
+    const parsed = parseJson(stored?.[brandField(key)])
+    brands[key] =
+      parsed === null
+        ? null
+        : validBrand({ name: String(parsed.name ?? ''), hex: String(parsed.hex ?? '') })
+  }
+  return {
+    neutral_custom:
+      stored?.theme_neutral === 'custom' && custom !== null
+        ? (Object.fromEntries(NEUTRAL_KEYS.map((k) => [k, String(custom[k] ?? '')])) as Record<
+            NeutralKey,
+            string
+          >)
+        : null,
+    dark_base: stored?.theme_dark_base || null,
+    brands,
+  }
+})
+const paletteChanged = computed(
+  () => JSON.stringify(pendingPalette.value) !== JSON.stringify(savedPalette.value),
+)
+const contrastLook = computed<PaletteLook>(() => ({
+  theme_accent: form.theme_accent,
+  theme_neutral: form.theme_neutral,
+  theme_background: form.theme_background,
+  palette: pendingPalette.value,
+}))
+
+// The running replacements (custom palette spec §4.4): their progress, refreshed every 2 s while
+// one runs; when the last one ends, the palette is read again.
+const jobs = ref<PaletteJob[]>([])
+let jobTimer: ReturnType<typeof setInterval> | null = null
+const queryCache = useQueryCache()
+async function loadJobs(): Promise<void> {
+  try {
+    const before = jobs.value.some((j) => j.status === 'running')
+    jobs.value = await fetchPaletteJobs()
+    const running = jobs.value.some((j) => j.status === 'running')
+    if (running && jobTimer === null) jobTimer = setInterval(() => void loadJobs(), 2000)
+    if (!running && jobTimer !== null) {
+      clearInterval(jobTimer)
+      jobTimer = null
+    }
+    if (before && !running) {
+      void queryCache.invalidateQueries({ key: qk.styleSchema() })
+      void queryCache.invalidateQueries({ key: ['settings', 'general'] })
+    }
+  } catch {
+    jobs.value = []
+  }
+}
+onMounted(() => void loadJobs())
+onBeforeUnmount(() => {
+  if (jobTimer !== null) clearInterval(jobTimer)
+})
+
+/** Clear opens the usage dialog (Task 17). */
+const clearing = ref<1 | 2 | 3 | null>(null)
+function onClearBrand(slot: 1 | 2 | 3): void {
+  clearing.value = slot
+}
+
+/**
+ * This page's keys as the server should take them: a palette key only when it changed — a brand
+ * colour only once it is a name and a colour (Clear is how one is taken off), the dark base never
+ * as '' — and the rest as they stand.
+ */
+function savePayload(): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...payload() }
+  const stored = (key: string) =>
+    String((data.value as Record<string, unknown> | undefined)?.[key] ?? '')
+  for (const key of BRAND_KEYS) {
+    const field = brandField(key)
+    const valid = validBrand(brandDrafts.value[key])
+    const canonical = valid === null ? null : JSON.stringify(valid)
+    if (
+      canonical === null ||
+      canonical === stored(field) ||
+      JSON.stringify(parseJson(stored(field))) === canonical
+    ) {
+      delete out[field]
+    } else {
+      out[field] = canonical
+    }
+  }
+  if (form.theme_neutral_custom === stored('theme_neutral_custom')) delete out.theme_neutral_custom
+  if (form.theme_dark_base === '' || form.theme_dark_base === stored('theme_dark_base'))
+    delete out.theme_dark_base
+  return out
+}
 
 /** What the preview frames: the look as it stands in the form, saved or not. */
 const pendingLook = computed(() => ({
+  // The palette rides along only once it differs from the saved one (custom palette spec §5.1).
+  ...(paletteChanged.value ? { palette: pendingPalette.value } : {}),
   // Only a theme OTHER than the live one is previewed as a theme; see PendingLook.
   theme: form.theme !== '' && form.theme !== (data.value?.theme ?? '') ? form.theme : '',
   accent: form.theme_accent,
@@ -117,7 +346,7 @@ const appearanceChanges = useAppearanceChanges()
 
 async function onSave() {
   try {
-    await save.mutateAsync(payload())
+    await save.mutateAsync(savePayload())
     saved()
     appearanceChanges.notify('appearance')
     success('Appearance saved', 'Changes apply on the next page view.')
@@ -199,10 +428,37 @@ async function onSave() {
                       <USelect
                         v-model="form.theme_neutral"
                         :items="neutralItems"
+                        value-key="value"
                         class="w-full"
                         data-test="theme-neutral"
                       />
                     </div>
+                  </UFormField>
+                  <CustomNeutralFields
+                    v-if="form.theme_neutral === 'custom' && neutralCustom"
+                    :model-value="neutralCustom"
+                    :dark-base="form.theme_dark_base ?? ''"
+                    :show-dark-base="colorMode"
+                    :family="resetFamily"
+                    @update:model-value="setNeutralCustom"
+                    @update:dark-base="(v: string) => (form.theme_dark_base = v)"
+                    @reset="resetNeutral"
+                  />
+                  <UFormField
+                    label="Brand colours"
+                    description="Named colours every block's colour picker offers. Up to three."
+                  >
+                    <BrandColorsField
+                      :slots="brandDrafts"
+                      :configured="configured"
+                      :palette="schemaSlots"
+                      :jobs="jobs"
+                      @update:slots="setBrandDrafts"
+                      @clear="onClearBrand"
+                    />
+                  </UFormField>
+                  <UFormField label="Contrast">
+                    <ContrastChecks :look="contrastLook" />
                   </UFormField>
                 </div>
               </div>
