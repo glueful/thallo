@@ -1,13 +1,15 @@
 # Custom palette — design
 
-Status: draft for review (2026-10-09), revision 4. Implements the amendments agreed in
+Status: draft for review (2026-10-10), revision 5. Implements the amendments agreed in
 conversation; revision 2 applies the spec review (historical vs blocking usage, a replace job
 contract, publication history, the unavailable-colour contract and theme precedence, replacement
 destinations, palette read permissions); revision 3 adds a per-workspace palette fence for saves, job
 cancellation and destination reservations, uses the actual render paths (the style cascade and
 `token_class()`), and corrects the picker response and the byte-identical claim; revision 4 fences on the original
 payload and re-normalises from it, makes restoration's trusted basis explicit, and requires a lock
-order and writer inventory in the plan.
+order and writer inventory in the plan; revision 5 replaces the three fixed brand slots with a list
+the author adds to, up to a deployment limit (`theme.brand_colors.max`), each colour keeping a
+permanent id, and moves the brand utilities into a per-workspace colours stylesheet (§2.3, §3.4).
 
 ## 1. Purpose
 
@@ -24,18 +26,23 @@ the theme's variables in `custom.css`.
 This design lets the author set those values in Appearance, keeping the names model:
 
 - **Custom neutral** — six light-mode hex values, with a **dark-mode base family**.
-- **Three brand colours** — stable slots `brand-1`…`brand-3`, each with an author-given name, a
-  hex, and a matching readable-text colour.
+- **Brand colours** — a list the author adds to with **Add colour**, up to the deployment's limit
+  (default 3). Each has a permanent id (`brand-4`), an author-given name, a hex, and a matching
+  readable-text colour.
 - **Contrast checks** of specific colour pairs, from the effective palette, in both modes.
 - **Truthful pickers** — swatches, author names, and an explicit state for a colour that is no
   longer configured.
 
 Nothing changes for a site until its author chooses Custom or configures a brand colour.
 
-**Three slots is a product decision, not a technical limit.** The compiled style artifact is per
-theme; site-specific names could instead come from a separately generated colour artifact per
-workspace. Three fixed slots keep the token names stable and the scope small; a later release can
-raise the count or move to named colours without breaking stored references (§3.1).
+**The limit is deployment configuration, not code and not a site setting.** `theme.brand_colors.max`
+(`THALLO_BRAND_COLORS_MAX`, default 3, clamped to 0–12) caps how many brand colours a workspace can
+have at once. The operator who runs the install sets it; editors add colours up to it. It is not a
+general setting because it is a budget, not a preference: each colour adds two choices to every
+colour picker and about 3 KB of utilities to the workspace's colours stylesheet (§3.4), and an
+author who could raise their own limit would have none. The ceiling of 12 bounds both. `0` turns
+brand colours off: the Appearance section and the pickers' brand group are hidden, and stored
+references render as unavailable (§3.2).
 
 ## 2. Settings
 
@@ -48,7 +55,10 @@ settings endpoint and validated in `GeneralSettingsController::validate()`.
 | `theme_neutral` | a family, or `custom` | `slate` (unchanged) |
 | `theme_neutral_custom` | JSON `{"bg","surface","surface_2","ink","muted","line"}`, each `#rrggbb` | unset |
 | `theme_dark_base` | a neutral family | unset (see §2.2) |
-| `theme_brand_1` … `theme_brand_3` | JSON `{"name": string ≤ 32, "hex": "#rrggbb"}` (job and reservation state lives in `palette_state`, §4.3) | unset |
+| `theme_brand_colors` | JSON `{"colors": [{"id": int ≥ 1, "name": string ≤ 32, "hex": "#rrggbb"}, …], "removed": [{"id": int, "name": string}, …]}` — `colors` in display order (job and reservation state lives in `palette_state`, §4.3) | unset (no colours) |
+
+The limit is configuration, read from `config/theme.php` (`theme.brand_colors.max`), not a setting
+(§1).
 
 Hex input accepts `#abc` and `#aabbcc` in any case and is stored lower-case, six digits (as the
 accent is today, `ThemeColors::normalizeSiteAccent`). A malformed value is a 422 naming the field;
@@ -78,11 +88,31 @@ light mode, exactly as `ThemeDesign::css` swaps a family's.
 
 ### 2.3 Brand colours
 
-Each slot is configured (a name and a hex) or unset. Saving a brand key through the General
-settings endpoint is a palette mutation (§4.3): it runs in the palette state transaction and is
-refused (409) where a running job forbids it. The **name is a label only**: stored style
-values always reference the slot token (`color.brand-1`), so renaming changes what the pickers
-show and nothing else.
+A workspace has a list of brand colours, in the author's order. Each has a **permanent id** `N`
+and is referenced as `color.brand-N` (its text colour `color.brand-N-contrast`). In §3–§8, "slot
+N" means the brand colour with id N; a slot is **configured** (in `colors`), **removed** (in
+`removed`, keeping its name) or **never issued**.
+
+- **Add.** Appearance's **Add colour** appends a row. On save the server gives each new colour the
+  id one above the highest id the workspace has ever issued — configured or removed — inside the
+  palette state transaction (§4.3). Ids are therefore never reused: a restored version naming a
+  removed colour shows it as unavailable, never as a different colour that took its number.
+- **Limit.** A save that would leave more configured colours than `theme.brand_colors.max` is a 422
+  ("This site allows 3 brand colours"). Lowering the limit below the current count removes
+  nothing: existing colours keep rendering and stay editable, and Add is refused until the count is
+  under the limit. Raising it makes Add available at once.
+- **Rename, re-colour, reorder** through the same save. Order is the pickers' order and nothing else.
+- **Remove only through Clear** (§4). A save that omits a configured id is a 422 ("Remove a brand
+  colour with Clear"), so no settings write can strand references without the usage check. Clearing
+  moves the colour from `colors` to `removed`, keeping its id and name.
+- **Imports** apply the same rules: imported colours are added or updated by id (the source's ids
+  are kept, and the next id stays above every id either side has issued), colours the import does
+  not name are kept, and the limit applies.
+
+Saving brand colours through the General settings endpoint is a palette mutation (§4.3): it runs
+in the palette state transaction and is refused (409) where a running job forbids it. The **name is
+a label only**: stored style values always reference the id token (`color.brand-1`), so renaming
+changes what the pickers show and nothing else.
 
 Per slot and per mode the render derives:
 
@@ -96,34 +126,38 @@ Per slot and per mode the render derives:
 
 ### 3.1 New tokens
 
-The colour domain (`Vocabulary::DOMAINS['color']`) gains six names:
-
-`brand-1`, `brand-1-contrast`, `brand-2`, `brand-2-contrast`, `brand-3`, `brand-3-contrast`
+The colour domain gains a **family of names** rather than a fixed list: `brand-N` and
+`brand-N-contrast` for any id `N` from 1 to 9999 (`/\Abrand-[1-9][0-9]{0,3}(-contrast)?\z/`).
+`Vocabulary` exposes the pattern (`Vocabulary::isBrandColor()`), and the static
+`DOMAINS['color']` list holds no brand names. The style schema's vocabulary lists the workspace's
+configured brand colours, in order, after the theme's colour names (§5.2).
 
 Their values are **site-controlled, not theme-controlled**: each always resolves to
 `var(--brand-N)` / `var(--brand-N-ink)`, the variables §3.2 emits from the site's settings. A
 theme's `theme.json` need not list them (cloned and third-party themes keep loading), and may not
-remap them: a theme entry for any of the six names is ignored by the loader and reported by the
+remap them: a theme entry for any brand name is ignored by the loader and reported by the
 Doctor as a warning ("brand colours are set in Appearance"). A theme mapping would bypass the
 site's hex and contradict the pickers' swatches and the contrast checks (§5.2, §6).
 
-`StyleCompiler::VERSION` goes to 24, so every colour utility for the new names (background, text,
-border, hover, marker, footer divider…) is compiled once into the shared per-theme artifact.
-`Vocabulary::VERSION` stays 1: the change only adds names.
+The brand utilities are **not** in the shared per-theme artifact: they are generated per workspace
+for its configured ids (§3.4). `StyleCompiler::VERSION` goes to 25, removing them from the
+per-theme artifact. `Vocabulary::VERSION` stays 1: the change only adds names.
 
-Stored values are validated as today: `SettingsValidator` accepts the new names as baseline
-tokens, whether or not the slot is configured — a stored reference to an unset slot is valid data.
+Stored values are validated as today: `SettingsValidator` accepts any name matching the pattern as
+a baseline token, whether or not the slot is configured — a stored reference to a removed or
+never-issued slot is valid data.
 
 ### 3.2 Rendering a slot
 
 `themeColorsStyle()` emits, for each configured slot, `--brand-N` and `--brand-N-ink` in both the
-light `:root` block and the `html[data-theme="dark"]` block. An **unset** slot emits nothing.
+light `:root` block and the `html[data-theme="dark"]` block. A **removed** or **never-issued** slot
+emits nothing, and nor does any slot while the limit is 0; all of these are "unconfigured" below.
 
 **An unavailable reference contributes no colour override.** CSS cannot express "skip this
 declaration": a utility whose variable is undefined is *invalid at computed-value time* and takes
 the property's inherited or initial value — it does not fall back to an earlier declaration. So
-an unset slot's utility must never reach the page. A hover text colour naming an unset slot would
-otherwise replace a button's normal text colour with its parent's.
+an unconfigured slot's utility must never reach the page. A hover text colour naming an
+unconfigured slot would otherwise replace a button's normal text colour with its parent's.
 
 The render therefore decides availability, not CSS, on both paths that turn a stored colour token
 into a class:
@@ -155,9 +189,30 @@ Under Custom, `ThemeColors::css` emits the six custom values in light `:root` an
 family's six in `html[data-theme="dark"]`, with the accent computed against the *effective* dark
 Background (§2.2) as today. A family neutral renders exactly as today.
 
+### 3.4 The colours stylesheet
+
+Modelled on the workspace fonts stylesheet (`FontsArtifact` / `FontsArtifacts`): for each configured
+brand colour, the utilities the style compiler emits for a colour name — background, text, border,
+hover, marker, footer divider and the rest — for `brand-N` and `brand-N-contrast`, in
+`@layer settings`, generated from **the same property table** `StyleCompiler` uses, so the two
+cannot drift. Values stay in variables (`var(--t-color-brand-N)`, resolved from §3.2's
+`--brand-N`), so the stylesheet depends only on **which ids are configured**:
+
+- Its hash is over the sorted configured ids and the compiler version. Renaming or re-colouring
+  changes nothing here (the variables change); adding or clearing a colour makes a new stylesheet.
+- It is written as `colors-{hash}.css` under the style cache, publish-then-serve, with the
+  compiled artifacts' retention (`CompiledStyleArtifacts::RETAIN_NEWEST` / `RETAIN_SECONDS`).
+- Pages, stage heads and the Appearance preview link it after the compiled per-theme artifact.
+  Its hash enters the render-cache fingerprint and `appearanceFingerprint()` (§5.3).
+- A workspace with no configured colours links nothing.
+
+Under tenancy every workspace gets its own stylesheet, while the per-theme artifact stays shared.
+
 ## 4. Clearing and replacing a brand colour
 
-A configured slot with **blocking** references cannot be cleared. Clearing (in Appearance) first
+Clearing moves a colour to `removed` (§2.3); it is the only way a brand colour leaves the list. Its
+endpoints take the colour's id (`/v1/admin/appearance/palette/brand/{id}`, `{id}` matching
+`[1-9][0-9]{0,3}`). A configured slot with **blocking** references cannot be cleared. Clearing (in Appearance) first
 asks the server for its usage (§4.1); with no blocking references, it clears; with some, the
 dialog lists them and offers **Replace with…** (§4.2) or **Cancel**. There is no "clear anyway".
 
@@ -300,7 +355,7 @@ brand token:
 - **Source of an active job:** mapped to the job's `to` / `contrast_to`. A stale draft that still
   names the slot writes the destination.
 - **Unconfigured slot:** accepted only if a **trusted basis** already holds that same value at
-  that location; otherwise 422 "Gold dark is no longer in the palette". A save racing a clear can
+  that location; otherwise 422 "Gold dark isn't in the palette". A save racing a clear can
   therefore never add a fresh reference to a slot that was just cleared. The trusted basis is
   always loaded by the server, never taken from the request:
   - **Ordinary saves:** the document's current stored revision the save is based on.
@@ -344,10 +399,14 @@ The implementation plan must include, before any fence code:
 - **Neutral** select adds **Custom**. Choosing it shows six labelled hex fields with swatches
   (Background, Surface, Surface 2, Text, Muted, Line), the **Dark mode base** select (hidden while
   colour mode is off), and **Reset to <family>**.
-- **Brand colours**: three rows — name, hex with swatch (the accent's `BrandColorField` picker,
-  minus the families), and **Clear** (§4). A slot under replacement shows the job's progress with
-  **Resume** / **Cancel** instead of its controls (§4.4); a reserved slot shows "reserved by the
-  Gold dark replacement" and no Clear.
+- **Brand colours**: one row per configured colour, in order — name, hex with swatch (the accent's
+  `BrandColorField` picker, minus the families), a drag handle to reorder, and **Clear** (§4).
+  **Add colour** below the rows appends an empty row; a row added but not yet saved has a plain
+  remove button instead of Clear, since nothing references it. The section header shows the count
+  against the limit ("2 of 3"); at the limit Add is disabled and says "This site allows 3 brand
+  colours". A slot under replacement shows the job's progress with **Resume** / **Cancel** instead
+  of its controls (§4.4); a reserved slot shows "reserved by the Gold dark replacement" and no
+  Clear. With the limit at 0 the section is hidden.
 - **Contrast checks** (§6) beneath.
 - The live preview (`AppearancePreview`) carries the whole unsaved look — custom values, dark base
   and brand slots — in its signed preview token, as it carries accent and neutral today. Unsaved
@@ -362,16 +421,21 @@ workspace's palette:
 
 ```json
 "palette": {
-  "brand-1": {"name": "Gold dark", "hex": "#8a6a2a", "state": "replacing",
-              "replacing": {"to": "accent", "to_label": "Accent",
-                            "contrast_to": "accent-contrast", "contrast_to_label": "Accent — text"}},
-  "brand-2": {"name": "Rose", "hex": "#c98a8a", "state": "configured", "reserved": false},
-  "brand-3": {"state": "unset"}
+  "limit": 3,
+  "order": ["brand-2", "brand-1"],
+  "slots": {
+    "brand-1": {"name": "Gold dark", "hex": "#8a6a2a", "state": "replacing",
+                "replacing": {"to": "accent", "to_label": "Accent",
+                              "contrast_to": "accent-contrast", "contrast_to_label": "Accent — text"}},
+    "brand-2": {"name": "Rose", "hex": "#c98a8a", "state": "configured", "reserved": false},
+    "brand-3": {"name": "Teal", "state": "removed"}
+  }
 }
 ```
 
-`state` is `unset`, `configured` or `replacing`; `reserved` marks a configured slot a running job
-may write. Labels are resolved server-side (author names for brand slots, the vocabulary's labels
+`state` is `configured`, `replacing` or `removed`; a never-issued id is absent. `reserved` marks a
+configured slot a running job may write. `order` lists the configured and replacing slots in the
+author's order. Labels are resolved server-side (author names for brand slots, the vocabulary's labels
 otherwise) so a picker can say "being replaced by Accent" without a second lookup.
 
 **Who can read it.** Today the endpoint requires `content.manage`, so a content, layout or
@@ -382,10 +446,18 @@ palette change stay under `content.manage`.
 
 - Each colour button shows a **swatch** of the site value and its label; brand slots show the
   author's name ("Gold dark"), contrast tokens "Gold dark — text".
-- Slots whose `state` is `unset` or `replacing` are **hidden from new choices**; reserved slots
-  stay choosable.
-- A stored reference to an unconfigured slot shows first, disabled: **Unavailable colour: Brand 2**
-  with "no colour applied" and **Choose another** / **Clear** — kept until someone changes it. A
+- **Brand colours are their own group**, headed "Brand colours", after the theme's colours, in
+  `order`. Their text colours (`-contrast`) sit behind a **Text colours** disclosure inside the
+  group, opened automatically when the stored value is one of them, so each brand colour adds one
+  visible choice, not two. For a user with `content.manage`, the group header carries a **Manage
+  brand colours** link to Appearance's Colours tab (`/appearance?tab=colours`, Appearance tabs
+  spec §2); with no brand colours configured, the group shows only that link (or nothing, without
+  `content.manage`).
+- Slots whose `state` is `removed` or `replacing`, and never-issued ids, are **hidden from new
+  choices**; reserved slots stay choosable. The group is hidden when the limit is 0.
+- A stored reference to an unconfigured slot shows first, disabled: **Unavailable colour: Teal
+  (removed)** — or **Brand 7** for an id never issued here (imported content) — with "no colour
+  applied" and **Choose another** / **Clear**, kept until someone changes it. A
   slot under replacement is likewise hidden from new choices; a stored reference to it shows its
   swatch with "being replaced by Accent" (from `replacing.to_label`).
 - Raw-hex `ColorField` content fields are unchanged: they store a literal value and are outside the
@@ -398,7 +470,7 @@ palette change stay under `content.manage`.
 ### 5.3 Freshness
 
 Any change to the new keys — including which slots are configured, which decides the classes
-§3.2 emits — fires `ThemeAppearanceChanged` (purging rendered pages, as accent and
+§3.2 emits and the colours stylesheet (§3.4) — fires `ThemeAppearanceChanged` (purging rendered pages, as accent and
 neutral changes do), enters `ThemeAppearanceSource::fingerprint()` (render cache) and
 `appearanceFingerprint()` (open stages refresh their head), and invalidates the style schema
 query in the admin so pickers show new names and swatches.
@@ -424,11 +496,14 @@ effective palette; the form previews it from the same rules for unsaved values.
 
 ## 7. Upgrade and compatibility
 
-- Existing sites: no new key is set, the neutral is a family, no brand slot is configured — the
-  site's **appearance CSS** (`themeColorsStyle()` output) is byte-identical to today's, and the
-  **rendered HTML** of its pages is byte-identical once the compiled-stylesheet URL is normalised
-  (pinned by tests). That URL changes because the shared compiled per-theme stylesheet changes — it
-  gains the brand utilities (§3.1) — but nothing on an existing page uses them.
+- Existing sites: no new key is set, the neutral is a family, no brand colour is configured — the
+  site's **appearance CSS** (`themeColorsStyle()` output) is byte-identical to today's, no colours
+  stylesheet is linked (§3.4), and the **rendered HTML** of its pages is byte-identical once the
+  compiled-stylesheet URL is normalised (pinned by tests). That URL changes with
+  `StyleCompiler::VERSION`, but nothing on an existing page uses what changed.
+- The three fixed keys of the unreleased revision-4 build (`theme_brand_1` … `theme_brand_3`)
+  exist only on development installs. A migration converts any it finds into `theme_brand_colors`,
+  keeping ids 1–3, and deletes them.
 - Themes without the new tokens in `theme.json` load (§3.1); the Doctor accepts them. A theme
   that maps them has the mapping ignored, with a Doctor warning.
 - A site that overrode variables in `custom.css` keeps working (custom CSS loads last); the guide
@@ -440,10 +515,21 @@ effective palette; the form previews it from the same rules for unsaved values.
 
 - **Settings:** each key's validation (hex forms, JSON shape, name length, family names), 422s,
   normalisation; Custom lifecycle (first-entry prefill, values kept across a family switch, reset).
+- **Brand colour list:** a new colour gets the next id above every id ever issued, so clearing
+  `brand-3` and adding gives `brand-4`. Two concurrent adds get distinct ids. A save over the limit
+  is 422. A save omitting a configured id is 422. Lowering the limit keeps existing colours
+  rendering and refuses Add, and raising it allows Add. Reorder changes only `order`. A limit of 0
+  hides the brand group and renders references as unavailable, and values outside 0–12 are
+  clamped. An import adds and updates by id and keeps unnamed colours. The revision-4 key migration
+  keeps ids 1–3.
+- **Colours stylesheet:** emits the compiler's colour utilities for each configured id and none for
+  removed ones, and its property table matches `StyleCompiler`'s. Renaming or re-colouring keeps
+  the hash, and adding or clearing changes it. Nothing is linked with no colours. Under tenancy two
+  workspaces get different stylesheets, with one per-theme artifact.
 - **Rendering:** appearance CSS for a family site byte-identical; rendered HTML byte-identical
   with the compiled-stylesheet URL normalised;
-  Custom light values; dark base; Tinted under Custom; brand light/dark/ink derivation; unset slot
-  emits no variables; a value naming an unset slot (or its contrast token) emits no class, for
+  Custom light values; dark base; Tinted under Custom; brand light/dark/ink derivation; an
+  unconfigured slot emits no variables; a value naming an unconfigured slot (or its contrast token) emits no class, for
   normal and hover, in blocks, targets, parts, regions and layouts; **cascade:** a style class
   supplying Accent with an instance value of unavailable Brand 1 resolves to Accent, an unavailable
   value in the class with an instance Accent stays Accent, and an unavailable value alone falls to
@@ -504,19 +590,23 @@ effective palette; the form previews it from the same rules for unsaved values.
 - **Permissions:** the style schema with only `content.edit`, only `content.manage`, only
   `templates.manage`, only `styles.manage` — each 200 with the palette; with none, 403. Usage
   and the replace job with each of the first, third and fourth alone — 403.
-- **Admin:** Appearance form (Custom, dark base visibility, brand rows, clear dialog with blocking
+- **Admin:** Add colour (appends a row; disabled at the limit with its message; "2 of 3"), reorder,
+  an unsaved row removed without Clear, the brand group in the pickers with its Text colours
+  disclosure (opened when the stored value is a text colour), the **Manage brand colours** link
+  (shown only with `content.manage`, targeting `/appearance?tab=colours`), "Unavailable colour: Teal
+  (removed)" and "Brand 7"; Appearance form (Custom, dark base visibility, brand rows, clear dialog with blocking
   and historical groups, destination picker exclusions, contrast destination picker, job progress
-  with Resume/Cancel, reserved-slot state, contrast rows), picker swatches and author names, unset
+  with Resume/Cancel, reserved-slot state, contrast rows), picker swatches and author names, removed
   and replacing slots hidden, reserved slots shown, "being replaced by <label>" from the response,
   unavailable state, scoped "site default" label.
 - **Browser:** a block using Brand 1 paints the hex in light mode, the derived value in dark mode,
   and its contrast colour on it; a Custom palette paints the cream ground and Surface 2 band. A
-  button whose **hover** text names an unset slot keeps its normal text colour on hover, on
-  keyboard focus and in the editor's forced hover preview; a heading whose text names an unset slot
-  keeps the colour it had without that setting.
+  button whose **hover** text names an unconfigured slot keeps its normal text colour on hover, on
+  keyboard focus and in the editor's forced hover preview; a heading whose text names an
+  unconfigured slot keeps the colour it had without that setting.
 
 ## 9. Documentation and changelog
 
-Appearance guide (Custom neutral, brand colours, contrast checks), style settings reference (the
-colour names, brand slots and the unavailable state), theming guide (`brand-*` tokens and their
-defaults), the block library where colour lists appear, and an `[Unreleased]` changelog entry.
+Appearance guide (Custom neutral, brand colours — adding, the limit, Clear — contrast checks), style
+settings reference (the colour names, brand colours and the unavailable state), theming guide
+(`brand-*` tokens and their defaults), the configuration reference (`THALLO_BRAND_COLORS_MAX`), the block library where colour lists appear, and an `[Unreleased]` changelog entry.
