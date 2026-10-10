@@ -3,6 +3,14 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fixture, openDesignPage } from '../helpers'
 
+/** Opens an Appearance tab by its label (appearance tabs spec §2). */
+async function openTab(page: Page, name: string) {
+  await page
+    .locator('[data-test="appearance-tabs"]')
+    .getByRole('tab', { name, exact: true })
+    .click()
+}
+
 // Site › Appearance, in a real browser: reached from the Site group in the sidebar, it shows how the
 // site looks — theme colours, design, logos — and a change is saved with ITS OWN keys only, so it
 // can never write a stale copy of Settings › General's settings back. General, in turn, points here.
@@ -67,10 +75,17 @@ test('Appearance is in the Site group, and saves only its own settings', async (
   const saves = await routeSettings(page)
   const looks = await routePreview(page)
   await page.goto('/admin/appearance')
-  await expect(page.locator('[data-test="theme-colors-card"]')).toBeVisible({ timeout: 20_000 })
-  for (const card of ['theme-design-card', 'logos-card']) {
-    await expect(page.locator(`[data-test="${card}"]`)).toBeVisible()
-  }
+  const tabs = page.locator('[data-test="appearance-tabs"]')
+  await expect(tabs).toBeVisible({ timeout: 20_000 })
+  // The tabs, in order. This harness serves no theme list, so Theme is hidden and Colours opens
+  // (the gallery test below serves one and opens on Theme).
+  await expect(tabs.getByRole('tab')).toHaveText([
+    'Colours',
+    'Design',
+    'Typefaces',
+    'Logos & site icon',
+  ])
+  await expect(page.locator('[data-test="theme-colors-card"]')).toBeVisible()
   // The sidebar lists it in the Site group, first among the pages that shape the site. (The
   // harness opens with the sidebar collapsed to icons, and the group folded.)
   await page.getByRole('button', { name: 'Expand sidebar' }).click()
@@ -85,6 +100,7 @@ test('Appearance is in the Site group, and saves only its own settings', async (
   expect(siteLinks[0]).toBe('/admin/appearance')
 
   // Choose another corner style and save.
+  await openTab(page, 'Design')
   await page.locator('[data-test="theme-radius"]').click()
   await page.getByRole('option', { name: /^Sharp/ }).click()
   // The preview frames the homepage with the PENDING look: asked for again once the choice settled,
@@ -237,7 +253,8 @@ test('a brand colour says how it will read, and the site’s own font shows itse
     route.fulfill({ contentType: 'font/woff2', body: FONT }),
   )
   await page.goto('/admin/appearance')
-  await expect(page.locator('[data-test="theme-colors-card"]')).toBeVisible({ timeout: 20_000 })
+  await expect(page.locator('[data-test="appearance-tabs"]')).toBeVisible({ timeout: 20_000 })
+  await openTab(page, 'Colours')
 
   // ── The brand colour ──
   await page.locator('[data-test="theme-accent"]').click()
@@ -265,6 +282,7 @@ test('a brand colour says how it will read, and the site’s own font shows itse
   expect(saves).toEqual([])
 
   // ── The site's own font ──
+  await openTab(page, 'Typefaces')
   await page.locator('[data-test="theme-font"]').click()
   await page.getByRole('option', { name: /^Custom/ }).click()
   await expect(page.locator('[data-test="custom-fonts"]')).toBeVisible()
@@ -304,5 +322,45 @@ test('Settings › General no longer holds the appearance cards, and links to wh
   await expect(page.locator('[data-test="theme-colors-card"]')).toHaveCount(0)
   await pointer.getByRole('link').click()
   await expect(page).toHaveURL(/\/admin\/appearance$/)
+  await expect(page.locator('[data-test="appearance-tabs"]')).toBeVisible()
+})
+
+test('a link can open Appearance on a tab, and the tab is kept in the address', async ({
+  page,
+}) => {
+  await openDesignPage(page)
+  await routeSettings(page)
+  await routePreview(page)
+  await page.goto('/admin/appearance?tab=colours')
+  await expect(page.locator('[data-test="theme-colors-card"]')).toBeVisible({ timeout: 20_000 })
+  await openTab(page, 'Logos & site icon')
+  await expect(page).toHaveURL(/\/admin\/appearance\?tab=logos$/)
+  await expect(page.locator('[data-test="logos-card"]')).toBeVisible()
+  await openTab(page, 'Design')
+  await expect(page).toHaveURL(/\/admin\/appearance\?tab=design$/)
+  // Each choice is a history entry: Back steps through the tabs, Forward returns.
+  await page.goBack()
+  await expect(page).toHaveURL(/\?tab=logos$/)
+  await expect(page.locator('[data-test="logos-card"]')).toBeVisible()
+  await page.goBack()
   await expect(page.locator('[data-test="theme-colors-card"]')).toBeVisible()
+  await page.goForward()
+  await expect(page.locator('[data-test="logos-card"]')).toBeVisible()
+  await expect(page.locator('[data-test="theme-colors-card"]')).toBeHidden()
+})
+
+test('the tabs are reachable by keyboard and each panel is labelled by its tab', async ({
+  page,
+}) => {
+  await openDesignPage(page)
+  await routeSettings(page)
+  await routePreview(page)
+  await page.goto('/admin/appearance?tab=colours')
+  const tabs = page.locator('[data-test="appearance-tabs"]')
+  const colours = tabs.getByRole('tab', { name: 'Colours', exact: true })
+  await colours.focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(tabs.getByRole('tab', { name: 'Design', exact: true })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('tabpanel', { name: 'Design' })).toBeVisible()
 })

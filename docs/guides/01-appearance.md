@@ -16,29 +16,32 @@ sets one. Without it the preview pane says so and links there; everything else s
 
 ## Open Site › Appearance
 
-In the sidebar, open the **Site** group and press **Appearance**. Five cards run down the left —
-**Theme**, **Theme colors**, **Design**, **Typefaces**, **Logos & site icon** — with the preview beside them,
-staying put while the cards scroll. On a narrow window the preview moves above them.
+In the sidebar, open the **Site** group and press **Appearance**. Five tabs run along the left —
+**Theme**, **Colours**, **Design**, **Typefaces**, **Logos & site icon** — each on its own tab, with
+the preview beside them, staying put whichever tab is open. On a narrow window the preview moves
+above them. The open tab is in the address (`/appearance?tab=colours`), so a link can open a tab and
+Back returns to the one before.
 
 Nothing here reaches the site until you press **Save**, at the top right. A dot appears on that
-button as soon as anything changes.
+button as soon as anything changes. **Save** saves every tab at once; a dot on a tab marks unsaved
+changes there, or a field a save refused.
 
 ## Choose a theme
 
-The **Theme** card shows every theme the install can serve: its screenshot, title, version and
+The **Theme** tab shows every theme the install can serve: its screenshot, title, version and
 author. A theme with no screenshot is drawn in its own colours instead. The theme being served now
 is badged **Live**.
 
 Press a card to choose it, or move the choice with the arrow keys. A chosen theme that is not the
-live one says **Chosen — Save to make it live**, and the preview switches to it. The card is absent
-on an install whose renderer serves no theme list.
+live one says **Chosen — Save to make it live**, and the preview switches to it. The tab is absent
+on an install whose renderer serves no theme list, and Appearance then opens on **Colours**.
 
 What a theme is, and how to make one: [themes](../concepts/04-themes.md) and
 [make your own theme](13-make-a-theme.md).
 
 ## Set the accent and neutral colours
 
-The **Theme colors** card re-skins the theme's tokens. **Accent** is buttons, links and small
+The **Colours** tab re-skins the theme's tokens. **Accent** is buttons, links and small
 accents; **Neutral** is the backgrounds, text and borders. The defaults, `blue` and `slate`,
 reproduce the theme exactly as it ships.
 
@@ -116,19 +119,22 @@ Surface and Surface 2; Accent on Background and its text on Accent; each brand c
 and its text on it — in light and dark mode, as the unsaved colours stand. A pair under 4.5:1 is a
 warning, not a refusal. Other combinations a block can make are not checked.
 
-## Set the corners, typefaces and page ground
+## Set the corners and page ground
 
-The **Design** card holds three more choices.
+The **Design** tab holds two more choices.
 
 - **Corners** — **Sharp** (4px corners, square buttons), **Soft** (12px corners, rounded buttons)
   or **Round** (12px corners, pill buttons), the default.
-- **Typefaces** — nine choices. **Sans**, the default, is the theme's own face (Figtree)
-  throughout. **Serif**, **Humanist**, **Geometric**, **Mono** and **System** set the whole site in
-  fonts the visitor already has, and the theme's own face is then not downloaded at all.
-  **Editorial** and **Slab** change the headings only and leave the body in the theme's face.
-  **Custom** is two families you choose from the font library.
 - **Page ground** — **Plain** (white page, tinted panels) or **Tinted** (tinted page, white
   panels). Tinted changes light mode only; dark mode keeps the theme's own ground.
+
+## Choose the typefaces
+
+On the **Typefaces** tab, **Pairing** picks how the site's text is set, from nine choices.
+**Sans**, the default, is the theme's own face (Figtree) throughout. **Serif**, **Humanist**,
+**Geometric**, **Mono** and **System** set the whole site in fonts the visitor already has, and the
+theme's own face is then not downloaded at all. **Editorial** and **Slab** change the headings only
+and leave the body in the theme's face. **Custom** is two families you choose from the font library.
 
 Choosing **Custom** opens two pickers, **Text** and **Headings**. Each lists **Not set**, the
 built-ins and your own families, every one written in its own face. Choose a text family only and
@@ -137,7 +143,7 @@ of either list, adds a family to the library (below) and picks it.
 
 ## Add your own typefaces
 
-The **Typefaces** card is the site's font library: what Custom, every block's **Typeface** and every
+Below **Pairing**, the **Typefaces** tab holds the site's font library: what Custom, every block's **Typeface** and every
 style class can be set in. **Built-in** lists the seven that cost a visitor nothing to download —
 **Theme** (the theme's own face), **Serif**, **Humanist**, **Geometric**, **Slab**, **Mono** and
 **System** — each written in its own stack. **Your fonts** lists the families you added, with their
@@ -175,7 +181,7 @@ declared with the faces the files really hold.
 
 ## Upload your logo and favicon
 
-The **Logos & site icon** card has three pickers. Press one for a chooser with an **Upload** tab
+The **Logos & site icon** tab has three pickers. Press one for a chooser with an **Upload** tab
 and a **Media library** tab; either way it stores one file. **Remove**, beside a chosen file,
 unsets it.
 
