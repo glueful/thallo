@@ -5,7 +5,12 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.98] - 2026-10-10 — Developer Preview
+
+Your own colours: a Custom neutral for the backgrounds, text and borders, brand colours you add up
+to your host's limit and pick by name in every block's colour picker, and contrast checks of the
+pairs they make — with Appearance split into tabs: Theme, Colours, Design, Typefaces, Logos & site
+icon.
 
 ### Added
 - **Custom palette settings**: General settings gain a Custom neutral (`theme_neutral: custom` with six
