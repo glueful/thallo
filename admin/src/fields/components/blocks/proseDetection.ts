@@ -1,7 +1,8 @@
 import type { BlockType } from '@/queries/blockTypes'
 
 // CONVENTION, not identity (spec §3): a block type whose schema is EXACTLY one
-// rich text field renders as chromeless prose. The reserved durable escape hatch
+// rich text field — beside, at most, a link (`url` string, `new_tab` boolean) —
+// renders as chromeless prose; the link's fields are edited below the text. The reserved durable escape hatch
 // is block-type metadata (`editor_mode: prose | card`) — when that lands, this
 // predicate consults it FIRST and the convention becomes the fallback. No other
 // feature may treat this as a stable identity contract.
@@ -11,11 +12,15 @@ export function isProseBlockType(type: Pick<BlockType, 'schema'>): boolean {
   return proseRichFieldName(type) !== null
 }
 
+/** A block's link, which a prose block may carry beside its text (EngineBlockEditableFieldResolver). */
+const LINK_FIELDS: Record<string, string> = { url: 'string', new_tab: 'boolean' }
+
 /** The rich field's name when the type is prose-shaped; null otherwise. */
 export function proseRichFieldName(type: Pick<BlockType, 'schema'>): string | null {
   const schema = (type.schema ?? []) as SchemaField[]
-  if (schema.length !== 1) return null
-  const only = schema[0]!
+  const rest = schema.filter((f) => LINK_FIELDS[f.name] !== f.type)
+  if (rest.length !== 1) return null
+  const only = rest[0]!
   return only.type === 'text' && only.format === 'rich' ? only.name : null
 }
 

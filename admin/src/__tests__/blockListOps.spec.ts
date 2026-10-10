@@ -188,6 +188,22 @@ describe('proseDetection', () => {
     expect(proseRichFieldName(widget)).toBeNull()
   })
 
+  it('a rich text with a link (url, new_tab) is still prose; any other extra field is not', () => {
+    const linked = t('rich_text', [
+      { name: 'body', type: 'text', format: 'rich' },
+      { name: 'url', type: 'string' },
+      { name: 'new_tab', type: 'boolean' },
+    ])
+    expect(proseRichFieldName(linked)).toBe('body')
+    // The link's names, but not its types: an ordinary block, as before.
+    const misnamed = t('promo', [
+      { name: 'body', type: 'text', format: 'rich' },
+      { name: 'url', type: 'text', format: 'rich' },
+    ])
+    expect(isProseBlockType(misnamed)).toBe(false)
+    expect(isProseBlockType(t('promo', [{ name: 'url', type: 'string' }]))).toBe(false)
+  })
+
   it('defaultProseType: rich_text first, then first allowed prose type, else null', () => {
     expect(defaultProseType([customProse, richOnly, widget], [])?.slug).toBe('rich_text')
     expect(defaultProseType([customProse, widget], [])?.slug).toBe('note')

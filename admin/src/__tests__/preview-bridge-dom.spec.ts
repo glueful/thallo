@@ -1924,6 +1924,37 @@ describe('inline link panel (link-panel spec §1–§4)', () => {
     }
   })
 
+  it('tidies what was typed: a bare domain, an email or a phone number becomes a working link', () => {
+    const cases: [string, string][] = [
+      ['www.example.com', 'https://www.example.com'],
+      ['scentnoirofficial.com/shop', 'https://scentnoirofficial.com/shop'],
+      ['hello@example.com', 'mailto:hello@example.com'],
+      ['+233 59 747 8403', 'tel:+233597478403'],
+      ['tel:+233597478403', 'tel:+233597478403'],
+      ['sms:+233597478403', 'sms:+233597478403'],
+      ['/about', '/about'],
+      ['#contact', '#contact'],
+      ['about', 'about'],
+    ]
+    for (const [i, [typed, linked]] of cases.entries()) {
+      try {
+        const exec = vi.fn(() => true)
+        document.execCommand = exec as unknown as typeof document.execCommand
+        const w = grantRich(`lp-t-00000${i}`)
+        stubRichSelection(w.querySelector('.thallo-edit-region p')!)
+        const input = openPanel()
+        input.value = typed
+        input.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+        )
+        expect(exec, typed).toHaveBeenCalledWith('createLink', false, linked)
+        endSession(w)
+      } finally {
+        window.getSelection = realGetSelection
+      }
+    }
+  })
+
   it('invalid URLs (empty included) keep the panel open+focused with value preserved', () => {
     try {
       const exec = vi.fn(() => true)

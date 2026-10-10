@@ -65,6 +65,16 @@ final class TipTapHtmlSanitizerTest extends TestCase
         }
     }
 
+    /** Phone links: tel: and sms: survive, as a contact page needs them. */
+    public function testPhoneAndTextLinksSurvive(): void
+    {
+        $out = $this->sanitizer->sanitize(
+            '<p><a href="tel:+233597478403">call</a> <a href="sms:+233597478403">text</a></p>',
+        );
+        self::assertStringContainsString('href="tel:&#43;233597478403"', $out);
+        self::assertStringContainsString('href="sms:&#43;233597478403"', $out);
+    }
+
     /** The protocol-relative pin in isolation: // drops, legitimate hrefs survive. */
     public function testProtocolRelativeHrefIsDroppedWhileRelativeAndAbsoluteSurvive(): void
     {

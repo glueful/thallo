@@ -167,7 +167,7 @@ a template degrades to plain text instead of a dead link.
 |---|---|
 | `\|safe_html` | Sanitises author-written rich HTML and emits it. With no sanitiser bound, or if sanitising throws, the value is escaped — there is no path that emits it unprocessed. Use it on a rich-text field. |
 | `\|editable_text(field)` | Escapes the value and, on the canvas, wraps it in the region that makes the field editable in place. Plain `{{ data.title }}` renders but cannot be edited. |
-| `\|safe_url` | Returns the URL when it is a site-relative path, `https:`, `http:` or `mailto:`, and `null` for anything else, including a protocol-relative `//host`. Twig's escaping does not make `javascript:` safe; this does. |
+| `\|safe_url` | Returns the URL when it is a site-relative path, `https:`, `http:`, `mailto:`, `tel:` or `sms:`, and `null` for anything else, including a protocol-relative `//host`. Twig's escaping does not make `javascript:` safe; this does. |
 | `\|numeric_clamp(min, max)` | The number held between two bounds, or `null` when the value is not numeric — so "no value" stays distinct from "clamped to the floor". |
 | `\|br_tokens` | Turns the literal tokens an author typed — `<br>`, `<br/>` and `<br />` — into real line breaks. Everything else stays escaped, because the tokens are recognised after escaping. |
 

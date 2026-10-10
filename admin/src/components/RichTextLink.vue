@@ -3,6 +3,7 @@
 // the editor's built-in native prompt(). Rendered in the `#link` slot of UEditorToolbar.
 import { computed, ref } from 'vue'
 import type { EditorCustomHandlers } from '@nuxt/ui'
+import { normalizeLinkUrl } from '@/components/linkUrl'
 
 // Derive the Tiptap Editor type from @nuxt/ui's handler signature — @tiptap/* isn't a hoisted
 // dependency, so we can't import its types directly.
@@ -27,7 +28,8 @@ function onToggle(value: boolean) {
 }
 
 function apply() {
-  const href = url.value.trim()
+  // What was typed, as the link meant: `www.example.com` alone is a page on this site.
+  const href = normalizeLinkUrl(url.value)
   if (!href) return
   const { selection } = props.editor.state
   let chain = props.editor.chain().focus().extendMarkRange('link').setLink({ href })

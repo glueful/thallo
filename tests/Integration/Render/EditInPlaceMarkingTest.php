@@ -51,8 +51,18 @@ final class EditInPlaceMarkingTest extends AppTestCase
             'label' => 'Quote',
             'schema' => [['name' => 'text', 'type' => 'text']],
         ]);
+        $repo->create([
+            'slug' => 'linked_text', // one rich field plus a link -> still prose
+            'label' => 'Linked text',
+            'schema' => [
+                ['name' => 'body', 'type' => 'text', 'format' => 'rich'],
+                ['name' => 'url', 'type' => 'string'],
+                ['name' => 'new_tab', 'type' => 'boolean'],
+            ],
+        ]);
         $resolver = new EngineBlockEditableFieldResolver($repo);
         self::assertSame('body', $resolver->editableRichField('rich_text'));
+        self::assertSame('body', $resolver->editableRichField('linked_text'));
         self::assertNull($resolver->editableRichField('promo'));
         self::assertNull($resolver->editableRichField('quote'));
         self::assertNull($resolver->editableRichField('missing'));
