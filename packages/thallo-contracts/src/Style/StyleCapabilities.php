@@ -53,14 +53,23 @@ final readonly class StyleCapabilities
             }
         }
         // A hover path exists only beside its resting path (hover state spec §2.2), whichever was
-        // listed first.
+        // listed first. A companion exists exactly where its anchor does: offered with it, nothing alone.
         foreach (array_keys($paths) as $path) {
-            $resting = StyleSchema::restingPathOf($path);
+            $resting = StyleSchema::restingPathOf($path) ?? StyleSchema::anchorOf($path);
             if ($resting !== null && !isset($paths[$resting])) {
                 unset($paths[$path]);
             }
         }
-        return new self(array_keys($paths));
+        // Each companion right after its anchor, so a declaration's order still reads as written.
+        $out = [];
+        foreach (array_keys($paths) as $path) {
+            if (StyleSchema::anchorOf($path) !== null) {
+                continue;
+            }
+            $out[] = $path;
+            $out = [...$out, ...array_keys(StyleSchema::ANCHORED, $path, true)];
+        }
+        return new self($out);
     }
 
     public function allows(string $path): bool

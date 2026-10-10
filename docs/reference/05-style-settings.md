@@ -139,9 +139,9 @@ In the CSS, the block gets `t-{stem}-reset` — `t-radius-reset`, `md:t-pt-reset
 sets every CSS property that setting writes to `revert-layer`, handing the property back to
 `@layer theme` from that breakpoint up.
 
-Six settings have an empty reset rule, and nothing to revert. **Border sides** and **Background
-opacity** modify what another setting declares and share its CSS properties, so reverting would
-undo that setting too; **Entrance**, **Repeat** and **Stagger children** carry no declaration of
+Some settings have an empty reset rule, and nothing to revert. **Border sides**, **Rounded
+corners** and **Background opacity** modify what another setting declares and share its CSS
+properties, so reverting would undo that setting too; **Entrance**, **Repeat** and **Stagger children** carry no declaration of
 their own on the element. Their reset still stops resolution.
 
 **Clear**, beside it, is different: it removes the declaration entirely and lets whatever is
@@ -267,13 +267,20 @@ are the `backdrop` group, which a block type opts into separately from `colors`.
 |---|---|---|---|---|
 | Shadow | `shadow` | yes | `t-shadow-{name}` | `box-shadow: var(--t-shadow-{name})` |
 | Corners | `radius` | no | `t-radius-{name}` | `border-radius: var(--t-radius-{name})` |
+| Rounded corners | `corners` | no | `t-corners-{value}` | `all` declares nothing; a set (`tl-bl`) sets `border-{corner}-radius: 0` on the corners not in it |
 | Border width | `border.width` | no | `t-bw-{value}` | `border-width:` `none` 0, `thin` 1px, `thick` 2px |
 | Border style | `border.style` | no | `t-bs-{solid,dashed}` | `border-style: solid` / `dashed` |
-| Border sides | `border.sides` | no | `t-bsides-{value}` | `all` declares nothing; a side sets `border-{other}-width: 0` on the other three |
+| Border sides | `border.sides` | no | `t-bsides-{value}` | `all` declares nothing; a set (`top-bottom`) sets `border-{side}-width: 0` on the sides not in it |
 | Opacity | `opacity` | no | `t-opacity-{100,90,80,70,60,50}` | `opacity: 1` … `0.5` |
 
-Border sides is the last property in the contract's table, so its rule follows the width's: at
-equal specificity the later rule takes three of the four sides away.
+Border sides and Rounded corners each name any set of sides or corners: `all`, or one, two or
+three of them, joined by `-` in clockwise order — sides `top`, `right`, `bottom`, `left`; corners
+`tl`, `tr`, `br`, `bl`. So `left`, `top-bottom` and `tl-bl` (both left corners) are values. In the
+Style tab they are toggles, every one on until set; the last one on cannot be turned off (no border
+is Border width None, square corners are Corners None). Both follow the setting they modify in the
+contract's table, so at equal specificity their rule wins. Rounded corners exists wherever Corners
+does: a block type that declares `radius` offers `corners` with it, on the same element, and
+`corners` cannot be declared alone.
 
 Opacity fades the whole element, text and icon included. Background opacity, in Colours, fades
 only the background.

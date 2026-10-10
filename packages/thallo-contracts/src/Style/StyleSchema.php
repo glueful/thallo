@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 17;
+    public const VERSION = 18;
 
     /**
      * Paths that were once properties and are no longer. A stored value at one is dropped when a
@@ -32,6 +32,17 @@ final class StyleSchema
         'hover.colors.border' => 'colors.border',
         'hover.opacity' => 'opacity',
     ];
+
+    /**
+     * Companion path => the path it modifies (its anchor). A companion exists exactly where its
+     * anchor does: declaring the anchor offers it, it lands on the anchor's target, and declared
+     * alone it is nothing (StyleCapabilities, StyleTargets). Which corners the Corners size rounds.
+     */
+    public const ANCHORED = ['corners' => 'radius'];
+
+    /** The sides a border is drawn on, and the corners a radius rounds, clockwise from the top. */
+    public const SIDES = ['top', 'right', 'bottom', 'left'];
+    public const CORNERS = ['tl', 'tr', 'br', 'bl'];
 
     /** Platform breakpoints: `md` from 768px, `lg` from 1024px. */
     public const BREAKPOINTS = ['base', 'md', 'lg'];
@@ -149,9 +160,12 @@ final class StyleSchema
         // Which sides the border is drawn on. In the `border` group, so a block that declares a
         // border has it; last in the table, because its utility must follow the width's (it takes
         // three of the width's four sides away, at equal specificity).
-        $defs[] = new PropertyDefinition('border.sides', 'border', $choice, false, null, [
-            'all', 'top', 'right', 'bottom', 'left',
-        ]);
+        // Any set of them (settings version 18): `all`, or one, two or three named clockwise.
+        $defs[] = new PropertyDefinition('border.sides', 'border', $choice, false, null, self::sets(self::SIDES));
+        // Settings version 18: which corners the Corners size rounds, the others square. In the
+        // `radius` group and anchored to `radius` (ANCHORED), so wherever Corners is, so is this;
+        // after it in the table, because its utility must follow the radius's.
+        $defs[] = new PropertyDefinition('corners', 'radius', $choice, false, null, self::sets(self::CORNERS));
 
         // The backdrop pair, a group of its own that a block or region opts into: how much of the
         // background colour shows (a percentage; the rest is see-through), and how much of what
@@ -287,6 +301,52 @@ final class StyleSchema
             ['start', 'center', 'end'],
         );
         return self::$properties = $byPath;
+    }
+
+    /**
+     * `all`, then every proper non-empty subset of `$members` — the singles first, then the pairs,
+     * then the threes — each its members in `$members`' order joined by `-`. So the old single
+     * values keep their names, and a set has exactly one.
+     *
+     * @param list<string> $members
+     * @return list<string>
+     */
+    public static function sets(array $members): array
+    {
+        $bySize = [];
+        $count = count($members);
+        for ($mask = 1; $mask < (1 << $count) - 1; $mask++) {
+            $set = [];
+            foreach ($members as $i => $member) {
+                if ($mask & (1 << $i)) {
+                    $set[] = $member;
+                }
+            }
+            $bySize[count($set)][] = $set;
+        }
+        ksort($bySize);
+        $out = ['all'];
+        foreach ($bySize as $sets) {
+            usort($sets, static function (array $a, array $b) use ($members): int {
+                foreach ($a as $i => $member) {
+                    $order = array_search($member, $members, true) <=> array_search($b[$i], $members, true);
+                    if ($order !== 0) {
+                        return $order;
+                    }
+                }
+                return 0;
+            });
+            foreach ($sets as $set) {
+                $out[] = implode('-', $set);
+            }
+        }
+        return $out;
+    }
+
+    /** The path a companion modifies (ANCHORED), or null for any other path. */
+    public static function anchorOf(string $path): ?string
+    {
+        return self::ANCHORED[$path] ?? null;
     }
 
     /** The resting path a hover path changes, or null for any other path. */

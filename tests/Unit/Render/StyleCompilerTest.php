@@ -392,6 +392,29 @@ final class StyleCompilerTest extends TestCase
         self::assertStringContainsString(".t-bsides-all { }\n", $css);
         self::assertStringContainsString(".t-bsides-reset { }\n", $css);
         self::assertGreaterThan(strpos($css, '.t-bw-thin {'), strpos($css, '.t-bsides-bottom {'));
+        // Any set of sides: two or three, the rest taken away.
+        self::assertStringContainsString('.t-bsides-top-bottom { border-right-width: 0; border-left-width: 0; }', $css);
+        self::assertStringContainsString('.t-bsides-top-right-left { border-bottom-width: 0; }', $css);
+    }
+
+    public function testCornersRoundOnlyTheChosenCorners(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+
+        // The Corners size rounds all four; this takes the others back to square. After the radius
+        // utilities, so at equal specificity it wins; `all` and a reset change nothing.
+        self::assertStringContainsString(
+            '.t-corners-tl-bl { border-top-right-radius: 0; border-bottom-right-radius: 0; }',
+            $css,
+        );
+        self::assertStringContainsString(
+            '.t-corners-tr { border-top-left-radius: 0; border-bottom-right-radius: 0; border-bottom-left-radius: 0; }',
+            $css,
+        );
+        self::assertStringContainsString('.t-corners-tl-tr-br { border-bottom-left-radius: 0; }', $css);
+        self::assertStringContainsString(".t-corners-all { }\n", $css);
+        self::assertStringContainsString(".t-corners-reset { }\n", $css);
+        self::assertGreaterThan(strpos($css, '.t-radius-lg {'), strpos($css, '.t-corners-tl-bl {'));
     }
 
     public function testSurfaceOpacityMixesTheChosenColourOrTheThemesOwn(): void

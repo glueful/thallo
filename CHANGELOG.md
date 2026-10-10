@@ -21,6 +21,14 @@ as the next release, never a mutated tag.
   (`{"field": …, "equals": …}`), and the Style tab shows its section only while that content field has
   that value. `thallo:provision` adds it to an existing site.
 
+- **Round only some corners, and draw a border on any set of sides**: a **Rounded corners** setting
+  beside Corners rounds the corners you choose (top left, top right, bottom right, bottom left, in any
+  combination) and leaves the others square. **Border sides** now takes any set of sides instead of
+  one. Both are toggles in the Style tab, every one on until you turn some off. Every block, part and
+  region that has Corners has Rounded corners. Stored, each is one value naming the set (`corners`:
+  `tl-bl`; `border.sides`: `top-bottom`); the old single sides keep their names, so existing pages
+  render as before. Settings version 18; StyleCompiler 27.
+
 ### Fixed
 - **A linked Heading's underline no longer stays after a tap on a phone**, and the stage's Hover preview
   now shows it.

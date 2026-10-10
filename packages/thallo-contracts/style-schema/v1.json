@@ -1,5 +1,5 @@
 {
-    "version": 17,
+    "version": 18,
     "properties": [
         {
             "path": "spacing.padding.top",
@@ -553,7 +553,44 @@
                 "top",
                 "right",
                 "bottom",
-                "left"
+                "left",
+                "top-right",
+                "top-bottom",
+                "top-left",
+                "right-bottom",
+                "right-left",
+                "bottom-left",
+                "top-right-bottom",
+                "top-right-left",
+                "top-bottom-left",
+                "right-bottom-left"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "corners",
+            "group": "radius",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "all",
+                "tl",
+                "tr",
+                "br",
+                "bl",
+                "tl-tr",
+                "tl-br",
+                "tl-bl",
+                "tr-br",
+                "tr-bl",
+                "br-bl",
+                "tl-tr-br",
+                "tl-tr-bl",
+                "tl-br-bl",
+                "tr-br-bl"
             ],
             "kinds": [
                 "choice",

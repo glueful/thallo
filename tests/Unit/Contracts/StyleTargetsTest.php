@@ -32,6 +32,22 @@ final class StyleTargetsTest extends TestCase
         ]);
     }
 
+    public function testCornersLandsWhereCornersSizeLands(): void
+    {
+        // Which corners are rounded travels with the radius it modifies: a Button's is the control's.
+        self::assertSame('control', $this->button()->targetFor('corners'));
+        $box = StyleTargets::fromDeclaration(StyleTargets::root('box', ['spacing', 'radius']));
+        self::assertSame('root', $box->targetFor('corners'));
+        $none = StyleTargets::fromDeclaration(StyleTargets::root('box', ['spacing']));
+        self::assertNull($none->targetFor('corners'));
+        // Mapped on its own, it is an error, as a hover path away from its resting path is.
+        $this->expectException(\InvalidArgumentException::class);
+        StyleTargets::fromDeclaration([
+            'targets' => ['root' => ['kind' => 'box'], 'frame' => ['kind' => 'box']],
+            'map' => ['radius' => 'root', 'corners' => 'frame'],
+        ]);
+    }
+
     public function testTargetsExposeKindsOptionalityAndOwnership(): void
     {
         $t = $this->button();
@@ -191,7 +207,7 @@ final class StyleTargetsTest extends TestCase
             'map' => ['spacing' => 'root', 'radius' => 'media', 'shadow' => 'media'],
         ]);
         self::assertTrue($hero->optional('media'));
-        self::assertSame(['shadow', 'radius'], $hero->stylePathsFor('media'), 'table order');
+        self::assertSame(['shadow', 'radius', 'corners'], $hero->stylePathsFor('media'), 'table order');
     }
 
     public function testRootDeclaresOneNonOptionalRootOwningTheCapabilitiesAndTheAuthorsAdvancedPaths(): void

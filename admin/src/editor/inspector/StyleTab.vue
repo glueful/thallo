@@ -149,6 +149,7 @@ const LABELS: Record<string, string> = {
   'border.width': 'Border width',
   'border.style': 'Border style',
   'border.sides': 'Border sides',
+  corners: 'Rounded corners',
   'motion.entrance': 'Entrance',
   'motion.duration': 'Duration',
   'motion.delay': 'Delay',
