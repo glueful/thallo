@@ -15,6 +15,11 @@ as the next release, never a mutated tag.
   only while the block has a link. Because a Rich text block takes focus through the link that covers
   it, each hover utility also shows while a block's covering link (`.thallo-block-link`) has keyboard
   focus. `thallo:provision` adds the settings to an existing site.
+- **A Feature's number badge has its own lettering**: a **Number** section in the Style tab sets the
+  badge's Typeface, Font style, Weight and Transform. It shows only while the marker is a number, and
+  the badge's size stays the marker's Size. A style part can now declare `when`
+  (`{"field": …, "equals": …}`), and the Style tab shows its section only while that content field has
+  that value. `thallo:provision` adds it to an existing site.
 
 ### Fixed
 - **A linked Heading's underline no longer stays after a tap on a phone**, and the stage's Hover preview

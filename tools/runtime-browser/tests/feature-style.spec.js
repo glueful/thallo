@@ -1,7 +1,8 @@
 // A Feature's Style settings as a browser draws them (scripts/build-text-style-fixtures): the space
 // between the marker and the text is one setting beside and above it (and the untouched spacing is
 // what it was); the marker's size, colour and background beat the Marker content fields; a marker
-// background gets the chip's padding; the description takes its own size and space above it.
+// background gets the chip's padding; the description takes its own size and space above it; a number
+// badge takes its Number section's typeface, style, weight and transform.
 'use strict';
 
 const { test, expect } = require('@playwright/test');
@@ -102,4 +103,21 @@ test('Align icon Center puts the icon on the middle of the text', async ({ page 
 test('Align icon End puts the icon level with the bottom of the text', async ({ page }) => {
   const b = await boxes(aligned(page, 'end'));
   expect(Math.abs(b.icon.bottom - b.body.bottom)).toBeLessThanOrEqual(1);
+});
+
+const numbered = (page, i) =>
+  page.locator('main .thallo-block-feature').nth(IDS.length + 3 + i).locator('.thallo-block-feature__marker');
+
+test("a number badge takes its Number section's typeface, style, weight and transform", async ({ page }) => {
+  const lettering = (loc) =>
+    loc.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { family: cs.fontFamily, style: cs.fontStyle, weight: cs.fontWeight, transform: cs.textTransform };
+    });
+  const [plain, styled] = [await lettering(numbered(page, 0)), await lettering(numbered(page, 1))];
+  expect(styled.style).toBe('italic');
+  expect(styled.weight).toBe('700');
+  expect(styled.transform).toBe('uppercase');
+  expect(styled.family).not.toBe(plain.family);
+  expect(plain).toMatchObject({ style: 'normal', transform: 'none' });
 });

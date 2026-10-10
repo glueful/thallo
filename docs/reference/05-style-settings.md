@@ -382,6 +382,11 @@ the top of the text.
 The description is the Feature's **Description** part: its own Typography, Text colour, and the
 space above it (Margin top). The block's Typography is the title's.
 
+A number badge's lettering is the Feature's **Number** part: Typeface, Font style, Weight and
+Transform. The Style tab shows it only while the marker is a number. Its size is the marker's Size.
+A part declares this with `when` (`{"field": "marker", "equals": "number"}`): the section is shown
+only while that content field has that value.
+
 ### Tabs
 
 The Tabs block's strip, beside the panels area, which the block's own Corners setting governs.
