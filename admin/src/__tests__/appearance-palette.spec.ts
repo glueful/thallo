@@ -56,7 +56,12 @@ vi.mock('@/queries/templates', () => ({
 // record the call and move the route, as the router would.
 const nav = await vi.hoisted(async () => {
   const { reactive } = await import('vue')
-  const route = reactive({ path: '/appearance', params: {}, query: {} as Record<string, string> })
+  const route = reactive({
+    path: '/appearance',
+    params: {},
+    query: {} as Record<string, string>,
+    hash: '',
+  })
   const pushed = vi.fn()
   const replaced = vi.fn()
   const go = (to: { query: Record<string, string> }) => {
@@ -771,5 +776,13 @@ describe('Appearance › Theme colors › palette', () => {
     const list = sentList(await savedPayload(w))
     expect(list.base).toBe(4)
     expect(list.colors.map((c) => c.id)).toEqual([4, 1, 8])
+  })
+
+  it('a half-filled new row marks the Colours tab as unsaved', async () => {
+    const w = await mountAppearance({ theme_brand_colors: STORED }, { schemaPalette: GOLD_ROSE })
+    await w.find('[data-test="brand-add"]').trigger('click')
+    await lastName(w).setValue('Sky') // no colour yet: Save would not send it
+    await flushPromises()
+    expect(w.find('[data-test="appearance-tab-dirty-colours"]').exists()).toBe(true)
   })
 })

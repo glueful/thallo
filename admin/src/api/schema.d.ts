@@ -6327,7 +6327,7 @@ export interface operations {
           }
         }
       }
-      /** @description In use (`usage`), or part of a running replacement (`conflict`). */
+      /** @description In use (`usage`), part of a running replacement (`conflict`), or already cleared (`conflict`). */
       409: {
         headers: {
           [name: string]: unknown

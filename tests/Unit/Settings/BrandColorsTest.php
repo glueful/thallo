@@ -44,7 +44,8 @@ final class BrandColorsTest extends TestCase
         );
         self::assertSame([1], array_keys($colors));
         self::assertSame('Gold', $colors[1]->name);
-        self::assertSame([5 => 'Teal'], $removed);
+        // the entries that no longer parse keep their ids reserved (an id was issued for them)
+        self::assertSame([5 => 'Teal', 2 => 'Brand 2', 4 => 'Brand 4'], $removed);
         self::assertSame([[], [], 0], BrandColors::parse('not json'));
         self::assertSame([[], [], 0], BrandColors::parse(''));
     }
@@ -210,5 +211,16 @@ final class BrandColorsTest extends TestCase
         foreach ($bads as $bad) {
             self::assertNull(PaletteSettings::parseSubmitted($bad), $bad);
         }
+    }
+
+    public function testAStoredEntryThatNoLongerParsesKeepsItsIdReserved(): void
+    {
+        // Hand-edited: it reads as unset, but its id was issued — it is never given to another colour.
+        [$colors, $removed] = BrandColors::parse(
+            '{"colors":[{"id":1,"name":"Gold","hex":"#8a6a2a"},{"id":5,"hex":"nope"}],"removed":[]}',
+        );
+        self::assertSame([1], array_keys($colors));
+        self::assertSame([5 => 'Brand 5'], $removed);
+        self::assertSame(5, (new Palette(null, null, $colors, $removed))->highestIssued());
     }
 }

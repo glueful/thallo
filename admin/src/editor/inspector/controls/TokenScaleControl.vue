@@ -11,21 +11,26 @@ import { contrast } from '@/style/contrast'
 import type { StyleSchemaResult } from '@/queries/styleSchema'
 import TokenSwatchButton from './TokenSwatchButton.vue'
 
-const props = defineProps<{
-  /** The vocabulary domain, e.g. `spacing`. */
-  domain: string
-  /** The domain's names in ordinal order. */
-  names: string[]
-  /** Token name (`spacing.lg`) => the theme's CSS value, for the preview title. */
-  values: Record<string, string>
-  /** The selected token name (`spacing.lg`), or null when none is set. */
-  modelValue: string | null
-  disabled?: boolean
-  /** The site's palette (the style schema's): swatches, labels and brand slot states. */
-  palette?: StyleSchemaResult['palette']
-  /** The block sits in a Style block that re-skins accent or neutral: swatches show the site's. */
-  scopedSkin?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    /** The vocabulary domain, e.g. `spacing`. */
+    domain: string
+    /** The domain's names in ordinal order. */
+    names: string[]
+    /** Token name (`spacing.lg`) => the theme's CSS value, for the preview title. */
+    values: Record<string, string>
+    /** The selected token name (`spacing.lg`), or null when none is set. */
+    modelValue: string | null
+    disabled?: boolean
+    /** The site's palette (the style schema's): swatches, labels and brand slot states. */
+    palette?: StyleSchemaResult['palette']
+    /** The block sits in a Style block that re-skins accent or neutral: swatches show the site's. */
+    scopedSkin?: boolean
+    /** Offer the Manage brand colours link (default); off where the picker already sits in Appearance. */
+    manageLink?: boolean
+  }>(),
+  { manageLink: true },
+)
 const emit = defineEmits<{ 'update:modelValue': [value: string]; clear: [] }>()
 
 const items = computed(() =>
@@ -60,7 +65,7 @@ const brandItems = computed(() =>
   visible.value.filter((i) => slotOf(i.token) !== null && !isText(i.token)),
 )
 const brandTexts = computed(() => visible.value.filter((i) => isText(i.token)))
-const canManage = computed(() => props.palette?.can_manage === true)
+const canManage = computed(() => props.palette?.can_manage === true && props.manageLink)
 /** The group shows while brand colours are on and there is a colour to offer or a manager to add one. */
 const showBrandGroup = computed(
   () =>

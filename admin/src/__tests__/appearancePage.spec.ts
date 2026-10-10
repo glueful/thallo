@@ -40,7 +40,12 @@ vi.mock('@/queries/templates', () => ({
 // record the call and move the route, as the router would.
 const nav = await vi.hoisted(async () => {
   const { reactive } = await import('vue')
-  const route = reactive({ path: '/appearance', params: {}, query: {} as Record<string, string> })
+  const route = reactive({
+    path: '/appearance',
+    params: {},
+    query: {} as Record<string, string>,
+    hash: '',
+  })
   const pushed = vi.fn()
   const replaced = vi.fn()
   const go = (to: { query: Record<string, string> }) => {
@@ -685,7 +690,8 @@ describe('appearance tabs', () => {
     await wrapper.find('[data-test="stub-logo-pick"]').trigger('click')
     await flushPromises()
     const dot = wrapper.get('[data-test="appearance-tab-dirty-logos"]')
-    expect(dot.text()).toBe('Logos & site icon — unsaved changes')
+    // The tab's own label already names it: the dot adds only what it means.
+    expect(dot.text()).toBe('unsaved changes')
     expect(wrapper.find('[data-test="appearance-tab-dirty-colours"]').exists()).toBe(false)
 
     await openTab(wrapper, 'Colours')
@@ -730,9 +736,7 @@ describe('appearance tabs', () => {
     await wrapper.get('[data-test="appearance-save"]').trigger('click')
     await flushPromises()
     expect(shown(wrapper, 'colours')).toBe(true)
-    expect(wrapper.get('[data-test="appearance-tab-error-colours"]').text()).toBe(
-      'Colours — has errors',
-    )
+    expect(wrapper.get('[data-test="appearance-tab-error-colours"]').text()).toBe('has errors')
     expect(wrapper.find('[data-test="appearance-tab-error-logos"]').exists()).toBe(true)
     expect(notify.error).toHaveBeenCalled()
 
@@ -751,5 +755,68 @@ describe('appearance tabs', () => {
     await wrapper.get('[data-test="appearance-save"]').trigger('click')
     await flushPromises()
     expect(shown(wrapper, 'design')).toBe(true)
+  })
+
+  it('clears the dots as soon as a save succeeds, before the settings are read again', async () => {
+    const wrapper = mount(AppearancePage)
+    await flushPromises()
+    await openTab(wrapper, 'Logos')
+    await wrapper.find('[data-test="stub-logo-pick"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="appearance-tab-dirty-logos"]').exists()).toBe(true)
+    // The save answers with what it stored; the query keeps its old value (no refetch yet).
+    saveMock.mockReset().mockResolvedValue({ ...settings(), site_logo: 'blob00000042' })
+    await save(wrapper)
+    expect(wrapper.find('[data-test^="appearance-tab-dirty-"]').exists()).toBe(false)
+  })
+
+  it('the arrow keys move focus between tabs without opening one', async () => {
+    const wrapper = mount(AppearancePage, { attachTo: document.body })
+    await flushPromises()
+    ;(tabButton(wrapper, 'Theme').element as HTMLElement).focus()
+    await tabButton(wrapper, 'Theme').trigger('keydown', { key: 'ArrowRight' })
+    await flushPromises()
+    expect(document.activeElement).toBe(tabButton(wrapper, 'Colours').element)
+    expect(shown(wrapper, 'theme')).toBe(true)
+    expect(routerPush).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('each tab keeps its own scroll position', async () => {
+    const wrapper = mount(AppearancePage, { attachTo: document.body })
+    await flushPromises()
+    const body = wrapper.get('[data-slot="body"]').element as HTMLElement
+    body.scrollTop = 300
+    await openTab(wrapper, 'Logos')
+    expect(body.scrollTop).toBe(0)
+    body.scrollTop = 40
+    await openTab(wrapper, 'Theme')
+    expect(body.scrollTop).toBe(300)
+    wrapper.unmount()
+  })
+
+  it('a link to a card on a tab scrolls to it', async () => {
+    const scrolled = vi.spyOn(HTMLElement.prototype, 'scrollIntoView')
+    routeState.query = { tab: 'typefaces' }
+    routeState.hash = '#typefaces'
+    const wrapper = mount(AppearancePage, { attachTo: document.body })
+    await flushPromises()
+    expect(scrolled).toHaveBeenCalled()
+    expect((scrolled.mock.contexts[0] as HTMLElement).id).toBe('typefaces')
+    routeState.hash = ''
+    scrolled.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('a hidden tab in the address is corrected to the default, without a history entry', async () => {
+    fetchRenderThemesMock
+      .mockReset()
+      .mockResolvedValue({ themes: [], active: 'default', cards: [] })
+    routeState.query = { tab: 'theme' }
+    const wrapper = mount(AppearancePage)
+    await flushPromises()
+    expect(shown(wrapper, 'colours')).toBe(true)
+    expect(routerReplace).toHaveBeenCalledWith({ query: {} })
+    expect(routerPush).not.toHaveBeenCalled()
   })
 })

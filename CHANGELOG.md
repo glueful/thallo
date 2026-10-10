@@ -37,10 +37,10 @@ as the next release, never a mutated tag.
   history asks to be reloaded.
 - **Clearing a brand colour checks where it is used**: `DELETE /v1/admin/appearance/palette/brand/{id}`
   clears it only when no draft, current publication, region, layout, saved section or style class
-  names it (409 with the usage otherwise; historical versions never block); a cleared colour keeps its
-  name, so a page still naming it can say which colour it was. While a replacement runs, the colour it
-  replaces cannot be renamed, re-coloured or cleared and the colours it writes to cannot be cleared
-  (409). `POST /v1/admin/appearance/palette/preview` returns the contrast checks for unsaved
+  names it (409 with the usage otherwise, and 409 when it is already cleared; historical versions
+  never block); a cleared colour keeps its name, so a page still naming it can say which colour it
+  was. While a replacement runs, the colour it replaces cannot be renamed, re-coloured or cleared and
+  the colours it writes to cannot be cleared (409). `POST /v1/admin/appearance/palette/preview` returns the contrast checks for unsaved
   palette values. Palette changes take the palette row, so they never interleave with a save.
 - **Replace a brand colour**: `POST /v1/admin/appearance/palette/brand/{id}/replace` starts a job that
   rewrites every current document naming the colour — drafts, current publications (as new versions,

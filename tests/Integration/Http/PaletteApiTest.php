@@ -82,10 +82,13 @@ final class PaletteApiTest extends AppTestCase
         self::assertSame(200, $this->paletteController()->clear(12)->getStatusCode());
         $palette = $this->container()->get(\Thallo\Core\Settings\PaletteSettings::class)->palette();
         self::assertTrue($palette->isRemoved(12));
-        // never issued: already clear
-        $never = $this->paletteController()->clear(7);
-        self::assertSame(200, $never->getStatusCode());
-        self::assertNull(self::data($never)['brand_colors']);
+        // never issued, or cleared already (by someone else): nothing to clear — a conflict that
+        // says so, never a "cleared" the page would take as its own
+        foreach ([7, 12] as $id) {
+            $gone = $this->paletteController()->clear($id);
+            self::assertSame(409, $gone->getStatusCode(), (string) $id);
+            self::assertStringContainsString('already cleared', (string) self::details($gone)['conflict']);
+        }
         // the route takes 1–9999 only
         $outside = ['/v1/admin/appearance/palette/brand/0/usage', '/v1/admin/appearance/palette/brand/10000/usage'];
         foreach ($outside as $path) {

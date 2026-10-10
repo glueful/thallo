@@ -163,6 +163,8 @@ describe('Clear brand dialog', () => {
     }
     expect(q('[data-test="replace-to"] [data-test="token-color.accent"]')).not.toBeNull()
     expect(q('[data-test="replace-to"] [data-test="token-color.brand-12"]')).not.toBeNull()
+    // already in Appearance: no link to it
+    expect(q('[data-test="manage-brand-colours"]')).toBeNull()
   })
 
   it('requires a text colour for a destination with no pair when text on the slot exists, with both-mode ratios', async () => {

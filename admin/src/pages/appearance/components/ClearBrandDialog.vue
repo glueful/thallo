@@ -190,6 +190,7 @@ function onReplace(): void {
             <UFormField :label="`Replace ${name} with…`">
               <div data-test="replace-to">
                 <TokenScaleControl
+                  :manage-link="false"
                   domain="color"
                   :names="destinations"
                   :values="{}"
@@ -202,6 +203,7 @@ function onReplace(): void {
             <UFormField v-if="needsContrast" :label="`Text on ${name} becomes…`" required>
               <div data-test="contrast-to">
                 <TokenScaleControl
+                  :manage-link="false"
                   domain="color"
                   :names="destinations"
                   :values="{}"

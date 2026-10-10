@@ -3,7 +3,7 @@
 // site icon (appearance tabs spec). These are general settings and share that endpoint with
 // Settings › General, which owns how the site behaves; each page edits and saves only its own keys
 // (useSettingsForm), and one Save saves every tab.
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQueryCache } from '@pinia/colada'
 import { useGeneralSettings, useGeneralSettingsMutations } from '@/queries/generalSettings'
@@ -409,13 +409,60 @@ const tabItems = computed(() =>
 )
 
 /** The keys Save would send that differ from what is stored: each one's tab shows a dot. */
+/** What the last successful save stored, until the settings are read again: the dots' reference. */
+const savedSettings = ref<Record<string, unknown> | null>(null)
+watch(data, () => {
+  savedSettings.value = null
+})
 const dirtyTabs = computed(() => {
-  const stored = (data.value ?? {}) as Record<string, unknown>
+  const stored = (savedSettings.value ?? data.value ?? {}) as Record<string, unknown>
   const out = savePayload()
-  return tabsHolding(
+  const tabs = tabsHolding(
     Object.keys(out).filter((key) => String(out[key] ?? '') !== String(stored[key] ?? '')),
   )
+  // A brand colour row Save would not send yet (a name with no colour) is still unsaved work.
+  if (!matches(brandRows.value, editBase.value)) tabs.add('colours')
+  return tabs
 })
+
+// Each tab keeps its own scroll position in the panel's scrolling body; a new tab starts at the top.
+const tabsColumn = ref<HTMLElement | null>(null)
+const scrollOf = new Map<AppearanceTab, number>()
+watch(tab, async (next, previous) => {
+  const body = tabsColumn.value?.closest<HTMLElement>('[data-slot="body"]')
+  if (!body) return
+  scrollOf.set(previous, body.scrollTop)
+  await nextTick()
+  body.scrollTop = scrollOf.get(next) ?? 0
+})
+
+// A link to a card on a tab (`/appearance?tab=typefaces#typefaces`) scrolls to it once it shows.
+let scrolledTo = ''
+watch(
+  () => [route.hash, tab.value, themesLoaded.value] as const,
+  async ([hash]) => {
+    if (!hash || hash === scrolledTo) return
+    await nextTick()
+    const target = document.getElementById(decodeURIComponent(hash.slice(1)))
+    if (!target || target.closest('[hidden]')) return
+    scrolledTo = hash
+    target.scrollIntoView({ block: 'start' })
+  },
+  { immediate: true },
+)
+
+// An address naming a tab that is not there (a hidden Theme, an unknown name) is corrected to what
+// the page shows — a correction, not a history entry.
+watch(
+  () => [themesLoaded.value, route.query.tab, tab.value] as const,
+  ([loaded, queried, shown]) => {
+    if (!loaded || queried === undefined || queried === shown) return
+    const query = { ...route.query }
+    if (shown === tabs.value[0]) delete query.tab
+    else query.tab = shown
+    void router.replace({ query })
+  },
+)
 /** The tabs holding a field the last refused save named; cleared when the next save starts. */
 const errorTabs = ref(new Set<AppearanceTab>())
 
@@ -434,6 +481,7 @@ async function onSave() {
   const brands = submission(brandRows.value, storedBrands.value)
   try {
     const result = await save.mutateAsync(savePayload())
+    savedSettings.value = result as unknown as Record<string, unknown>
     if (brands !== null) {
       // The list this save committed (the server captures it in the save's transaction, plan ruling
       // 13): the new rows take its ids, in the rows as they are now and in what was sent, so
@@ -493,8 +541,8 @@ async function onSave() {
         </div>
         <!-- The settings in tabs on the left; the homepage wearing them on the right, pinned while
              the cards scroll, whichever tab is open. Below xl the preview comes first, full width. -->
-        <div v-else class="grid gap-6 xl:grid-cols-[minmax(0,30rem)_minmax(0,1fr)]">
-          <div class="order-2 xl:order-1">
+        <div v-else class="grid gap-6 xl:grid-cols-[minmax(0,32rem)_minmax(0,1fr)]">
+          <div ref="tabsColumn" class="order-2 xl:order-1">
             <!-- UTabs' own panels, kept mounted: each is wired to its tab (id / aria-labelledby /
                  aria-controls), hidden with the `hidden` attribute, and nothing unsaved is lost on
                  a switch. -->
@@ -503,11 +551,13 @@ async function onSave() {
               variant="link"
               :items="tabItems"
               :unmount-on-hide="false"
+              activation-mode="manual"
               :ui="{
-                // Whole labels, never truncated: the column is wide enough for all five at xl, and
-                // the strip scrolls sideways where it is not.
-                list: 'mb-4 overflow-x-auto',
-                trigger: 'shrink-0 px-2',
+                // The products page's tabs: whole labels, never truncated — at xl the column holds
+                // all five, unsaved dots and all — and the active tab underlined. (No sideways scroll:
+                // it would clip the underline, which sits a pixel below the strip.)
+                list: 'mb-4',
+                trigger: 'shrink-0',
                 label: 'overflow-visible text-clip',
               }"
               data-test="appearance-tabs"
@@ -517,13 +567,13 @@ async function onSave() {
                   v-if="errorTabs.has(item.value as AppearanceTab)"
                   class="inline-block size-2 rounded-full bg-error"
                   :data-test="`appearance-tab-error-${item.value}`"
-                  ><span class="sr-only">{{ item.label }} — has errors</span></span
+                  ><span class="sr-only">has errors</span></span
                 >
                 <span
                   v-else-if="dirtyTabs.has(item.value as AppearanceTab)"
                   class="inline-block size-2 rounded-full bg-warning"
                   :data-test="`appearance-tab-dirty-${item.value}`"
-                  ><span class="sr-only">{{ item.label }} — unsaved changes</span></span
+                  ><span class="sr-only">unsaved changes</span></span
                 >
               </template>
 

@@ -37,7 +37,7 @@ export function tabFromQuery(value: unknown, tabs: readonly AppearanceTab[]): Ap
   return tabs.includes(value as AppearanceTab) ? (value as AppearanceTab) : tabs[0]!
 }
 
-/** The tabs holding these fields; a nested name (`theme_brand_2.hex`) counts as its key. */
+/** The tabs holding these fields; a nested name (`theme_brand_colors.colors.1.name`) counts as its key. */
 export function tabsHolding(fields: Iterable<string>): Set<AppearanceTab> {
   const out = new Set<AppearanceTab>()
   for (const field of fields) {

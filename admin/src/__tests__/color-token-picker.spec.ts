@@ -220,4 +220,10 @@ describe('colour token picker', () => {
     expect(sky.text()).toContain('Sky')
     expect(sky.get('[data-test="swatch"]').attributes('style')).toContain('rgb(56, 189, 248)')
   })
+
+  it('leaves the Manage link out where the picker already sits in Appearance', () => {
+    const w = picker({ names: NAMES, palette: listed(), manageLink: false })
+    expect(w.find('[data-test="brand-group"]').exists()).toBe(true)
+    expect(w.find('[data-test="manage-brand-colours"]').exists()).toBe(false)
+  })
 })
