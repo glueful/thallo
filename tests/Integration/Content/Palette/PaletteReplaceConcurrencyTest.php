@@ -154,6 +154,11 @@ final class PaletteReplaceConcurrencyTest extends AppTestCase
         $this->service()->resume($job);
         self::assertSame('completed', $this->runner()->run($job)['status']);
         self::assertSame($versionsBefore + 1, $this->versionCount($published), 'one new publication version in all');
+        self::assertEquals(
+            ['entry_draft' => 4, 'entry_published' => 1],
+            $this->jobs()->find($job)?->counts,
+            'what the failed run rewrote is counted with what the resume rewrote',
+        );
         self::assertCount(1, $fired);
     }
 
@@ -318,5 +323,53 @@ final class PaletteReplaceConcurrencyTest extends AppTestCase
         self::assertFalse($first['in_transaction'], 'after its write committed');
         self::assertSame('color.accent', $this->publishedToken($a));
         self::assertSame('color.brand-1', $this->publishedToken($b));
+    }
+
+    public function testTheHeartbeatKeepsBeatingThroughALongScan(): void
+    {
+        $this->configure(1, 'Gold', '#8a6a2a');
+        $this->draftNaming('color.brand-1');
+        $job = $this->service()->start(1, 'color.accent', null, 'user00000001');
+        $db = $this->connection();
+        $seen = new \ArrayObject();
+        // a site of many documents: the worker is never mistaken for a dead one mid-scan
+        $many = new class ($this->drafts(), $db, $job, $seen) implements BlockDocumentSource {
+            public function __construct(
+                private readonly BlockDocumentSource $inner,
+                private readonly \Glueful\Database\Connection $db,
+                private readonly string $job,
+                private readonly \ArrayObject $seen,
+            ) {
+            }
+
+            public function id(): string
+            {
+                return $this->inner->id();
+            }
+
+            public function each(callable $fn): void
+            {
+                $this->db->table('palette_jobs')->where('id', '=', $this->job)
+                    ->update(['heartbeat_at' => gmdate('Y-m-d H:i:s', time() - 600)]);
+                $schema = \Thallo\Core\Content\Schema\ContentTypeSchema::fromArray(
+                    [['name' => 'body', 'type' => 'blocks']],
+                );
+                for ($i = 0; $i < 250; $i++) {
+                    $fn(new DocumentRef('entry_draft', 'filler' . $i, 'en', '1', $schema, ['body' => []]));
+                }
+                $row = $this->db->table('palette_jobs')->where('id', '=', $this->job)->first();
+                $beat = (string) $row['heartbeat_at'];
+                $this->seen->append(strtotime($beat . ' UTC') > time() - 120);
+                $this->inner->each($fn);
+            }
+
+            public function persist(DocumentRef $ref, array $fields, ?string $actor = null): bool
+            {
+                return $this->inner->persist($ref, $fields, $actor);
+            }
+        };
+        $this->runnerWith($many)->run($job);
+        self::assertNotEmpty($seen->getArrayCopy());
+        self::assertTrue($seen[0], 'beat during the scan, not only before and after');
     }
 }

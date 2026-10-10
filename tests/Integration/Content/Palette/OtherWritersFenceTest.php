@@ -267,14 +267,32 @@ final class OtherWritersFenceTest extends AppTestCase
         self::assertSame($before + 1, $after);
     }
 
-    public function testAnImportedPointerAfterTheSlotWasClearedPinsTheVersionAsARollbackWould(): void
+    public function testAnImportedPointerToAVersionNamingAnUnconfiguredSlotIsRefusedLikeItsDraft(): void
     {
+        // a bundle from a site with other brand colours: the pointer and the draft get the same verdict
         [, $uuid] = $this->publishedAccentEntry();
         $old = $this->retainedVersionNaming($uuid, 'color.brand-1');
+        $before = $this->container()->get(VersionRepository::class)->findPublication($uuid, 'en');
         $this->clear(1);
-        $this->import([self::pointerRecord($uuid, $old)]);
+        $result = $this->import([self::pointerRecord($uuid, $old)]);
+        self::assertSame(1, $result->failedRecords);
+        self::assertSame('palette', $result->errors[0]['code'] ?? null);
         $pinned = $this->container()->get(VersionRepository::class)->findPublication($uuid, 'en');
-        self::assertSame($old, (string) $pinned['version_uuid'], 'the version is its own basis');
+        $unchanged = (string) $before['version_uuid'];
+        self::assertSame($unchanged, (string) $pinned['version_uuid'], 'the publication is unchanged');
+    }
+
+    public function testAnImportedPointerIsTrustedWhereTheCurrentPublicationAlreadyHoldsTheColour(): void
+    {
+        // re-importing a site's own bundle: its live page already names the cleared colour there
+        [, $uuid] = $this->publishedAccentEntry();
+        $old = $this->retainedVersionNaming($uuid, 'color.brand-1');
+        $this->container()->get(VersionRepository::class)->pin($uuid, 'en', $old, 'user00000001');
+        $this->clear(1);
+        $result = $this->import([self::pointerRecord($uuid, $old)]);
+        self::assertSame(0, $result->failedRecords);
+        $pinned = $this->container()->get(VersionRepository::class)->findPublication($uuid, 'en');
+        self::assertSame($old, (string) $pinned['version_uuid']);
     }
 
     public function testAnImportedVersionThatIsTheCurrentPublicationIsNormalisedAndHistoryIsNot(): void

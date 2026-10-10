@@ -2490,6 +2490,8 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
       applyRestore: (fields: Record<string, unknown>) => void | Promise<void>,
     ): Promise<void> => paletteReconciler.restoreFromResponse(res, restoredFields, applyRestore),
     paletteThrough: (): number => paletteLedger.through,
+    /** Read the style schema again: its palette says which brand colours exist now. */
+    refreshStyleSchema: (): Promise<unknown> => refetchStyleSchema(),
     paletteExpired,
     resetPaletteBaseline,
     // the stage

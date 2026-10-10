@@ -93,6 +93,18 @@ trait PaletteReplaceFixtures
         return null;
     }
 
+    /** @return array<string,mixed> the context of a replacement's audit entry */
+    protected function replacedAuditContext(string $job): array
+    {
+        $rows = $this->connection()->table('audit_logs')->where('action', '=', 'palette.brand.replaced')->get();
+        foreach ($rows as $row) {
+            if (str_contains((string) $row['context'], $job)) {
+                return json_decode((string) $row['context'], true) ?: [];
+            }
+        }
+        return [];
+    }
+
     protected function repo(): EntryRepository
     {
         return $this->container()->get(EntryRepository::class);

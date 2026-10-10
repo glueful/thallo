@@ -200,7 +200,7 @@ final class EntryWritersFenceTest extends AppTestCase
             self::fail('a fresh reference to a just-cleared slot is refused');
         } catch (PaletteRefusal $e) {
             self::assertSame(
-                ['head00000001:settings.style.colors.text' => 'Brand 1 is no longer in the palette'],
+                ['head00000001:settings.style.colors.text' => "Brand 1 isn't in the palette"],
                 $e->errors,
             );
         }

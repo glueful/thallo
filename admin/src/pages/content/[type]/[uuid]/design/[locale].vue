@@ -24,6 +24,7 @@ import FieldEditor from '@/components/FieldEditor.vue'
 import SeoPanel from '../components/SeoPanel.vue'
 import VersionsPanel from '../components/VersionsPanel.vue'
 import { restoreOps, restoreVersionThroughServer } from '@/editor/restoreVersion'
+import { handlePaletteRefusal } from '@/editor/paletteRefusal'
 import PaletteExpiredNotice from '@/editor/PaletteExpiredNotice.vue'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { usePublish } from '@/queries/publish'
@@ -443,6 +444,13 @@ async function saveDraftOnly({ quiet = false }: { quiet?: boolean } = {}): Promi
     return true
   } catch (e: unknown) {
     reloadStage() // discard optimistic mirrors — the stage falls back to last-applied truth
+    // A colour the palette no longer has (cleared since this editor last read it): say which block,
+    // select it, and read the palette again so its picker shows the colour as unavailable.
+    if (
+      handlePaletteRefusal(e, { warning, refresh: editor.refreshStyleSchema, select: selectOne })
+    ) {
+      return false
+    }
     // BYTE-MIRROR of the editor's onSave 409 branches.
     if (e instanceof ApiError && e.status === 409) {
       if (apiErrorCode(e) === 'BLOCK_MIGRATION_IN_PROGRESS') {

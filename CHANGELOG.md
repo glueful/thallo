@@ -21,9 +21,10 @@ as the next release, never a mutated tag.
   style naming a brand colour that is not configured renders as if it never set that colour — a style
   class's value or the theme default shows through, and a hover colour leaves the resting colour in
   place. Animated text's colour fields follow the same rule. The palette enters the page cache key.
-- **Restore to draft happens on the server**: the Versions tab names the version and the server
-  restores it (`POST /v1/admin/entries/{uuid}/draft/{locale}/restore`), so a restored brand colour that
-  has since been cleared stays on its block through later saves, undo and redo. Editors adopt the
+- **Restore to draft happens on the server**: the Versions tab names the version, the form asks before
+  it replaces the draft (and any unsaved changes), and the server restores it
+  (`POST /v1/admin/entries/{uuid}/draft/{locale}/restore`), so a restored brand colour that has since
+  been cleared stays on its block through later saves, undo and redo. Editors adopt the
   colours a save's palette normalisation changed without losing an edit in progress, and apply each
   completed brand colour replacement to their undo history once, in order
   (`GET /v1/admin/appearance/palette/replacements`); an editor left open past the 90-day replacement
@@ -41,7 +42,9 @@ as the next release, never a mutated tag.
   `contrast_to`), then clears the slot; history is never rewritten. While it runs, editors saving the
   old colour store the new one. The job is resumable and cancellable
   (`/v1/admin/appearance/palette/jobs`, `…/{id}`, `…/{id}/cancel`, `…/{id}/resume`), runs in the
-  workspace it was started in, and purges each rewritten page as it goes.
+  workspace it was started in, and purges each rewritten page as it goes. Each version it appends is
+  noted in the Versions tab ("Replaced Gold with Accent"), and its audit entry counts what it rewrote
+  in each kind of document, across resumes, and how many older versions still name the colour.
 - **Appearance › Theme colors**: Neutral gains **Custom — your own colours**: six hex colours
   (Background, Surface, Surface 2, Text, Muted, Line), pre-filled from the family you had the first
   time, a **Dark mode base** family (shown when the site has a dark mode) and **Reset to** the family.
@@ -55,7 +58,9 @@ as the next release, never a mutated tag.
   A brand colour that is unset or being replaced is not offered for new choices; a block still naming
   an unset one says **Unavailable colour: Brand N — No colour applied**, with **Choose another** and
   **Clear**, and one being replaced says what it is becoming. Inside a Style block that re-skins accent
-  or neutral, the swatches are marked as the site's.
+  or neutral, the swatches are marked as the site's. A save refused because a colour has left the
+  palette says so, refreshes the pickers and selects the block, in the design view, the header and
+  footer, layouts, the content form and style classes.
 - **Clear asks first**: clearing a brand colour in Appearance checks where it is used. Unused, it clears
   (saying how many older versions still name it). Used, it lists where — pages, header and footer,
   layouts, saved sections, style classes — and offers **Replace with…** a colour the rules allow; when
@@ -72,6 +77,7 @@ as the next release, never a mutated tag.
 - Enabling multi-store tenancy no longer drops the header and footer's settings-schema stamp
   (`regions.schema_stamp`): the table rebuild kept every other column, and anything reading the regions
   as block documents — block migrations, the settings converter, brand colour usage — failed afterwards.
+  A migration puts the column back on installs already retrofitted.
 
 ## [1.0.0-beta.97] - 2026-10-09 — Developer Preview
 

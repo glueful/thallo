@@ -1,3 +1,4 @@
+import { handlePaletteRefusal } from '@/editor/paletteRefusal'
 import { computed, ref } from 'vue'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import type { FieldDef } from '@/fields/types'
@@ -77,7 +78,7 @@ function isRetired(e: unknown): boolean {
 }
 
 export function useLayoutHost(options: { surface: string; target: string }) {
-  const { success, error: notifyError } = useNotify()
+  const { success, warning, error: notifyError } = useNotify()
 
   const schema = computed(() => layoutSchema())
   const initial = ref<Record<string, unknown> | null>(null)
@@ -284,7 +285,13 @@ export function useLayoutHost(options: { surface: string; target: string }) {
       conflict.value = true
     } else if (isRetired(e)) {
       retired.value = true
-    } else {
+    } else if (
+      !handlePaletteRefusal(e, {
+        warning,
+        refresh: editor?.refreshStyleSchema,
+        select: (id) => editor?.selectOne(id),
+      })
+    ) {
       notifyError(e, what)
     }
   }

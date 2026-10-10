@@ -63,6 +63,9 @@ async function onMakeLive(v: VersionRow) {
         <div class="min-w-0">
           <p class="truncate text-sm font-medium text-default">Version {{ v.version ?? v.uuid }}</p>
           <p class="text-xs text-muted">{{ v.created_at ?? '' }}</p>
+          <p v-if="v.note" class="text-xs text-muted" :data-test="`version-note-${v.uuid}`">
+            {{ v.note }}
+          </p>
         </div>
         <div class="flex shrink-0 items-center gap-1.5">
           <UButton

@@ -84,4 +84,36 @@ final class PaletteStateTest extends AppTestCase
         $this->expectException(\LogicException::class);
         $jobs->transition($id, 'cancelled');
     }
+
+    public function testAHoldLostWithItsConnectionIsNotTakenForTheNextTransactions(): void
+    {
+        $db = $this->container()->get(Connection::class);
+        $db->transaction(function () use ($db): void {
+            $this->state()->lock();
+            // a ConnectionLost at commit: the framework drops the release callbacks with the handle
+            $manager = $db->getTransactionManager();
+            foreach (['commitCallbacks', 'rollbackCallbacks'] as $property) {
+                $ref = new \ReflectionProperty($manager, $property);
+                $ref->setValue($manager, []);
+            }
+        });
+        $db->reconnect();
+        $held = $db->transaction(fn (): bool => $this->state()->heldInThisTransaction());
+        self::assertFalse($held, 'a new transaction on a new connection holds nothing');
+    }
+
+    public function testAFinishedJobTakesNoFailureNotes(): void
+    {
+        $db = $this->container()->get(Connection::class);
+        $jobs = $this->container()->get(PaletteJobRepository::class);
+        $id = $db->transaction(function () use ($jobs): string {
+            $this->state()->lock();
+            $id = $jobs->start(1, 'color.accent', 'color.accent-contrast', null, null);
+            $jobs->transition($id, 'cancelled');
+            return $id;
+        });
+        $jobs->recordFailure($id, 'entry_draft', 'e1', 'en', 'a late worker');
+        self::assertSame([], $jobs->find($id)?->failureReport, 'nothing is written to a cancelled job');
+        self::assertSame(0, $jobs->find($id)?->failed);
+    }
 }

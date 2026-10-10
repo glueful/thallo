@@ -58,4 +58,30 @@ final class PaletteReplaceWorkerTest extends AppTestCase
         self::assertCount(1, $rows);
         self::assertStringContainsString($job, (string) $rows[0]['payload']);
     }
+
+    public function testAWorkerSeesABlockTypeInstalledByAnotherProcessAfterItsFirstJob(): void
+    {
+        $this->configure(1, 'Gold', '#8a6a2a');
+        $this->configure(2, 'Rose', '#c98a8a');
+        // the worker's first job fills its block-type memo
+        $this->runner()->run($this->service()->start(2, 'color.accent', null, 'user00000001'));
+        // as the worker read them
+        $this->container()->get(\Thallo\Core\Content\Blocks\BlockTypeRepository::class)->schemasBySlug();
+        // another process installs a block type with a colour content field, and a page uses it
+        (new \Thallo\Core\Content\Blocks\BlockTypeRepository($this->connection()))->create([
+            'slug' => 'pfbadge', 'label' => 'Badge',
+            'schema' => [['name' => 'ink', 'type' => 'token', 'domain' => 'color']],
+        ]);
+        $uuid = $this->draftNaming('color.accent');
+        $this->connection()->table('entry_drafts')->where('entry_uuid', '=', $uuid)->update(['fields' => json_encode([
+            'title' => 'Page',
+            'body' => [['id' => 'badge0000001', 'type' => 'pfbadge',
+                'data' => ['ink' => ['type' => 'token', 'value' => 'color.brand-1']], 'settings' => []]],
+        ])]);
+        $job = $this->service()->start(1, 'color.accent', null, 'user00000001');
+        self::assertSame('completed', $this->runner()->run($job)['status']);
+        $fields = $this->draftFields($uuid);
+        $ink = $fields['body'][0]['data']['ink']['value'];
+        self::assertSame('color.accent', $ink, 'the new type\'s colour was rewritten');
+    }
 }

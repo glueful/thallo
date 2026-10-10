@@ -62,6 +62,13 @@ final class PaletteReplaceTest extends AppTestCase
         self::assertSame('color.accent', $this->animatedTextToken());
         self::assertNull($this->palette()->brand(1), 'cleared');
         self::assertSame(['action' => 'palette.brand.replaced', 'label' => 'Gold'], $this->replacedAudit($job));
+        $context = $this->replacedAuditContext($job);
+        $counts = [
+            'entry_draft' => 2, 'entry_published' => 1, 'region_settings' => 1,
+            'layout_settings' => 1, 'saved_section' => 1, 'style_class' => 1,
+        ];
+        self::assertEquals($counts, array_intersect_key($context['counts'] ?? [], $counts));
+        self::assertSame(1, $context['historical'] ?? null, 'the older version still naming it');
         self::assertSame('completed', $this->jobs()->find($job)?->status);
         self::assertNotNull($this->jobs()->find($job)?->completedGeneration);
     }
@@ -76,6 +83,9 @@ final class PaletteReplaceTest extends AppTestCase
         $new = $this->connection()->table('entry_versions')
             ->where('uuid', '=', $this->publishedVersionUuid($uuid))->first();
         self::assertSame('user00000002', $new['created_by']);
+        self::assertSame('Replaced Gold with Accent', $new['note'], 'authored as the palette operation');
+        $pinned = $this->connection()->table('entry_versions')->where('uuid', '=', $pinnedBefore)->first();
+        self::assertNull($pinned['note']);
     }
 
     public function testRestoringAnOlderVersionAfterReplaceBringsTheUnavailableColourBack(): void

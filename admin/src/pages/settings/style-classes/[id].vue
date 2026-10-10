@@ -12,6 +12,7 @@ import {
 import { useNotify } from '@/composables/useNotify'
 import { createPaletteReconciler, createReplacementLedger } from '@/editor/paletteReplacements'
 import PaletteExpiredNotice from '@/editor/PaletteExpiredNotice.vue'
+import { handlePaletteRefusal } from '@/editor/paletteRefusal'
 import { fetchPaletteReplacements } from '@/queries/paletteReplacements'
 import { useStyleSchema } from '@/queries/styleSchema'
 import StyleClassEditor from './components/StyleClassEditor.vue'
@@ -21,7 +22,7 @@ import StyleClassSaveErrors from './components/StyleClassSaveErrors.vue'
 definePage({ meta: { requiresAuth: true } })
 
 const route = useRoute()
-const { success, error: notifyError } = useNotify()
+const { success, warning, error: notifyError } = useNotify()
 const id = computed(() => String(route.params.id))
 
 const { data: list, status, refetch } = useStyleClasses()
@@ -37,7 +38,7 @@ const loadedVersion = ref(0)
 
 // The palette ledger (custom palette spec §5.3): the form has no op history, so a completed
 // replacement's record maps the style being edited; it starts over only when the form reloads.
-const { data: styleSchema } = useStyleSchema()
+const { data: styleSchema, refetch: refetchStyleSchema } = useStyleSchema()
 const paletteLedger = createReplacementLedger(0)
 const paletteExpired = ref(false)
 const palette = createPaletteReconciler({
@@ -170,6 +171,7 @@ async function onSave() {
     confirming.value = false
     success('Style class saved', 'Published pages pick it up on their next request.')
   } catch (e) {
+    if (handlePaletteRefusal(e, { warning, refresh: refetchStyleSchema })) return
     if (e instanceof ApiError && apiErrorCode(e) === 'STYLE_CLASS_VERSION_CONFLICT') {
       // Someone saved first: the form keeps these edits, the version moves to the current
       // one so the next save applies on top of what they saved.

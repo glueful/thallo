@@ -60,7 +60,7 @@ final class PaletteNormalizerTest extends AppTestCase
             $this->n()->normalize(self::K, self::cls('color.brand-2'), self::snap([]), []);
             self::fail('expected a refusal');
         } catch (PaletteRefusal $e) {
-            self::assertSame(['style.colors.text' => 'Brand 2 is no longer in the palette'], $e->errors);
+            self::assertSame(['style.colors.text' => "Brand 2 isn't in the palette"], $e->errors);
         }
     }
 

@@ -1,3 +1,4 @@
+import { handlePaletteRefusal } from '@/editor/paletteRefusal'
 import { computed, ref, type Ref } from 'vue'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import type { FieldDef } from '@/fields/types'
@@ -92,7 +93,7 @@ const versionsOf = (
 })
 
 export function useRegionHost(options: { regions: Ref<RegionData[] | undefined> }) {
-  const { success, error: notifyError } = useNotify()
+  const { success, warning, error: notifyError } = useNotify()
 
   /** The region the Blocks, Region and Outline tabs work on. */
   const currentRegion = ref<RegionSlug>('header')
@@ -252,7 +253,12 @@ export function useRegionHost(options: { regions: Ref<RegionData[] | undefined> 
       ) {
         conflict.value = true
       } else {
-        notifyError(e, 'Couldn’t save the header and footer')
+        const handled = handlePaletteRefusal(e, {
+          warning,
+          refresh: editor?.refreshStyleSchema,
+          select: (id) => editor?.selectOne(id),
+        })
+        if (!handled) notifyError(e, 'Couldn’t save the header and footer')
       }
       return false
     } finally {

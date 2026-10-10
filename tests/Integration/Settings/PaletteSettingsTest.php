@@ -42,6 +42,26 @@ final class PaletteSettingsTest extends AppTestCase
         self::assertSame('custom', $this->container()->get(GeneralSettings::class)->themeNeutral());
     }
 
+    public function testChoosingCustomWithoutADarkBaseKeepsTheFamilyItCameFrom(): void
+    {
+        self::assertSame(200, $this->save(['theme_neutral' => 'zinc'])->getStatusCode());
+        $res = $this->save(['theme_neutral' => 'custom', 'theme_neutral_custom' => self::SIX]);
+        self::assertSame(200, $res->getStatusCode(), (string) $res->getContent());
+        self::assertSame('zinc', $this->palette()->darkBase, 'dark mode stays the family the site had');
+        // a stored dark base is never overwritten by a later switch
+        $this->save(['theme_neutral' => 'stone']);
+        $this->save(['theme_neutral' => 'custom']);
+        self::assertSame('zinc', $this->palette()->darkBase);
+    }
+
+    public function testARefusedDefaultLocaleLeavesThePaletteUnwritten(): void
+    {
+        $res = $this->save(['theme_brand_1' => '{"name":"Gold","hex":"#8a6a2a"}', 'default_locale' => 'zz']);
+        self::assertSame(422, $res->getStatusCode(), (string) $res->getContent());
+        $this->container()->get(GeneralSettings::class)->clearStoreCache();
+        self::assertNull($this->palette()->brand(1), 'nothing of a refused save is written');
+    }
+
     public function testCustomRequiresAllSixValues(): void
     {
         $res = $this->save(['theme_neutral' => 'custom', 'theme_neutral_custom' => '{"bg":"#fff"}']);

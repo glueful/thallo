@@ -16,7 +16,10 @@ vi.mock('@/queries/blockTypes', async (importOriginal) => ({
 
 const { mintMock, applyMock } = vi.hoisted(() => ({ mintMock: vi.fn(), applyMock: vi.fn() }))
 vi.mock('@/queries/preview', () => ({ mintPreviewData: mintMock, applyPreview: applyMock }))
-vi.mock('@/queries/styleSchema', () => ({ useStyleSchema: () => ({ data: ref(null) }) }))
+const styleRefetch = vi.hoisted(() => vi.fn(() => Promise.resolve()))
+vi.mock('@/queries/styleSchema', () => ({
+  useStyleSchema: () => ({ data: ref(null), refetch: styleRefetch }),
+}))
 const { styleClassList, refetchClasses, classMutations } = vi.hoisted(() => ({
   styleClassList: {
     value: {
@@ -766,6 +769,34 @@ describe('restore to draft', () => {
     await wrapper.find('[data-test="canvas-save"]').trigger('click')
     await flushPromises()
     expect(bodyIds()).toEqual(['blockaaa0001', 'blockbbb0002'])
+    wrapper.unmount()
+  })
+})
+
+describe('a save the palette refuses (custom palette spec §4.5)', () => {
+  it('names the block, selects it and reads the palette again', async () => {
+    applyMock.mockResolvedValue(accepted('e1', 1))
+    const location = 'blockbbb0002:settings.style.colors.text'
+    saveMock.mockRejectedValue(
+      new ApiError(
+        'Validation failed',
+        422,
+        {},
+        {
+          error: { details: { palette: { [location]: "Brand 2 isn't in the palette" } } },
+        },
+      ),
+    )
+    const wrapper = await mountAndSettle()
+    styleRefetch.mockClear()
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    expect(notify.warning).toHaveBeenCalledWith(
+      "A colour isn't in the palette",
+      expect.stringContaining("Brand 2 isn't in the palette"),
+    )
+    expect(styleRefetch).toHaveBeenCalled()
+    expect((wrapper.vm as unknown as { selected: string | null }).selected).toBe('blockbbb0002')
     wrapper.unmount()
   })
 })

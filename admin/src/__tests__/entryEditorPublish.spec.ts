@@ -148,7 +148,7 @@ describe('entry editor: Restore to draft', () => {
     publishMock.mockReset().mockResolvedValue(undefined)
   })
 
-  it('restores the version into the draft on the server, and the form shows it', async () => {
+  it('asks before a version replaces the stored draft, then restores it on the server', async () => {
     restoreDraft.mockReset().mockResolvedValue({
       draft: { fields: { title: 'Original' }, lock_version: 1 },
       palette_generation: 1,
@@ -163,7 +163,11 @@ describe('entry editor: Restore to draft', () => {
       fields: { title: 'Original' },
     })
     await flushPromises()
-    // the version is named by id, with the lock and the palette boundary the form loaded
+    // nothing is replaced until the author says so: drafts keep no history of their own
+    expect(restoreDraft).not.toHaveBeenCalled()
+    expect(document.body.textContent).toContain('Replace your draft with Version 3?')
+    ;(document.querySelector('[data-test="restore-draft-confirm"]') as HTMLElement).click()
+    await flushPromises()
     expect(restoreDraft).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(String),
@@ -172,14 +176,28 @@ describe('entry editor: Restore to draft', () => {
       1,
     )
     expect(notify.success).toHaveBeenCalledWith('Version 3 is in your draft', expect.any(String))
-    expect(publishMock).not.toHaveBeenCalled() // nothing goes live
+    expect(publishMock).not.toHaveBeenCalled()
 
     await wrapper.find('[data-test="navbar-publish"]').trigger('click')
     await flushPromises()
-    // the next save carries the restored fields and the new lock
     expect(saveDraft.mock.calls[0]![0]).toMatchObject({
       fields: { title: 'Original' },
       lock_version: 1,
     })
+  })
+
+  it('cancelling the question leaves the draft and the form as they were', async () => {
+    restoreDraft.mockReset()
+    const wrapper = factory()
+    await flushPromises()
+    wrapper.findComponent({ name: 'VersionsPanel' }).vm.$emit('restore-draft', {
+      uuid: 'ver000000003',
+      version: 3,
+      fields: { title: 'Original' },
+    })
+    await flushPromises()
+    ;(document.querySelector('[data-test="restore-draft-cancel"]') as HTMLElement).click()
+    await flushPromises()
+    expect(restoreDraft).not.toHaveBeenCalled()
   })
 })
