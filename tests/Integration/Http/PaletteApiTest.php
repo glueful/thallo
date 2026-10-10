@@ -117,11 +117,10 @@ final class PaletteApiTest extends AppTestCase
 
     public function testTheGeneralSettingsSaveRefusesRenamingASlotBeingReplaced(): void
     {
-        $this->markTestIncomplete('Task 4: the list save');
         $this->configure(1, 'Gold', '#8a6a2a');
         $this->startJob(1, 'color.accent', 'color.accent-contrast');
         $res = $this->container()->get(GeneralSettingsController::class)
-            ->update(new UpdateGeneralSettingsData(theme_brand_1: '{"name":"New","hex":"#8a6a2a"}'));
+            ->update(new UpdateGeneralSettingsData(theme_brand_colors: $this->brandList([[1, 'New', '#8a6a2a']])));
         self::assertSame(409, $res->getStatusCode(), (string) $res->getContent());
         self::assertSame('Gold', $this->container()->get(\Thallo\Core\Settings\PaletteSettings::class)
             ->palette()->brand(1)?->name);
@@ -138,6 +137,10 @@ final class PaletteApiTest extends AppTestCase
         $ok = $this->paletteController()->clear(2);
         self::assertSame(200, $ok->getStatusCode(), (string) $ok->getContent());
         self::assertSame('unset', self::data($ok)['palette']['slots']['brand-2']['state']);
+        // The list this Clear wrote, captured in its transaction (brand colour list plan ruling 13).
+        [$colors, $removed] = \Thallo\Core\Settings\BrandColors::parse((string) self::data($ok)['brand_colors']);
+        self::assertSame([1], array_keys($colors));
+        self::assertSame([2 => 'Rose'], $removed);
     }
 
     public function testClearingAJobsSourceReturnsTheConflict(): void

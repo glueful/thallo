@@ -173,27 +173,31 @@ final class PaletteMutationsTest extends AppTestCase
 
     public function testRenamingTheSourceOfAJobIsAConflictButRenamingAReservedSlotIsNot(): void
     {
-        $this->markTestIncomplete('Task 4: the list save');
         $this->configure(1, 'Gold', '#8a6a2a');
         $this->configure(2, 'Rose', '#c98a8a');
         $this->startJob(1, 'color.brand-2', 'color.brand-2-contrast');
-        $blush = ['theme_brand_2' => '{"name":"Blush","hex":"#c98a8a"}'];
-        self::assertTrue($this->mutations()->save($blush, 'user00000001'));
+        $blush = ['theme_brand_colors' => $this->brandList([[1, 'Gold', '#8a6a2a'], [2, 'Blush', '#c98a8a']])];
+        self::assertTrue($this->mutations()->save($blush, 'user00000001')->changed);
         self::assertSame('Blush', $this->palette()->brand(2)?->name);
         $this->expectException(PaletteConflict::class);
-        $this->mutations()->save(['theme_brand_1' => '{"name":"Old gold","hex":"#8a6a2a"}'], 'user00000001');
+        $this->mutations()->save(
+            ['theme_brand_colors' => $this->brandList([[1, 'Old gold', '#8a6a2a'], [2, 'Blush', '#c98a8a']])],
+            'user00000001',
+        );
     }
 
     public function testSavingTheSourceUnchangedAndTheNeutralsIsNeverBlocked(): void
     {
-        $this->markTestIncomplete('Task 4: the list save');
         $this->configure(1, 'Gold', '#8a6a2a');
         $this->startJob(1, 'color.accent', 'color.accent-contrast');
         self::assertTrue($this->mutations()->save([
-            'theme_brand_1' => '{"name":"Gold","hex":"#8a6a2a"}',
+            'theme_brand_colors' => $this->brandList([[1, 'Gold', '#8a6a2a']]),
             'theme_dark_base' => 'stone',
-        ], 'user00000001'));
-        self::assertFalse($this->mutations()->save(['theme_dark_base' => 'stone'], 'user00000001'), 'no change');
+        ], 'user00000001')->changed);
+        self::assertFalse(
+            $this->mutations()->save(['theme_dark_base' => 'stone'], 'user00000001')->changed,
+            'no change',
+        );
     }
 
     public function testClearingAReservedSlotOrAJobsSourceIsAConflict(): void

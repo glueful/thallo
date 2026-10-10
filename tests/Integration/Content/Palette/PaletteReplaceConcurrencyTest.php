@@ -201,12 +201,11 @@ final class PaletteReplaceConcurrencyTest extends AppTestCase
 
     public function testAWorkerResumedAfterCancelWritesNothingEvenAfterTheSlotWasEditedOrANewJobStarted(): void
     {
-        $this->markTestIncomplete('Task 4: the list save');
         $this->configure(1, 'Gold', '#8a6a2a');
         $this->draftsNaming('color.brand-1', 2);
         $old = $this->service()->start(1, 'color.accent', null, 'user00000001');
         $this->service()->cancel($old);
-        $recolour = ['theme_brand_1' => '{"name":"Gold","hex":"#99772e"}'];
+        $recolour = ['theme_brand_colors' => $this->brandList([[1, 'Gold', '#99772e']])];
         $this->mutations()->save($recolour, 'user00000001');
         $new = $this->service()->start(1, 'color.surface', null, 'user00000001');
         $result = $this->runner()->run($old); // the stale worker wakes up

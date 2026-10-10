@@ -81,7 +81,16 @@ final class BrandSlotsToListTest extends AppTestCase
         self::assertSame('Teal', $palette->labelOf(3));
         self::assertTrue($palette->isRemoved(3));
         self::assertSame(3, $palette->highestIssued());
-        // Task 4 adds: a colour saved after the migration takes 4, and an old reference to 3 stays unavailable.
+
+        // A colour added after the migration takes 4, and an old reference to 3 stays unavailable.
+        $this->container()->get(\Thallo\Core\Http\Controllers\GeneralSettingsController::class)->update(
+            new \Thallo\Core\Http\DTOs\UpdateGeneralSettingsData(
+                theme_brand_colors: '{"base":0,"colors":[{"name":"Sky","hex":"#38bdf8"}]}',
+            ),
+        );
+        $after = $this->container()->get(\Thallo\Core\Settings\PaletteSettings::class)->palette();
+        self::assertSame([4], $after->ids());
+        self::assertTrue($after->isUnavailable('color.brand-3'));
     }
 
     public function testAFreshInstallReservesNothing(): void

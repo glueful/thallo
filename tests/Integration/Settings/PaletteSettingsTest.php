@@ -59,8 +59,10 @@ final class PaletteSettingsTest extends AppTestCase
 
     public function testARefusedDefaultLocaleLeavesThePaletteUnwritten(): void
     {
-        $this->markTestIncomplete('Task 4: the list save');
-        $res = $this->save(['theme_brand_1' => '{"name":"Gold","hex":"#8a6a2a"}', 'default_locale' => 'zz']);
+        $res = $this->save([
+            'theme_brand_colors' => '{"base":0,"colors":[{"name":"Gold","hex":"#8a6a2a"}]}',
+            'default_locale' => 'zz',
+        ]);
         self::assertSame(422, $res->getStatusCode(), (string) $res->getContent());
         $this->container()->get(GeneralSettings::class)->clearStoreCache();
         self::assertNull($this->palette()->brand(1), 'nothing of a refused save is written');
@@ -82,6 +84,11 @@ final class PaletteSettingsTest extends AppTestCase
             ['theme_neutral_custom', $bad],
             ['theme_neutral_custom', 'not json'],
             ['theme_dark_base', 'purple'],
+            ['theme_brand_colors', '{"base":0,"colors":[{"name":"Gold","hex":"#12345"}]}'],
+            ['theme_brand_colors', '{"base":0,"colors":[{"name":"","hex":"#123456"}]}'],
+            ['theme_brand_colors', '{"base":0,"colors":[{"name":"' . str_repeat('x', 33) . '","hex":"#123456"}]}'],
+            ['theme_brand_colors', '{"base":0,"colors":[{"name":"Gold","hex":"#fff;}body{"}]}'],
+            ['theme_brand_colors', '{"colors":[{"name":"Gold","hex":"#123456"}]}'],
             ] as [$key, $value]
         ) {
             $res = $this->save([$key => $value]);
@@ -92,8 +99,7 @@ final class PaletteSettingsTest extends AppTestCase
 
     public function testABrandSlotIsStoredWithItsNameTrimmedAndHexNormalised(): void
     {
-        $this->markTestIncomplete('Task 4: the list save');
-        $res = $this->save(['theme_brand_1' => '{"name":"  Gold dark ","hex":"#8A6A2A"}']);
+        $res = $this->save(['theme_brand_colors' => '{"base":0,"colors":[{"name":"  Gold dark ","hex":"#8A6A2A"}]}']);
         self::assertSame(200, $res->getStatusCode(), (string) $res->getContent());
         $slot = $this->palette()->brand(1);
         self::assertSame('Gold dark', $slot?->name);

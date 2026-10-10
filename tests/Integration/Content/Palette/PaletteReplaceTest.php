@@ -172,13 +172,17 @@ final class PaletteReplaceTest extends AppTestCase
 
     public function testRenameRecolourClearAndReplaceOfTheSourceAre409(): void
     {
-        $this->markTestIncomplete('Task 4: the list save');
         $this->configure(1, 'Gold', '#8a6a2a');
         $this->service()->start(1, 'color.accent', null, 'user00000001');
         $attempts = [
-            fn () => $this->mutations()
-                ->save(['theme_brand_1' => '{"name":"Old gold","hex":"#8a6a2a"}'], 'user00000001'),
-            fn () => $this->mutations()->save(['theme_brand_1' => '{"name":"Gold","hex":"#99772e"}'], 'user00000001'),
+            fn () => $this->mutations()->save(
+                ['theme_brand_colors' => $this->brandList([[1, 'Old gold', '#8a6a2a']])],
+                'user00000001',
+            ),
+            fn () => $this->mutations()->save(
+                ['theme_brand_colors' => $this->brandList([[1, 'Gold', '#99772e']])],
+                'user00000001',
+            ),
             fn () => $this->mutations()->clear(1, 'user00000001'),
             fn () => $this->service()->start(1, 'color.surface', null, 'user00000001'),
         ];
@@ -194,7 +198,6 @@ final class PaletteReplaceTest extends AppTestCase
 
     public function testOverlappingReplacements(): void
     {
-        $this->markTestIncomplete('Task 4: the list save');
         $this->configure(1, 'Gold', '#8a6a2a');
         $this->configure(2, 'Rose', '#c98a8a');
         $first = $this->service()->start(1, 'color.brand-2', null, 'user00000001');
@@ -210,8 +213,8 @@ final class PaletteReplaceTest extends AppTestCase
                 self::assertTrue(true);
             }
         }
-        $blush = ['theme_brand_2' => '{"name":"Blush","hex":"#c98a8a"}'];
-        self::assertTrue($this->mutations()->save($blush, 'user00000001'), 'rename allowed');
+        $blush = ['theme_brand_colors' => $this->brandList([[1, 'Gold', '#8a6a2a'], [2, 'Blush', '#c98a8a']])];
+        self::assertTrue($this->mutations()->save($blush, 'user00000001')->changed, 'rename allowed');
         $this->service()->cancel($first);
         $this->service()->start(2, 'color.accent', null, 'user00000001');
         $this->expectException(\InvalidArgumentException::class);

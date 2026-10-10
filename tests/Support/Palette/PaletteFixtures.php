@@ -46,6 +46,24 @@ trait PaletteFixtures
         $settings->save(['theme_brand_colors' => BrandColors::encode($colors, $removed, $revision + 1)]);
     }
 
+    /**
+     * A brand colour list as Appearance submits it (custom palette spec §2.3): the rows, each
+     * `[id or null, name, hex]`, edited from the stored revision.
+     *
+     * @param list<array{0: ?int, 1: string, 2: string}> $rows
+     */
+    protected function brandList(array $rows): string
+    {
+        $settings = $this->container()->get(GeneralSettings::class);
+        $settings->clearStoreCache();
+        [, , $revision] = BrandColors::parse($settings->stored('theme_brand_colors'));
+        $colors = array_map(
+            static fn (array $r): array => ($r[0] === null ? [] : ['id' => $r[0]]) + ['name' => $r[1], 'hex' => $r[2]],
+            $rows,
+        );
+        return (string) json_encode(['base' => $revision, 'colors' => $colors]);
+    }
+
     protected function clear(int $slot): void
     {
         $this->container()->get(PaletteFence::class)->within(function () use ($slot): void {
