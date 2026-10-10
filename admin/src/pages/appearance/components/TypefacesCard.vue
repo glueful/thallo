@@ -154,7 +154,7 @@ const hasUnknown = (family: FontFamily) => family.faces.some((f) => f.unknown)
     <template #header>
       <div class="flex items-start justify-between gap-3">
         <div>
-          <h2 class="font-semibold text-default">Typefaces</h2>
+          <h2 class="font-semibold text-default">Font library</h2>
           <p class="text-sm text-muted">
             What blocks, style classes and Custom can be set in. Built-ins cost a visitor nothing to
             download.

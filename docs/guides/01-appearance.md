@@ -153,7 +153,7 @@ of either list, adds a family to the library (below) and picks it.
 
 ## Add your own typefaces
 
-Below **Pairing**, the **Typefaces** tab holds the site's font library: what Custom, every block's **Typeface** and every
+Below **Pairing**, the **Typefaces** tab holds the site's **Font library**: what Custom, every block's **Typeface** and every
 style class can be set in. **Built-in** lists the seven that cost a visitor nothing to download —
 **Theme** (the theme's own face), **Serif**, **Humanist**, **Geometric**, **Slab**, **Mono** and
 **System** — each written in its own stack. **Your fonts** lists the families you added, with their

@@ -556,7 +556,9 @@ async function onSave() {
                 // The products page's tabs: whole labels, never truncated — at xl the column holds
                 // all five, unsaved dots and all — and the active tab underlined. (No sideways scroll:
                 // it would clip the underline, which sits a pixel below the strip.)
-                list: 'mb-4',
+                // The bar stays put while the tab's content scrolls under it: it sticks over the panel
+                // body's top padding (p-4, sm:p-6), so nothing shows through above it.
+                list: 'sticky -top-4 z-10 -mt-4 mb-4 bg-default pt-5 sm:-top-6 sm:-mt-6 sm:pt-7',
                 trigger: 'shrink-0',
                 label: 'overflow-visible text-clip',
               }"
@@ -582,7 +584,6 @@ async function onSave() {
                   <USkeleton v-if="!themesLoaded" class="h-40" />
                   <UCard v-else-if="themeCards.length > 0" data-test="theme-card">
                     <template #header>
-                      <h2 class="font-semibold text-default">Theme</h2>
                       <p class="text-sm text-muted">
                         Choose one to see it in the preview; Save makes it live on the next page
                         view. To make your own, duplicate a theme in the
@@ -603,9 +604,6 @@ async function onSave() {
               <template #colours>
                 <div class="space-y-6" data-test="appearance-panel-colours">
                   <UCard data-test="theme-colors-card">
-                    <template #header>
-                      <h2 class="font-semibold text-default">Colours</h2>
-                    </template>
                     <div class="space-y-6">
                       <p class="text-sm text-muted">
                         Re-skins the theme's tokens only — never changes templates. The default blue
@@ -651,6 +649,11 @@ async function onSave() {
                           label="Brand colours"
                           description="Named colours every block's colour picker offers."
                         >
+                          <template #hint>
+                            <span class="tabular-nums" data-test="brand-count"
+                              >{{ brandRows.length }} of {{ brandLimit }}</span
+                            >
+                          </template>
                           <BrandColorsField
                             :rows="brandRows"
                             :palette="schemaSlots"
@@ -690,9 +693,6 @@ async function onSave() {
               <template #design>
                 <div class="space-y-6" data-test="appearance-panel-design">
                   <UCard data-test="theme-design-card">
-                    <template #header>
-                      <h2 class="font-semibold text-default">Design</h2>
-                    </template>
                     <div class="space-y-6">
                       <p class="text-sm text-muted">
                         Site-wide shape and ground. Each choice re-maps theme tokens only; a button
@@ -727,9 +727,6 @@ async function onSave() {
               <template #typefaces>
                 <div class="space-y-6" data-test="appearance-panel-typefaces">
                   <UCard data-test="theme-typefaces-card">
-                    <template #header>
-                      <h2 class="font-semibold text-default">Typefaces</h2>
-                    </template>
                     <div class="grid gap-6">
                       <UFormField label="Pairing" description="Headings and body text.">
                         <USelect
@@ -775,9 +772,6 @@ async function onSave() {
               <template #logos>
                 <div class="space-y-6" data-test="appearance-panel-logos">
                   <UCard data-test="logos-card">
-                    <template #header>
-                      <h2 class="font-semibold text-default">Logos &amp; site icon</h2>
-                    </template>
                     <div class="space-y-6">
                       <!-- One under the other: side by side in this column their descriptions wrapped to
                            different heights and pushed the two upload boxes out of line. A short line

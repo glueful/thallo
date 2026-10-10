@@ -68,7 +68,13 @@ function reservedBy(row: BrandRow): string | null {
 
 <template>
   <div class="space-y-3" data-test="brand-colors">
-    <p class="text-xs text-muted" data-test="brand-count">{{ rows.length }} of {{ limit }}</p>
+    <p
+      v-if="rows.length === 0"
+      class="rounded-md border border-dashed border-default px-3 py-4 text-center text-sm text-muted"
+      data-test="brand-empty"
+    >
+      No brand colours yet. Add one to offer it, by name, in every block's colour picker.
+    </p>
     <VueDraggable
       :model-value="rows"
       handle="[data-drag]"

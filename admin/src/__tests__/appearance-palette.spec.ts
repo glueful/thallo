@@ -385,9 +385,12 @@ describe('Appearance › Theme colors › palette', () => {
     expect(w.find('[data-test="contrast-row-dark-muted-background"]').classes()).toContain(
       'text-warning',
     )
-    expect(w.find('[data-test="contrast-row-light-text-background"]').text()).toContain(
-      'Text on Background (light) — 12.6:1',
+    // one row per pair, its modes side by side, and how many fall short
+    expect(w.find('[data-test="contrast-pair-text-background"]').text()).toContain(
+      'Text on Background',
     )
+    expect(w.find('[data-test="contrast-row-light-text-background"]').text()).toContain('12.6:1')
+    expect(w.find('[data-test="contrast-summary"]').text()).toBe('1 pair reads below 4.5:1')
     expect(w.text()).toContain(
       'These pairs are checked; other combinations a block can make are not.',
     )
@@ -784,5 +787,13 @@ describe('Appearance › Theme colors › palette', () => {
     await lastName(w).setValue('Sky') // no colour yet: Save would not send it
     await flushPromises()
     expect(w.find('[data-test="appearance-tab-dirty-colours"]').exists()).toBe(true)
+  })
+
+  it('says there are no brand colours yet, with the count beside the label', async () => {
+    const w = await mountAppearance({}, { schemaPalette: {} })
+    expect(w.find('[data-test="brand-empty"]').text()).toContain('No brand colours yet')
+    expect(w.find('[data-test="brand-count"]').text()).toBe('0 of 3')
+    await w.find('[data-test="brand-add"]').trigger('click')
+    expect(w.find('[data-test="brand-empty"]').exists()).toBe(false)
   })
 })
