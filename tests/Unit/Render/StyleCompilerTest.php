@@ -46,19 +46,13 @@ final class StyleCompilerTest extends TestCase
         );
     }
 
-    public function testTheBrandColourUtilitiesAreCompiled(): void
+    public function testThePerThemeArtifactCarriesNoBrandUtilities(): void
     {
+        // Brand colours are each workspace's (custom palette spec §3.4): their utilities and
+        // variables come from its colours stylesheet, never the shared per-theme artifact.
         $css = StyleCompiler::compile($this->vocabulary());
-        foreach (
-            [
-                ['colors.text', 'color.brand-1'],
-                ['colors.surface', 'color.brand-2-contrast'],
-                ['hover.colors.text', 'color.brand-3'],
-            ] as [$path, $token]
-        ) {
-            self::assertStringContainsString('.' . ClassNames::for($path, $token), $css, $path . ' ' . $token);
-        }
-        self::assertStringContainsString('--t-color-brand-3:var(--brand-3)', str_replace(' ', '', $css));
+        self::assertStringNotContainsString('brand-', $css);
+        self::assertSame(25, StyleCompiler::VERSION);
     }
 
     public function testClassNamesAreTheOnePlaceASettingBecomesAClass(): void

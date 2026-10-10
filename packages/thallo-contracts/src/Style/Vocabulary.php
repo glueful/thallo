@@ -6,7 +6,8 @@ namespace Thallo\Contracts\Style;
 
 /**
  * The platform vocabulary (spec §2.1): Thallo owns the names, themes own the values. Scales are
- * ordinal only. A document may reference baseline names only, so no theme can lack one.
+ * ordinal only. A document may reference baseline names only — brand colours by their family's
+ * pattern — so no theme can lack one.
  */
 final class Vocabulary
 {
@@ -19,7 +20,6 @@ final class Vocabulary
         'color' => [
             'background', 'surface', 'surface-2', 'text', 'muted', 'line', 'accent', 'accent-contrast', 'transparent',
             'white', 'black',
-            'brand-1', 'brand-1-contrast', 'brand-2', 'brand-2-contrast', 'brand-3', 'brand-3-contrast',
         ],
         'shadow' => ['none', 'xs', 'sm', 'md', 'lg', 'xl'],
         'typography.size' => ['xs', 'sm', 'md', 'lg', 'xl', '2xl', '3xl'],
@@ -32,16 +32,30 @@ final class Vocabulary
      */
     public const LITERAL_DEFAULTS = ['color.white' => '#ffffff', 'color.black' => '#000000'];
 
+    /** A brand colour's name (custom palette spec §3.1): `brand-N` or `brand-N-contrast`, N from 1 to 9999. */
+    public const BRAND_COLOR = '/\Abrand-[1-9][0-9]{0,3}(-contrast)?\z/';
+
+    /** Whether a colour name is a brand colour's: a family of names, not a list. */
+    public static function isBrandColor(string $name): bool
+    {
+        return preg_match(self::BRAND_COLOR, $name) === 1;
+    }
+
     /**
-     * Values the SITE sets, not the theme (custom palette spec §3.1): always the variables
-     * themeColorsStyle() emits from the palette. A theme's mapping for these is ignored, so a
-     * theme can never bypass the site's hex, its swatches or its contrast checks.
+     * The value a brand token always has (custom palette spec §3.1): the variables
+     * themeColorsStyle() emits from the site's settings. Null for any other token. A theme's
+     * mapping for a brand token is ignored, so no theme can bypass the site's hex, its swatches
+     * or its contrast checks.
      */
-    public const SITE_CONTROLLED = [
-        'color.brand-1' => 'var(--brand-1)', 'color.brand-1-contrast' => 'var(--brand-1-ink)',
-        'color.brand-2' => 'var(--brand-2)', 'color.brand-2-contrast' => 'var(--brand-2-ink)',
-        'color.brand-3' => 'var(--brand-3)', 'color.brand-3-contrast' => 'var(--brand-3-ink)',
-    ];
+    public static function siteControlled(string $token): ?string
+    {
+        if (!str_starts_with($token, 'color.') || !self::isBrandColor($name = substr($token, 6))) {
+            return null;
+        }
+        return str_ends_with($name, '-contrast')
+            ? 'var(--' . substr($name, 0, -strlen('-contrast')) . '-ink)'
+            : "var(--{$name})";
+    }
 
     /** @return list<string> the domains in contract order */
     public static function domains(): array
@@ -74,7 +88,7 @@ final class Vocabulary
             return false;
         }
         $name = substr($token, strlen($domain) + 1);
-        return in_array($name, self::DOMAINS[$domain], true);
+        return in_array($name, self::DOMAINS[$domain], true) || ($domain === 'color' && self::isBrandColor($name));
     }
 
     /** The domain of a token (`typography.size` for `typography.size.md`), or null when unknown. */
