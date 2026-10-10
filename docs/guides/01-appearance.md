@@ -60,8 +60,61 @@ you save:
   would fix the links.
 - On a dark page Thallo lightens the colour, keeping its hue, until it can be seen there.
 
-**Neutral** is always one of `slate`, `gray`, `zinc`, `neutral` and `stone`. A whole grey scale
-cannot be derived from one colour, so no hex is offered here.
+**Neutral** is one of `slate`, `gray`, `zinc`, `neutral` and `stone`, or **Custom — your own
+colours**.
+
+### A Custom neutral
+
+Choose **Custom — your own colours** and six fields open, one hex each:
+
+| Field | What it colours |
+|---|---|
+| Background | the page |
+| Surface | panels and cards |
+| Surface 2 | raised or alternate panels, bands |
+| Text | body text and headings |
+| Muted | secondary text |
+| Line | borders and dividers |
+
+The first time, they are filled in from the family you had, so you start from what the site shows
+now and change only what you want. Switching back to a family keeps your six colours in the form;
+**Reset to** the family — `Reset to slate`, say — takes them off.
+
+Your six colours are for light mode. Dark mode is built from a family — **Dark mode base**, shown
+when the theme has a dark mode — because six light colours do not say what their dark versions are.
+
+### Brand colours
+
+Up to three **Brand colours**, each a name and a hex: `Gold dark`, `#8a6a2a`. Every block colour
+picker offers them by that name, beside the theme's colours, each with its swatch. A brand colour has
+a text colour too — `Gold dark — text` — which is white or black, whichever reads on it; in dark mode
+Thallo lightens the colour, keeping its hue, until it can be seen.
+
+Renaming or re-colouring a brand colour changes every block using it, at once.
+
+**Clear** takes a brand colour off. Thallo first checks where it is used:
+
+- **Nowhere current:** it is cleared. If older versions of pages still name it, the dialog says how
+  many; restoring one shows that colour as `Unavailable colour` — no colour applied — until you
+  choose another.
+- **Still used** — on a page's draft or live version, the header or footer, a layout, a saved section
+  or a style class: it cannot be cleared. The dialog lists where and offers **Replace with…**: choose
+  the colour that takes its place, and Thallo rewrites every one of those places, then clears it.
+  Live pages get a new version, so the previous one stays in their history. When the colour you
+  choose has no text colour of its own (anything but Accent or another brand colour) and something
+  uses `Gold dark — text`, you also choose what that text becomes, and see the pair's contrast in
+  light and dark mode.
+
+While a replacement runs, its brand colour shows the progress in place of its fields and cannot be
+renamed or cleared; editors saving a page with the old colour store the new one. A replacement that
+stops part-way can be resumed, and one can be cancelled — what it already rewrote stays rewritten.
+
+### Contrast
+
+Below the colours, **Contrast** checks the pairs text sits on — Text and Muted on Background,
+Surface and Surface 2; Accent on Background and its text on Accent; each brand colour on Background
+and its text on it — in light and dark mode, as the unsaved colours stand. A pair under 4.5:1 is a
+warning, not a refusal. Other combinations a block can make are not checked.
 
 ## Set the corners, typefaces and page ground
 
@@ -156,5 +209,6 @@ Open the site and reload. Everything on this page is live at once: saving the th
 a design setting, a logo or the favicon clears the rendered page cache. A page open in the editor in
 another tab reloads its stage to show the change, keeping whatever you had not yet saved there.
 
-For what these settings cannot do — CSS of your own, loaded after everything else — open
-**Site › Theme editor** and edit `custom.css`.
+Colours of your own no longer need CSS: a **Custom** neutral and **Brand colours** above re-skin the
+theme's tokens. For what these settings cannot do — CSS of your own, loaded after everything else —
+open **Site › Theme editor** and edit `custom.css`.

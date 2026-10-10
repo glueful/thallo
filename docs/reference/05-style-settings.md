@@ -23,7 +23,7 @@ ordinal scales, not promises about pixels.
 | `spacing` | `none` `xs` `sm` `md` `lg` `xl` `2xl` `3xl` |
 | `width` | `narrow` `content` `container` `full` |
 | `radius` | `none` `sm` `md` `lg` `full` |
-| `color` | `background` `surface` `surface-2` `text` `muted` `line` `accent` `accent-contrast` `transparent` `white` `black` |
+| `color` | `background` `surface` `surface-2` `text` `muted` `line` `accent` `accent-contrast` `transparent` `white` `black` `brand-1` `brand-1-contrast` `brand-2` `brand-2-contrast` `brand-3` `brand-3-contrast` |
 | `shadow` | `none` `xs` `sm` `md` `lg` `xl` |
 | `typography.size` | `xs` `sm` `md` `lg` `xl` `2xl` `3xl` |
 
@@ -34,8 +34,17 @@ dots replaced by hyphens and `--t-` in front: `spacing.lg` becomes `--t-spacing-
 token re-skins every block that used it.
 
 `color.white` and `color.black` fill themselves in as `#ffffff` and `#000000` when a theme omits
-them, and are the same in light and dark mode; every other name has to be mapped, or the theme
-fails validation. There are no extra tokens: a document may reference baseline names only.
+them, and are the same in light and dark mode; every other name but the brand colours has to be
+mapped, or the theme fails validation. There are no extra tokens: a document may reference baseline
+names only.
+
+The six brand names — `brand-1` … `brand-3` and their `-contrast` text colours — are the site's,
+not the theme's: their values come from **Appearance › Brand colours**, and a theme that maps them
+has the mapping ignored (the Doctor warns). A brand colour the site has not configured is
+**unavailable**: a block, part, hover state, page, layout frame or region style naming it renders as
+if it never set that colour — the style class's value or the theme's shows through, and a hover
+colour leaves the resting colour in place. The editor shows such a value as `Unavailable colour:
+Brand N — No colour applied`.
 
 ## The breakpoints
 

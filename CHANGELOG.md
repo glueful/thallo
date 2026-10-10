@@ -44,7 +44,7 @@ as the next release, never a mutated tag.
   workspace it was started in, and purges each rewritten page as it goes.
 - **Appearance › Theme colors**: Neutral gains **Custom — your own colours**: six hex colours
   (Background, Surface, Surface 2, Text, Muted, Line), pre-filled from the family you had the first
-  time, a **Dark mode base** family (shown when the site has a dark mode) and **Reset to <family>**.
+  time, a **Dark mode base** family (shown when the site has a dark mode) and **Reset to** the family.
   Three **Brand colours** take a name and a hex each; a configured one shows **Clear**, one being
   replaced shows the replacement's progress, and one a replacement writes to says so. **Contrast**
   checks the text pairs of the unsaved palette in light and dark mode, warning under 4.5:1. The preview
@@ -61,6 +61,12 @@ as the next release, never a mutated tag.
   layouts, saved sections, style classes — and offers **Replace with…** a colour the rules allow; when
   that colour has no text colour of its own and something uses the slot's, it asks what text on it
   becomes and shows that pair's contrast in light and dark mode.
+
+### Changed
+- `GET /v1/admin/render/style-schema` is readable by any style editor — `content.edit`,
+  `content.manage`, `templates.manage` or `styles.manage` — and carries the site's palette (brand
+  slot states, swatches, labels, its generation and the recent replacements), which the colour
+  pickers read.
 
 ### Fixed
 - Enabling multi-store tenancy no longer drops the header and footer's settings-schema stamp

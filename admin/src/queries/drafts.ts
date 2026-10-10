@@ -61,7 +61,7 @@ export async function saveDraft(uuid: string, locale: string, body: SaveDraftBod
       lock_version: body.lock_version,
       preview_revision: body.preview_revision ?? null,
       ...(body.palette_through == null ? {} : { palette_through: body.palette_through }),
-    } as never,
+    },
   })
   if (error) throw toApiError(error, response)
   return data as typeof data & { data?: PaletteResultFields }
