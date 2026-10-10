@@ -82,4 +82,18 @@ final class PaletteCssTest extends TestCase
         self::assertStringContainsString('--bg:#ffffff', $css);
         self::assertStringContainsString('--surface:#f8f4ec', $css);
     }
+
+    public function testColoursEmitInTheAuthorsOrderAndARemovedIdEmitsNothing(): void
+    {
+        $p = new Palette(
+            brands: [5 => new BrandSlot('Rose', '#c98a8a'), 2 => new BrandSlot('Gold', '#8a6a2a')],
+            removed: [3 => 'Teal'],
+        );
+        $css = ThemeColors::paletteCss('blue', 'slate', $p, true);
+        [$light, $dark] = explode('html[data-theme="dark"]', $css);
+        foreach ([$light, $dark] as $block) {
+            self::assertLessThan(strpos($block, '--brand-2:'), strpos($block, '--brand-5:'));
+        }
+        self::assertStringNotContainsString('--brand-3', $css);
+    }
 }

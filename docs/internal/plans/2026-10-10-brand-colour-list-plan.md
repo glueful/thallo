@@ -226,7 +226,7 @@ public function testLimitZeroConfiguresNothingButKeepsTheStoredColours(): void
     self::assertSame([], $p->configured());
     self::assertFalse($p->isConfigured(1));
     self::assertTrue($p->isUnavailable('color.brand-1'));
-    self::assertSame(['Gold'], array_map(static fn (BrandSlot $b): string => $b->name, $p->brands));
+    self::assertSame([1 => 'Gold'], array_map(static fn (BrandSlot $b): string => $b->name, $p->brands));
     self::assertTrue($p->isEmpty());
     self::assertSame('', $p->fingerprint());
 }

@@ -29,7 +29,7 @@ final class PaletteNormalizerTest extends AppTestCase
 
     private static function snap(array $brands, array $jobs = []): PaletteSnapshot
     {
-        return new PaletteSnapshot(7, new Palette(brands: $brands + [1 => null, 2 => null, 3 => null]), $jobs);
+        return new PaletteSnapshot(7, new Palette(brands: $brands), $jobs);
     }
 
     private static function job(int $slot, string $to, ?string $contrastTo): PaletteJob
@@ -119,9 +119,29 @@ final class PaletteNormalizerTest extends AppTestCase
             self::fail('a contrast reference with no mapping is refused');
         } catch (PaletteRefusal $e) {
             self::assertSame(
-                ['style.colors.surface' => 'Text on Brand 1 has no replacement in the running replacement'],
+                ['style.colors.surface' => 'Text on Gold has no replacement in the running replacement'],
                 $e->errors,
             );
         }
+    }
+
+    public function testARemovedColourIsRefusedByTheNameItHadAndANeverIssuedOneByItsNumber(): void
+    {
+        $snap = new PaletteSnapshot(7, new Palette(removed: [3 => 'Teal']), []);
+        $expected = [
+            'color.brand-3' => "Teal isn't in the palette",
+            'color.brand-12' => "Brand 12 isn't in the palette",
+        ];
+        foreach ($expected as $token => $message) {
+            try {
+                $this->n()->normalize(self::K, self::cls($token), $snap, []);
+                self::fail("expected a refusal for {$token}");
+            } catch (PaletteRefusal $e) {
+                self::assertSame(['style.colors.text' => $message], $e->errors);
+            }
+        }
+        $basis = $this->n()->basisOf(self::K, null, self::cls('color.brand-12'));
+        $out = $this->n()->normalize(self::K, self::cls('color.brand-12'), $snap, $basis);
+        self::assertSame('color.brand-12', $out->doc['style']['colors']['text']['value']);
     }
 }

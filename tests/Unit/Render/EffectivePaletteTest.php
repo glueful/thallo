@@ -64,4 +64,21 @@ final class EffectivePaletteTest extends TestCase
         self::assertArrayNotHasKey('color.transparent', $s);
         self::assertArrayNotHasKey('color.brand-1', $s);
     }
+
+    public function testEveryConfiguredIdGetsValuesAndContrastRowsInOrder(): void
+    {
+        $palette = new Palette(
+            null,
+            null,
+            [12 => new BrandSlot('Teal', '#0f766e'), 4 => new BrandSlot('Gold', '#8a6a2a')],
+        );
+        $effective = EffectivePalette::of('blue', 'slate', 'plain', $palette);
+        self::assertSame('#0f766e', $effective->values('light')['brand-12']);
+        self::assertArrayHasKey('brand-4-contrast', $effective->values('dark'));
+        $fgs = array_values(array_unique(array_map(
+            static fn (array $r): string => $r['fg'],
+            array_filter($effective->contrastRows(), static fn (array $r): bool => str_starts_with($r['fg'], 'brand-')),
+        )));
+        self::assertSame(['brand-12', 'brand-12-contrast', 'brand-4', 'brand-4-contrast'], $fgs);
+    }
 }
