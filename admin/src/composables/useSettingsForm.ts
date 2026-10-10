@@ -54,8 +54,11 @@ export function useSettingsForm<K extends keyof GeneralSettings>(
     for (const key of keys) out[key] = form[key]
     return out
   }
+  /** The values adopted since the last save: a save in flight compares against them too. */
+  const adopted = new Map<K, unknown>()
   /** A value the page takes from the server (a save's ids, a colour that left): never an edit. */
   const adopt = (patch: Partial<Pick<GeneralSettings, K>>): void => {
+    for (const key of Object.keys(patch) as K[]) adopted.set(key, patch[key])
     syncing = true
     Object.assign(form, patch)
     void nextTick(() => {
@@ -68,7 +71,12 @@ export function useSettingsForm<K extends keyof GeneralSettings>(
    * the edit.
    */
   const saved = (sent?: Pick<GeneralSettings, K>): void => {
-    if (sent !== undefined && keys.some((key) => form[key] !== sent[key])) return
+    // A key differs from what was sent only by an edit: a value adopted meanwhile is not one.
+    const edited = (key: K) =>
+      form[key] !== sent![key] && !(adopted.has(key) && adopted.get(key) === form[key])
+    const stillDirty = sent !== undefined && keys.some(edited)
+    adopted.clear()
+    if (stillDirty) return
     dirty.value = false
   }
 

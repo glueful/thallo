@@ -143,15 +143,40 @@ export function dropRemoved(rows: BrandRow[], stored: StoredBrandColors): BrandR
   return rows.filter((row) => row.id === null || live.has(row.id))
 }
 
-/** The rows hold no brand edit: the same colours, in the same order, as `stored` (keys aside). */
+/**
+ * The rows hold no brand edit: the same colours, in the same order, as `stored` (keys aside), each
+ * read as the server stores it — a name typed with a trailing space, or a hex in capitals, is the
+ * colour the server saved.
+ */
 export function matches(rows: BrandRow[], stored: StoredBrandColors): boolean {
   return (
     rows.length === stored.colors.length &&
     rows.every((row, i) => {
       const c = stored.colors[i]!
-      return row.id === c.id && row.name === c.name && row.hex === c.hex
+      const as = validRow(row) ?? row
+      return row.id === c.id && as.name === c.name && as.hex === c.hex
     })
   )
+}
+
+/**
+ * The rows with every colour a save committed: one whose row was removed while the save was in
+ * flight is saved now, so it comes back at its place, under the row's key — a saved colour leaves
+ * only through Clear.
+ */
+export function keepCommitted(
+  rows: BrandRow[],
+  sentKeys: string[],
+  committed: StoredBrandColors,
+): BrandRow[] {
+  const out = [...rows]
+  const present = new Set(rows.map((r) => r.id))
+  committed.colors.forEach((c, i) => {
+    if (present.has(c.id)) return
+    const row = { key: sentKeys[i] ?? `b${c.id}`, id: c.id, name: c.name, hex: c.hex }
+    out.splice(Math.min(i, out.length), 0, row)
+  })
+  return out
 }
 
 /** The pending list for the preview: new finished rows numbered above every id seen (never stored). */

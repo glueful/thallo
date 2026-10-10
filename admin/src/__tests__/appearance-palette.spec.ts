@@ -744,4 +744,32 @@ describe('Appearance › Theme colors › palette', () => {
     expect((calls[calls.length - 1]![0] as Error).message).toBe(message)
     expect(rowNames(w)).toEqual(['Gold', 'Blush'])
   })
+
+  it('a new colour removed while its save is in flight comes back once saved', async () => {
+    const w = await mountAppearance({ theme_brand_colors: STORED }, { schemaPalette: GOLD_ROSE })
+    await addSky(w)
+    let resolve!: (v: unknown) => void
+    saveMock.mockReset().mockReturnValue(new Promise((r) => (resolve = r)))
+    await w.find('[data-test="appearance-save"]').trigger('click')
+    await w.find('[data-test="brand-row-remove"]').trigger('click')
+    resolve({
+      ...settings(),
+      theme_brand_colors: stored(
+        4,
+        [
+          [4, 'Gold', '#8a6a2a'],
+          [1, 'Rose', '#c98a8a'],
+          [8, 'Sky', '#38bdf8'],
+        ],
+        [[7, 'Teal']],
+      ),
+    })
+    await flushPromises()
+    expect(rowNames(w)).toEqual(['Gold', 'Rose', 'Sky'])
+    saveMock.mockReset().mockResolvedValue({ ...settings() })
+    await rename(w, 8, 'Sky blue')
+    const list = sentList(await savedPayload(w))
+    expect(list.base).toBe(4)
+    expect(list.colors.map((c) => c.id)).toEqual([4, 1, 8])
+  })
 })

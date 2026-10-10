@@ -61,4 +61,29 @@ describe('useSettingsForm', () => {
     saved()
     expect(dirty.value).toBe(false)
   })
+
+  it('a value adopted while a save is in flight does not keep the form dirty', async () => {
+    const data = ref<GeneralSettings | undefined>(settings())
+    const { form, dirty, payload, saved, adopt } = useSettingsForm(
+      data,
+      { site_logo: '', theme_radius: 'round' },
+      { manual: ['site_logo'] },
+    )
+    await nextTick()
+    form.theme_radius = 'sharp'
+    await nextTick()
+    const sent = payload()
+    adopt({ site_logo: 'blob00000004' }) // a refetch the page took while the save was in flight
+    await nextTick()
+    saved(sent)
+    expect(dirty.value).toBe(false)
+    // …but an edit on top of an adopted value still counts
+    adopt({ site_logo: 'blob00000005' })
+    await nextTick()
+    const again = payload()
+    form.site_logo = 'blob00000006'
+    await nextTick()
+    saved(again)
+    expect(dirty.value).toBe(true)
+  })
 })

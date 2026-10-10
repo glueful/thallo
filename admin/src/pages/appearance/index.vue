@@ -33,6 +33,7 @@ import BrandColorsField from './components/BrandColorsField.vue'
 import {
   adoptIds,
   dropRemoved,
+  keepCommitted,
   matches,
   newer,
   parseDraft,
@@ -438,9 +439,9 @@ async function onSave() {
       // 13): the new rows take its ids, in the rows as they are now and in what was sent, so
       // "nothing changed since" compares like with like; and it is the new base.
       const committed = parseStored(result.theme_brand_colors)
-      adopt({
-        theme_brand_colors: serializeDraft(adoptIds(brandRows.value, brands.keys, committed)),
-      })
+      // A colour whose row was removed while the save was in flight is saved now: it comes back.
+      const rows = adoptIds(brandRows.value, brands.keys, committed)
+      adopt({ theme_brand_colors: serializeDraft(keepCommitted(rows, brands.keys, committed)) })
       sent.theme_brand_colors = serializeDraft(
         adoptIds(parseDraft(sent.theme_brand_colors), brands.keys, committed),
       )

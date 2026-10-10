@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest'
 import {
   adoptIds,
   dropRemoved,
+  keepCommitted,
   matches,
   newer,
   newRow,
@@ -125,5 +126,32 @@ describe('brand colour rows', () => {
     const stored = parseStored(STORED)
     const rows = [...parseDraft(STORED), { ...newRow(), name: 'Sky', hex: '#38bdf8' }]
     expect(previewBrands(rows, stored).map((b) => b.id)).toEqual([4, 1, 8])
+  })
+
+  it('a row with untrimmed spaces or upper-case hex still matches what the server stored', () => {
+    const rows = parseDraft(STORED)
+    rows[0]!.name = 'Gold '
+    rows[0]!.hex = '#8A6A2A'
+    expect(matches(rows, parseStored(STORED))).toBe(true)
+  })
+
+  it('a committed colour whose row was removed during the save comes back, at its place', () => {
+    const sky = { ...newRow(), name: 'Sky', hex: '#38bdf8' }
+    const sent = submission([...parseDraft(STORED), sky], parseStored(STORED))!
+    const committed = parseStored(
+      '{"revision":4,"colors":[{"id":4,"name":"Gold","hex":"#8a6a2a"},{"id":1,"name":"Rose","hex":"#c98a8a"},' +
+        '{"id":8,"name":"Sky","hex":"#38bdf8"}],"removed":[{"id":7,"name":"Teal"}]}',
+    )
+    const now = keepCommitted(
+      adoptIds(parseDraft(STORED), sent.keys, committed),
+      sent.keys,
+      committed,
+    )
+    expect(now.map((r) => [r.id, r.name])).toEqual([
+      [4, 'Gold'],
+      [1, 'Rose'],
+      [8, 'Sky'],
+    ])
+    expect(now[2]!.key).toBe(sky.key)
   })
 })
