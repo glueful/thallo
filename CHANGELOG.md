@@ -34,6 +34,14 @@ as the next release, never a mutated tag.
   the slot it replaces cannot be renamed, re-coloured or cleared and the slots it writes to cannot be
   cleared (409). `POST /v1/admin/appearance/palette/preview` returns the contrast checks for unsaved
   palette values. Palette changes take the palette row, so they never interleave with a save.
+- **Replace a brand colour**: `POST /v1/admin/appearance/palette/brand/{slot}/replace` starts a job that
+  rewrites every current document naming the colour — drafts, current publications (as new versions,
+  authored by whoever started it), regions and their own style, layouts and their frame, saved
+  sections, style classes — to the chosen colour and its text colour to the destination's own pair (or
+  `contrast_to`), then clears the slot; history is never rewritten. While it runs, editors saving the
+  old colour store the new one. The job is resumable and cancellable
+  (`/v1/admin/appearance/palette/jobs`, `…/{id}`, `…/{id}/cancel`, `…/{id}/resume`), runs in the
+  workspace it was started in, and purges each rewritten page as it goes.
 
 ## [1.0.0-beta.97] - 2026-10-09 — Developer Preview
 

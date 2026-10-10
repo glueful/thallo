@@ -14,13 +14,29 @@ use Thallo\Core\Http\Controllers\GeneralSettingsController;
 use Thallo\Core\Http\DTOs\UpdateGeneralSettingsData;
 use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Core\Tests\Support\Palette\PaletteFixtures;
+use Thallo\Core\Tests\Support\Rbac\GrantsPermissions;
 use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
+use Thallo\Core\Content\Http\RequirePermission;
+use Thallo\Core\Content\Palette\Http\ReplaceBrandData;
 
 /** The palette's admin routes (custom palette spec §4, §5): auth, content.manage, the slot range. */
 final class PaletteApiTest extends AppTestCase
 {
+    use GrantsPermissions;
     use PaletteFixtures;
     use SyncsBlockStyleDeclarations;
+
+    private ?string $madePermission = null;
+
+    protected function tearDown(): void
+    {
+        $this->scrubGrants();
+        if ($this->madePermission !== null) {
+            $this->connection()->table('permissions')->where('uuid', '=', $this->madePermission)->delete();
+            \Glueful\Extensions\Aegis\Repositories\PermissionRepository::clearCache();
+        }
+        parent::tearDown();
+    }
 
     /** @return list<array{0: string, 1: string, 2: string}> */
     public static function routes(): array
@@ -34,6 +50,11 @@ final class PaletteApiTest extends AppTestCase
             ],
             ['DELETE', '/v1/admin/appearance/palette/brand/{slot}', 'content_permission:content.manage'],
             ['POST', '/v1/admin/appearance/palette/preview', 'content_permission:content.manage'],
+            ['POST', '/v1/admin/appearance/palette/brand/{slot}/replace', 'content_permission:content.manage'],
+            ['GET', '/v1/admin/appearance/palette/jobs', 'content_permission:content.manage'],
+            ['GET', '/v1/admin/appearance/palette/jobs/{id}', 'content_permission:content.manage'],
+            ['POST', '/v1/admin/appearance/palette/jobs/{id}/cancel', 'content_permission:content.manage'],
+            ['POST', '/v1/admin/appearance/palette/jobs/{id}/resume', 'content_permission:content.manage'],
         ];
     }
 
@@ -147,5 +168,53 @@ final class PaletteApiTest extends AppTestCase
         $badAccent = $this->paletteController()
             ->preview(self::dto(PalettePreviewData::class, ['theme_neutral' => 'plaid']));
         self::assertSame(422, $badAccent->getStatusCode());
+    }
+
+    public function testOnlyContentManageUsesClearsAndReplaces(): void
+    {
+        // `styles.manage` is the catalog's and no migration seeds its row: make it.
+        $permissions = new \Glueful\Extensions\Aegis\Repositories\PermissionRepository($this->connection());
+        if ($permissions->findPermissionBySlug('styles.manage') === null) {
+            $this->madePermission = $permissions->createPermission([
+                'slug' => 'styles.manage', 'name' => 'Manage style classes', 'category' => 'Experience',
+            ])?->getUuid();
+        }
+        foreach (['content.edit', 'templates.manage', 'styles.manage'] as $permission) {
+            $user = $this->userWith('test_palette_' . str_replace('.', '_', $permission), [$permission]);
+            self::assertFalse($this->allows($user, 'content.manage'), $permission);
+        }
+        self::assertTrue($this->allows($this->userWith('test_palette_manage', ['content.manage']), 'content.manage'));
+    }
+
+    private function allows(?string $user, string $permissions): bool
+    {
+        $reached = false;
+        (new RequirePermission($this->appContext()))->handle($this->requestAs($user), function () use (&$reached) {
+            $reached = true;
+            return Response::success([]);
+        }, ...explode(',', $permissions));
+        return $reached;
+    }
+
+    public function testReplaceStartsAJobAndAnswersConflictsAndRefusals(): void
+    {
+        $this->configure(1, 'Gold', '#8a6a2a');
+        $res = $this->paletteController()->replace(self::dto(ReplaceBrandData::class, ['to' => 'color.accent']), 1);
+        self::assertSame(202, $res->getStatusCode(), (string) $res->getContent());
+        $job = self::data($res)['job'];
+        self::assertSame(
+            ['slot' => 1, 'to' => 'color.accent', 'contrast_to' => 'color.accent-contrast', 'status' => 'running'],
+            array_intersect_key($job, ['slot' => 0, 'to' => 0, 'contrast_to' => 0, 'status' => 0])
+        );
+        self::assertSame(409, $this->paletteController()
+            ->replace(self::dto(ReplaceBrandData::class, ['to' => 'color.surface']), 1)->getStatusCode());
+        self::assertSame(422, $this->paletteController()
+            ->replace(self::dto(ReplaceBrandData::class, ['to' => 'color.accent-contrast']), 2)->getStatusCode());
+        self::assertCount(1, self::data($this->paletteController()->jobs())['jobs']);
+        self::assertSame(200, $this->paletteController()->cancel($job['id'])->getStatusCode());
+        self::assertSame(409, $this->paletteController()->cancel($job['id'])->getStatusCode());
+        self::assertSame(409, $this->paletteController()->resume($job['id'])->getStatusCode());
+        self::assertSame(404, $this->paletteController()->job('nope')->getStatusCode());
+        self::assertSame('cancelled', self::data($this->paletteController()->job($job['id']))['job']['status']);
     }
 }

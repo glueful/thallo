@@ -97,9 +97,33 @@ final class PaletteReplacementsTest extends AppTestCase
     }
 
     /**
-     * Pause point 1: a prune commits between the records read and the horizon read. In-process stand-in
-     * until Task 14's actor harness runs the prune in its own process and connection.
+     * The pruner in its own process and database session (PaletteConcurrentActorTest, scenario
+     * `prune`), run to its commit: returns once `committed-prune` exists and the process exited.
      */
+    private function runActorToCommit(string $scenario): void
+    {
+        $root = dirname(__DIR__, 4);
+        $dir = sys_get_temp_dir() . '/thallo-palette-prune-' . getmypid();
+        @mkdir($dir);
+        array_map('unlink', glob("{$dir}/*") ?: []);
+        $process = proc_open(
+            [PHP_BINARY, "{$root}/vendor/bin/phpunit", '--no-coverage', '--no-configuration',
+                '--bootstrap', "{$root}/vendor/autoload.php",
+                "{$root}/tests/Integration/Content/Palette/PaletteConcurrentActorTest.php"],
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+            $root,
+            getenv() + ['THALLO_PALETTE_ACTOR' => "{$scenario}:holder", 'THALLO_PALETTE_BARRIER' => $dir],
+        );
+        self::assertIsResource($process);
+        $out = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
+        self::assertSame(0, proc_close($process), "the {$scenario} actor failed:\n{$out}");
+        self::assertFileExists("{$dir}/committed-{$scenario}");
+        array_map('unlink', glob("{$dir}/*") ?: []);
+        @rmdir($dir);
+    }
+
+    /** Pause point 1: a prune commits, in another session, between the records read and the horizon read. */
     #[Group('palette-two-process')]
     public function testABatchReadRacingAPruneIsCompleteOrExpiredNeverTruncated(): void
     {
@@ -108,7 +132,7 @@ final class PaletteReplacementsTest extends AppTestCase
         $this->replaceAndClear(1, 'color.accent');
         $this->ageJobs(days: 91);
         $replacements = $this->replacements();
-        $replacements->afterRecordsRead(fn () => $this->container()->get(PaletteHistoryPruner::class)->prune());
+        $replacements->afterRecordsRead(fn () => $this->runActorToCommit('prune'));
         try {
             $batch = $replacements->batch($g0, $this->now());
             self::assertCount(1, $batch['records'], 'complete if not expired');
@@ -118,7 +142,7 @@ final class PaletteReplacementsTest extends AppTestCase
         }
     }
 
-    /** Pause point 2: the prune commits before the records read. */
+    /** Pause point 2: the prune commits, in another session, before the records read. */
     #[Group('palette-two-process')]
     public function testABatchReadStartingAfterAPruneCommittedIsExpired(): void
     {
@@ -126,7 +150,7 @@ final class PaletteReplacementsTest extends AppTestCase
         $g0 = $this->now();
         $this->replaceAndClear(1, 'color.accent');
         $this->ageJobs(days: 91);
-        $this->container()->get(PaletteHistoryPruner::class)->prune();
+        $this->runActorToCommit('prune');
         $this->expectException(PaletteHistoryExpired::class);
         $this->replacements()->batch($g0, $this->now());
     }
