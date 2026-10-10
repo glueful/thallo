@@ -1,8 +1,10 @@
 <script setup lang="ts">
-// Site › Appearance: how the site LOOKS — the live theme, its colours, the design settings, the
-// logos and site icon. These are general settings and share that endpoint with Settings › General,
-// which owns how the site behaves; each page edits and saves only its own keys (useSettingsForm).
+// Site › Appearance: how the site LOOKS, in five tabs — Theme, Colours, Design, Typefaces, Logos &
+// site icon (appearance tabs spec). These are general settings and share that endpoint with
+// Settings › General, which owns how the site behaves; each page edits and saves only its own keys
+// (useSettingsForm), and one Save saves every tab.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useQueryCache } from '@pinia/colada'
 import { useGeneralSettings, useGeneralSettingsMutations } from '@/queries/generalSettings'
 import { useSettingsForm } from '@/composables/useSettingsForm'
@@ -32,6 +34,13 @@ import CustomNeutralFields from './components/CustomNeutralFields.vue'
 import BrandColorsField, { type BrandDraft } from './components/BrandColorsField.vue'
 import ContrastChecks from './components/ContrastChecks.vue'
 import ClearBrandDialog from './components/ClearBrandDialog.vue'
+import {
+  TAB_LABELS,
+  availableTabs,
+  tabFromQuery,
+  tabsHolding,
+  type AppearanceTab,
+} from './appearanceTabs'
 
 definePage({ meta: { requiresAuth: true } })
 
@@ -336,19 +345,54 @@ const pendingLook = computed(() => ({
     : {}),
 }))
 
-// Live theme options (theme-setting spec §4): fetched from the render pack;
-// a fetch failure (pack absent, no permission) just hides the card.
+// Live theme options (theme-setting spec §4): fetched from the render pack. A fetch failure (pack
+// absent, no permission) or a body without the list hides the Theme tab once the load ends; while
+// it is pending the tab stays, so a page opened on Theme never jumps there from Colours.
 const themeCards = ref<ThemeCard[]>([])
+const themesLoaded = ref(false)
 onMounted(async () => {
   try {
-    // A failed fetch hides the card; so does a body without the list, which must not be assigned —
-    // the template reads its length.
+    // A body without the list must not be assigned — the template reads its length.
     const cards: unknown = (await fetchRenderThemes()).cards
     themeCards.value = Array.isArray(cards) ? (cards as ThemeCard[]) : []
   } catch {
     themeCards.value = []
+  } finally {
+    themesLoaded.value = true
   }
 })
+
+// ── The tabs (appearance tabs spec §2–§3) ─────────────────────────────────────────────────────
+// The open tab is the URL's ?tab= — the default leaves it out — so a refresh, a shared link, and
+// back and forward all open the same tab. A tab the user picks is pushed, so Back returns to the
+// last one; the panels are UTabs' own and never unmount, so nothing unsaved is lost.
+const route = useRoute()
+const router = useRouter()
+const tabs = computed(() => availableTabs(!themesLoaded.value || themeCards.value.length > 0))
+const tab = computed<AppearanceTab>({
+  get: () => tabFromQuery(route.query.tab, tabs.value),
+  set: (next) => {
+    const query = { ...route.query }
+    if (next === tabs.value[0]) delete query.tab
+    else query.tab = next
+    void router.push({ query })
+  },
+})
+// Each item names its panel's slot: `#theme`, `#colours`, … below.
+const tabItems = computed(() =>
+  tabs.value.map((value) => ({ label: TAB_LABELS[value], value, slot: value })),
+)
+
+/** The keys Save would send that differ from what is stored: each one's tab shows a dot. */
+const dirtyTabs = computed(() => {
+  const stored = (data.value ?? {}) as Record<string, unknown>
+  const out = savePayload()
+  return tabsHolding(
+    Object.keys(out).filter((key) => String(out[key] ?? '') !== String(stored[key] ?? '')),
+  )
+})
+/** The tabs holding a field the last refused save named; cleared when the next save starts. */
+const errorTabs = ref(new Set<AppearanceTab>())
 
 // AssetField drives the same picker the block editor uses; single asset.
 const logoField = { name: 'site_logo', label: '', type: 'asset' } as const
@@ -359,12 +403,19 @@ const faviconField = { name: 'site_favicon', label: '', type: 'asset' } as const
 const appearanceChanges = useAppearanceChanges()
 
 async function onSave() {
+  errorTabs.value = new Set()
   try {
     await save.mutateAsync(savePayload())
     saved()
     appearanceChanges.notify('appearance')
     success('Appearance saved', 'Changes apply on the next page view.')
   } catch (e) {
+    // A refused save opens the first tab, in tab order, holding a field it names (spec §3).
+    const fields = (e as { fieldErrors?: Record<string, string> }).fieldErrors ?? {}
+    const holding = tabsHolding(Object.keys(fields))
+    errorTabs.value = holding
+    const first = tabs.value.find((t) => holding.has(t))
+    if (first !== undefined) tab.value = first
     notifyError(e, 'Couldn’t save the appearance settings')
   }
 }
@@ -396,232 +447,291 @@ async function onSave() {
           <USkeleton class="h-40" />
           <USkeleton class="h-40" />
         </div>
-        <!-- The settings on the left; the homepage wearing them on the right, pinned while the
-             cards scroll. Below xl the preview comes first, full width. -->
+        <!-- The settings in tabs on the left; the homepage wearing them on the right, pinned while
+             the cards scroll, whichever tab is open. Below xl the preview comes first, full width. -->
         <div v-else class="grid gap-6 xl:grid-cols-[minmax(0,25rem)_minmax(0,1fr)]">
-          <div class="order-2 space-y-6 xl:order-1">
-            <UCard v-if="themeCards.length > 0" data-test="theme-card">
-              <template #header>
-                <h2 class="font-semibold text-default">Theme</h2>
-                <p class="text-sm text-muted">
-                  Choose one to see it in the preview; Save makes it live on the next page view. To
-                  make your own, duplicate a theme in the
-                  <RouterLink to="/templates" class="text-primary hover:underline"
-                    >Theme editor</RouterLink
-                  >.
-                </p>
+          <div class="order-2 xl:order-1">
+            <!-- UTabs' own panels, kept mounted: each is wired to its tab (id / aria-labelledby /
+                 aria-controls), hidden with the `hidden` attribute, and nothing unsaved is lost on
+                 a switch. -->
+            <UTabs
+              v-model="tab"
+              variant="link"
+              :items="tabItems"
+              :unmount-on-hide="false"
+              :ui="{ list: 'mb-4' }"
+              data-test="appearance-tabs"
+            >
+              <template #trailing="{ item }">
+                <span
+                  v-if="errorTabs.has(item.value as AppearanceTab)"
+                  class="inline-block size-2 rounded-full bg-error"
+                  :data-test="`appearance-tab-error-${item.value}`"
+                  ><span class="sr-only">{{ item.label }} — has errors</span></span
+                >
+                <span
+                  v-else-if="dirtyTabs.has(item.value as AppearanceTab)"
+                  class="inline-block size-2 rounded-full bg-warning"
+                  :data-test="`appearance-tab-dirty-${item.value}`"
+                  ><span class="sr-only">{{ item.label }} — unsaved changes</span></span
+                >
               </template>
-              <ThemeGallery v-model="form.theme" :cards="themeCards" :live="data?.theme ?? ''" />
-            </UCard>
 
-            <UCard data-test="theme-colors-card">
-              <template #header>
-                <h2 class="font-semibold text-default">Theme colors</h2>
+              <template #theme>
+                <div class="space-y-6" data-test="appearance-panel-theme">
+                  <USkeleton v-if="!themesLoaded" class="h-40" />
+                  <UCard v-else-if="themeCards.length > 0" data-test="theme-card">
+                    <template #header>
+                      <h2 class="font-semibold text-default">Theme</h2>
+                      <p class="text-sm text-muted">
+                        Choose one to see it in the preview; Save makes it live on the next page
+                        view. To make your own, duplicate a theme in the
+                        <RouterLink to="/templates" class="text-primary hover:underline"
+                          >Theme editor</RouterLink
+                        >.
+                      </p>
+                    </template>
+                    <ThemeGallery
+                      v-model="form.theme"
+                      :cards="themeCards"
+                      :live="data?.theme ?? ''"
+                    />
+                  </UCard>
+                </div>
               </template>
-              <div class="space-y-6">
-                <p class="text-sm text-muted">
-                  Re-skins the theme's tokens only — never changes templates. The default blue /
-                  slate reproduces the current look.
-                </p>
-                <!-- One per row, like the design settings below: side by side at this width the longer
-                   description wrapped and pushed its select out of line with the other. -->
-                <div class="grid gap-6">
-                  <UFormField
-                    label="Accent"
-                    description="A colour family, or your own brand colour."
-                  >
-                    <BrandColorField v-model="form.theme_accent" />
-                  </UFormField>
-                  <UFormField label="Neutral" description="Backgrounds, text, borders.">
-                    <div class="flex items-center gap-2">
-                      <span
-                        class="inline-block size-4 rounded-full ring-1 ring-default"
-                        :style="{ background: neutralSwatch }"
-                        data-test="theme-neutral-swatch"
-                      />
-                      <USelect
-                        v-model="form.theme_neutral"
-                        :items="neutralItems"
-                        value-key="value"
-                        class="w-full"
-                        data-test="theme-neutral"
-                      />
-                    </div>
-                  </UFormField>
-                  <CustomNeutralFields
-                    v-if="form.theme_neutral === 'custom' && neutralCustom"
-                    :model-value="neutralCustom"
-                    :dark-base="form.theme_dark_base ?? ''"
-                    :show-dark-base="colorMode"
-                    :family="resetFamily"
-                    @update:model-value="setNeutralCustom"
-                    @update:dark-base="(v: string) => (form.theme_dark_base = v)"
-                    @reset="resetNeutral"
-                  />
-                  <UFormField
-                    label="Brand colours"
-                    description="Named colours every block's colour picker offers. Up to three."
-                  >
-                    <BrandColorsField
-                      :slots="brandDrafts"
-                      :configured="configured"
-                      :palette="schemaSlots"
-                      :jobs="jobs"
-                      @update:slots="setBrandDrafts"
-                      @clear="onClearBrand"
-                    />
-                  </UFormField>
-                  <UFormField label="Contrast">
-                    <ContrastChecks :look="contrastLook" />
-                  </UFormField>
-                  <ClearBrandDialog
-                    v-if="clearing !== null"
-                    :open="clearing !== null"
-                    :slot="clearing"
-                    :name="clearingName"
-                    :palette="styleSchema?.palette"
-                    :colours="styleSchema?.vocabulary?.domains.color ?? []"
-                    :look="contrastLook"
-                    @update:open="(v: boolean) => (v ? null : (clearing = null))"
-                    @done="onPaletteChanged"
-                  />
-                </div>
-              </div>
-            </UCard>
 
-            <UCard data-test="theme-design-card">
-              <template #header>
-                <h2 class="font-semibold text-default">Design</h2>
+              <template #colours>
+                <div class="space-y-6" data-test="appearance-panel-colours">
+                  <UCard data-test="theme-colors-card">
+                    <template #header>
+                      <h2 class="font-semibold text-default">Colours</h2>
+                    </template>
+                    <div class="space-y-6">
+                      <p class="text-sm text-muted">
+                        Re-skins the theme's tokens only — never changes templates. The default blue
+                        / slate reproduces the current look.
+                      </p>
+                      <!-- One per row, like the design settings below: side by side at this width the longer
+                         description wrapped and pushed its select out of line with the other. -->
+                      <div class="grid gap-6">
+                        <UFormField
+                          label="Accent"
+                          description="A colour family, or your own brand colour."
+                        >
+                          <BrandColorField v-model="form.theme_accent" />
+                        </UFormField>
+                        <UFormField label="Neutral" description="Backgrounds, text, borders.">
+                          <div class="flex items-center gap-2">
+                            <span
+                              class="inline-block size-4 rounded-full ring-1 ring-default"
+                              :style="{ background: neutralSwatch }"
+                              data-test="theme-neutral-swatch"
+                            />
+                            <USelect
+                              v-model="form.theme_neutral"
+                              :items="neutralItems"
+                              value-key="value"
+                              class="w-full"
+                              data-test="theme-neutral"
+                            />
+                          </div>
+                        </UFormField>
+                        <CustomNeutralFields
+                          v-if="form.theme_neutral === 'custom' && neutralCustom"
+                          :model-value="neutralCustom"
+                          :dark-base="form.theme_dark_base ?? ''"
+                          :show-dark-base="colorMode"
+                          :family="resetFamily"
+                          @update:model-value="setNeutralCustom"
+                          @update:dark-base="(v: string) => (form.theme_dark_base = v)"
+                          @reset="resetNeutral"
+                        />
+                        <UFormField
+                          label="Brand colours"
+                          description="Named colours every block's colour picker offers. Up to three."
+                        >
+                          <BrandColorsField
+                            :slots="brandDrafts"
+                            :configured="configured"
+                            :palette="schemaSlots"
+                            :jobs="jobs"
+                            @update:slots="setBrandDrafts"
+                            @clear="onClearBrand"
+                          />
+                        </UFormField>
+                        <UFormField label="Contrast">
+                          <ContrastChecks :look="contrastLook" />
+                        </UFormField>
+                        <ClearBrandDialog
+                          v-if="clearing !== null"
+                          :open="clearing !== null"
+                          :slot="clearing"
+                          :name="clearingName"
+                          :palette="styleSchema?.palette"
+                          :colours="styleSchema?.vocabulary?.domains.color ?? []"
+                          :look="contrastLook"
+                          @update:open="(v: boolean) => (v ? null : (clearing = null))"
+                          @done="onPaletteChanged"
+                        />
+                      </div>
+                    </div>
+                  </UCard>
+                </div>
               </template>
-              <div class="space-y-6">
-                <p class="text-sm text-muted">
-                  Site-wide shape, type and ground. Each choice re-maps theme tokens only; a button
-                  can still pick its own shape.
-                </p>
-                <!-- Stacked: this column is narrow, and each option reads as a sentence. -->
-                <div class="grid gap-6">
-                  <UFormField label="Corners" description="Radius of panels and buttons.">
-                    <USelect
-                      v-model="form.theme_radius"
-                      :items="RADIUS_ITEMS"
-                      value-key="value"
-                      class="w-full"
-                      data-test="theme-radius"
-                    />
-                  </UFormField>
-                  <UFormField label="Typefaces" description="Headings and body text.">
-                    <USelect
-                      v-model="form.theme_font"
-                      :items="FONT_ITEMS"
-                      value-key="value"
-                      class="w-full"
-                      data-test="theme-font"
-                    />
-                  </UFormField>
-                  <div
-                    v-if="form.theme_font === 'custom'"
-                    class="space-y-4"
-                    data-test="custom-fonts"
-                  >
-                    <p class="text-xs text-muted">
-                      With only a text font, headings use it too; with neither, the theme's own font
-                      stays.
-                    </p>
-                    <!-- Custom's Text and Headings come from the font library (block typeface
-                         spec §2.8); Not set leaves the role to its fallback. -->
-                    <UFormField label="Text">
-                      <FontFamilyPicker
-                        v-model="form.theme_font_text_family"
-                        label="Text"
-                        data-test="font-family-text"
-                      />
-                    </UFormField>
-                    <UFormField label="Headings">
-                      <FontFamilyPicker
-                        v-model="form.theme_font_headings_family"
-                        label="Headings"
-                        data-test="font-family-headings"
-                      />
-                    </UFormField>
-                  </div>
-                  <UFormField label="Page ground" description="What the page sits on.">
-                    <USelect
-                      v-model="form.theme_background"
-                      :items="BACKGROUND_ITEMS"
-                      value-key="value"
-                      class="w-full"
-                      data-test="theme-background"
-                    />
-                  </UFormField>
+
+              <template #design>
+                <div class="space-y-6" data-test="appearance-panel-design">
+                  <UCard data-test="theme-design-card">
+                    <template #header>
+                      <h2 class="font-semibold text-default">Design</h2>
+                    </template>
+                    <div class="space-y-6">
+                      <p class="text-sm text-muted">
+                        Site-wide shape and ground. Each choice re-maps theme tokens only; a button
+                        can still pick its own shape.
+                      </p>
+                      <!-- Stacked: this column is narrow, and each option reads as a sentence. -->
+                      <div class="grid gap-6">
+                        <UFormField label="Corners" description="Radius of panels and buttons.">
+                          <USelect
+                            v-model="form.theme_radius"
+                            :items="RADIUS_ITEMS"
+                            value-key="value"
+                            class="w-full"
+                            data-test="theme-radius"
+                          />
+                        </UFormField>
+                        <UFormField label="Page ground" description="What the page sits on.">
+                          <USelect
+                            v-model="form.theme_background"
+                            :items="BACKGROUND_ITEMS"
+                            value-key="value"
+                            class="w-full"
+                            data-test="theme-background"
+                          />
+                        </UFormField>
+                      </div>
+                    </div>
+                  </UCard>
                 </div>
-              </div>
-            </UCard>
-
-            <TypefacesCard />
-
-            <UCard data-test="logos-card">
-              <template #header>
-                <h2 class="font-semibold text-default">Logos &amp; site icon</h2>
               </template>
-              <div class="space-y-6">
-                <!-- One under the other: side by side in this column their descriptions wrapped to
-                     different heights and pushed the two upload boxes out of line. A short line
-                     says what each is for; the fallback rule sits under the box as help. -->
-                <div class="space-y-6">
-                  <UFormField
-                    label="Site logo"
-                    description="Shown by the Logo block and by themes."
-                    help="When unset, the site name is shown instead."
-                  >
-                    <div data-test="site-logo-picker">
-                      <AssetField
-                        v-model="form.site_logo"
-                        :field="logoField"
-                        empty-value=""
-                        :library-button="false"
-                      />
+
+              <template #typefaces>
+                <div class="space-y-6" data-test="appearance-panel-typefaces">
+                  <UCard data-test="theme-typefaces-card">
+                    <template #header>
+                      <h2 class="font-semibold text-default">Typefaces</h2>
+                    </template>
+                    <div class="grid gap-6">
+                      <UFormField label="Pairing" description="Headings and body text.">
+                        <USelect
+                          v-model="form.theme_font"
+                          :items="FONT_ITEMS"
+                          value-key="value"
+                          class="w-full"
+                          data-test="theme-font"
+                        />
+                      </UFormField>
+                      <div
+                        v-if="form.theme_font === 'custom'"
+                        class="space-y-4"
+                        data-test="custom-fonts"
+                      >
+                        <p class="text-xs text-muted">
+                          With only a text font, headings use it too; with neither, the theme's own
+                          font stays.
+                        </p>
+                        <!-- Custom's Text and Headings come from the font library (block typeface
+                               spec §2.8); Not set leaves the role to its fallback. -->
+                        <UFormField label="Text">
+                          <FontFamilyPicker
+                            v-model="form.theme_font_text_family"
+                            label="Text"
+                            data-test="font-family-text"
+                          />
+                        </UFormField>
+                        <UFormField label="Headings">
+                          <FontFamilyPicker
+                            v-model="form.theme_font_headings_family"
+                            label="Headings"
+                            data-test="font-family-headings"
+                          />
+                        </UFormField>
+                      </div>
                     </div>
-                  </UFormField>
-                  <UFormField
-                    label="Site logo (dark)"
-                    description="For visitors using a dark colour scheme."
-                    help="Falls back to the main logo. Themes without a dark scheme ignore it."
-                  >
-                    <div data-test="site-logo-dark-picker">
-                      <AssetField
-                        v-model="form.site_logo_dark"
-                        :field="logoDarkField"
-                        empty-value=""
-                        :library-button="false"
-                      />
-                    </div>
-                  </UFormField>
+                  </UCard>
+                  <TypefacesCard />
                 </div>
-                <!-- Site icon (below) -->
-                <div class="space-y-4">
-                  <UFormField
-                    label="Favicon"
-                    description="The site’s icon in browser tabs and bookmarks."
-                    help="PNG or SVG, square, 512×512 or larger."
-                  >
-                    <div data-test="site-favicon-picker">
-                      <AssetField
-                        v-model="form.site_favicon"
-                        :field="faviconField"
-                        empty-value=""
-                        :library-button="false"
-                        :preview="false"
-                      />
+              </template>
+
+              <template #logos>
+                <div class="space-y-6" data-test="appearance-panel-logos">
+                  <UCard data-test="logos-card">
+                    <template #header>
+                      <h2 class="font-semibold text-default">Logos &amp; site icon</h2>
+                    </template>
+                    <div class="space-y-6">
+                      <!-- One under the other: side by side in this column their descriptions wrapped to
+                           different heights and pushed the two upload boxes out of line. A short line
+                           says what each is for; the fallback rule sits under the box as help. -->
+                      <div class="space-y-6">
+                        <UFormField
+                          label="Site logo"
+                          description="Shown by the Logo block and by themes."
+                          help="When unset, the site name is shown instead."
+                        >
+                          <div data-test="site-logo-picker">
+                            <AssetField
+                              v-model="form.site_logo"
+                              :field="logoField"
+                              empty-value=""
+                              :library-button="false"
+                            />
+                          </div>
+                        </UFormField>
+                        <UFormField
+                          label="Site logo (dark)"
+                          description="For visitors using a dark colour scheme."
+                          help="Falls back to the main logo. Themes without a dark scheme ignore it."
+                        >
+                          <div data-test="site-logo-dark-picker">
+                            <AssetField
+                              v-model="form.site_logo_dark"
+                              :field="logoDarkField"
+                              empty-value=""
+                              :library-button="false"
+                            />
+                          </div>
+                        </UFormField>
+                      </div>
+                      <!-- Site icon (below) -->
+                      <div class="space-y-4">
+                        <UFormField
+                          label="Favicon"
+                          description="The site’s icon in browser tabs and bookmarks."
+                          help="PNG or SVG, square, 512×512 or larger."
+                        >
+                          <div data-test="site-favicon-picker">
+                            <AssetField
+                              v-model="form.site_favicon"
+                              :field="faviconField"
+                              empty-value=""
+                              :library-button="false"
+                              :preview="false"
+                            />
+                          </div>
+                        </UFormField>
+                        <FaviconPreview
+                          v-if="form.site_favicon"
+                          :src="blobDisplayUrl(form.site_favicon)"
+                          :site-name="siteName"
+                        />
+                      </div>
                     </div>
-                  </UFormField>
-                  <FaviconPreview
-                    v-if="form.site_favicon"
-                    :src="blobDisplayUrl(form.site_favicon)"
-                    :site-name="siteName"
-                  />
+                  </UCard>
                 </div>
-              </div>
-            </UCard>
+              </template>
+            </UTabs>
           </div>
           <div class="order-1 xl:sticky xl:top-0 xl:order-2 xl:self-start">
             <AppearancePreview

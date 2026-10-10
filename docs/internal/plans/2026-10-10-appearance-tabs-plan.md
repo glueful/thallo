@@ -345,7 +345,6 @@ describe('appearance tabs', () => {
     expect(routerPush).toHaveBeenLastCalledWith({ query: {} })
     expect(shown(wrapper, 'theme')).toBe(true)
     // A choice is a history entry; nothing was replaced.
-    expect(routerPush).not.toHaveBeenCalled()
     expect(routerReplace).not.toHaveBeenCalled()
   })
 
@@ -356,7 +355,7 @@ describe('appearance tabs', () => {
     const panel = tabpanel(wrapper, 'colours')
     expect(tab.attributes('aria-controls')).toBe(panel.id)
     expect(panel.getAttribute('aria-labelledby')).toBe(tab.attributes('id'))
-    tabButton(wrapper, 'Theme').element.focus()
+    ;(tabButton(wrapper, 'Theme').element as HTMLElement).focus()
     await tabButton(wrapper, 'Theme').trigger('keydown', { key: 'ArrowRight' })
     await flushPromises()
     expect(document.activeElement).toBe(tab.element)
@@ -428,7 +427,10 @@ describe('appearance tabs', () => {
     await openTab(wrapper, 'Logos')
     await wrapper.find('[data-test="stub-logo-pick"]').trigger('click')
     await openTab(wrapper, 'Design')
-    const radius = wrapper.findComponent('[data-test="theme-radius"]')
+    // The Nuxt UI select whose rendered trigger carries the test id (appearance-palette.spec's idiom).
+    const radius = wrapper
+      .findAllComponents({ name: 'Select' })
+      .find((c) => c.find('[data-test="theme-radius"]').exists())!
     radius.vm.$emit('update:modelValue', 'sharp')
     await flushPromises()
     expect(await save(wrapper)).toMatchObject({ site_logo: 'blob00000042', theme_radius: 'sharp' })

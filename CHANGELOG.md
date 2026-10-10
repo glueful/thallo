@@ -68,6 +68,10 @@ as the next release, never a mutated tag.
   becomes and shows that pair's contrast in light and dark mode.
 
 ### Changed
+- **Appearance is split into tabs** — Theme, Colours, Design, Typefaces, Logos & site icon — with
+  the preview beside every tab. One Save still saves them all; a tab with unsaved changes or with a
+  field a save refused shows a dot, and the open tab is in the address (`/appearance?tab=colours`),
+  so Back and Forward move between tabs.
 - `GET /v1/admin/render/style-schema` is readable by any style editor — `content.edit`,
   `content.manage`, `templates.manage` or `styles.manage` — and carries the site's palette (brand
   slot states, swatches, labels, its generation and the recent replacements), which the colour

@@ -109,7 +109,7 @@ describe('FontFamilyControl', () => {
       'Renders inheriting the enclosing font.',
     )
     expect(w.find('[data-test="typeface-restore"]').attributes('data-to')).toBe(
-      '/appearance#typefaces',
+      '/appearance?tab=typefaces#typefaces',
     )
     await w.find('[data-test="typeface-clear"]').trigger('click')
     expect(w.emitted('clear')).toEqual([[]])

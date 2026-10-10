@@ -50,9 +50,43 @@ const fetchRenderThemesMock = vi.hoisted(() => vi.fn())
 vi.mock('@/queries/templates', () => ({
   fetchRenderThemes: fetchRenderThemesMock,
 }))
-vi.mock('vue-router/auto', () => ({
-  useRoute: () => ({ path: '/appearance', params: {}, query: {} }),
-  useRouter: () => ({ push: vi.fn(), resolve: vi.fn() }),
+// The open tab is the URL's ?tab=. One reactive route and router, shared by both module ids the
+// page's router imports may resolve through (vue-router and vue-router/auto): push() and replace()
+// record the call and move the route, as the router would.
+const nav = await vi.hoisted(async () => {
+  const { reactive } = await import('vue')
+  const route = reactive({ path: '/appearance', params: {}, query: {} as Record<string, string> })
+  const pushed = vi.fn()
+  const replaced = vi.fn()
+  const go = (to: { query: Record<string, string> }) => {
+    route.query = { ...to.query }
+  }
+  // Recorded and then acted on: clearMocks drops a spy's implementation between tests.
+  const router = {
+    push: (to: { query: Record<string, string> }) => {
+      pushed(to)
+      go(to)
+    },
+    replace: (to: { query: Record<string, string> }) => {
+      replaced(to)
+      go(to)
+    },
+    resolve: () => ({}),
+  }
+  return { route, router, pushed, replaced }
+})
+const routeState = nav.route
+const routerPush = nav.pushed
+const routerReplace = nav.replaced
+vi.mock('vue-router', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('vue-router')>()),
+  useRoute: () => nav.route,
+  useRouter: () => nav.router,
+}))
+vi.mock('vue-router/auto', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('vue-router')>()),
+  useRoute: () => nav.route,
+  useRouter: () => nav.router,
   RouterLink: { props: ['to'], template: '<a><slot /></a>' },
 }))
 // The real AssetField opens the blob picker; the page only needs v-model.
@@ -224,6 +258,9 @@ const inputValue = (w: ReturnType<typeof mount>, selector: string) =>
 
 describe('Appearance › Theme colors › palette', () => {
   beforeEach(() => {
+    routeState.query = {}
+    routerPush.mockClear()
+    routerReplace.mockClear()
     setActivePinia(createPinia())
     saveMock.mockReset().mockResolvedValue({ ...settings() })
     fetchRenderThemesMock
