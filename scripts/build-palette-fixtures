@@ -1,0 +1,211 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Build the fixtures of the custom palette (custom palette spec §3, §5.3): one page under a Custom
+ * neutral (a cream ground, a stone dark base) with brand colours 1 "Gold dark" and 5 "Sky" configured
+ * and 12 "Rose" cleared — a Button filled with Brand 1 and lettered in its text colour, a Button
+ * filled with Sky (an id above three, its utilities from the workspace's colours stylesheet), a
+ * Button whose hover text names the cleared 12, a Heading inside a muted container whose own text
+ * names 12, and a container on Surface 2 — rendered by the real render pack twice, published (`public.html`) and on the editor's
+ * canvas stage (`stage.html`), into `tools/runtime-browser/fixtures/palette/` (gitignored) with
+ * stylesheets inlined and scripts dropped. Seeded inside a transaction that is rolled back. Read by
+ * palette.spec.js.
+ *
+ *   CACHE_DRIVER=array DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-palette-fixtures
+ */
+
+declare(strict_types=1);
+
+use Glueful\Bootstrap\ApplicationContext;
+use Glueful\Database\Connection;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Thallo\Contracts\Style\BlockStyleRegistry;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Contracts\Style\BrandSlot;
+use Thallo\Core\Settings\BrandColors;
+use Thallo\Core\Settings\GeneralSettings;
+use Thallo\Render\Style\RequestPalette;
+use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
+use Thallo\Core\Content\Http\Controllers\PreviewController;
+use Thallo\Core\Content\Http\DTOs\MintPreviewData;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
+use Thallo\Core\Tests\Support\ListingPageSeed;
+use Thallo\Core\Tests\Support\TestApplication;
+use Thallo\Render\Http\Controllers\RenderController;
+
+require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/lib/layout-thumbnails.php';
+
+foreach (getenv() as $key => $value) {
+    $_ENV[$key] ??= $value;
+}
+$_ENV['DB_POOLING_ENABLED'] = 'false';
+$root = dirname(__DIR__);
+if (is_file($root . '/.env')) {
+    Dotenv\Dotenv::createImmutable($root)->safeLoad();
+}
+$env = static fn (string $key, ?string $default = null): ?string => $_ENV[$key] ?? (getenv($key) === false ? $default : getenv($key));
+if ($env('APP_ENV', 'development') !== 'testing') {
+    fwrite(STDERR, "Refusing to build outside APP_ENV=testing (it seeds the test database).\n");
+    exit(1);
+}
+$database = (string) $env('DB_PGSQL_DATABASE', '');
+if ($database !== 'app_test' && !str_ends_with($database, '_test')) {
+    fwrite(STDERR, "Refusing to seed non-test database '{$database}'.\n");
+    exit(1);
+}
+
+$out = $root . '/tools/runtime-browser/fixtures/palette';
+if (!is_dir($out) && !mkdir($out, 0755, true)) {
+    fwrite(STDERR, "cannot create {$out}\n");
+    exit(1);
+}
+
+$app = TestApplication::instance();
+$container = $app->getContainer();
+$context = $container->get(ApplicationContext::class);
+$db = $container->get(Connection::class);
+
+/** The page as a self-contained document: stylesheets and fonts inlined, scripts dropped. */
+$selfContained = static fn (string $html): string => layout_self_contained(
+    $html,
+    static fn (Request $request): Response => $app->handle($request),
+    ListingPageSeed::IMAGES,
+    $root,
+);
+
+/** Thrown to roll the seeding back once the pages are written. */
+final class PaletteFixturesWritten extends RuntimeException
+{
+}
+
+$container->get(StarterBlockTypeSeeder::class)->seedMissing();
+
+try {
+    // The palette row first (docs/internal/palette-lock-order.md): the seeding saves through the fence.
+    $container->get(\Thallo\Core\Content\Palette\PaletteFence::class)->within(static function () use (
+        $container,
+        $context,
+        $app,
+        $selfContained,
+        $out,
+    ): void {
+        // The shipped starters' style declarations, as the test suite syncs them.
+        $blockTypes = $container->get(BlockTypeRepository::class);
+        foreach ($container->get(BlockTypeKind::class)->definitions() as $definition) {
+            $payload = $definition->payload;
+            $row = $blockTypes->findBySlug((string) $payload['slug']);
+            if ($row !== null) {
+                $blockTypes->updateStyle(
+                    (string) $row['uuid'],
+                    $payload['style_capabilities'] ?? null,
+                    $payload['style_targets'] ?? null,
+                    $payload['flags'] ?? null,
+                    $row['starter_content'] ?? $payload['starter_content'] ?? null,
+                );
+            }
+        }
+        $container->get(BlockStyleRegistry::class)->reset();
+
+        // The palette: a Custom neutral on cream with a stone dark base, brand colours 1 "Gold dark"
+        // and 5 "Sky". 12 "Rose" is configured only while the page is saved — the fence refuses a
+        // fresh reference to an unconfigured id — and cleared before rendering: the page then holds a
+        // colour nobody configures, as a restored older version does.
+        $settings = $container->get(GeneralSettings::class);
+        $settings->save([
+            'theme_neutral' => 'custom',
+            'theme_neutral_custom' => json_encode([
+                'bg' => '#f8f4ec', 'surface' => '#ffffff', 'surface_2' => '#efe7d8',
+                'ink' => '#1b1712', 'muted' => '#6b6156', 'line' => '#e2d8c6',
+            ]),
+            'theme_dark_base' => 'stone',
+            'theme_brand_colors' => BrandColors::encode([
+                1 => new BrandSlot('Gold dark', '#8a6a2a'),
+                5 => new BrandSlot('Sky', '#38bdf8'),
+                12 => new BrandSlot('Rose', '#c98a8a'),
+            ], [], 1),
+        ]);
+        $container->get(RequestPalette::class)->refresh();
+
+        $token = static fn (string $value): array => ['type' => 'token', 'value' => $value];
+        $anchor = static fn (string $id): array => ['advanced' => ['anchor' => $id]];
+        $button = static fn (string $id, string $anchorId, array $style): array => [
+            'id' => $id, 'type' => 'button',
+            'data' => ['label' => 'Read more', 'url' => '/more', 'variant' => 'solid'],
+            'settings' => $anchor($anchorId) + ['style' => $style],
+        ];
+        $body = [
+            $button('palbrand0001', 'brand', ['colors' => [
+                'surface' => $token('color.brand-1'), 'text' => $token('color.brand-1-contrast'),
+            ]]),
+            $button('palsky000001', 'brand-sky', ['colors' => [
+                'surface' => $token('color.brand-5'), 'text' => $token('color.brand-5-contrast'),
+            ]]),
+            $button('palhover0001', 'hover-unset', [
+                'colors' => ['text' => $token('color.accent')],
+                'hover' => ['colors' => ['text' => $token('color.brand-12')]],
+            ]),
+            ['id' => 'palsect00001', 'type' => 'container', 'data' => ['content' => [
+                ['id' => 'palhead00001', 'type' => 'heading', 'data' => ['text' => 'A heading', 'level' => 'h2'],
+                    'settings' => $anchor('heading-unset') + ['style' => ['colors' => ['text' => $token('color.brand-12')]]]],
+            ]], 'settings' => ['style' => ['colors' => ['text' => $token('color.muted')]]]],
+            ['id' => 'palband00001', 'type' => 'container', 'data' => ['content' => [
+                ['id' => 'palbandtext1', 'type' => 'heading', 'data' => ['text' => 'A band', 'level' => 'h3'], 'settings' => []],
+            ]], 'settings' => $anchor('band') + ['style' => ['colors' => ['surface' => $token('color.surface-2')]]]],
+        ];
+
+        $type = (string) $container->get(ContentTypeRepository::class)->create([
+            'slug' => 'landing', 'name' => 'Landing pages', 'public_delivery' => true, 'schema' => [
+                ['name' => 'title', 'type' => 'string', 'required' => true],
+                ['name' => 'body', 'type' => 'blocks'],
+            ],
+        ]);
+        $entry = (new ListingPageSeed($container, $context))
+            ->publish($type, 'palette', ['title' => 'Palette', 'body' => $body], '2026-07-01 09:00:00');
+
+        $settings->save([
+            'theme_brand_colors' => BrandColors::cleared($settings->stored('theme_brand_colors'), 12),
+        ]);
+        $settings->clearStoreCache();
+        $container->get(RequestPalette::class)->refresh();
+
+        // Published: what a visitor receives.
+        $public = $app->handle(Request::create('/landing/palette', 'GET'));
+        if ($public->getStatusCode() !== 200) {
+            throw new RuntimeException("/landing/palette answered {$public->getStatusCode()}");
+        }
+        file_put_contents($out . '/public.html', $selfContained((string) $public->getContent()));
+
+        // The canvas stage the editor frames, from the same entry.
+        $mint = $container->get(PreviewController::class)->mint(
+            new MintPreviewData(),
+            Request::create('/x', 'POST', [], [], [], ['CONTENT_TYPE' => 'application/json'], '{}'),
+            $entry,
+            'en',
+        );
+        $token = (string) (json_decode((string) $mint->getContent(), true)['data']['token'] ?? '');
+        if ($token === '') {
+            throw new RuntimeException('mint returned no token');
+        }
+        $stage = $container->get(RenderController::class)->preview(
+            Request::create('/_preview/' . $token . '?canvas=1', 'GET'),
+            $token,
+        );
+        if ($stage->getStatusCode() !== 200) {
+            throw new RuntimeException("the stage returned {$stage->getStatusCode()}");
+        }
+        file_put_contents($out . '/stage.html', $selfContained((string) $stage->getContent()));
+
+        throw new PaletteFixturesWritten();
+    });
+} catch (PaletteFixturesWritten) {
+    // Written, and rolled back.
+} catch (Throwable $e) {
+    $detail = $e instanceof \Thallo\Core\Content\Validation\ValidationException ? ' ' . json_encode($e->errors()) : '';
+    fwrite(STDERR, 'the palette fixtures failed: ' . $e::class . ': ' . $e->getMessage() . $detail . "\n");
+    exit(1);
+}
+
+fwrite(STDOUT, "Wrote public.html, stage.html to tools/runtime-browser/fixtures/palette.\n");

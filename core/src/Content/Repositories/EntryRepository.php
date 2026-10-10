@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Content\Repositories;
 
+use Thallo\Core\Content\Palette\ColorTokenWalker;
+use Thallo\Core\Content\Palette\Normalized;
+use Thallo\Core\Content\Palette\PaletteOutcome;
+use Thallo\Core\Content\Palette\PaletteFence;
+use Thallo\Core\Content\Palette\PaletteNormalizer;
+use Thallo\Core\Content\Palette\PaletteSnapshot;
 use Thallo\Core\Content\Blocks\Migration\BlockInstanceWalker;
 use Thallo\Core\Content\Events\AssetAttached;
 use Thallo\Core\Content\Events\AssetDetached;
@@ -30,6 +36,9 @@ final class EntryRepository
         private readonly ?\Thallo\Core\Content\Style\Classes\StyleClassReferenceGuard $guard = null,
         /** Finds images placed inside blocks; without it only top-level asset fields count. */
         private readonly ?BlockInstanceWalker $blocks = null,
+        /** The palette fence (custom palette spec §4.3); null = unfenced (tests, minimal wiring). */
+        private readonly ?PaletteFence $fence = null,
+        private readonly ?PaletteNormalizer $normalizer = null,
     ) {
     }
 
@@ -67,6 +76,115 @@ final class EntryRepository
     }
 
     /**
+     * Save a draft through the palette fence (custom palette spec §4.3, §4.5): the submitted fields are
+     * normalised — a running replacement's source mapped, a fresh reference to a cleared brand colour
+     * refused (PaletteRefusal) — against the draft as stored, which is the trusted basis. Returns what
+     * normalisation changed, for the editor to adopt.
+     *
+     * The draft's persisted restore basis (the brand colours of the version last restored into it) is
+     * part of the basis too; a restore passes the restored version as `$extraBasis` and records it with
+     * `$recordRestoreBasis`.
+     *
+     * @param array<string,mixed> $fields
+     * @param array<string,list<string>> $extraBasis
+     * @param array<string,list<string>>|null $recordRestoreBasis
+     */
+    public function saveDraft(
+        string $entryUuid,
+        string $locale,
+        array $fields,
+        int $schemaVersion,
+        int $expectedLockVersion,
+        ?string $actor,
+        array $extraBasis = [],
+        ?array $recordRestoreBasis = null,
+    ): PaletteOutcome {
+        if ($this->fence === null || $this->normalizer === null) {
+            $this->persistDraft(
+                $entryUuid,
+                $locale,
+                $fields,
+                $schemaVersion,
+                $expectedLockVersion,
+                $actor,
+                $recordRestoreBasis,
+            );
+            return new PaletteOutcome([], 0);
+        }
+        $schema = $this->entrySchema($entryUuid);
+        $last = null;
+        $held = 0;
+        $this->fence->write(
+            function (PaletteSnapshot $s) use ($entryUuid, $locale, $fields, $schema, $extraBasis, &$last): Normalized {
+                // The ORIGINAL submitted fields, every time; the basis re-read, so a second call sees the
+                // draft as stored under the held lock.
+                return $last = $this->normalizer->normalize(
+                    ColorTokenWalker::KIND_ENTRY,
+                    $fields,
+                    $s,
+                    $this->normalizer->mergeBasis(
+                        $this->normalizer->basisOf(
+                            ColorTokenWalker::KIND_ENTRY,
+                            $schema,
+                            $this->draftFields($entryUuid, $locale),
+                        ),
+                        $this->restoreBasis($entryUuid, $locale),
+                        $extraBasis,
+                    ),
+                    $schema,
+                );
+            },
+            function (
+                array $doc,
+                PaletteSnapshot $s
+            ) use (
+                $entryUuid,
+                $locale,
+                $schemaVersion,
+                $expectedLockVersion,
+                $actor,
+                $recordRestoreBasis,
+                &$held,
+            ): void {
+                $held = $s->generation;
+                $this->persistDraft(
+                    $entryUuid,
+                    $locale,
+                    $doc,
+                    $schemaVersion,
+                    $expectedLockVersion,
+                    $actor,
+                    $recordRestoreBasis,
+                );
+            },
+        );
+        return new PaletteOutcome($last?->rewrites ?? [], $held);
+    }
+
+    /**
+     * The brand colours of the version last restored into this draft, by block (custom palette spec
+     * §4.5): stored with the draft, so retention pruning the version cannot take it away.
+     *
+     * @return array<string,list<string>>
+     */
+    public function restoreBasis(string $entryUuid, string $locale): array
+    {
+        $row = $this->db->table('entry_drafts')->select(['restore_basis'])
+            ->where('entry_uuid', '=', $entryUuid)->where('locale', '=', $locale)->first();
+        $raw = $row['restore_basis'] ?? null;
+        $basis = is_string($raw) ? json_decode($raw, true) : $raw;
+        return is_array($basis) ? $basis : [];
+    }
+
+    /** The entry's content type schema, or null. */
+    private function entrySchema(string $entryUuid): ?ContentTypeSchema
+    {
+        $entry = $this->findEntry($entryUuid);
+        $type = $entry === null ? null : $this->types->findByUuid((string) $entry['content_type_uuid']);
+        return $type === null ? null : ContentTypeSchema::fromArray((array) $type['schema']);
+    }
+
+    /**
      * Save the draft working copy under optimistic concurrency. The caller passes the
      * lock_version it last read; if the row has moved on, throw (controller -> 409).
      *
@@ -76,13 +194,14 @@ final class EntryRepository
      *
      * @param array<string,mixed> $fields already-validated, cleaned payload
      */
-    public function saveDraft(
+    private function persistDraft(
         string $entryUuid,
         string $locale,
         array $fields,
         int $schemaVersion,
         int $expectedLockVersion,
         ?string $actor,
+        ?array $recordRestoreBasis = null,
     ): void {
         // Capture the PRIOR persisted draft's asset-field targets BEFORE the write, so we
         // can diff old-vs-new after a successful commit (V1_DESIGN §8 "where is this asset
@@ -101,6 +220,7 @@ final class EntryRepository
             $schemaVersion,
             $expectedLockVersion,
             $actor,
+            $recordRestoreBasis,
         ): void {
             if ($this->guard !== null) {
                 $entry = $this->findEntry($entryUuid);
@@ -120,7 +240,9 @@ final class EntryRepository
                     'lock_version' => $expectedLockVersion + 1,
                     'updated_by' => $actor,
                     'updated_at' => $this->now(),
-                ]);
+                ] + ($recordRestoreBasis === null ? [] : [
+                    'restore_basis' => json_encode($recordRestoreBasis, JSON_THROW_ON_ERROR),
+                ]));
             if ($affected < 1) {
                 // Stale save: throw inside the transaction so it rolls back before any
                 // projection write. Controller maps OptimisticLockException -> 409.
@@ -255,6 +377,8 @@ final class EntryRepository
             : (array) ($row['fields'] ?? []);
         $row['lock_version'] = (int) $row['lock_version'];
         $row['schema_version'] = (int) $row['schema_version'];
+        // The restore basis is the server's own trust record (custom palette spec §4.5): never handed out.
+        unset($row['restore_basis']);
         return $row;
     }
 
@@ -278,34 +402,68 @@ final class EntryRepository
             throw new \RuntimeException('Draft already exists for locale.');
         }
 
-        $fields = [];
-        if ($sourceLocale !== null) {
+        $seeded = function () use ($entryUuid, $sourceLocale, $schema): array {
+            if ($sourceLocale === null) {
+                return [];
+            }
             $source = $this->findDraft($entryUuid, $sourceLocale);
             if ($source === null) {
                 throw new \InvalidArgumentException('Source draft not found.');
             }
-            $fields = $schema === null
+            return $schema === null
                 ? (array) $source['fields']
                 : $this->seeder->seed((array) $source['fields'], $schema);
-        }
+        };
 
-        $data = [
-            'entry_uuid' => $entryUuid,
-            'locale' => $locale,
-            'fields' => json_encode($fields, JSON_THROW_ON_ERROR),
-            'schema_version' => $schemaVersion,
-            'lock_version' => 0,
-            'updated_by' => $actor,
-            'updated_at' => $this->now(),
-        ];
+        $write = function (array $fields) use ($entryUuid, $locale, $schemaVersion, $actor): void {
+            $this->db->transaction(function () use ($entryUuid, $locale, $fields, $schemaVersion, $actor): void {
+                $data = [
+                    'entry_uuid' => $entryUuid,
+                    'locale' => $locale,
+                    'fields' => json_encode($fields, JSON_THROW_ON_ERROR),
+                    'schema_version' => $schemaVersion,
+                    'lock_version' => 0,
+                    'updated_by' => $actor,
+                    'updated_at' => $this->now(),
+                ];
+                $current = $this->findDraft($entryUuid, $locale);
+                if ($current === null) {
+                    $this->db->table('entry_drafts')->insert($data);
+                    return;
+                }
+                // An overwrite is conditional on the row it read (custom palette plan ruling 13): a save
+                // that landed in between wins, and this copy is refused rather than clobbering it.
+                $lock = (int) ($current['lock_version'] ?? 0);
+                $affected = $this->db->table('entry_drafts')
+                    ->where('entry_uuid', '=', $entryUuid)
+                    ->where('locale', '=', $locale)
+                    ->where('lock_version', '=', $lock)
+                    ->update(['lock_version' => $lock + 1] + $data);
+                if ($affected < 1) {
+                    throw new OptimisticLockException();
+                }
+            });
+        };
 
-        if ($existing === null) {
-            $this->db->table('entry_drafts')->insert($data);
+        if ($this->fence === null || $this->normalizer === null) {
+            $write($seeded());
         } else {
-            $this->db->table('entry_drafts')
-                ->where('entry_uuid', '=', $entryUuid)
-                ->where('locale', '=', $locale)
-                ->update($data);
+            // The palette fence (custom palette spec §4.3): the copy is the source locale's draft, re-read
+            // on every call, and that draft is its trusted basis.
+            $typeSchema = $schema ?? $this->entrySchema($entryUuid);
+            $this->fence->write(
+                function (PaletteSnapshot $s) use ($seeded, $typeSchema): Normalized {
+                    $fields = $seeded();
+                    return $this->normalizer->normalize(
+                        ColorTokenWalker::KIND_ENTRY,
+                        $fields,
+                        $s,
+                        $this->normalizer->basisOf(ColorTokenWalker::KIND_ENTRY, $typeSchema, $fields),
+                        $typeSchema,
+                    );
+                },
+                fn (array $doc) => $write($doc),
+            );
         }
 
         return $this->findDraft($entryUuid, $locale) ?? [];

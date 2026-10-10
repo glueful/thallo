@@ -280,7 +280,10 @@ function fmtDate(v?: string | null): string {
           data-test="media-usage-font"
         >
           <UIcon name="i-lucide-type" class="size-4 shrink-0 text-muted" />
-          <RouterLink to="/appearance#typefaces" class="truncate text-default hover:underline">
+          <RouterLink
+            to="/appearance?tab=typefaces#typefaces"
+            class="truncate text-default hover:underline"
+          >
             Font library · {{ f.name }}{{ f.removed ? ' (removed)' : '' }}
           </RouterLink>
         </li>

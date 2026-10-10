@@ -1,3 +1,4 @@
+import { handlePaletteRefusal } from '@/editor/paletteRefusal'
 import { computed, ref, type Ref } from 'vue'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
 import type { FieldDef } from '@/fields/types'
@@ -92,7 +93,7 @@ const versionsOf = (
 })
 
 export function useRegionHost(options: { regions: Ref<RegionData[] | undefined> }) {
-  const { success, error: notifyError } = useNotify()
+  const { success, warning, error: notifyError } = useNotify()
 
   /** The region the Blocks, Region and Outline tabs work on. */
   const currentRegion = ref<RegionSlug>('header')
@@ -129,15 +130,19 @@ export function useRegionHost(options: { regions: Ref<RegionData[] | undefined> 
     accepted: null, // a fresh session has accepted nothing
   })
 
+  /** The generation the loaded regions were read at: the stage editor's ledger baseline. */
+  let paletteGeneration = 0
   const host: StageHost = {
     schema,
     initial,
+    paletteGeneration: () => paletteGeneration,
     // The first session's baseline is the document; a mint never touches the save baseline again.
     async mint() {
       const session = await mintRegionSession(page.value)
       hidden.value = session.hidden
       if (baseline.value === null) {
         loaded(session)
+        paletteGeneration = session.paletteGeneration ?? 0
         initial.value = toDocument(session.regions)
       }
       return asStage(session)
@@ -223,6 +228,7 @@ export function useRegionHost(options: { regions: Ref<RegionData[] | undefined> 
         expected: baseline.value,
         token: token || null,
         preview_revision: editor.accepted.value,
+        palette_through: editor.paletteThrough(),
       })
       baseline.value = versionsOf(result.regions)
       for (const slug of REGION_SLUGS) {
@@ -230,6 +236,8 @@ export function useRegionHost(options: { regions: Ref<RegionData[] | undefined> 
         if (posted) saved.value = { ...saved.value, [slug]: JSON.stringify(posted) }
       }
       editor.markSaved(sequence)
+      // What the palette changed, adopted under any edit made meanwhile (custom palette spec §4.5).
+      await editor.adoptPaletteResult(result.palette)
       // Only the session the save came from was cleared; a newer one keeps its pair.
       if (result.previewCleared && editor.previewToken.value === token) {
         editor.accepted.value = null // the next apply starts a new epoch
@@ -245,7 +253,12 @@ export function useRegionHost(options: { regions: Ref<RegionData[] | undefined> 
       ) {
         conflict.value = true
       } else {
-        notifyError(e, 'Couldn’t save the header and footer')
+        const handled = handlePaletteRefusal(e, {
+          warning,
+          refresh: editor?.refreshStyleSchema,
+          select: (id) => editor?.selectOne(id),
+        })
+        if (!handled) notifyError(e, 'Couldn’t save the header and footer')
       }
       return false
     } finally {
@@ -263,7 +276,7 @@ export function useRegionHost(options: { regions: Ref<RegionData[] | undefined> 
       hidden.value = session.hidden
       loaded(session)
       conflict.value = false
-      editor.restart(asStage(session), toDocument(session.regions))
+      editor.restart(asStage(session), toDocument(session.regions), session.paletteGeneration ?? 0)
     } catch (e) {
       notifyError(e, 'Couldn’t reload the header and footer')
     }

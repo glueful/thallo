@@ -172,6 +172,10 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
             ],
             // The font library as one request sees it, and each workspace's fonts stylesheets
             // (block typeface spec §3.4).
+            \Thallo\Render\Style\RequestPalette::class => [
+                'factory' => [self::class, 'makeRequestPalette'],
+                'shared' => true,
+            ],
             \Thallo\Render\Style\RequestFontSnapshot::class => [
                 'shared' => true,
                 'factory' => [self::class, 'makeRequestFontSnapshot'],
@@ -179,6 +183,11 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
             \Thallo\Render\Style\FontsArtifacts::class => [
                 'shared' => true,
                 'factory' => [self::class, 'makeFontsArtifacts'],
+            ],
+            // Each workspace's brand colour utilities (custom palette spec §3.4).
+            \Thallo\Render\Style\ColorsArtifacts::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeColorsArtifacts'],
             ],
             // Asked by whoever saves a block type's style declaration: does its template honour it?
             BlockTemplateTargetCheck::class => [
@@ -326,7 +335,21 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
 
     public static function makeStyleSchemaController(ContainerInterface $container): StyleSchemaController
     {
-        return new StyleSchemaController($container->get(ThemeLocator::class));
+        return new StyleSchemaController(
+            $container->get(ThemeLocator::class),
+            $container->get(\Thallo\Render\Style\RequestPalette::class),
+            $container->get(ThemeAppearanceSource::class),
+            $container->has(\Thallo\Contracts\Style\PaletteStatusReader::class)
+                ? $container->get(\Thallo\Contracts\Style\PaletteStatusReader::class)
+                : null,
+            $container->has(\Thallo\Contracts\Style\PaletteHistoryReader::class)
+                ? $container->get(\Thallo\Contracts\Style\PaletteHistoryReader::class)
+                : null,
+            (bool) config($container->get(ApplicationContext::class), 'theme.color_mode.enabled', true),
+            $container->has(\Thallo\Contracts\Authorization\PermissionRequirementAuthority::class)
+                ? $container->get(\Thallo\Contracts\Authorization\PermissionRequirementAuthority::class)
+                : null,
+        );
     }
 
     public static function makeRenderAdminController(ContainerInterface $container): RenderAdminController
@@ -538,6 +561,7 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
                 : null,
             $container->get(\Thallo\Render\Style\FontsArtifacts::class),
             $container->get(\Thallo\Render\Style\RequestFontSnapshot::class),
+            $container->get(\Thallo\Render\Style\ColorsArtifacts::class),
         );
     }
 
@@ -618,6 +642,18 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
                 $artifact = $container->get(\Thallo\Render\Style\FontsArtifacts::class)->forSnapshot($snapshot);
                 return $artifact['css'] === '' ? '' : $artifact['hash'];
             },
+            // The palette (custom palette spec §5.3), from the request's one reading of it.
+            static fn (): string => $container->get(\Thallo\Render\Style\RequestPalette::class)
+                ->current()->fingerprint(),
+        );
+    }
+
+    public static function makeRequestPalette(ContainerInterface $container): \Thallo\Render\Style\RequestPalette
+    {
+        return new \Thallo\Render\Style\RequestPalette(
+            $container->has(\Thallo\Contracts\Style\PaletteProvider::class)
+                ? $container->get(\Thallo\Contracts\Style\PaletteProvider::class)
+                : null,
         );
     }
 
@@ -639,6 +675,17 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
         return new \Thallo\Render\Style\FontsArtifacts(
             $context->getBasePath() . '/storage/cache/fonts',
             static fn (): string => trim($segment->segment($context, 'fonts'), ':') ?: 'site',
+        );
+    }
+
+    public static function makeColorsArtifacts(ContainerInterface $container): \Thallo\Render\Style\ColorsArtifacts
+    {
+        $context = $container->get(ApplicationContext::class);
+        $segment = $container->get(TenantCacheSegment::class);
+        // One directory per workspace, under the style cache: `site` on a single-site install.
+        return new \Thallo\Render\Style\ColorsArtifacts(
+            $context->getBasePath() . '/storage/cache/style/colors',
+            static fn (): string => trim($segment->segment($context, 'colors'), ':') ?: 'site',
         );
     }
 
@@ -818,7 +865,9 @@ final class RenderServiceProvider extends ServiceProvider implements DeclaresLoa
             // style_classes() typefaces and fonts_stylesheet_url() (block typeface spec §3.3–§3.4):
             // the request's library snapshot (no library bound = only the built-ins resolve).
             fontSnapshots: $container->get(\Thallo\Render\Style\RequestFontSnapshot::class),
+            paletteRequest: $container->get(\Thallo\Render\Style\RequestPalette::class),
             fontsArtifacts: $container->get(\Thallo\Render\Style\FontsArtifacts::class),
+            colorsArtifacts: $container->get(\Thallo\Render\Style\ColorsArtifacts::class),
             // media_image() (storefront-performance spec §3): soft-bound; null = plain
             // media() URL with srcset null (no MIME knowledge).
             mediaVariants: $container->has(MediaVariantUrlResolver::class)

@@ -23,9 +23,20 @@ export interface Recorded {
     base_revision: number | null
     epoch: string | null
   }[]
-  saves: { fields: Record<string, unknown> }[]
+  saves: { fields: Record<string, unknown>; palette_through?: number }[]
+  /** Restore-to-draft requests (custom palette spec §4.5): the version named, never its content. */
+  restores: { version_uuid: string; lock_version: number; palette_through?: number }[]
   /** How many times the stage document was requested: a whole refresh adds one. */
   stageLoads: number
+}
+
+/** A save or restore response's palette fields, as a proof scripts them. */
+export interface PaletteResponse {
+  palette_rewrites?: { location: string; from: string; to: string }[]
+  palette_generation?: number
+  palette_replacements?:
+    | { after: number; through: number; records: Record<string, unknown>[] }
+    | { expired: true }
 }
 
 export interface Operation {
@@ -71,10 +82,27 @@ export interface World {
   commerceOff?: boolean
   /** An accepted apply answers with these fragments (null, the default: none — the stage refreshes). */
   fragments?: () => Record<string, string> | null
+  /** The draft GET's palette generation (custom palette spec §5.3); default 1. */
+  draftPaletteGeneration?: number
+  /** Each save answers with the next of these palette fields, in order; past the end, none. */
+  saveResponses?: PaletteResponse[]
+  /** A save's answer waits this long, so a proof can edit while it is in flight. */
+  saveDelayMs?: number
+  /** The draft GET answers with the last saved fields (a reload shows what was saved). */
+  reloadDraftFrom?: 'last-save'
+  /** Merged into the style schema's `palette` (generation, replacements); mutable mid-proof. */
+  schemaPalette?: { generation: number; replacements: Record<string, unknown> }
+  /** The restore endpoint's answer, and one retained version for the Versions tab to offer. */
+  restore?: {
+    fields: Record<string, unknown>
+    lock_version: number
+    palette_generation: number
+    palette_replacements: NonNullable<PaletteResponse['palette_replacements']>
+  }
 }
 
 export async function routeWorld(page: Page, world: World = {}): Promise<Recorded> {
-  const recorded: Recorded = { applies: [], saves: [], stageLoads: 0 }
+  const recorded: Recorded = { applies: [], saves: [], restores: [], stageLoads: 0 }
   let revision = 0
   const unknown: string[] = []
 
@@ -156,8 +184,14 @@ export async function routeWorld(page: Page, world: World = {}): Promise<Recorde
         fixture(world.commerceOff ? 'api/patterns-commerce-off.json' : 'api/patterns.json'),
       )
     }
-    if (method === 'GET' && path === '/render/style-schema')
-      return json(route, fixture('api/style-schema.json'))
+    if (method === 'GET' && path === '/render/style-schema') {
+      if (world.schemaPalette === undefined) return json(route, fixture('api/style-schema.json'))
+      const schema = JSON.parse(fixture('api/style-schema.json')) as {
+        data: { palette?: Record<string, unknown> }
+      }
+      schema.data.palette = { ...schema.data.palette, ...world.schemaPalette }
+      return json(route, JSON.stringify(schema))
+    }
     // The font library as the server answers it, with one family read from a real .woff2 file
     // (block typeface plan Task 11); and the stage's freshness check, which never changes here.
     if (method === 'GET' && path === '/fonts') return json(route, fixture('api/fonts.json'))
@@ -218,14 +252,80 @@ export async function routeWorld(page: Page, world: World = {}): Promise<Recorde
       )
     }
     if (method === 'GET' && path === `/entries/${entry.uuid}/draft/${entry.locale}`) {
-      return json(route, fixture('api/draft.json'))
+      const draft = JSON.parse(fixture('api/draft.json')) as {
+        data: { draft: { fields: Record<string, unknown> }; palette_generation?: number }
+      }
+      draft.data.palette_generation = world.draftPaletteGeneration ?? 1
+      const last = recorded.saves[recorded.saves.length - 1]
+      if (world.reloadDraftFrom === 'last-save' && last) draft.data.draft.fields = last.fields
+      return json(route, JSON.stringify(draft))
     }
     if (method === 'PUT' && path === `/entries/${entry.uuid}/draft/${entry.locale}`) {
-      recorded.saves.push(request.postDataJSON() as { fields: Record<string, unknown> })
+      const body = request.postDataJSON() as Recorded['saves'][number]
+      recorded.saves.push(body)
+      const scripted = world.saveResponses?.[recorded.saves.length - 1] ?? {}
+      const generation = scripted.palette_generation ?? world.draftPaletteGeneration ?? 1
+      if (world.saveDelayMs) await new Promise((r) => setTimeout(r, world.saveDelayMs))
       return json(
         route,
-        JSON.stringify({ success: true, data: { preview_cleared: false, lock_version: 2 } }),
+        JSON.stringify({
+          success: true,
+          data: {
+            preview_cleared: false,
+            lock_version: 2,
+            palette_rewrites: scripted.palette_rewrites ?? [],
+            palette_generation: generation,
+            palette_replacements: scripted.palette_replacements ?? {
+              after: body.palette_through ?? generation,
+              through: generation,
+              records: [],
+            },
+          },
+        }),
       )
+    }
+    if (method === 'POST' && path === `/entries/${entry.uuid}/draft/${entry.locale}/restore`) {
+      recorded.restores.push(request.postDataJSON() as Recorded['restores'][number])
+      const restore = world.restore
+      if (!restore) return json(route, JSON.stringify({ success: false }), 404)
+      return json(
+        route,
+        JSON.stringify({
+          success: true,
+          data: {
+            draft: { fields: restore.fields, lock_version: restore.lock_version },
+            palette_rewrites: [],
+            palette_generation: restore.palette_generation,
+            palette_replacements: restore.palette_replacements,
+          },
+        }),
+      )
+    }
+    if (method === 'GET' && path === '/appearance/palette/replacements') {
+      // An editor's gap fetch: the schema's records in the range asked for.
+      const after = Number(url.searchParams.get('after'))
+      const through = Number(url.searchParams.get('through'))
+      const records = (
+        (world.schemaPalette?.replacements as { records?: { completed_generation: number }[] })
+          ?.records ?? []
+      ).filter((r) => r.completed_generation > after && r.completed_generation <= through)
+      return json(
+        route,
+        JSON.stringify({ success: true, data: { replacements: { after, through, records } } }),
+      )
+    }
+    if (method === 'GET' && path === `/entries/${entry.uuid}/versions/${entry.locale}`) {
+      const versions = world.restore
+        ? [
+            {
+              uuid: 'version00001',
+              version: 1,
+              created_at: '2026-10-01T00:00:00Z',
+              fields: world.restore.fields,
+            },
+          ]
+        : []
+      return json(route, JSON.stringify({ success: true, data: { versions } }))
     }
     if (method === 'POST' && path === `/entries/${entry.uuid}/preview/${entry.locale}`) {
       return json(route, fixture(world.underLayout ? 'layouts/entry-mint.json' : 'api/mint.json'))
@@ -1227,5 +1327,49 @@ export async function layoutAcceptedIs(
       )
     }
     await page.waitForTimeout(100)
+  }
+}
+
+/**
+ * The palette proofs' hooks (custom palette plan Task 12): edits as the inspector makes them, what
+ * the document, history and ledger hold, and the page's own save. `setSchemaPalette` changes the
+ * world's style schema and refreshes it, as a refetch after a replacement completes would.
+ */
+export function paletteHooks(page: Page, world?: World) {
+  const call = <T>(name: string, ...args: unknown[]): Promise<T> =>
+    page.evaluate(
+      async ([n, a]) => {
+        const hooks = (
+          window as unknown as { __thalloBuilder?: Record<string, (...x: unknown[]) => unknown> }
+        ).__thalloBuilder
+        if (!hooks?.[n as string]) throw new Error(`no test hook ${String(n)} (VITE_E2E)`)
+        return (await hooks[n as string]!(...(a as unknown[]))) as never
+      },
+      [name, args] as const,
+    ) as Promise<T>
+  return {
+    setStyleToken: (id: string, path: string, token: string) =>
+      call<void>('setStyleToken', id, path, token),
+    /** Types through the real inspector field, so its debounce applies. */
+    typeInInspector: async (id: string, field: string, text: string) => {
+      await call<void>('select', id)
+      await page.getByRole('tab', { name: 'Block', exact: true }).click()
+      await page.locator(`[data-test="block-inspector"] input[name="${field}"]`).first().fill(text)
+    },
+    hasActiveTransaction: () => call<boolean>('hasActiveTransaction'),
+    fieldText: (id: string, field: string) => call<string | null>('fieldText', id, field),
+    blockToken: (id: string) => call<string | null>('blockToken', id),
+    moveBlock: (id: string, where: 'before' | 'after', _of: string) =>
+      call<void>('moveBlock', id, where === 'before' ? -1 : 1),
+    saveNow: () => call<boolean>('saveNow'),
+    isDirty: () => call<boolean>('isDirty'),
+    refreshSchema: () => call<void>('refreshSchema'),
+    setSchemaPalette: async (palette: NonNullable<World['schemaPalette']>) => {
+      if (!world) throw new Error('setSchemaPalette needs the world the page was opened with')
+      world.schemaPalette = palette
+      await call<void>('refreshSchema')
+    },
+    reloadStage: () => call<void>('reloadStage'),
+    paletteThrough: () => call<number>('paletteThrough'),
   }
 }

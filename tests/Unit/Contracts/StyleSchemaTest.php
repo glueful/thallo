@@ -498,4 +498,16 @@ final class StyleSchemaTest extends TestCase
         self::assertSame(['start', 'center', 'end'], $def->choices);
         self::assertSame(['feature.gap', 'feature.align'], StyleSchema::pathsInGroup('feature'));
     }
+
+    public function testBrandColoursAreAFamilyNotAList(): void
+    {
+        self::assertNotContains('brand-1', Vocabulary::names('color'));
+        self::assertTrue(Vocabulary::isBaseline('color.brand-12'));
+        self::assertTrue(Vocabulary::isBaseline('color.brand-12-contrast'));
+        self::assertFalse(Vocabulary::isBaseline('color.brand-0'));
+        self::assertFalse(Vocabulary::isBaseline('spacing.brand-1'));
+        self::assertSame('var(--brand-12)', Vocabulary::siteControlled('color.brand-12'));
+        self::assertSame('var(--brand-12-ink)', Vocabulary::siteControlled('color.brand-12-contrast'));
+        self::assertNull(Vocabulary::siteControlled('color.accent'));
+    }
 }

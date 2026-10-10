@@ -160,7 +160,8 @@ final class ProductFixturesWritten extends RuntimeException
 $previous = $seed->useTenant();
 $written = [];
 try {
-    $db->transaction(static function () use (
+    // The palette row first (docs/internal/palette-lock-order.md): the seeding saves through the fence.
+    $container->get(\Thallo\Core\Content\Palette\PaletteFence::class)->within(static function () use (
         $container,
         $seed,
         $get,

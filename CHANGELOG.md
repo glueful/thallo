@@ -5,6 +5,101 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.98] - 2026-10-10 — Developer Preview
+
+Your own colours: a Custom neutral for the backgrounds, text and borders, brand colours you add up
+to your host's limit and pick by name in every block's colour picker, and contrast checks of the
+pairs they make — with Appearance split into tabs: Theme, Colours, Design, Typefaces, Logos & site
+icon.
+
+### Added
+- **Custom palette settings**: General settings gain a Custom neutral (`theme_neutral: custom` with six
+  hex colours in `theme_neutral_custom`), a dark-mode base family (`theme_dark_base`) and brand colours
+  — a list you add to with **Add colour**, up to your host's limit (`THALLO_BRAND_COLORS_MAX`, default
+  3, 0–12; 0 turns them off), stored as `theme_brand_colors`. Each colour keeps a permanent id, never
+  given to another colour, so a cleared colour's references stay unavailable rather than taking a
+  later one. A save names the revision it was edited from: one made from an older list is refused
+  (409) instead of overwriting someone else's change, and a save or a Clear answers with the list it
+  wrote.
+- **Brand colour tokens**: `brand-N` and its `-contrast` text colour for any id `N` from 1 to 9999 are
+  site-controlled colour names. Their values come from Appearance; a theme that maps one has the
+  mapping ignored, and the Doctor warns. Their utilities come from a per-workspace colours stylesheet,
+  so the shared theme stylesheet carries none (StyleCompiler 25).
+- The site's palette is emitted with its colours: the Custom neutral's six values in light mode, the
+  dark-mode base family in dark mode, and each configured brand colour with a derived dark value and a
+  black-or-white text colour.
+- **A cleared brand colour applies no colour**: a block, part, hover state, page, layout frame or region
+  style naming a brand colour that is not configured renders as if it never set that colour — a style
+  class's value or the theme default shows through, and a hover colour leaves the resting colour in
+  place. Animated text's colour fields follow the same rule. The palette enters the page cache key.
+- **Restore to draft happens on the server**: the Versions tab names the version, the form asks before
+  it replaces the draft (and any unsaved changes), and the server restores it
+  (`POST /v1/admin/entries/{uuid}/draft/{locale}/restore`), so a restored brand colour that has since
+  been cleared stays on its block through later saves, undo and redo. Editors adopt the
+  colours a save's palette normalisation changed without losing an edit in progress, and apply each
+  completed brand colour replacement to their undo history once, in order
+  (`GET /v1/admin/appearance/palette/replacements`); an editor left open past the 90-day replacement
+  history asks to be reloaded.
+- **Clearing a brand colour checks where it is used**: `DELETE /v1/admin/appearance/palette/brand/{id}`
+  clears it only when no draft, current publication, region, layout, saved section or style class
+  names it (409 with the usage otherwise, and 409 when it is already cleared; historical versions
+  never block); a cleared colour keeps its name, so a page still naming it can say which colour it
+  was. While a replacement runs, the colour it replaces cannot be renamed, re-coloured or cleared and
+  the colours it writes to cannot be cleared (409). `POST /v1/admin/appearance/palette/preview` returns the contrast checks for unsaved
+  palette values. Palette changes take the palette row, so they never interleave with a save.
+- **Replace a brand colour**: `POST /v1/admin/appearance/palette/brand/{id}/replace` starts a job that
+  rewrites every current document naming the colour — drafts, current publications (as new versions,
+  authored by whoever started it), regions and their own style, layouts and their frame, saved
+  sections, style classes — to the chosen colour and its text colour to the destination's own pair (or
+  `contrast_to`), then clears the colour; history is never rewritten. While it runs, editors saving the
+  old colour store the new one. The job is resumable and cancellable
+  (`/v1/admin/appearance/palette/jobs`, `…/{id}`, `…/{id}/cancel`, `…/{id}/resume`), runs in the
+  workspace it was started in, and purges each rewritten page as it goes. Each version it appends is
+  noted in the Versions tab ("Replaced Gold with Accent"), and its audit entry counts what it rewrote
+  in each kind of document, across resumes, and how many older versions still name the colour.
+- **Appearance › Colours**: Neutral gains **Custom — your own colours**: six hex colours
+  (Background, Surface, Surface 2, Text, Muted, Line), pre-filled from the family you had the first
+  time, a **Dark mode base** family (shown when the site has a dark mode) and **Reset to** the family.
+  **Brand colours** are rows of a name and a hex: **Add colour** appends one (the count shows against
+  the limit, "2 of 3"), a row's handle drags it to a new place in the pickers' order, an unsaved row
+  has a remove button and a saved one **Clear**; one being replaced shows the replacement's progress,
+  and one a replacement writes to says so. **Contrast**
+  checks the text pairs of the unsaved palette in light and dark mode, warning under 4.5:1. The preview
+  wears the unsaved palette. The style schema's palette says whether the site has a dark mode
+  (`color_mode`).
+- **Colour pickers show swatches and names**: every colour choice in the inspector, a style class and a
+  colour content field shows its swatch and its name — your brand colours by the names you gave them,
+  in their own **Brand colours** group in your order, their text colours under **Text colours**, with a
+  **Manage brand colours** link to Appearance for whoever may change them. A cleared brand colour, or
+  one being replaced, is not offered for new choices; a block still naming a cleared one says
+  **Unavailable colour: Teal (removed)** (or **Brand 7** for an id never used here) — **No colour
+  applied**, with **Choose another** and **Clear** — and one being replaced says what it is becoming. Inside a Style block that re-skins accent
+  or neutral, the swatches are marked as the site's. A save refused because a colour has left the
+  palette says so, refreshes the pickers and selects the block, in the design view, the header and
+  footer, layouts, the content form and style classes.
+- **Clear asks first**: clearing a brand colour in Appearance checks where it is used. Unused, it clears
+  (saying how many older versions still name it). Used, it lists where — pages, header and footer,
+  layouts, saved sections, style classes — and offers **Replace with…** a colour the rules allow; when
+  that colour has no text colour of its own and something uses its text colour, it asks what text on it
+  becomes and shows that pair's contrast in light and dark mode.
+
+### Changed
+- **Appearance is split into tabs** — Theme, Colours, Design, Typefaces, Logos & site icon — with
+  the preview beside every tab. One Save still saves them all; a tab with unsaved changes or with a
+  field a save refused shows a dot, and the open tab is in the address (`/appearance?tab=colours`),
+  so Back and Forward move between tabs.
+- `GET /v1/admin/render/style-schema` is readable by any style editor — `content.edit`,
+  `content.manage`, `templates.manage` or `styles.manage` — and carries the site's palette (the brand
+  colour limit, the brand colours in order with their states, cleared colours by name, swatches,
+  labels, whether the reader may manage them, its generation and the recent replacements), which the
+  colour pickers read; its colour vocabulary lists the configured brand colours after the theme's.
+
+### Fixed
+- Enabling multi-store tenancy no longer drops the header and footer's settings-schema stamp
+  (`regions.schema_stamp`): the table rebuild kept every other column, and anything reading the regions
+  as block documents — block migrations, the settings converter, brand colour usage — failed afterwards.
+  A migration puts the column back on installs already retrofitted.
+
 ## [1.0.0-beta.97] - 2026-10-09 — Developer Preview
 
 A Separator can be a short accent line, placed at the start, centre or end of its row.

@@ -26,6 +26,8 @@ import SaveSectionForm from './SaveSectionForm.vue'
 import type { SectionPlace } from '@/queries/patterns'
 
 const props = defineProps<{
+  /** The block, or an ancestor, is a Style block re-skinning accent or neutral (custom palette spec §5.2). */
+  scopedSkin?: boolean
   block: BlockInstance
   blockType: BlockType | null
   /** Null while the schema loads: the Style tab waits. */
@@ -327,6 +329,7 @@ const cardFields = computed<string[]>(() =>
         </p>
         <StyleTab
           v-else
+          :scoped-skin="scopedSkin"
           :block="block"
           :hidden="tab !== 'style'"
           :block-type="blockType"
@@ -359,6 +362,7 @@ const cardFields = computed<string[]>(() =>
               {{ part.label }}
             </h4>
             <StyleTab
+              :scoped-skin="scopedSkin"
               :block="part.block"
               :hidden="tab !== 'style'"
               :block-type="part.type"

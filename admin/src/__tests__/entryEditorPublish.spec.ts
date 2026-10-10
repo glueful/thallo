@@ -7,6 +7,7 @@ const calls = vi.hoisted(() => [] as string[])
 const saveDraft = vi.hoisted(() => vi.fn())
 const publishMock = vi.hoisted(() => vi.fn())
 const saveRouteIfDirty = vi.hoisted(() => vi.fn())
+const restoreDraft = vi.hoisted(() => vi.fn())
 
 vi.mock('@/stores/capabilities', () => ({
   useCapabilitiesStore: () => ({ isEnabled: () => false }),
@@ -16,10 +17,14 @@ vi.mock('@/queries/contentTypes', () => ({
 }))
 vi.mock('@/queries/drafts', () => ({
   useDraft: () => ({
-    data: ref({ fields: { title: 'Home' }, lock_version: 0 }),
+    data: ref({ fields: { title: 'Home' }, lock_version: 0, palette_generation: 1 }),
     status: ref('success'),
   }),
   useSaveDraft: () => ({ mutateAsync: saveDraft, isLoading: ref(false) }),
+  restoreDraft,
+}))
+vi.mock('@/queries/styleSchema', () => ({
+  useStyleSchema: () => ({ data: ref(undefined) }),
 }))
 vi.mock('@/queries/publish', () => ({
   usePublish: () => ({ mutateAsync: publishMock, isLoading: ref(false) }),
@@ -143,19 +148,56 @@ describe('entry editor: Restore to draft', () => {
     publishMock.mockReset().mockResolvedValue(undefined)
   })
 
-  it('puts the version into the form, which the next save keeps', async () => {
+  it('asks before a version replaces the stored draft, then restores it on the server', async () => {
+    restoreDraft.mockReset().mockResolvedValue({
+      draft: { fields: { title: 'Original' }, lock_version: 1 },
+      palette_generation: 1,
+      palette_replacements: { after: 1, through: 1, records: [] },
+    })
     const wrapper = factory()
     await flushPromises()
 
-    wrapper
-      .findComponent({ name: 'VersionsPanel' })
-      .vm.$emit('restore-draft', { version: 3, fields: { title: 'Original' } })
+    wrapper.findComponent({ name: 'VersionsPanel' }).vm.$emit('restore-draft', {
+      uuid: 'ver000000003',
+      version: 3,
+      fields: { title: 'Original' },
+    })
     await flushPromises()
-    expect(notify.success).toHaveBeenCalledWith('Version 3 is in the form', expect.any(String))
-    expect(saveDraft).not.toHaveBeenCalled() // nothing saved, nothing published yet
+    // nothing is replaced until the author says so: drafts keep no history of their own
+    expect(restoreDraft).not.toHaveBeenCalled()
+    expect(document.body.textContent).toContain('Replace your draft with Version 3?')
+    ;(document.querySelector('[data-test="restore-draft-confirm"]') as HTMLElement).click()
+    await flushPromises()
+    expect(restoreDraft).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      'ver000000003',
+      0,
+      1,
+    )
+    expect(notify.success).toHaveBeenCalledWith('Version 3 is in your draft', expect.any(String))
+    expect(publishMock).not.toHaveBeenCalled()
 
     await wrapper.find('[data-test="navbar-publish"]').trigger('click')
     await flushPromises()
-    expect(saveDraft.mock.calls[0]![0]).toMatchObject({ fields: { title: 'Original' } })
+    expect(saveDraft.mock.calls[0]![0]).toMatchObject({
+      fields: { title: 'Original' },
+      lock_version: 1,
+    })
+  })
+
+  it('cancelling the question leaves the draft and the form as they were', async () => {
+    restoreDraft.mockReset()
+    const wrapper = factory()
+    await flushPromises()
+    wrapper.findComponent({ name: 'VersionsPanel' }).vm.$emit('restore-draft', {
+      uuid: 'ver000000003',
+      version: 3,
+      fields: { title: 'Original' },
+    })
+    await flushPromises()
+    ;(document.querySelector('[data-test="restore-draft-cancel"]') as HTMLElement).click()
+    await flushPromises()
+    expect(restoreDraft).not.toHaveBeenCalled()
   })
 })

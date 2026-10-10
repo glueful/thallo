@@ -8,7 +8,16 @@ const fields = { title: 'Original' }
 vi.mock('@/composables/useNotify', () => ({ useNotify: () => notify }))
 vi.mock('@/queries/versions', () => ({
   useVersions: () => ({
-    data: ref([{ uuid: 'ver000000001', version: 3, created_at: '2026-09-20T10:00:00Z', fields }]),
+    data: ref([
+      { uuid: 'ver000000001', version: 3, created_at: '2026-09-20T10:00:00Z', fields },
+      {
+        uuid: 'ver000000002',
+        version: 2,
+        created_at: '2026-09-19T10:00:00Z',
+        fields,
+        note: 'Replaced Gold with Accent',
+      },
+    ]),
     status: ref('success'),
   }),
   useRollback: () => ({ ...rollback, isLoading: ref(false) }),
@@ -29,7 +38,9 @@ describe('a version', () => {
     const wrapper = mountPanel()
     await wrapper.get('[data-test="version-restore-draft-ver000000001"]').trigger('click')
 
-    expect(wrapper.emitted('restore-draft')).toEqual([[{ version: 3, fields }]])
+    expect(wrapper.emitted('restore-draft')).toEqual([
+      [{ uuid: 'ver000000001', version: 3, fields }],
+    ])
     expect(rollback.mutateAsync).not.toHaveBeenCalled()
   })
 
@@ -47,5 +58,12 @@ describe('a version', () => {
     expect(title).toBe('Version 3 is live')
     expect(description).toContain('draft is unchanged')
     expect(wrapper.emitted('restore-draft')).toBeUndefined()
+  })
+  it('says what appended a version when an operation did', () => {
+    const w = mountPanel()
+    expect(w.find('[data-test="version-note-ver000000002"]').text()).toBe(
+      'Replaced Gold with Accent',
+    )
+    expect(w.find('[data-test="version-note-ver000000001"]').exists()).toBe(false)
   })
 })

@@ -142,7 +142,7 @@ function chooseAnother(): void {
         </button>
         <RouterLink
           v-if="library?.can_manage"
-          to="/appearance#typefaces"
+          to="/appearance?tab=typefaces#typefaces"
           class="text-muted hover:text-default"
           data-test="typeface-restore"
         >

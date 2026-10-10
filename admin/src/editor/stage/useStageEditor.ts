@@ -13,7 +13,16 @@ import { diffDocuments } from '@/editor/ops/diff'
 import { newEditorSession } from '@/editor/ops/session'
 import { absent, present } from '@/editor/ops/types'
 import { readPath, setPath, settingSegments } from '@/editor/ops/apply'
+import { fetchPaletteReplacements } from '@/queries/paletteReplacements'
 import { useStyleSchema } from '@/queries/styleSchema'
+import {
+  createPaletteReconciler,
+  createReplacementLedger,
+  type ExpiredBatch,
+  type PaletteRestoreResponse,
+  type PaletteSaveOutcome,
+  type ReplacementBatch,
+} from '@/editor/paletteReplacements'
 import { useStyleClasses, useStyleClassMutations } from '@/queries/styleClasses'
 import { detachStyleClass } from '@/style/detach'
 import { effectivePaths } from '@/style/capabilities'
@@ -123,6 +132,15 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   let history: EditorHistory | null = null
   let replaying = false
   let pendingRebase = false
+  /** The next fields change is a palette adoption (custom palette spec §4.5): adopted, never recorded. */
+  let pendingAdopt = false
+  // The replacement ledger (custom palette spec §5.3), declared before the hydration watcher resets it.
+  const paletteLedger = createReplacementLedger(0)
+  const paletteExpired = ref(false)
+  /** Bumped by every baseline reset, so the schema's batch is applied against the new ledger too. */
+  const paletteBaseline = ref(0)
+  /** Whether the first tree has set the ledger's baseline (restart() sets it again). */
+  let paletteBaselined = false
   let composing = false
   let commitTimer: ReturnType<typeof setTimeout> | null = null
   const opsSinceApply: Operation[] = []
@@ -149,6 +167,12 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
       // one arrives, and never while edits made since a save are in flight (spec §3.5).
       if (initial === null) return
       hydrated = true
+      // The first tree is the document the ledger starts from; a later one (a save's lock bump)
+      // replaces neither the history nor the ledger.
+      if (!paletteBaselined) {
+        paletteBaselined = true
+        resetPaletteBaseline(host.paletteGeneration?.() ?? 0)
+      }
       pendingRebase = history !== null
       fields.value = { ...initial }
       // First hydration: the stage's initial render shows the tree (loop C §4) — unless a stale
@@ -337,7 +361,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   )
 
   // ── The block inspector (visual builder spec §3.4) ────────────────────────────
-  const { data: styleSchema } = useStyleSchema()
+  const { data: styleSchema, refetch: refetchStyleSchema } = useStyleSchema()
   /** The selected block, read off the live tree (every edit re-derives it). */
   const selectedBlock = computed<BlockInstance | null>(() => {
     void fields.value // the tree is the dependency; the editor ref only routes the lookup
@@ -1267,6 +1291,16 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
         refreshHistoryState()
         return
       }
+      if (pendingAdopt) {
+        // A palette adoption: the history's document is replaced underneath the active
+        // transaction, nothing recorded; the stage follows on the next working-copy apply.
+        pendingAdopt = false
+        pendingRebase = false
+        history.adopt(next)
+        refreshHistoryState()
+        scheduleAuto()
+        return
+      }
       if (pendingRebase) {
         pendingRebase = false
         history.rebase(next)
@@ -1553,7 +1587,68 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
       chooseStructure: (id: string, preset: string) => picker.choose(id, preset),
       skipStructure: (id: string) => picker.skip(id),
       gridFillStates: () => lastFillStates,
+      // The palette proofs (custom palette plan Task 12): a colour set as the inspector sets it,
+      // committed at once; what history, the document and the ledger hold; a schema refresh.
+      select: (id: string) => selectOne(id),
+      setStyleToken: async (id: string, path: string, token: string) => {
+        commitNow()
+        // As the inspector writes a block's setting, without depending on the selection landing.
+        writeSettings(id, (settings) =>
+          setPath(
+            Array.isArray(settings) ? {} : settings,
+            settingSegments(path, null),
+            present({ type: 'token', value: token }),
+          ),
+        )
+        await nextTick()
+        commitNow()
+        let node: unknown = e2eBlock(snapshotFields(), id)?.settings
+        for (const segment of settingSegments(path, null)) {
+          node = (node as Record<string, unknown> | undefined)?.[segment]
+        }
+        if ((node as { value?: unknown } | undefined)?.value !== token) {
+          throw new Error(`setStyleToken: ${id} ${path} did not take ${token}`)
+        }
+      },
+      hasActiveTransaction: () => (history?.activeTransaction ?? null) !== null,
+      fieldText: (id: string, field: string) => {
+        const block = e2eBlock(snapshotFields(), id)
+        return block === null ? null : ((block.data as Record<string, unknown>)?.[field] ?? null)
+      },
+      blockToken: (id: string) => {
+        const block = e2eBlock(snapshotFields(), id) as {
+          settings?: { style?: { colors?: { text?: { value?: string } } } }
+        } | null
+        return block?.settings?.style?.colors?.text?.value ?? null
+      },
+      moveBlock: (id: string, delta: 1 | -1) => moveBlockAndMirror(id, delta),
+      isDirty: () => history?.isDirty ?? false,
+      refreshSchema: async () => {
+        await refetchStyleSchema()
+        await nextTick()
+      },
+      reloadStage: () => reloadStage(),
+      paletteThrough: () => paletteLedger.through,
     }
+  }
+
+  /** The block with this id anywhere in the fields (E2E hooks only). */
+  function e2eBlock(node: unknown, id: string): Record<string, unknown> | null {
+    if (Array.isArray(node)) {
+      for (const item of node) {
+        const hit = e2eBlock(item, id)
+        if (hit !== null) return hit
+      }
+      return null
+    }
+    if (typeof node !== 'object' || node === null) return null
+    const record = node as Record<string, unknown>
+    if (record.id === id && typeof record.type === 'string') return record
+    for (const value of Object.values(record)) {
+      const hit = e2eBlock(value, id)
+      if (hit !== null) return hit
+    }
+    return null
   }
 
   /**
@@ -1932,12 +2027,18 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
    * Start over from a fresh session and its tree (a Reload after a conflict): the document, its
    * history, the accepted pair and the stage are all replaced; nothing is applied.
    */
-  function restart(session: StageSession, tree: Record<string, unknown>): void {
+  function restart(
+    session: StageSession,
+    tree: Record<string, unknown>,
+    paletteGeneration = 0,
+  ): void {
     cancelAutoTimer()
     opsSinceApply.splice(0, opsSinceApply.length)
     clearSelection()
     history = null // the tree watcher starts a fresh history from the new tree
     pendingRebase = false
+    pendingAdopt = false
+    resetPaletteBaseline(paletteGeneration) // a new document and history: a new ledger
     fields.value = JSON.parse(JSON.stringify(tree)) as Record<string, unknown>
     lastApplied.value = JSON.stringify(fields.value)
     displayed.value = null
@@ -2302,6 +2403,62 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     stageSynced = false // a new document gets its own reconciliation
   }
 
+  /**
+   * The selected block, or an ancestor, is a Style block re-skinning accent or neutral (custom
+   * palette spec §5.2): its colour pickers say their swatches are the site's.
+   */
+  const selectedScopedSkin = computed(() => {
+    const id = selected.value
+    const editor = fieldEditorRef.value
+    if (id === null || !editor) return false
+    let block: BlockInstance | null = editor.blockById(id)
+    while (block) {
+      const data = (block.data ?? {}) as Record<string, unknown>
+      if (block.type === 'style' && (Boolean(data.accent) || Boolean(data.neutral))) return true
+      block = editor.parentOfBlockById(block.id)
+    }
+    return false
+  })
+
+  // ── Palette reconciliation (custom palette spec §4.5, §5.3) ─────────────────────────────────
+  // One ledger per document and history: reset only where both are replaced (the first load and
+  // restart()); reloadStage() remounts the iframe over the same document and keeps it.
+  const paletteReconciler = createPaletteReconciler({
+    history: {
+      reconcileTokens: (mapping) => history?.reconcileTokens(mapping),
+      adopt: (next) => history?.adopt(next),
+      lockUndo: (locked) => {
+        history?.lockUndo(locked)
+        refreshHistoryState()
+      },
+    },
+    currentFields: () => snapshotFields(),
+    replaceFields: (next) => {
+      pendingAdopt = history !== null
+      fields.value = next
+    },
+    ledger: paletteLedger,
+    fetchRange: fetchPaletteReplacements,
+    onExpire: () => {
+      paletteExpired.value = true
+    },
+  })
+  function resetPaletteBaseline(generation: number): void {
+    paletteLedger.reset(generation)
+    paletteExpired.value = false
+    history?.lockUndo(false)
+    paletteBaseline.value++
+  }
+  // Every style-schema load or refresh brings the recent replacements: apply what this editor lacks
+  // — and again from a new baseline, since the schema may have arrived before the document.
+  watch(
+    () => [styleSchema.value?.palette?.replacements, paletteBaseline.value] as const,
+    ([batch]) => {
+      if (batch && hydrated) void paletteReconciler.applyBatch(batch)
+    },
+    { immediate: true },
+  )
+
   return {
     // the document and history
     fields,
@@ -2322,6 +2479,21 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     },
     snapshotFields,
     applyDrop,
+    // the palette ledger
+    adoptPaletteResult: (outcome: PaletteSaveOutcome): Promise<void> =>
+      paletteReconciler.adoptPaletteResult(outcome),
+    applyBatch: (batch: ReplacementBatch | ExpiredBatch): Promise<void> =>
+      paletteReconciler.applyBatch(batch),
+    restoreFromResponse: (
+      res: PaletteRestoreResponse,
+      restoredFields: Record<string, unknown>,
+      applyRestore: (fields: Record<string, unknown>) => void | Promise<void>,
+    ): Promise<void> => paletteReconciler.restoreFromResponse(res, restoredFields, applyRestore),
+    paletteThrough: (): number => paletteLedger.through,
+    /** Read the style schema again: its palette says which brand colours exist now. */
+    refreshStyleSchema: (): Promise<unknown> => refetchStyleSchema(),
+    paletteExpired,
+    resetPaletteBaseline,
     // the stage
     iframeSrc,
     renderDisabled,
@@ -2357,6 +2529,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     allBlockTypes,
     styleSchema,
     selectedBlock,
+    selectedScopedSkin,
     selectedBlocksHost,
     selectedBlockType,
     selectedBlocks,

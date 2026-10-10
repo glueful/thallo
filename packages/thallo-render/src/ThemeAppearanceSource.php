@@ -35,6 +35,8 @@ final class ThemeAppearanceSource
         private readonly ?\Closure $styleGeneration = null,
         /** The fonts stylesheet's hash (block typeface spec §3.4), lazily; '' when there is none. */
         private readonly ?\Closure $fontsArtifactHash = null,
+        /** The palette's fingerprint (custom palette spec §5.3), lazily; '' when no palette key is set. */
+        private readonly ?\Closure $paletteFingerprint = null,
     ) {
     }
 
@@ -58,7 +60,8 @@ final class ThemeAppearanceSource
             return $this->neutralMemo;
         }
         $raw = $this->settings?->neutral() ?? ThemeColors::DEFAULT_NEUTRAL;
-        $ok = ThemeColors::normalizeNeutral($raw);
+        // `custom` (custom palette spec §2) is the palette's own neutral: themeColorsStyle() resolves it.
+        $ok = $raw === 'custom' ? 'custom' : ThemeColors::normalizeNeutral($raw);
         if ($ok === null) {
             $this->logger?->warning("[Thallo] Invalid theme neutral '{$raw}'; falling back to 'slate'.");
             $ok = ThemeColors::DEFAULT_NEUTRAL;
@@ -163,6 +166,12 @@ final class ThemeAppearanceSource
         $fonts = $this->fontsArtifactHash !== null ? (string) ($this->fontsArtifactHash)() : '';
         if ($fonts !== '') {
             $segments[] = 'l' . substr($fonts, 0, 8);
+        }
+        // The palette (custom palette spec §5.3) — its values and which brand slots are configured,
+        // which decides the classes a page carries; with none set, the fingerprint it always had.
+        $palette = $this->paletteFingerprint !== null ? (string) ($this->paletteFingerprint)() : '';
+        if ($palette !== '') {
+            $segments[] = 'p' . substr($palette, 0, 8);
         }
         return $segments;
     }

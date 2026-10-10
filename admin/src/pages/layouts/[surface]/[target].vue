@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PaletteExpiredNotice from '@/editor/PaletteExpiredNotice.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { BlockInstance } from '@/fields/components/blocks/useBlockListOps'
@@ -451,6 +452,7 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
             </template>
             <template #block>
               <BlockInspector
+                :scoped-skin="editor.selectedScopedSkin.value"
                 v-if="selectedBlock"
                 :block="selectedBlock"
                 :block-type="selectedBlockType"
@@ -548,6 +550,7 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
                 <LayoutFrameTab
                   :settings="frameSettings"
                   :vocabulary="styleSchema?.vocabulary ?? null"
+                  :palette="styleSchema?.palette"
                   :active-breakpoint="activeBreakpoint"
                   @update:settings="setFrameSettings"
                   @update:active-breakpoint="onActiveBreakpoint"
@@ -597,6 +600,7 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
           class="relative min-w-0 flex-1 overflow-auto rounded-lg border border-default bg-elevated/40 p-3"
           data-test="canvas-stage"
         >
+          <PaletteExpiredNotice :show="editor.paletteExpired.value" @reload="layout.reload()" />
           <div class="mx-auto h-full transition-[width]" :style="{ width: stageWidth }">
             <iframe
               v-if="iframeSrc"

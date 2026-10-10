@@ -101,6 +101,9 @@ final class RawPdoScopingLintTest extends TestCase
         // The layout write locks: the same shape — pg_advisory_xact_lock and a pg_locks read only
         // (type layouts spec §5.5); layout rows are written through the builder under them.
         'core/src/Content/Layouts/LayoutWriteLock.php',
+        // The palette row's hold: getPDO() is an identity check only (is this still the connection the
+        // row was taken on?); no statement runs through it, and the row is written through the builder.
+        'core/src/Content/Palette/PaletteState.php',
         // The font library's blob lock: a `SELECT … FOR UPDATE` row lock on the framework's `blobs`
         // table (not owned; shared with media deletion). Family and face rows — the owned tables —
         // go through the builder, the family lock included (an UPDATE).

@@ -17,6 +17,7 @@ import { BREAKPOINT_LABELS } from '@/editor/breakpoint'
 import { classFieldState } from '@/editor/inspector/classFieldState'
 import { CHOICE_LABELS } from '@/editor/inspector/choiceLabels'
 import TokenScaleControl from './TokenScaleControl.vue'
+import type { StyleSchemaResult } from '@/queries/styleSchema'
 import ChoiceControl from './ChoiceControl.vue'
 import FontFamilyControl from './FontFamilyControl.vue'
 
@@ -45,6 +46,10 @@ const props = defineProps<{
   fonts?: ReadonlyMap<string, { name: string; removed: boolean }>
   /** What the stage reports the target renders in, for the Typeface control (plan Task 10). */
   computedTypography?: { weight: number; style: string } | null
+  /** The site's palette, for the colour picker's swatches and names (custom palette spec §5.2). */
+  palette?: StyleSchemaResult['palette']
+  /** The block sits in a Style block that re-skins accent or neutral. */
+  scopedSkin?: boolean
 }>()
 const emit = defineEmits<{
   /** Set (or clear with null) the value at one breakpoint (null breakpoint = non-responsive). */
@@ -279,7 +284,10 @@ const sourceLabel = computed(() => {
           :names="vocabulary.domains[def.token_domain] ?? []"
           :values="vocabulary.values"
           :model-value="currentValue !== null ? currentValue : null"
+          :palette="palette"
+          :scoped-skin="scopedSkin"
           @update:model-value="onPick"
+          @clear="clear()"
         />
         <ChoiceControl
           v-else

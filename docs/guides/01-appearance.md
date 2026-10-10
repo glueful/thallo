@@ -16,29 +16,32 @@ sets one. Without it the preview pane says so and links there; everything else s
 
 ## Open Site › Appearance
 
-In the sidebar, open the **Site** group and press **Appearance**. Five cards run down the left —
-**Theme**, **Theme colors**, **Design**, **Typefaces**, **Logos & site icon** — with the preview beside them,
-staying put while the cards scroll. On a narrow window the preview moves above them.
+In the sidebar, open the **Site** group and press **Appearance**. Five tabs run along the left —
+**Theme**, **Colours**, **Design**, **Typefaces**, **Logos & site icon** — each on its own tab, with
+the preview beside them, staying put whichever tab is open. On a narrow window the preview moves
+above them. The open tab is in the address (`/appearance?tab=colours`), so a link can open a tab and
+Back returns to the one before.
 
 Nothing here reaches the site until you press **Save**, at the top right. A dot appears on that
-button as soon as anything changes.
+button as soon as anything changes. **Save** saves every tab at once; a dot on a tab marks unsaved
+changes there, or a field a save refused.
 
 ## Choose a theme
 
-The **Theme** card shows every theme the install can serve: its screenshot, title, version and
+The **Theme** tab shows every theme the install can serve: its screenshot, title, version and
 author. A theme with no screenshot is drawn in its own colours instead. The theme being served now
 is badged **Live**.
 
 Press a card to choose it, or move the choice with the arrow keys. A chosen theme that is not the
-live one says **Chosen — Save to make it live**, and the preview switches to it. The card is absent
-on an install whose renderer serves no theme list.
+live one says **Chosen — Save to make it live**, and the preview switches to it. The tab is absent
+on an install whose renderer serves no theme list, and Appearance then opens on **Colours**.
 
 What a theme is, and how to make one: [themes](../concepts/04-themes.md) and
 [make your own theme](13-make-a-theme.md).
 
 ## Set the accent and neutral colours
 
-The **Theme colors** card re-skins the theme's tokens. **Accent** is buttons, links and small
+The **Colours** tab re-skins the theme's tokens. **Accent** is buttons, links and small
 accents; **Neutral** is the backgrounds, text and borders. The defaults, `blue` and `slate`,
 reproduce the theme exactly as it ships.
 
@@ -60,22 +63,88 @@ you save:
   would fix the links.
 - On a dark page Thallo lightens the colour, keeping its hue, until it can be seen there.
 
-**Neutral** is always one of `slate`, `gray`, `zinc`, `neutral` and `stone`. A whole grey scale
-cannot be derived from one colour, so no hex is offered here.
+**Neutral** is one of `slate`, `gray`, `zinc`, `neutral` and `stone`, or **Custom — your own
+colours**.
 
-## Set the corners, typefaces and page ground
+### A Custom neutral
 
-The **Design** card holds three more choices.
+Choose **Custom — your own colours** and six fields open, one hex each:
+
+| Field | What it colours |
+|---|---|
+| Background | the page |
+| Surface | panels and cards |
+| Surface 2 | raised or alternate panels, bands |
+| Text | body text and headings |
+| Muted | secondary text |
+| Line | borders and dividers |
+
+The first time, they are filled in from the family you had, so you start from what the site shows
+now and change only what you want. Switching back to a family keeps your six colours in the form;
+**Reset to** the family — `Reset to slate`, say — takes them off.
+
+Your six colours are for light mode. Dark mode is built from a family — **Dark mode base**, shown
+when the theme has a dark mode — because six light colours do not say what their dark versions are.
+
+### Brand colours
+
+**Brand colours** are named colours of your own, each a name and a hex: `Gold dark`, `#8a6a2a`.
+**Add colour** appends a row; fill in its name and colour and save. The count beside them shows how
+many you have against your host's limit (`2 of 3`, three by default — see `THALLO_BRAND_COLORS_MAX`
+in the [configuration reference](../reference/02-configuration.md)); at the limit **Add colour** is
+turned off. A row you haven't saved yet has a remove button instead of **Clear**.
+
+Every block colour picker offers your brand colours by name, in their own **Brand colours** group,
+each with its swatch, in the order you set here: drag a row by its handle to reorder. A brand colour
+has a text colour too — `Gold dark — text` — which is white or black, whichever reads on it; pickers
+keep these under **Text colours**. In dark mode Thallo lightens the colour, keeping its hue, until it
+can be seen.
+
+Renaming or re-colouring a brand colour changes every block using it, at once. Each colour keeps a
+permanent number that is never given to another colour, so a page that names a colour you later clear
+never quietly takes on a different one. If someone else changed the brand colours since you opened
+the page, **Save** asks you to reload rather than overwrite their change.
+
+**Clear** takes a brand colour off. Thallo first checks where it is used:
+
+- **Nowhere current:** it is cleared. If older versions of pages still name it, the dialog says how
+  many; restoring one shows that colour as `Unavailable colour: Gold dark (removed)` — no colour
+  applied — until you choose another.
+- **Still used** — on a page's draft or live version, the header or footer, a layout, a saved section
+  or a style class: it cannot be cleared. The dialog lists where and offers **Replace with…**: choose
+  the colour that takes its place, and Thallo rewrites every one of those places, then clears it.
+  Live pages get a new version, so the previous one stays in their history. When the colour you
+  choose has no text colour of its own (anything but Accent or another brand colour) and something
+  uses `Gold dark — text`, you also choose what that text becomes, and see the pair's contrast in
+  light and dark mode.
+
+While a replacement runs, its brand colour shows the progress in place of its fields and cannot be
+renamed or cleared; editors saving a page with the old colour store the new one. A replacement that
+stops part-way can be resumed, and one can be cancelled — what it already rewrote stays rewritten.
+
+### Contrast
+
+Below the colours, **Contrast** checks the pairs text sits on — Text and Muted on Background,
+Surface and Surface 2; Accent on Background and its text on Accent; each brand colour on Background
+and its text on it — in light and dark mode, as the unsaved colours stand. A pair under 4.5:1 is a
+warning, not a refusal. Other combinations a block can make are not checked.
+
+## Set the corners and page ground
+
+The **Design** tab holds two more choices.
 
 - **Corners** — **Sharp** (4px corners, square buttons), **Soft** (12px corners, rounded buttons)
   or **Round** (12px corners, pill buttons), the default.
-- **Typefaces** — nine choices. **Sans**, the default, is the theme's own face (Figtree)
-  throughout. **Serif**, **Humanist**, **Geometric**, **Mono** and **System** set the whole site in
-  fonts the visitor already has, and the theme's own face is then not downloaded at all.
-  **Editorial** and **Slab** change the headings only and leave the body in the theme's face.
-  **Custom** is two families you choose from the font library.
 - **Page ground** — **Plain** (white page, tinted panels) or **Tinted** (tinted page, white
   panels). Tinted changes light mode only; dark mode keeps the theme's own ground.
+
+## Choose the typefaces
+
+On the **Typefaces** tab, **Pairing** picks how the site's text is set, from nine choices.
+**Sans**, the default, is the theme's own face (Figtree) throughout. **Serif**, **Humanist**,
+**Geometric**, **Mono** and **System** set the whole site in fonts the visitor already has, and the
+theme's own face is then not downloaded at all. **Editorial** and **Slab** change the headings only
+and leave the body in the theme's face. **Custom** is two families you choose from the font library.
 
 Choosing **Custom** opens two pickers, **Text** and **Headings**. Each lists **Not set**, the
 built-ins and your own families, every one written in its own face. Choose a text family only and
@@ -84,7 +153,7 @@ of either list, adds a family to the library (below) and picks it.
 
 ## Add your own typefaces
 
-The **Typefaces** card is the site's font library: what Custom, every block's **Typeface** and every
+Below **Pairing**, the **Typefaces** tab holds the site's **Font library**: what Custom, every block's **Typeface** and every
 style class can be set in. **Built-in** lists the seven that cost a visitor nothing to download —
 **Theme** (the theme's own face), **Serif**, **Humanist**, **Geometric**, **Slab**, **Mono** and
 **System** — each written in its own stack. **Your fonts** lists the families you added, with their
@@ -122,7 +191,7 @@ declared with the faces the files really hold.
 
 ## Upload your logo and favicon
 
-The **Logos & site icon** card has three pickers. Press one for a chooser with an **Upload** tab
+The **Logos & site icon** tab has three pickers. Press one for a chooser with an **Upload** tab
 and a **Media library** tab; either way it stores one file. **Remove**, beside a chosen file,
 unsets it.
 
@@ -156,5 +225,6 @@ Open the site and reload. Everything on this page is live at once: saving the th
 a design setting, a logo or the favicon clears the rendered page cache. A page open in the editor in
 another tab reloads its stage to show the change, keeping whatever you had not yet saved there.
 
-For what these settings cannot do — CSS of your own, loaded after everything else — open
-**Site › Theme editor** and edit `custom.css`.
+Colours of your own no longer need CSS: a **Custom** neutral and **Brand colours** above re-skin the
+theme's tokens. For what these settings cannot do — CSS of your own, loaded after everything else —
+open **Site › Theme editor** and edit `custom.css`.

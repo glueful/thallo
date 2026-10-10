@@ -16,7 +16,10 @@ vi.mock('@/queries/blockTypes', async (importOriginal) => ({
 
 const { mintMock, applyMock } = vi.hoisted(() => ({ mintMock: vi.fn(), applyMock: vi.fn() }))
 vi.mock('@/queries/preview', () => ({ mintPreviewData: mintMock, applyPreview: applyMock }))
-vi.mock('@/queries/styleSchema', () => ({ useStyleSchema: () => ({ data: ref(null) }) }))
+const styleRefetch = vi.hoisted(() => vi.fn(() => Promise.resolve()))
+vi.mock('@/queries/styleSchema', () => ({
+  useStyleSchema: () => ({ data: ref(null), refetch: styleRefetch }),
+}))
 const { styleClassList, refetchClasses, classMutations } = vi.hoisted(() => ({
   styleClassList: {
     value: {
@@ -56,9 +59,11 @@ const publishMock = vi.hoisted(() => vi.fn())
 vi.mock('@/queries/publish', () => ({
   usePublish: () => ({ mutateAsync: publishMock, isLoading: ref(false) }),
 }))
+const restoreMock = vi.hoisted(() => vi.fn())
 vi.mock('@/queries/drafts', () => ({
   useDraft: () => ({ data: draft }),
   useSaveDraft: () => ({ mutateAsync: saveMock, isLoading: ref(false) }),
+  restoreDraft: restoreMock,
 }))
 
 const contentTypes = ref([
@@ -732,34 +737,66 @@ describe('undo and redo', () => {
 })
 
 describe('restore to draft', () => {
-  it('puts a version into the draft as one change, and one undo takes it back out', async () => {
+  it('restores a version on the server, installs it as one change, and one undo takes it back out', async () => {
     applyMock.mockResolvedValue(accepted('e1', 1))
     saveMock.mockResolvedValue({ data: { preview_cleared: false } })
+    const version = {
+      title: 'T',
+      body: [{ id: 'blockold0001', type: 'card', data: { title: 'Old' }, settings: {} }],
+    }
+    restoreMock.mockResolvedValue({
+      draft: { fields: version, lock_version: 4 },
+      palette_generation: 0,
+      palette_replacements: { after: 0, through: 0, records: [] },
+    })
     const wrapper = await mountAndSettle()
     const page = wrapper.vm as unknown as {
       restoreVersionToDraft: (v: {
+        uuid: string
         version: number
         fields: Record<string, unknown>
       }) => Promise<void>
     }
 
-    await page.restoreVersionToDraft({
-      version: 7,
-      fields: {
-        title: 'T',
-        body: [{ id: 'blockold0001', type: 'card', data: { title: 'Old' }, settings: {} }],
-      },
-    })
+    await page.restoreVersionToDraft({ uuid: 'ver000000007', version: 7, fields: version })
     await flushPromises()
-    await wrapper.find('[data-test="canvas-save"]').trigger('click')
-    await flushPromises()
-    expect(bodyIds()).toEqual(['blockold0001'])
+    // the server is told which version, never its content; the restore is already stored
+    expect(restoreMock).toHaveBeenCalledWith('entry0000001', 'en', 'ver000000007', 3, 0)
+    expect(saveMock).not.toHaveBeenCalled()
 
     await wrapper.find('[data-test="canvas-undo"]').trigger('click')
     await flushPromises()
     await wrapper.find('[data-test="canvas-save"]').trigger('click')
     await flushPromises()
     expect(bodyIds()).toEqual(['blockaaa0001', 'blockbbb0002'])
+    wrapper.unmount()
+  })
+})
+
+describe('a save the palette refuses (custom palette spec §4.5)', () => {
+  it('names the block, selects it and reads the palette again', async () => {
+    applyMock.mockResolvedValue(accepted('e1', 1))
+    const location = 'blockbbb0002:settings.style.colors.text'
+    saveMock.mockRejectedValue(
+      new ApiError(
+        'Validation failed',
+        422,
+        {},
+        {
+          error: { details: { palette: { [location]: "Brand 2 isn't in the palette" } } },
+        },
+      ),
+    )
+    const wrapper = await mountAndSettle()
+    styleRefetch.mockClear()
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    expect(notify.warning).toHaveBeenCalledWith(
+      "A colour isn't in the palette",
+      expect.stringContaining("Brand 2 isn't in the palette"),
+    )
+    expect(styleRefetch).toHaveBeenCalled()
+    expect((wrapper.vm as unknown as { selected: string | null }).selected).toBe('blockbbb0002')
     wrapper.unmount()
   })
 })

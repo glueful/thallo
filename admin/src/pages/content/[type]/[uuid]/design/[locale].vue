@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useContentTypes } from '@/queries/contentTypes'
-import { useDraft, useSaveDraft } from '@/queries/drafts'
+import { restoreDraft, useDraft, useSaveDraft, type PaletteResultFields } from '@/queries/drafts'
 import { applyPreview, mintPreviewData, type EntryLayout } from '@/queries/preview'
 import { useLayouts } from '@/queries/layouts'
 import type { DropZone } from '@/editor/structure/coordinator'
@@ -23,7 +23,9 @@ import type { FieldDef } from '@/fields/types'
 import FieldEditor from '@/components/FieldEditor.vue'
 import SeoPanel from '../components/SeoPanel.vue'
 import VersionsPanel from '../components/VersionsPanel.vue'
-import { restoreOps } from '@/editor/restoreVersion'
+import { restoreOps, restoreVersionThroughServer } from '@/editor/restoreVersion'
+import { handlePaletteRefusal } from '@/editor/paletteRefusal'
+import PaletteExpiredNotice from '@/editor/PaletteExpiredNotice.vue'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { usePublish } from '@/queries/publish'
 import { fetchRoutes, useRoutes } from '@/queries/routes'
@@ -98,6 +100,8 @@ const host: StageHost = {
   // only by saveDraft, TTL-bounded. An abandoned session's stash overlays the DRAFT on the next
   // open, so one initial apply of the hydrated tree overwrites it with truth.
   reconcileOnOpen: true,
+  // The replacement ledger starts at the generation the draft was read at (custom palette spec §5.3).
+  paletteGeneration: () => draft.value?.palette_generation ?? 0,
   appearanceFingerprint: fetchAppearanceFingerprint,
   renew: async () => {
     const minted = await mintPreviewData(uuid.value, locale.value)
@@ -351,23 +355,59 @@ watch(inspectorTabs, (tabs) => {
 })
 
 /**
- * Restore to draft (Versions tab): the version's content becomes the draft in one transaction, so
- * one undo takes it back out. Autosave keeps it as any edit is kept; nothing goes live.
+ * Restore to draft (Versions tab), on the server (custom palette spec §4.5): the server loads the
+ * version by id and stores it as the draft, keeping its brand colours trusted; the stage installs
+ * it as one transaction, so one undo takes it back out (an ordinary save then). Nothing goes live.
  */
 async function restoreVersionToDraft(v: {
+  uuid: string
   version: number | undefined
   fields: Record<string, unknown>
 }) {
   const name = v.version === undefined ? 'That version' : `Version ${v.version}`
-  const ops = restoreOps(snapshotFields(), v.fields)
-  if (ops.length === 0) {
+  if (restoreOps(snapshotFields(), v.fields).length === 0) {
     success(`Your draft already matches ${name.charAt(0).toLowerCase()}${name.slice(1)}`)
     return
   }
+  commitNow()
   // Blocks the version does not have cannot stay selected.
   clearSelection()
-  await applyDrop(ops)
-  success(`${name} is in your draft`, 'Undo takes it back out. Publish to make it live.')
+  try {
+    const res = await restoreVersionThroughServer({
+      current: snapshotFields,
+      request: (through) =>
+        restoreDraft(uuid.value, locale.value, v.uuid, lockVersion.value, through),
+      paletteThrough: editor.paletteThrough,
+      restoreFromResponse: editor.restoreFromResponse,
+      applyOps: applyDrop,
+      markPersisted: () => {
+        submittedSequence = editor.currentSequence()
+        editor.markSaved(submittedSequence)
+      },
+    })
+    // The restore's write bumped the lock: hydrating that draft again would change nothing.
+    lockVersion.value = res.draft.lock_version
+    hydratedLock = res.draft.lock_version
+    if (editor.paletteExpired.value) return // the notice asks for a reload; the server has it
+    success(`${name} is in your draft`, 'Undo takes it back out. Publish to make it live.')
+  } catch (e: unknown) {
+    if (e instanceof ApiError && e.status === 409) {
+      warning('This draft changed elsewhere', 'Reload to get the latest version before restoring.')
+    } else {
+      notifyError(e, 'Couldn’t restore that version')
+    }
+  }
+}
+
+// The palette proofs save as the Save button does (custom palette plan Task 12). E2E build only.
+if (import.meta.env.VITE_E2E === '1') {
+  const hooks = (window as unknown as { __thalloBuilder?: Record<string, unknown> }).__thalloBuilder
+  if (hooks) hooks.saveNow = () => saveDraftOnly({ quiet: true })
+}
+
+/** A reload starts the editor over from the stored draft: a new document, history and ledger. */
+function reloadPage(): void {
+  window.location.reload()
 }
 
 // A new entry or locale gets its own stage: scroll, load and reconciliation start over.
@@ -389,9 +429,13 @@ async function saveDraftOnly({ quiet = false }: { quiet?: boolean } = {}): Promi
       fields: fields.value,
       lock_version: lockVersion.value,
       preview_revision: accepted.value?.revision ?? null,
-    })) as { data?: { preview_cleared?: boolean } } | undefined
+      palette_through: editor.paletteThrough(),
+    })) as { data?: { preview_cleared?: boolean } & PaletteResultFields } | undefined
     // The saved position is the SUBMITTED sequence, not the current one (spec §3.5).
     editor.markSaved(sequence)
+    // What the palette normalisation changed is adopted under any edit made meanwhile, and the
+    // replacements this editor has not seen reach its history (custom palette spec §4.5, §5.3).
+    if (result?.data) await editor.adoptPaletteResult(result.data)
     if (result?.data?.preview_cleared === true) {
       accepted.value = null // the next apply starts a new epoch
       displayed.value = null
@@ -400,6 +444,13 @@ async function saveDraftOnly({ quiet = false }: { quiet?: boolean } = {}): Promi
     return true
   } catch (e: unknown) {
     reloadStage() // discard optimistic mirrors — the stage falls back to last-applied truth
+    // A colour the palette no longer has (cleared since this editor last read it): say which block,
+    // select it, and read the palette again so its picker shows the colour as unavailable.
+    if (
+      handlePaletteRefusal(e, { warning, refresh: editor.refreshStyleSchema, select: selectOne })
+    ) {
+      return false
+    }
     // BYTE-MIRROR of the editor's onSave 409 branches.
     if (e instanceof ApiError && e.status === 409) {
       if (apiErrorCode(e) === 'BLOCK_MIGRATION_IN_PROGRESS') {
@@ -713,6 +764,7 @@ async function openThemePreview(): Promise<void> {
             </template>
             <template #block>
               <BlockInspector
+                :scoped-skin="editor.selectedScopedSkin.value"
                 v-if="selectedBlock"
                 :block="selectedBlock"
                 :block-type="selectedBlockType"
@@ -969,6 +1021,7 @@ async function openThemePreview(): Promise<void> {
                   v-if="styleSchema"
                   :style="pageStyle"
                   :vocabulary="styleSchema.vocabulary"
+                  :palette="styleSchema.palette"
                   :active-breakpoint="activeBreakpoint"
                   @update:style="writePageStyle"
                   @update:active-breakpoint="onActiveBreakpoint"
@@ -985,6 +1038,7 @@ async function openThemePreview(): Promise<void> {
           class="relative min-w-0 flex-1 overflow-auto rounded-lg border border-default bg-elevated/40 p-3"
           data-test="canvas-stage"
         >
+          <PaletteExpiredNotice :show="editor.paletteExpired.value" @reload="reloadPage" />
           <div
             v-if="effectiveLayout"
             class="mb-2 flex items-center gap-2 rounded border border-default bg-default px-3 py-2 text-xs"

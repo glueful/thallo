@@ -83,7 +83,7 @@ describe('a font file in the media panel', () => {
       'Font library · Brand',
       'Font library · Old brand (removed)',
     ])
-    expect(rows[0]!.find('a').attributes('href')).toBe('/appearance#typefaces')
+    expect(rows[0]!.find('a').attributes('href')).toBe('/appearance?tab=typefaces#typefaces')
     expect(w.text()).not.toContain('not currently used anywhere')
   })
 

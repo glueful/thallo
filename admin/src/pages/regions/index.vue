@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PaletteExpiredNotice from '@/editor/PaletteExpiredNotice.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRegions } from '@/queries/regions'
 import { useEntries } from '@/queries/entries'
@@ -338,6 +339,7 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
             </template>
             <template #block>
               <BlockInspector
+                :scoped-skin="editor.selectedScopedSkin.value"
                 v-if="selectedBlock"
                 :block="selectedBlock"
                 :block-type="selectedBlockType"
@@ -487,6 +489,7 @@ const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
           class="relative min-w-0 flex-1 overflow-auto rounded-lg border border-default bg-elevated/40 p-3"
           data-test="canvas-stage"
         >
+          <PaletteExpiredNotice :show="editor.paletteExpired.value" @reload="region.reload()" />
           <div class="mx-auto h-full transition-[width]" :style="{ width: stageWidth }">
             <iframe
               v-if="iframeSrc"

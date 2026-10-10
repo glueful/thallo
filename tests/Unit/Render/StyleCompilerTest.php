@@ -46,6 +46,15 @@ final class StyleCompilerTest extends TestCase
         );
     }
 
+    public function testThePerThemeArtifactCarriesNoBrandUtilities(): void
+    {
+        // Brand colours are each workspace's (custom palette spec §3.4): their utilities and
+        // variables come from its colours stylesheet, never the shared per-theme artifact.
+        $css = StyleCompiler::compile($this->vocabulary());
+        self::assertStringNotContainsString('brand-', $css);
+        self::assertSame(25, StyleCompiler::VERSION);
+    }
+
     public function testClassNamesAreTheOnePlaceASettingBecomesAClass(): void
     {
         self::assertSame('t-pt-lg', ClassNames::for('spacing.padding.top', 'spacing.lg'));

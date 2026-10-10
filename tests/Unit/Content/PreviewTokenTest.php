@@ -252,4 +252,46 @@ final class PreviewTokenTest extends TestCase
 
         return $replacement . substr($s, 1);
     }
+
+    public function testThePaletteClaimRoundTripsAndIsAbsentWhenEmpty(): void
+    {
+        $palette = [
+            'neutral_custom' => [
+                'bg' => '#f8f4ec', 'surface' => '#ffffff', 'surface_2' => '#efe7d8',
+                'ink' => '#1b1712', 'muted' => '#6b6156', 'line' => '#e2d8c6',
+            ],
+            'dark_base' => 'stone',
+            'brands' => [
+                ['id' => 12, 'name' => 'Teal', 'hex' => '#0f766e'],
+                ['id' => 1, 'name' => 'Gold', 'hex' => '#8a6a2a'],
+            ],
+        ];
+        $token = PreviewToken::mint('e1', 'en', null, time() + 60, 'k', null, null, null, null, $palette);
+        self::assertSame($palette, PreviewToken::verify($token, 'k', time())->palette);
+        $plain = PreviewToken::mint('e1', 'en', null, 2000000000, 'k');
+        self::assertSame($plain, PreviewToken::mint('e1', 'en', null, 2000000000, 'k', null, null, null, null, null));
+        self::assertNull(PreviewToken::verify($plain, 'k', 1000)->palette);
+    }
+
+    public function testAMalformedPaletteClaimReadsAsNone(): void
+    {
+        $bad = ['dark_base' => ['x'], 'evil' => 1];
+        $token = PreviewToken::mint('e1', 'en', null, time() + 60, 'k', null, null, null, null, $bad);
+        self::assertNull(PreviewToken::verify($token, 'k', time())->palette);
+    }
+
+    public function testTheBrandsClaimIsAListOfIdsNameAndHex(): void
+    {
+        $cases = [
+            ['1' => ['name' => 'Gold', 'hex' => '#8a6a2a']],
+            [['id' => 0, 'name' => 'Gold', 'hex' => '#8a6a2a']],
+            [['id' => 10000, 'name' => 'Gold', 'hex' => '#8a6a2a']],
+            [['id' => 2, 'name' => 'A', 'hex' => '#111111'], ['id' => 2, 'name' => 'B', 'hex' => '#222222']],
+        ];
+        foreach ($cases as $brands) {
+            $claim = ['brands' => $brands];
+            $token = PreviewToken::mint('e1', 'en', null, time() + 60, 'k', null, null, null, null, $claim);
+            self::assertNull(PreviewToken::verify($token, 'k', time())->palette, json_encode($brands));
+        }
+    }
 }

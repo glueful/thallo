@@ -10,7 +10,9 @@ import { useNotify } from '@/composables/useNotify'
 //   and the toast says so.
 const props = defineProps<{ uuid: string; locale: string; type: string }>()
 const emit = defineEmits<{
-  'restore-draft': [version: { version: number | undefined; fields: Record<string, unknown> }]
+  'restore-draft': [
+    version: { uuid: string; version: number | undefined; fields: Record<string, unknown> },
+  ]
 }>()
 const { success, error: notifyError } = useNotify()
 
@@ -22,7 +24,11 @@ const rollback = useRollback(props.uuid, props.locale, props.type)
 const restoring = computed(() => rollback.isLoading.value)
 
 function onRestoreDraft(v: VersionRow) {
-  emit('restore-draft', { version: v.version, fields: (v.fields ?? {}) as Record<string, unknown> })
+  emit('restore-draft', {
+    uuid: v.uuid,
+    version: v.version,
+    fields: (v.fields ?? {}) as Record<string, unknown>,
+  })
 }
 
 async function onMakeLive(v: VersionRow) {
@@ -57,6 +63,9 @@ async function onMakeLive(v: VersionRow) {
         <div class="min-w-0">
           <p class="truncate text-sm font-medium text-default">Version {{ v.version ?? v.uuid }}</p>
           <p class="text-xs text-muted">{{ v.created_at ?? '' }}</p>
+          <p v-if="v.note" class="text-xs text-muted" :data-test="`version-note-${v.uuid}`">
+            {{ v.note }}
+          </p>
         </div>
         <div class="flex shrink-0 items-center gap-1.5">
           <UButton

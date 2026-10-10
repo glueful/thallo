@@ -35,9 +35,48 @@ const fetchRenderThemesMock = vi.hoisted(() => vi.fn())
 vi.mock('@/queries/templates', () => ({
   fetchRenderThemes: fetchRenderThemesMock,
 }))
-vi.mock('vue-router/auto', () => ({
-  useRoute: () => ({ path: '/appearance', params: {}, query: {} }),
-  useRouter: () => ({ push: vi.fn(), resolve: vi.fn() }),
+// The open tab is the URL's ?tab=. One reactive route and router, shared by both module ids the
+// page's router imports may resolve through (vue-router and vue-router/auto): push() and replace()
+// record the call and move the route, as the router would.
+const nav = await vi.hoisted(async () => {
+  const { reactive } = await import('vue')
+  const route = reactive({
+    path: '/appearance',
+    params: {},
+    query: {} as Record<string, string>,
+    hash: '',
+  })
+  const pushed = vi.fn()
+  const replaced = vi.fn()
+  const go = (to: { query: Record<string, string> }) => {
+    route.query = { ...to.query }
+  }
+  // Recorded and then acted on: clearMocks drops a spy's implementation between tests.
+  const router = {
+    push: (to: { query: Record<string, string> }) => {
+      pushed(to)
+      go(to)
+    },
+    replace: (to: { query: Record<string, string> }) => {
+      replaced(to)
+      go(to)
+    },
+    resolve: () => ({}),
+  }
+  return { route, router, pushed, replaced }
+})
+const routeState = nav.route
+const routerPush = nav.pushed
+const routerReplace = nav.replaced
+vi.mock('vue-router', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('vue-router')>()),
+  useRoute: () => nav.route,
+  useRouter: () => nav.router,
+}))
+vi.mock('vue-router/auto', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('vue-router')>()),
+  useRoute: () => nav.route,
+  useRouter: () => nav.router,
   RouterLink: { props: ['to'], template: '<a><slot /></a>' },
 }))
 // The real AssetField opens the blob picker; the page only needs v-model.
@@ -154,6 +193,9 @@ const themeCard = (name: string, title: string) => ({
 
 describe('appearance page', () => {
   beforeEach(() => {
+    routeState.query = {}
+    routerPush.mockClear()
+    routerReplace.mockClear()
     setActivePinia(createPinia())
     settingsData.value = settings()
     saveMock.mockReset().mockResolvedValue({ ...settings() })
@@ -166,7 +208,7 @@ describe('appearance page', () => {
     })
   })
 
-  it('shows the four appearance cards and nothing of how the site behaves', async () => {
+  it('shows the appearance cards and nothing of how the site behaves', async () => {
     const wrapper = mount(AppearancePage)
     await flushPromises()
     for (const card of ['theme-card', 'theme-colors-card', 'theme-design-card', 'logos-card']) {
@@ -292,6 +334,11 @@ describe('appearance page', () => {
       postMock.mock.calls[n]![1] as { body: Record<string, unknown> }
 
     beforeEach(() => {
+      routeState.query = {}
+
+      routerPush.mockClear()
+
+      routerReplace.mockClear()
       vi.useFakeTimers()
       let minted = 0
       postMock.mockReset().mockImplementation(() => {
@@ -500,5 +547,276 @@ describe('appearance page', () => {
     saveMock.mockRejectedValueOnce(new Error('nope'))
     await save(wrapper)
     expect(told).not.toHaveBeenCalled()
+  })
+})
+
+const tabButton = (wrapper: ReturnType<typeof mount>, label: string) =>
+  wrapper.findAll('[role="tab"]').find((t) => t.text().startsWith(label))!
+async function openTab(wrapper: ReturnType<typeof mount>, label: string) {
+  await tabButton(wrapper, label).trigger('mousedown', { button: 0 })
+  await flushPromises()
+}
+/** The real UTabs panel around a tab's content: hidden with the `hidden` attribute, never unmounted. */
+const tabpanel = (wrapper: ReturnType<typeof mount>, tab: string) =>
+  wrapper.get(`[data-test="appearance-panel-${tab}"]`).element.closest('[role="tabpanel"]')!
+const shown = (wrapper: ReturnType<typeof mount>, tab: string) =>
+  !tabpanel(wrapper, tab).hasAttribute('hidden')
+
+describe('appearance tabs', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    settingsData.value = settings()
+    saveMock.mockReset().mockResolvedValue({ ...settings() })
+    notify.error.mockClear()
+    routeState.query = {}
+    routerPush.mockClear()
+    routerReplace.mockClear()
+    fetchRenderThemesMock.mockReset().mockResolvedValue({
+      themes: ['default'],
+      active: 'default',
+      cards: [themeCard('default', 'Default')],
+    })
+  })
+
+  it('shows five tabs, opening on Theme with no query', async () => {
+    const wrapper = mount(AppearancePage)
+    await flushPromises()
+    expect(wrapper.findAll('[role="tab"]').map((t) => t.text())).toEqual([
+      'Theme',
+      'Colours',
+      'Design',
+      'Typefaces',
+      'Logos & site icon',
+    ])
+    expect(shown(wrapper, 'theme')).toBe(true)
+    expect(shown(wrapper, 'colours')).toBe(false)
+  })
+
+  it('puts each control on its own tab', async () => {
+    const wrapper = mount(AppearancePage)
+    await flushPromises()
+    const panel = (tab: string) => wrapper.get(`[data-test="appearance-panel-${tab}"]`)
+    expect(panel('theme').find('[data-test="theme-card"]').exists()).toBe(true)
+    expect(panel('colours').find('[data-test="theme-colors-card"]').exists()).toBe(true)
+    expect(panel('design').find('[data-test="theme-radius"]').exists()).toBe(true)
+    expect(panel('design').find('[data-test="theme-background"]').exists()).toBe(true)
+    expect(panel('design').find('[data-test="theme-font"]').exists()).toBe(false)
+    expect(panel('typefaces').find('[data-test="theme-font"]').exists()).toBe(true)
+    expect(panel('typefaces').find('[data-test="typefaces-card"]').exists()).toBe(true)
+    expect(panel('logos').find('[data-test="logos-card"]').exists()).toBe(true)
+  })
+
+  it('opens the tab the URL names, writes the tab back, and leaves the default without a query', async () => {
+    routeState.query = { tab: 'colours' }
+    const wrapper = mount(AppearancePage)
+    await flushPromises()
+    expect(shown(wrapper, 'colours')).toBe(true)
+
+    await openTab(wrapper, 'Logos')
+    expect(routerPush).toHaveBeenLastCalledWith({ query: { tab: 'logos' } })
+    expect(shown(wrapper, 'logos')).toBe(true)
+
+    await openTab(wrapper, 'Theme')
+    expect(routerPush).toHaveBeenLastCalledWith({ query: {} })
+    expect(shown(wrapper, 'theme')).toBe(true)
+    // A choice is a history entry; nothing was replaced.
+    expect(routerReplace).not.toHaveBeenCalled()
+  })
+
+  it('wires each panel to its tab, and moves between tabs with the arrow keys', async () => {
+    const wrapper = mount(AppearancePage, { attachTo: document.body })
+    await flushPromises()
+    const tab = tabButton(wrapper, 'Colours')
+    const panel = tabpanel(wrapper, 'colours')
+    expect(tab.attributes('aria-controls')).toBe(panel.id)
+    expect(panel.getAttribute('aria-labelledby')).toBe(tab.attributes('id'))
+    ;(tabButton(wrapper, 'Theme').element as HTMLElement).focus()
+    await tabButton(wrapper, 'Theme').trigger('keydown', { key: 'ArrowRight' })
+    await flushPromises()
+    expect(document.activeElement).toBe(tab.element)
+    wrapper.unmount()
+  })
+
+  it('keeps a hidden tab’s controls mounted', async () => {
+    const wrapper = mount(AppearancePage)
+    await flushPromises()
+    expect(shown(wrapper, 'logos')).toBe(false)
+    expect(wrapper.find('[data-test="logos-card"]').exists()).toBe(true)
+  })
+
+  it('follows back and forward', async () => {
+    const wrapper = mount(AppearancePage)
+    await flushPromises()
+    // What a history step does to the route: it changes under the page without a click.
+    const { useRouter } = await import('vue-router')
+    void useRouter().replace({ query: { tab: 'design' } })
+    await flushPromises()
+    expect(shown(wrapper, 'design')).toBe(true)
+  })
+
+  it('falls back to the default for an unknown tab', async () => {
+    routeState.query = { tab: 'nope' }
+    const wrapper = mount(AppearancePage)
+    await flushPromises()
+    expect(shown(wrapper, 'theme')).toBe(true)
+  })
+
+  it('hides Theme when there are no themes, opening on Colours', async () => {
+    fetchRenderThemesMock.mockReset().mockRejectedValue(new Error('no pack'))
+    routeState.query = { tab: 'theme' }
+    const wrapper = mount(AppearancePage)
+    await flushPromises()
+    expect(wrapper.findAll('[role="tab"]').map((t) => t.text())[0]).toBe('Colours')
+    expect(shown(wrapper, 'colours')).toBe(true)
+  })
+
+  it('does not jump from Colours to Theme while the theme list is still loading', async () => {
+    let resolve!: (v: unknown) => void
+    fetchRenderThemesMock.mockReset().mockReturnValue(new Promise((r) => (resolve = r)))
+    const wrapper = mount(AppearancePage)
+    await flushPromises()
+    expect(shown(wrapper, 'theme')).toBe(true)
+    resolve({ themes: ['default'], active: 'default', cards: [themeCard('default', 'Default')] })
+    await flushPromises()
+    expect(shown(wrapper, 'theme')).toBe(true)
+    expect(routerPush).not.toHaveBeenCalled()
+    expect(routerReplace).not.toHaveBeenCalled()
+  })
+
+  it('marks the tab holding an unsaved change, and keeps the change across a tab switch', async () => {
+    const wrapper = mount(AppearancePage)
+    await flushPromises()
+    await openTab(wrapper, 'Logos')
+    await wrapper.find('[data-test="stub-logo-pick"]').trigger('click')
+    await flushPromises()
+    const dot = wrapper.get('[data-test="appearance-tab-dirty-logos"]')
+    // The tab's own label already names it: the dot adds only what it means.
+    expect(dot.text()).toBe('unsaved changes')
+    expect(wrapper.find('[data-test="appearance-tab-dirty-colours"]').exists()).toBe(false)
+
+    await openTab(wrapper, 'Colours')
+    await openTab(wrapper, 'Logos')
+    expect(wrapper.find('[data-test="stub-logo-pick"]').text()).toBe('blob00000042')
+    expect(wrapper.find('[data-test="appearance-tab-dirty-logos"]').exists()).toBe(true)
+  })
+
+  it('saves every tab’s changes from any tab, and clears the dots', async () => {
+    const wrapper = mount(AppearancePage)
+    await flushPromises()
+    await openTab(wrapper, 'Logos')
+    await wrapper.find('[data-test="stub-logo-pick"]').trigger('click')
+    await openTab(wrapper, 'Design')
+    // The Nuxt UI select whose rendered trigger carries the test id (appearance-palette.spec's idiom).
+    const radius = wrapper
+      .findAllComponents({ name: 'Select' })
+      .find((c) => c.find('[data-test="theme-radius"]').exists())!
+    radius.vm.$emit('update:modelValue', 'sharp')
+    await flushPromises()
+    expect(await save(wrapper)).toMatchObject({ site_logo: 'blob00000042', theme_radius: 'sharp' })
+    settingsData.value = { ...settings(), site_logo: 'blob00000042', theme_radius: 'sharp' }
+    await flushPromises()
+    expect(wrapper.find('[data-test^="appearance-tab-dirty-"]').exists()).toBe(false)
+  })
+
+  it('a refused save opens the first tab holding a named field and marks every such tab', async () => {
+    const { ApiError } = await import('@/api/errors')
+    saveMock
+      .mockReset()
+      .mockRejectedValue(
+        new ApiError(
+          'The given data was invalid.',
+          422,
+          { theme_brand_colors: 'too long', site_favicon: 'not an image' },
+          {},
+        ),
+      )
+    routeState.query = { tab: 'design' }
+    const wrapper = mount(AppearancePage)
+    await flushPromises()
+    await wrapper.get('[data-test="appearance-save"]').trigger('click')
+    await flushPromises()
+    expect(shown(wrapper, 'colours')).toBe(true)
+    expect(wrapper.get('[data-test="appearance-tab-error-colours"]').text()).toBe('has errors')
+    expect(wrapper.find('[data-test="appearance-tab-error-logos"]').exists()).toBe(true)
+    expect(notify.error).toHaveBeenCalled()
+
+    // The next save starts clean.
+    saveMock.mockReset().mockResolvedValue({ ...settings() })
+    await wrapper.get('[data-test="appearance-save"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test^="appearance-tab-error-"]').exists()).toBe(false)
+  })
+
+  it('a failure that names no field stays on the open tab', async () => {
+    saveMock.mockReset().mockRejectedValue(new Error('network'))
+    routeState.query = { tab: 'design' }
+    const wrapper = mount(AppearancePage)
+    await flushPromises()
+    await wrapper.get('[data-test="appearance-save"]').trigger('click')
+    await flushPromises()
+    expect(shown(wrapper, 'design')).toBe(true)
+  })
+
+  it('clears the dots as soon as a save succeeds, before the settings are read again', async () => {
+    const wrapper = mount(AppearancePage)
+    await flushPromises()
+    await openTab(wrapper, 'Logos')
+    await wrapper.find('[data-test="stub-logo-pick"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="appearance-tab-dirty-logos"]').exists()).toBe(true)
+    // The save answers with what it stored; the query keeps its old value (no refetch yet).
+    saveMock.mockReset().mockResolvedValue({ ...settings(), site_logo: 'blob00000042' })
+    await save(wrapper)
+    expect(wrapper.find('[data-test^="appearance-tab-dirty-"]').exists()).toBe(false)
+  })
+
+  it('the arrow keys move focus between tabs without opening one', async () => {
+    const wrapper = mount(AppearancePage, { attachTo: document.body })
+    await flushPromises()
+    ;(tabButton(wrapper, 'Theme').element as HTMLElement).focus()
+    await tabButton(wrapper, 'Theme').trigger('keydown', { key: 'ArrowRight' })
+    await flushPromises()
+    expect(document.activeElement).toBe(tabButton(wrapper, 'Colours').element)
+    expect(shown(wrapper, 'theme')).toBe(true)
+    expect(routerPush).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('each tab keeps its own scroll position', async () => {
+    const wrapper = mount(AppearancePage, { attachTo: document.body })
+    await flushPromises()
+    const body = wrapper.get('[data-slot="body"]').element as HTMLElement
+    body.scrollTop = 300
+    await openTab(wrapper, 'Logos')
+    expect(body.scrollTop).toBe(0)
+    body.scrollTop = 40
+    await openTab(wrapper, 'Theme')
+    expect(body.scrollTop).toBe(300)
+    wrapper.unmount()
+  })
+
+  it('a link to a card on a tab scrolls to it', async () => {
+    const scrolled = vi.spyOn(HTMLElement.prototype, 'scrollIntoView')
+    routeState.query = { tab: 'typefaces' }
+    routeState.hash = '#typefaces'
+    const wrapper = mount(AppearancePage, { attachTo: document.body })
+    await flushPromises()
+    expect(scrolled).toHaveBeenCalled()
+    expect((scrolled.mock.contexts[0] as HTMLElement).id).toBe('typefaces')
+    routeState.hash = ''
+    scrolled.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('a hidden tab in the address is corrected to the default, without a history entry', async () => {
+    fetchRenderThemesMock
+      .mockReset()
+      .mockResolvedValue({ themes: [], active: 'default', cards: [] })
+    routeState.query = { tab: 'theme' }
+    const wrapper = mount(AppearancePage)
+    await flushPromises()
+    expect(shown(wrapper, 'colours')).toBe(true)
+    expect(routerReplace).toHaveBeenCalledWith({ query: {} })
+    expect(routerPush).not.toHaveBeenCalled()
   })
 })

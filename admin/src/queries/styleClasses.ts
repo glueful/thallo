@@ -1,3 +1,4 @@
+import { paletteOutcomeOf, type PaletteSaveOutcome } from '@/editor/paletteReplacements'
 import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { client } from '@/api/client'
 import { toApiError } from '@/api/errors'
@@ -26,6 +27,8 @@ export interface StyleClassList {
   /** The site style generation the listed classes belong to (spec §4.3). */
   generation: number
   classes: StyleClass[]
+  /** The palette generation the classes were read at (custom palette spec §5.3); 0 from an older server. */
+  paletteGeneration?: number
 }
 
 export interface StyleClassUsage {
@@ -47,11 +50,15 @@ export interface StyleClassUsage {
 export async function fetchStyleClasses(): Promise<StyleClassList> {
   const { data, error, response } = await client.GET('/style-classes')
   if (error) throw toApiError(error, response)
-  const body = (data as unknown as { data?: { generation?: number; style_classes?: StyleClass[] } })
-    ?.data
+  const body = (
+    data as unknown as {
+      data?: { generation?: number; style_classes?: StyleClass[]; palette_generation?: number }
+    }
+  )?.data
   return {
     generation: Number(body?.generation ?? 0),
     classes: (body?.style_classes ?? []).map((c) => ({ ...c, archived: Boolean(c.archived) })),
+    paletteGeneration: Number(body?.palette_generation ?? 0),
   }
 }
 
@@ -132,13 +139,20 @@ export function useStyleClassMutations() {
       id,
       version,
       ...body
-    }: Partial<StyleClassPayload> & { id: string; version: number }): Promise<StyleClass> => {
+    }: Partial<StyleClassPayload> & {
+      id: string
+      version: number
+      /** The editor's palette ledger boundary (custom palette spec §5.3). */
+      palette_through?: number
+    }): Promise<StyleClass & { palette: PaletteSaveOutcome }> => {
       const { data, error, response } = await client.PATCH('/style-classes/{id}', {
         params: { path: { id } },
         body: { version, ...body } as never,
       })
       if (error) throw toApiError(error, response)
-      return (data as unknown as { data: { style_class: StyleClass } }).data.style_class
+      const d = (data as unknown as { data: { style_class: StyleClass } & Record<string, unknown> })
+        .data
+      return { ...d.style_class, palette: paletteOutcomeOf(d) }
     },
     onSettled: invalidate,
   })

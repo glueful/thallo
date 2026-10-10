@@ -59,6 +59,28 @@ final class ThemeVocabularyTest extends TestCase
         );
     }
 
+    public function testAThemeMappingABrandTokenIsIgnoredAndReported(): void
+    {
+        // Brand colours are the site's (custom palette spec §3.1), any id: a theme's mapping is
+        // dropped, the Doctor reports it, and the vocabulary carries no brand values at all.
+        $json = $this->defaultThemeJson();
+        $json['vocabulary']['color.brand-7'] = '#ff0000';
+        $json['vocabulary']['color.brand-1-contrast'] = '#000000';
+        $vocabulary = ThemeVocabulary::fromThemeJson($json, self::DEFAULT_THEME);
+        self::assertSame(['color.brand-7', 'color.brand-1-contrast'], $vocabulary->ignored());
+        self::assertArrayNotHasKey('color.brand-7', $vocabulary->values());
+    }
+
+    public function testAThemeWithoutBrandTokensLoads(): void
+    {
+        $vocabulary = ThemeVocabulary::fromThemeJson($this->defaultThemeJson(), self::DEFAULT_THEME);
+        self::assertSame([], $vocabulary->ignored());
+        self::assertSame([], array_filter(
+            array_keys($vocabulary->values()),
+            static fn (string $token): bool => str_contains($token, 'brand-'),
+        ));
+    }
+
     public function testATokenWithALiteralDefaultIsFilledWhenAThemeOmitsIt(): void
     {
         // color.white joined the baseline after themes were copied: a theme.json that predates it

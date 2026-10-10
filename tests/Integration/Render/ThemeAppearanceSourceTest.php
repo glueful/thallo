@@ -44,6 +44,24 @@ final class ThemeAppearanceSourceTest extends AppTestCase
         };
     }
 
+    public function testTheCustomNeutralPassesThroughWithoutAWarning(): void
+    {
+        $logged = [];
+        $logger = new class ($logged) extends \Psr\Log\AbstractLogger {
+            /** @param list<string> $logged */
+            public function __construct(private array &$logged)
+            {
+            }
+            public function log($level, \Stringable|string $message, array $context = []): void
+            {
+                $this->logged[] = (string) $message;
+            }
+        };
+        $src = new ThemeAppearanceSource($this->provider('blue', 'custom'), $logger);
+        self::assertSame('custom', $src->neutral());
+        self::assertSame([], $logged);
+    }
+
     public function testReturnsSavedPair(): void
     {
         $src = new ThemeAppearanceSource($this->provider('emerald', 'zinc'), new NullLogger());
@@ -63,5 +81,26 @@ final class ThemeAppearanceSourceTest extends AppTestCase
         $src = new ThemeAppearanceSource($this->provider('banana', 'slate'), new NullLogger());
         self::assertSame('blue', $src->accent());
         self::assertSame('slate', $src->neutral());
+    }
+
+    public function testAnEmptyPaletteLeavesTheFingerprintUnchangedAndAPaletteEntersIt(): void
+    {
+        $palette = \Thallo\Contracts\Style\Palette::empty();
+        $make = function () use (&$palette): ThemeAppearanceSource {
+            return new ThemeAppearanceSource(
+                $this->provider('blue', 'slate'),
+                new NullLogger(),
+                paletteFingerprint: static fn (): string => $palette->fingerprint(),
+            );
+        };
+        $before = $make()->fingerprint();
+        $without = new ThemeAppearanceSource($this->provider('blue', 'slate'), new NullLogger());
+        self::assertSame($without->fingerprint(), $before);
+        $palette = new \Thallo\Contracts\Style\Palette(
+            brands: [1 => new \Thallo\Contracts\Style\BrandSlot('Gold', '#8a6a2a'), 2 => null, 3 => null],
+        );
+        $tag = '-p' . substr($palette->fingerprint(), 0, 8);
+        self::assertStringContainsString($tag, $make()->fingerprint());
+        self::assertStringContainsString($tag, $make()->appearanceFingerprint(), 'open stages refresh too');
     }
 }

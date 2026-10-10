@@ -199,6 +199,186 @@ export interface paths {
     patch: operations['patchV1AdminApikeysByUuidTenant']
     trace?: never
   }
+  '/appearance/palette/brand/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /**
+     * Clear a brand colour
+     * @description Clears the slot when nothing blocking names it (drafts, current publications, regions, layouts, saved sections, style classes); historical versions never block. 409 with `usage` when something does, 409 with `conflict` while a replacement replaces or writes to the slot. Requires `content.manage`.
+     */
+    delete: operations['deleteV1AdminAppearancePaletteBrandById']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/appearance/palette/brand/{id}/replace': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Replace a brand colour
+     * @description Starts a job that rewrites every current document naming the slot (drafts, current publications — as new versions — regions, layouts, saved sections, style classes) to `to`, its text colour to `contrast_to` (or the destination's own pair), then clears the slot. History is never rewritten. 409 while the slot or a destination is part of a replacement; 422 for a destination the rules refuse. Requires `content.manage`.
+     */
+    post: operations['postV1AdminAppearancePaletteBrandByIdReplace']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/appearance/palette/brand/{id}/usage': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Where a brand colour is used
+     * @description Blocking documents (drafts, current publications, regions, layouts, saved sections, style classes) and historical versions naming the slot or its text colour. Requires `content.manage`.
+     */
+    get: operations['getV1AdminAppearancePaletteBrandByIdUsage']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/appearance/palette/jobs': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * The running brand colour replacements
+     * @description Every replacement that is running, interrupted or failed. Requires `content.manage`.
+     */
+    get: operations['getV1AdminAppearancePaletteJobs']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/appearance/palette/jobs/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * One brand colour replacement
+     * @description Its progress and failures; a running job whose worker stopped reporting is `interrupted`, and can be resumed. Requires `content.manage`.
+     */
+    get: operations['getV1AdminAppearancePaletteJobsById']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/appearance/palette/jobs/{id}/cancel': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Cancel a brand colour replacement
+     * @description Stops the job before its next write; what it already rewrote stays rewritten, and the slot stays configured. 409 when it already finished. Requires `content.manage`.
+     */
+    post: operations['postV1AdminAppearancePaletteJobsByIdCancel']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/appearance/palette/jobs/{id}/resume': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Resume a brand colour replacement
+     * @description Runs a failed or interrupted job again. 409 for any other. Requires `content.manage`.
+     */
+    post: operations['postV1AdminAppearancePaletteJobsByIdResume']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/appearance/palette/preview': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Contrast of unsaved palette values
+     * @description The contrast rows, swatches and resolved light and dark values for the Appearance page's unsaved accent, neutral, page ground and palette; absent fields read the saved ones. Nothing is saved. Requires `content.manage`.
+     */
+    post: operations['postV1AdminAppearancePalettePreview']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/appearance/palette/replacements': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Completed brand colour replacements over a generation range
+     * @description Every completed replacement record with `after < completed_generation <= through`, in completion order — the range an editor is missing. 410 `PALETTE_HISTORY_EXPIRED` when the range reaches below pruned history. Any style editor may read it: `content.edit`, `content.manage`, `templates.manage` or `styles.manage`.
+     */
+    get: operations['getV1AdminAppearancePaletteReplacements']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/block-types': {
     parameters: {
       query?: never
@@ -2438,6 +2618,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/entries/{uuid}/draft/{locale}/restore': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Restore a version into the draft
+     * @description Loads one of this entry's retained versions by id, on the server, and saves it as the draft (its brand colours stay trusted for later saves). Requires `content.edit`.
+     */
+    post: operations['postV1AdminEntriesByUuidDraftByLocaleRestore']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/entries/{uuid}/locales': {
     parameters: {
       query?: never
@@ -3433,7 +3633,7 @@ export interface paths {
     }
     /**
      * The style schema and the active theme vocabulary
-     * @description The managed property table (paths, kinds, responsiveness, choices), the breakpoints, the advanced paths and the active theme's vocabulary values. Requires `content.manage`.
+     * @description The managed property table (paths, kinds, responsiveness, choices), the breakpoints, the advanced paths, the active theme's vocabulary values (with the configured brand colours, in order) and the workspace's palette: its limit, the brand colours in order with their states, removed colours by name, swatches, labels and whether the reader may manage it. Any style editor may read it: `content.edit`, `content.manage`, `templates.manage` or `styles.manage`.
      */
     get: operations['getV1AdminRenderStyleschema']
     put?: never
@@ -6055,6 +6255,745 @@ export interface operations {
             }
           }
         }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  deleteV1AdminAppearancePaletteBrandById: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Cleared; the style schema's palette block and the stored brand colour list this Clear wrote (`brand_colors`). */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description In use (`usage`), part of a running replacement (`conflict`), or already cleared (`conflict`). */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  postV1AdminAppearancePaletteBrandByIdReplace: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        /**
+         * @example {
+         *       "to": "example",
+         *       "contrast_to": "example"
+         *     }
+         */
+        'application/json': {
+          /** @description A colour token (`color.accent`, `color.brand-2`, …). */
+          to: string
+          /** @description Where the slot's text colour goes. */
+          contrast_to?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Successful response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The job, started. */
+      202: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Part of a running replacement, or not configured. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description A destination the rules refuse; or contrast_to is required. */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  getV1AdminAppearancePaletteBrandByIdUsage: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The usage. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description No such slot. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  getV1AdminAppearancePaletteJobs: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The jobs. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  getV1AdminAppearancePaletteJobsById: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The job. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description No such job. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  postV1AdminAppearancePaletteJobsByIdCancel: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Cancelled. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Already finished. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  postV1AdminAppearancePaletteJobsByIdResume: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Resumed. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Not failed or interrupted. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  postV1AdminAppearancePalettePreview: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: {
+      content: {
+        /**
+         * @example {
+         *       "theme_accent": "example",
+         *       "theme_neutral": "example",
+         *       "theme_background": "example",
+         *       "palette": "example"
+         *     }
+         */
+        'application/json': {
+          /** @description An accent family, or a hex like #0a7c66. */
+          theme_accent?: string | null
+          /** @description A neutral family, or `custom`. */
+          theme_neutral?: string | null
+          /** @description The page ground (`plain`, `tinted`, …). */
+          theme_background?: string | null
+          /** @description `neutral_custom` (six hex colours), `dark_base` (a neutral */
+          palette?: unknown[] | null
+        }
+      }
+    }
+    responses: {
+      /** @description Rows, swatches and values. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description An unknown accent, neutral or ground, or an invalid palette. */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  getV1AdminAppearancePaletteReplacements: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The batch. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description The range reaches below pruned history; reload the editor. */
+      410: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
       }
       /** @description Unexpected server error. */
       500: {
@@ -24132,7 +25071,8 @@ export interface operations {
          * @example {
          *       "fields": "example",
          *       "lock_version": "example",
-         *       "preview_revision": 50
+         *       "preview_revision": 50,
+         *       "palette_through": 50
          *     }
          */
         'application/json': {
@@ -24141,6 +25081,7 @@ export interface operations {
           /** @description Optimistic-lock counter echoed from the last read. */
           lock_version?: number | null
           preview_revision?: number | null
+          palette_through?: number | null
         }
       }
     }
@@ -24167,6 +25108,11 @@ export interface operations {
                 updated_at?: string
               }
               preview_cleared?: boolean
+              /** @description string, from: string, to: string}> What the palette normalised on save */
+              palette_rewrites?: unknown[]
+              palette_generation?: number
+              /** @description The complete batch of replacement records newer than the request's */
+              palette_replacements?: unknown[]
             }
           }
         }
@@ -24330,6 +25276,144 @@ export interface operations {
       }
       /** @description No draft for that entry/locale. */
       404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  postV1AdminEntriesByUuidDraftByLocaleRestore: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        uuid: string
+        locale: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        /**
+         * @example {
+         *       "version_uuid": "example",
+         *       "lock_version": 50,
+         *       "palette_through": 50
+         *     }
+         */
+        'application/json': {
+          version_uuid: string
+          lock_version: number
+          palette_through?: number | null
+        }
+      }
+    }
+    responses: {
+      /** @description The restored draft, with the palette fields. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Not this entry's version. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Stale draft. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Palette refusal. */
+      422: {
         headers: {
           [name: string]: unknown
         }
@@ -24661,7 +25745,8 @@ export interface operations {
          *       "font": "example",
          *       "background": "example",
          *       "font_text_family": "example",
-         *       "font_headings_family": "example"
+         *       "font_headings_family": "example",
+         *       "palette": "example"
          *     }
          */
         'application/json': {
@@ -24681,6 +25766,8 @@ export interface operations {
           font_text_family?: string | null
           /** @description Pending Custom Headings family, the same way. */
           font_headings_family?: string | null
+          /** @description Pending palette (custom palette spec §5.1): `neutral_custom` (six */
+          palette?: unknown[] | null
         }
       }
     }
@@ -28526,7 +29613,8 @@ export interface operations {
          *       "regions": "example",
          *       "expected": "example",
          *       "token": "example",
-         *       "preview_revision": "example"
+         *       "preview_revision": "example",
+         *       "palette_through": 50
          *     }
          */
         'application/json': {
@@ -28537,6 +29625,7 @@ export interface operations {
           token?: string | null
           /** @description string, revision: int}|null */
           preview_revision?: unknown[] | null
+          palette_through?: number | null
         }
       }
     }
@@ -28836,7 +29925,8 @@ export interface operations {
          * @example {
          *       "blocks": "example",
          *       "settings": "example",
-         *       "expected": "example"
+         *       "expected": "example",
+         *       "palette_through": 50
          *     }
          */
         'application/json': {
@@ -28846,6 +29936,7 @@ export interface operations {
           settings?: unknown[]
           /** @description ?int> BOTH regions' lock_version as loaded (regions-stage spec §4.5). */
           expected?: unknown[] | null
+          palette_through?: number | null
         }
       }
     }
@@ -29211,7 +30302,8 @@ export interface operations {
          *       "token": "example",
          *       "layout": "example",
          *       "expected_lock_version": 50,
-         *       "preview_revision": "example"
+         *       "preview_revision": "example",
+         *       "palette_through": 50
          *     }
          */
         'application/json': {
@@ -29221,6 +30313,7 @@ export interface operations {
           expected_lock_version: number
           /** @description string, revision?: int}|null */
           preview_revision?: unknown[] | null
+          palette_through?: number | null
         }
       }
     }
@@ -29501,6 +30594,26 @@ export interface operations {
                 version?: number
                 domains?: Record<string, never>
                 values?: Record<string, never>
+              }
+              palette?: {
+                /** @description how many brand colours the deployment allows (`theme.brand_colors.max`; 0 = off) */
+                limit?: number
+                /** @description the configured and replacing brand colours (`brand-N`), in the author's order */
+                order?: unknown[]
+                /** @description array<string,mixed>> `brand-N` => {name, hex, state: configured|replacing, */
+                slots?: unknown[]
+                /** @description `color.<name>` => light-mode hex (no transparent, no brand slots) */
+                swatches?: string[]
+                /** @description `color.<name>` => label (brand colours: the author's name, removed ones too) */
+                labels?: string[]
+                /** @description whether the reader may manage brand colours (`content.manage`) */
+                can_manage?: boolean
+                /** @description whether the site renders a dark mode: the dark base applies only then */
+                color_mode?: boolean
+                /** @description the palette generation the slots were read at */
+                generation?: number
+                /** @description {after, through, records: list<{id, slot, map, completed_generation}>} — */
+                replacements?: unknown[]
               }
             }
           }
@@ -30282,7 +31395,8 @@ export interface operations {
          *       "scope": "example",
          *       "region": "example",
          *       "surface": "example",
-         *       "target": "example"
+         *       "target": "example",
+         *       "palette_through": 50
          *     }
          */
         'application/json': {
@@ -30294,6 +31408,7 @@ export interface operations {
           region?: string | null
           surface?: string | null
           target?: string | null
+          palette_through?: number | null
         }
       }
     }
@@ -31207,6 +32322,9 @@ export interface operations {
          *       "theme_font_text_family": "example",
          *       "theme_font_headings_family": "example",
          *       "theme_background": "example",
+         *       "theme_neutral_custom": "example",
+         *       "theme_dark_base": "example",
+         *       "theme_brand_colors": "example",
          *       "admin_url": "example",
          *       "listing_types": "example"
          *     }
@@ -31243,6 +32361,12 @@ export interface operations {
           theme_font_headings_family?: string | null
           /** @description Page ground: plain | tinted; enum-validated in the controller. */
           theme_background?: string | null
+          /** @description Custom neutral: JSON {bg,surface,surface_2,ink,muted,line} of hex; '' resets it. */
+          theme_neutral_custom?: string | null
+          /** @description Dark-mode base family under Custom; enum-validated in the controller. */
+          theme_dark_base?: string | null
+          /** @description The brand colour list (custom palette spec §2.3): `{"base": <revision>, "colors": [{"id"?, "name", "hex"}, …]}` in display order; a colour without an id is new; `base` is the stored revision the list was edited from (a stale one is a 409). Removing a colour is Clear's. */
+          theme_brand_colors?: string | null
           /** @description Where the admin is, when hosted elsewhere; '' means this site's own, at /admin. */
           admin_url?: string | null
           /** @description Content types with public listings/archives; */
@@ -31581,13 +32705,15 @@ export interface operations {
          * @example {
          *       "name": "Jane",
          *       "description": "A short description.",
-         *       "style": "example"
+         *       "style": "example",
+         *       "palette_through": 50
          *     }
          */
         'application/json': {
           name: string
           description?: string | null
           style?: unknown[]
+          palette_through?: number | null
         }
       }
     }
@@ -31942,7 +33068,8 @@ export interface operations {
          *       "version": 50,
          *       "name": "Jane",
          *       "description": "A short description.",
-         *       "style": "example"
+         *       "style": "example",
+         *       "palette_through": 50
          *     }
          */
         'application/json': {
@@ -31950,6 +33077,7 @@ export interface operations {
           name?: string | null
           description?: string | null
           style?: unknown[] | null
+          palette_through?: number | null
         }
       }
     }

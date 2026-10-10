@@ -38685,6 +38685,1226 @@
                 }
             }
         },
+        "\/v1\/admin\/appearance\/palette\/brand\/{id}": {
+            "delete": {
+                "operationId": "deleteV1AdminAppearancePaletteBrandById",
+                "summary": "Clear a brand colour",
+                "tags": [
+                    "Thallo Settings"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "[1-9][0-9]{0,3}"
+                        }
+                    }
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Clears the slot when nothing blocking names it (drafts, current publications, regions, layouts, saved sections, style classes); historical versions never block. 409 with `usage` when something does, 409 with `conflict` while a replacement replaces or writes to the slot. Requires `content.manage`.",
+                "responses": {
+                    "200": {
+                        "description": "Cleared; the style schema's palette block and the stored brand colour list this Clear wrote (`brand_colors`)."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "In use (`usage`), part of a running replacement (`conflict`), or already cleared (`conflict`)."
+                    }
+                }
+            }
+        },
+        "\/v1\/admin\/appearance\/palette\/brand\/{id}\/replace": {
+            "post": {
+                "operationId": "postV1AdminAppearancePaletteBrandByIdReplace",
+                "summary": "Replace a brand colour",
+                "tags": [
+                    "Thallo Settings"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "[1-9][0-9]{0,3}"
+                        }
+                    }
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Starts a job that rewrites every current document naming the slot (drafts, current publications \u2014 as new versions \u2014 regions, layouts, saved sections, style classes) to `to`, its text colour to `contrast_to` (or the destination's own pair), then clears the slot. History is never rewritten. 409 while the slot or a destination is part of a replacement; 422 for a destination the rules refuse. Requires `content.manage`.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "to": {
+                                        "type": "string",
+                                        "description": "A colour token (`color.accent`, `color.brand-2`, \u2026)."
+                                    },
+                                    "contrast_to": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "Where the slot's text colour goes."
+                                    }
+                                },
+                                "required": [
+                                    "to"
+                                ]
+                            },
+                            "example": {
+                                "to": "example",
+                                "contrast_to": "example"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "A destination the rules refuse; or contrast_to is required."
+                    },
+                    "202": {
+                        "description": "The job, started."
+                    },
+                    "409": {
+                        "description": "Part of a running replacement, or not configured."
+                    }
+                }
+            }
+        },
+        "\/v1\/admin\/appearance\/palette\/brand\/{id}\/usage": {
+            "get": {
+                "operationId": "getV1AdminAppearancePaletteBrandByIdUsage",
+                "summary": "Where a brand colour is used",
+                "tags": [
+                    "Thallo Settings"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "[1-9][0-9]{0,3}"
+                        }
+                    }
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Blocking documents (drafts, current publications, regions, layouts, saved sections, style classes) and historical versions naming the slot or its text colour. Requires `content.manage`.",
+                "responses": {
+                    "200": {
+                        "description": "The usage."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No such slot."
+                    }
+                }
+            }
+        },
+        "\/v1\/admin\/appearance\/palette\/jobs": {
+            "get": {
+                "operationId": "getV1AdminAppearancePaletteJobs",
+                "summary": "The running brand colour replacements",
+                "tags": [
+                    "Thallo Settings"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Every replacement that is running, interrupted or failed. Requires `content.manage`.",
+                "responses": {
+                    "200": {
+                        "description": "The jobs."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "\/v1\/admin\/appearance\/palette\/jobs\/{id}": {
+            "get": {
+                "operationId": "getV1AdminAppearancePaletteJobsById",
+                "summary": "One brand colour replacement",
+                "tags": [
+                    "Thallo Settings"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Its progress and failures; a running job whose worker stopped reporting is `interrupted`, and can be resumed. Requires `content.manage`.",
+                "responses": {
+                    "200": {
+                        "description": "The job."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No such job."
+                    }
+                }
+            }
+        },
+        "\/v1\/admin\/appearance\/palette\/jobs\/{id}\/cancel": {
+            "post": {
+                "operationId": "postV1AdminAppearancePaletteJobsByIdCancel",
+                "summary": "Cancel a brand colour replacement",
+                "tags": [
+                    "Thallo Settings"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Stops the job before its next write; what it already rewrote stays rewritten, and the slot stays configured. 409 when it already finished. Requires `content.manage`.",
+                "responses": {
+                    "200": {
+                        "description": "Cancelled."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Already finished."
+                    }
+                }
+            }
+        },
+        "\/v1\/admin\/appearance\/palette\/jobs\/{id}\/resume": {
+            "post": {
+                "operationId": "postV1AdminAppearancePaletteJobsByIdResume",
+                "summary": "Resume a brand colour replacement",
+                "tags": [
+                    "Thallo Settings"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Runs a failed or interrupted job again. 409 for any other. Requires `content.manage`.",
+                "responses": {
+                    "200": {
+                        "description": "Resumed."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Not failed or interrupted."
+                    }
+                }
+            }
+        },
+        "\/v1\/admin\/appearance\/palette\/preview": {
+            "post": {
+                "operationId": "postV1AdminAppearancePalettePreview",
+                "summary": "Contrast of unsaved palette values",
+                "tags": [
+                    "Thallo Settings"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "The contrast rows, swatches and resolved light and dark values for the Appearance page's unsaved accent, neutral, page ground and palette; absent fields read the saved ones. Nothing is saved. Requires `content.manage`.",
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "theme_accent": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "An accent family, or a hex like #0a7c66."
+                                    },
+                                    "theme_neutral": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "A neutral family, or `custom`."
+                                    },
+                                    "theme_background": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "The page ground (`plain`, `tinted`, \u2026)."
+                                    },
+                                    "palette": {
+                                        "type": [
+                                            "array",
+                                            "null"
+                                        ],
+                                        "items": {},
+                                        "description": "`neutral_custom` (six hex colours), `dark_base` (a neutral"
+                                    }
+                                }
+                            },
+                            "example": {
+                                "theme_accent": "example",
+                                "theme_neutral": "example",
+                                "theme_background": "example",
+                                "palette": "example"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Rows, swatches and values."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "An unknown accent, neutral or ground, or an invalid palette."
+                    }
+                }
+            }
+        },
+        "\/v1\/admin\/appearance\/palette\/replacements": {
+            "get": {
+                "operationId": "getV1AdminAppearancePaletteReplacements",
+                "summary": "Completed brand colour replacements over a generation range",
+                "tags": [
+                    "Thallo Settings"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Every completed replacement record with `after < completed_generation <= through`, in completion order \u2014 the range an editor is missing. 410 `PALETTE_HISTORY_EXPIRED` when the range reaches below pruned history. Any style editor may read it: `content.edit`, `content.manage`, `templates.manage` or `styles.manage`.",
+                "responses": {
+                    "200": {
+                        "description": "The batch."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "410": {
+                        "description": "The range reaches below pruned history; reload the editor."
+                    }
+                }
+            }
+        },
         "\/v1\/admin\/block-types": {
             "get": {
                 "operationId": "getV1AdminBlocktypes",
@@ -71411,13 +72631,20 @@
                                             "integer",
                                             "null"
                                         ]
+                                    },
+                                    "palette_through": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
                                     }
                                 }
                             },
                             "example": {
                                 "fields": "example",
                                 "lock_version": "example",
-                                "preview_revision": 50
+                                "preview_revision": 50,
+                                "palette_through": 50
                             }
                         }
                     }
@@ -71474,6 +72701,19 @@
                                                 },
                                                 "preview_cleared": {
                                                     "type": "boolean"
+                                                },
+                                                "palette_rewrites": {
+                                                    "type": "array",
+                                                    "items": {},
+                                                    "description": "string, from: string, to: string}> What the palette normalised on save"
+                                                },
+                                                "palette_generation": {
+                                                    "type": "integer"
+                                                },
+                                                "palette_replacements": {
+                                                    "type": "array",
+                                                    "items": {},
+                                                    "description": "The complete batch of replacement records newer than the request's"
                                                 }
                                             }
                                         }
@@ -71815,6 +73055,271 @@
                     },
                     "404": {
                         "description": "No draft for that entry\/locale.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "\/v1\/admin\/entries\/{uuid}\/draft\/{locale}\/restore": {
+            "post": {
+                "operationId": "postV1AdminEntriesByUuidDraftByLocaleRestore",
+                "summary": "Restore a version into the draft",
+                "tags": [
+                    "Thallo Admin"
+                ],
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "locale",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Loads one of this entry's retained versions by id, on the server, and saves it as the draft (its brand colours stay trusted for later saves). Requires `content.edit`.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "version_uuid": {
+                                        "type": "string"
+                                    },
+                                    "lock_version": {
+                                        "type": "integer"
+                                    },
+                                    "palette_through": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "version_uuid",
+                                    "lock_version"
+                                ]
+                            },
+                            "example": {
+                                "version_uuid": "example",
+                                "lock_version": 50,
+                                "palette_through": 50
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The restored draft, with the palette fields."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Palette refusal.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not this entry's version.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Stale draft.",
                         "content": {
                             "application\/json": {
                                 "schema": {
@@ -72527,6 +74032,14 @@
                                             "null"
                                         ],
                                         "description": "Pending Custom Headings family, the same way."
+                                    },
+                                    "palette": {
+                                        "type": [
+                                            "array",
+                                            "null"
+                                        ],
+                                        "items": {},
+                                        "description": "Pending palette (custom palette spec \u00a75.1): `neutral_custom` (six"
                                     }
                                 }
                             },
@@ -72539,7 +74052,8 @@
                                 "font": "example",
                                 "background": "example",
                                 "font_text_family": "example",
-                                "font_headings_family": "example"
+                                "font_headings_family": "example",
+                                "palette": "example"
                             }
                         }
                     }
@@ -79230,6 +80744,12 @@
                                         ],
                                         "items": {},
                                         "description": "string, revision: int}|null"
+                                    },
+                                    "palette_through": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
                                     }
                                 }
                             },
@@ -79237,7 +80757,8 @@
                                 "regions": "example",
                                 "expected": "example",
                                 "token": "example",
-                                "preview_revision": "example"
+                                "preview_revision": "example",
+                                "palette_through": 50
                             }
                         }
                     }
@@ -79743,13 +81264,20 @@
                                         ],
                                         "items": {},
                                         "description": "?int> BOTH regions' lock_version as loaded (regions-stage spec \u00a74.5)."
+                                    },
+                                    "palette_through": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
                                     }
                                 }
                             },
                             "example": {
                                 "blocks": "example",
                                 "settings": "example",
-                                "expected": "example"
+                                "expected": "example",
+                                "palette_through": 50
                             }
                         }
                     }
@@ -80363,6 +81891,12 @@
                                         ],
                                         "items": {},
                                         "description": "string, revision?: int}|null"
+                                    },
+                                    "palette_through": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
                                     }
                                 },
                                 "required": [
@@ -80374,7 +81908,8 @@
                                 "token": "example",
                                 "layout": "example",
                                 "expected_lock_version": 50,
-                                "preview_revision": "example"
+                                "preview_revision": "example",
+                                "palette_through": 50
                             }
                         }
                     }
@@ -80809,7 +82344,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "The managed property table (paths, kinds, responsiveness, choices), the breakpoints, the advanced paths and the active theme's vocabulary values. Requires `content.manage`.",
+                "description": "The managed property table (paths, kinds, responsiveness, choices), the breakpoints, the advanced paths, the active theme's vocabulary values (with the configured brand colours, in order) and the workspace's palette: its limit, the brand colours in order with their states, removed colours by name, swatches, labels and whether the reader may manage it. Any style editor may read it: `content.edit`, `content.manage`, `templates.manage` or `styles.manage`.",
                 "responses": {
                     "200": {
                         "description": "The style schema.",
@@ -80853,6 +82388,56 @@
                                                         },
                                                         "values": {
                                                             "type": "object"
+                                                        }
+                                                    }
+                                                },
+                                                "palette": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "limit": {
+                                                            "type": "integer",
+                                                            "description": "how many brand colours the deployment allows (`theme.brand_colors.max`; 0 = off)"
+                                                        },
+                                                        "order": {
+                                                            "type": "array",
+                                                            "items": {},
+                                                            "description": "the configured and replacing brand colours (`brand-N`), in the author's order"
+                                                        },
+                                                        "slots": {
+                                                            "type": "array",
+                                                            "items": {},
+                                                            "description": "array<string,mixed>> `brand-N` => {name, hex, state: configured|replacing,"
+                                                        },
+                                                        "swatches": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "string"
+                                                            },
+                                                            "description": "`color.<name>` => light-mode hex (no transparent, no brand slots)"
+                                                        },
+                                                        "labels": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "string"
+                                                            },
+                                                            "description": "`color.<name>` => label (brand colours: the author's name, removed ones too)"
+                                                        },
+                                                        "can_manage": {
+                                                            "type": "boolean",
+                                                            "description": "whether the reader may manage brand colours (`content.manage`)"
+                                                        },
+                                                        "color_mode": {
+                                                            "type": "boolean",
+                                                            "description": "whether the site renders a dark mode: the dark base applies only then"
+                                                        },
+                                                        "generation": {
+                                                            "type": "integer",
+                                                            "description": "the palette generation the slots were read at"
+                                                        },
+                                                        "replacements": {
+                                                            "type": "array",
+                                                            "items": {},
+                                                            "description": "{after, through, records: list<{id, slot, map, completed_generation}>} \u2014"
                                                         }
                                                     }
                                                 }
@@ -82193,6 +83778,12 @@
                                             "string",
                                             "null"
                                         ]
+                                    },
+                                    "palette_through": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
                                     }
                                 }
                             },
@@ -82204,7 +83795,8 @@
                                 "scope": "example",
                                 "region": "example",
                                 "surface": "example",
-                                "target": "example"
+                                "target": "example",
+                                "palette_through": 50
                             }
                         }
                     }
@@ -83962,6 +85554,27 @@
                                         ],
                                         "description": "Page ground: plain | tinted; enum-validated in the controller."
                                     },
+                                    "theme_neutral_custom": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "Custom neutral: JSON {bg,surface,surface_2,ink,muted,line} of hex; '' resets it."
+                                    },
+                                    "theme_dark_base": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "Dark-mode base family under Custom; enum-validated in the controller."
+                                    },
+                                    "theme_brand_colors": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "The brand colour list (custom palette spec \u00a72.3): `{\"base\": <revision>, \"colors\": [{\"id\"?, \"name\", \"hex\"}, \u2026]}` in display order; a colour without an id is new; `base` is the stored revision the list was edited from (a stale one is a 409). Removing a colour is Clear's."
+                                    },
                                     "admin_url": {
                                         "type": [
                                             "string",
@@ -84003,6 +85616,9 @@
                                 "theme_font_text_family": "example",
                                 "theme_font_headings_family": "example",
                                 "theme_background": "example",
+                                "theme_neutral_custom": "example",
+                                "theme_dark_base": "example",
+                                "theme_brand_colors": "example",
                                 "admin_url": "example",
                                 "listing_types": "example"
                             }
@@ -84645,6 +86261,12 @@
                                     "style": {
                                         "type": "array",
                                         "items": {}
+                                    },
+                                    "palette_through": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
                                     }
                                 },
                                 "required": [
@@ -84654,7 +86276,8 @@
                             "example": {
                                 "name": "Jane",
                                 "description": "A short description.",
-                                "style": "example"
+                                "style": "example",
+                                "palette_through": 50
                             }
                         }
                     }
@@ -85422,6 +87045,12 @@
                                             "null"
                                         ],
                                         "items": {}
+                                    },
+                                    "palette_through": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
                                     }
                                 },
                                 "required": [
@@ -85432,7 +87061,8 @@
                                 "version": 50,
                                 "name": "Jane",
                                 "description": "A short description.",
-                                "style": "example"
+                                "style": "example",
+                                "palette_through": 50
                             }
                         }
                     }

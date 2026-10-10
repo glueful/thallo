@@ -4,6 +4,7 @@
 // settings win where it sets them. It edits a settings
 // record and hands back a new one; the page writes it into the document, so every change is an edit
 // history records and undo reverts. A default is removed, not stored.
+import type { StyleSchemaResult } from '@/queries/styleSchema'
 import { computed } from 'vue'
 import PageStylesSection from '@/editor/inspector/PageStylesSection.vue'
 import type { Breakpoint } from '@/style/types'
@@ -12,6 +13,8 @@ const props = defineProps<{
   settings: Record<string, unknown>
   /** The theme's style vocabulary; null while the style schema loads (the Styles wait for it). */
   vocabulary: { domains: Record<string, string[]>; values: Record<string, string> } | null
+  /** The site's palette, for the colour pickers (custom palette spec §5.2). */
+  palette?: StyleSchemaResult['palette']
   activeBreakpoint: Breakpoint
 }>()
 const emit = defineEmits<{
@@ -72,6 +75,7 @@ const footer = computed<boolean>({
       v-if="vocabulary"
       v-model:style="style"
       :vocabulary="vocabulary"
+      :palette="palette"
       :active-breakpoint="activeBreakpoint"
       @update:active-breakpoint="(bp: Breakpoint) => emit('update:activeBreakpoint', bp)"
     >

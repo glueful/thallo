@@ -17,6 +17,7 @@ use Thallo\Contracts\Settings\ThemeAppearanceChanged;
 use Thallo\Contracts\Style\StyleArtifactCompiler;
 use Thallo\Contracts\Style\StyleCompileFailed;
 use Thallo\Contracts\Settings\ThemeChanged;
+use Thallo\Core\Settings\PaletteSettings;
 use Thallo\Render\Theme\ThemeColors;
 use Thallo\Render\Theme\ThemeDesign;
 use Glueful\Routing\Attributes\ApiOperation;
@@ -51,6 +52,12 @@ final class GeneralSettingsController
         private readonly ?\Thallo\Contracts\Fonts\FontLibraryReader $fonts = null,
         /** Taken around every write of Custom's assignments (spec §2.7), as the upgrade takes it. */
         private readonly ?\Thallo\Core\Settings\AppearanceLock $appearanceLock = null,
+        /** The palette's keys (custom palette spec §2): validation and their stored spelling. */
+        private readonly ?\Thallo\Core\Settings\PaletteSettings $palette = null,
+        /** Palette keys are written under the palette row, checked against running replacements (§4.3). */
+        private readonly ?\Thallo\Core\Content\Palette\PaletteMutations $paletteMutations = null,
+        /** The palette row, taken first so the palette keys and the default locale commit together. */
+        private readonly ?\Thallo\Core\Content\Palette\PaletteFence $paletteFence = null,
     ) {
     }
 
@@ -120,16 +127,58 @@ final class GeneralSettingsController
             $this->settings->themeFontHeadingsFamily(),
         ];
         $identityBefore = $this->identity();
+        $paletteBefore = $this->palette?->palette()->fingerprint();
         $searchBefore = $this->settings->searchEnabled();
 
-        if ($input->default_locale !== null && $input->default_locale !== $this->settings->defaultLocale()) {
-            // Saved separately so a language that cannot be the default is refused before anything
-            // else is written.
-            try {
-                $this->settings->save(['default_locale' => $input->default_locale]);
-            } catch (\InvalidArgumentException $e) {
-                return Response::validation(['default_locale' => $e->getMessage()]);
+        // The palette's keys and the default locale first, in one transaction that takes the palette
+        // row (custom palette spec §4.3): a slot a running replacement replaces cannot be renamed or
+        // re-coloured (409), a language that cannot be the default is refused (422), and either way
+        // nothing of this save is written.
+        $paletteKeys = array_filter([
+            'theme_neutral_custom' => $input->theme_neutral_custom === null
+                ? null
+                : PaletteSettings::encodeNeutral($input->theme_neutral_custom),
+            'theme_dark_base' => $input->theme_dark_base,
+        ], static fn (?string $v): bool => $v !== null);
+        if ($input->theme_brand_colors !== null) {
+            $paletteKeys['theme_brand_colors'] = $input->theme_brand_colors; // resolved under the palette row
+        }
+        // Choosing Custom with no dark base: dark mode stays the family the site had (spec §2.2).
+        $currentNeutral = $this->settings->themeNeutral();
+        if (
+            $input->theme_neutral === 'custom' && $currentNeutral !== 'custom' && $input->theme_dark_base === null
+            && ($this->settings->stored('theme_dark_base') ?? '') === ''
+        ) {
+            $paletteKeys['theme_dark_base'] = $currentNeutral;
+        }
+        $locale = $input->default_locale !== null && $input->default_locale !== $this->settings->defaultLocale()
+            ? $input->default_locale
+            : null;
+        $saved = null;
+        $first = function () use ($paletteKeys, $locale, &$saved): void {
+            // A retried attempt overwrites $saved, so it holds the committed one (plan ruling 13).
+            if ($this->paletteMutations !== null) {
+                $saved = $this->paletteMutations->save($paletteKeys, null);
+            } else {
+                $this->settings->save($paletteKeys);
             }
+            if ($locale !== null) {
+                $this->settings->save(['default_locale' => $locale]);
+            }
+        };
+        try {
+            if ($paletteKeys !== [] || $locale !== null) {
+                $this->paletteFence !== null ? $this->paletteFence->within($first) : $first();
+            }
+        } catch (\Thallo\Core\Content\Palette\PaletteConflict $e) {
+            $this->settings->clearStoreCache();
+            return Response::error($e->getMessage(), 409, ['conflict' => $e->getMessage()]);
+        } catch (\Thallo\Core\Content\Palette\BrandColorsRefused $e) {
+            $this->settings->clearStoreCache(); // the transaction rolled the palette keys back
+            return Response::validation(['theme_brand_colors' => $e->getMessage()]);
+        } catch (\InvalidArgumentException $e) {
+            $this->settings->clearStoreCache(); // the transaction rolled the palette keys back too
+            return Response::validation(['default_locale' => $e->getMessage()]);
         }
 
         // Custom's assignments under the appearance lock, so the one-time upgrade never refills one
@@ -196,6 +245,8 @@ final class GeneralSettingsController
             // logo, favicon or name was served stale for up to render.cache_ttl. (Custom's families
             // are in the key already.)
             || $this->identity() !== $identityBefore
+            // The palette (custom palette spec §5.3): its values and which brand slots are configured.
+            || $this->palette?->palette()->fingerprint() !== $paletteBefore
         ) {
             $this->events?->dispatch(new ThemeAppearanceChanged(
                 $this->settings->themeAccent(),
@@ -213,10 +264,12 @@ final class GeneralSettingsController
             RouteManifest::reset();
         }
 
-        return Response::success(
-            ['settings' => $this->settings->all()],
-            'General settings saved.',
-        );
+        $settings = $this->settings->all();
+        if ($saved?->brandColors !== null) {
+            // What this save committed (plan ruling 13): another request may have changed the list since.
+            $settings['theme_brand_colors'] = $saved->brandColors;
+        }
+        return Response::success(['settings' => $settings], 'General settings saved.');
     }
 
     /**
@@ -281,9 +334,13 @@ final class GeneralSettingsController
         if ($input->theme_accent !== null && ThemeColors::normalizeSiteAccent($input->theme_accent) === null) {
             $errors['theme_accent'] = 'unknown accent color (a colour family, or a hex like #0a7c66)';
         }
-        if ($input->theme_neutral !== null && ThemeColors::normalizeNeutral($input->theme_neutral) === null) {
+        if (
+            $input->theme_neutral !== null && $input->theme_neutral !== 'custom'
+            && ThemeColors::normalizeNeutral($input->theme_neutral) === null
+        ) {
             $errors['theme_neutral'] = 'unknown neutral color';
         }
+        $errors += $this->palette?->validate($input) ?? [];
         // Design settings (website plan phase 1b): the same closed-enum discipline.
         if ($input->theme_radius !== null && ThemeDesign::normalizeRadius($input->theme_radius) === null) {
             $errors['theme_radius'] = 'unknown radius';

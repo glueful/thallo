@@ -302,8 +302,32 @@ final class RenderContextExtension extends AbstractExtension
         private readonly ?\Thallo\Render\Style\RequestFontSnapshot $fontSnapshots = null,
         /** The workspace's fonts stylesheets (spec §3.4): null → none is linked. */
         private readonly ?\Thallo\Render\Style\FontsArtifacts $fontsArtifacts = null,
+        /** Soft-bound (custom palette spec §2, §3.2): the palette this request sees. */
+        private readonly ?\Thallo\Render\Style\RequestPalette $paletteRequest = null,
+        /** The workspace's colours stylesheets (custom palette spec §3.4): null → none is linked. */
+        private readonly ?\Thallo\Render\Style\ColorsArtifacts $colorsArtifacts = null,
     ) {
         $this->locale = $defaultLocale;
+    }
+
+    /**
+     * The palette as this request sees it (custom palette spec §3.2): the one that decides which
+     * brand colours apply, what themeColorsStyle() writes and the page cache's fingerprint.
+     */
+    public function palette(): \Thallo\Contracts\Style\Palette
+    {
+        return $this->paletteRequest?->current() ?? \Thallo\Contracts\Style\Palette::empty();
+    }
+
+    /**
+     * The palette a preview session claims (custom palette spec §5.1), or null for no claim: what a
+     * preview render passes to setThemeAppearanceOverride().
+     *
+     * @param array<string,mixed>|null $claim
+     */
+    public function previewPalette(?array $claim): ?\Thallo\Contracts\Style\Palette
+    {
+        return $claim === null ? null : $this->paletteRequest?->preview($claim);
     }
 
     /**
@@ -332,6 +356,23 @@ final class RenderContextExtension extends AbstractExtension
         }
         $file = \Thallo\Render\Style\FontsArtifacts::fileName($artifact['hash']);
         return ($this->assetBase ?? '/theme-assets') . '/' . $file;
+    }
+
+    /**
+     * The colours stylesheet for this render's configured brand ids (custom palette spec §3.4),
+     * published before it is returned; null when no colour is configured (nothing to link).
+     */
+    public function colorsStylesheetUrl(?\Thallo\Contracts\Style\Palette $palette = null): ?string
+    {
+        if ($this->colorsArtifacts === null) {
+            return null;
+        }
+        $artifact = $this->colorsArtifacts->forIds(($palette ?? $this->palette())->ids());
+        if ($artifact['css'] === '') {
+            return null;
+        }
+        return ($this->assetBase ?? '/theme-assets') . '/'
+            . \Thallo\Render\Style\ColorsArtifacts::fileName($artifact['hash']);
     }
 
     /** The generation of the style class snapshot this request renders from (spec §4.3). */
@@ -577,6 +618,7 @@ final class RenderContextExtension extends AbstractExtension
             $target,
             $this->classRefsFor($frame['settings']['classes'] ?? null),
             $this->fontSnapshot(),
+            $this->palette(),
         );
         // On the stage only, the element names itself, so the preview bridge can read what a target
         // or part renders in (block typeface plan Task 10). A public page never carries it.
@@ -617,6 +659,7 @@ final class RenderContextExtension extends AbstractExtension
             $part,
             $this->classRefsFor($frame['settings']['classes'] ?? null),
             $this->fontSnapshot(),
+            $this->palette(),
         );
         return $classes === [] ? '' : ' ' . implode(' ', $classes);
     }
@@ -699,6 +742,8 @@ final class RenderContextExtension extends AbstractExtension
             $targets,
             $target,
             $this->classRefsFor($settings['classes'] ?? null),
+            null,
+            $this->palette(),
         );
         foreach ($classes as $class) {
             if (str_starts_with($class, 't-enter-') && $class !== 't-enter-none' && $class !== 't-enter-reset') {
@@ -780,9 +825,12 @@ final class RenderContextExtension extends AbstractExtension
             return '';
         }
         $valid = $def->tokenDomain !== null
-            ? str_starts_with($value, $def->tokenDomain . '.')
-                && in_array(substr($value, strlen($def->tokenDomain) + 1), Vocabulary::names($def->tokenDomain), true)
+            ? str_starts_with($value, $def->tokenDomain . '.') && Vocabulary::isBaseline($value)
             : in_array($value, $def->choices ?? [], true);
+        // A colour naming an unconfigured brand slot applies nothing (custom palette spec §3.2).
+        if ($valid && $def->tokenDomain === 'color' && $this->palette()->isUnavailable($value)) {
+            return '';
+        }
         return $valid ? ' ' . ClassNames::for($property, $value) : '';
     }
 
@@ -1008,11 +1056,17 @@ final class RenderContextExtension extends AbstractExtension
      *
      * @param array<string,string>|null $design
      */
-    public function setThemeAppearanceOverride(?string $accent, ?string $neutral, ?array $design = null): void
-    {
+    public function setThemeAppearanceOverride(
+        ?string $accent,
+        ?string $neutral,
+        ?array $design = null,
+        ?\Thallo\Contracts\Style\Palette $palette = null,
+    ): void {
         $this->appearanceAccentOverride = $accent;
         $this->appearanceNeutralOverride = $neutral;
         $this->appearanceDesignOverride = $design ?? [];
+        // An Appearance preview's unsaved palette (custom palette spec §5.1); null returns to the saved one.
+        $this->paletteRequest?->override($palette);
     }
 
     /**
@@ -1030,21 +1084,25 @@ final class RenderContextExtension extends AbstractExtension
             ?? $this->appearance?->neutral()
             ?? ThemeColors::DEFAULT_NEUTRAL;
 
-        // Normalize (a preview override could be junk) — invalid → default.
+        // Normalize (a preview override could be junk) — invalid → default. `custom` stands only
+        // while the palette holds its six values (custom palette spec §2.1).
+        $palette = $this->palette();
         $accent = ThemeColors::normalizeSiteAccent($accent) ?? ThemeColors::DEFAULT_ACCENT;
-        $neutral = ThemeColors::normalizeNeutral($neutral) ?? ThemeColors::DEFAULT_NEUTRAL;
+        $neutral = $neutral === 'custom' && $palette->customNeutral !== null
+            ? 'custom'
+            : (ThemeColors::normalizeNeutral($neutral) ?? ThemeColors::DEFAULT_NEUTRAL);
 
         // Design tokens (website plan phase 1b) ride in the same block, after the colours.
         // A previewed value wins when it is one of the enum's; junk falls through to the saved one.
         $design = $this->appearanceDesignOverride;
-        $css = ThemeColors::css($accent, $neutral) . ThemeDesign::css(
+        $css = ThemeColors::paletteCss($accent, $neutral, $palette, $this->colorModeEnabled) . ThemeDesign::css(
             ThemeDesign::normalizeRadius($design['radius'] ?? '')
                 ?? $this->appearance?->radius() ?? ThemeDesign::DEFAULT_RADIUS,
             $this->effectiveFont(),
             ThemeDesign::normalizeBackground($design['background'] ?? '')
                 ?? $this->appearance?->background() ?? ThemeDesign::DEFAULT_BACKGROUND,
             $neutral,
-            ...array_values($this->effectiveFontRoles()),
+            ...[...array_values($this->effectiveFontRoles()), $palette->customNeutral],
         );
         $html = $css === '' ? '' : "<style>{$css}</style>";
         // A theme whose own layout predates the font library calls this but never asks for the fonts
@@ -1054,6 +1112,12 @@ final class RenderContextExtension extends AbstractExtension
             if ($url !== null) {
                 $html = '<link rel="stylesheet" href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '">' . $html;
             }
+        }
+        // The brand utilities (custom palette spec §3.4): every theme layout calls this after the
+        // compiled stylesheet, so the colours stylesheet needs no template of its own.
+        $colors = $this->colorsStylesheetUrl($palette);
+        if ($colors !== null) {
+            $html = '<link rel="stylesheet" href="' . htmlspecialchars($colors, ENT_QUOTES, 'UTF-8') . '">' . $html;
         }
         return new \Twig\Markup($html, 'UTF-8');
     }
@@ -1391,7 +1455,14 @@ final class RenderContextExtension extends AbstractExtension
         if (!is_array($style) || $style === []) {
             return '';
         }
-        $classes = $this->styleEmitter->classesFor(['style' => $style], $targets, $target, [], $this->fontSnapshot());
+        $classes = $this->styleEmitter->classesFor(
+            ['style' => $style],
+            $targets,
+            $target,
+            [],
+            $this->fontSnapshot(),
+            $this->palette(),
+        );
         return $classes === [] ? '' : ' ' . implode(' ', $classes);
     }
 

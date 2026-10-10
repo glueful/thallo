@@ -3,7 +3,12 @@ import { computed, reactive, ref, watch, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 import { useContentTypes } from '@/queries/contentTypes'
 import { fieldLabel } from '@/utils/fieldLabel'
-import { useDraft, useSaveDraft } from '@/queries/drafts'
+import { restoreDraft, useDraft, useSaveDraft } from '@/queries/drafts'
+import { fetchPaletteReplacements } from '@/queries/paletteReplacements'
+import { useStyleSchema } from '@/queries/styleSchema'
+import { createPaletteReconciler, createReplacementLedger } from '@/editor/paletteReplacements'
+import PaletteExpiredNotice from '@/editor/PaletteExpiredNotice.vue'
+import { handlePaletteRefusal } from '@/editor/paletteRefusal'
 import { useEntryLocales, useCreateLocaleDraft } from '@/queries/entries'
 import { usePublish } from '@/queries/publish'
 import { localeStatus } from './components/localeStatus'
@@ -17,7 +22,6 @@ import { useNotify } from '@/composables/useNotify'
 import PublishPanel from './components/PublishPanel.vue'
 import SeoPanel from './components/SeoPanel.vue'
 import VersionsPanel from './components/VersionsPanel.vue'
-import { restoredFields } from '@/editor/restoreVersion'
 import WorkflowPanel from './components/WorkflowPanel.vue'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useVisibleEditorPanels, type EntryEditorPanelContext } from '@/registry/entryEditorPanels'
@@ -200,26 +204,102 @@ const fields = ref<Record<string, unknown>>({})
 // the next successful save so a fixed field stops showing its error.
 const fieldErrors = ref<Record<string, string>>({})
 const lockVersion = ref(0)
+// The palette ledger (custom palette spec §5.3): the form has no op history, so a completed
+// replacement's record maps the form model; a reload of the draft starts the ledger over.
+const { data: styleSchema, refetch: refetchStyleSchema } = useStyleSchema()
+const paletteLedger = createReplacementLedger(0)
+const paletteExpired = ref(false)
+const palette = createPaletteReconciler({
+  history: null,
+  currentFields: () => fields.value,
+  replaceFields: (next) => {
+    fields.value = next
+  },
+  ledger: paletteLedger,
+  fetchRange: fetchPaletteReplacements,
+  onExpire: () => {
+    paletteExpired.value = true
+  },
+})
 watch(
   draft,
   (d) => {
     if (d) {
       fields.value = { ...d.fields }
       lockVersion.value = d.lock_version
+      paletteLedger.reset(d.palette_generation)
+      paletteExpired.value = false
+      // The schema may have arrived first: its batch applies against the new baseline.
+      const batch = styleSchema.value?.palette?.replacements
+      if (batch) void palette.applyBatch(batch)
     }
   },
   { immediate: true },
 )
+watch(
+  () => styleSchema.value?.palette?.replacements,
+  (batch) => {
+    if (batch && draft.value) void palette.applyBatch(batch)
+  },
+)
 
-// Restore to draft (Versions tab): the version's content fills the form. Like any edit it is kept
-// by saving the draft, and goes live only when published.
-function restoreVersionToDraft(v: {
-  version: number | undefined
-  fields: Record<string, unknown>
-}) {
-  fields.value = restoredFields(fields.value, v.fields)
+/** A reload starts the form over from the stored draft and a new ledger. */
+function reloadPage(): void {
+  window.location.reload()
+}
+
+// Restore to draft (Versions tab), on the server (custom palette spec §4.5): the server loads the
+// version by id and stores it as the draft, keeping its brand colours trusted; it goes live only
+// when published.
+type RestoreRequest = { uuid: string; version: number | undefined; fields: Record<string, unknown> }
+/**
+ * The version waiting for the author's yes: a restore replaces the stored draft at once, and a draft
+ * keeps no history of its own (unlike the Design view, there is no undo here).
+ */
+const pendingRestore = ref<RestoreRequest | null>(null)
+/** The form holds edits the stored draft does not. */
+const formDirty = computed(
+  () =>
+    draft.value !== undefined &&
+    JSON.stringify(fields.value) !== JSON.stringify(draft.value?.fields ?? {}),
+)
+const pendingRestoreName = computed(() =>
+  pendingRestore.value?.version === undefined
+    ? 'that version'
+    : `Version ${pendingRestore.value.version}`,
+)
+function restoreVersionToDraft(v: RestoreRequest): void {
+  pendingRestore.value = v
+}
+async function confirmRestore(): Promise<void> {
+  const v = pendingRestore.value
+  pendingRestore.value = null
+  if (v) await restoreOnServer(v)
+}
+
+async function restoreOnServer(v: RestoreRequest) {
   const name = v.version === undefined ? 'That version' : `Version ${v.version}`
-  success(`${name} is in the form`, 'Save the draft to keep it. Publish to make it live.')
+  try {
+    const res = await restoreDraft(
+      uuid.value,
+      locale.value,
+      v.uuid,
+      lockVersion.value,
+      paletteLedger.through,
+    )
+    await palette.restoreFromResponse(res, res.draft.fields, (restored) => {
+      fields.value = { ...restored }
+    })
+    lockVersion.value = res.draft.lock_version
+    if (paletteExpired.value) return
+    success(`${name} is in your draft`, 'Publish to make it live.')
+  } catch (e: unknown) {
+    if (e instanceof ApiError && e.status === 409) {
+      warning('This draft changed elsewhere', 'Reload to get the latest version before restoring.')
+    } else {
+      notifyError(e, 'Couldn’t restore that version')
+    }
+  }
 }
 
 const showRoutes = ref(false)
@@ -256,11 +336,18 @@ async function onPublish() {
 
 async function onSave({ quiet = false }: { quiet?: boolean } = {}): Promise<boolean> {
   try {
-    await save.mutateAsync({ fields: fields.value, lock_version: lockVersion.value })
+    const result = await save.mutateAsync({
+      fields: fields.value,
+      lock_version: lockVersion.value,
+      palette_through: paletteLedger.through,
+    })
     fieldErrors.value = {}
+    // The stored colours the palette changed, and the replacements not yet seen (custom palette spec §4.5).
+    if (result?.data) await palette.adoptPaletteResult(result.data)
     if (!quiet) success('Draft saved')
     return true
   } catch (e: unknown) {
+    if (handlePaletteRefusal(e, { warning, refresh: refetchStyleSchema })) return false
     if (e instanceof ApiError && e.status === 422 && Object.keys(e.fieldErrors).length > 0) {
       // Required/invalid fields: mark them inline rather than reporting a failed save.
       fieldErrors.value = e.fieldErrors
@@ -391,6 +478,35 @@ async function onSave({ quiet = false }: { quiet?: boolean } = {}): Promise<bool
         <!-- Entry content — the primary, wider pane -->
         <div class="min-w-0 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pe-1">
           <UCard :ui="{ root: 'ring-0' }">
+            <PaletteExpiredNotice :show="paletteExpired" @reload="reloadPage" />
+            <UModal
+              :open="pendingRestore !== null"
+              :title="`Replace your draft with ${pendingRestoreName}?`"
+              @update:open="(open: boolean) => (open ? null : (pendingRestore = null))"
+            >
+              <template #body>
+                <p class="text-sm">
+                  The draft becomes {{ pendingRestoreName }}, and what the draft holds now
+                  {{ formDirty ? '— including your unsaved changes —' : '' }} is replaced; drafts
+                  keep no history. Nothing goes live until you publish.
+                </p>
+              </template>
+              <template #footer>
+                <div class="flex w-full justify-end gap-2">
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    data-test="restore-draft-cancel"
+                    @click="pendingRestore = null"
+                  >
+                    Cancel
+                  </UButton>
+                  <UButton data-test="restore-draft-confirm" @click="confirmRestore">
+                    Replace the draft
+                  </UButton>
+                </div>
+              </template>
+            </UModal>
             <UAlert
               v-if="showSharedNote"
               class="mb-4"

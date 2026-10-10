@@ -40,3 +40,85 @@ export function classEditorSchema(extra: StyleSchemaResult['properties'] = []): 
     vocabulary: VOCABULARY,
   }
 }
+
+type PaletteSlot = NonNullable<StyleSchemaResult['palette']>['slots'][string]
+
+/**
+ * The style schema's palette as the server builds it (custom palette spec §5.2): three configured
+ * brand colours, a light swatch per colour name and every colour name's label. Each override merges
+ * into one slot.
+ */
+export function paletteFixture(
+  /** Per colour: changed fields, or null for an id never issued here (absent from the palette). */
+  overrides: Record<string, Partial<PaletteSlot> | null> = {},
+): NonNullable<StyleSchemaResult['palette']> {
+  const base: Record<string, PaletteSlot> = {
+    'brand-1': {
+      name: 'Gold dark',
+      hex: '#8a6a2a',
+      state: 'configured',
+      reserved: false,
+      replacing: null,
+    },
+    'brand-2': {
+      name: 'Rose',
+      hex: '#c98a8a',
+      state: 'configured',
+      reserved: false,
+      replacing: null,
+    },
+    'brand-3': {
+      name: 'Ink',
+      hex: '#111111',
+      state: 'configured',
+      reserved: false,
+      replacing: null,
+    },
+  }
+  const slots: Record<string, PaletteSlot> = {}
+  const labels: Record<string, string> = {
+    'color.background': 'Background',
+    'color.surface': 'Surface',
+    'color.surface-2': 'Surface 2',
+    'color.text': 'Text',
+    'color.muted': 'Muted',
+    'color.line': 'Line',
+    'color.accent': 'Accent',
+    'color.accent-contrast': 'Accent — text',
+    'color.transparent': 'Transparent',
+    'color.white': 'White',
+    'color.black': 'Black',
+  }
+  const order: string[] = []
+  for (const key of [...new Set([...Object.keys(base), ...Object.keys(overrides)])]) {
+    const over = overrides[key]
+    if (over === null) continue // never issued: absent
+    const slot = { ...(base[key] ?? { name: key, state: 'configured' }), ...over } as PaletteSlot
+    slots[key] = slot
+    if (slot.state !== 'removed') order.push(key)
+    labels[`color.${key}`] = slot.name
+    labels[`color.${key}-contrast`] = `${slot.name} — text`
+  }
+  return {
+    limit: 3,
+    order,
+    can_manage: true,
+    slots,
+    swatches: {
+      'color.background': '#ffffff',
+      'color.surface': '#f6f7f9',
+      'color.surface-2': '#eef0f4',
+      'color.text': '#0f172a',
+      'color.muted': '#64748b',
+      'color.line': '#e2e8f0',
+      'color.accent': '#2563eb',
+      'color.accent-contrast': '#ffffff',
+      'color.white': '#ffffff',
+      'color.black': '#000000',
+    },
+    labels,
+    color_mode: true,
+    generation: 1,
+    replacements: { after: 1, through: 1, records: [] },
+  }
+}

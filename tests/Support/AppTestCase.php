@@ -31,6 +31,7 @@ abstract class AppTestCase extends TestCase
         'blobs',
         'block_types',
         'style_class_jobs', 'style_classes', 'style_generations', 'saved_sections', 'admin_ui_settings', 'layouts',
+        'palette_jobs', 'palette_state',
         'render_template_versions', 'render_templates',
         'navigation_items', 'navigation_menus',
         'search_index_acks', 'search_index_changes', 'search_index_demand', 'search_index_state',
@@ -230,6 +231,10 @@ abstract class AppTestCase extends TestCase
         // So does the font library snapshot (block typeface spec §3.4): one per request.
         if ($this->container()->has(\Thallo\Render\Style\RequestFontSnapshot::class)) {
             $this->container()->get(\Thallo\Render\Style\RequestFontSnapshot::class)->refresh();
+        }
+        // And the palette (custom palette spec §3.2): one reading per request.
+        if ($this->container()->has(\Thallo\Render\Style\RequestPalette::class)) {
+            $this->container()->get(\Thallo\Render\Style\RequestPalette::class)->refresh();
         }
 
         self::wipe($this->connection());

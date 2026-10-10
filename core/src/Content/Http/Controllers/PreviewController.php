@@ -14,6 +14,7 @@ use Thallo\Core\Content\Preview\PreviewNotFoundException;
 use Thallo\Core\Content\Preview\PreviewReader;
 use Thallo\Core\Content\Preview\PreviewTokenException;
 use Thallo\Core\Http\DTOs\ErrorResponse;
+use Thallo\Core\Settings\PaletteSettings;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Http\Response;
 use Thallo\Contracts\Capability\CapabilityRegistry;
@@ -142,6 +143,19 @@ final class PreviewController
             $design[$name] = $value;
         }
 
+        // A pending palette (custom palette spec §5.1): validated and normalised as a save is, then
+        // signed into the token. Token-only — Save writes the settings.
+        $palette = null;
+        if ($input->palette !== null) {
+            $palette = PaletteSettings::previewClaim($input->palette);
+            if ($palette === null) {
+                return Response::validation([
+                    'palette' => 'a palette is neutral_custom (six hex colours), dark_base (a neutral family) '
+                        . 'and brands (a list of {id, name, hex})',
+                ]);
+            }
+        }
+
         // version_uuid is optional: absent means "mint from the current draft". Existence /
         // ownership of a pinned version is validated by the reader at read time (domain rule).
         $token = $this->minter->mint(
@@ -152,6 +166,7 @@ final class PreviewController
             $accent,
             $neutral,
             $design === [] ? null : $design,
+            $palette === [] ? null : $palette,
         );
         $ttl = $this->minter->ttlSeconds();
         $exp = time() + $ttl;

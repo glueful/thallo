@@ -16,6 +16,8 @@ final class RegionWriterInventoryTest extends TestCase
     private const ALLOWED = [
         'core/src/Content/Regions/RegionRepository.php',
         'core/src/Content/Blocks/Sources/RegionsSource.php',
+        // The replace job's region frames (custom palette spec §4.4): CAS under the region lock.
+        'core/src/Content/Palette/Sources/RegionSettingsSource.php',
         'core/src/Content/Starter/Kinds/RegionKind.php',
     ];
 

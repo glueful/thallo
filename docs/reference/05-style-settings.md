@@ -23,7 +23,7 @@ ordinal scales, not promises about pixels.
 | `spacing` | `none` `xs` `sm` `md` `lg` `xl` `2xl` `3xl` |
 | `width` | `narrow` `content` `container` `full` |
 | `radius` | `none` `sm` `md` `lg` `full` |
-| `color` | `background` `surface` `surface-2` `text` `muted` `line` `accent` `accent-contrast` `transparent` `white` `black` |
+| `color` | `background` `surface` `surface-2` `text` `muted` `line` `accent` `accent-contrast` `transparent` `white` `black`, and `brand-N` `brand-N-contrast` for each brand colour the site configures |
 | `shadow` | `none` `xs` `sm` `md` `lg` `xl` |
 | `typography.size` | `xs` `sm` `md` `lg` `xl` `2xl` `3xl` |
 
@@ -34,8 +34,24 @@ dots replaced by hyphens and `--t-` in front: `spacing.lg` becomes `--t-spacing-
 token re-skins every block that used it.
 
 `color.white` and `color.black` fill themselves in as `#ffffff` and `#000000` when a theme omits
-them, and are the same in light and dark mode; every other name has to be mapped, or the theme
-fails validation. There are no extra tokens: a document may reference baseline names only.
+them, and are the same in light and dark mode; every other name but the brand colours has to be
+mapped, or the theme fails validation. There are no extra tokens: a document may reference baseline
+names only.
+
+The brand names — `brand-N` and its `-contrast` text colour, for any number `N` from 1 to 9999 —
+are the site's, not the theme's: their values come from **Appearance › Colours › Brand colours**,
+where each colour keeps a permanent number that is never reused, and a theme that maps them has the
+mapping ignored (the Doctor warns). Their utilities come from the site's own colours stylesheet,
+not the theme's compiled one. Colour pickers list them as their own **Brand colours** group, in the
+site's order, with the text colours under **Text colours**.
+
+A brand colour the site has not configured — cleared, never set up on this site, or any brand
+colour while the host's limit is 0 — is **unavailable**: a block, part, hover state, page, layout
+frame or region style naming it renders as if it never set that colour — the style class's value or
+the theme's shows through, and a hover colour leaves the resting colour in place. The editor shows
+such a value as `Unavailable colour: Teal (removed)` (a cleared colour, by the name it had) or
+`Unavailable colour: Brand 7` (a number never used on this site, as in imported content), with **No
+colour applied**.
 
 ## The breakpoints
 

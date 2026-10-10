@@ -1409,6 +1409,16 @@ final class CoreServiceProvider extends ServiceProvider implements \Thallo\Contr
                 'shared'   => true,
                 'autowire' => true,
             ],
+            // The palette (custom palette spec §2): the Custom neutral, dark base and brand slots.
+            // One instance under both names, carrying the deployment's brand colour limit (spec §1).
+            \Thallo\Contracts\Style\PaletteProvider::class => [
+                'shared'  => true,
+                'factory' => [self::class, 'makePaletteProvider'],
+            ],
+            \Thallo\Core\Settings\PaletteSettings::class => [
+                'shared'  => true,
+                'factory' => [self::class, 'makePaletteSettings'],
+            ],
             // Global chrome regions (global-regions spec): storage + save
             // validation + the render-pack's soft-bound reader seam.
             RegionRepository::class => [
@@ -1572,6 +1582,9 @@ final class CoreServiceProvider extends ServiceProvider implements \Thallo\Contr
             $container->get(\Thallo\Core\Content\Layouts\LayoutValidator::class),
             $container->get(\Thallo\Core\Content\Preview\LayoutPreviewStore::class),
             $container->get(\Thallo\Core\Content\Layouts\LayoutChanges::class),
+            $container->get(\Thallo\Core\Content\Palette\PaletteFence::class),
+            $container->get(\Thallo\Core\Content\Palette\PaletteState::class),
+            $container->get(\Thallo\Core\Content\Palette\PaletteNormalizer::class),
         );
     }
 
@@ -1948,6 +1961,104 @@ final class CoreServiceProvider extends ServiceProvider implements \Thallo\Contr
                 'shared' => true,
                 'autowire' => true,
             ],
+            \Thallo\Core\Content\Palette\ColorTokenWalker::class => [
+                'class' => \Thallo\Core\Content\Palette\ColorTokenWalker::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Palette\PaletteResponseFields::class => [
+                'class' => \Thallo\Core\Content\Palette\PaletteResponseFields::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Services\DraftRestore::class => [
+                'class' => \Thallo\Core\Content\Services\DraftRestore::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Palette\PaletteReplacements::class => [
+                'class' => \Thallo\Core\Content\Palette\PaletteReplacements::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Palette\PaletteNormalizer::class => [
+                'class' => \Thallo\Core\Content\Palette\PaletteNormalizer::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Palette\PaletteFence::class => [
+                'class' => \Thallo\Core\Content\Palette\PaletteFence::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Palette\PaletteState::class => [
+                'class' => \Thallo\Core\Content\Palette\PaletteState::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Palette\PaletteJobRepository::class => [
+                'class' => \Thallo\Core\Content\Palette\PaletteJobRepository::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Contracts\Style\PaletteStatusReader::class => [
+                'class' => \Thallo\Core\Content\Palette\EnginePaletteStatusReader::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Contracts\Style\PaletteHistoryReader::class => [
+                'class' => \Thallo\Core\Content\Palette\EnginePaletteHistoryReader::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Palette\BrandColorUsage::class => [
+                'class' => \Thallo\Core\Content\Palette\BrandColorUsage::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Palette\Http\PaletteController::class => [
+                'class' => \Thallo\Core\Content\Palette\Http\PaletteController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Palette\PaletteMutations::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makePaletteMutations'],
+            ],
+            // Replace with… (custom palette spec §4.4): the documents it rewrites, the job and its runner.
+            \Thallo\Core\Content\Palette\Sources\RegionSettingsSource::class => [
+                'class' => \Thallo\Core\Content\Palette\Sources\RegionSettingsSource::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Palette\Sources\LayoutSettingsSource::class => [
+                'class' => \Thallo\Core\Content\Palette\Sources\LayoutSettingsSource::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Palette\Sources\StyleClassesSource::class => [
+                'class' => \Thallo\Core\Content\Palette\Sources\StyleClassesSource::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Palette\PaletteDocumentSources::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makePaletteDocumentSources'],
+            ],
+            \Thallo\Core\Content\Palette\PaletteCacheEffects::class => [
+                'class' => \Thallo\Core\Content\Palette\PaletteCacheEffects::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Palette\PaletteReplaceService::class => [
+                'class' => \Thallo\Core\Content\Palette\PaletteReplaceService::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Palette\PaletteReplaceRunner::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makePaletteReplaceRunner'],
+            ],
             \Thallo\Core\Content\Fonts\Http\FontLibraryController::class => [
                 'class' => \Thallo\Core\Content\Fonts\Http\FontLibraryController::class,
                 'shared' => true,
@@ -2267,6 +2378,84 @@ final class CoreServiceProvider extends ServiceProvider implements \Thallo\Contr
         );
     }
 
+    /** What Replace rewrites (custom palette spec §4.4): every current document, never history. */
+    public static function makePaletteDocumentSources(
+        ContainerInterface $container,
+    ): \Thallo\Core\Content\Palette\PaletteDocumentSources {
+        return new \Thallo\Core\Content\Palette\PaletteDocumentSources(
+            $container->get(\Thallo\Core\Content\Blocks\Sources\EntryDraftsSource::class),
+            $container->get(\Thallo\Core\Content\Blocks\Sources\PublishedEntriesSource::class),
+            $container->get(\Thallo\Core\Content\Blocks\Sources\RegionsSource::class),
+            $container->get(\Thallo\Core\Content\Blocks\Sources\SavedSectionsSource::class),
+            $container->get(\Thallo\Core\Content\Blocks\Sources\LayoutsSource::class),
+            $container->get(\Thallo\Core\Content\Palette\Sources\RegionSettingsSource::class),
+            $container->get(\Thallo\Core\Content\Palette\Sources\LayoutSettingsSource::class),
+            $container->get(\Thallo\Core\Content\Palette\Sources\StyleClassesSource::class),
+        );
+    }
+
+    /** The replace job's runner (custom palette spec §4.4); its audit entry and event are optional. */
+    public static function makePaletteReplaceRunner(
+        ContainerInterface $container,
+    ): \Thallo\Core\Content\Palette\PaletteReplaceRunner {
+        return new \Thallo\Core\Content\Palette\PaletteReplaceRunner(
+            $container->get(\Glueful\Database\Connection::class),
+            $container->get(\Thallo\Core\Content\Palette\PaletteJobRepository::class),
+            $container->get(\Thallo\Core\Content\Palette\PaletteDocumentSources::class),
+            $container->get(\Thallo\Core\Content\Palette\PaletteFence::class),
+            $container->get(\Thallo\Core\Content\Palette\PaletteState::class),
+            $container->get(\Thallo\Core\Content\Palette\PaletteNormalizer::class),
+            $container->get(\Thallo\Core\Content\Palette\ColorTokenWalker::class),
+            $container->get(\Thallo\Core\Content\Palette\BrandColorUsage::class),
+            $container->get(\Thallo\Core\Settings\GeneralSettings::class),
+            $container->get(\Thallo\Core\Content\Palette\PaletteCacheEffects::class),
+            $container->has(EventService::class) ? $container->get(EventService::class) : null,
+            $container->has(AuditRecorderInterface::class)
+                ? $container->get(AuditRecorderInterface::class)
+                : null,
+            $container->get(\Thallo\Core\Content\Blocks\BlockTypeRepository::class),
+            $container->get(\Thallo\Contracts\Style\BlockStyleRegistry::class),
+            $container->get(\Thallo\Core\Content\Repositories\VersionRepository::class),
+        );
+    }
+
+    /** The palette from general settings, under the deployment's brand colour limit (custom palette spec §1). */
+    public static function makePaletteSettings(ContainerInterface $container): \Thallo\Core\Settings\PaletteSettings
+    {
+        return new \Thallo\Core\Settings\PaletteSettings(
+            $container->get(\Thallo\Core\Settings\GeneralSettings::class),
+            \Thallo\Core\Settings\PaletteSettings::limitFrom(
+                config(
+                    $container->get(ApplicationContext::class),
+                    'theme.brand_colors.max',
+                    \Thallo\Contracts\Style\Palette::DEFAULT_LIMIT,
+                ),
+            ),
+        );
+    }
+
+    public static function makePaletteProvider(ContainerInterface $container): \Thallo\Contracts\Style\PaletteProvider
+    {
+        return $container->get(\Thallo\Core\Settings\PaletteSettings::class);
+    }
+
+    /** Every palette change (custom palette spec §4.3); its audit entry and event are optional. */
+    public static function makePaletteMutations(
+        ContainerInterface $container,
+    ): \Thallo\Core\Content\Palette\PaletteMutations {
+        return new \Thallo\Core\Content\Palette\PaletteMutations(
+            $container->get(\Glueful\Database\Connection::class),
+            $container->get(\Thallo\Core\Content\Palette\PaletteFence::class),
+            $container->get(\Thallo\Core\Content\Palette\PaletteState::class),
+            $container->get(\Thallo\Core\Settings\GeneralSettings::class),
+            $container->get(\Thallo\Core\Content\Palette\BrandColorUsage::class),
+            $container->has(EventService::class) ? $container->get(EventService::class) : null,
+            $container->has(AuditRecorderInterface::class)
+                ? $container->get(AuditRecorderInterface::class)
+                : null,
+        );
+    }
+
     public static function makeAuthorityAudit(ContainerInterface $container): AuthorityAudit
     {
         return new AuthorityAudit(
@@ -2463,6 +2652,12 @@ final class CoreServiceProvider extends ServiceProvider implements \Thallo\Contr
             ],
             GeneralSettingsController::class => [
                 'class' => GeneralSettingsController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            // Fenced region saves (custom palette spec §4.3): the controller receives a wired saver.
+            \Thallo\Core\Content\Regions\RegionSaver::class => [
+                'class' => \Thallo\Core\Content\Regions\RegionSaver::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -2773,6 +2968,16 @@ final class CoreServiceProvider extends ServiceProvider implements \Thallo\Contr
             ],
             PruneVersionsCommand::class => [
                 'class' => PruneVersionsCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Console\PrunePaletteHistoryCommand::class => [
+                'class' => \Thallo\Core\Content\Console\PrunePaletteHistoryCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \Thallo\Core\Content\Palette\PaletteHistoryPruner::class => [
+                'class' => \Thallo\Core\Content\Palette\PaletteHistoryPruner::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -3194,6 +3399,9 @@ final class CoreServiceProvider extends ServiceProvider implements \Thallo\Contr
             $c->has(\Thallo\Core\Content\Style\Classes\StyleClassReferenceGuard::class)
                 ? $c->get(\Thallo\Core\Content\Style\Classes\StyleClassReferenceGuard::class)
                 : null,
+            // The palette fence (custom palette spec §4.3): publish and rollback normalise under it.
+            $c->get(\Thallo\Core\Content\Palette\PaletteFence::class),
+            $c->get(\Thallo\Core\Content\Palette\PaletteNormalizer::class),
         );
     }
 
@@ -3394,6 +3602,7 @@ final class CoreServiceProvider extends ServiceProvider implements \Thallo\Contr
             ResyncCommand::class,
             \Thallo\Core\Content\Console\MediaUsageRebuildCommand::class,
             PruneVersionsCommand::class,
+            \Thallo\Core\Content\Console\PrunePaletteHistoryCommand::class,
             \Thallo\Core\Content\Console\ListBlockTypesCommand::class,
             \Thallo\Core\Content\Console\PruneFormSubmissionsCommand::class,
             \Thallo\Core\Capabilities\Console\CapabilitiesCommand::class,

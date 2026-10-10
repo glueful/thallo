@@ -313,6 +313,25 @@ final class DoctorTest extends TestCase
         self::assertStringContainsString('default', $checks['theme-vocabulary']->message);
     }
 
+    public function testAnAppThemeMappingABrandColourIsAWarning(): void
+    {
+        $dir = $this->tempProjectWithEnv("APP_ENV=production\nRENDER_THEME=custom\n");
+        $default = dirname(__DIR__, 3) . '/packages/thallo-render/themes/default';
+        $json = json_decode((string) file_get_contents($default . '/theme.json'), true);
+        $json['name'] = 'custom';
+        $json['vocabulary']['color.brand-2'] = '#c98a8a';
+        mkdir($dir . '/themes/custom/templates', 0755, true);
+        foreach ($json['stylesheets'] as $sheet) {
+            @mkdir(dirname($dir . '/themes/custom/' . $sheet), 0755, true);
+            file_put_contents($dir . '/themes/custom/' . $sheet, '');
+        }
+        file_put_contents($dir . '/themes/custom/theme.json', json_encode($json));
+        $checks = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql']))->preflight());
+
+        self::assertSame(Check::WARN, $checks['theme-vocabulary']->status);
+        self::assertStringContainsString('brand colours are set in Appearance', $checks['theme-vocabulary']->message);
+    }
+
     public function testAnAppThemeWithoutAVocabularyFailsBeforeActivation(): void
     {
         $dir = $this->tempProjectWithEnv("APP_ENV=production\nRENDER_THEME=custom\n");

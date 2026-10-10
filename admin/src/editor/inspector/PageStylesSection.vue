@@ -3,6 +3,7 @@
 // background stored in a block's style shape, painted on <main> by the render with the same
 // utility classes. The rows are fixed — the page owns exactly these capabilities. It edits a style
 // record and hands back a new one; an empty record means nothing is set.
+import type { StyleSchemaResult } from '@/queries/styleSchema'
 import { watch } from 'vue'
 import { readPath, setPath, settingSegments } from '@/editor/ops/apply'
 import type { StylePropertyRow } from '@/queries/styleSchema'
@@ -14,6 +15,8 @@ import type { Breakpoint, StyleValue } from '@/style/types'
 const props = defineProps<{
   style: Record<string, unknown>
   vocabulary: { domains: Record<string, string[]>; values: Record<string, string> }
+  /** The site's palette, for the colour pickers (custom palette spec §5.2). */
+  palette?: StyleSchemaResult['palette']
   activeBreakpoint: Breakpoint
 }>()
 const emit = defineEmits<{
@@ -124,6 +127,7 @@ function declaredAt(bp: Breakpoint): boolean {
       :classes="[]"
       :active-breakpoint="activeBreakpoint"
       :vocabulary="vocabulary"
+      :palette="palette"
       @set="onSet"
       @set-all="onSetAll"
     />
@@ -134,6 +138,7 @@ function declaredAt(bp: Breakpoint): boolean {
       :classes="[]"
       :active-breakpoint="activeBreakpoint"
       :vocabulary="vocabulary"
+      :palette="palette"
       @set="onSet"
       @set-all="onSetAll"
     />
@@ -144,6 +149,7 @@ function declaredAt(bp: Breakpoint): boolean {
       :classes="[]"
       :active-breakpoint="activeBreakpoint"
       :vocabulary="vocabulary"
+      :palette="palette"
       hide-breakpoints
       @set="onSet"
       @set-all="onSetAll"
