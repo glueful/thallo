@@ -1,5 +1,11 @@
 # Appearance tabs — Implementation Plan
 
+> Amended 2026-10-10 after plan review:
+> - **A tab the user picks is `router.push`ed, so Back and Forward step through tabs** (ruling 2). The browser spec proves it with real history.
+> - **The panels are `UTabs`' own with `:unmount-on-hide="false"`** (ruling 6), so each is wired to its tab (`id`, `aria-labelledby`, `aria-controls`) and the arrow keys work.
+>   - Hidden panels stay mounted.
+>   - The hand-made `role="tabpanel"` divs are gone, and tests check the associations and keyboard navigation.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Site › Appearance becomes five tabs (Theme · Colours · Design · Typefaces · Logos & site
@@ -12,9 +18,12 @@ dots, and puts the open tab in `?tab=`.
   - query parsing and the fallback;
   - mapping field names to tabs.
 - **The page.** `admin/src/pages/appearance/index.vue` keeps its single `useSettingsForm` and Save.
-  - It wraps today's cards in `v-show` panels under a `UTabs` (`:content="false"`), like the commerce products page.
+  - It puts today's cards in `UTabs`' own panels (one named slot per tab) with `:unmount-on-hide="false"`.
+    - Reka's `TabsContent` then keeps every panel in the DOM, hidden with the `hidden` attribute.
+    - It also wires `id`, `aria-labelledby` and the triggers' `aria-controls`, and gives arrow-key navigation.
+  - Switching tabs never unmounts a control, so no unsaved local state (a half-typed hex, a dialog) is lost.
   - It derives the open tab from the route, so the URL is the only state.
-  - Panels use `v-show`, not `v-if`. Switching tabs never unmounts a control, so no unsaved local state (a half-typed hex, a dialog) is lost.
+  - A tab the user picks is `router.push`ed, so Back and Forward step through tabs.
 - **Server.** No server change.
 
 **Tech Stack:** Vue 3, Nuxt UI 4 (`UTabs`), vue-router 5, vitest + @vue/test-utils, Playwright (`admin/e2e`), oxfmt/oxlint, `pnpm type-check`.
@@ -28,7 +37,8 @@ dots, and puts the open tab in `?tab=`.
    - **Cost if wrong:** one `UFormField` moves back.
 2. **The open tab is computed from `route.query.tab`, never kept in its own ref.**
    - The products page keeps a ref plus two watchers. Here the tab list itself changes (Theme appears once themes load), and a computed getter re-resolves on its own.
-   - The setter calls `router.replace`, and the default tab removes the query.
+   - The setter calls `router.push` (a user's choice is a history entry, so Back and Forward move between tabs; spec §2), and the default tab removes the query.
+   - An unknown or hidden `?tab=` is never rewritten: the getter falls back on its own, so no `replace()` is needed.
 3. **While the theme list is loading, the Theme tab counts as present.**
    - Its panel shows a skeleton. Only a finished load with no cards (failure, or no list) hides it.
    - Without this, a page opened with no query would show Colours first and then jump to Theme when the fetch resolves.
@@ -39,6 +49,9 @@ dots, and puts the open tab in `?tab=`.
 5. **Error dots clear when the next Save starts.**
    - A 422 field name maps to its tab by the part before the first `.` (`theme_brand_2.hex` → `theme_brand_2`).
    - Field names no tab owns map to no tab. The toast still names them.
+6. **The panels are `UTabs`' own (`:unmount-on-hide="false"`), not hand-made `role="tabpanel"` divs.**
+   - The real component wires each panel to its tab (`id` / `aria-labelledby` / `aria-controls`) and keeps hidden panels mounted.
+   - Tests read the `hidden` attribute of the panel's `[role="tabpanel"]` ancestor, and the association attributes.
 
 ## Global Constraints
 
@@ -57,10 +70,12 @@ dots, and puts the open tab in `?tab=`.
 ## Review Focus
 
 1. A deep link to a tab that is hidden (`?tab=theme` with no themes) should open the default (Colours), not a blank panel. Covered in Task 1 (`tabFromQuery`) and Task 2.
-2. An edit on one tab, then a switch to another and back, must keep the edit and its dot. `v-show` panels guarantee it, and Task 2 tests it.
+2. An edit on one tab, then a switch to another and back, must keep the edit and its dot. Panels that are never unmounted guarantee it, and Task 2 tests it.
 3. A 422 naming a nested field (`theme_brand_2.name`) should land on Colours. Covered in Task 1 (`tabsHolding`).
 4. Loading with no query while the theme fetch is still pending must not bounce from Colours to Theme. Covered by Ruling 3 and a Task 2 test with a deferred fetch.
 5. Clicking the tab that is already default must clear `?tab`, not write `?tab=theme`. Covered in Task 2.
+7. Back after switching tabs must return to the previous tab, not leave the page, and Forward must return. Covered in Task 2 (`push`) and Task 3 (a real browser history test).
+8. A screen-reader or keyboard user must reach each panel from its tab. Covered in Task 2 (association attributes, arrow keys on the real `UTabs`).
 6. Links elsewhere in the admin that lead to the typeface library (`/appearance#typefaces`) would land on Theme with the card hidden. Task 2 points them at `?tab=typefaces#typefaces`.
 
 ---
@@ -224,30 +239,34 @@ The page will call `useRoute`/`useRouter` from `vue-router`, as the products pag
 `vi.mock('vue-router/auto', …)` block with:
 
 ```ts
-// The open tab is the URL's ?tab=; replace() writes it back, as the router would.
+// The open tab is the URL's ?tab=; push() writes it, as the router would, and records the history
+// entry so a test can step back through it.
 const routeState = vi.hoisted(() => ({ path: '/appearance', params: {}, query: {} as Record<string, string> }))
+const routerPush = vi.hoisted(() => vi.fn())
 const routerReplace = vi.hoisted(() => vi.fn())
 vi.mock('vue-router', async (importOriginal) => {
   const { reactive } = await import('vue')
   const route = reactive(routeState)
-  routerReplace.mockImplementation(({ query }: { query: Record<string, string> }) => {
+  const go = ({ query }: { query: Record<string, string> }) => {
     route.query = { ...query }
-  })
+  }
+  routerPush.mockImplementation(go)
+  routerReplace.mockImplementation(go)
   return {
     ...(await importOriginal<typeof import('vue-router')>()),
     useRoute: () => route,
-    useRouter: () => ({ push: vi.fn(), replace: routerReplace, resolve: vi.fn() }),
+    useRouter: () => ({ push: routerPush, replace: routerReplace, resolve: vi.fn() }),
   }
 })
 vi.mock('vue-router/auto', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-router')>()),
   useRoute: () => routeState,
-  useRouter: () => ({ push: vi.fn(), replace: routerReplace, resolve: vi.fn() }),
+  useRouter: () => ({ push: routerPush, replace: routerReplace, resolve: vi.fn() }),
   RouterLink: { props: ['to'], template: '<a><slot /></a>' },
 }))
 ```
 
-In each file's `beforeEach`, add `routeState.query = {}` and `routerReplace.mockClear()`.
+In each file's `beforeEach`, add `routeState.query = {}`, `routerPush.mockClear()` and `routerReplace.mockClear()`.
 
 Run: `cd admin && pnpm vitest run src/__tests__/appearancePage.spec.ts src/__tests__/appearance-palette.spec.ts`
 Expected: PASS. The page doesn't read the route yet, so nothing changes.
@@ -263,8 +282,10 @@ async function openTab(wrapper: ReturnType<typeof mount>, label: string) {
   await tabButton(wrapper, label).trigger('mousedown', { button: 0 })
   await flushPromises()
 }
-const shown = (wrapper: ReturnType<typeof mount>, tab: string) =>
-  wrapper.get(`[data-test="appearance-panel-${tab}"]`).isVisible()
+/** The real UTabs panel around a tab's content: hidden with the `hidden` attribute, never unmounted. */
+const tabpanel = (wrapper: ReturnType<typeof mount>, tab: string) =>
+  wrapper.get(`[data-test="appearance-panel-${tab}"]`).element.closest('[role="tabpanel"]')!
+const shown = (wrapper: ReturnType<typeof mount>, tab: string) => !tabpanel(wrapper, tab).hasAttribute('hidden')
 
 describe('appearance tabs', () => {
   beforeEach(() => {
@@ -273,6 +294,7 @@ describe('appearance tabs', () => {
     saveMock.mockReset().mockResolvedValue({ ...settings() })
     notify.error.mockClear()
     routeState.query = {}
+    routerPush.mockClear()
     routerReplace.mockClear()
     fetchRenderThemesMock.mockReset().mockResolvedValue({
       themes: ['default'],
@@ -316,18 +338,42 @@ describe('appearance tabs', () => {
     expect(shown(wrapper, 'colours')).toBe(true)
 
     await openTab(wrapper, 'Logos')
-    expect(routerReplace).toHaveBeenLastCalledWith({ query: { tab: 'logos' } })
+    expect(routerPush).toHaveBeenLastCalledWith({ query: { tab: 'logos' } })
     expect(shown(wrapper, 'logos')).toBe(true)
 
     await openTab(wrapper, 'Theme')
-    expect(routerReplace).toHaveBeenLastCalledWith({ query: {} })
+    expect(routerPush).toHaveBeenLastCalledWith({ query: {} })
     expect(shown(wrapper, 'theme')).toBe(true)
+    // A choice is a history entry; nothing was replaced.
+    expect(routerPush).not.toHaveBeenCalled()
+    expect(routerReplace).not.toHaveBeenCalled()
+  })
+
+  it('wires each panel to its tab, and moves between tabs with the arrow keys', async () => {
+    const wrapper = mount(AppearancePage, { attachTo: document.body })
+    await flushPromises()
+    const tab = tabButton(wrapper, 'Colours')
+    const panel = tabpanel(wrapper, 'colours')
+    expect(tab.attributes('aria-controls')).toBe(panel.id)
+    expect(panel.getAttribute('aria-labelledby')).toBe(tab.attributes('id'))
+    tabButton(wrapper, 'Theme').element.focus()
+    await tabButton(wrapper, 'Theme').trigger('keydown', { key: 'ArrowRight' })
+    await flushPromises()
+    expect(document.activeElement).toBe(tab.element)
+    wrapper.unmount()
+  })
+
+  it('keeps a hidden tab’s controls mounted', async () => {
+    const wrapper = mount(AppearancePage)
+    await flushPromises()
+    expect(shown(wrapper, 'logos')).toBe(false)
+    expect(wrapper.find('[data-test="logos-card"]').exists()).toBe(true)
   })
 
   it('follows back and forward', async () => {
     const wrapper = mount(AppearancePage)
     await flushPromises()
-    routerReplace({ query: { tab: 'design' } }) // what a history step does to the route
+    routerPush({ query: { tab: 'design' } }) // what a history step does to the route
     await flushPromises()
     expect(shown(wrapper, 'design')).toBe(true)
   })
@@ -438,7 +484,7 @@ and `mediaPanelFontLibrary.spec.ts:86`, change the expected `'/appearance#typefa
 `'/appearance?tab=typefaces#typefaces'`.
 
 Also update the first existing test ("shows the four appearance cards…") so it reads "shows the
-appearance cards…". Its body is unchanged: `v-show` panels keep every card in the DOM.
+appearance cards…". Its body is unchanged: hidden panels stay mounted, so every card is in the DOM.
 
 - [ ] **Step 3: Run tests to verify they fail**
 
@@ -486,8 +532,8 @@ Then the tabs (after `savePayload`, which they read):
 ```ts
 // ── The tabs (appearance tabs spec §2–§3) ─────────────────────────────────────────────────────
 // The open tab is the URL's ?tab= — the default leaves it out — so a refresh, a shared link, and
-// back and forward all open the same tab. Panels are v-show: switching never unmounts a control,
-// so nothing unsaved is lost.
+// back and forward all open the same tab. A tab the user picks is pushed, so Back returns to the
+// last one; the panels are UTabs' own and never unmount, so nothing unsaved is lost.
 const route = useRoute()
 const router = useRouter()
 const tabs = computed(() => availableTabs(!themesLoaded.value || themeCards.value.length > 0))
@@ -497,10 +543,13 @@ const tab = computed<AppearanceTab>({
     const query = { ...route.query }
     if (next === tabs.value[0]) delete query.tab
     else query.tab = next
-    void router.replace({ query })
+    void router.push({ query })
   },
 })
-const tabItems = computed(() => tabs.value.map((value) => ({ label: TAB_LABELS[value], value })))
+// Each item names its panel's slot: `#theme`, `#colours`, … below.
+const tabItems = computed(() =>
+  tabs.value.map((value) => ({ label: TAB_LABELS[value], value, slot: value })),
+)
 
 /** The keys Save would send that differ from what is stored: each one's tab shows a dot. */
 const dirtyTabs = computed(() => {
@@ -542,12 +591,14 @@ select and the `custom-fonts` block leave the Design card for a new Typefaces ca
 
 ```vue
 <div class="order-2 xl:order-1">
+  <!-- UTabs' own panels, kept mounted: each is wired to its tab (id / aria-labelledby /
+       aria-controls), hidden with the `hidden` attribute, and nothing unsaved is lost on a switch. -->
   <UTabs
     v-model="tab"
     variant="link"
     :items="tabItems"
-    :content="false"
-    class="mb-4"
+    :unmount-on-hide="false"
+    :ui="{ list: 'mb-4' }"
     data-test="appearance-tabs"
   >
     <template #trailing="{ item }">
@@ -564,57 +615,67 @@ select and the `custom-fonts` block leave the Design card for a new Typefaces ca
         ><span class="sr-only">{{ item.label }} — unsaved changes</span></span
       >
     </template>
+
+    <template #theme>
+      <div class="space-y-6" data-test="appearance-panel-theme">
+        <USkeleton v-if="!themesLoaded" class="h-40" />
+        <UCard v-else-if="themeCards.length > 0" data-test="theme-card">
+          <!-- today's Theme card body, unchanged -->
+        </UCard>
+      </div>
+    </template>
+
+    <template #colours>
+      <div class="space-y-6" data-test="appearance-panel-colours">
+        <UCard data-test="theme-colors-card">
+          <!-- today's Theme colors card, unchanged, header renamed "Colours" -->
+        </UCard>
+      </div>
+    </template>
+
+    <template #design>
+      <div class="space-y-6" data-test="appearance-panel-design">
+        <UCard data-test="theme-design-card">
+          <template #header>
+            <h2 class="font-semibold text-default">Design</h2>
+          </template>
+          <div class="space-y-6">
+            <p class="text-sm text-muted">
+              Site-wide shape and ground. Each choice re-maps theme tokens only; a button can still
+              pick its own shape.
+            </p>
+            <div class="grid gap-6">
+              <!-- Corners UFormField, unchanged -->
+              <!-- Page ground UFormField, unchanged -->
+            </div>
+          </div>
+        </UCard>
+      </div>
+    </template>
+
+    <template #typefaces>
+      <div class="space-y-6" data-test="appearance-panel-typefaces">
+        <UCard data-test="theme-typefaces-card">
+          <template #header>
+            <h2 class="font-semibold text-default">Typefaces</h2>
+          </template>
+          <div class="grid gap-6">
+            <!-- the "Typefaces" pairing UFormField (data-test="theme-font"), moved from Design -->
+            <!-- the v-if="form.theme_font === 'custom'" custom-fonts block, moved from Design -->
+          </div>
+        </UCard>
+        <TypefacesCard />
+      </div>
+    </template>
+
+    <template #logos>
+      <div class="space-y-6" data-test="appearance-panel-logos">
+        <UCard data-test="logos-card">
+          <!-- today's Logos & site icon card, unchanged -->
+        </UCard>
+      </div>
+    </template>
   </UTabs>
-
-  <div v-show="tab === 'theme'" class="space-y-6" data-test="appearance-panel-theme" role="tabpanel">
-    <USkeleton v-if="!themesLoaded" class="h-40" />
-    <UCard v-else-if="themeCards.length > 0" data-test="theme-card">
-      <!-- today's Theme card body, unchanged -->
-    </UCard>
-  </div>
-
-  <div v-show="tab === 'colours'" class="space-y-6" data-test="appearance-panel-colours" role="tabpanel">
-    <UCard data-test="theme-colors-card">
-      <!-- today's Theme colors card, unchanged, header renamed "Colours" -->
-    </UCard>
-  </div>
-
-  <div v-show="tab === 'design'" class="space-y-6" data-test="appearance-panel-design" role="tabpanel">
-    <UCard data-test="theme-design-card">
-      <template #header>
-        <h2 class="font-semibold text-default">Design</h2>
-      </template>
-      <div class="space-y-6">
-        <p class="text-sm text-muted">
-          Site-wide shape and ground. Each choice re-maps theme tokens only; a button can still
-          pick its own shape.
-        </p>
-        <div class="grid gap-6">
-          <!-- Corners UFormField, unchanged -->
-          <!-- Page ground UFormField, unchanged -->
-        </div>
-      </div>
-    </UCard>
-  </div>
-
-  <div v-show="tab === 'typefaces'" class="space-y-6" data-test="appearance-panel-typefaces" role="tabpanel">
-    <UCard data-test="theme-typefaces-card">
-      <template #header>
-        <h2 class="font-semibold text-default">Typefaces</h2>
-      </template>
-      <div class="grid gap-6">
-        <!-- the "Typefaces" pairing UFormField (data-test="theme-font"), moved from Design -->
-        <!-- the v-if="form.theme_font === 'custom'" custom-fonts block, moved from Design -->
-      </div>
-    </UCard>
-    <TypefacesCard />
-  </div>
-
-  <div v-show="tab === 'logos'" class="space-y-6" data-test="appearance-panel-logos" role="tabpanel">
-    <UCard data-test="logos-card">
-      <!-- today's Logos & site icon card, unchanged -->
-    </UCard>
-  </div>
 </div>
 ```
 
@@ -707,8 +768,31 @@ test('a link can open Appearance on a tab, and the tab is kept in the address', 
   await openTab(page, 'Logos & site icon')
   await expect(page).toHaveURL(/\/admin\/appearance\?tab=logos$/)
   await expect(page.locator('[data-test="logos-card"]')).toBeVisible()
+  await openTab(page, 'Design')
+  await expect(page).toHaveURL(/\/admin\/appearance\?tab=design$/)
+  // Each choice is a history entry: Back steps through the tabs, Forward returns.
+  await page.goBack()
+  await expect(page).toHaveURL(/\?tab=logos$/)
+  await expect(page.locator('[data-test="logos-card"]')).toBeVisible()
   await page.goBack()
   await expect(page.locator('[data-test="theme-colors-card"]')).toBeVisible()
+  await page.goForward()
+  await expect(page.locator('[data-test="logos-card"]')).toBeVisible()
+  await expect(page.locator('[data-test="theme-colors-card"]')).toBeHidden()
+})
+
+test('the tabs are reachable by keyboard and each panel is labelled by its tab', async ({ page }) => {
+  await openDesignPage(page)
+  await routeSettings(page)
+  await routePreview(page)
+  await page.goto('/admin/appearance?tab=colours')
+  const tabs = page.locator('[data-test="appearance-tabs"]')
+  const colours = tabs.getByRole('tab', { name: 'Colours', exact: true })
+  await colours.focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(tabs.getByRole('tab', { name: 'Design', exact: true })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('tabpanel', { name: 'Design' })).toBeVisible()
 })
 ```
 
@@ -718,7 +802,7 @@ test('a link can open Appearance on a tab, and the tab is kept in the address', 
 - [ ] **Step 3: Run the e2e spec to verify it passes**
 
 Run: `cd admin && npx playwright test tests/appearance-page.spec.ts`
-Expected: PASS (5 tests).
+Expected: PASS (6 tests).
 
 - [ ] **Step 4: The guide**
 
@@ -739,5 +823,5 @@ during a Vite reload is a known flake: rerun that spec alone before calling it a
 
 ```bash
 git add admin/e2e/tests/appearance-page.spec.ts docs/guides/01-appearance.md
-git commit -m "test(admin): Appearance browser specs open their tab; a deep link opens Colours and back returns; the Appearance guide follows the tabs"
+git commit -m "test(admin): Appearance browser specs open their tab; a deep link opens Colours, Back and Forward step through tabs, the tabs work by keyboard; the Appearance guide follows the tabs"
 ```

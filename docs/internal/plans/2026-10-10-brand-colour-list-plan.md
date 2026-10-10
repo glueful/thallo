@@ -1,5 +1,15 @@
 # Brand colour list (custom palette revision 5) — Implementation Plan
 
+> Amended 2026-10-10 after plan review:
+> - **A list edited from an older revision is refused (409), whatever it changes.**
+>   - The stored list carries a `revision`, and a submitted list names its `base`. This is checked under the palette row (ruling 3, Task 4).
+>   - It covers concurrent renames, re-colours, reorders, adds and Clears, not only adds.
+> - **The editor takes a save's assigned ids and revision from the Save response** (ruling 11, Task 7).
+>   - `useSettingsForm` gains `adopt()` and `saved(sent)`, so an edit made before the refetch saves cleanly and stays marked unsaved.
+>   - A colour that leaves the stored list (Clear, a replacement completing) is dropped from the rows.
+> - **Migration 048 reserves ids 1–3 on every workspace that used the palette** (an old key, a `palette_state` row or a `palette_jobs` row), named from the audit log where it can tell (ruling 12, Task 3).
+>   - The revision-4 Clear deleted a slot's row, so a cleared slot left no setting behind.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the three fixed brand slots with a list the author adds to, up to a deployment
@@ -43,10 +53,15 @@ out of the shared per-theme stylesheet into a per-workspace colours stylesheet.
 2. **A save over the limit is refused only when it adds a colour.**
    - Spec §2.3 says both "a save that would leave more colours than the limit is a 422" and "lowering the limit removes nothing; existing colours stay editable". With 5 colours and a limit of 3, a rename must succeed.
    - So the rule is: a save that adds a colour must leave at most `limit` colours.
-3. **A stale client's add is refused, never merged.**
-   - Client B loaded `[1, 2]`. Client A saved `[1, 2, new]`, which became id 3. B's save of `[1, 2, new]` omits 3, which is a 422 naming Teal with "reload if someone else just added it".
-   - Ids are therefore always distinct, and no settings write can drop a colour (spec §8, "two concurrent adds get distinct ids", holds because the second is refused).
-   - **Cost if wrong:** a rare reload for two people adding colours at the same moment.
+3. **A save from a stale list is refused with a 409, never merged.** This is decided after plan review.
+   - The stored list carries a `revision`, an integer that every write increments: a list save, Clear, and the Replace job's completion. The migration and an unset list start at 0.
+   - A submitted list names the revision it was edited from (`base`). Under the palette row, `base` must equal the stored revision, else 409 `conflict`: "Brand colours changed since you opened this page — reload to see the latest".
+   - This covers every concurrent change to existing rows, not only additions:
+     - A renames Gold to Amber, and B re-colours Rose from an older form: B is refused, so Amber is never reverted.
+     - The same holds for a concurrent re-colour, a reorder, an add, a Clear, or a completed replacement.
+   - Ids stay distinct (spec §8, "two concurrent adds get distinct ids": the second save is refused).
+   - The palette generation is not used for this. It also moves on neutral edits and job steps, which would refuse saves that touched nothing of each other's.
+   - **Cost if wrong:** a reload when two people edit brand colours at the same moment.
 4. **There is no general-settings import to apply the import rule to.**
    - `ContentImporter` imports content only, and the starter `SettingKind` writes `site_name`, `default_locale` and `listing_types`. Brand references inside imported content already go through the fence.
    - No code is written for §2.3's "Imports" bullet, and the ledger notes it.
@@ -66,13 +81,27 @@ out of the shared per-theme stylesheet into a per-workspace colours stylesheet.
    - Those ids never reach storage, because the save assigns real ids.
 10. **At limit 0, stored colours are absent from `palette.slots`, but their names stay in `palette.labels`.**
     - A stored reference then reads "Unavailable colour: Gold dark". "(removed)" is said only of a cleared colour, and "Brand 7" only of an id never issued here.
+11. **The editor adopts a save's assigned ids from the Save response, not from a refetch.** This is decided after plan review.
+    - `useSettingsForm` deliberately ignores refetched settings while the form is dirty. An edit made between Save and the refetch would leave a saved row at `id: null` and a stale revision, so the next save would add the colour twice (or be refused).
+    - So the save response is reconciled into the form. Each submitted new row's key is mapped to the id at its position in the returned list, the revision is taken from the response, and newer edits are kept.
+    - `useSettingsForm` gains `adopt()`, which writes without marking the form dirty, and `saved(sent)`, which marks it clean only if nothing changed since the payload was sent. The second fixes, for every field, today's loss of an edit's dirty state when it was made while a save was in flight.
+    - A colour that leaves the stored list (a Clear, or a replacement completing) is dropped from the rows with `adopt()`.
+12. **The migration reserves the revision-4 ids on any workspace that used the palette.** This is decided after plan review.
+    - That build's Clear deleted the slot's settings row. So a cleared Brand 3 leaves no trace in settings, while retained content may still name `color.brand-3`.
+    - Ids 1–3 that are not configured go to `removed` for any workspace with an old key, a `palette_state` row or a `palette_jobs` row. Fresh installs have none of these and start at `brand-1`.
+    - The removed name is the `target_label` of the latest `palette_slot` audit entry for `brand-N`, on a single-site install (`audit_logs` carries no workspace), else "Brand N".
+    - **Cost if wrong:** a development install's first new colour is `brand-4` rather than `brand-1`.
 
 ## Global Constraints
 
 - Brand tokens: `color.brand-N` and `color.brand-N-contrast`, `N` from 1 to 9999. Pattern `/\Abrand-[1-9][0-9]{0,3}(-contrast)?\z/`. Values `var(--brand-N)` / `var(--brand-N-ink)`, site-controlled. A theme mapping one is ignored, and the Doctor warns.
-- Setting `theme_brand_colors`: `{"colors": [{"id": int ≥ 1, "name": string ≤ 32, "hex": "#rrggbb"}, …], "removed": [{"id": int, "name": string}, …]}`. `colors` is in display order. Unset means no colours.
+- Setting `theme_brand_colors`: `{"revision": int, "colors": [{"id": int ≥ 1, "name": string ≤ 32, "hex": "#rrggbb"}, …], "removed": [{"id": int, "name": string}, …]}`.
+  - `colors` is in display order. Unset means no colours and revision 0.
+  - Every write increments `revision`.
+  - A submitted list is `{"base": int, "colors": [{"id"?: int, "name", "hex"}, …]}`.
 - Config: `theme.brand_colors.max` from `THALLO_BRAND_COLORS_MAX`, default 3, clamped 0–12. 0 turns brand colours off.
 - New ids are one above the highest id ever issued (configured or removed), assigned inside the palette state transaction. Ids are never reused.
+- A stale `base` is a 409 `conflict`: "Brand colours changed since you opened this page — reload to see the latest".
 - Refusals, each a 422:
   - "This site allows 3 brand colours" (1 → "1 brand colour");
   - "Remove a brand colour with Clear";
@@ -113,11 +142,13 @@ out of the shared per-theme stylesheet into a per-workspace colours stylesheet.
 
 ## Review Focus
 
-1. **A client whose list is stale saves.** It omits a colour someone else just added, and must get a 422 naming that colour, never a silent drop or a reused id. Tested in Task 4 (`testAStaleListIsRefusedNamingTheColourItWouldDrop`).
+1. **A client whose list is stale saves:** someone else renamed, re-coloured, reordered, added or cleared meanwhile. It must get a 409 and change nothing, never revert the other person's edit, drop a colour or reuse an id. Tested in Task 4 (`testAStaleListIsRefusedWhateverChangedMeanwhile`).
 2. **Raising the limit back after lowering it to 0 must bring the same colours back**, with the same ids and order. `configured()` is limit-gated and storage is not. Tested in Task 3 (`testLimitZeroHidesColoursAndKeepsThem`).
 3. **A block with a brand background and 50% surface opacity** must still mix, even though the brand utility now loads after the opacity rule's original position. Tested in Task 2 (`testOpacityStillModifiesABrandSurface`).
 4. **A restored version naming a cleared id, or an imported id never issued here,** shows "(removed)" or "Brand 7" and renders no colour. The id is never confused with a later colour. Tested in Task 3 (`testANewColourNeverTakesAClearedId`) and Task 8 (picker wording).
 5. **The pickers and the colours stylesheet for an id above 3** (`brand-12`): validator, normaliser, `token_class()`, stylesheet and picker must all treat it like `brand-1`. Tested in Task 1 (normaliser, `slotOf`), Task 2 (validator, `token_class`, stylesheet) and Task 8 (picker).
+6. **Save, then edit before the refetch arrives.** The next save must send the assigned id and the new revision, and the edit must stay marked unsaved. Tested in Task 7 (`'adopts the assigned ids from the save response…'`).
+7. **A development workspace whose Brand 3 was cleared under revision 4** must never hand id 3 to a new colour, so a restored old reference stays unavailable. Tested in Task 3 (`testAClearedRevisionFourSlotIsNeverReissued`).
 
 ---
 
@@ -863,9 +894,9 @@ git commit -m "feat(palette): brand colour names become a family (brand-1 … br
 **Interfaces:**
 - Consumes: `Palette` (Task 1).
 - Produces:
-  - `BrandColors::parse(string $json): array{0: array<int,BrandSlot>, 1: array<int,string>}`
-  - `BrandColors::encode(array<int,BrandSlot> $colors, array<int,string> $removed): string`
-  - `BrandColors::cleared(Palette $palette, int $id): string` (the stored JSON with `$id` moved to `removed`)
+  - `BrandColors::parse(string $json): array{0: array<int,BrandSlot>, 1: array<int,string>, 2: int}` (colours, removed names, revision)
+  - `BrandColors::encode(array<int,BrandSlot> $colors, array<int,string> $removed, int $revision): string`
+  - `BrandColors::cleared(string $stored, int $id): string` (the stored JSON with `$id` moved to `removed` and the revision incremented; unchanged when `$id` is not a colour)
   - `PaletteSettings::__construct(GeneralSettings $settings, int $brandLimit = Palette::DEFAULT_LIMIT)`
   - `PaletteSettings::limitFrom(mixed $raw): int`
   - `PaletteSettings::palette()` reads `theme_brand_colors` and carries the limit
@@ -891,20 +922,23 @@ use Thallo\Core\Settings\PaletteSettings;
 /** The stored brand colour list (custom palette spec §2, §2.3): parsed leniently, encoded canonically. */
 final class BrandColorsTest extends TestCase
 {
-    public function testItRoundTripsColoursInOrderAndRemovedNames(): void
+    public function testItRoundTripsColoursInOrderRemovedNamesAndTheRevision(): void
     {
         $json = BrandColors::encode(
             [7 => new BrandSlot('Rose', '#c98a8a'), 2 => new BrandSlot('Gold', '#8a6a2a')],
             [3 => 'Teal'],
+            5,
         );
         self::assertSame(
-            '{"colors":[{"id":7,"name":"Rose","hex":"#c98a8a"},{"id":2,"name":"Gold","hex":"#8a6a2a"}],'
+            '{"revision":5,"colors":[{"id":7,"name":"Rose","hex":"#c98a8a"},{"id":2,"name":"Gold","hex":"#8a6a2a"}],'
             . '"removed":[{"id":3,"name":"Teal"}]}',
             $json,
         );
-        [$colors, $removed] = BrandColors::parse($json);
+        [$colors, $removed, $revision] = BrandColors::parse($json);
         self::assertSame([7, 2], array_keys($colors));
         self::assertSame([3 => 'Teal'], $removed);
+        self::assertSame(5, $revision);
+        self::assertSame(0, BrandColors::parse('{"colors":[]}')[2]);
     }
 
     public function testAnEntryThatNoLongerParsesReadsAsUnsetAndTheRestStay(): void
@@ -917,16 +951,18 @@ final class BrandColorsTest extends TestCase
         self::assertSame([1], array_keys($colors));
         self::assertSame('Gold', $colors[1]->name);
         self::assertSame([5 => 'Teal'], $removed);
-        self::assertSame([[], []], BrandColors::parse('not json'));
-        self::assertSame([[], []], BrandColors::parse(''));
+        self::assertSame([[], [], 0], BrandColors::parse('not json'));
+        self::assertSame([[], [], 0], BrandColors::parse(''));
     }
 
-    public function testClearingMovesTheColourToRemovedKeepingItsName(): void
+    public function testClearingMovesTheColourToRemovedKeepingItsNameAndBumpsTheRevision(): void
     {
-        $palette = new Palette(null, null, [1 => new BrandSlot('Gold', '#8a6a2a'), 2 => new BrandSlot('Rose', '#c98a8a')]);
-        [$colors, $removed] = BrandColors::parse(BrandColors::cleared($palette, 1));
+        $stored = BrandColors::encode([1 => new BrandSlot('Gold', '#8a6a2a'), 2 => new BrandSlot('Rose', '#c98a8a')], [], 4);
+        [$colors, $removed, $revision] = BrandColors::parse(BrandColors::cleared($stored, 1));
         self::assertSame([2], array_keys($colors));
         self::assertSame([1 => 'Gold'], $removed);
+        self::assertSame(5, $revision);
+        self::assertSame($stored, BrandColors::cleared($stored, 9)); // not a colour: nothing written changes
     }
 
     public function testTheLimitIsClampedAndJunkReadsAsTheDefault(): void
@@ -950,6 +986,7 @@ public function testThePaletteReadsTheListWithItsRemovedNamesAndTheLimit(): void
     $this->settings()->save(['theme_brand_colors' => BrandColors::encode(
         [4 => new BrandSlot('Gold', '#8a6a2a'), 1 => new BrandSlot('Rose', '#c98a8a')],
         [2 => 'Teal'],
+        1,
     )]);
     $palette = $this->container()->get(PaletteSettings::class)->palette();
     self::assertSame([4, 1], $palette->ids());
@@ -959,7 +996,7 @@ public function testThePaletteReadsTheListWithItsRemovedNamesAndTheLimit(): void
 
 public function testLimitZeroHidesColoursAndKeepsThem(): void
 {
-    $this->settings()->save(['theme_brand_colors' => BrandColors::encode([4 => new BrandSlot('Gold', '#8a6a2a')], [])]);
+    $this->settings()->save(['theme_brand_colors' => BrandColors::encode([4 => new BrandSlot('Gold', '#8a6a2a')], [], 1)]);
     $off = new PaletteSettings($this->settings(), 0);
     self::assertSame([], $off->palette()->configured());
     $on = new PaletteSettings($this->settings(), 3);
@@ -1005,14 +1042,16 @@ use Thallo\Core\Tests\Support\AppTestCase;
 
 /**
  * The revision-4 build's three brand keys exist only on development installs: migration 048
- * converts them into the list, keeping ids 1–3, and deletes them (custom palette spec §7).
+ * converts them into the list, keeping ids 1–3, and deletes them (custom palette spec §7). Its Clear
+ * deleted a slot's row, so on a workspace that used the palette every id 1–3 not configured is
+ * reserved — content may still name it, and it must never become a different colour.
  */
 final class BrandSlotsToListTest extends AppTestCase
 {
-    private function migration(): object
+    private function migrate(): void
     {
         require_once dirname(__DIR__, 3) . '/core/database/migrations/048_ConvertBrandSlotsToList.php';
-        return new \ConvertBrandSlotsToList();
+        (new \ConvertBrandSlotsToList())->up($this->connection()->getSchemaBuilder());
     }
 
     private function put(string $key, string $value): void
@@ -1026,36 +1065,74 @@ final class BrandSlotsToListTest extends AppTestCase
         return $row === null ? null : (string) $row['value'];
     }
 
-    public function testItKeepsIdsOneToThreeAndDeletesTheOldKeys(): void
+    public function testItKeepsIdsOneToThreeReservesTheRestAndDeletesTheOldKeys(): void
     {
         $this->put('theme_brand_1', '{"name":"Gold","hex":"#8a6a2a"}');
-        $this->put('theme_brand_3', '{"name":"Teal","hex":"#0f766e"}');
         $this->put('theme_brand_2', 'not json');
-        $this->migration()->up($this->connection()->getSchemaBuilder());
+        $this->migrate();
 
-        [$colors, $removed] = BrandColors::parse((string) $this->value('theme_brand_colors'));
-        self::assertSame([1, 3], array_keys($colors));
-        self::assertSame('Teal', $colors[3]->name);
-        self::assertSame([], $removed);
+        [$colors, $removed, $revision] = BrandColors::parse((string) $this->value('theme_brand_colors'));
+        self::assertSame([1], array_keys($colors));
+        self::assertSame([2 => 'Brand 2', 3 => 'Brand 3'], $removed);
+        self::assertSame(0, $revision);
         foreach ([1, 2, 3] as $n) {
             self::assertNull($this->value("theme_brand_{$n}"));
         }
     }
 
-    public function testItIsANoOpWithoutOldKeysAndNeverOverwritesAList(): void
+    public function testAClearedRevisionFourSlotIsNeverReissued(): void
     {
-        $this->migration()->up($this->connection()->getSchemaBuilder());
-        self::assertNull($this->value('theme_brand_colors'));
+        // Brand 3 was configured and cleared under revision 4: its row is gone, the palette row and
+        // the audit entry remain, and a retained version still names it.
+        $this->state()->snapshot(); // creates the palette_state row, as any palette use did
+        $this->connection()->table('audit_logs')->insert([
+            'uuid' => 'aud000000001', 'occurred_at' => '2026-10-09 10:00:00', 'action' => 'palette.brand.cleared',
+            'category' => 'content', 'target_type' => 'palette_slot', 'target_uuid' => 'brand-3',
+            'target_label' => 'Teal',
+        ]);
+        $this->migrate();
+        $palette = $this->container()->get(\Thallo\Core\Settings\PaletteSettings::class)->palette();
+        self::assertSame('Teal', $palette->labelOf(3));
+        self::assertTrue($palette->isRemoved(3));
+        self::assertSame(3, $palette->highestIssued());
 
-        $list = '{"colors":[{"id":9,"name":"Rose","hex":"#c98a8a"}],"removed":[]}';
+        // A colour added after the migration takes 4, and an old reference to 3 stays unavailable.
+        $this->container()->get(\Thallo\Core\Http\Controllers\GeneralSettingsController::class)->update(
+            new \Thallo\Core\Http\DTOs\UpdateGeneralSettingsData(
+                theme_brand_colors: '{"base":0,"colors":[{"name":"Sky","hex":"#38bdf8"}]}',
+            ),
+        );
+        $after = $this->container()->get(\Thallo\Core\Settings\PaletteSettings::class)->palette();
+        self::assertSame([4], $after->ids());
+        self::assertTrue($after->isUnavailable('color.brand-3'));
+    }
+
+    public function testAFreshInstallReservesNothing(): void
+    {
+        $this->connection()->table('palette_state')->delete();
+        $this->migrate();
+        self::assertNull($this->value('theme_brand_colors'));
+    }
+
+    public function testItNeverOverwritesAList(): void
+    {
+        $list = '{"revision":2,"colors":[{"id":9,"name":"Rose","hex":"#c98a8a"}],"removed":[]}';
         $this->put('theme_brand_colors', $list);
         $this->put('theme_brand_1', '{"name":"Gold","hex":"#8a6a2a"}');
-        $this->migration()->up($this->connection()->getSchemaBuilder());
+        $this->migrate();
         self::assertSame($list, $this->value('theme_brand_colors'));
         self::assertNull($this->value('theme_brand_1'));
     }
 }
 ```
+
+The second test uses `PaletteFixtures` (`state()`). Add `use PaletteFixtures;` and the
+`audit_logs` cleanup the audit tests use (`grep -rln "audit_logs" tests/Integration`). If
+`audit_logs` is absent in the test database (the audit extension disabled), the migration skips
+names, and the test asserts `'Brand 3'` instead. Gate that on `hasTable('audit_logs')`.
+The second test's settings save depends on Task 4. In this task, end the test at the
+`highestIssued()` assertion; Task 4 adds the save and the two assertions after it (Task 4, Step 1
+says so).
 
 If the `settings` table carries `tenant_uuid` in the test DB and inserts need it, set it the way
 other settings tests insert raw rows. The `settings` wipe between tests comes from `AppTestCase`.
@@ -1098,12 +1175,12 @@ use Thallo\Contracts\Style\Palette;
  */
 final class BrandColors
 {
-    /** @return array{0: array<int,BrandSlot>, 1: array<int,string>} */
+    /** @return array{0: array<int,BrandSlot>, 1: array<int,string>, 2: int} colours, removed names, revision */
     public static function parse(string $json): array
     {
         $data = json_decode($json, true);
         if (!is_array($data)) {
-            return [[], []];
+            return [[], [], 0];
         }
         $colors = [];
         foreach (is_array($data['colors'] ?? null) ? $data['colors'] : [] as $row) {
@@ -1121,16 +1198,18 @@ final class BrandColors
                 $removed[$id] = mb_substr($name, 0, PaletteSettings::NAME_MAX);
             }
         }
-        return [$colors, $removed];
+        $revision = is_int($data['revision'] ?? null) && $data['revision'] >= 0 ? $data['revision'] : 0;
+        return [$colors, $removed, $revision];
     }
 
     /**
      * @param array<int,BrandSlot> $colors
      * @param array<int,string> $removed
+     * @param int $revision what a submitted list must name as its base to be saved over this one
      */
-    public static function encode(array $colors, array $removed): string
+    public static function encode(array $colors, array $removed, int $revision): string
     {
-        $out = ['colors' => [], 'removed' => []];
+        $out = ['revision' => $revision, 'colors' => [], 'removed' => []];
         foreach ($colors as $id => $slot) {
             $out['colors'][] = ['id' => $id] + $slot->toArray();
         }
@@ -1141,16 +1220,20 @@ final class BrandColors
         return (string) json_encode($out);
     }
 
-    /** The stored list with `$id` moved from the colours to the removed, keeping its name (§2.3). */
-    public static function cleared(Palette $palette, int $id): string
+    /**
+     * The stored list with `$id` moved from the colours to the removed, keeping its name (§2.3), at
+     * the next revision — so an editor holding the list from before is refused, not obeyed. Unchanged
+     * when `$id` is not a colour.
+     */
+    public static function cleared(string $stored, int $id): string
     {
-        $colors = $palette->brands;
-        $removed = $palette->removed;
-        if (isset($colors[$id])) {
-            $removed[$id] = $colors[$id]->name;
-            unset($colors[$id]);
+        [$colors, $removed, $revision] = self::parse($stored);
+        if (!isset($colors[$id])) {
+            return $stored;
         }
-        return self::encode($colors, $removed);
+        $removed[$id] = $colors[$id]->name;
+        unset($colors[$id]);
+        return self::encode($colors, $removed, $revision + 1);
     }
 
     /** An id from 1 to Palette::MAX_ID, else null. */
@@ -1222,7 +1305,7 @@ final class BrandColors
 ```
 
 `PaletteMutations::clear()`:
-- Replace `$this->settings->save(['theme_brand_' . $slot => '']);` with `$this->settings->save(['theme_brand_colors' => BrandColors::cleared($held->palette, $slot)]);`.
+- Replace `$this->settings->save(['theme_brand_' . $slot => '']);` with `$this->settings->save(['theme_brand_colors' => BrandColors::cleared($this->settings->stored('theme_brand_colors'), $slot)]);`. `lock()` has just cleared the store's read cache, so this is the committed list.
 - Its "save" method's `foreach (Palette::SLOTS …)` stays until Task 4, rewritten as `foreach ([1, 2, 3] as $slot)` with the same comment as `validate()`.
 
 `PaletteReplaceRunner::complete()`:
@@ -1245,7 +1328,11 @@ use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
  * Converts the revision-4 build's fixed brand keys (`theme_brand_1` … `theme_brand_3`, each
  * `{"name","hex"}`) into the brand colour list (`theme_brand_colors`, custom palette spec §2.3, §7),
  * keeping ids 1–3, and deletes them. That build never shipped: the keys exist only on development
- * installs. A list already present is never overwritten; per workspace when tenancy widened the table.
+ * installs. Its Clear deleted a slot's row, so a cleared slot leaves no setting behind while content
+ * may still name it: on every workspace that used the palette — an old key, a palette_state row or a
+ * palette_jobs row — each id 1–3 not configured is reserved as removed, named from its last audit
+ * entry where the audit log can say whose it was (a single-site install), else "Brand N". A fresh
+ * install reserves nothing. A list already present is never overwritten.
  */
 final class ConvertBrandSlotsToList implements MigrationInterface
 {
@@ -1258,36 +1345,69 @@ final class ConvertBrandSlotsToList implements MigrationInterface
         }
         $pdo = $schema->getConnection()->getPDO();
         $tenanted = $schema->hasColumn('settings', 'tenant_uuid');
+        $tenantOf = static fn (string $table): string => $schema->hasColumn($table, 'tenant_uuid')
+            ? 'tenant_uuid'
+            : 'NULL AS tenant_uuid';
+
+        /** @var array<string, array{tenant: ?string, keys: array<string,string>}> $groups */
+        $groups = [];
+        $add = static function (?string $tenant) use (&$groups): void {
+            $groups[$tenant ?? ''] ??= ['tenant' => $tenant, 'keys' => []];
+        };
         $rows = $pdo->query(
-            'SELECT ' . ($tenanted ? 'tenant_uuid' : 'NULL AS tenant_uuid') . ', key, value FROM settings '
+            'SELECT ' . $tenantOf('settings') . ', key, value FROM settings '
             . "WHERE key IN ('theme_brand_1', 'theme_brand_2', 'theme_brand_3', 'theme_brand_colors')",
         )->fetchAll(\PDO::FETCH_ASSOC);
-        $groups = [];
         foreach ($rows as $row) {
             $tenant = $row['tenant_uuid'] === null ? null : (string) $row['tenant_uuid'];
-            $groups[$tenant ?? ''] ??= ['tenant' => $tenant, 'keys' => []];
+            $add($tenant);
             $groups[$tenant ?? '']['keys'][(string) $row['key']] = (string) $row['value'];
         }
+        foreach (['palette_state', 'palette_jobs'] as $table) {
+            if (!$schema->hasTable($table)) {
+                continue;
+            }
+            foreach ($pdo->query('SELECT DISTINCT ' . $tenantOf($table) . " FROM {$table}")->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+                $add($row['tenant_uuid'] === null ? null : (string) $row['tenant_uuid']);
+            }
+        }
+
+        // The audit log carries no workspace: its names are trusted only on a single-site install.
+        $audited = [];
+        if (!$tenanted && $schema->hasTable('audit_logs')) {
+            $names = $pdo->query(
+                "SELECT target_uuid, target_label FROM audit_logs WHERE target_type = 'palette_slot' "
+                . "AND target_uuid IN ('brand-1', 'brand-2', 'brand-3') AND target_label IS NOT NULL "
+                . 'ORDER BY occurred_at, id',
+            )->fetchAll(\PDO::FETCH_ASSOC);
+            foreach ($names as $row) {
+                $audited[(int) substr((string) $row['target_uuid'], 6)] = mb_substr(trim((string) $row['target_label']), 0, 32);
+            }
+        }
+
         foreach ($groups as $group) {
             $keys = $group['keys'];
-            $colors = [];
-            foreach (self::OLD as $key => $id) {
-                $data = json_decode($keys[$key] ?? '', true);
-                $name = is_array($data) && is_string($data['name'] ?? null) ? trim($data['name']) : '';
-                $hex = is_array($data) && is_string($data['hex'] ?? null) ? strtolower(trim($data['hex'])) : '';
-                if ($name !== '' && preg_match('/\A#[0-9a-f]{6}\z/', $hex) === 1) {
-                    $colors[] = ['id' => $id, 'name' => mb_substr($name, 0, 32), 'hex' => $hex];
-                }
-            }
             $where = $tenanted ? ($group['tenant'] === null ? 'tenant_uuid IS NULL' : 'tenant_uuid = :t') : 'TRUE';
             $bind = $tenanted && $group['tenant'] !== null ? ['t' => $group['tenant']] : [];
-            if (!isset($keys['theme_brand_colors']) && $colors !== []) {
+            if (!isset($keys['theme_brand_colors'])) {
+                $colors = [];
+                $removed = [];
+                foreach (self::OLD as $key => $id) {
+                    $data = json_decode($keys[$key] ?? '', true);
+                    $name = is_array($data) && is_string($data['name'] ?? null) ? trim($data['name']) : '';
+                    $hex = is_array($data) && is_string($data['hex'] ?? null) ? strtolower(trim($data['hex'])) : '';
+                    if ($name !== '' && preg_match('/\A#[0-9a-f]{6}\z/', $hex) === 1) {
+                        $colors[] = ['id' => $id, 'name' => mb_substr($name, 0, 32), 'hex' => $hex];
+                    } else {
+                        $removed[] = ['id' => $id, 'name' => ($audited[$id] ?? '') !== '' ? $audited[$id] : "Brand {$id}"];
+                    }
+                }
                 $insert = $pdo->prepare(
                     'INSERT INTO settings (' . ($tenanted ? 'tenant_uuid, ' : '') . 'key, value, updated_at) VALUES ('
                     . ($tenanted ? ':tenant, ' : '') . "'theme_brand_colors', :value, CURRENT_TIMESTAMP)",
                 );
                 $insert->execute(($tenanted ? ['tenant' => $group['tenant']] : [])
-                    + ['value' => json_encode(['colors' => $colors, 'removed' => []])]);
+                    + ['value' => json_encode(['revision' => 0, 'colors' => $colors, 'removed' => $removed])]);
             }
             $delete = $pdo->prepare(
                 "DELETE FROM settings WHERE {$where} AND key IN ('theme_brand_1', 'theme_brand_2', 'theme_brand_3')",
@@ -1303,10 +1423,13 @@ final class ConvertBrandSlotsToList implements MigrationInterface
 
     public function getDescription(): string
     {
-        return 'Brand colours: the three fixed keys become the brand colour list (ids 1–3 kept)';
+        return 'Brand colours: the three fixed keys become the brand colour list (ids 1–3 kept or reserved)';
     }
 }
 ```
+
+The encoded JSON matches `BrandColors::encode()`'s key order (`revision`, `colors`, `removed`), so a
+migrated value round-trips byte-for-byte.
 
 If the RawPdo audit (`core/src/Content/Starter/RawPdoWriteAudit.php`) or the tenancy lint
 (`tests/Unit/Tenancy/RawPdoScopingLintTest.php`) scans `core/database/migrations`, they flag this
@@ -1319,19 +1442,20 @@ file. In that case, classify it beside migration 042 the way 042 is classified.
     {
         $settings = $this->container()->get(GeneralSettings::class);
         $settings->clearStoreCache();
-        [$colors, $removed] = BrandColors::parse($settings->stored('theme_brand_colors'));
+        [$colors, $removed, $revision] = BrandColors::parse($settings->stored('theme_brand_colors'));
         $colors[$slot] = new BrandSlot($name, $hex);
         unset($removed[$slot]);
-        $settings->save(['theme_brand_colors' => BrandColors::encode($colors, $removed)]);
+        $settings->save(['theme_brand_colors' => BrandColors::encode($colors, $removed, $revision + 1)]);
     }
 
     protected function clear(int $slot): void
     {
         $this->container()->get(PaletteFence::class)->within(function () use ($slot): void {
-            $held = $this->state()->lock();
+            $this->state()->lock();
             $this->state()->bump();
-            $this->container()->get(GeneralSettings::class)->save([
-                'theme_brand_colors' => BrandColors::cleared($held->palette, $slot),
+            $settings = $this->container()->get(GeneralSettings::class);
+            $settings->save([
+                'theme_brand_colors' => BrandColors::cleared($settings->stored('theme_brand_colors'), $slot),
             ]);
         });
     }
@@ -1384,10 +1508,10 @@ git commit -m "feat(palette): brand colours are one list setting (theme_brand_co
 **Interfaces:**
 - Consumes: `BrandColors` (Task 3), `Palette::highestIssued()`, `labelOf()`, `limit` (Task 1).
 - Produces:
-  - `PaletteSettings::parseSubmitted(string $json): ?list<array{id: ?int, name: string, hex: string}>`
-  - `BrandColors::applied(Palette $held, list<array{id: ?int, name: string, hex: string}> $rows, \Closure(int): bool $replacing): string`, which throws `BrandColorsRefused` or `PaletteConflict`
-  - `UpdateGeneralSettingsData::$theme_brand_colors` (`?string`): the submitted `{"colors":[{"id"?: int, "name", "hex"}, …]}`; any `removed` sent is ignored
-  - 422 `{"theme_brand_colors": "<message>"}` for each refusal; 409 for a colour being replaced
+  - `PaletteSettings::parseSubmitted(string $json): ?array{base: int, rows: list<array{id: ?int, name: string, hex: string}>}`
+  - `BrandColors::applied(Palette $held, int $revision, int $base, list<array{id: ?int, name: string, hex: string}> $rows, \Closure(int): bool $replacing): string`, which returns the value to store at `$revision + 1` and throws `BrandColorsRefused` or `PaletteConflict`
+  - `UpdateGeneralSettingsData::$theme_brand_colors` (`?string`): the submitted `{"base": int, "colors":[{"id"?: int, "name", "hex"}, …]}`; any `removed` sent is ignored
+  - 422 `{"theme_brand_colors": "<message>"}` for each refusal. 409 `conflict` for a stale `base` or a colour being replaced.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1404,13 +1528,18 @@ private static function row(?int $id, string $name, string $hex = '#123456'): ar
     return ['id' => $id, 'name' => $name, 'hex' => $hex];
 }
 
+/** Applied from a list edited at the stored revision (0), unless a test says otherwise. */
+private static function apply(Palette $held, array $rows, ?\Closure $replacing = null, int $base = 0, int $revision = 0): string
+{
+    return BrandColors::applied($held, $revision, $base, $rows, $replacing ?? static fn (): bool => false);
+}
+
 public function testNewColoursTakeIdsAboveEveryIdEverIssued(): void
 {
     $held = self::held([1 => new BrandSlot('Gold', '#8a6a2a')], [3 => 'Teal']);
-    [$colors, $removed] = BrandColors::parse(BrandColors::applied(
+    [$colors, $removed] = BrandColors::parse(self::apply(
         $held,
         [self::row(null, 'Rose'), self::row(1, 'Gold', '#8a6a2a'), self::row(null, 'Sky')],
-        static fn (): bool => false,
     ));
     self::assertSame([4, 1, 5], array_keys($colors));
     self::assertSame([3 => 'Teal'], $removed);
@@ -1419,10 +1548,9 @@ public function testNewColoursTakeIdsAboveEveryIdEverIssued(): void
 public function testRenameRecolourAndReorderKeepIds(): void
 {
     $held = self::held([1 => new BrandSlot('Gold', '#8a6a2a'), 2 => new BrandSlot('Rose', '#c98a8a')]);
-    [$colors] = BrandColors::parse(BrandColors::applied(
+    [$colors] = BrandColors::parse(self::apply(
         $held,
         [self::row(2, 'Blush', '#d9a0a0'), self::row(1, 'Gold', '#8a6a2a')],
-        static fn (): bool => false,
     ));
     self::assertSame([2, 1], array_keys($colors));
     self::assertSame('Blush', $colors[2]->name);
@@ -1433,14 +1561,14 @@ public function testASaveThatOmitsAColourIsRefused(): void
     $held = self::held([1 => new BrandSlot('Gold', '#8a6a2a'), 2 => new BrandSlot('Teal', '#0f766e')]);
     $this->expectException(BrandColorsRefused::class);
     $this->expectExceptionMessage('Remove a brand colour with Clear: Teal is missing from this save');
-    BrandColors::applied($held, [self::row(1, 'Gold', '#8a6a2a')], static fn (): bool => false);
+    self::apply($held, [self::row(1, 'Gold', '#8a6a2a')]);
 }
 
 public function testAnIdThatIsNotConfiguredIsRefusedByItsName(): void
 {
     $held = self::held([1 => new BrandSlot('Gold', '#8a6a2a')], [3 => 'Teal']);
     $this->expectExceptionMessage("Teal isn't in the palette");
-    BrandColors::applied($held, [self::row(1, 'Gold', '#8a6a2a'), self::row(3, 'Teal')], static fn (): bool => false);
+    self::apply($held, [self::row(1, 'Gold', '#8a6a2a'), self::row(3, 'Teal')]);
 }
 
 public function testAddingPastTheLimitIsRefusedButEditingAboveItIsNot(): void
@@ -1453,24 +1581,24 @@ public function testAddingPastTheLimitIsRefusedButEditingAboveItIsNot(): void
     $held = self::held($four);
     $rows = array_map(static fn (int $id): array => self::row($id, "C{$id}"), [1, 2, 3, 4]);
     $rows[0]['name'] = 'Renamed';
-    self::assertStringContainsString('Renamed', BrandColors::applied($held, $rows, static fn (): bool => false));
+    self::assertStringContainsString('Renamed', self::apply($held, $rows));
     // …but nothing can be added until the count is under the limit
     $this->expectException(BrandColorsRefused::class);
     $this->expectExceptionMessage('This site allows 3 brand colours');
-    BrandColors::applied($held, [...$rows, self::row(null, 'New')], static fn (): bool => false);
+    self::apply($held, [...$rows, self::row(null, 'New')]);
 }
 
 public function testTheLimitMessageSaysOneColour(): void
 {
     $held = self::held([1 => new BrandSlot('Gold', '#8a6a2a')], [], 1);
     $this->expectExceptionMessage('This site allows 1 brand colour');
-    BrandColors::applied($held, [self::row(1, 'Gold', '#8a6a2a'), self::row(null, 'New')], static fn (): bool => false);
+    self::apply($held, [self::row(1, 'Gold', '#8a6a2a'), self::row(null, 'New')]);
 }
 
 public function testLimitZeroRefusesAnySave(): void
 {
     $this->expectExceptionMessage('Brand colours are turned off on this site');
-    BrandColors::applied(self::held([], [], 0), [], static fn (): bool => false);
+    self::apply(self::held([], [], 0), []);
 }
 
 public function testAColourBeingReplacedCannotChangeButMayMove(): void
@@ -1478,23 +1606,46 @@ public function testAColourBeingReplacedCannotChangeButMayMove(): void
     $held = self::held([1 => new BrandSlot('Gold', '#8a6a2a'), 2 => new BrandSlot('Rose', '#c98a8a')]);
     $replacing = static fn (int $id): bool => $id === 1;
     // moving it is a label-order change only
-    BrandColors::applied($held, [self::row(2, 'Rose', '#c98a8a'), self::row(1, 'Gold', '#8a6a2a')], $replacing);
+    self::apply($held, [self::row(2, 'Rose', '#c98a8a'), self::row(1, 'Gold', '#8a6a2a')], $replacing);
     $this->expectException(PaletteConflict::class);
     $this->expectExceptionMessage('Gold is being replaced');
-    BrandColors::applied($held, [self::row(1, 'Gold', '#000000'), self::row(2, 'Rose', '#c98a8a')], $replacing);
+    self::apply($held, [self::row(1, 'Gold', '#000000'), self::row(2, 'Rose', '#c98a8a')], $replacing);
+}
+
+public function testAListEditedFromAnOlderRevisionIsRefused(): void
+{
+    // A renamed Gold to Amber (revision 4 → 5); B, holding revision 4, re-colours Rose and would
+    // send Gold back. Whatever changed — a rename, a re-colour, a reorder, an add, a Clear — the
+    // stale list is refused and nothing it carries is written.
+    $held = self::held([1 => new BrandSlot('Amber', '#8a6a2a'), 2 => new BrandSlot('Rose', '#c98a8a')]);
+    $this->expectException(PaletteConflict::class);
+    $this->expectExceptionMessage('Brand colours changed since you opened this page');
+    self::apply($held, [self::row(1, 'Gold', '#8a6a2a'), self::row(2, 'Rose', '#000000')], null, 4, 5);
+}
+
+public function testTheStoredValueIsAtTheNextRevision(): void
+{
+    $held = self::held([1 => new BrandSlot('Gold', '#8a6a2a')]);
+    self::assertSame(8, BrandColors::parse(self::apply($held, [self::row(1, 'Gold', '#8a6a2a')], null, 7, 7))[2]);
 }
 
 public function testSubmittedListsAreParsedStrictly(): void
 {
     self::assertSame(
-        [['id' => 2, 'name' => 'Gold', 'hex' => '#8a6a2a'], ['id' => null, 'name' => 'Rose', 'hex' => '#aabbcc']],
-        PaletteSettings::parseSubmitted('{"colors":[{"id":2,"name":" Gold ","hex":"#8A6A2A"},{"name":"Rose","hex":"#abc"}]}'),
+        ['base' => 3, 'rows' => [
+            ['id' => 2, 'name' => 'Gold', 'hex' => '#8a6a2a'],
+            ['id' => null, 'name' => 'Rose', 'hex' => '#aabbcc'],
+        ]],
+        PaletteSettings::parseSubmitted(
+            '{"base":3,"colors":[{"id":2,"name":" Gold ","hex":"#8A6A2A"},{"name":"Rose","hex":"#abc"}]}',
+        ),
     );
     foreach ([
-        '', 'nope', '{"colors":"x"}', '{"colors":[{"id":2,"name":"","hex":"#123456"}]}',
-        '{"colors":[{"id":0,"name":"A","hex":"#123456"}]}',
-        '{"colors":[{"id":2,"name":"A","hex":"#123456"},{"id":2,"name":"B","hex":"#123456"}]}',
-        '{"colors":[{"id":"2","name":"A","hex":"#123456"}]}',
+        '', 'nope', '{"base":0,"colors":"x"}', '{"base":0,"colors":[{"id":2,"name":"","hex":"#123456"}]}',
+        '{"base":0,"colors":[{"id":0,"name":"A","hex":"#123456"}]}',
+        '{"base":0,"colors":[{"id":2,"name":"A","hex":"#123456"},{"id":2,"name":"B","hex":"#123456"}]}',
+        '{"base":0,"colors":[{"id":"2","name":"A","hex":"#123456"}]}',
+        '{"colors":[]}', '{"base":-1,"colors":[]}', '{"base":"1","colors":[]}',
     ] as $bad) {
         self::assertNull(PaletteSettings::parseSubmitted($bad), $bad);
     }
@@ -1512,18 +1663,21 @@ public function testBrandColoursAreSavedAsAListAndGetPermanentIds(): void
 {
     $controller = $this->container()->get(GeneralSettingsController::class);
     $res = $controller->update(new UpdateGeneralSettingsData(
-        theme_brand_colors: '{"colors":[{"name":"Gold dark","hex":"#8A6A2A"},{"name":"Rose","hex":"#c98a8a"}]}',
+        theme_brand_colors: '{"base":0,"colors":[{"name":"Gold dark","hex":"#8A6A2A"},{"name":"Rose","hex":"#c98a8a"}]}',
     ));
     self::assertSame(200, $res->getStatusCode(), (string) $res->getContent());
     $palette = $this->container()->get(PaletteSettings::class)->palette();
     self::assertSame([1, 2], $palette->ids());
     self::assertSame('#8a6a2a', $palette->brand(1)?->hex);
+    // The response carries the stored list: the ids it gave and the revision to edit from.
+    $stored = json_decode((string) $res->getContent(), true)['data']['settings']['theme_brand_colors'];
+    self::assertSame(1, BrandColors::parse($stored)[2]);
 
     foreach ([
-        ['{"colors":[{"id":1,"name":"Gold dark","hex":"#8a6a2a"}]}', 'Remove a brand colour with Clear'],
-        ['{"colors":[{"id":1,"name":"Gold dark","hex":"#8a6a2a"},{"id":2,"name":"Rose","hex":"#c98a8a"},'
+        ['{"base":1,"colors":[{"id":1,"name":"Gold dark","hex":"#8a6a2a"}]}', 'Remove a brand colour with Clear'],
+        ['{"base":1,"colors":[{"id":1,"name":"Gold dark","hex":"#8a6a2a"},{"id":2,"name":"Rose","hex":"#c98a8a"},'
             . '{"name":"A","hex":"#111111"},{"name":"B","hex":"#222222"}]}', 'This site allows 3 brand colours'],
-        ['{"colors":[{"id":1,"name":"","hex":"#8a6a2a"}]}', 'a name (1–32 characters) and a hex colour'],
+        ['{"base":1,"colors":[{"id":1,"name":"","hex":"#8a6a2a"}]}', 'a name (1–32 characters) and a hex colour'],
         ['', 'clear a brand colour with Clear'],
     ] as [$body, $message]) {
         $refused = $controller->update(new UpdateGeneralSettingsData(theme_brand_colors: $body));
@@ -1533,39 +1687,65 @@ public function testBrandColoursAreSavedAsAListAndGetPermanentIds(): void
     self::assertSame([1, 2], $this->container()->get(PaletteSettings::class)->palette()->ids());
 }
 
-public function testAStaleListIsRefusedNamingTheColourItWouldDrop(): void
+/** @return list<array{string, \Closure(): void}> what someone else may have done meanwhile */
+private function otherEdits(GeneralSettingsController $controller): array
+{
+    $save = fn (string $colors) => $controller->update(new UpdateGeneralSettingsData(
+        theme_brand_colors: '{"base":1,"colors":' . $colors . '}',
+    ));
+    return [
+        ['a rename', fn () => $save('[{"id":1,"name":"Amber","hex":"#8a6a2a"},{"id":2,"name":"Rose","hex":"#c98a8a"}]')],
+        ['a re-colour', fn () => $save('[{"id":1,"name":"Gold","hex":"#000000"},{"id":2,"name":"Rose","hex":"#c98a8a"}]')],
+        ['a reorder', fn () => $save('[{"id":2,"name":"Rose","hex":"#c98a8a"},{"id":1,"name":"Gold","hex":"#8a6a2a"}]')],
+        ['an add', fn () => $save('[{"id":1,"name":"Gold","hex":"#8a6a2a"},{"id":2,"name":"Rose","hex":"#c98a8a"},'
+            . '{"name":"Teal","hex":"#0f766e"}]')],
+        ['a Clear', fn () => $this->container()->get(PaletteMutations::class)->clear(2, null)],
+    ];
+}
+
+public function testAStaleListIsRefusedWhateverChangedMeanwhile(): void
 {
     $controller = $this->container()->get(GeneralSettingsController::class);
-    $controller->update(new UpdateGeneralSettingsData(theme_brand_colors: '{"colors":[{"name":"Gold","hex":"#8a6a2a"}]}'));
-    // A adds Teal (id 2); B, still holding [1], adds Sky
-    $controller->update(new UpdateGeneralSettingsData(
-        theme_brand_colors: '{"colors":[{"id":1,"name":"Gold","hex":"#8a6a2a"},{"name":"Teal","hex":"#0f766e"}]}',
-    ));
-    $b = $controller->update(new UpdateGeneralSettingsData(
-        theme_brand_colors: '{"colors":[{"id":1,"name":"Gold","hex":"#8a6a2a"},{"name":"Sky","hex":"#38bdf8"}]}',
-    ));
-    self::assertSame(422, $b->getStatusCode());
-    self::assertStringContainsString('Teal is missing from this save', (string) $b->getContent());
-    self::assertSame([1, 2], $this->container()->get(PaletteSettings::class)->palette()->ids());
+    foreach ($this->otherEdits($controller) as [$what, $edit]) {
+        $this->container()->get(GeneralSettings::class)->save(['theme_brand_colors' => BrandColors::encode(
+            [1 => new BrandSlot('Gold', '#8a6a2a'), 2 => new BrandSlot('Rose', '#c98a8a')],
+            [],
+            1,
+        )]);
+        $edit(); // A, from revision 1
+        $before = $this->container()->get(GeneralSettings::class)->storedValue('theme_brand_colors');
+        // B, still holding revision 1, re-colours Gold
+        $b = $controller->update(new UpdateGeneralSettingsData(
+            theme_brand_colors: '{"base":1,"colors":[{"id":1,"name":"Gold","hex":"#123456"},{"id":2,"name":"Rose","hex":"#c98a8a"}]}',
+        ));
+        self::assertSame(409, $b->getStatusCode(), $what);
+        self::assertStringContainsString('Brand colours changed since you opened this page', (string) $b->getContent(), $what);
+        self::assertSame($before, $this->container()->get(GeneralSettings::class)->storedValue('theme_brand_colors'), $what);
+    }
 }
 
 public function testAddingAndClearingThenAddingNeverReusesAnId(): void
 {
     $controller = $this->container()->get(GeneralSettingsController::class);
     $controller->update(new UpdateGeneralSettingsData(
-        theme_brand_colors: '{"colors":[{"name":"A","hex":"#111111"},{"name":"B","hex":"#222222"},{"name":"C","hex":"#333333"}]}',
+        theme_brand_colors: '{"base":0,"colors":[{"name":"A","hex":"#111111"},{"name":"B","hex":"#222222"},{"name":"C","hex":"#333333"}]}',
     ));
-    $this->container()->get(PaletteMutations::class)->clear(3, null);
+    $this->container()->get(PaletteMutations::class)->clear(3, null); // revision 1 → 2
     $controller->update(new UpdateGeneralSettingsData(
-        theme_brand_colors: '{"colors":[{"id":1,"name":"A","hex":"#111111"},{"id":2,"name":"B","hex":"#222222"},{"name":"D","hex":"#444444"}]}',
+        theme_brand_colors: '{"base":2,"colors":[{"id":1,"name":"A","hex":"#111111"},{"id":2,"name":"B","hex":"#222222"},{"name":"D","hex":"#444444"}]}',
     ));
     self::assertSame([1, 2, 4], $this->container()->get(PaletteSettings::class)->palette()->ids());
 }
 ```
 
+Also finish `BrandSlotsToListTest::testAClearedRevisionFourSlotIsNeverReissued` with its settings
+save and the two assertions after it, as written in Task 3.
+
 Also remove every `markTestIncomplete('Task 4: …')` left by Task 3, rewriting those tests'
 bodies to send `theme_brand_colors`. `PaletteMutationsTest::testRenamingTheSourceOfAJobIsAConflictButRenamingAReservedSlotIsNot`
-goes through `PaletteMutations::save(['theme_brand_colors' => <submitted JSON>], null)`.
+goes through `PaletteMutations::save(['theme_brand_colors' => <submitted JSON with the current "base">], null)`.
+Every test that posts a list sends `"base"`: the stored revision, which is 0 for an unset list, or
+whatever `BrandColors::parse(...)[2]` reads after the fixture's writes.
 
 - [ ] **Step 2: Run them to see them fail**
 
@@ -1600,15 +1780,22 @@ final class BrandColorsRefused extends \DomainException
      * a colour may leave only through Clear, so a list that omits one is refused; an id that is not
      * configured is refused by its name; a save that adds a colour must stay within the limit,
      * while colours above a lowered limit stay editable. A colour being replaced may move but not
-     * change.
+     * change. A list edited from an older revision is refused whatever it changes, so a save never
+     * reverts what someone else saved meanwhile (plan ruling 3).
      *
+     * @param int $revision the stored list's revision, read under the palette row
+     * @param int $base the revision the submitted list was edited from
      * @param list<array{id: ?int, name: string, hex: string}> $rows
      * @param \Closure(int): bool $replacing whether a running replacement replaces the id
+     * @return string the value to store, at `$revision + 1`
      * @throws BrandColorsRefused
      * @throws PaletteConflict
      */
-    public static function applied(Palette $held, array $rows, \Closure $replacing): string
+    public static function applied(Palette $held, int $revision, int $base, array $rows, \Closure $replacing): string
     {
+        if ($base !== $revision) {
+            throw new PaletteConflict('Brand colours changed since you opened this page — reload to see the latest');
+        }
         if ($held->limit === 0) {
             throw new BrandColorsRefused('Brand colours are turned off on this site');
         }
@@ -1616,8 +1803,7 @@ final class BrandColorsRefused extends \DomainException
         foreach ($held->brands as $id => $brand) {
             if (!in_array($id, $sent, true)) {
                 throw new BrandColorsRefused(
-                    "Remove a brand colour with Clear: {$brand->name} is missing from this save "
-                    . '(reload if someone else just added it)',
+                    "Remove a brand colour with Clear: {$brand->name} is missing from this save",
                 );
             }
         }
@@ -1647,7 +1833,7 @@ final class BrandColorsRefused extends \DomainException
             }
             $colors[$row['id']] = $slot;
         }
-        return self::encode($colors, $held->removed);
+        return self::encode($colors, $held->removed, $revision + 1);
     }
 ```
 
@@ -1658,16 +1844,20 @@ final class BrandColorsRefused extends \DomainException
 
 ```php
     /**
-     * A submitted brand colour list (custom palette spec §2.3), normalised — names trimmed, hex
-     * lower-case — or null when it is not a list of valid colours with distinct ids. A missing or
-     * null id is a new colour; `removed` is the server's and is ignored.
+     * A submitted brand colour list (custom palette spec §2.3) and the revision it was edited from,
+     * normalised — names trimmed, hex lower-case — or null when it names no base revision or is not a
+     * list of valid colours with distinct ids. A missing or null id is a new colour; `removed` is the
+     * server's and is ignored.
      *
-     * @return list<array{id: ?int, name: string, hex: string}>|null
+     * @return array{base: int, rows: list<array{id: ?int, name: string, hex: string}>}|null
      */
     public static function parseSubmitted(string $json): ?array
     {
         $data = json_decode($json, true);
-        if (!is_array($data) || !is_array($data['colors'] ?? null) || !array_is_list($data['colors'])) {
+        if (
+            !is_array($data) || !is_int($data['base'] ?? null) || $data['base'] < 0
+            || !is_array($data['colors'] ?? null) || !array_is_list($data['colors'])
+        ) {
             return null;
         }
         $rows = [];
@@ -1689,7 +1879,7 @@ final class BrandColorsRefused extends \DomainException
             }
             $rows[] = ['id' => $id, 'name' => $slot->name, 'hex' => $slot->hex];
         }
-        return $rows;
+        return ['base' => $data['base'], 'rows' => $rows];
     }
 ```
 
@@ -1701,7 +1891,7 @@ final class BrandColorsRefused extends \DomainException
             $errors['theme_brand_colors'] = 'clear a brand colour with Clear, which checks where it is used';
         } elseif ($list !== null && self::parseSubmitted($list) === null) {
             $errors['theme_brand_colors'] = 'a list of brand colours, each a name (1–'
-                . self::NAME_MAX . ' characters) and a hex colour';
+                . self::NAME_MAX . ' characters) and a hex colour, and the revision it was edited from';
         }
 ```
 
@@ -1711,8 +1901,9 @@ Delete `encodeBrand()` once `grep -rn encodeBrand core` shows no caller.
 
 ```php
         /**
-         * The brand colour list (custom palette spec §2.3): `{"colors":[{"id"?, "name", "hex"}, …]}`
-         * in display order; a colour without an id is new. Removing one is Clear's.
+         * The brand colour list (custom palette spec §2.3): `{"base": <revision>, "colors":[{"id"?,
+         * "name", "hex"}, …]}` in display order; a colour without an id is new; `base` is the stored
+         * revision the list was edited from (a stale one is a 409). Removing one is Clear's.
          */
         #[Rule('string')]
         public readonly ?string $theme_brand_colors = null,
@@ -1724,11 +1915,15 @@ Delete `encodeBrand()` once `grep -rn encodeBrand core` shows no caller.
 
 ```php
             if (array_key_exists('theme_brand_colors', $pairs)) {
-                $rows = PaletteSettings::parseSubmitted($pairs['theme_brand_colors'])
+                $submitted = PaletteSettings::parseSubmitted($pairs['theme_brand_colors'])
                     ?? throw new BrandColorsRefused('a list of brand colours is required');
+                // lock() cleared the store's read cache: this is the committed list and its revision.
+                [, , $revision] = BrandColors::parse($this->settings->stored('theme_brand_colors'));
                 $pairs['theme_brand_colors'] = BrandColors::applied(
                     $held->palette,
-                    $rows,
+                    $revision,
+                    $submitted['base'],
+                    $submitted['rows'],
                     static fn (int $id): bool => $held->jobReplacing($id) !== null,
                 );
             }
@@ -1766,7 +1961,7 @@ Expected: `phpcs exit 0`.
 
 ```bash
 git add core tests
-git commit -m "feat(palette): saving the brand colour list — new colours take the next id ever issued, a list that omits a colour or adds past the limit is refused (422), a colour being replaced may move but not change (409)"
+git commit -m "feat(palette): saving the brand colour list — new colours take the next id ever issued, a list edited from an older revision is refused (409) whatever it changes, a list that omits a colour or adds past the limit is refused (422), a colour being replaced may move but not change (409)"
 ```
 
 ### Task 5: The palette endpoints take an id; preview claims carry a list
@@ -2060,6 +2255,7 @@ git commit -m "feat(palette): the style schema's palette carries the limit, the 
 
 **Files:**
 - Create: `admin/src/pages/appearance/brandColors.ts`
+- Modify: `admin/src/composables/useSettingsForm.ts` (`adopt()`, `saved(sent?)`)
 - Modify: `admin/src/queries/palette.ts` (`BrandKey` → `BrandEntry`, `PaletteLook.palette.brands`, `fetchPaletteUsage` / `clearBrand` / `replaceBrand` take `id: number`)
 - Modify: `admin/src/queries/generalSettings.ts` (L45–54: `theme_brand_colors?: string`)
 - Modify: `admin/src/queries/styleSchema.ts` (`palette.limit`, `order`, `can_manage`; `PaletteSlot.state` adds `'removed'`, drops `'unset'`; `hex?: string | null`; `reserved?`/`replacing?` optional for removed)
@@ -2068,11 +2264,11 @@ git commit -m "feat(palette): the style schema's palette carries the limit, the 
 - Rewrite: `admin/src/pages/appearance/components/BrandColorsField.vue`
 - Modify: `admin/src/pages/appearance/components/ClearBrandDialog.vue` (`slot: 1|2|3` → `id: number`; `destinations`, `hasPair`)
 - Modify: `admin/src/pages/appearance/components/ContrastChecks.vue` (`label()`)
-- Test: `admin/src/__tests__/brandColors.spec.ts` (new), `admin/src/__tests__/appearance-palette.spec.ts`, `admin/src/__tests__/clear-brand-dialog.spec.ts`, `admin/src/__tests__/appearanceTabs.spec.ts`
+- Test: `admin/src/__tests__/brandColors.spec.ts` (new), `admin/src/__tests__/useSettingsForm.spec.ts` (new), `admin/src/__tests__/appearance-palette.spec.ts`, `admin/src/__tests__/clear-brand-dialog.spec.ts`, `admin/src/__tests__/appearanceTabs.spec.ts`
 
 **Interfaces:**
 - Consumes:
-  - the settings shape `theme_brand_colors` (Task 3);
+  - the settings shape `theme_brand_colors` with its `revision`, and the save response's `settings` (Task 3, Task 4);
   - the save refusals on `theme_brand_colors` (Task 4);
   - `/brand/{id}` (Task 5);
   - the schema's `palette.limit`, `order`, `slots`, `labels`, `can_manage` (Task 6);
@@ -2082,14 +2278,24 @@ git commit -m "feat(palette): the style schema's palette carries the limit, the 
 ```ts
 // brandColors.ts
 export interface BrandRow { key: string; id: number | null; name: string; hex: string }
-export interface StoredBrandColors { colors: Array<{ id: number; name: string; hex: string }>; removed: Array<{ id: number; name: string }> }
+export interface StoredBrandColors { revision: number; colors: Array<{ id: number; name: string; hex: string }>; removed: Array<{ id: number; name: string }> }
+export interface Submission { json: string; keys: string[] } // keys: the row behind each sent colour, in order
 export function parseStored(json: string | undefined): StoredBrandColors
+export function newer(a: StoredBrandColors, b: StoredBrandColors): StoredBrandColors
 export function parseDraft(json: string | undefined): BrandRow[]
 export function serializeDraft(rows: BrandRow[]): string
 export function newRow(): BrandRow
 export function validRow(row: BrandRow): { name: string; hex: string } | null
-export function submission(rows: BrandRow[], stored: StoredBrandColors): string | null
+export function submission(rows: BrandRow[], stored: StoredBrandColors): Submission | null
+export function adoptIds(rows: BrandRow[], sentKeys: string[], saved: StoredBrandColors): BrandRow[]
+export function dropRemoved(rows: BrandRow[], stored: StoredBrandColors): BrandRow[]
 export function previewBrands(rows: BrandRow[], stored: StoredBrandColors): BrandEntry[]
+```
+
+```ts
+// useSettingsForm.ts — gains:
+adopt(patch: Partial<Pick<GeneralSettings, K>>): void // writes without marking the form dirty
+saved(sent?: Pick<GeneralSettings, K>): void // clean only if the form still equals what was sent
 ```
 
 ```ts
@@ -2110,6 +2316,9 @@ PaletteLook.palette.brands: BrandEntry[]
 // into rows, what Save sends, and the list a preview frames.
 import { describe, it, expect } from 'vitest'
 import {
+  adoptIds,
+  dropRemoved,
+  newer,
   newRow,
   parseDraft,
   parseStored,
@@ -2119,7 +2328,7 @@ import {
 } from '@/pages/appearance/brandColors'
 
 const STORED =
-  '{"colors":[{"id":4,"name":"Gold","hex":"#8a6a2a"},{"id":1,"name":"Rose","hex":"#c98a8a"}],' +
+  '{"revision":3,"colors":[{"id":4,"name":"Gold","hex":"#8a6a2a"},{"id":1,"name":"Rose","hex":"#c98a8a"}],' +
   '"removed":[{"id":7,"name":"Teal"}]}'
 
 describe('brand colour rows', () => {
@@ -2128,7 +2337,8 @@ describe('brand colour rows', () => {
       [4, 'Gold'],
       [1, 'Rose'],
     ])
-    expect(parseStored('nope')).toEqual({ colors: [], removed: [] })
+    expect(parseStored('nope')).toEqual({ revision: 0, colors: [], removed: [] })
+    expect(parseStored(STORED).revision).toBe(3)
     expect(parseDraft('')).toEqual([])
   })
 
@@ -2141,7 +2351,8 @@ describe('brand colour rows', () => {
     const stored = parseStored(STORED)
     expect(submission(parseDraft(STORED), stored)).toBeNull()
     const moved = parseDraft(STORED).reverse()
-    expect(JSON.parse(submission(moved, stored)!)).toEqual({
+    expect(JSON.parse(submission(moved, stored)!.json)).toEqual({
+      base: 3,
       colors: [
         { id: 1, name: 'Rose', hex: '#c98a8a' },
         { id: 4, name: 'Gold', hex: '#8a6a2a' },
@@ -2152,11 +2363,58 @@ describe('brand colour rows', () => {
   it('sends a new row without an id once it is a name and a colour, and leaves an unfinished one out', () => {
     const stored = parseStored(STORED)
     const rows = [...parseDraft(STORED), { ...newRow(), name: 'Sky', hex: '#38BDF8' }, newRow()]
-    expect(JSON.parse(submission(rows, stored)!).colors.at(-1)).toEqual({
-      name: 'Sky',
-      hex: '#38bdf8',
+    const sent = submission(rows, stored)!
+    expect(JSON.parse(sent.json).colors.at(-1)).toEqual({ name: 'Sky', hex: '#38bdf8' })
+    expect(JSON.parse(sent.json).colors).toHaveLength(3)
+    expect(sent.keys).toEqual([rows[0]!.key, rows[1]!.key, rows[2]!.key])
+  })
+
+  it('takes the ids a save gave from its response, keeping edits made since', () => {
+    const stored = parseStored(STORED)
+    const sky = { ...newRow(), name: 'Sky', hex: '#38bdf8' }
+    const rows = [...parseDraft(STORED), sky]
+    const sent = submission(rows, stored)!
+    const saved = parseStored(
+      '{"revision":4,"colors":[{"id":4,"name":"Gold","hex":"#8a6a2a"},{"id":1,"name":"Rose","hex":"#c98a8a"},' +
+        '{"id":8,"name":"Sky","hex":"#38bdf8"}],"removed":[{"id":7,"name":"Teal"}]}',
+    )
+    // edited while the save was in flight: Sky renamed, and another row added
+    const now = [...rows.slice(0, 2), { ...sky, name: 'Sky blue' }, newRow()]
+    const adopted = adoptIds(now, sent.keys, saved)
+    expect(adopted.map((r) => [r.id, r.name])).toEqual([
+      [4, 'Gold'],
+      [1, 'Rose'],
+      [8, 'Sky blue'],
+      [null, ''],
+    ])
+    expect(adopted[2]!.key).toBe(sky.key) // never remounted
+    // the next save edits from the saved revision and names Sky by its id
+    expect(JSON.parse(submission(adopted, saved)!.json)).toMatchObject({
+      base: 4,
+      colors: [{ id: 4 }, { id: 1 }, { id: 8, name: 'Sky blue' }],
     })
-    expect(JSON.parse(submission(rows, stored)!).colors).toHaveLength(3)
+  })
+
+  it('adopts nothing when the response does not line up with what was sent', () => {
+    const stored = parseStored(STORED)
+    const rows = [...parseDraft(STORED), { ...newRow(), name: 'Sky', hex: '#38bdf8' }]
+    const sent = submission(rows, stored)!
+    expect(adoptIds(rows, sent.keys, stored)).toEqual(rows)
+  })
+
+  it('drops a colour that left the stored list, and keeps new rows', () => {
+    const cleared = parseStored(
+      '{"revision":4,"colors":[{"id":4,"name":"Gold","hex":"#8a6a2a"}],"removed":[{"id":1,"name":"Rose"},{"id":7,"name":"Teal"}]}',
+    )
+    const rows = [...parseDraft(STORED), newRow()]
+    expect(dropRemoved(rows, cleared).map((r) => r.id)).toEqual([4, null])
+  })
+
+  it('prefers the newer of two readings of the stored list', () => {
+    const older = parseStored(STORED)
+    const later = { ...older, revision: 4 }
+    expect(newer(older, later)).toBe(later)
+    expect(newer(later, older)).toBe(later)
   })
 
   it('keeps a saved colour whose fields are mid-edit as it was saved', () => {
@@ -2174,6 +2432,58 @@ describe('brand colour rows', () => {
 })
 ```
 
+`admin/src/__tests__/useSettingsForm.spec.ts`:
+
+```ts
+// One slice of the general settings on its own page (useSettingsForm): a value the page adopts from
+// the server never counts as an edit, and a save marks the form clean only if nothing was edited
+// while it was in flight.
+import { describe, it, expect } from 'vitest'
+import { nextTick, ref } from 'vue'
+import { useSettingsForm } from '@/composables/useSettingsForm'
+import type { GeneralSettings } from '@/queries/generalSettings'
+
+const settings = (over: Partial<GeneralSettings> = {}) =>
+  ({ site_logo: '', theme_radius: 'round', ...over }) as GeneralSettings
+
+describe('useSettingsForm', () => {
+  it('adopting a value is not an edit', async () => {
+    const data = ref<GeneralSettings | undefined>(settings())
+    const { form, dirty, adopt } = useSettingsForm(data, { site_logo: '', theme_radius: 'round' })
+    await nextTick()
+    adopt({ site_logo: 'blob00000001' })
+    await nextTick()
+    expect(form.site_logo).toBe('blob00000001')
+    expect(dirty.value).toBe(false)
+  })
+
+  it('a save marks the form clean only if nothing changed since it was sent', async () => {
+    const data = ref<GeneralSettings | undefined>(settings())
+    const { form, dirty, payload, saved } = useSettingsForm(data, { site_logo: '', theme_radius: 'round' })
+    await nextTick()
+    form.theme_radius = 'sharp'
+    await nextTick()
+    const sent = payload()
+    form.site_logo = 'blob00000002' // edited while the save was in flight
+    await nextTick()
+    saved(sent)
+    expect(dirty.value).toBe(true)
+    saved(payload())
+    expect(dirty.value).toBe(false)
+  })
+
+  it('saved() with nothing sent behaves as before', async () => {
+    const data = ref<GeneralSettings | undefined>(settings())
+    const { form, dirty, saved } = useSettingsForm(data, { site_logo: '', theme_radius: 'round' })
+    await nextTick()
+    form.theme_radius = 'sharp'
+    await nextTick()
+    saved()
+    expect(dirty.value).toBe(false)
+  })
+})
+```
+
 In `appearance-palette.spec.ts`, rewrite the brand tests for the list (the file mounts the page
 with mocks; set the settings fixture's `theme_brand_colors` to `STORED`-like JSON, and the
 schema's palette to `{limit: 3, order: ['brand-4', 'brand-1'], slots: {…}, …}`):
@@ -2186,6 +2496,21 @@ schema's palette to `{limit: 3, order: ['brand-4', 'brand-1'], slots: {…}, …
 - **`'the section is hidden when the limit is 0'`:** schema `limit: 0`, so no `brand-colors`.
 - **`'a refused list shows its message on the Colours tab'`:** save rejects with `ApiError(422, { theme_brand_colors: 'This site allows 3 brand colours' })`. The Colours tab has its error dot, and `brand-colors-error` shows the message.
 - **`'the preview carries the pending list, new rows numbered above every id seen'`:** after adding Sky, the last `previewPalette` call's `palette.brands` ends with `{ id: 8, name: 'Sky', … }`.
+- **`'adopts the assigned ids from the save response, so an edit before the refetch saves cleanly'`:**
+  - The settings query stays on the old value throughout (`settingsData` is not updated, so the refetch is "delayed").
+  - Add Sky and save; `saveMock` resolves with settings whose `theme_brand_colors` is revision 4 with Sky as id 8.
+  - Before any refetch, rename Sky to "Sky blue". The navbar Save chip still shows unsaved changes.
+  - Save again. The second payload's `theme_brand_colors` is `{"base":4,"colors":[…, {"id":8,"name":"Sky blue",…}]}`: no entry without an id, and no second Sky.
+- **`'an edit made while a save is in flight stays unsaved'`:**
+  - Make `saveMock` return a promise the test resolves later.
+  - Click Save, rename a row, then resolve.
+  - The Colours tab's unsaved dot and the navbar chip are still shown, and the renamed value is still in the field.
+- **`'a cleared colour leaves the rows without marking the form dirty'`:**
+  - After `ClearBrandDialog` emits `done` for id 4, set `settingsData` to the stored list with 4 removed and revision 4.
+  - Row `brand-row-4` is gone, no unsaved dot appears, and the next save's `base` is 4.
+- **`'a stale list’s 409 says to reload'`:**
+  - Save rejects with `ApiError('Brand colours changed since you opened this page — reload to see the latest', 409, {}, { error: { details: { conflict: '…' } } })`.
+  - The error toast carries that message, and the rows are unchanged.
 - Existing replacing and reserved tests: keyed by id 4 (`brand-row-4-progress`, `brand-row-4-reserved`).
 
 In `clear-brand-dialog.spec.ts`:
@@ -2220,8 +2545,15 @@ export interface BrandRow {
   hex: string
 }
 export interface StoredBrandColors {
+  /** What a list edited from this one names as its base; every write moves it on. */
+  revision: number
   colors: Array<{ id: number; name: string; hex: string }>
   removed: Array<{ id: number; name: string }>
+}
+/** A list to save, with the row behind each colour it sends, in order: how the response's ids are matched back. */
+export interface Submission {
+  json: string
+  keys: string[]
 }
 
 const NAME_MAX = 32
@@ -2241,7 +2573,9 @@ const isId = (v: unknown): v is number => Number.isInteger(v) && (v as number) >
 export function parseStored(json: string | undefined): StoredBrandColors {
   const data = parse(json)
   const list = (v: unknown) => (Array.isArray(v) ? (v as Array<Record<string, unknown>>) : [])
+  const revision = data?.revision
   return {
+    revision: Number.isInteger(revision) && (revision as number) >= 0 ? (revision as number) : 0,
     colors: list(data?.colors)
       .filter((c) => isId(c.id) && typeof c.name === 'string' && typeof c.hex === 'string')
       .map((c) => ({ id: c.id as number, name: c.name as string, hex: c.hex as string })),
@@ -2279,21 +2613,34 @@ export function validRow(row: BrandRow): { name: string; hex: string } | null {
   return name !== '' && name.length <= NAME_MAX && hex !== null ? { name, hex } : null
 }
 
+/** The newer of two readings of the stored list: a save's response can arrive before or after a refetch. */
+export function newer(a: StoredBrandColors, b: StoredBrandColors): StoredBrandColors {
+  return b.revision > a.revision ? b : a
+}
+
 /**
- * What Save sends for the rows, or null for nothing: a saved colour mid-edit goes as it was saved,
- * an unfinished new row stays out, and an unchanged list is not sent at all.
+ * What Save sends for the rows, or null for nothing: the list and the revision it was edited from.
+ * A saved colour mid-edit goes as it was saved, an unfinished new row stays out, and an unchanged
+ * list is not sent at all.
  */
-export function submission(rows: BrandRow[], stored: StoredBrandColors): string | null {
+export function submission(rows: BrandRow[], stored: StoredBrandColors): Submission | null {
   const saved = new Map(stored.colors.map((c) => [c.id, c]))
   const colors: Array<{ id?: number; name: string; hex: string }> = []
+  const keys: string[] = []
   for (const row of rows) {
     const valid = validRow(row)
     if (row.id === null) {
-      if (valid) colors.push(valid)
+      if (valid) {
+        colors.push(valid)
+        keys.push(row.key)
+      }
       continue
     }
     const kept = valid ?? saved.get(row.id)
-    if (kept) colors.push({ id: row.id, name: kept.name, hex: kept.hex })
+    if (kept) {
+      colors.push({ id: row.id, name: kept.name, hex: kept.hex })
+      keys.push(row.key)
+    }
   }
   const same =
     colors.length === stored.colors.length &&
@@ -2301,7 +2648,25 @@ export function submission(rows: BrandRow[], stored: StoredBrandColors): string 
       const s = stored.colors[i]!
       return c.id === s.id && c.name === s.name && c.hex === s.hex
     })
-  return same ? null : JSON.stringify({ colors })
+  return same ? null : { json: JSON.stringify({ base: stored.revision, colors }), keys }
+}
+
+/**
+ * The rows with the ids a save gave its new colours, read from the save's own response: the
+ * response lists the colours in the order they were sent, so the row behind the i-th sent colour
+ * takes the i-th id. Edits made since stay; a response that does not line up adopts nothing (the
+ * refetch then decides).
+ */
+export function adoptIds(rows: BrandRow[], sentKeys: string[], saved: StoredBrandColors): BrandRow[] {
+  if (saved.colors.length !== sentKeys.length) return rows
+  const ids = new Map(sentKeys.map((key, i) => [key, saved.colors[i]!.id]))
+  return rows.map((row) => (row.id === null && ids.has(row.key) ? { ...row, id: ids.get(row.key)! } : row))
+}
+
+/** The rows without colours that left the stored list (a Clear, a replacement completing); new rows stay. */
+export function dropRemoved(rows: BrandRow[], stored: StoredBrandColors): BrandRow[] {
+  const live = new Set(stored.colors.map((c) => c.id))
+  return rows.filter((row) => row.id === null || live.has(row.id))
 }
 
 /** The pending list for the preview: new finished rows numbered above every id seen (never stored). */
@@ -2363,11 +2728,27 @@ rewritten in Task 8; here only make it compile by treating a missing slot as una
 
 ```ts
 // ── The brand colours (custom palette spec §2.3, §5.1) ─────────────────────────────────────────
-const storedBrands = computed(() => parseStored(data.value?.theme_brand_colors))
+// The stored list as last seen — from the settings query or from a save's own response, whichever
+// is newer: the form ignores a refetch while it holds edits, so a save's ids and revision are taken
+// from the response directly (plan ruling 11).
+const latestBrands = ref(parseStored(data.value?.theme_brand_colors))
+watch(
+  () => data.value?.theme_brand_colors,
+  (json) => {
+    latestBrands.value = newer(latestBrands.value, parseStored(json))
+  },
+)
+const storedBrands = computed(() => latestBrands.value)
 const brandRows = computed<BrandRow[]>(() => parseDraft(form.theme_brand_colors))
 function setBrandRows(next: BrandRow[]): void {
   form.theme_brand_colors = serializeDraft(next)
 }
+// A colour that left the stored list — a Clear, a replacement completing — leaves the rows too,
+// as an adoption, not an edit.
+watch(latestBrands, (stored) => {
+  const kept = dropRemoved(brandRows.value, stored)
+  if (kept.length !== brandRows.value.length) adopt({ theme_brand_colors: serializeDraft(kept) })
+})
 const brandLimit = computed(() => styleSchema.value?.palette?.limit ?? 3)
 /** The message a refused list came back with, shown under the rows until the next save. */
 const brandError = ref<string | null>(null)
@@ -2376,15 +2757,53 @@ const brandError = ref<string | null>(null)
 - `pendingPalette.brands`: `previewBrands(brandRows.value, storedBrands.value)`.
 - `savedPalette.brands`: `storedBrands.value.colors.map((c) => ({ id: c.id, name: c.name, hex: c.hex }))`.
 - `emptyPalette()`: `brands: []`.
+- `useSettingsForm` destructuring adds `adopt`.
 - `savePayload()`: replace the brand loop with:
 
 ```ts
   const brands = submission(brandRows.value, storedBrands.value)
   if (brands === null) delete out.theme_brand_colors
-  else out.theme_brand_colors = brands
+  else out.theme_brand_colors = brands.json
 ```
 
-- `onSave`'s catch, before the tab switch: `brandError.value = (e as { fieldErrors?: Record<string, string> }).fieldErrors?.theme_brand_colors ?? null`. The start of `onSave` clears it.
+- `onSave`: send, then take the response's list and the new colours' ids, and mark the form clean
+  only if nothing was edited while the save was in flight:
+
+```ts
+async function onSave() {
+  errorTabs.value = new Set()
+  brandError.value = null
+  const sent = payload() // the form as it was when Save was pressed
+  const brands = submission(brandRows.value, storedBrands.value)
+  try {
+    const result = await save.mutateAsync(savePayload())
+    const savedBrands = parseStored(result.theme_brand_colors)
+    latestBrands.value = newer(latestBrands.value, savedBrands)
+    if (brands !== null) {
+      // The ids the save gave, into the rows as they are now and into what was sent, so "nothing
+      // changed since" compares like with like.
+      adopt({ theme_brand_colors: serializeDraft(adoptIds(brandRows.value, brands.keys, savedBrands)) })
+      sent.theme_brand_colors = serializeDraft(adoptIds(parseDraft(sent.theme_brand_colors), brands.keys, savedBrands))
+    }
+    saved(sent)
+    appearanceChanges.notify('appearance')
+    success('Appearance saved', 'Changes apply on the next page view.')
+  } catch (e) {
+    brandError.value = (e as { fieldErrors?: Record<string, string> }).fieldErrors?.theme_brand_colors ?? null
+    // A refused save opens the first tab, in tab order, holding a field it names (tabs spec §3).
+    const fields = (e as { fieldErrors?: Record<string, string> }).fieldErrors ?? {}
+    const holding = tabsHolding(Object.keys(fields))
+    errorTabs.value = holding
+    const first = tabs.value.find((t) => holding.has(t))
+    if (first !== undefined) tab.value = first
+    notifyError(e, 'Couldn’t save the appearance settings')
+  }
+}
+```
+
+  A stale list's 409 carries its message in the toast (`notifyError` reads the body's message).
+  The rows are left as they are, and reloading shows the latest.
+
 - `clearing` becomes `ref<number | null>(null)`, and `onClearBrand(id: number)`.
 - `clearingName`: `styleSchema.value?.palette?.labels[\`color.brand-${clearing.value}\`] ?? \`Brand ${clearing.value}\``.
 - The template's Brand colours field:
@@ -2410,6 +2829,33 @@ const brandError = ref<string | null>(null)
 
 (If `UFormField`'s `:error` already renders the text with a test hook, drop the `sr-only` line and
 point the test at that element.) `ClearBrandDialog` takes `:id="clearing"`.
+
+`useSettingsForm.ts`: add `adopt` and give `saved` an optional snapshot:
+
+```ts
+  /** A value the page takes from the server (a save's ids, a colour that left): never an edit. */
+  const adopt = (patch: Partial<Pick<GeneralSettings, K>>): void => {
+    syncing = true
+    Object.assign(form, patch)
+    void nextTick(() => {
+      syncing = false
+    })
+  }
+  /**
+   * Saved: the form matches the server again, so the post-save refetch may sync — unless it was
+   * edited while the save was in flight (`sent` is what was sent), when it stays dirty and keeps
+   * the edit.
+   */
+  const saved = (sent?: Pick<GeneralSettings, K>): void => {
+    if (sent !== undefined && keys.some((key) => form[key] !== sent[key])) return
+    dirty.value = false
+  }
+
+  return { form, dirty, payload, saved, adopt }
+```
+
+Update the file's header comment with one line on each. `pages/settings/general/index.vue` calls
+`saved()` without an argument and behaves as before.
 
 `BrandColorsField.vue` (rewrite):
 
@@ -2580,10 +3026,10 @@ with `'theme_brand_colors'`.
 
 - [ ] **Step 5: Run the tests to see them pass, then the admin gates**
 
-Run: `cd admin && pnpm vitest run src/__tests__/brandColors.spec.ts src/__tests__/appearance-palette.spec.ts src/__tests__/clear-brand-dialog.spec.ts src/__tests__/appearanceTabs.spec.ts src/__tests__/appearancePage.spec.ts`
+Run: `cd admin && pnpm vitest run src/__tests__/brandColors.spec.ts src/__tests__/useSettingsForm.spec.ts src/__tests__/appearance-palette.spec.ts src/__tests__/clear-brand-dialog.spec.ts src/__tests__/appearanceTabs.spec.ts src/__tests__/appearancePage.spec.ts src/__tests__/generalSettingsPage.spec.ts`
 Expected: PASS.
 
-Run: `cd admin && pnpm test > "$SCRATCH/v7.log" 2>&1; tail -5 "$SCRATCH/v7.log"; pnpm type-check && pnpm lint && pnpm exec oxfmt --check src/pages/appearance src/queries/palette.ts src/queries/generalSettings.ts src/queries/styleSchema.ts src/__tests__/brandColors.spec.ts src/__tests__/appearance-palette.spec.ts src/__tests__/clear-brand-dialog.spec.ts src/__tests__/appearanceTabs.spec.ts`
+Run: `cd admin && pnpm test > "$SCRATCH/v7.log" 2>&1; tail -5 "$SCRATCH/v7.log"; pnpm type-check && pnpm lint && pnpm exec oxfmt --check src/pages/appearance src/composables/useSettingsForm.ts src/__tests__/useSettingsForm.spec.ts src/queries/palette.ts src/queries/generalSettings.ts src/queries/styleSchema.ts src/__tests__/brandColors.spec.ts src/__tests__/appearance-palette.spec.ts src/__tests__/clear-brand-dialog.spec.ts src/__tests__/appearanceTabs.spec.ts`
 Expected: all pass. Picker specs that build a schema with `unset` slots fail type-check until Task
 8, so give their fixtures `limit`/`order` and drop `unset` entries here (ledger it).
 
@@ -2591,7 +3037,7 @@ Expected: all pass. Picker specs that build a schema with `unset` slots fail typ
 
 ```bash
 git add admin/src
-git commit -m "feat(admin): Appearance edits a list of brand colours — Add colour up to the limit (\"2 of 3\"), drag to reorder, remove an unsaved row, Clear a saved one by its id; the preview frames the pending list"
+git commit -m "feat(admin): Appearance edits a list of brand colours — Add colour up to the limit (\"2 of 3\"), drag to reorder, remove an unsaved row, Clear a saved one by its id; a save's ids and revision are taken from its response, and an edit made while it was in flight stays unsaved"
 ```
 
 ### Task 8: The colour pickers — a brand group, its text colours, and unavailable colours by name
@@ -2825,9 +3271,9 @@ git commit -m "feat(admin): colour pickers group brand colours after the theme's
 - [ ] **Step 1: The fixtures and the browser proof**
 
 In `scripts/build-palette-fixtures`:
-- Replace the two `theme_brand_N` saves with one `theme_brand_colors` save (`BrandColors::encode([1 => new BrandSlot('Gold dark', '#8a6a2a'), 12 => new BrandSlot('Rose', '#c98a8a')], [])`).
+- Replace the two `theme_brand_N` saves with one `theme_brand_colors` save (`BrandColors::encode([1 => new BrandSlot('Gold dark', '#8a6a2a'), 12 => new BrandSlot('Rose', '#c98a8a')], [], 1)`).
 - Change the `color.brand-2` tokens to `color.brand-12`.
-- Change the `theme_brand_2 => ''` clear to the fixture's `BrandColors::cleared($palette, 12)` written under the palette row, the way the script already takes it. If it writes settings directly, keep that.
+- Change the `theme_brand_2 => ''` clear to `BrandColors::cleared($settings->stored('theme_brand_colors'), 12)` written under the palette row, the way the script already takes it. If it writes settings directly, keep that.
 
 In `tools/runtime-browser/tests/palette.spec.js`:
 - read `brand-2` as `brand-12` throughout;
@@ -2841,7 +3287,7 @@ id gets no class.
 
 - Update `admin/e2e/helpers.ts`'s style-schema mock palette to `{limit: 3, order: […], slots: {…}, …}` without `unset` entries.
 - In `palette-normalized-save.spec.ts` and `palette-restore-history.spec.ts`, open Appearance with `?tab=colours` where they drive Appearance.
-- Add to `appearance-page.spec.ts` one test, *"a brand colour can be added, saved with an id, and offered in a block's colour picker"*: it routes the settings save and asserts the sent `theme_brand_colors` has a new entry without an id; it does not need the picker.
+- Add to `appearance-page.spec.ts` one test, *"a brand colour can be added, saved with an id, and offered in a block's colour picker"*: it routes the settings save and asserts the sent `theme_brand_colors` names `base` and has a new entry without an id. A second save after the routed response (revision + 1, the new id) sends that id and the new `base`. It does not need the picker.
 
 Rebuild the e2e fixtures first (`rm -rf admin/e2e/fixtures && CACHE_DRIVER=array DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-builder-proof-fixtures`).
 
@@ -2864,7 +3310,7 @@ should touch only those operations. Then `cd admin && pnpm gen:api`, and check t
 
 - [ ] **Step 4: Docs**
 
-- **`docs/guides/01-appearance.md` "Brand colours":** **Add colour** appends a row, and each colour gets a permanent id. The count shows against the limit ("2 of 3"), and the limit is your host's setting. Drag to reorder: the order is the pickers' order. A colour that's never been saved has a remove button; a saved one leaves only through **Clear**. Remove "Up to three".
+- **`docs/guides/01-appearance.md` "Brand colours":** **Add colour** appends a row, and each colour gets a permanent id. The count shows against the limit ("2 of 3"), and the limit is your host's setting. Drag to reorder: the order is the pickers' order. A colour that's never been saved has a remove button; a saved one leaves only through **Clear**. If someone else changed the brand colours since you opened the page, Save asks you to reload rather than overwrite their change. Remove "Up to three".
 - **`docs/reference/05-style-settings.md`:** the colour names include `brand-N` / `brand-N-contrast` for each configured colour. Pickers group them as **Brand colours** with **Text colours** folded away. An unavailable colour reads "Unavailable colour: Teal (removed)" or "Brand 7" and applies no colour.
 - **`packages/thallo-render/docs/THEMING.md`:** `brand-*` tokens are site-controlled (any id). A theme's mapping is ignored and the Doctor warns. Their utilities come from the workspace's colours stylesheet, linked by `theme_colors_style()`, so a theme layout needs nothing new.
 - **`docs/reference/02-configuration.md`:** a row for `THALLO_BRAND_COLORS_MAX` (`theme.brand_colors.max`, default 3, 0–12, 0 turns brand colours off; lowering it keeps existing colours).
