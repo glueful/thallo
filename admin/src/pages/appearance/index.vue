@@ -493,7 +493,7 @@ async function onSave() {
         </div>
         <!-- The settings in tabs on the left; the homepage wearing them on the right, pinned while
              the cards scroll, whichever tab is open. Below xl the preview comes first, full width. -->
-        <div v-else class="grid gap-6 xl:grid-cols-[minmax(0,25rem)_minmax(0,1fr)]">
+        <div v-else class="grid gap-6 xl:grid-cols-[minmax(0,30rem)_minmax(0,1fr)]">
           <div class="order-2 xl:order-1">
             <!-- UTabs' own panels, kept mounted: each is wired to its tab (id / aria-labelledby /
                  aria-controls), hidden with the `hidden` attribute, and nothing unsaved is lost on
@@ -503,7 +503,13 @@ async function onSave() {
               variant="link"
               :items="tabItems"
               :unmount-on-hide="false"
-              :ui="{ list: 'mb-4' }"
+              :ui="{
+                // Whole labels, never truncated: the column is wide enough for all five at xl, and
+                // the strip scrolls sideways where it is not.
+                list: 'mb-4 overflow-x-auto',
+                trigger: 'shrink-0 px-2',
+                label: 'overflow-visible text-clip',
+              }"
               data-test="appearance-tabs"
             >
               <template #trailing="{ item }">
