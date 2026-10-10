@@ -32,7 +32,11 @@ final class PaletteApiTest extends AppTestCase
     {
         $this->scrubGrants();
         if ($this->madePermission !== null) {
-            $this->connection()->table('permissions')->where('uuid', '=', $this->madePermission)->delete();
+            // Hard: a soft-deleted row keeps its unique name, and the next provisioning of the
+            // catalog (InstallRoleGrants, the setup tests) would collide with it.
+            $this->connection()->table('role_permissions')->where('permission_uuid', '=', $this->madePermission)
+                ->forceDelete();
+            $this->connection()->table('permissions')->where('uuid', '=', $this->madePermission)->forceDelete();
             \Glueful\Extensions\Aegis\Repositories\PermissionRepository::clearCache();
         }
         parent::tearDown();

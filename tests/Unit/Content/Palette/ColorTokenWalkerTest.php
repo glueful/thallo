@@ -122,4 +122,24 @@ final class ColorTokenWalkerTest extends AppTestCase
         self::assertTrue($this->walker()->hasBrand(ColorTokenWalker::KIND_SECTION, $section));
         self::assertFalse($this->walker()->hasBrand(ColorTokenWalker::KIND_CLASS, ['style' => []]));
     }
+
+    public function testABlockTypeAddedAfterTheWalkerFirstLookedIsSeen(): void
+    {
+        $walker = $this->walker();
+        $doc = ['body' => [[
+            'id' => 'pfnew0000001', 'type' => 'pfswatch',
+            'data' => ['ink' => self::tok('color.brand-1')], 'settings' => [],
+        ]]];
+        self::assertSame([], $walker->tokens(ColorTokenWalker::KIND_ENTRY, $doc, $this->schema()), 'no such type yet');
+        // installed while the same walker lives on — a long-lived worker, or the next test in a process
+        $this->container()->get(\Thallo\Core\Content\Blocks\BlockTypeRepository::class)->create([
+            'slug' => 'pfswatch', 'label' => 'Swatch', 'schema' => [
+                ['name' => 'ink', 'type' => 'token', 'domain' => 'color'],
+            ],
+        ]);
+        self::assertSame(
+            ['pfnew0000001:data.ink' => 'color.brand-1'],
+            $walker->tokens(ColorTokenWalker::KIND_ENTRY, $doc, $this->schema()),
+        );
+    }
 }

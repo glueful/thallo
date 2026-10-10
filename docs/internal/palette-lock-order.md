@@ -64,6 +64,9 @@ own: the writer row that calls it decides whether the write is fenced.
 | EntryVersionsSource | entry_versions (CAS, in place) | style class jobs, the settings converter (never the replace job: history is not rewritten) |
 | PublishedEntriesSource | entry_versions + entry_publications (append-and-repin) | block-type migrations, style class jobs, the replace job |
 | RegionsSource | regions.blocks (CAS) | block-type migrations, style class jobs, the replace job |
+| RegionSettingsSource | regions.settings (CAS, under the region lock) | the replace job |
+| LayoutSettingsSource | layouts.settings (CAS, through LayoutRepository::persistSettings) | the replace job |
+| StyleClassesSource | style_classes (versioned, through StyleClassRepository::update) | the replace job |
 | RegionRepository | regions | region save, RegionKind, RetireAccountLinkCommand |
 | LayoutRepository | layouts | layout save, LayoutBindings, LayoutsSource |
 | LayoutsSource | layouts.blocks (CAS) | block-type migrations, style class jobs, the replace job |
