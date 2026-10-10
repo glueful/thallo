@@ -28,6 +28,12 @@ as the next release, never a mutated tag.
   completed brand colour replacement to their undo history once, in order
   (`GET /v1/admin/appearance/palette/replacements`); an editor left open past the 90-day replacement
   history asks to be reloaded.
+- **Clearing a brand colour checks where it is used**: `DELETE /v1/admin/appearance/palette/brand/{slot}`
+  clears it only when no draft, current publication, region, layout, saved section or style class
+  names it (409 with the usage otherwise; historical versions never block). While a replacement runs,
+  the slot it replaces cannot be renamed, re-coloured or cleared and the slots it writes to cannot be
+  cleared (409). `POST /v1/admin/appearance/palette/preview` returns the contrast checks for unsaved
+  palette values. Palette changes take the palette row, so they never interleave with a save.
 
 ## [1.0.0-beta.97] - 2026-10-09 — Developer Preview
 

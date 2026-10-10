@@ -4,12 +4,24 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Http;
 
+use Glueful\Http\Response;
+use Glueful\Validation\RequestDataHydrator;
 use Thallo\Core\Content\Palette\Http\PaletteController;
+use Thallo\Core\Content\Palette\Http\PalettePreviewData;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Http\Controllers\GeneralSettingsController;
+use Thallo\Core\Http\DTOs\UpdateGeneralSettingsData;
 use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\Palette\PaletteFixtures;
+use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
 
 /** The palette's admin routes (custom palette spec §4, §5): auth, content.manage, the slot range. */
 final class PaletteApiTest extends AppTestCase
 {
+    use PaletteFixtures;
+    use SyncsBlockStyleDeclarations;
+
     /** @return list<array{0: string, 1: string, 2: string}> */
     public static function routes(): array
     {
@@ -20,6 +32,8 @@ final class PaletteApiTest extends AppTestCase
                 '/v1/admin/appearance/palette/replacements',
                 'content_permission:content.edit,content.manage,templates.manage,styles.manage',
             ],
+            ['DELETE', '/v1/admin/appearance/palette/brand/{slot}', 'content_permission:content.manage'],
+            ['POST', '/v1/admin/appearance/palette/preview', 'content_permission:content.manage'],
         ];
     }
 
@@ -38,5 +52,100 @@ final class PaletteApiTest extends AppTestCase
         $controller = $this->container()->get(PaletteController::class);
         self::assertSame(404, $controller->usage(4)->getStatusCode());
         self::assertSame(200, $controller->usage(1)->getStatusCode());
+    }
+
+    private function paletteController(): PaletteController
+    {
+        return $this->container()->get(PaletteController::class);
+    }
+
+    /** @return array<string,mixed> */
+    private static function data(Response $res): array
+    {
+        return json_decode((string) $res->getContent(), true)['data'] ?? [];
+    }
+
+    /** @return array<string,mixed> an error response's details */
+    private static function details(Response $res): array
+    {
+        return json_decode((string) $res->getContent(), true)['error']['details'] ?? [];
+    }
+
+    /** @param array<string,mixed> $body */
+    private static function dto(string $class, array $body): object
+    {
+        return (new RequestDataHydrator())->hydrate($class, $body);
+    }
+
+    private function draftNaming(string $token): void
+    {
+        $this->syncBlockStyleDeclarations();
+        $type = $this->container()->get(ContentTypeRepository::class)->create([
+            'slug' => 'pfapi', 'name' => 'Page',
+            'schema' => [['name' => 'title', 'type' => 'string'], ['name' => 'body', 'type' => 'blocks']],
+        ]);
+        $entries = $this->container()->get(EntryRepository::class);
+        $uuid = $entries->createEntry($type, 'en', 1, 'user00000001');
+        $lock = (int) ($entries->findDraft($uuid, 'en')['lock_version'] ?? 0);
+        $entries->saveDraft($uuid, 'en', ['body' => [self::heading($token)]], 1, $lock, 'user00000001');
+    }
+
+    public function testTheGeneralSettingsSaveRefusesRenamingASlotBeingReplaced(): void
+    {
+        $this->configure(1, 'Gold', '#8a6a2a');
+        $this->startJob(1, 'color.accent', 'color.accent-contrast');
+        $res = $this->container()->get(GeneralSettingsController::class)
+            ->update(new UpdateGeneralSettingsData(theme_brand_1: '{"name":"New","hex":"#8a6a2a"}'));
+        self::assertSame(409, $res->getStatusCode(), (string) $res->getContent());
+        self::assertSame('Gold', $this->container()->get(\Thallo\Core\Settings\PaletteSettings::class)
+            ->palette()->brand(1)?->name);
+    }
+
+    public function testClearReturnsTheUsageOn409AndThePaletteOn200(): void
+    {
+        $this->configure(1, 'Gold', '#8a6a2a');
+        $this->configure(2, 'Rose', '#c98a8a');
+        $this->draftNaming('color.brand-1');
+        $res = $this->paletteController()->clear(1);
+        self::assertSame(409, $res->getStatusCode());
+        self::assertSame(1, self::details($res)['usage']['blocking']['total']);
+        $ok = $this->paletteController()->clear(2);
+        self::assertSame(200, $ok->getStatusCode(), (string) $ok->getContent());
+        self::assertSame('unset', self::data($ok)['palette']['slots']['brand-2']['state']);
+    }
+
+    public function testClearingAJobsSourceReturnsTheConflict(): void
+    {
+        $this->configure(1, 'Gold', '#8a6a2a');
+        $this->startJob(1, 'color.accent', 'color.accent-contrast');
+        $res = $this->paletteController()->clear(1);
+        self::assertSame(409, $res->getStatusCode());
+        self::assertSame('Gold is part of a running replacement', self::details($res)['conflict'] ?? null);
+    }
+
+    public function testThePreviewReturnsRowsForUnsavedValues(): void
+    {
+        $res = $this->paletteController()->preview(self::dto(PalettePreviewData::class, [
+            'theme_accent' => 'blue', 'theme_neutral' => 'custom', 'theme_background' => 'tinted',
+            'palette' => [
+                'neutral_custom' => [
+                    'bg' => '#f8f4ec', 'surface' => '#ffffff', 'surface_2' => '#efe7d8',
+                    'ink' => '#1b1712', 'muted' => '#6b6156', 'line' => '#e2d8c6',
+                ],
+                'dark_base' => 'stone',
+                'brands' => ['1' => ['name' => 'Gold', 'hex' => '#8a6a2a']],
+            ],
+        ]));
+        self::assertSame(200, $res->getStatusCode(), (string) $res->getContent());
+        $data = self::data($res);
+        self::assertCount(2 * (6 + 2 + 2), $data['rows']);
+        self::assertSame('#ffffff', $data['values']['light']['background'], 'tinted swapped');
+        self::assertArrayHasKey('brand-1', $data['values']['dark']);
+        $bad = $this->paletteController()
+            ->preview(self::dto(PalettePreviewData::class, ['palette' => ['dark_base' => 'purple']]));
+        self::assertSame(422, $bad->getStatusCode());
+        $badAccent = $this->paletteController()
+            ->preview(self::dto(PalettePreviewData::class, ['theme_neutral' => 'plaid']));
+        self::assertSame(422, $badAccent->getStatusCode());
     }
 }
