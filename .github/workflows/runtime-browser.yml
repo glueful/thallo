@@ -18,6 +18,7 @@ on:
       - 'scripts/build-typography-bridge-fixtures'
       - 'scripts/build-text-style-fixtures'
       - 'scripts/build-hover-fixtures'
+      - 'scripts/build-palette-fixtures'
       - 'scripts/build-product-grid-fixtures'
       - 'packages/thallo-commerce/assets/shop.js'
       - 'packages/thallo-commerce/src/Shop/ShopAssetMap.php'
@@ -58,6 +59,7 @@ on:
       - 'scripts/build-typography-bridge-fixtures'
       - 'scripts/build-text-style-fixtures'
       - 'scripts/build-hover-fixtures'
+      - 'scripts/build-palette-fixtures'
       - 'scripts/build-product-grid-fixtures'
       - 'packages/thallo-commerce/assets/shop.js'
       - 'packages/thallo-commerce/src/Shop/ShopAssetMap.php'
@@ -237,6 +239,13 @@ jobs:
       - name: Build the hover fixtures
         working-directory: .
         run: php scripts/build-hover-fixtures
+
+      # The custom palette as a browser computes it (palette.spec.js): brand fills and their text in both
+      # modes, an unset slot's hover and text keeping their colours, the Custom ground — published and on
+      # the canvas stage, then rolled back.
+      - name: Build the palette fixtures
+        working-directory: .
+        run: php scripts/build-palette-fixtures
 
       # The Product grid as a browser computes it (product-grid.spec.js): four grids and a Mini cart
       # published (without and with shop.js) and on the canvas stage, then rolled back.

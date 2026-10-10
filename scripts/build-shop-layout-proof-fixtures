@@ -167,7 +167,8 @@ foreach ($container->get(BlockTypeKind::class)->definitions() as $definition) {
 $previous = $seed->useTenant();
 $written = [];
 try {
-    $db->transaction(static function () use ($container, $seed, $get, $selfContained, $out, &$written): void {
+    // The palette row first (docs/internal/palette-lock-order.md): the seeding saves through the fence.
+    $container->get(\Thallo\Core\Content\Palette\PaletteFence::class)->within(static function () use ($container, $seed, $get, $selfContained, $out, &$written): void {
         // Rows a test left behind would change the listing; they come back with the rollback.
         $seed->clear();
         $seed->seed();

@@ -165,7 +165,8 @@ foreach ($container->get(BlockTypeKind::class)->definitions() as $definition) {
 
 $written = [];
 try {
-    $db->transaction(static function () use ($container, $context, $get, $selfContained, $out, &$written): void {
+    // The palette row first (docs/internal/palette-lock-order.md): the seeding saves through the fence.
+    $container->get(\Thallo\Core\Content\Palette\PaletteFence::class)->within(static function () use ($container, $context, $get, $selfContained, $out, &$written): void {
         (new ListingPageSeed($container, $context))->seed();
         $pages = ['listing-original' => '/post', 'archive-original' => '/post/categories/pottery'];
         foreach ($pages as $name => $path) {
