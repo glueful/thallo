@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Thallo\Core\Tests\Integration\Render;
 
 use Thallo\Contracts\Style\BrandSlot;
+use Thallo\Core\Content\Palette\PaletteMutations;
 use Thallo\Core\Settings\BrandColors;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Contracts\Style\StyleSchema;
@@ -109,9 +110,9 @@ final class StyleSchemaEndpointTest extends AppTestCase
             ],
             $slots['brand-1'],
         );
-        self::assertSame('unset', $slots['brand-2']['state']);
+        self::assertArrayNotHasKey('brand-2', $slots, 'a never-issued id is absent');
         self::assertSame('Gold dark — text', $data['palette']['labels']['color.brand-1-contrast']);
-        self::assertSame('Brand 2', $data['palette']['labels']['color.brand-2']);
+        self::assertArrayNotHasKey('color.brand-2', $data['palette']['labels']);
         self::assertSame('Surface 2', $data['palette']['labels']['color.surface-2']);
         self::assertMatchesRegularExpression('/\A#[0-9a-f]{6}\z/', $data['palette']['swatches']['color.surface']);
         self::assertArrayNotHasKey('color.transparent', $data['palette']['swatches']);
@@ -145,7 +146,7 @@ final class StyleSchemaEndpointTest extends AppTestCase
             $this->container()->get(RequestPalette::class)->refresh();
         });
         $palette = $this->schemaPalette();
-        self::assertSame('unset', $palette['slots']['brand-1']['state']);
+        self::assertSame(['name' => 'Gold', 'state' => 'removed'], $palette['slots']['brand-1']);
         self::assertSame($this->state()->snapshot()->generation, $palette['generation']);
         self::assertCount(1, $palette['replacements']['records']);
     }
@@ -174,5 +175,80 @@ final class StyleSchemaEndpointTest extends AppTestCase
             self::assertTrue($this->allows($user, self::PICKER), $permission);
         }
         self::assertFalse($this->allows($this->userWith('test_schema_none', ['content.view']), self::PICKER));
+    }
+
+    public function testThePaletteListsColoursInOrderWithRemovedOnesAndTheLimit(): void
+    {
+        $this->configure(4, 'Gold', '#8a6a2a');
+        $this->configure(2, 'Rose', '#c98a8a');
+        $this->configure(7, 'Teal', '#0f766e');
+        $this->container()->get(PaletteMutations::class)->clear(7, null);
+        $this->container()->get(RequestPalette::class)->refresh();
+        $response = $this->container()->get(StyleSchemaController::class)->show();
+        $data = json_decode((string) $response->getContent(), true)['data'];
+        $palette = $data['palette'];
+
+        self::assertSame(3, $palette['limit']);
+        self::assertSame(['brand-4', 'brand-2'], $palette['order']);
+        self::assertSame('configured', $palette['slots']['brand-4']['state']);
+        self::assertSame(['name' => 'Teal', 'state' => 'removed'], $palette['slots']['brand-7']);
+        self::assertArrayNotHasKey('brand-1', $palette['slots']);
+        self::assertSame('Teal', $palette['labels']['color.brand-7']);
+        self::assertSame('Gold — text', $palette['labels']['color.brand-4-contrast']);
+        $colours = $data['vocabulary']['domains']['color'];
+        self::assertSame(
+            ['brand-4', 'brand-4-contrast', 'brand-2', 'brand-2-contrast'],
+            array_values(array_filter($colours, static fn (string $n): bool => str_starts_with($n, 'brand-'))),
+        );
+        self::assertLessThan(array_search('brand-4', $colours, true), array_search('black', $colours, true));
+    }
+
+    public function testCanManageFollowsContentManage(): void
+    {
+        $schema = fn (string $user): array => json_decode(
+            (string) $this->container()->get(StyleSchemaController::class)->show($this->requestAs($user))->getContent(),
+            true,
+        )['data']['palette'];
+        self::assertFalse($schema($this->userWith('test_schema_editor', ['content.edit']))['can_manage']);
+        self::assertTrue($schema($this->userWith('test_schema_manager', ['content.manage']))['can_manage']);
+    }
+
+    public function testWithTheLimitAtZeroNoColourIsOfferedAndTheirNamesStay(): void
+    {
+        $palette = new \Thallo\Contracts\Style\Palette(
+            null,
+            null,
+            [1 => new BrandSlot('Gold', '#8a6a2a')],
+            [3 => 'Teal'],
+            0,
+        );
+        $provider = new class ($palette) implements \Thallo\Contracts\Style\PaletteProvider {
+            public function __construct(private readonly \Thallo\Contracts\Style\Palette $p)
+            {
+            }
+
+            public function palette(): \Thallo\Contracts\Style\Palette
+            {
+                return $this->p;
+            }
+
+            public function preview(array $claim): \Thallo\Contracts\Style\Palette
+            {
+                return $this->p;
+            }
+        };
+        $controller = new StyleSchemaController(
+            $this->container()->get(\Thallo\Render\ThemeLocator::class),
+            new RequestPalette($provider),
+        );
+        $data = json_decode((string) $controller->show()->getContent(), true)['data'];
+        self::assertSame(0, $data['palette']['limit']);
+        self::assertSame([], $data['palette']['order']);
+        self::assertSame(['brand-3'], array_keys($data['palette']['slots']));
+        self::assertSame('Gold', $data['palette']['labels']['color.brand-1']);
+        self::assertSame([], array_filter(
+            $data['vocabulary']['domains']['color'],
+            static fn (string $n): bool => str_starts_with($n, 'brand-'),
+        ));
     }
 }

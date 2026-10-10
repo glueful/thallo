@@ -151,7 +151,7 @@ final class PaletteApiTest extends AppTestCase
         self::assertSame(1, self::details($res)['usage']['blocking']['total']);
         $ok = $this->paletteController()->clear(2);
         self::assertSame(200, $ok->getStatusCode(), (string) $ok->getContent());
-        self::assertSame('unset', self::data($ok)['palette']['slots']['brand-2']['state']);
+        self::assertSame('removed', self::data($ok)['palette']['slots']['brand-2']['state']);
         // The list this Clear wrote, captured in its transaction (brand colour list plan ruling 13).
         [$colors, $removed] = \Thallo\Core\Settings\BrandColors::parse((string) self::data($ok)['brand_colors']);
         self::assertSame([1], array_keys($colors));
