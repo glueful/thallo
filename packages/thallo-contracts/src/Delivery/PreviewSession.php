@@ -41,8 +41,8 @@ final class PreviewSession
         public readonly ?string $target = null,
         public readonly ?string $sample = null,
         /**
-         * A previewed palette (custom palette spec §5.1): `neutral_custom`, `dark_base`, `brands`,
-         * any subset; null = none.
+         * A previewed palette (custom palette spec §5.1): `neutral_custom`, `dark_base`, `brands` (the
+         * whole pending list of {id, name, hex}, in order), any subset; null = none.
          *
          * @var array<string,mixed>|null
          */

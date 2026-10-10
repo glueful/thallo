@@ -11,7 +11,8 @@ interface PaletteProvider
 
     /**
      * The palette an Appearance preview claims (custom palette spec §5.1): each key it carries
-     * replaces the stored one; a key it omits — or a brand slot it omits — keeps the stored value.
+     * replaces the stored one — `brands` is the whole pending list of {id, name, hex}, in order — and a
+     * key it omits keeps the stored value.
      *
      * @param array<string,mixed> $claim
      */

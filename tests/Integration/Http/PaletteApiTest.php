@@ -12,6 +12,7 @@ use Thallo\Core\Content\Repositories\ContentTypeRepository;
 use Thallo\Core\Content\Repositories\EntryRepository;
 use Thallo\Core\Http\Controllers\GeneralSettingsController;
 use Thallo\Core\Http\DTOs\UpdateGeneralSettingsData;
+use Symfony\Component\HttpFoundation\Request;
 use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Core\Tests\Support\Palette\PaletteFixtures;
 use Thallo\Core\Tests\Support\Rbac\GrantsPermissions;
@@ -46,15 +47,15 @@ final class PaletteApiTest extends AppTestCase
     public static function routes(): array
     {
         return [
-            ['GET', '/v1/admin/appearance/palette/brand/{slot}/usage', 'content_permission:content.manage'],
+            ['GET', '/v1/admin/appearance/palette/brand/{id}/usage', 'content_permission:content.manage'],
             [
                 'GET',
                 '/v1/admin/appearance/palette/replacements',
                 'content_permission:content.edit,content.manage,templates.manage,styles.manage',
             ],
-            ['DELETE', '/v1/admin/appearance/palette/brand/{slot}', 'content_permission:content.manage'],
+            ['DELETE', '/v1/admin/appearance/palette/brand/{id}', 'content_permission:content.manage'],
             ['POST', '/v1/admin/appearance/palette/preview', 'content_permission:content.manage'],
-            ['POST', '/v1/admin/appearance/palette/brand/{slot}/replace', 'content_permission:content.manage'],
+            ['POST', '/v1/admin/appearance/palette/brand/{id}/replace', 'content_permission:content.manage'],
             ['GET', '/v1/admin/appearance/palette/jobs', 'content_permission:content.manage'],
             ['GET', '/v1/admin/appearance/palette/jobs/{id}', 'content_permission:content.manage'],
             ['POST', '/v1/admin/appearance/palette/jobs/{id}/cancel', 'content_permission:content.manage'],
@@ -72,11 +73,25 @@ final class PaletteApiTest extends AppTestCase
         }
     }
 
-    public function testUsageOfASlotOutsideOneToThreeIs404(): void
+    public function testTheEndpointsTakeAnyIssuedId(): void
     {
-        $controller = $this->container()->get(PaletteController::class);
-        self::assertSame(404, $controller->usage(4)->getStatusCode());
-        self::assertSame(200, $controller->usage(1)->getStatusCode());
+        $this->configure(12, 'Teal', '#0f766e');
+        $usage = $this->paletteController()->usage(12);
+        self::assertSame(200, $usage->getStatusCode());
+        self::assertSame(12, self::data($usage)['usage']['slot']);
+        self::assertSame(200, $this->paletteController()->clear(12)->getStatusCode());
+        $palette = $this->container()->get(\Thallo\Core\Settings\PaletteSettings::class)->palette();
+        self::assertTrue($palette->isRemoved(12));
+        // never issued: already clear
+        $never = $this->paletteController()->clear(7);
+        self::assertSame(200, $never->getStatusCode());
+        self::assertNull(self::data($never)['brand_colors']);
+        // the route takes 1–9999 only
+        $outside = ['/v1/admin/appearance/palette/brand/0/usage', '/v1/admin/appearance/palette/brand/10000/usage'];
+        foreach ($outside as $path) {
+            self::assertNotSame(200, $this->handle(Request::create($path, 'GET'))->getStatusCode(), $path);
+        }
+        self::assertNotNull($this->findRoute('GET', '/v1/admin/appearance/palette/brand/{id}/usage'));
     }
 
     private function paletteController(): PaletteController
@@ -162,7 +177,7 @@ final class PaletteApiTest extends AppTestCase
                     'ink' => '#1b1712', 'muted' => '#6b6156', 'line' => '#e2d8c6',
                 ],
                 'dark_base' => 'stone',
-                'brands' => ['1' => ['name' => 'Gold', 'hex' => '#8a6a2a']],
+                'brands' => [['id' => 1, 'name' => 'Gold', 'hex' => '#8a6a2a']],
             ],
         ]));
         self::assertSame(200, $res->getStatusCode(), (string) $res->getContent());
