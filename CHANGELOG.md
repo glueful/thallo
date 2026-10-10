@@ -5,7 +5,11 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.99] - 2026-10-10 — Developer Preview
+
+Links that work as typed: a Heading or a Rich text block can be a link, a link typed without
+`https://` leaves the site instead of finding nothing, and phone (`tel:`) and text (`sms:`) links
+are kept.
 
 ### Added
 - **A Heading or a Rich text block can be a link**: both gain **Link** (`url`) and **Open the link in
