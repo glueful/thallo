@@ -2663,7 +2663,8 @@ These page tests mount the real page with the real `useSettingsForm` (only the q
   - Mount with `settingsData` undefined. Then set it to a list at revision 5 holding ids 4 and 1.
   - The rows read Gold and Rose, and no unsaved dot shows.
   - Rename Rose: Save sends `base: 5`.
-  - Repeat with a migrated list at revision 0 holding colours. The rows are installed (the first load always installs), and Save sends `base: 0`.
+  - Repeat with a migrated list at revision 0 holding colour 1 and removed ids 2 and 3. The rows are installed (the first load always installs), and Save sends `base: 0`.
+  - Add a colour named Sky: the last `previewPalette` call numbers it 4, above the reserved ids, never 2.
 - **`'a clean-form refetch changes the list and its revision together'`:**
   - With the form untouched, set `settingsData` to revision 4 with Amber.
   - The row reads Amber. Rename Rose: Save sends `base: 4`.
@@ -2938,7 +2939,9 @@ watch(
   (json) => {
     if (json === undefined) return // the settings have not arrived yet
     const observed = parseStored(json)
-    seen.value = newer(seen.value, observed)
+    // The first reading replaces the empty start outright: newer() keeps the first of two revision-0
+    // lists, which would drop a migrated list's removed ids from the preview's numbering.
+    seen.value = brandsLoaded ? newer(seen.value, observed) : observed
     // The first settings always install the rows with their revision (a migrated list is revision 0
     // with colours). After that a newer list replaces the rows only while they hold no brand edit;
     // edited rows keep the base they began from, and their save is refused if it is stale.
