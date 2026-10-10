@@ -18,11 +18,13 @@ vi.mock('@/queries/styleSchema', () => ({ useStyleSchema: () => ({ data: schemaD
 const paletteApi = vi.hoisted(() => ({
   previewPalette: vi.fn(),
   fetchPaletteJobs: vi.fn(),
+  fetchPaletteUsage: vi.fn(),
 }))
 vi.mock('@/queries/palette', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/queries/palette')>()),
   previewPalette: paletteApi.previewPalette,
   fetchPaletteJobs: paletteApi.fetchPaletteJobs,
+  fetchPaletteUsage: paletteApi.fetchPaletteUsage,
 }))
 
 vi.mock('@/queries/generalSettings', () => ({
@@ -304,10 +306,13 @@ describe('Appearance › Theme colors › palette', () => {
     expect(payload).not.toHaveProperty('theme_brand_3') // unchanged
   })
 
-  it('Clear on a configured slot asks the page, which opens the dialog', async () => {
+  it('Clear on a configured slot opens the dialog, which checks where the colour is used', async () => {
+    paletteApi.fetchPaletteUsage.mockReset().mockReturnValue(new Promise(() => {}))
     const w = await mountAppearance({ theme_brand_1: '{"name":"Gold","hex":"#8a6a2a"}' })
     await w.find('[data-test="brand-1-clear"]').trigger('click')
-    expect(w.findComponent({ name: 'BrandColorsField' }).emitted('clear')).toEqual([[1]])
+    await flushPromises()
+    expect(paletteApi.fetchPaletteUsage).toHaveBeenCalledWith(1)
+    expect(w.findComponent({ name: 'ClearBrandDialog' }).props('name')).toBe('Gold')
   })
 
   it('shows a replacing slot as progress and a reserved slot without Clear', async () => {

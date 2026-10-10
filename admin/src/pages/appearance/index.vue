@@ -31,6 +31,7 @@ import {
 import CustomNeutralFields from './components/CustomNeutralFields.vue'
 import BrandColorsField, { type BrandDraft } from './components/BrandColorsField.vue'
 import ContrastChecks from './components/ContrastChecks.vue'
+import ClearBrandDialog from './components/ClearBrandDialog.vue'
 
 definePage({ meta: { requiresAuth: true } })
 
@@ -266,10 +267,23 @@ onBeforeUnmount(() => {
   if (jobTimer !== null) clearInterval(jobTimer)
 })
 
-/** Clear opens the usage dialog (Task 17). */
+/** Clear opens the usage dialog: Clear when nothing uses the colour, else Replace with…. */
 const clearing = ref<1 | 2 | 3 | null>(null)
 function onClearBrand(slot: 1 | 2 | 3): void {
   clearing.value = slot
+}
+const clearingName = computed(() => {
+  if (clearing.value === null) return ''
+  const key = String(clearing.value) as BrandKey
+  const stored = parseJson(data.value?.[brandField(key)])
+  return String(stored?.name ?? '') || `Brand ${key}`
+})
+/** A clear or a replacement started: read the palette, the settings and the jobs again. */
+function onPaletteChanged(): void {
+  void queryCache.invalidateQueries({ key: qk.styleSchema() })
+  void queryCache.invalidateQueries({ key: ['settings', 'general'] })
+  appearanceChanges.notify('appearance')
+  void loadJobs()
 }
 
 /**
@@ -460,6 +474,17 @@ async function onSave() {
                   <UFormField label="Contrast">
                     <ContrastChecks :look="contrastLook" />
                   </UFormField>
+                  <ClearBrandDialog
+                    v-if="clearing !== null"
+                    :open="clearing !== null"
+                    :slot="clearing"
+                    :name="clearingName"
+                    :palette="styleSchema?.palette"
+                    :colours="styleSchema?.vocabulary?.domains.color ?? []"
+                    :look="contrastLook"
+                    @update:open="(v: boolean) => (v ? null : (clearing = null))"
+                    @done="onPaletteChanged"
+                  />
                 </div>
               </div>
             </UCard>

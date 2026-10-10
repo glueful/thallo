@@ -56,6 +56,11 @@ as the next release, never a mutated tag.
   an unset one says **Unavailable colour: Brand N — No colour applied**, with **Choose another** and
   **Clear**, and one being replaced says what it is becoming. Inside a Style block that re-skins accent
   or neutral, the swatches are marked as the site's.
+- **Clear asks first**: clearing a brand colour in Appearance checks where it is used. Unused, it clears
+  (saying how many older versions still name it). Used, it lists where — pages, header and footer,
+  layouts, saved sections, style classes — and offers **Replace with…** a colour the rules allow; when
+  that colour has no text colour of its own and something uses the slot's, it asks what text on it
+  becomes and shows that pair's contrast in light and dark mode.
 
 ### Fixed
 - Enabling multi-store tenancy no longer drops the header and footer's settings-schema stamp
