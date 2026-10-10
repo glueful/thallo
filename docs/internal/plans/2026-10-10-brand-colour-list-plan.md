@@ -9,7 +9,7 @@
 >   - A colour that leaves the stored list (Clear, a replacement completing) is dropped from the rows.
 > - **A revision always travels with the values it describes** (second review: rulings 11 and 13, Tasks 4 and 7).
 >   - **The server:** a list save and a Clear capture the list they committed, revision included, inside their transaction and return exactly that. They never return a later read.
->   - **The editor:** it keeps the base it edits from apart from the newest list it has seen. A background refetch moves the base only when the rows hold no brand edit and take the refetched values. Otherwise the base moves only with the editor's own save, or with its own Clear when nothing else changed in between.
+>   - **The editor:** it keeps the base it edits from apart from the newest list it has seen. The brand rows and their base have one owner: the page's watcher. `useSettingsForm`'s server-to-form sync leaves the field alone (`manual` keys), so the rows and their revision are always adopted together, including on the first load. A background refetch moves the base only when the rows hold no brand edit and take the refetched values. Otherwise the base moves only with the editor's own save, or with its own Clear when nothing else changed in between.
 > - **Migration 048 reserves ids 1–3 on every workspace that used the palette** (an old key, a `palette_state` row or a `palette_jobs` row), named from the audit log where it can tell (ruling 12, Task 3).
 >   - The revision-4 Clear deleted a slot's row, so a cleared slot left no setting behind.
 
@@ -92,6 +92,9 @@ out of the shared per-theme stylesheet into a per-workspace colours stylesheet.
       - **The editor's own Clear:** the committed list from the Clear response, when its revision is exactly `editBase.revision + 1`, so nothing else changed in between. The cleared row is dropped either way.
     - A refetch while the rows hold edits leaves the base where the edits began. A stale save is then refused (409), rather than sending old values with a newer revision.
     - `seen`, the newest list observed anywhere, only numbers new rows for the preview.
+    - **One owner for the rows and their base.** `useSettingsForm`'s server-to-form watcher skips `theme_brand_colors` (`useSettingsForm(data, defaults, { manual: ['theme_brand_colors'] })`), and the page's watcher (`immediate`) is the only thing that installs brand rows.
+      - Otherwise the generic watcher, registered first, installs a refetched list before the page compares the rows with the base. The rows would then pair with the old revision. On the first load the base would also stay at revision 0 while the fetched rows went in.
+      - The page installs the rows and the base together: on the first settings it receives, and afterwards whenever a newer list arrives while the rows match their base.
     - `useSettingsForm` gains `adopt()`, which writes without marking the form dirty, and `saved(sent)`, which marks the form clean only if nothing changed since the payload was sent.
 13. **A save and a Clear return the list they committed, captured inside their transaction.** This is decided after the second review.
     - The controller used to build its response from `settings->all()` after the palette transaction and the writes that follow, so another request could reorder or clear colours before that read.
@@ -2418,6 +2421,7 @@ export function previewBrands(rows: BrandRow[], stored: StoredBrandColors): Bran
 
 ```ts
 // useSettingsForm.ts — gains:
+useSettingsForm(data, defaults, options?: { manual?: K[] }) // manual keys: the server→form sync leaves them to the page
 adopt(patch: Partial<Pick<GeneralSettings, K>>): void // writes without marking the form dirty
 saved(sent?: Pick<GeneralSettings, K>): void // clean only if the form still equals what was sent
 ```
@@ -2607,6 +2611,20 @@ describe('useSettingsForm', () => {
     expect(dirty.value).toBe(false)
   })
 
+  it('leaves a manual key to the page: the server→form sync never writes it', async () => {
+    const data = ref<GeneralSettings | undefined>(undefined)
+    const { form, dirty } = useSettingsForm(
+      data,
+      { site_logo: '', theme_radius: 'round' },
+      { manual: ['site_logo'] },
+    )
+    data.value = settings({ site_logo: 'blob00000003', theme_radius: 'sharp' })
+    await nextTick()
+    expect(form.theme_radius).toBe('sharp')
+    expect(form.site_logo).toBe('')
+    expect(dirty.value).toBe(false)
+  })
+
   it('saved() with nothing sent behaves as before', async () => {
     const data = ref<GeneralSettings | undefined>(settings())
     const { form, dirty, saved } = useSettingsForm(data, { site_logo: '', theme_radius: 'round' })
@@ -2640,6 +2658,18 @@ schema's palette to `{limit: 3, order: ['brand-4', 'brand-1'], slots: {…}, …
   - Make `saveMock` return a promise the test resolves later.
   - Click Save, rename a row, then resolve.
   - The Colours tab's unsaved dot and the navbar chip are still shown, and the renamed value is still in the field.
+These page tests mount the real page with the real `useSettingsForm` (only the queries are mocked):
+- **`'settings arriving after mount install the rows and their revision together'`:**
+  - Mount with `settingsData` undefined. Then set it to a list at revision 5 holding ids 4 and 1.
+  - The rows read Gold and Rose, and no unsaved dot shows.
+  - Rename Rose: Save sends `base: 5`.
+  - Repeat with a migrated list at revision 0 holding colours. The rows are installed (the first load always installs), and Save sends `base: 0`.
+- **`'a clean-form refetch changes the list and its revision together'`:**
+  - With the form untouched, set `settingsData` to revision 4 with Amber.
+  - The row reads Amber. Rename Rose: Save sends `base: 4`.
+- **`'a dirty-form refetch keeps the edited rows and the base they began from'`:**
+  - Rename Rose to "Blush", then set `settingsData` to revision 4 with Amber.
+  - The rows still read Gold and Blush, with the unsaved dot. Save sends `base: 3` and Gold.
 - **`'a refetch while the rows hold edits leaves the base where the edits began'`:**
   - Stored is revision 3. Rename Rose to "Blush".
   - Then set `settingsData` to revision 4, in which Gold was renamed Amber by someone else.
@@ -2893,25 +2923,33 @@ rewritten in Task 8; here only make it compile by treating a missing slot as una
 //   editor's own save, or its own Clear when nothing else changed in between — so a revision always
 //   travels with the values it describes and a stale save is refused, never sent as current.
 // - seen: the newest list observed anywhere; it only numbers new rows for the preview.
-const editBase = ref(parseStored(data.value?.theme_brand_colors))
+// The brand rows and their base have ONE owner, this watcher: the form's generic server→form sync
+// leaves `theme_brand_colors` alone (`manual`), so rows and revision are always installed together.
+const editBase = ref(parseStored(undefined))
 const seen = ref(editBase.value)
+let brandsLoaded = false
 const storedBrands = computed(() => editBase.value)
 const brandRows = computed<BrandRow[]>(() => parseDraft(form.theme_brand_colors))
 function setBrandRows(next: BrandRow[]): void {
   form.theme_brand_colors = serializeDraft(next)
 }
 watch(
-  () => data.value?.theme_brand_colors,
+  () => (data.value === undefined ? undefined : (data.value.theme_brand_colors ?? '')),
   (json) => {
+    if (json === undefined) return // the settings have not arrived yet
     const observed = parseStored(json)
     seen.value = newer(seen.value, observed)
-    // A newer list replaces the rows only while they hold no brand edit; edited rows keep the base
-    // they began from, and their save is refused if it is stale.
-    if (observed.revision > editBase.value.revision && matches(brandRows.value, editBase.value)) {
+    // The first settings always install the rows with their revision (a migrated list is revision 0
+    // with colours). After that a newer list replaces the rows only while they hold no brand edit;
+    // edited rows keep the base they began from, and their save is refused if it is stale.
+    const first = !brandsLoaded
+    if (first || (observed.revision > editBase.value.revision && matches(brandRows.value, editBase.value))) {
+      brandsLoaded = true
       adopt({ theme_brand_colors: serializeDraft(parseDraft(json)) })
       editBase.value = observed
     }
   },
+  { immediate: true },
 )
 /** A Clear's own result: the row leaves; the base moves only if nothing else changed in between. */
 function onBrandCleared(id: number, written: string | null): void {
@@ -2927,7 +2965,7 @@ function onBrandCleared(id: number, written: string | null): void {
 - `onPaletteChanged(result?: { cleared: number; brandColors: string | null })` calls `onBrandCleared(result.cleared, result.brandColors)` when a payload is present, then invalidates and reloads jobs as today.
 - `savedPalette.brands`: `storedBrands.value.colors.map((c) => ({ id: c.id, name: c.name, hex: c.hex }))`.
 - `emptyPalette()`: `brands: []`.
-- `useSettingsForm` destructuring adds `adopt`.
+- The `useSettingsForm` call passes `{ manual: ['theme_brand_colors'] }` as its third argument, and its destructuring adds `adopt`. The brand watcher above must come after that call, because it uses `adopt`.
 - `savePayload()`: replace the brand loop with:
 
 ```ts
@@ -3002,7 +3040,13 @@ async function onSave() {
 (If `UFormField`'s `:error` already renders the text with a test hook, drop the `sr-only` line and
 point the test at that element.) `ClearBrandDialog` takes `:id="clearing"`.
 
-`useSettingsForm.ts`: add `adopt` and give `saved` an optional snapshot:
+`useSettingsForm.ts`: take an optional `manual` list, add `adopt`, and give `saved` an optional
+snapshot. The signature becomes
+`useSettingsForm<K extends keyof GeneralSettings>(data, defaults, options: { manual?: K[] } = {})`.
+The server-to-form watcher writes only `synced` keys, defined as
+`const synced = keys.filter((key) => !(options.manual ?? []).includes(key))`, and loops
+`for (const key of synced)` instead of `keys`. A manual key still counts towards `dirty`,
+`payload()` and `saved(sent)`. Only the sync leaves it to the page. Then:
 
 ```ts
   /** A value the page takes from the server (a save's ids, a colour that left): never an edit. */
