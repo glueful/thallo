@@ -30,26 +30,28 @@ export interface StyleSchemaResult {
   }
   /** The workspace's palette (custom palette spec §5.2, §5.3); absent from an older server. */
   palette?: {
+    /** How many brand colours the deployment allows (0: brand colours are off). */
+    limit: number
+    /** The configured (and replacing) brand colours, in the author's order. */
+    order: string[]
+    /** Whether the reader may manage brand colours (content.manage). */
+    can_manage?: boolean
     slots: Record<string, PaletteSlot>
     swatches: Record<string, string>
     labels: Record<string, string>
-    /** Whether the site renders a dark mode: the dark base applies only then. */
     color_mode?: boolean
-    /** The palette generation the slots were read at. */
     generation: number
-    /** The completed replacements of the recent past, through `generation`. */
     replacements: ReplacementBatch
   }
 }
 
-/** One brand slot as the pickers see it (custom palette spec §5.2). */
+/** One brand colour as the pickers see it (custom palette spec §5.2); a never-issued id is absent. */
 export interface PaletteSlot {
-  name: string | null
-  hex: string | null
-  state: 'unset' | 'configured' | 'replacing'
-  /** A running replacement writes to it: usable, not clearable. */
-  reserved: boolean
-  replacing: null | {
+  name: string
+  hex?: string | null
+  state: 'configured' | 'replacing' | 'removed'
+  reserved?: boolean
+  replacing?: null | {
     to: string
     to_label: string
     contrast_to: string | null

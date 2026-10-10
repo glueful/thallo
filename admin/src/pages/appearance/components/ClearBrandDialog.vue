@@ -21,7 +21,8 @@ import {
 
 const props = defineProps<{
   open: boolean
-  slot: 1 | 2 | 3
+  /** The brand colour's permanent id. */
+  id: number
   /** The slot's name, as configured. */
   name: string
   /** The style schema's palette: which slots are configured, swatches and names. */
@@ -31,7 +32,11 @@ const props = defineProps<{
   /** The look the contrast of a chosen pair is judged in. */
   look: PaletteLook
 }>()
-const emit = defineEmits<{ 'update:open': [open: boolean]; done: [] }>()
+const emit = defineEmits<{
+  'update:open': [open: boolean]
+  /** A Clear carries the list it wrote; a started replacement carries nothing. */
+  done: [result?: { cleared: number; brandColors: string | null }]
+}>()
 
 const usage = ref<PaletteUsage | null>(null)
 const failed = ref<string | null>(null)
@@ -42,7 +47,7 @@ const contrastTo = ref<string | null>(null)
 const ratios = ref<{ light: number; dark: number } | null>(null)
 
 watch(
-  () => [props.open, props.slot] as const,
+  () => [props.open, props.id] as const,
   async ([open]) => {
     if (!open) return
     usage.value = null
@@ -52,7 +57,7 @@ watch(
     contrastTo.value = null
     ratios.value = null
     try {
-      usage.value = await fetchPaletteUsage(props.slot)
+      usage.value = await fetchPaletteUsage(props.id)
     } catch {
       failed.value = 'Couldn’t check where this colour is used.'
     }
@@ -84,13 +89,13 @@ const groups = computed(() => {
 const destinations = computed(() =>
   props.colours.filter((name) => {
     if (name.endsWith('-contrast') || name === 'transparent') return false
-    const m = /^brand-([123])$/.exec(name)
+    const m = /^brand-(\d+)$/.exec(name)
     if (!m) return true
-    return Number(m[1]) !== props.slot && props.palette?.slots[name]?.state === 'configured'
+    return Number(m[1]) !== props.id && props.palette?.slots[name]?.state === 'configured'
   }),
 )
 
-const hasPair = (token: string) => token === 'color.accent' || /^color\.brand-[123]$/.test(token)
+const hasPair = (token: string) => token === 'color.accent' || /^color\.brand-\d+$/.test(token)
 /** The destination has no text colour of its own and something uses the slot's: ask for one. */
 const needsContrast = computed(
   () =>
@@ -118,12 +123,16 @@ watch([to, contrastTo], async () => {
   }
 })
 
-async function run(work: () => Promise<unknown>): Promise<void> {
+/** Runs a Clear or a Replace; `done` carries what the work resolves to describe (a Clear's list). */
+async function run(
+  work: () => Promise<{ cleared: number; brandColors: string | null } | undefined>,
+): Promise<void> {
   busy.value = true
   conflict.value = null
   try {
-    await work()
-    emit('done')
+    const result = await work()
+    if (result === undefined) emit('done')
+    else emit('done', result)
     emit('update:open', false)
   } catch (e) {
     conflict.value = e instanceof PaletteConflict ? e.message : 'Something went wrong. Try again.'
@@ -133,12 +142,16 @@ async function run(work: () => Promise<unknown>): Promise<void> {
 }
 
 function onClear(): void {
-  void run(() => clearBrand(props.slot))
+  // The list this Clear wrote travels with `done`: the page may take it as its new base.
+  void run(async () => ({ cleared: props.id, brandColors: await clearBrand(props.id) }))
 }
 function onReplace(): void {
   if (!ready.value || to.value === null) return
   const mapping = needsContrast.value ? (contrastTo.value ?? undefined) : undefined
-  void run(() => replaceBrand(props.slot, to.value as string, mapping))
+  void run(async () => {
+    await replaceBrand(props.id, to.value as string, mapping)
+    return undefined
+  })
 }
 </script>
 

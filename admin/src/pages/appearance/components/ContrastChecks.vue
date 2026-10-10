@@ -24,10 +24,10 @@ const failed = ref(false)
 let asked = 0
 
 function label(name: string): string {
-  const brand = /^brand-([123])(-contrast)?$/.exec(name)
+  const brand = /^brand-(\d+)(-contrast)?$/.exec(name)
   if (brand) {
-    const slot = props.look.palette.brands[brand[1] as '1' | '2' | '3']
-    const base = slot?.name || `Brand ${brand[1]}`
+    const entry = props.look.palette.brands.find((b) => b.id === Number(brand[1]))
+    const base = entry?.name || `Brand ${brand[1]}`
     return brand[2] ? `${base} — text` : base
   }
   return LABELS[name] ?? name

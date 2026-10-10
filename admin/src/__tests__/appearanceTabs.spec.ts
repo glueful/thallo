@@ -24,7 +24,7 @@ describe('appearance tabs', () => {
 
   it('maps settings keys, nested field names included, to the tabs that hold them', () => {
     expect([...tabsHolding(['site_favicon'])]).toEqual(['logos'])
-    expect([...tabsHolding(['theme_brand_2.hex', 'theme_radius'])].sort()).toEqual([
+    expect([...tabsHolding(['theme_brand_colors.colors.1.name', 'theme_radius'])].sort()).toEqual([
       'colours',
       'design',
     ])

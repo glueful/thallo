@@ -44,14 +44,13 @@ export interface GeneralSettings {
   theme_background: string
   /**
    * The palette (custom palette spec §2), each a JSON string: the Custom neutral's six colours
-   * (`theme_neutral` `custom`), the family dark mode is built from, and the three brand colours.
-   * '' = unset. A brand colour is cleared through the palette's Clear, never by saving ''.
+   * (`theme_neutral` `custom`), the family dark mode is built from, and the brand colour list
+   * (`{revision, colors: [{id, name, hex}], removed: [{id, name}]}`, §2.3). '' = unset. A brand
+   * colour is cleared through the palette's Clear, never by saving.
    */
   theme_neutral_custom?: string
   theme_dark_base?: string
-  theme_brand_1?: string
-  theme_brand_2?: string
-  theme_brand_3?: string
+  theme_brand_colors?: string
   /** Admin SPA base URL for the preview bar's Edit/Design links. */
   admin_url: string
   /** Content types with public listings/archives ([] = none). */

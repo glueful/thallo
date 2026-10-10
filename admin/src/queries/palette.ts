@@ -7,7 +7,12 @@ import { runtimeConfig } from '@/runtime/config'
 // OpenAPI schema yet, so through authFetch; the 409s carry `usage` or `conflict` in error.details.
 
 export type NeutralKey = 'bg' | 'surface' | 'surface_2' | 'ink' | 'muted' | 'line'
-export type BrandKey = '1' | '2' | '3'
+/** A brand colour as a preview frames it: its id (provisional for an unsaved row), name and hex. */
+export interface BrandEntry {
+  id: number
+  name: string
+  hex: string
+}
 
 export interface ContrastRow {
   fg: string
@@ -25,7 +30,8 @@ export interface PaletteLook {
   palette: {
     neutral_custom: Record<NeutralKey, string> | null
     dark_base: string | null
-    brands: Record<BrandKey, { name: string; hex: string } | null>
+    /** The whole pending list, in order (custom palette spec §5.1). */
+    brands: BrandEntry[]
   }
 }
 
@@ -102,26 +108,28 @@ export async function previewPalette(look: PaletteLook): Promise<PalettePreview>
   return (json as { data: PalettePreview }).data
 }
 
-export async function fetchPaletteUsage(slot: 1 | 2 | 3): Promise<PaletteUsage> {
-  const json = await authFetch(`${base()}/brand/${slot}/usage`)
+export async function fetchPaletteUsage(id: number): Promise<PaletteUsage> {
+  const json = await authFetch(`${base()}/brand/${id}/usage`)
   return (json as { data: { usage: PaletteUsage } }).data.usage
 }
 
-export async function clearBrand(slot: 1 | 2 | 3): Promise<void> {
+/** Clears a brand colour; resolves the stored list this Clear wrote (null when nothing was cleared). */
+export async function clearBrand(id: number): Promise<string | null> {
   try {
-    await authFetch(`${base()}/brand/${slot}`, { method: 'DELETE' })
+    const json = await authFetch(`${base()}/brand/${id}`, { method: 'DELETE' })
+    return (json as { data: { brand_colors?: string | null } }).data.brand_colors ?? null
   } catch (e) {
     conflictOf(e)
   }
 }
 
 export async function replaceBrand(
-  slot: 1 | 2 | 3,
+  id: number,
   to: string,
   contrastTo?: string,
 ): Promise<PaletteJob> {
   try {
-    const json = await authFetch(`${base()}/brand/${slot}/replace`, {
+    const json = await authFetch(`${base()}/brand/${id}/replace`, {
       method: 'POST',
       body: JSON.stringify(contrastTo === undefined ? { to } : { to, contrast_to: contrastTo }),
     })

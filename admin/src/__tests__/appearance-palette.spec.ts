@@ -1,7 +1,8 @@
-// Appearance › Theme colors › the palette (custom palette spec §2, §3, §5.1): a Custom neutral
-// pre-filled from the family the first time, a dark-mode base shown only when the site has a dark
-// mode, three named brand colours (Add, Clear, a running replacement's progress, a reserved slot),
-// contrast checks of the pending look, and the unsaved palette in the preview.
+// Appearance › Colours › the palette (custom palette spec §2, §3, §5.1): a Custom neutral pre-filled
+// from the family the first time, a dark-mode base shown only when the site has a dark mode, the
+// brand colour list (Add up to the limit, reorder, remove an unsaved row, Clear a saved one, a
+// running replacement's progress, a reserved colour), the revision each save edits from, contrast
+// checks of the pending look, and the unsaved palette in the preview.
 import { afterEach, describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { config, mount, flushPromises } from '@vue/test-utils'
@@ -183,45 +184,81 @@ function mockPreview(light: Record<string, string> = FAMILY_LIGHT, rows: Rows = 
   return paletteApi.previewPalette
 }
 
-function schema(slots: Record<string, Record<string, unknown>> = {}, colorMode = true) {
-  const slot = (n: number) => ({
-    name: null,
-    hex: null,
-    state: 'unset',
-    reserved: false,
-    replacing: null,
-    ...slots[`brand-${n}`],
+/** The stored list the tests start from: Gold (4) then Rose (1), Teal (7) cleared, revision 3. */
+const STORED =
+  '{"revision":3,"colors":[{"id":4,"name":"Gold","hex":"#8a6a2a"},{"id":1,"name":"Rose","hex":"#c98a8a"}],' +
+  '"removed":[{"id":7,"name":"Teal"}]}'
+
+/** A stored list: colours `[id, name, hex]`, removed `[id, name]`, at a revision. */
+function stored(
+  revision: number,
+  colors: Array<[number, string, string]>,
+  removed: Array<[number, string]> = [],
+): string {
+  return JSON.stringify({
+    revision,
+    colors: colors.map(([id, name, hex]) => ({ id, name, hex })),
+    removed: removed.map(([id, name]) => ({ id, name })),
   })
+}
+
+function schema(
+  slots: Record<string, Record<string, unknown>> = {},
+  colorMode = true,
+  limit = 3,
+  order: string[] = Object.keys(slots).filter((k) => slots[k]!.state !== 'removed'),
+) {
+  const labels: Record<string, string> = {}
+  for (const [key, slot] of Object.entries(slots)) labels[`color.${key}`] = String(slot.name ?? key)
   return {
     palette: {
-      slots: { 'brand-1': slot(1), 'brand-2': slot(2), 'brand-3': slot(3) },
+      limit,
+      order,
+      can_manage: true,
+      slots,
       swatches: {},
-      labels: {},
+      labels,
       color_mode: colorMode,
       generation: 1,
       replacements: { after: 1, through: 1, records: [] },
     },
   }
 }
+const GOLD_ROSE = {
+  'brand-4': {
+    name: 'Gold',
+    hex: '#8a6a2a',
+    state: 'configured',
+    reserved: false,
+    replacing: null,
+  },
+  'brand-1': {
+    name: 'Rose',
+    hex: '#c98a8a',
+    state: 'configured',
+    reserved: false,
+    replacing: null,
+  },
+  'brand-7': { name: 'Teal', state: 'removed' },
+}
 
 async function mountAppearance(
-  stored: Partial<GeneralSettings & Record<string, string>> = {},
+  storedSettings: Partial<GeneralSettings & Record<string, string>> = {},
   opts: {
     colorMode?: boolean
     schemaPalette?: Record<string, Record<string, unknown>>
     jobs?: unknown[]
+    limit?: number
   } = {},
 ) {
   settingsData.value = {
     ...settings(),
     theme_neutral_custom: '',
     theme_dark_base: '',
-    theme_brand_1: '',
-    theme_brand_2: '',
-    theme_brand_3: '',
-    ...stored,
+    theme_brand_colors: '',
+    ...storedSettings,
   } as GeneralSettings
-  schemaData.value = schema(opts.schemaPalette ?? {}, opts.colorMode ?? true)
+  schemaData.value = schema(opts.schemaPalette ?? {}, opts.colorMode ?? true, opts.limit ?? 3)
   paletteApi.fetchPaletteJobs.mockReset().mockResolvedValue(opts.jobs ?? [])
   const w = mount(AppearancePage)
   await flushPromises()
@@ -331,64 +368,6 @@ describe('Appearance › Theme colors › palette', () => {
     expect(await savedPayload(w)).not.toHaveProperty('theme_dark_base')
   })
 
-  it('saves a new brand slot as JSON, sends nothing for an unset one, and shows Clear only once configured', async () => {
-    const w = await mountAppearance({ theme_brand_3: '{"name":"Ink","hex":"#111111"}' })
-    expect(w.find('[data-test="brand-1-clear"]').exists()).toBe(false)
-    expect(w.find('[data-test="brand-3-clear"]').exists()).toBe(true)
-    await w.find('[data-test="brand-1-name"]').setValue('Gold dark')
-    await w.find('[data-test="brand-1-hex"] input').setValue('#8A6A2A')
-    const payload = await savedPayload(w)
-    expect(JSON.parse(payload.theme_brand_1!)).toEqual({ name: 'Gold dark', hex: '#8a6a2a' })
-    expect(payload).not.toHaveProperty('theme_brand_2')
-    expect(payload).not.toHaveProperty('theme_brand_3') // unchanged
-  })
-
-  it('Clear on a configured slot opens the dialog, which checks where the colour is used', async () => {
-    paletteApi.fetchPaletteUsage.mockReset().mockReturnValue(new Promise(() => {}))
-    const w = await mountAppearance({ theme_brand_1: '{"name":"Gold","hex":"#8a6a2a"}' })
-    await w.find('[data-test="brand-1-clear"]').trigger('click')
-    await flushPromises()
-    expect(paletteApi.fetchPaletteUsage).toHaveBeenCalledWith(1)
-    expect(w.findComponent({ name: 'ClearBrandDialog' }).props('name')).toBe('Gold')
-  })
-
-  it('shows a replacing slot as progress and a reserved slot without Clear', async () => {
-    const w = await mountAppearance(
-      {
-        theme_brand_1: '{"name":"Gold","hex":"#8a6a2a"}',
-        theme_brand_2: '{"name":"Rose","hex":"#c98a8a"}',
-      },
-      {
-        schemaPalette: {
-          'brand-1': {
-            name: 'Gold',
-            state: 'replacing',
-            replacing: { to: 'color.brand-2', to_label: 'Rose' },
-          },
-          'brand-2': { name: 'Rose', state: 'configured', reserved: true },
-        },
-        jobs: [
-          {
-            id: 'job1',
-            slot: 1,
-            to: 'color.brand-2',
-            status: 'running',
-            work_items_done: 2,
-            work_items_total: 5,
-          },
-        ],
-      },
-    )
-    expect(w.find('[data-test="brand-1-progress"]').text()).toContain(
-      'Replacing Gold with Rose — 2 of 5',
-    )
-    expect(w.find('[data-test="brand-1-name"]').exists()).toBe(false)
-    expect(w.find('[data-test="brand-2-clear"]').exists()).toBe(false)
-    expect(w.find('[data-test="brand-2-reserved"]').text()).toContain(
-      'Reserved by the Gold replacement',
-    )
-  })
-
   it('renders contrast rows from the preview endpoint, warning below 4.5', async () => {
     vi.useFakeTimers()
     mockPreview(FAMILY_LIGHT, [
@@ -409,13 +388,360 @@ describe('Appearance › Theme colors › palette', () => {
     )
   })
 
-  it('carries the unsaved palette into the preview look', async () => {
-    const w = await mountAppearance({})
-    await w.find('[data-test="brand-1-name"]').setValue('Gold')
-    await w.find('[data-test="brand-1-hex"] input').setValue('#8a6a2a')
-    const look = w.findComponent({ name: 'AppearancePreview' }).props('look') as {
-      palette: { brands: Record<string, unknown> }
+  // ── The brand colour list (custom palette spec §2.3, §5.1) ─────────────────────────────────────
+  const rowNames = (w: ReturnType<typeof mount>) =>
+    w
+      .findAll('[data-test="brand-colors"] input[aria-label$=" name"]')
+      .map((i) => (i.element as HTMLInputElement).value)
+  const last = <T>(items: T[]): T => items[items.length - 1]!
+  const lastName = (w: ReturnType<typeof mount>) =>
+    last(w.findAll('[data-test="brand-colors"] input[aria-label$=" name"]'))
+  const lastHex = (w: ReturnType<typeof mount>) =>
+    last(w.findAll('[data-test="brand-colors"] [data-test$="-hex"] input'))
+  const sentList = (payload: Record<string, string>) =>
+    JSON.parse(payload.theme_brand_colors!) as {
+      base: number
+      colors: Array<{ id?: number; name: string; hex: string }>
     }
-    expect(look.palette.brands['1']).toEqual({ name: 'Gold', hex: '#8a6a2a' })
+  async function addSky(w: ReturnType<typeof mount>) {
+    await w.find('[data-test="brand-add"]').trigger('click')
+    await lastName(w).setValue('Sky')
+    await lastHex(w).setValue('#38BDF8')
+    await flushPromises()
+  }
+  async function rename(w: ReturnType<typeof mount>, id: number, name: string) {
+    await w.find(`[data-test="brand-row-${id}-name"]`).setValue(name)
+    await flushPromises()
+  }
+
+  it('lists the brand colours in order, with the count against the limit', async () => {
+    const w = await mountAppearance({ theme_brand_colors: STORED }, { schemaPalette: GOLD_ROSE })
+    expect(rowNames(w)).toEqual(['Gold', 'Rose'])
+    expect(w.find('[data-test="brand-row-4"]').exists()).toBe(true)
+    expect(w.find('[data-test="brand-count"]').text()).toBe('2 of 3')
+  })
+
+  it('Add colour appends an empty row with a plain remove button, and saves it without an id', async () => {
+    const w = await mountAppearance({ theme_brand_colors: STORED }, { schemaPalette: GOLD_ROSE })
+    await addSky(w)
+    expect(w.findAll('[data-test="brand-row-remove"]')).toHaveLength(1)
+    expect(w.findAll('[data-test="brand-row-clear"]')).toHaveLength(2)
+    const list = sentList(await savedPayload(w))
+    expect(list.base).toBe(3)
+    expect(list.colors[list.colors.length - 1]).toEqual({ name: 'Sky', hex: '#38bdf8' })
+  })
+
+  it('Add is disabled at the limit and says so', async () => {
+    const full = stored(3, [
+      [4, 'Gold', '#8a6a2a'],
+      [1, 'Rose', '#c98a8a'],
+      [2, 'Ink', '#111111'],
+    ])
+    const w = await mountAppearance({ theme_brand_colors: full }, { schemaPalette: GOLD_ROSE })
+    expect(w.find('[data-test="brand-add"]').attributes('disabled')).toBeDefined()
+    expect(w.find('[data-test="brand-limit"]').text()).toBe('This site allows 3 brand colours')
+  })
+
+  it('removing an unsaved row sends nothing', async () => {
+    const w = await mountAppearance({ theme_brand_colors: STORED }, { schemaPalette: GOLD_ROSE })
+    await w.find('[data-test="brand-add"]').trigger('click')
+    await w.find('[data-test="brand-row-remove"]').trigger('click')
+    expect(await savedPayload(w)).not.toHaveProperty('theme_brand_colors')
+  })
+
+  it('reordering sends the new order', async () => {
+    const w = await mountAppearance({ theme_brand_colors: STORED }, { schemaPalette: GOLD_ROSE })
+    const draggable = w.findComponent({ name: 'VueDraggable' })
+    const rows = draggable.props('modelValue') as unknown[]
+    draggable.vm.$emit('update:modelValue', [...rows].reverse())
+    await flushPromises()
+    expect(sentList(await savedPayload(w)).colors.map((c) => c.id)).toEqual([1, 4])
+  })
+
+  it('Clear on a saved colour opens the dialog for that id', async () => {
+    paletteApi.fetchPaletteUsage.mockReset().mockReturnValue(new Promise(() => {}))
+    const w = await mountAppearance({ theme_brand_colors: STORED }, { schemaPalette: GOLD_ROSE })
+    await w.find('[data-test="brand-row-4"] [data-test="brand-row-clear"]').trigger('click')
+    await flushPromises()
+    expect(paletteApi.fetchPaletteUsage).toHaveBeenCalledWith(4)
+    const dialog = w.findComponent({ name: 'ClearBrandDialog' })
+    expect(dialog.props('id')).toBe(4)
+    expect(dialog.props('name')).toBe('Gold')
+  })
+
+  it('shows a replacing colour as progress and a reserved one without Clear', async () => {
+    const w = await mountAppearance(
+      { theme_brand_colors: STORED },
+      {
+        schemaPalette: {
+          'brand-4': {
+            name: 'Gold',
+            state: 'replacing',
+            replacing: { to: 'color.brand-1', to_label: 'Rose' },
+          },
+          'brand-1': { name: 'Rose', state: 'configured', reserved: true },
+        },
+        jobs: [
+          {
+            id: 'job1',
+            slot: 4,
+            to: 'color.brand-1',
+            status: 'running',
+            work_items_done: 2,
+            work_items_total: 5,
+          },
+        ],
+      },
+    )
+    expect(w.find('[data-test="brand-row-4-progress"]').text()).toContain(
+      'Replacing Gold with Rose — 2 of 5',
+    )
+    expect(w.find('[data-test="brand-row-4-name"]').exists()).toBe(false)
+    expect(w.find('[data-test="brand-row-1"] [data-test="brand-row-clear"]').exists()).toBe(false)
+    expect(w.find('[data-test="brand-row-1-reserved"]').text()).toContain(
+      'Reserved by the Gold replacement',
+    )
+  })
+
+  it('the section is hidden when the limit is 0', async () => {
+    const w = await mountAppearance({ theme_brand_colors: STORED }, { limit: 0 })
+    expect(w.find('[data-test="brand-colors"]').exists()).toBe(false)
+  })
+
+  it('a refused list shows its message on the Colours tab', async () => {
+    const { ApiError } = await import('@/api/errors')
+    saveMock
+      .mockReset()
+      .mockRejectedValue(
+        new ApiError(
+          'The given data was invalid.',
+          422,
+          { theme_brand_colors: 'This site allows 3 brand colours' },
+          {},
+        ),
+      )
+    const w = await mountAppearance({ theme_brand_colors: STORED }, { schemaPalette: GOLD_ROSE })
+    await addSky(w)
+    await w.find('[data-test="appearance-save"]').trigger('click')
+    await flushPromises()
+    expect(w.find('[data-test="appearance-tab-error-colours"]').exists()).toBe(true)
+    expect(w.find('[data-test="brand-colors-error"]').text()).toBe(
+      'This site allows 3 brand colours',
+    )
+  })
+
+  it('the preview carries the pending list, new rows numbered above every id seen', async () => {
+    const w = await mountAppearance({ theme_brand_colors: STORED }, { schemaPalette: GOLD_ROSE })
+    await addSky(w)
+    const look = w.findComponent({ name: 'AppearancePreview' }).props('look') as {
+      palette: { brands: Array<{ id: number; name: string; hex: string }> }
+    }
+    expect(look.palette.brands[look.palette.brands.length - 1]).toEqual({
+      id: 8,
+      name: 'Sky',
+      hex: '#38bdf8',
+    })
+  })
+
+  it('adopts the assigned ids from the save response, so an edit before the refetch saves cleanly', async () => {
+    const w = await mountAppearance({ theme_brand_colors: STORED }, { schemaPalette: GOLD_ROSE })
+    await addSky(w)
+    // The settings query keeps its old value: the refetch is "delayed" for the whole test.
+    saveMock.mockReset().mockResolvedValue({
+      ...settings(),
+      theme_brand_colors: stored(
+        4,
+        [
+          [4, 'Gold', '#8a6a2a'],
+          [1, 'Rose', '#c98a8a'],
+          [8, 'Sky', '#38bdf8'],
+        ],
+        [[7, 'Teal']],
+      ),
+    })
+    await savedPayload(w)
+    await rename(w, 8, 'Sky blue')
+    expect(w.find('[data-test="appearance-tab-dirty-colours"]').exists()).toBe(true)
+    const list = sentList(await savedPayload(w))
+    expect(list.base).toBe(4)
+    expect(list.colors).toEqual([
+      { id: 4, name: 'Gold', hex: '#8a6a2a' },
+      { id: 1, name: 'Rose', hex: '#c98a8a' },
+      { id: 8, name: 'Sky blue', hex: '#38bdf8' },
+    ])
+  })
+
+  it('an edit made while a save is in flight stays unsaved', async () => {
+    const w = await mountAppearance({ theme_brand_colors: STORED }, { schemaPalette: GOLD_ROSE })
+    await rename(w, 4, 'Amber')
+    let resolve!: (v: unknown) => void
+    saveMock.mockReset().mockReturnValue(new Promise((r) => (resolve = r)))
+    await w.find('[data-test="appearance-save"]').trigger('click')
+    await rename(w, 1, 'Blush')
+    resolve({
+      ...settings(),
+      theme_brand_colors: stored(
+        4,
+        [
+          [4, 'Amber', '#8a6a2a'],
+          [1, 'Rose', '#c98a8a'],
+        ],
+        [[7, 'Teal']],
+      ),
+    })
+    await flushPromises()
+    expect(rowNames(w)).toEqual(['Amber', 'Blush'])
+    expect(w.find('[data-test="appearance-tab-dirty-colours"]').exists()).toBe(true)
+    expect(sentList(await savedPayload(w)).base).toBe(4)
+  })
+
+  it('settings arriving after mount install the rows and their revision together', async () => {
+    schemaData.value = schema(GOLD_ROSE)
+    paletteApi.fetchPaletteJobs.mockReset().mockResolvedValue([])
+    settingsData.value = undefined
+    const w = mount(AppearancePage)
+    await flushPromises()
+    settingsData.value = {
+      ...settings(),
+      theme_brand_colors: stored(5, [
+        [4, 'Gold', '#8a6a2a'],
+        [1, 'Rose', '#c98a8a'],
+      ]),
+    } as GeneralSettings
+    await flushPromises()
+    expect(rowNames(w)).toEqual(['Gold', 'Rose'])
+    expect(w.find('[data-test="appearance-tab-dirty-colours"]').exists()).toBe(false)
+    await rename(w, 1, 'Blush')
+    expect(sentList(await savedPayload(w)).base).toBe(5)
+  })
+
+  it('a migrated list at revision 0 installs, and new rows are numbered above its reserved ids', async () => {
+    schemaData.value = schema(GOLD_ROSE)
+    paletteApi.fetchPaletteJobs.mockReset().mockResolvedValue([])
+    settingsData.value = undefined
+    const w = mount(AppearancePage)
+    await flushPromises()
+    settingsData.value = {
+      ...settings(),
+      theme_brand_colors: stored(
+        0,
+        [[1, 'Gold', '#8a6a2a']],
+        [
+          [2, 'Brand 2'],
+          [3, 'Brand 3'],
+        ],
+      ),
+    } as GeneralSettings
+    await flushPromises()
+    expect(rowNames(w)).toEqual(['Gold'])
+    await addSky(w)
+    const look = w.findComponent({ name: 'AppearancePreview' }).props('look') as {
+      palette: { brands: Array<{ id: number }> }
+    }
+    expect(look.palette.brands.map((b) => b.id)).toEqual([1, 4])
+    expect(sentList(await savedPayload(w)).base).toBe(0)
+  })
+
+  it('a clean-form refetch changes the list and its revision together', async () => {
+    const w = await mountAppearance({ theme_brand_colors: STORED }, { schemaPalette: GOLD_ROSE })
+    settingsData.value = {
+      ...settings(),
+      theme_brand_colors: stored(
+        4,
+        [
+          [4, 'Amber', '#8a6a2a'],
+          [1, 'Rose', '#c98a8a'],
+        ],
+        [[7, 'Teal']],
+      ),
+    } as GeneralSettings
+    await flushPromises()
+    expect(rowNames(w)).toEqual(['Amber', 'Rose'])
+    await rename(w, 1, 'Blush')
+    const list = sentList(await savedPayload(w))
+    expect(list.base).toBe(4)
+    expect(list.colors[0]).toEqual({ id: 4, name: 'Amber', hex: '#8a6a2a' })
+  })
+
+  it('a dirty-form refetch keeps the edited rows and the base they began from', async () => {
+    const w = await mountAppearance({ theme_brand_colors: STORED }, { schemaPalette: GOLD_ROSE })
+    await rename(w, 1, 'Blush')
+    settingsData.value = {
+      ...settings(),
+      theme_brand_colors: stored(
+        4,
+        [
+          [4, 'Amber', '#8a6a2a'],
+          [1, 'Rose', '#c98a8a'],
+        ],
+        [[7, 'Teal']],
+      ),
+    } as GeneralSettings
+    await flushPromises()
+    expect(rowNames(w)).toEqual(['Gold', 'Blush'])
+    expect(w.find('[data-test="appearance-tab-dirty-colours"]').exists()).toBe(true)
+    const list = sentList(await savedPayload(w))
+    expect(list.base).toBe(3) // the server refuses it: the values are revision 3's
+    expect(list.colors[0]).toEqual({ id: 4, name: 'Gold', hex: '#8a6a2a' })
+  })
+
+  it('a Clear takes its own result when nothing changed in between', async () => {
+    paletteApi.fetchPaletteUsage.mockReset().mockReturnValue(new Promise(() => {}))
+    const w = await mountAppearance({ theme_brand_colors: STORED }, { schemaPalette: GOLD_ROSE })
+    await rename(w, 1, 'Blush')
+    await w.find('[data-test="brand-row-4"] [data-test="brand-row-clear"]').trigger('click')
+    await flushPromises()
+    w.findComponent({ name: 'ClearBrandDialog' }).vm.$emit('done', {
+      cleared: 4,
+      brandColors: stored(
+        4,
+        [[1, 'Rose', '#c98a8a']],
+        [
+          [4, 'Gold'],
+          [7, 'Teal'],
+        ],
+      ),
+    })
+    await flushPromises()
+    expect(w.find('[data-test="brand-row-4"]').exists()).toBe(false)
+    expect(rowNames(w)).toEqual(['Blush'])
+    expect(w.find('[data-test="appearance-tab-dirty-colours"]').exists()).toBe(true)
+    expect(sentList(await savedPayload(w)).base).toBe(4)
+  })
+
+  it('a Clear after someone else’s change drops the row but keeps the base', async () => {
+    paletteApi.fetchPaletteUsage.mockReset().mockReturnValue(new Promise(() => {}))
+    const w = await mountAppearance({ theme_brand_colors: STORED }, { schemaPalette: GOLD_ROSE })
+    await rename(w, 1, 'Blush')
+    await w.find('[data-test="brand-row-4"] [data-test="brand-row-clear"]').trigger('click')
+    await flushPromises()
+    w.findComponent({ name: 'ClearBrandDialog' }).vm.$emit('done', {
+      cleared: 4,
+      brandColors: stored(
+        5,
+        [[1, 'Rose', '#c98a8a']],
+        [
+          [4, 'Gold'],
+          [7, 'Teal'],
+        ],
+      ),
+    })
+    await flushPromises()
+    expect(w.find('[data-test="brand-row-4"]').exists()).toBe(false)
+    expect(sentList(await savedPayload(w)).base).toBe(3)
+  })
+
+  it('a stale list’s 409 says to reload', async () => {
+    const { ApiError } = await import('@/api/errors')
+    const message = 'Brand colours changed since you opened this page — reload to see the latest'
+    saveMock.mockReset().mockRejectedValue(new ApiError(message, 409, {}, {}))
+    const w = await mountAppearance({ theme_brand_colors: STORED }, { schemaPalette: GOLD_ROSE })
+    await rename(w, 1, 'Blush')
+    await w.find('[data-test="appearance-save"]').trigger('click')
+    await flushPromises()
+    expect(notify.error).toHaveBeenCalled()
+    const calls = notify.error.mock.calls
+    expect((calls[calls.length - 1]![0] as Error).message).toBe(message)
+    expect(rowNames(w)).toEqual(['Gold', 'Blush'])
   })
 })

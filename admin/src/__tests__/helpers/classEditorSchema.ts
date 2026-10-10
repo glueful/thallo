@@ -49,7 +49,8 @@ type PaletteSlot = NonNullable<StyleSchemaResult['palette']>['slots'][string]
  * into one slot.
  */
 export function paletteFixture(
-  overrides: Partial<Record<'brand-1' | 'brand-2' | 'brand-3', Partial<PaletteSlot>>> = {},
+  /** Per colour: changed fields, or null for an id never issued here (absent from the palette). */
+  overrides: Record<string, Partial<PaletteSlot> | null> = {},
 ): NonNullable<StyleSchemaResult['palette']> {
   const base: Record<string, PaletteSlot> = {
     'brand-1': {
@@ -88,16 +89,20 @@ export function paletteFixture(
     'color.white': 'White',
     'color.black': 'Black',
   }
-  for (const key of ['brand-1', 'brand-2', 'brand-3'] as const) {
-    slots[key] = { ...base[key]!, ...overrides[key] }
-    const name =
-      slots[key]!.state === 'unset'
-        ? `Brand ${key.slice(-1)}`
-        : (slots[key]!.name ?? `Brand ${key.slice(-1)}`)
-    labels[`color.${key}`] = name
-    labels[`color.${key}-contrast`] = `${name} — text`
+  const order: string[] = []
+  for (const key of [...new Set([...Object.keys(base), ...Object.keys(overrides)])]) {
+    const over = overrides[key]
+    if (over === null) continue // never issued: absent
+    const slot = { ...(base[key] ?? { name: key, state: 'configured' }), ...over } as PaletteSlot
+    slots[key] = slot
+    if (slot.state !== 'removed') order.push(key)
+    labels[`color.${key}`] = slot.name
+    labels[`color.${key}-contrast`] = `${slot.name} — text`
   }
   return {
+    limit: 3,
+    order,
+    can_manage: true,
     slots,
     swatches: {
       'color.background': '#ffffff',

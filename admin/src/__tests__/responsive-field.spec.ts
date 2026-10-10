@@ -105,7 +105,7 @@ describe('ResponsiveField › colour (custom palette spec §5.2)', () => {
         classes: [],
         activeBreakpoint: 'base',
         vocabulary: { domains: { color: ['text', 'brand-1', 'brand-3'] }, values: {} },
-        palette: paletteFixture({ 'brand-3': { state: 'unset' } }),
+        palette: paletteFixture({ 'brand-3': null }),
         scopedSkin: true,
       },
     })

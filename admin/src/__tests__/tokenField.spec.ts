@@ -29,7 +29,7 @@ import { paletteFixture } from './helpers/classEditorSchema'
 
 describe('TokenField', () => {
   it('a stored colour on an unset brand slot is unavailable, and Clear takes it off', async () => {
-    palette.value = paletteFixture({ 'brand-3': { state: 'unset' } })
+    palette.value = paletteFixture({ 'brand-3': null })
     const w = mount(TokenField, {
       props: {
         field: { name: 'prefix_color', type: 'token', domain: 'color' },

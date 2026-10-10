@@ -720,7 +720,7 @@ describe('appearance tabs', () => {
         new ApiError(
           'The given data was invalid.',
           422,
-          { 'theme_brand_2.name': 'too long', site_favicon: 'not an image' },
+          { theme_brand_colors: 'too long', site_favicon: 'not an image' },
           {},
         ),
       )

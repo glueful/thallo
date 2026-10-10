@@ -21,17 +21,27 @@ import { useNotify } from '@/composables/useNotify'
 import { useAppearanceChanges } from '@/composables/useAppearanceChanges'
 import { useStyleSchema } from '@/queries/styleSchema'
 import { qk } from '@/queries/keys'
-import { normalizeHex } from '@/style/contrast'
 import {
   fetchPaletteJobs,
   previewPalette,
-  type BrandKey,
   type NeutralKey,
   type PaletteJob,
   type PaletteLook,
 } from '@/queries/palette'
 import CustomNeutralFields from './components/CustomNeutralFields.vue'
-import BrandColorsField, { type BrandDraft } from './components/BrandColorsField.vue'
+import BrandColorsField from './components/BrandColorsField.vue'
+import {
+  adoptIds,
+  dropRemoved,
+  matches,
+  newer,
+  parseDraft,
+  parseStored,
+  previewBrands,
+  serializeDraft,
+  submission,
+  type BrandRow,
+} from './brandColors'
 import ContrastChecks from './components/ContrastChecks.vue'
 import ClearBrandDialog from './components/ClearBrandDialog.vue'
 import {
@@ -48,24 +58,26 @@ const { success, error: notifyError } = useNotify()
 const { data, status } = useGeneralSettings()
 const { save } = useGeneralSettingsMutations()
 
-const { form, dirty, payload, saved } = useSettingsForm(data, {
-  theme: '',
-  theme_accent: 'blue',
-  theme_neutral: 'slate',
-  theme_radius: 'round',
-  theme_font: 'sans',
-  theme_font_text_family: '',
-  theme_font_headings_family: '',
-  theme_background: 'plain',
-  site_logo: '',
-  site_logo_dark: '',
-  site_favicon: '',
-  theme_neutral_custom: '',
-  theme_dark_base: '',
-  theme_brand_1: '',
-  theme_brand_2: '',
-  theme_brand_3: '',
-})
+const { form, dirty, payload, saved, adopt } = useSettingsForm(
+  data,
+  {
+    theme: '',
+    theme_accent: 'blue',
+    theme_neutral: 'slate',
+    theme_radius: 'round',
+    theme_font: 'sans',
+    theme_font_text_family: '',
+    theme_font_headings_family: '',
+    theme_background: 'plain',
+    site_logo: '',
+    site_logo_dark: '',
+    site_favicon: '',
+    theme_neutral_custom: '',
+    theme_dark_base: '',
+    theme_brand_colors: '',
+  },
+  { manual: ['theme_brand_colors'] },
+)
 /** Read, never written here: the favicon preview's tab title, and what a preview opens through. */
 const siteName = computed(() => data.value?.site_name ?? '')
 
@@ -112,8 +124,6 @@ const neutralSwatch = computed(() =>
 // ── The palette (custom palette spec §2, §5.1) ───────────────────────────────────────────────
 // The form keeps each palette key as the JSON string the server stores; these read and write it.
 const NEUTRAL_KEYS: NeutralKey[] = ['bg', 'surface', 'surface_2', 'ink', 'muted', 'line']
-const BRAND_KEYS: BrandKey[] = ['1', '2', '3']
-const brandField = (key: BrandKey) => `theme_brand_${key}` as const
 
 function parseJson(value: string | undefined): Record<string, unknown> | null {
   if (!value) return null
@@ -138,28 +148,60 @@ function setNeutralCustom(next: Record<NeutralKey, string>): void {
   form.theme_neutral_custom = JSON.stringify(next)
 }
 
-const brandDrafts = computed<Record<BrandKey, BrandDraft>>(() => {
-  const out = {} as Record<BrandKey, BrandDraft>
-  for (const key of BRAND_KEYS) {
-    const parsed = parseJson(form[brandField(key)])
-    out[key] = { name: String(parsed?.name ?? ''), hex: String(parsed?.hex ?? '') }
+// ── The brand colours (custom palette spec §2.3, §5.1) ─────────────────────────────────────────
+// Two readings of the stored list, kept apart (brand colour list plan ruling 11):
+// - editBase: the list the rows were edited from; its revision is what Save sends as `base`. It
+//   moves only when the rows take its values — a refetch while the rows hold no brand edit, this
+//   editor's own save, or its own Clear when nothing else changed in between — so a revision always
+//   travels with the values it describes and a stale save is refused, never sent as current.
+// - seen: the newest list observed anywhere; it only numbers new rows for the preview.
+// The rows and their base have ONE owner, the watcher below: useSettingsForm leaves
+// `theme_brand_colors` to this page (`manual`), so rows and revision are always installed together.
+const editBase = ref(parseStored(undefined))
+const seen = ref(editBase.value)
+let brandsLoaded = false
+const storedBrands = computed(() => editBase.value)
+const brandRows = computed<BrandRow[]>(() => parseDraft(form.theme_brand_colors))
+function setBrandRows(next: BrandRow[]): void {
+  form.theme_brand_colors = serializeDraft(next)
+}
+watch(
+  () => (data.value === undefined ? undefined : (data.value.theme_brand_colors ?? '')),
+  (json) => {
+    if (json === undefined) return // the settings have not arrived yet
+    const observed = parseStored(json)
+    // The first reading replaces the empty start outright: newer() keeps the first of two
+    // revision-0 lists, which would drop a migrated list's removed ids from the preview's numbering.
+    seen.value = brandsLoaded ? newer(seen.value, observed) : observed
+    // The first settings always install the rows with their revision (a migrated list is revision 0
+    // with colours). After that a newer list replaces the rows only while they hold no brand edit;
+    // edited rows keep the base they began from, and their save is refused if it is stale.
+    const first = !brandsLoaded
+    if (
+      first ||
+      (observed.revision > editBase.value.revision && matches(brandRows.value, editBase.value))
+    ) {
+      brandsLoaded = true
+      adopt({ theme_brand_colors: serializeDraft(parseDraft(json)) })
+      editBase.value = observed
+    }
+  },
+  { immediate: true },
+)
+/** A Clear's own result: the row leaves; the base moves only if nothing else changed in between. */
+function onBrandCleared(id: number, written: string | null): void {
+  adopt({ theme_brand_colors: serializeDraft(brandRows.value.filter((row) => row.id !== id)) })
+  if (written === null) return
+  const after = parseStored(written)
+  seen.value = newer(seen.value, after)
+  if (after.revision === editBase.value.revision + 1) {
+    editBase.value = after
+    adopt({ theme_brand_colors: serializeDraft(dropRemoved(brandRows.value, after)) })
   }
-  return out
-})
-function setBrandDrafts(next: Record<BrandKey, BrandDraft>): void {
-  for (const key of BRAND_KEYS) form[brandField(key)] = JSON.stringify(next[key])
 }
-/** A slot as the server would store it, or null while it is not a name and a colour. */
-function validBrand(draft: BrandDraft): BrandDraft | null {
-  const name = draft.name.trim()
-  const hex = normalizeHex(draft.hex)
-  return name !== '' && name.length <= 32 && hex !== null ? { name, hex } : null
-}
-const configured = computed<Record<BrandKey, boolean>>(() => {
-  const out = {} as Record<BrandKey, boolean>
-  for (const key of BRAND_KEYS) out[key] = parseJson(data.value?.[brandField(key)]) !== null
-  return out
-})
+const brandLimit = computed(() => styleSchema.value?.palette?.limit ?? 3)
+/** The message a refused list came back with, shown under the rows until the next save. */
+const brandError = ref<string | null>(null)
 
 // The family the form had before Custom: Custom's first values come from it, and Reset returns to it.
 const lastFamily = ref(form.theme_neutral === 'custom' ? '' : form.theme_neutral)
@@ -196,7 +238,7 @@ function resetNeutral(): void {
   form.theme_neutral_custom = ''
 }
 function emptyPalette(): PaletteLook['palette'] {
-  return { neutral_custom: null, dark_base: null, brands: { '1': null, '2': null, '3': null } }
+  return { neutral_custom: null, dark_base: null, brands: [] }
 }
 const resetFamily = computed(() => form.theme_dark_base || lastFamily.value || 'slate')
 
@@ -206,26 +248,18 @@ const schemaSlots = computed(() => styleSchema.value?.palette?.slots ?? {})
 
 /** The pending palette: what the preview frames and the contrast checks judge. */
 const pendingPalette = computed<PaletteLook['palette']>(() => {
-  const brands = {} as PaletteLook['palette']['brands']
-  for (const key of BRAND_KEYS) brands[key] = validBrand(brandDrafts.value[key])
   return {
     neutral_custom: form.theme_neutral === 'custom' ? neutralCustom.value : null,
     dark_base: form.theme_dark_base || null,
-    brands,
+    // New rows are numbered above every id seen anywhere (never stored: the save assigns ids).
+    brands: previewBrands(brandRows.value, seen.value),
   }
 })
 /** The saved palette, read as the form reads it. */
 const savedPalette = computed<PaletteLook['palette']>(() => {
   const stored = data.value as Record<string, string | undefined> | undefined
   const custom = parseJson(stored?.theme_neutral_custom)
-  const brands = {} as PaletteLook['palette']['brands']
-  for (const key of BRAND_KEYS) {
-    const parsed = parseJson(stored?.[brandField(key)])
-    brands[key] =
-      parsed === null
-        ? null
-        : validBrand({ name: String(parsed.name ?? ''), hex: String(parsed.hex ?? '') })
-  }
+  const brands = storedBrands.value.colors.map((c) => ({ id: c.id, name: c.name, hex: c.hex }))
   return {
     neutral_custom:
       stored?.theme_neutral === 'custom' && custom !== null
@@ -277,18 +311,19 @@ onBeforeUnmount(() => {
 })
 
 /** Clear opens the usage dialog: Clear when nothing uses the colour, else Replace with…. */
-const clearing = ref<1 | 2 | 3 | null>(null)
-function onClearBrand(slot: 1 | 2 | 3): void {
-  clearing.value = slot
+const clearing = ref<number | null>(null)
+function onClearBrand(id: number): void {
+  clearing.value = id
 }
-const clearingName = computed(() => {
-  if (clearing.value === null) return ''
-  const key = String(clearing.value) as BrandKey
-  const stored = parseJson(data.value?.[brandField(key)])
-  return String(stored?.name ?? '') || `Brand ${key}`
-})
+const clearingName = computed(() =>
+  clearing.value === null
+    ? ''
+    : (styleSchema.value?.palette?.labels[`color.brand-${clearing.value}`] ??
+      `Brand ${clearing.value}`),
+)
 /** A clear or a replacement started: read the palette, the settings and the jobs again. */
-function onPaletteChanged(): void {
+function onPaletteChanged(result?: { cleared: number; brandColors: string | null }): void {
+  if (result !== undefined) onBrandCleared(result.cleared, result.brandColors)
   void queryCache.invalidateQueries({ key: qk.styleSchema() })
   void queryCache.invalidateQueries({ key: ['settings', 'general'] })
   appearanceChanges.notify('appearance')
@@ -304,20 +339,9 @@ function savePayload(): Record<string, unknown> {
   const out: Record<string, unknown> = { ...payload() }
   const stored = (key: string) =>
     String((data.value as Record<string, unknown> | undefined)?.[key] ?? '')
-  for (const key of BRAND_KEYS) {
-    const field = brandField(key)
-    const valid = validBrand(brandDrafts.value[key])
-    const canonical = valid === null ? null : JSON.stringify(valid)
-    if (
-      canonical === null ||
-      canonical === stored(field) ||
-      JSON.stringify(parseJson(stored(field))) === canonical
-    ) {
-      delete out[field]
-    } else {
-      out[field] = canonical
-    }
-  }
+  const brands = submission(brandRows.value, storedBrands.value)
+  if (brands === null) delete out.theme_brand_colors
+  else out.theme_brand_colors = brands.json
   if (form.theme_neutral_custom === stored('theme_neutral_custom')) delete out.theme_neutral_custom
   if (form.theme_dark_base === '' || form.theme_dark_base === stored('theme_dark_base'))
     delete out.theme_dark_base
@@ -404,12 +428,31 @@ const appearanceChanges = useAppearanceChanges()
 
 async function onSave() {
   errorTabs.value = new Set()
+  brandError.value = null
+  const sent = payload() // the form as it was when Save was pressed
+  const brands = submission(brandRows.value, storedBrands.value)
   try {
-    await save.mutateAsync(savePayload())
-    saved()
+    const result = await save.mutateAsync(savePayload())
+    if (brands !== null) {
+      // The list this save committed (the server captures it in the save's transaction, plan ruling
+      // 13): the new rows take its ids, in the rows as they are now and in what was sent, so
+      // "nothing changed since" compares like with like; and it is the new base.
+      const committed = parseStored(result.theme_brand_colors)
+      adopt({
+        theme_brand_colors: serializeDraft(adoptIds(brandRows.value, brands.keys, committed)),
+      })
+      sent.theme_brand_colors = serializeDraft(
+        adoptIds(parseDraft(sent.theme_brand_colors), brands.keys, committed),
+      )
+      editBase.value = committed
+      seen.value = newer(seen.value, committed)
+    }
+    saved(sent)
     appearanceChanges.notify('appearance')
     success('Appearance saved', 'Changes apply on the next page view.')
   } catch (e) {
+    brandError.value =
+      (e as { fieldErrors?: Record<string, string> }).fieldErrors?.theme_brand_colors ?? null
     // A refused save opens the first tab, in tab order, holding a field it names (spec §3).
     const fields = (e as { fieldErrors?: Record<string, string> }).fieldErrors ?? {}
     const holding = tabsHolding(Object.keys(fields))
@@ -547,17 +590,25 @@ async function onSave() {
                           @reset="resetNeutral"
                         />
                         <UFormField
+                          v-if="brandLimit > 0"
                           label="Brand colours"
-                          description="Named colours every block's colour picker offers. Up to three."
+                          description="Named colours every block's colour picker offers."
                         >
                           <BrandColorsField
-                            :slots="brandDrafts"
-                            :configured="configured"
+                            :rows="brandRows"
                             :palette="schemaSlots"
                             :jobs="jobs"
-                            @update:slots="setBrandDrafts"
+                            :limit="brandLimit"
+                            @update:rows="setBrandRows"
                             @clear="onClearBrand"
                           />
+                          <p
+                            v-if="brandError"
+                            class="mt-2 text-sm text-error"
+                            data-test="brand-colors-error"
+                          >
+                            {{ brandError }}
+                          </p>
                         </UFormField>
                         <UFormField label="Contrast">
                           <ContrastChecks :look="contrastLook" />
@@ -565,7 +616,7 @@ async function onSave() {
                         <ClearBrandDialog
                           v-if="clearing !== null"
                           :open="clearing !== null"
-                          :slot="clearing"
+                          :id="clearing"
                           :name="clearingName"
                           :palette="styleSchema?.palette"
                           :colours="styleSchema?.vocabulary?.domains.color ?? []"

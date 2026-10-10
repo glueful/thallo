@@ -3,14 +3,22 @@
 // Appearance how it looks. Each page edits and SAVES ONLY ITS OWN KEYS — the server leaves an
 // omitted key unchanged, so a page holding a stale copy of another page's settings can never write
 // it back over a change made there meanwhile.
+//
+// A page may own some keys itself (`manual`): the server→form sync leaves them alone, so the page
+// can install a value together with what it depends on (Appearance's brand colours and their
+// revision). adopt() writes a value the page takes from the server without counting it as an edit,
+// and saved(sent) marks the form clean only if nothing was edited while the save was in flight.
 import { nextTick, reactive, ref, watch, type Ref } from 'vue'
 import type { GeneralSettings } from '@/queries/generalSettings'
 
 export function useSettingsForm<K extends keyof GeneralSettings>(
   data: Ref<GeneralSettings | undefined>,
   defaults: Pick<GeneralSettings, K>,
+  options: { manual?: NoInfer<K>[] } = {},
 ) {
   const keys = Object.keys(defaults) as K[]
+  /** The keys the server→form sync writes: every key but the ones the page owns. */
+  const synced = keys.filter((key) => !(options.manual ?? []).includes(key))
   const form = reactive({ ...defaults }) as Pick<GeneralSettings, K>
 
   // Server → form sync, but NEVER over unsaved edits: the query refetches on window refocus once
@@ -23,7 +31,7 @@ export function useSettingsForm<K extends keyof GeneralSettings>(
     (settings) => {
       if (!settings || dirty.value) return
       syncing = true
-      for (const key of keys) {
+      for (const key of synced) {
         if (settings[key] !== undefined) form[key] = settings[key]
       }
       void nextTick(() => {
@@ -46,10 +54,23 @@ export function useSettingsForm<K extends keyof GeneralSettings>(
     for (const key of keys) out[key] = form[key]
     return out
   }
-  /** Saved: the form matches the server again, so the post-save refetch may sync. */
-  const saved = (): void => {
+  /** A value the page takes from the server (a save's ids, a colour that left): never an edit. */
+  const adopt = (patch: Partial<Pick<GeneralSettings, K>>): void => {
+    syncing = true
+    Object.assign(form, patch)
+    void nextTick(() => {
+      syncing = false
+    })
+  }
+  /**
+   * Saved: the form matches the server again, so the post-save refetch may sync — unless it was
+   * edited while the save was in flight (`sent` is what was sent), when it stays dirty and keeps
+   * the edit.
+   */
+  const saved = (sent?: Pick<GeneralSettings, K>): void => {
+    if (sent !== undefined && keys.some((key) => form[key] !== sent[key])) return
     dirty.value = false
   }
 
-  return { form, dirty, payload, saved }
+  return { form, dirty, payload, saved, adopt }
 }

@@ -38,6 +38,8 @@ const COLOURS = [
   'brand-2-contrast',
   'brand-3',
   'brand-3-contrast',
+  'brand-12',
+  'brand-12-contrast',
 ]
 
 function usage(over: {
@@ -62,7 +64,7 @@ function usage(over: {
 
 let wrapper: VueWrapper | null = null
 async function mountDialog(props: {
-  slot: 1 | 2 | 3
+  id: number
   name: string
   palette?: ReturnType<typeof paletteFixture>
 }) {
@@ -75,7 +77,7 @@ async function mountDialog(props: {
         palette: {
           neutral_custom: null,
           dark_base: null,
-          brands: { '1': null, '2': null, '3': null },
+          brands: [],
         },
       },
       ...props,
@@ -93,10 +95,12 @@ async function click(sel: string) {
   await flushPromises()
 }
 
+const WRITTEN = '{"revision":4,"colors":[],"removed":[{"id":1,"name":"Gold dark"}]}'
+
 describe('Clear brand dialog', () => {
   beforeEach(() => {
     Object.values(api).forEach((fn) => fn.mockReset())
-    api.clearBrand.mockResolvedValue(undefined)
+    api.clearBrand.mockResolvedValue(WRITTEN)
     api.replaceBrand.mockResolvedValue({ id: 'job1' })
     api.previewPalette.mockResolvedValue({
       rows: [],
@@ -112,13 +116,14 @@ describe('Clear brand dialog', () => {
 
   it('clears an unused colour, mentioning history', async () => {
     api.fetchPaletteUsage.mockResolvedValue(usage({ historical: { total: 12 } }))
-    const w = await mountDialog({ slot: 1, name: 'Gold dark' })
+    const w = await mountDialog({ id: 1, name: 'Gold dark' })
     expect(api.fetchPaletteUsage).toHaveBeenCalledWith(1)
     expect(document.body.textContent).toContain("Gold dark isn't used on any current page.")
     expect(document.body.textContent).toContain('12 older versions also use Gold dark')
     await click('[data-test="clear-confirm"]')
     expect(api.clearBrand).toHaveBeenCalledWith(1)
-    expect(w.emitted('done')).toHaveLength(1)
+    // The list this Clear wrote travels with `done`, so the page can take it as its new base.
+    expect(w.emitted('done')).toEqual([[{ cleared: 1, brandColors: WRITTEN }]])
   })
 
   it('offers only Replace when the colour is in use, excluding forbidden destinations', async () => {
@@ -133,9 +138,13 @@ describe('Clear brand dialog', () => {
       }),
     )
     await mountDialog({
-      slot: 1,
+      id: 1,
       name: 'Gold dark',
-      palette: paletteFixture({ 'brand-3': { state: 'unset' } }),
+      palette: paletteFixture({
+        'brand-3': { state: 'removed' },
+        'brand-2': { state: 'replacing' },
+        'brand-12': { name: 'Teal', hex: '#0f766e', state: 'configured', reserved: false },
+      }),
     })
     expect(q('[data-test="clear-confirm"]')).toBeNull()
     expect(document.body.textContent).toContain('Home')
@@ -145,13 +154,15 @@ describe('Clear brand dialog', () => {
       'color.brand-1-contrast',
       'color.brand-3',
       'color.accent-contrast',
+      'color.brand-2',
       'color.brand-2-contrast',
+      'color.brand-12-contrast',
       'color.transparent',
     ]) {
       expect(q(`[data-test="replace-to"] [data-test="token-${t}"]`), t).toBeNull()
     }
     expect(q('[data-test="replace-to"] [data-test="token-color.accent"]')).not.toBeNull()
-    expect(q('[data-test="replace-to"] [data-test="token-color.brand-2"]')).not.toBeNull()
+    expect(q('[data-test="replace-to"] [data-test="token-color.brand-12"]')).not.toBeNull()
   })
 
   it('requires a text colour for a destination with no pair when text on the slot exists, with both-mode ratios', async () => {
@@ -166,7 +177,7 @@ describe('Clear brand dialog', () => {
         dark: { surface: '#111a2e', text: '#e2e8f0' },
       },
     })
-    const w = await mountDialog({ slot: 1, name: 'Gold dark' })
+    const w = await mountDialog({ id: 1, name: 'Gold dark' })
     await click('[data-test="replace-to"] [data-test="token-color.surface"]')
     expect(q('[data-test="replace-confirm"]')!.hasAttribute('disabled')).toBe(true)
     expect(document.body.textContent).toContain('Text on Gold dark becomes')
@@ -175,14 +186,29 @@ describe('Clear brand dialog', () => {
     expect(q('[data-test="contrast-ratio-dark"]')).not.toBeNull()
     await click('[data-test="replace-confirm"]')
     expect(api.replaceBrand).toHaveBeenCalledWith(1, 'color.surface', 'color.text')
-    expect(w.emitted('done')).toHaveLength(1)
+    expect(w.emitted('done')).toEqual([[]]) // a started replacement carries no list
+  })
+
+  it('treats a brand colour of any id as carrying its own text colour', async () => {
+    api.fetchPaletteUsage.mockResolvedValue(
+      usage({ blocking: { total: 1, contrast_references: true } }),
+    )
+    await mountDialog({
+      id: 1,
+      name: 'Gold dark',
+      palette: paletteFixture({
+        'brand-12': { name: 'Teal', hex: '#0f766e', state: 'configured', reserved: false },
+      }),
+    })
+    await click('[data-test="replace-to"] [data-test="token-color.brand-12"]')
+    expect(q('[data-test="contrast-to"]')).toBeNull()
   })
 
   it('maps the text colour automatically for a destination with a pair', async () => {
     api.fetchPaletteUsage.mockResolvedValue(
       usage({ blocking: { total: 1, contrast_references: true } }),
     )
-    await mountDialog({ slot: 1, name: 'Gold dark' })
+    await mountDialog({ id: 1, name: 'Gold dark' })
     await click('[data-test="replace-to"] [data-test="token-color.accent"]')
     expect(q('[data-test="contrast-to"]')).toBeNull()
     await click('[data-test="replace-confirm"]')
@@ -194,7 +220,7 @@ describe('Clear brand dialog', () => {
     api.clearBrand.mockRejectedValue(
       new PaletteConflict('Gold dark is part of a running replacement'),
     )
-    const w = await mountDialog({ slot: 1, name: 'Gold dark' })
+    const w = await mountDialog({ id: 1, name: 'Gold dark' })
     await click('[data-test="clear-confirm"]')
     expect(q('[data-test="palette-conflict"]')!.textContent).toContain(
       'part of a running replacement',

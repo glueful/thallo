@@ -65,7 +65,7 @@ describe('colour token picker', () => {
     const w = picker({
       palette: paletteFixture({
         'brand-2': { state: 'replacing' },
-        'brand-3': { state: 'unset' },
+        'brand-3': null,
         'brand-1': { reserved: true },
       }),
     })
@@ -78,7 +78,7 @@ describe('colour token picker', () => {
   it('shows a stored reference to an unset slot as unavailable, with choose-another and clear', async () => {
     const w = picker({
       modelValue: 'color.brand-3',
-      palette: paletteFixture({ 'brand-3': { state: 'unset' } }),
+      palette: paletteFixture({ 'brand-3': null }),
     })
     const notice = w.find('[data-test="unavailable-colour"]')
     expect(notice.text()).toContain('Unavailable colour: Brand 3')
