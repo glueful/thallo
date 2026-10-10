@@ -265,6 +265,8 @@ final class BlocksRenderingTest extends AppTestCase
         self::assertSame('https://example.com/x', $ext->safeUrl('https://example.com/x'));
         self::assertSame('http://example.com', $ext->safeUrl(' http://example.com '));
         self::assertSame('mailto:x@y.z', $ext->safeUrl('mailto:x@y.z'));
+        self::assertSame('tel:+233597478403', $ext->safeUrl('tel:+233597478403'));
+        self::assertSame('sms:+233597478403', $ext->safeUrl('sms:+233597478403'));
         // Deny (spec §4 security matrix).
         foreach (
             [

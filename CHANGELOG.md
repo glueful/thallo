@@ -5,6 +5,17 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Fixed
+- **Links typed without a scheme now leave the site**: in a rich-text link box, on the stage or in the
+  panel, `www.example.com` or `example.com/shop` is linked as `https://…`, an email address as
+  `mailto:…` and a phone number as `tel:…`. Typed as it was, a bare domain was a page on your own site,
+  and a click on it found nothing. A leading `/`, `#` or `?` and anything with a scheme stay as typed.
+- **Phone and text links work**: `tel:` and `sms:` links are kept in rich text, pass `safe_url` (so a
+  Button, a Links item or any block URL can call or text a number) and are accepted on the stage.
+  Before, the link was removed when the page rendered and its text showed as plain words.
+
 ## [1.0.0-beta.98] - 2026-10-10 — Developer Preview
 
 Your own colours: a Custom neutral for the backgrounds, text and borders, brand colours you add up
