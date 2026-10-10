@@ -166,6 +166,8 @@ const LABELS: Record<string, string> = {
   'hover.colors.surface': 'Background',
   'hover.colors.border': 'Border colour',
   'hover.opacity': 'Opacity',
+  'hover.typography.weight': 'Weight',
+  'hover.typography.decoration': 'Text decoration',
   opacity: 'Opacity',
   'backdrop.blur': 'Backdrop blur',
 }
@@ -321,6 +323,7 @@ const fonts = computed(
       (fontLibrary.value?.families ?? []).map((f) => [f.id, { name: f.name, removed: f.removed }]),
     ),
 )
+const WEIGHT_PATHS = new Set(['typography.weight', 'hover.typography.weight'])
 const WEIGHTS: Record<string, number> = { regular: 400, medium: 500, semibold: 600, bold: 700 }
 const weightMarks = computed<Record<string, string> | undefined>(() => {
   const row = props.schema.properties.find((r) => r.path === 'typography.family')
@@ -519,7 +522,7 @@ function setCount(rows: StylePropertyRow[]): number {
               :vocabulary="schema.vocabulary"
               :palette="schema.palette"
               :scoped-skin="scopedSkin"
-              :marks="item.def.path === 'typography.weight' ? weightMarks : undefined"
+              :marks="WEIGHT_PATHS.has(item.def.path) ? weightMarks : undefined"
               :fonts="fonts"
               :computed-typography="item.def.path === 'typography.family' ? measured : undefined"
               :all-sizes-note="group.responsive"

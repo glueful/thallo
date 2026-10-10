@@ -259,6 +259,7 @@ describe('the Style tab forces while Hover is on', () => {
     const w = mountWith(stage, button)
     await w.find('[data-test="style-state-hover-colors"]').trigger('click')
     toggleFold('colors')
+    toggleFold('typography')
     toggleFold('effects')
     await w.vm.$nextTick()
     expect(stage.clear).toHaveBeenCalled()

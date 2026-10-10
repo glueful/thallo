@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 18;
+    public const VERSION = 19;
 
     /**
      * Paths that were once properties and are no longer. A stored value at one is dropped when a
@@ -31,6 +31,9 @@ final class StyleSchema
         'hover.colors.surface' => 'colors.surface',
         'hover.colors.border' => 'colors.border',
         'hover.opacity' => 'opacity',
+        // Settings version 19: a link's weight and the line under it, bolder or underlined on hover.
+        'hover.typography.weight' => 'typography.weight',
+        'hover.typography.decoration' => 'typography.decoration',
     ];
 
     /**

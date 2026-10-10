@@ -298,6 +298,13 @@ the whole tab, and a dot on Hover marks a section with hover values set.
 | Background | `hover.colors.surface` | no | `t-hover-bg-{name}` | as Background |
 | Border colour | `hover.colors.border` | no | `t-hover-bc-{name}` | as Border colour |
 | Opacity | `hover.opacity` | no | `t-hover-opacity-{100,…,50}` | as Opacity |
+| Weight | `hover.typography.weight` | no | `t-hover-weight-{regular,medium,semibold,bold}` | as Weight |
+| Text decoration | `hover.typography.decoration` | no | `t-hover-decor-{none,underline,line-through}` | as Text decoration |
+
+Weight and Text decoration are in Hover wherever the target or part also has them at rest: the
+switch shows on Typography too. On hover, Text decoration **None** takes away an underline the
+theme draws, such as a linked Heading's. A bolder weight makes the text a little wider, so the links
+beside it shift a little.
 
 Each hover utility is compiled twice:
 
@@ -463,14 +470,14 @@ reach that piece on every card:
 |---|---|---|
 | Card | the card | Colours (background, border), Border, Corners, Shadow, Padding, Opacity; Hover: background, border colour, opacity |
 | Image | the image frame | Corners |
-| Title | the product name's link | Typography, Text colour; Hover: text colour |
+| Title | the product name's link | Typography, Text colour; Hover: text colour, weight, text decoration |
 | Price | the price line | Typography, Text colour |
 | Meta | the categories and tags | Typography, Text colour |
-| Button | add to cart, or choose options | Colours, Border, Corners, Typography, Padding, Opacity; Hover: text colour, background, border colour, opacity |
+| Button | add to cart, or choose options | Colours, Border, Corners, Typography, Padding, Opacity; Hover: text colour, background, border colour, opacity, weight, text decoration |
 | Badge | the sale and new badges | Colours (background, text), Corners, Typography |
 
 The Title part is on the link inside the heading, where the pointer and keyboard focus land, so
-its Hover colour shows on focus too. The heading's level is the Block tab's **Title tag**.
+its Hover look shows on focus too. The heading's level is the Block tab's **Title tag**.
 
 The card's hover effect, the image's ratio, fit and zoom are not style settings: they are the
 Block tab's **Card** fields, drawn by the shop stylesheet. They show only on devices that can

@@ -80,13 +80,15 @@ final class StyleSchemaTest extends TestCase
             // opacity (settings version 15).
             'opacity',
             'hover.colors.text', 'hover.colors.surface', 'hover.colors.border', 'hover.opacity',
+            // A link's weight and line on hover (settings version 19).
+            'hover.typography.weight', 'hover.typography.decoration',
             // A Feature's marker — its colour, background and size — and the space between the
             // marker and the text (settings version 16).
             'marker.color', 'marker.background', 'marker.size', 'feature.gap',
             // Where a Feature's marker sits against its text (settings version 17).
             'feature.align',
         ], $paths);
-        self::assertSame(18, StyleSchema::VERSION);
+        self::assertSame(19, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
     }
 
@@ -219,7 +221,7 @@ final class StyleSchemaTest extends TestCase
             StyleSchema::pathsInGroup('layout.item'),
             StyleCapabilities::fromDeclaration(['layout.item'])->paths(),
         );
-        self::assertSame(18, StyleSchema::VERSION);
+        self::assertSame(19, StyleSchema::VERSION);
     }
 
     public function testMotionIsABlocksOwnGroupAndStaggerIsTheArrangersAlone(): void

@@ -28,6 +28,14 @@ as the next release, never a mutated tag.
   region that has Corners has Rounded corners. Stored, each is one value naming the set (`corners`:
   `tl-bl`; `border.sides`: `top-bottom`); the old single sides keep their names, so existing pages
   render as before. Settings version 18; StyleCompiler 27.
+- **A link can turn bolder or underline on hover**: the Hover state gains **Weight** and **Text
+  decoration** (`hover.typography.weight`, `hover.typography.decoration`), shown under Typography
+  wherever an element has them at rest: a Links link, a linked Rich text block, a product card's
+  Title, a Button. A Heading's **Link** section gains Weight and Text decoration, at rest and on
+  hover; on hover, Text decoration None takes away the underline the theme gives a linked heading.
+  Like every hover value they show under the pointer, on keyboard focus and in the stage's Hover
+  preview, never after a tap. `thallo:provision` adds the Heading's to an existing site. Settings
+  version 19; StyleCompiler 28.
 
 ### Fixed
 - **A linked Heading's underline no longer stays after a tap on a phone**, and the stage's Hover preview

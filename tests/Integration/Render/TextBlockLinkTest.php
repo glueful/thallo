@@ -117,6 +117,11 @@ final class TextBlockLinkTest extends AppTestCase
         return ['type' => 'token', 'value' => $value];
     }
 
+    private static function choice(string $value): array
+    {
+        return ['type' => 'choice', 'value' => $value];
+    }
+
     /** @return StyleTargets the shipped declaration of `$slug` */
     private static function targets(string $slug): StyleTargets
     {
@@ -147,6 +152,29 @@ final class TextBlockLinkTest extends AppTestCase
         self::assertMatchesRegularExpression(
             '~<h2 class="thallo-block thallo-block-heading"><a class="thallo-block-heading__link'
                 . ' t-fg-muted t-hover-fg-accent" href="/about">~',
+            $html,
+        );
+    }
+
+    public function testALinkTakesAWeightAndALineOnHover(): void
+    {
+        $paths = [
+            'typography.weight', 'typography.decoration', 'hover.typography.weight', 'hover.typography.decoration',
+        ];
+        $heading = self::targets('heading');
+        foreach ($paths as $path) {
+            self::assertTrue($heading->partCapabilities('link')->allows($path), "heading link: {$path}");
+            self::assertTrue(self::targets('links')->partCapabilities('link')->allows($path), "links: {$path}");
+            self::assertContains($path, self::targets('rich_text')->stylePathsFor('root'), "rich_text: {$path}");
+        }
+        self::assertNotContains('typography.size', $heading->partCapabilities('link')->paths(), 'the heading sizes it');
+
+        $html = $this->render('heading', ['text' => 'Our story', 'url' => '/about'], ['parts' => ['link' => [
+            'typography' => ['decoration' => self::choice('none')],
+            'hover' => ['typography' => ['weight' => self::choice('bold'), 'decoration' => self::choice('underline')]],
+        ]]]);
+        self::assertMatchesRegularExpression(
+            '~<a class="thallo-block-heading__link t-decor-none t-hover-weight-bold t-hover-decor-underline"~',
             $html,
         );
     }

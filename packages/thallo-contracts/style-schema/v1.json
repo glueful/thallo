@@ -1,5 +1,5 @@
 {
-    "version": 18,
+    "version": 19,
     "properties": [
         {
             "path": "spacing.padding.top",
@@ -1009,6 +1009,37 @@
                 "70",
                 "60",
                 "50"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "hover.typography.weight",
+            "group": "hover",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "regular",
+                "medium",
+                "semibold",
+                "bold"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "hover.typography.decoration",
+            "group": "hover",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "none",
+                "underline",
+                "line-through"
             ],
             "kinds": [
                 "choice",

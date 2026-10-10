@@ -36,7 +36,9 @@
             "hover.colors.text",
             "hover.colors.surface",
             "hover.colors.border",
-            "hover.opacity"
+            "hover.opacity",
+            "hover.typography.weight",
+            "hover.typography.decoration"
         ],
         "parts": {}
     },
@@ -123,7 +125,9 @@
                 "typography.transform",
                 "typography.decoration",
                 "typography.style",
-                "hover.colors.text"
+                "hover.colors.text",
+                "hover.typography.weight",
+                "hover.typography.decoration"
             ]
         }
     },

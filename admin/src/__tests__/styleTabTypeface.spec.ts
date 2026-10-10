@@ -97,6 +97,23 @@ describe('Typeface on the Style tab', () => {
     expect(w.emitted('set')).toEqual([['typography.family', null, null]])
   })
 
+  it('marks them on the hover Weight too', async () => {
+    const w = mount(StyleTab, {
+      props: {
+        block: { id: 'b1', type: 'heading', data: {}, settings: { style: family('Ab3dE5fG7hJ9') } },
+        blockType: { ...heading, style_capabilities: ['typography', 'hover'] },
+        schema: classEditorSchema(),
+        classes: [],
+        activeBreakpoint: 'base',
+      } as never,
+      global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
+    })
+    await w.find('[data-test="style-state-hover-typography"]').trigger('click')
+    const weight = w.find('[data-test="style-field-hover.typography.weight"]')
+    expect(weight.find('[data-test="choice-medium"]').text()).toContain('— not in this family')
+    expect(weight.find('[data-test="choice-bold"]').text()).not.toContain('not in this family')
+  })
+
   it('marks the weights the chosen family does not supply, still choosable', async () => {
     const weight = (style: Record<string, unknown>) =>
       mountTab(style).find('[data-test="style-field-typography.weight"]')

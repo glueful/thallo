@@ -620,6 +620,30 @@ final class StyleCompilerTest extends TestCase
         self::assertStringContainsString($branch('t-hover-opacity-70', 'opacity: 0.7;'), $css);
     }
 
+    public function testAHoverWeightAndLineAreTheirRestingDeclarations(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+        self::assertSame('t-hover-weight-bold', ClassNames::for('hover.typography.weight', 'bold'));
+        self::assertSame('t-hover-decor-none', ClassNames::for('hover.typography.decoration', 'none'));
+        self::assertSame(1, preg_match('/@media \(hover: hover\) \{\n(.*?)\n\}\n/s', $css, $pointer));
+        self::assertStringContainsString('.t-hover-weight-bold:hover { font-weight: 700; }', $pointer[1]);
+        self::assertStringContainsString(
+            '.t-hover-decor-underline:hover { text-decoration-line: underline; }',
+            $pointer[1],
+        );
+        self::assertStringContainsString(
+            '.t-hover-decor-none:focus-visible, .t-hover-decor-none[data-thallo-hover]'
+                . ' { text-decoration-line: none; }',
+            $css,
+        );
+        self::assertStringContainsString(
+            '.t-hover-weight-medium:has(> .thallo-block-link:focus-visible) { font-weight: 500; }',
+            $css,
+        );
+        self::assertStringContainsString('.t-hover-weight-reset { }', $css);
+        self::assertStringNotContainsString('md\\:t-hover-weight-', $css);
+    }
+
     public function testAHoverUtilityShowsWhenItsBlocksCoverLinkHasKeyboardFocus(): void
     {
         // A Rich text block made a link is covered by one (`.thallo-block-link`): the block cannot take
