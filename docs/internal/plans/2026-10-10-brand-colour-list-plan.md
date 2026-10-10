@@ -7,6 +7,9 @@
 > - **The editor takes a save's assigned ids and revision from the Save response** (ruling 11, Task 7).
 >   - `useSettingsForm` gains `adopt()` and `saved(sent)`, so an edit made before the refetch saves cleanly and stays marked unsaved.
 >   - A colour that leaves the stored list (Clear, a replacement completing) is dropped from the rows.
+> - **A revision always travels with the values it describes** (second review: rulings 11 and 13, Tasks 4 and 7).
+>   - **The server:** a list save and a Clear capture the list they committed, revision included, inside their transaction and return exactly that. They never return a later read.
+>   - **The editor:** it keeps the base it edits from apart from the newest list it has seen. A background refetch moves the base only when the rows hold no brand edit and take the refetched values. Otherwise the base moves only with the editor's own save, or with its own Clear when nothing else changed in between.
 > - **Migration 048 reserves ids 1–3 on every workspace that used the palette** (an old key, a `palette_state` row or a `palette_jobs` row), named from the audit log where it can tell (ruling 12, Task 3).
 >   - The revision-4 Clear deleted a slot's row, so a cleared slot left no setting behind.
 
@@ -81,11 +84,20 @@ out of the shared per-theme stylesheet into a per-workspace colours stylesheet.
    - Those ids never reach storage, because the save assigns real ids.
 10. **At limit 0, stored colours are absent from `palette.slots`, but their names stay in `palette.labels`.**
     - A stored reference then reads "Unavailable colour: Gold dark". "(removed)" is said only of a cleared colour, and "Brand 7" only of an id never issued here.
-11. **The editor adopts a save's assigned ids from the Save response, not from a refetch.** This is decided after plan review.
-    - `useSettingsForm` deliberately ignores refetched settings while the form is dirty. An edit made between Save and the refetch would leave a saved row at `id: null` and a stale revision, so the next save would add the colour twice (or be refused).
-    - So the save response is reconciled into the form. Each submitted new row's key is mapped to the id at its position in the returned list, the revision is taken from the response, and newer edits are kept.
-    - `useSettingsForm` gains `adopt()`, which writes without marking the form dirty, and `saved(sent)`, which marks it clean only if nothing changed since the payload was sent. The second fixes, for every field, today's loss of an edit's dirty state when it was made while a save was in flight.
-    - A colour that leaves the stored list (a Clear, or a replacement completing) is dropped from the rows with `adopt()`.
+11. **The editor keeps its editing base apart from the newest list it has seen.** This is decided after plan review.
+    - `editBase` is the stored list the rows were edited from: its revision is what Save sends as `base`.
+    - It moves only when the rows take that list's values:
+      - **A refetch:** only while the rows match the current base (no brand edit). The rows then adopt the refetched list.
+      - **The editor's own successful save:** the committed list from the response. Each new row takes the id at its position in that list (its key → id), and edits made since stay.
+      - **The editor's own Clear:** the committed list from the Clear response, when its revision is exactly `editBase.revision + 1`, so nothing else changed in between. The cleared row is dropped either way.
+    - A refetch while the rows hold edits leaves the base where the edits began. A stale save is then refused (409), rather than sending old values with a newer revision.
+    - `seen`, the newest list observed anywhere, only numbers new rows for the preview.
+    - `useSettingsForm` gains `adopt()`, which writes without marking the form dirty, and `saved(sent)`, which marks the form clean only if nothing changed since the payload was sent.
+13. **A save and a Clear return the list they committed, captured inside their transaction.** This is decided after the second review.
+    - The controller used to build its response from `settings->all()` after the palette transaction and the writes that follow, so another request could reorder or clear colours before that read.
+    - `PaletteMutations::save()` now returns `PaletteSaved` (whether the palette changed, and the stored `theme_brand_colors` value it wrote). The settings response's `theme_brand_colors` is that value.
+    - `PaletteMutations::clear()` returns the stored list it wrote, which `DELETE …/brand/{id}` returns as `brand_colors`.
+    - Matching new rows to ids by position is then exact: the list is the one this save wrote, in the order it was sent.
 12. **The migration reserves the revision-4 ids on any workspace that used the palette.** This is decided after plan review.
     - That build's Clear deleted the slot's settings row. So a cleared Brand 3 leaves no trace in settings, while retained content may still name `color.brand-3`.
     - Ids 1–3 that are not configured go to `removed` for any workspace with an old key, a `palette_state` row or a `palette_jobs` row. Fresh installs have none of these and start at `brand-1`.
@@ -148,6 +160,8 @@ out of the shared per-theme stylesheet into a per-workspace colours stylesheet.
 4. **A restored version naming a cleared id, or an imported id never issued here,** shows "(removed)" or "Brand 7" and renders no colour. The id is never confused with a later colour. Tested in Task 3 (`testANewColourNeverTakesAClearedId`) and Task 8 (picker wording).
 5. **The pickers and the colours stylesheet for an id above 3** (`brand-12`): validator, normaliser, `token_class()`, stylesheet and picker must all treat it like `brand-1`. Tested in Task 1 (normaliser, `slotOf`), Task 2 (validator, `token_class`, stylesheet) and Task 8 (picker).
 6. **Save, then edit before the refetch arrives.** The next save must send the assigned id and the new revision, and the edit must stay marked unsaved. Tested in Task 7 (`'adopts the assigned ids from the save response…'`).
+8. **A background refetch arrives while the rows hold edits.** It must not move the base: the stale values go with their own revision and are refused. Tested in Task 7 (`'a refetch while the rows hold edits leaves the base where the edits began'`).
+9. **Another request changes the list after a save commits, before its response is built.** The response must still describe what that save wrote. Tested in Task 4 (`testTheResponseCarriesTheListThisSaveCommitted`).
 7. **A development workspace whose Brand 3 was cleared under revision 4** must never hand id 3 to a new colour, so a restored old reference stays unavailable. Tested in Task 3 (`testAClearedRevisionFourSlotIsNeverReissued`).
 
 ---
@@ -1497,7 +1511,8 @@ git commit -m "feat(palette): brand colours are one list setting (theme_brand_co
 ### Task 4: Saving the list — new ids, the limit, no omissions
 
 **Files:**
-- Create: `core/src/Content/Palette/BrandColorsRefused.php`
+- Create: `core/src/Content/Palette/BrandColorsRefused.php`, `core/src/Content/Palette/PaletteSaved.php`
+- Modify: `core/src/Content/Palette/Http/PaletteController.php` (`clear()` returns `brand_colors`)
 - Modify: `core/src/Settings/BrandColors.php` (add `applied()`)
 - Modify: `core/src/Settings/PaletteSettings.php` (`parseSubmitted()`, `validate()`)
 - Modify: `core/src/Http/DTOs/UpdateGeneralSettingsData.php` (L79–87)
@@ -1512,6 +1527,9 @@ git commit -m "feat(palette): brand colours are one list setting (theme_brand_co
   - `BrandColors::applied(Palette $held, int $revision, int $base, list<array{id: ?int, name: string, hex: string}> $rows, \Closure(int): bool $replacing): string`, which returns the value to store at `$revision + 1` and throws `BrandColorsRefused` or `PaletteConflict`
   - `UpdateGeneralSettingsData::$theme_brand_colors` (`?string`): the submitted `{"base": int, "colors":[{"id"?: int, "name", "hex"}, …]}`; any `removed` sent is ignored
   - 422 `{"theme_brand_colors": "<message>"}` for each refusal. 409 `conflict` for a stale `base` or a colour being replaced.
+  - `PaletteMutations::save(array $pairs, ?string $actor): PaletteSaved`, where `final class PaletteSaved { public function __construct(public readonly bool $changed, public readonly ?string $brandColors) }` and `$brandColors` is the stored value written, null when the save carried no list
+  - `PaletteMutations::clear(int $id, ?string $actor): ?string`, the stored list written (null when the id was not a colour)
+  - The `PUT /settings/general` response's `settings.theme_brand_colors` is the value this save wrote. The `DELETE /appearance/palette/brand/{id}` response adds `brand_colors`, the value this Clear wrote.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1724,6 +1742,49 @@ public function testAStaleListIsRefusedWhateverChangedMeanwhile(): void
     }
 }
 
+public function testTheResponseCarriesTheListThisSaveCommitted(): void
+{
+    // Another request changes the list after this save commits and before its response is built
+    // (ThemeAppearanceChanged fires in between): the response still describes what this save wrote.
+    $controller = $this->container()->get(GeneralSettingsController::class);
+    $settings = $this->container()->get(GeneralSettings::class);
+    foreach (['reorders' => static fn (array $c): array => array_reverse($c, true), 'clears' => static fn (array $c): array => array_slice($c, 1, null, true)] as $what => $change) {
+        $this->container()->get(SettingsStore::class)->forget('theme_brand_colors'); // a fresh list each round
+        $settings->clearStoreCache();
+        $once = true;
+        $listener = function () use (&$once, $settings, $change): void {
+            if (!$once) {
+                return;
+            }
+            $once = false;
+            [$colors, $removed, $revision] = BrandColors::parse($settings->storedValue('theme_brand_colors') ?? '');
+            $settings->save(['theme_brand_colors' => BrandColors::encode($change($colors), $removed, $revision + 1)]);
+        };
+        // EventService has no removeListener: the `$once` guard makes a spent listener inert.
+        $this->container()->get(EventService::class)->addListener(ThemeAppearanceChanged::class, $listener);
+        $res = $controller->update(new UpdateGeneralSettingsData(
+            theme_brand_colors: '{"base":0,"colors":[{"name":"Gold","hex":"#8a6a2a"},{"name":"Rose","hex":"#c98a8a"}]}',
+        ));
+        self::assertSame(200, $res->getStatusCode(), $what);
+        $returned = json_decode((string) $res->getContent(), true)['data']['settings']['theme_brand_colors'];
+        [$colors, , $revision] = BrandColors::parse($returned);
+        self::assertSame(1, $revision, $what);
+        self::assertSame([1 => 'Gold', 2 => 'Rose'], array_map(static fn (BrandSlot $b): string => $b->name, $colors), $what);
+        self::assertSame(2, BrandColors::parse($settings->storedValue('theme_brand_colors') ?? '')[2], $what); // the other request did land
+    }
+}
+
+public function testClearReturnsTheListItWrote(): void
+{
+    $this->configure(1, 'Gold', '#8a6a2a');
+    $this->configure(2, 'Rose', '#c98a8a');
+    $written = $this->container()->get(PaletteMutations::class)->clear(1, null);
+    [$colors, $removed] = BrandColors::parse((string) $written);
+    self::assertSame([2], array_keys($colors));
+    self::assertSame([1 => 'Gold'], $removed);
+    self::assertNull($this->container()->get(PaletteMutations::class)->clear(9, null)); // not a colour
+}
+
 public function testAddingAndClearingThenAddingNeverReusesAnId(): void
 {
     $controller = $this->container()->get(GeneralSettingsController::class);
@@ -1914,6 +1975,7 @@ Delete `encodeBrand()` once `grep -rn encodeBrand core` shows no caller.
 `PaletteMutations::save()`: replace the revision-4 slot loop with:
 
 ```php
+            $brandColors = null;
             if (array_key_exists('theme_brand_colors', $pairs)) {
                 $submitted = PaletteSettings::parseSubmitted($pairs['theme_brand_colors'])
                     ?? throw new BrandColorsRefused('a list of brand colours is required');
@@ -1926,11 +1988,55 @@ Delete `encodeBrand()` once `grep -rn encodeBrand core` shows no caller.
                     $submitted['rows'],
                     static fn (int $id): bool => $held->jobReplacing($id) !== null,
                 );
+                $brandColors = $pairs['theme_brand_colors'];
             }
 ```
 
-Update its docblock (`theme_brand_colors` as submitted, resolved here under the row) and add
-`@throws BrandColorsRefused`.
+The method's tail returns what it wrote, captured inside the transaction (ruling 13):
+
+```php
+            $this->settings->save($pairs);
+            $changed = $this->state->snapshot()->palette->fingerprint() !== $held->palette->fingerprint();
+            if ($changed) {
+                $this->state->bump();
+            }
+            return new PaletteSaved($changed, $brandColors);
+```
+
+Its return type becomes `PaletteSaved` and `$pairs === []` returns `new PaletteSaved(false, null)`.
+Update its docblock (`theme_brand_colors` as submitted, resolved here under the row; the result
+carries the stored value written) and add `@throws BrandColorsRefused`. Update any test asserting
+the old `bool` to read `->changed`.
+
+`core/src/Content/Palette/PaletteSaved.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Thallo\Core\Content\Palette;
+
+/**
+ * What a palette save wrote (custom palette plan ruling 13), captured inside its transaction: whether
+ * the palette changed, and the stored brand colour list it wrote — the exact list, ids and revision a
+ * response must describe, never a later read another request may have changed.
+ */
+final class PaletteSaved
+{
+    public function __construct(public readonly bool $changed, public readonly ?string $brandColors)
+    {
+    }
+}
+```
+
+`PaletteMutations::clear()` returns `?string`. Inside the closure, keep the value it writes
+(`$written = BrandColors::cleared(...)`), save it, and return `$written` after `within()` commits.
+Return null on the early "already clear" exit.
+
+`PaletteController::clear()` keeps the result and adds it to the success payload:
+`Response::success(['palette' => $this->schema?->paletteBlock(), 'brand_colors' => $written], 'Brand colour cleared.')`.
+Update its `#[ApiResponse(200, …)]` description to say so.
 
 `GeneralSettingsController::update()`:
 - Replace the `foreach ([1, 2, 3] as $slot)` block with:
@@ -1939,6 +2045,20 @@ Update its docblock (`theme_brand_colors` as submitted, resolved here under the 
         if ($input->theme_brand_colors !== null) {
             $paletteKeys['theme_brand_colors'] = $input->theme_brand_colors; // resolved under the palette row
         }
+```
+
+- The `$first` closure keeps the mutation's result: `use (…, &$saved)` and
+  `$saved = $this->paletteMutations->save($paletteKeys, null);` (initialise `$saved = null` before
+  it). A retried attempt overwrites it, so it holds the committed one.
+- The final response describes what this save wrote, not a later read:
+
+```php
+        $settings = $this->settings->all();
+        if ($saved?->brandColors !== null) {
+            // What this save committed (plan ruling 13): another request may have changed the list since.
+            $settings['theme_brand_colors'] = $saved->brandColors;
+        }
+        return Response::success(['settings' => $settings], 'General settings saved.');
 ```
 
 - Add a catch beside the `PaletteConflict` one:
@@ -2289,8 +2409,12 @@ export function validRow(row: BrandRow): { name: string; hex: string } | null
 export function submission(rows: BrandRow[], stored: StoredBrandColors): Submission | null
 export function adoptIds(rows: BrandRow[], sentKeys: string[], saved: StoredBrandColors): BrandRow[]
 export function dropRemoved(rows: BrandRow[], stored: StoredBrandColors): BrandRow[]
+export function matches(rows: BrandRow[], stored: StoredBrandColors): boolean // the rows hold no brand edit
 export function previewBrands(rows: BrandRow[], stored: StoredBrandColors): BrandEntry[]
 ```
+
+- `clearBrand(id: number): Promise<string | null>`: the stored list the Clear wrote (`data.brand_colors`).
+- `ClearBrandDialog` emits `done: [result?: { cleared: number; brandColors: string | null }]`. The payload comes only from a Clear; a started replacement emits `done` with no payload.
 
 ```ts
 // useSettingsForm.ts — gains:
@@ -2318,6 +2442,7 @@ import { describe, it, expect } from 'vitest'
 import {
   adoptIds,
   dropRemoved,
+  matches,
   newer,
   newRow,
   parseDraft,
@@ -2408,6 +2533,16 @@ describe('brand colour rows', () => {
     )
     const rows = [...parseDraft(STORED), newRow()]
     expect(dropRemoved(rows, cleared).map((r) => r.id)).toEqual([4, null])
+  })
+
+  it('tells rows that hold no brand edit from rows that do', () => {
+    const stored = parseStored(STORED)
+    expect(matches(parseDraft(STORED), stored)).toBe(true)
+    const renamed = parseDraft(STORED)
+    renamed[1]!.name = 'Blush'
+    expect(matches(renamed, stored)).toBe(false)
+    expect(matches([...parseDraft(STORED), newRow()], stored)).toBe(false) // an unfinished new row is an edit
+    expect(matches(parseDraft(STORED).reverse(), stored)).toBe(false)
   })
 
   it('prefers the newer of two readings of the stored list', () => {
@@ -2505,9 +2640,20 @@ schema's palette to `{limit: 3, order: ['brand-4', 'brand-1'], slots: {…}, …
   - Make `saveMock` return a promise the test resolves later.
   - Click Save, rename a row, then resolve.
   - The Colours tab's unsaved dot and the navbar chip are still shown, and the renamed value is still in the field.
-- **`'a cleared colour leaves the rows without marking the form dirty'`:**
-  - After `ClearBrandDialog` emits `done` for id 4, set `settingsData` to the stored list with 4 removed and revision 4.
-  - Row `brand-row-4` is gone, no unsaved dot appears, and the next save's `base` is 4.
+- **`'a refetch while the rows hold edits leaves the base where the edits began'`:**
+  - Stored is revision 3. Rename Rose to "Blush".
+  - Then set `settingsData` to revision 4, in which Gold was renamed Amber by someone else.
+  - The Gold row still reads "Gold". Save sends `base: 3`, so the server refuses it, and never `base: 4` with Gold.
+- **`'a refetch while the rows are clean takes the list and its revision'`:**
+  - With no brand edit (another field may be dirty: change the radius first), set `settingsData` to revision 4 with Amber.
+  - The row reads "Amber". Then rename Rose: Save sends `base: 4`, Amber and the new Rose name.
+- **`'a Clear takes its own result when nothing changed in between'`:**
+  - Stored revision 3, with a rename of Rose pending.
+  - `ClearBrandDialog` emits `done` with `{cleared: 4, brandColors: <revision 4, 4 removed>}`.
+  - Row `brand-row-4` is gone and the Rose edit stays, with its unsaved dot. Save sends `base: 4`.
+- **`'a Clear after someone else’s change drops the row but keeps the base'`:**
+  - The same, with `brandColors` at revision 5.
+  - The row is gone, and Save sends `base: 3`, so the server refuses it and asks for a reload.
 - **`'a stale list’s 409 says to reload'`:**
   - Save rejects with `ApiError('Brand colours changed since you opened this page — reload to see the latest', 409, {}, { error: { details: { conflict: '…' } } })`.
   - The error toast carries that message, and the rows are unchanged.
@@ -2517,6 +2663,7 @@ In `clear-brand-dialog.spec.ts`:
 - mount with `id: 4`;
 - destinations exclude `brand-4`, a `removed` slot and a `replacing` slot, and include a configured `brand-12`;
 - `hasPair` treats `color.brand-12` as carrying its own text colour (no contrast picker).
+- a successful Clear (mock `clearBrand` resolving a revision-4 list) emits `done` with `{ cleared: 4, brandColors: <that list> }`, and a started replacement emits `done` with no payload.
 
 In `appearanceTabs.spec.ts`, update the key-ownership test so `theme_brand_colors.colors.1.name`
 maps to `colours`.
@@ -2613,7 +2760,7 @@ export function validRow(row: BrandRow): { name: string; hex: string } | null {
   return name !== '' && name.length <= NAME_MAX && hex !== null ? { name, hex } : null
 }
 
-/** The newer of two readings of the stored list: a save's response can arrive before or after a refetch. */
+/** The newer of two readings of the stored list (for numbering new rows only: never a base). */
 export function newer(a: StoredBrandColors, b: StoredBrandColors): StoredBrandColors {
   return b.revision > a.revision ? b : a
 }
@@ -2669,6 +2816,17 @@ export function dropRemoved(rows: BrandRow[], stored: StoredBrandColors): BrandR
   return rows.filter((row) => row.id === null || live.has(row.id))
 }
 
+/** The rows hold no brand edit: the same colours, in the same order, as `stored` (keys aside). */
+export function matches(rows: BrandRow[], stored: StoredBrandColors): boolean {
+  return (
+    rows.length === stored.colors.length &&
+    rows.every((row, i) => {
+      const c = stored.colors[i]!
+      return row.id === c.id && row.name === c.name && row.hex === c.hex
+    })
+  )
+}
+
 /** The pending list for the preview: new finished rows numbered above every id seen (never stored). */
 export function previewBrands(rows: BrandRow[], stored: StoredBrandColors): BrandEntry[] {
   let next = Math.max(0, ...stored.colors.map((c) => c.id), ...stored.removed.map((r) => r.id), ...rows.map((r) => r.id ?? 0))
@@ -2683,7 +2841,8 @@ export function previewBrands(rows: BrandRow[], stored: StoredBrandColors): Bran
 
 `queries/palette.ts`:
 - Delete `BrandKey`. Add `export interface BrandEntry { id: number; name: string; hex: string }` and set `brands: BrandEntry[]` in `PaletteLook`.
-- `fetchPaletteUsage(id: number)`, `clearBrand(id: number)`, `replaceBrand(id: number, to: string, contrastTo?: string)`, with URLs `${base()}/brand/${id}…`.
+- `fetchPaletteUsage(id: number)`, `replaceBrand(id: number, to: string, contrastTo?: string)`, with URLs `${base()}/brand/${id}…`.
+- `clearBrand(id: number): Promise<string | null>` returns `(json as { data: { brand_colors?: string | null } }).data.brand_colors ?? null`. That is the list the Clear wrote, captured in its transaction.
 
 `queries/generalSettings.ts`: replace the three optional brand keys with
 `/** The brand colour list (custom palette spec §2.3): JSON {colors, removed}, '' when unset. */ theme_brand_colors?: string`.
@@ -2728,33 +2887,44 @@ rewritten in Task 8; here only make it compile by treating a missing slot as una
 
 ```ts
 // ── The brand colours (custom palette spec §2.3, §5.1) ─────────────────────────────────────────
-// The stored list as last seen — from the settings query or from a save's own response, whichever
-// is newer: the form ignores a refetch while it holds edits, so a save's ids and revision are taken
-// from the response directly (plan ruling 11).
-const latestBrands = ref(parseStored(data.value?.theme_brand_colors))
-watch(
-  () => data.value?.theme_brand_colors,
-  (json) => {
-    latestBrands.value = newer(latestBrands.value, parseStored(json))
-  },
-)
-const storedBrands = computed(() => latestBrands.value)
+// Two readings of the stored list, kept apart (plan ruling 11):
+// - editBase: the list the rows were edited from; its revision is what Save sends as `base`. It
+//   moves only when the rows take its values — a refetch while the rows hold no brand edit, this
+//   editor's own save, or its own Clear when nothing else changed in between — so a revision always
+//   travels with the values it describes and a stale save is refused, never sent as current.
+// - seen: the newest list observed anywhere; it only numbers new rows for the preview.
+const editBase = ref(parseStored(data.value?.theme_brand_colors))
+const seen = ref(editBase.value)
+const storedBrands = computed(() => editBase.value)
 const brandRows = computed<BrandRow[]>(() => parseDraft(form.theme_brand_colors))
 function setBrandRows(next: BrandRow[]): void {
   form.theme_brand_colors = serializeDraft(next)
 }
-// A colour that left the stored list — a Clear, a replacement completing — leaves the rows too,
-// as an adoption, not an edit.
-watch(latestBrands, (stored) => {
-  const kept = dropRemoved(brandRows.value, stored)
-  if (kept.length !== brandRows.value.length) adopt({ theme_brand_colors: serializeDraft(kept) })
-})
-const brandLimit = computed(() => styleSchema.value?.palette?.limit ?? 3)
-/** The message a refused list came back with, shown under the rows until the next save. */
-const brandError = ref<string | null>(null)
+watch(
+  () => data.value?.theme_brand_colors,
+  (json) => {
+    const observed = parseStored(json)
+    seen.value = newer(seen.value, observed)
+    // A newer list replaces the rows only while they hold no brand edit; edited rows keep the base
+    // they began from, and their save is refused if it is stale.
+    if (observed.revision > editBase.value.revision && matches(brandRows.value, editBase.value)) {
+      adopt({ theme_brand_colors: serializeDraft(parseDraft(json)) })
+      editBase.value = observed
+    }
+  },
+)
+/** A Clear's own result: the row leaves; the base moves only if nothing else changed in between. */
+function onBrandCleared(id: number, written: string | null): void {
+  adopt({ theme_brand_colors: serializeDraft(brandRows.value.filter((row) => row.id !== id)) })
+  if (written === null) return
+  const after = parseStored(written)
+  seen.value = newer(seen.value, after)
+  if (after.revision === editBase.value.revision + 1) editBase.value = after
+}
 ```
 
-- `pendingPalette.brands`: `previewBrands(brandRows.value, storedBrands.value)`.
+- `pendingPalette.brands`: `previewBrands(brandRows.value, seen.value)`, so new rows are numbered above every id seen anywhere.
+- `onPaletteChanged(result?: { cleared: number; brandColors: string | null })` calls `onBrandCleared(result.cleared, result.brandColors)` when a payload is present, then invalidates and reloads jobs as today.
 - `savedPalette.brands`: `storedBrands.value.colors.map((c) => ({ id: c.id, name: c.name, hex: c.hex }))`.
 - `emptyPalette()`: `brands: []`.
 - `useSettingsForm` destructuring adds `adopt`.
@@ -2777,13 +2947,15 @@ async function onSave() {
   const brands = submission(brandRows.value, storedBrands.value)
   try {
     const result = await save.mutateAsync(savePayload())
-    const savedBrands = parseStored(result.theme_brand_colors)
-    latestBrands.value = newer(latestBrands.value, savedBrands)
     if (brands !== null) {
-      // The ids the save gave, into the rows as they are now and into what was sent, so "nothing
-      // changed since" compares like with like.
-      adopt({ theme_brand_colors: serializeDraft(adoptIds(brandRows.value, brands.keys, savedBrands)) })
-      sent.theme_brand_colors = serializeDraft(adoptIds(parseDraft(sent.theme_brand_colors), brands.keys, savedBrands))
+      // The list this save committed (the server captures it in the save's transaction, plan ruling
+      // 13): the new rows take its ids, in the rows as they are now and in what was sent, so
+      // "nothing changed since" compares like with like; and it is the new base.
+      const committed = parseStored(result.theme_brand_colors)
+      adopt({ theme_brand_colors: serializeDraft(adoptIds(brandRows.value, brands.keys, committed)) })
+      sent.theme_brand_colors = serializeDraft(adoptIds(parseDraft(sent.theme_brand_colors), brands.keys, committed))
+      editBase.value = committed
+      seen.value = newer(seen.value, committed)
     }
     saved(sent)
     appearanceChanges.notify('appearance')
@@ -3008,7 +3180,8 @@ function reservedBy(row: BrandRow): string | null {
 - watch `[props.open, props.id]`;
 - `fetchPaletteUsage(props.id)`, and pass `props.id` to `clearBrand` / `replaceBrand`;
 - `destinations` uses `const m = /^brand-(\d+)$/.exec(name)` and `Number(m[1]) !== props.id && props.palette?.slots[name]?.state === 'configured'`;
-- `hasPair = (token: string) => token === 'color.accent' || /^color\.brand-\d+$/.test(token)`.
+- `hasPair = (token: string) => token === 'color.accent' || /^color\.brand-\d+$/.test(token)`;
+- a successful Clear emits `done` with `{ cleared: props.id, brandColors: <clearBrand's result> }`, while a started replacement emits `done` with no payload (`defineEmits<{ 'update:open': [open: boolean]; done: [result?: { cleared: number; brandColors: string | null }] }>()`).
 
 `ContrastChecks.vue` `label()`:
 
