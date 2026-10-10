@@ -1591,10 +1591,24 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
       // committed at once; what history, the document and the ledger hold; a schema refresh.
       select: (id: string) => selectOne(id),
       setStyleToken: async (id: string, path: string, token: string) => {
-        selectOne(id)
-        onSetSetting(path, null, { type: 'token', value: token })
+        commitNow()
+        // As the inspector writes a block's setting, without depending on the selection landing.
+        writeSettings(id, (settings) =>
+          setPath(
+            Array.isArray(settings) ? {} : settings,
+            settingSegments(path, null),
+            present({ type: 'token', value: token }),
+          ),
+        )
         await nextTick()
         commitNow()
+        let node: unknown = e2eBlock(snapshotFields(), id)?.settings
+        for (const segment of settingSegments(path, null)) {
+          node = (node as Record<string, unknown> | undefined)?.[segment]
+        }
+        if ((node as { value?: unknown } | undefined)?.value !== token) {
+          throw new Error(`setStyleToken: ${id} ${path} did not take ${token}`)
+        }
       },
       hasActiveTransaction: () => (history?.activeTransaction ?? null) !== null,
       fieldText: (id: string, field: string) => {
