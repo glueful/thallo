@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Content\Palette;
 
+use Thallo\Contracts\Style\BrandSlot;
+use Thallo\Core\Settings\BrandColors;
 use Thallo\Contracts\Style\PaletteProvider;
 use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
 use Thallo\Core\Content\Jobs\RunPaletteReplaceJob;
@@ -39,7 +41,9 @@ final class PaletteReplaceTenancyTest extends RetrofittedTenantTestCase
             $this->runAsTenant($tenant, function (): void {
                 $this->container()->get(StarterBlockTypeSeeder::class)->seedMissing();
                 $this->container()->get(GeneralSettings::class)
-                    ->save(['theme_brand_1' => '{"name":"Gold","hex":"#8a6a2a"}']);
+                    ->save([
+                        'theme_brand_colors' => BrandColors::encode([1 => new BrandSlot('Gold', '#8a6a2a')], [], 1),
+                    ]);
                 $this->container()->get(SavedSectionRepository::class)
                     ->create('Hero', 'Saved', null, self::heading('color.brand-1'), null, null);
             });

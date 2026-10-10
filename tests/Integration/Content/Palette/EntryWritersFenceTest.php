@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Content\Palette;
 
+use Thallo\Contracts\Style\BrandSlot;
 use Thallo\Core\Content\Enums\ScheduleAction;
 use Thallo\Core\Content\Palette\PaletteFence;
 use Thallo\Core\Content\Palette\PaletteJobRepository;
@@ -15,6 +16,7 @@ use Thallo\Core\Content\Repositories\ScheduleRepository;
 use Thallo\Core\Content\Repositories\VersionRepository;
 use Thallo\Core\Content\Scheduling\ScheduleRunner;
 use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Settings\BrandColors;
 use Thallo\Core\Settings\GeneralSettings;
 use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Core\Tests\Support\SyncsBlockStyleDeclarations;
@@ -87,9 +89,12 @@ final class EntryWritersFenceTest extends AppTestCase
 
     private function configure(int $slot, string $name, string $hex): void
     {
-        $this->container()->get(GeneralSettings::class)->save([
-            'theme_brand_' . $slot => json_encode(['name' => $name, 'hex' => $hex]),
-        ]);
+        $settings = $this->container()->get(GeneralSettings::class);
+        $settings->clearStoreCache();
+        [$colors, $removed, $revision] = BrandColors::parse($settings->stored('theme_brand_colors'));
+        $colors[$slot] = new BrandSlot($name, $hex);
+        unset($removed[$slot]);
+        $settings->save(['theme_brand_colors' => BrandColors::encode($colors, $removed, $revision + 1)]);
     }
 
     private function clear(int $slot): void
@@ -97,7 +102,10 @@ final class EntryWritersFenceTest extends AppTestCase
         $this->container()->get(PaletteFence::class)->within(function () use ($slot): void {
             $this->state()->lock();
             $this->state()->bump();
-            $this->container()->get(GeneralSettings::class)->save(['theme_brand_' . $slot => '']);
+            $settings = $this->container()->get(GeneralSettings::class);
+            $settings->save([
+                'theme_brand_colors' => BrandColors::cleared($settings->stored('theme_brand_colors'), $slot),
+            ]);
         });
     }
 
@@ -200,7 +208,7 @@ final class EntryWritersFenceTest extends AppTestCase
             self::fail('a fresh reference to a just-cleared slot is refused');
         } catch (PaletteRefusal $e) {
             self::assertSame(
-                ['head00000001:settings.style.colors.text' => "Brand 1 isn't in the palette"],
+                ['head00000001:settings.style.colors.text' => "Gold isn't in the palette"],
                 $e->errors,
             );
         }

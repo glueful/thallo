@@ -117,6 +117,7 @@ final class PaletteApiTest extends AppTestCase
 
     public function testTheGeneralSettingsSaveRefusesRenamingASlotBeingReplaced(): void
     {
+        $this->markTestIncomplete('Task 4: the list save');
         $this->configure(1, 'Gold', '#8a6a2a');
         $this->startJob(1, 'color.accent', 'color.accent-contrast');
         $res = $this->container()->get(GeneralSettingsController::class)

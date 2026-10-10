@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Render;
 
+use Thallo\Contracts\Style\BrandSlot;
+use Thallo\Core\Settings\BrandColors;
 use Glueful\Bootstrap\ApplicationContext;
 use Thallo\Core\Settings\GeneralSettings;
 use Thallo\Core\Tests\Support\AppTestCase;
@@ -31,7 +33,9 @@ final class PagePaletteAvailabilityTest extends AppTestCase
     {
         parent::setUp();
         $this->syncBlockStyleDeclarations();
-        $this->container()->get(GeneralSettings::class)->save(['theme_brand_1' => '{"name":"Gold","hex":"#8a6a2a"}']);
+        $this->container()->get(GeneralSettings::class)->save([
+            'theme_brand_colors' => BrandColors::encode([1 => new BrandSlot('Gold', '#8a6a2a')], [], 1),
+        ]);
         $this->container()->get(RequestPalette::class)->refresh();
     }
 

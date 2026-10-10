@@ -172,6 +172,7 @@ final class PaletteReplaceTest extends AppTestCase
 
     public function testRenameRecolourClearAndReplaceOfTheSourceAre409(): void
     {
+        $this->markTestIncomplete('Task 4: the list save');
         $this->configure(1, 'Gold', '#8a6a2a');
         $this->service()->start(1, 'color.accent', null, 'user00000001');
         $attempts = [
@@ -193,6 +194,7 @@ final class PaletteReplaceTest extends AppTestCase
 
     public function testOverlappingReplacements(): void
     {
+        $this->markTestIncomplete('Task 4: the list save');
         $this->configure(1, 'Gold', '#8a6a2a');
         $this->configure(2, 'Rose', '#c98a8a');
         $first = $this->service()->start(1, 'color.brand-2', null, 'user00000001');

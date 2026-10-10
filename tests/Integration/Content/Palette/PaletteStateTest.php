@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Content\Palette;
 
+use Thallo\Contracts\Style\BrandSlot;
+use Thallo\Core\Settings\BrandColors;
 use Glueful\Database\Connection;
 use Thallo\Core\Content\Palette\PaletteJobRepository;
 use Thallo\Core\Content\Palette\PaletteState;
@@ -46,8 +48,11 @@ final class PaletteStateTest extends AppTestCase
     public function testTheSnapshotCarriesThePaletteAndActiveJobsWithTheirReservations(): void
     {
         $this->container()->get(GeneralSettings::class)->save([
-            'theme_brand_1' => '{"name":"Gold","hex":"#8a6a2a"}',
-            'theme_brand_2' => '{"name":"Rose","hex":"#c98a8a"}',
+            'theme_brand_colors' => BrandColors::encode(
+                [1 => new BrandSlot('Gold', '#8a6a2a'), 2 => new BrandSlot('Rose', '#c98a8a')],
+                [],
+                1,
+            ),
         ]);
         $db = $this->container()->get(Connection::class);
         $id = $db->transaction(function (): string {

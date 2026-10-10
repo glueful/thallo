@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Render;
 
+use Thallo\Contracts\Style\BrandSlot;
+use Thallo\Core\Settings\BrandColors;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Contracts\Style\StyleSchema;
 use Thallo\Core\Content\Http\RequirePermission;
@@ -93,7 +95,9 @@ final class StyleSchemaEndpointTest extends AppTestCase
     public function testTheSchemaCarriesThePaletteWithStatesSwatchesAndLabels(): void
     {
         $settings = $this->container()->get(GeneralSettings::class);
-        $settings->save(['theme_brand_1' => '{"name":"Gold dark","hex":"#8a6a2a"}']);
+        $settings->save([
+            'theme_brand_colors' => BrandColors::encode([1 => new BrandSlot('Gold dark', '#8a6a2a')], [], 1),
+        ]);
         $this->container()->get(RequestPalette::class)->refresh();
         $response = $this->container()->get(StyleSchemaController::class)->show();
         $data = json_decode((string) $response->getContent(), true)['data'];

@@ -13,8 +13,6 @@ namespace Thallo\Contracts\Style;
  */
 final class Palette
 {
-    /** Retired with the fixed slots: PaletteSettings, PaletteMutations and the settings controller still read it until the list setting lands. */
-    public const SLOTS = [1, 2, 3];
     public const NEUTRAL_KEYS = ['bg', 'surface', 'surface_2', 'ink', 'muted', 'line'];
     /** Brand ids run from 1 to this: `brand-1` … `brand-9999` (§3.1). */
     public const MAX_ID = 9999;

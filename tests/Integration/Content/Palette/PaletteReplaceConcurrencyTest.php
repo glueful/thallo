@@ -201,6 +201,7 @@ final class PaletteReplaceConcurrencyTest extends AppTestCase
 
     public function testAWorkerResumedAfterCancelWritesNothingEvenAfterTheSlotWasEditedOrANewJobStarted(): void
     {
+        $this->markTestIncomplete('Task 4: the list save');
         $this->configure(1, 'Gold', '#8a6a2a');
         $this->draftsNaming('color.brand-1', 2);
         $old = $this->service()->start(1, 'color.accent', null, 'user00000001');

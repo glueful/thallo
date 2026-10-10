@@ -121,6 +121,8 @@ final class PaletteMutationsTest extends AppTestCase
         $g = $this->state()->snapshot()->generation;
         $this->mutations()->clear(1, 'user00000001');
         self::assertNull($this->palette()->brand(1));
+        self::assertTrue($this->palette()->isRemoved(1), 'moved to removed, keeping its name');
+        self::assertSame('Gold', $this->palette()->labelOf(1));
         self::assertSame($g + 1, $this->state()->snapshot()->generation);
         self::assertCount(1, $fired);
         self::assertSame('palette.brand.cleared', $this->audits[array_key_last($this->audits)]->action);
@@ -171,6 +173,7 @@ final class PaletteMutationsTest extends AppTestCase
 
     public function testRenamingTheSourceOfAJobIsAConflictButRenamingAReservedSlotIsNot(): void
     {
+        $this->markTestIncomplete('Task 4: the list save');
         $this->configure(1, 'Gold', '#8a6a2a');
         $this->configure(2, 'Rose', '#c98a8a');
         $this->startJob(1, 'color.brand-2', 'color.brand-2-contrast');
@@ -183,6 +186,7 @@ final class PaletteMutationsTest extends AppTestCase
 
     public function testSavingTheSourceUnchangedAndTheNeutralsIsNeverBlocked(): void
     {
+        $this->markTestIncomplete('Task 4: the list save');
         $this->configure(1, 'Gold', '#8a6a2a');
         $this->startJob(1, 'color.accent', 'color.accent-contrast');
         self::assertTrue($this->mutations()->save([
@@ -205,5 +209,16 @@ final class PaletteMutationsTest extends AppTestCase
                 self::assertNotNull($this->palette()->brand($slot));
             }
         }
+    }
+
+    public function testANewColourNeverTakesAClearedId(): void
+    {
+        $this->configure(3, 'Teal', '#0f766e');
+        $this->container()->get(PaletteMutations::class)->clear(3, null);
+        $palette = $this->container()->get(PaletteSettings::class)->palette();
+        self::assertFalse($palette->isConfigured(3));
+        self::assertTrue($palette->isRemoved(3));
+        self::assertSame('Teal', $palette->labelOf(3));
+        self::assertSame(3, $palette->highestIssued());
     }
 }

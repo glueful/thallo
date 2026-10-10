@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Http;
 
+use Thallo\Contracts\Style\BrandSlot;
+use Thallo\Core\Settings\BrandColors;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Contracts\Delivery\PreviewSessionVerifier;
@@ -39,7 +41,7 @@ final class PalettePreviewTest extends AppTestCase
     public function testAnUnsavedPaletteReachesThePreviewAndNothingElse(): void
     {
         $this->container()->get(GeneralSettings::class)->save([
-            'theme_brand_2' => '{"name":"Rose","hex":"#c98a8a"}',
+            'theme_brand_colors' => BrandColors::encode([2 => new BrandSlot('Rose', '#c98a8a')], [], 1),
         ]);
         $this->container()->get(RequestPalette::class)->refresh();
         $res = $this->mint(['palette' => ['brands' => ['1' => ['name' => 'Gold', 'hex' => '#8A6A2A']]]]);

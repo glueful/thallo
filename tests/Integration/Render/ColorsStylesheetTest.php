@@ -112,4 +112,16 @@ final class ColorsStylesheetTest extends AppTestCase
         $this->container()->get(RequestPalette::class)->refresh();
         self::assertNotSame($one, $this->appearanceFingerprint());
     }
+
+    public function testBrandTwelvePaintsItsClassFromItsOwnStylesheet(): void
+    {
+        $this->configure(12, 'Teal', '#0f766e');
+        $class = ClassNames::for('colors.text', 'color.brand-12');
+        self::assertSame(' ' . $class, $this->extension()->tokenClass('colors.text', 'color.brand-12'));
+        $url = (string) $this->extension()->colorsStylesheetUrl();
+        $css = (string) $this->handle(Request::create($url, 'GET'))->getContent();
+        self::assertStringContainsString(ClassNames::selector($class), $css);
+        self::assertStringContainsString('--t-color-brand-12: var(--brand-12);', $css);
+        self::assertStringContainsString('--brand-12:#0f766e', $this->head());
+    }
 }
