@@ -62,6 +62,17 @@
 >   - Tested with a descendant that closes its descriptors and keeps writing; proof scenario 4d.
 > - **Snapshots record directories** with their modes, so empty directories are restored (Task 10).
 
+> Amended a third time 2026-10-11 (approved for implementation with these, under the framework-release gate):
+> - **The runner enforces the restart confirmation itself** (Task 12).
+>   - `requireNoProblems()` applies the admin preflight's rule (`guard.ready` newer than
+>     `guard.installed`), not only the process scan.
+>   - Tested by a queued operation with no visible old processes and a missing or stale
+>     confirmation: it fails at preflight, with no staging or backup.
+> - **The readiness proofs fully restart PHP-FPM** (scenarios 20 and 23).
+>   - `fpm_restart` stops the old instance gracefully, verifies that its master and every worker have
+>     exited, then starts a new one. A reload keeps the master's process identity, so it is not
+>     enough.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** An owner of an explicitly enabled, single-host Thallo install presses **Update** in the
@@ -3998,6 +4009,8 @@ final class RunnerTest extends TestCase
         file_put_contents("{$this->base}/composer.lock", '{"packages":[]}');
         file_put_contents("{$this->base}/vendor/marker", 'old');
         file_put_contents("{$this->base}/public/admin/index.html", 'old admin');
+        file_put_contents("{$this->base}/storage/framework/updates/guard.installed", '100');
+        file_put_contents("{$this->base}/storage/framework/updates/guard.ready", '200'); // the owner confirmed the restart
         $this->paths = new Paths($this->base);
         $this->ops = new OperationStore($this->paths, fn (): int => $this->host->clock);
         $this->host = new FakeHost($this->base, '1.0.0-beta.101', '1.0.0-beta.102');
@@ -4020,6 +4033,29 @@ final class RunnerTest extends TestCase
         self::assertNotNull($op['reopen_ready_at']);
         self::assertContains('queue:restart', array_merge(...$this->host->calls));
         self::assertDirectoryDoesNotExist($this->paths->opDir($op['id']) . '/stage');
+    }
+
+    /** @return iterable<string, array{?string}> */
+    public static function unconfirmedRestarts(): iterable
+    {
+        yield 'never confirmed' => [null];
+        yield 'confirmed before the guard was installed' => ['50'];
+    }
+
+    /** @dataProvider unconfirmedRestarts */
+    public function testAQueuedOperationWithoutRestartConfirmationFailsBeforeStaging(?string $ready): void
+    {
+        $file = "{$this->base}/storage/framework/updates/guard.ready";
+        $ready === null ? unlink($file) : file_put_contents($file, $ready);
+        $this->runner()->tick(); // no old processes are visible (FakeHost's ps is empty)
+        $op = $this->ops->current();
+        self::assertSame(Status::FAILED, $op['status']);
+        self::assertStringContainsString('confirm-restart', (string) $op['error']);
+        self::assertSame(['preflight'], array_column($op['steps'], 'name'), 'nothing after preflight ran');
+        $joined = implode("\n", array_map(static fn (array $c): string => implode(' ', $c), $this->host->calls));
+        self::assertStringNotContainsString('update glueful/thallo-core', $joined, 'no staging');
+        self::assertStringNotContainsString('thallo:update:backup', $joined, 'no backup');
+        self::assertFileDoesNotExist($this->paths->closedFlag());
     }
 
     public function testAStagingFailureNeverClosesTheSite(): void
@@ -4770,7 +4806,11 @@ final class Runner
     {
         $problems = array_merge($report['shape_problems'], $report['writable'] ? [] : ['The runner cannot write the code.'],
             $report['composer_ok'] ? [] : ['Composer is missing or too old.'], ($report['pg_dump'] && $report['pg_restore']) ? [] : ['pg_dump or pg_restore is missing.'],
-            $report['unguarded_processes'] === [] ? [] : ['Processes started before the guard was installed are still running: ' . implode(', ', array_column($report['unguarded_processes'], 'pid')) . '.']);
+            $report['unguarded_processes'] === [] ? [] : ['Processes started before the guard was installed are still running: ' . implode(', ', array_column($report['unguarded_processes'], 'pid')) . '.'],
+            // The same readiness rule as admin preflight: an empty scan is not the owner's confirmation,
+            // which covers the processes the scan cannot see (Task 13).
+            ($report['guard_installed_at'] !== null && $report['guard_ready_at'] !== null && $report['guard_ready_at'] > $report['guard_installed_at'])
+                ? [] : ['The restart after enabling updates has not been confirmed (php bin/thallo-updater confirm-restart --yes).']);
         if ($problems !== []) {
             throw new \RuntimeException(implode(' ', $problems));
         }
@@ -5591,13 +5631,24 @@ git commit -m "test(updater): the disposable-install proof — harness and the f
      restart instructions, and signals restart.
   4. Right after, preflight contains `restart_required`, and `confirm-restart --yes` exits 1 listing
      the PHP-FPM processes and the pre-guard worker, if it has not cycled yet.
-  5. The worker cycles through the guard. The proof reloads PHP-FPM (`kill -USR2 <master>`) and waits
-     for the new workers.
+  5. The worker cycles through the guard. The proof **fully restarts PHP-FPM**, using `fpm_restart` below.
+     A reload is not enough: it re-executes the master in place, which keeps its PID and start time, so
+     the scanner would still list it.
   6. `confirm-restart --yes` exits 0, and preflight is ready.
   7. With that guarded worker idle and holding its shared lock, `selftest` passes (no exclusive
      probe).
   8. An update then succeeds. The worker exits on `queue:restart`, waits at the guard while the site
      is closed, and runs again afterwards with a new PID.
+- **`fpm_restart`** (in `site.sh`) does the following, in order:
+  1. sends `SIGQUIT` to the old master, a graceful stop that waits for running requests up to
+     `process_control_timeout`;
+  2. polls `pgrep -f "php-fpm.*$WORK/fpm.conf"` until **no** process of the old instance remains,
+     master or worker, failing after 150 s;
+  3. asserts that the old master's PID is gone;
+  4. starts a new instance with the same config and waits for its socket.
+
+  Scenarios 20 and 23 use it, and `confirm-restart` then sees only processes newer than
+  `guard.installed`.
 - **23. Readiness at first enablement: a pre-guard request and a console writer outlive any delay**
   (plan review 5):
   1. With the feature off, start two writers:
@@ -5610,8 +5661,9 @@ git commit -m "test(updater): the disposable-install proof — harness and the f
      - preflight contains `restart_required`;
      - `confirm-restart --yes` exits 1 and lists PHP-FPM and the console writer;
      - `POST /v1/admin/updates` returns 409 with `restart_required`.
-  4. Wait for both writers to finish. Reload PHP-FPM, whose pool has `process_control_timeout = 120`,
-     so the slow request completes rather than being cut off.
+  4. Wait for the console writer to finish. **Fully restart PHP-FPM** with `fpm_restart`. The pool has
+     `process_control_timeout = 120`, and the graceful stop lets the slow request finish (it writes
+     `slow-wrote`) before the old master exits.
   5. `confirm-restart --yes` exits 0.
   6. Start an update through the admission path, which ends `succeeded`. Both `slow-wrote` and
      `console-wrote` hold times **earlier than the `backup` step's `started_at`**: neither wrote after
