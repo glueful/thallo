@@ -22,14 +22,14 @@ final class StagerRelocationTest extends TestCase
         $this->base = sys_get_temp_dir() . '/thallo-stage-' . bin2hex(random_bytes(4));
         mkdir($this->base . '/app', 0777, true);
         mkdir($this->base . '/legacy', 0777, true);
-        $greeter = "<?php\nnamespace App;\nfinal class Greeter { public function hi(): string { return 'hi'; } }\n";
+        $greeter = "<?php\nnamespace Site;\nfinal class Greeter { public function hi(): string { return 'hi'; } }\n";
         file_put_contents($this->base . '/app/Greeter.php', $greeter);
         file_put_contents($this->base . '/legacy/OldThing.php', "<?php\nfinal class OldThing {}\n");
         $helpers = "<?php\nfunction thallo_helper(): string { return 'helped'; }\n";
         file_put_contents($this->base . '/helpers.php', $helpers);
         file_put_contents($this->base . '/composer.json', json_encode([
             'name' => 'acme/site', 'type' => 'project',
-            'autoload' => ['psr-4' => ['App\\' => 'app/'], 'classmap' => ['legacy/'], 'files' => ['helpers.php']],
+            'autoload' => ['psr-4' => ['Site\\' => 'app/'], 'classmap' => ['legacy/'], 'files' => ['helpers.php']],
             'config' => ['optimize-autoloader' => true],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         $this->composerIn($this->base, ['install', '--no-interaction', '--no-progress']);
@@ -58,7 +58,7 @@ final class StagerRelocationTest extends TestCase
 
         $classmap = (string) file_get_contents($this->base . '/vendor/composer/autoload_classmap.php');
         self::assertStringNotContainsString('/stage/', $classmap, 'no path points into the deleted stage');
-        $probe = 'require "vendor/autoload.php"; echo (new App\Greeter())->hi(),'
+        $probe = 'require "vendor/autoload.php"; echo (new Site\Greeter())->hi(),'
             . ' class_exists("OldThing") ? ":classmap" : ":missing", ":", thallo_helper();';
         // Run in the live site: "vendor/autoload.php" must be the relocated tree, not this repository's.
         $cmd = 'cd ' . escapeshellarg($this->base) . ' && '

@@ -26,7 +26,7 @@ final class ComposerShapeTest extends TestCase
         yield 'vendor dir' => [['config' => ['vendor-dir' => 'lib/vendor']], 'vendor-dir'];
         yield 'all plugins' => [['config' => ['allow-plugins' => true]], 'allow-plugins'];
         yield 'unknown plugin' => [['config' => ['allow-plugins' => ['acme/rewriter' => true]]], 'acme/rewriter'];
-        yield 'autoload outside' => [['autoload' => ['psr-4' => ['App\\' => '../shared/']]], 'autoload'];
+        yield 'autoload outside' => [['autoload' => ['psr-4' => ['Site\\' => '../shared/']]], 'autoload'];
         yield 'autoload in vendor' => [['autoload' => ['classmap' => ['vendor/x/']]], 'autoload'];
         yield 'absolute autoload' => [['autoload' => ['files' => ['/etc/x.php']]], 'autoload'];
     }
@@ -48,7 +48,7 @@ final class ComposerShapeTest extends TestCase
     {
         $json = [
             'autoload' => [
-                'psr-4' => ['App\\' => 'app/', 'Lib\\' => ['src/lib/']],
+                'psr-4' => ['Site\\' => 'app/', 'Lib\\' => ['src/lib/']],
                 'classmap' => ['legacy/'],
                 'files' => ['helpers.php'],
             ],
