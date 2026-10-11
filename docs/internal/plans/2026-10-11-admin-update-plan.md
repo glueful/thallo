@@ -73,6 +73,11 @@
 >     exited, then starts a new one. A reload keeps the master's process identity, so it is not
 >     enough.
 
+> Amended a fourth time 2026-10-11, after the whole-branch review, with spec revision 4 §16 (the
+> trust boundary). Tasks 19–24 below move everything the runner trusts out of PHP-FPM's reach and
+> fix the review's other critical and important findings. Where they contradict Tasks 3–18, they
+> win.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** An owner of an explicitly enabled, single-host Thallo install presses **Update** in the
@@ -5715,3 +5720,115 @@ git commit -m "test(updater): the disposable-install proof — harness and the f
 git add scripts/lib/update-proof .github/workflows/ci.yml docs/internal/RELEASING.md
 git commit -m "test(updater): every proof scenario, gated in CI as the release gate"
 ```
+
+---
+
+## Revision 4 — the trust boundary (after the final review)
+
+The guarantee is spec §16: nothing PHP-FPM can write makes the runner install anything but the
+approved release resolved by the site's own Composer configuration, or perform a filesystem
+operation outside its fixed set. Every task is test-first. The two-user proof (Task 24) is the
+evidence; nothing claims more than it shows.
+
+### Task 19: The three locations and their parents
+
+- `Paths` gains `privateDir()` (`<base>/.thallo-update`), `controlDir()`
+  (`<base>/.thallo-update-control`) and `inbox()` (`storage/framework/updates`).
+- Every file moves to its §16.1 location:
+  - operation, `state.lock`, `run.lock`, `guard.installed`, `guard.ready`, `ops/<id>`,
+    `composer-home`, `backups/<id>`: private;
+  - `status.json`, `closed.flag`, `admission.lock`, `verify.secret`, `runner.json`: control;
+  - `start.json`, `recover.json`: inbox.
+- New `Layout::problems(Paths, int $euid): list<string>` checks:
+  - each folder is a real directory (`lstat`, not a link) owned by `$euid`, with the exact mode;
+  - every ancestor up to `/` is writable by nobody but `$euid` or root, unless it is sticky and the
+    next component is owned by `$euid` or root.
+- **Tests (LayoutTest):** a correct layout; a symbolic-link private folder; a group-writable site
+  root; a private folder `0750`; a sticky `/tmp`-like ancestor accepted; a non-sticky
+  world-writable ancestor refused.
+- `UpdaterInstaller::sync` creates the layout (§16.4): control group = the group of `storage/`,
+  `admission.lock` `0640`, inbox `2770`. A run on an existing install migrates nothing from revision 3
+  except removing the old files in the inbox.
+- **Tests (UpdaterInstallerTest):** modes, group, and an `admission.lock` that exists before the guard
+  is first used.
+
+### Task 20: The guard reads control, writes only the inbox
+
+- Admission opens `admission.lock` read-only for `LOCK_SH`.
+- If the file cannot be opened and `closed.flag` is absent, the guard admits and calls `error_log`.
+- `/_update/status` reads `status.json`; the token is checked against its `token_hash`.
+- `/_update/recover` validates the shape and writes `inbox/recover.json` (temp file and rename). It
+  answers 202 without asserting the option is accepted; the runner decides.
+- **Tests (GuardAdmissionTest, GuardRoutesTest, GuardVerifyTest):**
+  - admission with a read-only lock file;
+  - admission when the lock file is missing or unreadable (admitted, logged, not 503);
+  - status and recover against a published `status.json`;
+  - the token/secret separation unchanged.
+
+### Task 21: The runner trusts only its private folder
+
+- **Claim.** `rename(inbox/start.json → private/request-<n>.json)`, then validate the private copy:
+  - not a link, at most 4 KB, exact keys;
+  - `target` syntax, and newer than the live `composer.lock`'s version;
+  - `requested_by` display syntax.
+  - A rejected request is recorded as a `failed` operation, with the reason published.
+- **Recovery.** `recover.json` is renamed in and validated in the same way. It is accepted only when
+  `sha256(token)` matches and the option is in `recovery_options` (computed from the journal: §16.2).
+- **The journal** refuses any rename outside the fixed set: the four swap renames and the inventory
+  restore renames, all under `base`, `privateDir` or `ops/<id>`.
+- **`status.json`** is published after every operation write: the operation without owner, pid,
+  pgid or journal, plus `recovery_options`, the log tail and `token_hash`.
+- **Composer's home** is `private/composer-home`. Backups go to `private/backups/<id>`.
+- **Clean-up:** `ops/<id>` at every terminal outcome with no live forward change, including
+  `afterDeath`'s succeeded branch, plus pruning.
+- **`requireNoProblems`** adds: `Layout::problems`, web status 200, free ≥ needed, guard installed and
+  included, and one filesystem (`stat` dev of `vendor`, `privateDir`, `backups`).
+- **No report while busy.** While an operation is open or `closed.flag` exists, tick neither collects
+  a report nor runs an application child.
+- **Smaller fixes:**
+  - `onFailure` resumes the journal before asking for forward changes;
+  - `Runner::main` sets `umask(0002)`;
+  - `AtomicFile` creates its temp file under the target mode.
+- **Tests (RunnerTest, JournalTest):**
+  - a symbolic-link `start.json`, an oversized one, extra keys, a bad target, and a target not newer
+    than the live one: all refused;
+  - a recover with a wrong token, and one with an option not on offer: ignored;
+  - retry refused after a half-done swap;
+  - a journal entry outside the fixed set: refused;
+  - `ops/<id>` removed after failed, rolled back and the death-completed reopen;
+  - no application child while closed;
+  - `onFailure` after a rename whose "done" write was lost.
+
+### Task 22: PHP-FPM's side writes only the inbox
+
+- **Preflight** reads `control/runner.json` and `control/status.json`, and adds `insecure_layout`
+  from the runner's report.
+- **`POST /v1/admin/updates`** takes `{target}`. It refuses (409 `target_changed`) when that differs
+  from preflight's target, then writes `inbox/start.json` (temp file and rename) and returns the
+  token.
+- **`DELETE /v1/admin/updates/current`** deletes `inbox/start.json` if present, otherwise 409.
+- The admin's `startUpdate(target)` sends the dialog's target.
+- **Tests:** AdminUpdateApiTest, UpdatePreflightTest and the modal spec.
+
+### Task 23: Docs and changelog
+
+- `upgrading.md`: the three folders and their owners/modes, the backup path, and the restore as
+  the code owner.
+- The CHANGELOG bullet: close, then back up.
+- The `skeleton/.env.example` line order.
+- Drop `ProvisionCommand`'s `class_exists` guard.
+- The guard's console refusal names the terminal recovery commands.
+
+### Task 24: The proof of the boundary
+
+- The harness follows the new locations.
+- **Scenario 24** (two users, CI): every §16.7 attempt from the PHP-FPM user (`sudo -u www-data`), then
+  an update that installs exactly the target. Afterwards it asserts no file owned by the code owner
+  exists at any attacker-chosen path, and the planted marker never appears in `vendor/` or the
+  autoloader.
+- **Scenario 25** (two users, CI): enabling from scratch with PHP-FPM running as www-data before any
+  manual permission step. `/` and `/health` keep answering non-503.
+- Locally (one user) both print SKIP. The unit tests of Tasks 19–21 pin the runner's own refusals on
+  every machine.
+- The full proof passes locally, and the CI job carries the two-user scenarios.
+

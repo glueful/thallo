@@ -1,8 +1,9 @@
 # Update from the admin — design
 
-Status: revision 3, draft for review (2026-10-11). Server (core, skeleton, one framework addition)
-and admin. Reverses the "no update button" line of `docs/upgrading.md` for an explicitly enabled,
-single-host install, and amends DISTRIBUTION.md decision 11.
+Status: revision 4 (2026-10-11). Revision 3 was approved and implemented. The whole-branch review
+found that the runner trusted state PHP-FPM can write. **§16 (the trust boundary) supersedes every
+file location and state-flow statement in §3, §5–§7 and §9–§11 that it contradicts.** Server (core,
+skeleton, one framework addition) and admin.
 
 Revision 3 answers the second review:
 
@@ -435,3 +436,136 @@ It runs locally and in CI. Scenarios:
 - multiple hosts or network filesystems;
 - Composer shapes outside §8.1;
 - installs without cron.
+
+## 16. Revision 4: the trust boundary
+
+The update runner runs as the code owner so that PHP-FPM cannot change code. Revision 3 kept the
+runner's working state in `storage/framework/updates/`, which PHP-FPM must be able to write. A web
+compromise could therefore plant a staged `vendor/`, forge the rename journal, inject Composer
+configuration or plant a backup, and the runner would act on it as the code owner. Revision 4
+separates what the runner trusts from what PHP-FPM can write.
+
+**The guarantee.** Nothing PHP-FPM can write makes the runner install code other than the approved
+release of `glueful/thallo-core` and its dependency tree, as resolved by the site's own Composer
+configuration, or perform a filesystem operation outside the runner's fixed set. Tampering with what
+PHP-FPM can write may confuse what the admin and `/_update` display, or block an update. It is not
+claimed to do nothing at all.
+
+### 16.1 Three locations
+
+| Location | Owner, mode | PHP-FPM may | Holds |
+|---|---|---|---|
+| `<site>/.thallo-update/` (**private**) | code owner, `0700` | nothing (cannot list, read or enter) | the operation (state, journal, provision manifest, token hash), `run.lock`, `state.lock`, the readiness markers `guard.installed` and `guard.ready`, `ops/<id>/` (the staging copy, the old `vendor/`, the old `composer.lock`), `composer-home/`, `backups/<id>/` |
+| `<site>/.thallo-update-control/` (**control**) | code owner, the web group, `0750`; files `0640` | read only | `status.json` (what `/_update` and the admin show, published by the runner), `closed.flag`, `admission.lock`, `verify.secret`, `runner.json` |
+| `storage/framework/updates/` (**inbox**) | code owner, the web group, `2770` | write | `start.json` (a request), `recover.json` (a recovery request) |
+
+- **Parents are protected.** The private and control folders sit directly in the site root. The site
+  root and every ancestor must be writable by nobody but the code owner or root. A world-writable
+  ancestor is accepted only if it has the sticky bit and the next path component belongs to the code
+  owner or root, as `/tmp` does.
+  - The runner checks the whole chain on every tick, using `lstat`, so a symlink anywhere is refused.
+  - Each of the two folders must be a real directory owned by the code owner, with exactly its
+    table mode.
+  - Any failure: the runner refuses to claim, preflight reports `insecure_layout`, and `selftest`
+    fails.
+- **PHP-FPM cannot replace a control file.** It opens `admission.lock` read-only for its shared lock
+  (flock allows a shared lock on a read-only descriptor); the runner takes the exclusive lock on its
+  own read-write descriptor. Neither the folder nor the file is writable by PHP-FPM, so the barrier
+  always has one lock file.
+- **Runner-trusted configuration and readiness records live in the private folder.** That covers
+  Composer's home, the readiness markers and the operation. Nothing the runner trusts is read from
+  `storage/`, the inbox or the database.
+
+### 16.2 Requests are untrusted
+
+- **`start.json`.** PHP-FPM writes it after its own preflight: `{target, from, requested_by,
+  requested_at, token_hash}`.
+- **Claiming a request.** The runner claims by **renaming** the file into the private folder, then
+  reads the private copy. It refuses a symbolic link, a file over 4 KB, or anything that is not that
+  exact JSON shape.
+- **Validation:**
+  - `target` must match `^\d+\.\d+\.\d+(-(alpha|beta|RC)\.?\d+)?$`;
+  - it must be newer than the version in the live `composer.lock`, which the code owner owns;
+  - it is then resolved only by Composer, against the site's own `composer.json` repositories and
+    constraint. Composer refuses an inline constraint outside the root requirement, and refuses a
+    version no trusted repository publishes;
+  - the staged result must report exactly `target`;
+  - `requested_by` is kept only as a display string (`[A-Za-z0-9._@-]{1,64}`);
+  - the operation id is minted by the runner.
+- **What a request never supplies:** a path, a command, a Composer option or an environment
+  variable.
+- **`recover.json`** is `{option, token, confirm}`.
+  - The runner accepts it only if `sha256(token)` equals the hash in its private operation, and
+    `option` is one of the operation's current `recovery_options`.
+  - It deletes the file whether or not it accepts it.
+- **`recovery_options`** are computed by the runner from its private journal:
+  - **Roll back the code** when forward renames are done and not reversed;
+  - **Retry provision** only when all four swap renames are done and none is reversed;
+  - **Reopen** always.
+
+  They are published in `status.json`, and `/_update` shows only those.
+- **Cancel.** PHP-FPM deletes `start.json` while it is still in the inbox. Once the runner has
+  renamed it, there is nothing left to cancel.
+- **Fixed operations.** The journal holds only the runner's own fixed rename set: the four swap
+  renames and the inventory's restore renames. Restore paths come from the inventory in code, never
+  from a file.
+
+### 16.3 The guard
+
+- **What it reads:** `closed.flag`, `admission.lock` and `status.json` in the control folder.
+- **What it writes:** only `recover.json` in the inbox.
+- **`/_update/status`** checks the token against the `token_hash` the runner published in
+  `status.json`.
+- **When the lock cannot be opened.** If `admission.lock` cannot be opened (missing, or permissions
+  not yet set) and `closed.flag` is absent, the guard admits the request and logs the
+  misconfiguration. That is not "an update is running", and must never put the site behind the
+  maintenance page.
+
+### 16.4 Enabling it
+
+- **What provision does (as the code owner)** when the feature is on:
+  - creates the private folder `0700`;
+  - creates the control folder `0750` with group = the group of `storage/`, and its files: an empty
+    `admission.lock` at `0640`, and `verify.secret`;
+  - sets the inbox `2770` with that group;
+  - checks the parent chain.
+- **Order does not matter.** Following the docs in order never puts the site behind the maintenance
+  page.
+
+### 16.5 Backup and recovery
+
+- **Where backups go:** `.thallo-update/backups/<id>/`, which PHP-FPM cannot read. The owner
+  restores as the code owner, using the path in `status.json`:
+  `psql … -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"` then `pg_restore --no-owner`.
+- **Retention:** the last three are kept.
+- **Clean-up.** The `ops/<id>/` folder (a full copy of `vendor/`) is deleted at every terminal outcome
+  where the journal shows no forward change still live: succeeded, failed, rolled back, cancelled,
+  recovered by the owner, and a reopen completed after the runner died.
+
+### 16.6 The runner's own checks
+
+- **Before claiming, freshly:** the parent chain; code writable by the runner; Composer; `pg_dump`
+  and `pg_restore`; free disk against the requirement; the guard installed and included; PHP-FPM's
+  probe answering 200; and the private folder, the live `vendor/` and the backups on one filesystem
+  (`stat` device).
+- **While an operation is open or `closed.flag` exists,** a tick collects no report and boots no
+  application child: no estimate, no probe.
+
+### 16.7 Proof of the boundary (two users)
+
+From the PHP-FPM user, in the two-user proof:
+- replace or plant the staging copy;
+- forge or edit the operation and its journal;
+- inject Composer configuration (a global `config.json` with a repository, or a global plugin) where
+  revision 3 kept it, and anywhere PHP-FPM can write;
+- redirect `.thallo-update/` or a control file through a symbolic link;
+- replace `admission.lock`;
+- post `recover.json` with a wrong token, an option not on offer, and a symbolic-link `start.json`.
+
+Every attempt must be refused by the operating system or rejected by the runner. An update run
+afterwards must install exactly the approved release, with no file written as the code owner at a
+path the attacker chose.
+
+A second scenario enables the feature from scratch with PHP-FPM already running as the web user,
+before any manual permission step. The site must keep serving pages throughout.
+
