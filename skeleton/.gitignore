@@ -38,3 +38,7 @@ bootstrap/cache/
 !/storage/uploads/.gitkeep
 /storage/framework/*
 !/storage/framework/.gitkeep
+
+# Updating from the admin: installed by thallo:provision from core/resources/updater (never edited here).
+/bin/thallo-updater
+/bootstrap/update-guard.php

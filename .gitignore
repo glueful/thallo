@@ -74,3 +74,7 @@ tools/runtime-browser/fixtures/product-grid/
 
 # A capability override the e2e fixture builder writes for its own boot (restored on exit).
 /config/testing/thallo.php
+
+# Updating from the admin: installed by thallo:provision from core/resources/updater (never edited here).
+/bin/thallo-updater
+/bootstrap/update-guard.php
