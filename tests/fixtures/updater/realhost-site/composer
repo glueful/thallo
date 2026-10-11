@@ -1,0 +1,25 @@
+<?php
+
+declare(strict_types=1);
+
+// A stub Composer for RunnerRealHostTest: `--version`, and the pinned `update` writing the staged tree.
+
+if (in_array('--version', $argv, true)) {
+    echo "Composer version 2.8.4 2024-12-11\n";
+    exit(0);
+}
+$stage = '';
+$target = '';
+foreach ($argv as $a) {
+    if (str_starts_with($a, '--working-dir=')) {
+        $stage = substr($a, strlen('--working-dir='));
+    }
+    if (str_starts_with($a, 'glueful/thallo-core:')) {
+        $target = substr($a, strlen('glueful/thallo-core:'));
+    }
+}
+@mkdir($stage . '/vendor/composer', 0777, true);
+$installed = ['packages' => [['name' => 'glueful/thallo-core', 'version' => $target]]];
+file_put_contents($stage . '/vendor/composer/installed.json', json_encode($installed));
+file_put_contents($stage . '/vendor/marker', 'new');
+exit(0);
