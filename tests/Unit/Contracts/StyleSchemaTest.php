@@ -51,7 +51,8 @@ final class StyleSchemaTest extends TestCase
             'tabs.bar_radius', 'tabs.tab_radius',
             // Which sides a border is drawn on; and the backdrop pair — how much of the background
             // colour shows, and how much of what lies behind it is blurred.
-            'border.sides', 'colors.surface_opacity', 'backdrop.blur',
+            // Which corners Corners rounds (settings version 18), after the radius it modifies.
+            'border.sides', 'corners', 'colors.surface_opacity', 'backdrop.blur',
             // The third typography property: how far apart a text's lines sit.
             'typography.line_height',
             // The fourth: the typeface, a font ID (block typeface spec §1); one value for every width.
@@ -79,13 +80,15 @@ final class StyleSchemaTest extends TestCase
             // opacity (settings version 15).
             'opacity',
             'hover.colors.text', 'hover.colors.surface', 'hover.colors.border', 'hover.opacity',
+            // A link's weight and line on hover (settings version 19).
+            'hover.typography.weight', 'hover.typography.decoration',
             // A Feature's marker — its colour, background and size — and the space between the
             // marker and the text (settings version 16).
             'marker.color', 'marker.background', 'marker.size', 'feature.gap',
             // Where a Feature's marker sits against its text (settings version 17).
             'feature.align',
         ], $paths);
-        self::assertSame(17, StyleSchema::VERSION);
+        self::assertSame(19, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
     }
 
@@ -218,7 +221,7 @@ final class StyleSchemaTest extends TestCase
             StyleSchema::pathsInGroup('layout.item'),
             StyleCapabilities::fromDeclaration(['layout.item'])->paths(),
         );
-        self::assertSame(17, StyleSchema::VERSION);
+        self::assertSame(19, StyleSchema::VERSION);
     }
 
     public function testMotionIsABlocksOwnGroupAndStaggerIsTheArrangersAlone(): void
@@ -288,6 +291,30 @@ final class StyleSchemaTest extends TestCase
         }
     }
 
+    public function testCornersNamesAnySetOfCornersAndTravelsWithCorners(): void
+    {
+        // Which corners the Corners size rounds: any one, two or three, clockwise from the top left.
+        // In the `radius` group, a choice for every width, like the radius it modifies.
+        $corners = StyleSchema::property('corners');
+        self::assertNotNull($corners);
+        self::assertSame('radius', $corners->group);
+        self::assertFalse($corners->responsive);
+        self::assertSame([ValueKind::Choice, ValueKind::Reset], $corners->kinds);
+        self::assertSame([
+            'all', 'tl', 'tr', 'br', 'bl',
+            'tl-tr', 'tl-br', 'tl-bl', 'tr-br', 'tr-bl', 'br-bl',
+            'tl-tr-br', 'tl-tr-bl', 'tl-br-bl', 'tr-br-bl',
+        ], $corners->choices);
+
+        // It exists exactly where Corners does: declaring Corners offers it, and alone it is nothing.
+        self::assertTrue(StyleCapabilities::fromDeclaration(['radius'])->allows('corners'));
+        self::assertTrue(StyleCapabilities::fromDeclaration(['spacing', 'radius'])->allows('corners'));
+        self::assertFalse(StyleCapabilities::fromDeclaration(['corners'])->allows('corners'));
+        self::assertFalse(StyleCapabilities::fromDeclaration(['marker'])->allows('corners'));
+        self::assertSame('radius', StyleSchema::anchorOf('corners'));
+        self::assertNull(StyleSchema::anchorOf('radius'));
+    }
+
     public function testBorderSidesJoinsTheBorderGroupAndTheBackdropPairIsItsOwn(): void
     {
         // A block that declares `border` gains Sides with it. The backdrop pair is a group of its
@@ -300,7 +327,12 @@ final class StyleSchemaTest extends TestCase
         self::assertNotNull($blur);
 
         self::assertSame('border', $sides->group);
-        self::assertSame(['all', 'top', 'right', 'bottom', 'left'], $sides->choices);
+        // Any set of sides (settings version 18): one, two or three, named clockwise from the top.
+        self::assertSame([
+            'all', 'top', 'right', 'bottom', 'left',
+            'top-right', 'top-bottom', 'top-left', 'right-bottom', 'right-left', 'bottom-left',
+            'top-right-bottom', 'top-right-left', 'top-bottom-left', 'right-bottom-left',
+        ], $sides->choices);
         self::assertSame('backdrop', $opacity->group);
         self::assertSame(['100', '90', '80', '70', '60', '50'], $opacity->choices);
         self::assertSame('backdrop', $blur->group);

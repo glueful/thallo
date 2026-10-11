@@ -67,6 +67,7 @@ final class ClassNames
         'footer.divider_width' => 'fdivw',
         'footer.divider_style' => 'fdivs',
         'border.sides' => 'bsides',
+        'corners' => 'corners',
         'colors.surface_opacity' => 'bgo',
         'backdrop.blur' => 'blur',
         'typography.line_height' => 'leading',
@@ -87,6 +88,8 @@ final class ClassNames
         'hover.colors.surface' => 'hover-bg',
         'hover.colors.border' => 'hover-bc',
         'hover.opacity' => 'hover-opacity',
+        'hover.typography.weight' => 'hover-weight',
+        'hover.typography.decoration' => 'hover-decor',
         // A Feature's marker and the space after it (settings version 16).
         'marker.color' => 'mcolor',
         'marker.background' => 'mbg',

@@ -52,7 +52,7 @@ final class StyleCompilerTest extends TestCase
         // variables come from its colours stylesheet, never the shared per-theme artifact.
         $css = StyleCompiler::compile($this->vocabulary());
         self::assertStringNotContainsString('brand-', $css);
-        self::assertSame(25, StyleCompiler::VERSION);
+        self::assertGreaterThanOrEqual(25, StyleCompiler::VERSION, 'brand colours left it at 25');
     }
 
     public function testClassNamesAreTheOnePlaceASettingBecomesAClass(): void
@@ -392,6 +392,29 @@ final class StyleCompilerTest extends TestCase
         self::assertStringContainsString(".t-bsides-all { }\n", $css);
         self::assertStringContainsString(".t-bsides-reset { }\n", $css);
         self::assertGreaterThan(strpos($css, '.t-bw-thin {'), strpos($css, '.t-bsides-bottom {'));
+        // Any set of sides: two or three, the rest taken away.
+        self::assertStringContainsString('.t-bsides-top-bottom { border-right-width: 0; border-left-width: 0; }', $css);
+        self::assertStringContainsString('.t-bsides-top-right-left { border-bottom-width: 0; }', $css);
+    }
+
+    public function testCornersRoundOnlyTheChosenCorners(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+
+        // The Corners size rounds all four; this takes the others back to square. After the radius
+        // utilities, so at equal specificity it wins; `all` and a reset change nothing.
+        self::assertStringContainsString(
+            '.t-corners-tl-bl { border-top-right-radius: 0; border-bottom-right-radius: 0; }',
+            $css,
+        );
+        self::assertStringContainsString(
+            '.t-corners-tr { border-top-left-radius: 0; border-bottom-right-radius: 0; border-bottom-left-radius: 0; }',
+            $css,
+        );
+        self::assertStringContainsString('.t-corners-tl-tr-br { border-bottom-left-radius: 0; }', $css);
+        self::assertStringContainsString(".t-corners-all { }\n", $css);
+        self::assertStringContainsString(".t-corners-reset { }\n", $css);
+        self::assertGreaterThan(strpos($css, '.t-radius-lg {'), strpos($css, '.t-corners-tl-bl {'));
     }
 
     public function testSurfaceOpacityMixesTheChosenColourOrTheThemesOwn(): void
@@ -595,6 +618,43 @@ final class StyleCompilerTest extends TestCase
         self::assertStringContainsString($branch('t-hover-fg-accent', 'color: var(--t-color-accent);'), $css);
         self::assertStringContainsString($branch('t-hover-bc-accent', 'border-color: var(--t-color-accent);'), $css);
         self::assertStringContainsString($branch('t-hover-opacity-70', 'opacity: 0.7;'), $css);
+    }
+
+    public function testAHoverWeightAndLineAreTheirRestingDeclarations(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+        self::assertSame('t-hover-weight-bold', ClassNames::for('hover.typography.weight', 'bold'));
+        self::assertSame('t-hover-decor-none', ClassNames::for('hover.typography.decoration', 'none'));
+        self::assertSame(1, preg_match('/@media \(hover: hover\) \{\n(.*?)\n\}\n/s', $css, $pointer));
+        self::assertStringContainsString('.t-hover-weight-bold:hover { font-weight: 700; }', $pointer[1]);
+        self::assertStringContainsString(
+            '.t-hover-decor-underline:hover { text-decoration-line: underline; }',
+            $pointer[1],
+        );
+        self::assertStringContainsString(
+            '.t-hover-decor-none:focus-visible, .t-hover-decor-none[data-thallo-hover]'
+                . ' { text-decoration-line: none; }',
+            $css,
+        );
+        self::assertStringContainsString(
+            '.t-hover-weight-medium:has(> .thallo-block-link:focus-visible) { font-weight: 500; }',
+            $css,
+        );
+        self::assertStringContainsString('.t-hover-weight-reset { }', $css);
+        self::assertStringNotContainsString('md\\:t-hover-weight-', $css);
+    }
+
+    public function testAHoverUtilityShowsWhenItsBlocksCoverLinkHasKeyboardFocus(): void
+    {
+        // A Rich text block made a link is covered by one (`.thallo-block-link`): the block cannot take
+        // focus, its cover does, so the block's hover look shows on the cover's focus too. A rule of its
+        // own, so a browser without :has() still keeps the focus and forced branches.
+        $rule = '.t-hover-fg-accent:has(> .thallo-block-link:focus-visible) { color: var(--t-color-accent); }';
+        self::assertStringContainsString("\n{$rule}\n", StyleCompiler::compile($this->vocabulary()));
+        self::assertStringContainsString(
+            "\n.t-hover-fg-brand-12:has(> .thallo-block-link:focus-visible) { color: var(--t-color-brand-12); }\n",
+            StyleCompiler::colorUtilities(['brand-12']),
+        );
     }
 
     public function testAHoverResetIsEmpty(): void

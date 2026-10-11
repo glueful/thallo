@@ -1,4 +1,5 @@
 import type { PropertyDefinition } from './types'
+import { CORNERS, SIDES, sets } from './choiceSets'
 
 // Mirror of `Thallo\Contracts\Style\StyleSchema::properties()` (spec §1.3). The fixture contract
 // (`resolver-fixtures/v1`) pins that both runtimes agree; the style-schema endpoint is the
@@ -122,8 +123,12 @@ const PROPERTIES: PropertyDefinition[] = [
   // Their own paths for the same reason: `radius` is the panels area's.
   token('tabs.bar_radius', 'tabs', false, 'radius'),
   token('tabs.tab_radius', 'tabs', false, 'radius'),
-  // Which sides the border is drawn on: in the border's group, so a block with a border has it.
-  choice('border.sides', 'border', false, ['all', 'top', 'right', 'bottom', 'left']),
+  // Which sides the border is drawn on: in the border's group, so a block with a border has it. Any
+  // set of them (settings version 18).
+  choice('border.sides', 'border', false, sets(SIDES)),
+  // Settings version 18: which corners the Corners size rounds — anchored to `radius`, so wherever
+  // Corners is, so is this (capabilities.ts ANCHORED).
+  choice('corners', 'radius', false, sets(CORNERS)),
   // The backdrop pair, a group a block or region opts into: how much of the background colour
   // shows (a percentage), and how much of what lies behind the element is blurred.
   choice('colors.surface_opacity', 'backdrop', false, ['100', '90', '80', '70', '60', '50']),
@@ -195,6 +200,9 @@ const PROPERTIES: PropertyDefinition[] = [
   token('hover.colors.surface', 'hover', false, 'color'),
   token('hover.colors.border', 'hover', false, 'color'),
   choice('hover.opacity', 'hover', false, ['100', '90', '80', '70', '60', '50']),
+  // Settings version 19: a link's weight and the line under it, on hover.
+  choice('hover.typography.weight', 'hover', false, ['regular', 'medium', 'semibold', 'bold']),
+  choice('hover.typography.decoration', 'hover', false, ['none', 'underline', 'line-through']),
   // Settings version 16: a Feature's marker colour, background and size, and the space between the
   // marker and the text.
   token('marker.color', 'marker', false, 'color'),

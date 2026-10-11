@@ -21,6 +21,7 @@
             "layout.grow",
             "layout.shrink",
             "layout.align_self",
+            "corners",
             "typography.line_height",
             "typography.family",
             "typography.letter_spacing",
@@ -35,7 +36,9 @@
             "hover.colors.text",
             "hover.colors.surface",
             "hover.colors.border",
-            "hover.opacity"
+            "hover.opacity",
+            "hover.typography.weight",
+            "hover.typography.decoration"
         ],
         "parts": {}
     },
@@ -69,6 +72,7 @@
                 "colors.surface",
                 "colors.text",
                 "colors.border",
+                "corners",
                 "opacity",
                 "hover.colors.text",
                 "hover.colors.surface",
@@ -121,7 +125,9 @@
                 "typography.transform",
                 "typography.decoration",
                 "typography.style",
-                "hover.colors.text"
+                "hover.colors.text",
+                "hover.typography.weight",
+                "hover.typography.decoration"
             ]
         }
     },
@@ -159,6 +165,7 @@
                 "border.width",
                 "border.style",
                 "border.sides",
+                "corners",
                 "opacity",
                 "hover.colors.text",
                 "hover.colors.surface",
@@ -201,6 +208,7 @@
                 "border.width",
                 "border.style",
                 "border.sides",
+                "corners",
                 "opacity",
                 "hover.colors.text",
                 "hover.colors.surface",

@@ -480,6 +480,39 @@ describe('a block’s parts', () => {
     expect(w.emitted('set-setting')).toBeUndefined()
   })
 
+  it('a part with a `when` shows only while the block’s field has that value', () => {
+    const feature = {
+      ...type('feature', ['spacing']),
+      style_targets: {
+        targets: { root: { kind: 'box' } },
+        map: { spacing: 'root' },
+        parts: {
+          number: {
+            label: 'Number',
+            when: { field: 'marker', equals: 'number' },
+            capabilities: ['typography.weight'],
+          },
+        },
+      },
+    } as BlockType
+    const shown = (marker: string | undefined) =>
+      mount(BlockInspector, {
+        props: {
+          block: { id: 'f1', type: 'feature', data: marker ? { marker } : {}, settings: {} },
+          blockType: feature,
+          schema,
+          classes: [],
+          activeBreakpoint: 'base',
+          noContent: true,
+        },
+      })
+        .find('[data-test="style-part-number"]')
+        .exists()
+    expect(shown('number')).toBe(true)
+    expect(shown('icon')).toBe(false)
+    expect(shown(undefined)).toBe(false)
+  })
+
   it('a block without parts, and a selection of several, show no part sections', () => {
     const one = mount(BlockInspector, {
       props: {

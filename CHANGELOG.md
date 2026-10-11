@@ -5,6 +5,53 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Fixed
+- **The Appearance page keeps following the form when a contrast check comes back empty**: an answer
+  from the contrast check without its list of pairs now shows "The contrast checks are unavailable
+  right now." Before, it broke the Contrast card, and with it every update of the page, so the
+  preview stopped following the colours being chosen.
+
+## [1.0.0-beta.100] - 2026-10-11 — Developer Preview
+
+Hover for links, and finer edges: a linked Heading or Rich text block has a hover look, a link can
+turn bolder or underline on hover, a Feature's number badge has its own lettering, and corners and
+borders can take any set of sides.
+
+### Added
+- **A linked Heading or Rich text block has a hover look**: under the pointer, on keyboard focus and in
+  the stage's Hover preview, a linked Heading's text and a linked Rich text block's text underline, and
+  a tap on a phone leaves nothing behind. In the Style tab, a Heading's new **Link** section sets the
+  link's text colour at rest and on hover. A Rich text block gains a hover text colour, which applies
+  only while the block has a link. Because a Rich text block takes focus through the link that covers
+  it, each hover utility also shows while a block's covering link (`.thallo-block-link`) has keyboard
+  focus. `thallo:provision` adds the settings to an existing site.
+- **A Feature's number badge has its own lettering**: a **Number** section in the Style tab sets the
+  badge's Typeface, Font style, Weight and Transform. It shows only while the marker is a number, and
+  the badge's size stays the marker's Size. A style part can now declare `when`
+  (`{"field": …, "equals": …}`), and the Style tab shows its section only while that content field has
+  that value. `thallo:provision` adds it to an existing site.
+- **Round only some corners, and draw a border on any set of sides**: a **Rounded corners** setting
+  beside Corners rounds the corners you choose (top left, top right, bottom right, bottom left, in any
+  combination) and leaves the others square. **Border sides** now takes any set of sides instead of
+  one. Both are toggles in the Style tab, every one on until you turn some off. Every block, part and
+  region that has Corners has Rounded corners. Stored, each is one value naming the set (`corners`:
+  `tl-bl`; `border.sides`: `top-bottom`); the old single sides keep their names, so existing pages
+  render as before. Settings version 18; StyleCompiler 27.
+- **A link can turn bolder or underline on hover**: the Hover state gains **Weight** and **Text
+  decoration** (`hover.typography.weight`, `hover.typography.decoration`), shown under Typography
+  wherever an element has them at rest: a Links link, a linked Rich text block, a product card's
+  Title, a Button. A Heading's **Link** section gains Weight and Text decoration, at rest and on
+  hover; on hover, Text decoration None takes away the underline the theme gives a linked heading.
+  Like every hover value they show under the pointer, on keyboard focus and in the stage's Hover
+  preview, never after a tap. `thallo:provision` adds the Heading's to an existing site. Settings
+  version 19; StyleCompiler 28.
+
+### Fixed
+- **A linked Heading's underline no longer stays after a tap on a phone**, and the stage's Hover preview
+  now shows it.
+
 ## [1.0.0-beta.99] - 2026-10-10 — Developer Preview
 
 Links that work as typed: a Heading or a Rich text block can be a link, a link typed without

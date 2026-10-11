@@ -50,11 +50,9 @@ beforeEach(() => {
 describe('the contract the admin mirrors', () => {
   it('has the three paths, none of them responsive, on the Style tab', () => {
     const by = new Map(styleProperties().map((p) => [p.path, p]))
-    expect(by.get('border.sides')).toMatchObject({
-      group: 'border',
-      responsive: false,
-      choices: ['all', 'top', 'right', 'bottom', 'left'],
-    })
+    // Any set of sides (style-tab-corners-sides.spec.ts has the set names).
+    expect(by.get('border.sides')).toMatchObject({ group: 'border', responsive: false })
+    expect(by.get('border.sides')?.choices).toHaveLength(15)
     expect(by.get('colors.surface_opacity')).toMatchObject({
       group: 'backdrop',
       responsive: false,
@@ -76,12 +74,11 @@ describe('the Style tab', () => {
     const effects = mountTab(card).find('[data-test="style-group-effects"]')
     const sides = effects.find('[data-test="style-field-border.sides"]')
     expect(sides.text()).toContain('Border sides')
-    expect(sides.findAll('[data-test^="choice-"]').map((b) => b.text())).toEqual([
-      'all',
-      'top',
-      'right',
-      'bottom',
-      'left',
+    expect(sides.findAll('[data-test^="set-"]').map((b) => b.text())).toEqual([
+      'Top',
+      'Right',
+      'Bottom',
+      'Left',
     ])
   })
 
@@ -114,13 +111,12 @@ describe('the Style tab', () => {
       .find('[data-test="style-field-colors.surface_opacity"] [data-test="choice-80"]')
       .trigger('click')
     await w.find('[data-test="style-field-backdrop.blur"] [data-test="choice-md"]').trigger('click')
-    await w
-      .find('[data-test="style-field-border.sides"] [data-test="choice-bottom"]')
-      .trigger('click')
+    await w.find('[data-test="style-field-border.sides"] [data-test="set-bottom"]').trigger('click')
     expect(w.emitted('set')).toEqual([
       ['colors.surface_opacity', null, { type: 'choice', value: '80' }],
       ['backdrop.blur', null, { type: 'choice', value: 'md' }],
-      ['border.sides', null, { type: 'choice', value: 'bottom' }],
+      // Every side on until set: turning the bottom off leaves the other three.
+      ['border.sides', null, { type: 'choice', value: 'top-right-left' }],
     ])
   })
 })

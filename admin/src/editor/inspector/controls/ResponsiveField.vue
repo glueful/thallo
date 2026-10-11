@@ -19,6 +19,8 @@ import { CHOICE_LABELS } from '@/editor/inspector/choiceLabels'
 import TokenScaleControl from './TokenScaleControl.vue'
 import type { StyleSchemaResult } from '@/queries/styleSchema'
 import ChoiceControl from './ChoiceControl.vue'
+import SetChoiceControl from './SetChoiceControl.vue'
+import { CHOICE_SETS } from '@/style/choiceSets'
 import FontFamilyControl from './FontFamilyControl.vue'
 
 const props = defineProps<{
@@ -288,6 +290,15 @@ const sourceLabel = computed(() => {
           :scoped-skin="scopedSkin"
           @update:model-value="onPick"
           @clear="clear()"
+        />
+        <SetChoiceControl
+          v-else-if="CHOICE_SETS[def.path]"
+          :members="CHOICE_SETS[def.path]!.members"
+          :labels="CHOICE_SETS[def.path]!.labels"
+          :last-on="CHOICE_SETS[def.path]!.lastOn"
+          :model-value="currentValue"
+          :name="def.path"
+          @update:model-value="onPick"
         />
         <ChoiceControl
           v-else

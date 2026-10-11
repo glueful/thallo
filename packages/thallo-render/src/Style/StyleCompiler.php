@@ -40,7 +40,10 @@ final class StyleCompiler
     // 24: the six site-controlled brand colour tokens (custom palette spec §3.1).
     // 25: brand colours leave the per-theme artifact for each workspace's colours stylesheet (custom
     //     palette spec §3.4).
-    public const VERSION = 25;
+    // 26: a hover utility also shows on the keyboard focus of its block's cover link (`.thallo-block-link`).
+    // 27: border.sides takes any set of sides; corners, which corners the Corners size rounds.
+    // 28: hover.typography.weight and hover.typography.decoration.
+    public const VERSION = 28;
 
     /** The built-in typefaces' synthesis: the browser's default (an uploaded family's is `style`). */
     private const BUILT_IN_SYNTHESIS = 'weight style';
@@ -75,12 +78,21 @@ final class StyleCompiler
 
     /**
      * Modifiers: properties that adjust what ANOTHER property declares — the border's sides, the
-     * surface's opacity. Theirs is the later rule, so they win over the utility they modify; and
+     * surface's opacity, the corners a radius rounds. Theirs is the later rule, so they win over the
+     * utility they modify; and
      * their reset rule is EMPTY, because reverting the declarations they share would undo that
      * utility too. Absent, reset, or `all`: the modified property stands as it is — but every
      * class the emitter can write has a rule, so the empty ones are written.
      */
-    private const MODIFIERS = ['border.sides', 'colors.surface_opacity'];
+    private const MODIFIERS = ['border.sides', 'corners', 'colors.surface_opacity'];
+
+    /** A corner's name in `corners` → its border-radius longhand. */
+    private const CORNER_PROPERTY = [
+        'tl' => 'border-top-left-radius',
+        'tr' => 'border-top-right-radius',
+        'br' => 'border-bottom-right-radius',
+        'bl' => 'border-bottom-left-radius',
+    ];
 
     /**
      * Properties whose utilities carry NO declaration for some or all values, and whose reset is
@@ -319,7 +331,8 @@ final class StyleCompiler
                 $selector = ClassNames::selector(ClassNames::for($hover, $value));
                 $declarations = self::declarations($resting, $value);
                 $pointer .= "{$selector}:hover { {$declarations} }\n";
-                $other .= "{$selector}:focus-visible, {$selector}[data-thallo-hover] { {$declarations} }\n";
+                $other .= "{$selector}:focus-visible, {$selector}[data-thallo-hover] { {$declarations} }\n"
+                    . self::coverFocusRule($selector, $declarations);
             }
         }
         return $out . "@media (hover: hover) {\n{$pointer}}\n{$other}";
@@ -385,11 +398,22 @@ final class StyleCompiler
                 $selector = ClassNames::selector(ClassNames::for($hover, $value));
                 $declarations = self::declarations($resting, $value);
                 $pointer .= "{$selector}:hover { {$declarations} }\n";
-                $other .= "{$selector}:focus-visible, {$selector}[data-thallo-hover] { {$declarations} }\n";
+                $other .= "{$selector}:focus-visible, {$selector}[data-thallo-hover] { {$declarations} }\n"
+                    . self::coverFocusRule($selector, $declarations);
             }
             $other .= ClassNames::selector(ClassNames::reset($hover)) . " { }\n";
         }
         return "@media (hover: hover) {\n{$pointer}}\n{$other}";
+    }
+
+    /**
+     * A block covered by a link (`.thallo-block-link`: a Rich text block made a link) cannot take
+     * focus; its cover does. So its hover look shows on the cover's keyboard focus too. A rule of
+     * its own: a browser without :has() drops only this one, never the focus and forced branches.
+     */
+    private static function coverFocusRule(string $selector, string $declarations): string
+    {
+        return "{$selector}:has(> .thallo-block-link:focus-visible) { {$declarations} }\n";
     }
 
     /**
@@ -560,12 +584,21 @@ final class StyleCompiler
         if ($path === 'motion.ken_burns') {
             return isset(self::KEN_BURNS[$value]) ? 'overflow: clip;' : '';
         }
-        if ($path === 'border.sides' && $value === 'all') {
-            return ''; // what the width utility declares already
+        // A set of sides or corners (`top-bottom`, `tl-bl`): the width or radius stays on those, and
+        // the others are taken back to none. `all` is what the width or radius declares already.
+        if (($path === 'border.sides' || $path === 'corners') && $value === 'all') {
+            return '';
         }
         if ($path === 'border.sides') {
-            $others = array_diff(['top', 'right', 'bottom', 'left'], [$value]);
+            $others = array_diff(StyleSchema::SIDES, explode('-', $value));
             return implode(' ', array_map(static fn (string $side): string => "border-{$side}-width: 0;", $others));
+        }
+        if ($path === 'corners') {
+            $others = array_diff(StyleSchema::CORNERS, explode('-', $value));
+            return implode(' ', array_map(
+                static fn (string $corner): string => self::CORNER_PROPERTY[$corner] . ': 0;',
+                $others,
+            ));
         }
         // The colour the element shows is the one chosen for it, else the one the theme names for
         // it (--t-surface-default), else none — so an opacity alone changes nothing a theme did

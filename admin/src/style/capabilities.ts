@@ -3,7 +3,8 @@ import { propertyDefinition, styleProperties } from './schema'
 
 // What a block type offers (hover state spec §2.2.1). Real block types and their parts carry the
 // server's expansion, `style_paths`; only synthetic types — a style class, a region — expand here,
-// with the same rule as StyleCapabilities: a hover path exists only beside its resting path.
+// with the same rules as StyleCapabilities: a hover path exists only beside its resting path, and a
+// companion exactly where its anchor does.
 
 /**
  * Hover path → the resting path it changes (StyleSchema::HOVER), derived from the schema: the
@@ -15,7 +16,13 @@ export const HOVER_OF: Record<string, string> = Object.fromEntries(
     .map((row) => [row.path, row.path.slice('hover.'.length)]),
 )
 
-/** A declaration's paths: a path, or a group naming its paths; then the hover rule. */
+/**
+ * Companion → the path it modifies (StyleSchema::ANCHORED): it exists exactly where its anchor does.
+ * Which corners the Corners size rounds.
+ */
+export const ANCHORED: Record<string, string> = { corners: 'radius' }
+
+/** A declaration's paths: a path, or a group naming its paths; then the hover and companion rules. */
 export function expandDeclaration(declaration: readonly string[] | null | undefined): Set<string> {
   const out = new Set<string>()
   for (const entry of declaration ?? []) {
@@ -23,9 +30,11 @@ export function expandDeclaration(declaration: readonly string[] | null | undefi
     else for (const row of styleProperties()) if (row.group === entry) out.add(row.path)
   }
   for (const path of [...out]) {
-    const resting = HOVER_OF[path]
+    const resting = HOVER_OF[path] ?? ANCHORED[path]
     if (resting !== undefined && !out.has(resting)) out.delete(path)
   }
+  for (const [companion, anchor] of Object.entries(ANCHORED))
+    if (out.has(anchor)) out.add(companion)
   return out
 }
 

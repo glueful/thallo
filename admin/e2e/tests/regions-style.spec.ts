@@ -33,7 +33,10 @@ test('the header’s Style on the Region tab edits the bar, and the apply carrie
     .locator('[data-test="style-field-colors.surface_opacity"] [data-test="choice-60"]')
     .click()
   await style.locator('[data-test="style-field-backdrop.blur"] [data-test="choice-lg"]').click()
-  await style.locator('[data-test="style-field-border.sides"] [data-test="choice-bottom"]').click()
+  // Border sides are toggles, every one on until set: the bottom alone is the other three off.
+  for (const side of ['top', 'right', 'left']) {
+    await style.locator(`[data-test="style-field-border.sides"] [data-test="set-${side}"]`).click()
+  }
 
   await expect
     .poll(() => lastHeader(recorded, 'settings'))

@@ -24,7 +24,7 @@ final class RegionStyleTest extends TestCase
         );
         $paths = RegionStyle::capabilities()->paths();
         $styled = [
-            'spacing.padding.top', 'spacing.margin.bottom', 'shadow', 'radius', 'colors.surface',
+            'spacing.padding.top', 'spacing.margin.bottom', 'shadow', 'radius', 'corners', 'colors.surface',
             'border.sides', 'colors.surface_opacity', 'backdrop.blur',
         ];
         foreach ($styled as $path) {
@@ -47,7 +47,7 @@ final class RegionStyleTest extends TestCase
             self::assertSame($expected, $targets->targetFor($path), $path);
         }
         $onTheBar = [
-            'shadow', 'radius', 'colors.surface', 'colors.text', 'colors.border', 'border.width',
+            'shadow', 'radius', 'corners', 'colors.surface', 'colors.text', 'colors.border', 'border.width',
             'border.style', 'border.sides', 'colors.surface_opacity', 'backdrop.blur',
         ];
         foreach ($onTheBar as $path) {

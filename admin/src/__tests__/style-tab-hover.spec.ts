@@ -1,5 +1,5 @@
 // The Style tab's Normal / Hover switch (hover state spec §6.2): on the sections that have a
-// hoverable row — Colours and Effects — Hover swaps those rows for their hover counterparts and hides
+// hoverable row — Colours, Typography and Effects — Hover swaps those rows for their hover counterparts and hides
 // the rest; one state for the whole tab, back to Normal on a new selection; a dot marks a declared
 // hover value; hover values are written bare (one value for every width).
 import { readFileSync } from 'node:fs'
@@ -71,12 +71,35 @@ beforeEach(() => {
 })
 
 describe('the Normal / Hover switch', () => {
-  it('shows on Colours and Effects only', () => {
+  it('shows on Colours, Typography and Effects only', () => {
     const w = mountTab(button)
     expect(w.find('[data-test="style-state-hover-colors"]').exists()).toBe(true)
+    expect(w.find('[data-test="style-state-hover-typography"]').exists()).toBe(true)
     expect(w.find('[data-test="style-state-hover-effects"]').exists()).toBe(true)
-    expect(w.find('[data-test="style-state-hover-typography"]').exists()).toBe(false)
     expect(w.find('[data-test="style-state-hover-spacing"]').exists()).toBe(false)
+  })
+
+  it('offers Weight and Text decoration in Typography, and writes them bare', async () => {
+    const w = mountTab(button)
+    await w.find('[data-test="style-state-hover-typography"]').trigger('click')
+    expect(fields(w, 'typography')).toEqual([
+      'hover.typography.weight',
+      'hover.typography.decoration',
+    ])
+    expect(w.find('[data-test="style-field-hover.typography.weight"]').text()).toContain('Weight')
+    expect(w.find('[data-test="style-field-hover.typography.decoration"]').text()).toContain(
+      'Text decoration',
+    )
+    await w
+      .find('[data-test="style-field-hover.typography.weight"] [data-test="choice-bold"]')
+      .trigger('click')
+    await w
+      .find('[data-test="style-field-hover.typography.decoration"] [data-test="choice-underline"]')
+      .trigger('click')
+    expect(w.emitted('set')).toEqual([
+      ['hover.typography.weight', null, { type: 'choice', value: 'bold' }],
+      ['hover.typography.decoration', null, { type: 'choice', value: 'underline' }],
+    ])
   })
 
   it('swaps the hoverable rows for their hover counterparts, in the same order, and hides the rest', async () => {

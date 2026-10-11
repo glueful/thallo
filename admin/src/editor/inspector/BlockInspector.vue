@@ -129,26 +129,38 @@ watch(
 /**
  * The block type's parts (StyleTargets `parts`): sub-elements styled on their own, each shown on
  * the Style tab as its own section — the Style tab's controls over the part's record, offering only
- * what the part declares. The block's style classes are the block's and never reach a part.
+ * what the part declares. The block's style classes are the block's and never reach a part. A part
+ * with a `when` is drawn only while the block's field has that value (a Feature's Number only for
+ * a number marker), so a section never styles an element the block does not render.
  */
 const parts = computed(() => {
   const declared = (props.blockType?.style_targets as { parts?: unknown } | null | undefined)?.parts
   if (declared === null || typeof declared !== 'object') return []
   return Object.entries(
-    declared as Record<string, { label?: string; capabilities?: string[] }>,
-  ).map(([name, spec]) => ({
-    name,
-    label: spec.label ?? name,
-    // What the part offers, as the server expanded it (hover state spec §2.2.1).
-    type: partBlockType(props.blockType!, name),
-    block: {
-      ...props.block,
-      settings: {
-        style: ((props.block.settings?.parts as Record<string, unknown> | undefined)?.[name] ??
-          {}) as Record<string, unknown>,
+    declared as Record<
+      string,
+      { label?: string; capabilities?: string[]; when?: { field?: string; equals?: unknown } }
+    >,
+  )
+    .filter(
+      ([, spec]) =>
+        spec.when === undefined ||
+        (typeof spec.when.field === 'string' &&
+          props.block.data?.[spec.when.field] === spec.when.equals),
+    )
+    .map(([name, spec]) => ({
+      name,
+      label: spec.label ?? name,
+      // What the part offers, as the server expanded it (hover state spec §2.2.1).
+      type: partBlockType(props.blockType!, name),
+      block: {
+        ...props.block,
+        settings: {
+          style: ((props.block.settings?.parts as Record<string, unknown> | undefined)?.[name] ??
+            {}) as Record<string, unknown>,
+        },
       },
-    },
-  }))
+    }))
 })
 const ALL_TABS = [
   { label: 'Content', value: 'content', slot: 'content' as const },

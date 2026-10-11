@@ -125,7 +125,7 @@ test('clears when the panel holding the switch closes', async ({ page }) => {
     .getByRole('tab', { name: 'Layout', exact: true })
     .click()
   await expect(anyForced(page)).toHaveCount(0)
-  // Back on Style (it opens in Normal): Hover again, then fold both hoverable sections.
+  // Back on Style (it opens in Normal): Hover again, then fold every hoverable section.
   await page
     .locator('[data-test="block-inspector-tabs"]')
     .getByRole('tab', { name: 'Style', exact: true })
@@ -133,6 +133,7 @@ test('clears when the panel holding the switch closes', async ({ page }) => {
   await hoverSwitch(page, 'colors').click()
   await expect(anyForced(page)).toHaveCount(1)
   await page.locator('[data-test="style-group-toggle-colors"]').first().click()
+  await page.locator('[data-test="style-group-toggle-typography"]').first().click()
   await page.locator('[data-test="style-group-toggle-effects"]').first().click()
   await expect(anyForced(page)).toHaveCount(0)
 })

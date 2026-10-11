@@ -4,7 +4,8 @@
  * Build the fixtures of the hover state (hover state spec §4.1, §4.3): one page — Buttons of every
  * variant untouched and with one authored hover property, a Button whose hover reset beats its style
  * class, Links, File and Social links blocks untouched and with hover values, and a Navigation whose
- * Menu item section has a hover background and whose Current page section is the pill — rendered by the real
+ * Menu item section has a hover background and whose Current page section is the pill, and linked Heading and
+ * Rich text blocks untouched and with a hover colour (and an unlinked Rich text one) — rendered by the real
  * render pack twice, published (`public.html`) and on the editor's canvas stage (`stage.html`), into
  * `tools/runtime-browser/fixtures/hover/` (gitignored) with stylesheets inlined and scripts dropped.
  * Seeded inside a transaction that is rolled back. Read by hover.spec.js.
@@ -190,6 +191,30 @@ try {
                 'current' => ['colors' => ['surface' => $token('color.black'), 'text' => $token('color.white')]],
             ],
         ]];
+
+        // A linked Heading and Rich text block, untouched and with a hover text colour (the Heading's on
+        // its Link part, the Rich text's on the block), and a Rich text block with a hover colour but no
+        // link, which keeps its colour under the pointer.
+        $hoverText = ['hover' => ['colors' => ['text' => $accent]]];
+        $body[] = ['id' => 'headplain001', 'type' => 'heading', 'data' => ['text' => 'Our story', 'url' => '/story'], 'settings' => []];
+        $body[] = ['id' => 'headhover001', 'type' => 'heading', 'data' => ['text' => 'Visit us', 'url' => '/visit'], 'settings' => ['parts' => ['link' => $hoverText]]];
+        $call = '<p>Call us any time.</p>';
+        $body[] = ['id' => 'richplain001', 'type' => 'rich_text', 'data' => ['body' => $call, 'url' => 'tel:+233597478403'], 'settings' => []];
+        $body[] = ['id' => 'richhover001', 'type' => 'rich_text', 'data' => ['body' => $call, 'url' => 'tel:+233597478403'], 'settings' => ['style' => $hoverText]];
+        $body[] = ['id' => 'richnolink01', 'type' => 'rich_text', 'data' => ['body' => '<p>Open daily.</p>'], 'settings' => ['style' => $hoverText]];
+
+        // A link's weight and line on hover: a Heading link, medium at rest, bold with no underline (over
+        // the theme's); a Links link bolder and underlined; a linked Rich text block semibold and struck
+        // through.
+        $choice = static fn (string $value): array => ['type' => 'choice', 'value' => $value];
+        $lettering = static fn (string $weight, string $line): array => ['hover' => ['typography' => [
+            'weight' => $choice($weight), 'decoration' => $choice($line),
+        ]]];
+        $body[] = ['id' => 'headweight01', 'type' => 'heading', 'data' => ['text' => 'Meet us', 'url' => '/meet'], 'settings' => ['parts' => ['link' => $lettering('bold', 'none') + [
+            'typography' => ['weight' => ['base' => $choice('medium')]],
+        ]]]];
+        $body[] = $links('linksweight1', ['parts' => ['link' => $lettering('bold', 'underline')]]);
+        $body[] = ['id' => 'richweight01', 'type' => 'rich_text', 'data' => ['body' => $call, 'url' => 'tel:+233597478403'], 'settings' => ['style' => $lettering('semibold', 'line-through')]];
 
         $type = (string) $container->get(ContentTypeRepository::class)->create([
             'slug' => 'landing', 'name' => 'Landing pages', 'public_delivery' => true, 'schema' => [

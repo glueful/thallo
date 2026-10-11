@@ -139,9 +139,9 @@ In the CSS, the block gets `t-{stem}-reset` — `t-radius-reset`, `md:t-pt-reset
 sets every CSS property that setting writes to `revert-layer`, handing the property back to
 `@layer theme` from that breakpoint up.
 
-Six settings have an empty reset rule, and nothing to revert. **Border sides** and **Background
-opacity** modify what another setting declares and share its CSS properties, so reverting would
-undo that setting too; **Entrance**, **Repeat** and **Stagger children** carry no declaration of
+Some settings have an empty reset rule, and nothing to revert. **Border sides**, **Rounded
+corners** and **Background opacity** modify what another setting declares and share its CSS
+properties, so reverting would undo that setting too; **Entrance**, **Repeat** and **Stagger children** carry no declaration of
 their own on the element. Their reset still stops resolution.
 
 **Clear**, beside it, is different: it removes the declaration entirely and lets whatever is
@@ -267,13 +267,20 @@ are the `backdrop` group, which a block type opts into separately from `colors`.
 |---|---|---|---|---|
 | Shadow | `shadow` | yes | `t-shadow-{name}` | `box-shadow: var(--t-shadow-{name})` |
 | Corners | `radius` | no | `t-radius-{name}` | `border-radius: var(--t-radius-{name})` |
+| Rounded corners | `corners` | no | `t-corners-{value}` | `all` declares nothing; a set (`tl-bl`) sets `border-{corner}-radius: 0` on the corners not in it |
 | Border width | `border.width` | no | `t-bw-{value}` | `border-width:` `none` 0, `thin` 1px, `thick` 2px |
 | Border style | `border.style` | no | `t-bs-{solid,dashed}` | `border-style: solid` / `dashed` |
-| Border sides | `border.sides` | no | `t-bsides-{value}` | `all` declares nothing; a side sets `border-{other}-width: 0` on the other three |
+| Border sides | `border.sides` | no | `t-bsides-{value}` | `all` declares nothing; a set (`top-bottom`) sets `border-{side}-width: 0` on the sides not in it |
 | Opacity | `opacity` | no | `t-opacity-{100,90,80,70,60,50}` | `opacity: 1` … `0.5` |
 
-Border sides is the last property in the contract's table, so its rule follows the width's: at
-equal specificity the later rule takes three of the four sides away.
+Border sides and Rounded corners each name any set of sides or corners: `all`, or one, two or
+three of them, joined by `-` in clockwise order — sides `top`, `right`, `bottom`, `left`; corners
+`tl`, `tr`, `br`, `bl`. So `left`, `top-bottom` and `tl-bl` (both left corners) are values. In the
+Style tab they are toggles, every one on until set; the last one on cannot be turned off (no border
+is Border width None, square corners are Corners None). Both follow the setting they modify in the
+contract's table, so at equal specificity their rule wins. Rounded corners exists wherever Corners
+does: a block type that declares `radius` offers `corners` with it, on the same element, and
+`corners` cannot be declared alone.
 
 Opacity fades the whole element, text and icon included. Background opacity, in Colours, fades
 only the background.
@@ -291,6 +298,13 @@ the whole tab, and a dot on Hover marks a section with hover values set.
 | Background | `hover.colors.surface` | no | `t-hover-bg-{name}` | as Background |
 | Border colour | `hover.colors.border` | no | `t-hover-bc-{name}` | as Border colour |
 | Opacity | `hover.opacity` | no | `t-hover-opacity-{100,…,50}` | as Opacity |
+| Weight | `hover.typography.weight` | no | `t-hover-weight-{regular,medium,semibold,bold}` | as Weight |
+| Text decoration | `hover.typography.decoration` | no | `t-hover-decor-{none,underline,line-through}` | as Text decoration |
+
+Weight and Text decoration are in Hover wherever the target or part also has them at rest: the
+switch shows on Typography too. On hover, Text decoration **None** takes away an underline the
+theme draws, such as a linked Heading's. A bolder weight makes the text a little wider, so the links
+beside it shift a little.
 
 Each hover utility is compiled twice:
 
@@ -308,6 +322,17 @@ Each hover utility is compiled twice:
 - **Keyboard focus** shows the same look, so a keyboard user sees what a mouse user sees.
 - **`[data-thallo-hover]`** is the editor stage's preview of the hover look. It never appears on a
   published page.
+
+A block covered by a link (a Rich text block with a Link: `<a class="thallo-block-link">` over the
+text) cannot take focus itself; its cover does. So each hover utility has one more rule, which
+shows the block's hover look while its cover has keyboard focus:
+
+```css
+.t-hover-fg-accent:has(> .thallo-block-link:focus-visible) { color: var(--t-color-accent); }
+```
+
+A Rich text block's hover values apply only while it has a Link: without one, its text keeps its
+colour under the pointer.
 
 What beats what:
 
@@ -370,6 +395,11 @@ the top of the text.
 
 The description is the Feature's **Description** part: its own Typography, Text colour, and the
 space above it (Margin top). The block's Typography is the title's.
+
+A number badge's lettering is the Feature's **Number** part: Typeface, Font style, Weight and
+Transform. The Style tab shows it only while the marker is a number. Its size is the marker's Size.
+A part declares this with `when` (`{"field": "marker", "equals": "number"}`): the section is shown
+only while that content field has that value.
 
 ### Tabs
 
@@ -440,14 +470,14 @@ reach that piece on every card:
 |---|---|---|
 | Card | the card | Colours (background, border), Border, Corners, Shadow, Padding, Opacity; Hover: background, border colour, opacity |
 | Image | the image frame | Corners |
-| Title | the product name's link | Typography, Text colour; Hover: text colour |
+| Title | the product name's link | Typography, Text colour; Hover: text colour, weight, text decoration |
 | Price | the price line | Typography, Text colour |
 | Meta | the categories and tags | Typography, Text colour |
-| Button | add to cart, or choose options | Colours, Border, Corners, Typography, Padding, Opacity; Hover: text colour, background, border colour, opacity |
+| Button | add to cart, or choose options | Colours, Border, Corners, Typography, Padding, Opacity; Hover: text colour, background, border colour, opacity, weight, text decoration |
 | Badge | the sale and new badges | Colours (background, text), Corners, Typography |
 
 The Title part is on the link inside the heading, where the pointer and keyboard focus land, so
-its Hover colour shows on focus too. The heading's level is the Block tab's **Title tag**.
+its Hover look shows on focus too. The heading's level is the Block tab's **Title tag**.
 
 The card's hover effect, the image's ratio, fit and zoom are not style settings: they are the
 Block tab's **Card** fields, drawn by the shop stylesheet. They show only on devices that can

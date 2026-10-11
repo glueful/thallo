@@ -87,8 +87,12 @@ final readonly class StyleTargets
                 continue;
             }
             // The hover state is mapped in a second pass, once every resting path has its target, so
-            // the result does not depend on the declaration's order.
-            if ($capability === 'hover' || StyleSchema::restingPathOf((string) $capability) !== null) {
+            // the result does not depend on the declaration's order. So is a companion (`corners`).
+            if (
+                $capability === 'hover'
+                || StyleSchema::restingPathOf((string) $capability) !== null
+                || StyleSchema::anchorOf((string) $capability) !== null
+            ) {
                 $hoverEntries[(string) $capability] = $target;
                 continue;
             }
@@ -113,8 +117,9 @@ final readonly class StyleTargets
                 }
                 continue;
             }
-            // One hover path, named: asked for on a target that cannot have it is an error, not a drop.
-            $resting = (string) StyleSchema::restingPathOf($capability);
+            // One hover path or companion, named: asked for on a target that cannot have it is an
+            // error, not a drop.
+            $resting = (string) (StyleSchema::restingPathOf($capability) ?? StyleSchema::anchorOf($capability));
             if (($styleMap[$resting] ?? null) !== $target) {
                 throw new \InvalidArgumentException(sprintf(
                     '%s maps to "%s", but %s is on "%s"',
@@ -125,6 +130,13 @@ final readonly class StyleTargets
                 ));
             }
             $styleMap[$capability] = $target;
+        }
+
+        // A companion lands wherever its anchor does.
+        foreach (StyleSchema::ANCHORED as $companion => $anchor) {
+            if (isset($styleMap[$anchor])) {
+                $styleMap[$companion] = $styleMap[$anchor];
+            }
         }
 
         $parts = [];

@@ -85,7 +85,8 @@ three groups:
 - **Spacing** — **Padding** on all four sides, **Margin** top and bottom.
 - **Colours** — **Background**, **Text colour**, **Border colour**, **Background opacity** and
   **Backdrop blur**.
-- **Effects** — **Corners**, **Shadow**, **Border width**, **Border style** and **Border sides**.
+- **Effects** — **Corners** (and which corners are rounded), **Shadow**, **Border width**, **Border style**
+  and **Border sides**.
 
 A region is not a block: there is no Layout tab, no Advanced tab and no
 [style classes](05-style-classes.md) to apply. Padding lands on the bar's inner element, where

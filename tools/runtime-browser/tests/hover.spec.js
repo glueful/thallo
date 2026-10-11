@@ -13,7 +13,16 @@ const PAGES = {
   stage: '/tools/runtime-browser/fixtures/hover/stage.html',
 };
 const VARIANTS = ['solid', 'outline', 'soft', 'subtle', 'ghost', 'link'];
-const PROPS = ['color', 'backgroundColor', 'borderTopColor', 'opacity', 'transform', 'textDecorationThickness'];
+const PROPS = [
+  'color',
+  'backgroundColor',
+  'borderTopColor',
+  'opacity',
+  'transform',
+  'textDecorationLine',
+  'textDecorationThickness',
+  'fontWeight',
+];
 
 // The fixture's elements, in document order (a published page carries no block ids).
 const button = (page, i) => page.locator('main .thallo-block-button__link').nth(i);
@@ -22,6 +31,11 @@ const authoredButton = (page, v) => button(page, VARIANTS.length + VARIANTS.inde
 const resetButton = (page) => button(page, VARIANTS.length * 2);
 const link = (page, block) => page.locator('main .thallo-block-links').nth(block).locator('.thallo-block-links__link').first();
 const fileLink = (page, i) => page.locator('main .thallo-block-file__link').nth(i);
+// The fixture's linked Heading links (plain, authored, then bolder with no line) and Rich text blocks
+// (plain, authored, unlinked, then semibold and struck through). The third Links block is bolder and
+// underlined.
+const headingLink = (page, i) => page.locator('main .thallo-block-heading__link').nth(i);
+const richText = (page, i) => page.locator('main .thallo-block-rich_text').nth(i);
 const social = (page, row, i = 0) =>
   page.locator('main .thallo-block-social_links').nth(row).locator('.thallo-block-social_link__link').nth(i);
 
@@ -177,6 +191,43 @@ for (const [where, url] of Object.entries(PAGES)) {
       expect(links.pointer.color).not.toBe(plainLinks.pointer.color);
     });
 
+    test('a linked Heading or Rich text block underlines under the pointer, as forced', async ({ page }) => {
+      for (const loc of [headingLink(page, 0), richText(page, 0)]) {
+        const { rest, pointer, forced } = await pointerAndForced(page, loc);
+        expect(rest.textDecorationLine).toBe('none');
+        expect(pointer.textDecorationLine).toBe('underline');
+        expect(forced).toEqual(pointer);
+      }
+    });
+
+    test('a linked Heading or Rich text block turns its hover colour; unlinked text does not', async ({ page }) => {
+      const accent = await colour(page, 'accent');
+      for (const loc of [headingLink(page, 1), richText(page, 1)]) {
+        const { rest, pointer, forced } = await pointerAndForced(page, loc);
+        expect(rest.color).not.toBe(accent);
+        expect(pointer.color).toBe(accent);
+        expect(forced).toEqual(pointer);
+      }
+      const unlinked = await pointerAndForced(page, richText(page, 2));
+      expect(unlinked.pointer).toEqual(unlinked.rest);
+    });
+
+    test('a link turns its hover weight and line, over the theme, as forced', async ({ page }) => {
+      for (const [loc, weight, line] of [
+        [headingLink(page, 2), '700', 'none'],
+        [link(page, 2), '700', 'underline'],
+        [richText(page, 3), '600', 'line-through'],
+      ]) {
+        const { rest, pointer, forced } = await pointerAndForced(page, loc);
+        expect(rest.fontWeight).not.toBe(weight);
+        expect(rest.textDecorationLine).toBe('none');
+        expect(pointer).toMatchObject({ fontWeight: weight, textDecorationLine: line });
+        expect(forced).toEqual(pointer);
+      }
+      // The heading's untouched link still underlines: its hover None is the authored one's alone.
+      expect((await pointerAndForced(page, headingLink(page, 0))).pointer.textDecorationLine).toBe('underline');
+    });
+
     test('a reset keeps the resting colour, hovered and forced', async ({ page }) => {
       const reset = await pointerAndForced(page, resetButton(page));
       expect(reset.forced).toEqual(reset.pointer);
@@ -263,6 +314,39 @@ test('keyboard focus shows the authored hover colour and keeps the focus ring', 
   expect((await look(plainFile)).backgroundColor).not.toBe(rest.backgroundColor);
 });
 
+test('keyboard focus on a linked Heading or a Rich text block\'s cover shows its hover look and a ring', async ({
+  page,
+}) => {
+  await open(page, PAGES.public);
+  const accent = await colour(page, 'accent');
+  const heading = headingLink(page, 1);
+  await page.keyboard.press('Tab');
+  await heading.focus();
+  expect(await heading.evaluate((el) => el.matches(':focus-visible'))).toBe(true);
+  expect(await look(heading)).toMatchObject({ color: accent, textDecorationLine: 'underline' });
+  expect(await heading.evaluate((el) => getComputedStyle(el).outlineStyle)).not.toBe('none');
+
+  // The block cannot take focus; its cover does, and the block shows the look.
+  const block = richText(page, 1);
+  const cover = block.locator('.thallo-block-link');
+  await cover.focus();
+  expect(await cover.evaluate((el) => el.matches(':focus-visible'))).toBe(true);
+  expect(await look(block)).toMatchObject({ color: accent, textDecorationLine: 'underline' });
+  expect(await cover.evaluate((el) => getComputedStyle(el).outlineStyle)).not.toBe('none');
+});
+
+test('keyboard focus shows a link\'s hover weight and line', async ({ page }) => {
+  await open(page, PAGES.public);
+  await page.keyboard.press('Tab');
+  const links = link(page, 2);
+  await links.focus();
+  expect(await links.evaluate((el) => el.matches(':focus-visible'))).toBe(true);
+  expect(await look(links)).toMatchObject({ fontWeight: '700', textDecorationLine: 'underline' });
+  const block = richText(page, 3);
+  await block.locator('.thallo-block-link').focus();
+  expect(await look(block)).toMatchObject({ fontWeight: '600', textDecorationLine: 'line-through' });
+});
+
 // What each element offers on hover (hover state spec §5), and the transition the theme must give it
 // so each hover property fades rather than snaps (§4.2).
 const FADES = [
@@ -314,6 +398,11 @@ test.describe('a touch-primary device', () => {
       fileLink(page, 2),
       social(page, 0),
       social(page, 2),
+      headingLink(page, 1),
+      richText(page, 1),
+      headingLink(page, 2),
+      link(page, 2),
+      richText(page, 3),
     ];
     for (const loc of elements) {
       await loc.scrollIntoViewIfNeeded();

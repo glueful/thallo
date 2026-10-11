@@ -10,7 +10,9 @@
         "hover.colors.text",
         "hover.colors.surface",
         "hover.colors.border",
-        "hover.opacity"
+        "hover.opacity",
+        "hover.typography.weight",
+        "hover.typography.decoration"
       ]
     },
     {
