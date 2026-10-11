@@ -11,7 +11,7 @@ $root = dirname(__DIR__);
 $src = $root . '/core/src/Updater';
 // Dependency order: a class appears after everything it references at load time (interfaces first).
 $runnerClasses = ['Paths', 'FileLock', 'AtomicFile', 'Status', 'UpdateRefused', 'Fenced', 'OperationStore', 'Barrier',
-    'Host', 'RealHost', 'ChildProcess', 'Liveness', 'JournalConflict', 'Journal'];
+    'Host', 'RealHost', 'ChildProcess', 'Liveness', 'JournalConflict', 'Journal', 'ComposerShape', 'Stager'];
 $guardClasses = ['Paths', 'FileLock', 'AtomicFile', 'Status', 'UpdateRefused', 'Fenced', 'OperationStore', 'Barrier',
     'GuardResponse', 'RecoveryPage', 'Guard'];
 
