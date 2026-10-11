@@ -27,7 +27,7 @@ json_get() { "$PHP_BIN" -r '$v=json_decode(stream_get_contents(STDIN),true); for
 # Every file of the site with its hash, runner-owned paths excluded (scenario 18).
 site_manifest() {
   (cd "$SITE" && "$PHP_BIN" -r '
-    $skip = "#^(vendor|composer\\.lock|composer\\.json|storage/logs|storage/framework/updates|storage/backups)(/|$)#";
+    $skip = "#^(vendor|composer\\.lock|composer\\.json|storage/logs|storage/framework/updates|\\.thallo-update|\\.thallo-update-control)(/|$)#";
     $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(".", FilesystemIterator::SKIP_DOTS));
     $out = [];
     foreach ($it as $f) { if (!$f->isFile()) continue; $rel = substr($f->getPathname(), 2); if (preg_match($skip, $rel)) continue; $out[$rel] = hash_file("sha256", $f->getPathname()); }
@@ -42,9 +42,9 @@ sc_1() { # Successful update, through the advertised path.
   local self; self="$(cd "$SITE" && as_deploy "$PHP_BIN" bin/thallo-updater selftest 2>&1 || true)"
   local failing; failing="$(grep '^FAIL' <<<"$self" || true)"
   if [[ "$SINGLE_USER" == 1 ]]; then
-    [[ -z "$(grep -v 'PHP-FPM cannot write the code' <<<"$failing")" ]] \
+    [[ -z "$(grep -vE 'PHP-FPM cannot (write the code|write the control folder|read the private folder)' <<<"$failing")" ]] \
       || { up_log "$self"; return 1; }
-    up_log "SKIP user separation (CI enforces it): PHP-FPM can write the code with one user"
+    up_log "SKIP user separation (CI enforces it): with one user PHP-FPM can reach the code and the runner's folders"
   else
     [[ -z "$failing" ]] || { up_log "$self"; return 1; }
   fi
@@ -58,7 +58,7 @@ sc_1() { # Successful update, through the advertised path.
     [[ "$(json_get data.preflight.ready <<<"$pre")" == true ]] || { up_log "$pre"; return 1; }
     [[ "$(json_get data.preflight.target <<<"$pre")" == "'$TARGET_V'" ]] || { up_log "$pre"; return 1; }
     local started; started="$(curl -s -o "$WORK/start.json" -w '%{http_code}' -X POST -H "Authorization: Bearer $bearer" \
-      "http://127.0.0.1:$PORT/v1/admin/updates")"
+      -H 'Content-Type: application/json' -d "{\"target\":\"$TARGET_V\"}" "http://127.0.0.1:$PORT/v1/admin/updates")"
     [[ "$started" == 202 ]] || { cat "$WORK/start.json" >&2; return 1; }
     json_get data.update.token < "$WORK/start.json" | tr -d "'" > "$WORK/token"
   fi
@@ -71,8 +71,8 @@ sc_1() { # Successful update, through the advertised path.
   # Review Focus 3: the relocated vendor/ loads the site's own classes, classmap and files.
   local loads; loads="$(cd "$SITE" && "$PHP_BIN" -r 'require "vendor/autoload.php"; echo (new App\Proof\Greeter())->hi(), class_exists("ProofLegacy") ? ":classmap" : ":missing", ":", update_proof_helper();')"
   [[ "$loads" == "hi:classmap:helped" ]] || { up_log "post-swap autoload: $loads"; return 1; }
-  ! grep -rq "storage/framework/updates" "$SITE"/vendor/composer/autoload_*.php || { up_log "an autoload path points into the stage"; return 1; }
-  [[ ! -d "$SITE/storage/framework/updates/$(op_field id)" ]] || { up_log "the stage was not deleted"; return 1; }
+  ! grep -rq ".thallo-update" "$SITE"/vendor/composer/autoload_*.php || { up_log "an autoload path points into the stage"; return 1; }
+  [[ ! -d "$SITE/.thallo-update/ops/$(op_field id)" ]] || { up_log "the operation folder was not removed"; return 1; }
 }
 
 sc_2() { # Composer killed mid-stage: the live install is untouched.
@@ -157,7 +157,7 @@ PHP
 }
 slow_request() { curl -s -o /dev/null "http://127.0.0.1:$PORT/proof-slow.php?sleep=$1&out=$2" & }
 
-step_started() { "$PHP_BIN" -r '$o=json_decode(file_get_contents($argv[1]),true); foreach($o["steps"] as $s){ if($s["name"]===$argv[2]){ echo $s["started_at"]; exit; } }' "$SITE/storage/framework/updates/operation.json" "$1"; }
+step_started() { "$PHP_BIN" -r '$o=json_decode(file_get_contents($argv[1]),true); foreach($o["steps"] as $s){ if($s["name"]===$argv[2]){ echo $s["started_at"]; exit; } }' "$SITE/$OP_FILE_REL" "$1"; }
 
 back_on_from() { # roll the code back, reopen, and check the site runs `from` again
   [[ "$(recover_http rollback)" == 202 ]] || { up_log "rollback request refused"; return 1; }
@@ -294,7 +294,7 @@ PHP
   up_repo_add target 901; request "$TARGET_V"
   (tick) & local bg=$!
   local seen503=0
-  for _ in $(seq 1 100); do [[ -f "$SITE/storage/framework/updates/closed.flag" ]] && { site_closed && seen503=1; break; }; sleep 0.2; done
+  for _ in $(seq 1 100); do [[ -f "$SITE/.thallo-update-control/closed.flag" ]] && { site_closed && seen503=1; break; }; sleep 0.2; done
   wait "$bg" || true
   tick_until succeeded || return 1
   [[ "$seen503" == 1 ]] || { up_log "new requests were admitted while the barrier waited"; return 1; }
@@ -370,13 +370,13 @@ sc_17() { # Review Focus 1: a death after verification completes the reopen, nev
 
 sc_19() { # Review Focus 5: token and secret are not interchangeable; verification ignores the barrier.
   request "$TARGET_V"; tick
-  local secret; secret="$(tr -d '\n' < "$SITE/storage/framework/updates/verify.secret")"
+  local secret; secret="$(tr -d '\n' < "$SITE/.thallo-update-control/verify.secret")"
   [[ "$(http_code -X POST -H "x-thallo-verify: $(cat "$WORK/token")" -d '{"mode":"probe"}' "http://127.0.0.1:$PORT/_update/verify")" == 403 ]] || return 1
   [[ "$(http_code -H "x-thallo-update-token: $secret" "http://127.0.0.1:$PORT/_update/status")" == 403 ]] || return 1
   [[ "$(http_code -X POST -H "x-thallo-update-token: $secret" -d '{"option":"rollback"}' "http://127.0.0.1:$PORT/_update/recover")" == 403 ]] || return 1
   # Hold the barrier exclusively, as the runner does, and verify within a second.
-  "$PHP_BIN" -r '$h=fopen($argv[1],"c"); flock($h, LOCK_EX); touch($argv[2]); sleep(10);' \
-    "$SITE/storage/framework/updates/admission.lock" "$WORK/held" & local holder=$!
+  "$PHP_BIN" -r '$h=fopen($argv[1],"r"); flock($h, LOCK_EX); touch($argv[2]); sleep(10);' \
+    "$SITE/.thallo-update-control/admission.lock" "$WORK/held" & local holder=$!
   for _ in $(seq 1 50); do [[ -f "$WORK/held" ]] && break; sleep 0.1; done
   local code; code="$(curl -s -m 1 -o /dev/null -w '%{http_code}' -X POST -H "x-thallo-verify: $secret" -d '{"mode":"probe"}' "http://127.0.0.1:$PORT/_update/verify")"
   kill "$holder" 2>/dev/null || true
@@ -460,7 +460,8 @@ sc_23() { # Readiness: a pre-guard request and a console writer outlive any dela
   grep -q restart_required <<<"$(preflight_json "$bearer")" || return 1
   ! confirm_restart || { up_log "confirmed while pre-guard processes ran"; return 1; }
   grep -q 'bootstrap/app.php' "$WORK/confirm.log" || { up_log "the console writer was not listed"; cat "$WORK/confirm.log" >&2; return 1; }
-  [[ "$(http_code -X POST -H "Authorization: Bearer $bearer" "http://127.0.0.1:$PORT/v1/admin/updates")" == 409 ]] || return 1
+  [[ "$(http_code -X POST -H "Authorization: Bearer $bearer" -H 'Content-Type: application/json' \
+    -d "{\"target\":\"$TARGET_V\"}" "http://127.0.0.1:$PORT/v1/admin/updates")" == 409 ]] || return 1
   for _ in $(seq 1 60); do [[ -f "$SITE/storage/slow-wrote" && -f "$SITE/storage/console-wrote" ]] && break; sleep 1; done
   fpm_restart
   confirm_restart || { cat "$WORK/confirm.log" >&2; return 1; }
@@ -472,4 +473,122 @@ sc_23() { # Readiness: a pre-guard request and a console writer outlive any dela
     "$PHP_BIN" -r 'exit((int) floor((float) file_get_contents($argv[1])) <= (int) $argv[2] ? 0 : 1);' "$SITE/storage/$f" "$backup" \
       || { up_log "$f wrote after the backup began"; return 1; }
   done
+}
+
+# ---- revision 4: the trust boundary (spec §16.7) ----------------------------------------------------
+
+# web_cannot <description> <shell snippet> [args…]: the web user's attempt must fail.
+web_cannot() {
+  local what="$1"; shift
+  if as_web sh -c "$1" sh "${@:2}" >/dev/null 2>&1; then up_log "the web user could $what"; return 1; fi
+}
+
+# request_json <target> [extra JSON object]: a start request as the admin files it, plus extra keys.
+request_json() {
+  "$PHP_BIN" -r '$r = ["target" => $argv[1], "from" => "1.0.0-beta.900", "requested_by" => "x",
+    "requested_at" => gmdate("c"), "token_hash" => hash("sha256", "attacker")];
+    echo json_encode($r + (json_decode($argv[2] ?? "{}", true) ?: []));' "$1" "${2:-{\}}"
+}
+
+# refused_request <json> <error fragment>: the runner records the request as failed and stages nothing.
+refused_request() {
+  local before; before="$(shasum -a 256 "$SITE/composer.lock" | cut -d' ' -f1)"
+  file_request "$1"
+  tick
+  status_is failed || return 1
+  [[ "$(op_field error)" == *"$2"* ]] || { up_log "refused for '$(op_field error)', expected '$2'"; return 1; }
+  [[ "$(shasum -a 256 "$SITE/composer.lock" | cut -d' ' -f1)" == "$before" ]] || { up_log "composer.lock changed"; return 1; }
+  [[ ! -d "$SITE/.thallo-update/ops/$(op_field id)/stage" ]] || { up_log "a refused request was staged"; return 1; }
+}
+
+sc_24() { # From the PHP-FPM user: no attempt writes or runs anything as the code owner; then a clean update.
+  [[ "$SINGLE_USER" == 1 ]] && { up_log "SKIP 24: the boundary needs a second user (CI runs it)"; return 0; }
+  local attack="$WORK/attack" priv="$SITE/.thallo-update" ctl="$SITE/.thallo-update-control"
+  local inbox="$SITE/storage/framework/updates"
+  rm -rf "$attack"; mkdir -p "$attack"; chmod 1777 "$attack"
+  printf '<?php // PROOF_PWNED_MARKER\n' > "$attack/pwned.php"; chmod 644 "$attack/pwned.php"
+  as_web sh -c 'printf "<?php // PROOF_PWNED_MARKER\n" > "$1"' sh "$SITE/storage/pwned.php"
+  local lock_ino; lock_ino="$(stat -c '%i' "$ctl/admission.lock")"
+  tick # the runner's own records exist before the attempts
+
+  # Staging replacement: the private folder, its stage and the folder itself.
+  web_cannot "write into the private folder" 'mkdir -p "$1/ops/forged/stage/vendor"' "$priv"
+  web_cannot "list the private folder" 'ls "$1"' "$priv"
+  web_cannot "move the private folder" 'mv "$1/.thallo-update" "$1/.thallo-update.old"' "$SITE"
+  web_cannot "plant a folder beside it" 'mkdir "$1/.thallo-update.new"' "$SITE"
+  # Journal forgery: the operation and the status the runner publishes.
+  web_cannot "write the operation" 'printf "{}" > "$1/operation.json"' "$priv"
+  web_cannot "read the operation" 'cat "$1/operation.json"' "$priv"
+  web_cannot "write the published status" 'printf "{}" > "$1/status.json"' "$ctl"
+  web_cannot "add a file to the control folder" 'printf x > "$1/forged.json"' "$ctl"
+  # Composer configuration injection: the files Composer reads, and requests that carry options.
+  web_cannot "change composer.json" 'printf " " >> "$1/composer.json"' "$SITE"
+  web_cannot "change .env" 'printf "\nCOMPOSER_HOME=/tmp\n" >> "$1/.env"' "$SITE"
+  web_cannot "write Composer's home" 'mkdir -p "$1/composer-home" && printf "{}" > "$1/composer-home/config.json"' "$priv"
+  up_repo_add target 901 # a real target on offer: only the request's own content is refused
+  refused_request "$(request_json "$TARGET_V" '{"composer_options":"--no-plugins"}')" "not a valid request" || return 1
+  refused_request "$(request_json "$TARGET_V" "{\"env\":{\"COMPOSER\":\"$attack/composer.json\"}}")" "not a valid request" || return 1
+  refused_request "$(request_json "$TARGET_V" '{"working_dir":"/tmp"}')" "not a valid request" || return 1
+  refused_request "$(request_json "dev-main as $TARGET_V")" "not a release version" || return 1
+  refused_request "$(request_json "../../storage/pwned.php")" "not a release version" || return 1
+  refused_request "$(request_json "$FROM_V")" "not newer" || return 1
+  # Symbolic-link redirection: of a request, and of the inbox itself.
+  as_web ln -s "$attack/owned-by-deploy" "$inbox/start.json"
+  tick; status_is failed || return 1
+  [[ ! -e "$attack/owned-by-deploy" ]] || { up_log "the runner wrote through the link"; return 1; }
+  local lock_sum; lock_sum="$(shasum -a 256 "$SITE/composer.lock" | cut -d' ' -f1)"
+  as_web ln -s "$SITE/composer.lock" "$inbox/start.json"
+  tick; status_is failed || return 1
+  [[ -f "$SITE/composer.lock" && ! -L "$SITE/composer.lock" ]] || { up_log "composer.lock was moved"; return 1; }
+  [[ "$(shasum -a 256 "$SITE/composer.lock" | cut -d' ' -f1)" == "$lock_sum" ]] || return 1
+  local failed_id; failed_id="$(op_field id)"
+  as_web sh -c 'mv "$1" "$1.gone" && ln -s "$2" "$1"' sh "$inbox" "$attack" || { up_log "could not stage the inbox swap"; return 1; }
+  request_json "$TARGET_V" > "$attack/start.json"; chmod 666 "$attack/start.json"
+  tick
+  [[ "$(op_field id)" == "$failed_id" ]] || { up_log "the runner acted on a request behind a linked inbox"; return 1; }
+  grep -q 'storage/framework/updates must be a real directory' "$ctl/runner.json" || { up_log "no layout problem reported"; return 1; }
+  as_web sh -c 'rm "$1" && mv "$1.gone" "$1"' sh "$inbox"
+  rm -f "$attack/start.json"
+  # Admission-lock replacement: replaced, removed, rewritten or linked, participants would split.
+  web_cannot "move the admission lock" 'mv "$1/admission.lock" "$1/admission.lock.old"' "$ctl"
+  web_cannot "remove the admission lock" 'rm -f "$1/admission.lock"' "$ctl"
+  web_cannot "write the admission lock" 'printf x > "$1/admission.lock"' "$ctl"
+  web_cannot "link over the admission lock" 'ln -sf /tmp/x "$1/admission.lock"' "$ctl"
+  [[ "$(stat -c '%i' "$ctl/admission.lock")" == "$lock_ino" ]] || { up_log "the admission lock is a different file"; return 1; }
+
+  # And an update the owner asked for still installs exactly the approved release.
+  request "$TARGET_V"
+  tick_until succeeded || return 1
+  version_is "$TARGET_V" && web_version_is "$TARGET_V" || return 1
+  local owned; owned="$(find "$attack" "$SITE/storage" -user "$DEPLOY_USER" \
+    \( -name 'owned-by-deploy*' -o -name 'pwned*' -o -name 'forged*' \) 2>/dev/null)"
+  [[ -z "$owned" ]] || { up_log "files the code owner wrote at attacker-chosen paths:"; up_log "$owned"; return 1; }
+  ! grep -rqs PROOF_PWNED_MARKER "$SITE/vendor" || { up_log "the planted marker reached vendor/"; return 1; }
+}
+
+sc_25() { # Enabling from scratch while PHP-FPM already runs as the web user: the site never answers 503.
+  [[ "$SINGLE_USER" == 1 ]] && { up_log "SKIP 25: needs PHP-FPM as a second user (CI runs it)"; return 0; }
+  up_env_set THALLO_ADMIN_UPDATES false
+  (cd "$SITE" && as_deploy "$PHP_BIN" glueful thallo:provision --no-interaction) > "$WORK/prov-off.log" 2>&1
+  grep -q "Update runner: removed" "$WORK/prov-off.log" || { up_log "the guard was not removed"; return 1; }
+  rm -rf "$SITE/.thallo-update" "$SITE/.thallo-update-control" "$SITE/storage/framework/updates" # never enabled
+  fpm_restart
+  site_open || return 1
+  up_env_set THALLO_ADMIN_UPDATES true
+  (cd "$SITE" && as_deploy "$PHP_BIN" glueful thallo:provision --no-interaction) > "$WORK/prov-on.log" 2>&1 \
+    || { tail -20 "$WORK/prov-on.log" >&2; return 1; }
+  grep -q "Update runner: installed-first" "$WORK/prov-on.log" || { up_log "the guard was not installed"; return 1; }
+  # No manual permission step, no restart yet: PHP-FPM opens the provisioned lock read-only or, failing
+  # that, keeps serving; nothing answers 503.
+  local p code
+  for p in / /health /_update; do
+    code="$(http_code "http://127.0.0.1:$PORT$p")"
+    [[ "$code" != 503 && "$code" != 500 ]] || { up_log "$p answered $code right after enabling"; return 1; }
+  done
+  [[ "$(stat -c '%a %U' "$SITE/.thallo-update")" == "700 $DEPLOY_USER" ]] || { up_log "private: $(stat -c '%a %U' "$SITE/.thallo-update")"; return 1; }
+  [[ "$(stat -c '%a %G' "$SITE/.thallo-update-control")" == "750 thallo-site" ]] || { up_log "control: $(stat -c '%a %G' "$SITE/.thallo-update-control")"; return 1; }
+  [[ "$(stat -c '%a' "$SITE/.thallo-update-control/admission.lock")" == 640 ]] || return 1
+  tick
+  [[ "$("$PHP_BIN" -r 'echo json_encode(json_decode(file_get_contents($argv[1]), true)["layout_problems"] ?? null);' \
+    "$SITE/.thallo-update-control/runner.json")" == '[]' ]] || { up_log "the runner reports layout problems"; cat "$SITE/.thallo-update-control/runner.json" >&2; return 1; }
 }

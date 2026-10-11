@@ -17,6 +17,8 @@ the mirrors. Nobody commits to a mirror.
 - The `update-proof` CI job is green on the commit being cut — the release gate for updating from
   the admin (`composer test:update-proof` locally: nginx and PHP-FPM, or MAMP's nginx and php-cgi
   with any other web server stopped; it resets `app_test`, so reset and migrate it afterwards).
+  Scenarios 24 and 25 — the trust boundary between the runner and PHP-FPM — need two users and
+  run only in CI; locally they print SKIP, so only the CI job proves them.
 - All dependency releases published first (standing rule) and repinned.
 - CHANGELOG's release section written (durable upgrade/security notes included).
 - Mirror remotes exist locally as `split/<name>` (see "One-time setup").

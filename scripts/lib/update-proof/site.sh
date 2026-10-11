@@ -50,6 +50,11 @@ as_deploy() {
   if [[ "$SINGLE_USER" == 1 ]]; then "$@"; else sudo -E -u "$DEPLOY_USER" env "PATH=$PATH" "$@"; fi
 }
 
+# Run as the web user, PHP-FPM's (CI: www-data; locally: this user).
+as_web() {
+  if [[ "$SINGLE_USER" == 1 ]]; then "$@"; else sudo -u www-data "$@"; fi
+}
+
 up_cleanup() {
   up_web_stop || true
   [[ -n "${UPDATE_PROOF_KEEP:-}" ]] || rm -rf "$WORK"
@@ -111,18 +116,23 @@ up_build_site() {
   (cd "$SITE" && "$PHP_BIN" glueful thallo:provision --no-interaction >"$WORK/provision.log" 2>&1) \
     || { tail -30 "$WORK/provision.log"; up_die "provision of the from version failed"; }
   grep -q "Update runner: installed-first" "$WORK/provision.log" || up_die "provision did not install the update runner"
-  touch "$SITE/storage/framework/updates/.proof"
+  touch "$SITE/.thallo-update/.proof"
   up_permissions
 }
 
 # Two users (CI): the code belongs to the deploy user and is only readable by the web user's group;
-# storage/ is writable by both (the group, setgid). One user (local): nothing to do.
+# storage/ is writable by both (the group, setgid). The update folders keep provision's modes (spec
+# §16.1): private 0700, control 0750 with 0640 files, the inbox 2770. One user (local): nothing to do.
 up_permissions() {
   [[ "$SINGLE_USER" == 1 ]] && return 0
   chown -R "$DEPLOY_USER:thallo-site" "$SITE"
   chmod -R u+rwX,g+rX,g-w,o-rwx "$SITE"
   chmod -R g+rwX "$SITE/storage"
   find "$SITE/storage" -type d -exec chmod g+s {} +
+  chmod -R go-rwx "$SITE/.thallo-update"
+  chmod 0750 "$SITE/.thallo-update-control"
+  find "$SITE/.thallo-update-control" -type f -exec chmod 0640 {} +
+  chmod 2770 "$SITE/storage/framework/updates"
 }
 
 up_env_set() {
@@ -255,7 +265,9 @@ fpm_restart() {
 
 tick() { (cd "$SITE" && as_deploy "$PHP_BIN" bin/thallo-updater tick) >>"$WORK/ticks.log" 2>&1 || true; }
 
-op_field() { "$PHP_BIN" -r '$o=json_decode(@file_get_contents($argv[1]),true); $v=$o; foreach(explode(".",$argv[2]) as $k){ $v=$v[$k]??null; } echo $v === null ? "" : (is_scalar($v)?$v:json_encode($v));' "$SITE/storage/framework/updates/operation.json" "$1"; }
+# The runner's private record (the proof reads it as root in CI, as the one user locally).
+OP_FILE_REL=.thallo-update/operation.json
+op_field() { "$PHP_BIN" -r '$o=json_decode(@file_get_contents($argv[1]),true); $v=$o; foreach(explode(".",$argv[2]) as $k){ $v=$v[$k]??null; } echo $v === null ? "" : (is_scalar($v)?$v:json_encode($v));' "$SITE/$OP_FILE_REL" "$1"; }
 
 tick_until() {
   local want="$1" max="${2:-180}"
@@ -268,14 +280,18 @@ tick_until() {
   return 1
 }
 
-# A request filed directly (scenarios that are not about the admission path); the token in $WORK/token.
+# A request filed in the inbox as the web user, as the admin's start endpoint does (scenarios that are
+# not about the admin's preflight); the token in $WORK/token. The runner claims it on its next tick.
 request() {
-  (cd "$SITE" && as_deploy "$PHP_BIN" -r '
-    require "vendor/autoload.php";
-    $ops = new Thallo\Core\Updater\OperationStore(new Thallo\Core\Updater\Paths(getcwd()), static fn (): int => time());
-    [, $token] = $ops->start($argv[1], "1.0.0-beta.900", "update-proof");
-    file_put_contents($argv[2], $token);
-  ' "$1" "$WORK/token")
+  "$PHP_BIN" -r 'echo bin2hex(random_bytes(32));' > "$WORK/token"
+  file_request "$("$PHP_BIN" -r 'echo json_encode(["target" => $argv[1], "from" => "1.0.0-beta.900",
+    "requested_by" => "update-proof", "requested_at" => gmdate("c"), "token_hash" => hash("sha256", $argv[2])]);' \
+    "$1" "$(cat "$WORK/token")")"
+}
+
+# file_request <json>: write start.json into the inbox as the web user (temp file, then rename).
+file_request() {
+  as_web sh -c 'umask 007; printf "%s" "$1" > "$2.tmp" && mv "$2.tmp" "$2"' sh "$1" "$SITE/storage/framework/updates/start.json"
 }
 
 confirm_restart() { (cd "$SITE" && as_deploy "$PHP_BIN" bin/thallo-updater confirm-restart --yes) >"$WORK/confirm.log" 2>&1; }
@@ -290,7 +306,7 @@ version_is() {
 
 web_version_is() {
   local secret got
-  secret="$(tr -d '\n' < "$SITE/storage/framework/updates/verify.secret")"
+  secret="$(tr -d '\n' < "$SITE/.thallo-update-control/verify.secret")"
   got="$(curl -s -X POST -H "x-thallo-verify: $secret" -H 'Content-Type: application/json' -d '{"mode":"boot"}' \
     "http://127.0.0.1:$PORT/_update/verify" | "$PHP_BIN" -r 'echo json_decode(stream_get_contents(STDIN),true)["version"] ?? "";')"
   [[ "$got" == "$1" ]] || { up_log "PHP-FPM reports '$got', expected $1"; return 1; }
