@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+#
+# The disposable-install proof — the release gate for updating from the admin (plan Tasks 17–18).
+# Builds a throwaway site from skeleton/ against versioned artifacts of core/ and packages/*, serves
+# it through nginx and PHP-FPM (or php-cgi, MAMP's FastCGI server) with OPcache on, and drives the real
+# runner, Composer, pg_dump and provision through each scenario.
+#
+# Usage: scripts/update-proof [scenario…]          (composer test:update-proof)
+#        UPDATE_PROOF_KEEP=1 keeps the work folder and database for inspection.
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LIB="$ROOT/scripts/lib/update-proof"
+# shellcheck source=lib/update-proof/site.sh
+source "$LIB/site.sh"
+# shellcheck source=lib/update-proof/scenarios.sh
+source "$LIB/scenarios.sh"
+
+SCENARIOS=("$@")
+[[ ${#SCENARIOS[@]} -gt 0 ]] || SCENARIOS=(1 2 13 14 15 18)
+
+up_init
+trap up_cleanup EXIT
+up_artifacts
+up_build_site
+up_web_start
+owner_setup
+if ! confirm_restart; then
+  cat "$WORK/confirm.log" >&2
+  up_die "other web servers on this host started before the guard (listed above). Stop them while the proof runs: on a single host the update treats every web server as able to run the site."
+fi
+up_web_stop
+up_snapshot
+
+failed=0
+for n in "${SCENARIOS[@]}"; do
+  declare -F "sc_$n" >/dev/null || up_die "no scenario $n"
+  up_restore
+  : > "$WORK/ticks.log"
+  if ( set -e; "sc_$n" ); then
+    printf 'PASS %s\n' "$n"
+  else
+    printf 'FAIL %s\n' "$n"
+    [[ -f "$SITE/storage/framework/updates/operation.json" ]] && up_log "operation: $(op_field status) at $(op_field step): $(op_field error)"
+    id="$(op_field id 2>/dev/null || true)"
+    [[ -n "$id" && -f "$SITE/storage/logs/update-$id.log" ]] && tail -40 "$SITE/storage/logs/update-$id.log" >&2
+    tail -20 "$WORK/ticks.log" >&2 || true
+    failed=1
+    break
+  fi
+done
+exit "$failed"
