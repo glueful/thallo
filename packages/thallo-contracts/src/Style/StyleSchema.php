@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 19;
+    public const VERSION = 20;
 
     /**
      * Paths that were once properties and are no longer. A stored value at one is dropped when a
@@ -303,6 +303,9 @@ final class StyleSchema
             null,
             ['start', 'center', 'end'],
         );
+        // Settings version 20: the room inside a Feature's marker, one value for all four sides of
+        // the icon chip or number badge (the `spacing` scale, like the gap beside it).
+        $byPath['marker.padding'] = new PropertyDefinition('marker.padding', 'marker', $token, true, 'spacing');
         return self::$properties = $byPath;
     }
 

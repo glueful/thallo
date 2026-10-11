@@ -87,8 +87,10 @@ final class StyleSchemaTest extends TestCase
             'marker.color', 'marker.background', 'marker.size', 'feature.gap',
             // Where a Feature's marker sits against its text (settings version 17).
             'feature.align',
+            // The room inside a Feature's marker (settings version 20).
+            'marker.padding',
         ], $paths);
-        self::assertSame(19, StyleSchema::VERSION);
+        self::assertSame(20, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
     }
 
@@ -221,7 +223,7 @@ final class StyleSchemaTest extends TestCase
             StyleSchema::pathsInGroup('layout.item'),
             StyleCapabilities::fromDeclaration(['layout.item'])->paths(),
         );
-        self::assertSame(19, StyleSchema::VERSION);
+        self::assertSame(20, StyleSchema::VERSION);
     }
 
     public function testMotionIsABlocksOwnGroupAndStaggerIsTheArrangersAlone(): void
@@ -423,11 +425,17 @@ final class StyleSchemaTest extends TestCase
         self::assertSame(StyleSchema::property('shadow')?->tokenDomain, $shadow->tokenDomain);
         self::assertSame(StyleSchema::property('radius')?->responsive, $radius->responsive);
         self::assertSame(StyleSchema::property('shadow')?->responsive, $shadow->responsive);
-        // Settings version 16 adds the marker's colour, background and size to the group.
+        // Settings version 16 adds the marker's colour, background and size to the group, and 20 its
+        // padding, on the spacing scale like the gap beside it.
         self::assertSame(
-            ['marker.radius', 'marker.shadow', 'marker.color', 'marker.background', 'marker.size'],
+            ['marker.radius', 'marker.shadow', 'marker.color', 'marker.background', 'marker.size', 'marker.padding'],
             StyleSchema::pathsInGroup('marker'),
         );
+        self::assertSame(
+            StyleSchema::property('feature.gap')?->tokenDomain,
+            StyleSchema::property('marker.padding')?->tokenDomain,
+        );
+        self::assertTrue(StyleSchema::property('marker.padding')?->responsive);
     }
 
     public function testCapabilitiesRejectUnknownPaths(): void
