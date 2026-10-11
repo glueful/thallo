@@ -20,6 +20,7 @@ final class UpdateCheckCommandTest extends AppTestCase
 
         self::assertSame(0, $exit, $display);
         self::assertStringContainsString('development checkout', $display);
-        self::assertStringContainsString('composer update glueful/thallo-core -W && php glueful thallo:provision', $display);
+        $upgrade = 'composer update glueful/thallo-core -W && php glueful thallo:provision';
+        self::assertStringContainsString($upgrade, $display);
     }
 }
