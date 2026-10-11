@@ -257,7 +257,9 @@ final class RunnerTest extends TestCase
         } finally {
             posix_kill($writer, SIGKILL);
         }
-        for ($i = 0; $i < 40 && posix_kill($writer, 0); $i++) {
+        // Wait for the whole group to empty: the writer's short-lived children outlive it briefly.
+        $pgid = (int) $this->ops->current()['pgid'];
+        for ($i = 0; $i < 100 && \Thallo\Core\Updater\Liveness::groupAlive($pgid); $i++) {
             usleep(50_000);
         }
         $this->runner()->tick();
