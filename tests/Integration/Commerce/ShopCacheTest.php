@@ -24,6 +24,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Thallo\Commerce\Events\ProductLinkChanged;
 use Thallo\Commerce\Links\ProductLinkService;
 use Thallo\Commerce\Shop\ShopPageCache;
+use Thallo\Contracts\Navigation\MenuUpdated;
 use Thallo\Contracts\Settings\ThemeAppearanceChanged;
 use Thallo\Contracts\Settings\ThemeChanged;
 use Thallo\Tenancy\System\SystemFlags;
@@ -257,6 +258,19 @@ final class ShopCacheTest extends AppTestCase
         self::assertCount(1, $this->cache()->getKeys('shop:*'));
 
         $this->events()->dispatch(new ThemeAppearanceChanged('emerald', 'zinc'));
+
+        self::assertSame([], $this->cache()->getKeys('shop:*'));
+    }
+
+    public function testAMenuChangePurgesTheGlobalTag(): void
+    {
+        // A menu renders in the header on shop pages too; a menu edit must reach them, not wait out
+        // the TTL while every other page shows the new menu.
+        $this->seedProduct(self::TENANT_A, 'menu-purge-prod', 1500);
+        $this->handle(Request::create('/shop', 'GET'));
+        self::assertCount(1, $this->cache()->getKeys('shop:*'));
+
+        $this->events()->dispatch(new MenuUpdated('main'));
 
         self::assertSame([], $this->cache()->getKeys('shop:*'));
     }

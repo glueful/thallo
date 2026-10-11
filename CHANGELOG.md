@@ -5,6 +5,15 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Fixed
+- **A menu edit now reaches the shop's pages**: a menu shows on the shop's pages too (the shop, its
+  categories and products), but a menu change cleared only the cache of the site's other pages. The
+  shop kept the old menu until its own cache expired (an hour by default), so an item added to the
+  header showed on `/about` and not on `/shop/categories/men`. A menu change now clears the shop's
+  cache as a header or footer save already did.
+
 ## [1.0.0-beta.101] - 2026-10-11 — Developer Preview
 
 A Feature with a headline: an optional short line above its title with its own lettering, a padding
