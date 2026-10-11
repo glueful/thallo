@@ -5,7 +5,11 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.101] - 2026-10-11 — Developer Preview
+
+A Feature with a headline: an optional short line above its title with its own lettering, a padding
+for its marker, and an Appearance page that keeps its preview up to date when a contrast check comes
+back empty.
 
 ### Added
 - **A Feature can have a headline above its title**: a new **Headline** field (`headline`) shows a
