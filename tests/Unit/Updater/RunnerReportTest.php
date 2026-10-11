@@ -25,6 +25,8 @@ final class RunnerReportTest extends TestCase
             '  106      05:00 me       /opt/php/bin/php-cgi -b 127.0.0.1:9019',            // started 9_700: not listed
             '  107      30:00 me       php bin/thallo-updater tick',                       // the runner: not listed
             '  108      30:00 other    /usr/bin/php /home/other/app/artisan queue:work',   // another site: not listed
+            '  109      30:00 me       /opt/php/bin/php -r require "bootstrap/app.php";',  // cwd is the site: listed
+            '  110      30:00 me       /opt/php/bin/php -r echo 1;',                       // cwd elsewhere: not listed
         ]);
         $host = new class ($ps) implements Host {
             public function __construct(private readonly string $ps)
@@ -43,6 +45,9 @@ final class RunnerReportTest extends TestCase
 
             public function capture(array $argv, string $cwd): array
             {
+                if ($argv[0] === 'lsof') { // a process's working directory where /proc does not exist
+                    return [0, $argv[3] === '109' ? "p109\nfcwd\nn/srv/site\n" : "p{$argv[3]}\nfcwd\nn/tmp\n"];
+                }
                 return $argv[0] === 'ps' ? [0, $this->ps] : [0, ''];
             }
 
@@ -63,6 +68,6 @@ final class RunnerReportTest extends TestCase
 
         $found = RunnerReport::unguardedProcesses(new Paths($base), $host, 9_000);
 
-        self::assertSame([101, 102, 103, 104], array_column($found, 'pid'));
+        self::assertSame([101, 102, 103, 104, 109], array_column($found, 'pid'));
     }
 }
