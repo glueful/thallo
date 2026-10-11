@@ -27,6 +27,10 @@ final class RunnerReportTest extends TestCase
             '  108      30:00 other    /usr/bin/php /home/other/app/artisan queue:work',   // another site: not listed
             '  109      30:00 me       /opt/php/bin/php -r require "bootstrap/app.php";',  // cwd is the site: listed
             '  110      30:00 me       /opt/php/bin/php -r echo 1;',                       // cwd elsewhere: not listed
+            // Whole seconds on both sides: only a start 2 s after the install is certainly guarded.
+            '  111      16:40 www      php-fpm: pool www',                                 // started 9_000: listed
+            '  112      16:39 www      php-fpm: pool www',                                 // started 9_001: listed
+            '  113      16:38 www      php-fpm: pool www',                                 // started 9_002: not listed
         ]);
         $host = new class ($ps) implements Host {
             public function __construct(private readonly string $ps)
@@ -68,6 +72,6 @@ final class RunnerReportTest extends TestCase
 
         $found = RunnerReport::unguardedProcesses(new Paths($base), $host, 9_000);
 
-        self::assertSame([101, 102, 103, 104, 109], array_column($found, 'pid'));
+        self::assertSame([101, 102, 103, 104, 109, 111, 112], array_column($found, 'pid'));
     }
 }
