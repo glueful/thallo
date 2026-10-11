@@ -396,6 +396,20 @@ describe('Appearance › Theme colors › palette', () => {
     )
   })
 
+  it('says the checks are unavailable when an answer has no rows, and the page keeps following the form', async () => {
+    vi.useFakeTimers()
+    paletteApi.previewPalette.mockReset().mockResolvedValue({} as never)
+    const w = await mountAppearance({})
+    await vi.advanceTimersByTimeAsync(700)
+    await flushPromises()
+    expect(w.text()).toContain('The contrast checks are unavailable right now.')
+    // A broken answer must not stop the page re-rendering: the accent's swatch follows the choice.
+    await choose(w, 'theme-accent', 'teal')
+    expect(w.find('[data-test="theme-accent-swatch"]').attributes('style')).toContain(
+      'rgb(20, 184, 166)',
+    )
+  })
+
   // ── The brand colour list (custom palette spec §2.3, §5.1) ─────────────────────────────────────
   const rowNames = (w: ReturnType<typeof mount>) =>
     w

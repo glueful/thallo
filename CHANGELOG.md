@@ -5,6 +5,14 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Fixed
+- **The Appearance page keeps following the form when a contrast check comes back empty**: an answer
+  from the contrast check without its list of pairs now shows "The contrast checks are unavailable
+  right now." Before, it broke the Contrast card, and with it every update of the page, so the
+  preview stopped following the colours being chosen.
+
 ## [1.0.0-beta.100] - 2026-10-11 — Developer Preview
 
 Hover for links, and finer edges: a linked Heading or Rich text block has a hover look, a link can

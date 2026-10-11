@@ -53,6 +53,9 @@ const check = useDebounceFn(async () => {
   try {
     const preview = await previewPalette(props.look)
     if (mine !== asked) return
+    // An answer without the list is a failed check: a missing list would break this card's render,
+    // and with it every update of the page around it.
+    if (!Array.isArray(preview?.rows)) throw new Error('No contrast rows')
     rows.value = preview.rows
     failed.value = false
   } catch {
