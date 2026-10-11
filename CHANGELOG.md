@@ -5,7 +5,11 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.100] - 2026-10-11 — Developer Preview
+
+Hover for links, and finer edges: a linked Heading or Rich text block has a hover look, a link can
+turn bolder or underline on hover, a Feature's number badge has its own lettering, and corners and
+borders can take any set of sides.
 
 ### Added
 - **A linked Heading or Rich text block has a hover look**: under the pointer, on keyboard focus and in
@@ -20,7 +24,6 @@ as the next release, never a mutated tag.
   the badge's size stays the marker's Size. A style part can now declare `when`
   (`{"field": …, "equals": …}`), and the Style tab shows its section only while that content field has
   that value. `thallo:provision` adds it to an existing site.
-
 - **Round only some corners, and draw a border on any set of sides**: a **Rounded corners** setting
   beside Corners rounds the corners you choose (top left, top right, bottom right, bottom left, in any
   combination) and leaves the others square. **Border sides** now takes any set of sides instead of
