@@ -277,6 +277,26 @@ try {
                     'weight' => ['base' => ['type' => 'choice', 'value' => 'bold']],
                     'transform' => ['type' => 'choice', 'value' => 'uppercase'],
                 ]]]]],
+            // A headline above the title (feature-style.spec.js): as the theme draws it, then with its
+            // Headline section's transform, letter spacing, colour and space below.
+            ['id' => 'featheadln01', 'type' => 'feature', 'settings' => [],
+                'data' => ['icon' => 'check', 'headline' => 'Online store', 'title' => 'Fragrances, online',
+                    'description' => 'We ship across the country.']],
+            ['id' => 'featheadln02', 'type' => 'feature', 'data' => ['icon' => 'check', 'headline' => 'Online store',
+                'title' => 'Fragrances, online', 'description' => 'We ship across the country.'],
+                'settings' => ['parts' => ['headline' => [
+                    'typography' => ['transform' => $choice('none'), 'letter_spacing' => $choice('normal')],
+                    'colors' => ['text' => $featureToken('color.muted')],
+                    'spacing' => ['margin' => ['bottom' => ['base' => $featureToken('spacing.lg')]]],
+                ]]]],
+            // The marker's padding: an icon chip as the theme pads it, then with a Padding, and a number
+            // badge with one.
+            ['id' => 'featpad00001', 'type' => 'feature', 'settings' => [],
+                'data' => ['icon' => 'check', 'title' => 'Chip', 'marker_background' => 'text']],
+            ['id' => 'featpad00002', 'type' => 'feature', 'data' => ['icon' => 'check', 'title' => 'Chip', 'marker_background' => 'text'],
+                'settings' => ['style' => ['marker' => ['padding' => ['base' => $featureToken('spacing.lg')]]]]],
+            ['id' => 'featpad00003', 'type' => 'feature', 'data' => ['title' => 'Badge', 'marker' => 'number', 'number' => '1'],
+                'settings' => ['style' => ['marker' => ['padding' => ['base' => $featureToken('spacing.lg')]]]]],
             // Corners and border sides (corners-sides.spec.js): a card with every corner rounded and
             // a border all round, then with only its left corners rounded and its top and bottom border.
             ...array_map(static fn (string $id, array $chosen): array => ['id' => $id, 'type' => 'card',

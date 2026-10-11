@@ -1,5 +1,5 @@
 {
-    "version": 19,
+    "version": 20,
     "properties": [
         {
             "path": "spacing.padding.top",
@@ -1102,6 +1102,17 @@
             ],
             "kinds": [
                 "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "marker.padding",
+            "group": "marker",
+            "responsive": true,
+            "token_domain": "spacing",
+            "choices": null,
+            "kinds": [
+                "token",
                 "reset"
             ]
         }

@@ -691,6 +691,14 @@ final class StyleCompilerTest extends TestCase
         self::assertStringContainsString('.lg\\:t-fgap-sm { gap: var(--t-spacing-sm); }', $css);
     }
 
+    public function testAMarkersPaddingIsAllFourSidesOnTheSpacingScale(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+        self::assertSame('t-mpad-lg', ClassNames::for('marker.padding', 'spacing.lg'));
+        self::assertStringContainsString('.t-mpad-lg { padding: var(--t-spacing-lg); }', $css);
+        self::assertStringContainsString('.md\\:t-mpad-sm { padding: var(--t-spacing-sm); }', $css);
+    }
+
     public function testAFeaturesAlignmentCompilesToAlignItems(): void
     {
         $css = StyleCompiler::compile($this->vocabulary());

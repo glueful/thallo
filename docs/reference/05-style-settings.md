@@ -367,7 +367,7 @@ property a hover value can change on these elements, and turns the fades off und
 ### Marker
 
 The Feature block's icon chip or number badge is a target of its own, so it has its own corners,
-shadow, colour, background and size beside the card's.
+shadow, colour, background, size and padding beside the card's.
 
 | Setting | Path | Responsive | Class | Declaration |
 |---|---|---|---|---|
@@ -376,10 +376,15 @@ shadow, colour, background and size beside the card's.
 | Colour | `marker.color` | no | `t-mcolor-{name}` | `color: var(--t-color-{name})` |
 | Background | `marker.background` | no | `t-mbg-{name}` | `background: var(--t-color-{name})` |
 | Size | `marker.size` | yes | `t-msize-{name}` | `font-size: var(--t-typography-size-{name})` |
+| Padding | `marker.padding` | yes | `t-mpad-{name}` | `padding: var(--t-spacing-{name})` |
 
 Colour colours the icon, or the number; Size scales the icon (it is 1em) or the number's text. An
 icon on a background is drawn as a chip, with room around the glyph. These beat the Block tab's
 Marker colour, background and size where both are set.
+
+Padding is the room inside the marker, one value for all four sides (settings version 20). It
+replaces the chip's own room around an icon. A number badge given a Padding is no longer a fixed
+box: in the default theme it is its number with that padding all round.
 
 The space between the marker and the text, beside it or above it, and where the marker sits
 against the text, are the Feature's own settings, in Spacing:
@@ -392,6 +397,10 @@ against the text, are the Feature's own settings, in Spacing:
 Align icon places the marker against the title and description: Start, Center or End — top,
 middle or bottom beside the text, left, centre or right above it. Unset, the marker is level with
 the top of the text.
+
+The headline, the optional short line above the title, is the Feature's **Headline** part: its own
+Typography, Text colour, and the space below it (Margin bottom). The default theme sets it small,
+uppercase and spaced out in the accent; Transform None and Letter spacing Normal undo that.
 
 The description is the Feature's **Description** part: its own Typography, Text colour, and the
 space above it (Margin top). The block's Typography is the title's.

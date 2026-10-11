@@ -2,7 +2,8 @@
 // between the marker and the text is one setting beside and above it (and the untouched spacing is
 // what it was); the marker's size, colour and background beat the Marker content fields; a marker
 // background gets the chip's padding; the description takes its own size and space above it; a number
-// badge takes its Number section's typeface, style, weight and transform.
+// badge takes its Number section's typeface, style, weight and transform; a headline sits above the
+// title, spaced out in the accent, and takes its Headline section; the marker takes its own padding.
 'use strict';
 
 const { test, expect } = require('@playwright/test');
@@ -120,4 +121,73 @@ test("a number badge takes its Number section's typeface, style, weight and tran
   expect(styled.transform).toBe('uppercase');
   expect(styled.family).not.toBe(plain.family);
   expect(plain).toMatchObject({ style: 'normal', transform: 'none' });
+});
+
+const nth = (page, i) => page.locator('main .thallo-block-feature').nth(IDS.length + 5 + i);
+const headline = (loc) =>
+  loc.evaluate((el) => {
+    const h = el.querySelector('.thallo-block-feature__headline');
+    const cs = getComputedStyle(h);
+    return {
+      text: h.textContent.trim(),
+      transform: cs.textTransform,
+      spacing: cs.letterSpacing,
+      colour: cs.color,
+      size: cs.fontSize,
+      below: parseFloat(cs.marginBottom),
+      bottom: h.getBoundingClientRect().bottom,
+      titleTop: el.querySelector('.thallo-block-feature__title').getBoundingClientRect().top,
+    };
+  });
+
+test('a headline sits above the title, small, spaced out and uppercase in the accent', async ({ page }) => {
+  const r = await rem(page);
+  const h = await headline(nth(page, 0));
+  expect(h.text).toBe('Online store');
+  expect(h.transform).toBe('uppercase');
+  expect(parseFloat(h.spacing)).toBeGreaterThan(0);
+  expect(h.colour).toBe(await probe(page, 'color', 'var(--accent)'));
+  expect(parseFloat(h.size)).toBeCloseTo(0.75 * r, 1);
+  expect(Math.round(h.below)).toBe(Math.round(0.5 * r));
+  expect(h.bottom).toBeLessThanOrEqual(h.titleTop + 0.5);
+});
+
+test('a headline takes its Headline section: transform, letter spacing, colour and space below', async ({ page }) => {
+  const r = await rem(page);
+  const h = await headline(nth(page, 1));
+  expect(h.transform).toBe('none');
+  expect(h.spacing).toBe('normal');
+  expect(h.colour).toBe(await probe(page, 'color', 'var(--t-color-muted)'));
+  expect(Math.round(h.below)).toBe(Math.round(1.5 * r));
+  expect(Math.round(h.titleTop - h.bottom)).toBe(Math.round(1.5 * r));
+});
+
+const chip = (page, i) =>
+  nth(page, 2 + i)
+    .locator('.thallo-block-feature__marker')
+    .evaluate((el) => {
+      const cs = getComputedStyle(el);
+      const box = el.getBoundingClientRect();
+      return {
+        padding: [cs.paddingTop, cs.paddingRight, cs.paddingBottom, cs.paddingLeft].map(parseFloat),
+        width: box.width,
+        height: box.height,
+      };
+    });
+
+test("the marker's Padding is the room on all four sides of the chip, and the chip grows with it", async ({ page }) => {
+  const r = await rem(page);
+  const [plain, padded] = [await chip(page, 0), await chip(page, 1)];
+  expect(plain.padding.map(Math.round)).toEqual(Array(4).fill(Math.round(0.5 * r)));
+  expect(padded.padding.map(Math.round)).toEqual(Array(4).fill(Math.round(1.5 * r)));
+  expect(Math.round(padded.width - plain.width)).toBe(Math.round(2 * r));
+  expect(Math.round(padded.height - plain.height)).toBe(Math.round(2 * r));
+});
+
+test('a number badge with a Padding is its number and that padding, all round', async ({ page }) => {
+  const r = await rem(page);
+  const badge = await chip(page, 2);
+  expect(badge.padding.map(Math.round)).toEqual(Array(4).fill(Math.round(1.5 * r)));
+  // Taller than the fixed 2.5rem badge: the line of text plus 1.5rem above and below.
+  expect(badge.height).toBeGreaterThan(3 * r + 0.5 * r);
 });

@@ -160,6 +160,7 @@ const LABELS: Record<string, string> = {
   'marker.color': 'Colour',
   'marker.background': 'Background',
   'marker.size': 'Size',
+  'marker.padding': 'Padding',
   'feature.gap': 'Space after icon',
   'feature.align': 'Align icon',
   'hover.colors.text': 'Text colour',

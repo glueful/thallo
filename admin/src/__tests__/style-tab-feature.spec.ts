@@ -1,5 +1,5 @@
-// A Feature's Style tab (settings versions 16 and 17): the marker's colour, background and size sit
-// in the Marker section beside its corners and shadow; the space between the marker and the text, and
+// A Feature's Style tab (settings versions 16, 17 and 20): the marker's colour, background, size and
+// padding sit in the Marker section beside its corners and shadow; the space between the marker and the text, and
 // where the marker sits against the text, sit in Spacing.
 import { beforeEach, describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
@@ -51,6 +51,15 @@ describe("a Feature's Style tab", () => {
     expect(field(w, 'marker', 'marker.color').text()).toContain('Colour')
     expect(field(w, 'marker', 'marker.background').text()).toContain('Background')
     expect(field(w, 'marker', 'marker.size').text()).toContain('Size')
+  })
+  it('offers the room inside the marker as one Padding in the Marker section, on the spacing scale', () => {
+    const w = mountTab()
+    expect(field(w, 'marker', 'marker.padding').text()).toContain('Padding')
+    expect(propertyDefinition('marker.padding')).toMatchObject({
+      group: 'marker',
+      responsive: true,
+      tokenDomain: 'spacing',
+    })
   })
   it('offers the space between the marker and the text in Spacing', () => {
     const w = mountTab()

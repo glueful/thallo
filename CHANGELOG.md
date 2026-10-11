@@ -7,6 +7,17 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **A Feature can have a headline above its title**: a new **Headline** field (`headline`) shows a
+  short line above the title ("ONLINE STORE"), edited in place on the stage like the title. The
+  default theme sets it small, uppercase and spaced out in the accent. Its own **Headline** section
+  in the Style tab sets its Typography, Text colour and the space below it. A Feature without one
+  renders as before. `thallo:provision` adds the field and section to an existing site.
+- **A Feature's marker has a padding**: **Padding** in the Style tab's Marker section
+  (`marker.padding`) sets the room inside the icon chip or number badge, one value for all four sides,
+  on the spacing scale and per screen size. A number badge given a Padding is its number with that
+  padding all round instead of a fixed box. Settings version 20; StyleCompiler 29.
+
 ### Fixed
 - **The Appearance page keeps following the form when a contrast check comes back empty**: an answer
   from the contrast check without its list of pairs now shows "The contrast checks are unavailable
