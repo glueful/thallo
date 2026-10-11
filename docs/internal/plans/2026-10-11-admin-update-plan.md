@@ -27,8 +27,8 @@
 >   - `tick` creates `verify.secret` before any operation.
 >   - The self-test no longer takes an exclusive admission lock.
 >   - The first guard install writes `guard.installed` and signals `queue:restart`.
->   - Preflight refuses `unguarded_workers` (by `ps`) and `guard_settling` until every pre-guard
->     process has moved over.
+>   - Preflight refuses until every pre-guard process has moved over. The second amendment below
+>     replaces the settling delay with a verified restart.
 >   - Proof scenario 20 covers workers started before enablement and guarded idle workers afterwards.
 > - **Snapshots are verified before any live change** (Task 10).
 >   - Every copy and mkdir is checked, and each file is re-hashed against the live one.
@@ -41,6 +41,26 @@
 >   - deploy and PHP-FPM run as separate users in CI;
 >   - scenario 1 goes through `selftest`, an authenticated preflight and `POST /v1/admin/updates`;
 >   - new scenarios 4c, 20, 21 and 22.
+
+> Amended again 2026-10-11 after the second plan review:
+> - **First enablement is a verified restart, not a delay** (Task 13).
+>   - Preflight reports `restart_required` until the owner runs
+>     `php bin/thallo-updater confirm-restart --yes`.
+>   - `confirm-restart` refuses while any PHP-FPM/Apache process, or any CLI process attributable to
+>     the site, started before the guard. The runner re-checks before every update.
+>   - New proof scenario 23: a pre-guard HTTP request and a non-queue console writer, both held past
+>     30 s; neither writes after the backup begins.
+> - **Timeouts never block** (Task 7). `ChildProcess::run` escalates SIGTERM → SIGKILL, polls until
+>   the child exits, and stops and confirms its descendants before the call that waits on the child.
+>   - Tested with a child and grandchild that ignore SIGTERM.
+>   - Composer has its own timeout (`THALLO_UPDATE_COMPOSER_TIMEOUT`), which scenario 21 now really
+>     exercises.
+> - **No recovery claim while the previous group lives** (Task 12).
+>   - This applies to every claim of a `running` or `recovery_required` operation, explicit Reopen
+>     included.
+>   - A failed recovery stops its own descendants before recording its result.
+>   - Tested with a descendant that closes its descriptors and keeps writing; proof scenario 4d.
+> - **Snapshots record directories** with their modes, so empty directories are restored (Task 10).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -2111,19 +2131,28 @@ interface Host {
     public function sleep(int $seconds): void;
 }
 final class RealHost implements Host {
-    /** @param list<resource> $inherit  handles every child receives as descriptors 3, 4, … */
-    public function __construct(private string $log, private array $inherit) {}
+    /** @param list<resource> $inherit  handles every child receives as descriptors 3, 4, …
+     *  $pgid/$self: the runner's process group and pid, passed to ChildProcess::run for timeout cleanup */
+    public function __construct(private string $log, private array $inherit, private ?int $pgid = null, private ?int $self = null) {}
     /** @param resource $handle */ public function inherit($handle): void;
     /** Removes a handle before it is closed, so no later child is handed a closed resource. @param resource $handle */
     public function forget($handle): void;
 }
 final class ChildProcess {
-    /** Polls the child every 250 ms, calls $heartbeat every 5 s whatever the child prints; SIGTERM to the child on timeout (exit 124).
-     *  $stdout: when given, the child's stdout goes to that file instead of the log (the caller appends it). */
-    public static function run(array $argv, string $cwd, array $env, array $inherit, string $log, callable $heartbeat, int $timeout, ?string $stdout = null): int;
+    /**
+     * Polls the child every 250 ms and calls $heartbeat every 5 s whatever the child prints.
+     * On timeout it never blocks: SIGTERM, then up to 10 s of polling, then SIGKILL, then polling
+     * until the child has exited. When $pgid is given, every other member of that group (the child's
+     * descendants) is then stopped and confirmed gone. Only then does it call proc_close, which
+     * cannot block on an exited child. Returns 124 on timeout.
+     * $stdout: when given, the child's stdout goes to that file instead of the log (the caller appends it).
+     * Throws \RuntimeException when a descendant survives SIGKILL.
+     */
+    public static function run(array $argv, string $cwd, array $env, array $inherit, string $log, callable $heartbeat, int $timeout,
+        ?string $stdout = null, ?int $pgid = null, ?int $self = null): int;
     /** Stops every member of process group $pgid except $self: SIGTERM, up to 10 s, SIGKILL, then confirms none remain.
-     *  Throws \RuntimeException when a member survives or `pgrep` is unavailable. */
-    public static function stopGroupMembers(int $pgid, int $self, Host $host): void;
+     *  Throws \RuntimeException when a member survives or `pgrep` is unavailable. Uses no Host: it runs pgrep itself. */
+    public static function stopGroupMembers(int $pgid, int $self): void;
 }
 final class Liveness {
     public static function groupAlive(?int $pgid): bool;
@@ -2169,9 +2198,10 @@ posix_kill(getmypid(), SIGKILL);
 
 `timeout-with-grandchild.php` does the following:
 - calls `posix_setpgid(0, 0)`;
-- runs `ChildProcess::run(['sh', '-c', 'sleep 60 & echo $! > grandchild.pid; sleep 60'], …, timeout: 2)`;
-- calls `ChildProcess::stopGroupMembers(posix_getpgid(0), getmypid(), new RealHost($base . '/log', []))`;
-- writes `"<exit code> stopped"` to `result`;
+- runs `ChildProcess::run(['sh', '-c', 'trap "" TERM; sleep 60 & echo $! > grandchild.pid; sleep 60'], …, timeout: 2, pgid: posix_getpgid(0), self: getmypid())`.
+  The child **ignores SIGTERM**, and so does its grandchild, because an ignored disposition is
+  inherited across exec. Only the supervisor's own escalation can end them;
+- writes `"<exit code> <seconds taken>"` to `result`;
 - exits 0.
 
 Both fixtures require the repository's `vendor/autoload.php`, as `hold-and-die.php` does.
@@ -2242,13 +2272,15 @@ final class LivenessTest extends TestCase
         self::assertNotNull(Liveness::claimIfDead($now, $paths));
     }
 
-    public function testATimedOutChildsGrandchildIsStoppedBeforeAnythingElse(): void
+    public function testAChildIgnoringSigtermAndItsGrandchildAreStoppedWithinBounds(): void
     {
         $p = proc_open([PHP_BINARY, dirname(__DIR__, 2) . '/fixtures/updater/timeout-with-grandchild.php', $this->base], [], $pipes);
         $this->waitUntil(fn () => !proc_get_status($p)['running']);
         $code = proc_close($p);
         self::assertSame(0, $code, (string) @file_get_contents($this->base . '/log'));
-        self::assertSame('124 stopped', trim((string) file_get_contents($this->base . '/result')));
+        [$code, $took] = explode(' ', trim((string) file_get_contents($this->base . '/result')));
+        self::assertSame('124', $code);
+        self::assertLessThan(30, (int) $took, 'termination is bounded even when SIGTERM is ignored');
         self::assertFalse(posix_kill((int) file_get_contents($this->base . '/grandchild.pid'), 0), 'the grandchild is gone');
     }
 
@@ -2338,7 +2370,8 @@ namespace Thallo\Core\Updater;
 final class ChildProcess
 {
     /** @param list<string> $argv @param array<string,string> $env @param list<resource> $inherit */
-    public static function run(array $argv, string $cwd, array $env, array $inherit, string $log, callable $heartbeat, int $timeout, ?string $stdout = null): int
+    public static function run(array $argv, string $cwd, array $env, array $inherit, string $log, callable $heartbeat, int $timeout,
+        ?string $stdout = null, ?int $pgid = null, ?int $self = null): int
     {
         $spec = [0 => ['file', '/dev/null', 'r'], 1 => ['file', $stdout ?? $log, $stdout === null ? 'a' : 'w'], 2 => ['file', $log, 'a']];
         foreach (array_values($inherit) as $i => $handle) {
@@ -2362,8 +2395,11 @@ final class ChildProcess
                 $lastBeat = time();
             }
             if (time() - $started >= $timeout) {
-                proc_terminate($proc, 15);
-                proc_close($proc);
+                self::terminate($proc, $status['pid']);
+                if ($pgid !== null) {
+                    self::stopGroupMembers($pgid, $self ?? getmypid());
+                }
+                proc_close($proc); // the child has exited: this cannot block
                 return 124;
             }
             usleep(250_000);
@@ -2378,10 +2414,31 @@ loop returns on that call, so the value is read once.
 Add to `ChildProcess`:
 
 ```php
-public static function stopGroupMembers(int $pgid, int $self, Host $host): void
+/** SIGTERM, up to 10 s, SIGKILL, then wait until the child has exited — never a blocking call before that. */
+private static function terminate($proc, int $pid): void
 {
-    $members = static function () use ($host, $pgid, $self): array {
-        [$code, $out] = $host->capture(['pgrep', '-g', (string) $pgid], '/');
+    proc_terminate($proc, 15);
+    for ($i = 0; $i < 40 && proc_get_status($proc)['running']; $i++) {
+        usleep(250_000);
+    }
+    if (proc_get_status($proc)['running']) {
+        proc_terminate($proc, 9);
+        while (proc_get_status($proc)['running']) {
+            usleep(50_000);
+        }
+    }
+}
+
+public static function stopGroupMembers(int $pgid, int $self): void
+{
+    $members = static function () use ($pgid, $self): array {
+        $p = proc_open(['pgrep', '-g', (string) $pgid], [1 => ['pipe', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes);
+        if (!is_resource($p)) {
+            throw new \RuntimeException('pgrep is unavailable.');
+        }
+        $out = (string) stream_get_contents($pipes[1]);
+        fclose($pipes[1]);
+        $code = proc_close($p);
         if ($code > 1) { // 1: no match; anything higher: pgrep failed
             throw new \RuntimeException('Cannot list the runner\'s process group (pgrep exited ' . $code . ').');
         }
@@ -2390,13 +2447,13 @@ public static function stopGroupMembers(int $pgid, int $self, Host $host): void
     foreach ($members() as $pid) {
         posix_kill($pid, 15);
     }
-    for ($i = 0; $i < 10 && $members() !== []; $i++) {
-        $host->sleep(1);
+    for ($i = 0; $i < 40 && $members() !== []; $i++) {
+        usleep(250_000);
     }
     foreach ($members() as $pid) {
         posix_kill($pid, 9);
     }
-    $host->sleep(1);
+    usleep(500_000);
     if (($left = $members()) !== []) {
         throw new \RuntimeException('Processes started by the update are still running: ' . implode(', ', $left));
     }
@@ -2505,14 +2562,14 @@ final class RealHost implements Host
 
     public function run(array $argv, string $cwd, array $env, int $timeout, callable $heartbeat): int
     {
-        return ChildProcess::run($argv, $cwd, $env, $this->inherit, $this->log, $heartbeat, $timeout);
+        return ChildProcess::run($argv, $cwd, $env, $this->inherit, $this->log, $heartbeat, $timeout, null, $this->pgid, $this->self);
     }
 
     public function runCapture(array $argv, string $cwd, array $env, int $timeout, callable $heartbeat): array
     {
         $out = tempnam(sys_get_temp_dir(), 'thallo-out-');
         try {
-            $code = ChildProcess::run($argv, $cwd, $env, $this->inherit, $this->log, $heartbeat, $timeout, $out);
+            $code = ChildProcess::run($argv, $cwd, $env, $this->inherit, $this->log, $heartbeat, $timeout, $out, $this->pgid, $this->self);
             $stdout = (string) file_get_contents($out);
             file_put_contents($this->log, $stdout, FILE_APPEND);
             return [$code, $stdout];
@@ -2870,7 +2927,7 @@ final class ComposerShape {
     public static function autoloadRoots(array $composerJson): array;
 }
 final class Stager {
-    public function __construct(private Host $host, private string $php, private string $composer, private string $composerHome) {}
+    public function __construct(private Host $host, private string $php, private string $composer, private string $composerHome, private int $timeout = 1800) {}
     public function prepare(string $base, string $stage): void;              // copies composer.json, composer.lock, vendor/; links autoload roots
     public function update(string $stage, string $target, callable $heartbeat): int; // the pinned command (Global Constraints)
     public static function fingerprint(string $base): array;                 // sha256 of composer.json and composer.lock, size+mtime of vendor/composer/installed.json
@@ -3130,6 +3187,7 @@ final class Stager
         private readonly string $php,
         private readonly string $composer,
         private readonly string $composerHome,
+        private readonly int $timeout = 1800, // THALLO_UPDATE_COMPOSER_TIMEOUT, via Runner settings
     ) {
     }
 
@@ -3140,7 +3198,7 @@ final class Stager
         }
         copy($base . '/composer.json', $stage . '/composer.json');
         copy($base . '/composer.lock', $stage . '/composer.lock');
-        $code = $this->host->run(['cp', '-a', $base . '/vendor', $stage . '/vendor'], $base, [], 1800, static function (): void {});
+        $code = $this->host->run(['cp', '-a', $base . '/vendor', $stage . '/vendor'], $base, [], $this->timeout, static function (): void {});
         if ($code !== 0) {
             throw new \RuntimeException('Copying vendor/ into the stage failed');
         }
@@ -3159,7 +3217,7 @@ final class Stager
                 '--no-interaction', '--no-progress', '--no-ansi', '--no-scripts', '--working-dir=' . $stage],
             $stage,
             ['COMPOSER_HOME' => $this->composerHome, 'THALLO_UPDATE_CHILD' => '1'],
-            1800,
+            $this->timeout,
             $heartbeat,
         );
     }
@@ -3243,7 +3301,8 @@ final class ProvisionOutputs {
     /**
      * Copies every SNAPSHOT path, checking every mkdir/copy, then re-reads the copy against the live tree.
      * Throws \RuntimeException on any failure, so the run fails before the swap (nothing live changed).
-     * @return array{paths: array<string,bool>, files: array<string,array{sha256:string,mode:int}>}
+     * @return array{paths: array<string,bool>, dirs: array<string,int>, files: array<string,array{sha256:string,mode:int}>}
+     *         dirs: every snapshotted directory, empty ones included, with its mode
      */
     public static function snapshot(string $base, string $to): array;
     /** Verifies the snapshot against the manifest (contents, readability) before any rename; throws when it does not match. */
@@ -3333,6 +3392,28 @@ final class ProvisionOutputsTest extends TestCase
         self::assertTrue(is_dir("{$this->base}/snap"), 'the backup snapshot is left intact');
     }
 
+    public function testEmptySnapshottedDirectoriesComeBackWithTheirModes(): void
+    {
+        unlink("{$this->base}/storage/cache/style/settings-old.css"); // a top-level snapshot path, now empty
+        mkdir("{$this->base}/public/admin/empty", 0750);              // an empty directory inside one
+        $manifest = ProvisionOutputs::snapshot($this->base, "{$this->base}/snap");
+        self::assertArrayHasKey('storage/cache/style', $manifest['dirs']);
+        self::assertSame(0750, $manifest['dirs']['public/admin/empty']);
+
+        file_put_contents("{$this->base}/storage/cache/style/settings-new.css", 'new css');
+        exec('rm -rf ' . escapeshellarg("{$this->base}/public/admin/empty"));
+
+        $ops = new OperationStore(new Paths($this->base), static fn (): int => 1);
+        [$op] = $ops->start('2', '1', 'u');
+        $run = $ops->claim($op['id'], 1, 1);
+        ProvisionOutputs::restore($this->base, "{$this->base}/snap", $manifest, "{$this->base}/work", new Journal($ops, $run['id'], $run['owner']));
+
+        self::assertDirectoryExists("{$this->base}/storage/cache/style");
+        self::assertSame([], array_values(array_diff(scandir("{$this->base}/storage/cache/style"), ['.', '..'])), 'empty, as before');
+        self::assertDirectoryExists("{$this->base}/public/admin/empty");
+        self::assertSame('0750', substr(sprintf('%o', fileperms("{$this->base}/public/admin/empty")), -4));
+    }
+
     public function testAFailedCopyRefusesTheSnapshot(): void
     {
         chmod("{$this->base}/public/admin/assets/app-old.js", 0000);
@@ -3403,15 +3484,20 @@ final class ProvisionOutputs
     public const RETAIN = ['bin/thallo-updater', 'bootstrap/update-guard.php', 'storage/conversion', 'storage/framework/composer'];
     public const RUNNER_OWNED = ['vendor', 'composer.lock', 'composer.json', 'storage/logs', 'storage/framework/updates', 'storage/backups'];
 
-    /** @return array{paths: array<string,bool>, files: array<string,array{sha256:string,mode:int}>} */
+    /** @return array{paths: array<string,bool>, dirs: array<string,int>, files: array<string,array{sha256:string,mode:int}>} */
     public static function snapshot(string $base, string $to): array
     {
-        $manifest = ['paths' => [], 'files' => []];
+        $manifest = ['paths' => [], 'dirs' => [], 'files' => []];
         foreach (self::SNAPSHOT as $path) {
             $src = $base . '/' . $path;
             $manifest['paths'][$path] = file_exists($src);
             if (!$manifest['paths'][$path]) {
                 continue;
+            }
+            foreach (self::dirs($src, $path) as $rel => $abs) {
+                $mode = fileperms($abs) & 0777;
+                self::mustMkdir($to . '/' . $rel);
+                $manifest['dirs'][$rel] = $mode;
             }
             foreach (self::files($src, $path) as $rel => $abs) {
                 $hash = @hash_file('sha256', $abs);
@@ -3436,6 +3522,11 @@ final class ProvisionOutputs
                 throw new \RuntimeException("The snapshot of {$rel} is missing or changed; nothing was restored.");
             }
         }
+        foreach (array_keys($manifest['dirs']) as $rel) {
+            if (!is_dir($snapshotDir . '/' . $rel)) {
+                throw new \RuntimeException("The snapshot of directory {$rel} is missing; nothing was restored.");
+            }
+        }
         foreach ($manifest['paths'] as $path => $present) {
             $live = $base . '/' . $path;
             if (file_exists($live)) {
@@ -3444,15 +3535,27 @@ final class ProvisionOutputs
             if (!$present) {
                 continue;
             }
-            // Restore from a fresh copy so the backup snapshot stays whole for the owner.
-            foreach ($manifest['files'] as $rel => $meta) {
-                if ($rel === $path || str_starts_with($rel, $path . '/')) {
-                    self::mustCopy($snapshotDir . '/' . $rel, $workDir . '/restore/' . $rel);
-                    chmod($workDir . '/restore/' . $rel, $meta['mode']);
+            // Restore from a fresh copy so the backup snapshot stays whole for the owner. Directories
+            // first, from the manifest (empty ones included), then files; modes are applied last so a
+            // read-only directory still receives its files.
+            $under = static fn (string $rel): bool => $rel === $path || str_starts_with($rel, $path . '/');
+            foreach ($manifest['dirs'] as $rel => $mode) {
+                if ($under($rel)) {
+                    self::mustMkdir($workDir . '/restore/' . $rel);
                 }
             }
-            if (is_dir($snapshotDir . '/' . $path) && !is_dir($workDir . '/restore/' . $path)) {
-                self::mustMkdir($workDir . '/restore/' . $path); // an empty directory
+            foreach ($manifest['files'] as $rel => $meta) {
+                if ($under($rel)) {
+                    self::mustCopy($snapshotDir . '/' . $rel, $workDir . '/restore/' . $rel);
+                    if (!@chmod($workDir . '/restore/' . $rel, $meta['mode'])) {
+                        throw new \RuntimeException("Cannot set the mode of {$rel}.");
+                    }
+                }
+            }
+            foreach (array_reverse($manifest['dirs'], true) as $rel => $mode) {
+                if ($under($rel) && !@chmod($workDir . '/restore/' . $rel, $mode)) {
+                    throw new \RuntimeException("Cannot set the mode of {$rel}.");
+                }
             }
             $journal->rename($workDir . '/restore/' . $path, $live, 'restore.in.' . $path);
         }
@@ -3471,6 +3574,21 @@ final class ProvisionOutputs
             }
         }
         return null;
+    }
+
+    /** @return iterable<string,string> relative path => absolute path: the directory itself and every directory under it */
+    private static function dirs(string $abs, string $rel): iterable
+    {
+        if (!is_dir($abs)) {
+            return;
+        }
+        yield $rel => $abs;
+        $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($abs, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::SELF_FIRST);
+        foreach ($it as $item) {
+            if ($item->isDir()) {
+                yield $rel . '/' . substr($item->getPathname(), strlen($abs) + 1) => $item->getPathname();
+            }
+        }
     }
 
     /** @return iterable<string,string> relative path => absolute path, for a file or every file under a directory */
@@ -4054,6 +4172,38 @@ final class RunnerTest extends TestCase
         $this->ops->finish($done['id'], (string) $done['owner'], Status::FAILED, 'late');
     }
 
+    /** @requires extension posix */
+    public function testNoRecoveryClaimWhileADescendantThatClosedItsLockKeepsWriting(): void
+    {
+        // A runner failed its descendant cleanup (recovery_required, its group recorded) and exited.
+        // Its descendant closed every inherited descriptor and keeps writing: the run lock is free.
+        $p = proc_open([PHP_BINARY, dirname(__DIR__, 2) . '/fixtures/updater/fail-cleanup-and-die.php', $this->base], [], $pipes);
+        for ($i = 0; $i < 100 && (proc_get_status($p)['running'] || !is_file($this->base . '/writer.pid')); $i++) {
+            usleep(50_000);
+        }
+        proc_close($p);
+        $writer = (int) file_get_contents($this->base . '/writer.pid');
+        try {
+            self::assertSame(Status::RECOVERY_REQUIRED, $this->ops->current()['status']);
+            self::assertTrue($this->ops->requestRecovery($this->token, 'reopen'));
+            $this->runner()->tick();
+            self::assertSame(Status::RECOVERY_REQUIRED, $this->ops->current()['status'], 'not claimed while the group has a member');
+            self::assertSame('reopen', $this->ops->current()['recovery_request'], 'the request waits');
+            self::assertFileExists($this->paths->closedFlag(), 'the site stays closed');
+            $grew = filesize($this->base . '/writes');
+            usleep(500_000);
+            clearstatcache();
+            self::assertGreaterThan($grew, filesize($this->base . '/writes'), 'the descendant really is still writing');
+        } finally {
+            posix_kill($writer, SIGKILL);
+        }
+        for ($i = 0; $i < 40 && posix_kill($writer, 0); $i++) {
+            usleep(50_000);
+        }
+        $this->runner()->tick();
+        self::assertSame(Status::RECOVERED_BY_OWNER, $this->ops->current()['status'], 'claimed once the group is empty');
+    }
+
     public function testASecondTickCannotClaimWhileTheFirstHoldsTheRunLock(): void
     {
         $held = FileLock::exclusive($this->paths->runLock());
@@ -4088,6 +4238,20 @@ final class RunnerTest extends TestCase
     }
 }
 ```
+
+`tests/fixtures/updater/fail-cleanup-and-die.php` (it requires the repository autoloader) does the
+following:
+- calls `posix_setpgid(0, 0)`;
+- takes `run.lock`;
+- claims the operation in `<base>` with its own pid and group;
+- writes `closed.flag`;
+- starts `sh -c 'exec 3>&- 4>&-; echo $$ > writer.pid; while :; do date >> writes; sleep 0.1; done'`
+  in the background, with the lock as descriptor 3;
+- finishes the operation as `recovery_required` (error "cleanup failed"), as a failed
+  `stopDescendants` would;
+- exits, which releases its own lock handle.
+
+The writer is still in the fixture's process group, and it no longer holds the lock.
 
 The runner must **not** catch the kill exception: kill points rethrow past every `catch`. The code
 below wraps it in `Killed`, which each step's `catch` rethrows as the original exception, so the test
@@ -4186,18 +4350,21 @@ final class Runner
             'keep_backups' => (int) ($env['THALLO_UPDATE_KEEP_BACKUPS'] ?? 3),
             'barrier_timeout' => (int) ($env['THALLO_UPDATE_BARRIER_TIMEOUT'] ?? 600),
             'child_timeout' => (int) ($env['THALLO_UPDATE_CHILD_TIMEOUT'] ?? 3600),
+            'composer_timeout' => (int) ($env['THALLO_UPDATE_COMPOSER_TIMEOUT'] ?? 1800),
             // Spec §8 step 9: opcache.revalidate_freq (from PHP-FPM's own probe) + 30 s.
             'web_settle' => 30 + (int) ($report['web']['opcache']['revalidate_freq'] ?? 2),
         ];
         $op = $ops->current();
         $log = $op !== null ? $paths->log($op['id']) : $base . '/storage/logs/updater.log';
         $identity = static fn (): array => [getmypid(), function_exists('posix_getpgid') ? (posix_getpgid(0) ?: null) : null];
-        $runner = new self($paths, $ops, new Barrier($paths), new RealHost($log, []), $settings, $identity);
+        [$pid, $pgid] = $identity();
+        $runner = new self($paths, $ops, new Barrier($paths), new RealHost($log, [], $pgid, $pid), $settings, $identity);
         return match ($argv[1] ?? 'tick') {
             'tick' => $runner->tick(),
             'recover' => $runner->recoverFromTerminal($argv[2] ?? ''),
             'token' => $runner->printToken(),
             'selftest' => $runner->selftest(),
+            'confirm-restart' => $runner->confirmRestart(in_array('--yes', $argv, true)),
             default => 2,
         };
     }
@@ -4222,7 +4389,15 @@ final class Runner
         [$pid, $pgid] = ($this->identity)();
         $claimed = null;
         $then = null;
-        if ($op['status'] === Status::RUNNING && !Liveness::groupAlive(isset($op['pgid']) ? (int) $op['pgid'] : null)) {
+        // Execution ownership alone is not enough: a descendant of the previous runner may have closed
+        // its inherited descriptors and still be writing. No claim of a running or recovering
+        // operation — explicit Reopen included — proceeds while the recorded group has a member.
+        if (in_array($op['status'], [Status::RUNNING, Status::RECOVERY_REQUIRED], true)
+            && Liveness::groupAlive(isset($op['pgid']) ? (int) $op['pgid'] : null)) {
+            $this->releaseRunLock();
+            return 0;
+        }
+        if ($op['status'] === Status::RUNNING) {
             $claimed = $this->ops->takeOver($op['id'], (string) $op['owner'], $pid, $pgid);
             $then = fn (array $o) => $this->afterDeath($op, $o);
         } elseif ($op['status'] === Status::RECOVERY_REQUIRED && $op['recovery_request'] !== null) {
@@ -4384,14 +4559,21 @@ final class Runner
         } catch (Fenced) {
             return;
         } catch (\Throwable $e) {
-            $this->finish(Status::RECOVERY_REQUIRED, 'Recovery (' . $option . ') failed: ' . $e->getMessage());
+            $cleanup = '';
+            try {
+                $this->stopDescendants(); // nothing this recovery started may outlive its verdict
+            } catch (\Throwable $c) {
+                $cleanup = ' — ' . $c->getMessage(); // our group stays recorded, so the next claim waits for it
+            }
+            $this->finish(Status::RECOVERY_REQUIRED, 'Recovery (' . $option . ') failed: ' . $e->getMessage() . $cleanup);
         }
     }
 
     private function stage(string $stage, string $target): void
     {
         $before = Stager::fingerprint($this->paths->base);
-        $stager = new Stager($this->host, $this->settings['php'], (string) $this->settings['composer'], $this->paths->base . '/storage/framework/composer');
+        $stager = new Stager($this->host, $this->settings['php'], (string) $this->settings['composer'], $this->paths->base . '/storage/framework/composer',
+            (int) ($this->settings['composer_timeout'] ?? 1800));
         $stager->prepare($this->paths->base, $stage);
         if ($stager->update($stage, $target, $this->heartbeat()) !== 0) {
             throw new \RuntimeException('Composer could not install ' . $target . ' (see the log).');
@@ -4541,7 +4723,7 @@ final class Runner
     {
         [$pid, $pgid] = ($this->identity)();
         if ($pgid !== null) {
-            ChildProcess::stopGroupMembers($pgid, $pid, $this->host);
+            ChildProcess::stopGroupMembers($pgid, $pid);
         }
     }
 
@@ -4588,7 +4770,7 @@ final class Runner
     {
         $problems = array_merge($report['shape_problems'], $report['writable'] ? [] : ['The runner cannot write the code.'],
             $report['composer_ok'] ? [] : ['Composer is missing or too old.'], ($report['pg_dump'] && $report['pg_restore']) ? [] : ['pg_dump or pg_restore is missing.'],
-            $report['unguarded_workers'] === [] ? [] : ['Queue workers started before the guard was installed are still running.']);
+            $report['unguarded_processes'] === [] ? [] : ['Processes started before the guard was installed are still running: ' . implode(', ', array_column($report['unguarded_processes'], 'pid')) . '.']);
         if ($problems !== []) {
             throw new \RuntimeException(implode(' ', $problems));
         }
@@ -4652,10 +4834,14 @@ Also implement, in the same file:
   - **no exclusive admission lock is attempted.** A healthy, long-running guarded worker holds a
     shared lock for its whole life, so an exclusive check would fail on a correct install. The
     barrier itself is proven by the proof (scenarios 9 and 20);
-  - `unguarded_workers` is empty (see below), and the guard has settled (`guard_settling` is false);
+  - `unguarded_processes` is empty, and `guard.ready` exists and is newer than `guard.installed`
+    (Task 13);
   - `pgrep` and `ps` run;
   - Composer runs (`php composer --version`);
   - `pg_dump --version` and `pg_restore --version` run.
+- **`confirmRestart(bool $yes)`.** It prints `RunnerReport::unguardedProcesses()`, then the sentence
+  about what it cannot see. It returns 1 while any process is listed, or when `--yes` is absent. With
+  `--yes` and nothing listed, it writes `guard.ready` (a timestamp and the user, 0644) and returns 0.
 - **`dotenv()` and `which()`.** Minimal `KEY=VALUE` parsing that strips quotes, and a `PATH`
   search.
 
@@ -4672,12 +4858,11 @@ Every read of a command's output (versions, `du`, the estimate) goes through `Ho
 - `shape_problems` (`ComposerShape::problems()`);
 - the guard installed, and `guard_installed_at`, read from `storage/framework/updates/guard.installed`
   (Task 13);
-- `unguarded_workers`. These are the PIDs of processes whose command line contains `glueful
-  queue:work` or `glueful queue:scheduler` and that started before `guard_installed_at`. They come
-  from `capture(['ps', '-eo', 'pid=,etime=,args='])`, where `etime` is parsed as `[[dd-]hh:]mm:ss`,
-  works on macOS and Linux, and gives start = now − elapsed. Such processes hold no admission lock,
-  so the barrier cannot see them. Preflight refuses (`unguarded_workers`) until they have restarted
-  through the guarded console;
+- `unguarded_processes` (`RunnerReport::unguardedProcesses(int $installedAt): list<array{pid:int,args:string}>`),
+  listed by the rules in Task 13. They come from `capture(['ps', '-eo', 'pid=,etime=,user=,args='])`,
+  where `etime` is parsed as `[[dd-]hh:]mm:ss`, works on macOS and Linux, and gives
+  start = now − elapsed;
+- `guard_ready_at`, read from `guard.ready` (null when absent);
 - the web probe result, as `{"status": int, …}`, or `null`.
 
 It recomputes disk needs at most every 30 minutes, keeping `needed_bytes` in the report:
@@ -4720,24 +4905,37 @@ git commit -m "feat(updater): the runner — ten steps, crash-safe reopening, re
   - **First install (`installed-first`):** when the guard was absent before, it writes
     `storage/framework/updates/guard.installed` (a Unix timestamp, mode 0644).
 
-**The move from unguarded to guarded processes** (plan review 4):
-- Processes started before the guard existed hold no admission lock, so the barrier cannot see
-  them.
-- **Provision signals them to move over.** On `installed-first`, provision calls
-  `RestartSignal::signal(time())` from the container. Workers exit after their current job, and
-  their supervisor starts them through the guarded `glueful`.
-- **Preflight waits for the move.** It refuses with `unguarded_workers` while `runner.json` lists any
-  process started before `guard.installed`. It refuses with `guard_settling` until
-  `thallo.admin_updates.guard_settle` seconds (default 120, env `THALLO_UPDATE_GUARD_SETTLE`) have
-  passed since the guard was installed. That covers in-flight web requests and cron-started
-  scheduler runs.
-- **The runner refuses too.** Its own preflight step rejects `unguarded_workers` again, in case a
-  worker was started by hand without the guard.
+**The move from unguarded to guarded processes** (plan reviews 4 and 5). A process started before
+the guard existed holds no admission lock, and no delay proves it has ended: a paused request or a
+long import can outlive any settling period. So first enablement **stays unavailable until the owner
+completes the move, and the runner verifies what it can see**:
 
-**Ruling 10 (planning):** the guard is installed only when the feature is enabled. A guard on every
-install would cost every request a lock on `admission.lock` for nothing. Enabling the feature
-therefore means running `php glueful thallo:provision` once, and the self-test says so when the
-guard is missing. **Cost if wrong:** one documented provision run when enabling.
+1. **Signal.** On `installed-first`, provision calls `RestartSignal::signal(time())`, so queue workers
+   exit after their current job and their supervisor starts them through the guarded `glueful`.
+2. **Preflight refuses.** Preflight reports `restart_required` until
+   `storage/framework/updates/guard.ready` exists and is newer than `guard.installed`.
+3. **The owner restarts** PHP-FPM, or Apache, and every queue worker and long-running job of the
+   site. Provision prints exactly this, and the docs say so.
+4. **The owner confirms.** `php bin/thallo-updater confirm-restart --yes` lists every process it can
+   attribute to the site that started before `guard.installed`, and **refuses (exit 1) while any
+   remains**. It writes `guard.ready` only when none does. Without `--yes` it only lists them.
+   Attributable processes come from `ps -eo pid=,etime=,user=,args=`:
+   - every `php-fpm` process (master and workers), every `httpd`/`apache2` process, and every
+     `frankenphp` process. The host is single-site-supported, so a restart of the web server is
+     required, not inferred;
+   - every `php` CLI process whose working directory is the site (`readlink /proc/<pid>/cwd` on
+     Linux), whose arguments contain the site's path, or whose arguments contain `glueful` or
+     `thallo` while its cwd cannot be read. The runner's own pid, and any `thallo-updater` process,
+     are excluded.
+5. **What it cannot see** — another user's process started elsewhere, naming nothing of the site — is
+   covered by the explicit confirmation. `confirm-restart` prints that sentence before asking for
+   `--yes`.
+6. **The runner re-checks.** Its own preflight step re-runs the same listing on every update and fails
+   if anything pre-guard is found. That covers a worker started by hand without the guard.
+
+`RunnerReport` records the listing as `unguarded_processes`, a list of `{pid, args}` (this replaces
+revision 1's queue-only `unguarded_workers`). `selftest` fails while `guard.ready` is missing or older
+than `guard.installed`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -4849,7 +5047,6 @@ git commit -m "feat(setup): provision installs the update runner and guard when 
     'enabled' => (bool) env('THALLO_ADMIN_UPDATES', false),
     'keep_backups' => (int) env('THALLO_UPDATE_KEEP_BACKUPS', 3),
     'verify_url' => env('THALLO_UPDATE_VERIFY_URL'),
-    'guard_settle' => (int) env('THALLO_UPDATE_GUARD_SETTLE', 120),
 ],
 ```
 
@@ -4857,8 +5054,8 @@ git commit -m "feat(setup): provision installs the update runner and guard when 
     The reason codes are exactly those of spec §4: `disabled`, `runner_missing`, `outside_constraint`,
     `not_writable`, `web_can_write_code`, `composer_missing`, `composer_config_unsupported`,
     `backup_unavailable`, `low_disk`, `guard_missing`, `web_verify_unreachable`, `opcache_preload`,
-    `opcache_frozen`, `persistent_runtime`, `in_progress`, `recovery_required`, plus `unguarded_workers`
-    and `guard_settling` from the readiness protocol (Task 13).
+    `opcache_frozen`, `persistent_runtime`, `in_progress`, `recovery_required`, plus `restart_required`
+    and `unguarded_processes` from the readiness protocol (Task 13).
   - The routes, each `->middleware('content_permission:system.config')` inside the `['tenant_system','auth']` group:
     - `GET /v1/admin/updates/preflight` → 200 `{preflight: …}`;
     - `POST /v1/admin/updates` → 202 `{update: {id, token}}`, or 409 `{reasons}`;
@@ -4873,8 +5070,8 @@ git commit -m "feat(setup): provision installs the update runner and guard when 
 - `free_bytes < needed_bytes` → `low_disk`;
 - `web === null` or `web.status !== 200` → `web_verify_unreachable`; `web.admission_ok === false` or
   `web.state_writable === false` → `not_writable`;
-- a non-empty `unguarded_workers` → `unguarded_workers`;
-- `now - guard_installed_at < guard_settle` → `guard_settling`.
+- a non-empty `unguarded_processes` → `unguarded_processes`;
+- `guard_ready_at === null` or `guard_ready_at <= guard_installed_at` → `restart_required`.
 
 FPM rows:
 - `web_can_write_code`: `is_writable(vendor/)` here;
@@ -4949,8 +5146,9 @@ final class UpdatePreflightTest extends TestCase
         yield 'web' => ['web_verify_unreachable', [], ['web' => null], ''];
         yield 'stale runner' => ['runner_missing', [], ['checked_at' => 1], ''];
         yield 'guard' => ['guard_missing', [], [], 'public/index.php'];
-        yield 'unguarded workers' => ['unguarded_workers', [], ['unguarded_workers' => [4242]], ''];
-        yield 'settling' => ['guard_settling', [], ['guard_installed_at' => 10_050], ''];
+        yield 'unguarded processes' => ['unguarded_processes', [], ['unguarded_processes' => [['pid' => 4242, 'args' => 'php glueful import']]], ''];
+        yield 'restart not confirmed' => ['restart_required', [], ['guard_ready_at' => null], ''];
+        yield 'confirmed before the guard' => ['restart_required', [], ['guard_installed_at' => 50, 'guard_ready_at' => 40], ''];
     }
 
     /** @dataProvider reasons */
@@ -4975,7 +5173,7 @@ final class UpdatePreflightTest extends TestCase
     {
         file_put_contents("{$this->base}/storage/framework/updates/runner.json", json_encode(array_merge([
             'checked_at' => 10_000, 'writable' => true, 'composer_ok' => true, 'shape_problems' => [], 'pg_dump' => true,
-            'pg_restore' => true, 'free_bytes' => 10, 'needed_bytes' => 1, 'unguarded_workers' => [], 'guard_installed_at' => 1,
+            'pg_restore' => true, 'free_bytes' => 10, 'needed_bytes' => 1, 'unguarded_processes' => [], 'guard_installed_at' => 1, 'guard_ready_at' => 2,
             'web' => ['status' => 200, 'admission_ok' => true, 'state_writable' => true],
         ], $over)));
     }
@@ -4984,7 +5182,7 @@ final class UpdatePreflightTest extends TestCase
     {
         $ini = array_merge(['opcache.enable' => '1', 'opcache.validate_timestamps' => '1', 'opcache.preload' => ''], $o['ini'] ?? []);
         return new UpdatePreflight(
-            ['enabled' => $o['enabled'] ?? true, 'guard_settle' => 120],
+            ['enabled' => $o['enabled'] ?? true],
             ['current' => '1.0.0-beta.101', 'latest' => $o['latest'] ?? '1.0.0-beta.102', 'available' => true],
             $this->base,
             static fn (string $k): string => $ini[$k] ?? '',
@@ -5126,7 +5324,10 @@ git commit -m "feat(admin): an Update button on the update notice, handing off t
        `bootstrap/update-guard.php`);
     3. add the cron line as the user that owns the code;
     4. make `storage/framework/updates/` group-writable for the web user and that owner;
-    5. run `php bin/thallo-updater selftest` and fix every failing line.
+    5. restart PHP-FPM, or Apache, and every queue worker and long-running job of the site, then run
+       `php bin/thallo-updater confirm-restart --yes`. It refuses while anything started before the
+       guard is still running;
+    6. run `php bin/thallo-updater selftest` and fix every failing line.
   - **What the web process may write:** only `storage/framework/updates/`.
   - **What it does:** the ten steps in plain words, and that visitors and other admins see a
     maintenance page during it.
@@ -5373,23 +5574,57 @@ git commit -m "test(updater): the disposable-install proof — harness and the f
   - `tick` claims nothing while the grandchild lives;
   - after it exits, the run is found dead (`recovery_required`), and a further `rollback` request
     completes it.
-- **20. Readiness at first enablement** (plan review 4):
+- **4d. No recovery claim while a lock-closing descendant writes** (plan review 3, third round). Use
+  `failmig`, then a recovery `tick` whose `queue:restart` wrapper starts
+  `sh -c 'exec 3>&- 4>&-; while :; do date >> $WORK/writes; sleep 0.2; done' &` and then fails the
+  recovery (wrapper exit 1). The descendant survives `stopDescendants` only because the proof marks it
+  `SIGKILL`-immune: it runs as a different user under `sudo`, so the runner cannot signal it (CI only;
+  skipped single-user). Then:
+  - the result is `recovery_required`, with the error naming the survivor;
+  - **Reopen** is requested, and `tick` claims nothing while `$WORK/writes` keeps growing;
+  - after the proof kills the writer as root, the next `tick` reopens.
+- **20. Readiness at first enablement: workers** (plan review 4):
   1. Build the site with `THALLO_ADMIN_UPDATES=false`.
   2. Start a supervisor loop that runs `php glueful queue:work` and restarts it when it exits. Start
      it **before** the guard exists.
-  3. Set `THALLO_ADMIN_UPDATES=true` and `THALLO_UPDATE_GUARD_SETTLE=5`, then provision. It prints
-     `Update runner: installed-first` and signals restart.
-  4. Right after, preflight contains `unguarded_workers` (the old worker PID) and `guard_settling`.
-  5. Within 30 s the old worker has exited and the supervisor's new one runs through the guard, so
-     preflight contains neither reason.
-  6. With that guarded worker idle and holding its shared lock, `selftest` passes (no exclusive
+  3. Set `THALLO_ADMIN_UPDATES=true` and provision. It prints `Update runner: installed-first`, the
+     restart instructions, and signals restart.
+  4. Right after, preflight contains `restart_required`, and `confirm-restart --yes` exits 1 listing
+     the PHP-FPM processes and the pre-guard worker, if it has not cycled yet.
+  5. The worker cycles through the guard. The proof reloads PHP-FPM (`kill -USR2 <master>`) and waits
+     for the new workers.
+  6. `confirm-restart --yes` exits 0, and preflight is ready.
+  7. With that guarded worker idle and holding its shared lock, `selftest` passes (no exclusive
      probe).
-  7. An update then succeeds. The worker exits on `queue:restart`, waits at the guard while the site
+  8. An update then succeeds. The worker exits on `queue:restart`, waits at the guard while the site
      is closed, and runs again afterwards with a new PID.
-- **21. A child timeout with a grandchild** (plan review 2). Set `THALLO_UPDATE_CHILD_TIMEOUT=5`, and
-  `COMPOSER_BINARY` to a wrapper that starts `sleep 60 &` and then `sleep 60`. The result is `failed`
-  at `stage`, with the log naming the timeout. `pgrep -g` on the recorded group lists nothing before
-  the status is written, and `site_open`.
+- **23. Readiness at first enablement: a pre-guard request and a console writer outlive any delay**
+  (plan review 5):
+  1. With the feature off, start two writers:
+     - a request to `public/proof-slow.php?sleep=90`, which boots the app, sleeps, then writes
+       `slow-wrote` with `microtime(true)`;
+     - a console writer that is not a queue command, run in the site's directory as the deploy user:
+       `php -r 'require "bootstrap/app.php"; sleep(90); file_put_contents("console-wrote", microtime(true));'`.
+  2. Enable the feature and provision. Wait 30 s, longer than any settling period would have been.
+  3. Check that the update cannot start:
+     - preflight contains `restart_required`;
+     - `confirm-restart --yes` exits 1 and lists PHP-FPM and the console writer;
+     - `POST /v1/admin/updates` returns 409 with `restart_required`.
+  4. Wait for both writers to finish. Reload PHP-FPM, whose pool has `process_control_timeout = 120`,
+     so the slow request completes rather than being cut off.
+  5. `confirm-restart --yes` exits 0.
+  6. Start an update through the admission path, which ends `succeeded`. Both `slow-wrote` and
+     `console-wrote` hold times **earlier than the `backup` step's `started_at`**: neither wrote after
+     the backup began.
+- **21. A Composer timeout with a grandchild, both ignoring SIGTERM** (plan reviews 2 and 3). Set
+  `THALLO_UPDATE_COMPOSER_TIMEOUT=5`, the timeout `Stager` actually uses for Composer, and
+  `COMPOSER_BINARY` to a wrapper that runs `trap "" TERM; sleep 600 & sleep 600`. The wrapper
+  outlives the timeout by minutes, so only the supervisor's escalation ends it. The result is `failed`
+  at `stage` within 60 s, with the log naming the timeout. `pgrep -g` on the recorded group lists
+  nothing but the runner before the status is written, and `site_open`. Repeat with
+  `THALLO_UPDATE_CHILD_TIMEOUT=5` and a `failclear`-style variant whose `thallo:update:clear-caches`
+  sleeps 600 s ignoring SIGTERM. That gives `recovery_required` within 60 s, with nothing left in the
+  group.
 - **22. A failed cache clear at reopen** (`failclear`): `recovery_required`, `site_closed`,
   `reopen_ready_at` null, and a further `tick` does not reopen. **Roll back the code**, then
   **Reopen**, gives `site_open` on `from`.
