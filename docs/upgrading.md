@@ -219,10 +219,12 @@ else updates from the terminal.
   **Roll back the code**, **Retry provision**, and **Reopen the site** (typed confirmation).
 
 The database is never restored by Thallo. If an update changed it and you roll the code back,
-restore it yourself first:
+restore it yourself first, into an empty schema — `pg_restore --clean` alone drops only what the
+dump holds, so a table the failed update created would survive it:
 
 ```bash
-pg_restore --clean --if-exists --dbname <database> storage/backups/update-<id>/database.dump
+psql --dbname <database> -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+pg_restore --no-owner --dbname <database> storage/backups/update-<id>/database.dump
 ```
 
 The same choices work from the terminal, as the code owner:

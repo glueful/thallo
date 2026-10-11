@@ -41,6 +41,10 @@ final class GuardRoutesTest extends TestCase
         self::assertSame(200, $r->status);
         self::assertStringContainsString('sessionStorage', $r->body);
         self::assertStringNotContainsString('<script src=', $r->body, 'self-contained: nothing loaded from elsewhere');
+        // The restore goes into an empty schema: pg_restore --clean drops only what the dump holds,
+        // so a table the failed update created would survive it.
+        self::assertStringContainsString('DROP SCHEMA public CASCADE', $r->body);
+        self::assertStringNotContainsString('pg_restore --clean', $r->body);
     }
 
     public function testStatusNeedsTheTokenAndHidesSecrets(): void
