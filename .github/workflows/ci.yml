@@ -368,6 +368,10 @@ jobs:
       - name: Install the dev root (reset-test-db needs its vendor)
         run: composer install --no-interaction --prefer-dist
 
+      - name: Updater files current
+        # bin/thallo-updater and bootstrap/update-guard.php are generated from core/src/Updater.
+        run: php scripts/build-updater --check
+
       - name: Skeleton smoke
         # error_log to stderr: boot warnings the smoke's PHP processes would otherwise hide.
         env:
