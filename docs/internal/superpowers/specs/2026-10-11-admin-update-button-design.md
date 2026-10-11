@@ -1,12 +1,19 @@
 # Update from the admin — design
 
-Status: revision 2, draft for review (2026-10-11). Server (core, skeleton, two framework additions)
+Status: revision 3, draft for review (2026-10-11). Server (core, skeleton, one framework addition)
 and admin. Reverses the "no update button" line of `docs/upgrading.md` for an explicitly enabled,
-single-host install, and amends DISTRIBUTION.md decision 11 (§2). Revision 2 answers the first
-review: the web process never needs writable code (§3), the site is closed by code outside the files
-being replaced (§7), an uncertain install stays closed (§10), ownership is durable and does not ride
-the queue (§5), the approved version is the one installed (§8), the backup is verified (§9), and
-PHP runtimes that would keep old code are excluded (§4).
+single-host install, and amends DISTRIBUTION.md decision 11.
+
+Revision 3 answers the second review:
+
+- the runner and recovery live outside the replaced tree, and every rename is journaled (§3, §9);
+- a lock barrier, not a job count, proves the application has stopped (§7);
+- once provision starts, any failure needs recovery (§10);
+- PHP-FPM itself is verified before reopening (§8);
+- staging supports a declared Composer shape and refuses the rest (§8.1);
+- the progress and recovery page is served by the guard and survives a refresh (§11).
+
+Findings from later reviews go to the implementation plan's Review Focus, not to a revision 4.
 
 ## 1. Purpose and audience
 
@@ -14,295 +21,417 @@ Thallo serves two audiences and gives each the update path it expects:
 
 - **Code-first users** update locally, commit `composer.lock` and deploy. Nothing on their servers
   rewrites code; the update notice shows the exact command. The feature is off for them.
-- **Owners coming from WordPress** run one server and expect to press **Update**. They turn the
-  feature on (or a guided installer does, §2), press Update, watch it, and get the old code back if
-  it fails before the database changed — and a closed site with clear instructions if it fails
-  after.
+- **Owners coming from WordPress** run one server and expect to press **Update**. Once it is set up
+  (§2), they press Update and watch it. A failure before the database could have changed gives them
+  the old code back; a failure after leaves the site closed with clear recovery steps.
 
-## 2. The decision this reverses
+## 2. Enabling it
 
 `docs/upgrading.md` says there will be no update button because Composer runs as the deploy user,
-never under the web worker. That separation is kept, not traded away:
+never under the web worker. That separation is kept:
 
-- **Off by default.** `THALLO_ADMIN_UPDATES=false`. `composer create-project` leaves it off; a guided
-  installer that sets up the update runner (§5) may turn it on.
+- **Off for Composer installs.** `THALLO_ADMIN_UPDATES=false`; `composer create-project` never
+  changes it.
+- **An explicit setup choice.** A guided installer may *offer* it. It first explains that the
+  runner's user can rewrite the site's code, then proves the setup by running
+  `bin/thallo-updater selftest` (§3): the runner runs as the code owner, the guards are in place,
+  PHP-FPM cannot write code, the web verification answers, and the barrier works. It enables the
+  setting only if the owner accepts and the self-test passes. By hand, the same self-test is the
+  documented last step.
 - **The web process never writes code.** PHP-FPM needs write access only to
-  `storage/framework/updates/` (to file a request and read progress). Code is changed by the
-  **update runner**, a separate process the owner schedules as the user that owns the code — the
-  deploy user.
+  `storage/framework/updates/`.
 - **Owner only.** The admin routes require `system.config`, held only by the `superuser` role.
-- **One application host.** Supported only when one host serves the site and runs its workers. The
-  setting is the owner's statement of this; it is not detected.
+- **One application host.** The same host serves the site and runs its workers and cron. The setting
+  is the owner's statement of this; the barrier (§7) relies on local file locks and is not valid
+  across hosts or on network filesystems.
 
-## 3. Who does what
+## 3. Processes
 
-| Process | Runs as | Needs | Does |
+| Process | Runs as | Writes | Does |
 |---|---|---|---|
-| PHP-FPM (admin) | web user | write `storage/framework/updates/` | preflight, files the request, serves the progress view |
-| Update runner | deploy user (owns the code) | write code, `storage/`; Composer; `pg_dump` | claims and executes the update, recovery actions |
-| Front-controller guard | web user / any CLI | read `storage/framework/updates/` | closes the site, serves status during the update |
-| Queue workers, scheduler | as today | nothing new | stop for the update (§7) |
+| PHP-FPM (admin) | web user | `storage/framework/updates/` | preflight, files the request |
+| **Update runner** `bin/thallo-updater` | deploy user (owns the code) | code, `storage/` | claims, executes, recovers |
+| **Guard** `bootstrap/update-guard.php` | web user, every CLI | `storage/framework/updates/` (recovery requests) | admission, closing, status, recovery page, web verification |
+| Workers, scheduler | as today | as today | pass the guard's barrier (§7) |
 
-The runner is **not a queue job.** The queue's reservation timeout (90 s by default) would hand a
-30-minute job to a second worker, and queue workers usually run as the web user. Instead the owner
-adds one cron line, as the deploy user:
+**The runner lives outside `vendor/`.** Provision installs it at `bin/thallo-updater` (site-owned),
+copying it from `vendor/glueful/thallo-core/bin/` with an atomic rename whenever the shipped copy is
+newer. The owner's cron line and every recovery command point at the site-owned copy:
 
 ```
-* * * * * cd /path/to/site && php vendor/glueful/thallo-core/bin/thallo-updater tick
+* * * * * cd /path/to/site && php bin/thallo-updater tick
 ```
 
-`thallo-updater` is a **single self-contained PHP file** with no `require` of the autoloader or of
-any other file once it starts executing. PHP compiles it whole at start, so replacing `vendor/`
-underneath it cannot change the code it runs. Everything that needs the application — preflight,
-backup, provision — runs as a child process (`php glueful …`) that loads whichever code is installed
-at that moment. On `tick` with no request it exits at once.
+It is a single self-contained PHP file. Once it starts executing it never `require`s anything, so
+replacing `vendor/`, or `bin/thallo-updater` itself, cannot change the code it runs. It reads and
+writes the operation journal (§5). That format is versioned, and every runner reads every earlier
+version, so a newer runner can recover an older run. Anything needing the application (preflight,
+backup, provision) runs as a child `php glueful …` with `THALLO_UPDATE_CHILD=1`. With no work to
+do, `tick` refreshes the runner report (§4) and exits.
 
 ## 4. Preflight — when the button is enabled
 
-`GET /v1/admin/updates/preflight` (`system.config`) answers `{ready, target, reasons[]}` from PHP-FPM.
-The checks that only the runner's user can answer are recorded by the runner on every `tick` in
-`storage/framework/updates/runner.json` (`{checked_at, user, composer, pg_dump, writable, free_bytes,
-composer_version}`) and read here; a missing or stale (> 5 min) report is itself a reason.
+`GET /v1/admin/updates/preflight` (`system.config`) answers `{ready, target, reasons[]}`. Checks only
+the runner's user can make are recorded by `tick` in `storage/framework/updates/runner.json`; a
+missing or stale (> 5 min) report is the reason `runner_missing`.
 
 | Check | Seen by | Reason code |
 |---|---|---|
 | Setting on | FPM | `disabled` |
-| The runner has reported within 5 minutes | FPM reads runner.json | `runner_missing` |
-| A newer version exists and the root `composer.json` constraint for `glueful/thallo-core` allows it (advisory; the runner's staged resolve is the real test, §8) | FPM | `outside_constraint` |
-| `composer.json`, `composer.lock`, `vendor/`, `public/admin/` writable | runner | `not_writable` |
-| Composer ≥ the version that supports temporary inline constraints (the plan pins the exact floor) | runner | `composer_missing` |
-| `pg_dump` and `pg_restore` resolve | runner | `backup_unavailable` |
-| Free disk ≥ the requirement in §9 | runner | `low_disk` |
-| The front controller and console carry the guard (§7) — an existing install whose `public/index.php` predates it gets the three lines to add | FPM | `guard_missing` |
-| `opcache.preload` is empty in PHP-FPM (preloaded code needs a process restart) | FPM | `opcache_preload` |
-| `opcache.validate_timestamps` is not `0` in PHP-FPM; `opcache.revalidate_freq` is recorded for §8 step 9 | FPM | `opcache_frozen` |
-| PHP-FPM, Apache mod_php or CGI — not a persistent application runtime (RoadRunner, Swoole, FrankenPHP worker mode) | FPM (`PHP_SAPI`, known env markers) | `persistent_runtime` |
-| No update is in progress or awaiting recovery (§5) | FPM | `in_progress` / `recovery_required` |
+| Runner reported within 5 min | FPM | `runner_missing` |
+| A newer version exists that the root constraint for `glueful/thallo-core` allows (advisory; staging is the real test) | FPM | `outside_constraint` |
+| Code writable by the runner; **not** writable by PHP-FPM (`vendor/`, `composer.*`, `public/admin/`) | runner, FPM | `not_writable`, `web_can_write_code` |
+| Composer present and new enough for temporary inline constraints (floor pinned in the plan) | runner | `composer_missing` |
+| The Composer project matches the supported shape (§8.1) | runner | `composer_config_unsupported` |
+| `pg_dump`, `pg_restore` present | runner | `backup_unavailable` |
+| Free disk ≥ §9's requirement | runner | `low_disk` |
+| Guard included by `public/index.php` and `glueful`; `bin/thallo-updater` present | FPM, runner | `guard_missing` |
+| The runner's web verification call (§8 step 9) reaches PHP-FPM and is answered | runner | `web_verify_unreachable` |
+| PHP-FPM: `opcache.preload` empty | FPM | `opcache_preload` |
+| PHP-FPM: `opcache.validate_timestamps` not `0` | FPM | `opcache_frozen` |
+| PHP-FPM, mod_php or CGI — not a persistent runtime (RoadRunner, Swoole, FrankenPHP worker mode) | FPM | `persistent_runtime` |
+| No operation in progress or awaiting recovery | FPM | `in_progress`, `recovery_required` |
 
 On a multi-tenant install the routes and the button exist only in the host admin.
 
-## 5. Operation state and ownership
+## 5. Operation state, journal and ownership
 
-One operation at a time, recorded durably in `storage/framework/updates/operation.json` (atomic
-write: temp file + rename; mode 0640). It holds `{id, target, from, status, step, steps[],
-requested_by, requested_at, token_hash, claimed_by_pid, heartbeat_at, backup, migrations_before,
-error, recovery_options[]}`. The full output goes to `storage/logs/update-{id}.log`.
+One operation at a time, in `storage/framework/updates/operation.json` (format-versioned; written
+temp + `fsync` + rename; mode 0640):
 
-**Status**: `requested → running → succeeded | failed | rolled_back | recovery_required`, plus
-`cancelled` from `requested` only, and `recovery_required → running` (a recovery action) or
-`→ recovered_by_owner` (§10). `failed` means the live install was never changed; `rolled_back`
-means it was changed and verifiably restored with no database change; `recovery_required` means
-anything else (§10).
+- identity and request: `id`, `target`, `from`, `status`, `step`, `steps[]`, `requested_by`,
+  `requested_at`, `token_hash`;
+- progress: `heartbeat_at`, `provision_started`, `error`;
+- recovery: `backup`, `journal[]`, `recovery_request`, `recovery_options[]`.
 
-**Transitions** are compare-and-set under a short exclusive `flock` on
-`storage/framework/updates/state.lock`, held only for the read-check-write:
+The full output goes to `storage/logs/update-{id}.log`.
 
-- *Start* (FPM): allowed only when no operation exists or the last one is terminal and not
-  `recovery_required`. Mints a random 32-byte token, stores its hash, returns the token once.
-- *Claim* (runner): `requested → running` only while holding the run lock (below).
-- *Cancel* (FPM): `requested → cancelled` only; a claimed operation cannot be cancelled.
-- *Terminal* (runner): `running → succeeded | failed | rolled_back | recovery_required`.
+**Status**:
 
-**Exclusive execution**: the runner takes a non-blocking exclusive `flock` on
-`storage/framework/updates/run.lock` for the life of the operation and passes that descriptor to
-every child it starts, so the lock is free only when the runner **and every child** (Composer
-included) are gone. Overlapping cron ticks fail to take it and exit. There is no queue, so there is
-no enqueue failure and no duplicate delivery; a second `tick` is the only duplicate, and the lock
-excludes it.
+- `requested → running → succeeded | failed | rolled_back | recovery_required`;
+- `requested → cancelled`;
+- `recovery_required → running` (a recovery action) or `→ recovered_by_owner`.
 
-**Liveness**: the runner advances `heartbeat_at` every 5 s from its own loop while it waits on a
-child (it polls the child, it does not block on output), so a quiet Composer still heartbeats. A
-stale heartbeat is only displayed ("no progress reported for N minutes"); it never frees anything.
-An operation is declared dead only when its status is `running` **and** `run.lock` can be taken —
-which the next `tick` checks. A dead operation becomes `recovery_required`; it is never cleared.
+What the end states mean:
+
+- `failed`: the live install was never changed.
+- `rolled_back`: the install changed before provision started and was verifiably restored.
+- `recovery_required`: anything else, with the site closed.
+
+**Transitions** are compare-and-set under a short exclusive `flock` on `state.lock`, held only for
+the read-check-write:
+
+- **Start** (FPM): allowed when there is no operation, or the last is terminal and not
+  `recovery_required`. Mints a 32-byte token, stores its hash, returns it once.
+- **Claim** (runner, holding `run.lock`): `requested → running`.
+- **Cancel** (FPM): `requested → cancelled` only.
+- **Terminal** and **recovery** transitions (runner).
+- **Recovery request** (guard, token holder): records `recovery_request` only; the runner acts on it.
+
+**Exclusive execution.** The runner holds a non-blocking exclusive `flock` on `run.lock` for the
+whole operation. It passes the locked descriptor to every child it starts, so the lock frees only
+when the runner **and every descendant** (Composer included) have exited. Concurrent `tick`s fail
+to take it and exit. There is no queue, so there are no reservations and no duplicate deliveries.
+
+**Liveness.** The runner advances `heartbeat_at` every 5 s from its own loop while polling its
+child, so a quiet Composer still heartbeats. A stale heartbeat is displayed and never acted on. A
+run is dead only when `status` is `running` **and** a `tick` can take `run.lock`; it then becomes
+`recovery_required`, never cleared.
+
+**Journal.** Every filesystem change to the live install (§8 step 6, rollback, recovery) is first
+appended to `journal[]` as `{seq, op: "rename", from, to, phase: "intended"}` and persisted, then
+performed, then marked `"done"`. An `intended` entry whose `from` no longer exists while `to` does
+was performed and is marked done on resume. Rollback is the done entries reversed, journaled the
+same way, so an interrupted rollback resumes too. Given any kill point, the journal plus the
+filesystem tell recovery exactly which tree is where.
 
 ## 6. Start
 
-`POST /v1/admin/updates` (`system.config`, CSRF). The confirm dialog shows `current → target`, the
-release notes and that release's Upgrade Notes, and: "Your site is closed to visitors and to other
-admins while the update runs — usually a few minutes. A verified database backup is taken first."
-The server re-runs preflight and performs *Start* (§5) with the advertised target. It answers
-`202 {id, token}`. The admin keeps the token in `sessionStorage` for the progress view (§11).
+`POST /v1/admin/updates` (`system.config`, CSRF). The confirm dialog shows:
 
-## 7. Closing the site — outside the replaced files
+- the version change, `current → target`;
+- the release notes and that release's Upgrade Notes;
+- this warning: "Your site is closed to visitors and to other admins while the update runs, usually
+  for a few minutes. A verified database backup is taken first."
 
-`vendor/` is what changes, so nothing that closes the site or reports progress may depend on it.
+The server re-runs preflight and performs **Start**, answering `202 {id, token}`. The admin stores
+the token in `sessionStorage` and navigates the tab to `/_update` (§11).
 
-- **Front-controller guard.** The skeleton's `public/index.php` (site-owned; Composer never replaces
-  it) gains, before `bootstrap/app.php` is required, an `include` of `bootstrap/update-guard.php`
-  (site-owned, plain PHP, no dependencies). While `storage/framework/updates/maintenance.flag`
-  exists it answers every request itself:
-  - `GET /_update/status` with the operation token (header) → the operation file minus secrets, plus
-    the last 200 log lines, as JSON (`hash_equals` against `token_hash`).
-  - `POST /_update/recover` with the token → files a recovery request (§10).
-  - `/health` → `503` JSON with `{"status":"updating"}`.
-  - everything else, admin included → `503`, `Retry-After: 120`, a static "Back in a few minutes"
-    page. Admin writes, the admin API and logins all stop.
-  The status route also works when no flag exists (the guard serves it for the token holder always),
-  so the progress view has one endpoint for the whole update.
-- **Console guard.** The skeleton's `glueful` console entry includes the same guard file. While the
-  flag exists: `queue:work` waits (sleeps, rechecking every 5 s) before booting, so a supervisor's
-  restart never meets half-replaced code and never gives up; `queue:scheduler run` exits 0 without
-  booting; every other command refuses with a message — unless the environment carries
-  `THALLO_UPDATE_CHILD=1`, which the runner sets for its own children (provision, backup).
-- **Draining.** Closing the web is not enough: running workers would keep taking jobs. Step 4 of §8
-  signals `queue:restart` (framework addition, §12), so each worker exits after its current job and,
-  when restarted, waits at the console guard. The runner then waits until the queue reports no
-  reserved jobs (framework addition, §12) and the scheduler lock `scheduler:job:*` keys are clear,
-  up to 10 minutes; past that it reopens and fails with nothing changed.
+## 7. Closing the site and the barrier
 
-Existing installs predate the guard; preflight reports `guard_missing` with the exact lines, and the
-skeleton release that ships the guard is the floor for the feature.
+`bootstrap/update-guard.php` is site-owned, plain PHP with no dependencies. `public/index.php` and
+the `glueful` console include it **before** `bootstrap/app.php`. It works with two files in
+`storage/framework/updates/`: the barrier `admission.lock` and the marker `closed.flag`.
+
+**Admission (every web request and every console process):**
+
+1. If the path is a guard route (`/_update`, `/_update/*`), serve it; it never boots the application
+   or takes the barrier.
+2. If `closed.flag` exists, refuse:
+   - web: `503`, `Retry-After: 120`, a static "Back in a few minutes" page, and `/health` as
+     `{"status":"updating"}`;
+   - `queue:work`: sleep and recheck every 5 s, then continue — a supervisor's restart never gives up
+     and never boots half-replaced code;
+   - `queue:scheduler run`: exit 0;
+   - other commands: refuse with a message.
+3. Take a **shared** `flock` on `admission.lock`, non-blocking. If that fails, the runner holds it
+   exclusively; refuse as in 2.
+4. Re-check `closed.flag` (it may have appeared between 2 and 3); if present, release and refuse.
+5. Keep the shared lock for the life of the request or process; PHP releases it when the request
+   ends or the process exits.
+
+Processes with `THALLO_UPDATE_CHILD=1` (the runner's children) skip admission.
+
+**The barrier (§8 step 4):** the runner writes `closed.flag`, signals `queue:restart`, then takes an
+**exclusive** `flock` on `admission.lock`, polling for up to 10 minutes. It is granted only when no
+admitted process remains:
+
+- a web request already past admission, including one paused before its write;
+- a worker still running a job whose queue reservation has expired;
+- a scheduler process between two jobs;
+- a long-lived worker (it releases only by exiting, which `queue:restart` causes after its current
+  job).
+
+New work cannot enter (steps 2 to 4). The runner holds the exclusive lock until it reopens or ends
+in `recovery_required`. If the 10 minutes pass, it removes the flag and ends `failed` with nothing
+changed; the log lists the barrier as the cause.
 
 ## 8. The run
 
 The runner claims the operation, then:
 
-1. **Preflight as the runner** — the runner-side checks of §4, fresh. Failure → `failed`.
-2. **Stage** — copy `composer.json`, `composer.lock` and `vendor/` into
-   `storage/framework/updates/{id}/stage/`. Run there, with `COMPOSER_HOME=storage/framework/composer`:
-   ```
-   composer update glueful/thallo-core:<target> --with-all-dependencies \
-     --no-interaction --no-progress --no-ansi --no-scripts
-   ```
-   The inline constraint pins the **approved** version, so a release published while the request
-   waited is never installed; `-W` moves Thallo's whole dependency tree, including packages the
-   site's `composer.json` also lists. Then verify from the stage's `vendor/composer/installed.json`
-   that `glueful/thallo-core` is exactly `<target>`. A resolve failure or a mismatch → `failed`; the
-   live install was never touched. This is the feasibility check the root constraint cannot be.
-3. **Close** — write `maintenance.flag`.
-4. **Drain** — §7. Timeout → remove the flag, `failed`.
-5. **Back up and snapshot** — §9: verified database dump; record the applied migrations
-   (`migrations_before`); snapshot provision's file outputs (§10).
-6. **Swap** — `rename()` live `vendor/` → `{id}/vendor.old`, stage `vendor/` → `vendor/`, then the
-   same for `composer.lock` and `composer.json` (all on one filesystem; checked in step 1). Composer's
-   generated autoloader resolves paths from its own directory, so the moved tree is valid in place.
-7. **Provision** — `php glueful thallo:provision --no-interaction` (never `--force`), as a child with
-   `THALLO_UPDATE_CHILD=1`. It migrates behind its `migrate:verify` gate, publishes the admin bundle,
-   compiles styles and clears the route, render and container caches.
-8. **Verify** — a child `php glueful thallo:update:verify --json` reports the installed version from
-   Composer's runtime metadata; it must equal `<target>`. Clear the page and shop caches.
-9. **Settle** — wait `opcache.revalidate_freq + 1` seconds (recorded by preflight) so PHP-FPM
-   revalidates every script before the first visitor arrives.
-10. **Reopen** — remove `maintenance.flag`, `queue:restart` again so any worker that started before
-    the swap reloads, mark `succeeded`, delete `{id}/vendor.old` and `{id}/stage`.
+1. **Preflight as the runner** (§4, runner rows), fresh. Failure → `failed`.
+2. **Stage** (§8.1) at `storage/framework/updates/{id}/stage/`. It pins the approved target and
+   verifies the result. Failure → `failed`; the live install is untouched.
+3. **Close** — write `closed.flag`.
+4. **Barrier** — §7. Timeout → reopen, `failed`.
+5. **Back up and snapshot** — §9.
+6. **Swap** — journaled renames (§5):
+   1. `vendor/` → `{id}/vendor.old`;
+   2. `stage/vendor` → `vendor/`;
+   3. `composer.lock` → `{id}/composer.lock.old`;
+   4. `stage/composer.lock` → `composer.lock`.
 
-Steps 1–5 never change the live install; a failure there is `failed` and the site reopens. A failure
-in steps 6–9 goes to §10.
+   `composer.json` is unchanged by a pinned update and is verified equal, not swapped. Everything is
+   on one filesystem (checked in step 1). A failure or kill here is rolled back by the journal: the
+   status becomes `rolled_back` once step 9 verifies `from`, otherwise `recovery_required`.
+7. **Provision** — set `provision_started`, then run `php glueful thallo:provision --no-interaction`
+   as a child (never `--force`).
+8. **CLI verify** — a child `php glueful thallo:update:verify --json`: the installed version from
+   Composer runtime metadata equals `target`.
+9. **Web verify** — the runner calls the guard's `POST /_update/verify` over loopback
+   (`THALLO_UPDATE_VERIFY_URL`, default `http://127.0.0.1` with the `Host` of `BASE_URL`), carrying
+   the secret in `storage/framework/updates/verify.secret` (written by the runner, readable by the
+   web group, rotated per operation).
+
+   The guard alone accepts that secret: it boots the application inside PHP-FPM while ordinary
+   traffic stays refused. It answers with:
+   - the installed version from Composer runtime metadata;
+   - `PHP_VERSION`;
+   - any PHP extension the release requires but the process lacks;
+   - whether the container builds.
+
+   Success means three consecutive answers report `target` and nothing missing, within
+   `opcache.revalidate_freq + 30` seconds. OPcache rechecks a script's timestamp at most once per
+   `revalidate_freq` seconds, when the script is next used; it never reloads anything ahead of time.
+   So the verify asks PHP-FPM itself rather than waiting and assuming.
+10. **Reopen** — clear the page and shop caches, remove `closed.flag`, release the barrier, and
+    signal `queue:restart` again. Mark `succeeded`, then delete `{id}/vendor.old`, the stage and the
+    lock copy.
+
+Any failure from step 7 on → `recovery_required`, site closed (§10).
+
+### 8.1 Staging and the supported Composer shape
+
+Staging runs Composer with `--working-dir=stage`, `COMPOSER_HOME=storage/framework/composer`:
+
+```
+composer update glueful/thallo-core:<target> --with-all-dependencies \
+  --no-interaction --no-progress --no-ansi --no-scripts
+```
+
+The inline constraint pins the **approved** version, so a newer release published while the request
+waited is never installed. `-W` moves Thallo's whole dependency tree, including packages the root
+also lists.
+
+**Supported root shape** (anything else is `composer_config_unsupported`, update from the terminal):
+
+- **Autoload:** `autoload` and `autoload-dev` hold `psr-4`, `psr-0`, `classmap` and `files` entries
+  whose paths are inside the project and outside `vendor/`. Each top-level path is symlinked into the
+  stage, so the optimized class map the skeleton asks for (`optimize-autoloader: true`) scans the real
+  `app/`.
+- **Locations:** the default `vendor-dir`, no `extra.installer-paths`, no custom installers.
+- **Packages:** no `repositories` of type `path` (and so no symlinked packages), and no relative
+  `artifact` URLs. VCS and Composer repositories are fine.
+- **Plugins:** every `allow-plugins` entry set to `true` must be on Thallo's plugin allowlist (today:
+  `php-http/discovery`, which the skeleton allows). A plugin outside it is refused rather than run.
+
+**After staging**, the runner verifies all of these before going further:
+
+- the stage's `composer.json` is byte-identical to the live one, so no plugin rewrote it;
+- the live `composer.json`, `composer.lock` and `vendor/` are unchanged (hashes and mtimes recorded
+  before staging);
+- `glueful/thallo-core` in the stage's `installed.json` is exactly `<target>`;
+- the stage's autoloader resolves one class from `app/` and one from `glueful/thallo-core`, in a
+  child process.
+
+Any difference → `failed`.
 
 ## 9. Backup
 
-- A child `php glueful thallo:update:backup --to=<dir> --json` (step 5). It succeeds only if the
-  dump command exits 0, the file is non-empty, and `pg_restore --list` reads it (custom format,
-  `-Fc`). The framework `DatabaseBackupTask` reports failures in its result rather than throwing; the
-  command checks that result, never just that the call returned.
-- Written to `storage/backups/update-{id}/` — directory `0700`, files `0600` — with the
-  `composer.json`/`composer.lock` copies and a `manifest.json` (`{id, from, target, database,
-  dumped_at, bytes, sha256}`).
-- **Retention**: the last 3 update backups are kept (`thallo.admin_updates.keep_backups`); older ones
-  are deleted after a `succeeded` run. A backup belonging to a `recovery_required` operation is never
-  deleted.
-- **Disk requirement** (runner check): database size (`pg_database_size`) × 1.2 + `vendor/` size × 2
-  (stage + `vendor.old`) + the provision snapshot size + 256 MB margin.
+- Step 5 runs the child `php glueful thallo:update:backup --to=<dir> --json`. It succeeds only if the
+  dump exits 0, the file is non-empty, and `pg_restore --list` reads it (custom format, `-Fc`). The
+  framework `DatabaseBackupTask` reports failures in its result rather than throwing, so the command
+  checks that result.
+- The same step snapshots provision's file outputs by **copy**: `public/admin/`, the generated API
+  reference, the compiled style artifact and the extension cache. A copy, so a later rollback can
+  restore them by rename.
+- Stored in `storage/backups/update-{id}/` (folder `0700`, files `0600`) with the old `composer.lock`
+  and a `manifest.json` (`{id, from, target, database, dumped_at, bytes, sha256}`).
+- **Retention:** the last 3 (`thallo.admin_updates.keep_backups`), pruned after a `succeeded` run. A
+  backup belonging to a `recovery_required` operation is never pruned.
+- **Disk:** `pg_database_size` × 1.2, plus `vendor/` × 2 (stage and `vendor.old`), plus the snapshot,
+  plus 256 MB.
 
-## 10. Failure, rollback and recovery
+## 10. Failure and recovery
 
-**Code rollback** (a failure in steps 6–9): rename `vendor/` back from `vendor.old` and restore
-`composer.json`/`composer.lock`; restore the provision snapshot. The snapshot is taken in step 5
-from a manifest of provision's file outputs — `public/admin/`, the generated API reference, the
-compiled style artifact, the extension cache — and restored by rename; the route, render and
-container caches are then cleared rather than restored. No network, no `composer install`.
+**Reopening by itself** happens only for a failure before provision started (`provision_started`
+false), and only when all of these hold:
 
-**When the site may reopen by itself**: only when all of these hold —
+- the journal rollback completed;
+- the CLI verify reports `from`;
+- the web verify reports `from`.
 
-- the failure happened before step 7 started, **or** the applied-migrations list read after rollback
-  equals `migrations_before`;
-- the code rollback and snapshot restore completed;
-- a child `thallo:update:verify` reports the installed version equals `from`.
+The status is then `rolled_back`.
 
-Then the status is `rolled_back` and the site reopens. **In every other case** — migrations changed,
-rollback failed, verification failed, or the runner died (§5) — the status is `recovery_required`
-and `maintenance.flag` stays. The database is never restored automatically.
+**Once provision has started, any failure is `recovery_required`.** That holds even when the
+migrations list is unchanged: provision also writes capability adoption, role grants, block
+definitions and font data, which no migration records. The site stays closed, and the database is
+never restored automatically.
 
-**Recovery** — shown on the progress view to the token holder (served by the guard, so it works when
-the app cannot boot) and as terminal commands, always both:
+A run found dead (§5) is `recovery_required` at whatever step it reached; the journal says where the
+files are.
+
+**Recovery options**, shown on the `/_update` page to the token holder and always also available in
+the terminal:
 
 | Option | Offered when | Runner does |
 |---|---|---|
-| **Roll back the code** | code is new or unknown | the code rollback above; stays closed |
-| **Retry provision** | code is the target | step 7 onward |
-| **Reopen the site** | always, with a typed confirmation | removes the flag; status `recovered_by_owner`. For "I restored the database from the backup" or "I checked it and it works". |
+| **Roll back the code** | the journal shows the new tree live, or a half-done swap or rollback | journal rollback and snapshot restore; the CLI and web verify `from`; stays closed |
+| **Retry provision** | the target tree is live | step 7 onward |
+| **Reopen the site** | always, with a typed confirmation | removes `closed.flag`, releases the barrier; `recovered_by_owner`. For "I restored the database from the backup" or "I checked it and it works". |
 
-The view gives the backup path and the restore command (`pg_restore --clean --dbname …`). A recovery
-request is written by the guard into the operation file (CAS under `state.lock`) and executed by the
-runner's next `tick`; terminal equivalents: `php vendor/glueful/thallo-core/bin/thallo-updater
-recover --rollback | --retry-provision | --reopen`.
+The page shows the backup path and the restore command (`pg_restore --clean --if-exists --dbname …`).
+The terminal equivalents are `php bin/thallo-updater recover --rollback | --retry-provision | --reopen`
+and `php bin/thallo-updater token`. That last one mints a fresh recovery token (rotating
+`token_hash`) for a browser that lost it.
 
-## 11. Admin
+## 11. The `/_update` page
 
-- **Update notice** (`UpdateAvailableCard`, Health badge): for `system.config` users with the
-  setting on, **Update to {target}** when preflight is ready, or the reasons in plain words otherwise
-  ("Your server preloads PHP code, which needs a PHP-FPM restart. Update from the terminal."). Others
-  see today's card with the command.
-- **Progress view** `/utilities/update`: the step checklist with timings, the live log tail, and the
-  end states. It polls the guard's `/_update/status` every 2 s with the token, before, during and
-  after maintenance, so it never depends on the application booting. It ships in the admin's main
-  bundle (no lazy chunk to 404 after the bundle is republished). A failed poll shows "The server is
-  busy — still checking" and never declares failure. On `succeeded` it asks for a reload (the admin
-  bundle changed). A browser that lost the token (another device) sees the static maintenance page
-  and, once the site reopens, the result on Health.
-- `UPGRADE_COMMAND` becomes `composer update glueful/thallo-core -W && php glueful thallo:provision`.
+The guard serves `GET /_update`: a self-contained HTML page with its CSS and JS inline, inside the
+guard file. It never touches the application, `vendor/` or the admin bundle, so it loads during the
+vendor gap, after a failed provision and after a refresh.
 
-## 12. Framework additions (general-purpose, any app, any driver)
+- It reads the token from `sessionStorage`, which survives a refresh in the same tab. Without one,
+  it shows a field for a token from `bin/thallo-updater token`.
+- It polls `GET /_update/status` (token in a header; compared with `hash_equals`) every 2 s. The
+  answer is the operation minus secrets, plus the last 200 log lines.
+- It shows the step checklist with timings, the live log, and the end states:
+  - succeeded: the version, the notes, a link back to the admin;
+  - failed or rolled back: the reason, and that the site is open;
+  - recovery required: what happened, the backup path, the options of §10.
+- An option posts to `POST /_update/recover`, which records the request; the page then shows
+  "Waiting for the runner (up to a minute)".
+- A failed poll shows "The server is busy — still checking" and never declares failure.
+- With no operation, it shows "No update in progress" and links to the admin.
 
-- **`queue:restart`** — stores a restart timestamp in the cache; `QueueWorker` checks it each loop and
-  exits after its current job when the timestamp is newer than its own start.
-- **In-flight count** — a queue driver method answering how many jobs are reserved now (database:
-  `reserved_at` set and not expired; Redis: the reserved set's size), exposed as
-  `queue:status --json`.
+The admin keeps only the notice and the dialog (§6). It has no progress view of its own.
 
-Thallo requires the framework release that ships both.
+## 12. Framework addition
+
+**`queue:restart`** (general-purpose, any app, any driver). It stores a restart timestamp in the
+cache, and `QueueWorker` checks it each loop: a worker exits after its current job once the timestamp
+is newer than its own start. Thallo requires the framework release that ships it. The barrier
+replaces the job-count addition of revision 2.
 
 ## 13. Config, skeleton and docs
 
-- `thallo.admin_updates.enabled` ← `THALLO_ADMIN_UPDATES` (default `false`); `keep_backups` (3).
-- Skeleton: `bootstrap/update-guard.php`; the include in `public/index.php` and `glueful`.
-- `docs/upgrading.md`: the "no update button" line replaced by *Updating from the admin* — the cron
-  line and the user it runs as, what FPM may write, single host only, the preflight reasons, the
-  run, recovery and the database caveat; the terminal command changes to the targeted `-W` form.
-- `docs/production.md` / operations: `queue:restart` after a terminal upgrade.
+- `thallo.admin_updates.enabled` ← `THALLO_ADMIN_UPDATES` (default `false`); `keep_backups` (3);
+  `verify_url` ← `THALLO_UPDATE_VERIFY_URL`.
+- Skeleton: `bootstrap/update-guard.php`; its include in `public/index.php` and `glueful`. Provision
+  installs `bin/thallo-updater`.
+- `docs/upgrading.md`: the "no update button" line replaced by *Updating from the admin*:
+  - the setup choice, the cron line and the user it runs as, and the self-test;
+  - what PHP-FPM may write, and single host only;
+  - the supported Composer shape and the preflight reasons;
+  - the run, recovery, and the database caveat.
+
+  The terminal command becomes `composer update glueful/thallo-core -W && php glueful
+  thallo:provision`, followed by `php glueful queue:restart`.
 - DISTRIBUTION.md decision 11 amended; `UpdateChecker`'s "Never an updater" docblock updated.
+- `UPGRADE_COMMAND` in `admin/src/queries/updates.ts` updated.
 - OpenAPI: the admin routes, hand-spliced. CHANGELOG under [Unreleased].
 
 ## 14. Testing
 
-**Disposable-install proof** (the gate for this feature, run locally and in CI): a script builds a
-throwaway site from the skeleton against a local Composer repository holding two controlled builds
-of `glueful/thallo-core` — `from` and `target`, the target adding one migration and one admin-bundle
-change — then drives the real runner and real Composer, `pg_dump` and provision against a disposable
-database. Scenarios:
+**Disposable-install proof — the gate for this feature.** A script builds a throwaway site from the
+skeleton:
 
-1. Successful update: target installed and verified, migration applied, site reopens, backup verified.
-2. Composer interrupted (killed mid-stage): live install untouched, `failed`, site open.
-3. Runner killed after the swap: next `tick` finds the run lock free → `recovery_required`, site
-   closed; **Roll back the code** restores `from`.
-4. Provision fails after applying the migration: `recovery_required`, site closed, backup path shown;
-   **Reopen** after a `pg_restore` brings the site back on `from`.
-5. Rollback fails (snapshot made unreadable): `recovery_required`, never reopened.
-6. Duplicate execution: two `tick`s started together — exactly one claims; the other exits.
-7. Availability during the swap: a loop of requests to `/_update/status` and `/` during steps 6–7
-   never sees a PHP fatal — only status JSON and the 503 page.
-8. A newer release published after the request: the approved target is installed, not the newer one.
+- a local Composer repository with two controlled builds of `glueful/thallo-core`, `from` and
+  `target`. The target adds one migration, one admin-bundle change and one provision step that writes
+  stored data;
+- a disposable database;
+- **PHP-FPM with OPcache enabled** behind a local web server, with the real cron-style runner.
 
-**Unit / integration**: preflight reasons one by one; CAS transitions (start, claim, cancel,
-terminal) including the races; heartbeat advancing during a silent child; the backup command
-rejecting an empty or unreadable dump; the guard's routes and token check; route gates
-(administrator refused, superuser allowed). **Framework**: `queue:restart` and the in-flight count
-per driver. **Admin**: the notice's states and the progress view from canned status sequences,
-including failed polls; e2e through mocked guard responses.
+It runs locally and in CI. Scenarios:
+
+1. Successful update: target installed, CLI and web verify pass, backup verified, site reopens.
+2. Composer killed mid-stage: live install untouched, `failed`, site open.
+3. Runner killed **between each pair of swap renames**, and between each rollback rename: the next
+   `tick` finds the run dead. **Roll back the code** restores `from` from every kill point, and the
+   web verify reports `from`.
+4. Runner killed while its Composer child keeps running: no `tick` can claim until that child exits.
+5. Provision fails after applying the migration: `recovery_required`, site closed. A `pg_restore`,
+   then **Roll back the code** and **Reopen**, brings the site back on `from`.
+6. Provision changes stored data without a migration, then fails: `recovery_required`, never
+   reopened by itself.
+7. Rollback fails (a snapshot made unreadable): `recovery_required`, never reopened.
+8. Two `tick`s started together: exactly one claims.
+9. Barrier: a web request paused before its write, a job running past its reservation timeout, and a
+   scheduler between two jobs. Backup and swap wait for each, and nothing new is admitted meanwhile.
+10. Barrier timeout: a request that never finishes leads to `failed`, the site reopens, nothing
+    changed.
+11. A loop of requests to `/` and `/_update/status` during steps 6–9 sees no PHP fatal, only the 503
+    page and status JSON.
+12. `/_update` refreshed during the vendor gap and after a failed provision: it loads, keeps
+    token-protected access, and refuses a wrong token.
+13. A release published after the request: the approved target is installed.
+14. Unsupported shapes (a path repository, a non-allowlisted plugin, `installer-paths`): refused at
+    preflight and again at staging.
+15. A plugin that rewrites the staged `composer.json`: `failed`, the live install untouched.
+16. The web verify with a missing required extension: `recovery_required` after the swap, or
+    `failed` at preflight when the old release already lacks it.
+
+**Unit / integration:**
+- preflight reasons one by one;
+- CAS transitions and races;
+- the journal's resume rules for every `intended` and `done` combination;
+- the heartbeat advancing during a silent child;
+- the backup command rejecting an empty or unreadable dump;
+- the guard's admission order, including the re-check after the shared lock;
+- the token and verify-secret checks;
+- route gates (administrator refused, superuser allowed).
+
+**Framework:** `queue:restart`.
+
+**Admin:** the notice's states and the dialog's hand-off to `/_update`.
 
 ## 15. Not in this design
 
-Automatic or scheduled updates; database restore by Thallo; updating extension engines on their own
-from the admin; reloading PHP-FPM or restarting persistent runtimes; multi-host installs; installs
-without cron.
+- automatic or scheduled updates;
+- database restore by Thallo;
+- updating extension engines on their own from the admin;
+- reloading PHP-FPM or restarting persistent runtimes;
+- multiple hosts or network filesystems;
+- Composer shapes outside §8.1;
+- installs without cron.
