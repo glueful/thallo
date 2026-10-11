@@ -1,5 +1,47 @@
 # Update from the admin — Implementation Plan
 
+> Amended 2026-10-11 after plan review (no spec revision):
+> - **Operation writes are fenced** (Task 3).
+>   - Every claim is a compare-and-set on the expected id and status, and mints a fresh `owner`.
+>   - Every `update` and `finish` names the id and owner, and a runner that lost ownership gets
+>     `Fenced`, never a write.
+>   - `tick` re-reads the operation after taking the run lock.
+>   - Tested by a paused tick resuming after completion and a new start, and by a stale owner against
+>     its successor.
+> - **Child-process ownership is wired through** (Tasks 7, 12).
+>   - The run lock is inherited by every child.
+>   - Recovery and takeover record the new runner's pid and group.
+>   - `ChildProcess::stopGroupMembers` confirms that nothing the update started is still running
+>     before rollback or reopening, and after a timeout.
+>   - Tested by a child timeout with a grandchild and a killed recovery runner with a surviving
+>     grandchild.
+> - **Commands are judged by their own exit code and output** (Tasks 7, 12).
+>   - `Host::runCapture` replaces log scraping.
+>   - Cache clearing and the worker signal must succeed.
+>   - `RealHost::forget` drops released handles before they close.
+>   - `reopen_ready_at` (renamed from `verified_target_at`) is written only after every prerequisite
+>     succeeded.
+>   - `RunnerRealHostTest` covers stale verification output, a failed cache clear, inherited
+>     descriptors and the run lock, through real processes.
+> - **First enablement has a readiness protocol** (Tasks 6, 12, 13, 14).
+>   - `tick` creates `verify.secret` before any operation.
+>   - The self-test no longer takes an exclusive admission lock.
+>   - The first guard install writes `guard.installed` and signals `queue:restart`.
+>   - Preflight refuses `unguarded_workers` (by `ps`) and `guard_settling` until every pre-guard
+>     process has moved over.
+>   - Proof scenario 20 covers workers started before enablement and guarded idle workers afterwards.
+> - **Snapshots are verified before any live change** (Task 10).
+>   - Every copy and mkdir is checked, and each file is re-hashed against the live one.
+>   - The manifest records contents and modes, and restore refuses a snapshot that does not match.
+>   - The route cache is `storage/cache/routes_*.php` (`RouteCache.php:24,182`).
+>   - The inventory proof diffs full before/after manifests, deletions included.
+> - **The proof** (Tasks 17, 18):
+>   - it keeps the permissive root constraint (the target artifacts are added after install, never
+>     `composer require …:900`);
+>   - deploy and PHP-FPM run as separate users in CI;
+>   - scenario 1 goes through `selftest`, an authenticated preflight and `POST /v1/admin/updates`;
+>   - new scenarios 4c, 20, 21 and 22.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** An owner of an explicitly enabled, single-host Thallo install presses **Update** in the
@@ -87,6 +129,9 @@ reasonable owner expects, and the test that pins it.
    the barrier and recording `succeeded`.
    - **Expected:** a later `tick` finishes the reopen and records `succeeded`. Once traffic has
      resumed, it never treats the install as an unfinished swap and never rolls it back.
+   - **The marker:** `reopen_ready_at` is written only after every reopen prerequisite has succeeded:
+     both verifications, cache clearing, the worker signal, and no descendant left. A death before it
+     reopens nothing.
    - **Pinned by:** Task 12, `testADeathAfterVerificationCompletesTheReopen` (three kill points:
      `reopen.before-open`, `reopen.after-open`, `reopen.after-release`), and proof scenario 17.
 2. **Lock inheritance through descendants.** The runner and its immediate child both die while a
@@ -138,7 +183,7 @@ reasonable owner expects, and the test that pins it.
    - **Cost if wrong:** a site reopens after a staging-only death, which is safe because nothing live
      changed.
 4. **A dead run that had verified the target completes the reopen** (Review Focus 1). The spec's
-   "dead → recovery_required" applies only before `verified_target_at` is recorded.
+   "dead → recovery_required" applies only before `reopen_ready_at` is recorded.
 5. **Liveness needs the run lock free *and* the runner's process group empty.**
    - The runner makes itself a process-group leader (`posix_setpgid(0, 0)`) and records the group id.
    - Descriptor inheritance alone cannot be relied on, because a descendant may close inherited
@@ -441,19 +486,26 @@ final class Status {
 final class UpdateRefused extends \RuntimeException {
     public function __construct(public readonly string $reason) { parent::__construct($reason); }
 }
+final class Fenced extends \RuntimeException {} // declared in OperationStore.php: a write by a runner that no longer owns the operation
 final class OperationStore {
     public const FORMAT = 1;
     public function __construct(private Paths $paths, private \Closure $now) {} // $now: fn(): int
     public function current(): ?array;
     /** @return array{0: array, 1: string} the operation and the one-time token */
     public function start(string $target, string $from, string $requestedBy): array; // UpdateRefused('in_progress'|'recovery_required')
-    public function claim(int $pid, int $pgid): ?array;      // requested → running; null otherwise
-    public function cancel(): bool;                          // requested → cancelled
-    public function update(callable $mutate): array;         // fn(array $op): array, under state.lock
-    public function finish(string $status, ?string $error = null): array;
-    public function verifyToken(string $token): bool;        // hash_equals(sha256)
-    public function rotateToken(): string;
-    public function requestRecovery(string $option): bool;   // only while recovery_required; option ∈ rollback|retry_provision|reopen
+    /** Each claim is a compare-and-set on the expected id and status, and mints a fresh `owner`. */
+    public function claim(string $id, int $pid, ?int $pgid): ?array;          // requested → running
+    public function claimRecovery(string $id, int $pid, ?int $pgid): ?array;  // recovery_required + request → running; `recovering` = the option
+    public function takeOver(string $id, string $deadOwner, int $pid, ?int $pgid): ?array; // a dead run's ownership moves to the finder
+    public function cancel(string $id): bool;                                 // requested → cancelled
+    /** Fenced unless the current operation has this id, this owner and status running. */
+    public function update(string $id, string $owner, callable $mutate): array;
+    public function finish(string $id, string $owner, string $status, ?string $error = null): array;
+    public function verifyToken(string $token): bool;
+    public function rotateToken(string $id): ?string;
+    public function requestRecovery(string $token, string $option): bool;     // token and status checked in one locked section
+    public function requestRecoveryAsOwner(string $id, string $option): bool; // the terminal: file access is the authority
+}
 }
 ```
 
@@ -467,6 +519,7 @@ declare(strict_types=1);
 namespace Thallo\Core\Tests\Unit\Updater;
 
 use PHPUnit\Framework\TestCase;
+use Thallo\Core\Updater\Fenced;
 use Thallo\Core\Updater\OperationStore;
 use Thallo\Core\Updater\Paths;
 use Thallo\Core\Updater\Status;
@@ -510,9 +563,9 @@ final class OperationStoreTest extends TestCase
 
     public function testRecoveryRequiredBlocksANewStart(): void
     {
-        $this->ops->start('2', '1', 'u');
-        $this->ops->claim(10, 10);
-        $this->ops->finish(Status::RECOVERY_REQUIRED, 'provision failed');
+        [$op] = $this->ops->start('2', '1', 'u');
+        $run = $this->ops->claim($op['id'], 10, 10);
+        $this->ops->finish($op['id'], $run['owner'], Status::RECOVERY_REQUIRED, 'provision failed');
         try {
             $this->ops->start('2', '1', 'u');
             self::fail('expected a refusal');
@@ -521,40 +574,72 @@ final class OperationStoreTest extends TestCase
         }
     }
 
-    public function testClaimOnlyFromRequestedAndCancelOnlyBeforeClaim(): void
+    public function testClaimsAreCompareAndSetOnTheExpectedOperation(): void
     {
-        $this->ops->start('2', '1', 'u');
-        self::assertNotNull($this->ops->claim(10, 10));
-        self::assertNull($this->ops->claim(11, 11), 'a second claim gets nothing');
-        self::assertFalse($this->ops->cancel(), 'a claimed operation cannot be cancelled');
+        [$op] = $this->ops->start('2', '1', 'u');
+        self::assertNull($this->ops->claim('some-other-id', 10, 10), 'a claim names the operation it read');
+        $run = $this->ops->claim($op['id'], 10, 10);
+        self::assertSame(32, strlen($run['owner']));
+        self::assertNull($this->ops->claim($op['id'], 11, 11), 'a second claim gets nothing');
+        self::assertFalse($this->ops->cancel($op['id']), 'a claimed operation cannot be cancelled');
     }
 
-    public function testAFinishedOperationAllowsANewStart(): void
+    public function testAStaleOwnerCannotWriteAFinishedOrNewerOperation(): void
     {
-        $this->ops->start('2', '1', 'u');
-        $this->ops->claim(10, 10);
-        $this->ops->finish(Status::SUCCEEDED);
-        [$op] = $this->ops->start('3', '2', 'u');
-        self::assertSame('3', $op['target']);
+        [$first] = $this->ops->start('2', '1', 'u');
+        $run = $this->ops->claim($first['id'], 10, 10);
+        $this->ops->finish($first['id'], $run['owner'], Status::SUCCEEDED);
+        try {
+            $this->ops->update($first['id'], $run['owner'], static fn (array $op): array => ['step' => 'late'] + $op);
+            self::fail('a finished operation accepts no more writes');
+        } catch (Fenced) {
+        }
+        [$second] = $this->ops->start('3', '2', 'u');
+        foreach ([[$first['id'], $run['owner']], [$second['id'], $run['owner']]] as [$id, $owner]) {
+            try {
+                $this->ops->finish($id, $owner, Status::FAILED, 'late');
+                self::fail('a stale runner cannot touch the successor');
+            } catch (Fenced) {
+            }
+        }
+        self::assertSame(Status::REQUESTED, $this->ops->current()['status']);
+        self::assertSame($second['id'], $this->ops->current()['id']);
     }
 
-    public function testRecoveryRequestsOnlyWhileRecoveryIsRequired(): void
+    public function testTakeOverNeedsTheDeadOwner(): void
     {
-        $this->ops->start('2', '1', 'u');
-        self::assertFalse($this->ops->requestRecovery('reopen'));
-        $this->ops->claim(10, 10);
-        $this->ops->finish(Status::RECOVERY_REQUIRED);
-        self::assertTrue($this->ops->requestRecovery('rollback'));
-        self::assertFalse($this->ops->requestRecovery('format-disk'), 'unknown options are refused');
-        self::assertSame('rollback', $this->ops->current()['recovery_request']);
+        [$op] = $this->ops->start('2', '1', 'u');
+        $run = $this->ops->claim($op['id'], 10, 10);
+        self::assertNull($this->ops->takeOver($op['id'], 'not-the-owner', 20, 20));
+        $new = $this->ops->takeOver($op['id'], $run['owner'], 20, 20);
+        self::assertNotSame($run['owner'], $new['owner']);
+        self::assertSame(20, $new['pgid'], 'the finder records its own process group');
+        $this->expectException(Fenced::class);
+        $this->ops->update($op['id'], $run['owner'], static fn (array $o): array => $o);
+    }
+
+    public function testRecoveryRequestsNeedTheTokenAndTheState(): void
+    {
+        [$op, $token] = $this->ops->start('2', '1', 'u');
+        self::assertFalse($this->ops->requestRecovery($token, 'reopen'), 'not in recovery');
+        $run = $this->ops->claim($op['id'], 10, 10);
+        $this->ops->finish($op['id'], $run['owner'], Status::RECOVERY_REQUIRED);
+        self::assertFalse($this->ops->requestRecovery(str_repeat('a', 64), 'rollback'), 'wrong token');
+        self::assertFalse($this->ops->requestRecovery($token, 'format-disk'), 'unknown option');
+        self::assertTrue($this->ops->requestRecovery($token, 'rollback'));
+        $rec = $this->ops->claimRecovery($op['id'], 30, 30);
+        self::assertSame('rollback', $rec['recovering']);
+        self::assertSame(30, $rec['pgid'], 'recovery records fresh ownership');
+        self::assertNotSame($run['owner'], $rec['owner']);
     }
 
     public function testRotatingTheTokenInvalidatesTheOldOne(): void
     {
-        [, $old] = $this->ops->start('2', '1', 'u');
-        $new = $this->ops->rotateToken();
+        [$op, $old] = $this->ops->start('2', '1', 'u');
+        $new = $this->ops->rotateToken($op['id']);
         self::assertFalse($this->ops->verifyToken($old));
-        self::assertTrue($this->ops->verifyToken($new));
+        self::assertTrue($this->ops->verifyToken((string) $new));
+        self::assertNull($this->ops->rotateToken('other-id'));
     }
 }
 ```
@@ -779,9 +864,14 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Updater;
 
+final class Fenced extends \RuntimeException
+{
+}
+
 /**
- * The one update operation (spec §5): a durable file whose every transition is a compare-and-set
- * under a short exclusive lock on state.lock.
+ * The one update operation (spec §5). Every transition is a compare-and-set under a short exclusive
+ * lock on state.lock, on the operation id, status and owner the caller expects. A runner that lost
+ * ownership (it was paused, found dead, or the operation finished) gets Fenced, never a write.
  */
 final class OperationStore
 {
@@ -820,65 +910,71 @@ final class OperationStore
                 'requested_by' => $requestedBy,
                 'requested_at' => ($this->now)(),
                 'token_hash' => hash('sha256', $token),
+                'owner' => null,
                 'pid' => null,
                 'pgid' => null,
                 'heartbeat_at' => null,
                 'provision_started' => false,
-                'verified_target_at' => null,
+                'reopen_ready_at' => null,
                 'journal' => [],
                 'backup' => null,
+                'provision_manifest' => null,
                 'recovery_request' => null,
+                'recovering' => null,
                 'error' => null,
             ];
-            AtomicFile::writeJson($this->paths->operation(), $op);
+            $this->write($op);
             return [$op, $token];
         });
     }
 
-    public function claim(int $pid, int $pgid): ?array
+    public function claim(string $id, int $pid, ?int $pgid): ?array
     {
-        return $this->locked(function () use ($pid, $pgid): ?array {
-            $op = $this->current();
-            if ($op === null || $op['status'] !== Status::REQUESTED) {
-                return null;
-            }
-            $op['status'] = Status::RUNNING;
-            $op['pid'] = $pid;
-            $op['pgid'] = $pgid;
-            $op['heartbeat_at'] = ($this->now)();
-            AtomicFile::writeJson($this->paths->operation(), $op);
-            return $op;
-        });
+        return $this->transition($id, static fn (array $op): bool => $op['status'] === Status::REQUESTED, $pid, $pgid);
     }
 
-    public function cancel(): bool
+    public function claimRecovery(string $id, int $pid, ?int $pgid): ?array
     {
-        return $this->locked(function (): bool {
+        return $this->transition($id, static fn (array $op): bool => $op['status'] === Status::RECOVERY_REQUIRED && $op['recovery_request'] !== null, $pid, $pgid, true);
+    }
+
+    public function takeOver(string $id, string $deadOwner, int $pid, ?int $pgid): ?array
+    {
+        return $this->transition($id, static fn (array $op): bool => $op['status'] === Status::RUNNING && hash_equals((string) $op['owner'], $deadOwner), $pid, $pgid);
+    }
+
+    public function cancel(string $id): bool
+    {
+        return $this->locked(function () use ($id): bool {
             $op = $this->current();
-            if ($op === null || $op['status'] !== Status::REQUESTED) {
+            if ($op === null || $op['id'] !== $id || $op['status'] !== Status::REQUESTED) {
                 return false;
             }
             $op['status'] = Status::CANCELLED;
-            AtomicFile::writeJson($this->paths->operation(), $op);
+            $this->write($op);
             return true;
         });
     }
 
-    public function update(callable $mutate): array
+    public function update(string $id, string $owner, callable $mutate): array
     {
-        return $this->locked(function () use ($mutate): array {
-            $op = $mutate($this->current() ?? throw new \LogicException('No operation'));
-            AtomicFile::writeJson($this->paths->operation(), $op);
+        return $this->locked(function () use ($id, $owner, $mutate): array {
+            $op = $this->owned($id, $owner);
+            $op = $mutate($op);
+            $op['id'] = $id; // a mutation can never move the write to another operation
+            $op['owner'] = $owner;
+            $this->write($op);
             return $op;
         });
     }
 
-    public function finish(string $status, ?string $error = null): array
+    public function finish(string $id, string $owner, string $status, ?string $error = null): array
     {
-        return $this->update(static function (array $op) use ($status, $error): array {
+        return $this->update($id, $owner, static function (array $op) use ($status, $error): array {
             $op['status'] = $status;
             $op['error'] = $error;
             $op['recovery_request'] = null;
+            $op['recovering'] = null;
             return $op;
         });
     }
@@ -889,30 +985,82 @@ final class OperationStore
         return $op !== null && $token !== '' && hash_equals((string) $op['token_hash'], hash('sha256', $token));
     }
 
-    public function rotateToken(): string
+    public function rotateToken(string $id): ?string
     {
-        $token = bin2hex(random_bytes(32));
-        $this->update(static function (array $op) use ($token): array {
+        return $this->locked(function () use ($id): ?string {
+            $op = $this->current();
+            if ($op === null || $op['id'] !== $id) {
+                return null;
+            }
+            $token = bin2hex(random_bytes(32));
             $op['token_hash'] = hash('sha256', $token);
-            return $op;
+            $this->write($op);
+            return $token;
         });
-        return $token;
     }
 
-    public function requestRecovery(string $option): bool
+    public function requestRecovery(string $token, string $option): bool
     {
-        if (!in_array($option, self::RECOVERY_OPTIONS, true)) {
-            return false;
-        }
-        return $this->locked(function () use ($option): bool {
+        return $this->locked(function () use ($token, $option): bool {
             $op = $this->current();
-            if ($op === null || $op['status'] !== Status::RECOVERY_REQUIRED) {
+            if ($op === null || $token === '' || !hash_equals((string) $op['token_hash'], hash('sha256', $token))) {
                 return false;
             }
-            $op['recovery_request'] = $option;
-            AtomicFile::writeJson($this->paths->operation(), $op);
-            return true;
+            return $this->recordRecovery($op, $option);
         });
+    }
+
+    public function requestRecoveryAsOwner(string $id, string $option): bool
+    {
+        return $this->locked(function () use ($id, $option): bool {
+            $op = $this->current();
+            return $op !== null && $op['id'] === $id && $this->recordRecovery($op, $option);
+        });
+    }
+
+    private function recordRecovery(array $op, string $option): bool
+    {
+        if (!in_array($option, self::RECOVERY_OPTIONS, true) || $op['status'] !== Status::RECOVERY_REQUIRED) {
+            return false;
+        }
+        $op['recovery_request'] = $option;
+        $this->write($op);
+        return true;
+    }
+
+    private function transition(string $id, \Closure $allowed, int $pid, ?int $pgid, bool $recovery = false): ?array
+    {
+        return $this->locked(function () use ($id, $allowed, $pid, $pgid, $recovery): ?array {
+            $op = $this->current();
+            if ($op === null || $op['id'] !== $id || !$allowed($op)) {
+                return null;
+            }
+            if ($recovery) {
+                $op['recovering'] = $op['recovery_request'];
+                $op['recovery_request'] = null;
+            }
+            $op['status'] = Status::RUNNING;
+            $op['owner'] = bin2hex(random_bytes(16));
+            $op['pid'] = $pid;
+            $op['pgid'] = $pgid;
+            $op['heartbeat_at'] = ($this->now)();
+            $this->write($op);
+            return $op;
+        });
+    }
+
+    private function owned(string $id, string $owner): array
+    {
+        $op = $this->current();
+        if ($op === null || $op['id'] !== $id || $op['status'] !== Status::RUNNING || !hash_equals((string) $op['owner'], $owner)) {
+            throw new Fenced("Operation {$id} is no longer owned by this runner");
+        }
+        return $op;
+    }
+
+    private function write(array $op): void
+    {
+        AtomicFile::writeJson($this->paths->operation(), $op);
     }
 
     private function locked(callable $fn): mixed
@@ -1011,7 +1159,7 @@ entry once `Guard::boot` exists. Before that, the guard file's entry line is com
 - [ ] **Step 4: Build and run the tests**
 
 Run: `php scripts/build-updater && php vendor/bin/phpunit tests/Unit/Updater`
-Expected: PASS (OperationStoreTest 7 tests, BuildUpdaterTest 2 tests).
+Expected: PASS (OperationStoreTest 9 tests, BuildUpdaterTest 2 tests).
 
 - [ ] **Step 5: Add the CI check.** In `.github/workflows/ci.yml`'s skeleton-smoke job, after
   "Install the dev root", add the step `- name: Updater files current` with
@@ -1546,7 +1694,7 @@ git commit -m "feat(updater): the barrier and the guard's admission, included by
 - Test: `tests/Unit/Updater/GuardRoutesTest.php`
 
 **Interfaces:**
-- Consumes: `OperationStore::verifyToken`, `::current`, `::requestRecovery`; `Paths::log`.
+- Consumes: `OperationStore::verifyToken`, `::current`, `::requestRecovery($token, $option)` (token and state checked in one locked section); `Paths::log`.
 - Produces:
   - `GET /_update` → 200 `text/html` (`RecoveryPage::html()`), with no token needed. The page holds
     no data.
@@ -1629,8 +1777,8 @@ final class GuardRoutesTest extends TestCase
     {
         $h = ['x-thallo-update-token' => $this->token];
         self::assertSame(409, $this->guard()->web('POST', '/_update/recover', $h, '{"option":"rollback"}')->status, 'not in recovery');
-        $this->ops->claim(1, 1);
-        $this->ops->finish(Status::RECOVERY_REQUIRED, 'x');
+        $run = $this->ops->claim($this->ops->current()['id'], 1, 1);
+        $this->ops->finish($run['id'], $run['owner'], Status::RECOVERY_REQUIRED, 'x');
         self::assertSame(422, $this->guard()->web('POST', '/_update/recover', $h, '{"option":"reopen"}')->status, 'reopen needs the typed confirmation');
         self::assertSame(202, $this->guard()->web('POST', '/_update/recover', $h, '{"option":"reopen","confirm":"REOPEN"}')->status);
         self::assertSame('reopen', $this->ops->current()['recovery_request']);
@@ -1676,7 +1824,7 @@ private function route(string $method, string $path, array $headers, string $bod
         if ($option === 'reopen' && (!is_array($in) || ($in['confirm'] ?? '') !== 'REOPEN')) {
             return GuardResponse::json(422, ['error' => 'confirm']);
         }
-        return $this->ops->requestRecovery($option)
+        return $this->ops->requestRecovery($token, $option)
             ? GuardResponse::json(202, ['requested' => $option])
             : GuardResponse::json(409, ['error' => 'not_recoverable']);
     }
@@ -1743,7 +1891,7 @@ git commit -m "feat(updater): the guard's status, recovery requests and the /_up
 - Consumes: `Paths::verifySecret()` (written by the runner in Task 12, 0640, one line of 64 hex chars).
 - Produces: `POST /_update/verify`, header `x-thallo-verify: <secret>`, body
   `{"mode":"probe"}` or `{"mode":"boot"}`:
-  - `probe` → 200 `{sapi, writable_code: bool, opcache: {enabled, validate_timestamps, revalidate_freq, preload}}`.
+  - `probe` → 200 `{sapi, writable_code: bool, admission_ok: bool, state_writable: bool, opcache: {enabled, validate_timestamps, revalidate_freq, preload}}`.
     It never touches the application.
   - `boot` → it requires `<base>/bootstrap/app.php`, then answers 200
     `{version, php, missing_extensions: [], container: bool}`, or 500 `{error}`. A fatal error is
@@ -1870,6 +2018,15 @@ private function verify(array $headers, string $body): GuardResponse
         return GuardResponse::json(200, [
             'sapi' => PHP_SAPI,
             'writable_code' => is_writable($this->paths->base . '/vendor') || is_writable($this->paths->base . '/composer.lock'),
+            'admission_ok' => (static function (string $lock): bool {
+                $h = FileLock::shared($lock);
+                if ($h === null) {
+                    return false;
+                }
+                FileLock::release($h);
+                return true;
+            })($this->paths->admissionLock()),
+            'state_writable' => is_writable($this->paths->dir()),
             'opcache' => [
                 'enabled' => (bool) ini_get('opcache.enable'),
                 'validate_timestamps' => (bool) ini_get('opcache.validate_timestamps'),
@@ -1935,7 +2092,7 @@ git commit -m "feat(updater): secret-gated web verification that never waits on 
 **Files:**
 - Create: `core/src/Updater/Host.php`, `core/src/Updater/RealHost.php`, `core/src/Updater/ChildProcess.php`, `core/src/Updater/Liveness.php`
 - Modify: `scripts/build-updater` (runner list gains `Host`, `RealHost`, `ChildProcess`, `Liveness`)
-- Test: `tests/Unit/Updater/ChildProcessTest.php`, `tests/Unit/Updater/LivenessTest.php`, helper `tests/fixtures/updater/hold-and-die.php`
+- Test: `tests/Unit/Updater/ChildProcessTest.php`, `tests/Unit/Updater/LivenessTest.php`, helpers `tests/fixtures/updater/hold-and-die.php`, `recover-and-die.php`, `timeout-with-grandchild.php`
 
 **Interfaces:**
 - Produces:
@@ -1944,6 +2101,8 @@ git commit -m "feat(updater): secret-gated web verification that never waits on 
 interface Host {
     /** @param list<string> $argv @param array<string,string> $env  merged over the runner's environment */
     public function run(array $argv, string $cwd, array $env, int $timeout, callable $heartbeat): int;
+    /** As run(), but this command's own stdout is returned (and also appended to the log): @return array{0:int,1:string} */
+    public function runCapture(array $argv, string $cwd, array $env, int $timeout, callable $heartbeat): array;
     /** A short command whose output the runner reads (versions, sizes): @return array{0:int,1:string} exit code and stdout */
     public function capture(array $argv, string $cwd): array;
     /** @return array{0:int,1:string} status and body; status 0 when unreachable */
@@ -1954,10 +2113,17 @@ interface Host {
 final class RealHost implements Host {
     /** @param list<resource> $inherit  handles every child receives as descriptors 3, 4, … */
     public function __construct(private string $log, private array $inherit) {}
+    /** @param resource $handle */ public function inherit($handle): void;
+    /** Removes a handle before it is closed, so no later child is handed a closed resource. @param resource $handle */
+    public function forget($handle): void;
 }
 final class ChildProcess {
-    /** Polls the child once a second, calls $heartbeat every 5 s whatever the child prints; SIGTERM on timeout. */
-    public static function run(array $argv, string $cwd, array $env, array $inherit, string $log, callable $heartbeat, int $timeout): int;
+    /** Polls the child every 250 ms, calls $heartbeat every 5 s whatever the child prints; SIGTERM to the child on timeout (exit 124).
+     *  $stdout: when given, the child's stdout goes to that file instead of the log (the caller appends it). */
+    public static function run(array $argv, string $cwd, array $env, array $inherit, string $log, callable $heartbeat, int $timeout, ?string $stdout = null): int;
+    /** Stops every member of process group $pgid except $self: SIGTERM, up to 10 s, SIGKILL, then confirms none remain.
+     *  Throws \RuntimeException when a member survives or `pgrep` is unavailable. */
+    public static function stopGroupMembers(int $pgid, int $self, Host $host): void;
 }
 final class Liveness {
     public static function groupAlive(?int $pgid): bool;
@@ -1993,6 +2159,22 @@ file_put_contents($base . '/pgid', (string) posix_getpgid(0));
 ChildProcess::run(['sh', '-c', $grandchild . ' & echo $! > ' . escapeshellarg($base . '/grandchild.pid')], $base, [], [$lock], $base . '/log', static function (): void {}, 30);
 posix_kill(getmypid(), SIGKILL);
 ```
+
+`recover-and-die.php` does the following:
+- calls `posix_setpgid(0, 0)`;
+- takes `run.lock`;
+- claims the recovery with `$ops->claimRecovery($id, getmypid(), posix_getpgid(0))`;
+- starts `sh -c 'sleep 30 & echo $! > grandchild.pid'` with the lock as descriptor 3;
+- kills itself.
+
+`timeout-with-grandchild.php` does the following:
+- calls `posix_setpgid(0, 0)`;
+- runs `ChildProcess::run(['sh', '-c', 'sleep 60 & echo $! > grandchild.pid; sleep 60'], …, timeout: 2)`;
+- calls `ChildProcess::stopGroupMembers(posix_getpgid(0), getmypid(), new RealHost($base . '/log', []))`;
+- writes `"<exit code> stopped"` to `result`;
+- exits 0.
+
+Both fixtures require the repository's `vendor/autoload.php`, as `hold-and-die.php` does.
 
 ```php
 <?php
@@ -2037,6 +2219,37 @@ final class LivenessTest extends TestCase
     {
         $op = $this->runStandIn('sh -c "exec 3>&-; sleep 30"');
         self::assertNull(Liveness::claimIfDead($op, new Paths($this->base)), 'the process group still has a member');
+    }
+
+    public function testAKilledRecoveryRunnerWithASurvivingGrandchildIsStillAlive(): void
+    {
+        // A first run died; its group is long gone. A recovery runner claims with ITS OWN group,
+        // starts a grandchild and is killed. Liveness must follow the recovery runner's group.
+        $paths = new Paths($this->base);
+        $ops = new \Thallo\Core\Updater\OperationStore($paths, static fn (): int => 1);
+        [$op, $token] = $ops->start('2', '1', 'u');
+        $dead = $ops->claim($op['id'], 1, 999_999); // a group that does not exist
+        $ops->finish($op['id'], $dead['owner'], \Thallo\Core\Updater\Status::RECOVERY_REQUIRED);
+        $ops->requestRecovery($token, 'rollback');
+        $p = proc_open([PHP_BINARY, dirname(__DIR__, 2) . '/fixtures/updater/recover-and-die.php', $this->base], [], $pipes);
+        $this->waitUntil(fn () => !proc_get_status($p)['running'] && is_file($this->base . '/grandchild.pid'));
+        proc_close($p);
+        $now = $ops->current();
+        self::assertNotSame(999_999, $now['pgid'], 'recovery recorded fresh ownership');
+        self::assertNull(Liveness::claimIfDead($now, $paths), 'the grandchild keeps the recovery run alive');
+        posix_kill((int) file_get_contents($this->base . '/grandchild.pid'), SIGKILL);
+        $this->waitUntil(fn () => !Liveness::groupAlive($now['pgid']));
+        self::assertNotNull(Liveness::claimIfDead($now, $paths));
+    }
+
+    public function testATimedOutChildsGrandchildIsStoppedBeforeAnythingElse(): void
+    {
+        $p = proc_open([PHP_BINARY, dirname(__DIR__, 2) . '/fixtures/updater/timeout-with-grandchild.php', $this->base], [], $pipes);
+        $this->waitUntil(fn () => !proc_get_status($p)['running']);
+        $code = proc_close($p);
+        self::assertSame(0, $code, (string) @file_get_contents($this->base . '/log'));
+        self::assertSame('124 stopped', trim((string) file_get_contents($this->base . '/result')));
+        self::assertFalse(posix_kill((int) file_get_contents($this->base . '/grandchild.pid'), 0), 'the grandchild is gone');
     }
 
     public function testANotRunningOperationIsNeverDead(): void
@@ -2125,9 +2338,9 @@ namespace Thallo\Core\Updater;
 final class ChildProcess
 {
     /** @param list<string> $argv @param array<string,string> $env @param list<resource> $inherit */
-    public static function run(array $argv, string $cwd, array $env, array $inherit, string $log, callable $heartbeat, int $timeout): int
+    public static function run(array $argv, string $cwd, array $env, array $inherit, string $log, callable $heartbeat, int $timeout, ?string $stdout = null): int
     {
-        $spec = [0 => ['file', '/dev/null', 'r'], 1 => ['file', $log, 'a'], 2 => ['file', $log, 'a']];
+        $spec = [0 => ['file', '/dev/null', 'r'], 1 => ['file', $stdout ?? $log, $stdout === null ? 'a' : 'w'], 2 => ['file', $log, 'a']];
         foreach (array_values($inherit) as $i => $handle) {
             $spec[3 + $i] = $handle;
         }
@@ -2161,6 +2374,37 @@ final class ChildProcess
 
 `proc_get_status()['exitcode']` is valid only on the first call that sees the process exit. The
 loop returns on that call, so the value is read once.
+
+Add to `ChildProcess`:
+
+```php
+public static function stopGroupMembers(int $pgid, int $self, Host $host): void
+{
+    $members = static function () use ($host, $pgid, $self): array {
+        [$code, $out] = $host->capture(['pgrep', '-g', (string) $pgid], '/');
+        if ($code > 1) { // 1: no match; anything higher: pgrep failed
+            throw new \RuntimeException('Cannot list the runner\'s process group (pgrep exited ' . $code . ').');
+        }
+        return array_values(array_filter(array_map('intval', preg_split('/\s+/', trim($out)) ?: []), static fn (int $p): bool => $p > 0 && $p !== $self));
+    };
+    foreach ($members() as $pid) {
+        posix_kill($pid, 15);
+    }
+    for ($i = 0; $i < 10 && $members() !== []; $i++) {
+        $host->sleep(1);
+    }
+    foreach ($members() as $pid) {
+        posix_kill($pid, 9);
+    }
+    $host->sleep(1);
+    if (($left = $members()) !== []) {
+        throw new \RuntimeException('Processes started by the update are still running: ' . implode(', ', $left));
+    }
+}
+```
+
+`pgrep` never lists itself, so the call that spawns it does not see it as a member. `selftest` and
+`RunnerReport` require `pgrep`.
 
 ```php
 <?php
@@ -2218,6 +2462,9 @@ interface Host
     /** @param list<string> $argv @param array<string,string> $env */
     public function run(array $argv, string $cwd, array $env, int $timeout, callable $heartbeat): int;
 
+    /** @param list<string> $argv @param array<string,string> $env @return array{0:int,1:string} this command's own exit code and stdout */
+    public function runCapture(array $argv, string $cwd, array $env, int $timeout, callable $heartbeat): array;
+
     /** @param list<string> $argv @return array{0:int,1:string} */
     public function capture(array $argv, string $cwd): array;
 
@@ -2250,9 +2497,28 @@ final class RealHost implements Host
         $this->inherit[] = $handle;
     }
 
+    /** @param resource $handle */
+    public function forget($handle): void
+    {
+        $this->inherit = array_values(array_filter($this->inherit, static fn ($h): bool => $h !== $handle));
+    }
+
     public function run(array $argv, string $cwd, array $env, int $timeout, callable $heartbeat): int
     {
         return ChildProcess::run($argv, $cwd, $env, $this->inherit, $this->log, $heartbeat, $timeout);
+    }
+
+    public function runCapture(array $argv, string $cwd, array $env, int $timeout, callable $heartbeat): array
+    {
+        $out = tempnam(sys_get_temp_dir(), 'thallo-out-');
+        try {
+            $code = ChildProcess::run($argv, $cwd, $env, $this->inherit, $this->log, $heartbeat, $timeout, $out);
+            $stdout = (string) file_get_contents($out);
+            file_put_contents($this->log, $stdout, FILE_APPEND);
+            return [$code, $stdout];
+        } finally {
+            @unlink($out);
+        }
     }
 
     public function capture(array $argv, string $cwd): array
@@ -2315,14 +2581,14 @@ git commit -m "feat(updater): children inherit the run lock; a run is dead only 
 - Test: `tests/Unit/Updater/JournalTest.php`
 
 **Interfaces:**
-- Consumes: `OperationStore::update`, `::current`.
+- Consumes: `OperationStore::update($id, $owner, …)` (fenced), `::current`.
 - Produces:
 
 ```php
 final class JournalConflict extends \RuntimeException {} // declared in Journal.php
 final class Journal {
     /** $killPoint(string $label) is called after the intent is persisted ("<label>.intended") and after the rename ("<label>.renamed") */
-    public function __construct(private OperationStore $ops, private ?\Closure $killPoint = null) {}
+    public function __construct(private OperationStore $ops, private string $id, private string $owner, private ?\Closure $killPoint = null) {}
     public function rename(string $from, string $to, string $label): void;
     public function resume(): void;      // settles every "intended" entry from the filesystem; JournalConflict when both or neither path exist
     public function hasForwardChanges(): bool; // a done forward rename not yet reversed
@@ -2351,6 +2617,8 @@ final class JournalTest extends TestCase
     private const SWAP = [['vendor', 'op/vendor.old', 'swap.1'], ['stage/vendor', 'vendor', 'swap.2'], ['composer.lock', 'op/composer.lock.old', 'swap.3'], ['stage/composer.lock', 'composer.lock', 'swap.4']];
     private string $base;
     private OperationStore $ops;
+    private string $id;
+    private string $owner;
 
     protected function setUp(): void
     {
@@ -2363,7 +2631,10 @@ final class JournalTest extends TestCase
         file_put_contents("{$this->base}/composer.lock", 'old-lock');
         file_put_contents("{$this->base}/stage/composer.lock", 'new-lock');
         $this->ops = new OperationStore(new Paths($this->base), static fn (): int => 1);
-        $this->ops->start('2', '1', 'u');
+        [$op] = $this->ops->start('2', '1', 'u');
+        $run = $this->ops->claim($op['id'], 1, 1);
+        $this->id = $run['id'];
+        $this->owner = $run['owner'];
     }
 
     protected function tearDown(): void
@@ -2373,9 +2644,9 @@ final class JournalTest extends TestCase
 
     public function testACompleteSwapThenRollbackRestoresTheOldTree(): void
     {
-        $this->swap(new Journal($this->ops));
+        $this->swap(new Journal($this->ops, $this->id, $this->owner));
         self::assertSame('new', file_get_contents("{$this->base}/vendor/marker"));
-        (new Journal($this->ops))->rollback();
+        (new Journal($this->ops, $this->id, $this->owner))->rollback();
         $this->assertOldTree();
     }
 
@@ -2392,7 +2663,7 @@ final class JournalTest extends TestCase
     public function testAKillAnywhereInTheSwapRollsBackCleanly(string $point): void
     {
         try {
-            $this->swap(new Journal($this->ops, static function (string $label) use ($point): void {
+            $this->swap(new Journal($this->ops, $this->id, $this->owner, static function (string $label) use ($point): void {
                 if ($label === $point) {
                     throw new \RuntimeException('killed');
                 }
@@ -2400,7 +2671,7 @@ final class JournalTest extends TestCase
             self::fail('the kill point did not fire');
         } catch (\RuntimeException) {
         }
-        $after = new Journal($this->ops); // a fresh runner reads only the persisted journal
+        $after = new Journal($this->ops, $this->id, $this->owner); // a fresh runner reads only the persisted journal
         $after->resume();
         $after->rollback();
         $this->assertOldTree();
@@ -2417,16 +2688,16 @@ final class JournalTest extends TestCase
     /** @dataProvider rollbackKillPoints */
     public function testAnInterruptedRollbackResumes(string $point): void
     {
-        $this->swap(new Journal($this->ops));
+        $this->swap(new Journal($this->ops, $this->id, $this->owner));
         try {
-            (new Journal($this->ops, static function (string $label) use ($point): void {
+            (new Journal($this->ops, $this->id, $this->owner, static function (string $label) use ($point): void {
                 if ($label === $point) {
                     throw new \RuntimeException('killed');
                 }
             }))->rollback();
         } catch (\RuntimeException) {
         }
-        $again = new Journal($this->ops);
+        $again = new Journal($this->ops, $this->id, $this->owner);
         $again->resume();
         $again->rollback();
         $this->assertOldTree();
@@ -2474,8 +2745,12 @@ final class JournalConflict extends \RuntimeException
  */
 final class Journal
 {
-    public function __construct(private readonly OperationStore $ops, private readonly ?\Closure $killPoint = null)
-    {
+    public function __construct(
+        private readonly OperationStore $ops,
+        private readonly string $id,
+        private readonly string $owner,
+        private readonly ?\Closure $killPoint = null,
+    ) {
     }
 
     public function rename(string $from, string $to, string $label): void
@@ -2485,7 +2760,7 @@ final class Journal
 
     public function resume(): void
     {
-        $this->ops->update(static function (array $op): array {
+        $this->ops->update($this->id, $this->owner, static function (array $op): array {
             foreach ($op['journal'] as $i => $e) {
                 if ($e['phase'] !== 'intended') {
                     continue;
@@ -2533,7 +2808,7 @@ final class Journal
     private function journaled(string $kind, ?int $reverses, string $label, string $from, string $to): void
     {
         $seq = 0;
-        $this->ops->update(static function (array $op) use ($kind, $reverses, $label, $from, $to, &$seq): array {
+        $this->ops->update($this->id, $this->owner, static function (array $op) use ($kind, $reverses, $label, $from, $to, &$seq): array {
             $seq = count($op['journal']) + 1;
             $op['journal'][] = ['seq' => $seq, 'kind' => $kind, 'reverses' => $reverses, 'label' => $label, 'from' => $from, 'to' => $to, 'phase' => 'intended'];
             return $op;
@@ -2546,7 +2821,7 @@ final class Journal
             throw new \RuntimeException("rename {$from} → {$to} failed");
         }
         $this->kill($label . '.renamed');
-        $this->ops->update(static function (array $op) use ($seq): array {
+        $this->ops->update($this->id, $this->owner, static function (array $op) use ($seq): array {
             $op['journal'][$seq - 1]['phase'] = 'done';
             return $op;
         });
@@ -2959,23 +3234,28 @@ final class ProvisionOutputs {
     /** Snapshot before provision; restore on rollback (journaled renames). */
     public const SNAPSHOT = ['.env', 'config/extensions.php', 'bootstrap/cache/extensions.php', 'public/admin',
         'docs/openapi.json', 'docs/index.html', 'storage/cache/style'];
-    /** Cleared after a rollback by `thallo:update:clear-caches` under the restored code. */
-    public const CLEAR = ['storage/cache/twig', 'storage/cache/container', 'bootstrap/cache/routes.php'];
+    /** Cleared after a rollback by `thallo:update:clear-caches` under the restored code. Entries may be fnmatch patterns. */
+    public const CLEAR = ['storage/cache/twig', 'storage/cache/container', 'storage/cache/routes_*.php'];
     /** Kept as the newer copy whatever happens: self-contained and backward compatible, or a report. */
     public const RETAIN = ['bin/thallo-updater', 'bootstrap/update-guard.php', 'storage/conversion', 'storage/framework/composer'];
     /** Owned by the runner and the journal, not provision's to roll back. */
     public const RUNNER_OWNED = ['vendor', 'composer.lock', 'composer.json', 'storage/logs', 'storage/framework/updates', 'storage/backups'];
-    /** @return array<string,bool> path => present */
+    /**
+     * Copies every SNAPSHOT path, checking every mkdir/copy, then re-reads the copy against the live tree.
+     * Throws \RuntimeException on any failure, so the run fails before the swap (nothing live changed).
+     * @return array{paths: array<string,bool>, files: array<string,array{sha256:string,mode:int}>}
+     */
     public static function snapshot(string $base, string $to): array;
+    /** Verifies the snapshot against the manifest (contents, readability) before any rename; throws when it does not match. */
     public static function restore(string $base, string $snapshotDir, array $manifest, string $workDir, Journal $journal): void;
     /** The rule for a changed path, or null when the inventory does not cover it. */
     public static function ruleFor(string $relativePath): ?string; // 'snapshot'|'clear'|'retain'|'runner'
 }
 ```
 
-The route-cache path in `CLEAR` must be what `RouteCache->clear()` removes. Read
-`vendor/glueful/framework/src/Routing/RouteCache.php` and put its exact file or directory here.
-Proof scenario 18 fails if it is wrong.
+The route cache is `storage/cache/routes_{dev|prod}.php`. The framework's `RouteCache` builds it
+from `base_path('storage/cache')` and `routes_{$env}.php` (`RouteCache.php:24,182`), so it is a
+`CLEAR` pattern. Proof scenario 18 compares full before/after manifests, so a wrong entry fails it.
 
 **Database writes outside migrations:** capability adoption, role grants, starter blocks, font
 library, `install_role_grants.offered`. They have no file rule. They are why any failure after
@@ -3023,8 +3303,9 @@ final class ProvisionOutputsTest extends TestCase
     public function testRestorePutsBackExactlyWhatProvisionChangedIncludingAbsence(): void
     {
         $manifest = ProvisionOutputs::snapshot($this->base, "{$this->base}/snap");
-        self::assertFalse($manifest['docs/index.html']);
-        self::assertTrue($manifest['public/admin']);
+        self::assertFalse($manifest['paths']['docs/index.html']);
+        self::assertTrue($manifest['paths']['public/admin']);
+        self::assertSame(hash('sha256', 'old admin'), $manifest['files']['public/admin/index.html']['sha256']);
 
         // What a newer provision does:
         file_put_contents("{$this->base}/.env", "APP_KEY=old\nNEW_KEY=x\n");
@@ -3038,8 +3319,9 @@ final class ProvisionOutputsTest extends TestCase
         file_put_contents("{$this->base}/bootstrap/cache/extensions.php", '<?php return [];');
 
         $ops = new OperationStore(new Paths($this->base), static fn (): int => 1);
-        $ops->start('2', '1', 'u');
-        ProvisionOutputs::restore($this->base, "{$this->base}/snap", $manifest, "{$this->base}/work", new Journal($ops));
+        [$op] = $ops->start('2', '1', 'u');
+        $run = $ops->claim($op['id'], 1, 1);
+        ProvisionOutputs::restore($this->base, "{$this->base}/snap", $manifest, "{$this->base}/work", new Journal($ops, $run['id'], $run['owner']));
 
         self::assertSame("APP_KEY=old\n", file_get_contents("{$this->base}/.env"));
         self::assertSame('old admin', file_get_contents("{$this->base}/public/admin/index.html"));
@@ -3051,6 +3333,36 @@ final class ProvisionOutputsTest extends TestCase
         self::assertTrue(is_dir("{$this->base}/snap"), 'the backup snapshot is left intact');
     }
 
+    public function testAFailedCopyRefusesTheSnapshot(): void
+    {
+        chmod("{$this->base}/public/admin/assets/app-old.js", 0000);
+        try {
+            ProvisionOutputs::snapshot($this->base, "{$this->base}/snap");
+            self::fail('an unreadable file must refuse the snapshot');
+        } catch (\RuntimeException $e) {
+            self::assertStringContainsString('public/admin/assets/app-old.js', $e->getMessage());
+        } finally {
+            chmod("{$this->base}/public/admin/assets/app-old.js", 0644);
+        }
+    }
+
+    public function testRestoreRefusesATamperedSnapshotBeforeTouchingAnything(): void
+    {
+        $manifest = ProvisionOutputs::snapshot($this->base, "{$this->base}/snap");
+        file_put_contents("{$this->base}/public/admin/index.html", 'new admin');
+        file_put_contents("{$this->base}/snap/public/admin/index.html", 'tampered');
+        $ops = new OperationStore(new Paths($this->base), static fn (): int => 1);
+        [$op] = $ops->start('2', '1', 'u');
+        $run = $ops->claim($op['id'], 1, 1);
+        try {
+            ProvisionOutputs::restore($this->base, "{$this->base}/snap", $manifest, "{$this->base}/work", new Journal($ops, $run['id'], $run['owner']));
+            self::fail('a snapshot that does not match its manifest is never restored');
+        } catch (\RuntimeException) {
+        }
+        self::assertSame('new admin', file_get_contents("{$this->base}/public/admin/index.html"), 'nothing was moved');
+        self::assertSame([], $ops->current()['journal']);
+    }
+
     public function testEveryInventoriedPathHasExactlyOneRule(): void
     {
         $all = array_merge(ProvisionOutputs::SNAPSHOT, ProvisionOutputs::CLEAR, ProvisionOutputs::RETAIN, ProvisionOutputs::RUNNER_OWNED);
@@ -3058,6 +3370,7 @@ final class ProvisionOutputsTest extends TestCase
         self::assertSame('retain', ProvisionOutputs::ruleFor('bin/thallo-updater'));
         self::assertSame('snapshot', ProvisionOutputs::ruleFor('public/admin/assets/x.js'));
         self::assertSame('runner', ProvisionOutputs::ruleFor('vendor/autoload.php'));
+        self::assertSame('clear', ProvisionOutputs::ruleFor('storage/cache/routes_prod.php'));
         self::assertNull(ProvisionOutputs::ruleFor('themes/default/theme.json'), 'an uninventoried path has no rule');
     }
 }
@@ -3079,43 +3392,69 @@ namespace Thallo\Core\Updater;
 
 /**
  * Every file provision can change, each with one rule (Review Focus 4). The proof (scenario 18)
- * diffs a real provision against this list; a changed path without a rule fails it.
+ * diffs full before/after manifests of a real provision against this list; a changed, added or
+ * deleted path without a rule fails it.
  */
 final class ProvisionOutputs
 {
     public const SNAPSHOT = ['.env', 'config/extensions.php', 'bootstrap/cache/extensions.php', 'public/admin',
         'docs/openapi.json', 'docs/index.html', 'storage/cache/style'];
-    public const CLEAR = ['storage/cache/twig', 'storage/cache/container', 'bootstrap/cache/routes.php'];
+    public const CLEAR = ['storage/cache/twig', 'storage/cache/container', 'storage/cache/routes_*.php'];
     public const RETAIN = ['bin/thallo-updater', 'bootstrap/update-guard.php', 'storage/conversion', 'storage/framework/composer'];
     public const RUNNER_OWNED = ['vendor', 'composer.lock', 'composer.json', 'storage/logs', 'storage/framework/updates', 'storage/backups'];
 
-    /** @return array<string,bool> */
+    /** @return array{paths: array<string,bool>, files: array<string,array{sha256:string,mode:int}>} */
     public static function snapshot(string $base, string $to): array
     {
-        $manifest = [];
+        $manifest = ['paths' => [], 'files' => []];
         foreach (self::SNAPSHOT as $path) {
             $src = $base . '/' . $path;
-            $manifest[$path] = file_exists($src);
-            if ($manifest[$path]) {
-                self::copyTree($src, $to . '/' . $path);
+            $manifest['paths'][$path] = file_exists($src);
+            if (!$manifest['paths'][$path]) {
+                continue;
+            }
+            foreach (self::files($src, $path) as $rel => $abs) {
+                $hash = @hash_file('sha256', $abs);
+                if ($hash === false) {
+                    throw new \RuntimeException("Cannot read {$rel} for the snapshot.");
+                }
+                self::mustCopy($abs, $to . '/' . $rel);
+                if (hash_file('sha256', $to . '/' . $rel) !== $hash) {
+                    throw new \RuntimeException("The snapshot copy of {$rel} does not match.");
+                }
+                $manifest['files'][$rel] = ['sha256' => $hash, 'mode' => fileperms($abs) & 0777];
             }
         }
         return $manifest;
     }
 
-    /** @param array<string,bool> $manifest */
     public static function restore(string $base, string $snapshotDir, array $manifest, string $workDir, Journal $journal): void
     {
-        foreach ($manifest as $path => $present) {
+        foreach ($manifest['files'] as $rel => $meta) {
+            $copy = $snapshotDir . '/' . $rel;
+            if (!is_readable($copy) || hash_file('sha256', $copy) !== $meta['sha256']) {
+                throw new \RuntimeException("The snapshot of {$rel} is missing or changed; nothing was restored.");
+            }
+        }
+        foreach ($manifest['paths'] as $path => $present) {
             $live = $base . '/' . $path;
             if (file_exists($live)) {
                 $journal->rename($live, $workDir . '/replaced/' . $path, 'restore.out.' . $path);
             }
-            if ($present) {
-                // Restore from a fresh copy so the backup snapshot stays whole for the owner.
-                self::copyTree($snapshotDir . '/' . $path, $workDir . '/restore/' . $path);
-                $journal->rename($workDir . '/restore/' . $path, $live, 'restore.in.' . $path);
+            if (!$present) {
+                continue;
             }
+            // Restore from a fresh copy so the backup snapshot stays whole for the owner.
+            foreach ($manifest['files'] as $rel => $meta) {
+                if ($rel === $path || str_starts_with($rel, $path . '/')) {
+                    self::mustCopy($snapshotDir . '/' . $rel, $workDir . '/restore/' . $rel);
+                    chmod($workDir . '/restore/' . $rel, $meta['mode']);
+                }
+            }
+            if (is_dir($snapshotDir . '/' . $path) && !is_dir($workDir . '/restore/' . $path)) {
+                self::mustMkdir($workDir . '/restore/' . $path); // an empty directory
+            }
+            $journal->rename($workDir . '/restore/' . $path, $live, 'restore.in.' . $path);
         }
     }
 
@@ -3123,7 +3462,10 @@ final class ProvisionOutputs
     {
         foreach (['snapshot' => self::SNAPSHOT, 'clear' => self::CLEAR, 'retain' => self::RETAIN, 'runner' => self::RUNNER_OWNED] as $rule => $paths) {
             foreach ($paths as $p) {
-                if ($relativePath === $p || str_starts_with($relativePath, rtrim($p, '/') . '/')) {
+                $matches = str_contains($p, '*')
+                    ? fnmatch($p, $relativePath)
+                    : $relativePath === $p || str_starts_with($relativePath, rtrim($p, '/') . '/');
+                if ($matches) {
                     return $rule;
                 }
             }
@@ -3131,20 +3473,33 @@ final class ProvisionOutputs
         return null;
     }
 
-    private static function copyTree(string $from, string $to): void
+    /** @return iterable<string,string> relative path => absolute path, for a file or every file under a directory */
+    private static function files(string $abs, string $rel): iterable
     {
-        if (!is_dir(dirname($to))) {
-            mkdir(dirname($to), 0770, true);
-        }
-        if (is_file($from)) {
-            copy($from, $to);
+        if (is_file($abs)) {
+            yield $rel => $abs;
             return;
         }
-        mkdir($to, 0770, true);
-        $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($from, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::SELF_FIRST);
+        $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($abs, \FilesystemIterator::SKIP_DOTS));
         foreach ($it as $item) {
-            $dest = $to . '/' . substr($item->getPathname(), strlen($from) + 1);
-            $item->isDir() ? @mkdir($dest, 0770, true) : copy($item->getPathname(), $dest);
+            if ($item->isFile()) {
+                yield $rel . '/' . substr($item->getPathname(), strlen($abs) + 1) => $item->getPathname();
+            }
+        }
+    }
+
+    private static function mustCopy(string $from, string $to): void
+    {
+        self::mustMkdir(dirname($to));
+        if (!@copy($from, $to)) {
+            throw new \RuntimeException("Cannot copy {$from} to {$to}.");
+        }
+    }
+
+    private static function mustMkdir(string $dir): void
+    {
+        if (!is_dir($dir) && !@mkdir($dir, 0770, true) && !is_dir($dir)) {
+            throw new \RuntimeException("Cannot create {$dir}.");
         }
     }
 }
@@ -3327,7 +3682,7 @@ git commit -m "feat(updates): the runner's child commands — verify, verified b
 **Files:**
 - Create: `core/src/Updater/Runner.php`, `core/src/Updater/RunnerReport.php`
 - Modify: `scripts/build-updater` (runner list complete: `… ProvisionOutputs, Stager, RunnerReport, Runner`)
-- Test: `tests/Unit/Updater/RunnerTest.php`, `tests/Unit/Updater/FakeHost.php` (test support)
+- Test: `tests/Unit/Updater/RunnerTest.php`, `tests/Unit/Updater/FakeHost.php` (test support), `tests/Unit/Updater/RunnerRealHostTest.php`, fixture site `tests/fixtures/updater/realhost-site/` (a `glueful` stub and a `verify-router.php`)
 
 **Interfaces:**
 - Consumes: everything from Tasks 3–10, and the child commands of Task 11.
@@ -3364,8 +3719,13 @@ everything else:
   `$this->backupExit`.
 - `thallo:provision` exits with `$this->provisionExit`, and runs `$this->onProvision`, which writes
   files the way provision does.
-- `thallo:update:verify` prints `{"version": <current>}`: the target after a swap, `from` after a
-  rollback, decided by reading `vendor/marker`.
+- `thallo:update:verify` returns, **through `runCapture`**, its own stdout `{"version": <current>}`:
+  the target after a swap, `from` after a rollback, decided by reading `vendor/marker`. Its exit
+  code is `$this->verifyExit`.
+- `thallo:update:clear-caches` exits with `$this->clearExit`, and `queue:restart` exits with
+  `$this->restartExit`.
+- `capture(['pgrep', …])` answers `[1, '']`: no group members. The tests' identity has no process
+  group, so `stopGroupMembers` is not called at all.
 - `http()` answers the web verify the same way, from `vendor/marker`.
 - `now()` and `sleep()` use a virtual clock.
 
@@ -3387,6 +3747,9 @@ final class FakeHost implements Host
     public int $backupExit = 0;
     public int $provisionExit = 0;
     public int $stageExit = 0;
+    public int $verifyExit = 0;
+    public int $clearExit = 0;
+    public int $restartExit = 0;
     public ?\Closure $onProvision = null;
     public int $clock = 1_000;
 
@@ -3396,22 +3759,27 @@ final class FakeHost implements Host
 
     public function run(array $argv, string $cwd, array $env, int $timeout, callable $heartbeat): int
     {
+        return $this->runCapture($argv, $cwd, $env, $timeout, $heartbeat)[0];
+    }
+
+    public function runCapture(array $argv, string $cwd, array $env, int $timeout, callable $heartbeat): array
+    {
         $this->calls[] = $argv;
         $heartbeat();
         $joined = implode(' ', $argv);
-        if ($argv[0] === 'cp') {
+        if ($argv[0] === 'cp' || $argv[0] === 'rm') {
             exec(implode(' ', array_map('escapeshellarg', $argv)), $o, $code);
-            return $code;
+            return [$code, ''];
         }
         if (str_contains($joined, ' update glueful/thallo-core:')) {
             $stage = substr((string) end($argv), strlen('--working-dir='));
             @mkdir($stage . '/vendor/composer', 0777, true);
             file_put_contents($stage . '/vendor/composer/installed.json', json_encode(['packages' => [['name' => 'glueful/thallo-core', 'version' => $this->target]]]));
             file_put_contents($stage . '/vendor/marker', 'new');
-            return $this->stageExit;
+            return [$this->stageExit, ''];
         }
         if (in_array('-r', $argv, true)) {
-            return 0;
+            return [0, ''];
         }
         if (str_contains($joined, 'thallo:update:backup')) {
             foreach ($argv as $a) {
@@ -3420,26 +3788,32 @@ final class FakeHost implements Host
                     file_put_contents(substr($a, 5) . '/manifest.json', '{"bytes":1}');
                 }
             }
-            return $this->backupExit;
+            return [$this->backupExit, '{"bytes":1}'];
         }
         if (str_contains($joined, 'thallo:provision')) {
             if ($this->onProvision !== null) {
                 ($this->onProvision)();
             }
-            return $this->provisionExit;
+            return [$this->provisionExit, ''];
         }
         if (str_contains($joined, 'thallo:update:verify')) {
-            file_put_contents($cwd . '/storage/framework/updates/verify.out', json_encode(['version' => $this->installed()]));
-            return 0;
+            return [$this->verifyExit, $this->verifyExit === 0 ? (string) json_encode(['version' => $this->installed()]) . "\n" : ''];
         }
-        return 0; // clear-caches, queue:restart
+        if (str_contains($joined, 'thallo:update:clear-caches')) {
+            return [$this->clearExit, ''];
+        }
+        if (str_contains($joined, 'queue:restart')) {
+            return [$this->restartExit, ''];
+        }
+        return [0, ''];
     }
-
     public function capture(array $argv, string $cwd): array
     {
         $this->calls[] = $argv;
         $joined = implode(' ', $argv);
         return match (true) {
+            $argv[0] === 'pgrep' => [1, ''],
+            $argv[0] === 'ps' => [0, ''],
             str_contains($joined, '--estimate') => [0, '{"database_bytes":1000}'],
             str_contains($joined, 'composer') && str_contains($joined, '--version') => [0, 'Composer version 2.8.4 2024-12-11'],
             str_contains($joined, '--version') => [0, 'pg_dump (PostgreSQL) 16.4'],
@@ -3473,12 +3847,6 @@ final class FakeHost implements Host
 }
 ```
 
-The runner reads child JSON output from the operation log in production. To keep the fake simple,
-`Runner::childJson()` reads `<cwd>/storage/framework/updates/verify.out` when that file exists, and
-otherwise the last JSON line the child wrote to the log. The production child writes nothing to
-`verify.out`, so in production only the log path is ever taken. Record this as a ruling if a
-reviewer objects; the alternative is a pipe-capturing `Host::run`.
-
 ```php
 <?php
 
@@ -3500,6 +3868,7 @@ final class RunnerTest extends TestCase
     private Paths $paths;
     private OperationStore $ops;
     private FakeHost $host;
+    private string $token;
 
     protected function setUp(): void
     {
@@ -3514,7 +3883,7 @@ final class RunnerTest extends TestCase
         $this->paths = new Paths($this->base);
         $this->ops = new OperationStore($this->paths, fn (): int => $this->host->clock);
         $this->host = new FakeHost($this->base, '1.0.0-beta.101', '1.0.0-beta.102');
-        $this->ops->start('1.0.0-beta.102', '1.0.0-beta.101', 'owner');
+        [, $this->token] = $this->ops->start('1.0.0-beta.102', '1.0.0-beta.101', 'owner');
     }
 
     protected function tearDown(): void
@@ -3530,7 +3899,7 @@ final class RunnerTest extends TestCase
         self::assertSame(Runner::STEPS, array_column($op['steps'], 'name'));
         self::assertSame('new', file_get_contents("{$this->base}/vendor/marker"));
         self::assertFileDoesNotExist($this->paths->closedFlag());
-        self::assertNotNull($op['verified_target_at']);
+        self::assertNotNull($op['reopen_ready_at']);
         self::assertContains('queue:restart', array_merge(...$this->host->calls));
         self::assertDirectoryDoesNotExist($this->paths->opDir($op['id']) . '/stage');
     }
@@ -3585,11 +3954,11 @@ final class RunnerTest extends TestCase
         $this->killAt('swap.2.renamed');
         $this->runner()->tick();
         self::assertSame(Status::RECOVERY_REQUIRED, $this->ops->current()['status']);
-        $this->ops->requestRecovery('rollback');
+        $this->ops->requestRecovery($this->token, 'rollback');
         $this->runner()->tick();
         self::assertSame('old', file_get_contents("{$this->base}/vendor/marker"));
         self::assertSame(Status::RECOVERY_REQUIRED, $this->ops->current()['status'], 'code back, still closed until the owner reopens');
-        $this->ops->requestRecovery('reopen');
+        $this->ops->requestRecovery($this->token, 'reopen');
         $this->runner()->tick();
         self::assertSame(Status::RECOVERED_BY_OWNER, $this->ops->current()['status']);
         self::assertFileDoesNotExist($this->paths->closedFlag());
@@ -3619,10 +3988,70 @@ final class RunnerTest extends TestCase
         $this->host->onProvision = fn () => file_put_contents("{$this->base}/public/admin/index.html", 'new admin');
         $this->host->provisionExit = 1;
         $this->runner()->tick();
-        $this->ops->requestRecovery('rollback');
+        $this->ops->requestRecovery($this->token, 'rollback');
         $this->runner()->tick();
         self::assertSame('old admin', file_get_contents("{$this->base}/public/admin/index.html"));
         self::assertSame('old', file_get_contents("{$this->base}/vendor/marker"));
+    }
+
+    public function testAFailedVerificationIsAFailureEvenWithAnOldSuccessInTheLog(): void
+    {
+        file_put_contents($this->paths->log($this->ops->current()['id']), '{"version":"1.0.0-beta.102"}' . "
+");
+        $this->host->verifyExit = 1;
+        $this->runner()->tick();
+        self::assertSame(Status::RECOVERY_REQUIRED, $this->ops->current()['status'], 'the stale log line is never read as this check's answer');
+        self::assertFileExists($this->paths->closedFlag());
+    }
+
+    public function testAFailedCacheClearNeverReachesTheReopenMarker(): void
+    {
+        $this->host->clearExit = 1;
+        $this->runner()->tick();
+        $op = $this->ops->current();
+        self::assertSame(Status::RECOVERY_REQUIRED, $op['status']);
+        self::assertNull($op['reopen_ready_at']);
+        self::assertFileExists($this->paths->closedFlag());
+        $this->runner()->tick(); // and a later tick does not reopen it either
+        self::assertFileExists($this->paths->closedFlag());
+    }
+
+    public function testAFailedWorkerSignalNeverReachesTheReopenMarker(): void
+    {
+        $this->host->restartExit = 1;
+        $this->runner()->tick();
+        self::assertSame(Status::FAILED, $this->ops->current()['status'], 'the signal at close fails before anything changed');
+        self::assertFileDoesNotExist($this->paths->closedFlag());
+    }
+
+    public function testAPausedTickResumingAfterCompletionAndANewStartTouchesOnlyWhatItNowOwns(): void
+    {
+        $first = $this->ops->current()['id'];
+        $second = null;
+        // Runner A pauses before taking the run lock; meanwhile runner B completes the operation and a new one starts.
+        $paused = $this->runner(function (string $name) use (&$second): void {
+            if ($name === 'tick.before-lock' && $second === null) {
+                $this->runner()->tick();
+                [$op] = $this->ops->start('1.0.0-beta.103', '1.0.0-beta.102', 'owner');
+                $second = $op['id'];
+            }
+        });
+        $paused->tick();
+        $ops = $this->ops->current();
+        self::assertSame($second, $ops['id'], 'the successor is current');
+        self::assertNotSame($first, $ops['id']);
+        // A claimed only the successor it re-read under the lock; nothing of the first was rewritten.
+        self::assertContains($ops['status'], [Status::SUCCEEDED, Status::RECOVERY_REQUIRED, Status::FAILED]);
+        self::assertSame('1.0.0-beta.103', $ops['target']);
+    }
+
+    public function testAStaleRunnerIsFencedOutOfTheSuccessor(): void
+    {
+        $this->runner()->tick();
+        $done = $this->ops->current();
+        [$next] = $this->ops->start('1.0.0-beta.103', '1.0.0-beta.102', 'owner');
+        $this->expectException(\Thallo\Core\Updater\Fenced::class);
+        $this->ops->finish($done['id'], (string) $done['owner'], Status::FAILED, 'late');
     }
 
     public function testASecondTickCannotClaimWhileTheFirstHoldsTheRunLock(): void
@@ -3660,9 +4089,34 @@ final class RunnerTest extends TestCase
 }
 ```
 
-The runner must **not** catch the kill exception: kill points rethrow past every `catch`. Implement
-it with a dedicated private exception class, `Killed`, raised by `killPoint()` when `$onKillPoint`
-throws, and rethrown untouched by each step's `catch (\Throwable)`.
+The runner must **not** catch the kill exception: kill points rethrow past every `catch`. The code
+below wraps it in `Killed`, which each step's `catch` rethrows as the original exception, so the test
+sees its own.
+
+**`RunnerRealHostTest`** drives the same runner through `RealHost`, real child processes and a real
+HTTP server, so the descriptor handling is tested for real. In `setUp` it does the following:
+- copies `tests/fixtures/updater/realhost-site/` to a temp base;
+- starts `php -S 127.0.0.1:<free port> verify-router.php` there. The router answers
+  `POST /_update/verify` from `vendor/marker`, exactly as `FakeHost::http` does;
+- uses a `glueful` stub, a PHP script that does the following:
+  - for each argument, does what `FakeHost` scripts;
+  - for `thallo:update:verify`, prints the version from `vendor/marker`;
+  - for `clear-caches`, exits with the code in `storage/clear-exit` (default 0);
+  - always calls `fstat(STDOUT)`, and also checks that every inherited descriptor from 3 up is a
+    valid open stream (`@fstat(fopen('php://fd/3', 'r'))`), exiting 99 when one is closed.
+- Composer is a stub script too, set through `settings['composer']`, that writes the staged tree as
+  the fake does.
+
+The tests:
+1. `testReopeningThroughRealHostPassesNoClosedDescriptor`: the full happy path through `RealHost`.
+   Every child after the barrier's release exits 0, never 99, and the result is `succeeded`.
+2. `testStaleVerificationOutputIsNotSuccessThroughRealHost`: the log already holds an old success
+   line, and the stub `verify` exits 1 with no output. The result is `recovery_required`.
+3. `testAFailedCacheClearThroughRealHostKeepsTheSiteClosed`: `storage/clear-exit` holds `1`. The
+   result is `recovery_required`, `reopen_ready_at` is null, and `closed.flag` stays.
+4. `testTheRunLockIsInheritedByChildren`: a stub command records whether descriptor 3 is a lock on
+   `run.lock`, by calling `flock(LOCK_EX|LOCK_NB)` on a fresh `fopen` of `run.lock` from inside the
+   child. That must fail while the runner runs.
 
 - [ ] **Step 2: Run to see them fail**
 
@@ -3678,9 +4132,18 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Updater;
 
+final class Killed extends \RuntimeException
+{
+    public function __construct(public readonly \Throwable $cause)
+    {
+        parent::__construct($cause->getMessage());
+    }
+}
+
 /**
  * The update runner (spec §3, §8, §10). Run by cron as the code owner: `php bin/thallo-updater tick`.
- * Self-contained once started; everything that needs the application runs as a child.
+ * Self-contained once started; everything that needs the application runs as a child. Every write
+ * names the operation id and the owner this runner was given (OperationStore fencing).
  */
 final class Runner
 {
@@ -3691,6 +4154,8 @@ final class Runner
     /** @var resource|null */
     private $barrierLock = null;
     private ?Journal $journal = null;
+    private ?string $id = null;
+    private ?string $owner = null;
 
     public function __construct(
         private readonly Paths $paths,
@@ -3712,6 +4177,7 @@ final class Runner
         $paths = new Paths($base);
         $ops = new OperationStore($paths, static fn (): int => time());
         $env = self::dotenv($base . '/.env');
+        $report = AtomicFile::readJson($paths->runnerReport()) ?? [];
         $settings = [
             'php' => PHP_BINARY,
             'composer' => getenv('COMPOSER_BINARY') ?: self::which('composer'),
@@ -3719,14 +4185,14 @@ final class Runner
             'verify_host' => (string) (parse_url($env['BASE_URL'] ?? '', PHP_URL_HOST) ?: ''),
             'keep_backups' => (int) ($env['THALLO_UPDATE_KEEP_BACKUPS'] ?? 3),
             'barrier_timeout' => (int) ($env['THALLO_UPDATE_BARRIER_TIMEOUT'] ?? 600),
+            'child_timeout' => (int) ($env['THALLO_UPDATE_CHILD_TIMEOUT'] ?? 3600),
             // Spec §8 step 9: opcache.revalidate_freq (from PHP-FPM's own probe) + 30 s.
-            'web_settle' => 30 + (int) (AtomicFile::readJson($paths->runnerReport())['web']['opcache']['revalidate_freq'] ?? 2),
+            'web_settle' => 30 + (int) ($report['web']['opcache']['revalidate_freq'] ?? 2),
         ];
         $op = $ops->current();
         $log = $op !== null ? $paths->log($op['id']) : $base . '/storage/logs/updater.log';
-        $host = new RealHost($log, []);
         $identity = static fn (): array => [getmypid(), function_exists('posix_getpgid') ? (posix_getpgid(0) ?: null) : null];
-        $runner = new self($paths, $ops, new Barrier($paths), $host, $settings, $identity);
+        $runner = new self($paths, $ops, new Barrier($paths), new RealHost($log, []), $settings, $identity);
         return match ($argv[1] ?? 'tick') {
             'tick' => $runner->tick(),
             'recover' => $runner->recoverFromTerminal($argv[2] ?? ''),
@@ -3738,46 +4204,56 @@ final class Runner
 
     public function tick(): int
     {
+        $this->ensureSecret();
         RunnerReport::write($this->paths, $this->host, $this->settings);
-        $op = $this->ops->current();
-        if ($op === null) {
+        if ($this->ops->current() === null) {
             return 0;
         }
-        if ($op['status'] === Status::RUNNING) {
-            $lock = Liveness::claimIfDead($op, $this->paths);
-            if ($lock !== null) {
-                $this->runLock = $lock;
-                $this->afterDeath($op);
-            }
-            return 0;
+        $this->killPoint('tick.before-lock');
+        $lock = FileLock::exclusive($this->paths->runLock(), false);
+        if ($lock === null) {
+            return 0; // a live runner, or a descendant still holding the inherited lock, owns execution
         }
-        if ($op['status'] === Status::RECOVERY_REQUIRED && $op['recovery_request'] !== null) {
-            $this->runLock = FileLock::exclusive($this->paths->runLock(), false);
-            if ($this->runLock !== null) {
-                $this->recover($op['recovery_request']);
-            }
-            return 0;
+        $this->runLock = $lock;
+        if ($this->host instanceof RealHost) {
+            $this->host->inherit($lock); // every child keeps execution ownership while it lives
         }
-        if ($op['status'] !== Status::REQUESTED) {
-            return 0;
-        }
-        $this->runLock = FileLock::exclusive($this->paths->runLock(), false);
-        if ($this->runLock === null) {
-            return 0; // another tick owns it
-        }
+        $op = $this->ops->current(); // re-read: only what is true now that we own execution counts
         [$pid, $pgid] = ($this->identity)();
-        $op = $this->ops->claim($pid, $pgid ?? 0);
-        if ($op === null) {
+        $claimed = null;
+        $then = null;
+        if ($op['status'] === Status::RUNNING && !Liveness::groupAlive(isset($op['pgid']) ? (int) $op['pgid'] : null)) {
+            $claimed = $this->ops->takeOver($op['id'], (string) $op['owner'], $pid, $pgid);
+            $then = fn (array $o) => $this->afterDeath($op, $o);
+        } elseif ($op['status'] === Status::RECOVERY_REQUIRED && $op['recovery_request'] !== null) {
+            $claimed = $this->ops->claimRecovery($op['id'], $pid, $pgid);
+            $then = fn (array $o) => $this->recover((string) $o['recovering']);
+        } elseif ($op['status'] === Status::REQUESTED) {
+            $claimed = $this->ops->claim($op['id'], $pid, $pgid);
+            $then = function (array $o): void {
+                AtomicFile::write($this->paths->verifySecret(), bin2hex(random_bytes(32)) . "\n", 0640); // rotated per operation
+                $this->runFrom('preflight');
+            };
+        }
+        if ($claimed === null) {
+            $this->releaseRunLock();
             return 0;
         }
-        $this->runFrom('preflight');
+        $this->id = $claimed['id'];
+        $this->owner = $claimed['owner'];
+        $this->journal = null;
+        $then($claimed);
         return 0;
     }
 
     public function killPoint(string $name): void
     {
         if ($this->onKillPoint !== null) {
-            ($this->onKillPoint)($name);
+            try {
+                ($this->onKillPoint)($name);
+            } catch (\Throwable $t) {
+                throw new Killed($t);
+            }
             return;
         }
         if (is_file($this->paths->proofMarker()) && getenv('THALLO_UPDATER_KILL_AT') === $name && function_exists('posix_kill')) {
@@ -3785,12 +4261,10 @@ final class Runner
         }
     }
 
-    /** Runs the steps from $first; every failure ends in one of the end states of spec §5. */
     private function runFrom(string $first): void
     {
-        $op = $this->ops->current();
-        $id = $op['id'];
-        $stage = $this->paths->opDir($id) . '/stage';
+        $op = $this->current();
+        $stage = $this->paths->opDir($op['id']) . '/stage';
         $steps = array_slice(self::STEPS, (int) array_search($first, self::STEPS, true));
         try {
             foreach ($steps as $step) {
@@ -3800,18 +4274,20 @@ final class Runner
                     'stage' => $this->stage($stage, $op['target']),
                     'close' => $this->close(),
                     'barrier' => $this->takeBarrier(),
-                    'backup' => $this->backup($id),
-                    'swap' => $this->swap($id, $stage),
+                    'backup' => $this->backup($op['id']),
+                    'swap' => $this->swap($op['id'], $stage),
                     'provision' => $this->provision(),
                     'verify_cli' => $this->verifyCli($op['target']),
                     'verify_web' => $this->verifyWeb($op['target']),
-                    'reopen' => $this->reopen($id),
+                    'reopen' => $this->reopen($op['id']),
                 };
                 $this->end($step);
                 $this->killPoint($step . '.done');
             }
         } catch (Killed $k) {
             throw $k->cause;
+        } catch (Fenced) {
+            return; // we no longer own this operation: touch nothing
         } catch (\Throwable $e) {
             $this->onFailure($e->getMessage());
         }
@@ -3819,19 +4295,24 @@ final class Runner
 
     private function onFailure(string $error): void
     {
-        $op = $this->ops->current();
-        $journal = $this->journal();
-        if ($op['provision_started']) {
-            $this->ops->finish(Status::RECOVERY_REQUIRED, $error); // spec §10: never reopens by itself
+        $op = $this->current();
+        try {
+            $this->stopDescendants(); // nothing we started may still be changing files
+        } catch (\Throwable $e) {
+            $this->finish(Status::RECOVERY_REQUIRED, $error . ' — ' . $e->getMessage());
             return;
         }
+        if ($op['provision_started']) {
+            $this->finish(Status::RECOVERY_REQUIRED, $error); // spec §10: never reopens by itself
+            return;
+        }
+        $journal = $this->journal();
         if (!$journal->hasForwardChanges()) {
             $this->barrier->open();
             $this->releaseBarrier();
-            $this->ops->finish(Status::FAILED, $error);
+            $this->finish(Status::FAILED, $error);
             return;
         }
-        // A failure in the swap: roll the code back, reopen only when both verifications say `from`.
         try {
             $journal->resume();
             $journal->rollback();
@@ -3839,49 +4320,46 @@ final class Runner
             $this->verifyWeb($op['from']);
             $this->barrier->open();
             $this->releaseBarrier();
-            $this->ops->finish(Status::ROLLED_BACK, $error);
+            $this->finish(Status::ROLLED_BACK, $error);
         } catch (Killed $k) {
             throw $k->cause;
         } catch (\Throwable $e) {
-            $this->ops->finish(Status::RECOVERY_REQUIRED, $error . ' — rollback: ' . $e->getMessage());
+            $this->finish(Status::RECOVERY_REQUIRED, $error . ' — rollback: ' . $e->getMessage());
         }
     }
 
-    /** A dead run found by tick (spec §5; plan rulings 3 and 4; Review Focus 1). */
-    private function afterDeath(array $op): void
+    /**
+     * A dead run, now owned by this runner (spec §5; rulings 3 and 4; Review Focus 1). $dead is the
+     * operation as found; reopen_ready_at is set only after every reopen prerequisite succeeded.
+     */
+    private function afterDeath(array $dead, array $op): void
     {
-        if ($op['verified_target_at'] !== null) {
-            $this->child(['thallo:update:clear-caches']);
+        if ($op['reopen_ready_at'] !== null) {
             $this->barrier->open();
-            $this->child(['queue:restart']);
-            $this->ops->finish(Status::SUCCEEDED, null);
+            $this->finish(Status::SUCCEEDED, null);
             return;
         }
         try {
             $this->journal()->resume();
         } catch (JournalConflict $e) {
-            $this->ops->finish(Status::RECOVERY_REQUIRED, $e->getMessage());
+            $this->finish(Status::RECOVERY_REQUIRED, $e->getMessage());
             return;
         }
         if (!$op['provision_started'] && !$this->journal()->hasForwardChanges()) {
             $this->barrier->open();
-            $this->ops->finish(Status::FAILED, 'The runner stopped before changing anything (' . $op['step'] . ').');
+            $this->finish(Status::FAILED, 'The runner stopped before changing anything (' . $dead['step'] . ').');
             return;
         }
-        $this->ops->finish(Status::RECOVERY_REQUIRED, 'The runner stopped during ' . $op['step'] . '.');
+        $this->finish(Status::RECOVERY_REQUIRED, 'The runner stopped during ' . $dead['step'] . '.');
     }
 
     private function recover(string $option): void
     {
-        $op = $this->ops->update(static function (array $op): array {
-            $op['status'] = Status::RUNNING;
-            $op['recovery_request'] = null;
-            return $op;
-        });
+        $op = $this->current();
         try {
             if ($option === 'reopen') {
                 $this->barrier->open();
-                $this->ops->finish(Status::RECOVERED_BY_OWNER, null);
+                $this->finish(Status::RECOVERED_BY_OWNER, null);
                 return;
             }
             $this->takeBarrier();
@@ -3892,17 +4370,21 @@ final class Runner
             $journal = $this->journal();
             $journal->resume();
             $journal->rollback();
-            if ($op['provision_started'] && is_array($op['provision_manifest'] ?? null)) {
-                ProvisionOutputs::restore($this->paths->base, $this->paths->backupDir($op['id']) . '/provision', $op['provision_manifest'], $this->paths->opDir($op['id']) . '/restore-' . $this->host->now(), $journal);
+            if ($op['provision_started'] && is_array($op['provision_manifest'])) {
+                ProvisionOutputs::restore($this->paths->base, $this->paths->backupDir($op['id']) . '/provision', $op['provision_manifest'],
+                    $this->paths->opDir($op['id']) . '/restore-' . $this->host->now(), $journal);
             }
-            $this->child(['thallo:update:clear-caches']);
+            $this->mustChild(['thallo:update:clear-caches'], 'Clearing caches');
             $this->verifyCli($op['from']);
             $this->verifyWeb($op['from']);
-            $this->ops->finish(Status::RECOVERY_REQUIRED, 'The code is back on ' . $op['from'] . '. Restore the database from the backup if the update changed it, then reopen the site.');
+            $this->releaseBarrier();
+            $this->finish(Status::RECOVERY_REQUIRED, 'The code is back on ' . $op['from'] . '. Restore the database from the backup if the update changed it, then reopen the site.');
         } catch (Killed $k) {
             throw $k->cause;
+        } catch (Fenced) {
+            return;
         } catch (\Throwable $e) {
-            $this->ops->finish(Status::RECOVERY_REQUIRED, 'Recovery (' . $option . ') failed: ' . $e->getMessage());
+            $this->finish(Status::RECOVERY_REQUIRED, 'Recovery (' . $option . ') failed: ' . $e->getMessage());
         }
     }
 
@@ -3922,16 +4404,13 @@ final class Runner
 
     private function close(): void
     {
-        AtomicFile::write($this->paths->verifySecret(), bin2hex(random_bytes(32)) . "\n", 0640);
         $this->barrier->close();
-        $this->child(['queue:restart']);
+        $this->mustChild(['queue:restart'], 'Signalling the workers');
     }
 
     private function takeBarrier(): void
     {
-        $now = fn (): int => $this->host->now();
-        $sleep = fn () => $this->host->sleep(1);
-        $this->barrierLock = $this->barrier->acquire((int) $this->settings['barrier_timeout'], $now, $sleep);
+        $this->barrierLock = $this->barrier->acquire((int) $this->settings['barrier_timeout'], fn (): int => $this->host->now(), fn () => $this->host->sleep(1));
         if ($this->barrierLock === null) {
             throw new \RuntimeException('The barrier timed out: a request, job or scheduler run did not finish within ' . $this->settings['barrier_timeout'] . ' s.');
         }
@@ -3943,12 +4422,12 @@ final class Runner
     private function backup(string $id): void
     {
         $dir = $this->paths->backupDir($id);
-        if ($this->child(['thallo:update:backup', '--to=' . $dir, '--json']) !== 0) {
-            throw new \RuntimeException('The database backup failed or could not be verified (see the log).');
+        $this->mustChild(['thallo:update:backup', '--to=' . $dir, '--json'], 'The database backup');
+        if (!@copy($this->paths->base . '/composer.lock', $dir . '/composer.lock')) {
+            throw new \RuntimeException('Cannot copy composer.lock into the backup.');
         }
-        copy($this->paths->base . '/composer.lock', $dir . '/composer.lock');
-        $manifest = ProvisionOutputs::snapshot($this->paths->base, $dir . '/provision');
-        $this->ops->update(static function (array $op) use ($dir, $manifest): array {
+        $manifest = ProvisionOutputs::snapshot($this->paths->base, $dir . '/provision'); // throws on any failed copy
+        $this->update(static function (array $op) use ($dir, $manifest): array {
             $op['backup'] = ['path' => $dir];
             $op['provision_manifest'] = $manifest;
             return $op;
@@ -3967,21 +4446,22 @@ final class Runner
 
     private function provision(): void
     {
-        $this->ops->update(static function (array $op): array {
-            $op['provision_started'] = true;
-            return $op;
-        });
-        if ($this->child(['thallo:provision', '--no-interaction']) !== 0) {
-            throw new \RuntimeException('Provision failed (see the log).');
-        }
+        $this->update(static fn (array $op): array => ['provision_started' => true] + $op);
+        $this->mustChild(['thallo:provision', '--no-interaction'], 'Provision');
     }
 
+    /** This command's own exit code and stdout — never an older line of the log. */
     private function verifyCli(string $expected): void
     {
-        $this->child(['thallo:update:verify', '--json']);
-        $got = $this->childJson()['version'] ?? null;
-        if (ltrim((string) $got, 'v') !== ltrim($expected, 'v')) {
-            throw new \RuntimeException("The command line reports {$got}, expected {$expected}.");
+        [$code, $out] = $this->child(['thallo:update:verify', '--json']);
+        if ($code !== 0) {
+            throw new \RuntimeException("The command-line check exited {$code}.");
+        }
+        $lines = preg_split('/\R/', trim($out)) ?: [];
+        $data = json_decode((string) end($lines), true);
+        $got = is_array($data) ? (string) ($data['version'] ?? '') : '';
+        if ($got === '' || ltrim($got, 'v') !== ltrim($expected, 'v')) {
+            throw new \RuntimeException("The command line reports '{$got}', expected {$expected}.");
         }
     }
 
@@ -4011,17 +4491,23 @@ final class Runner
         throw new \RuntimeException("PHP-FPM did not confirm {$expected}: {$last}");
     }
 
+    /**
+     * Every prerequisite first — caches cleared, workers signalled, no descendant left — then the
+     * durable marker; after it only flag removal, barrier release and the status remain, which a
+     * later tick completes if this runner dies (Review Focus 1).
+     */
     private function reopen(string $id): void
     {
-        $this->ops->update(fn (array $op): array => ['verified_target_at' => $this->host->now()] + $op);
-        $this->child(['thallo:update:clear-caches']);
+        $this->mustChild(['thallo:update:clear-caches'], 'Clearing caches');
+        $this->mustChild(['queue:restart'], 'Signalling the workers');
+        $this->stopDescendants();
+        $this->update(fn (array $op): array => ['reopen_ready_at' => $this->host->now()] + $op);
         $this->killPoint('reopen.before-open');
         $this->barrier->open();
         $this->killPoint('reopen.after-open');
         $this->releaseBarrier();
         $this->killPoint('reopen.after-release');
-        $this->child(['queue:restart']);
-        $this->ops->finish(Status::SUCCEEDED, null);
+        $this->finish(Status::SUCCEEDED, null);
         $this->host->run(['rm', '-rf', $this->paths->opDir($id)], $this->paths->base, [], 600, static function (): void {});
         $this->pruneBackups();
     }
@@ -4035,44 +4521,62 @@ final class Runner
         }
     }
 
-    /** @param list<string> $args */
-    private function child(array $args): int
+    /** @param list<string> $args @return array{0:int,1:string} */
+    private function child(array $args): array
     {
-        return $this->host->run(array_merge([$this->settings['php'], $this->paths->base . '/glueful'], $args), $this->paths->base, ['THALLO_UPDATE_CHILD' => '1'], 3600, $this->heartbeat());
+        return $this->host->runCapture(array_merge([$this->settings['php'], $this->paths->base . '/glueful'], $args), $this->paths->base,
+            ['THALLO_UPDATE_CHILD' => '1'], (int) $this->settings['child_timeout'], $this->heartbeat());
     }
 
-    private function childJson(): array
+    /** @param list<string> $args */
+    private function mustChild(array $args, string $what): void
     {
-        $out = $this->paths->dir() . '/verify.out';
-        if (is_file($out)) {
-            $data = json_decode((string) file_get_contents($out), true);
-            @unlink($out);
-            return is_array($data) ? $data : [];
+        [$code] = $this->child($args);
+        if ($code !== 0) {
+            throw new \RuntimeException("{$what} failed (exit {$code}; see the log).");
         }
+    }
+
+    private function stopDescendants(): void
+    {
+        [$pid, $pgid] = ($this->identity)();
+        if ($pgid !== null) {
+            ChildProcess::stopGroupMembers($pgid, $pid, $this->host);
+        }
+    }
+
+    private function current(): array
+    {
         $op = $this->ops->current();
-        $lines = array_reverse(file($this->paths->log($op['id']), FILE_IGNORE_NEW_LINES) ?: []);
-        foreach ($lines as $line) {
-            $data = json_decode($line, true);
-            if (is_array($data)) {
-                return $data;
-            }
+        if ($op === null || $op['id'] !== $this->id || $op['owner'] !== $this->owner) {
+            throw new Fenced('Operation changed hands');
         }
-        return [];
+        return $op;
+    }
+
+    private function update(callable $mutate): array
+    {
+        return $this->ops->update((string) $this->id, (string) $this->owner, $mutate);
+    }
+
+    private function finish(string $status, ?string $error): void
+    {
+        $this->ops->finish((string) $this->id, (string) $this->owner, $status, $error);
     }
 
     private function heartbeat(): \Closure
     {
-        return fn () => $this->ops->update(fn (array $op): array => ['heartbeat_at' => $this->host->now()] + $op);
+        return fn () => $this->update(fn (array $op): array => ['heartbeat_at' => $this->host->now()] + $op);
     }
 
     private function begin(string $step): void
     {
-        $this->ops->update(fn (array $op): array => array_merge($op, ['step' => $step, 'steps' => array_merge($op['steps'], [['name' => $step, 'status' => 'running', 'started_at' => $this->host->now(), 'ended_at' => null]])]));
+        $this->update(fn (array $op): array => array_merge($op, ['step' => $step, 'steps' => array_merge($op['steps'], [['name' => $step, 'status' => 'running', 'started_at' => $this->host->now(), 'ended_at' => null]])]));
     }
 
     private function end(string $step): void
     {
-        $this->ops->update(function (array $op) use ($step): array {
+        $this->update(function (array $op): array {
             $last = count($op['steps']) - 1;
             $op['steps'][$last]['status'] = 'done';
             $op['steps'][$last]['ended_at'] = $this->host->now();
@@ -4083,7 +4587,8 @@ final class Runner
     private function requireNoProblems(array $report): void
     {
         $problems = array_merge($report['shape_problems'], $report['writable'] ? [] : ['The runner cannot write the code.'],
-            $report['composer_ok'] ? [] : ['Composer is missing or too old.'], ($report['pg_dump'] && $report['pg_restore']) ? [] : ['pg_dump or pg_restore is missing.']);
+            $report['composer_ok'] ? [] : ['Composer is missing or too old.'], ($report['pg_dump'] && $report['pg_restore']) ? [] : ['pg_dump or pg_restore is missing.'],
+            $report['unguarded_workers'] === [] ? [] : ['Queue workers started before the guard was installed are still running.']);
         if ($problems !== []) {
             throw new \RuntimeException(implode(' ', $problems));
         }
@@ -4091,36 +4596,64 @@ final class Runner
 
     private function journal(): Journal
     {
-        return $this->journal ??= new Journal($this->ops, fn (string $label) => $this->killPoint($label));
+        return $this->journal ??= new Journal($this->ops, (string) $this->id, (string) $this->owner, fn (string $label) => $this->killPoint($label));
+    }
+
+    private function ensureSecret(): void
+    {
+        // The probe needs a secret before any operation exists (first enablement, preflight, selftest).
+        if (!is_file($this->paths->verifySecret())) {
+            if (!is_dir($this->paths->dir())) {
+                mkdir($this->paths->dir(), 0770, true);
+            }
+            AtomicFile::write($this->paths->verifySecret(), bin2hex(random_bytes(32)) . "\n", 0640);
+        }
     }
 
     private function releaseBarrier(): void
     {
         if ($this->barrierLock !== null) {
+            if ($this->host instanceof RealHost) {
+                $this->host->forget($this->barrierLock); // never hand a closed handle to a later child
+            }
             FileLock::release($this->barrierLock);
             $this->barrierLock = null;
+        }
+    }
+
+    private function releaseRunLock(): void
+    {
+        if ($this->runLock !== null) {
+            if ($this->host instanceof RealHost) {
+                $this->host->forget($this->runLock);
+            }
+            FileLock::release($this->runLock);
+            $this->runLock = null;
         }
     }
 }
 ```
 
-The class does not end there; also implement, in the same file:
+Also implement, in the same file:
 
-- **`killPoint()` and the `Killed` exception.** The test's `$onKillPoint` throws a
-  `RuntimeException`. `killPoint()` wraps the call:
-  `try { ($this->onKillPoint)($name); } catch (\Throwable $t) { throw new Killed($t); }`, with
-  `final class Killed extends \RuntimeException { public function __construct(public readonly \Throwable $cause) { parent::__construct($cause->getMessage()); } }`.
-  `runFrom()` and `recover()` rethrow `$k->cause`, so the test sees its own exception.
 - **`recoverFromTerminal(string $flag)`.** It maps `--rollback`, `--retry-provision` and `--reopen`
-  to `requestRecovery()`, then calls `tick()`.
-- **`printToken()`.** It prints the token from `rotateToken()` and the `/_update` URL from `BASE_URL`.
+  to `requestRecoveryAsOwner($currentId, …)`, then calls `tick()`.
+- **`printToken()`.** It prints the token from `rotateToken($currentId)` and the `/_update` URL from `BASE_URL`.
 - **`selftest()`.** It prints one line per check and returns 0 only when all pass:
   - the runner owns `vendor/` (`fileowner === posix_geteuid()`);
   - the guard file exists and both entry points include it;
-  - the web probe answers 200 with `writable_code === false`;
-  - the state folder is writable;
-  - `admission.lock` can be taken exclusively within 5 s (it is released at once, and the site is
-    never closed);
+  - `verify.secret` exists (`tick` creates it on its first run, before any operation, so the probe
+    works at first enablement);
+  - the web probe answers 200 with all of:
+    - `writable_code === false`;
+    - `admission_ok === true`: PHP-FPM can open `admission.lock` and take a shared lock;
+    - `state_writable === true`;
+  - the state folder is writable by the runner;
+  - **no exclusive admission lock is attempted.** A healthy, long-running guarded worker holds a
+    shared lock for its whole life, so an exclusive check would fail on a correct install. The
+    barrier itself is proven by the proof (scenarios 9 and 20);
+  - `unguarded_workers` is empty (see below), and the guard has settled (`guard_settling` is false);
+  - `pgrep` and `ps` run;
   - Composer runs (`php composer --version`);
   - `pg_dump --version` and `pg_restore --version` run.
 - **`dotenv()` and `which()`.** Minimal `KEY=VALUE` parsing that strips quotes, and a `PATH`
@@ -4137,8 +4670,15 @@ Every read of a command's output (versions, `du`, the estimate) goes through `Ho
 - `pg_dump` and `pg_restore` (`--version` exits 0);
 - `writable` (the runner can write `vendor/`, `composer.json`, `composer.lock` and `public/admin/`);
 - `shape_problems` (`ComposerShape::problems()`);
-- the guard installed;
-- the web probe result.
+- the guard installed, and `guard_installed_at`, read from `storage/framework/updates/guard.installed`
+  (Task 13);
+- `unguarded_workers`. These are the PIDs of processes whose command line contains `glueful
+  queue:work` or `glueful queue:scheduler` and that started before `guard_installed_at`. They come
+  from `capture(['ps', '-eo', 'pid=,etime=,args='])`, where `etime` is parsed as `[[dd-]hh:]mm:ss`,
+  works on macOS and Linux, and gives start = now − elapsed. Such processes hold no admission lock,
+  so the barrier cannot see them. Preflight refuses (`unguarded_workers`) until they have restarted
+  through the guarded console;
+- the web probe result, as `{"status": int, …}`, or `null`.
 
 It recomputes disk needs at most every 30 minutes, keeping `needed_bytes` in the report:
 - `du -sk vendor` × 2;
@@ -4172,11 +4712,27 @@ git commit -m "feat(updater): the runner — ten steps, crash-safe reopening, re
 **Interfaces:**
 - Consumes: the generated `core/resources/updater/thallo-updater` and `update-guard.php` (Task 3 onward).
 - Produces: `UpdaterInstaller::sync(string $base, string $resources, bool $enabled, ?array $operation): string`.
-  It returns one of `installed`, `current`, `removed`, `kept`, or `absent`:
+  It returns one of `installed-first`, `installed`, `current`, `removed`, `kept`, or `absent`:
   - **Enabled:** it copies each file, by temp file and rename, only when the content differs. The
     runner gets mode 0755 and the guard 0644.
   - **Disabled:** it removes both files, unless an operation is open (not terminal) or in
     `recovery_required`. Then it keeps them, because recovery needs them.
+  - **First install (`installed-first`):** when the guard was absent before, it writes
+    `storage/framework/updates/guard.installed` (a Unix timestamp, mode 0644).
+
+**The move from unguarded to guarded processes** (plan review 4):
+- Processes started before the guard existed hold no admission lock, so the barrier cannot see
+  them.
+- **Provision signals them to move over.** On `installed-first`, provision calls
+  `RestartSignal::signal(time())` from the container. Workers exit after their current job, and
+  their supervisor starts them through the guarded `glueful`.
+- **Preflight waits for the move.** It refuses with `unguarded_workers` while `runner.json` lists any
+  process started before `guard.installed`. It refuses with `guard_settling` until
+  `thallo.admin_updates.guard_settle` seconds (default 120, env `THALLO_UPDATE_GUARD_SETTLE`) have
+  passed since the guard was installed. That covers in-flight web requests and cron-started
+  scheduler runs.
+- **The runner refuses too.** Its own preflight step rejects `unguarded_workers` again, in case a
+  worker was started by hand without the guard.
 
 **Ruling 10 (planning):** the guard is installed only when the feature is enabled. A guard on every
 install would cost every request a lock on `admission.lock` for nothing. Enabling the feature
@@ -4218,7 +4774,8 @@ final class UpdaterInstallerTest extends TestCase
     public function testEnabledInstallsOnceAndUpdatesWhenTheShippedCopyChanges(): void
     {
         $i = new UpdaterInstaller();
-        self::assertSame('installed', $i->sync($this->base, $this->res, true, null));
+        self::assertSame('installed-first', $i->sync($this->base, $this->res, true, null));
+        self::assertFileExists($this->base . '/storage/framework/updates/guard.installed');
         self::assertSame('0755', substr(sprintf('%o', fileperms($this->base . '/bin/thallo-updater')), -4));
         self::assertSame('current', $i->sync($this->base, $this->res, true, null));
         file_put_contents($this->res . '/update-guard.php', "<?php // guard v2\n");
@@ -4248,6 +4805,10 @@ try {
     $op = (new \Thallo\Core\Updater\OperationStore(new \Thallo\Core\Updater\Paths($basePath), static fn (): int => time()))->current();
     $result = (new UpdaterInstaller())->sync($basePath, CoreServiceProvider::corePath('resources/updater'),
         (bool) config($this->getContext(), 'thallo.admin_updates.enabled', false), $op);
+    if ($result === 'installed-first') {
+        // Workers started before the guard hold no admission lock: ask them to restart through it.
+        $this->getContainer()->get(\Glueful\Queue\RestartSignal::class)->signal(time());
+    }
     $this->line('Update runner: ' . $result . '.');
 } catch (\Throwable $e) {
     $this->warning('Update runner skipped (' . $e->getMessage() . ').');
@@ -4288,6 +4849,7 @@ git commit -m "feat(setup): provision installs the update runner and guard when 
     'enabled' => (bool) env('THALLO_ADMIN_UPDATES', false),
     'keep_backups' => (int) env('THALLO_UPDATE_KEEP_BACKUPS', 3),
     'verify_url' => env('THALLO_UPDATE_VERIFY_URL'),
+    'guard_settle' => (int) env('THALLO_UPDATE_GUARD_SETTLE', 120),
 ],
 ```
 
@@ -4295,7 +4857,8 @@ git commit -m "feat(setup): provision installs the update runner and guard when 
     The reason codes are exactly those of spec §4: `disabled`, `runner_missing`, `outside_constraint`,
     `not_writable`, `web_can_write_code`, `composer_missing`, `composer_config_unsupported`,
     `backup_unavailable`, `low_disk`, `guard_missing`, `web_verify_unreachable`, `opcache_preload`,
-    `opcache_frozen`, `persistent_runtime`, `in_progress`, `recovery_required`.
+    `opcache_frozen`, `persistent_runtime`, `in_progress`, `recovery_required`, plus `unguarded_workers`
+    and `guard_settling` from the readiness protocol (Task 13).
   - The routes, each `->middleware('content_permission:system.config')` inside the `['tenant_system','auth']` group:
     - `GET /v1/admin/updates/preflight` → 200 `{preflight: …}`;
     - `POST /v1/admin/updates` → 202 `{update: {id, token}}`, or 409 `{reasons}`;
@@ -4308,7 +4871,10 @@ git commit -m "feat(setup): provision installs the update runner and guard when 
 - a non-empty `shape_problems` → `composer_config_unsupported`;
 - `pg_dump` or `pg_restore` false → `backup_unavailable`;
 - `free_bytes < needed_bytes` → `low_disk`;
-- `web === null` or `web.status !== 200` → `web_verify_unreachable`.
+- `web === null` or `web.status !== 200` → `web_verify_unreachable`; `web.admission_ok === false` or
+  `web.state_writable === false` → `not_writable`;
+- a non-empty `unguarded_workers` → `unguarded_workers`;
+- `now - guard_installed_at < guard_settle` → `guard_settling`.
 
 FPM rows:
 - `web_can_write_code`: `is_writable(vendor/)` here;
@@ -4383,6 +4949,8 @@ final class UpdatePreflightTest extends TestCase
         yield 'web' => ['web_verify_unreachable', [], ['web' => null], ''];
         yield 'stale runner' => ['runner_missing', [], ['checked_at' => 1], ''];
         yield 'guard' => ['guard_missing', [], [], 'public/index.php'];
+        yield 'unguarded workers' => ['unguarded_workers', [], ['unguarded_workers' => [4242]], ''];
+        yield 'settling' => ['guard_settling', [], ['guard_installed_at' => 10_050], ''];
     }
 
     /** @dataProvider reasons */
@@ -4407,7 +4975,8 @@ final class UpdatePreflightTest extends TestCase
     {
         file_put_contents("{$this->base}/storage/framework/updates/runner.json", json_encode(array_merge([
             'checked_at' => 10_000, 'writable' => true, 'composer_ok' => true, 'shape_problems' => [], 'pg_dump' => true,
-            'pg_restore' => true, 'free_bytes' => 10, 'needed_bytes' => 1, 'web' => ['status' => 200],
+            'pg_restore' => true, 'free_bytes' => 10, 'needed_bytes' => 1, 'unguarded_workers' => [], 'guard_installed_at' => 1,
+            'web' => ['status' => 200, 'admission_ok' => true, 'state_writable' => true],
         ], $over)));
     }
 
@@ -4415,7 +4984,7 @@ final class UpdatePreflightTest extends TestCase
     {
         $ini = array_merge(['opcache.enable' => '1', 'opcache.validate_timestamps' => '1', 'opcache.preload' => ''], $o['ini'] ?? []);
         return new UpdatePreflight(
-            ['enabled' => $o['enabled'] ?? true],
+            ['enabled' => $o['enabled'] ?? true, 'guard_settle' => 120],
             ['current' => '1.0.0-beta.101', 'latest' => $o['latest'] ?? '1.0.0-beta.102', 'available' => true],
             $this->base,
             static fn (string $k): string => $ini[$k] ?? '',
@@ -4442,7 +5011,7 @@ Constructor: `UpdatePreflight(array $settings, array $status, string $base, \Clo
   - `start()`, with a preflight stub that is ready, writes `operation.json` under a temporary base and
     returns 202 with a 64-character token. A second `start()` returns 409 with `in_progress`. A
     preflight stub that is not ready returns 409 with its reasons.
-  - `cancel()` returns 200 once, then 409.
+  - `cancel()` returns 200 once, then 409. It cancels by the id it read: `$ops->cancel($ops->current()['id'] ?? '')`. The store's compare-and-set refuses it once a runner has claimed the operation.
 
   Construct `AdminUpdateController` directly with a stub preflight and an `OperationStore` on a
   temporary `Paths`, as `UpdateStatusApiTest` does with `UpdateStatusController`.
@@ -4591,7 +5160,8 @@ git commit -m "docs: updating from the admin; the targeted -W terminal upgrade"
 **Files:**
 - Create: `scripts/update-proof` (bash, executable): the orchestrator
 - Create: `scripts/lib/update-proof/build-artifacts.php`: zips `from` and `target` builds of `core/` and every `packages/*`
-- Create: `scripts/lib/update-proof/request.php`: starts an operation in the site and prints the token
+- Create: `scripts/lib/update-proof/request.php`: starts an operation in the site and prints the token. Used only by scenarios that are not about the admission path.
+- Create: `scripts/lib/update-proof/make-owner.php`: boots the site's app and creates a `superuser`. It assigns the role with the same repositories `RequirePermissionAnyOfTest::userGranted()` uses, and prints the email and a generated password into `$WORK/owner.json` (0600).
 - Create: `scripts/lib/update-proof/site.sh`: build, snapshot and restore the site; start and stop PHP-FPM and nginx
 - Create: `scripts/lib/update-proof/scenarios.sh`: one bash function per scenario
 - Modify: `composer.json` scripts (`"test:update-proof": "bash scripts/update-proof"`)
@@ -4626,12 +5196,22 @@ git commit -m "docs: updating from the admin; the targeted -W terminal upgrade"
      the first statement of `StyleArtifactCompiler::compile()`. The migration has already run by
      then (scenario 5).
    - **`faildata`:** the target without the migration, plus the same throw (scenario 6).
+   - **`failclear`:** the target, plus `return self::FAILURE;` as the first statement of
+     `UpdateClearCachesCommand::execute()` (scenario 22).
+   - **`slowcomposer`** is not a zip. It is a `COMPOSER_BINARY` wrapper script in `$WORK/bin`
+     (scenarios 4, 4b and 21).
    - It zips each tree into `<out>/<variant>/`, where Composer's artifact repository reads it.
 2. **Site** (`build_site <variant-dir>`):
    - Copy `skeleton/` to `$WORK/site`.
    - Set `repositories` to `[{"type":"artifact","url":"<abs>/from"},{"type":"artifact","url":"<abs>/<variant>"}]`.
-   - Require `"glueful/thallo-core": "^1.0.0-beta.900"`, and pin `from` on install with
-     `composer require glueful/thallo-core:1.0.0-beta.900`.
+   - Require `"glueful/thallo-core": "^1.0.0-beta.900"` and keep that permissive constraint.
+     **Never** run `composer require glueful/thallo-core:1.0.0-beta.900`: it rewrites the root
+     constraint to an exact pin, and the target could never install. Instead, the target artifact
+     directory is **empty** when the site is installed, so `composer install` resolves to `900`, the
+     only version that exists. The target zips are copied into that directory only after the
+     snapshot, for each scenario that updates.
+   - After install, assert that `composer.json`'s constraint is still exactly `^1.0.0-beta.900` and
+     that `composer.lock` holds `1.0.0-beta.900`.
    - Add these, for Review Focus 3:
      - `app/Proof/Greeter.php` (`App\Proof\Greeter`);
      - `autoload.classmap: ["legacy/"]` with `legacy/ProofLegacy.php`;
@@ -4641,22 +5221,46 @@ git commit -m "docs: updating from the admin; the targeted -W terminal upgrade"
    - Run `php glueful thallo:provision --no-interaction`, then `touch storage/framework/updates/.proof`.
    - Snapshot it: `tar` of the site, plus `pg_dump -Fc` of the proof database. `restore_site` puts
      both back between scenarios, which is far faster than rebuilding.
-3. **Web:**
+3. **Users** (plan review 6). The update runs as the code owner and PHP-FPM as the web user, and they
+   are different users:
+   - **CI (required):** `sudo useradd --system thallo-deploy` and `sudo groupadd thallo-site`.
+     `thallo-deploy` and `www-data` both join `thallo-site`.
+     - The site is `chown -R thallo-deploy:thallo-site`, with code files 0644 and directories 0755,
+       so `www-data` cannot write code.
+     - `storage/` is `2770` for the group. `storage/framework/updates/` is `2770`, and `umask 0007`
+       is set for the runner.
+     - The PHP-FPM pool runs as `www-data:thallo-site`.
+     - Every `composer`, `php glueful …` and `php bin/thallo-updater …` call in the scenarios runs as
+       `sudo -u thallo-deploy`.
+   - **Local macOS:** `UPDATE_PROOF_SINGLE_USER=1`, the default on Darwin, runs as one user. It prints
+     `SKIP user separation (CI enforces it)` and skips only the assertions that need two users
+     (`web_can_write_code` false, `writable_code` false). CI sets `UPDATE_PROOF_SINGLE_USER=0` and
+     fails if it cannot create the users.
+4. **Web:**
    - A PHP-FPM pool on a Unix socket with `opcache.enable=1`, `opcache.validate_timestamps=1` and
      `opcache.revalidate_freq=2`.
    - nginx on `$PORT` (default 18080) with root `$WORK/site/public`, `try_files $uri /index.php?$query_string`,
      and FastCGI to the pool.
    - Both start once per run, and are stopped by a `trap`.
-4. **Cron:** `tick` runs `php bin/thallo-updater tick` in the site. `tick_until <status> [max]` ticks
+5. **Cron:** `tick` runs `php bin/thallo-updater tick` in the site. `tick_until <status> [max]` ticks
    once a second until `operation.json` has that status. `request <target>` runs `request.php`, which
    uses the site's own `vendor/autoload.php` and `Thallo\Core\Updater\OperationStore`, and saves the
    token in `$WORK/token`.
-5. **Assertions:** `status_is`, `version_is <v>` (CLI, `php glueful thallo:update:verify --json`),
+6. **Assertions:** `status_is`, `version_is <v>` (CLI, `php glueful thallo:update:verify --json`),
    `web_version_is <v>` (POST `/_update/verify` boot with the secret), `site_open` / `site_closed`
    (GET `/` gives 200 or 503), and `table_exists update_proof`.
 
 **Scenarios in this task:**
-- **1. Successful update.** `request 1.0.0-beta.901`; `tick_until succeeded`. Then:
+- **1. Successful update, through the advertised path** (plan review 6):
+  - `sudo -u thallo-deploy php bin/thallo-updater tick` once (it creates `verify.secret` and
+    `runner.json`), then `php bin/thallo-updater selftest` exits 0;
+  - `make-owner.php`, then sign in through the site's real login endpoint (grep `login` in
+    `core/routes`) to get a bearer token;
+  - `GET /v1/admin/updates/preflight` with the bearer token returns `ready: true` and `target`
+    `1.0.0-beta.901`;
+  - `POST /v1/admin/updates` returns 202, with the token kept for `/_update`;
+  - a non-superuser's bearer token gets 403 on both;
+  - then `tick_until succeeded`, and:
   - `version_is` and `web_version_is` the target, and `table_exists update_proof`;
   - `/admin/` contains `update-proof 901`;
   - `site_open`;
@@ -4677,10 +5281,13 @@ git commit -m "docs: updating from the admin; the targeted -W terminal upgrade"
 - **15. A plugin rewriting composer.json.** Add an allowlisted-name local plugin stub (an artifact
   zip named `php-http/discovery` at a fake version that appends a key in its `post-update` event
   handler). The result is `failed` at `stage`, and the live `composer.json` is byte-identical.
-- **18. Provision inventory** (Review Focus 4). Before running provision under the target code
-  (scenario 1's run, instrumented), record `find . -type f -newer <marker>` minus the runner-owned
-  paths. Every path must have `ProvisionOutputs::ruleFor() !== null`, checked by a PHP one-liner over
-  the list. The scenario prints every uncovered path.
+- **18. Provision inventory** (Review Focus 4). Write a full manifest of the site: every file's
+  relative path with its sha256, excluding the runner-owned paths. Write it right before provision
+  runs under the target code, using kill point `swap.done` then `retry_provision`, and again right
+  after it. The diff is every **added, changed and deleted** path. Every path in it must have
+  `ProvisionOutputs::ruleFor() !== null`, checked by a PHP one-liner over the diff. The scenario
+  prints every uncovered path with its kind (added, changed or deleted). Modification times are
+  never used.
 
 - [ ] **Step 1: Write `build-artifacts.php` and run it alone.** `php scripts/lib/update-proof/build-artifacts.php /tmp/up`
   lists the zips. A deliberately broken anchor makes it exit 1 and name the anchor.
@@ -4758,6 +5365,34 @@ git commit -m "test(updater): the disposable-install proof — harness and the f
 - **17. Crash-safe reopening** (Review Focus 1). For each of `reopen.before-open`, `reopen.after-open`
   and `reopen.after-release`: kill, then `tick`, giving `succeeded`, `site_open`, `version_is`
   target, and no rename in the journal after the kill.
+- **4c. A killed recovery runner with a surviving grandchild** (plan review 2). Use `failmig`, which
+  gives `recovery_required`, then request `rollback`. The recovery `tick` runs with
+  `THALLO_UPDATER_KILL_AT=undo.swap.3.renamed`. Before it, a test command started in the runner's
+  group (a `queue:restart` wrapper that starts `sleep 20 &`) leaves a grandchild. Then:
+  - `operation.json`'s `pgid` is the recovery runner's, not the first run's;
+  - `tick` claims nothing while the grandchild lives;
+  - after it exits, the run is found dead (`recovery_required`), and a further `rollback` request
+    completes it.
+- **20. Readiness at first enablement** (plan review 4):
+  1. Build the site with `THALLO_ADMIN_UPDATES=false`.
+  2. Start a supervisor loop that runs `php glueful queue:work` and restarts it when it exits. Start
+     it **before** the guard exists.
+  3. Set `THALLO_ADMIN_UPDATES=true` and `THALLO_UPDATE_GUARD_SETTLE=5`, then provision. It prints
+     `Update runner: installed-first` and signals restart.
+  4. Right after, preflight contains `unguarded_workers` (the old worker PID) and `guard_settling`.
+  5. Within 30 s the old worker has exited and the supervisor's new one runs through the guard, so
+     preflight contains neither reason.
+  6. With that guarded worker idle and holding its shared lock, `selftest` passes (no exclusive
+     probe).
+  7. An update then succeeds. The worker exits on `queue:restart`, waits at the guard while the site
+     is closed, and runs again afterwards with a new PID.
+- **21. A child timeout with a grandchild** (plan review 2). Set `THALLO_UPDATE_CHILD_TIMEOUT=5`, and
+  `COMPOSER_BINARY` to a wrapper that starts `sleep 60 &` and then `sleep 60`. The result is `failed`
+  at `stage`, with the log naming the timeout. `pgrep -g` on the recorded group lists nothing before
+  the status is written, and `site_open`.
+- **22. A failed cache clear at reopen** (`failclear`): `recovery_required`, `site_closed`,
+  `reopen_ready_at` null, and a further `tick` does not reopen. **Roll back the code**, then
+  **Reopen**, gives `site_open` on `from`.
 - **19. Verification access** (Review Focus 5):
   - the token sent as `x-thallo-verify` returns 403;
   - the secret sent as `x-thallo-update-token` returns 403 on status and on recover;
