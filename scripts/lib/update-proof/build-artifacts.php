@@ -121,6 +121,17 @@ mutate(
 );
 zipTree($failclear, "{$out}/core/failclear.zip");
 
+// A clear-caches that ignores SIGTERM and hangs: the runner's child timeout must still end it.
+$slowclear = $target($tmp, $TARGET);
+mutate(
+    $slowclear . '/src/Updates/Console/UpdateClearCachesCommand.php',
+    "    protected function execute(InputInterface \$input, OutputInterface \$output): int\n    {\n",
+    "    protected function execute(InputInterface \$input, OutputInterface \$output): int\n    {\n"
+        . "        pcntl_signal(SIGTERM, SIG_IGN); // update-proof\n        sleep(600);\n",
+    'clear-caches execute (slow)',
+);
+zipTree($slowclear, "{$out}/core/slowclear.zip");
+
 $missing = $target($tmp, $TARGET);
 $requires = static fn (array $extra): Closure => static fn (array $j): array
     => array_replace_recursive($j, ['require' => $extra]);

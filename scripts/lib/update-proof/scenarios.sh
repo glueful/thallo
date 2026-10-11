@@ -132,3 +132,344 @@ sc_18() { # Review Focus 4: every path a real provision changes has an inventory
     }' "$WORK/manifest.before" "$WORK/manifest.after")"
   [[ -z "$uncovered" ]] || { up_log "paths provision changed without an inventory rule:"; up_log "$uncovered"; return 1; }
 }
+
+# ---- Task 18 ---------------------------------------------------------------------------------------
+
+kill_tick() { THALLO_UPDATER_KILL_AT="$1" tick; }
+
+recover_http() { # recover_http <option> [confirm]
+  local body="{\"option\":\"$1\"${2:+,\"confirm\":\"$2\"}}"
+  http_code -X POST -H 'Content-Type: application/json' -H "x-thallo-update-token: $(cat "$WORK/token")" -d "$body" \
+    "http://127.0.0.1:$PORT/_update/recover"
+}
+
+# A request that holds its admission for $1 seconds, then writes the time to storage/$2.
+slow_request_file() {
+  cat > "$SITE/public/proof-slow.php" <<'PHP'
+<?php
+if (is_file(__DIR__ . '/../bootstrap/update-guard.php')) {
+    require __DIR__ . '/../bootstrap/update-guard.php';
+}
+sleep((int) ($_GET['sleep'] ?? 5));
+file_put_contents(__DIR__ . '/../storage/' . basename((string) ($_GET['out'] ?? 'slow-wrote')), (string) microtime(true));
+echo 'done';
+PHP
+}
+slow_request() { curl -s -o /dev/null "http://127.0.0.1:$PORT/proof-slow.php?sleep=$1&out=$2" & }
+
+step_started() { "$PHP_BIN" -r '$o=json_decode(file_get_contents($argv[1]),true); foreach($o["steps"] as $s){ if($s["name"]===$argv[2]){ echo $s["started_at"]; exit; } }' "$SITE/storage/framework/updates/operation.json" "$1"; }
+
+back_on_from() { # roll the code back, reopen, and check the site runs `from` again
+  [[ "$(recover_http rollback)" == 202 ]] || { up_log "rollback request refused"; return 1; }
+  tick; status_is recovery_required || return 1
+  version_is "$FROM_V" && web_version_is "$FROM_V" || return 1
+  [[ "$(recover_http reopen REOPEN)" == 202 ]] || { up_log "reopen request refused"; return 1; }
+  tick; status_is recovered_by_owner && site_open
+}
+
+sc_3() { # A kill between every pair of swap renames, and during the rollback itself.
+  local p
+  for p in swap.1.renamed swap.2.renamed swap.3.renamed swap.4.renamed; do
+    up_restore; up_repo_add target 901; request "$TARGET_V"
+    kill_tick "$p"; tick
+    status_is recovery_required && site_closed || { up_log "after $p"; return 1; }
+    back_on_from || { up_log "after $p"; return 1; }
+  done
+  up_restore; up_repo_add target 901; request "$TARGET_V"
+  kill_tick swap.4.renamed; tick; status_is recovery_required || return 1
+  [[ "$(recover_http rollback)" == 202 ]] || return 1
+  kill_tick undo.swap.2.renamed; tick
+  status_is recovery_required && site_closed || return 1
+  back_on_from
+}
+
+slow_composer() { # a Composer wrapper: $1 = what happens after the real run
+  rm -f "$WORK/composer-done"
+  printf '#!/bin/sh\ncase " $* " in *" --version "*) exec %q "$@";; esac\n%q "$@"; code=$?\ntouch %q\n%s\nexit $code\n' \
+    "$COMPOSER_BINARY" "$COMPOSER_BINARY" "$WORK/composer-done" "$1" > "$WORK/bin/slow-composer"
+  chmod +x "$WORK/bin/slow-composer"
+}
+
+sc_4() { # A killed runner whose Composer child keeps running: nothing claims it until the child exits.
+  slow_composer 'sleep 20'
+  up_repo_add target 901; request "$TARGET_V"
+  (COMPOSER_BINARY="$WORK/bin/slow-composer" tick) & local bg=$!
+  for _ in $(seq 1 600); do [[ -f "$WORK/composer-done" ]] && break; sleep 0.2; done
+  kill -9 "$(op_field pid)"; wait "$bg" 2>/dev/null || true
+  tick; tick; status_is running || { up_log "claimed while the child lived"; return 1; }
+  for _ in $(seq 1 60); do pgrep -g "$(op_field pgid)" >/dev/null || break; sleep 1; done
+  tick; status_is failed && site_open && version_is "$FROM_V"
+}
+
+sc_4b() { # Review Focus 2: runner and child dead, a grandchild alive: nothing claims it.
+  slow_composer '(sleep 20 </dev/null >/dev/null 2>&1 &)'
+  up_repo_add target 901; request "$TARGET_V"
+  (COMPOSER_BINARY="$WORK/bin/slow-composer" tick) & local bg=$!
+  for _ in $(seq 1 600); do [[ -f "$WORK/composer-done" ]] && break; sleep 0.2; done
+  sleep 0.5; kill -9 "$(op_field pid)"; wait "$bg" 2>/dev/null || true
+  local pgid; pgid="$(op_field pgid)"
+  pgrep -g "$pgid" >/dev/null || { up_log "no grandchild survived"; return 1; }
+  tick; status_is running || { up_log "claimed while the grandchild lived"; return 1; }
+  for _ in $(seq 1 60); do pgrep -g "$pgid" >/dev/null || break; sleep 1; done
+  tick; status_is failed && site_open
+}
+
+sc_4c() { # A killed recovery runner: recovery recorded its own process group, and a later tick finishes.
+  up_repo_add failmig 901; request "$TARGET_V"
+  tick_until recovery_required || return 1
+  local first; first="$(op_field pgid)"
+  [[ "$(recover_http rollback)" == 202 ]] || return 1
+  kill_tick undo.swap.3.renamed
+  [[ "$(op_field pgid)" != "$first" ]] || { up_log "recovery kept the dead run's process group"; return 1; }
+  tick; status_is recovery_required || return 1
+  [[ "$(recover_http rollback)" == 202 ]] || return 1
+  tick; version_is "$FROM_V"
+}
+
+restore_backup() { # what the owner does before rolling back when the database changed
+  db_reset
+  pg_restore --no-owner -d "$PROOF_DB" "$(op_field backup.path)/database.dump" >/dev/null 2>&1 || true
+}
+
+sc_5() { # Provision fails after its migration: closed, recoverable from the backup.
+  up_repo_add failmig 901; request "$TARGET_V"
+  tick_until recovery_required || return 1
+  site_closed && table_exists update_proof || return 1
+  restore_backup
+  back_on_from || return 1
+  ! table_exists update_proof || { up_log "the restored database still has the update's table"; return 1; }
+}
+
+sc_6() { # A data write no migration records, then a failure: never reopened by itself.
+  up_repo_add faildata 901; request "$TARGET_V"
+  tick_until recovery_required || return 1
+  site_closed || return 1
+  [[ "$(psql -tA -d "$PROOF_DB" -c "SELECT value FROM thallo_system_flags WHERE key = 'update_proof.provisioned'")" == 901 ]] \
+    || { up_log "the provision step's data write is missing"; return 1; }
+  tick; tick; site_closed
+}
+
+sc_7() { # A rollback that fails (unreadable snapshot): still closed, the error names it.
+  up_repo_add failmig 901; request "$TARGET_V"
+  tick_until recovery_required || return 1
+  local snap; snap="$(op_field backup.path)/provision"
+  chmod -R 000 "$snap"
+  [[ "$(recover_http rollback)" == 202 ]] || { chmod -R 755 "$snap"; return 1; }
+  tick; chmod -R 755 "$snap"
+  status_is recovery_required && site_closed || return 1
+  [[ "$(op_field error)" == *snapshot* ]] || { up_log "$(op_field error)"; return 1; }
+}
+
+sc_8() { # Two ticks at once: exactly one runs the update.
+  up_repo_add target 901; request "$TARGET_V"
+  (tick) & (tick) & wait
+  tick_until succeeded || return 1
+  local steps; steps="$(op_field steps | "$PHP_BIN" -r 'echo implode(",", array_column(json_decode(stream_get_contents(STDIN), true), "name"));')"
+  [[ "$steps" == preflight,stage,close,barrier,backup,swap,provision,verify_cli,verify_web,reopen ]] \
+    || { up_log "steps: $steps"; return 1; }
+}
+
+sc_9() { # The barrier waits for a request paused before its write and a running queue job.
+  slow_request_file
+  mkdir -p "$SITE/app/Proof"
+  cat > "$SITE/app/Proof/SlowJob.php" <<'PHP'
+<?php
+namespace App\Proof;
+final class SlowJob extends \Glueful\Queue\Job
+{
+    public function handle(): void
+    {
+        sleep(45);
+        file_put_contents(dirname(__DIR__, 2) . '/storage/job-wrote', (string) microtime(true));
+    }
+}
+PHP
+  (cd "$SITE" && as_deploy composer dump-autoload -q && as_deploy "$PHP_BIN" -r '
+    $app = require "bootstrap/app.php";
+    \Glueful\Queue\QueueManager::setContext($app->getContext());
+    \Glueful\Queue\QueueManager::createDefault()->push(App\Proof\SlowJob::class, [], "default");')
+  slow_request 40 slow-wrote
+  (cd "$SITE" && as_deploy "$PHP_BIN" glueful queue:work --queue=default --stop-when-empty >/dev/null 2>&1) &
+  sleep 2
+  up_repo_add target 901; request "$TARGET_V"
+  (tick) & local bg=$!
+  local seen503=0
+  for _ in $(seq 1 100); do [[ -f "$SITE/storage/framework/updates/closed.flag" ]] && { site_closed && seen503=1; break; }; sleep 0.2; done
+  wait "$bg" || true
+  tick_until succeeded || return 1
+  [[ "$seen503" == 1 ]] || { up_log "new requests were admitted while the barrier waited"; return 1; }
+  # The holders outlast staging, so the barrier really waited for them.
+  local waited; waited="$(op_field steps | "$PHP_BIN" -r 'foreach(json_decode(stream_get_contents(STDIN),true) as $s){ if($s["name"]==="barrier"){ echo $s["ended_at"]-$s["started_at"]; } }')"
+  (( waited >= 3 )) || { up_log "the barrier waited only ${waited}s: the holders ended before the site closed"; return 1; }
+  local backup; backup="$(step_started backup)"
+  for f in slow-wrote job-wrote; do
+    [[ -f "$SITE/storage/$f" ]] || { up_log "$f never wrote"; return 1; }
+    # Step times are whole seconds: a write in the backup's own second cannot be ordered against it.
+    "$PHP_BIN" -r 'exit((int) floor((float) file_get_contents($argv[1])) <= (int) $argv[2] ? 0 : 1);' "$SITE/storage/$f" "$backup" \
+      || { up_log "$f wrote after the backup began"; return 1; }
+  done
+}
+
+sc_10() { # A request that never finishes: the barrier gives up, nothing changed.
+  slow_request_file; up_env_set THALLO_UPDATE_BARRIER_TIMEOUT 5
+  slow_request 60 never
+  sleep 1
+  up_repo_add target 901; request "$TARGET_V"
+  tick
+  status_is failed || return 1
+  [[ "$(op_field error)" == *barrier* ]] || { up_log "$(op_field error)"; return 1; }
+  site_open && version_is "$FROM_V"
+}
+
+sc_11() { # No PHP fatal while the code is replaced: only pages, 503s and status JSON.
+  up_repo_add target 901; request "$TARGET_V"
+  : > "$WORK/codes"
+  ( while [[ ! -f "$WORK/stop-loop" ]]; do
+      printf '%s %s\n' "$(http_code "http://127.0.0.1:$PORT/")" \
+        "$(http_code -H "x-thallo-update-token: $(cat "$WORK/token")" "http://127.0.0.1:$PORT/_update/status")" >> "$WORK/codes"
+      sleep 0.05
+    done ) & local loop=$!
+  tick_until succeeded; local ok=$?
+  touch "$WORK/stop-loop"; wait "$loop" 2>/dev/null || true
+  [[ "$ok" == 0 ]] || return 1
+  ! grep -qE '(^| )(500|502)( |$)' "$WORK/codes" || { up_log "a 500/502 during the update:"; sort "$WORK/codes" | uniq -c >&2; return 1; }
+  ! grep -qi 'fatal' "$WORK/fcgi.log" "$WORK/nginx/error.log" 2>/dev/null || { up_log "a PHP fatal was logged"; return 1; }
+}
+
+sc_12() { # /_update survives a refresh in the vendor gap and after a failed provision.
+  up_repo_add target 901; request "$TARGET_V"
+  kill_tick swap.1.renamed
+  [[ "$(http_code "http://127.0.0.1:$PORT/_update")" == 200 ]] || { up_log "/_update in the vendor gap"; return 1; }
+  [[ "$(http_code -H "x-thallo-update-token: $(cat "$WORK/token")" "http://127.0.0.1:$PORT/_update/status")" == 200 ]] || return 1
+  [[ "$(http_code -H 'x-thallo-update-token: wrong' "http://127.0.0.1:$PORT/_update/status")" == 403 ]] || return 1
+  up_restore; up_repo_add failmig 901; request "$TARGET_V"
+  tick_until recovery_required || return 1
+  [[ "$(http_code "http://127.0.0.1:$PORT/_update")" == 200 ]] || return 1
+  [[ "$(http_code -H "x-thallo-update-token: $(cat "$WORK/token")" "http://127.0.0.1:$PORT/_update/status")" == 200 ]]
+}
+
+sc_16() { # A release needing an extension PHP-FPM lacks: verified from PHP-FPM, never reopened.
+  up_repo_add missingext 901; request "$TARGET_V"
+  export COMPOSER_IGNORE_PLATFORM_REQ=ext-proofmissing
+  tick_until recovery_required; local ok=$?
+  unset COMPOSER_IGNORE_PLATFORM_REQ
+  [[ "$ok" == 0 ]] || return 1
+  [[ "$(op_field error)" == *proofmissing* ]] || { up_log "$(op_field error)"; return 1; }
+  site_closed
+}
+
+sc_17() { # Review Focus 1: a death after verification completes the reopen, never a rollback.
+  local p
+  for p in reopen.before-open reopen.after-open reopen.after-release; do
+    up_restore; up_repo_add target 901; request "$TARGET_V"
+    kill_tick "$p"; tick
+    status_is succeeded && site_open && version_is "$TARGET_V" || { up_log "after $p"; return 1; }
+    [[ "$(op_field journal | grep -c '"kind":"reverse"' || true)" == 0 ]] || { up_log "a rollback after $p"; return 1; }
+  done
+}
+
+sc_19() { # Review Focus 5: token and secret are not interchangeable; verification ignores the barrier.
+  request "$TARGET_V"; tick
+  local secret; secret="$(tr -d '\n' < "$SITE/storage/framework/updates/verify.secret")"
+  [[ "$(http_code -X POST -H "x-thallo-verify: $(cat "$WORK/token")" -d '{"mode":"probe"}' "http://127.0.0.1:$PORT/_update/verify")" == 403 ]] || return 1
+  [[ "$(http_code -H "x-thallo-update-token: $secret" "http://127.0.0.1:$PORT/_update/status")" == 403 ]] || return 1
+  [[ "$(http_code -X POST -H "x-thallo-update-token: $secret" -d '{"option":"rollback"}' "http://127.0.0.1:$PORT/_update/recover")" == 403 ]] || return 1
+  # Hold the barrier exclusively, as the runner does, and verify within a second.
+  "$PHP_BIN" -r '$h=fopen($argv[1],"c"); flock($h, LOCK_EX); touch($argv[2]); sleep(10);' \
+    "$SITE/storage/framework/updates/admission.lock" "$WORK/held" & local holder=$!
+  for _ in $(seq 1 50); do [[ -f "$WORK/held" ]] && break; sleep 0.1; done
+  local code; code="$(curl -s -m 1 -o /dev/null -w '%{http_code}' -X POST -H "x-thallo-verify: $secret" -d '{"mode":"probe"}' "http://127.0.0.1:$PORT/_update/verify")"
+  kill "$holder" 2>/dev/null || true
+  [[ "$code" == 200 ]] || { up_log "verify answered $code under the barrier"; return 1; }
+}
+
+supervise_worker() { # a supervisor loop that restarts `queue:work` whenever it exits
+  ( cd "$SITE" && while [[ ! -f "$WORK/stop-worker" ]]; do as_deploy "$PHP_BIN" glueful queue:work --queue=default --sleep=1 >/dev/null 2>&1; sleep 0.5; done ) &
+  echo $! > "$WORK/supervisor.pid"
+}
+worker_pid() { pgrep -f "glueful queue:work --queue=default" | head -1; }
+
+reenable() { # turn admin updates off (guard removed) then on again, as an owner enabling it afresh
+  up_env_set THALLO_ADMIN_UPDATES false
+  (cd "$SITE" && as_deploy "$PHP_BIN" glueful thallo:provision --no-interaction) > "$WORK/prov-off.log" 2>&1
+  grep -q "Update runner: removed" "$WORK/prov-off.log" || { up_log "the guard was not removed"; return 1; }
+  "$@"
+  up_env_set THALLO_ADMIN_UPDATES true
+  (cd "$SITE" && as_deploy "$PHP_BIN" glueful thallo:provision --no-interaction) > "$WORK/prov-on.log" 2>&1
+  grep -q "Update runner: installed-first" "$WORK/prov-on.log" || { up_log "the guard was not installed afresh"; return 1; }
+}
+
+sc_20() { # Readiness at first enablement: a worker from before the guard, then a guarded idle worker.
+  reenable supervise_worker || return 1
+  local old; old="$(worker_pid)"; sleep 2
+  tick
+  grep -q restart_required <<<"$(preflight_json "$(owner_token)")" || return 1
+  ! confirm_restart || { up_log "confirmed while pre-guard processes ran"; return 1; }
+  for _ in $(seq 1 60); do [[ -n "$(worker_pid)" && "$(worker_pid)" != "$old" ]] && break; sleep 1; done
+  [[ "$(worker_pid)" != "$old" ]] || { up_log "the worker did not cycle through the guard"; return 1; }
+  fpm_restart
+  confirm_restart || { cat "$WORK/confirm.log" >&2; return 1; }
+  local idle; idle="$(worker_pid)"
+  up_repo_add target 901; request "$TARGET_V"
+  tick_until succeeded; local ok=$?
+  touch "$WORK/stop-worker"; kill "$(cat "$WORK/supervisor.pid")" 2>/dev/null || true; pkill -f "glueful queue:work --queue=default" 2>/dev/null || true
+  [[ "$ok" == 0 ]] || return 1
+  [[ "$idle" != "$(worker_pid)" ]] || true
+}
+
+sc_21() { # A Composer that ignores SIGTERM, and a grandchild: bounded, and nothing left behind.
+  printf '#!/bin/sh\ncase " $* " in *" --version "*) exec %q "$@";; esac\ntrap "" TERM\n(sleep 600 </dev/null >/dev/null 2>&1 &)\nsleep 600\n' \
+    "$COMPOSER_BINARY" > "$WORK/bin/hang-composer"
+  chmod +x "$WORK/bin/hang-composer"
+  up_env_set THALLO_UPDATE_COMPOSER_TIMEOUT 5
+  up_repo_add target 901; request "$TARGET_V"
+  local t0=$SECONDS
+  COMPOSER_BINARY="$WORK/bin/hang-composer" tick
+  (( SECONDS - t0 < 60 )) || { up_log "the timeout took $((SECONDS - t0))s"; return 1; }
+  status_is failed && site_open || return 1
+  ! pgrep -g "$(op_field pgid)" >/dev/null || { up_log "processes left in the runner's group"; return 1; }
+  # The same for an application child: a clear-caches that ignores SIGTERM.
+  up_restore; up_env_set THALLO_UPDATE_CHILD_TIMEOUT 5
+  up_repo_add slowclear 901; request "$TARGET_V"
+  t0=$SECONDS
+  tick_until recovery_required 90 || return 1
+  (( SECONDS - t0 < 120 )) || { up_log "the child timeout took $((SECONDS - t0))s"; return 1; }
+  ! pgrep -g "$(op_field pgid)" >/dev/null || { up_log "processes left in the runner's group"; return 1; }
+}
+
+sc_22() { # A failed cache clear at reopen: closed, the marker never written, recoverable.
+  up_repo_add failclear 901; request "$TARGET_V"
+  tick_until recovery_required || return 1
+  site_closed || return 1
+  [[ -z "$(op_field reopen_ready_at)" ]] || { up_log "reopen_ready_at was written"; return 1; }
+  tick; site_closed || return 1
+  back_on_from
+}
+
+start_pre_guard_writers() { # a request and a console process that write after 25 s, started before the guard
+  slow_request 25 slow-wrote
+  ( cd "$SITE" && as_deploy "$PHP_BIN" -r 'require "bootstrap/app.php"; sleep(25); file_put_contents("storage/console-wrote", (string) microtime(true));' >/dev/null 2>&1 ) &
+}
+
+sc_23() { # Readiness: a pre-guard request and a console writer outlive any delay; neither writes after the backup.
+  slow_request_file
+  reenable start_pre_guard_writers || return 1
+  sleep 10
+  tick
+  local bearer; bearer="$(owner_token)"
+  grep -q restart_required <<<"$(preflight_json "$bearer")" || return 1
+  ! confirm_restart || { up_log "confirmed while pre-guard processes ran"; return 1; }
+  grep -q 'bootstrap/app.php' "$WORK/confirm.log" || { up_log "the console writer was not listed"; cat "$WORK/confirm.log" >&2; return 1; }
+  [[ "$(http_code -X POST -H "Authorization: Bearer $bearer" "http://127.0.0.1:$PORT/v1/admin/updates")" == 409 ]] || return 1
+  for _ in $(seq 1 60); do [[ -f "$SITE/storage/slow-wrote" && -f "$SITE/storage/console-wrote" ]] && break; sleep 1; done
+  fpm_restart
+  confirm_restart || { cat "$WORK/confirm.log" >&2; return 1; }
+  up_repo_add target 901; request "$TARGET_V"
+  tick_until succeeded || return 1
+  local backup; backup="$(step_started backup)"
+  for f in slow-wrote console-wrote; do
+    # Step times are whole seconds: a write in the backup's own second cannot be ordered against it.
+    "$PHP_BIN" -r 'exit((int) floor((float) file_get_contents($argv[1])) <= (int) $argv[2] ? 0 : 1);' "$SITE/storage/$f" "$backup" \
+      || { up_log "$f wrote after the backup began"; return 1; }
+  done
+}

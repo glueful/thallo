@@ -14,6 +14,9 @@ the mirrors. Nobody commits to a mirror.
 
 - Clean tree on `dev`, full gates green: PHP suite (tests+skips are the gate), admin vitest,
   type-check, build, phpcs, boundaries, `composer test:distribution`, `composer test:skeleton`.
+- The `update-proof` CI job is green on the commit being cut — the release gate for updating from
+  the admin (`composer test:update-proof` locally: nginx and PHP-FPM, or MAMP's nginx and php-cgi
+  with any other web server stopped; it resets `app_test`, so reset and migrate it afterwards).
 - All dependency releases published first (standing rule) and repinned.
 - CHANGELOG's release section written (durable upgrade/security notes included).
 - Mirror remotes exist locally as `split/<name>` (see "One-time setup").

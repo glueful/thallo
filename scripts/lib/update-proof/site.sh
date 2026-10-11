@@ -41,12 +41,13 @@ up_init() {
   SINGLE_USER="${UPDATE_PROOF_SINGLE_USER:-$([[ "$(uname)" == "Darwin" ]] && echo 1 || echo 0)}"
   DEPLOY_USER="${UPDATE_PROOF_DEPLOY_USER:-thallo-deploy}"
   SITE="$WORK/site"; REPO="$WORK/repo"; ART="$WORK/artifacts"
+  chmod 755 "$WORK"
   up_log "update-proof: work in $WORK (FastCGI: $FASTCGI, single user: $SINGLE_USER)"
 }
 
 # Run as the code owner (CI: a separate deploy user; locally: this user).
 as_deploy() {
-  if [[ "$SINGLE_USER" == 1 ]]; then "$@"; else sudo -u "$DEPLOY_USER" env "PATH=$PATH" "COMPOSER_BINARY=$COMPOSER_BINARY" "$@"; fi
+  if [[ "$SINGLE_USER" == 1 ]]; then "$@"; else sudo -E -u "$DEPLOY_USER" env "PATH=$PATH" "$@"; fi
 }
 
 up_cleanup() {
@@ -111,6 +112,17 @@ up_build_site() {
     || { tail -30 "$WORK/provision.log"; up_die "provision of the from version failed"; }
   grep -q "Update runner: installed-first" "$WORK/provision.log" || up_die "provision did not install the update runner"
   touch "$SITE/storage/framework/updates/.proof"
+  up_permissions
+}
+
+# Two users (CI): the code belongs to the deploy user and is only readable by the web user's group;
+# storage/ is writable by both (the group, setgid). One user (local): nothing to do.
+up_permissions() {
+  [[ "$SINGLE_USER" == 1 ]] && return 0
+  chown -R "$DEPLOY_USER:thallo-site" "$SITE"
+  chmod -R u+rwX,g+rX,g-w,o-rwx "$SITE"
+  chmod -R g+rwX "$SITE/storage"
+  find "$SITE/storage" -type d -exec chmod g+s {} +
 }
 
 up_env_set() {
@@ -136,6 +148,7 @@ up_snapshot() {
 up_restore() {
   up_web_stop
   rm -rf "$SITE"; tar -C "$WORK" -xf "$WORK/site.tar"
+  up_permissions
   db_reset
   pg_restore --no-owner -d "$PROOF_DB" "$WORK/site.dump" >/dev/null 2>&1 || true
   up_repo_reset
@@ -172,6 +185,7 @@ CONF
   mkdir -p "$WORK/nginx/tmp"
   cat > "$WORK/nginx/nginx.conf" <<CONF
 worker_processes 1;
+$( [[ "$SINGLE_USER" == 1 ]] || printf 'user www-data thallo-site;' )
 pid $WORK/nginx/nginx.pid;
 error_log $WORK/nginx/error.log;
 events { worker_connections 64; }
@@ -241,7 +255,7 @@ fpm_restart() {
 
 tick() { (cd "$SITE" && as_deploy "$PHP_BIN" bin/thallo-updater tick) >>"$WORK/ticks.log" 2>&1 || true; }
 
-op_field() { "$PHP_BIN" -r '$o=json_decode(@file_get_contents($argv[1]),true); $v=$o; foreach(explode(".",$argv[2]) as $k){ $v=$v[$k]??null; } echo is_scalar($v)?$v:json_encode($v);' "$SITE/storage/framework/updates/operation.json" "$1"; }
+op_field() { "$PHP_BIN" -r '$o=json_decode(@file_get_contents($argv[1]),true); $v=$o; foreach(explode(".",$argv[2]) as $k){ $v=$v[$k]??null; } echo $v === null ? "" : (is_scalar($v)?$v:json_encode($v));' "$SITE/storage/framework/updates/operation.json" "$1"; }
 
 tick_until() {
   local want="$1" max="${2:-180}"
@@ -256,7 +270,7 @@ tick_until() {
 
 # A request filed directly (scenarios that are not about the admission path); the token in $WORK/token.
 request() {
-  (cd "$SITE" && "$PHP_BIN" -r '
+  (cd "$SITE" && as_deploy "$PHP_BIN" -r '
     require "vendor/autoload.php";
     $ops = new Thallo\Core\Updater\OperationStore(new Thallo\Core\Updater\Paths(getcwd()), static fn (): int => time());
     [, $token] = $ops->start($argv[1], "1.0.0-beta.900", "update-proof");
@@ -269,7 +283,7 @@ confirm_restart() { (cd "$SITE" && as_deploy "$PHP_BIN" bin/thallo-updater confi
 # ---- assertions ------------------------------------------------------------------------------------
 
 version_is() {
-  local got; got="$(cd "$SITE" && THALLO_UPDATE_CHILD=1 "$PHP_BIN" glueful thallo:update:verify --json 2>/dev/null | tail -1 \
+  local got; got="$(cd "$SITE" && THALLO_UPDATE_CHILD=1 as_deploy "$PHP_BIN" glueful thallo:update:verify --json 2>/dev/null | tail -1 \
     | "$PHP_BIN" -r 'echo json_decode(stream_get_contents(STDIN),true)["version"] ?? "";')"
   [[ "$got" == "$1" ]] || { up_log "command line reports '$got', expected $1"; return 1; }
 }
