@@ -9,6 +9,7 @@ import { useNotify } from '@/composables/useNotify'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { rangeFor, useAnalyticsSummary } from '@/queries/analytics'
 import { useUpdateNotice } from '@/composables/useUpdateNotice'
+import { useUpdatePreflight } from '@/queries/updates'
 import UpdateAvailableCard from '@/components/UpdateAvailableCard.vue'
 
 definePage({ meta: { requiresAuth: true } })
@@ -19,6 +20,8 @@ const { error: notifyError } = useNotify()
 const { data, status } = useHomeOverview()
 // The update notice (operators only; others get no notice). Dismissal is per browser, per version.
 const { status: updateStatus, visible: updateVisible, dismiss: dismissUpdate } = useUpdateNotice()
+// Asked only while the notice shows; a 403 (not the owner) answers null and the card stays as it was.
+const { data: updatePreflight } = useUpdatePreflight(() => updateVisible.value)
 const { mutateAsync: createEntry } = useCreateEntry()
 
 const overview = computed(() => data.value)
@@ -87,6 +90,7 @@ function fmtTime(v?: string | null): string {
         <UpdateAvailableCard
           v-if="updateVisible && updateStatus"
           :status="updateStatus"
+          :preflight="updatePreflight ?? null"
           @dismiss="dismissUpdate"
         />
 
