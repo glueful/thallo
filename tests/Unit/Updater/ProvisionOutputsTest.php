@@ -93,6 +93,36 @@ final class ProvisionOutputsTest extends TestCase
         self::assertSame('0750', substr(sprintf('%o', fileperms("{$this->base}/public/admin/empty")), -4));
     }
 
+    public function testRestoredFilesAndFoldersGetTheirGroupBack(): void
+    {
+        // PHP-FPM reads .env and public/admin through the web group; a copy the runner makes takes the
+        // runner's own group, so a restore that kept only the mode would lock the site out of them.
+        $mine = filegroup("{$this->base}/.env");
+        $other = null;
+        foreach (posix_getgroups() ?: [] as $gid) {
+            if ($gid !== $mine && @chgrp("{$this->base}/.env", $gid)) {
+                $other = $gid;
+                break;
+            }
+        }
+        if ($other === null) {
+            self::markTestSkipped('this user belongs to no second group');
+        }
+        chgrp("{$this->base}/public/admin", $other);
+        $manifest = ProvisionOutputs::snapshot($this->base, "{$this->base}/snap");
+        chgrp("{$this->base}/.env", $mine);
+        file_put_contents("{$this->base}/.env", "APP_KEY=new\n");
+
+        $ops = new OperationStore(new Paths($this->base), static fn (): int => 1);
+        $op = $ops->start('2', '1', 'u', hash('sha256', 'token'));
+        $run = $ops->claim($op['id'], 1, 1);
+        $journal = new Journal($ops, $run['id'], $run['owner']);
+        ProvisionOutputs::restore($this->base, "{$this->base}/snap", $manifest, "{$this->base}/work", $journal);
+        clearstatcache();
+        self::assertSame($other, filegroup("{$this->base}/.env"));
+        self::assertSame($other, filegroup("{$this->base}/public/admin"));
+    }
+
     public function testAFailedCopyRefusesTheSnapshot(): void
     {
         chmod("{$this->base}/public/admin/assets/app-old.js", 0000);
@@ -137,6 +167,9 @@ final class ProvisionOutputsTest extends TestCase
         self::assertSame('snapshot', ProvisionOutputs::ruleFor('public/admin/assets/x.js'));
         self::assertSame('runner', ProvisionOutputs::ruleFor('vendor/autoload.php'));
         self::assertSame('clear', ProvisionOutputs::ruleFor('storage/cache/routes_prod.php'));
+        // The file cache's entries (cached values, sessions) stay across a rollback, like a Redis cache.
+        self::assertSame('retain', ProvisionOutputs::ruleFor('storage/cache/38e5bc48600845d9f2236c0b62ba83cc.cache'));
+        self::assertSame('retain', ProvisionOutputs::ruleFor('storage/cache/38e5bc48600845d9f2236c0b62ba83cc.meta'));
         self::assertNull(ProvisionOutputs::ruleFor('themes/default/theme.json'), 'an uninventoried path has no rule');
     }
 }
