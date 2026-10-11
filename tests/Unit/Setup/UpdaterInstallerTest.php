@@ -57,7 +57,8 @@ final class UpdaterInstallerTest extends TestCase
         clearstatcache();
         $mode = fn (string $p): string => substr(sprintf('%o', fileperms($this->base . '/' . $p)), -4);
         self::assertSame('0700', $mode('.thallo-update'));
-        self::assertSame('0750', $mode('.thallo-update-control'));
+        // setgid: what the runner publishes there takes the web group, whatever the runner's own group.
+        self::assertSame('2750', $mode('.thallo-update-control'));
         self::assertSame('2770', $mode('storage/framework/updates'));
         // The guard opens it read-only from its first request (spec §16.4): it already exists.
         self::assertSame('0640', $mode('.thallo-update-control/admission.lock'));

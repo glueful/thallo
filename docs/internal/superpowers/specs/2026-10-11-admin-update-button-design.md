@@ -456,7 +456,7 @@ claimed to do nothing at all.
 | Location | Owner, mode | PHP-FPM may | Holds |
 |---|---|---|---|
 | `<site>/.thallo-update/` (**private**) | code owner, `0700` | nothing (cannot list, read or enter) | the operation (state, journal, provision manifest, token hash), `run.lock`, `state.lock`, the readiness markers `guard.installed` and `guard.ready`, `ops/<id>/` (the staging copy, the old `vendor/`, the old `composer.lock`), `composer-home/`, `backups/<id>/` |
-| `<site>/.thallo-update-control/` (**control**) | code owner, the web group, `0750`; files `0640` | read only | `status.json` (what `/_update` and the admin show, published by the runner), `closed.flag`, `admission.lock`, `verify.secret`, `runner.json` |
+| `<site>/.thallo-update-control/` (**control**) | code owner, the web group, `2750` (setgid, so what the runner publishes takes the web group); files `0640` | read only | `status.json` (what `/_update` and the admin show, published by the runner), `closed.flag`, `admission.lock`, `verify.secret`, `runner.json` |
 | `storage/framework/updates/` (**inbox**) | code owner, the web group, `2770` | write | `start.json` (a request), `recover.json` (a recovery request) |
 
 - **Parents are protected.** The private and control folders sit directly in the site root. The site
@@ -525,7 +525,7 @@ claimed to do nothing at all.
 
 - **What provision does (as the code owner)** when the feature is on:
   - creates the private folder `0700`;
-  - creates the control folder `0750` with group = the group of `storage/`, and its files: an empty
+  - creates the control folder `2750` (setgid) with group = the group of `storage/`, and its files: an empty
     `admission.lock` at `0640`, and `verify.secret`;
   - sets the inbox `2770` with that group;
   - checks the parent chain.

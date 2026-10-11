@@ -27,7 +27,7 @@ final class LayoutTest extends TestCase
         mkdir($this->base . '/.thallo-update', 0700);
         mkdir($this->base . '/.thallo-update-control', 0750);
         chmod($this->base . '/.thallo-update', 0700);
-        chmod($this->base . '/.thallo-update-control', 0750);
+        chmod($this->base . '/.thallo-update-control', 02750);
     }
 
     protected function tearDown(): void
@@ -69,8 +69,15 @@ final class LayoutTest extends TestCase
 
     public function testAControlFolderWritableByTheGroupIsRefused(): void
     {
-        chmod($this->base . '/.thallo-update-control', 0770);
-        self::assertStringContainsString('0750', implode(' ', $this->problems()));
+        chmod($this->base . '/.thallo-update-control', 02770);
+        self::assertStringContainsString('2750', implode(' ', $this->problems()));
+    }
+
+    public function testAControlFolderWithoutSetgidIsRefused(): void
+    {
+        // Without it, what the runner publishes takes the runner's own group and PHP-FPM cannot read it.
+        chmod($this->base . '/.thallo-update-control', 0750);
+        self::assertStringContainsString('must be mode 2750, not 0750', implode(' ', $this->problems()));
     }
 
     public function testAStickyWorldWritableAncestorIsAcceptedWhenTheNextFolderIsOurs(): void

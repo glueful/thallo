@@ -21,8 +21,8 @@ trait UpdaterSite
         @mkdir($base . '/storage/framework/updates', 02770, true);
         @mkdir($base . '/.thallo-update', 0700);
         chmod($base . '/.thallo-update', 0700);
-        @mkdir($base . '/.thallo-update-control', 0750);
-        chmod($base . '/.thallo-update-control', 0750);
+        @mkdir($base . '/.thallo-update-control', 02750);
+        chmod($base . '/.thallo-update-control', 02750);
         touch($base . '/.thallo-update-control/admission.lock');
         chmod($base . '/.thallo-update-control/admission.lock', 0640);
         file_put_contents($base . '/.thallo-update/guard.installed', '100');

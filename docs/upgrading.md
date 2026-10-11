@@ -173,7 +173,7 @@ this site's code: that is the trade you accept by turning it on.
    | Folder | Owner | Mode | Holds |
    | --- | --- | --- | --- |
    | `.thallo-update/` | code owner | `0700` | everything the runner trusts: the operation and its journal, locks, the staged `vendor/`, Composer's home, logs and the update backups |
-   | `.thallo-update-control/` | code owner, the web group | `0750` (files `0640`) | what the runner publishes for PHP-FPM to read: status, the closed flag, the admission lock, the verification secret |
+   | `.thallo-update-control/` | code owner, the web group | `2750` (setgid; files `0640`) | what the runner publishes for PHP-FPM to read: status, the closed flag, the admission lock, the verification secret |
    | `storage/framework/updates/` | the web group | `2770` | requests from the admin — the only update folder the web user can write |
 
    The site's folder and every folder above it must be writable only by the code owner or root, so
